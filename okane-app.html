@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>おかねのおべんきょう</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Rounded+Mplus+1c:wght@400;700;800&display=swap');
+  :root {
+    --bg: #FFF9F0; --gold: #F4A200; --pink: #FF7BAC; --mint: #4CC9A0;
+    --sky: #5BC4F5; --red: #FF6B6B; --dark: #2D2A4A;
+    --shadow: 0 8px 32px rgba(45,42,74,0.12); --radius: 24px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Rounded Mplus 1c','Noto Sans JP',sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; }
+
+  header { background: linear-gradient(135deg,#FFD700,#F4A200); padding: 14px 24px; text-align: center; box-shadow: 0 4px 16px rgba(244,162,0,.3); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+  header h1 { font-size: clamp(18px,4vw,30px); font-weight: 900; color: white; text-shadow: 0 3px 0 rgba(0,0,0,.15); letter-spacing: 2px; }
+
+  nav { display: flex; justify-content: center; gap: 10px; padding: 10px 20px; background: white; box-shadow: 0 2px 12px rgba(0,0,0,.08); flex-wrap: wrap; flex-shrink: 0; }
+  .nav-btn { padding: 11px 18px; border-radius: 50px; border: 3px solid transparent; font-family: inherit; font-size: clamp(12px,3vw,16px); font-weight: 800; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 7px; user-select: none; }
+  .nav-btn:nth-child(1) { background: #FFF0D6; border-color: var(--gold); color: #8B6000; }
+  .nav-btn:nth-child(2) { background: #E8F7FF; border-color: var(--sky); color: #0066AA; }
+  .nav-btn:nth-child(3) { background: #F0FFF4; border-color: var(--mint); color: #006644; }
+  .nav-btn.active,.nav-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); }
+  .nav-btn:nth-child(1).active { background: var(--gold); color: white; }
+  .nav-btn:nth-child(2).active { background: var(--sky); color: white; }
+  .nav-btn:nth-child(3).active { background: var(--mint); color: white; }
+
+  .section { display: none; padding: 24px 20px; max-width: 940px; margin: 0 auto; width: 100%; }
+  .section.active { display: block; animation: fadeIn .4s ease; }
+  /* shopはflexで縦配置 */
+  #shop { display: none; flex-direction: column; padding: 12px 16px; max-width: 100%; }
+  #shop.active { display: flex; animation: fadeIn .4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  .section-title { font-size: clamp(17px,4vw,25px); font-weight: 900; margin-bottom: 22px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+  /* TABS */
+  .money-tabs { display: flex; gap: 12px; margin-bottom: 22px; justify-content: center; }
+  .money-tab { padding: 10px 24px; border-radius: 50px; border: 3px solid #ddd; background: white; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; transition: all .2s; }
+  .money-tab.active { background: var(--gold); border-color: var(--gold); color: white; transform: translateY(-2px); }
+
+  /* MONEY GRID */
+  .money-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(155px,1fr)); gap: 16px; }
+  .money-card { background: white; border-radius: var(--radius); padding: 18px 12px 14px; text-align: center; box-shadow: var(--shadow); cursor: pointer; transition: all .25s; border: 3px solid transparent; }
+  .money-card:hover { transform: translateY(-6px) scale(1.02); border-color: var(--gold); }
+  .money-card svg { display: block; margin: 0 auto 10px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.18)); }
+  .money-name { font-size: 17px; font-weight: 800; margin-bottom: 3px; }
+  .money-reading { font-size: 12px; color: #888; font-weight: 700; }
+  .money-desc { font-size: 10px; color: #bbb; margin-top: 3px; }
+  .speak-btn { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 5px 13px; border-radius: 50px; background: var(--sky); color: white; border: none; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; }
+  .speak-btn:hover { background: #3AB0E0; transform: scale(1.05); }
+
+  /* MATCHING */
+  #matching-area { display: flex; flex-direction: column; gap: 20px; }
+  .match-instructions { background: linear-gradient(135deg,#E8F7FF,#D0EFFF); border-radius: var(--radius); padding: 14px 18px; font-size: 14px; font-weight: 700; text-align: center; border: 2px solid var(--sky); color: #004080; }
+  .match-score { text-align: center; font-size: 17px; font-weight: 800; color: var(--gold); }
+  .match-header { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 2px; }
+  .match-col-title { font-size: 14px; font-weight: 800; text-align: center; padding: 7px; border-radius: 12px; background: #f0f0f0; }
+  .match-game { display: flex; flex-direction: column; gap: 10px; }
+  .match-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .match-item { background: white; border-radius: 16px; padding: 10px 12px; text-align: center; box-shadow: var(--shadow); cursor: pointer; border: 3px solid transparent; transition: all .25s; font-size: 15px; font-weight: 800; user-select: none; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 62px; }
+  .match-item svg { filter: drop-shadow(0 3px 5px rgba(0,0,0,.15)); flex-shrink: 0; }
+  .match-item:hover { transform: scale(1.03); border-color: var(--sky); }
+  .match-item.selected { border-color: var(--sky); background: #E8F7FF; }
+  .match-item.correct { border-color: var(--mint); background: #E8FFF4; animation: bounce .5s; }
+  .match-item.wrong { border-color: var(--red); background: #FFE8E8; animation: shake .4s; }
+  @keyframes bounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .match-new-btn { display: block; margin: 0 auto; padding: 11px 30px; border-radius: 50px; border: none; background: linear-gradient(135deg,var(--sky),#3AB0E0); color: white; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 16px rgba(91,196,245,.4); transition: all .2s; }
+  .match-new-btn:hover { transform: translateY(-3px); }
+
+  /* SHOPPING — 1画面レイアウト */
+  .shop-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
+  .shop-header .section-title { margin-bottom: 0; font-size: 19px; }
+
+  /* 難易度ボタン（コンパクト） */
+  .diff-selector { display: flex; gap: 8px; margin-bottom: 0; }
+  .diff-btn { padding: 7px 16px; font-size: 13px; border-radius: 50px; border: 2px solid transparent; font-family: inherit; font-weight: 900; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 5px; }
+  .diff-btn.easy { background: white; border-color: #E8A000; color: #7A4400; }
+  .diff-btn.hard { background: white; border-color: #8060D0; color: #3A1470; }
+  .diff-btn.easy.active { background: linear-gradient(135deg,#FFB800,#F47C00); border-color: #F47C00; color: white; box-shadow: 0 4px 12px rgba(244,124,0,.38); text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .diff-btn.hard.active { background: linear-gradient(135deg,#8B5CF6,#5B21B6); border-color: #5B21B6; color: white; box-shadow: 0 4px 12px rgba(91,33,182,.35); text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .diff-badge { font-size: 10px; font-weight: 800; border-radius: 8px; padding: 1px 7px; }
+  .diff-btn.easy .diff-badge { background: rgba(232,160,0,.15); color: #7A4400; }
+  .diff-btn.hard .diff-badge { background: rgba(128,96,208,.12); color: #3A1470; }
+  .diff-btn.easy.active .diff-badge { background: rgba(0,0,0,.18); color: white; }
+  .diff-btn.hard.active .diff-badge { background: rgba(0,0,0,.18); color: white; }
+
+  .diff-btn.orig { background: white; border-color: var(--pink); color: #990044; }
+  .diff-btn.orig.active { background: linear-gradient(135deg,#FF7BAC,#E0406A); border-color: #E0406A; color: white; box-shadow: 0 4px 12px rgba(224,64,106,.38); text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .diff-btn.orig .diff-badge { background: rgba(255,123,172,.15); color: #990044; }
+  .diff-btn.orig.active .diff-badge { background: rgba(0,0,0,.18); color: white; }
+
+  /* 商品追加ボタン */
+  .add-item-card { background: white; border-radius: 18px; padding: 10px 8px; text-align: center; box-shadow: var(--shadow); cursor: pointer; border: 3px dashed #ddd; transition: all .2s; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 100px; }
+  .add-item-card:hover { border-color: var(--pink); background: #FFF5F9; transform: translateY(-3px); }
+  .add-item-card .plus { font-size: 28px; color: #ddd; line-height: 1; }
+  .add-item-card .plus-label { font-size: 10px; font-weight: 800; color: #bbb; }
+
+  /* 商品追加モーダル */
+  .custom-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 980; display: none; align-items: center; justify-content: center; }
+  .custom-modal-overlay.active { display: flex; animation: fadeIn .3s ease; }
+  .custom-modal { background: white; border-radius: 28px; padding: 28px 24px; width: 92%; max-width: 400px; box-shadow: 0 16px 48px rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 16px; }
+  .custom-modal-title { font-size: 20px; font-weight: 900; text-align: center; color: var(--pink); }
+  .custom-modal label { font-size: 13px; font-weight: 800; color: #555; display: block; margin-bottom: 5px; }
+  .custom-modal input[type=text], .custom-modal input[type=number] { width: 100%; padding: 10px 14px; border-radius: 12px; border: 2px solid #e0e0e0; font-family: inherit; font-size: 14px; font-weight: 700; outline: none; transition: border-color .2s; }
+  .custom-modal input:focus { border-color: var(--pink); }
+  .img-upload-area { border: 3px dashed #e0e0e0; border-radius: 16px; padding: 16px; text-align: center; cursor: pointer; transition: all .2s; position: relative; overflow: hidden; min-height: 100px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 6px; }
+  .img-upload-area:hover { border-color: var(--pink); background: #FFF5F9; }
+  .img-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .img-upload-area img { max-width: 100%; max-height: 120px; border-radius: 10px; object-fit: cover; }
+  .img-upload-hint { font-size: 12px; color: #aaa; font-weight: 700; }
+  .custom-modal-btns { display: flex; gap: 10px; }
+  .custom-modal-btns button { flex: 1; padding: 12px; border-radius: 14px; border: none; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; transition: all .2s; }
+  .btn-save { background: linear-gradient(135deg,var(--pink),#E0406A); color: white; box-shadow: 0 4px 14px rgba(224,64,106,.35); }
+  .btn-cancel { background: #f0f0f0; color: #666; }
+
+  /* カスタム商品の削除ボタン */
+  .item-delete-btn { position: absolute; top: -8px; left: -8px; background: var(--red); color: white; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 900; border: none; cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.25); z-index: 2; }
+  .shop-item.custom:hover .item-delete-btn { display: flex; }
+  .shop-body { display: grid; grid-template-columns: 1fr 400px; gap: 12px; }
+  .shop-items-wrap { padding-right: 6px; }
+  .shop-items-wrap::-webkit-scrollbar { width: 5px; }
+  .shop-items-wrap::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+  .shop-hint { font-size: 11px; font-weight: 800; color: #aaa; margin-bottom: 8px; }
+  .shop-items-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(100px,1fr)); gap: 10px; }
+  .shop-item { background: white; border-radius: 18px; padding: 10px 8px; text-align: center; box-shadow: var(--shadow); cursor: pointer; border: 3px solid transparent; transition: all .2s; position: relative; }
+  .shop-item:hover { transform: translateY(-3px); border-color: var(--pink); }
+  .shop-item.in-cart { border-color: var(--mint); background: #F0FFF8; }
+  .item-emoji { font-size: 30px; margin-bottom: 4px; display: block; }
+  .item-name { font-size: 11px; font-weight: 800; margin-bottom: 3px; }
+  .item-price { font-size: 11px; font-weight: 900; color: var(--red); background: #FFF0F0; border-radius: 6px; padding: 1px 5px; display: inline-block; }
+  .item-qty { position: absolute; top: -7px; right: -7px; background: var(--mint); color: white; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+
+  /* 右サイドパネル：カート＋支払い縦並び */
+  .shop-side { display: grid; grid-template-rows: auto auto; gap: 10px; }
+
+  /* カート */
+  .cart-box { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+  .cart-title { font-size: 14px; font-weight: 900; text-align: center; display: flex; align-items: center; gap: 6px; justify-content: center; flex-shrink: 0; }
+  .cart-list { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; min-height: 0; }
+  .cart-list::-webkit-scrollbar { width: 4px; }
+  .cart-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+  .cart-list-item { display: flex; align-items: center; gap: 7px; padding: 5px 8px; background: #f8f8f8; border-radius: 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .cart-item-emoji { font-size: 18px; }
+  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-info > div:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cart-item-price { color: var(--red); font-weight: 900; }
+  .cart-remove-btn { background: none; border: none; font-size: 14px; cursor: pointer; color: #ccc; padding: 2px; border-radius: 6px; transition: color .2s; }
+  .cart-remove-btn:hover { color: var(--red); }
+  .cart-total-area { background: linear-gradient(135deg,#FFF9E0,#FFF0C0); border-radius: 12px; padding: 7px 10px; text-align: center; border: 2px solid var(--gold); flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .cart-total-label { font-size: 11px; font-weight: 700; color: #888; }
+  .cart-total-amount { font-size: 22px; font-weight: 900; color: var(--gold); }
+  .cart-clear-btn { background: #FFF0F0; color: var(--red); border: none; border-radius: 10px; font-family: inherit; font-size: 11px; font-weight: 800; cursor: pointer; padding: 6px 10px; transition: all .2s; flex-shrink: 0; width: 100%; }
+  .cart-clear-btn:hover { background: #fdd; }
+  .cart-empty { text-align: center; color: #ccc; font-size: 22px; padding: 10px; }
+
+  /* 支払い */
+  .pay-box { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .pay-label { font-size: 12px; font-weight: 800; color: #555; text-align: center; flex-shrink: 0; }
+  .coin-pay-grid { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; flex-shrink: 0; }
+  .bill-pay-grid { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; flex-shrink: 0; }
+  .pay-coin-btn { min-width: 54px; background: white; border-radius: 9px; border: 2px solid #e0e0e0; padding: 4px 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; transition: all .15s; font-family: inherit; font-size: 9px; font-weight: 800; }
+  .pay-coin-btn:hover { border-color: var(--gold); background: #FFFBF0; transform: translateY(-2px); }
+  .pay-coin-btn svg { display: block; filter: drop-shadow(0 1px 3px rgba(0,0,0,.12)); }
+  .paid-amount-display { background: #F0F0F0; border-radius: 10px; padding: 6px; text-align: center; font-size: 16px; font-weight: 900; color: var(--mint); border: 2px solid var(--mint); flex-shrink: 0; }
+  .pay-result { font-size: 11px; font-weight: 800; text-align: center; padding: 6px; border-radius: 10px; flex-shrink: 0; }
+  .pay-result.ok  { background: #E8FFF4; color: #006644; border: 2px solid var(--mint); }
+  .pay-result.ng  { background: #FFE8E8; color: #AA0000; border: 2px solid var(--red); }
+  .pay-result.info { background: #F0F0F0; color: #888; border: 2px dashed #ccc; }
+  .pay-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .pay-confirm-btn,.pay-clear-btn { flex: 1; padding: 8px 6px; border-radius: 10px; border: none; font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: all .2s; }
+  .pay-confirm-btn { background: linear-gradient(135deg,var(--mint),#3AB090); color: white; box-shadow: 0 3px 10px rgba(76,201,160,.3); }
+  .pay-clear-btn { background: #f0f0f0; color: #666; }
+  .pay-confirm-btn:hover { transform: translateY(-1px); }
+  /* おつりモーダル */
+  .otsuuri-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 990; display: none; align-items: center; justify-content: center; }
+  .otsuuri-overlay.active { display: flex; animation: fadeIn .3s ease; }
+  .otsuuri-box { background: white; border-radius: 28px; padding: 28px 24px 24px; max-width: 480px; width: 92%; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,.25); position: relative; }
+  .otsuuri-title { font-size: 22px; font-weight: 900; color: var(--mint); margin-bottom: 4px; }
+  .otsuuri-amount { font-size: 36px; font-weight: 900; color: var(--gold); margin-bottom: 16px; }
+  .otsuuri-label { font-size: 13px; font-weight: 800; color: #888; margin-bottom: 10px; }
+  .otsuuri-coins { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 14px; }
+  .otsuuri-coin-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .otsuuri-coin-qty { font-size: 13px; font-weight: 900; color: var(--dark); background: #f0f0f0; border-radius: 20px; padding: 2px 10px; }
+  .otsuuri-close-btn { margin-top: 8px; padding: 12px 36px; border-radius: 50px; border: none; background: linear-gradient(135deg,var(--mint),#3AB090); color: white; font-family: inherit; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 16px rgba(76,201,160,.35); transition: all .2s; }
+  .otsuuri-close-btn:hover { transform: translateY(-2px); }
+
+  /* ===== デスクトップ（1081px以上）: 2カラム・1画面に収める ===== */
+  @media (min-width: 1081px) {
+    body { height: 100vh; overflow: hidden; }
+    #shop { height: calc(100vh - 130px); overflow: hidden; }
+    .shop-items-wrap { overflow-y: auto; }
+    .shop-side { overflow: hidden; }
+    .cart-list { overflow-y: auto; }
+  }
+
+  /* ===== iPad横向き（861〜1080px） ===== */
+  @media (max-width: 1080px) {
+    header { padding: 10px 20px; }
+    header h1 { font-size: 22px; }
+    nav { padding: 8px 16px; gap: 8px; }
+    .nav-btn { padding: 9px 14px; font-size: 13px; }
+    .shop-body { grid-template-columns: 1fr 360px; }
+  }
+
+  /* ===== iPad縦向き・Mini横向き（769〜860px） ===== */
+  @media (max-width: 860px) {
+    header { padding: 8px 14px; }
+    header h1 { font-size: 18px; }
+    nav { padding: 6px 10px; gap: 6px; }
+    .nav-btn { padding: 7px 11px; font-size: 12px; }
+    .diff-btn { font-size: 11px; padding: 5px 10px; }
+    /* 1カラム・縦スクロールに切り替え */
+    .shop-body { grid-template-columns: 1fr; gap: 12px; }
+    .shop-items-wrap { overflow-y: visible; }
+    .shop-side { grid-template-rows: auto auto; }
+    .cart-box { min-height: 80px; }
+    .pay-box { overflow-y: visible; }
+  }
+
+  /* ===== 768px以下（スマホ・小型タブレット） ===== */
+  @media (max-width: 768px) {
+    header { padding: 8px 12px; }
+    header h1 { font-size: 17px; letter-spacing: 1px; }
+    nav { padding: 6px 8px; gap: 5px; }
+    .nav-btn { padding: 7px 10px; font-size: 11px; gap: 4px; }
+    .diff-btn { font-size: 11px; padding: 5px 9px; }
+    .shop-header { flex-direction: column; align-items: flex-start; gap: 5px; }
+    .diff-selector { flex-wrap: wrap; }
+    .shop-body { grid-template-columns: 1fr; gap: 10px; }
+    .shop-items-grid { grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 7px; }
+    .item-emoji { font-size: 26px; }
+    .shop-side { grid-template-rows: auto auto; }
+    .pay-box { overflow-y: visible; }
+  }
+
+  /* ===== スマホ縦向き（480px以下） ===== */
+  @media (max-width: 480px) {
+    header h1 { font-size: 15px; }
+    .nav-btn { padding: 6px 9px; font-size: 11px; }
+    .shop-items-grid { grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
+  }
+
+  .confetti-overlay.active { display: block; }
+  .confetti-piece { position: absolute; width: 11px; height: 11px; border-radius: 3px; animation: confettiFall 2.5s ease-in forwards; }
+  @keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
+</style>
+</head>
+<body>
+<div class="otsuuri-overlay" id="otsuuriOverlay">
+  <div class="otsuuri-box">
+    <div class="otsuuri-title">🎉 おかいものできました！</div>
+    <div class="otsuuri-amount" id="otsuuriAmount"></div>
+    <div class="otsuuri-label" id="otsuuriLabel"></div>
+    <div class="otsuuri-coins" id="otsuuriCoins"></div>
+    <button class="otsuuri-close-btn" onclick="closeOtsuuri()">✅ とじる</button>
+  </div>
+</div>
+<div class="confetti-overlay" id="confettiOverlay"></div>
+
+<!-- カスタム商品追加モーダル -->
+<div class="custom-modal-overlay" id="customModalOverlay">
+  <div class="custom-modal">
+    <div class="custom-modal-title">✏️ しょうひんをつくろう！</div>
+    <div>
+      <label>📷 しゃしん</label>
+      <div class="img-upload-area" id="imgUploadArea">
+        <input type="file" accept="image/*" id="customImgInput" onchange="previewImage(event)">
+        <div id="imgPreviewWrap">
+          <div style="font-size:36px">📷</div>
+          <div class="img-upload-hint">タップして写真をえらぶ</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <label>🏷️ なまえ</label>
+      <input type="text" id="customNameInput" placeholder="しょうひんのなまえ" maxlength="12">
+    </div>
+    <div>
+      <label>💴 ねだん（えん）</label>
+      <input type="number" id="customPriceInput" placeholder="100" min="1" max="99999">
+    </div>
+    <div class="custom-modal-btns">
+      <button class="btn-cancel" onclick="closeCustomModal()">キャンセル</button>
+      <button class="btn-save" onclick="saveCustomItem()">✅ ついか！</button>
+    </div>
+  </div>
+</div>
+<header><h1>💰 おかねのおべんきょう 💰</h1></header>
+<nav>
+  <button class="nav-btn active" onclick="showSection('learn')">📚 おかねをしろう</button>
+  <button class="nav-btn" onclick="showSection('match')">🎯 マッチング</button>
+  <button class="nav-btn" onclick="showSection('shop')">🛒 おかいもの</button>
+</nav>
+
+<section class="section active" id="learn">
+  <div class="section-title" style="color:var(--gold)">📚 おかねのしゅるい</div>
+  <div class="money-tabs">
+    <button class="money-tab active" onclick="showMoneyTab('coins',this)">🪙 こうか（硬貨）</button>
+    <button class="money-tab" onclick="showMoneyTab('bills',this)">💴 しへい（紙幣）</button>
+  </div>
+  <div class="money-grid" id="moneyGrid"></div>
+</section>
+
+<section class="section" id="match">
+  <div class="section-title" style="color:var(--sky)">🎯 マッチングゲーム</div>
+  <div id="matching-area">
+    <div class="match-instructions">💡 おかねのイラストとねだんをむすびましょう！<br><small>まずイラストをえらんで、つぎにねだんをえらぼう</small></div>
+    <div class="match-score" id="matchScore">⭐ 0 / 6 せいかい</div>
+    <div class="match-header">
+      <div class="match-col-title">💰 おかねのイラスト</div>
+      <div class="match-col-title">💴 ねだん</div>
+    </div>
+    <div class="match-game" id="matchGame"></div>
+    <button class="match-new-btn" onclick="initMatching()">🔄 あたらしいもんだい</button>
+  </div>
+</section>
+
+<section class="section" id="shop">
+  <!-- タイトル＋難易度ボタン -->
+  <div class="shop-header">
+    <div class="section-title" style="color:var(--mint);margin-bottom:0">🛒 おかいものごっこ</div>
+    <div class="diff-selector">
+      <button class="diff-btn easy active" onclick="setDifficulty('easy',this)">🌟 やさしい <span class="diff-badge">〜¥500</span></button>
+      <button class="diff-btn hard" onclick="setDifficulty('hard',this)">🔥 むずかしい <span class="diff-badge">〜¥10000</span></button>
+      <button class="diff-btn orig" onclick="setDifficulty('orig',this)">✏️ オリジナル <span class="diff-badge">じぶんで</span></button>
+    </div>
+  </div>
+
+  <!-- 左：商品 ／ 右：カート＋支払い -->
+  <div class="shop-body">
+    <!-- 左：商品グリッド（縦スクロール） -->
+    <div class="shop-items-wrap">
+      <div class="shop-hint">🛍 しょうひんをえらんでね！（タップでカートに追加）</div>
+      <div class="shop-items-grid" id="shopItemsGrid"></div>
+    </div>
+
+    <!-- 右サイド -->
+    <div class="shop-side">
+      <!-- カート -->
+      <div class="cart-box">
+        <div class="cart-title">🛒 カート</div>
+        <div class="cart-list" id="cartList">
+          <div class="cart-empty">🛒<br><span style="font-size:11px;color:#bbb;">まだなにも<br>えらばれていません</span></div>
+        </div>
+        <div class="cart-total-area">
+          <div class="cart-total-label">ごうけい</div>
+          <span class="cart-total-amount" id="cartTotal">¥0</span>
+        </div>
+        <button class="cart-clear-btn" onclick="clearCart()">🗑 カートをからにする</button>
+      </div>
+
+      <!-- 支払い -->
+      <div class="pay-box">
+        <div class="pay-label">💴 おかねをはらおう！</div>
+        <div class="pay-label" style="font-size:10px;color:#aaa;">こうか</div>
+        <div class="coin-pay-grid" id="coinPayGrid"></div>
+        <div class="pay-label" style="font-size:10px;color:#aaa;">しへい</div>
+        <div class="bill-pay-grid" id="billPayGrid"></div>
+        <div class="pay-label" style="font-size:10px;color:#888;">いれたおかね</div>
+        <div class="paid-amount-display" id="paidDisplay">¥0</div>
+        <div class="pay-result info" id="payResult">しょうひんをえらんで、おかねをいれてね 😊</div>
+        <div class="pay-actions">
+          <button class="pay-clear-btn" onclick="clearPayment()">↩️ やりなおし</button>
+          <button class="pay-confirm-btn" onclick="confirmPayment()">✅ しはらう！</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+// ==============================
+// SVG COIN GENERATOR
+// ==============================
+function svgCoin(opts) {
+  const {
+    size = 90, value, labelTop, labelBot,
+    outerRim, midRim, innerFill, textColor,
+    hasHole = false, bimetal = false,
+    innerRingColor, outerRingColor
+  } = opts;
+  const cx = size/2, cy = size/2, r = size/2 - 3;
+
+  let body = '';
+  const defs = `<defs>
+    <radialGradient id="cg_${value}" cx="38%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="${outerRim}"/>
+      <stop offset="100%" stop-color="${midRim}"/>
+    </radialGradient>
+    <radialGradient id="if_${value}" cx="38%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="${innerFill}"/>
+      <stop offset="100%" stop-color="${midRim}"/>
+    </radialGradient>
+    <filter id="sh_${value}" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.25"/>
+    </filter>
+  </defs>`;
+
+  if (bimetal) {
+    // 500円バイカラー
+    body = `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${outerRingColor}" stroke-width="3" filter="url(#sh_${value})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r*0.62}" fill="${innerRingColor}" stroke="${outerRingColor}" stroke-width="1.5"/>
+      <circle cx="${cx}" cy="${cy}" r="${r*0.58}" fill="url(#if_${value})"/>
+    `;
+  } else if (hasHole) {
+    // 5円・50円
+    body = `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${value})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r*0.2}" fill="white" stroke="${midRim}" stroke-width="1.5"/>
+    `;
+  } else {
+    body = `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${value})"/>
+    `;
+  }
+
+  // edge lines (milling)
+  let mills = '';
+  for(let i=0;i<36;i++){
+    const a = (i/36)*Math.PI*2;
+    const x1 = cx + (r-0.5)*Math.cos(a), y1 = cy + (r-0.5)*Math.sin(a);
+    const x2 = cx + (r-3)*Math.cos(a), y2 = cy + (r-3)*Math.sin(a);
+    mills += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${midRim}" stroke-width="0.6" opacity="0.4"/>`;
+  }
+
+  const fontSize = size < 50 ? size*0.22 : size*0.2;
+  const subSize  = fontSize * 0.65;
+
+  let labels = '';
+  if (labelTop && labelBot) {
+    labels = `
+      <text x="${cx}" y="${cy - fontSize*0.1}" text-anchor="middle" font-family="serif" font-weight="900" font-size="${fontSize}" fill="${textColor}" opacity="0.92">${labelTop}</text>
+      <text x="${cx}" y="${cy + subSize*1.5}" text-anchor="middle" font-family="serif" font-size="${subSize}" fill="${textColor}" opacity="0.75">${labelBot}</text>
+    `;
+  } else {
+    labels = `<text x="${cx}" y="${cy + fontSize*0.38}" text-anchor="middle" font-family="serif" font-weight="900" font-size="${fontSize}" fill="${textColor}" opacity="0.9">${labelTop||''}</text>`;
+  }
+
+  // decorative inner ring
+  const ringR = hasHole ? r*0.75 : (bimetal ? r*0.59 : r*0.82);
+  const ring = `<circle cx="${cx}" cy="${cy}" r="${ringR}" fill="none" stroke="${textColor}" stroke-width="0.8" opacity="0.2"/>`;
+
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    ${defs}${body}${mills}${ring}${labels}
+  </svg>`;
+}
+
+// ==============================
+// SVG BILL GENERATOR (improved)
+// ==============================
+function svgBill(opts) {
+  const {
+    size = { w: 160, h: 82 },
+    value, displayMain, displaySub,
+    bgColor1, bgColor2, accentColor, textColor,
+    portraitColor, watermarkText
+  } = opts;
+  const { w, h } = size;
+  const defs = `<defs>
+    <linearGradient id="bg_${value}" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${bgColor1}"/>
+      <stop offset="55%" stop-color="${bgColor1}" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="${bgColor2}"/>
+    </linearGradient>
+    <filter id="bsh_${value}"><feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter>
+    <pattern id="wm_${value}" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+      <text x="0" y="20" font-size="9" fill="${accentColor}" opacity="0.08" font-family="serif">${watermarkText}</text>
+    </pattern>
+  </defs>`;
+
+  const rx = 6;
+  // main body
+  let body = `
+    <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#bg_${value})" stroke="${accentColor}" stroke-width="1.5" filter="url(#bsh_${value})"/>
+    <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#wm_${value})"/>
+    <rect x="6" y="6" width="${w-12}" height="${h-12}" rx="${rx-2}" fill="none" stroke="${accentColor}" stroke-width="0.8" opacity="0.5"/>
+    <rect x="9" y="9" width="${w-18}" height="${h-18}" rx="${rx-3}" fill="none" stroke="${accentColor}" stroke-width="0.4" opacity="0.3"/>
+  `;
+
+  // left portrait circle area
+  const pX = 22, pY = h/2, pR = h/2 - 10;
+  body += `
+    <circle cx="${pX}" cy="${pY}" r="${pR}" fill="${portraitColor}" opacity="0.18"/>
+    <circle cx="${pX}" cy="${pY}" r="${pR}" fill="none" stroke="${accentColor}" stroke-width="0.8" opacity="0.4"/>
+    <text x="${pX}" y="${pY+5}" text-anchor="middle" font-size="${pR*1.1}" fill="${textColor}" opacity="0.25">人</text>
+  `;
+
+  // serial number area (top right)
+  body += `<text x="${w-10}" y="17" text-anchor="end" font-family="monospace" font-size="6" fill="${textColor}" opacity="0.5">AA000000A</text>`;
+
+  // main value text (center-right)
+  const mainFontSize = h * 0.32;
+  const subFontSize  = h * 0.14;
+  body += `
+    <text x="${w/2 + 18}" y="${h/2 + mainFontSize*0.36}" text-anchor="middle" font-family="'Noto Serif JP',serif" font-weight="900" font-size="${mainFontSize}" fill="${textColor}" opacity="0.92">${displayMain}</text>
+    <text x="${w/2 + 18}" y="${h/2 + mainFontSize*0.36 + subFontSize*1.3}" text-anchor="middle" font-family="serif" font-size="${subFontSize}" fill="${textColor}" opacity="0.7">${displaySub}</text>
+  `;
+
+  // right side decoration bar
+  body += `<rect x="${w-14}" y="${h*0.15}" width="5" height="${h*0.7}" rx="2" fill="${accentColor}" opacity="0.2"/>`;
+
+  // bottom ribbon
+  body += `
+    <rect x="8" y="${h-18}" width="${w-16}" height="8" rx="3" fill="${accentColor}" opacity="0.12"/>
+    <text x="${w/2}" y="${h-12}" text-anchor="middle" font-family="serif" font-size="6.5" fill="${textColor}" opacity="0.6">日本銀行券　NIPPON GINKO</text>
+  `;
+
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${defs}${body}</svg>`;
+}
+
+// ==============================
+// DATA
+// ==============================
+const COINS = [
+  { id:'c1',  type:'coin', value:1,
+    svg: () => svgCoin({ size:90, value:1, labelTop:'1', labelBot:'円',
+      outerRim:'#D8D8D8', midRim:'#A0A0A0', innerFill:'#C8C8C8', textColor:'#505050' }) },
+  { id:'c5',  type:'coin', value:5,
+    svg: () => svgCoin({ size:90, value:5, labelTop:'5', labelBot:'円',
+      outerRim:'#F0D87A', midRim:'#B8962A', innerFill:'#E8C850', textColor:'#5A3A00',
+      hasHole:true }) },
+  { id:'c10', type:'coin', value:10,
+    svg: () => svgCoin({ size:90, value:10, labelTop:'10', labelBot:'円',
+      outerRim:'#D4904A', midRim:'#8B5020', innerFill:'#C07838', textColor:'#FFF5E0' }) },
+  { id:'c50', type:'coin', value:50,
+    svg: () => svgCoin({ size:90, value:50, labelTop:'50', labelBot:'円',
+      outerRim:'#D8D8D8', midRim:'#909090', innerFill:'#C0C0C0', textColor:'#444444',
+      hasHole:true }) },
+  { id:'c100',type:'coin', value:100,
+    svg: () => svgCoin({ size:90, value:100, labelTop:'100', labelBot:'円',
+      outerRim:'#E8E8E8', midRim:'#B0B0B0', innerFill:'#D4D4D4', textColor:'#333333' }) },
+  { id:'c500',type:'coin', value:500,
+    svg: () => svgCoin({ size:90, value:500, labelTop:'500', labelBot:'円',
+      outerRim:'#C8C8C0', midRim:'#909088', innerFill:'#B8B8B2', textColor:'#222222',
+      bimetal:true, innerRingColor:'#D0D0C8', outerRingColor:'#787870' }) },
+];
+
+const BILLS = [
+  { id:'b1000', type:'bill', value:1000,
+    svg: (size=160) => svgBill({ size:{w:size,h:Math.round(size*0.51)}, value:1000,
+      displayMain:'千', displaySub:'1,000円',
+      bgColor1:'#A8C4D8', bgColor2:'#C8D8E8', accentColor:'#2A5070',
+      textColor:'#0A2848', portraitColor:'#4A7898', watermarkText:'千' }) },
+  { id:'b5000', type:'bill', value:5000,
+    svg: (size=160) => svgBill({ size:{w:size,h:Math.round(size*0.51)}, value:5000,
+      displayMain:'五千', displaySub:'5,000円',
+      bgColor1:'#C0A8D0', bgColor2:'#D8C8E8', accentColor:'#604080',
+      textColor:'#301848', portraitColor:'#7848A0', watermarkText:'五千' }) },
+  { id:'b10000',type:'bill', value:10000,
+    svg: (size=160) => svgBill({ size:{w:size,h:Math.round(size*0.51)}, value:10000,
+      displayMain:'壱万', displaySub:'10,000円',
+      bgColor1:'#E8D8B8', bgColor2:'#D8C8A0', accentColor:'#806040',
+      textColor:'#402808', portraitColor:'#A08060', watermarkText:'万' }) },
+];
+
+const COIN_NAMES = {c1:'1えん',c5:'5えん',c10:'10えん',c50:'50えん',c100:'100えん',c500:'500えん'};
+const COIN_READ  = {c1:'いちえん',c5:'ごえん',c10:'じゅうえん',c50:'ごじゅうえん',c100:'ひゃくえん',c500:'ごひゃくえん'};
+
+const BILL_NAMES = {b1000:'1000えん',b5000:'5000えん',b10000:'10000えん'};
+const BILL_READ  = {b1000:'せんえん',b5000:'ごせんえん',b10000:'いちまんえん'};
+
+const SHOP_ITEMS_EASY = [
+  {id:'e1',  emoji:'🍭', name:'あめ',          price:10},
+  {id:'e2',  emoji:'🪙', name:'ガム',          price:20},
+  {id:'e3',  emoji:'🍬', name:'キャンディ',    price:30},
+  {id:'e4',  emoji:'🎈', name:'ふうせん',      price:50},
+  {id:'e5',  emoji:'✏️', name:'えんぴつ',      price:100},
+  {id:'e6',  emoji:'🍎', name:'りんご',        price:80},
+  {id:'e7',  emoji:'🍌', name:'バナナ',        price:60},
+  {id:'e8',  emoji:'🍊', name:'みかん',        price:50},
+  {id:'e9',  emoji:'🍞', name:'パン',          price:120},
+  {id:'e10', emoji:'🍫', name:'チョコ',        price:150},
+  {id:'e11', emoji:'🧃', name:'ジュース',      price:150},
+  {id:'e12', emoji:'🍦', name:'アイス',        price:200},
+  {id:'e13', emoji:'📒', name:'ノート',        price:180},
+  {id:'e14', emoji:'🖍️', name:'クレヨン',      price:250},
+  {id:'e15', emoji:'🎀', name:'リボン',        price:100},
+  {id:'e16', emoji:'🧸', name:'ぬいぐるみ',    price:500},
+];
+
+const SHOP_ITEMS_HARD = [
+  {id:'h1',  emoji:'🍔', name:'ハンバーガー',  price:480},
+  {id:'h2',  emoji:'🍕', name:'ピザ',          price:980},
+  {id:'h3',  emoji:'🍣', name:'おすし',        price:1200},
+  {id:'h4',  emoji:'🍱', name:'おべんとう',    price:650},
+  {id:'h5',  emoji:'🎂', name:'ケーキ',        price:1500},
+  {id:'h6',  emoji:'👟', name:'スニーカー',    price:3800},
+  {id:'h7',  emoji:'👕', name:'Tシャツ',       price:1980},
+  {id:'h8',  emoji:'🎒', name:'リュック',      price:4500},
+  {id:'h9',  emoji:'📚', name:'ほん（3さつ）', price:2700},
+  {id:'h10', emoji:'🎮', name:'ゲームソフト',  price:6800},
+  {id:'h11', emoji:'🚲', name:'じてんしゃ',    price:9800},
+  {id:'h12', emoji:'⌚', name:'うでどけい',    price:5500},
+  {id:'h13', emoji:'🎨', name:'えのぐセット',  price:1200},
+  {id:'h14', emoji:'🎸', name:'おもちゃのギター',price:3200},
+  {id:'h15', emoji:'📷', name:'カメラ',        price:8800},
+  {id:'h16', emoji:'🧳', name:'スーツケース',  price:7500},
+];
+
+// ==============================
+// NAVIGATION
+// ==============================
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn')[{learn:0,match:1,shop:2}[id]].classList.add('active');
+  if(id==='match') initMatching();
+}
+
+// ==============================
+// SECTION 1: LEARN
+// ==============================
+let currentMoneyTab = 'coins';
+function showMoneyTab(tab, btn) {
+  currentMoneyTab = tab;
+  document.querySelectorAll('.money-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderMoneyGrid();
+}
+function renderMoneyGrid() {
+  const list = currentMoneyTab==='coins' ? COINS : BILLS;
+  document.getElementById('moneyGrid').innerHTML = list.map(m => {
+    const name = m.type==='coin' ? COIN_NAMES[m.id] : BILL_NAMES[m.id];
+    const read = m.type==='coin' ? COIN_READ[m.id]  : BILL_READ[m.id];
+    return `<div class="money-card" onclick="speakMoney('${name}')">
+      ${m.svg(90)}
+      <div class="money-name">${name}</div>
+      <div class="money-reading">${read}</div>
+      <button class="speak-btn" onclick="event.stopPropagation();speakMoney('${name}')">🔊 よむ</button>
+    </div>`;
+  }).join('');
+}
+
+function speakMoney(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP'; u.rate=0.85;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+// ==============================
+// SECTION 2: MATCHING
+// ==============================
+let matchSelected=null, matchPairs=[], matchCorrect=0;
+const ALL_MONEY = [...COINS, ...BILLS];
+
+function initMatching() {
+  matchSelected=null; matchCorrect=0;
+  const shuffled = [...ALL_MONEY].sort(()=>Math.random()-.5).slice(0,6);
+  matchPairs = shuffled.map(m=>({ id:m.id, value:m.value, type:m.type, moneyObj:m }));
+
+  // イラスト列・ねだん列それぞれ独立してシャッフル
+  const leftOrder  = [...matchPairs].sort(()=>Math.random()-.5);
+  const rightOrder = [...matchPairs].sort(()=>Math.random()-.5);
+
+  // 行数分のrowを作り、各行に左(イラスト)と右(ねだん)を1つずつ配置
+  const gameEl = document.getElementById('matchGame');
+  gameEl.innerHTML = leftOrder.map((lm, i) => {
+    const rm = rightOrder[i];
+    return `<div class="match-row">
+      <div class="match-item" id="ml_${lm.id}" onclick="matchClick('left','${lm.id}')">
+        ${lm.moneyObj.svg(lm.type==='coin'?54:96)}
+        <span style="font-size:10px;color:#aaa;font-weight:700">${lm.type==='coin'?COIN_READ[lm.id]:BILL_READ[lm.id]}</span>
+      </div>
+      <div class="match-item" id="mr_${rm.id}" onclick="matchClick('right','${rm.id}')">
+        <span style="font-size:22px;font-weight:900;color:var(--red)">¥${rm.value.toLocaleString()}</span>
+      </div>
+    </div>`;
+  }).join('');
+  updateMatchScore();
+}
+
+function matchClick(side, id) {
+  const el = document.getElementById((side==='left'?'ml_':'mr_')+id);
+  if(el.classList.contains('correct')) return;
+  if(!matchSelected) {
+    matchSelected={side,id,el}; el.classList.add('selected');
+  } else {
+    if(matchSelected.side===side) { matchSelected.el.classList.remove('selected'); matchSelected={side,id,el}; el.classList.add('selected'); return; }
+    const leftId  = side==='right' ? matchSelected.id : id;
+    const rightId = side==='right' ? id : matchSelected.id;
+    const lEl=document.getElementById('ml_'+leftId), rEl=document.getElementById('mr_'+rightId);
+    if(leftId===rightId) {
+      lEl.classList.remove('selected'); lEl.classList.add('correct');
+      rEl.classList.remove('selected'); rEl.classList.add('correct');
+      matchCorrect++; speakMoney('せいかい！'); updateMatchScore();
+      if(matchCorrect===matchPairs.length) setTimeout(()=>{speakMoney('ぜんぶせいかい！やったね！');showConfetti();},300);
+    } else {
+      lEl.classList.remove('selected'); lEl.classList.add('wrong');
+      rEl.classList.remove('selected'); rEl.classList.add('wrong');
+      speakMoney('もういちど');
+      setTimeout(()=>{lEl.classList.remove('wrong');rEl.classList.remove('wrong');},600);
+    }
+    matchSelected=null;
+  }
+}
+function updateMatchScore() { document.getElementById('matchScore').textContent=`⭐ ${matchCorrect} / ${matchPairs.length} せいかい`; }
+
+// ==============================
+// SECTION 3: SHOPPING
+// ==============================
+let cart=[], paidAmount=0, currentDifficulty='easy';
+let customItems = JSON.parse(localStorage.getItem('okane_custom_items')||'[]');
+let editingImgData = null; // base64
+
+function saveCustomStorage() {
+  localStorage.setItem('okane_custom_items', JSON.stringify(customItems));
+}
+
+function setDifficulty(diff, btn) {
+  currentDifficulty = diff;
+  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  cart=[]; renderShopItems(); renderCart(); clearPayment();
+}
+
+function getShopItems() {
+  if(currentDifficulty==='easy') return SHOP_ITEMS_EASY;
+  if(currentDifficulty==='hard') return SHOP_ITEMS_HARD;
+  return customItems;
+}
+
+function renderShopItems() {
+  const items = getShopItems();
+  const isOrig = currentDifficulty==='orig';
+  let html = items.map(item=>{
+    const entry=cart.find(c=>c.item.id===item.id), qty=entry?entry.qty:0;
+    const imgHtml = item.img
+      ? `<img src="${item.img}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;margin-bottom:4px;">`
+      : `<span class="item-emoji">${item.emoji||'🛍'}</span>`;
+    const deleteBtn = isOrig
+      ? `<button class="item-delete-btn" onclick="event.stopPropagation();deleteCustomItem('${item.id}')">✕</button>`
+      : '';
+    return `<div class="shop-item ${qty>0?'in-cart':''} ${isOrig?'custom':''}" onclick="addToCartById('${item.id}')">
+      ${deleteBtn}
+      ${qty>0?`<div class="item-qty">${qty}</div>`:''}
+      ${imgHtml}
+      <div class="item-name">${item.name}</div>
+      <div class="item-price">¥${item.price.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+  if(isOrig) {
+    html += `<div class="add-item-card" onclick="openCustomModal()">
+      <div class="plus">＋</div>
+      <div class="plus-label">しょうひんをついか</div>
+    </div>`;
+  }
+  document.getElementById('shopItemsGrid').innerHTML = html;
+}
+
+function addToCartById(id) {
+  const item = getShopItems().find(i=>i.id===id);
+  if(!item) return;
+  const entry=cart.find(c=>c.item.id===id);
+  if(entry) entry.qty++; else cart.push({item,qty:1});
+  renderShopItems(); renderCart();
+  speakMoney(item.name+' '+item.price.toLocaleString()+'えん');
+}
+
+// 旧関数との互換
+function addToCart(id) { addToCartById(id); }
+
+function removeFromCart(id) { cart=cart.filter(c=>c.item.id!==id); renderShopItems(); renderCart(); clearPayment(); }
+function clearCart() { cart=[]; renderShopItems(); renderCart(); clearPayment(); }
+function getCartTotal() { return cart.reduce((s,c)=>s+c.item.price*c.qty,0); }
+
+// ---- カスタム商品モーダル ----
+function openCustomModal() {
+  editingImgData = null;
+  document.getElementById('customNameInput').value='';
+  document.getElementById('customPriceInput').value='';
+  document.getElementById('customImgInput').value='';
+  document.getElementById('imgPreviewWrap').innerHTML=`<div style="font-size:36px">📷</div><div class="img-upload-hint">タップして写真をえらぶ</div>`;
+  document.getElementById('customModalOverlay').classList.add('active');
+}
+function closeCustomModal() {
+  document.getElementById('customModalOverlay').classList.remove('active');
+}
+function previewImage(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    editingImgData=ev.target.result;
+    document.getElementById('imgPreviewWrap').innerHTML=`<img src="${editingImgData}" style="max-width:100%;max-height:120px;border-radius:10px;object-fit:cover;">`;
+  };
+  reader.readAsDataURL(file);
+}
+function saveCustomItem() {
+  const name=document.getElementById('customNameInput').value.trim();
+  const price=parseInt(document.getElementById('customPriceInput').value);
+  if(!name){ alert('なまえをいれてね！'); return; }
+  if(!price||price<1){ alert('ねだんをいれてね！'); return; }
+  customItems.push({ id:'custom_'+Date.now(), name, price, img: editingImgData||null, emoji:'🛍' });
+  saveCustomStorage();
+  closeCustomModal();
+  renderShopItems();
+}
+function deleteCustomItem(id) {
+  if(!confirm('このしょうひんをけしますか？')) return;
+  customItems=customItems.filter(i=>i.id!==id);
+  cart=cart.filter(c=>c.item.id!==id);
+  saveCustomStorage();
+  renderShopItems(); renderCart();
+}
+
+function renderCart() {
+  const list=document.getElementById('cartList'), total=getCartTotal();
+  list.innerHTML = cart.length===0
+    ? '<div class="cart-empty">🛒<br><span style="font-size:13px;color:#bbb;">まだなにも<br>えらばれていません</span></div>'
+    : cart.map(c=>`<div class="cart-list-item">
+        <span class="cart-item-emoji">${c.item.emoji}</span>
+        <div class="cart-item-info"><div>${c.item.name} ×${c.qty}</div><div class="cart-item-price">¥${(c.item.price*c.qty).toLocaleString()}</div></div>
+        <button class="cart-remove-btn" onclick="removeFromCart('${c.item.id}')">✕</button>
+      </div>`).join('');
+  document.getElementById('cartTotal').textContent='¥'+total.toLocaleString();
+  updatePayResult();
+}
+
+function renderPaymentButtons() {
+  document.getElementById('coinPayGrid').innerHTML = COINS.map(c=>`
+    <button class="pay-coin-btn" onclick="addPayment(${c.value})">
+      ${c.svg(34)}
+      <span>¥${c.value}</span>
+    </button>`).join('');
+  document.getElementById('billPayGrid').innerHTML = BILLS.map(b=>`
+    <button class="pay-coin-btn" onclick="addPayment(${b.value})">
+      ${b.svg(80)}
+      <span>¥${b.value.toLocaleString()}</span>
+    </button>`).join('');
+}
+
+function addPayment(amount) {
+  paidAmount+=amount;
+  document.getElementById('paidDisplay').textContent='¥'+paidAmount.toLocaleString();
+  updatePayResult();
+  speakMoney(amount.toLocaleString()+'えん');
+}
+function clearPayment() {
+  paidAmount=0;
+  document.getElementById('paidDisplay').textContent='¥0';
+  updatePayResult();
+}
+function updatePayResult() {
+  const total=getCartTotal(), el=document.getElementById('payResult'), diff=paidAmount-total;
+  if(total===0){ el.className='pay-result info'; el.textContent='しょうひんをえらんで、おかねをいれてね 😊'; return; }
+  if(paidAmount===0){ el.className='pay-result info'; el.textContent=`ごうけい ¥${total.toLocaleString()} をはらいましょう！`; }
+  else if(diff<0){ el.className='pay-result ng'; el.textContent=`あと ¥${Math.abs(diff).toLocaleString()} たりません 💦`; }
+  else if(diff===0){ el.className='pay-result ok'; el.textContent='ぴったり！✨ そのままはらえるよ！'; }
+  else { el.className='pay-result ok'; el.textContent=`はらえるよ！おつりは ¥${diff.toLocaleString()} だよ 👍`; }
+}
+// おつりを最小枚数で計算する
+function calcChange(amount) {
+  const units = [10000,5000,1000,500,100,50,10,5,1];
+  const result = [];
+  let rem = amount;
+  for (const u of units) {
+    const qty = Math.floor(rem / u);
+    if (qty > 0) { result.push({ value: u, qty }); rem -= u * qty; }
+  }
+  return result;
+}
+
+function showOtsuuri(change) {
+  const overlay = document.getElementById('otsuuriOverlay');
+  document.getElementById('otsuuriAmount').textContent = `おつり ¥${change.toLocaleString()}`;
+
+  const breakdown = calcChange(change);
+  const coinsEl = document.getElementById('otsuuriCoins');
+  const labelEl = document.getElementById('otsuuriLabel');
+
+  if (change === 0) {
+    labelEl.textContent = 'ぴったりでした！✨';
+    coinsEl.innerHTML = '<span style="font-size:48px">🎊</span>';
+  } else {
+    labelEl.textContent = 'このおかねがかえってくるよ！';
+    coinsEl.innerHTML = breakdown.map(({ value, qty }) => {
+      const moneyObj = [...COINS, ...BILLS].find(m => m.value === value);
+      const svgHtml = moneyObj
+        ? (moneyObj.type === 'coin' ? moneyObj.svg(64) : moneyObj.svg(110))
+        : `<span style="font-size:20px">¥${value.toLocaleString()}</span>`;
+      return `<div class="otsuuri-coin-item">
+        ${svgHtml}
+        <div class="otsuuri-coin-qty">× ${qty}</div>
+      </div>`;
+    }).join('');
+  }
+  overlay.classList.add('active');
+}
+
+function closeOtsuuri() {
+  document.getElementById('otsuuriOverlay').classList.remove('active');
+  cart=[]; paidAmount=0;
+  renderShopItems(); renderCart(); clearPayment();
+}
+
+function confirmPayment() {
+  const total=getCartTotal();
+  if(total===0){ speakMoney('しょうひんをえらんでください'); return; }
+  if(paidAmount<total){ speakMoney('おかねがたりません'); return; }
+  const change=paidAmount-total;
+  speakMoney(change===0?'おかいものできました！ぴったりでした！':`おかいものできました！おつりは ${change.toLocaleString()}えんです！`);
+  showConfetti();
+  showOtsuuri(change);
+}
+
+// ==============================
+// CONFETTI
+// ==============================
+function showConfetti() {
+  const overlay=document.getElementById('confettiOverlay');
+  overlay.innerHTML=''; overlay.classList.add('active');
+  const colors=['#FFD700','#FF7BAC','#4CC9A0','#5BC4F5','#A78BFA','#FF6B6B'];
+  for(let i=0;i<60;i++){
+    const p=document.createElement('div'); p.className='confetti-piece';
+    p.style.left=Math.random()*100+'vw'; p.style.top='-20px';
+    p.style.background=colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDelay=Math.random()*1.5+'s';
+    p.style.animationDuration=(1.5+Math.random()*1.5)+'s';
+    overlay.appendChild(p);
+  }
+  setTimeout(()=>overlay.classList.remove('active'),4000);
+}
+
+// ==============================
+// INIT
+// ==============================
+renderMoneyGrid();
+initMatching();
+renderShopItems();
+renderCart();
+renderPaymentButtons();
+</script>
+</body>
+</html>
