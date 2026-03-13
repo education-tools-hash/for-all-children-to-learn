@@ -12,7 +12,8 @@
     --shadow: 0 8px 32px rgba(45,42,74,0.12); --radius: 24px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Rounded Mplus 1c','Noto Sans JP',sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; }
+  html { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  body { font-family: 'Rounded Mplus 1c','Noto Sans JP',sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
   header { background: linear-gradient(135deg,#FFD700,#F4A200); padding: 14px 24px; text-align: center; box-shadow: 0 4px 16px rgba(244,162,0,.3); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
   header h1 { font-size: clamp(18px,4vw,30px); font-weight: 900; color: white; text-shadow: 0 3px 0 rgba(0,0,0,.15); letter-spacing: 2px; }
@@ -140,7 +141,7 @@
   /* カート */
   .cart-box { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
   .cart-title { font-size: 14px; font-weight: 900; text-align: center; display: flex; align-items: center; gap: 6px; justify-content: center; flex-shrink: 0; }
-  .cart-list { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; min-height: 0; }
+  .cart-list { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
   .cart-list::-webkit-scrollbar { width: 4px; }
   .cart-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
   .cart-list-item { display: flex; align-items: center; gap: 7px; padding: 5px 8px; background: #f8f8f8; border-radius: 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
@@ -188,12 +189,11 @@
   .otsuuri-close-btn { margin-top: 8px; padding: 12px 36px; border-radius: 50px; border: none; background: linear-gradient(135deg,var(--mint),#3AB090); color: white; font-family: inherit; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 16px rgba(76,201,160,.35); transition: all .2s; }
   .otsuuri-close-btn:hover { transform: translateY(-2px); }
 
-  /* ===== デスクトップ（1081px以上）: 2カラム・1画面に収める ===== */
+  /* ===== デスクトップ（1081px以上）: 2カラム ===== */
+  /* NOTE: body/html の overflow:hidden は削除。iPadでスクロール不可になるため。 */
   @media (min-width: 1081px) {
-    body { height: 100vh; overflow: hidden; }
-    #shop { height: calc(100vh - 130px); overflow: hidden; }
-    .shop-items-wrap { overflow-y: auto; }
-    .shop-side { overflow: hidden; }
+    .shop-items-wrap { overflow-y: auto; max-height: calc(100vh - 200px); }
+    .shop-side { overflow-y: auto; max-height: calc(100vh - 200px); }
     .cart-list { overflow-y: auto; }
   }
 
@@ -401,14 +401,12 @@ function svgCoin(opts) {
   </defs>`;
 
   if (bimetal) {
-    // 500円バイカラー
     body = `
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${outerRingColor}" stroke-width="3" filter="url(#sh_${value})"/>
       <circle cx="${cx}" cy="${cy}" r="${r*0.62}" fill="${innerRingColor}" stroke="${outerRingColor}" stroke-width="1.5"/>
       <circle cx="${cx}" cy="${cy}" r="${r*0.58}" fill="url(#if_${value})"/>
     `;
   } else if (hasHole) {
-    // 5円・50円
     body = `
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${value})"/>
       <circle cx="${cx}" cy="${cy}" r="${r*0.2}" fill="white" stroke="${midRim}" stroke-width="1.5"/>
@@ -419,7 +417,6 @@ function svgCoin(opts) {
     `;
   }
 
-  // edge lines (milling)
   let mills = '';
   for(let i=0;i<36;i++){
     const a = (i/36)*Math.PI*2;
@@ -441,7 +438,6 @@ function svgCoin(opts) {
     labels = `<text x="${cx}" y="${cy + fontSize*0.38}" text-anchor="middle" font-family="serif" font-weight="900" font-size="${fontSize}" fill="${textColor}" opacity="0.9">${labelTop||''}</text>`;
   }
 
-  // decorative inner ring
   const ringR = hasHole ? r*0.75 : (bimetal ? r*0.59 : r*0.82);
   const ring = `<circle cx="${cx}" cy="${cy}" r="${ringR}" fill="none" stroke="${textColor}" stroke-width="0.8" opacity="0.2"/>`;
 
@@ -451,7 +447,7 @@ function svgCoin(opts) {
 }
 
 // ==============================
-// SVG BILL GENERATOR (improved)
+// SVG BILL GENERATOR
 // ==============================
 function svgBill(opts) {
   const {
@@ -474,7 +470,6 @@ function svgBill(opts) {
   </defs>`;
 
   const rx = 6;
-  // main body
   let body = `
     <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#bg_${value})" stroke="${accentColor}" stroke-width="1.5" filter="url(#bsh_${value})"/>
     <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#wm_${value})"/>
@@ -482,7 +477,6 @@ function svgBill(opts) {
     <rect x="9" y="9" width="${w-18}" height="${h-18}" rx="${rx-3}" fill="none" stroke="${accentColor}" stroke-width="0.4" opacity="0.3"/>
   `;
 
-  // left portrait circle area
   const pX = 22, pY = h/2, pR = h/2 - 10;
   body += `
     <circle cx="${pX}" cy="${pY}" r="${pR}" fill="${portraitColor}" opacity="0.18"/>
@@ -490,10 +484,8 @@ function svgBill(opts) {
     <text x="${pX}" y="${pY+5}" text-anchor="middle" font-size="${pR*1.1}" fill="${textColor}" opacity="0.25">人</text>
   `;
 
-  // serial number area (top right)
   body += `<text x="${w-10}" y="17" text-anchor="end" font-family="monospace" font-size="6" fill="${textColor}" opacity="0.5">AA000000A</text>`;
 
-  // main value text (center-right)
   const mainFontSize = h * 0.32;
   const subFontSize  = h * 0.14;
   body += `
@@ -501,10 +493,8 @@ function svgBill(opts) {
     <text x="${w/2 + 18}" y="${h/2 + mainFontSize*0.36 + subFontSize*1.3}" text-anchor="middle" font-family="serif" font-size="${subFontSize}" fill="${textColor}" opacity="0.7">${displaySub}</text>
   `;
 
-  // right side decoration bar
   body += `<rect x="${w-14}" y="${h*0.15}" width="5" height="${h*0.7}" rx="2" fill="${accentColor}" opacity="0.2"/>`;
 
-  // bottom ribbon
   body += `
     <rect x="8" y="${h-18}" width="${w-16}" height="8" rx="3" fill="${accentColor}" opacity="0.12"/>
     <text x="${w/2}" y="${h-12}" text-anchor="middle" font-family="serif" font-size="6.5" fill="${textColor}" opacity="0.6">日本銀行券　NIPPON GINKO</text>
@@ -655,11 +645,9 @@ function initMatching() {
   const shuffled = [...ALL_MONEY].sort(()=>Math.random()-.5).slice(0,6);
   matchPairs = shuffled.map(m=>({ id:m.id, value:m.value, type:m.type, moneyObj:m }));
 
-  // イラスト列・ねだん列それぞれ独立してシャッフル
   const leftOrder  = [...matchPairs].sort(()=>Math.random()-.5);
   const rightOrder = [...matchPairs].sort(()=>Math.random()-.5);
 
-  // 行数分のrowを作り、各行に左(イラスト)と右(ねだん)を1つずつ配置
   const gameEl = document.getElementById('matchGame');
   gameEl.innerHTML = leftOrder.map((lm, i) => {
     const rm = rightOrder[i];
@@ -707,7 +695,7 @@ function updateMatchScore() { document.getElementById('matchScore').textContent=
 // ==============================
 let cart=[], paidAmount=0, currentDifficulty='easy';
 let customItems = JSON.parse(localStorage.getItem('okane_custom_items')||'[]');
-let editingImgData = null; // base64
+let editingImgData = null;
 
 function saveCustomStorage() {
   localStorage.setItem('okane_custom_items', JSON.stringify(customItems));
@@ -763,14 +751,12 @@ function addToCartById(id) {
   speakMoney(item.name+' '+item.price.toLocaleString()+'えん');
 }
 
-// 旧関数との互換
 function addToCart(id) { addToCartById(id); }
 
 function removeFromCart(id) { cart=cart.filter(c=>c.item.id!==id); renderShopItems(); renderCart(); clearPayment(); }
 function clearCart() { cart=[]; renderShopItems(); renderCart(); clearPayment(); }
 function getCartTotal() { return cart.reduce((s,c)=>s+c.item.price*c.qty,0); }
 
-// ---- カスタム商品モーダル ----
 function openCustomModal() {
   editingImgData = null;
   document.getElementById('customNameInput').value='';
@@ -854,7 +840,7 @@ function updatePayResult() {
   else if(diff===0){ el.className='pay-result ok'; el.textContent='ぴったり！✨ そのままはらえるよ！'; }
   else { el.className='pay-result ok'; el.textContent=`はらえるよ！おつりは ¥${diff.toLocaleString()} だよ 👍`; }
 }
-// おつりを最小枚数で計算する
+
 function calcChange(amount) {
   const units = [10000,5000,1000,500,100,50,10,5,1];
   const result = [];
