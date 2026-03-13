@@ -3,94 +3,425 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>まなびのへや</title>
-
+<link href="https://fonts.googleapis.com/css2?family=Rounded+Mplus+1c:wght@400;700;800;900&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg: #FFF8F0;
+    --card-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    --radius: 28px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+    position: relative;
+    overflow-x: hidden;
+  }
 
-body{
-font-family:sans-serif;
-background:#eef2f7;
-margin:0;
-padding:20px;
-text-align:center;
-}
+  /* 背景デコレーション */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -120px; left: -120px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(255,215,0,0.18) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -100px; right: -100px;
+    width: 360px; height: 360px;
+    background: radial-gradient(circle, rgba(76,201,160,0.15) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
 
-h1{
-font-size:36px;
-margin-bottom:30px;
-}
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+  }
 
-.menu{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-gap:25px;
-max-width:900px;
-margin:auto;
-}
+  /* タイトル */
+  .site-title {
+    text-align: center;
+    animation: fadeDown 0.6s ease both;
+  }
+  .site-title .emoji-row {
+    font-size: clamp(36px, 8vw, 56px);
+    display: block;
+    margin-bottom: 6px;
+    animation: bounce 2s ease-in-out infinite;
+  }
+  .site-title h1 {
+    font-size: clamp(28px, 6vw, 44px);
+    font-weight: 900;
+    color: #2D2A4A;
+    letter-spacing: 3px;
+    text-shadow: 0 3px 0 rgba(244,162,0,0.25);
+  }
+  .site-title .subtitle {
+    font-size: clamp(12px, 2.5vw, 15px);
+    color: #aaa;
+    font-weight: 700;
+    margin-top: 6px;
+    letter-spacing: 2px;
+  }
 
-.card{
-background:white;
-padding:40px;
-border-radius:20px;
-font-size:26px;
-box-shadow:0 4px 12px rgba(0,0,0,0.15);
-}
+  /* セクション */
+  .section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .section-label {
+    font-size: clamp(12px, 2.2vw, 14px);
+    font-weight: 900;
+    color: #bbb;
+    letter-spacing: 3px;
+    padding-left: 6px;
+    border-left: 4px solid #e8e8e8;
+  }
 
-.card:hover{
-transform:scale(1.05);
-}
+  /* アプリグリッド */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 18px;
+    width: 100%;
+  }
 
-a{
-text-decoration:none;
-color:#333;
-}
+  /* アプリカード */
+  .app-card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 28px 20px 24px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    border: 3px solid transparent;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .app-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    transition: height 0.22s ease;
+  }
+  .app-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 48px rgba(0,0,0,0.14);
+  }
+  .app-card:hover::before { height: 8px; }
 
-.footer{
-margin-top:40px;
-font-size:14px;
-color:#666;
-}
+  /* カラーテーマ — 既存 */
+  .card-okane::before { background: linear-gradient(90deg, #FFD700, #F4A200); }
+  .card-okane:hover { border-color: #F4A200; }
+  .card-okane .card-tag { background: #FFF3D0; color: #B87800; }
 
+  .card-music::before { background: linear-gradient(90deg, #5BC4F5, #4CC9A0); }
+  .card-music:hover { border-color: #5BC4F5; }
+  .card-music .card-tag { background: #E0F8FF; color: #007AA8; }
+
+  .card-shiritori::before { background: linear-gradient(90deg, #FF7BAC, #FF6B6B); }
+  .card-shiritori:hover { border-color: #FF7BAC; }
+  .card-shiritori .card-tag { background: #FFF0F5; color: #CC0055; }
+
+  /* カラーテーマ — 新規 */
+  .card-tokei::before { background: linear-gradient(90deg, #7B6CF6, #A78BFA); }
+  .card-tokei:hover { border-color: #7B6CF6; }
+  .card-tokei .card-tag { background: #F0EDFF; color: #5B3FD4; }
+
+  .card-schedule::before { background: linear-gradient(90deg, #34D399, #10B981); }
+  .card-schedule:hover { border-color: #10B981; }
+  .card-schedule .card-tag { background: #ECFDF5; color: #065F46; }
+
+  .card-sst::before { background: linear-gradient(90deg, #F97316, #FB923C); }
+  .card-sst:hover { border-color: #F97316; }
+  .card-sst .card-tag { background: #FFF7ED; color: #9A3412; }
+
+  .card-sugoroku::before { background: linear-gradient(90deg, #EC4899, #F472B6); }
+  .card-sugoroku:hover { border-color: #EC4899; }
+  .card-sugoroku .card-tag { background: #FDF2F8; color: #9D174D; }
+
+  .card-matching::before { background: linear-gradient(90deg, #06B6D4, #22D3EE); }
+  .card-matching:hover { border-color: #06B6D4; }
+  .card-matching .card-tag { background: #ECFEFF; color: #164E63; }
+
+  .card-hiragana::before { background: linear-gradient(90deg, #F59E0B, #FCD34D); }
+  .card-hiragana:hover { border-color: #F59E0B; }
+  .card-hiragana .card-tag { background: #FFFBEB; color: #92400E; }
+
+  .card-katakana::before { background: linear-gradient(90deg, #84CC16, #A3E635); }
+  .card-katakana:hover { border-color: #84CC16; }
+  .card-katakana .card-tag { background: #F7FEE7; color: #365314; }
+
+  .card-alphabet::before { background: linear-gradient(90deg, #3B82F6, #60A5FA); }
+  .card-alphabet:hover { border-color: #3B82F6; }
+  .card-alphabet .card-tag { background: #EFF6FF; color: #1E3A8A; }
+
+  .card-romaji::before { background: linear-gradient(90deg, #8B5CF6, #C084FC); }
+  .card-romaji:hover { border-color: #8B5CF6; }
+  .card-romaji .card-tag { background: #FAF5FF; color: #4C1D95; }
+
+  .card-jikokuhyo::before { background: linear-gradient(90deg, #0EA5E9, #38BDF8); }
+  .card-jikokuhyo:hover { border-color: #0EA5E9; }
+  .card-jikokuhyo .card-tag { background: #F0F9FF; color: #0C4A6E; }
+
+  .card-bousai::before { background: linear-gradient(90deg, #EF4444, #F87171); }
+  .card-bousai:hover { border-color: #EF4444; }
+  .card-bousai .card-tag { background: #FEF2F2; color: #7F1D1D; }
+
+  /* 今後追加用 */
+  .card-coming::before { background: linear-gradient(90deg, #e0e0e0, #ccc); }
+  .card-coming { opacity: 0.55; cursor: default; pointer-events: none; }
+  .card-coming .card-tag { background: #f0f0f0; color: #bbb; }
+
+  .card-icon {
+    font-size: 56px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.12));
+    transition: transform 0.22s ease;
+  }
+  .app-card:hover .card-icon { transform: scale(1.12) rotate(-4deg); }
+
+  .card-name {
+    font-size: clamp(16px, 3vw, 20px);
+    font-weight: 900;
+    color: #2D2A4A;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .card-desc {
+    font-size: clamp(10px, 1.8vw, 12px);
+    color: #999;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .card-tag {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 14px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  .coming-badge {
+    position: absolute;
+    top: 18px; right: 18px;
+    background: #eee;
+    color: #bbb;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* フッター */
+  .footer {
+    font-size: 11px;
+    color: #ccc;
+    font-weight: 700;
+    letter-spacing: 1px;
+    animation: fadeUp 0.8s ease 0.4s both;
+  }
+
+  /* アニメーション */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes bounce {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+  }
+
+  .app-card { animation: fadeUp 0.5s ease both; }
+  .app-card:nth-child(1) { animation-delay: 0.05s; }
+  .app-card:nth-child(2) { animation-delay: 0.10s; }
+  .app-card:nth-child(3) { animation-delay: 0.15s; }
+  .app-card:nth-child(4) { animation-delay: 0.20s; }
+  .app-card:nth-child(5) { animation-delay: 0.25s; }
+  .app-card:nth-child(6) { animation-delay: 0.30s; }
+  .app-card:nth-child(7) { animation-delay: 0.35s; }
+  .app-card:nth-child(8) { animation-delay: 0.40s; }
+  .app-card:nth-child(9) { animation-delay: 0.45s; }
+
+  @media (max-width: 600px) {
+    .app-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .app-card { padding: 20px 14px; }
+    .card-icon { font-size: 40px; }
+    .card-name { font-size: 14px; }
+    .card-desc { display: none; }
+  }
+  @media (max-width: 360px) {
+    .app-grid { grid-template-columns: 1fr; }
+  }
 </style>
-
 </head>
-
 <body>
+<div class="container">
 
-<h1>まなびのへや</h1>
+  <div class="site-title">
+    <span class="emoji-row">🌈</span>
+    <h1>まなびのへや</h1>
+    <div class="subtitle">すきなアプリをえらんでね！</div>
+  </div>
 
-<div class="menu">
+  <!-- ── あそび ── -->
+  <div class="section">
+    <div class="section-label">あそび・せいかつ</div>
+    <div class="app-grid">
 
-<a href="bosai-app.html">
-<div class="card">🚨 防災</div>
-</a>
+      <a class="app-card card-okane" href="okane-app.html">
+        <div class="card-icon">💰</div>
+        <div class="card-name">おかねのおべんきょう</div>
+        <div class="card-desc">こうかやしへいをおぼえよう<br>おかいものごっこもできるよ！</div>
+        <div class="card-tag">おかね・かいもの</div>
+      </a>
 
-<a href="music-app.html">
-<div class="card">🎵 音楽</div>
-</a>
+      <a class="app-card card-music" href="music-app.html">
+        <div class="card-icon">🎵</div>
+        <div class="card-name">おんがくあそび</div>
+        <div class="card-desc">おとをならしてあそぼう<br>スイッチでもつかえるよ！</div>
+        <div class="card-tag">おんがく・あそび</div>
+      </a>
 
-<a href="okane-app.html">
-<div class="card">💰 お金</div>
-</a>
+      <a class="app-card card-shiritori" href="shiritori2.html">
+        <div class="card-icon">💬</div>
+        <div class="card-name">しりとり</div>
+        <div class="card-desc">ことばをつなげてあそぼう<br>たのしくもじをおぼえよう！</div>
+        <div class="card-tag">ことば・あそび</div>
+      </a>
 
-<a href="shiritori2.html">
-<div class="card">📝 しりとり</div>
-</a>
+      <div class="app-card card-sugoroku card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">🎲</div>
+        <div class="card-name">すごろく</div>
+        <div class="card-desc">さいころをふってすすもう<br>みんなでたのしくあそぼう！</div>
+        <div class="card-tag">ゲーム・あそび</div>
+      </div>
 
-<a href="timetable-app.html">
-<div class="card">📅 時間割</div>
-</a>
+      <div class="app-card card-matching card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">🃏</div>
+        <div class="card-name">マッチング</div>
+        <div class="card-desc">おなじものをさがしてみよう<br>きおくりょくをきたえよう！</div>
+        <div class="card-tag">きおく・あそび</div>
+      </div>
 
-<a href="tokei-app.html">
-<div class="card">🕒 時計</div>
-</a>
+      <div class="app-card card-sst card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">🤝</div>
+        <div class="card-name">SST</div>
+        <div class="card-desc">ともだちとのかかわりかたを<br>たのしくれんしゅうしよう！</div>
+        <div class="card-tag">コミュニケーション</div>
+      </div>
+
+      <a class="app-card card-bousai" href="bosai-app.html">
+        <div class="card-icon">🪖</div>
+        <div class="card-name">ぼうさい</div>
+        <div class="card-desc">もしものときにどうするか<br>いっしょにかくにんしよう！</div>
+        <div class="card-tag">あんぜん・せいかつ</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── じかん・スケジュール ── -->
+  <div class="section">
+    <div class="section-label">じかん・スケジュール</div>
+    <div class="app-grid">
+
+      <a class="app-card card-tokei" href="tokei-app.html">
+        <div class="card-icon">🕐</div>
+        <div class="card-name">とけい</div>
+        <div class="card-desc">じかんのよみかたをおぼえよう<br>とけいのみかたをれんしゅう！</div>
+        <div class="card-tag">じかん・とけい</div>
+      </a>
+
+      <div class="app-card card-schedule card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">📅</div>
+        <div class="card-name">スケジュール</div>
+        <div class="card-desc">いちにちのよていをかくにん<br>じぶんでよていをたてよう！</div>
+        <div class="card-tag">よてい・せいかつ</div>
+      </div>
+
+      <a class="app-card card-jikokuhyo" href="timetable-app.html">
+        <div class="card-icon">🚌</div>
+        <div class="card-name">じこくひょう</div>
+        <div class="card-desc">バスやでんしゃのじかんを<br>よめるようになろう！</div>
+        <div class="card-tag">じこく・のりもの</div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── もじ・ことば ── -->
+  <div class="section">
+    <div class="section-label">もじ・ことば</div>
+    <div class="app-grid">
+
+      <div class="app-card card-hiragana card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">あ</div>
+        <div class="card-name">ひらがな</div>
+        <div class="card-desc">ひらがなをたのしくおぼえよう<br>よんだりかいたりしてみよう！</div>
+        <div class="card-tag">ひらがな・もじ</div>
+      </div>
+
+      <div class="app-card card-katakana card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">ア</div>
+        <div class="card-name">かたかな</div>
+        <div class="card-desc">かたかなをたのしくおぼえよう<br>かたかなのことばをみつけよう！</div>
+        <div class="card-tag">かたかな・もじ</div>
+      </div>
+
+      <div class="app-card card-alphabet card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">🔤</div>
+        <div class="card-name">アルファベット</div>
+        <div class="card-desc">ABCをおぼえよう<br>えいごのもじをれんしゅう！</div>
+        <div class="card-tag">えいご・もじ</div>
+      </div>
+
+      <div class="app-card card-romaji card-coming"><div class="coming-badge">じゅんびちゅう</div>
+        <div class="card-icon">📝</div>
+        <div class="card-name">ローマ字</div>
+        <div class="card-desc">ローマじでにほんごをかこう<br>キーボードでもつかえるよ！</div>
+        <div class="card-tag">ローマじ・もじ</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer">© まなびのへや</div>
 
 </div>
-
-<div class="footer">
-子どもたちの学びを支える教材サイト
-</div>
-
 </body>
 </html>
