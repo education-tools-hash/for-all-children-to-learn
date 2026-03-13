@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>時計を学ぼう！</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Kosugi+Maru&display=swap');
+  :root {
+    --bg: #E8F7FF; --card: #ffffff; --accent1: #FF6B6B; --accent2: #4ECDC4;
+    --accent3: #FFE66D; --text: #2C3E50;
+    --shadow: 0 8px 32px rgba(44,62,80,0.12); --radius: 28px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Zen Maru Gothic','Kosugi Maru',sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  /* HEADER */
+  header { background: linear-gradient(135deg,#74b9ff,#a29bfe); padding: 18px 24px 24px; text-align: center; position: relative; overflow: hidden; }
+  header::before { content:''; position:absolute; bottom:-16px; left:0; right:0; height:32px; background:var(--bg); border-radius:50% 50% 0 0/100%; }
+  header h1 { font-size: clamp(1.6rem,5vw,2.8rem); font-weight:900; color:white; text-shadow:3px 3px 0 rgba(0,0,0,0.15); letter-spacing:0.08em; }
+  .star { display:inline-block; animation:spin 4s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* DIFFICULTY BAR */
+  .difficulty-bar {
+    display: flex; justify-content: center; align-items: center; gap: 10px;
+    padding: 14px 16px 0; flex-wrap: wrap;
+  }
+  .diff-label { font-weight:700; font-size:0.95rem; color:#636e72; }
+  .diff-btn {
+    border: 3px solid #dfe6e9; border-radius: 50px; padding: 7px 18px;
+    font-family: inherit; font-size: 0.95rem; font-weight:700; cursor:pointer;
+    background: white; transition: all 0.2s; color: var(--text);
+  }
+  .diff-btn:hover { transform:translateY(-2px); }
+  .diff-btn.active[data-diff="easy"]   { background:linear-gradient(135deg,#55efc4,#00b894); color:white; border-color:transparent; }
+  .diff-btn.active[data-diff="normal"] { background:linear-gradient(135deg,#74b9ff,#0984e3); color:white; border-color:transparent; }
+  .diff-btn.active[data-diff="hard"]   { background:linear-gradient(135deg,#fd79a8,#e84393); color:white; border-color:transparent; }
+
+  /* SWITCH SCAN INDICATOR */
+  .scan-indicator {
+    display:none; text-align:center; padding:6px;
+    font-size:0.85rem; font-weight:700; color:#a29bfe;
+    letter-spacing:0.05em;
+  }
+  body.scan-active .scan-indicator { display:block; }
+  .scan-focus { outline: 4px solid #a29bfe !important; outline-offset: 3px !important; box-shadow: 0 0 0 6px rgba(162,155,254,0.3) !important; }
+
+  /* NAV */
+  nav { display:flex; justify-content:center; gap:10px; padding:20px 16px 16px; flex-wrap:wrap; }
+  .tab-btn { background:white; border:3px solid transparent; border-radius:50px; padding:12px 22px; font-family:inherit; font-size:clamp(0.9rem,2.5vw,1.15rem); font-weight:700; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 12px rgba(0,0,0,0.1); display:flex; align-items:center; gap:8px; }
+  .tab-btn:hover { transform:translateY(-3px); }
+  .tab-btn.active { color:white; border-color:transparent; transform:translateY(-3px); }
+  .tab-btn:nth-child(1).active { background:linear-gradient(135deg,#FF6B6B,#ee5a24); }
+  .tab-btn:nth-child(2).active { background:linear-gradient(135deg,#4ECDC4,#00b894); }
+  .tab-btn:nth-child(3).active { background:linear-gradient(135deg,#FFD700,#f39c12); }
+
+  /* SECTIONS */
+  .section { display:none; padding:8px 16px 40px; max-width:900px; margin:0 auto; }
+  .section.active { display:block; animation:fadeIn 0.4s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .section-title { text-align:center; font-size:clamp(1.2rem,3.5vw,1.7rem); font-weight:900; margin-bottom:24px; padding:14px 20px; border-radius:var(--radius); color:white; }
+  #sec1 .section-title { background:linear-gradient(135deg,#FF6B6B,#ee5a24); }
+  #sec2 .section-title { background:linear-gradient(135deg,#4ECDC4,#00b894); }
+  #sec3 .section-title { background:linear-gradient(135deg,#FFD700,#e67e22); color:#2C3E50; }
+
+  /* SEC1 */
+  #sec1 .card { background:var(--card); border-radius:var(--radius); padding:28px 20px; box-shadow:var(--shadow); }
+  .touch-area { display:flex; flex-direction:column; align-items:center; gap:20px; }
+  #touchClock { width:min(320px,80vw); height:min(320px,80vw); cursor:pointer; touch-action:none; }
+  .time-display-big { font-size:clamp(2rem,8vw,3.5rem); font-weight:900; letter-spacing:0.05em; color:var(--accent1); background:#fff5f5; padding:12px 32px; border-radius:50px; border:3px solid #ffcccc; }
+  .hand-info { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+  .hand-badge { padding:8px 18px; border-radius:50px; font-size:1rem; font-weight:700; color:white; }
+  .hand-badge.hour { background:#FF6B6B; }
+  .hand-badge.min  { background:#4ECDC4; }
+  .instructions { background:#f8f9fa; border-radius:16px; padding:14px 20px; font-size:0.95rem; color:#636e72; text-align:center; line-height:1.7; }
+
+  /* SEC2 */
+  .matching-area { display:flex; flex-direction:column; gap:16px; align-items:center; }
+  .matching-layout { display:grid; grid-template-columns:1fr 40px 1fr; gap:0; width:100%; align-items:start; }
+  .matching-col { display:flex; flex-direction:column; gap:10px; }
+  .match-col-title { text-align:center; font-size:1rem; font-weight:900; padding:8px 12px; border-radius:50px; color:white; margin-bottom:4px; }
+  .match-col-title.analog  { background:linear-gradient(135deg,#FF6B6B,#ee5a24); }
+  .match-col-title.digital { background:linear-gradient(135deg,#4ECDC4,#00b894); }
+  .match-card { background:white; border-radius:20px; padding:8px; box-shadow:var(--shadow); cursor:pointer; transition:all 0.2s; border:3px solid transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; user-select:none; width:100%; height:120px; overflow:hidden; }
+  .match-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,0.15); }
+  .match-card.selected { border-color:#74b9ff; background:#ebf5fb; transform:scale(1.04); }
+  .match-card.matched  { border-color:#00b894; background:#d5f5e3; pointer-events:none; opacity:0.75; }
+  .match-card.wrong    { border-color:#e74c3c; background:#fde8e8; animation:shake 0.4s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+  .digital-time { font-size:clamp(1.2rem,4.5vw,1.8rem); font-weight:900; letter-spacing:0.04em; color:#2C3E50; font-variant-numeric:tabular-nums; }
+  .match-clock { width:96px; height:96px; display:block; flex-shrink:0; }
+  .match-svg-col { position:relative; }
+  .match-svg-col svg { width:40px; overflow:visible; }
+  .score-bar { background:white; border-radius:50px; padding:10px 24px; font-size:1.1rem; font-weight:700; box-shadow:var(--shadow); display:flex; align-items:center; gap:10px; }
+  .new-game-btn { background:linear-gradient(135deg,#4ECDC4,#00b894); color:white; border:none; border-radius:50px; padding:14px 32px; font-family:inherit; font-size:1.1rem; font-weight:700; cursor:pointer; box-shadow:0 6px 18px rgba(0,184,148,0.3); transition:all 0.2s; }
+  .new-game-btn:hover { transform:translateY(-3px); }
+
+  /* SEC3 QUIZ */
+  .quiz-area { background:white; border-radius:var(--radius); padding:28px 20px; box-shadow:var(--shadow); display:flex; flex-direction:column; align-items:center; gap:20px; }
+  .quiz-question { font-size:clamp(1.1rem,3vw,1.4rem); font-weight:700; text-align:center; line-height:1.6; color:#2C3E50; background:#fffbf0; padding:14px 24px; border-radius:16px; border-left:5px solid #FFD700; width:100%; }
+  #quizClock { width:min(260px,70vw); height:min(260px,70vw); }
+  .quiz-choices { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; max-width:480px; }
+  .choice-btn { background:white; border:3px solid #dfe6e9; border-radius:16px; padding:16px 12px; font-family:inherit; font-size:clamp(1.1rem,3.5vw,1.4rem); font-weight:700; cursor:pointer; transition:all 0.2s; color:#2C3E50; }
+  .choice-btn:hover, .choice-btn:focus { background:#f0f8ff; border-color:#74b9ff; transform:translateY(-2px); outline:none; }
+  .choice-btn.correct { background:#d5f5e3; border-color:#00b894; color:#00b894; }
+  .choice-btn.wrong   { background:#fde8e8; border-color:#e74c3c; color:#e74c3c; }
+  .quiz-feedback { font-size:clamp(1.2rem,4vw,1.8rem); font-weight:900; text-align:center; min-height:2rem; transition:all 0.3s; }
+  .quiz-feedback.ok { color:#00b894; }
+  .quiz-feedback.ng { color:#e74c3c; }
+  .quiz-progress { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .progress-dot { width:16px; height:16px; border-radius:50%; background:#dfe6e9; transition:background 0.3s; }
+  .progress-dot.done    { background:#00b894; }
+  .progress-dot.wrong   { background:#e74c3c; }
+  .progress-dot.current { background:#FFD700; box-shadow:0 0 0 3px #fff,0 0 0 5px #FFD700; }
+  .next-btn { background:linear-gradient(135deg,#FFD700,#e67e22); color:white; border:none; border-radius:50px; padding:14px 40px; font-family:inherit; font-size:1.15rem; font-weight:900; cursor:pointer; box-shadow:0 6px 18px rgba(230,126,34,0.3); transition:all 0.2s; display:none; }
+  .next-btn:hover { transform:translateY(-3px); }
+  .quiz-score-final { text-align:center; display:none; }
+  .quiz-score-final .big-score { font-size:clamp(2.5rem,8vw,4rem); font-weight:900; color:#FFD700; }
+
+  /* MODE SELECTOR */
+  .quiz-mode-select { display:flex; flex-direction:column; align-items:center; gap:18px; padding:10px 0 4px; width:100%; }
+  .quiz-mode-label { font-size:1.05rem; font-weight:700; color:#636e72; letter-spacing:0.03em; }
+  .quiz-mode-btns { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .mode-btn { background:white; border:3px solid #dfe6e9; border-radius:20px; padding:14px 20px; font-family:inherit; font-size:clamp(0.9rem,2.5vw,1.05rem); font-weight:700; cursor:pointer; transition:all 0.2s; color:#2C3E50; display:flex; flex-direction:column; align-items:center; gap:6px; min-width:140px; box-shadow:0 3px 10px rgba(0,0,0,0.08); }
+  .mode-btn .mode-icon { font-size:2rem; }
+  .mode-btn:hover { transform:translateY(-3px); }
+  .mode-btn.active { border-color:#e67e22; background:linear-gradient(135deg,#FFF3CD,#FFE0A0); transform:translateY(-3px); box-shadow:0 8px 20px rgba(230,126,34,0.25); }
+  .mode-divider { width:100%; height:2px; background:linear-gradient(to right,transparent,#dfe6e9,transparent); margin:2px 0; }
+
+  .quiz-body-hidden { display: none !important; }
+  .quiz-body-show   { display: flex; width:100%; flex-direction:column; align-items:center; gap:20px; }
+
+  /* QUIZ TOOLBAR */
+  .quiz-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; background: #f8f9fa; border-radius: 50px;
+    padding: 8px 10px; gap: 8px; flex-wrap: wrap;
+  }
+  .quiz-tool-btn {
+    border: none; border-radius: 50px; padding: 8px 16px;
+    font-family: inherit; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .home-btn { background: white; color: #2C3E50; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .home-btn:hover { background: #ffeaa7; transform: translateY(-1px); }
+  .quiz-tool-diff { display: flex; align-items: center; gap: 6px; }
+  .quiz-tool-label { font-size: 0.85rem; font-weight: 700; color: #636e72; white-space: nowrap; }
+  .quiz-diff-btn {
+    border: 2px solid #dfe6e9; border-radius: 50px; padding: 6px 12px;
+    font-family: inherit; font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; background: white; transition: all 0.2s; color: #2C3E50;
+  }
+  .quiz-diff-btn:hover { transform: translateY(-1px); }
+  .quiz-diff-btn.active[data-diff="easy"]   { background: linear-gradient(135deg,#55efc4,#00b894); color: white; border-color: transparent; }
+  .quiz-diff-btn.active[data-diff="normal"] { background: linear-gradient(135deg,#74b9ff,#0984e3); color: white; border-color: transparent; }
+  .quiz-diff-btn.active[data-diff="hard"]   { background: linear-gradient(135deg,#fd79a8,#e84393); color: white; border-color: transparent; }
+
+  /* TEACHER PANEL */
+  .teacher-panel {
+    background: linear-gradient(135deg,#2C3E50,#34495e);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    color: white;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .teacher-panel h3 { font-size:1.2rem; margin-bottom:16px; text-align:center; letter-spacing:0.05em; }
+  .teacher-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; margin-bottom:16px; }
+  .stat-box { background:rgba(255,255,255,0.1); border-radius:16px; padding:12px; text-align:center; }
+  .stat-box .stat-num { font-size:2rem; font-weight:900; }
+  .stat-box .stat-lbl { font-size:0.8rem; opacity:0.8; }
+  .teacher-detail { background:rgba(255,255,255,0.08); border-radius:16px; padding:14px; }
+  .teacher-detail table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+  .teacher-detail th { padding:6px 10px; background:rgba(255,255,255,0.15); border-radius:6px; text-align:center; }
+  .teacher-detail td { padding:6px 10px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.08); }
+  .result-o { color:#55efc4; font-weight:900; font-size:1.2rem; }
+  .result-x { color:#ff7675; font-weight:900; font-size:1.2rem; }
+
+  /* CONFETTI */
+  .confetti-wrap { position:fixed; inset:0; pointer-events:none; z-index:9999; }
+  .confetti-piece { position:absolute; width:10px; height:14px; border-radius:2px; animation:fall linear forwards; }
+  @keyframes fall { from{transform:translateY(-20px) rotate(0deg);opacity:1} to{transform:translateY(100vh) rotate(720deg);opacity:0} }
+
+  canvas { display:block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="star">⭐</span> 時計を学ぼう！ <span class="star" style="animation-delay:0.5s">⭐</span></h1>
+</header>
+
+<!-- 難易度バー -->
+<div class="difficulty-bar">
+  <span class="diff-label">📊 むずかしさ：</span>
+  <button class="diff-btn active" data-diff="easy"   onclick="setDifficulty('easy')">⭐ やさしい</button>
+  <button class="diff-btn"        data-diff="normal" onclick="setDifficulty('normal')">⭐⭐ ふつう</button>
+  <button class="diff-btn"        data-diff="hard"   onclick="setDifficulty('hard')">⭐⭐⭐ むずかしい</button>
+</div>
+<div class="scan-indicator">🔲 スイッチスキャン ON ／ スペース・Enter で決定</div>
+
+<nav>
+  <button class="tab-btn active" onclick="showSection(1)">🕐 はりをうごかそう</button>
+  <button class="tab-btn" onclick="showSection(2)">🔗 むすびつけよう</button>
+  <button class="tab-btn" onclick="showSection(3)">❓ もんだいにちょうせん</button>
+</nav>
+
+<!-- SEC1 -->
+<section id="sec1" class="section active">
+  <div class="section-title">🕐 はりをうごかしてよもう！</div>
+  <div class="card">
+    <div class="touch-area">
+      <canvas id="touchClock" width="320" height="320"></canvas>
+      <div class="time-display-big" id="touchTimeText">12：00</div>
+      <div class="hand-info">
+        <span class="hand-badge hour">🔴 みじかいはり → じ</span>
+        <span class="hand-badge min">🔵 ながいはり → ふん</span>
+      </div>
+      <div class="instructions" id="sec1Instructions">
+        🖐️ <strong>ながいはり（青）</strong>をドラッグしてうごかしましょう！<br>
+        ながいはりをまわすと、みじかいはりも いっしょにうごきます。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SEC2 -->
+<section id="sec2" class="section">
+  <div class="section-title">🔗 アナログとデジタルを むすびつけよう！</div>
+  <div class="matching-area">
+    <div class="score-bar">
+      <span>⭐ マッチ：</span><span id="matchScore">0</span><span>/ <span id="matchTotal">0</span></span>
+    </div>
+    <div class="matching-layout" id="matchingLayout">
+      <div class="matching-col" id="analogCol">
+        <div class="match-col-title analog">🕐 アナログ</div>
+      </div>
+      <div class="match-svg-col" id="svgCol">
+        <svg id="connectorSvg" height="100%"></svg>
+      </div>
+      <div class="matching-col" id="digitalCol">
+        <div class="match-col-title digital">🔢 デジタル</div>
+      </div>
+    </div>
+    <button class="new-game-btn" onclick="initMatching()">🔄 あたらしいゲーム</button>
+  </div>
+</section>
+
+<!-- SEC3 -->
+<section id="sec3" class="section">
+  <div class="section-title">❓ とけいのもんだい！</div>
+  <div class="quiz-area">
+    <div class="quiz-mode-select" id="quizModeSelect">
+      <div class="quiz-mode-label">📋 もんだいのしゅるいをえらんでね！</div>
+      <div class="quiz-mode-btns">
+        <button class="mode-btn active" id="modeBtn-read" onclick="selectQuizMode('read')">
+          <span class="mode-icon">🕐→📝</span><span>よむもんだい</span>
+          <span style="font-size:0.8rem;color:#636e72;font-weight:500">アナログ→こたえをえらぶ</span>
+        </button>
+        <button class="mode-btn" id="modeBtn-set" onclick="selectQuizMode('set')">
+          <span class="mode-icon">📝→🕐</span><span>みつけるもんだい</span>
+          <span style="font-size:0.8rem;color:#636e72;font-weight:500">じこくから→とけいをえらぶ</span>
+        </button>
+        <button class="mode-btn" id="modeBtn-both" onclick="selectQuizMode('both')">
+          <span class="mode-icon">🔀</span><span>まぜまぜ</span>
+          <span style="font-size:0.8rem;color:#636e72;font-weight:500">りょうほう</span>
+        </button>
+      </div>
+      <div class="mode-divider"></div>
+      <button class="new-game-btn" style="background:linear-gradient(135deg,#FFD700,#e67e22);margin-top:4px" onclick="initQuiz()">▶ スタート！</button>
+    </div>
+
+    <div id="quizBody" class="quiz-body-hidden">
+      <!-- クイズ中ツールバー -->
+      <div class="quiz-toolbar">
+        <button class="quiz-tool-btn home-btn" onclick="quizGoHome()">🏠 ホーム</button>
+        <div class="quiz-tool-diff">
+          <span class="quiz-tool-label">むずかしさ：</span>
+          <button class="quiz-diff-btn" data-diff="easy"   onclick="quizChangeDiff('easy')">⭐</button>
+          <button class="quiz-diff-btn" data-diff="normal" onclick="quizChangeDiff('normal')">⭐⭐</button>
+          <button class="quiz-diff-btn" data-diff="hard"   onclick="quizChangeDiff('hard')">⭐⭐⭐</button>
+        </div>
+      </div>
+      <div class="quiz-progress" id="quizProgress"></div>
+      <div class="quiz-question" id="quizQuestion"></div>
+      <canvas id="quizClock" width="260" height="260"></canvas>
+      <div class="quiz-choices" id="quizChoices"></div>
+      <div class="quiz-feedback" id="quizFeedback"></div>
+      <button class="next-btn" id="nextBtn" onclick="nextQuiz()">つぎのもんだい ➡</button>
+      <button class="next-btn" id="retryBtn" style="background:linear-gradient(135deg,#FF6B6B,#ee5a24);box-shadow:0 6px 18px rgba(238,90,36,0.3);display:none;" onclick="retryQuiz()">🔄 もう一度やり直す</button>
+      <div class="quiz-score-final" id="quizFinal">
+        <div class="big-score" id="finalScore"></div>
+        <div style="font-size:1.3rem;font-weight:700;margin:10px 0"><span id="finalMsg"></span></div>
+        <!-- 先生向け進捗パネル -->
+        <div class="teacher-panel" id="teacherPanel">
+          <h3>👩‍🏫 せんせい むけ きろく</h3>
+          <div class="teacher-stats" id="teacherStats"></div>
+          <div class="teacher-detail" id="teacherDetail"></div>
+        </div>
+        <br>
+        <button class="new-game-btn" style="background:linear-gradient(135deg,#4ECDC4,#00b894);margin-bottom:8px" onclick="backToModeSelect()">🔀 もんだいのしゅるいをかえる</button>
+        <br>
+        <button class="new-game-btn" style="background:linear-gradient(135deg,#FFD700,#e67e22)" onclick="initQuiz()">🔁 もういちど！</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="confetti-wrap" id="confettiWrap"></div>
+
+<!-- ホーム確認モーダル -->
+<div id="homeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:24px;padding:32px 28px;max-width:320px;width:90%;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,0.25);">
+    <div style="font-size:2.5rem;margin-bottom:12px">🏠</div>
+    <div style="font-size:1.2rem;font-weight:900;margin-bottom:8px">ホームにもどりますか？</div>
+    <div style="font-size:0.95rem;color:#636e72;margin-bottom:24px">とちゅうのきろくはきえます</div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button onclick="homeModalCancel()" style="flex:1;padding:12px;border:3px solid #dfe6e9;border-radius:50px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;background:white;">やめる</button>
+      <button onclick="homeModalConfirm()" style="flex:1;padding:12px;border:none;border-radius:50px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#74b9ff,#a29bfe);color:white;">もどる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DIFFICULTY
+// ============================================================
+let difficulty = 'easy';
+const DIFF_MINS = {
+  easy:   [0],
+  normal: [0, 15, 30, 45],
+  hard:   Array.from({length: 60}, (_, i) => i)
+};
+
+function setDifficulty(d) {
+  difficulty = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === d));
+  initMatching();
+}
+
+function getDiffMins() { return DIFF_MINS[difficulty]; }
+
+// ============================================================
+// SOUND (Web Audio API)
+// ============================================================
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    if (type === 'correct') {
+      // 明るい2音
+      [[523.25, 0], [659.25, 0.12]].forEach(([freq, delay]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = freq; o.type = 'sine';
+        g.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.3);
+        o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.3);
+      });
+    } else if (type === 'match') {
+      // マッチ成功：上昇3音
+      [[392, 0], [523.25, 0.1], [659.25, 0.2]].forEach(([freq, delay]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = freq; o.type = 'triangle';
+        g.gain.setValueAtTime(0.25, ctx.currentTime + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+        o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.25);
+      });
+    } else if (type === 'clear') {
+      // 全問クリア：ファンファーレ
+      [[523.25,0],[659.25,0.1],[783.99,0.2],[1046.5,0.35]].forEach(([freq, delay]) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = freq; o.type = 'sine';
+        g.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.5);
+        o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + 0.5);
+      });
+    }
+  } catch(e) {}
+}
+
+// ============================================================
+// CLOCK DRAWING
+// ============================================================
+function drawClock(ctx, size, hourDeg, minDeg, options = {}) {
+  if (!size || size <= 0) return;
+  const cx = size/2, cy = size/2, r = size/2 - 4;
+  ctx.clearRect(0, 0, size, size);
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+  ctx.strokeStyle = options.borderColor||'#dfe6e9';
+  ctx.lineWidth = options.borderWidth||5; ctx.stroke();
+
+  for (let i=0; i<60; i++) {
+    const angle = (i/60)*Math.PI*2 - Math.PI/2;
+    const isHour = i%5===0;
+    const len = isHour ? r*0.14 : r*0.07;
+    const outer = r-3, inner = outer-len;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(angle)*outer, cy+Math.sin(angle)*outer);
+    ctx.lineTo(cx+Math.cos(angle)*inner, cy+Math.sin(angle)*inner);
+    ctx.strokeStyle = isHour?'#2C3E50':'#b2bec3';
+    ctx.lineWidth = isHour?3:1.5; ctx.stroke();
+  }
+  ctx.fillStyle='#2C3E50'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const fs = Math.max(10, r*0.17);
+  ctx.font = `bold ${fs}px 'Kosugi Maru',sans-serif`;
+  for (let n=1; n<=12; n++) {
+    const angle = (n/12)*Math.PI*2 - Math.PI/2;
+    ctx.fillText(n, cx+Math.cos(angle)*r*0.72, cy+Math.sin(angle)*r*0.72);
+  }
+  // Hour hand
+  const hRad = hourDeg*Math.PI/180;
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(hRad)*r*0.52, cy+Math.sin(hRad)*r*0.52);
+  ctx.strokeStyle='#FF6B6B'; ctx.lineWidth=Math.max(5,r*0.07); ctx.lineCap='round'; ctx.stroke();
+  // Minute hand
+  const mRad = minDeg*Math.PI/180;
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(mRad)*r*0.72, cy+Math.sin(mRad)*r*0.72);
+  ctx.strokeStyle='#4ECDC4'; ctx.lineWidth=Math.max(3,r*0.045); ctx.lineCap='round'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.04,0,Math.PI*2);
+  ctx.fillStyle='#2C3E50'; ctx.fill();
+}
+
+function timeToAngles(h, m) {
+  return {
+    minDeg:  m/60*360 - 90,
+    hourDeg: ((h%12) + m/60)/12*360 - 90
+  };
+}
+
+// ============================================================
+// SEC1: Touch Clock
+// ============================================================
+(function() {
+  const canvas = document.getElementById('touchClock');
+  const ctx = canvas.getContext('2d');
+  const size = 320;
+  let totalMinutes = 0, dragging = false, lastRawAngle = null;
+
+  function wrap720(n) { return ((n%720)+720)%720; }
+  function getMinAngleDeg() { return (wrap720(totalMinutes)%60)/60*360 - 90; }
+  function getHourAngleDeg() { return wrap720(totalMinutes)/720*360 - 90; }
+
+  function render() {
+    drawClock(ctx, size, getHourAngleDeg(), getMinAngleDeg(), { borderColor:'#74b9ff', borderWidth:7 });
+  }
+  function updateText() {
+    const t = wrap720(totalMinutes);
+    const h = Math.floor(t/60)%12||12, m = t%60;
+    document.getElementById('touchTimeText').textContent = `${h}：${String(m).padStart(2,'0')}`;
+  }
+  function getRawAngle(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = size/rect.width, sy = size/rect.height;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy_ = e.touches ? e.touches[0].clientY : e.clientY;
+    return Math.atan2((cy_-rect.top)*sy - size/2, (cx-rect.left)*sx - size/2) * 180/Math.PI;
+  }
+  function angleDiff(a,b) { let d=b-a; if(d>180)d-=360; if(d<-180)d+=360; return d; }
+
+  function onStart(e) { e.preventDefault(); dragging=true; lastRawAngle=getRawAngle(e); }
+  function onMove(e) {
+    if (!dragging) return; e.preventDefault();
+    const raw = getRawAngle(e);
+    totalMinutes = Math.round(totalMinutes + angleDiff(lastRawAngle,raw)/360*60);
+    lastRawAngle = raw;
+    render(); updateText();
+  }
+  function onEnd() { if(dragging){render();updateText();} dragging=false; lastRawAngle=null; }
+
+  canvas.addEventListener('mousedown', onStart);
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('mouseup',   onEnd);
+  canvas.addEventListener('mouseleave',onEnd);
+  canvas.addEventListener('touchstart', onStart, {passive:false});
+  canvas.addEventListener('touchmove',  onMove,  {passive:false});
+  canvas.addEventListener('touchend',   onEnd);
+  render(); updateText();
+})();
+
+// ============================================================
+// SEC2: Matching
+// ============================================================
+let matchState = {};
+let matchScanIndex = -1;
+let matchScanCards = [];
+
+function generateRandomTimes(n) {
+  const times = [], mins = getDiffMins();
+  const hours = [1,2,3,4,5,6,7,8,9,10,11,12];
+  while (times.length < n) {
+    const h = hours[Math.floor(Math.random()*hours.length)];
+    const m = mins[Math.floor(Math.random()*mins.length)];
+    if (!times.find(t=>t.h===h&&t.m===m)) times.push({h,m});
+  }
+  return times;
+}
+
+function shuffle(arr) {
+  for (let i=arr.length-1; i>0; i--) {
+    const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+function initMatching() {
+  const times = generateRandomTimes(6);
+  const analogs  = times.map((t,i)=>({id:'a'+i,type:'analog', h:t.h,m:t.m,paired:i}));
+  const digitals = times.map((t,i)=>({id:'d'+i,type:'digital',h:t.h,m:t.m,paired:i}));
+  shuffle(analogs); shuffle(digitals);
+  matchState = { analogs, digitals, selected:null, matched:new Set(), score:0, total:times.length };
+  document.getElementById('matchScore').textContent = 0;
+  document.getElementById('matchTotal').textContent = times.length;
+  matchScanIndex = -1;
+  renderMatchingColumns();
+}
+
+function makeCard(card) {
+  const div = document.createElement('div');
+  const isMatched  = matchState.matched.has(card.id);
+  const isSelected = matchState.selected && matchState.selected.id === card.id;
+  div.className = 'match-card' + (isMatched?' matched':'') + (isSelected?' selected':'');
+  div.dataset.id = card.id;
+  div.tabIndex = isMatched ? -1 : 0;
+
+  if (card.type === 'analog') {
+    const cvs = document.createElement('canvas');
+    cvs.className = 'match-clock';
+    cvs.width = 160; cvs.height = 160;
+    div.appendChild(cvs);
+    const {hourDeg,minDeg} = timeToAngles(card.h,card.m);
+    setTimeout(()=>{
+      const dpr = window.devicePixelRatio || 2;
+      const display = 96;
+      cvs.width  = display * dpr;
+      cvs.height = display * dpr;
+      cvs.style.width  = display + 'px';
+      cvs.style.height = display + 'px';
+      const ctx2 = cvs.getContext('2d');
+      ctx2.scale(dpr, dpr);
+      drawClock(ctx2, display, hourDeg, minDeg);
+    }, 50);
+  } else {
+    const mm = String(card.m).padStart(2,'0');
+    div.innerHTML = `<div class="digital-time">${card.h}:${mm}</div>`;
+  }
+  if (!isMatched) {
+    div.addEventListener('click', ()=>onMatchClick(card));
+    div.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); onMatchClick(card); } });
+  }
+  return div;
+}
+
+function renderMatchingColumns() {
+  const ac = document.getElementById('analogCol');
+  const dc = document.getElementById('digitalCol');
+  while (ac.children.length>1) ac.removeChild(ac.lastChild);
+  while (dc.children.length>1) dc.removeChild(dc.lastChild);
+  matchState.analogs.forEach(c=>ac.appendChild(makeCard(c)));
+  matchState.digitals.forEach(c=>dc.appendChild(makeCard(c)));
+  setTimeout(drawConnectors, 80);
+  matchScanCards = [...ac.querySelectorAll('.match-card:not(.matched)'), ...dc.querySelectorAll('.match-card:not(.matched)')];
+}
+
+function drawConnectors() {
+  const svg = document.getElementById('connectorSvg');
+  const layout = document.getElementById('matchingLayout');
+  const h = layout.offsetHeight;
+  svg.setAttribute('height', h);
+  svg.innerHTML = '';
+
+  matchState.matched.forEach(id => {
+    if (!id.startsWith('a')) return;
+    const pairedId = 'd' + id.slice(1);
+    if (!matchState.matched.has(pairedId)) return;
+    const aEl = document.querySelector(`[data-id="${id}"]`);
+    const dEl = document.querySelector(`[data-id="${pairedId}"]`);
+    if (!aEl || !dEl) return;
+    const lr = layout.getBoundingClientRect();
+    const ar = aEl.getBoundingClientRect();
+    const dr = dEl.getBoundingClientRect();
+    const x1 = ar.right  - lr.left;
+    const y1 = ar.top + ar.height / 2 - lr.top;
+    const x2 = dr.left   - lr.left;
+    const y2 = dr.top + dr.height / 2 - lr.top;
+    const mx = (x1 + x2) / 2;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    line.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+    line.setAttribute('stroke', '#00b894');
+    line.setAttribute('stroke-width', '3');
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke-dasharray', '6,3');
+    line.setAttribute('opacity', '0.9');
+    svg.appendChild(line);
+  });
+}
+
+function onMatchClick(card) {
+  if (matchState.matched.has(card.id)) return;
+  if (!matchState.selected) {
+    matchState.selected = card; renderMatchingColumns(); return;
+  }
+  if (matchState.selected.id === card.id) {
+    matchState.selected = null; renderMatchingColumns(); return;
+  }
+  const sel = matchState.selected; matchState.selected = null;
+  if (sel.type !== card.type && sel.paired === card.paired) {
+    matchState.matched.add(sel.id); matchState.matched.add(card.id);
+    matchState.score++;
+    document.getElementById('matchScore').textContent = matchState.score;
+    playSound('match');
+    renderMatchingColumns();
+    if (matchState.score === matchState.total) {
+      setTimeout(()=>{ playSound('clear'); launchConfetti(); }, 300);
+    }
+  } else {
+    renderMatchingColumns();
+    [sel.id,card.id].forEach(eid=>{
+      const el=document.querySelector(`[data-id="${eid}"]`);
+      if(el){el.classList.add('wrong');setTimeout(()=>el.classList.remove('wrong'),600);}
+    });
+  }
+}
+
+// ============================================================
+// SEC3: Quiz
+// ============================================================
+let quizState = {};
+let quizMode = 'read';
+const QUIZ_COUNT = 8;
+let quizScanIndex = -1;
+let quizScanBtns = [];
+
+function selectQuizMode(mode) {
+  quizMode = mode;
+  ['both','read','set'].forEach(m => document.getElementById('modeBtn-'+m).classList.toggle('active',m===mode));
+}
+
+function backToModeSelect() {
+  document.getElementById('quizModeSelect').style.display='flex';
+  const body = document.getElementById('quizBody');
+  body.classList.remove('quiz-body-show');
+  body.classList.add('quiz-body-hidden');
+}
+
+function quizGoHome() {
+  const modal = document.getElementById('homeModal');
+  modal.style.display = 'flex';
+}
+function homeModalCancel() {
+  document.getElementById('homeModal').style.display = 'none';
+}
+function homeModalConfirm() {
+  document.getElementById('homeModal').style.display = 'none';
+  backToModeSelect();
+}
+
+function quizChangeDiff(d) {
+  difficulty = d;
+  // グローバルの難易度ボタンも同期
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === d));
+  // クイズ内ボタンも同期
+  document.querySelectorAll('.quiz-diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === d));
+  // 問題を最初からやり直し
+  initQuiz();
+}
+
+function initQuiz() {
+  document.getElementById('quizModeSelect').style.display='none';
+  const body = document.getElementById('quizBody');
+  body.classList.remove('quiz-body-hidden');
+  body.classList.add('quiz-body-show');
+  document.getElementById('quizFinal').style.display='none';
+  document.getElementById('quizChoices').style.display='grid';
+  document.getElementById('quizClock').style.display='block';
+  document.getElementById('quizQuestion').style.display='block';
+  document.getElementById('nextBtn').style.display='none';
+  document.getElementById('retryBtn').style.display='none';
+  document.getElementById('quizFeedback').textContent='';
+  document.querySelectorAll('.quiz-diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === difficulty));
+
+  const mins = getDiffMins();
+  const questions=[], usedTimes=new Set();
+  while (questions.length<QUIZ_COUNT) {
+    const h=Math.floor(Math.random()*12)+1;
+    const m=mins[Math.floor(Math.random()*mins.length)];
+    const key=`${h}:${m}`;
+    if (!usedTimes.has(key)) { usedTimes.add(key); questions.push({h,m}); }
+  }
+  let types;
+  if (quizMode==='read')  types=Array(QUIZ_COUNT).fill('readClock');
+  else if (quizMode==='set') types=Array(QUIZ_COUNT).fill('setClock');
+  else types=questions.map((_,i)=>i%2===0?'readClock':'setClock');
+
+  quizState = { questions, types, current:0, results:Array(QUIZ_COUNT).fill(null), answered:false, attempts:Array(QUIZ_COUNT).fill(0) };
+  renderQuizProgress(); loadQuizQuestion();
+}
+
+function loadQuizQuestion() {
+  const q = quizState.questions[quizState.current];
+  const qType = quizState.types[quizState.current];
+  quizState.answered = false;
+  quizScanIndex = -1; quizScanBtns = [];
+
+  document.getElementById('quizFeedback').textContent='';
+  document.getElementById('quizFeedback').className='quiz-feedback';
+  document.getElementById('nextBtn').style.display='none';
+  document.getElementById('retryBtn').style.display='none';
+  document.getElementById('quizClock').style.display='block';
+  document.getElementById('quizQuestion').style.display='block';
+
+  const canvas=document.getElementById('quizClock');
+  const ctx=canvas.getContext('2d');
+  const {hourDeg,minDeg}=timeToAngles(q.h,q.m);
+  const mins = getDiffMins();
+
+  if (qType==='readClock') {
+    document.getElementById('quizQuestion').textContent='⏰ とけいのよみかたは？';
+    drawClock(ctx,260,hourDeg,minDeg,{borderColor:'#FFD700',borderWidth:7});
+    const correct=fmtTime(q.h,q.m);
+    const choices=[correct];
+    while (choices.length<4) {
+      const dh=Math.floor(Math.random()*12)+1;
+      const dm=mins[Math.floor(Math.random()*mins.length)];
+      const f=fmtTime(dh,dm);
+      if (!choices.includes(f)) choices.push(f);
+    }
+    shuffle(choices); renderChoiceButtons(choices,correct,'text');
+  } else {
+    const mm=String(q.m).padStart(2,'0');
+    const label=q.m===0?`${q.h}じちょうど`:`${q.h}じ${mm}ふん`;
+    document.getElementById('quizQuestion').textContent=`🕐 「${label}」の とけいを えらびましょう！`;
+    document.getElementById('quizClock').style.display='none';
+    const correctKey=`${q.h}:${q.m}`;
+    const choices=[{h:q.h,m:q.m}];
+    while (choices.length<4) {
+      const dh=Math.floor(Math.random()*12)+1;
+      const dm=mins[Math.floor(Math.random()*mins.length)];
+      if (!choices.find(c=>c.h===dh&&c.m===dm)) choices.push({h:dh,m:dm});
+    }
+    shuffle(choices); renderChoiceButtons(choices,correctKey,'clock');
+  }
+  renderQuizProgress();
+}
+
+function fmtTime(h,m) {
+  return m===0 ? `${h}じちょうど` : `${h}じ${String(m).padStart(2,'0')}ふん`;
+}
+
+function renderChoiceButtons(choices, correctAnswer, mode) {
+  const area = document.getElementById('quizChoices');
+  area.innerHTML=''; area.style.display='grid';
+  area.style.gridTemplateColumns='1fr 1fr';
+  if (mode==='clock') {
+    choices.forEach(c=>{
+      const btn=document.createElement('button');
+      btn.className='choice-btn'; btn.style.padding='10px';
+      const cvs=document.createElement('canvas'); cvs.width=110; cvs.height=110;
+      btn.appendChild(cvs);
+      const key=`${c.h}:${c.m}`;
+      btn.onclick=()=>{ if(!quizState.answered) handleQuizAnswer(btn,key===correctAnswer,area); };
+      btn.addEventListener('keydown',e=>{ if((e.key===' '||e.key==='Enter')&&!quizState.answered){e.preventDefault();handleQuizAnswer(btn,key===correctAnswer,area);} });
+      area.appendChild(btn);
+      const {hourDeg,minDeg}=timeToAngles(c.h,c.m);
+      setTimeout(()=>drawClock(cvs.getContext('2d'),110,hourDeg,minDeg),0);
+    });
+  } else {
+    choices.forEach(c=>{
+      const btn=document.createElement('button');
+      btn.className='choice-btn'; btn.textContent=c;
+      btn.onclick=()=>{ if(!quizState.answered) handleQuizAnswer(btn,c===correctAnswer,area); };
+      btn.addEventListener('keydown',e=>{ if((e.key===' '||e.key==='Enter')&&!quizState.answered){e.preventDefault();handleQuizAnswer(btn,c===correctAnswer,area);} });
+      area.appendChild(btn);
+    });
+  }
+  quizScanBtns = [...area.querySelectorAll('.choice-btn')];
+}
+
+function handleQuizAnswer(btn, isCorrect, area) {
+  quizState.answered=true;
+  quizState.attempts[quizState.current]++;
+  const fb=document.getElementById('quizFeedback');
+  if (isCorrect) {
+    quizState.results[quizState.current]=true;
+    btn.classList.add('correct');
+    fb.textContent='⭕ すばらしい！ せいかい！';
+    fb.className='quiz-feedback ok';
+    playSound('correct');
+    launchConfetti(20);
+    area.querySelectorAll('.choice-btn').forEach(b=>b.style.pointerEvents='none');
+    renderQuizProgress();
+    if (quizState.current<QUIZ_COUNT-1) {
+      document.getElementById('nextBtn').style.display='block';
+    } else {
+      setTimeout(showQuizFinal,1200);
+    }
+  } else {
+    btn.classList.add('wrong');
+    fb.textContent='❌ ざんねん！ もう一度やり直してみよう！';
+    fb.className='quiz-feedback ng';
+    area.querySelectorAll('.choice-btn').forEach(b=>b.style.pointerEvents='none');
+    document.getElementById('retryBtn').style.display='block';
+  }
+}
+
+function retryQuiz() {
+  quizState.answered=false;
+  quizState.results[quizState.current]=null;
+  document.getElementById('retryBtn').style.display='none';
+  document.getElementById('quizFeedback').textContent='';
+  document.getElementById('quizFeedback').className='quiz-feedback';
+  document.getElementById('quizClock').style.display='block';
+  loadQuizQuestion();
+}
+
+function nextQuiz() {
+  quizState.current++;
+  document.getElementById('quizClock').style.display='block';
+  document.getElementById('retryBtn').style.display='none';
+  loadQuizQuestion();
+}
+
+function renderQuizProgress() {
+  const area=document.getElementById('quizProgress'); area.innerHTML='';
+  for (let i=0;i<QUIZ_COUNT;i++) {
+    const dot=document.createElement('div');
+    const r=quizState.results[i];
+    if (i===quizState.current&&r===null) dot.className='progress-dot current';
+    else if (r===true)  dot.className='progress-dot done';
+    else if (r===false) dot.className='progress-dot wrong';
+    else dot.className='progress-dot';
+    area.appendChild(dot);
+  }
+}
+
+function showQuizFinal() {
+  const correct=quizState.results.filter(Boolean).length;
+  document.getElementById('quizChoices').style.display='none';
+  document.getElementById('quizClock').style.display='none';
+  document.getElementById('quizFeedback').textContent='';
+  document.getElementById('nextBtn').style.display='none';
+  document.getElementById('quizQuestion').style.display='none';
+  document.getElementById('finalScore').textContent=`${correct} / ${QUIZ_COUNT} もん せいかい！`;
+  let msg='';
+  if (correct===QUIZ_COUNT) msg='🎉 かんぺき！すごすぎる！！';
+  else if (correct>=6)      msg='😊 よくできました！';
+  else if (correct>=4)      msg='😃 がんばったね！';
+  else                      msg='💪 またちょうせんしよう！';
+  document.getElementById('finalMsg').textContent=msg;
+  document.getElementById('quizFinal').style.display='block';
+  if (correct>=6) { playSound('clear'); launchConfetti(60); }
+
+  // 先生向けパネル
+  buildTeacherPanel(correct);
+}
+
+function buildTeacherPanel(correct) {
+  const modeNames = { read:'よむもんだい', set:'みつけるもんだい', both:'まぜまぜ' };
+  const diffNames  = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  // Stats boxes
+  document.getElementById('teacherStats').innerHTML = `
+    <div class="stat-box"><div class="stat-num" style="color:#FFD700">${correct}</div><div class="stat-lbl">せいかい</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#ff7675">${QUIZ_COUNT-correct}</div><div class="stat-lbl">まちがい</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#74b9ff">${Math.round(correct/QUIZ_COUNT*100)}%</div><div class="stat-lbl">せいかいりつ</div></div>
+    <div class="stat-box"><div class="stat-num" style="font-size:1.1rem">${diffNames[difficulty]}</div><div class="stat-lbl">むずかしさ</div></div>
+  `;
+
+  // Detail table
+  let rows = quizState.questions.map((q,i)=>{
+    const mm = String(q.m).padStart(2,'0');
+    const timeStr = `${q.h}:${mm}`;
+    const res = quizState.results[i];
+    const att = quizState.attempts[i]||0;
+    const mark = res===true ? '<span class="result-o">⭕</span>' : '<span class="result-x">❌</span>';
+    return `<tr><td>${i+1}</td><td>${timeStr}</td><td>${modeNames[quizState.types[i]]}</td><td>${mark}</td><td>${att}かい</td></tr>`;
+  }).join('');
+
+  document.getElementById('teacherDetail').innerHTML = `
+    <div style="font-size:0.8rem;opacity:0.7;margin-bottom:8px">📅 ${dateStr}　／　モード：${modeNames[quizMode]}</div>
+    <table>
+      <thead><tr><th>No.</th><th>じこく</th><th>もんだいしゅるい</th><th>けっか</th><th>こころみ</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// ============================================================
+// SWITCH SCAN
+// ============================================================
+let scanActive = false;
+
+document.addEventListener('keydown', e => {
+  // スペース or Enter → activate scan / decide
+  if (e.key === ' ' || e.key === 'Enter') {
+    // handled by individual buttons — also activate scan mode
+    if (!scanActive) {
+      scanActive = true;
+      document.body.classList.add('scan-active');
+    }
+  }
+  // Tab → scan next (native tab also works)
+});
+
+// Auto-scan: Tab key moves focus naturally; we just style focused elements
+document.addEventListener('focusin', e => {
+  if (e.target.matches('.choice-btn,.match-card,.tab-btn,.diff-btn,.mode-btn,.new-game-btn,.next-btn')) {
+    if (scanActive) e.target.classList.add('scan-focus');
+  }
+});
+document.addEventListener('focusout', e => {
+  e.target.classList.remove('scan-focus');
+});
+
+// Make nav/diff buttons keyboard-accessible
+document.querySelectorAll('.tab-btn, .diff-btn').forEach(btn => {
+  btn.tabIndex = 0;
+  btn.addEventListener('keydown', e => {
+    if (e.key===' '||e.key==='Enter') { e.preventDefault(); btn.click(); }
+  });
+});
+
+// ============================================================
+// CONFETTI
+// ============================================================
+function launchConfetti(count=50) {
+  const wrap=document.getElementById('confettiWrap');
+  const colors=['#FF6B6B','#4ECDC4','#FFE66D','#a29bfe','#fd79a8','#55efc4','#74b9ff'];
+  for (let i=0;i<count;i++) {
+    const p=document.createElement('div'); p.className='confetti-piece';
+    p.style.cssText=`left:${Math.random()*100}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${1.2+Math.random()*1.5}s;animation-delay:${Math.random()*0.6}s;transform:rotate(${Math.random()*360}deg);`;
+    wrap.appendChild(p); p.addEventListener('animationend',()=>p.remove());
+  }
+}
+
+// ============================================================
+// TAB SWITCHING
+// ============================================================
+function showSection(n) {
+  document.querySelectorAll('.section').forEach((s,i)=>s.classList.toggle('active',i+1===n));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n));
+}
+
+// ============================================================
+// INIT
+// ============================================================
+initMatching();
+</script>
+</body>
+</html>

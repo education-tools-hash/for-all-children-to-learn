@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>しりとりあそび</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&display=swap');
+
+  :root {
+    --sky: #87CEEB;
+    --sun: #FFD700;
+    --grass: #5DBB63;
+    --cloud: #FFFAF0;
+    --correct: #FF6B9D;
+    --wrong: #A8D8EA;
+    --text: #3A3A5C;
+    --card-bg: #FFFDE7;
+    --shadow: rgba(0,0,0,0.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* 絵文字・全要素のアニメーションを静止画に固定 */
+  .emoji-display,
+  .emoji-display * {
+    animation: none !important;
+    transition: transform 0.2s !important;
+    -webkit-animation: none !important;
+  }
+
+  /* Appleなど一部OSで動く絵文字（☀️🌊💧など）を止める */
+  @media (prefers-reduced-motion: no-preference) {
+    .emoji-display {
+      animation-play-state: paused !important;
+      -webkit-animation-play-state: paused !important;
+    }
+  }
+
+  body {
+    font-family: 'Zen Maru Gothic', sans-serif;
+    background: linear-gradient(180deg, #B8E4FF 0%, #E8F8E8 60%, #C8E6C9 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 背景の雲 */
+  .cloud {
+    position: fixed;
+    background: white;
+    border-radius: 50px;
+    opacity: 0.8;
+    pointer-events: none;
+  }
+  .cloud::before, .cloud::after {
+    content: '';
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+  }
+  .cloud1 { width: 120px; height: 40px; top: 8%; left: 5%; animation: drift 20s linear infinite; }
+  .cloud1::before { width: 60px; height: 60px; top: -30px; left: 15px; }
+  .cloud1::after { width: 40px; height: 40px; top: -20px; left: 50px; }
+  .cloud2 { width: 80px; height: 30px; top: 15%; right: 10%; animation: drift 28s linear infinite reverse; }
+  .cloud2::before { width: 40px; height: 40px; top: -20px; left: 10px; }
+  .cloud2::after { width: 30px; height: 30px; top: -15px; left: 35px; }
+  .cloud3 { width: 100px; height: 35px; top: 5%; left: 40%; animation: drift 24s linear infinite; }
+  .cloud3::before { width: 50px; height: 50px; top: -25px; left: 12px; }
+  .cloud3::after { width: 35px; height: 35px; top: -18px; left: 45px; }
+
+  @keyframes drift {
+    0% { transform: translateX(-20px); }
+    50% { transform: translateX(20px); }
+    100% { transform: translateX(-20px); }
+  }
+
+  .app {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ヘッダー */
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .title {
+    font-size: clamp(2rem, 8vw, 3.5rem);
+    font-weight: 900;
+    color: #3A3A5C;
+    text-shadow: 3px 3px 0 #FFD700, 5px 5px 0 rgba(0,0,0,0.1);
+    letter-spacing: 0.05em;
+    line-height: 1.1;
+  }
+
+  .title span {
+    color: #FF6B9D;
+  }
+
+  /* スコア */
+  .score-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+  }
+
+  .score-badge {
+    background: white;
+    border-radius: 50px;
+    padding: 6px 20px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+    box-shadow: 0 3px 10px var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .score-num { color: #FF6B9D; font-size: 1.4rem; }
+
+  /* チェーン表示 */
+  .chain-display {
+    background: white;
+    border-radius: 20px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px var(--shadow);
+    text-align: center;
+  }
+
+  .chain-label {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  .chain-words {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: clamp(1rem, 4vw, 1.3rem);
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .chain-word {
+    background: #F3E5F5;
+    border-radius: 10px;
+    padding: 3px 10px;
+    position: relative;
+  }
+
+  .chain-word .last-char {
+    color: #FF6B9D;
+    font-size: 1.2em;
+  }
+
+  .chain-arrow {
+    color: #FFD700;
+    font-size: 1.3rem;
+  }
+
+  .current-char {
+    background: linear-gradient(135deg, #FF6B9D, #FF8E53);
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 900;
+    box-shadow: 0 4px 12px rgba(255,107,157,0.4);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  /* 質問カード */
+  .question-card {
+    background: white;
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 6px 20px var(--shadow);
+    text-align: center;
+  }
+
+  .question-text {
+    font-size: clamp(1.1rem, 4.5vw, 1.5rem);
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .question-text .highlight {
+    color: #FF6B9D;
+    font-size: 1.3em;
+    display: inline-block;
+    background: #FFF0F7;
+    padding: 2px 10px;
+    border-radius: 8px;
+  }
+
+  /* 選択肢 */
+  .choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .choice-card {
+    background: var(--card-bg);
+    border: 4px solid transparent;
+    border-radius: 24px;
+    padding: 16px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 5px 15px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .choice-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px var(--shadow);
+  }
+
+  .choice-card:active {
+    transform: scale(0.96);
+  }
+
+  .choice-card.correct-anim {
+    background: #FFF0F7;
+    border-color: #FF6B9D;
+    animation: correctBounce 0.5s ease;
+  }
+
+  .choice-card.wrong-anim {
+    background: #F0F8FF;
+    border-color: #A8D8EA;
+    animation: wrongShake 0.4s ease;
+  }
+
+  @keyframes correctBounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.08); }
+    70% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes wrongShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  .emoji-display {
+    font-size: clamp(3.5rem, 15vw, 6rem);
+    line-height: 1;
+    filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.15));
+    transition: transform 0.2s;
+  }
+
+  .choice-card:hover .emoji-display {
+    transform: rotate(-5deg) scale(1.1);
+  }
+
+  .choice-name {
+    font-size: clamp(1.1rem, 4.5vw, 1.5rem);
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+  }
+
+  .choice-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.5rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .choice-card.correct-anim .choice-badge { opacity: 1; }
+  .choice-card.wrong-anim .choice-badge { opacity: 1; }
+
+  /* フィードバック */
+  .feedback {
+    text-align: center;
+    padding: 16px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    font-size: clamp(1.2rem, 5vw, 1.6rem);
+    font-weight: 900;
+    animation: feedbackPop 0.4s ease;
+    display: none;
+  }
+
+  .feedback.show { display: block; }
+
+  .feedback.correct {
+    background: linear-gradient(135deg, #FF6B9D22, #FF8E5322);
+    color: #FF4081;
+    border: 3px solid #FF6B9D;
+  }
+
+  .feedback.wrong {
+    background: linear-gradient(135deg, #A8D8EA22, #B8E4FF22);
+    color: #5BA4CF;
+    border: 3px solid #A8D8EA;
+  }
+
+  @keyframes feedbackPop {
+    0% { transform: scale(0.8); opacity: 0; }
+    60% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* 次へボタン */
+  .next-btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #FF6B9D, #FF8E53);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: clamp(1.2rem, 5vw, 1.6rem);
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,107,157,0.4);
+    transition: all 0.2s;
+    display: none;
+    letter-spacing: 0.05em;
+  }
+
+  .next-btn.show { display: block; }
+
+  .next-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(255,107,157,0.5);
+  }
+
+  .next-btn:active { transform: scale(0.97); }
+
+  /* ゲームオーバー画面 */
+  .gameover {
+    display: none;
+    text-align: center;
+    background: white;
+    border-radius: 28px;
+    padding: 32px 20px;
+    box-shadow: 0 8px 30px var(--shadow);
+  }
+
+  .gameover.show { display: block; }
+
+  .gameover-emoji { font-size: 5rem; margin-bottom: 12px; }
+
+  .gameover-title {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .gameover-score {
+    font-size: 1.4rem;
+    color: #888;
+    margin-bottom: 24px;
+  }
+
+  .gameover-score strong {
+    color: #FF6B9D;
+    font-size: 2rem;
+  }
+
+  .restart-btn {
+    padding: 16px 40px;
+    background: linear-gradient(135deg, #5DBB63, #43A047);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(93,187,99,0.4);
+    transition: all 0.2s;
+  }
+
+  .restart-btn:hover { transform: translateY(-3px); }
+
+  .question-select-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #3A3A5C;
+    margin-bottom: 14px;
+  }
+
+  .question-select-btns {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .q-btn {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #FF6B9D, #e0507e);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 5px 16px rgba(255,107,157,0.4);
+    transition: all 0.2s;
+  }
+
+  .q-btn:hover { transform: translateY(-3px); }
+
+  /* ホームボタン */
+  .home-btn {
+    padding: 8px 18px;
+    background: white;
+    color: #3A3A5C;
+    border: 2px solid #3A3A5C;
+    border-radius: 20px;
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .home-btn:hover { background: #3A3A5C; color: white; }
+
+  /* スタート画面 */
+  #startScreen {
+    text-align: center;
+    padding: 40px 20px 50px;
+    animation: fadeIn 0.5s ease;
+  }
+  .start-emoji { font-size: 5rem; margin-bottom: 16px; }
+  .start-msg {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #3A3A5C;
+    margin-bottom: 28px;
+  }
+  .q-btn.selected {
+    background: linear-gradient(135deg, #5DBB63, #43A047);
+    box-shadow: 0 5px 16px rgba(93,187,99,0.4);
+  }
+
+  /* 星エフェクト */
+  .star {
+    position: fixed;
+    pointer-events: none;
+    font-size: 1.5rem;
+    animation: starFly 1s ease-out forwards;
+    z-index: 100;
+  }
+
+  @keyframes starFly {
+    0% { transform: translateY(0) scale(0.5); opacity: 1; }
+    100% { transform: translateY(-120px) scale(1.5); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cloud cloud1"></div>
+<div class="cloud cloud2"></div>
+<div class="cloud cloud3"></div>
+
+<div class="app">
+  <header>
+    <div class="title">し<span>り</span>と<span>り</span><br>あそび！</div>
+    <div class="score-bar">
+      <div class="score-badge">⭐ <span class="score-num" id="scoreNum">0</span> てん</div>
+      <div class="score-badge">🔥 <span class="score-num" id="streakNum">0</span> れんぞく</div>
+      <button class="home-btn" id="homeBtn" onclick="goHome()" style="display:none">🏠 ホーム</button>
+    </div>
+  </header>
+
+  <!-- スタート画面 -->
+  <div id="startScreen">
+    <div class="start-emoji">🐶🍎🦑</div>
+    <div class="start-msg">なんもん あそぶ？</div>
+    <div class="question-select-btns">
+      <button class="q-btn" onclick="startGame(10)">10もん</button>
+      <button class="q-btn" onclick="startGame(20)">20もん</button>
+      <button class="q-btn" onclick="startGame(30)">30もん</button>
+    </div>
+  </div>
+
+  <div class="chain-display" id="chainDisplay" style="display:none">
+    <div class="chain-label">これまでのしりとり</div>
+    <div class="chain-words" id="chainWords">
+      <span>はじめましょう！</span>
+    </div>
+  </div>
+
+  <div id="gameArea" style="display:none">
+    <div class="question-card">
+      <div class="question-text" id="questionText">
+        「<span class="highlight" id="currentCharDisplay">?</span>」 から はじまる ことばは どれ？
+      </div>
+    </div>
+
+    <div class="choices" id="choices">
+      <div class="choice-card" id="card0" onclick="choose(0)">
+        <div class="choice-badge" id="badge0"></div>
+        <div class="emoji-display" id="emoji0">🐶</div>
+        <div class="choice-name" id="name0">いぬ</div>
+      </div>
+      <div class="choice-card" id="card1" onclick="choose(1)">
+        <div class="choice-badge" id="badge1"></div>
+        <div class="emoji-display" id="emoji1">🐱</div>
+        <div class="choice-name" id="name1">ねこ</div>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">つぎへ ➡️</button>
+  </div>
+
+  <div class="gameover" id="gameover">
+    <div class="gameover-emoji">🎉</div>
+    <div class="gameover-title">よくできました！</div>
+    <div class="gameover-score">スコア: <strong id="finalScore">0</strong> てん</div>
+    <div class="question-select-label">つぎは なんもん あそぶ？</div>
+    <div class="question-select-btns">
+      <button class="q-btn" onclick="restartGame(10)">10もん</button>
+      <button class="q-btn" onclick="restartGame(20)">20もん</button>
+      <button class="q-btn" onclick="restartGame(30)">30もん</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── データ（末尾「ん」の単語は使わない・endは実際の末尾文字）──────
+const words = [
+  { word: 'いぬ',        emoji: '🐶',  start: 'い', end: 'ぬ' },
+  { word: 'ぬいぐるみ',  emoji: '🧸',  start: 'ぬ', end: 'み' },
+  { word: 'ねこ',        emoji: '🐱',  start: 'ね', end: 'こ' },
+  { word: 'こあら',      emoji: '🐨',  start: 'こ', end: 'ら' },
+  { word: 'うさぎ',      emoji: '🐰',  start: 'う', end: 'ぎ' },
+  { word: 'ぎつね',      emoji: '🦊',  start: 'ぎ', end: 'ね' },
+  { word: 'ぞう',        emoji: '🐘',  start: 'ぞ', end: 'う' },
+  { word: 'うし',        emoji: '🐄',  start: 'う', end: 'し' },
+  { word: 'しろくま',    emoji: '🐻‍❄️', start: 'し', end: 'ま' },
+  { word: 'まめ',        emoji: '🫘',  start: 'ま', end: 'め' },
+  { word: 'めだまやき',  emoji: '🍳',  start: 'め', end: 'き' },
+  { word: 'かに',        emoji: '🦀',  start: 'か', end: 'に' },
+  { word: 'にわとり',    emoji: '🐔',  start: 'に', end: 'り' },
+  { word: 'りす',        emoji: '🐿️',  start: 'り', end: 'す' },
+  { word: 'すいか',      emoji: '🍉',  start: 'す', end: 'か' },
+  { word: 'かめ',        emoji: '🐢',  start: 'か', end: 'め' },
+  { word: 'めがね',      emoji: '👓',  start: 'め', end: 'ね' },
+  { word: 'ねずみ',      emoji: '🐭',  start: 'ね', end: 'み' },
+  { word: 'みつばち',    emoji: '🐝',  start: 'み', end: 'ち' },
+  { word: 'ちきゅう',    emoji: '🌍',  start: 'ち', end: 'う' },
+  { word: 'うま',        emoji: '🐴',  start: 'う', end: 'ま' },
+  { word: 'まつぼっくり',emoji: '🌰',  start: 'ま', end: 'り' },
+  { word: 'ろば',        emoji: '🫏',  start: 'ろ', end: 'ば' },
+  { word: 'ばなな',      emoji: '🍌',  start: 'ば', end: 'な' },
+  { word: 'なす',        emoji: '🍆',  start: 'な', end: 'す' },
+  { word: 'すずめ',      emoji: '🐦',  start: 'す', end: 'め' },
+  { word: 'のこぎり',    emoji: '🪚',  start: 'の', end: 'り' },
+  { word: 'にじ',        emoji: '🌈',  start: 'に', end: 'じ' },
+  { word: 'じてんしゃ',  emoji: '🚲',  start: 'じ', end: 'ゃ' },
+  { word: 'やきとり',    emoji: '🍗',  start: 'や', end: 'り' },
+  { word: 'りんご',      emoji: '🍎',  start: 'り', end: 'ご' },
+  { word: 'ごりら',      emoji: '🦍',  start: 'ご', end: 'ら' },
+  { word: 'らっこ',      emoji: '🦦',  start: 'ら', end: 'こ' },
+  { word: 'こいぬ',      emoji: '🐕',  start: 'こ', end: 'ぬ' },
+  { word: 'ぬりえ',      emoji: '🖍️',  start: 'ぬ', end: 'え' },
+  { word: 'びわこ',      emoji: '🏞️',  start: 'び', end: 'こ' },
+  { word: 'わに',        emoji: '🐊',  start: 'わ', end: 'に' },
+  { word: 'にく',        emoji: '🥩',  start: 'に', end: 'く' },
+  { word: 'じどうしゃ',  emoji: '🚗',  start: 'じ', end: 'ゃ' },
+  { word: 'やさい',      emoji: '🥬',  start: 'や', end: 'い' },
+  { word: 'いちご',      emoji: '🍓',  start: 'い', end: 'ご' },
+  { word: 'ごぼう',      emoji: '🌿',  start: 'ご', end: 'う' },
+  { word: 'まつ',        emoji: '🌲',  start: 'ま', end: 'つ' },
+  { word: 'つき',        emoji: '🌙',  start: 'つ', end: 'き' },
+  { word: 'きのこ',      emoji: '🍄',  start: 'き', end: 'こ' },
+  { word: 'こうもり',    emoji: '🦇',  start: 'こ', end: 'り' },
+  { word: 'らっぱ',      emoji: '📯',  start: 'ら', end: 'ぱ' },
+  { word: 'うみ',        emoji: '🏖️',  start: 'う', end: 'み' },
+  { word: 'みぞれ',      emoji: '🌨️',  start: 'み', end: 'れ' },
+  { word: 'まりも',      emoji: '🟢',  start: 'ま', end: 'も' },
+  { word: 'らくだ',      emoji: '🐪',  start: 'ら', end: 'だ' },
+  { word: 'だんご',      emoji: '🍡',  start: 'だ', end: 'ご' },
+  { word: 'うぐいす',    emoji: '🐦',  start: 'う', end: 'す' },
+  { word: 'れいぞうこ',  emoji: '🥶',  start: 'れ', end: 'こ' },
+  { word: 'こぶた',      emoji: '🐷',  start: 'こ', end: 'た' },
+  { word: 'たこ',        emoji: '🐙',  start: 'た', end: 'こ' },
+  { word: 'くじら',      emoji: '🐋',  start: 'く', end: 'ら' },
+  { word: 'くま',        emoji: '🐻',  start: 'く', end: 'ま' },
+  { word: 'くも',        emoji: '🕷️',  start: 'く', end: 'も' },
+  { word: 'もも',        emoji: '🍑',  start: 'も', end: 'も' },
+  { word: 'ふくろう',    emoji: '🦉',  start: 'ふ', end: 'う' },
+  { word: 'てんとうむし',emoji: '🐞',  start: 'て', end: 'し' },
+  { word: 'しか',        emoji: '🦌',  start: 'し', end: 'か' },
+  { word: 'かえる',      emoji: '🐸',  start: 'か', end: 'る' },
+  { word: 'さる',        emoji: '🐒',  start: 'さ', end: 'る' },
+  { word: 'るびー',      emoji: '💎',  start: 'る', end: 'び' },
+  { word: 'ばす',        emoji: '🚌',  start: 'ば', end: 'す' },
+  { word: 'たぬき',      emoji: '🦝',  start: 'た', end: 'き' },
+  { word: 'とら',        emoji: '🐯',  start: 'と', end: 'ら' },
+  { word: 'ぱんだ',      emoji: '🐼',  start: 'ぱ', end: 'だ' },
+  { word: 'ぼうし',      emoji: '🎩',  start: 'ぼ', end: 'し' },
+  { word: 'しんごう',    emoji: '🚦',  start: 'し', end: 'う' },
+  { word: 'みかづき',    emoji: '🌙',  start: 'み', end: 'き' },
+  { word: 'ひつじ',      emoji: '🐑',  start: 'ひ', end: 'じ' },
+  { word: 'じゅーす',    emoji: '🧃',  start: 'じ', end: 'す' },
+  { word: 'すべりだい',  emoji: '🛝',  start: 'す', end: 'い' },
+  { word: 'いのしし',    emoji: '🐗',  start: 'い', end: 'し' },
+  { word: 'しまうま',    emoji: '🦓',  start: 'し', end: 'ま' },
+  { word: 'ぷどう',      emoji: '🍇',  start: 'ぷ', end: 'う' },  // ぷりん→ぷどう
+  { word: 'りゅっく',    emoji: '🎒',  start: 'り', end: 'く' },
+  { word: 'うでとけい',  emoji: '⌚',  start: 'う', end: 'い' },
+  { word: 'いか',        emoji: '🦑',  start: 'い', end: 'か' },
+  { word: 'かぼちゃ',    emoji: '🎃',  start: 'か', end: 'ゃ' },
+  { word: 'やきゅう',    emoji: '⚾',  start: 'や', end: 'う' },
+  { word: 'うえき',      emoji: '🪴',  start: 'う', end: 'き' },
+  { word: 'ぎたー',      emoji: '🎸',  start: 'ぎ', end: 'た' },
+  { word: 'がっこう',    emoji: '🏫',  start: 'が', end: 'う' },
+  { word: 'えんぴつ',    emoji: '✏️',  start: 'え', end: 'つ' },
+  { word: 'つる',        emoji: '🦢',  start: 'つ', end: 'る' },
+  { word: 'へび',        emoji: '🐍',  start: 'へ', end: 'び' },
+  { word: 'あり',        emoji: '🐜',  start: 'あ', end: 'り' },
+  { word: 'あひる',      emoji: '🦆',  start: 'あ', end: 'る' },
+  { word: 'えび',        emoji: '🦐',  start: 'え', end: 'び' },
+  { word: 'さかな',      emoji: '🐟',  start: 'さ', end: 'な' },
+  { word: 'ながぐつ',    emoji: '🥾',  start: 'な', end: 'つ' },
+  { word: 'はさみ',      emoji: '✂️',  start: 'は', end: 'み' },
+  { word: 'むし',        emoji: '🐛',  start: 'む', end: 'し' },
+  { word: 'のりもの',    emoji: '🚃',  start: 'の', end: 'の' },
+  { word: 'むらさき',    emoji: '💜',  start: 'む', end: 'き' },
+  { word: 'ずこう',      emoji: '🎨',  start: 'ず', end: 'う' },
+  { word: 'えんそく',    emoji: '🌄',  start: 'え', end: 'く' },
+  { word: 'くつ',        emoji: '👟',  start: 'く', end: 'つ' },
+  { word: 'ふね',        emoji: '🚢',  start: 'ふ', end: 'ね' },
+];
+
+// 拗音・小書き文字を正規化（「ちゃ」→「や」など）
+function normalizeChar(c) {
+  const map = { 'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お',
+                'っ':'つ','ゃ':'や','ゅ':'ゆ','ょ':'よ','ゎ':'わ' };
+  // 複数文字の場合は最後の文字を正規化
+  const last = c[c.length - 1];
+  return map[last] || last;
+}
+
+// 単語のstart/endを正規化して統一
+const wordData = words.map(w => ({
+  ...w,
+  startN: normalizeChar(w.start),
+  endN:   normalizeChar(w.end),
+})).filter(w => w.endN !== 'ん'); // 「ん」で終わる単語は除外
+
+// ── ひっかけ単語（「ん」終わり）─────────────────────────────
+// startNごとにグループ化して、currentCharに合わせたひっかけを出せるように
+const trapWords = [
+  { word: 'みかん',      emoji: '🍊', startN: 'み' },
+  { word: 'すいかん',    emoji: '📚', startN: 'す' },
+  { word: 'くまのこどもさん', emoji: '🐻', startN: 'く' },
+  { word: 'かばん',      emoji: '👜', startN: 'か' },
+  { word: 'にんじん',    emoji: '🥕', startN: 'に' },
+  { word: 'らいおん',    emoji: '🦁', startN: 'ら' },
+  { word: 'しんぶん',    emoji: '📰', startN: 'し' },
+  { word: 'たんぽぽさん',emoji: '🌼', startN: 'た' },
+  { word: 'えんぴつさん',emoji: '✏️', startN: 'え' },
+  { word: 'うちゅうじん',emoji: '👾', startN: 'う' },
+  { word: 'こうえん',    emoji: '🌳', startN: 'こ' },
+  { word: 'もりのおうさん',emoji:'🦁', startN: 'も' },
+  { word: 'のりもん',    emoji: '🚃', startN: 'の' },
+  { word: 'ふうせん',    emoji: '🎈', startN: 'ふ' },
+  { word: 'はっぱさん',  emoji: '🍃', startN: 'は' },
+  { word: 'ぞうさん',    emoji: '🐘', startN: 'ぞ' },
+  { word: 'りんごうさん',emoji: '🍎', startN: 'り' },
+  { word: 'まんがさん',  emoji: '📖', startN: 'ま' },
+  { word: 'ながれぼしさん',emoji:'⭐', startN: 'な' },
+  { word: 'とけいさん',  emoji: '⏰', startN: 'と' },
+];
+
+// ── ゲーム状態 ──────────────────────────────────────────────
+let score = 0;
+let streak = 0;
+let currentChar = 'い'; // 正規化済み
+let chain = [];          // 使った単語オブジェクト配列
+let usedWords = new Set();
+let answered = false;
+let correctIdx = 0;
+let questionsAnswered = 0;
+let MAX_QUESTIONS = 10;
+let isTrapQuestion = false;   // 今回の問題がひっかけかどうか
+let trapWordShown = null;      // 出題中のひっかけ単語
+
+// ── 音声合成 ────────────────────────────────────────────────
+// 利用可能な日本語音声を選ぶ（Google/Microsoft系を優先）
+function getJaVoice() {
+  const voices = speechSynthesis.getVoices();
+  // 優先順：Google日本語 → Microsoft日本語 → ja-JPの何れか
+  return (
+    voices.find(v => v.lang === 'ja-JP' && /google/i.test(v.name)) ||
+    voices.find(v => v.lang === 'ja-JP' && /microsoft.*haruka/i.test(v.name)) ||
+    voices.find(v => v.lang === 'ja-JP' && /microsoft/i.test(v.name)) ||
+    voices.find(v => v.lang === 'ja-JP') ||
+    null
+  );
+}
+
+// フレーズを句読点・スラッシュで分割し、間（ポーズ）を入れて自然に読む
+function speak(text, rate = 1.0, pitch = 1.15) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+
+  //「/」で区切られた部分を順番に発話（自然な間を作る）
+  const parts = text.split('/').map(s => s.trim()).filter(Boolean);
+
+  let delay = 0;
+  parts.forEach((part, i) => {
+    setTimeout(() => {
+      const utter = new SpeechSynthesisUtterance(part);
+      utter.lang  = 'ja-JP';
+      utter.rate  = rate;
+      utter.pitch = pitch;
+      const voice = getJaVoice();
+      if (voice) utter.voice = voice;
+      speechSynthesis.speak(utter);
+    }, delay);
+    // 次のパーツまでの待機時間（文字数に比例 + 固定の間）
+    delay += part.length * 120 + 300;
+  });
+}
+
+// 音声リスト読み込み後に再取得できるよう登録
+if (typeof speechSynthesis !== 'undefined') {
+  speechSynthesis.onvoiceschanged = () => { /* キャッシュ不要、都度取得 */ };
+}
+
+// ── ユーティリティ ──────────────────────────────────────────
+function getCorrectWords(char) {
+  return wordData.filter(w => w.startN === char && !usedWords.has(w.word));
+}
+
+function getWrongWords(char) {
+  return wordData.filter(w => w.startN !== char);
+}
+
+// 現在のcharから先にしりとりが続けられるか確認し、詰まったらリセット
+function ensureContinuable(char) {
+  const nexts = getCorrectWords(char);
+  if (nexts.length === 0) {
+    // 詰まったら使用済みをリセットして続けられる文字に変更
+    usedWords.clear();
+    const allStarts = [...new Set(wordData.map(w => w.startN))];
+    currentChar = allStarts[Math.floor(Math.random() * allStarts.length)];
+  }
+}
+
+// ── 問題生成 ────────────────────────────────────────────────
+function loadQuestion() {
+  answered = false;
+  isTrapQuestion = false;
+  trapWordShown = null;
+  ensureContinuable(currentChar);
+
+  const corrects = getCorrectWords(currentChar);
+  const wrongs   = getWrongWords(currentChar);
+
+  const correctWord = corrects[Math.floor(Math.random() * corrects.length)];
+
+  // 約10問に1回ひっかけ問題を出す
+  const trapCandidates = trapWords.filter(t => t.startN === currentChar);
+  const useTrap = trapCandidates.length > 0 && Math.random() < 0.2;
+
+  let wrongWord;
+  if (useTrap) {
+    isTrapQuestion = true;
+    trapWordShown = trapCandidates[Math.floor(Math.random() * trapCandidates.length)];
+    wrongWord = trapWordShown;
+  } else {
+    wrongWord = wrongs[Math.floor(Math.random() * wrongs.length)];
+  }
+
+  // ランダムに左右配置
+  const isCorrectLeft = Math.random() < 0.5;
+  const leftWord  = isCorrectLeft ? correctWord : wrongWord;
+  const rightWord = isCorrectLeft ? wrongWord   : correctWord;
+  correctIdx = isCorrectLeft ? 0 : 1;
+
+  // 表示更新
+  document.getElementById('currentCharDisplay').textContent = currentChar;
+  document.getElementById('emoji0').textContent = leftWord.emoji;
+  document.getElementById('name0').textContent  = leftWord.word;
+  document.getElementById('emoji1').textContent = rightWord.emoji;
+  document.getElementById('name1').textContent  = rightWord.word;
+
+  // カードリセット
+  [0, 1].forEach(i => {
+    const card = document.getElementById('card' + i);
+    card.classList.remove('correct-anim', 'wrong-anim');
+    card.style.pointerEvents = 'auto';
+    document.getElementById('badge' + i).textContent = '';
+  });
+
+  document.getElementById('feedback').classList.remove('show', 'correct', 'wrong');
+  document.getElementById('nextBtn').classList.remove('show');
+
+  setTimeout(() => {
+    speak(`「${currentChar}」`, 0.85, 1.2);
+    setTimeout(() => speak(`から はじまる ことばは、 どれ？`, 0.95, 1.1), 1200);
+  }, 300);
+}
+
+// ── 選択処理 ────────────────────────────────────────────────
+function choose(idx) {
+  if (answered) return;
+  answered = true;
+
+  const shown = [
+    { word: document.getElementById('name0').textContent },
+    { word: document.getElementById('name1').textContent },
+  ];
+  const isCorrect   = (idx === correctIdx);
+  const correctWord = shown[correctIdx];
+  const card        = document.getElementById('card' + idx);
+  const correctCard = document.getElementById('card' + correctIdx);
+  const feedback    = document.getElementById('feedback');
+
+  // カードをクリックしたとき、その単語を音声で読む
+  speak(shown[idx].word, 0.85, 1.1);
+
+  if (isCorrect) {
+    card.classList.add('correct-anim');
+    document.getElementById('badge' + idx).textContent = '⭕';
+    score += streak >= 2 ? 20 : 10;
+    streak++;
+    feedback.textContent = `⭕ せいかい！ 「${correctWord.word}」 だよ！🎉`;
+    feedback.className = 'feedback show correct';
+    spawnStars(card);
+
+    const matched = wordData.find(w => w.word === correctWord.word);
+    if (matched) {
+      usedWords.add(matched.word);
+      chain.push(matched);
+      currentChar = matched.endN; // 次の文字を正規化済みで更新
+      updateChain();
+    }
+    setTimeout(() => speak(`正解！ / ${correctWord.word}！ / すごい ね！`, 1.0, 1.2), 600);
+  } else {
+    card.classList.add('wrong-anim');
+    document.getElementById('badge' + idx).textContent = '❌';
+    correctCard.classList.add('correct-anim');
+    document.getElementById('badge' + correctIdx).textContent = '⭕';
+    streak = 0;
+
+    if (isTrapQuestion) {
+      // ひっかけに引っかかった！→ゲームオーバーへ
+      feedback.textContent = `❌ ざんねん！「${shown[idx].word}」は「ん」でおわるよ！`;
+      feedback.className = 'feedback show wrong';
+      [0, 1].forEach(i => document.getElementById('card' + i).style.pointerEvents = 'none');
+      document.getElementById('scoreNum').textContent  = score;
+      document.getElementById('streakNum').textContent = streak;
+      setTimeout(() => speak(`ざんねん！ / 「${shown[idx].word}」は、 「ん」で おわるよ！ / しりとりは「ん」が ついたら まけ！`, 0.95, 1.05), 300);
+      setTimeout(() => showTrapGameover(shown[idx].word), 2800);
+      return;
+    } else {
+      feedback.textContent = `❌ ざんねん… 「${correctWord.word}」 だったよ！`;
+      feedback.className = 'feedback show wrong';
+      // 不正解でも正解単語を使って次へ進む（しりとりを繋げる）
+      const matched = wordData.find(w => w.word === correctWord.word);
+      if (matched) {
+        usedWords.add(matched.word);
+        chain.push(matched);
+        currentChar = matched.endN;
+        updateChain();
+      }
+      setTimeout(() => speak(`ざんねん。 / ${correctWord.word} だよ。 / また がんばろう！`, 0.95, 1.05), 600);
+    }
+  }
+
+  [0, 1].forEach(i => {
+    document.getElementById('card' + i).style.pointerEvents = 'none';
+  });
+
+  document.getElementById('scoreNum').textContent  = score;
+  document.getElementById('streakNum').textContent = streak;
+  questionsAnswered++;
+
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.textContent = questionsAnswered >= MAX_QUESTIONS ? '🏁 けっか を みる！' : 'つぎへ ➡️';
+  nextBtn.classList.add('show');
+}
+
+// ── チェーン表示更新 ────────────────────────────────────────
+function updateChain() {
+  const container = document.getElementById('chainWords');
+  if (chain.length === 0) {
+    container.innerHTML = '<span>はじめましょう！</span>';
+    return;
+  }
+
+  const display = chain.slice(-4); // 最大4つ表示
+  let html = '';
+  display.forEach((w, i) => {
+    const chars = w.word.split('');
+    const wordHtml = chars.map((c, ci) => {
+      if (ci === chars.length - 1) return `<span class="last-char">${c}</span>`;
+      return c;
+    }).join('');
+    html += `<span class="chain-word">${w.emoji} ${wordHtml}</span>`;
+    if (i < display.length - 1) html += `<span class="chain-arrow">→</span>`;
+  });
+  html += `<span class="chain-arrow">→</span><span class="current-char">${currentChar}</span>`;
+  container.innerHTML = html;
+}
+
+// ── 次の問題 ────────────────────────────────────────────────
+function nextQuestion() {
+  if (questionsAnswered >= MAX_QUESTIONS) {
+    showGameover();
+    return;
+  }
+  loadQuestion();
+}
+
+// ── ひっかけゲームオーバー ─────────────────────────────────
+function showTrapGameover(trapWord) {
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('chainDisplay').style.display = 'none';
+  const go = document.getElementById('gameover');
+  go.classList.add('show');
+  document.querySelector('.gameover-emoji').textContent = '😵';
+  document.querySelector('.gameover-title').textContent = `「${trapWord}」は「ん」でおわるよ！`;
+  document.querySelector('.gameover-score').innerHTML =
+    `スコア: <strong>${score}</strong> てん`;
+  document.querySelector('.question-select-label').textContent = 'もういちど あそぶ？';
+}
+
+// ── ゲームオーバー ──────────────────────────────────────────
+function showGameover() {
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('chainDisplay').style.display = 'none';
+  const go = document.getElementById('gameover');
+  go.classList.add('show');
+  document.getElementById('finalScore').textContent = score;
+  document.querySelector('.gameover-score').innerHTML =
+    `${MAX_QUESTIONS}もん スコア: <strong id="finalScore">${score}</strong> てん`;
+
+  const msg = score >= 160 ? '🌟 かんぺき！' : score >= 100 ? '🎊 すごい！' : '😊 よくがんばった！';
+  document.querySelector('.gameover-emoji').textContent = score >= 160 ? '🏆' : '🎉';
+  document.querySelector('.gameover-title').textContent = msg;
+  speak(`ゲーム おわり！ / スコアは ${score}てん でした。 / ${score >= 100 ? 'すごーい！' : 'よく がんばりました！'}`, 1.0, 1.1);
+}
+
+// ── リスタート ──────────────────────────────────────────────
+function restartGame(numQuestions) {
+  MAX_QUESTIONS = numQuestions || MAX_QUESTIONS;
+  score = 0;
+  streak = 0;
+  questionsAnswered = 0;
+  currentChar = 'い';
+  chain = [];
+  usedWords = new Set();
+
+  // 選択ボタンのハイライト更新
+  document.querySelectorAll('.q-btn').forEach(btn => btn.classList.remove('selected'));
+
+  document.getElementById('scoreNum').textContent = 0;
+  document.getElementById('streakNum').textContent = 0;
+  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('gameArea').style.display = 'block';
+  document.getElementById('chainDisplay').style.display = 'block';
+  updateChain();
+  loadQuestion();
+}
+
+// ── 星エフェクト ────────────────────────────────────────────
+function spawnStars(card) {
+  const rect = card.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const emojis = ['⭐', '🌟', '✨', '💫'];
+
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      const star = document.createElement('div');
+      star.className = 'star';
+      star.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      star.style.left = (cx + (Math.random() - 0.5) * 80) + 'px';
+      star.style.top = cy + 'px';
+      document.body.appendChild(star);
+      setTimeout(() => star.remove(), 1000);
+    }, i * 80);
+  }
+}
+
+// ── ホームに戻る ─────────────────────────────────────────────
+function goHome() {
+  speechSynthesis.cancel();
+  score = 0;
+  streak = 0;
+  questionsAnswered = 0;
+  currentChar = 'い';
+  chain = [];
+  usedWords = new Set();
+
+  document.getElementById('scoreNum').textContent = 0;
+  document.getElementById('streakNum').textContent = 0;
+  document.getElementById('homeBtn').style.display = 'none';
+  document.getElementById('startScreen').style.display = 'block';
+  document.getElementById('chainDisplay').style.display = 'none';
+  document.getElementById('gameArea').style.display = 'none';
+  document.getElementById('gameover').classList.remove('show');
+}
+
+// ── スタート ────────────────────────────────────────────────
+function startGame(numQuestions) {
+  MAX_QUESTIONS = numQuestions;
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('chainDisplay').style.display = 'block';
+  document.getElementById('gameArea').style.display = 'block';
+  document.getElementById('homeBtn').style.display = 'inline-block';
+  updateChain();
+  loadQuestion();
+}
+
+// ── 起動（スタート画面を表示するだけ）────────────────────────
+// ゲームはstartGame()が呼ばれてから始まる
+</script>
+</body>
+</html>

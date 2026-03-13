@@ -1,0 +1,2307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>おんがくあそび</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1929;
+    --surface2: #252438;
+    --accent1: #ff6b6b;
+    --accent2: #ffd93d;
+    --accent3: #6bcb77;
+    --accent4: #4d96ff;
+    --accent5: #c77dff;
+    --accent6: #ff9f1c;
+    --text: #fffffe;
+    --text-dim: #a7a9be;
+    --radius: 20px;
+    --radius-lg: 32px;
+    --rec-red: #ff3b3b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* ===== HOME ===== */
+  #screen-home {
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at 30% 30%, #1e1b4b 0%, #0f0e17 60%);
+    gap: 36px;
+    padding: 40px 20px;
+  }
+  .home-notes {
+    display: flex; gap: 12px; font-size: 3rem;
+    animation: float 3s ease-in-out infinite;
+  }
+  .home-notes span:nth-child(2) { animation-delay: 0.3s; }
+  .home-notes span:nth-child(3) { animation-delay: 0.6s; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  .home-title { text-align: center; }
+  .home-title h1 {
+    font-size: clamp(3rem, 10vw, 6rem); font-weight: 900; line-height: 1;
+    background: linear-gradient(135deg, var(--accent2) 0%, var(--accent1) 50%, var(--accent5) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    letter-spacing: -2px;
+  }
+  .home-title p { font-size: 1.2rem; color: var(--text-dim); margin-top: 8px; }
+  .home-buttons { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 340px; }
+  .btn-home {
+    border: none; border-radius: var(--radius-lg); padding: 22px 32px;
+    font-family: inherit; font-size: 1.4rem; font-weight: 900; cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+    display: flex; align-items: center; gap: 16px; justify-content: center;
+  }
+  .btn-home:active { transform: scale(0.96); }
+  .btn-play { background: linear-gradient(135deg, var(--accent3), var(--accent4)); color: #0f0e17; box-shadow: 0 8px 32px rgba(107,203,119,0.4); }
+  .btn-record-home { background: linear-gradient(135deg, var(--rec-red), #ff6b6b); color: white; box-shadow: 0 8px 32px rgba(255,59,59,0.4); }
+  .btn-teacher { background: var(--surface2); color: var(--text); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .btn-home .icon { font-size: 1.8rem; }
+
+  /* ===== COMMON HEADER ===== */
+  .screen-header {
+    background: var(--surface); padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid var(--surface2);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .screen-header h2 { font-size: 1.2rem; font-weight: 900; flex: 1; }
+  .btn-back {
+    background: var(--surface2); border: none; color: var(--text);
+    font-family: inherit; font-size: 1rem; padding: 10px 18px;
+    border-radius: 50px; cursor: pointer; font-weight: 700; transition: background 0.15s; white-space: nowrap;
+  }
+  .btn-back:hover { background: #353450; }
+
+  /* ===== TEACHER SCREEN ===== */
+  #screen-teacher { background: var(--bg); }
+  .teacher-content {
+    padding: 24px; max-width: 600px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 24px; padding-bottom: 100px;
+  }
+  .settings-section {
+    background: var(--surface); border-radius: var(--radius); padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .settings-section h3 {
+    font-size: 1rem; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .setting-row label { font-size: 1.05rem; font-weight: 700; flex: 1; }
+  .setting-row .hint { font-size: 0.8rem; color: var(--text-dim); display: block; margin-top: 2px; font-weight: 400; }
+  .toggle { position: relative; width: 56px; height: 30px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--surface2); border-radius: 30px; cursor: pointer; transition: 0.3s; }
+  .toggle-slider:before { content:''; position:absolute; width:22px; height:22px; left:4px; top:4px; background:var(--text-dim); border-radius:50%; transition:0.3s; }
+  .toggle input:checked + .toggle-slider { background: var(--accent3); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(26px); background: white; }
+  select.styled {
+    background: var(--surface2); color: var(--text); border: none; border-radius: 12px;
+    padding: 10px 14px; font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; outline: none; min-width: 120px;
+  }
+  .range-wrap { display: flex; align-items: center; gap: 12px; flex: 1; justify-content: flex-end; }
+  input[type=range] { -webkit-appearance:none; width:120px; height:6px; border-radius:3px; background:var(--surface2); outline:none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--accent4); cursor:pointer; }
+  .range-val { min-width: 36px; text-align: center; font-weight: 900; color: var(--accent4); }
+  .btn-grid-setting { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 10px; margin-top: 8px; }
+  .sound-btn-config {
+    background: var(--surface2); border: 2px solid transparent; border-radius: 14px;
+    padding: 10px 6px; cursor: pointer; display: flex; flex-direction: column;
+    align-items: center; gap: 4px; transition: all 0.15s; color: var(--text); font-family: inherit;
+  }
+  .sound-btn-config:hover { border-color: var(--accent4); }
+  .sound-btn-config.active { border-color: var(--accent4); background: rgba(77,150,255,0.15); }
+  .sound-btn-config .btn-emoji { font-size: 1.8rem; }
+  .sound-btn-config .btn-name { font-size: 0.6rem; font-weight: 700; color: var(--text-dim); text-align: center; }
+  .color-palette { display: flex; gap: 10px; flex-wrap: wrap; }
+  .color-dot { width: 36px; height: 36px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.15s, border-color 0.15s; }
+  .color-dot:hover, .color-dot.active { transform: scale(1.2); border-color: white; }
+  .btn-detail { background: var(--surface2); border-radius: var(--radius); padding: 16px; display: none; flex-direction: column; gap: 12px; }
+  .btn-detail.visible { display: flex; }
+  .btn-detail h4 { font-size: 0.9rem; color: var(--text-dim); }
+  .btn-save {
+    background: linear-gradient(135deg, var(--accent4), var(--accent5)); border: none; color: white;
+    font-family: inherit; font-size: 1.2rem; font-weight: 900; padding: 20px;
+    border-radius: var(--radius); cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+    box-shadow: 0 6px 24px rgba(77,150,255,0.35);
+  }
+  .btn-save:active { transform: scale(0.97); }
+
+  /* ===== PIN MODAL ===== */
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center; }
+  .modal-bg.active { display: flex; }
+  .modal { background:var(--surface); border-radius:var(--radius-lg); padding:32px; width:90%; max-width:360px; display:flex; flex-direction:column; gap:20px; text-align:center; }
+  .modal h3 { font-size: 1.4rem; }
+  .modal p { color: var(--text-dim); font-size: 0.95rem; }
+  .pin-display { display: flex; gap: 12px; justify-content: center; }
+  .pin-dot { width:20px; height:20px; border-radius:50%; background:var(--surface2); border:2px solid var(--text-dim); transition:all 0.15s; }
+  .pin-dot.filled { background: var(--accent4); border-color: var(--accent4); }
+  .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .pin-key { background:var(--surface2); border:none; color:var(--text); font-family:inherit; font-size:1.5rem; font-weight:900; padding:18px; border-radius:14px; cursor:pointer; transition:background 0.1s, transform 0.1s; }
+  .pin-key:active { background: var(--accent4); transform: scale(0.94); }
+  .pin-key.del { font-size: 1.2rem; color: var(--accent1); }
+  .pin-error { color: var(--accent1); font-size: 0.9rem; display: none; }
+  .pin-error.visible { display: block; }
+
+  /* ===== PLAY SCREEN ===== */
+  #screen-play { background: var(--bg); }
+  .play-header { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+  .play-header .profile { display: flex; align-items: center; gap: 12px; }
+  .play-header .profile-icon { font-size: 2rem; width: 46px; height: 46px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; }
+  .play-header h2 { font-size: 1.1rem; font-weight: 900; }
+  .play-header .mode-label { font-size: 0.8rem; color: var(--text-dim); }
+  .scan-indicator { display:none; background:var(--surface2); border-radius:50px; padding:6px 14px; font-size:0.85rem; font-weight:700; color:var(--accent2); align-items:center; gap:6px; }
+  .scan-indicator.visible { display: flex; }
+  .scan-dot { width:8px; height:8px; border-radius:50%; background:var(--accent2); animation:blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .play-area { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+  .sound-grid { display: grid; gap: 16px; flex: 1; }
+  .sound-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .sound-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .sound-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .sound-button {
+    border: none; border-radius: var(--radius-lg); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; transition: transform 0.08s; position: relative; overflow: hidden;
+    aspect-ratio: 1; min-height: 100px; font-family: inherit;
+  }
+  .sound-button:active { transform: scale(0.93); }
+  .sound-button.scanning { outline: 5px solid white; outline-offset: 3px; animation: scanPulse 0.5s ease-in-out infinite alternate; }
+  @keyframes scanPulse { from{outline-color:white;box-shadow:0 0 0 rgba(255,255,255,0)} to{outline-color:var(--accent2);box-shadow:0 0 20px rgba(255,211,61,0.6)} }
+  .sound-button.playing { animation: playBounce 0.3s ease; }
+  @keyframes playBounce { 0%{transform:scale(1)} 40%{transform:scale(0.88)} 70%{transform:scale(1.06)} 100%{transform:scale(1)} }
+  .sound-button .btn-icon { font-size: clamp(2rem, 8vw, 3.5rem); }
+  .sound-button .btn-label { font-size: clamp(0.8rem, 3vw, 1.1rem); font-weight: 900; color: rgba(0,0,0,0.75); padding: 0 8px; text-align: center; }
+  .ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,0.5); transform:scale(0); animation:rippleAnim 0.5s linear; pointer-events:none; }
+  @keyframes rippleAnim { to{transform:scale(4);opacity:0} }
+  .bgm-bar { background:var(--surface); border-radius:var(--radius); padding:14px 18px; display:flex; align-items:center; gap:14px; }
+  .bgm-bar .bgm-icon { font-size: 1.5rem; }
+  .bgm-bar .bgm-title { font-size: 0.95rem; font-weight: 700; flex: 1; }
+  .bgm-bar .bgm-status { font-size: 0.8rem; color: var(--text-dim); }
+  .btn-bgm { background:var(--surface2); border:none; color:var(--text); font-family:inherit; font-size:1.2rem; width:44px; height:44px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
+  .btn-bgm.playing { background: var(--accent3); color: #0f0e17; }
+  .feedback-overlay { position:fixed; inset:0; pointer-events:none; z-index:50; display:flex; align-items:center; justify-content:center; }
+  .feedback-emoji { font-size:8rem; opacity:0; transform:scale(0.5); transition:opacity 0.1s, transform 0.1s; filter:drop-shadow(0 0 20px rgba(255,255,255,0.5)); }
+  .feedback-emoji.show { opacity:1; transform:scale(1.2); animation:feedbackAnim 0.6s ease forwards; }
+  @keyframes feedbackAnim { 0%{opacity:1;transform:scale(0.8)} 40%{opacity:1;transform:scale(1.3)} 100%{opacity:0;transform:scale(1.8) translateY(-40px)} }
+
+  /* ===== RECORDING SCREEN ===== */
+  #screen-record { background: var(--bg); }
+  .record-content {
+    flex: 1; padding: 24px; max-width: 600px; margin: 0 auto; width: 100%;
+    display: flex; flex-direction: column; gap: 20px; padding-bottom: 40px;
+    overflow-y: auto;
+  }
+
+  /* Mic permission */
+  .mic-permission {
+    background: var(--surface); border-radius: var(--radius); padding: 32px 24px;
+    text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .mic-permission .mic-icon { font-size: 4rem; }
+  .mic-permission h3 { font-size: 1.3rem; font-weight: 900; }
+  .mic-permission p { color: var(--text-dim); line-height: 1.6; }
+  .btn-allow-mic {
+    background: linear-gradient(135deg, var(--rec-red), #ff6b6b); border: none; color: white;
+    font-family: inherit; font-size: 1.2rem; font-weight: 900; padding: 18px 36px;
+    border-radius: var(--radius); cursor: pointer; transition: transform 0.12s;
+    box-shadow: 0 6px 24px rgba(255,59,59,0.4);
+  }
+  .btn-allow-mic:active { transform: scale(0.96); }
+
+  /* Recording studio */
+  .record-studio { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Waveform visualizer */
+  .waveform-wrap {
+    background: var(--surface); border-radius: var(--radius); padding: 20px;
+    display: flex; flex-direction: column; gap: 12px; align-items: center;
+  }
+  .waveform-title { font-size: 0.85rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  canvas#waveform {
+    width: 100%; height: 80px; border-radius: 12px;
+    background: var(--surface2);
+  }
+  .rec-time {
+    font-size: 2rem; font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent2);
+    letter-spacing: 2px;
+  }
+  .rec-time.recording { color: var(--rec-red); animation: timePulse 1s ease-in-out infinite; }
+  @keyframes timePulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  /* Big record button */
+  .record-btn-wrap { display: flex; justify-content: center; }
+  .btn-rec-main {
+    width: 120px; height: 120px; border-radius: 50%; border: none; cursor: pointer;
+    font-size: 3rem; display: flex; align-items: center; justify-content: center;
+    background: var(--surface2); border: 4px solid var(--rec-red);
+    transition: all 0.2s; position: relative;
+    box-shadow: 0 0 0 0 rgba(255,59,59,0.4);
+  }
+  .btn-rec-main.ready { background: var(--rec-red); border-color: var(--rec-red); box-shadow: 0 6px 30px rgba(255,59,59,0.5); }
+  .btn-rec-main.recording {
+    background: var(--rec-red); border-color: white;
+    animation: recPulse 1s ease-in-out infinite;
+  }
+  @keyframes recPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,59,59,0.6); }
+    50% { box-shadow: 0 0 0 20px rgba(255,59,59,0); }
+  }
+  .btn-rec-main.has-recording { background: var(--surface2); border-color: var(--accent3); }
+  .rec-hint { text-align: center; font-size: 0.9rem; color: var(--text-dim); font-weight: 700; }
+
+  /* Playback controls */
+  .playback-bar {
+    background: var(--surface); border-radius: var(--radius); padding: 16px 20px;
+    display: flex; align-items: center; gap: 14px;
+    display: none;
+  }
+  .playback-bar.visible { display: flex; }
+  .btn-play-rec {
+    background: var(--accent3); border: none; color: #0f0e17;
+    font-family: inherit; font-size: 1.2rem; font-weight: 900;
+    width: 52px; height: 52px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: transform 0.1s;
+  }
+  .btn-play-rec:active { transform: scale(0.93); }
+  .playback-info { flex: 1; }
+  .playback-duration { font-size: 0.85rem; font-weight: 700; color: var(--text-dim); }
+  .playback-name { font-size: 1rem; font-weight: 900; }
+  .btn-discard {
+    background: transparent; border: 2px solid var(--accent1); color: var(--accent1);
+    font-family: inherit; font-size: 0.85rem; font-weight: 700; padding: 8px 14px;
+    border-radius: 50px; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  }
+  .btn-discard:hover { background: var(--accent1); color: white; }
+
+  /* Name & emoji picker */
+  .sound-namer {
+    background: var(--surface); border-radius: var(--radius); padding: 20px;
+    display: flex; flex-direction: column; gap: 14px;
+    display: none;
+  }
+  .sound-namer.visible { display: flex; }
+  .sound-namer h3 { font-size: 1rem; font-weight: 900; }
+  .namer-row { display: flex; gap: 12px; align-items: center; }
+  .emoji-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+  .emoji-choice {
+    font-size: 1.8rem; width: 52px; height: 52px; border-radius: 14px;
+    background: var(--surface2); border: 2px solid transparent; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .emoji-choice:hover, .emoji-choice.active { border-color: var(--accent4); background: rgba(77,150,255,0.15); transform: scale(1.1); }
+  input.name-input {
+    background: var(--surface2); border: 2px solid transparent; color: var(--text);
+    font-family: inherit; font-size: 1.1rem; font-weight: 700; padding: 12px 16px;
+    border-radius: 14px; outline: none; flex: 1; transition: border-color 0.15s;
+  }
+  input.name-input:focus { border-color: var(--accent4); }
+  .color-palette-small { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-dot-sm { width:30px; height:30px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:transform 0.15s, border-color 0.15s; }
+  .color-dot-sm:hover, .color-dot-sm.active { transform: scale(1.2); border-color: white; }
+
+  .btn-save-rec {
+    background: linear-gradient(135deg, var(--accent3), var(--accent4)); border: none; color: #0f0e17;
+    font-family: inherit; font-size: 1.2rem; font-weight: 900; padding: 18px;
+    border-radius: var(--radius); cursor: pointer; transition: transform 0.12s;
+    box-shadow: 0 6px 24px rgba(107,203,119,0.4);
+  }
+  .btn-save-rec:active { transform: scale(0.97); }
+
+  /* Saved recordings list */
+  .recordings-section { background: var(--surface); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .recordings-section h3 { font-size: 1rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+  .recordings-empty { color: var(--text-dim); font-size: 0.95rem; text-align: center; padding: 16px 0; }
+  .recording-item {
+    background: var(--surface2); border-radius: 16px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .rec-item-icon { font-size: 2rem; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .rec-item-info { flex: 1; }
+  .rec-item-name { font-weight: 900; font-size: 1rem; }
+  .rec-item-meta { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+  .rec-item-actions { display: flex; gap: 8px; }
+  .btn-rec-play { background: var(--accent4); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
+  .btn-rec-play:active { transform: scale(0.9); }
+  .btn-rec-delete { background: transparent; border: 2px solid var(--accent1); color: var(--accent1); width: 36px; height: 36px; border-radius: 50%; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .btn-rec-delete:hover { background: var(--accent1); color: white; }
+
+  /* ===== TOAST ===== */
+  .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); color:var(--text); padding:14px 24px; border-radius:50px; font-weight:700; font-size:1rem; opacity:0; transition:all 0.3s; z-index:200; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  @media (min-width: 600px) {
+    .sound-grid.cols-2 { max-width: 500px; margin: 0 auto; }
+    .sound-grid.cols-3 { max-width: 600px; margin: 0 auto; }
+    .sound-grid.cols-4 { max-width: 700px; margin: 0 auto; }
+  }
+
+  /* ===== COMPOSE SCREEN ===== */
+  #screen-compose { background: var(--bg); }
+  .compose-layout {
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* Transport bar */
+  .transport-bar {
+    background: var(--surface); padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--surface2);
+  }
+  .transport-btns { display: flex; gap: 10px; align-items: center; }
+  .btn-transport {
+    border: none; font-family: inherit; font-weight: 900; cursor: pointer;
+    border-radius: 50px; padding: 10px 20px; font-size: 1rem;
+    transition: all 0.15s; display: flex; align-items: center; gap: 8px;
+  }
+  .btn-transport.play-btn { background: var(--accent3); color: #0f0e17; }
+  .btn-transport.play-btn.playing { background: var(--accent2); }
+  .btn-transport.stop-btn { background: var(--surface2); color: var(--text); }
+  .btn-transport.clear-btn { background: transparent; color: var(--accent1); border: 2px solid var(--accent1); padding: 8px 14px; font-size: 0.85rem; }
+  .tempo-wrap { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; flex-wrap: wrap; }
+  .tempo-label { font-size: 0.85rem; color: var(--text-dim); font-weight: 700; }
+  .tempo-val { font-weight: 900; color: var(--accent4); min-width: 52px; font-size: 1rem; }
+  input#tempo-slider { width: 90px; }
+
+  /* Steps selector */
+  .steps-wrap { display: flex; align-items: center; gap: 8px; }
+  .steps-label { font-size: 0.85rem; color: var(--text-dim); font-weight: 700; }
+  .step-count-btn {
+    background: var(--surface2); border: 2px solid transparent; color: var(--text-dim);
+    font-family: inherit; font-size: 0.85rem; font-weight: 900; padding: 6px 12px;
+    border-radius: 50px; cursor: pointer; transition: all 0.15s;
+  }
+  .step-count-btn.active { border-color: var(--accent4); color: var(--accent4); background: rgba(77,150,255,0.1); }
+
+  /* Sequencer grid */
+  .sequencer-wrap {
+    flex: 1; overflow-y: auto; overflow-x: auto;
+    padding: 16px;
+  }
+  .sequencer-grid {
+    display: flex; flex-direction: column; gap: 10px;
+    min-width: 480px;
+  }
+
+  /* Play position indicator row */
+  .seq-position-row {
+    display: flex; margin-left: 106px; gap: 6px; padding-right: 2px; margin-bottom: 2px;
+  }
+  .seq-pos-dot {
+    flex: 1; height: 6px; border-radius: 3px;
+    background: var(--surface2); transition: background 0.05s;
+  }
+  .seq-pos-dot.active { background: var(--accent2); }
+  .seq-pos-dot.beat { background: var(--surface2); border: 1px solid var(--surface2); }
+
+  /* Sequencer row */
+  .seq-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .seq-row-label {
+    width: 100px; flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border-radius: 12px; padding: 8px 10px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .seq-row-label:hover { background: var(--surface2); }
+  .seq-row-label .row-emoji { font-size: 1.4rem; }
+  .seq-row-label .row-name { font-size: 0.75rem; font-weight: 900; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52px; }
+
+  .seq-steps { display: flex; gap: 6px; flex: 1; }
+  .seq-step {
+    flex: 1; aspect-ratio: 1; border-radius: 10px; border: none; cursor: pointer;
+    background: var(--surface2); transition: all 0.1s;
+    min-width: 28px; min-height: 28px; max-height: 52px;
+    position: relative; overflow: hidden;
+  }
+  .seq-step:hover { filter: brightness(1.3); transform: scale(1.05); }
+  .seq-step.on { box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+  .seq-step.beat-start { border-radius: 14px 10px 10px 14px; }
+  .seq-step.current {
+    outline: 3px solid white;
+    outline-offset: 2px;
+    filter: brightness(1.4);
+  }
+  .seq-step.current.on { animation: stepFlash 0.1s ease; }
+  @keyframes stepFlash { 0%{filter:brightness(2.5)} 100%{filter:brightness(1.4)} }
+
+  /* Beat dividers */
+  .seq-step.beat-div { margin-left: 3px; }
+
+  /* Volume row per track */
+  .seq-row-vol {
+    display: flex; align-items: center; gap: 6px; margin-left: 106px; margin-top: -4px; margin-bottom: 4px;
+  }
+  .vol-icon { font-size: 0.75rem; color: var(--text-dim); }
+  input.vol-slider { -webkit-appearance:none; height:4px; border-radius:2px; background:var(--surface2); outline:none; width: 80px; }
+  input.vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:var(--text-dim); cursor:pointer; }
+
+  /* Add track button */
+  .btn-add-track {
+    background: transparent; border: 2px dashed var(--surface2); color: var(--text-dim);
+    font-family: inherit; font-size: 1rem; font-weight: 700; padding: 14px;
+    border-radius: var(--radius); cursor: pointer; width: 100%; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    min-width: 480px;
+  }
+  .btn-add-track:hover { border-color: var(--accent4); color: var(--accent4); }
+
+  /* Track picker modal */
+  .track-picker {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px); z-index: 110; align-items: flex-end; justify-content: center;
+  }
+  .track-picker.active { display: flex; }
+  .track-picker-sheet {
+    background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 24px; width: 100%; max-width: 600px;
+    display: flex; flex-direction: column; gap: 16px;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .track-picker-sheet h3 { font-size: 1.2rem; font-weight: 900; }
+  .track-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+  .track-pick-btn {
+    background: var(--surface2); border: 2px solid transparent; border-radius: 16px;
+    padding: 14px 8px; font-family: inherit; color: var(--text); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    transition: all 0.15s;
+  }
+  .track-pick-btn:hover { border-color: var(--accent4); transform: scale(1.04); }
+  .track-pick-btn .tp-emoji { font-size: 2rem; }
+  .track-pick-btn .tp-name { font-size: 0.75rem; font-weight: 900; color: var(--text-dim); text-align: center; }
+  .track-picker-close { background: var(--surface2); border: none; color: var(--text-dim); font-family: inherit; font-size: 1rem; font-weight: 700; padding: 14px; border-radius: var(--radius); cursor: pointer; }
+
+  /* Save composition */
+  .compose-save-bar {
+    background: var(--surface); padding: 14px 18px;
+    display: flex; align-items: center; gap: 12px;
+    border-top: 1px solid var(--surface2);
+  }
+  .compose-name-input {
+    background: var(--surface2); border: 2px solid transparent; color: var(--text);
+    font-family: inherit; font-size: 1rem; font-weight: 700; padding: 10px 14px;
+    border-radius: 12px; outline: none; flex: 1; transition: border-color 0.15s;
+  }
+  .compose-name-input:focus { border-color: var(--accent4); }
+  .btn-save-compose {
+    background: linear-gradient(135deg, var(--accent5), var(--accent4));
+    border: none; color: white; font-family: inherit; font-size: 1rem; font-weight: 900;
+    padding: 12px 20px; border-radius: 12px; cursor: pointer; transition: transform 0.12s;
+    white-space: nowrap;
+  }
+  .btn-save-compose:active { transform: scale(0.96); }
+
+  /* Saved compositions */
+  .compositions-screen { background: var(--bg); }
+  .comp-list { padding: 20px; display: flex; flex-direction: column; gap: 12px; max-width: 600px; margin: 0 auto; width: 100%; }
+  .comp-item {
+    background: var(--surface); border-radius: var(--radius); padding: 16px 18px;
+    display: flex; align-items: center; gap: 14px; cursor: pointer; transition: background 0.15s;
+  }
+  .comp-item:hover { background: var(--surface2); }
+  .comp-item-icon { font-size: 2rem; }
+  .comp-item-info { flex: 1; }
+  .comp-item-name { font-weight: 900; font-size: 1rem; }
+  .comp-item-meta { font-size: 0.8rem; color: var(--text-dim); margin-top: 2px; }
+  .comp-item-actions { display: flex; gap: 8px; }
+  .btn-comp-play { background: var(--accent5); border: none; color: white; width: 38px; height: 38px; border-radius: 50%; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .btn-comp-del { background: transparent; border: 2px solid var(--accent1); color: var(--accent1); width: 38px; height: 38px; border-radius: 50%; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .btn-comp-del:hover { background: var(--accent1); color: white; }
+  .comp-empty { color: var(--text-dim); text-align: center; padding: 40px 20px; font-size: 1rem; }
+
+  /* Playing highlight on sequencer row label */
+  .seq-row-label.row-playing { background: var(--surface2); }
+  .seq-row-label.row-playing .row-emoji { animation: rowBounce 0.2s ease; }
+  @keyframes rowBounce { 0%{transform:scale(1)} 50%{transform:scale(1.4)} 100%{transform:scale(1)} }
+</style>
+</head>
+<body>
+
+<!-- ===== HOME ===== -->
+<div id="screen-home" class="screen active">
+  <div class="home-notes">
+    <span>🎵</span><span>🎶</span><span>🎵</span>
+  </div>
+  <div class="home-title">
+    <h1>おんがく<br>あそび</h1>
+    <p>みんなでたのしもう</p>
+  </div>
+  <div class="home-buttons">
+    <button class="btn-home btn-play" onclick="showScreen('play')">
+      <span class="icon">🎹</span> えんそうする
+    </button>
+    <button class="btn-home btn-record-home" onclick="showScreen('record')">
+      <span class="icon">🎤</span> ろくおんする
+    </button>
+    <button class="btn-home" style="background:linear-gradient(135deg,#c77dff,#ff9f1c);color:#0f0e17;box-shadow:0 8px 32px rgba(199,125,255,0.4);" onclick="showScreen('compose')">
+      <span class="icon">🎼</span> つくるモード
+    </button>
+    <button class="btn-home btn-teacher" onclick="showPinModal()">
+      <span class="icon">⚙️</span> せんせいせってい
+    </button>
+  </div>
+</div>
+
+<!-- ===== PIN MODAL ===== -->
+<div id="modal-pin" class="modal-bg">
+  <div class="modal">
+    <div style="font-size:2.5rem">🔑</div>
+    <h3>せんせいようせってい</h3>
+    <p>あんしょうばんごうをにゅうりょく<br>してください</p>
+    <div class="pin-display" id="pin-display">
+      <div class="pin-dot" id="pin-d0"></div>
+      <div class="pin-dot" id="pin-d1"></div>
+      <div class="pin-dot" id="pin-d2"></div>
+      <div class="pin-dot" id="pin-d3"></div>
+    </div>
+    <div class="pin-error" id="pin-error">ばんごうがちがいます</div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinInput('1')">1</button>
+      <button class="pin-key" onclick="pinInput('2')">2</button>
+      <button class="pin-key" onclick="pinInput('3')">3</button>
+      <button class="pin-key" onclick="pinInput('4')">4</button>
+      <button class="pin-key" onclick="pinInput('5')">5</button>
+      <button class="pin-key" onclick="pinInput('6')">6</button>
+      <button class="pin-key" onclick="pinInput('7')">7</button>
+      <button class="pin-key" onclick="pinInput('8')">8</button>
+      <button class="pin-key" onclick="pinInput('9')">9</button>
+      <button class="pin-key" onclick="closePin()" style="color:var(--text-dim)">✕</button>
+      <button class="pin-key" onclick="pinInput('0')">0</button>
+      <button class="pin-key del" onclick="pinDel()">⌫</button>
+    </div>
+    <p style="font-size:0.75rem;color:var(--text-dim)">デフォルト: 1234</p>
+  </div>
+</div>
+
+<!-- ===== TEACHER SCREEN ===== -->
+<div id="screen-teacher" class="screen">
+  <div class="screen-header">
+    <button class="btn-back" onclick="showScreen('home')">← もどる</button>
+    <h2>⚙️ せんせいせってい</h2>
+  </div>
+  <div class="teacher-content">
+    <div class="settings-section">
+      <h3>🕹️ そうさもーど</h3>
+      <div class="setting-row">
+        <label>タッチ / マウス<span class="hint">ゆびやマウスでさわる</span></label>
+        <label class="toggle"><input type="checkbox" id="mode-touch" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <label>スイッチアクセス<span class="hint">1〜2ボタンスイッチをつかう</span></label>
+        <label class="toggle"><input type="checkbox" id="mode-switch" onchange="updateSwitchOptions()"><span class="toggle-slider"></span></label>
+      </div>
+      <div id="switch-options" style="display:none;flex-direction:column;gap:12px;">
+        <div class="setting-row">
+          <label>スイッチのかず</label>
+          <select class="styled" id="switch-count">
+            <option value="1">1ボタン（スキャン）</option>
+            <option value="2">2ボタン（いどう＋けってい）</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label>スキャンのはやさ<span class="hint">ひかりがうごくはやさ（びょう）</span></label>
+          <div class="range-wrap">
+            <input type="range" id="scan-speed" min="1" max="5" step="0.5" value="2" oninput="document.getElementById('scan-speed-val').textContent=this.value+'秒'">
+            <span class="range-val" id="scan-speed-val">2秒</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🎹 ぼたんのせってい</h3>
+      <div class="setting-row">
+        <label>ぼたんのかず</label>
+        <select class="styled" id="btn-count" onchange="buildBtnConfig()">
+          <option value="2">2こ</option>
+          <option value="4" selected>4こ</option>
+          <option value="6">6こ</option>
+          <option value="8">8こ</option>
+          <option value="9">9こ</option>
+        </select>
+      </div>
+      <div class="btn-grid-setting" id="btn-config-grid"></div>
+      <div class="btn-detail" id="btn-detail">
+        <h4 id="btn-detail-title">ボタン1のせってい</h4>
+        <div class="setting-row">
+          <label>いろ</label>
+          <div class="color-palette" id="color-palette"></div>
+        </div>
+        <div class="setting-row">
+          <label>おと</label>
+          <select class="styled" id="btn-sound-select" onchange="setBtnSound()">
+            <option value="kick">🥁 ドン（ドラム）</option>
+            <option value="snare">💥 パン（スネア）</option>
+            <option value="hihat">🎵 チッ（ハイハット）</option>
+            <option value="bass">🎸 ボン（ベース）</option>
+            <optgroup label="🎹 けんばん（ドレミ）">
+              <option value="piano_c">🎹 ド</option>
+              <option value="piano_d">🎹 レ</option>
+              <option value="piano_e">🎹 ミ</option>
+              <option value="piano_f">🎹 ファ</option>
+              <option value="piano_g">🎹 ソ</option>
+              <option value="piano_a">🎹 ラ</option>
+              <option value="piano_b">🎹 シ</option>
+              <option value="piano_c2">🎹 ド（高）</option>
+            </optgroup>
+            <option value="bell">🔔 リン（ベル）</option>
+            <option value="marimba">🪘 コン（マリンバ）</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🎶 BGMのせってい</h3>
+      <div class="setting-row">
+        <label>BGMをながす</label>
+        <label class="toggle"><input type="checkbox" id="bgm-enabled" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <label>BGMのしゅるい</label>
+        <select class="styled" id="bgm-type">
+          <option value="beat1">🎵 ポップビート</option>
+          <option value="beat2">🥁 ロックビート</option>
+          <option value="calm">🌙 しずかなおんがく</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <label>おとのおおきさ<span class="hint">BGMのボリューム</span></label>
+        <div class="range-wrap">
+          <input type="range" id="bgm-volume" min="0" max="100" value="60" oninput="document.getElementById('bgm-vol-val').textContent=this.value+'%'">
+          <span class="range-val" id="bgm-vol-val">60%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>🛡️ まちがいふせぎ</h3>
+      <div class="setting-row">
+        <label>ごたっちぼうし<span class="hint">おなじボタンのれんぞくをふせぐ</span></label>
+        <label class="toggle"><input type="checkbox" id="prevent-repeat" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <label>むこうかじかん</label>
+        <div class="range-wrap">
+          <input type="range" id="cooldown" min="0" max="3" step="0.5" value="0.5" oninput="document.getElementById('cooldown-val').textContent=this.value+'秒'">
+          <span class="range-val" id="cooldown-val">0.5秒</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>✨ みためのせってい</h3>
+      <div class="setting-row">
+        <label>おしたらびかる</label>
+        <label class="toggle"><input type="checkbox" id="visual-feedback" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <label>えもじをひょうじ</label>
+        <label class="toggle"><input type="checkbox" id="emoji-feedback" checked><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <button class="btn-save" onclick="saveSettings()">💾 せっていをほぞんする</button>
+  </div>
+</div>
+
+<!-- ===== RECORDING SCREEN ===== -->
+<div id="screen-record" class="screen">
+  <div class="screen-header">
+    <button class="btn-back" onclick="showScreen('home')">← もどる</button>
+    <h2>🎤 ろくおんする</h2>
+  </div>
+  <div class="record-content">
+
+    <!-- Mic permission state -->
+    <div class="mic-permission" id="mic-permission">
+      <div class="mic-icon">🎤</div>
+      <h3>マイクをつかいます</h3>
+      <p>じぶんのこえや<br>がっきのおとをろくおんできます。<br>はじめにマイクのきょかをしてください。</p>
+      <button class="btn-allow-mic" onclick="requestMic()">🎤 マイクをつかう</button>
+    </div>
+
+    <!-- Recording studio (shown after permission granted) -->
+    <div class="record-studio" id="record-studio" style="display:none;">
+
+      <!-- Waveform -->
+      <div class="waveform-wrap">
+        <div class="waveform-title">おとのなみ</div>
+        <canvas id="waveform" width="600" height="80"></canvas>
+        <div class="rec-time" id="rec-time">0:00</div>
+      </div>
+
+      <!-- Big record button -->
+      <div class="record-btn-wrap">
+        <button class="btn-rec-main" id="btn-rec-main" onclick="toggleRecording()">
+          🎤
+        </button>
+      </div>
+      <div class="rec-hint" id="rec-hint">ボタンをおしてろくおんかいし</div>
+
+      <!-- Playback bar (after recording) -->
+      <div class="playback-bar" id="playback-bar">
+        <button class="btn-play-rec" id="btn-play-rec" onclick="playRecording()">▶</button>
+        <div class="playback-info">
+          <div class="playback-name" id="playback-name">ろくおんずみ</div>
+          <div class="playback-duration" id="playback-duration">—</div>
+        </div>
+        <button class="btn-discard" onclick="discardRecording()">✕ すてる</button>
+      </div>
+
+      <!-- Name & emoji & color picker -->
+      <div class="sound-namer" id="sound-namer">
+        <h3>📝 おとになまえをつけよう</h3>
+        <div class="namer-row">
+          <input type="text" class="name-input" id="rec-name" placeholder="なまえをかいてね" maxlength="10">
+        </div>
+        <div>
+          <div style="font-size:0.85rem;color:var(--text-dim);font-weight:700;margin-bottom:8px;">えもじをえらぼう</div>
+          <div class="emoji-picker" id="emoji-picker"></div>
+        </div>
+        <div>
+          <div style="font-size:0.85rem;color:var(--text-dim);font-weight:700;margin-bottom:8px;">いろをえらぼう</div>
+          <div class="color-palette-small" id="rec-color-palette"></div>
+        </div>
+        <button class="btn-save-rec" onclick="saveRecording()">💾 このおとをほぞんする</button>
+      </div>
+    </div>
+
+    <!-- Saved recordings -->
+    <div class="recordings-section">
+      <h3>🎵 ほぞんしたおと</h3>
+      <div id="recordings-list">
+        <div class="recordings-empty">まだおとがほぞんされていません</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== PLAY SCREEN ===== -->
+<div id="screen-play" class="screen">
+  <div class="play-header">
+    <div class="profile">
+      <div class="profile-icon">🎵</div>
+      <div>
+        <div class="mode-label">えんそうモード</div>
+        <h2>おんがくあそび</h2>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="scan-indicator" id="scan-indicator"><div class="scan-dot"></div>スキャン</div>
+      <button class="btn-back" onclick="showScreen('home')">🏠</button>
+    </div>
+  </div>
+  <div class="play-area">
+    <div class="sound-grid cols-2" id="sound-grid"></div>
+    <div class="bgm-bar" id="bgm-bar">
+      <div class="bgm-icon">🎶</div>
+      <div>
+        <div class="bgm-title">ポップビート</div>
+        <div class="bgm-status" id="bgm-status">ていし中</div>
+      </div>
+      <button class="btn-bgm" id="bgm-btn" onclick="toggleBGM()">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== COMPOSE SCREEN ===== -->
+<div id="screen-compose" class="screen">
+  <div class="screen-header">
+    <button class="btn-back" onclick="stopCompose();showScreen('home')">← もどる</button>
+    <h2>🎼 つくるモード</h2>
+    <button class="btn-back" onclick="showScreen('compositions')" style="margin-left:auto;white-space:nowrap;">📂 さくひん</button>
+  </div>
+  <div class="compose-layout">
+    <!-- Transport -->
+    <div class="transport-bar">
+      <div class="transport-btns">
+        <button class="btn-transport play-btn" id="compose-play-btn" onclick="toggleCompose()">▶ さいせい</button>
+        <button class="btn-transport stop-btn" onclick="stopCompose()">⏹ ていし</button>
+        <button class="btn-transport clear-btn" onclick="clearCompose()">🗑 クリア</button>
+      </div>
+      <div class="tempo-wrap">
+        <span class="tempo-label">テンポ</span>
+        <input type="range" id="tempo-slider" min="60" max="200" value="100" oninput="updateTempo(this.value)">
+        <span class="tempo-val" id="tempo-val">100 BPM</span>
+      </div>
+      <div class="steps-wrap">
+        <span class="steps-label">ステップ</span>
+        <button class="step-count-btn" onclick="setStepCount(8)">8</button>
+        <button class="step-count-btn active" onclick="setStepCount(16)">16</button>
+        <button class="step-count-btn" onclick="setStepCount(32)">32</button>
+      </div>
+    </div>
+
+    <!-- Sequencer -->
+    <div class="sequencer-wrap">
+      <div class="sequencer-grid" id="sequencer-grid">
+        <!-- position dots -->
+        <div class="seq-position-row" id="seq-position-row"></div>
+        <!-- tracks injected by JS -->
+      </div>
+      <button class="btn-add-track" onclick="openTrackPicker()">＋ トラックをついかする</button>
+    </div>
+
+    <!-- Save bar -->
+    <div class="compose-save-bar">
+      <input type="text" class="compose-name-input" id="compose-name" placeholder="さくひんのなまえ" maxlength="20">
+      <button class="btn-save-compose" onclick="saveComposition()">💾 ほぞん</button>
+      <button class="btn-save-compose" style="background:linear-gradient(135deg,#c77dff,#4d96ff);" onclick="shareComposition()">🔗 きょうゆう</button>
+    </div>
+  </div>
+</div>
+
+<!-- Track picker sheet -->
+<div class="track-picker" id="track-picker">
+  <div class="track-picker-sheet">
+    <h3>🎵 おとをえらんでね</h3>
+    <div class="track-pick-grid" id="track-pick-grid"></div>
+    <button class="track-picker-close" onclick="closeTrackPicker()">✕ とじる</button>
+  </div>
+</div>
+
+<!-- ===== COMPOSITIONS SCREEN ===== -->
+<div id="screen-compositions" class="screen compositions-screen">
+  <div class="screen-header">
+    <button class="btn-back" onclick="showScreen('compose')">← もどる</button>
+    <h2>📂 ほぞんしたさくひん</h2>
+  </div>
+  <div class="comp-list" id="comp-list">
+    <div class="comp-empty">まださくひんがありません</div>
+  </div>
+</div>
+
+<!-- ===== SHARE MODAL ===== -->
+<div id="modal-share" class="modal-bg">
+  <div class="modal" style="max-width:420px;">
+    <div style="font-size:2.5rem">🔗</div>
+    <h3>さくひんをきょうゆうする</h3>
+    <p>このURLをともだちやせんせいに<br>おくろう！</p>
+    <div style="background:var(--surface2);border-radius:14px;padding:12px 14px;word-break:break-all;font-size:0.78rem;color:var(--text-dim);max-height:80px;overflow-y:auto;line-height:1.5;" id="share-url-display">URLを生成中…</div>
+    <button style="background:linear-gradient(135deg,var(--accent4),var(--accent5));border:none;color:white;font-family:inherit;font-size:1.1rem;font-weight:900;padding:16px;border-radius:var(--radius);cursor:pointer;width:100%;" onclick="copyShareUrl()">📋 URLをコピーする</button>
+    <div id="share-copy-notice" style="display:none;text-align:center;color:var(--accent3);font-weight:700;font-size:0.9rem;">✅ コピーしました！</div>
+    <button class="btn-back" style="background:transparent;color:var(--text-dim);width:100%;text-align:center;" onclick="document.getElementById('modal-share').classList.remove('active')">とじる</button>
+  </div>
+</div>
+
+<div class="feedback-overlay">
+  <div class="feedback-emoji" id="feedback-emoji">⭐</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== STATE =====
+let settings = {
+  modeTouch: true, modeSwitch: false, switchCount: 1, scanSpeed: 2,
+  btnCount: 4, bgmEnabled: true, bgmType: 'beat1', bgmVolume: 60,
+  preventRepeat: true, cooldown: 0.5, visualFeedback: true, emojiFeedback: true,
+  buttons: []
+};
+
+const SOUNDS = {
+  kick:     { emoji:'🥁', label:'ドン',   color:'#ff6b6b' },
+  snare:    { emoji:'💥', label:'パン',   color:'#ffd93d' },
+  hihat:    { emoji:'🎵', label:'チッ',   color:'#6bcb77' },
+  bass:     { emoji:'🎸', label:'ボン',   color:'#4d96ff' },
+  piano_c:  { emoji:'🎹', label:'ド',     color:'#ff4d4d' },
+  piano_d:  { emoji:'🎹', label:'レ',     color:'#ff8c00' },
+  piano_e:  { emoji:'🎹', label:'ミ',     color:'#ffd700' },
+  piano_f:  { emoji:'🎹', label:'ファ',   color:'#4caf50' },
+  piano_g:  { emoji:'🎹', label:'ソ',     color:'#00bcd4' },
+  piano_a:  { emoji:'🎹', label:'ラ',     color:'#3b82f6' },
+  piano_b:  { emoji:'🎹', label:'シ',     color:'#9c27b0' },
+  piano_c2: { emoji:'🎹', label:'ド（高）',color:'#ff80ab' },
+  bell:     { emoji:'🔔', label:'リン',   color:'#ff6b9d' },
+  marimba:  { emoji:'🪘', label:'コン',   color:'#a8e6cf' },
+};
+const COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f1c','#4ecdc4','#ff6b9d'];
+const EMOJIS = ['🎤','⭐','🌈','🐶','🐱','🦁','🐸','🌸','🎉','🍎','🚀','❤️','🎵','🦋','🌟','🐘'];
+const DEFAULT_BUTTONS = [
+  {sound:'piano_c', color:'#ff4d4d'},{sound:'piano_d', color:'#ff8c00'},
+  {sound:'piano_e', color:'#ffd700'},{sound:'piano_f', color:'#4caf50'},
+  {sound:'piano_g', color:'#00bcd4'},{sound:'piano_a', color:'#3b82f6'},
+  {sound:'piano_b', color:'#9c27b0'},{sound:'piano_c2',color:'#ff80ab'},
+  {sound:'kick',    color:'#ff6b6b'},
+];
+
+// ===== IndexedDB for recordings =====
+let db = null;
+const DB_NAME = 'ongakuDB';
+const DB_VER = 1;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('recordings')) {
+        const store = d.createObjectStore('recordings', { keyPath: 'id', autoIncrement: true });
+        store.createIndex('createdAt', 'createdAt');
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function saveRecordingToDB(rec) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recordings', 'readwrite');
+    const store = tx.objectStore('recordings');
+    const req = store.add(rec);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function getAllRecordings() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recordings', 'readonly');
+    const store = tx.objectStore('recordings');
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function deleteRecordingFromDB(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recordings', 'readwrite');
+    const store = tx.objectStore('recordings');
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function getRecordingById(id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recordings', 'readonly');
+    const store = tx.objectStore('recordings');
+    const req = store.get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ===== AUDIO ENGINE =====
+let audioCtx = null;
+let bgmInterval = null, bgmPlaying = false, bgmStep = 0;
+let cooldowns = {};
+
+function getAudioCtx() {
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playSound(type, recAudioData) {
+  if(type && type.startsWith('rec_')) {
+    playRecordedSound(type);
+    return;
+  }
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const g = ctx.createGain();
+  g.connect(ctx.destination);
+  switch(type) {
+    case 'kick': {
+      const osc = ctx.createOscillator();
+      osc.connect(g);
+      osc.frequency.setValueAtTime(200,now); osc.frequency.exponentialRampToValueAtTime(40,now+0.3);
+      g.gain.setValueAtTime(1.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.4);
+      osc.start(now); osc.stop(now+0.4); break;
+    }
+    case 'snare': {
+      const buf = ctx.createBuffer(1,ctx.sampleRate*0.2,ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const f = ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1000;
+      src.connect(f); f.connect(g);
+      g.gain.setValueAtTime(1.2,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.2);
+      src.start(now); break;
+    }
+    case 'hihat': {
+      const buf = ctx.createBuffer(1,ctx.sampleRate*0.08,ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const f = ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=7000;
+      src.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.08);
+      src.start(now); break;
+    }
+    case 'bass': {
+      const osc = ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=80;
+      const f = ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=400;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.5);
+      osc.start(now); osc.stop(now+0.5); break;
+    }
+    case 'piano_c': playPiano(261.63,now,g); break;
+    case 'piano_d': playPiano(293.66,now,g); break;
+    case 'piano_e': playPiano(329.63,now,g); break;
+    case 'piano_f': playPiano(349.23,now,g); break;
+    case 'piano_g': playPiano(392.00,now,g); break;
+    case 'piano_a': playPiano(440.00,now,g); break;
+    case 'piano_b': playPiano(493.88,now,g); break;
+    case 'piano_c2':playPiano(523.25,now,g); break;
+    case 'bell': {
+      const osc = ctx.createOscillator(); osc.type='sine';
+      osc.frequency.setValueAtTime(880,now); osc.frequency.exponentialRampToValueAtTime(660,now+0.8);
+      g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+1.2);
+      osc.connect(g); osc.start(now); osc.stop(now+1.2); break;
+    }
+    case 'marimba': {
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=523.25;
+      const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=1046.5;
+      const g2=ctx.createGain(); g2.gain.value=0.3;
+      osc2.connect(g2); g2.connect(g); osc.connect(g);
+      g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
+      osc.start(now); osc.stop(now+0.6); osc2.start(now); osc2.stop(now+0.6); break;
+    }
+  }
+}
+
+function playPiano(freq, now, g) {
+  const ctx = getAudioCtx();
+  const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=freq;
+  const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=freq*2;
+  const g2=ctx.createGain(); g2.gain.value=0.3;
+  osc2.connect(g2); g2.connect(g); osc.connect(g);
+  g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+  osc.start(now); osc.stop(now+0.8); osc2.start(now); osc2.stop(now+0.8);
+}
+
+// Play a saved recording by rec_ID
+let recAudioBuffers = {};
+async function playRecordedSound(soundKey) {
+  const id = parseInt(soundKey.replace('rec_', ''));
+  try {
+    if(!recAudioBuffers[id]) {
+      const rec = await getRecordingById(id);
+      if(!rec) return;
+      const ctx = getAudioCtx();
+      const arrayBuf = rec.audioData;
+      recAudioBuffers[id] = await ctx.decodeAudioData(arrayBuf.slice(0));
+    }
+    const ctx = getAudioCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = recAudioBuffers[id];
+    src.connect(ctx.destination);
+    src.start();
+  } catch(e) { console.warn('録音再生エラー:', e); }
+}
+
+const BGM_PATTERNS = {
+  beat1: ['kick','hihat','snare','hihat','kick','kick','snare','hihat'],
+  beat2: ['kick','hihat','snare','hihat','kick','hihat','snare','snare'],
+  calm:  ['hihat','','hihat','','hihat','','hihat','']
+};
+
+function playBGMStep() {
+  const pattern = BGM_PATTERNS[settings.bgmType];
+  const note = pattern[bgmStep % pattern.length];
+  if(note) {
+    const ctx = getAudioCtx(); const now = ctx.currentTime;
+    const g = ctx.createGain(); g.gain.value = (settings.bgmVolume/100)*0.35; g.connect(ctx.destination);
+    switch(note) {
+      case 'kick': {
+        const osc=ctx.createOscillator(); osc.connect(g);
+        osc.frequency.setValueAtTime(150,now); osc.frequency.exponentialRampToValueAtTime(40,now+0.25);
+        const gk=ctx.createGain(); osc.connect(gk); gk.connect(g);
+        gk.gain.setValueAtTime(1,now); gk.gain.exponentialRampToValueAtTime(0.01,now+0.3);
+        osc.start(now); osc.stop(now+0.3); break;
+      }
+      case 'snare': {
+        const buf=ctx.createBuffer(1,ctx.sampleRate*0.15,ctx.sampleRate);
+        const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+        const src=ctx.createBufferSource(); src.buffer=buf;
+        const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1500;
+        src.connect(f); f.connect(g); src.start(now); break;
+      }
+      case 'hihat': {
+        const buf=ctx.createBuffer(1,ctx.sampleRate*0.05,ctx.sampleRate);
+        const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+        const src=ctx.createBufferSource(); src.buffer=buf;
+        const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=8000;
+        src.connect(f); f.connect(g); src.start(now); break;
+      }
+    }
+  }
+  bgmStep++;
+}
+
+function toggleBGM() {
+  getAudioCtx();
+  if(bgmPlaying) {
+    clearInterval(bgmInterval); bgmPlaying=false;
+    document.getElementById('bgm-btn').textContent='▶';
+    document.getElementById('bgm-btn').classList.remove('playing');
+    document.getElementById('bgm-status').textContent='ていし中';
+  } else {
+    const tempo = settings.bgmType==='calm' ? 600 : 300;
+    bgmInterval = setInterval(playBGMStep, tempo); bgmPlaying=true;
+    document.getElementById('bgm-btn').textContent='⏸';
+    document.getElementById('bgm-btn').classList.add('playing');
+    document.getElementById('bgm-status').textContent='さいせい中 🎵';
+  }
+}
+
+// ===== RECORDING ENGINE =====
+let mediaStream = null, mediaRecorder = null;
+let recordedChunks = [], recordedBlob = null, recordedArrayBuffer = null;
+let isRecording = false;
+let recTimerInterval = null, recSeconds = 0;
+let animFrameId = null;
+let analyser = null, micSource = null;
+let selectedEmoji = '🎤', selectedRecColor = '#ff6b6b';
+const MAX_REC_SECONDS = 10;
+
+async function requestMic() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    document.getElementById('mic-permission').style.display = 'none';
+    document.getElementById('record-studio').style.display = 'flex';
+    document.getElementById('btn-rec-main').classList.add('ready');
+    setupAnalyser();
+    drawIdleWave();
+    showToast('🎤 マイクのきょかをもらいました！');
+  } catch(e) {
+    showToast('❌ マイクをつかえませんでした。ブラウザのせっていをかくにんしてください。');
+  }
+}
+
+function setupAnalyser() {
+  const ctx = getAudioCtx();
+  analyser = ctx.createAnalyser();
+  analyser.fftSize = 256;
+  micSource = ctx.createMediaStreamSource(mediaStream);
+  micSource.connect(analyser);
+}
+
+function drawIdleWave() {
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle = '#252438';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, H/2);
+  ctx.lineTo(W, H/2);
+  ctx.stroke();
+}
+
+function drawLiveWave() {
+  if(!analyser) return;
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const bufLen = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufLen);
+  analyser.getByteTimeDomainData(dataArray);
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#1a1929';
+  ctx.fillRect(0,0,W,H);
+
+  // Glow
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#ff3b3b';
+  ctx.strokeStyle = '#ff3b3b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  const sliceW = W / bufLen;
+  let x = 0;
+  for(let i=0;i<bufLen;i++) {
+    const v = dataArray[i] / 128.0;
+    const y = (v * H/2);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    x += sliceW;
+  }
+  ctx.lineTo(W, H/2);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  if(isRecording) animFrameId = requestAnimationFrame(drawLiveWave);
+}
+
+function toggleRecording() {
+  if(!mediaStream) return;
+  if(!isRecording) startRecording(); else stopRecording();
+}
+
+function startRecording() {
+  // Reset
+  recordedChunks = []; recordedBlob = null; recordedArrayBuffer = null;
+  recAudioBuffers = {};
+  document.getElementById('playback-bar').classList.remove('visible');
+  document.getElementById('sound-namer').classList.remove('visible');
+
+  try {
+    mediaRecorder = new MediaRecorder(mediaStream);
+  } catch(e) {
+    showToast('❌ ろくおんできませんでした'); return;
+  }
+  mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = onRecordingStop;
+  mediaRecorder.start(100);
+  isRecording = true;
+
+  // UI
+  const btn = document.getElementById('btn-rec-main');
+  btn.classList.remove('ready'); btn.classList.add('recording');
+  btn.textContent = '⏹';
+  document.getElementById('rec-hint').textContent = 'おしてていし（さいだい10びょう）';
+  document.getElementById('rec-time').classList.add('recording');
+
+  // Timer
+  recSeconds = 0;
+  updateRecTime();
+  recTimerInterval = setInterval(() => {
+    recSeconds++;
+    updateRecTime();
+    if(recSeconds >= MAX_REC_SECONDS) stopRecording();
+  }, 1000);
+
+  // Waveform animation
+  drawLiveWave();
+}
+
+function stopRecording() {
+  if(!mediaRecorder || mediaRecorder.state === 'inactive') return;
+  mediaRecorder.stop();
+  isRecording = false;
+  clearInterval(recTimerInterval);
+  if(animFrameId) { cancelAnimationFrame(animFrameId); animFrameId=null; }
+
+  const btn = document.getElementById('btn-rec-main');
+  btn.classList.remove('recording'); btn.classList.add('has-recording');
+  btn.textContent = '🎤';
+  document.getElementById('rec-hint').textContent = 'もういちどろくおんするときはおしてね';
+  document.getElementById('rec-time').classList.remove('recording');
+  drawIdleWave();
+}
+
+function onRecordingStop() {
+  recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+  const reader = new FileReader();
+  reader.onload = e => {
+    recordedArrayBuffer = e.target.result;
+    // Show playback UI
+    const dur = document.getElementById('rec-time').textContent;
+    document.getElementById('playback-duration').textContent = `ながさ: ${dur}`;
+    document.getElementById('playback-name').textContent = 'ろくおんずみ ✓';
+    document.getElementById('playback-bar').classList.add('visible');
+    buildNamer();
+    document.getElementById('sound-namer').classList.add('visible');
+  };
+  reader.readAsArrayBuffer(recordedBlob);
+}
+
+function updateRecTime() {
+  const m = Math.floor(recSeconds/60);
+  const s = recSeconds % 60;
+  document.getElementById('rec-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function playRecording() {
+  if(!recordedArrayBuffer) return;
+  const ctx = getAudioCtx();
+  ctx.decodeAudioData(recordedArrayBuffer.slice(0), buf => {
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start();
+    const btn = document.getElementById('btn-play-rec');
+    btn.textContent = '⏸';
+    src.onended = () => { btn.textContent = '▶'; };
+  });
+}
+
+function discardRecording() {
+  recordedBlob = null; recordedArrayBuffer = null; recordedChunks = [];
+  document.getElementById('playback-bar').classList.remove('visible');
+  document.getElementById('sound-namer').classList.remove('visible');
+  const btn = document.getElementById('btn-rec-main');
+  btn.classList.remove('has-recording'); btn.classList.add('ready');
+  btn.textContent = '🎤';
+  document.getElementById('rec-hint').textContent = 'ボタンをおしてろくおんかいし';
+  document.getElementById('rec-time').textContent = '0:00';
+  drawIdleWave();
+}
+
+function buildNamer() {
+  selectedEmoji = '🎤'; selectedRecColor = '#ff6b6b';
+  document.getElementById('rec-name').value = '';
+
+  const ep = document.getElementById('emoji-picker');
+  ep.innerHTML = '';
+  EMOJIS.forEach((em,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-choice' + (i===0?' active':'');
+    btn.textContent = em;
+    btn.onclick = () => {
+      document.querySelectorAll('.emoji-choice').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedEmoji = em;
+    };
+    ep.appendChild(btn);
+  });
+
+  const cp = document.getElementById('rec-color-palette');
+  cp.innerHTML = '';
+  COLORS.forEach((c,i) => {
+    const d = document.createElement('div');
+    d.className = 'color-dot-sm' + (i===0?' active':'');
+    d.style.background = c;
+    d.onclick = () => {
+      document.querySelectorAll('.color-dot-sm').forEach(b=>b.classList.remove('active'));
+      d.classList.add('active');
+      selectedRecColor = c;
+    };
+    cp.appendChild(d);
+  });
+}
+
+async function saveRecording() {
+  if(!recordedArrayBuffer) { showToast('❌ まずろくおんしてください'); return; }
+  const name = document.getElementById('rec-name').value.trim() || 'わたしのおと';
+  const dur = document.getElementById('rec-time').textContent;
+
+  const rec = {
+    name, emoji: selectedEmoji, color: selectedRecColor,
+    duration: dur, createdAt: Date.now(),
+    audioData: recordedArrayBuffer
+  };
+
+  try {
+    const newId = await saveRecordingToDB(rec);
+    showToast(`✅ 「${name}」をほぞんしました！`);
+    discardRecording();
+    loadRecordingsList();
+    // Also update teacher's sound options
+    updateTeacherSoundOptions();
+  } catch(e) {
+    showToast('❌ ほぞんにしっぱいしました');
+  }
+}
+
+async function loadRecordingsList() {
+  const list = document.getElementById('recordings-list');
+  try {
+    const recs = await getAllRecordings();
+    if(!recs.length) {
+      list.innerHTML = '<div class="recordings-empty">まだおとがほぞんされていません</div>';
+      return;
+    }
+    list.innerHTML = '';
+    recs.reverse().forEach(rec => {
+      const item = document.createElement('div');
+      item.className = 'recording-item';
+      item.innerHTML = `
+        <div class="rec-item-icon" style="background:${rec.color}22">${rec.emoji}</div>
+        <div class="rec-item-info">
+          <div class="rec-item-name">${rec.name}</div>
+          <div class="rec-item-meta">⏱ ${rec.duration} &nbsp;|&nbsp; ${new Date(rec.createdAt).toLocaleDateString('ja-JP')}</div>
+        </div>
+        <div class="rec-item-actions">
+          <button class="btn-rec-play" onclick="playRecordingById(${rec.id})" title="さいせい">▶</button>
+          <button class="btn-rec-delete" onclick="deleteRecording(${rec.id})" title="さくじょ">🗑</button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  } catch(e) {
+    list.innerHTML = '<div class="recordings-empty">よみこみエラー</div>';
+  }
+}
+
+async function playRecordingById(id) {
+  try {
+    if(!recAudioBuffers[id]) {
+      const rec = await getRecordingById(id);
+      if(!rec) return;
+      const ctx = getAudioCtx();
+      recAudioBuffers[id] = await ctx.decodeAudioData(rec.audioData.slice(0));
+    }
+    const ctx = getAudioCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = recAudioBuffers[id];
+    src.connect(ctx.destination);
+    src.start();
+  } catch(e) { showToast('❌ さいせいできませんでした'); }
+}
+
+async function deleteRecording(id) {
+  try {
+    await deleteRecordingFromDB(id);
+    delete recAudioBuffers[id];
+    showToast('🗑 さくじょしました');
+    loadRecordingsList();
+    updateTeacherSoundOptions();
+  } catch(e) { showToast('❌ さくじょにしっぱいしました'); }
+}
+
+async function updateTeacherSoundOptions() {
+  const sel = document.getElementById('btn-sound-select');
+  if(!sel) return;
+  // Remove old rec options
+  Array.from(sel.options).forEach(o => { if(o.value.startsWith('rec_')) o.remove(); });
+  try {
+    const recs = await getAllRecordings();
+    if(recs.length) {
+      const group = document.createElement('optgroup');
+      group.label = '🎤 ろくおんしたおと';
+      recs.forEach(rec => {
+        const opt = document.createElement('option');
+        opt.value = `rec_${rec.id}`;
+        opt.textContent = `${rec.emoji} ${rec.name}`;
+        group.appendChild(opt);
+      });
+      sel.appendChild(group);
+    }
+  } catch(e) {}
+}
+
+// ===== SCREENS =====
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  if(name==='play') buildPlayScreen();
+  if(name==='record') { loadRecordingsList(); }
+  if(name==='teacher') { buildBtnConfig(); updateTeacherSoundOptions(); }
+  if(name==='compose') {
+    initComposeTracks();
+    buildSequencerGrid();
+  }
+  if(name==='compositions') { showCompositions(); }
+  if(name!=='play' && bgmPlaying) { clearInterval(bgmInterval); bgmPlaying=false; }
+  if(name!=='compose' && composePlaying) { stopCompose(); }
+}
+
+// ===== PIN =====
+let pinValue = '';
+const PIN_CORRECT = '1234';
+function showPinModal() { pinValue=''; updatePinDisplay(); document.getElementById('pin-error').classList.remove('visible'); document.getElementById('modal-pin').classList.add('active'); }
+function closePin() { document.getElementById('modal-pin').classList.remove('active'); pinValue=''; }
+function pinInput(d) {
+  if(pinValue.length>=4) return; pinValue+=d; updatePinDisplay();
+  if(pinValue.length===4) {
+    setTimeout(()=>{
+      if(pinValue===PIN_CORRECT) { closePin(); showScreen('teacher'); }
+      else { document.getElementById('pin-error').classList.add('visible'); pinValue=''; setTimeout(()=>updatePinDisplay(),500); }
+      setTimeout(()=>updatePinDisplay(),600);
+    },200);
+  }
+}
+function pinDel() { pinValue=pinValue.slice(0,-1); updatePinDisplay(); }
+function updatePinDisplay() {
+  for(let i=0;i<4;i++) document.getElementById('pin-d'+i).classList.toggle('filled',i<pinValue.length);
+}
+
+// ===== TEACHER =====
+function updateSwitchOptions() {
+  document.getElementById('switch-options').style.display = document.getElementById('mode-switch').checked ? 'flex' : 'none';
+}
+let selectedBtnIndex = null;
+function buildBtnConfig() {
+  const count = parseInt(document.getElementById('btn-count').value);
+  while(settings.buttons.length < count) settings.buttons.push({...DEFAULT_BUTTONS[settings.buttons.length % DEFAULT_BUTTONS.length]});
+  const grid = document.getElementById('btn-config-grid');
+  grid.innerHTML = '';
+  for(let i=0;i<count;i++) {
+    const btn = settings.buttons[i];
+    const s = btn.sound.startsWith('rec_') ? {emoji:'🎤',label:btn.label||'録音'} : SOUNDS[btn.sound];
+    const el = document.createElement('button');
+    el.className = 'sound-btn-config'+(selectedBtnIndex===i?' active':'');
+    el.style.borderColor = selectedBtnIndex===i ? btn.color : 'transparent';
+    el.style.background = selectedBtnIndex===i ? btn.color+'22' : '';
+    el.innerHTML = `<span class="btn-emoji" style="filter:drop-shadow(0 0 4px ${btn.color})">${s.emoji}</span><span class="btn-name">${i+1}. ${s.label}</span>`;
+    el.onclick = ()=>selectBtn(i);
+    grid.appendChild(el);
+  }
+  if(selectedBtnIndex!==null && selectedBtnIndex<count) showBtnDetail(selectedBtnIndex);
+  else hideBtnDetail();
+}
+function selectBtn(i) { selectedBtnIndex=i; buildBtnConfig(); showBtnDetail(i); }
+function showBtnDetail(i) {
+  const btn = settings.buttons[i];
+  document.getElementById('btn-detail-title').textContent=`ボタン${i+1}のせってい`;
+  document.getElementById('btn-sound-select').value=btn.sound;
+  buildColorPalette(btn.color);
+  document.getElementById('btn-detail').classList.add('visible');
+}
+function hideBtnDetail() { document.getElementById('btn-detail').classList.remove('visible'); }
+function buildColorPalette(current) {
+  const pal = document.getElementById('color-palette'); pal.innerHTML='';
+  COLORS.forEach(c=>{
+    const d=document.createElement('div'); d.className='color-dot'+(c===current?' active':'');
+    d.style.background=c; d.onclick=()=>setBtnColor(c); pal.appendChild(d);
+  });
+}
+function setBtnColor(c) { if(selectedBtnIndex===null) return; settings.buttons[selectedBtnIndex].color=c; buildBtnConfig(); }
+function setBtnSound() {
+  if(selectedBtnIndex===null) return;
+  const val = document.getElementById('btn-sound-select').value;
+  settings.buttons[selectedBtnIndex].sound = val;
+  if(val.startsWith('rec_')) {
+    // find label
+    const opt = document.querySelector(`#btn-sound-select option[value="${val}"]`);
+    settings.buttons[selectedBtnIndex].label = opt ? opt.textContent.replace(/^.+\s/,'') : '録音';
+  }
+  buildBtnConfig();
+}
+function saveSettings() {
+  const count = parseInt(document.getElementById('btn-count').value);
+  settings.modeTouch = document.getElementById('mode-touch').checked;
+  settings.modeSwitch = document.getElementById('mode-switch').checked;
+  settings.switchCount = parseInt(document.getElementById('switch-count').value);
+  settings.scanSpeed = parseFloat(document.getElementById('scan-speed').value);
+  settings.btnCount = count;
+  settings.bgmEnabled = document.getElementById('bgm-enabled').checked;
+  settings.bgmType = document.getElementById('bgm-type').value;
+  settings.bgmVolume = parseInt(document.getElementById('bgm-volume').value);
+  settings.preventRepeat = document.getElementById('prevent-repeat').checked;
+  settings.cooldown = parseFloat(document.getElementById('cooldown').value);
+  settings.visualFeedback = document.getElementById('visual-feedback').checked;
+  settings.emojiFeedback = document.getElementById('emoji-feedback').checked;
+  // Save buttons (exclude audioData for localStorage)
+  const saveButtons = settings.buttons.slice(0, count).map(b => ({sound:b.sound, color:b.color, label:b.label||''}));
+  try { localStorage.setItem('ongaku-settings', JSON.stringify({...settings, buttons: saveButtons})); } catch(e) {}
+  showToast('✅ せっていをほぞんしました！');
+  setTimeout(()=>showScreen('home'), 1200);
+}
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem('ongaku-settings');
+    if(saved) Object.assign(settings, JSON.parse(saved));
+  } catch(e) {}
+  while(settings.buttons.length < settings.btnCount) settings.buttons.push({...DEFAULT_BUTTONS[settings.buttons.length % DEFAULT_BUTTONS.length]});
+}
+
+// ===== PLAY SCREEN =====
+let scanIndex=0, scanTimer=null;
+function buildPlayScreen() {
+  const grid = document.getElementById('sound-grid');
+  const count = settings.btnCount;
+  grid.className='sound-grid';
+  if(count<=2) grid.classList.add('cols-2');
+  else if(count<=6) grid.classList.add('cols-3');
+  else grid.classList.add('cols-4');
+  grid.innerHTML='';
+  for(let i=0;i<count;i++) {
+    const btn = settings.buttons[i] || DEFAULT_BUTTONS[i%DEFAULT_BUTTONS.length];
+    const isRec = btn.sound && btn.sound.startsWith('rec_');
+    const s = isRec ? {emoji:'🎤', label: btn.label||'録音'} : SOUNDS[btn.sound];
+    const el = document.createElement('button');
+    el.className='sound-button';
+    el.style.background=btn.color;
+    el.dataset.index=i; el.dataset.sound=btn.sound;
+    el.innerHTML=`<span class="btn-icon">${s.emoji}</span><span class="btn-label">${s.label}</span>`;
+    el.addEventListener('click', e=>onSoundBtnClick(e,i,btn.sound,s.emoji));
+    grid.appendChild(el);
+  }
+  const bgmNames={beat1:'ポップビート',beat2:'ロックビート',calm:'しずかなおんがく'};
+  document.querySelector('.bgm-title').textContent=bgmNames[settings.bgmType]||'BGM';
+  document.getElementById('bgm-bar').style.display=settings.bgmEnabled?'flex':'none';
+  if(settings.modeSwitch) { setupScan(); document.getElementById('scan-indicator').classList.add('visible'); }
+  else { stopScan(); document.getElementById('scan-indicator').classList.remove('visible'); }
+}
+
+function onSoundBtnClick(e, index, sound, emoji) {
+  if(settings.preventRepeat) {
+    const now=Date.now();
+    if(cooldowns[index]&&(now-cooldowns[index])<settings.cooldown*1000) return;
+    cooldowns[index]=now;
+  }
+  playSound(sound);
+  if(settings.visualFeedback) {
+    const btn=e.currentTarget;
+    const ripple=document.createElement('div'); ripple.className='ripple';
+    const rect=btn.getBoundingClientRect(); const size=Math.max(rect.width,rect.height);
+    ripple.style.width=ripple.style.height=size+'px';
+    ripple.style.left=(e.clientX-rect.left-size/2)+'px';
+    ripple.style.top=(e.clientY-rect.top-size/2)+'px';
+    btn.appendChild(ripple); btn.classList.add('playing');
+    setTimeout(()=>{ripple.remove();btn.classList.remove('playing');},600);
+  }
+  if(settings.emojiFeedback) {
+    const el=document.getElementById('feedback-emoji');
+    el.textContent=emoji; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    setTimeout(()=>el.classList.remove('show'),700);
+  }
+}
+
+function setupScan() {
+  stopScan(); scanIndex=0;
+  const btns=document.querySelectorAll('.sound-button'); if(!btns.length) return;
+  updateScanHighlight();
+  if(settings.switchCount===1) {
+    scanTimer=setInterval(()=>{ scanIndex=(scanIndex+1)%btns.length; updateScanHighlight(); }, settings.scanSpeed*1000);
+    btns.forEach(btn=>{ btn.onclick=null; btn.addEventListener('click',handleScanActivate,true); });
+    document.addEventListener('keydown',handleScanKey);
+  } else {
+    document.addEventListener('keydown',handle2ButtonKey);
+    btns.forEach(btn=>{ btn.onclick=null; });
+  }
+}
+function handle2ButtonKey(e) {
+  const btns=document.querySelectorAll('.sound-button');
+  if(e.code==='Space'){e.preventDefault();scanIndex=(scanIndex+1)%btns.length;updateScanHighlight();}
+  else if(e.code==='Enter') activateScanBtn();
+}
+function handleScanKey(e) { if(e.code==='Space'||e.code==='Enter') activateScanBtn(); }
+function handleScanActivate(e) { e.stopPropagation(); activateScanBtn(); }
+function activateScanBtn() {
+  const btns=document.querySelectorAll('.sound-button'); if(!btns[scanIndex]) return;
+  const btn=btns[scanIndex]; const sound=btn.dataset.sound;
+  const isRec = sound.startsWith('rec_');
+  const s = isRec ? {emoji:'🎤'} : SOUNDS[sound];
+  const fakeE={currentTarget:btn, clientX:btn.getBoundingClientRect().left+btn.offsetWidth/2, clientY:btn.getBoundingClientRect().top+btn.offsetHeight/2};
+  onSoundBtnClick(fakeE,parseInt(btn.dataset.index),sound,s.emoji);
+}
+function updateScanHighlight() { document.querySelectorAll('.sound-button').forEach((b,i)=>b.classList.toggle('scanning',i===scanIndex)); }
+function stopScan() {
+  if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
+  document.removeEventListener('keydown',handleScanKey);
+  document.removeEventListener('keydown',handle2ButtonKey);
+  document.querySelectorAll('.sound-button').forEach(b=>b.classList.remove('scanning'));
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== COMPOSE MODE =====
+const TRACK_SOUNDS = [
+  { id:'kick',    emoji:'🥁', name:'ドン',   color:'#ff6b6b' },
+  { id:'snare',   emoji:'💥', name:'パン',   color:'#ffd93d' },
+  { id:'hihat',   emoji:'🎵', name:'チッ',   color:'#6bcb77' },
+  { id:'bass',    emoji:'🎸', name:'ボン',   color:'#4d96ff' },
+  { id:'piano_c', emoji:'🎹', name:'ド',     color:'#ff4d4d' },
+  { id:'piano_d', emoji:'🎹', name:'レ',     color:'#ff8c00' },
+  { id:'piano_e', emoji:'🎹', name:'ミ',     color:'#ffd700' },
+  { id:'piano_f', emoji:'🎹', name:'ファ',   color:'#4caf50' },
+  { id:'piano_g', emoji:'🎹', name:'ソ',     color:'#00bcd4' },
+  { id:'piano_a', emoji:'🎹', name:'ラ',     color:'#3b82f6' },
+  { id:'piano_b', emoji:'🎹', name:'シ',     color:'#9c27b0' },
+  { id:'piano_c2',emoji:'🎹', name:'ド（高）',color:'#ff80ab' },
+  { id:'bell',    emoji:'🔔', name:'リン',   color:'#ff6b9d' },
+  { id:'marimba', emoji:'🪘', name:'コン',   color:'#a8e6cf' },
+];
+
+let composeTracks = []; // [{soundId, steps:[bool*N], vol:1.0}]
+let composeStepCount = 16;
+let composeTempo = 100;
+let composeStep = 0;
+let composeTimer = null;
+let composePlaying = false;
+
+function initComposeTracks() {
+  if(composeTracks.length > 0) return;
+  // Start with 3 default tracks
+  composeTracks = [
+    { soundId:'kick',  steps: Array(composeStepCount).fill(false), vol: 1.0 },
+    { soundId:'snare', steps: Array(composeStepCount).fill(false), vol: 0.8 },
+    { soundId:'hihat', steps: Array(composeStepCount).fill(false), vol: 0.6 },
+  ];
+  // default pattern
+  composeTracks[0].steps[0]  = true;
+  composeTracks[0].steps[8]  = true;
+  composeTracks[1].steps[4]  = true;
+  composeTracks[1].steps[12] = true;
+  composeTracks[2].steps[0]  = true;
+  composeTracks[2].steps[2]  = true;
+  composeTracks[2].steps[4]  = true;
+  composeTracks[2].steps[6]  = true;
+  composeTracks[2].steps[8]  = true;
+  composeTracks[2].steps[10] = true;
+  composeTracks[2].steps[12] = true;
+  composeTracks[2].steps[14] = true;
+}
+
+function buildSequencerGrid() {
+  const grid = document.getElementById('sequencer-grid');
+  // Keep position row, rebuild the rest
+  const posRow = document.getElementById('seq-position-row');
+  grid.innerHTML = '';
+  grid.appendChild(posRow);
+
+  // Position dots
+  posRow.innerHTML = '';
+  posRow.style.marginLeft = '112px';
+  for(let s=0; s<composeStepCount; s++) {
+    const d = document.createElement('div');
+    d.className = 'seq-pos-dot' + (s%4===0 ? ' beat':'');
+    d.id = `pos-dot-${s}`;
+    posRow.appendChild(d);
+  }
+
+  // Tracks
+  composeTracks.forEach((track, ti) => {
+    const ts = TRACK_SOUNDS.find(t=>t.id===track.soundId) || TRACK_SOUNDS[0];
+
+    const row = document.createElement('div');
+    row.className = 'seq-row';
+    row.id = `seq-row-${ti}`;
+
+    // Label
+    const label = document.createElement('div');
+    label.className = 'seq-row-label';
+    label.id = `seq-label-${ti}`;
+    label.innerHTML = `<span class="row-emoji">${ts.emoji}</span><span class="row-name">${ts.name}</span>`;
+    label.onclick = () => previewTrackSound(ti);
+    row.appendChild(label);
+
+    // Steps
+    const stepsWrap = document.createElement('div');
+    stepsWrap.className = 'seq-steps';
+    for(let s=0; s<composeStepCount; s++) {
+      const btn = document.createElement('button');
+      btn.className = 'seq-step' + (s%4===0 ? ' beat-div':'') + (track.steps[s]?' on':'');
+      btn.id = `step-${ti}-${s}`;
+      if(track.steps[s]) btn.style.background = ts.color;
+      btn.onclick = () => toggleStep(ti, s);
+      stepsWrap.appendChild(btn);
+    }
+    row.appendChild(stepsWrap);
+
+    // Delete button
+    const del = document.createElement('button');
+    del.innerHTML = '✕';
+    del.style.cssText = 'background:transparent;border:none;color:var(--text-dim);font-size:1rem;cursor:pointer;padding:4px 8px;flex-shrink:0;';
+    del.onclick = () => removeTrack(ti);
+    row.appendChild(del);
+
+    grid.appendChild(row);
+
+    // Volume slider row
+    const volRow = document.createElement('div');
+    volRow.className = 'seq-row-vol';
+    volRow.innerHTML = `<span class="vol-icon">🔊</span><input type="range" class="vol-slider" min="0" max="100" value="${Math.round(track.vol*100)}" oninput="setTrackVol(${ti},this.value)">`;
+    grid.appendChild(volRow);
+  });
+}
+
+function toggleStep(ti, si) {
+  const track = composeTracks[ti];
+  track.steps[si] = !track.steps[si];
+  const ts = TRACK_SOUNDS.find(t=>t.id===track.soundId) || TRACK_SOUNDS[0];
+  const btn = document.getElementById(`step-${ti}-${si}`);
+  if(btn) {
+    btn.classList.toggle('on', track.steps[si]);
+    btn.style.background = track.steps[si] ? ts.color : '';
+    if(track.steps[si]) {
+      // Preview sound on tap
+      getAudioCtx();
+      playSound(track.soundId);
+      btn.style.filter = 'brightness(1.5)';
+      setTimeout(()=>{ if(btn) btn.style.filter=''; }, 100);
+    }
+  }
+}
+
+function setTrackVol(ti, val) {
+  composeTracks[ti].vol = val / 100;
+}
+
+function removeTrack(ti) {
+  composeTracks.splice(ti, 1);
+  buildSequencerGrid();
+}
+
+function previewTrackSound(ti) {
+  getAudioCtx();
+  playSound(composeTracks[ti].soundId);
+  const label = document.getElementById(`seq-label-${ti}`);
+  if(label) {
+    label.classList.add('row-playing');
+    setTimeout(()=>label.classList.remove('row-playing'), 300);
+  }
+}
+
+function setStepCount(n) {
+  composeStepCount = n;
+  composeTracks.forEach(t => {
+    if(t.steps.length < n) {
+      while(t.steps.length < n) t.steps.push(false);
+    } else {
+      t.steps = t.steps.slice(0, n);
+    }
+  });
+  document.querySelectorAll('.step-count-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.textContent) === n);
+  });
+  if(composeStep >= n) composeStep = 0;
+  buildSequencerGrid();
+}
+
+function updateTempo(val) {
+  composeTempo = parseInt(val);
+  document.getElementById('tempo-val').textContent = `${composeTempo} BPM`;
+  if(composePlaying) {
+    clearInterval(composeTimer);
+    startComposeTimer();
+  }
+}
+
+function toggleCompose() {
+  if(composePlaying) stopCompose();
+  else startComposing();
+}
+
+function startComposing() {
+  getAudioCtx();
+  composePlaying = true;
+  composeStep = 0;
+  document.getElementById('compose-play-btn').textContent = '⏸ いちじていし';
+  document.getElementById('compose-play-btn').classList.add('playing');
+  startComposeTimer();
+}
+
+function startComposeTimer() {
+  const interval = (60 / composeTempo / 4) * 1000; // 16th notes
+  composeTimer = setInterval(tickCompose, interval);
+}
+
+function tickCompose() {
+  const n = composeStepCount;
+  // Clear previous highlight
+  const prevStep = (composeStep - 1 + n) % n;
+  for(let ti=0; ti<composeTracks.length; ti++) {
+    const prevBtn = document.getElementById(`step-${ti}-${prevStep}`);
+    if(prevBtn) prevBtn.classList.remove('current');
+  }
+  const prevDot = document.getElementById(`pos-dot-${prevStep}`);
+  if(prevDot) prevDot.classList.remove('active');
+
+  // Play current step
+  for(let ti=0; ti<composeTracks.length; ti++) {
+    const track = composeTracks[ti];
+    if(track.steps[composeStep]) {
+      // Play with volume
+      playSoundWithVol(track.soundId, track.vol);
+      // Flash row label
+      const label = document.getElementById(`seq-label-${ti}`);
+      if(label) {
+        label.classList.add('row-playing');
+        setTimeout(()=>label.classList.remove('row-playing'), 80);
+      }
+    }
+    const btn = document.getElementById(`step-${ti}-${composeStep}`);
+    if(btn) btn.classList.add('current');
+  }
+
+  // Highlight position dot
+  const dot = document.getElementById(`pos-dot-${composeStep}`);
+  if(dot) dot.classList.add('active');
+
+  composeStep = (composeStep + 1) % n;
+}
+
+function playSoundWithVol(soundId, vol) {
+  if(soundId.startsWith('rec_')) {
+    playRecordedSoundWithVol(soundId, vol);
+    return;
+  }
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = vol;
+  master.connect(ctx.destination);
+
+  switch(soundId) {
+    case 'kick': {
+      const osc=ctx.createOscillator(); osc.connect(master);
+      osc.frequency.setValueAtTime(200,now); osc.frequency.exponentialRampToValueAtTime(40,now+0.3);
+      const g=ctx.createGain(); osc.connect(g); g.connect(master);
+      g.gain.setValueAtTime(1.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.4);
+      osc.start(now); osc.stop(now+0.4); break;
+    }
+    case 'snare': {
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.2,ctx.sampleRate);
+      const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1000;
+      src.connect(f); f.connect(master);
+      const g=ctx.createGain(); g.gain.setValueAtTime(1.2,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.2);
+      f.connect(g); g.connect(master); src.start(now); break;
+    }
+    case 'hihat': {
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.08,ctx.sampleRate);
+      const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=7000;
+      src.connect(f); f.connect(master); src.start(now); break;
+    }
+    case 'bass': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=80;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=400;
+      osc.connect(f); f.connect(master);
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.5);
+      f.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.5); break;
+    }
+    case 'piano_c': playPianoVol(261.63,now,master,ctx); break;
+    case 'piano_d': playPianoVol(293.66,now,master,ctx); break;
+    case 'piano_e': playPianoVol(329.63,now,master,ctx); break;
+    case 'piano_f': playPianoVol(349.23,now,master,ctx); break;
+    case 'piano_g': playPianoVol(392.00,now,master,ctx); break;
+    case 'piano_a': playPianoVol(440.00,now,master,ctx); break;
+    case 'piano_b': playPianoVol(493.88,now,master,ctx); break;
+    case 'piano_c2':playPianoVol(523.25,now,master,ctx); break;
+    case 'bell': {
+      const osc=ctx.createOscillator(); osc.type='sine';
+      osc.frequency.setValueAtTime(880,now); osc.frequency.exponentialRampToValueAtTime(660,now+0.8);
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+1.2);
+      osc.connect(g); g.connect(master); osc.start(now); osc.stop(now+1.2); break;
+    }
+    case 'marimba': {
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=523.25;
+      const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=1046.5;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
+      const g2=ctx.createGain(); g2.gain.value=0.3;
+      osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.6); osc2.start(now); osc2.stop(now+0.6); break;
+    }
+  }
+}
+
+function playPianoVol(freq, now, master, ctx) {
+  const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=freq;
+  const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=freq*2;
+  const g=ctx.createGain(); g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+  const g2=ctx.createGain(); g2.gain.value=0.3;
+  osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
+  osc.start(now); osc.stop(now+0.8); osc2.start(now); osc2.stop(now+0.8);
+}
+
+async function playRecordedSoundWithVol(soundKey, vol) {
+  const id = parseInt(soundKey.replace('rec_', ''));
+  try {
+    if(!recAudioBuffers[id]) {
+      const rec = await getRecordingById(id);
+      if(!rec) return;
+      const ctx = getAudioCtx();
+      recAudioBuffers[id] = await ctx.decodeAudioData(rec.audioData.slice(0));
+    }
+    const ctx = getAudioCtx();
+    const src = ctx.createBufferSource();
+    src.buffer = recAudioBuffers[id];
+    const g = ctx.createGain(); g.gain.value = vol;
+    src.connect(g); g.connect(ctx.destination);
+    src.start();
+  } catch(e) {}
+}
+
+function stopCompose() {
+  clearInterval(composeTimer); composeTimer = null;
+  composePlaying = false;
+  composeStep = 0;
+  const btn = document.getElementById('compose-play-btn');
+  if(btn) { btn.textContent = '▶ さいせい'; btn.classList.remove('playing'); }
+  // Clear all highlights
+  document.querySelectorAll('.seq-step').forEach(b=>b.classList.remove('current'));
+  document.querySelectorAll('.seq-pos-dot').forEach(d=>d.classList.remove('active'));
+}
+
+function clearCompose() {
+  if(!confirm('すべてのおとをけしますか？')) return;
+  composeTracks.forEach(t => t.steps.fill(false));
+  buildSequencerGrid();
+}
+
+// Track picker
+function openTrackPicker() {
+  const grid = document.getElementById('track-pick-grid');
+  grid.innerHTML = '';
+
+  // Built-in sounds
+  TRACK_SOUNDS.forEach(ts => {
+    const btn = document.createElement('button');
+    btn.className = 'track-pick-btn';
+    btn.style.borderColor = 'transparent';
+    btn.innerHTML = `<span class="tp-emoji">${ts.emoji}</span><span class="tp-name">${ts.name}</span>`;
+    btn.onmouseenter = () => btn.style.borderColor = ts.color;
+    btn.onmouseleave = () => { if(!btn.dataset.sel) btn.style.borderColor='transparent'; };
+    btn.onclick = () => { addTrack(ts.id); closeTrackPicker(); };
+    grid.appendChild(btn);
+  });
+
+  // Recorded sounds
+  getAllRecordings().then(recs => {
+    if(recs.length) {
+      const sep = document.createElement('div');
+      sep.style.cssText = 'grid-column:1/-1;font-size:0.8rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:4px 0;';
+      sep.textContent = '🎤 ろくおんしたおと';
+      grid.appendChild(sep);
+      recs.forEach(rec => {
+        const btn = document.createElement('button');
+        btn.className = 'track-pick-btn';
+        btn.style.borderColor = 'transparent';
+        btn.innerHTML = `<span class="tp-emoji">${rec.emoji}</span><span class="tp-name">${rec.name}</span>`;
+        btn.onclick = () => { addTrack(`rec_${rec.id}`, rec.emoji, rec.name, rec.color); closeTrackPicker(); };
+        grid.appendChild(btn);
+      });
+    }
+  });
+
+  document.getElementById('track-picker').classList.add('active');
+}
+
+function closeTrackPicker() {
+  document.getElementById('track-picker').classList.remove('active');
+}
+
+function addTrack(soundId, emoji, name, color) {
+  const ts = TRACK_SOUNDS.find(t=>t.id===soundId);
+  composeTracks.push({
+    soundId,
+    steps: Array(composeStepCount).fill(false),
+    vol: 0.9,
+    emoji: emoji || ts?.emoji,
+    name: name || ts?.name,
+    color: color || ts?.color,
+  });
+  buildSequencerGrid();
+  // Scroll to bottom
+  setTimeout(() => {
+    const wrap = document.querySelector('.sequencer-wrap');
+    if(wrap) wrap.scrollTop = wrap.scrollHeight;
+  }, 50);
+}
+
+// Save / Load compositions
+const COMP_STORE = 'compositions';
+
+function ensureCompStore() {
+  return new Promise((resolve) => {
+    // We reuse the same DB, but add a compositions store if it doesn't exist yet
+    // Since we can't upgrade version dynamically, store in localStorage as JSON (no audio)
+    resolve();
+  });
+}
+
+function saveComposition() {
+  const name = document.getElementById('compose-name').value.trim() || 'わたしのさくひん';
+  const data = {
+    id: Date.now(),
+    name,
+    tempo: composeTempo,
+    stepCount: composeStepCount,
+    tracks: composeTracks.map(t => ({
+      soundId: t.soundId,
+      steps: t.steps.slice(),
+      vol: t.vol,
+      emoji: t.emoji,
+      name: t.name,
+      color: t.color,
+    })),
+    createdAt: Date.now()
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem('ongaku-compositions') || '[]');
+    saved.push(data);
+    localStorage.setItem('ongaku-compositions', JSON.stringify(saved));
+    showToast(`✅「${name}」をほぞんしました！`);
+  } catch(e) {
+    showToast('❌ ほぞんできませんでした');
+  }
+}
+
+function loadCompositions() {
+  try { return JSON.parse(localStorage.getItem('ongaku-compositions') || '[]'); }
+  catch(e) { return []; }
+}
+
+function showCompositions() {
+  const list = document.getElementById('comp-list');
+  const comps = loadCompositions();
+  if(!comps.length) {
+    list.innerHTML = '<div class="comp-empty">🎼 まださくひんがありません<br><br>つくるモードでさくひんをつくってほぞんしよう！</div>';
+    return;
+  }
+  list.innerHTML = '';
+  comps.slice().reverse().forEach(comp => {
+    const item = document.createElement('div');
+    item.className = 'comp-item';
+    const trackEmojis = comp.tracks.map(t => {
+      const ts = TRACK_SOUNDS.find(s=>s.id===t.soundId);
+      return t.emoji || ts?.emoji || '🎵';
+    }).slice(0,4).join('');
+    item.innerHTML = `
+      <div class="comp-item-icon">${trackEmojis || '🎼'}</div>
+      <div class="comp-item-info">
+        <div class="comp-item-name">${comp.name}</div>
+        <div class="comp-item-meta">🥁 ${comp.tempo}BPM &nbsp;·&nbsp; ${comp.tracks.length}トラック &nbsp;·&nbsp; ${new Date(comp.createdAt).toLocaleDateString('ja-JP')}</div>
+      </div>
+      <div class="comp-item-actions">
+        <button class="btn-comp-play" onclick="loadAndPlayComp(${comp.id})" title="よみこむ">▶</button>
+        <button class="btn-comp-del" onclick="deleteComp(${comp.id})" title="さくじょ">🗑</button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function loadAndPlayComp(id) {
+  const comps = loadCompositions();
+  const comp = comps.find(c=>c.id===id);
+  if(!comp) return;
+  stopCompose();
+  composeTempo = comp.tempo;
+  composeStepCount = comp.stepCount || 16;
+  composeTracks = comp.tracks.map(t=>({...t, steps:[...t.steps]}));
+  document.getElementById('tempo-slider').value = composeTempo;
+  document.getElementById('tempo-val').textContent = `${composeTempo} BPM`;
+  setStepCount(composeStepCount);
+  buildSequencerGrid();
+  showScreen('compose');
+  showToast(`📂「${comp.name}」をよみこみました`);
+}
+
+function deleteComp(id) {
+  if(!confirm('さくひんをさくじょしますか？')) return;
+  try {
+    const saved = loadCompositions().filter(c=>c.id!==id);
+    localStorage.setItem('ongaku-compositions', JSON.stringify(saved));
+    showCompositions();
+    showToast('🗑 さくじょしました');
+  } catch(e) {}
+}
+
+// ===== URL SHARING =====
+function shareComposition() {
+  const name = document.getElementById('compose-name').value.trim() || 'わたしのさくひん';
+  const data = {
+    n: name,
+    t: composeTempo,
+    s: composeStepCount,
+    tr: composeTracks.map(tr => ({
+      id: tr.soundId,
+      s: tr.steps.map(v => v ? 1 : 0), // compact: array of 0/1
+      v: Math.round(tr.vol * 100),
+      e: tr.emoji,
+      nm: tr.name,
+      c: tr.color
+    }))
+  };
+  try {
+    const json = JSON.stringify(data);
+    const encoded = btoa(unescape(encodeURIComponent(json)));
+    const url = location.href.split('?')[0] + '?share=' + encoded;
+    document.getElementById('share-url-display').textContent = url;
+    document.getElementById('share-copy-notice').style.display = 'none';
+    document.getElementById('modal-share').classList.add('active');
+  } catch(e) {
+    showToast('❌ URLのせいせいにしっぱいしました');
+  }
+}
+
+function copyShareUrl() {
+  const url = document.getElementById('share-url-display').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      document.getElementById('share-copy-notice').style.display = 'block';
+      showToast('📋 コピーしました！ともだちにおくろう！');
+    }).catch(() => fallbackCopy(url));
+  } else {
+    fallbackCopy(url);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    document.getElementById('share-copy-notice').style.display = 'block';
+    showToast('📋 コピーしました！');
+  } catch(e) {
+    showToast('コピーできませんでした。手動でコピーしてください。');
+  }
+  document.body.removeChild(ta);
+}
+
+function loadSharedUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const encoded = params.get('share');
+    if (!encoded) return false;
+    const json = decodeURIComponent(escape(atob(encoded)));
+    const data = JSON.parse(json);
+    // Apply to compose state
+    composeTracks = (data.tr || []).map(tr => ({
+      soundId: tr.id,
+      steps: (tr.s || []).map(v => v === 1),
+      vol: (tr.v || 80) / 100,
+      emoji: tr.e,
+      name: tr.nm,
+      color: tr.c
+    }));
+    composeTempo = data.t || 100;
+    composeStepCount = data.s || 16;
+    document.getElementById('compose-name').value = data.n || '';
+    // Clean URL so refresh doesn't re-import
+    history.replaceState({}, '', location.pathname);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// ===== INIT =====
+initDB().then(()=>{
+  loadSettings();
+  buildBtnConfig();
+  // Check for shared URL
+  const wasShared = loadSharedUrl();
+  if (wasShared) {
+    setTimeout(() => {
+      showScreen('compose');
+      showToast('🔗 きょうゆうされたさくひんをよみこみました！');
+    }, 300);
+  }
+}).catch(()=>{
+  loadSettings();
+  buildBtnConfig();
+  const wasShared = loadSharedUrl();
+  if (wasShared) {
+    setTimeout(() => {
+      showScreen('compose');
+      showToast('🔗 きょうゆうされたさくひんをよみこみました！');
+    }, 300);
+  }
+});
+</script>
+</body>
+</html>

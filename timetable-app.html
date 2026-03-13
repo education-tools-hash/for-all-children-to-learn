@@ -1,0 +1,2451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>じこくひょう れんしゅう アプリ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kosugi+Maru&family=Rounded+Mplus+1c:wght@400;700;800&display=swap');
+
+  :root {
+    --sky: #4FC3F7;
+    --sky-dark: #0288D1;
+    --sun: #FFD54F;
+    --train: #E53935;
+    --bus: #43A047;
+    --platform: #5C6BC0;
+    --bg: #E3F2FD;
+    --card: #FFFFFF;
+    --text: #1A237E;
+    --accent: #FF8F00;
+    --green: #2E7D32;
+    --pink: #E91E63;
+    --shadow: 0 6px 24px rgba(0,0,0,0.12);
+    --radius: 24px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Rounded Mplus 1c', 'Kosugi Maru', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === HEADER === */
+  .header {
+    background: linear-gradient(135deg, var(--sky-dark) 0%, var(--sky) 100%);
+    padding: 18px 24px 14px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '🚃🚌🚉';
+    position: absolute;
+    font-size: 80px;
+    opacity: 0.1;
+    top: -10px;
+    right: -10px;
+  }
+  .header h1 {
+    font-size: clamp(20px, 5vw, 32px);
+    color: white;
+    font-weight: 800;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    letter-spacing: 2px;
+  }
+  .header p {
+    color: rgba(255,255,255,0.9);
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  /* === TAB NAV === */
+  .tab-nav {
+    display: flex;
+    gap: 8px;
+    padding: 16px 16px 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-nav::-webkit-scrollbar { display: none; }
+
+  .tab-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 12px 10px;
+    border: none;
+    border-radius: 16px 16px 0 0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s;
+    background: rgba(255,255,255,0.5);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .tab-btn .tab-icon { font-size: 22px; }
+  .tab-btn.active {
+    background: white;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+    color: var(--sky-dark);
+  }
+  .tab-btn:not(.active):hover {
+    background: rgba(255,255,255,0.75);
+  }
+
+  /* === SECTIONS === */
+  .section {
+    display: none;
+    padding: 0 16px 24px;
+    animation: fadeIn 0.35s ease;
+  }
+  .section.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === CARD === */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .card-title {
+    font-size: 17px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sky-dark);
+  }
+
+  /* === SECTION 1: 時刻表 === */
+  .route-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .route-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 10px 14px;
+    border: 3px solid transparent;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #f0f4ff;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+  }
+  .route-btn.bus.active { background: #E8F5E9; border-color: var(--bus); color: var(--bus); }
+  .route-btn.train.active { background: #FFEBEE; border-color: var(--train); color: var(--train); }
+  .route-btn:not(.active):hover { background: #e8eaf6; }
+
+  .timetable-wrap {
+    overflow-x: auto;
+  }
+  .timetable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 15px;
+  }
+  .timetable th {
+    padding: 10px 14px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 13px;
+  }
+  .timetable td {
+    padding: 10px 14px;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 8px;
+  }
+  .timetable tr:hover td { background: #f3f8ff; }
+  .timetable .hour-cell {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--sky-dark);
+    background: #E3F2FD;
+    border-radius: 12px;
+    width: 54px;
+  }
+  .time-chip {
+    display: inline-block;
+    background: #EDE7F6;
+    color: #512DA8;
+    border-radius: 20px;
+    padding: 4px 12px;
+    margin: 3px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .time-chip:hover, .time-chip.selected {
+    background: var(--platform);
+    color: white;
+    transform: scale(1.08);
+  }
+  .time-chip.train-chip { background: #FFEBEE; color: var(--train); }
+  .time-chip.train-chip:hover, .time-chip.train-chip.selected { background: var(--train); color: white; }
+  .time-chip.bus-chip { background: #E8F5E9; color: var(--bus); }
+  .time-chip.bus-chip:hover, .time-chip.bus-chip.selected { background: var(--bus); color: white; }
+
+  .selected-info {
+    background: linear-gradient(135deg, #E8EAF6, #E3F2FD);
+    border-radius: 16px;
+    padding: 14px 18px;
+    margin-top: 14px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .selected-info.show { display: flex; }
+  .selected-info .big-time {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--sky-dark);
+  }
+
+  .next-indicator {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight: 800;
+    margin-left: 8px;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.8; transform:scale(1.04); }
+  }
+
+  /* === SECTION 2: バーチャル体験 === */
+  .sim-display {
+    background: linear-gradient(160deg, #1A237E 0%, #283593 60%, #3949AB 100%);
+    border-radius: 20px;
+    padding: 20px;
+    color: white;
+    margin-bottom: 16px;
+    min-height: 200px;
+    position: relative;
+    overflow: hidden;
+  }
+  .sim-display::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 0 0 20px 20px;
+  }
+
+  .clock-display {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .clock-face {
+    display: inline-block;
+    background: rgba(255,255,255,0.12);
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    width: 110px;
+    height: 110px;
+    position: relative;
+    margin: 0 auto 12px;
+  }
+  .clock-svg { width: 110px; height: 110px; }
+  .sim-time-text {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--sun);
+    letter-spacing: 2px;
+  }
+  .sim-status {
+    font-size: 13px;
+    opacity: 0.85;
+    margin-top: 4px;
+  }
+
+  .journey-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .journey-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    transition: all 0.3s;
+    border-left: 4px solid transparent;
+  }
+  .journey-step.done { opacity: 0.55; border-left-color: #69F0AE; }
+  .journey-step.current {
+    background: rgba(255,255,255,0.22);
+    border-left-color: var(--sun);
+    font-weight: 700;
+  }
+  .journey-step.upcoming { border-left-color: rgba(255,255,255,0.2); }
+  .step-icon { font-size: 20px; flex-shrink: 0; }
+  .step-time { font-size: 16px; font-weight: 800; color: var(--sun); min-width: 50px; }
+
+  .sim-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .sim-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 12px 10px;
+    border: none;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .sim-btn.primary { background: var(--sky-dark); color: white; }
+  .sim-btn.success { background: var(--green); color: white; }
+  .sim-btn.warning { background: var(--accent); color: white; }
+  .sim-btn.danger  { background: var(--train); color: white; }
+  .sim-btn:hover   { filter: brightness(1.12); transform: scale(1.03); }
+  .sim-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  .scenario-select {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .scenario-card {
+    border: 3px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 14px 10px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.2s;
+    background: white;
+    line-height: 1.5;
+  }
+  .scenario-card:hover { border-color: var(--sky); background: #E3F2FD; }
+  .scenario-card.selected { border-color: var(--sky-dark); background: #E3F2FD; color: var(--sky-dark); }
+  .scenario-card .s-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+
+  .feedback-box {
+    background: linear-gradient(135deg, #E8F5E9, #F1F8E9);
+    border-radius: 16px;
+    padding: 14px 18px;
+    display: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green);
+    align-items: center;
+    gap: 10px;
+  }
+  .feedback-box.show { display: flex; }
+  .feedback-box.error { background: linear-gradient(135deg,#FFEBEE,#FFF3E0); color: var(--train); }
+  .feedback-icon { font-size: 28px; }
+
+  /* === SECTION 3: じかんの かんかく === */
+  .time-concept-display {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #FFF8E1, #FFF3E0);
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .concept-clock-wrap {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 16px;
+  }
+  .analog-clock {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: white;
+    border: 6px solid var(--accent);
+    position: relative;
+    box-shadow: 0 4px 20px rgba(255,143,0,0.25);
+    margin: 0 auto;
+  }
+  .concept-big-text {
+    font-size: clamp(18px, 5vw, 26px);
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  .concept-sub {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+
+  .minutes-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .min-btn {
+    padding: 12px 6px;
+    border: none;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    color: var(--text);
+  }
+  .min-btn:hover, .min-btn.active {
+    background: var(--accent);
+    color: white;
+    transform: scale(1.06);
+  }
+  .min-btn.past:hover, .min-btn.past.active {
+    background: var(--platform);
+  }
+
+  .timeline-bar {
+    position: relative;
+    background: #e0e0e0;
+    height: 24px;
+    border-radius: 12px;
+    margin: 20px 0 8px;
+    overflow: visible;
+  }
+  .timeline-fill {
+    position: absolute;
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1), background 0.3s;
+    top: 0; left: 0;
+  }
+  .timeline-now {
+    position: absolute;
+    top: -8px;
+    width: 4px;
+    height: 40px;
+    background: var(--train);
+    border-radius: 2px;
+    transition: left 0.5s cubic-bezier(.4,0,.2,1);
+  }
+  .timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #888;
+    margin-top: 6px;
+  }
+  .concept-quiz {
+    background: linear-gradient(135deg, #E8EAF6, #EDE7F6);
+    border-radius: 16px;
+    padding: 16px;
+    text-align: center;
+  }
+  .quiz-q {
+    font-size: 18px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    color: var(--platform);
+    line-height: 1.5;
+  }
+  .quiz-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .quiz-opt {
+    padding: 14px 10px;
+    border: 3px solid #c5cae9;
+    border-radius: 14px;
+    background: white;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text);
+  }
+  .quiz-opt:hover { border-color: var(--platform); background: #E8EAF6; }
+  .quiz-opt.correct { border-color: var(--green); background: #E8F5E9; color: var(--green); }
+  .quiz-opt.wrong   { border-color: var(--train); background: #FFEBEE; color: var(--train); }
+  .quiz-result {
+    font-size: 22px;
+    font-weight: 800;
+    min-height: 36px;
+    transition: all 0.3s;
+  }
+  .quiz-next-btn {
+    margin-top: 10px;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 14px;
+    background: var(--platform);
+    color: white;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    display: none;
+    transition: all 0.2s;
+  }
+  .quiz-next-btn:hover { background: var(--sky-dark); transform: scale(1.04); }
+  .quiz-score {
+    font-size: 14px;
+    color: #888;
+    margin-top: 8px;
+  }
+
+  /* balloon tip */
+  .tip-balloon {
+    display: inline-block;
+    background: var(--sun);
+    color: #5D4037;
+    border-radius: 16px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .tip-balloon::after {
+    content: '';
+    position: absolute;
+    bottom: -10px; left: 24px;
+    border: 10px solid transparent;
+    border-top-color: var(--sun);
+    border-bottom: 0;
+    width: 0; height: 0;
+  }
+
+
+
+
+
+  /* === 電光掲示板 === */
+  #denkoboard-body::-webkit-scrollbar { width: 6px; }
+  #denkoboard-body::-webkit-scrollbar-track { background: #111; }
+  #denkoboard-body::-webkit-scrollbar-thumb { background: #FF9800; border-radius: 3px; }
+
+  /* === CUSTOM SCENARIO FORM === */
+  .cform-row {
+    margin-bottom: 14px;
+  }
+  .cform-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    color: #5D4037;
+    margin-bottom: 7px;
+  }
+  .emoji-pick-btn {
+    padding: 4px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: white;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .emoji-pick-btn:hover { border-color: #FFD54F; transform: scale(1.15); }
+  .emoji-pick-btn.epicked { border-color: var(--accent); background: #FFF8E1; }
+  .ctrans-btn {
+    padding: 10px 14px;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    background: white;
+    transition: all 0.2s;
+    color: var(--text);
+  }
+  .ctrans-btn:hover { border-color: var(--accent); background: #FFF8E1; }
+  .ctrans-btn.ctrans-active { border-color: var(--accent); background: #FFF3E0; color: var(--accent); }
+  .custom-scenario-card.selected { border-color: var(--accent) !important; background: #FFF8E1; color: var(--accent); }
+
+  /* === INLINE ANALOG CLOCK === */
+  .inline-clock-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .inline-clock-label {
+    font-size: 12px;
+    font-weight: 800;
+    color: #0288D1;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* === PROBLEM CONFIRM CARD === */
+  .prob-card {
+    background: linear-gradient(135deg, #FFF8E1 0%, #FFF3E0 100%);
+    border: 2px solid #FFD54F;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .prob-card-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #FF8F00;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .prob-card-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1A237E;
+    margin-bottom: 8px;
+  }
+  .prob-card-desc {
+    font-size: 13px;
+    color: #444;
+    line-height: 1.8;
+  }
+  .prob-card-conditions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .prob-cond-chip {
+    background: white;
+    border: 1.5px solid #FFD54F;
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #5D4037;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .prob-toggle-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #FFD54F;
+    border: none;
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #5D4037;
+    font-family: inherit;
+  }
+  .prob-toggle-btn:hover { background: #FFC107; }
+
+  /* === VIRTUAL TIMETABLE PANEL === */
+  .virt-tt-inner {
+    background: #F8FBFF;
+    border: 2px solid #90CAF9;
+    border-radius: 14px;
+    padding: 14px;
+    animation: fadeIn 0.25s ease;
+  }
+  .virt-tt-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .virt-tt-tab {
+    flex: 1;
+    padding: 9px 8px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    background: white;
+    transition: all 0.2s;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .virt-tt-tab.bus.active   { background:#E8F5E9; border-color:var(--bus); color:var(--bus); }
+  .virt-tt-tab.train.active { background:#FFEBEE; border-color:var(--train); color:var(--train); }
+  .virt-tt-tab:not(.active):hover { background:#f0f4ff; }
+  .virt-tt-scroll {
+    max-height: 220px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #90CAF9 transparent;
+  }
+  .virt-tt-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 4px;
+    border-bottom: 1px solid #e8f0fe;
+    gap: 8px;
+  }
+  .virt-tt-row:last-child { border-bottom: none; }
+  .virt-tt-hour {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--sky-dark);
+    background: #E3F2FD;
+    border-radius: 8px;
+    width: 42px;
+    text-align: center;
+    padding: 4px 0;
+    flex-shrink: 0;
+  }
+  .virt-tt-mins {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+  }
+  .virt-tt-chip {
+    display: inline-block;
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 13px;
+    font-weight: 700;
+    user-select: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .virt-tt-chip.bus-c   { background:#E8F5E9; color:var(--bus); }
+  .virt-tt-chip.train-c { background:#FFEBEE; color:var(--train); }
+  .virt-tt-chip:hover   { transform:scale(1.08); }
+  .virt-tt-chip.highlight {
+    background: var(--accent) !important;
+    color: white !important;
+    animation: pulse 1.4s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🚃 じこくひょう れんしゅう 🚌</h1>
+  <p>バス・でんしゃのじかんを べんきょうしよう！</p>
+</div>
+
+<!-- TAB NAV -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('timetable',this)">
+    <span class="tab-icon">📋</span>じこくひょうを よもう
+  </button>
+  <button class="tab-btn" onclick="switchTab('virtual',this)">
+    <span class="tab-icon">🎮</span>バーチャル たいけん
+  </button>
+  <button class="tab-btn" onclick="switchTab('concept',this)">
+    <span class="tab-icon">⏰</span>じかんの かんかく
+  </button>
+</div>
+
+<!-- ===== SECTION 1: 時刻表 ===== -->
+<div id="sec-timetable" class="section active">
+  <div class="card" style="margin-top:16px;">
+    <div class="card-title">📋 じこくひょうを よんでみよう</div>
+
+    <div class="route-selector">
+      <button class="route-btn bus active" id="btn-bus" onclick="showRoute('bus')">🚌 バス</button>
+      <button class="route-btn train" id="btn-train" onclick="showRoute('train')">🚃 でんしゃ</button>
+    </div>
+
+    <div class="tip-balloon" id="route-label">🚌 ○○バス 〔みどりえき行き〕</div>
+
+    <!-- 通常の時刻表（バス） -->
+    <div class="timetable-wrap" id="normal-timetable-wrap">
+      <table class="timetable" id="main-timetable">
+        <thead>
+          <tr>
+            <th style="background:#E3F2FD;border-radius:12px 0 0 0;">じ</th>
+            <th style="background:#E3F2FD;">ふん</th>
+          </tr>
+        </thead>
+        <tbody id="timetable-body"></tbody>
+      </table>
+    </div>
+
+    <!-- 電光掲示板（でんしゃ用） -->
+    <div id="denkoboard-wrap" style="display:none;">
+      <!-- 現在時刻表示 -->
+      <div id="denko-clock-bar" style="
+        background:#111;color:#FF9800;font-family:'Courier New',monospace;
+        font-size:22px;font-weight:900;letter-spacing:3px;
+        padding:10px 16px;border-radius:12px 12px 0 0;
+        display:flex;justify-content:space-between;align-items:center;
+        border:2px solid #FF9800;border-bottom:none;">
+        <span style="font-size:13px;color:#aaa;font-family:inherit;">🚉 でんしゃ じこくひょう</span>
+        <span id="denko-clock">--:--:--</span>
+      </div>
+      <!-- 路線名 -->
+      <div id="denko-route-label" style="
+        background:#1a1a1a;color:#FF9800;font-size:13px;font-weight:700;
+        padding:6px 16px;border-left:2px solid #FF9800;border-right:2px solid #FF9800;
+        letter-spacing:1px;"></div>
+      <!-- 時刻一覧 -->
+      <div id="denkoboard-body" style="
+        background:#111;border:2px solid #FF9800;border-top:none;
+        border-radius:0 0 12px 12px;padding:4px 0;
+        max-height:360px;overflow-y:auto;">
+      </div>
+    </div>
+
+    <div class="selected-info" id="selected-info">
+      <span style="font-size:28px;">🚌</span>
+      <div>
+        <div class="big-time" id="sel-time">--:--</div>
+        <div id="sel-desc" style="font-size:13px;color:#666;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🔍 つぎの でんしゃ・バスは？</div>
+    <div style="font-size:14px;color:#555;margin-bottom:12px;">いまの じこくを えらんでね</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px;">じ</label>
+        <select id="now-hour" style="padding:10px;border-radius:12px;border:2px solid #90CAF9;font-size:16px;font-family:inherit;font-weight:700;">
+        </select>
+      </div>
+      <div>
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px;">ふん</label>
+        <select id="now-min" style="padding:10px;border-radius:12px;border:2px solid #90CAF9;font-size:16px;font-family:inherit;font-weight:700;">
+        </select>
+      </div>
+      <button onclick="findNext()" class="sim-btn primary" style="flex:0;margin-top:18px;padding:10px 18px;">
+        🔍 さがす
+      </button>
+    </div>
+    <div id="next-result" style="margin-top:14px;font-size:15px;min-height:40px;font-weight:700;"></div>
+  </div>
+</div>
+
+<!-- ===== SECTION 2: バーチャル体験 ===== -->
+<div id="sec-virtual" class="section">
+
+  <!-- STEP A: シナリオ選択 -->
+  <div class="card" style="margin-top:16px;" id="virt-step-a">
+    <div class="card-title">🎮 シナリオを えらぼう</div>
+    <div class="scenario-select" id="scenario-select">
+      <div class="scenario-card selected" data-idx="0" onclick="selectScenario(0,this)">
+        <span class="s-icon">🏫</span>がっこうに いく
+        <div style="font-size:11px;font-weight:400;color:#888;margin-top:4px;">バスで がっこうへ</div>
+      </div>
+      <div class="scenario-card" data-idx="1" onclick="selectScenario(1,this)">
+        <span class="s-icon">🛒</span>かいものに いく
+        <div style="font-size:11px;font-weight:400;color:#888;margin-top:4px;">でんしゃで おみせへ</div>
+      </div>
+      <div class="scenario-card" data-idx="2" onclick="selectScenario(2,this)">
+        <span class="s-icon">🏥</span>びょういんに いく
+        <div style="font-size:11px;font-weight:400;color:#888;margin-top:4px;">バスを のりかえ</div>
+      </div>
+      <div class="scenario-card" data-idx="3" onclick="selectScenario(3,this)">
+        <span class="s-icon">🎪</span>えんそくに いく
+        <div style="font-size:11px;font-weight:400;color:#888;margin-top:4px;">でんしゃで おでかけ</div>
+      </div>
+      <div class="scenario-card custom-scenario-card" data-idx="4" onclick="selectScenario(4,this)" style="border:2px dashed #FF8F00;grid-column:1/-1;">
+        <span class="s-icon">✏️</span>じぶんで つくる
+        <div style="font-size:11px;font-weight:400;color:#FF8F00;margin-top:4px;">カスタム シナリオ</div>
+      </div>
+    </div>
+    <!-- カスタム設定パネル（シナリオ4選択時に表示） -->
+    <div id="custom-scenario-panel" style="display:none;margin-bottom:14px;"></div>
+    <div id="scenario-desc" style="background:#F3F8FF;border-radius:16px;border:2px solid #90CAF9;padding:14px;margin-bottom:14px;font-size:14px;"></div>
+    <button class="sim-btn primary" style="width:100%;font-size:16px;padding:14px;" onclick="goToStepC()">
+      ▶ たいけん スタート！
+    </button>
+  </div>
+
+  <!-- STEP C: 体験 -->
+  <div class="card" style="margin-top:16px;display:none;" id="virt-step-c">
+    <div class="card-title">🚀 バーチャル たいけん！</div>
+
+    <!-- もんだい確認カード -->
+    <div id="prob-card-c" class="prob-card"></div>
+
+
+    <div class="sim-display">
+      <div class="clock-display">
+        <div class="concept-clock-wrap">
+          <svg class="clock-svg" viewBox="0 0 110 110" id="sim-clock-svg">
+            <circle cx="55" cy="55" r="52" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="3"/>
+            <g id="hour-marks"></g>
+            <line id="sim-hour-hand" x1="55" y1="55" x2="55" y2="25" stroke="white" stroke-width="4" stroke-linecap="round"/>
+            <line id="sim-min-hand"  x1="55" y1="55" x2="55" y2="16" stroke="#FFD54F" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="55" cy="55" r="5" fill="white"/>
+          </svg>
+        </div>
+        <div class="sim-time-text" id="sim-time-text">--:--</div>
+        <div class="sim-status" id="sim-status">スタートしよう！</div>
+      </div>
+
+      <!-- プログレスバー -->
+      <div style="background:rgba(255,255,255,0.15);border-radius:12px;height:10px;margin:8px 0 14px;overflow:hidden;">
+        <div id="sim-progress" style="height:100%;background:linear-gradient(90deg,#FFD54F,#FF8F00);border-radius:12px;width:0%;transition:width 0.5s;"></div>
+      </div>
+
+      <div class="journey-steps" id="journey-steps"></div>
+    </div>
+
+    <!-- 時刻入力パネル（各ステップで表示） -->
+    <div id="step-input-panel" style="background:#E8F5E9;border-radius:16px;padding:16px;margin:14px 0;display:none;">
+      <div style="font-size:14px;font-weight:800;color:#2E7D32;margin-bottom:10px;" id="step-question"></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">じ</label>
+          <select id="step-hour-input" onchange="refreshStepClock()" style="padding:10px;border-radius:12px;border:2px solid #81C784;font-size:17px;font-family:inherit;font-weight:700;width:90px;"></select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:3px;">ふん</label>
+          <select id="step-min-input" onchange="refreshStepClock()" style="padding:10px;border-radius:12px;border:2px solid #81C784;font-size:17px;font-family:inherit;font-weight:700;width:100px;"></select>
+        </div>
+        <div class="inline-clock-wrap">
+          <svg id="step-inline-clock"></svg>
+          <div class="inline-clock-label" id="step-inline-clock-lbl">--:--</div>
+        </div>
+        <button class="sim-btn success" style="margin-top:16px;" onclick="submitStepTime()">✅ きめた！</button>
+      </div>
+      <div id="step-input-hint" style="font-size:13px;color:#555;margin-bottom:10px;"></div>
+
+      <!-- 問い直下の時刻表 -->
+      <div>
+        <button onclick="toggleVirtTT('step')" id="tt-toggle-step"
+          style="width:100%;padding:10px 14px;border:2px solid #81C784;border-radius:12px;
+                 background:#F1F8E9;font-family:inherit;font-size:13px;font-weight:700;
+                 cursor:pointer;color:#2E7D32;text-align:left;display:flex;align-items:center;gap:8px;">
+          📋 じこくひょうを みる <span id="tt-arrow-step" style="margin-left:auto;">▼</span>
+        </button>
+        <div id="virt-tt-panel-step" style="display:none;margin-top:8px;"></div>
+      </div>
+    </div>
+
+    <!-- フィードバック -->
+    <div id="step-feedback" style="border-radius:16px;padding:14px 18px;margin:8px 0;display:none;font-size:15px;font-weight:700;align-items:center;gap:10px;"></div>
+
+    <div class="sim-controls" style="margin-top:8px;">
+      <button class="sim-btn success" id="btn-next-step" onclick="nextStep()" disabled>⏩ つぎへ</button>
+      <button class="sim-btn warning" onclick="goToStepA()">🔄 はじめから</button>
+    </div>
+
+    <div class="feedback-box" id="feedback-box">
+      <span class="feedback-icon" id="feedback-icon">🎉</span>
+      <div id="feedback-text"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SECTION 3: 時間のかんかく ===== -->
+<div id="sec-concept" class="section">
+  <div class="card" style="margin-top:16px;">
+    <div class="card-title">⏰ いまから ○ふん ご と ○ふん まえ</div>
+
+    <div class="time-concept-display">
+      <div id="concept-tip" class="tip-balloon">まず ○ふんを えらんでね！</div>
+
+      <div style="display:flex;justify-content:center;gap:30px;align-items:flex-end;margin:14px 0;">
+        <div style="text-align:center;">
+          <svg id="before-clock" width="120" height="120" viewBox="0 0 120 120"></svg>
+          <div style="font-size:12px;font-weight:700;color:#888;margin-top:4px;" id="before-label">まえ</div>
+        </div>
+        <div style="text-align:center;">
+          <svg id="now-clock" width="130" height="130" viewBox="0 0 130 130"></svg>
+          <div style="font-size:13px;font-weight:800;color:var(--accent);margin-top:4px;">いま</div>
+        </div>
+        <div style="text-align:center;">
+          <svg id="after-clock" width="120" height="120" viewBox="0 0 120 120"></svg>
+          <div style="font-size:12px;font-weight:700;color:#888;margin-top:4px;" id="after-label">あと</div>
+        </div>
+      </div>
+
+      <div class="concept-big-text" id="concept-big-text">？ふん まえ　　いま　　？ふん ご</div>
+
+      <div class="timeline-bar" id="concept-timeline">
+        <div class="timeline-fill" id="tl-fill" style="width:50%;background:linear-gradient(90deg,#EDE7F6,#C5CAE9);"></div>
+        <div class="timeline-now" id="tl-now" style="left:50%;"></div>
+      </div>
+      <div class="timeline-labels">
+        <span id="tl-start-lbl">--:--</span>
+        <span style="font-weight:800;color:var(--accent);">いま</span>
+        <span id="tl-end-lbl">--:--</span>
+      </div>
+    </div>
+
+    <div class="card-title">⏱ なんふんを えらぼう</div>
+    <div style="font-size:13px;color:#666;margin-bottom:8px;">いまから ○ふん ご　と　○ふん まえ　を かくにん！</div>
+
+    <!-- ふんすう ボタン -->
+    <div class="minutes-btn-grid" id="min-btns">
+      <button class="min-btn" onclick="selectMinutes(5,this)">5ふん</button>
+      <button class="min-btn" onclick="selectMinutes(10,this)">10ぷん</button>
+      <button class="min-btn" onclick="selectMinutes(15,this)">15ふん</button>
+      <button class="min-btn" onclick="selectMinutes(20,this)">20ぷん</button>
+      <button class="min-btn" onclick="selectMinutes(30,this)">30ぷん</button>
+      <button class="min-btn" onclick="selectMinutes(45,this)">45ふん</button>
+      <button class="min-btn" onclick="selectMinutes(60,this)">1じかん</button>
+      <button class="min-btn" onclick="selectMinutes(90,this)">1じかん30ぷん</button>
+    </div>
+  </div>
+
+  <!-- クイズ -->
+  <div class="card">
+    <div class="card-title">🧠 チャレンジ クイズ！</div>
+    <div class="concept-quiz">
+      <div class="quiz-q" id="quiz-q">ローディング中...</div>
+      <div class="quiz-options" id="quiz-opts"></div>
+      <div class="quiz-result" id="quiz-result"></div>
+      <button class="quiz-next-btn" id="quiz-next-btn" onclick="nextQuiz()">つぎのもんだいへ →</button>
+      <div class="quiz-score" id="quiz-score"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================= DATA =========================
+const TIMETABLE = {
+  bus: {
+    label: '🚌 ○○バス〔みどりえき行き〕',
+    chipClass: 'bus-chip',
+    icon: '🚌',
+    data: [
+      { hour:7, mins:[5,22,38,55] },
+      { hour:8, mins:[8,20,32,45,58] },
+      { hour:9, mins:[10,25,40,55] },
+      { hour:10, mins:[10,30,50] },
+      { hour:11, mins:[10,35] },
+      { hour:12, mins:[5,30,55] },
+      { hour:13, mins:[20,45] },
+      { hour:14, mins:[10,35] },
+      { hour:15, mins:[5,25,45] },
+      { hour:16, mins:[5,20,35,50] },
+      { hour:17, mins:[5,18,30,45,58] },
+      { hour:18, mins:[12,28,45] },
+      { hour:19, mins:[10,35] },
+    ]
+  },
+  train: {
+    label: '🚃 ○○でんしゃ〔きたえき → みなみえき〕',
+    chipClass: 'train-chip',
+    icon: '🚃',
+    data: [
+      { hour:6, mins:[15,35,55] },
+      { hour:7, mins:[0,8,16,24,32,40,48,56] },
+      { hour:8, mins:[4,12,20,28,36,44,52] },
+      { hour:9, mins:[0,15,30,45] },
+      { hour:10, mins:[0,20,40] },
+      { hour:11, mins:[0,20,40] },
+      { hour:12, mins:[0,20,40] },
+      { hour:13, mins:[0,20,40] },
+      { hour:14, mins:[0,20,40] },
+      { hour:15, mins:[0,15,30,45] },
+      { hour:16, mins:[0,12,24,36,48] },
+      { hour:17, mins:[0,8,16,24,32,40,48,56] },
+      { hour:18, mins:[4,12,20,28,36,44,52] },
+      { hour:19, mins:[0,15,30,45] },
+      { hour:20, mins:[0,20,40] },
+      { hour:21, mins:[5,20,35,50] },
+      { hour:22, mins:[0,15,30,50] },
+      { hour:23, mins:[10,30,55] },
+    ]
+  }
+};
+
+const SCENARIOS = [
+  {
+    title: '🏫 がっこうに いく', desc: 'がっこうのはじまりは 8じ30ぷん。バスで 10ぷん かかります。',
+    steps: [
+      { time: '7:45', icon:'🏠', label:'いえを でる じゅんびをする', desc:'かばんを もって でかける！' },
+      { time: '7:55', icon:'🚏', label:'バスていに つく', desc:'バスていで まつ' },
+      { time: '8:00', icon:'🚌', label:'バスに のる', desc:'8じ00ふんの バスに のる！' },
+      { time: '8:10', icon:'🚏', label:'がっこうまえで おりる', desc:'バスを おりる' },
+      { time: '8:20', icon:'🏫', label:'がっこうに とうちゃく！', desc:'じゅぎょうのはじまりまで あと10ぷん' },
+    ]
+  },
+  {
+    title: '🛒 かいものに いく', desc: 'おみせは 14じにしまります。でんしゃで 15ふんかかります。',
+    steps: [
+      { time: '13:00', icon:'🏠', label:'いえを でる', desc:'おかいものリストを わすれずに' },
+      { time: '13:10', icon:'🚉', label:'えきに つく', desc:'でんしゃのじかんを かくにん' },
+      { time: '13:15', icon:'🚃', label:'でんしゃに のる', desc:'13じ15ふんの でんしゃ' },
+      { time: '13:30', icon:'🚉', label:'もくてきえきに つく', desc:'えきを おりる' },
+      { time: '13:40', icon:'🛒', label:'おみせに とうちゃく！', desc:'しまるまであと20ぷん！はやく！' },
+    ]
+  },
+  {
+    title: '🏥 びょういんに いく', desc: 'よやくは 10じ。バスを のりかえます。',
+    steps: [
+      { time: '9:00', icon:'🏠', label:'いえを でる', desc:'けんこうほけんしょうを わすれずに' },
+      { time: '9:10', icon:'🚏', label:'バスていA で まつ', desc:'9じ15ふんの バスを まつ' },
+      { time: '9:15', icon:'🚌', label:'バスAに のる', desc:'のりかええきへ むかう' },
+      { time: '9:30', icon:'🔄', label:'のりかえ！バスBに のる', desc:'9じ35ふんのバスに のりかえる' },
+      { time: '9:50', icon:'🏥', label:'びょういんに とうちゃく！', desc:'よやくまで あと10ぷん！' },
+    ]
+  },
+  {
+    title: '🎪 えんそくに いく', desc: 'しゅうごうは 9じ。でんしゃで 25ふんかかります。',
+    steps: [
+      { time: '8:00', icon:'🏠', label:'いえを でる', desc:'おべんとうと すいとうを もって！' },
+      { time: '8:15', icon:'🚉', label:'えきに つく', desc:'きっぷを かう' },
+      { time: '8:25', icon:'🚃', label:'でんしゃに のる', desc:'8じ25ふんの でんしゃ' },
+      { time: '8:50', icon:'🚉', label:'もくてきえきに つく', desc:'みんなを さがして！' },
+      { time: '9:00', icon:'🎪', label:'しゅうごうばしょに とうちゃく！', desc:'ちょうど 9じ！ぴったり！' },
+    ]
+  }
+];
+
+
+// ふん／ぷん ヘルパー（10の倍数かつ0以外はぷん、それ以外はふん）
+function funOrPun(m) {
+  return (m !== 0 && m % 10 === 0) ? 'ぷん' : 'ふん';
+}
+
+// ========================= INIT =========================
+let currentRoute = 'bus';
+let quizState = { score:0, total:0, q:null };
+let nowBaseHour = 8, nowBaseMin = 0;
+
+function init() {
+  renderTimetable('bus');
+  buildHourMinSelects();
+  initConceptClocks();
+  loadScenarioDesc(0);
+  nextQuiz();
+}
+
+
+// ========================= 電光掲示板 =========================
+let _denkoClockTimer = null;
+
+function startDenkoClock() {
+  stopDenkoClock();
+  updateDenkoClock();
+  _denkoClockTimer = setInterval(updateDenkoClock, 1000);
+}
+
+function stopDenkoClock() {
+  if(_denkoClockTimer) { clearInterval(_denkoClockTimer); _denkoClockTimer = null; }
+}
+
+function updateDenkoClock() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  const ss = String(now.getSeconds()).padStart(2,'0');
+  const el = document.getElementById('denko-clock');
+  if(el) el.textContent = hh+':'+mm+':'+ss;
+}
+
+function renderDenkoboard() {
+  const data = TIMETABLE.train;
+  document.getElementById('denko-route-label').textContent = data.label;
+
+  const body = document.getElementById('denkoboard-body');
+  body.innerHTML = '';
+
+  const now = new Date();
+  const nowTotal = now.getHours()*60 + now.getMinutes();
+
+  data.data.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.style.cssText = 'display:flex;align-items:stretch;border-bottom:1px solid #2a2a2a;';
+
+    // 時（じ）列
+    const hourEl = document.createElement('div');
+    hourEl.style.cssText = 'min-width:48px;background:#1a1a1a;color:#FF9800;font-size:20px;font-weight:900;font-family:"Courier New",monospace;display:flex;align-items:center;justify-content:center;padding:8px 4px;letter-spacing:1px;border-right:1px solid #333;';
+    hourEl.textContent = String(row.hour).padStart(2,'0');
+
+    // 分（ふん）列
+    const minsEl = document.createElement('div');
+    minsEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;padding:7px 10px;align-items:center;flex:1;';
+
+    row.mins.forEach(m => {
+      const chip = document.createElement('button');
+      const total = row.hour*60 + m;
+      const isPast = total < nowTotal;
+      const isNext = !isPast && total >= nowTotal;
+
+      // 一番近い次の便をハイライト
+      chip.style.cssText = `
+        font-family:'Courier New',monospace;font-size:18px;font-weight:900;
+        border:none;border-radius:6px;padding:5px 10px;cursor:pointer;
+        letter-spacing:1px;transition:all 0.15s;
+        background:${isPast ? '#1a1a1a' : '#1f1f1f'};
+        color:${isPast ? '#444' : '#FF9800'};
+        ${isPast ? 'text-decoration:line-through;' : ''}
+      `;
+      chip.textContent = (m<10?'0':'')+m;
+      chip.title = row.hour+'じ'+(m<10?'0'+m:m)+(funOrPun(m));
+      chip.onclick = () => selectTime(row.hour, m, '🚃');
+      minsEl.appendChild(chip);
+    });
+
+    rowEl.appendChild(hourEl);
+    rowEl.appendChild(minsEl);
+    body.appendChild(rowEl);
+  });
+
+  // 次の便の行へスクロール
+  const now2 = new Date();
+  const nowH = now2.getHours();
+  const rows = body.children;
+  for(let i=0;i<data.data.length;i++){
+    if(data.data[i].hour >= nowH){
+      if(rows[i]) rows[i].scrollIntoView({behavior:'smooth', block:'start'});
+      break;
+    }
+  }
+}
+
+// ========================= TIMETABLE =========================
+function buildHourMinSelects() {
+  const hSel = document.getElementById('now-hour');
+  const mSel = document.getElementById('now-min');
+  for(let h=6;h<=21;h++) {
+    const o = document.createElement('option');
+    o.value=h; o.textContent=h+'じ';
+    if(h===8) o.selected=true;
+    hSel.appendChild(o);
+  }
+  for(let m=0;m<60;m+=5) {
+    const o = document.createElement('option');
+    o.value=m; o.textContent=(m<10?'0':'')+m+funOrPun(m);
+    mSel.appendChild(o);
+  }
+}
+
+function showRoute(route) {
+  currentRoute = route;
+  document.getElementById('btn-bus').className   = 'route-btn bus'   + (route==='bus'   ? ' active':'');
+  document.getElementById('btn-train').className = 'route-btn train' + (route==='train' ? ' active':'');
+  if(route === 'train') {
+    document.getElementById('normal-timetable-wrap').style.display = 'none';
+    document.getElementById('denkoboard-wrap').style.display = 'block';
+    renderDenkoboard();
+    startDenkoClock();
+  } else {
+    document.getElementById('normal-timetable-wrap').style.display = '';
+    document.getElementById('denkoboard-wrap').style.display = 'none';
+    stopDenkoClock();
+    renderTimetable(route);
+  }
+}
+
+function renderTimetable(route) {
+  const data = TIMETABLE[route];
+  document.getElementById('route-label').textContent = data.label;
+  const tbody = document.getElementById('timetable-body');
+  tbody.innerHTML = '';
+  data.data.forEach(row => {
+    const tr = document.createElement('tr');
+    const mins = row.mins.map(m =>
+      `<span class="time-chip ${data.chipClass}" onclick="selectTime(${row.hour},${m},'${data.icon}')">${m<10?'0'+m:m}</span>`
+    ).join('');
+    tr.innerHTML = `<td class="hour-cell">${row.hour}</td><td style="text-align:left;">${mins}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function selectTime(h, m, icon) {
+  document.querySelectorAll('.time-chip').forEach(c=>c.classList.remove('selected'));
+  event.target.classList.add('selected');
+  const info = document.getElementById('selected-info');
+  info.classList.add('show');
+  document.getElementById('sel-time').textContent = h+':'+(m<10?'0'+m:m);
+
+  // find next
+  const route = TIMETABLE[currentRoute];
+  let nextH=null, nextM=null;
+  for(const row of route.data) {
+    if(row.hour > h || (row.hour===h)) {
+      for(const min of row.mins) {
+        if(row.hour > h || (row.hour===h && min > m)) {
+          nextH=row.hour; nextM=min; break;
+        }
+      }
+    }
+    if(nextH!==null) break;
+  }
+  const desc = nextH!==null
+    ? `つぎの でんしゃ・バスは ${nextH}じ${nextM<10?'0'+nextM:nextM}ふん です（あと ${(nextH-h)*60+(nextM-m)}ふん）`
+    : 'きょうは もうありません';
+  document.getElementById('sel-desc').textContent = desc;
+  info.querySelector('span').textContent = icon || (currentRoute==='bus'?'🚌':'🚃');
+}
+
+function findNext() {
+  const h = parseInt(document.getElementById('now-hour').value);
+  const m = parseInt(document.getElementById('now-min').value);
+  const route = TIMETABLE[currentRoute];
+  let nextH=null, nextM=null;
+  for(const row of route.data) {
+    for(const min of row.mins) {
+      if(row.hour > h || (row.hour===h && min >= m)) {
+        if(nextH===null) { nextH=row.hour; nextM=min; }
+      }
+    }
+  }
+  const res = document.getElementById('next-result');
+  if(nextH!==null) {
+    const wait = (nextH-h)*60+(nextM-m);
+    res.innerHTML = `<span style="color:var(--sky-dark)">🔵 ${currentRoute==='bus'?'バス':'でんしゃ'}は ${nextH}じ${nextM<10?'0'+nextM:nextM}ふん です！</span><br>
+    <span style="color:#555;font-size:13px;">（いまから <strong>${wait}</strong>ふん まち）</span>
+    <span class="next-indicator">つぎ</span>`;
+  } else {
+    res.innerHTML = `<span style="color:var(--train)">😢 きょうは もうありません</span>`;
+  }
+}
+
+// ========================= SIMULATION (INTERACTIVE) =========================
+
+// Each scenario step has an optional `ask` field:
+//   ask: { question, correctH, correctM, toleranceMin, hint }
+// If ask is present, the user must input a time before proceeding.
+const SCENARIOS_EX = [
+  {
+    title: '🏫 がっこうに いく', 
+    desc: 'がっこうのはじまりは <strong>8じ30ぷん</strong>。バスに のるのに <strong>10ぷん</strong> かかります。<br>いえを でる じかんを ぎゃくさん して みよう！',
+    steps: [
+      { time:null, icon:'🏠', label:'いえを でる じかんを きめよう！', desc:'バスに のるまでに あるいて5ふん かかります',
+        ask:{ question:'いえを でるのは なんじ なんふん？', correctH:7, correctM:50, toleranceMin:10,
+              hint:'バスの じかん (8:00) から あるく じかん (5ふん) を ひいて みよう！' } },
+      { time:'7:55', icon:'🚏', label:'バスていに とうちゃく', desc:'バスていで まつ' },
+      { time:null, icon:'🚌', label:'バスに のる じかんを こたえよう！', desc:'',
+        ask:{ question:'バスに のるのは なんじ なんふん？', correctH:8, correctM:0, toleranceMin:5,
+              hint:'じこくひょうを みてみよう！8じ ごろの バスは？' } },
+      { time:'8:10', icon:'🚏', label:'がっこうまえで おりる', desc:'バスを おりる' },
+      { time:'8:20', icon:'🏫', label:'がっこうに とうちゃく！', desc:'じゅぎょうのはじまりまで あと10ぷん 🎉' },
+    ]
+  },
+  {
+    title: '🛒 かいものに いく',
+    desc: 'おみせは <strong>14じ30ぷん</strong> にしまります。でんしゃで <strong>15ぷん</strong> かかります。<br>まにあうように でかけよう！',
+    steps: [
+      { time:null, icon:'🏠', label:'いえを でる じかんを きめよう！', desc:'えきまで あるいて 10ぷん かかります',
+        ask:{ question:'いえを でるのは なんじ なんふん？', correctH:14, correctM:0, toleranceMin:15,
+              hint:'おみせがしまる(14:30) から でんしゃ(15ぷん) と えきで5ぷん と あるき(10ぷん) を ひいてみよう！' } },
+      { time:'14:10', icon:'🚉', label:'えきに とうちゃく', desc:'ホームへ いこう' },
+      { time:null, icon:'🚃', label:'でんしゃに のる じかんを こたえよう！', desc:'',
+        ask:{ question:'でんしゃに のるのは なんじ なんふん？', correctH:14, correctM:15, toleranceMin:5,
+              hint:'じこくひょうを みてみよう！えきについてから 5ぷん あるよ。14じ ごろの でんしゃは？' } },
+      { time:'14:30', icon:'🚉', label:'もくてきえきに とうちゃく', desc:'えきを おりる' },
+      { time:'14:35', icon:'🛒', label:'おみせに とうちゃく！', desc:'しまるまであと5ぷん！いそいで！ 🎉' },
+    ]
+  },
+  {
+    title: '🏥 びょういんに いく',
+    desc: 'よやくは <strong>10じ00ふん</strong>。バスを <strong>のりかえ</strong> して いきます。<br>のりかえの じかんを かんがえて みよう！',
+    steps: [
+      { time:null, icon:'🏠', label:'いえを でる じかんを きめよう！', desc:'バスていまで あるいて 5ふん かかります',
+        ask:{ question:'いえを でるのは なんじ なんふん？', correctH:9, correctM:0, toleranceMin:10,
+              hint:'よやく(10:00) から のりかえ(15ふん) + バス(15ふん) + あるき(5ふん) を ひいてみよう！' } },
+      { time:'9:10', icon:'🚏', label:'バスていAに とうちゃく', desc:'9じ15ふんの バスを まつ' },
+      { time:'9:15', icon:'🚌', label:'バスAに のる', desc:'のりかええきへ むかう' },
+      { time:null, icon:'🔄', label:'のりかえ！つぎのバスは なんじ？', desc:'',
+        ask:{ question:'のりかえる バスBは なんじ なんふん？', correctH:9, correctM:35, toleranceMin:5,
+              hint:'バスAが 9:30 につきます。5ふん いじょう ゆとりのある バスを えらぼう！' } },
+      { time:'9:50', icon:'🏥', label:'びょういんに とうちゃく！', desc:'よやくまで あと10ぷん！ 🎉' },
+    ]
+  },
+  {
+    title: '🎪 えんそくに いく',
+    desc: 'しゅうごうは <strong>9じ00ふん</strong>。でんしゃで <strong>25ふん</strong> かかります。<br>ぜったい おくれない ように でかけよう！',
+    steps: [
+      { time:null, icon:'🏠', label:'いえを でる じかんを きめよう！', desc:'えきまで あるいて 10ぷん かかります',
+        ask:{ question:'いえを でるのは なんじ なんふん？', correctH:8, correctM:20, toleranceMin:10,
+              hint:'しゅうごう(9:00) から でんしゃ(25ぷん) と ホームまで5ぷん と あるき(10ぷん) を ひいてみよう！' } },
+      { time:'8:30', icon:'🚉', label:'えきに とうちゃく', desc:'ホームへ いこう' },
+      { time:null, icon:'🚃', label:'でんしゃに のる じかんを こたえよう！', desc:'',
+        ask:{ question:'でんしゃに のるのは なんじ なんふん？', correctH:8, correctM:35, toleranceMin:5,
+              hint:'えきについたのが 8:30。ホームまで5ぷん かかるよ。しゅうごうに まにあう でんしゃは？' } },
+      { time:'9:00', icon:'🚉', label:'もくてきえきに とうちゃく', desc:'みんなを さがして！' },
+      { time:'9:00', icon:'🎪', label:'しゅうごうばしょに とうちゃく！', desc:'ちょうど 9じ！ぴったり！ 🎉' },
+    ]
+  }
+,
+  {
+    title: '✏️ じぶんで つくる',
+    desc: 'カスタム シナリオ',
+    steps: [],
+    isCustom: true
+  }
+];
+
+let simState = { scenarioIdx:0, step:-1, running:false, userTimes:{} };
+let customScenarioData = null; // 設定済みカスタムデータ
+
+function loadScenarioDesc(idx) {
+  const d = document.getElementById('scenario-desc');
+  if(idx === 4) {
+    d.innerHTML = customScenarioData
+      ? `<div style="font-size:15px;font-weight:800;margin-bottom:6px;">✏️ ${customScenarioData.title}</div>
+         <div style="font-size:14px;color:#444;line-height:1.7;">${customScenarioData.desc}</div>`
+      : `<div style="font-size:14px;color:#888;">👇 したの せってい フォームを うめてね！</div>`;
+    return;
+  }
+  const s = SCENARIOS_EX[idx];
+  d.innerHTML = `<div style="font-size:15px;font-weight:800;margin-bottom:6px;">${s.title}</div>
+  <div style="font-size:14px;color:#444;line-height:1.7;">${s.desc}</div>`;
+}
+
+function selectScenario(idx, el) {
+  document.querySelectorAll('.scenario-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  simState.scenarioIdx = idx;
+  loadScenarioDesc(idx);
+  const panel = document.getElementById('custom-scenario-panel');
+  const startBtn = document.querySelector('#virt-step-a .sim-btn.primary');
+  if(idx === 4) {
+    panel.style.display = 'block';
+    renderCustomPanel();
+    startBtn.disabled = !customScenarioData;
+    startBtn.style.opacity = customScenarioData ? '1' : '0.4';
+  } else {
+    panel.style.display = 'none';
+    startBtn.disabled = false;
+    startBtn.style.opacity = '1';
+  }
+}
+
+// ---- 3-step wizard navigation ----
+function goToStepA() {
+  document.getElementById('virt-step-a').style.display = '';
+  document.getElementById('virt-step-c').style.display = 'none';
+  simState.userTimes = {};
+}
+
+
+function buildTimeSetupArea(s) {
+  const area = document.getElementById('time-setup-area');
+  // Collect all ask steps
+  const askSteps = s.steps.filter(st => st.ask);
+  if(askSteps.length === 0) {
+    area.innerHTML = '<p style="font-size:14px;color:#555;">このシナリオは じどうで すすみます。</p>';
+    return;
+  }
+  let html = `<div style="font-size:14px;font-weight:700;color:#0288D1;margin-bottom:12px;">
+    📝 たいけんする まえに じかんを かんがえてみよう！</div>`;
+  askSteps.forEach((st,i) => {
+    const savedH = simState.userTimes['pre_'+i] ? simState.userTimes['pre_'+i].h : '';
+    const savedM = simState.userTimes['pre_'+i] ? simState.userTimes['pre_'+i].m : '';
+    html += `
+    <div style="background:#F3F8FF;border-radius:14px;padding:14px;margin-bottom:12px;border:2px solid #90CAF9;">
+      <div style="font-size:14px;font-weight:800;margin-bottom:10px;color:#1A237E;">
+        ${st.icon} ${st.ask.question}
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <select id="pre-h-${i}" onchange="updateInlineClock('pre-clock-${i}',parseInt(this.value),parseInt(document.getElementById('pre-m-${i}').value))" style="padding:10px;border-radius:12px;border:2px solid #90CAF9;font-size:16px;font-family:inherit;font-weight:700;width:90px;">
+          ${Array.from({length:16},(_,k)=>k+6).map(h=>`<option value="${h}"${h===savedH?' selected':''}>${h}じ</option>`).join('')}
+        </select>
+        <select id="pre-m-${i}" onchange="updateInlineClock('pre-clock-${i}',parseInt(document.getElementById('pre-h-${i}').value),parseInt(this.value))" style="padding:10px;border-radius:12px;border:2px solid #90CAF9;font-size:16px;font-family:inherit;font-weight:700;width:100px;">
+          ${Array.from({length:12},(_,k)=>k*5).map(m=>`<option value="${m}"${m===savedM?' selected':''}>${m<10?'0'+m:m}${funOrPun(m)}</option>`).join('')}
+        </select>
+        <div class="inline-clock-wrap">
+          <svg id="pre-clock-${i}"></svg>
+          <div class="inline-clock-label" id="pre-clock-lbl-${i}">--:--</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#777;margin-top:8px;">💡 ${st.ask.hint}</div>
+    </div>`;
+  });
+  area.innerHTML = html;
+  // draw initial clocks
+  askSteps.forEach((st,i) => {
+    const defH = simState.userTimes['pre_'+i] ? simState.userTimes['pre_'+i].h : 8;
+    const defM = simState.userTimes['pre_'+i] ? simState.userTimes['pre_'+i].m : 0;
+    const svgEl = document.getElementById('pre-clock-'+i);
+    if(svgEl) {
+      drawInlineClock(svgEl, defH, defM);
+      const lbl = document.getElementById('pre-clock-lbl-'+i);
+      if(lbl) lbl.textContent = defH+':'+(defM<10?'0'+defM:defM);
+    }
+  });
+}
+
+function goToStepC() {
+  // カスタムシナリオを適用
+  if(simState.scenarioIdx === 4) {
+    if(!customScenarioData) { alert('せってい フォームを うめてください！'); return; }
+    SCENARIOS_EX[4] = customScenarioData.scenario;
+    SCENARIO_CONDITIONS[4] = customScenarioData.conditions;
+  }
+  // Save pre-entered times
+  const s = SCENARIOS_EX[simState.scenarioIdx];
+  const askSteps = s.steps.filter(st => st.ask);
+  askSteps.forEach((st, i) => {
+    const hEl = document.getElementById(`pre-h-${i}`);
+    const mEl = document.getElementById(`pre-m-${i}`);
+    if(hEl && mEl) {
+      simState.userTimes['pre_'+i] = { h:parseInt(hEl.value), m:parseInt(mEl.value) };
+    }
+  });
+
+  document.getElementById('virt-step-a').style.display = 'none';
+  document.getElementById('virt-step-c').style.display = '';
+  simState.step = -1;
+  simState.running = true;
+  initSimClock();
+  updateSimClock(12,0);
+  document.getElementById('sim-time-text').textContent = '--:--';
+  document.getElementById('sim-status').textContent = '「つぎへ」を おして スタート！';
+  document.getElementById('journey-steps').innerHTML = '';
+  document.getElementById('feedback-box').classList.remove('show','error');
+  document.getElementById('btn-next-step').disabled = false;
+  document.getElementById('btn-next-step').textContent = '▶ スタート！';
+  document.getElementById('step-input-panel').style.display = 'none';
+  renderProbCard('prob-card-c');
+  document.getElementById('step-feedback').style.display = 'none';
+  document.getElementById('sim-progress').style.width = '0%';
+
+  // build step-hour/min selects
+  const hSel = document.getElementById('step-hour-input');
+  const mSel = document.getElementById('step-min-input');
+  hSel.innerHTML = '';
+  mSel.innerHTML = '';
+  for(let h=6;h<=21;h++){
+    const o=document.createElement('option');o.value=h;o.textContent=h+'じ';hSel.appendChild(o);
+  }
+  for(let m=0;m<60;m+=5){
+    const o=document.createElement('option');o.value=m;o.textContent=(m<10?'0':'')+m+funOrPun(m);mSel.appendChild(o);
+  }
+  refreshStepClock();
+}
+
+function initSimClock() {
+  const g = document.getElementById('hour-marks');
+  g.innerHTML = '';
+  for(let i=0;i<12;i++) {
+    const angle = i*30 * Math.PI / 180;
+    const x1 = 55 + 44*Math.sin(angle), y1 = 55 - 44*Math.cos(angle);
+    const x2 = 55 + 48*Math.sin(angle), y2 = 55 - 48*Math.cos(angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke','rgba(255,255,255,0.5)'); line.setAttribute('stroke-width','2');
+    g.appendChild(line);
+  }
+}
+
+function updateSimClock(h, m) {
+  const hAngle = ((h % 12) + m/60) * 30 * Math.PI / 180;
+  const mAngle = m * 6 * Math.PI / 180;
+  const hx = 55 + 22*Math.sin(hAngle), hy = 55 - 22*Math.cos(hAngle);
+  const mx = 55 + 32*Math.sin(mAngle), my = 55 - 32*Math.cos(mAngle);
+  document.getElementById('sim-hour-hand').setAttribute('x2', hx);
+  document.getElementById('sim-hour-hand').setAttribute('y2', hy);
+  document.getElementById('sim-min-hand').setAttribute('x2', mx);
+  document.getElementById('sim-min-hand').setAttribute('y2', my);
+  document.getElementById('sim-time-text').textContent = `${h}:${m<10?'0'+m:m}`;
+}
+
+function parseStepTime(str) {
+  if(!str) return null;
+  const parts = str.split(':');
+  return { h:parseInt(parts[0]), m:parseInt(parts[1]) };
+}
+
+function renderJourneySteps(currentIdx) {
+  const steps = SCENARIOS_EX[simState.scenarioIdx].steps;
+  const container = document.getElementById('journey-steps');
+  container.innerHTML = '';
+  steps.forEach((s, i) => {
+    const cls = i < currentIdx ? 'done' : i === currentIdx ? 'current' : 'upcoming';
+    const check = i < currentIdx ? '✅' : '';
+    // show user's chosen time or preset time
+    let dispTime = s.time || '';
+    if(s.ask) {
+      const ut = simState.userTimes['ans_'+i];
+      dispTime = ut ? `${ut.h}:${ut.m<10?'0'+ut.m:ut.m}` : (s.time||'?:??');
+    }
+    container.innerHTML += `
+      <div class="journey-step ${cls}">
+        <span class="step-icon">${s.icon} ${check}</span>
+        <div style="flex:1">
+          <div style="font-size:12px;">${s.label}</div>
+          <div style="font-size:11px;opacity:0.8;">${s.desc}</div>
+        </div>
+        <span class="step-time">${dispTime}</span>
+      </div>`;
+  });
+  // progress bar
+  const pct = currentIdx / (steps.length - 1) * 100;
+  document.getElementById('sim-progress').style.width = Math.min(pct,100)+'%';
+}
+
+function nextStep() {
+  const steps = SCENARIOS_EX[simState.scenarioIdx].steps;
+  simState.step++;
+
+  document.getElementById('btn-next-step').textContent = '⏩ つぎへ';
+  document.getElementById('step-input-panel').style.display = 'none';
+  document.getElementById('step-feedback').style.display = 'none';
+
+  if(simState.step >= steps.length) {
+    document.getElementById('btn-next-step').disabled = true;
+    const fb = document.getElementById('feedback-box');
+    fb.classList.add('show');
+    document.getElementById('feedback-icon').textContent = '🎉';
+    document.getElementById('feedback-text').innerHTML =
+      'ゴール！ぜんぶ じぶんで じかんを きめて たどりつけました！<br>すばらしい！🌟';
+    return;
+  }
+
+  const step = steps[simState.step];
+
+  // Show time on clock (use user answer or preset)
+  if(step.ask) {
+    const ut = simState.userTimes['pre_0'] && simState.step===0 ? null : null; // handled per ask index below
+    // don't advance clock yet — show input panel
+    document.getElementById('sim-status').textContent = step.label;
+    renderJourneySteps(simState.step);
+    showStepInput(simState.step);
+    document.getElementById('btn-next-step').disabled = true;
+    return;
+  }
+
+  // No ask: just advance clock
+  const t = parseStepTime(step.time);
+  if(t) updateSimClock(t.h, t.m);
+  document.getElementById('sim-status').textContent = step.label;
+  renderJourneySteps(simState.step);
+
+  if(simState.step === steps.length - 1) {
+    document.getElementById('btn-next-step').textContent = '🏁 ゴール！';
+  }
+}
+
+function showStepInput(stepIdx) {
+  const step = SCENARIOS_EX[simState.scenarioIdx].steps[stepIdx];
+  const panel = document.getElementById('step-input-panel');
+  panel.style.display = 'block';
+  document.getElementById('step-question').textContent = '❓ ' + step.ask.question;
+  document.getElementById('step-input-hint').innerHTML = '💡 ヒント：' + step.ask.hint;
+
+  // Pre-fill from step B if available (count ask index)
+  const askIdx = SCENARIOS_EX[simState.scenarioIdx].steps.slice(0, stepIdx+1).filter(s=>s.ask).length - 1;
+  const pre = simState.userTimes['pre_'+askIdx];
+  if(pre) {
+    document.getElementById('step-hour-input').value = pre.h;
+    document.getElementById('step-min-input').value = pre.m;
+  }
+  // store which ask-index this is
+  panel.dataset.askIdx = askIdx;
+  panel.dataset.stepIdx = stepIdx;
+  // draw initial clock
+  refreshStepClock();
+}
+
+function refreshStepClock() {
+  const h = parseInt(document.getElementById('step-hour-input').value) || 8;
+  const m = parseInt(document.getElementById('step-min-input').value) || 0;
+  const svgEl = document.getElementById('step-inline-clock');
+  if(svgEl) drawInlineClock(svgEl, h, m);
+  const lbl = document.getElementById('step-inline-clock-lbl');
+  if(lbl) lbl.textContent = h+':'+(m<10?'0'+m:m);
+}
+
+function submitStepTime() {
+  const panel = document.getElementById('step-input-panel');
+  const stepIdx = parseInt(panel.dataset.stepIdx);
+  const askIdx  = parseInt(panel.dataset.askIdx);
+  const step = SCENARIOS_EX[simState.scenarioIdx].steps[stepIdx];
+
+  const userH = parseInt(document.getElementById('step-hour-input').value);
+  const userM = parseInt(document.getElementById('step-min-input').value);
+  simState.userTimes['ans_'+stepIdx] = { h:userH, m:userM };
+
+  const correctTotal = step.ask.correctH * 60 + step.ask.correctM;
+  const userTotal    = userH * 60 + userM;
+  const diff = Math.abs(userTotal - correctTotal);
+  const tolerance = step.ask.toleranceMin || 10;
+
+  const fb = document.getElementById('step-feedback');
+  fb.style.display = 'flex';
+
+  if(diff <= tolerance) {
+    fb.style.background = 'linear-gradient(135deg,#E8F5E9,#F1F8E9)';
+    fb.style.color = 'var(--green)';
+    fb.innerHTML = `<span style="font-size:28px;">🎉</span>
+      <div>せいかい！<br>${step.ask.correctH}じ${step.ask.correctM<10?'0'+step.ask.correctM:step.ask.correctM}ふん ごろが ただしいよ！<br>うまく ぎゃくさん できた！</div>`;
+    updateSimClock(userH, userM);
+    renderJourneySteps(stepIdx);
+    panel.style.display = 'none';
+    document.getElementById('btn-next-step').disabled = false;
+    if(stepIdx === SCENARIOS_EX[simState.scenarioIdx].steps.length - 1) {
+      document.getElementById('btn-next-step').textContent = '🏁 ゴール！';
+    }
+  } else {
+    const hint2 = userTotal < correctTotal
+      ? `もうすこし <strong>おそい</strong> じかんに して みよう！`
+      : `もうすこし <strong>はやい</strong> じかんに して みよう！`;
+    fb.style.background = 'linear-gradient(135deg,#FFEBEE,#FFF3E0)';
+    fb.style.color = 'var(--train)';
+    fb.innerHTML = `<span style="font-size:28px;">🤔</span>
+      <div>うーん、もういちど かんがえてみよう！<br>${hint2}</div>`;
+    // keep input panel open
+  }
+}
+
+function resetSim() {
+  goToStepA();
+}
+
+// ========================= CONCEPT CLOCKS =========================
+function drawMiniClock(svgId, h, m, size, isPrimary) {
+  const svg = document.getElementById(svgId);
+  const cx = size/2, cy = size/2, r = size/2 - 4;
+  svg.innerHTML = '';
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const bg = document.createElementNS(ns,'circle');
+  bg.setAttribute('cx',cx); bg.setAttribute('cy',cy); bg.setAttribute('r',r);
+  bg.setAttribute('fill', isPrimary ? 'white' : '#FFF8E1');
+  bg.setAttribute('stroke', isPrimary ? '#FF8F00' : '#FFCC02');
+  bg.setAttribute('stroke-width', isPrimary ? '5' : '3');
+  svg.appendChild(bg);
+
+  // hour marks
+  for(let i=0;i<12;i++) {
+    const a = i*30*Math.PI/180;
+    const x1=cx+(r-6)*Math.sin(a), y1=cy-(r-6)*Math.cos(a);
+    const x2=cx+(r-2)*Math.sin(a), y2=cy-(r-2)*Math.cos(a);
+    const ln = document.createElementNS(ns,'line');
+    ln.setAttribute('x1',x1);ln.setAttribute('y1',y1);
+    ln.setAttribute('x2',x2);ln.setAttribute('y2',y2);
+    ln.setAttribute('stroke','#ccc');ln.setAttribute('stroke-width','1.5');
+    svg.appendChild(ln);
+  }
+
+  // numbers 12,3,6,9
+  [[12,0],[3,90],[6,180],[9,270]].forEach(([num,deg]) => {
+    const a = deg*Math.PI/180;
+    const tx = cx+(r-14)*Math.sin(a), ty = cy-(r-14)*Math.cos(a);
+    const t = document.createElementNS(ns,'text');
+    t.setAttribute('x',tx); t.setAttribute('y',ty+4);
+    t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','9');
+    t.setAttribute('font-weight','bold'); t.setAttribute('fill','#888');
+    t.textContent=num;
+    svg.appendChild(t);
+  });
+
+  const hAngle = ((h%12)+m/60)*30*Math.PI/180;
+  const mAngle = m*6*Math.PI/180;
+  const hLen = r*0.45, mLen = r*0.65;
+  const hx=cx+hLen*Math.sin(hAngle), hy=cy-hLen*Math.cos(hAngle);
+  const mx=cx+mLen*Math.sin(mAngle), my=cy-mLen*Math.cos(mAngle);
+
+  const hLine = document.createElementNS(ns,'line');
+  hLine.setAttribute('x1',cx);hLine.setAttribute('y1',cy);
+  hLine.setAttribute('x2',hx);hLine.setAttribute('y2',hy);
+  hLine.setAttribute('stroke','#333');hLine.setAttribute('stroke-width',isPrimary?4:3);
+  hLine.setAttribute('stroke-linecap','round');
+  svg.appendChild(hLine);
+
+  const mLine = document.createElementNS(ns,'line');
+  mLine.setAttribute('x1',cx);mLine.setAttribute('y1',cy);
+  mLine.setAttribute('x2',mx);mLine.setAttribute('y2',my);
+  mLine.setAttribute('stroke', isPrimary?'#FF8F00':'#FFAB00');
+  mLine.setAttribute('stroke-width',isPrimary?3:2);
+  mLine.setAttribute('stroke-linecap','round');
+  svg.appendChild(mLine);
+
+  const dot = document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',cx);dot.setAttribute('cy',cy);dot.setAttribute('r',isPrimary?4:3);
+  dot.setAttribute('fill','#FF8F00');
+  svg.appendChild(dot);
+}
+
+function initConceptClocks() {
+  const now = new Date();
+  nowBaseHour = now.getHours();
+  nowBaseMin  = Math.round(now.getMinutes()/5)*5;
+  if(nowBaseMin>=60){nowBaseMin=0;nowBaseHour++;}
+  drawMiniClock('now-clock', nowBaseHour, nowBaseMin, 130, true);
+  drawMiniClock('before-clock', nowBaseHour, nowBaseMin, 120, false);
+  drawMiniClock('after-clock',  nowBaseHour, nowBaseMin, 120, false);
+  document.getElementById('concept-big-text').textContent = 'いまから ○ふん ご　と　○ふん まえ　を かくにん！';
+}
+
+function selectMinutes(mins, el) {
+  document.querySelectorAll('.min-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+
+  const totalNow = nowBaseHour*60 + nowBaseMin;
+  const bef = totalNow - mins;
+  const aft = totalNow + mins;
+
+  const befH = Math.floor(((bef%1440)+1440)%1440/60);
+  const befM = ((bef%1440)+1440)%1440%60;
+  const aftH = Math.floor(((aft%1440)+1440)%1440/60);
+  const aftM = ((aft%1440)+1440)%1440%60;
+
+  drawMiniClock('before-clock', befH, befM, 120, false);
+  drawMiniClock('now-clock',    nowBaseHour, nowBaseMin, 130, true);
+  drawMiniClock('after-clock',  aftH, aftM, 120, false);
+
+  const minLabel = mins >= 60 ? (mins/60)+'じかん' : mins+'ふん';
+  document.getElementById('before-label').textContent = minLabel+'まえ';
+  document.getElementById('after-label').textContent  = minLabel+'ご';
+
+  const fmt = (h,m) => `${h}:${m<10?'0'+m:m}`;
+  document.getElementById('concept-big-text').textContent =
+    `${minLabel}まえ　→　いま(${fmt(nowBaseHour,nowBaseMin)})　→　${minLabel}ご`;
+
+  document.getElementById('concept-tip').textContent =
+    `いまから ${minLabel} まえは ${fmt(befH,befM)} ！　${minLabel} ごは ${fmt(aftH,aftM)} だよ！`;
+
+  // timeline
+  document.getElementById('tl-start-lbl').textContent = fmt(befH,befM);
+  document.getElementById('tl-end-lbl').textContent   = fmt(aftH,aftM);
+  document.getElementById('tl-fill').style.width = '50%';
+  document.getElementById('tl-fill').style.background = mins<=15
+    ? 'linear-gradient(90deg,#C8E6C9,#A5D6A7)'
+    : mins<=30 ? 'linear-gradient(90deg,#FFF9C4,#FFE082)'
+    : 'linear-gradient(90deg,#FFCCBC,#FFAB91)';
+  document.getElementById('tl-now').style.left = '50%';
+}
+
+// ========================= QUIZ =========================
+const QUIZ_BANK = [
+  { q:'バスは 8じ 20ぷん に でます。いまは 8じ 10ぷん です。あと なんふん で バスが きますか？', opts:['5ふん','10ぷん','15ふん','20ぷん'], ans:[1] },
+  { q:'でんしゃは 13じ 00ふん に でます。いまは 12じ 45ふん です。あと なんふん で でんしゃが きますか？', opts:['10ぷん','15ふん','20ぷん','25ふん'], ans:[1] },
+  { q:'いまは 9じ 30ぷん です。30ぷんご は なんじ なんふん ですか？', opts:['9じ 00ふん','10じ 00ふん','9じ 30ぷん','10じ 30ぷん'], ans:[1] },
+  { q:'バスに のるのに 5ふん かかります。バスは 15じ 20ぷん に でます。おそくとも なんじ なんふん に バスていに つけば いいですか？', opts:['15じ 10ぷん','15じ 15ふん','15じ 20ぷん','15じ 25ふん'], ans:[1] },
+  { q:'えきまで あるいて 10ぷん かかります。でんしゃは 10じ 00ふん に でます。まにあうためには おそくとも なんじ なんふん に いえを でれば いいですか？', opts:['9じ 40ぷん','9じ 50ぷん','10じ 00ふん','10じ 10ぷん'], ans:[0,1] },
+  { q:'いまは 14じ 00ふん です。20ぷん まえ は なんじ なんふん でしたか？', opts:['13じ 30ぷん','13じ 40ぷん','14じ 20ぷん','13じ 50ぷん'], ans:[1] },
+  { q:'バスAが 9じ 00ふん に つきます。バスBは 9じ 10ぷん に でます。のりかえには なんふん あります？', opts:['5ふん','10ぷん','15ふん','20ぷん'], ans:[1] },
+  { q:'いまは 7じ 50ぷん です。バスは 8じ 05ふん に でます。あと なんふん ありますか？', opts:['10ぷん','15ふん','20ぷん','5ふん'], ans:[1] },
+
+  // --- 追加20問 ---
+  { q:'いまは 10じ 15ふん です。15ふんご は なんじ なんふん ですか？', opts:['10じ 00ふん','10じ 30ぷん','10じ 15ふん','11じ 00ふん'], ans:[1] },
+  { q:'いまは 11じ 45ふん です。でんしゃは 12じ 00ふん に でます。まにあいますか？', opts:['まにあう（あと15ふん）','まにあわない（すでに すぎた）','ちょうど（0ふん）','まにあう（あと5ふん）'], ans:[0] },
+  { q:'バスていまで あるいて 8ふん かかります。バスは 9じ 20ぷん に でます。おそくとも なんじ なんふん に でれば いいですか？', opts:['9じ 00ふん','9じ 10ぷん','9じ 12ふん','9じ 15ふん'], ans:[0,1,2] },
+  { q:'でんしゃに のって 20ぷん で つきます。いまは 13じ 10ぷん です。つくのは なんじ なんふん ですか？', opts:['13じ 30ぷん','13じ 40ぷん','13じ 20ぷん','14じ 00ふん'], ans:[0] },
+  { q:'よやくは 14じ 30ぷん です。バスで 25ふん かかります。おそくとも なんじ なんふん に バスに のれば いいですか？', opts:['14じ 00ふん','14じ 05ふん','14じ 10ぷん','13じ 55ふん'], ans:[0,1,3] },
+  { q:'いまは 8じ 55ふん です。9じ 00ふん の でんしゃに まにあいますか？', opts:['まにあう（あと5ふん）','まにあわない（すでに すぎた）','ちょうど（0ふん）','まにあう（あと10ぷん）'], ans:[0] },
+  { q:'いまは 15じ 20ぷん です。40ぷんまえ は なんじ なんふん でしたか？', opts:['14じ 30ぷん','14じ 40ぷん','15じ 00ふん','14じ 50ぷん'], ans:[1] },
+  { q:'バスは 7じ 45ふん に でます。いまは 7じ 30ぷん です。あと なんふん で バスが きますか？', opts:['10ぷん','20ぷん','15ふん','5ふん'], ans:[2] },
+  { q:'えきまで あるいて 15ふん かかります。でんしゃは 9じ 30ぷん に でます。おそくとも なんじ なんふん に いえを でれば いいですか？', opts:['9じ 00ふん','9じ 15ふん','9じ 10ぷん','8じ 50ぷん'], ans:[0,1,2,3] },
+  { q:'のりかえに 10ぷん かかります。バスAが 10じ 20ぷん に つきます。バスBは なんじ いこうに のれますか？', opts:['10じ 20ぷん いこう','10じ 30ぷん いこう','10じ 40ぷん いこう','10じ 25ふん いこう'], ans:[1] },
+  { q:'しゅうごうは 13じ 00ふん です。いまは 12じ 40ぷん です。あと なんふん ありますか？', opts:['10ぷん','15ふん','20ぷん','25ふん'], ans:[2] },
+  { q:'いまは 16じ 50ぷん です。30ぷんご は なんじ なんふん ですか？', opts:['17じ 10ぷん','17じ 20ぷん','17じ 00ふん','16じ 20ぷん'], ans:[1] },
+  { q:'バスは 5ふんおきに でます。さいごのバスは 8じ 10ぷん でした。つぎのバスは なんじ なんふん ですか？', opts:['8じ 15ふん','8じ 20ぷん','8じ 25ふん','8じ 30ぷん'], ans:[0] },
+  { q:'でんしゃで 30ぷん かかります。14じ 00ふん に つきたいです。なんじ なんふん に のれば いいですか？', opts:['13じ 20ぷん','13じ 30ぷん','13じ 40ぷん','13じ 10ぷん'], ans:[1] },
+  { q:'いまは 9じ 05ふん です。バスは 9じ 00ふん に でました。つぎのバスは 9じ 25ふん です。あと なんふん まちますか？', opts:['15ふん','20ぷん','25ふん','10ぷん'], ans:[1] },
+  { q:'いまは 17じ 30ぷん です。45ふんまえ は なんじ なんふん でしたか？', opts:['16じ 30ぷん','16じ 45ふん','17じ 00ふん','16じ 55ふん'], ans:[1] },
+  { q:'バスていまで 5ふん あるきます。バスに のって 15ふん で つきます。いえを でてから つくまで ぜんぶで なんふん かかりますか？', opts:['15ふん','20ぷん','25ふん','30ぷん'], ans:[1] },
+  { q:'でんしゃは 10ぷんおきに でています。いまは 11じ 03ふん です。つぎのでんしゃは 11じ 10ぷん です。あと なんふん まちますか？', opts:['5ふん','7ふん','10ぷん','3ふん'], ans:[1] },
+  { q:'よやくの 10ぷん まえに つきたいです。よやくは 15じ 00ふん です。なんじ なんふん に つけば いいですか？', opts:['14じ 40ぷん','14じ 50ぷん','15じ 00ふん','14じ 45ふん'], ans:[1] },
+  { q:'いまは 8じ 30ぷん です。がっこうは 8じ 45ふん に はじまります。いそげば まにあいますか？', opts:['まにあう（あと15ふん）','まにあわない','ちょうど','まにあう（あと5ふん）'], ans:[0] },
+];
+
+let quizPool = [];
+function nextQuiz() {
+  if(quizPool.length === 0) quizPool = [...QUIZ_BANK].sort(()=>Math.random()-0.5);
+  quizState.q = quizPool.pop();
+  document.getElementById('quiz-q').textContent = quizState.q.q;
+  const opts = document.getElementById('quiz-opts');
+  opts.innerHTML = '';
+  quizState.q.opts.forEach((o,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.textContent = o;
+    btn.onclick = () => answerQuiz(i, btn);
+    opts.appendChild(btn);
+  });
+  document.getElementById('quiz-result').textContent = '';
+  document.getElementById('quiz-next-btn').style.display = 'none';
+  updateScore();
+}
+
+function answerQuiz(idx, btn) {
+  const allOpts = document.querySelectorAll('.quiz-opt');
+  allOpts.forEach(b=>b.disabled=true);
+  quizState.total++;
+  const correctList = Array.isArray(quizState.q.ans) ? quizState.q.ans : [quizState.q.ans];
+  const isCorrect = correctList.includes(idx);
+  if(isCorrect) {
+    btn.classList.add('correct');
+    quizState.score++;
+    document.getElementById('quiz-result').textContent = '🎉 せいかい！すごい！';
+    document.getElementById('quiz-result').style.color = 'var(--green)';
+  } else {
+    btn.classList.add('wrong');
+    correctList.forEach(ci => allOpts[ci].classList.add('correct'));
+    const correctLabels = correctList.map(ci => quizState.q.opts[ci]).join(' または ');
+    document.getElementById('quiz-result').textContent = '😢 ざんねん！こたえは ' + correctLabels + ' だよ';
+    document.getElementById('quiz-result').style.color = 'var(--train)';
+  }
+  // 正解の選択肢をすべて緑表示
+  correctList.forEach(ci => allOpts[ci].classList.add('correct'));
+  document.getElementById('quiz-next-btn').style.display = 'block';
+  updateScore();
+}
+
+function updateScore() {
+  if(quizState.total===0) { document.getElementById('quiz-score').textContent=''; return; }
+  document.getElementById('quiz-score').textContent =
+    `せいかい: ${quizState.score} / ${quizState.total}もん`;
+}
+
+// ========================= TABS =========================
+function switchTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ========================= START =========================
+init();
+
+
+
+
+// ========================= INLINE ANALOG CLOCK =========================
+function drawInlineClock(svgEl, h, m) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const size = 80, cx = 40, cy = 40, r = 36;
+  svgEl.setAttribute('viewBox','0 0 80 80');
+  svgEl.setAttribute('width','80');
+  svgEl.setAttribute('height','80');
+  svgEl.innerHTML = '';
+
+  // face
+  const face = document.createElementNS(ns,'circle');
+  face.setAttribute('cx',cx); face.setAttribute('cy',cy); face.setAttribute('r',r);
+  face.setAttribute('fill','white'); face.setAttribute('stroke','#90CAF9');
+  face.setAttribute('stroke-width','3');
+  svgEl.appendChild(face);
+
+  // hour ticks + numbers
+  for(let i=0;i<12;i++){
+    const a=i*30*Math.PI/180;
+    const isMajor = i%3===0;
+    const x1=cx+(r-5)*Math.sin(a), y1=cy-(r-5)*Math.cos(a);
+    const x2=cx+(r-1)*Math.sin(a), y2=cy-(r-1)*Math.cos(a);
+    const tick=document.createElementNS(ns,'line');
+    tick.setAttribute('x1',x1);tick.setAttribute('y1',y1);
+    tick.setAttribute('x2',x2);tick.setAttribute('y2',y2);
+    tick.setAttribute('stroke', isMajor?'#90CAF9':'#ccc');
+    tick.setAttribute('stroke-width', isMajor?'2':'1');
+    svgEl.appendChild(tick);
+  }
+  // 12,3,6,9 numbers
+  [[12,0],[3,90],[6,180],[9,270]].forEach(([num,deg])=>{
+    const a=deg*Math.PI/180;
+    const tx=cx+(r-11)*Math.sin(a), ty=cy-(r-11)*Math.cos(a);
+    const t=document.createElementNS(ns,'text');
+    t.setAttribute('x',tx);t.setAttribute('y',ty+3.5);
+    t.setAttribute('text-anchor','middle');t.setAttribute('font-size','8');
+    t.setAttribute('font-weight','bold');t.setAttribute('fill','#5C6BC0');
+    t.textContent=num;
+    svgEl.appendChild(t);
+  });
+
+  // hour hand
+  const hA=((h%12)+m/60)*30*Math.PI/180;
+  const hLine=document.createElementNS(ns,'line');
+  hLine.setAttribute('x1',cx);hLine.setAttribute('y1',cy);
+  hLine.setAttribute('x2',cx+20*Math.sin(hA));hLine.setAttribute('y2',cy-20*Math.cos(hA));
+  hLine.setAttribute('stroke','#1A237E');hLine.setAttribute('stroke-width','3');
+  hLine.setAttribute('stroke-linecap','round');
+  svgEl.appendChild(hLine);
+
+  // minute hand
+  const mA=m*6*Math.PI/180;
+  const mLine=document.createElementNS(ns,'line');
+  mLine.setAttribute('x1',cx);mLine.setAttribute('y1',cy);
+  mLine.setAttribute('x2',cx+28*Math.sin(mA));mLine.setAttribute('y2',cy-28*Math.cos(mA));
+  mLine.setAttribute('stroke','#0288D1');mLine.setAttribute('stroke-width','2');
+  mLine.setAttribute('stroke-linecap','round');
+  svgEl.appendChild(mLine);
+
+  // center dot
+  const dot=document.createElementNS(ns,'circle');
+  dot.setAttribute('cx',cx);dot.setAttribute('cy',cy);dot.setAttribute('r','3');
+  dot.setAttribute('fill','#E53935');
+  svgEl.appendChild(dot);
+}
+
+function updateInlineClock(svgId, h, m) {
+  const el = document.getElementById(svgId);
+  if(el) drawInlineClock(el, h, m);
+}
+
+
+// ========================= CUSTOM SCENARIO =========================
+const EMOJI_OPTIONS = ['🏠','🏫','🛒','🏥','🎪','🎯','🏖️','🏋️','🎵','🍔','🏟️','🏛️','🌳','💈','🎠'];
+const TRANSPORT_ICONS = {'bus':'🚌','train':'🚃','walk':'🚶'};
+
+function renderCustomPanel() {
+  const panel = document.getElementById('custom-scenario-panel');
+  // 保存済みの値があれば復元
+  const sv = customScenarioData ? customScenarioData._form : {};
+
+  panel.innerHTML = `
+  <div style="background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:2px solid #FFD54F;border-radius:16px;padding:16px;">
+    <div style="font-size:14px;font-weight:800;color:#FF8F00;margin-bottom:14px;">✏️ シナリオを せってい しよう</div>
+
+    <!-- 行き先 -->
+    <div class="cform-row">
+      <label class="cform-label">🎯 どこへ いく？</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input id="cf-dest" type="text" placeholder="れい：おじいちゃんの いえ" maxlength="20"
+          style="flex:1;min-width:160px;padding:10px 12px;border-radius:12px;border:2px solid #FFD54F;
+                 font-family:inherit;font-size:15px;font-weight:700;background:white;"
+          value="${sv.dest||''}" oninput="customFormChanged()">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <!-- 絵文字選択 -->
+          <div id="cf-emoji-bar" style="display:flex;gap:4px;flex-wrap:wrap;max-width:200px;">
+            ${EMOJI_OPTIONS.map(e=>`<button onclick="pickEmoji('${e}',this)" class="emoji-pick-btn${(sv.icon===e&&!sv.imgUrl)?' epicked':''}">${e}</button>`).join('')}
+          </div>
+          <!-- 画像アップロード -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <label for="cf-img-input" style="
+              display:inline-flex;align-items:center;gap:5px;
+              padding:7px 12px;border-radius:12px;border:2px dashed #FFD54F;
+              background:white;font-size:13px;font-weight:700;color:#FF8F00;
+              cursor:pointer;transition:all 0.2s;"
+              onmouseover="this.style.background='#FFF8E1'" onmouseout="this.style.background='white'">
+              📷 がぞうを えらぶ
+            </label>
+            <input type="file" id="cf-img-input" accept="image/*" style="display:none;"
+              onchange="pickCustomImage(this)">
+            <!-- プレビュー -->
+            <div id="cf-img-preview" style="display:${sv.imgUrl?'flex':'none'};align-items:center;gap:6px;">
+              <img id="cf-img-thumb" src="${sv.imgUrl||''}"
+                style="width:44px;height:44px;object-fit:cover;border-radius:10px;border:2px solid #FFD54F;">
+              <button onclick="clearCustomImage()" style="
+                background:#fee;border:none;border-radius:8px;padding:4px 8px;
+                font-size:12px;color:#c00;cursor:pointer;font-weight:700;">✕ けす</button>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="cf-icon" value="${sv.icon||'🎯'}">
+        <input type="hidden" id="cf-img-url" value="${sv.imgUrl||''}">
+      </div>
+    </div>
+
+    <!-- 移動手段 -->
+    <div class="cform-row">
+      <label class="cform-label">🚌 のりもの は？</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${[['bus','バス 🚌'],['train','でんしゃ 🚃'],['walk','あるき 🚶']].map(([v,l])=>
+          `<button onclick="pickTransport('${v}',this)" class="ctrans-btn${(sv.transport===v)?' ctrans-active':''}" data-val="${v}">${l}</button>`
+        ).join('')}
+      </div>
+      <input type="hidden" id="cf-transport" value="${sv.transport||'bus'}">
+    </div>
+
+    <!-- しめきり時刻 -->
+    <div class="cform-row">
+      <label class="cform-label">⏰ しめきり じこく（よやく・しゅうごう など）</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="cf-dl-h" onchange="customFormChanged()"
+          style="padding:10px;border-radius:12px;border:2px solid #FFD54F;font-size:16px;font-family:inherit;font-weight:700;width:88px;">
+          ${Array.from({length:16},(_,k)=>k+6).map(h=>`<option value="${h}"${h===(sv.dlH||9)?' selected':''}>${h}じ</option>`).join('')}
+        </select>
+        <select id="cf-dl-m" onchange="customFormChanged()"
+          style="padding:10px;border-radius:12px;border:2px solid #FFD54F;font-size:16px;font-family:inherit;font-weight:700;width:98px;">
+          ${Array.from({length:12},(_,k)=>k*5).map(m=>`<option value="${m}"${m===(sv.dlM||0)?' selected':''}>${m<10?'0'+m:m}${funOrPun(m)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <!-- 移動時間 -->
+    <div class="cform-row">
+      <label class="cform-label">🕐 いどう じかん（のりもの）</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="cf-travel" onchange="customFormChanged()"
+          style="padding:10px;border-radius:12px;border:2px solid #FFD54F;font-size:16px;font-family:inherit;font-weight:700;width:108px;">
+          <option value="5">5ふん</option>
+          <option value="10">10ぷん</option>
+          <option value="15">15ふん</option>
+          <option value="20">20ぷん</option>
+          <option value="25">25ふん</option>
+          <option value="30">30ぷん</option>
+          <option value="40">40ぷん</option>
+          <option value="50">50ぷん</option>
+          <option value="60">60ふん</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 歩き時間 -->
+    <div class="cform-row">
+      <label class="cform-label">🚶 あるき じかん（えき・バスていまで）</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="cf-walk" onchange="customFormChanged()"
+          style="padding:10px;border-radius:12px;border:2px solid #FFD54F;font-size:16px;font-family:inherit;font-weight:700;width:108px;">
+          <option value="0">0ふん</option>
+          <option value="5">5ふん</option>
+          <option value="10">10ぷん</option>
+          <option value="15">15ふん</option>
+          <option value="20">20ぷん</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ひとこと -->
+    <div class="cform-row">
+      <label class="cform-label">💬 ひとこと メモ（にもつ・もちもの など）</label>
+      <input id="cf-memo" type="text" placeholder="れい：おかいものリストを わすれずに" maxlength="30"
+        style="width:100%;padding:10px 12px;border-radius:12px;border:2px solid #FFD54F;
+               font-family:inherit;font-size:14px;font-weight:700;background:white;box-sizing:border-box;"
+        value="${sv.memo||''}" oninput="customFormChanged()">
+    </div>
+
+    <button onclick="applyCustomScenario()"
+      style="width:100%;margin-top:4px;padding:13px;border:none;border-radius:14px;
+             background:var(--accent);color:white;font-family:inherit;font-size:15px;
+             font-weight:800;cursor:pointer;transition:all 0.2s;"
+      onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+      ✅ このシナリオで けってい！
+    </button>
+    <div id="cf-preview" style="margin-top:10px;font-size:13px;color:#888;text-align:center;"></div>
+  </div>`;
+
+  // select の保存値を復元
+  const travelSel = document.getElementById('cf-travel');
+  if(travelSel && sv.travelMin) travelSel.value = sv.travelMin;
+  const walkSel = document.getElementById('cf-walk');
+  if(walkSel && sv.walkMin !== undefined) walkSel.value = sv.walkMin;
+  // 既存の選択状態を復元
+  if(sv.transport) {
+    document.querySelectorAll('.ctrans-btn').forEach(b=>{
+      b.classList.toggle('ctrans-active', b.dataset.val===sv.transport);
+    });
+  }
+}
+
+function pickEmoji(emoji, btn) {
+  document.getElementById('cf-icon').value = emoji;
+  // 画像選択をクリア
+  const imgUrl = document.getElementById('cf-img-url');
+  if(imgUrl) imgUrl.value = '';
+  const prev = document.getElementById('cf-img-preview');
+  if(prev) prev.style.display = 'none';
+  const inp = document.getElementById('cf-img-input');
+  if(inp) inp.value = '';
+  document.querySelectorAll('.emoji-pick-btn').forEach(b=>b.classList.remove('epicked'));
+  btn.classList.add('epicked');
+  customFormChanged();
+}
+
+function pickCustomImage(input) {
+  if(!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    // 画像URLを保存
+    document.getElementById('cf-img-url').value = dataUrl;
+    // プレビュー表示
+    document.getElementById('cf-img-thumb').src = dataUrl;
+    document.getElementById('cf-img-preview').style.display = 'flex';
+    // 絵文字の選択解除
+    document.querySelectorAll('.emoji-pick-btn').forEach(b=>b.classList.remove('epicked'));
+    customFormChanged();
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearCustomImage() {
+  document.getElementById('cf-img-url').value = '';
+  document.getElementById('cf-img-preview').style.display = 'none';
+  document.getElementById('cf-img-input').value = '';
+  customFormChanged();
+}
+
+function pickTransport(val, btn) {
+  document.getElementById('cf-transport').value = val;
+  document.querySelectorAll('.ctrans-btn').forEach(b=>b.classList.remove('ctrans-active'));
+  btn.classList.add('ctrans-active');
+  customFormChanged();
+}
+
+function customFormChanged() {
+  const dest  = (document.getElementById('cf-dest')||{}).value||'';
+  const dlH   = parseInt((document.getElementById('cf-dl-h')||{}).value||9);
+  const dlM   = parseInt((document.getElementById('cf-dl-m')||{}).value||0);
+  const tMin  = parseInt((document.getElementById('cf-travel')||{}).value||15);
+  const wMin  = parseInt((document.getElementById('cf-walk')||{}).value||5);
+  const prev  = document.getElementById('cf-preview');
+  if(!prev) return;
+  if(!dest) { prev.textContent=''; return; }
+  const leaveTotal = dlH*60+dlM - tMin - wMin;
+  const lH = Math.floor(((leaveTotal%1440)+1440)%1440/60);
+  const lM = ((leaveTotal%1440)+1440)%1440%60;
+  prev.innerHTML = `📌 いえを でる のは <strong>${lH}じ${lM<10?'0'+lM:lM}ふん</strong> ごろが めやすだよ`;
+}
+
+function applyCustomScenario() {
+  const dest     = (document.getElementById('cf-dest').value||'').trim();
+  const imgUrl   = document.getElementById('cf-img-url').value || '';
+  const icon     = imgUrl ? null : (document.getElementById('cf-icon').value || '🎯');
+  const transport= document.getElementById('cf-transport').value || 'bus';
+  const dlH      = parseInt(document.getElementById('cf-dl-h').value);
+  const dlM      = parseInt(document.getElementById('cf-dl-m').value);
+  const tMin     = parseInt(document.getElementById('cf-travel').value);
+  const wMin     = parseInt(document.getElementById('cf-walk').value);
+  const memo     = (document.getElementById('cf-memo').value||'').trim();
+
+  if(!dest) { alert('「どこへ いく？」を いれてね！'); return; }
+
+  const tIcon  = TRANSPORT_ICONS[transport] || '🚌';
+  const tLabel = transport==='bus'?'バス': transport==='train'?'でんしゃ':'あるき';
+  // アイコン表示用ヘルパー（画像 or 絵文字）
+  const iconDisplay = imgUrl
+    ? `<img src="${imgUrl}" style="width:1.2em;height:1.2em;object-fit:cover;border-radius:4px;vertical-align:middle;">`
+    : icon;
+  const iconText = imgUrl ? '🖼️' : icon; // テキスト専用（title等）
+
+  // 逆算で各時刻を計算
+  const deadlineTotal = dlH*60 + dlM;
+  const arriveTotal   = deadlineTotal - 5;          // 目的地着：5分前着
+  const boardTotal    = arriveTotal - tMin;          // 乗車
+  const stopTotal     = boardTotal - 2;              // バス停/駅着
+  const leaveTotal    = stopTotal - wMin;            // 家を出る
+
+  const fmt = (total) => {
+    const t = ((total%1440)+1440)%1440;
+    return `${Math.floor(t/60)}:${(t%60)<10?'0'+(t%60):(t%60)}`;
+  };
+  const fmtH = (total) => Math.floor(((total%1440)+1440)%1440/60);
+  const fmtM = (total) => ((total%1440)+1440)%1440%60;
+
+  const stopLabel = transport==='bus' ? 'バスてい' : 'えき';
+
+  const scenario = {
+    title: `${iconDisplay} ${dest} に いく`,
+    desc: `${dest} の じかんは <strong>${dlH}じ${dlM<10?'0'+dlM:dlM}ふん</strong>。${tLabel}で <strong>${tMin}ふん</strong> かかります。<br>${memo ? memo+'<br>' : ''}いえを でる じかんを ぎゃくさん して みよう！`,
+    imgUrl: imgUrl,
+    isCustom: true,
+    steps: [
+      { time:null, icon:'🏠', label:'いえを でる じかんを きめよう！',
+        desc: wMin>0 ? `${stopLabel}まで あるいて${wMin}ふん かかります` : 'すぐ のれるよ！',
+        ask:{ question:'いえを でるのは なんじ なんふん？',
+              correctH: fmtH(leaveTotal), correctM: fmtM(leaveTotal), toleranceMin:10,
+              hint:`しめきり(${dlH}:${dlM<10?'0'+dlM:dlM}) から ${tLabel}(${tMin}ふん)${wMin>0?' と あるき('+wMin+'ふん)':''} を ひいてみよう！` } },
+      ...(wMin > 0 ? [{ time: fmt(stopTotal), icon: transport==='bus'?'🚏':'🚉',
+        label: `${stopLabel}に とうちゃく`, desc: `${tLabel}を まつ` }] : []),
+      { time:null, icon: tIcon, label:`${tLabel}に のる じかんを こたえよう！`, desc:'',
+        ask:{ question:`${tLabel}に のるのは なんじ なんふん？`,
+              correctH: fmtH(boardTotal), correctM: fmtM(boardTotal), toleranceMin:8,
+              hint:`じこくひょうを みてみよう！${Math.floor(fmtH(boardTotal))}じ ごろの ${tLabel}は？` } },
+      { time: fmt(arriveTotal), icon: transport==='bus'?'🚏':'🚉',
+        label:`もくてきの ${stopLabel}に とうちゃく`, desc:'おりる' },
+      { time: fmt(deadlineTotal), icon: iconDisplay,
+        label:`${dest} に とうちゃく！`, desc:`ちょうど じかんどおり！ 🎉` },
+    ]
+  };
+
+  const conditions = {
+    deadline: `${iconText} しめきり：${dlH}じ${dlM<10?'0'+dlM:dlM}ふん`,
+    transport: `${tIcon} ${tLabel}で ${tMin}ふん`,
+    walk: wMin>0 ? `🚶 あるき ${wMin}ふん` : '',
+    extra: memo || '⏰ じかんに まにあおう！'
+  };
+
+  customScenarioData = { title: `${iconText} ${dest}`, desc: scenario.desc, scenario, conditions,
+    _form:{ dest, icon: icon||'🎯', imgUrl, transport, dlH, dlM, travelMin:tMin, walkMin:wMin, memo } };
+
+  SCENARIOS_EX[4] = scenario;
+  SCENARIO_CONDITIONS[4] = conditions;
+
+  // ①画面を更新
+  loadScenarioDesc(4);
+  const startBtn = document.querySelector('#virt-step-a .sim-btn.primary');
+  startBtn.disabled = false;
+  startBtn.style.opacity = '1';
+
+  // プレビュー表示
+  const prev = document.getElementById('cf-preview');
+  if(prev) prev.innerHTML = `<span style="color:var(--green);font-weight:800;">✅ けってい！ スタートボタンを おしてね！</span>`;
+}
+
+// ========================= PROBLEM CARD =========================
+// Per-scenario condition chips shown on steps B and C
+const SCENARIO_CONDITIONS = [
+  {
+    deadline: '🏫 がっこうのはじまり：8じ 30ぷん',
+    transport: '🚌 バスで 10ぷん',
+    walk: '🚶 あるき 5ふん',
+    extra: '⏰ よゆう をもって でよう！'
+  },
+  {
+    deadline: '🛒 おみせがしまる：14じ 30ぷん',
+    transport: '🚃 でんしゃで 15ふん',
+    walk: '🚶 えきまで あるき 10ぷん',
+    extra: '⏰ まにあうように！'
+  },
+  {
+    deadline: '🏥 よやく：10じ 00ふん',
+    transport: '🚌 バスで 15ふん × 2こ',
+    walk: '🚶 あるき 5ふん',
+    extra: '🔄 のりかえ あり！'
+  },
+  {
+    deadline: '🎪 しゅうごう：9じ 00ふん',
+    transport: '🚃 でんしゃで 25ふん',
+    walk: '🚶 えきまで あるき 10ぷん',
+    extra: '⏰ ぜったい おくれない！'
+  },
+  {
+    deadline: '✏️ カスタム',
+    transport: '🚌 じぶんで せってい',
+    walk: '',
+    extra: ''
+  }
+];
+
+function renderProbCard(cardId) {
+  const s = SCENARIOS_EX[simState.scenarioIdx];
+  const cond = SCENARIO_CONDITIONS[simState.scenarioIdx];
+  const el = document.getElementById(cardId);
+  if (!el) return;
+
+  el.innerHTML = `
+    <button class="prob-toggle-btn" onclick="toggleProbCard('${cardId}',this)">▲ たたむ</button>
+    <div class="prob-card-label">📝 もんだい かくにん</div>
+    <div class="prob-card-title">${s.title}</div>
+    <div class="prob-card-desc" id="${cardId}-body">
+      ${s.desc}
+      <div class="prob-card-conditions">
+        <span class="prob-cond-chip">${cond.deadline}</span>
+        <span class="prob-cond-chip">${cond.transport}</span>
+        <span class="prob-cond-chip">${cond.walk}</span>
+        <span class="prob-cond-chip">${cond.extra}</span>
+      </div>
+    </div>`;
+}
+
+function toggleProbCard(cardId, btn) {
+  const body = document.getElementById(cardId + '-body');
+  const isHidden = body.style.display === 'none';
+  body.style.display = isHidden ? '' : 'none';
+  btn.textContent = isHidden ? '▲ たたむ' : '▼ もんだいを みる';
+}
+
+// ========================= VIRTUAL TIMETABLE PANEL =========================
+// Which route is shown per panel instance
+const virtTTState = { b: 'bus', c: 'bus', step: 'bus' };
+
+function toggleVirtTT(id) {
+  const panel = document.getElementById('virt-tt-panel-' + id);
+  const arrow = document.getElementById('tt-arrow-' + id);
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    arrow.textContent = '▲';
+    renderVirtTT(id);
+  } else {
+    panel.style.display = 'none';
+    arrow.textContent = '▼';
+  }
+}
+
+function renderVirtTT(id, route) {
+  if (route) virtTTState[id] = route;
+  const r = virtTTState[id];
+  const data = TIMETABLE[r];
+  const chipClass = r === 'bus' ? 'bus-c' : 'train-c';
+
+  // figure out scenario's relevant hours for highlighting
+  const scenario = SCENARIOS_EX[simState.scenarioIdx];
+  const relevantTimes = [];
+  scenario.steps.forEach(s => {
+    if (s.ask) {
+      relevantTimes.push({ h: s.ask.correctH, m: s.ask.correctM });
+    }
+    if (s.time) {
+      const t = s.time.split(':');
+      relevantTimes.push({ h: parseInt(t[0]), m: parseInt(t[1]) });
+    }
+  });
+
+  let rows = '';
+  data.data.forEach(row => {
+    const chips = row.mins.map(m => {
+      const isHL = relevantTimes.some(t => t.h === row.hour && Math.abs(t.m - m) <= 5);
+      return `<span class="virt-tt-chip ${chipClass}${isHL?' highlight':''}" title="${row.hour}:${m<10?'0'+m:m}">${m<10?'0'+m:m}</span>`;
+    }).join('');
+    rows += `<div class="virt-tt-row"><div class="virt-tt-hour">${row.hour}</div><div class="virt-tt-mins">${chips}</div></div>`;
+  });
+
+  const panel = document.getElementById('virt-tt-panel-' + id);
+  panel.innerHTML = `
+    <div class="virt-tt-inner">
+      <div style="font-size:12px;color:#888;margin-bottom:8px;font-weight:700;">
+        🟡 オレンジの じこくは このシナリオで つかう じかん です
+      </div>
+      <div class="virt-tt-tabs">
+        <button class="virt-tt-tab bus${r==='bus'?' active':''}" onclick="renderVirtTT('${id}','bus')">🚌 バス</button>
+        <button class="virt-tt-tab train${r==='train'?' active':''}" onclick="renderVirtTT('${id}','train')">🚃 でんしゃ</button>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px;">${data.label}</div>
+      <div class="virt-tt-scroll">${rows}</div>
+    </div>`;
+}
+
+</script>
+</body>
+</html>
