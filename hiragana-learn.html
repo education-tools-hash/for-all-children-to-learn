@@ -685,7 +685,14 @@
   /* 大きいフォント */
   body.large-text .kana-btn, body.large-text .stroke-kana-btn, body.large-text .trace-kana-pick { font-size: clamp(2.2rem, 7vw, 3rem) !important; width: clamp(80px, 14vw, 100px) !important; min-height: clamp(80px, 14vw, 100px) !important; }
   /* スキャンモード */
-  body.scan-mode .kana-btn:focus, body.scan-mode .stroke-kana-btn:focus, body.scan-mode .trace-kana-pick:focus, body.scan-mode .tab-btn:focus { outline: 6px solid var(--coral) !important; outline-offset: 3px; box-shadow: 0 0 0 10px rgba(255,107,107,.3) !important; }
+  /* スキャンモード：全インタラクティブ要素に強調フォーカス */
+  body.scan-mode [tabindex="0"]:focus {
+    outline: 5px solid #FF6B35 !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 8px rgba(255,107,53,.25) !important;
+    z-index: 10;
+    position: relative;
+  }
 
 </style>
 </head>
@@ -1040,30 +1047,41 @@ function changeScanSpeed(d) {
 
 // スキャン対象を取得（アクティブセクション内のtabindex="0"要素）
 function updateScanTargets() {
+  scanFocusIndex = -1;
+  const targets = getScanTargets();
+  scanTargets = targets;
+  if (targets.length) {
+    scanFocusIndex = 0;
+    targets[0].focus({ preventScroll: true });
+    targets[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function getScanTargets() {
   const p = document.querySelector('.section.active');
-  if (!p) return;
-  scanTargets = Array.from(p.querySelectorAll(
-    'button[tabindex="0"], [tabindex="0"][role="button"], input[tabindex="0"], div[tabindex="0"]'
-  )).filter(el => !el.disabled && el.offsetParent !== null);
-  scanFocusIndex = 0;
-  if (scanTargets.length) scanTargets[0].focus();
+  if (!p) return [];
+  // すべてのインタラクティブ要素を取得
+  return Array.from(p.querySelectorAll('[tabindex="0"]'))
+    .filter(el => {
+      if (el.disabled) return false;
+      // 非表示要素を除外
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
 }
 
 function startAutoScan() {
   stopAutoScan();
   scanInterval = setInterval(() => {
-    // 毎回ターゲットを再取得（動的生成要素に対応）
-    const p = document.querySelector('.section.active');
-    if (!p) return;
-    const targets = Array.from(p.querySelectorAll(
-      'button[tabindex="0"], [tabindex="0"][role="button"], input[tabindex="0"], div[tabindex="0"]'
-    )).filter(el => !el.disabled && el.offsetParent !== null);
+    const targets = getScanTargets();
     if (!targets.length) return;
+    if (scanFocusIndex >= targets.length) scanFocusIndex = 0;
     scanFocusIndex = (scanFocusIndex + 1) % targets.length;
     const target = targets[scanFocusIndex];
     if (target) {
-      target.focus({ preventScroll: false });
-      // スマホでスクロールしてもフォーカスが見えるようにスクロール
+      target.focus({ preventScroll: true });
       target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }, scanSpeed);
@@ -1092,7 +1110,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
-    if (scanMode) { setTimeout(updateScanTargets, 100); }
+    if (scanMode) {
+      scanFocusIndex = -1;
+      // 動的生成（クイズ・マッチング）が完了するまで少し待つ
+      setTimeout(updateScanTargets, 300);
+    }
   });
 });
 
