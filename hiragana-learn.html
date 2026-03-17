@@ -646,6 +646,45 @@
   .stroke-kana-btn.group-r,     .trace-kana-pick.group-r     { background: linear-gradient(135deg, #E8EAF6, #C5CAE9); box-shadow: 0 4px 0 #9FA8DA; }
   .stroke-kana-btn.group-w,     .trace-kana-pick.group-w     { background: linear-gradient(135deg, #F1F8E9, #DCEDC8); box-shadow: 0 4px 0 #AED581; }
   .stroke-kana-btn.group-special,.trace-kana-pick.group-special { background: linear-gradient(135deg, #FCE4EC, #FFCDD2); box-shadow: 0 4px 0 #EF9A9A; }
+
+  /* ===== SETTINGS ===== */
+  .a11y-panel {
+    background: white;
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    margin-bottom: 14px;
+  }
+  .a11y-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #FFE0E0;
+  }
+  .a11y-row:last-child { border-bottom: none; }
+  .a11y-label { font-weight: 700; font-size: .95rem; color: var(--dark); }
+  .a11y-desc { font-size: .72rem; color: #aaa; margin-top: 2px; }
+  .toggle { position: relative; width: 50px; height: 27px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: #ccc; border-radius: 27px; cursor: pointer; transition: background .2s; }
+  .toggle-slider::before { content: ''; position: absolute; width: 21px; height: 21px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .toggle input:checked + .toggle-slider { background: var(--coral); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(23px); }
+  .font-control { display: flex; align-items: center; gap: 8px; }
+  .font-btn { width: 34px; height: 34px; border-radius: 10px; border: 2px solid #FFE0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--coral); transition: all .15s; }
+  .font-btn:hover { background: #FFE0E0; }
+  .font-size-label { min-width: 52px; text-align: center; font-weight: 700; font-size: .88rem; color: var(--coral); }
+  /* ハイコントラスト */
+  body.high-contrast { background: #000 !important; color: #fff !important; }
+  body.high-contrast .kana-btn, body.high-contrast .stroke-kana-btn, body.high-contrast .trace-kana-pick { background: #111 !important; border-color: #fff !important; color: #fff !important; }
+  body.high-contrast .section-card { background: #111 !important; }
+  body.high-contrast .a11y-panel { background: #111 !important; color: #fff !important; }
+  /* 大きいフォント */
+  body.large-text .kana-btn, body.large-text .stroke-kana-btn, body.large-text .trace-kana-pick { font-size: clamp(2.2rem, 7vw, 3rem) !important; width: clamp(80px, 14vw, 100px) !important; min-height: clamp(80px, 14vw, 100px) !important; }
+  /* スキャンモード */
+  body.scan-mode .kana-btn:focus, body.scan-mode .stroke-kana-btn:focus, body.scan-mode .trace-kana-pick:focus, body.scan-mode .tab-btn:focus { outline: 6px solid var(--coral) !important; outline-offset: 3px; box-shadow: 0 0 0 10px rgba(255,107,107,.3) !important; }
+
 </style>
 </head>
 <body>
@@ -668,6 +707,7 @@
   <button class="tab-btn" data-tab="trace"><span class="tab-emoji">👆</span>なぞり</button>
   <button class="tab-btn" data-tab="quiz"><span class="tab-emoji">❓</span>クイズ</button>
   <button class="tab-btn" data-tab="match"><span class="tab-emoji">🎯</span>マッチング</button>
+  <button class="tab-btn" data-tab="settings"><span class="tab-emoji">⚙️</span>せってい</button>
 </nav>
 
 <main>
@@ -800,6 +840,53 @@
 <!-- 紙吹雪コンテナ -->
 <div class="confetti-wrap" id="confettiWrap"></div>
 
+
+  <!-- ===== SETTINGS SECTION ===== -->
+  <div class="section" id="settings">
+    <h2 class="section-title">⚙️ つかいやすく せっていしよう</h2>
+    <div class="a11y-panel">
+      <div class="a11y-row">
+        <div><div class="a11y-label">🔤 もじを おおきく</div><div class="a11y-desc">もじのサイズを かえます</div></div>
+        <div class="font-control">
+          <button class="font-btn" onclick="changeFontSize(-1)">－</button>
+          <span class="font-size-label" id="font-size-display">ふつう</span>
+          <button class="font-btn" onclick="changeFontSize(1)">＋</button>
+        </div>
+      </div>
+      <div class="a11y-row">
+        <div><div class="a11y-label">🌑 ハイコントラスト</div><div class="a11y-desc">くろいはいけいに きりかえます</div></div>
+        <label class="toggle"><input type="checkbox" id="toggle-contrast" onchange="toggleContrast(this)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="a11y-row">
+        <div><div class="a11y-label">♿ スイッチスキャン</div><div class="a11y-desc">スペース または Enter で そうさ</div></div>
+        <label class="toggle"><input type="checkbox" id="toggle-scan" onchange="toggleScan(this)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="a11y-row">
+        <div><div class="a11y-label">🔊 じどう よみあげ</div><div class="a11y-desc">タップしたら じどうで よみます</div></div>
+        <label class="toggle"><input type="checkbox" id="toggle-auto-read" checked onchange="toggleAutoRead(this)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="a11y-row">
+        <div><div class="a11y-label">⏱️ スキャンかんかく</div><div class="a11y-desc">じどうスキャンの スピード</div></div>
+        <div class="font-control">
+          <button class="font-btn" onclick="changeScanSpeed(-0.5)">－</button>
+          <span class="font-size-label" id="scan-speed-display">2.0秒</span>
+          <button class="font-btn" onclick="changeScanSpeed(0.5)">＋</button>
+        </div>
+      </div>
+    </div>
+    <div class="a11y-panel">
+      <div style="font-weight:800;font-size:.92rem;margin-bottom:8px;color:var(--coral);">📋 このアプリについて</div>
+      <p style="font-size:.8rem;line-height:1.7;color:#555;">障がいのある子どもたちがひらがなを楽しく学べるよう作りました。スイッチスキャン・音声読み上げ・ハイコントラスト・なぞり書き・筆順アニメに対応しています。</p>
+      <div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">
+        <span style="font-size:.7rem;background:#FFE0E0;padding:3px 9px;border-radius:50px;color:var(--coral);font-weight:700;">♿ スイッチスキャン</span>
+        <span style="font-size:.7rem;background:#FFE0E0;padding:3px 9px;border-radius:50px;color:var(--coral);font-weight:700;">🔊 音声読み上げ</span>
+        <span style="font-size:.7rem;background:#FFE0E0;padding:3px 9px;border-radius:50px;color:var(--coral);font-weight:700;">✏️ なぞり書き</span>
+        <span style="font-size:.7rem;background:#FFE0E0;padding:3px 9px;border-radius:50px;color:var(--coral);font-weight:700;">🎬 筆順アニメ</span>
+        <span style="font-size:.7rem;background:#FFE0E0;padding:3px 9px;border-radius:50px;color:var(--coral);font-weight:700;">📱 iPad対応</span>
+      </div>
+    </div>
+  </div>
+
 <script>
 // ===== DATA =====
 const KANA = [
@@ -916,6 +1003,61 @@ function speakThenDo(text, rate=0.7, onDone=null) {
   }
 }
 
+// ===== SETTINGS =====
+let autoRead = true;
+let scanMode = false;
+let scanInterval = null;
+let scanSpeed = 2000;
+let scanFocusIndex = 0;
+let scanTargets = [];
+let fontSizeLevel = 1;
+
+function toggleContrast(cb) {
+  document.body.classList.toggle('high-contrast', cb.checked);
+}
+function toggleAutoRead(cb) {
+  autoRead = cb.checked;
+}
+function toggleScan(cb) {
+  scanMode = cb.checked;
+  document.body.classList.toggle('scan-mode', scanMode);
+  if (scanMode) { updateScanTargets(); startAutoScan(); }
+  else stopAutoScan();
+}
+function changeFontSize(d) {
+  fontSizeLevel = Math.max(0, Math.min(3, fontSizeLevel + d));
+  const lbs = ['ちいさい','ふつう','おおきい','とても おおきい'];
+  document.getElementById('font-size-display').textContent = lbs[fontSizeLevel];
+  document.body.classList.toggle('large-text', fontSizeLevel >= 2);
+}
+function changeScanSpeed(d) {
+  scanSpeed = Math.max(500, Math.min(5000, scanSpeed + d * 1000));
+  document.getElementById('scan-speed-display').textContent = (scanSpeed/1000).toFixed(1) + '秒';
+  if (scanMode) { stopAutoScan(); startAutoScan(); }
+}
+function updateScanTargets() {
+  const p = document.querySelector('.section.active');
+  if (!p) return;
+  scanTargets = Array.from(p.querySelectorAll('[tabindex="0"]:not([disabled])'));
+  scanFocusIndex = 0;
+  if (scanTargets.length) scanTargets[0].focus();
+}
+function startAutoScan() {
+  stopAutoScan();
+  scanInterval = setInterval(() => {
+    if (!scanTargets.length) updateScanTargets();
+    scanFocusIndex = (scanFocusIndex + 1) % scanTargets.length;
+    scanTargets[scanFocusIndex]?.focus();
+  }, scanSpeed);
+}
+function stopAutoScan() { clearInterval(scanInterval); scanInterval = null; }
+document.addEventListener('keydown', e => {
+  if (scanMode && (e.key === ' ' || e.key === 'Enter')) {
+    const f = document.activeElement;
+    if (f && f !== document.body) { e.preventDefault(); f.click(); }
+  }
+});
+
 // ===== TABS =====
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -959,7 +1101,7 @@ function readKana(item, btn) {
   document.getElementById('kanaRomaji').textContent = item.r;
   speakerDisplay.classList.add('visible');
   currentKana = item;
-  speak(item.k);
+  if (autoRead) speak(item.k);
   setTimeout(() => btn.classList.remove('speaking'), 800);
 }
 
