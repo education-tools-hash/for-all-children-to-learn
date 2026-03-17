@@ -1023,7 +1023,7 @@ function toggleAutoRead(cb) {
 function toggleScan(cb) {
   scanMode = cb.checked;
   document.body.classList.toggle('scan-mode', scanMode);
-  if (scanMode) { updateScanTargets(); startAutoScan(); }
+  if (scanMode) { setTimeout(updateScanTargets, 200); startAutoScan(); }
   else stopAutoScan();
 }
 function changeFontSize(d) {
@@ -1037,26 +1037,51 @@ function changeScanSpeed(d) {
   document.getElementById('scan-speed-display').textContent = (scanSpeed/1000).toFixed(1) + '秒';
   if (scanMode) { stopAutoScan(); startAutoScan(); }
 }
+
+// スキャン対象を取得（アクティブセクション内のtabindex="0"要素）
 function updateScanTargets() {
   const p = document.querySelector('.section.active');
   if (!p) return;
-  scanTargets = Array.from(p.querySelectorAll('[tabindex="0"]:not([disabled])'));
+  scanTargets = Array.from(p.querySelectorAll(
+    'button[tabindex="0"], [tabindex="0"][role="button"], input[tabindex="0"], div[tabindex="0"]'
+  )).filter(el => !el.disabled && el.offsetParent !== null);
   scanFocusIndex = 0;
   if (scanTargets.length) scanTargets[0].focus();
 }
+
 function startAutoScan() {
   stopAutoScan();
   scanInterval = setInterval(() => {
-    if (!scanTargets.length) updateScanTargets();
-    scanFocusIndex = (scanFocusIndex + 1) % scanTargets.length;
-    scanTargets[scanFocusIndex]?.focus();
+    // 毎回ターゲットを再取得（動的生成要素に対応）
+    const p = document.querySelector('.section.active');
+    if (!p) return;
+    const targets = Array.from(p.querySelectorAll(
+      'button[tabindex="0"], [tabindex="0"][role="button"], input[tabindex="0"], div[tabindex="0"]'
+    )).filter(el => !el.disabled && el.offsetParent !== null);
+    if (!targets.length) return;
+    scanFocusIndex = (scanFocusIndex + 1) % targets.length;
+    const target = targets[scanFocusIndex];
+    if (target) {
+      target.focus({ preventScroll: false });
+      // スマホでスクロールしてもフォーカスが見えるようにスクロール
+      target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }, scanSpeed);
 }
-function stopAutoScan() { clearInterval(scanInterval); scanInterval = null; }
+
+function stopAutoScan() {
+  clearInterval(scanInterval);
+  scanInterval = null;
+}
+
+// スペース・Enterでクリック
 document.addEventListener('keydown', e => {
   if (scanMode && (e.key === ' ' || e.key === 'Enter')) {
     const f = document.activeElement;
-    if (f && f !== document.body) { e.preventDefault(); f.click(); }
+    if (f && f !== document.body) {
+      e.preventDefault();
+      f.click();
+    }
   }
 });
 
@@ -1847,6 +1872,7 @@ function buildMatch() {
     const el = document.createElement('div');
     el.className = 'match-item';
     el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'button');
     el.textContent = item.k;
     el.dataset.key = item.k;
     el.dataset.type = 'kana';
@@ -1858,6 +1884,7 @@ function buildMatch() {
     const el = document.createElement('div');
     el.className = 'match-item';
     el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'button');
     el.textContent = item.r;
     el.dataset.key = item.k;
     el.dataset.type = 'romaji';
