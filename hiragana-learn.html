@@ -148,17 +148,18 @@
   .kana-grid {
     display: flex;
     flex-direction: row-reverse;
-    gap: 8px;
+    gap: 12px;
     overflow-x: auto;
     justify-content: center;
     align-items: flex-start;
+    padding: 8px 4px;
   }
   .kana-btn {
     background: linear-gradient(135deg, #FFF8E7, #FFF0D0);
     border: 3px solid transparent;
     border-radius: 16px;
-    padding: 12px 6px;
-    font-size: clamp(1.4rem, 5vw, 2rem);
+    padding: 14px 8px;
+    font-size: clamp(1.8rem, 6vw, 2.4rem);
     font-weight: 900;
     cursor: pointer;
     text-align: center;
@@ -166,8 +167,8 @@
     box-shadow: 0 4px 0 #E8D5A0;
     color: var(--dark);
     line-height: 1.1;
-    width: clamp(52px, 10vw, 72px);
-    min-height: clamp(52px, 10vw, 72px);
+    width: clamp(68px, 12vw, 88px);
+    min-height: clamp(68px, 12vw, 88px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -607,7 +608,7 @@
     .nav-tabs { gap: 6px; }
     .tab-btn { padding: 8px 12px; font-size: 0.75rem; }
     .kana-grid { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
-    .kana-btn { padding: 10px 4px; font-size: 1.3rem; }
+    .kana-btn { padding: 12px 6px; font-size: 1.6rem; }
   }
 
   /* ===== CELEBRATION ===== */
@@ -818,7 +819,7 @@ const KANA = [
 // iOSのSpeech Synthesisで1文字ひらがなが誤読される問題を防ぐ
 // ===== 音声読み上げ =====
 // GitHubリポジトリ経由でmp3を再生
-const AUDIO_BASE = 'https://cdn.jsdelivr.net/gh/education-tools-hash/hiragana-audio@main/';
+const AUDIO_BASE = 'https://education-tools-hash.github.io/hiragana-audio/';
 
 // ひらがな → ファイル名マップ
 const kanaFileMap = {};
@@ -868,15 +869,38 @@ function speak(text, rate=0.7) {
   }
 }
 
-function _speakTTS(text, rate=0.7) {
+function _speakTTS(text, rate=0.7, onDone=null) {
   window.speechSynthesis.cancel();
   setTimeout(() => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'ja-JP';
     u.rate = rate;
     u.pitch = 1.1;
+    if (onDone) u.onend = onDone;
     window.speechSynthesis.speak(u);
   }, 100);
+}
+
+// 読み上げ完了後にコールバックを呼ぶ
+function speakThenDo(text, rate=0.7, onDone=null) {
+  const filename = kanaFileMap[text];
+  if (filename) {
+    // mp3の場合はonended使用
+    if (_currentAudio) {
+      _currentAudio.pause();
+      _currentAudio.currentTime = 0;
+      _currentAudio = null;
+    }
+    const url = AUDIO_BASE + filename + '.mp3';
+    const audio = new Audio(url);
+    _currentAudio = audio;
+    if (onDone) audio.onended = onDone;
+    audio.play().catch(e => {
+      _speakTTS(text, rate, onDone);
+    });
+  } else {
+    _speakTTS(text, rate, onDone);
+  }
 }
 
 // ===== TABS =====
@@ -1360,10 +1384,12 @@ function playFrom(i) {
   const data = strokeData[currentStrokeKana];
   if (!data || i >= data.length) return;
   document.getElementById('strokeInfo').textContent = data[i].label;
-  speak(data[i].label, 0.7);
-  animateOneStroke(data[i].d, strokeColors[i % strokeColors.length], i, () => {
-    strokeStep = i + 1;
-    if (i + 1 < data.length) playFrom(i + 1);
+  // 読み上げ完了後にアニメーション開始
+  speakThenDo(data[i].label, 0.7, () => {
+    animateOneStroke(data[i].d, strokeColors[i % strokeColors.length], i, () => {
+      strokeStep = i + 1;
+      if (i + 1 < data.length) playFrom(i + 1);
+    });
   });
 }
 
