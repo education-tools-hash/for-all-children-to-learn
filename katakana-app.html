@@ -650,15 +650,29 @@ const ROW_LABELS = {vowel:'ア行',k:'カ行',s:'サ行',t:'タ行',n:'ナ行',h
 // ================================================================
 // AUDIO — TTS only (extend to mp3 if hosting audio files)
 // ================================================================
-let _audioUnlocked = false;
-function _unlockAudio() {
-  if (_audioUnlocked) return; _audioUnlocked = true;
-  try { const a = new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDA'); a.play().catch(()=>{}); } catch(e){}
-}
-document.addEventListener('touchstart',_unlockAudio,{once:true});
-document.addEventListener('click',_unlockAudio,{once:true});
 
-// カタカナ→ひらがな変換（TTSの誤読防止）
+// ===== 音声読み上げ =====
+// MP3音声 + TTSフォールバック（ひらがなアプリと同じ方式）
+// GitHub Pages環境ではMP3が再生される
+// claude.ai iframe環境ではTTSにフォールバック
+
+const AUDIO_BASE = 'https://education-tools-hash.github.io/hiragana-audio/';
+
+// カタカナ→ローマ字（MP3ファイル名）
+const KATA_FILE_MAP = {
+  'ア':'a','イ':'i','ウ':'u','エ':'e','オ':'o',
+  'カ':'ka','キ':'ki','ク':'ku','ケ':'ke','コ':'ko',
+  'サ':'sa','シ':'shi','ス':'su','セ':'se','ソ':'so',
+  'タ':'ta','チ':'chi','ツ':'tsu','テ':'te','ト':'to',
+  'ナ':'na','ニ':'ni','ヌ':'nu','ネ':'ne','ノ':'no',
+  'ハ':'ha','ヒ':'hi','フ':'fu','ヘ':'he','ホ':'ho',
+  'マ':'ma','ミ':'mi','ム':'mu','メ':'me','モ':'mo',
+  'ヤ':'ya','ユ':'yu','ヨ':'yo',
+  'ラ':'ra','リ':'ri','ル':'ru','レ':'re','ロ':'ro',
+  'ワ':'wa','ヲ':'wo','ン':'n',
+};
+
+// カタカナ→ひらがな（TTSフォールバック用）
 const KATA_TO_HIRA = {
   'ア':'あ','イ':'い','ウ':'う','エ':'え','オ':'お',
   'カ':'か','キ':'き','ク':'く','ケ':'け','コ':'こ',
@@ -669,45 +683,78 @@ const KATA_TO_HIRA = {
   'マ':'ま','ミ':'み','ム':'む','メ':'め','モ':'も',
   'ヤ':'や','ユ':'ゆ','ヨ':'よ',
   'ラ':'ら','リ':'り','ル':'る','レ':'れ','ロ':'ろ',
-  'ワ':'わ','ヲ':'を',
-  'ン':'んー', // 「ん」単体はTTSで無音になるため「んー」で発音させる
+  'ワ':'わ','ヲ':'を','ン':'んん',
 };
 
-function toHira(text){
-  // カタカナ1文字ならひらがなに変換、それ以外はそのまま
-  return KATA_TO_HIRA[text] || text;
-}
+function toHira(text) { return KATA_TO_HIRA[text] || text; }
 
-function speak(text, rate=0.78) {
-  if (!window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const hira = toHira(text);
-  const u = new SpeechSynthesisUtterance(hira);
-  u.lang = 'ja-JP'; u.rate = rate; u.pitch = 1.1;
-  window.speechSynthesis.speak(u);
-}
+var _currentAudio = null;
 
-function speakThenDo(text, rate, onDone) {
-  if (!window.speechSynthesis) { if(onDone) onDone(); return; }
+function _speakTTS(text, rate, onDone) {
+  if (!window.speechSynthesis) { if (onDone) setTimeout(onDone, 500); return; }
   window.speechSynthesis.cancel();
-  setTimeout(() => {
-    const hira = toHira(text);
-    const u = new SpeechSynthesisUtterance(hira);
-    u.lang='ja-JP'; u.rate=rate||0.78; u.pitch=1.1;
-    if(onDone) u.onend=onDone;
+  setTimeout(function() {
+    var u = new SpeechSynthesisUtterance(toHira(text));
+    u.lang = 'ja-JP'; u.rate = rate || 0.72; u.pitch = 1.1;
+    if (onDone) u.onend = onDone;
     window.speechSynthesis.speak(u);
   }, 80);
 }
 
+function speak(text, rate) {
+  rate = rate || 0.72;
+  var file = KATA_FILE_MAP[text];
+  if (file) {
+    if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+    var audio = new Audio(AUDIO_BASE + file + '.mp3');
+    _currentAudio = audio;
+    var p = audio.play();
+    if (p && p.catch) p.catch(function() { _speakTTS(text, rate, null); });
+  } else {
+    _speakTTS(text, rate, null);
+  }
+}
+
+function speakThenDo(text, rate, onDone) {
+  rate = rate || 0.72;
+  var file = KATA_FILE_MAP[text];
+  if (file) {
+    if (_currentAudio) { _currentAudio.pause(); _currentAudio = null; }
+    var audio = new Audio(AUDIO_BASE + file + '.mp3');
+    _currentAudio = audio;
+    if (onDone) audio.onended = onDone;
+    var p = audio.play();
+    if (p && p.catch) p.catch(function() { _speakTTS(text, rate, onDone); });
+  } else {
+    _speakTTS(text, rate, onDone);
+  }
+}
 // ================================================================
 // TABS
 // ================================================================
+let currentTab = 'yomi';
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
+    currentTab = btn.dataset.tab;
+    if(scanMode){
+      if(currentTab === 'trace' || currentTab === 'stroke'){
+        if(scanInterval){ clearInterval(scanInterval); scanInterval=null; }
+        document.querySelectorAll('.scan-focus').forEach(el=>el.classList.remove('scan-focus'));
+      } else {
+        if(!scanInterval){
+          updateScanTargets();
+          scanInterval=setInterval(()=>{
+            if(!scanTargets.length) updateScanTargets();
+            scanFocusIdx=(scanFocusIdx+1)%scanTargets.length;
+            if(scanTargets[scanFocusIdx]) scanTargets[scanFocusIdx].focus();
+          },scanSpeed);
+        }
+      }
+    }
   });
 });
 
@@ -749,7 +796,7 @@ function speakAgain(){ if(currentKana) speak(currentKana.k); }
 // ================================================================
 // 2. STROKE
 // ================================================================
-let currentStrokeKana=null, strokeStep=0, completedStrokes=[];
+let currentStrokeKana=null, strokeStep=0, completedStrokes=[], completedStrokes2=[];
 let strokeAnimInterval=null, strokeAnimTimer=null;
 
 const strokeSel = document.getElementById('strokeSelector');
@@ -775,80 +822,7 @@ groups.forEach(g => {
 const SC = document.getElementById('strokeCanvas');
 SC.width=300; SC.height=300;
 const SCX = SC.getContext('2d');
-const STROKE_MARGIN=15, STROKE_SCALE=(300-STROKE_MARGIN*2)/109;
 
-// ひらがなアプリと同じ tx() 変換
-function tx(v){ return v*STROKE_SCALE+STROKE_MARGIN; }
-
-// グリッド描画（ひらがなアプリと同じ）
-// ゴースト用点列キャッシュ（loadStroke時に計算）
-let ghostPtsCache = [];
-
-function buildGhostCache(k){
-  ghostPtsCache = [];
-  const data = strokeData[k];
-  if(!data) return;
-  data.forEach(s => {
-    ghostPtsCache.push(getPathSamples(s.d, 40).pts);
-  });
-}
-
-function drawStrokeBase(){
-  const ctx=SCX, W=300, H=300;
-  ctx.clearRect(0,0,W,H);
-  // グリッド線
-  ctx.strokeStyle='#E8E8E8'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H);
-  ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
-  ctx.strokeStyle='#F0F0F0'; ctx.lineWidth=0.8;
-  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(W,H);
-  ctx.moveTo(W,0); ctx.lineTo(0,H); ctx.stroke();
-  // キャッシュ済みゴースト（DOM操作なし・毎フレーム高速描画）
-  if(ghostPtsCache.length > 0){
-    ctx.save();
-    ctx.strokeStyle = 'rgba(56,191,161,0.22)';
-    ctx.lineWidth = 14;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = 1;
-    ghostPtsCache.forEach(pts => {
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.stroke();
-    });
-    ctx.restore();
-  }
-}
-
-let completedStrokes2 = []; // {d, color}
-
-function redrawCompleted(){
-  completedStrokes2.forEach(s => drawStrokeOnCanvas(s.d, s.color, 12, 1.0));
-}
-
-// Pure JS版 drawStrokeOnCanvas (SVG DOM不使用)
-function drawStrokeOnCanvas(d, color, lineWidth, alpha) {
-  const {pts} = getPathSamples(d, 80);
-  SCX.save();
-  SCX.globalAlpha = alpha;
-  SCX.strokeStyle = color;
-  SCX.lineWidth = lineWidth;
-  SCX.lineCap = 'round';
-  SCX.lineJoin = 'round';
-  SCX.beginPath();
-  SCX.moveTo(pts[0].x, pts[0].y);
-  for(let i=1;i<pts.length;i++) SCX.lineTo(pts[i].x, pts[i].y);
-  SCX.stroke();
-  // 開始ドット
-  SCX.fillStyle = color;
-  SCX.beginPath();
-  SCX.arc(pts[0].x, pts[0].y, 7, 0, Math.PI*2);
-  SCX.fill();
-  SCX.restore();
-}
-
-// Pure JS パスパーサー (M + c のみ対応、KanjiVGカタカナはこれで十分)
 // ============================================================
 // 描画エンジン — ひらがなアプリと同じSVG DOM方式
 // KanjiVGパス(109×109)をgetPointAtLengthでサンプリング
@@ -878,6 +852,8 @@ function drawStrokeOnCanvas(d, color, lineWidth, alpha){
   path.setAttribute('d', d);
   svg.appendChild(path);
   const total = path.getTotalLength();
+  // 末尾93%までで止める（はね防止）
+  const drawLen = total * 0.82;
   SCX.save();
   SCX.globalAlpha = alpha || 1;
   SCX.strokeStyle = color;
@@ -886,31 +862,12 @@ function drawStrokeOnCanvas(d, color, lineWidth, alpha){
   SCX.lineJoin = 'round';
   SCX.beginPath();
   for(let i = 0; i <= STEPS; i++){
-    const pt = path.getPointAtLength(total * i / STEPS);
+    const pt = path.getPointAtLength(drawLen * i / STEPS);
     const x = tx(pt.x), y = tx(pt.y);
     i === 0 ? SCX.moveTo(x, y) : SCX.lineTo(x, y);
   }
   SCX.stroke();
-  // 開始ドット
-  const p0 = path.getPointAtLength(0);
-  SCX.fillStyle = color;
-  SCX.beginPath();
-  SCX.arc(tx(p0.x), tx(p0.y), 6, 0, Math.PI*2);
-  SCX.fill();
-  // 終点矢印
-  if(total > 0){
-    const pEnd = path.getPointAtLength(total);
-    const pPre = path.getPointAtLength(Math.max(0, total - 3));
-    const angle = Math.atan2(pEnd.y - pPre.y, pEnd.x - pPre.x);
-    SCX.save();
-    SCX.translate(tx(pEnd.x), tx(pEnd.y));
-    SCX.rotate(angle);
-    SCX.fillStyle = color;
-    SCX.beginPath();
-    SCX.moveTo(10,0); SCX.lineTo(-8,-5); SCX.lineTo(-8,5);
-    SCX.closePath(); SCX.fill();
-    SCX.restore();
-  }
+  // 開始ドットなし（はね防止）
   SCX.restore();
   document.body.removeChild(svg);
 }
@@ -954,14 +911,33 @@ function playStroke(){
   const data = strokeData[currentStrokeKana];
   if(!data) return;
   completedStrokes = []; completedStrokes2 = []; strokeStep = 0;
+  if(strokeAnimTimer){ clearTimeout(strokeAnimTimer); strokeAnimTimer = null; }
+  drawStrokeBase();
+
   function showNext(i){
     if(i >= data.length) return;
-    playFrom(i);
-    if(i+1 < data.length) setTimeout(()=>showNext(i+1), 1400);
+    // 描画
+    drawStrokeBase();
+    for(let j=0; j<i; j++) drawStrokeOnCanvas(data[j].d, strokeColors[j % strokeColors.length], 12, 0.45);
+    drawStrokeOnCanvas(data[i].d, strokeColors[i % strokeColors.length], 12, 1);
+    SCX.save();
+    SCX.font = 'bold 20px sans-serif';
+    SCX.fillStyle = strokeColors[i % strokeColors.length];
+    SCX.fillText((i+1)+'かくめ', 8, 24);
+    SCX.restore();
+    document.getElementById('strokeInfo').textContent = data[i].label;
+    completedStrokes2 = [];
+    for(let j=0; j<=i; j++) completedStrokes2.push({d: data[j].d, color: strokeColors[j % strokeColors.length]});
+    strokeStep = i + 1;
+    // 読み上げ完了後に次へ（300ms余裕を持たせる）
+    speakThenDo(data[i].label, 0.72, () => {
+      strokeAnimTimer = setTimeout(() => showNext(i + 1), 300);
+    });
   }
-  drawStrokeBase();
+
   showNext(0);
 }
+
 
 
 
@@ -1222,6 +1198,10 @@ function toggleScanMode(on){
 }
 
 function updateScanTargets(){
+  if(typeof currentTab !== 'undefined' && (currentTab === 'trace' || currentTab === 'stroke')){
+    scanTargets=[];
+    return;
+  }
   const active=document.querySelector('.section.active');
   if(!active) return;
   scanTargets=Array.from(active.querySelectorAll('button,[tabindex="0"]'));
@@ -1234,7 +1214,7 @@ function startAutoScan(){
   scanInterval=setInterval(()=>{
     if(!scanTargets.length) updateScanTargets();
     scanFocusIdx=(scanFocusIdx+1)%scanTargets.length;
-    scanTargets[scanFocusIdx]?.focus();
+    if(scanTargets[scanFocusIdx]) scanTargets[scanFocusIdx].focus();
   },scanSpeed);
 }
 
@@ -1255,7 +1235,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 // ================================================================
 // CONFETTI
 // ================================================================
-function celebrate(mini=true){
+function celebrate(mini){
   const wrap=document.getElementById('confettiWrap');
   const colors=['#FF6B6B','#FFD700','#38BFA1','#C3A6E8','#FFB347','#5BA4D4','#90EE90'];
   const count=mini?22:65;
