@@ -1420,6 +1420,10 @@ async function roll(){
   clearInterval(anim);db.classList.remove('spin');
   const res=Math.floor(Math.random()*6)+1;
   showDice(res);speak(String(res));setMsg(`${res}がでた！`);
+  // オンライン：さいころの目を全員に配信
+  if(isOnline && isHost){
+    broadcastToGuests({type:'dice_result', value:res, player:ci});
+  }
   await dl(550);
   await moveP(ci,res);
 }
@@ -1428,11 +1432,15 @@ async function moveP(idx,steps){
   const p=players[idx];
   movSnd();setMsg(`${p.av} ${steps}マスすすむ！`);
   for(let s=0;s<steps&&p.pos<nC-1;s++){
-    p.pos++;renderPieces();renderList();await dl(200);
+    p.pos++;renderPieces();renderList();
+    // 1マスごとに同期
+    if(isOnline && isHost) broadcastSyncState();
+    await dl(200);
   }
   if(p.pos===nC-1){
     p.done=true;finOrd.push(idx);goalSnd();confetti();renderList();
     speak(`${p.name}がゴールしました！`);
+    if(isOnline && isHost) broadcastSyncState();
     if(players.every(x=>x.done)){await dl(400);showGoal();rolling=false;return;}
     setMsg(`${p.name}がゴール！🎉`);rolling=false;await dl(1200);nextTurn();return;
   }
@@ -1449,25 +1457,34 @@ function showEv(cell){
     document.getElementById('evds').textContent=ev.ds;
     document.getElementById('evmod').classList.add('on');
     speak(ev.tt+'。'+ev.ds);
+    // オンライン：イベント表示を全員に配信
+    if(isOnline && isHost){
+      broadcastToGuests({type:'show_event', ev:{ic:ev.ic,tt:ev.tt,ds:ev.ds}});
+    }
     if((ev.mv||0)>0||ev.ex==='again')luckySnd();
     else if((ev.mv||0)<0||ev.ex==='skip'||ev.ex==='tostart')unlkSnd();
     document.getElementById('evok').onclick=async()=>{
       document.getElementById('evmod').classList.remove('on');
+      // オンライン：イベント閉じを全員に配信
+      if(isOnline && isHost) broadcastToGuests({type:'close_event'});
       const p=players[ci];
-      if(ev.ex==='tostart'){p.pos=0;renderPieces();renderList();speak('スタートにもどった！');}
+      if(ev.ex==='tostart'){p.pos=0;renderPieces();renderList();speak('スタートにもどった！');if(isOnline&&isHost)broadcastSyncState();}
       else if((ev.mv||0)!==0){
         const s=Math.abs(ev.mv);
         for(let i=0;i<s;i++){
           if(ev.mv>0&&p.pos<nC-1)p.pos++;
           else if(ev.mv<0&&p.pos>0)p.pos--;
-          renderPieces();renderList();await dl(200);
+          renderPieces();renderList();
+          if(isOnline&&isHost)broadcastSyncState();
+          await dl(200);
         }
         if(p.pos===nC-1){
           p.done=true;finOrd.push(ci);goalSnd();confetti();renderList();
+          if(isOnline&&isHost)broadcastSyncState();
           if(players.every(x=>x.done)){showGoal();rolling=false;res();return;}
         }
       } else if(ev.ex==='skip') p.skip=true;
-      if(ev.ex==='again'){setMsg('もう1かいふれる！');speak('もう1かいふれる！');rolling=false;document.getElementById('rollbtn').disabled=false;}
+      if(ev.ex==='again'){setMsg('もう1かいふれる！');speak('もう1かいふれる！');rolling=false;document.getElementById('rollbtn').disabled=isOnline?!isMyTurn():false;}
       else{rolling=false;await dl(600);nextTurn();}
       res();
     };
@@ -1486,14 +1503,18 @@ function nextTurn(){
     setMsg(`${players[ci].name}はおやすみ… 😴`);
     speak(`${players[ci].name}はおやすみです`);
     unlkSnd();
+    if(isOnline&&isHost) broadcastSyncState();
     setTimeout(()=>nextTurn(), 2000);
     return;
   }
 
+  // オンライン：ターン変更を全員に同期
+  if(isOnline&&isHost) broadcastSyncState();
+
   if(players[ci].cpu){scheduleCpu();}
   else{
-    document.getElementById('rollbtn').disabled=false;
-    setMsg(`${players[next].name}のばんです！`);
+    document.getElementById('rollbtn').disabled = isOnline ? !isMyTurn() : false;
+    setMsg(isOnline && !isMyTurn() ? `${players[next].name}のばんです…まってね` : `${players[next].name}のばんです！`);
     speak(`${players[next].name}のばんです`);
   }
 }
@@ -1878,16 +1899,13 @@ function renderGuestMemberList(members){
 function handleOnlineMsg(data, fromConn){
   switch(data.type){
     case 'join':
-      // ホストが受信：新メンバー追加
       if(isHost){
         const newIdx = onlineMembers.length;
         const avIdx = Math.min(newIdx, PD.length-1);
         const member = {peerId:data.peerId, name:'プレイヤー'+(newIdx+1), av:PD[avIdx].av, idx:newIdx};
         onlineMembers.push(member);
         renderMemberList();
-        // 全員に更新を配信
         broadcastToGuests({type:'member_list', members:onlineMembers});
-        // 接続元に自分のインデックスを通知
         fromConn.send({type:'your_idx', idx:newIdx});
       }
       break;
@@ -1900,22 +1918,54 @@ function handleOnlineMsg(data, fromConn){
     case 'member_list':
       onlineMembers = data.members;
       renderGuestMemberList(data.members);
-      const myEntry = data.members.find(m=>m.peerId===myPeerId);
-      if(myEntry) myPlayerIdx=myEntry.idx;
+      { const myEntry = data.members.find(m=>m.peerId===myPeerId);
+        if(myEntry) myPlayerIdx=myEntry.idx; }
       break;
 
     case 'game_start':
-      // ゲスト側でゲーム開始
       startOnlineGame(data.gameState);
       break;
 
-    case 'game_action':
-      // 他プレイヤーのアクションを適用
-      applyRemoteAction(data.action);
+    // ===== ホスト側：ゲストのロールリクエストを受信 =====
+    case 'roll_request':
+      if(isHost && data.playerIdx===ci && !rolling){
+        roll();
+      }
+      break;
+
+    // ===== ゲスト側：さいころの目を受信して表示 =====
+    case 'dice_result':
+      if(!isHost){
+        showDice(data.value);
+        setMsg(`${data.value}がでた！`);
+        speak(String(data.value));
+      }
+      break;
+
+    // ===== ゲスト側：イベントモーダルを表示 =====
+    case 'show_event':
+      if(!isHost){
+        document.getElementById('evic').textContent=data.ev.ic||'📋';
+        document.getElementById('evtt').textContent=data.ev.tt;
+        document.getElementById('evds').textContent=data.ev.ds;
+        document.getElementById('evmod').classList.add('on');
+        speak(data.ev.tt+'。'+data.ev.ds);
+      }
+      break;
+
+    // ===== ゲスト側：イベントモーダルを閉じる =====
+    case 'close_event':
+      if(!isHost){
+        document.getElementById('evmod').classList.remove('on');
+      }
+      break;
+
+    // ===== ゲスト側：ゴールモーダルを表示 =====
+    case 'show_goal':
+      if(!isHost){ showGoal(); }
       break;
 
     case 'sync_state':
-      // ゲーム状態を同期
       syncGameState(data.state);
       break;
   }
@@ -2004,15 +2054,22 @@ function updateConnBar(connected){
   }
 }
 
-// ===== オンライン用 roll オーバーライド =====
-// 元のroll関数の前に自分のターンかチェックを挟む
-const _origRoll = roll;
-// roll関数をオンライン対応にラップ
+// ===== オンライン用 rollボタン制御 =====
+// オンライン時はホストだけが操作、ゲストは自分のターンのみ
 async function rollOnline(){
-  if(isOnline && !isMyTurn()){
-    speak('あなたのばんではありません'); return;
+  if(!isMyTurn()){
+    speak('あなたのばんではありません');
+    bip(330,.08,.15);
+    return;
   }
-  await _origRoll();
+  // ホストだけが実際にさいころを振る
+  if(isHost){
+    await roll();
+  } else {
+    // ゲストは自分のターンにホストへ「ふってほしい」リクエストを送る
+    sendToHost({type:'roll_request', playerIdx: myPlayerIdx});
+    setMsg('ホストにさいころをおねがいしています…');
+  }
 }
 document.getElementById('rollbtn').removeEventListener('click', roll);
 document.getElementById('rollbtn').addEventListener('click', ()=>{
@@ -2020,28 +2077,23 @@ document.getElementById('rollbtn').addEventListener('click', ()=>{
   else roll();
 });
 
-// nextTurnをオーバーライドしてオンライン同期
-const _origNextTurn = nextTurn;
-function nextTurnOnline(){
-  _origNextTurn();
-  if(isOnline && isHost){
-    // 全ゲストに状態を同期
-    setTimeout(()=>broadcastSyncState(), 100);
-  }
-}
+// nextTurnをオーバーライドしてオンライン同期（不要になったので削除）
 
-// moveP後・イベント後に同期送信（ホストが状態マスター）
+// ===== ゲスト側の同期受信 =====
 function broadcastSyncState(){
   if(!isHost || !isOnline) return;
   const state = {
-    players: players.map(p=>({pos:p.pos,done:p.done,skip:p.skip})),
-    ci, finOrd
+    players: players.map(p=>({pos:p.pos,done:p.done,skip:p.skip,name:p.name,av:p.av})),
+    ci, finOrd,
+    gActive,
+    msg: document.getElementById('msgbox').textContent,
+    diceNum: document.getElementById('dnum').textContent,
   };
   broadcastToGuests({type:'sync_state', state});
 }
 
 function syncGameState(state){
-  if(isHost) return; // ホストは受信しない
+  if(isHost) return;
   state.players.forEach((sp,i)=>{
     if(players[i]){
       players[i].pos=sp.pos;
@@ -2049,15 +2101,17 @@ function syncGameState(state){
       players[i].skip=sp.skip;
     }
   });
-  ci=state.ci; finOrd=state.finOrd;
+  ci=state.ci; finOrd=state.finOrd; gActive=state.gActive;
+  if(state.diceNum && state.diceNum!=='？') showDice(parseInt(state.diceNum)||1);
   renderPieces(); renderList(); updateCur();
-  document.getElementById('rollbtn').disabled=!isMyTurn();
-  setMsg(isMyTurn()?'さいころをふってね！':'ほかのひとのばんです…');
-}
-
-// アクション送信（ゲスト→ホスト）
-function applyRemoteAction(action){
-  // 将来の拡張用
+  // 自分のターンかどうかでボタンを制御
+  const myTurn = isMyTurn();
+  document.getElementById('rollbtn').disabled = !myTurn;
+  setMsg(state.msg || (myTurn ? 'さいころをふってね！' : 'ほかのひとのばんです…'));
+  // ゴール済みなら表示
+  if(!gActive && finOrd.length>0 && !document.getElementById('goalmod').classList.contains('on')){
+    showGoal();
+  }
 }
 
 // ===== クリーンアップ =====
@@ -2071,7 +2125,6 @@ function cleanupPeer(){
 }
 
 // ホームボタンでクリーンアップ
-const _origHomeYes = document.getElementById('homeyes').onclick;
 document.getElementById('homeyes').addEventListener('click',()=>{
   if(isOnline) cleanupPeer();
 });
