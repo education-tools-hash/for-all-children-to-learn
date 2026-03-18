@@ -1928,17 +1928,25 @@ function handleOnlineMsg(data, fromConn){
 
     // ===== ホスト側：ゲストのロールリクエストを受信 =====
     case 'roll_request':
-      if(isHost && data.playerIdx===ci && !rolling){
-        roll();
+      // ホストがゲストの代わりにさいころを振って全員に配信
+      if(isHost && !rolling && gActive){
+        roll(); // ホストがci（現在のプレイヤー）としてさいころを振る
       }
       break;
 
     // ===== ゲスト側：さいころの目を受信して表示 =====
     case 'dice_result':
       if(!isHost){
-        showDice(data.value);
-        setMsg(`${data.value}がでた！`);
-        speak(String(data.value));
+        // さいころアニメーション再現
+        const db2=document.getElementById('dicebox');
+        db2.classList.add('spin');
+        rollSnd();
+        setTimeout(()=>{
+          db2.classList.remove('spin');
+          showDice(data.value);
+          setMsg(`${data.value}がでた！`);
+          speak(String(data.value));
+        }, 600);
       }
       break;
 
@@ -2055,20 +2063,20 @@ function updateConnBar(connected){
 }
 
 // ===== オンライン用 rollボタン制御 =====
-// オンライン時はホストだけが操作、ゲストは自分のターンのみ
 async function rollOnline(){
   if(!isMyTurn()){
     speak('あなたのばんではありません');
     bip(330,.08,.15);
     return;
   }
-  // ホストだけが実際にさいころを振る
   if(isHost){
+    // ホストは直接実行
     await roll();
   } else {
-    // ゲストは自分のターンにホストへ「ふってほしい」リクエストを送る
-    sendToHost({type:'roll_request', playerIdx: myPlayerIdx});
-    setMsg('ホストにさいころをおねがいしています…');
+    // ゲストはホストにリクエストを送る
+    document.getElementById('rollbtn').disabled=true;
+    setMsg('さいころをふっています…');
+    sendToHost({type:'roll_request'});
   }
 }
 document.getElementById('rollbtn').removeEventListener('click', roll);
@@ -2102,12 +2110,21 @@ function syncGameState(state){
     }
   });
   ci=state.ci; finOrd=state.finOrd; gActive=state.gActive;
-  if(state.diceNum && state.diceNum!=='？') showDice(parseInt(state.diceNum)||1);
   renderPieces(); renderList(); updateCur();
-  // 自分のターンかどうかでボタンを制御
+
+  // 自分のターンかどうかでボタン制御
   const myTurn = isMyTurn();
   document.getElementById('rollbtn').disabled = !myTurn;
-  setMsg(state.msg || (myTurn ? 'さいころをふってね！' : 'ほかのひとのばんです…'));
+
+  // メッセージ
+  if(myTurn){
+    setMsg('さいころをふってね！');
+    speak(`あなたのばんです！`);
+    bip(550,.1,.2);
+  } else {
+    setMsg(state.msg || `${players[ci]?.name||''}のばんです…`);
+  }
+
   // ゴール済みなら表示
   if(!gActive && finOrd.length>0 && !document.getElementById('goalmod').classList.contains('on')){
     showGoal();
