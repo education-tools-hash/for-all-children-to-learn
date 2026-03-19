@@ -777,7 +777,16 @@ let vsMode=false,vsPlayers=[],vsCur=0,vsCombo=false;
 /* ── 音 ── */
 function ac(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
 function playSound(t){if(!soundOn)return;try{const c=ac(),n=c.currentTime,o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);if(t==='flip'){o.type='sine';o.frequency.value=520;g.gain.setValueAtTime(.13,n);g.gain.exponentialRampToValueAtTime(.001,n+.1);o.start(n);o.stop(n+.1);}else if(t==='match'){o.type='triangle';o.frequency.setValueAtTime(660,n);o.frequency.setValueAtTime(880,n+.1);g.gain.setValueAtTime(.16,n);g.gain.exponentialRampToValueAtTime(.001,n+.3);o.start(n);o.stop(n+.3);}else if(t==='wrong'){o.type='sawtooth';o.frequency.value=200;g.gain.setValueAtTime(.09,n);g.gain.exponentialRampToValueAtTime(.001,n+.18);o.start(n);o.stop(n+.18);}else if(t==='clear'){[523,659,784,1047].forEach((f,i)=>{const oo=c.createOscillator(),gg=c.createGain();oo.connect(gg);gg.connect(c.destination);oo.type='sine';oo.frequency.value=f;gg.gain.setValueAtTime(0,n+i*.12);gg.gain.linearRampToValueAtTime(.15,n+i*.12+.05);gg.gain.exponentialRampToValueAtTime(.001,n+i*.12+.26);oo.start(n+i*.12);oo.stop(n+i*.12+.3);});}}catch(e){}}
-function speak(txt){if(!soundOn||!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang='ja-JP';u.rate=.9;u.pitch=1.1;const v=window.speechSynthesis.getVoices().find(x=>x.lang.startsWith('ja'));if(v)u.voice=v;window.speechSynthesis.speak(u);}
+function speak(txt,onDone){
+  if(!soundOn||!('speechSynthesis' in window)){if(onDone)setTimeout(onDone,0);return;}
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(txt);
+  u.lang='ja-JP';u.rate=.9;u.pitch=1.1;
+  const v=window.speechSynthesis.getVoices().find(x=>x.lang.startsWith('ja'));
+  if(v)u.voice=v;
+  if(onDone){u.onend=onDone;u.onerror=onDone;}
+  window.speechSynthesis.speak(u);
+}
 if('speechSynthesis' in window){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
 
 /* ── ユーティリティ ── */
@@ -932,14 +941,17 @@ function checkMatch(){
     }
   } else {
     a.el.classList.add('wrong');b.el.classList.add('wrong');
-    playSound('wrong');ann('ちがいます');speak('ちがいます');
-    setTimeout(()=>{
-      a.el.classList.remove('flipped','wrong');b.el.classList.remove('flipped','wrong');
-      a.el.setAttribute('aria-label',`カード${a.idx+1}：おもてむき`);b.el.setAttribute('aria-label',`カード${b.idx+1}：おもてむき`);
-      a.el.setAttribute('aria-pressed','false');b.el.setAttribute('aria-pressed','false');
-      flipped=[];locked=false;
-      if(vsMode){vsCombo=false;nextPlayer();}
-    },900);
+    playSound('wrong');ann('ちがいます');
+    // 「ちがいます」の読み上げが完了してからカードを戻し、次のプレイヤーへ
+    speak('ちがいます', ()=>{
+      setTimeout(()=>{
+        a.el.classList.remove('flipped','wrong');b.el.classList.remove('flipped','wrong');
+        a.el.setAttribute('aria-label',`カード${a.idx+1}：おもてむき`);b.el.setAttribute('aria-label',`カード${b.idx+1}：おもてむき`);
+        a.el.setAttribute('aria-pressed','false');b.el.setAttribute('aria-pressed','false');
+        flipped=[];locked=false;
+        if(vsMode){vsCombo=false;nextPlayer();}
+      },400);
+    });
   }
 }
 
