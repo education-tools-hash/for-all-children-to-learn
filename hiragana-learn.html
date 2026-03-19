@@ -716,6 +716,7 @@
   <button class="tab-btn" data-tab="trace"><span class="tab-emoji">👆</span>なぞり</button>
   <button class="tab-btn" data-tab="quiz"><span class="tab-emoji">❓</span>クイズ</button>
   <button class="tab-btn" data-tab="match"><span class="tab-emoji">🎯</span>マッチング</button>
+  <button class="tab-btn" data-tab="record"><span class="tab-emoji">📊</span>きろく</button>
   <button class="tab-btn" data-tab="settings"><span class="tab-emoji">⚙️</span>せってい</button>
 </nav>
 
@@ -820,16 +821,42 @@
 <section id="quiz" class="section">
   <div class="card">
     <div class="section-title" style="color:var(--peach)">❓ クイズ</div>
-    <div class="quiz-score">
-      <span id="quizCorrect">⭐ 0</span> もん せいかい　／　<span id="quizTotal">0</span> もん
-      <div class="progress-bar-wrap" style="margin-top:8px;max-width:300px;margin-left:auto;margin-right:auto">
-        <div class="progress-bar-fill" id="quizProgressBar" style="width:0%"></div>
+
+    <!-- 問題数選択画面 -->
+    <div id="quizSelectScreen">
+      <p style="text-align:center;color:#666;margin-bottom:16px;font-size:0.95rem">なんもん　やりますか？</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <button onclick="startQuizWithCount(10)" tabindex="0" style="background:linear-gradient(135deg,var(--coral),var(--peach));color:white;border:none;border-radius:50px;padding:16px 28px;font-size:1.1rem;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #CC4444;font-family:inherit;">10もん</button>
+        <button onclick="startQuizWithCount(25)" tabindex="0" style="background:linear-gradient(135deg,var(--coral),var(--peach));color:white;border:none;border-radius:50px;padding:16px 28px;font-size:1.1rem;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #CC4444;font-family:inherit;">25もん</button>
+        <button onclick="startQuizWithCount(50)" tabindex="0" style="background:linear-gradient(135deg,var(--coral),var(--peach));color:white;border:none;border-radius:50px;padding:16px 28px;font-size:1.1rem;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #CC4444;font-family:inherit;">50もん</button>
       </div>
     </div>
-    <div id="quizChar" class="quiz-char">？</div>
-    <div class="quiz-hint" id="quizHint">このもじは　なんとよむ？</div>
-    <div class="quiz-choices" id="quizChoices"></div>
-    <button class="next-btn" id="quizNextBtn" onclick="nextQuiz()" tabindex="0" style="display:none">つぎへ →</button>
+
+    <!-- クイズ本体 -->
+    <div id="quizPlayScreen" style="display:none;">
+      <div class="quiz-score">
+        <span id="quizCurrentNum">1</span> / <span id="quizMaxNum">10</span> もん　｜　⭐ <span id="quizCorrect">0</span> もん せいかい
+        <div class="progress-bar-wrap" style="margin-top:8px;max-width:300px;margin-left:auto;margin-right:auto">
+          <div class="progress-bar-fill" id="quizProgressBar" style="width:0%"></div>
+        </div>
+      </div>
+      <div id="quizChar" class="quiz-char">？</div>
+      <div class="quiz-hint" id="quizHint">このもじは　なんとよむ？</div>
+      <div class="quiz-choices" id="quizChoices"></div>
+      <button class="next-btn" id="quizNextBtn" onclick="nextQuiz()" tabindex="0" style="display:none">つぎへ →</button>
+    </div>
+
+    <!-- 結果画面 -->
+    <div id="quizResultScreen" style="display:none;text-align:center;padding:16px;">
+      <div style="font-size:3rem;margin-bottom:8px;" id="quizResultEmoji">🎉</div>
+      <div style="font-size:1.6rem;font-weight:900;color:var(--coral);margin-bottom:8px;" id="quizResultScore"></div>
+      <div style="font-size:0.95rem;color:#666;margin-bottom:16px;" id="quizResultMsg"></div>
+      <div id="quizResultWrong" style="background:#FFF5F5;border-radius:14px;padding:12px;margin-bottom:16px;border:2px solid #FFCDD2;display:none;">
+        <div style="font-weight:700;color:var(--coral);font-size:0.88rem;margin-bottom:8px;">❌ まちがえた もじ</div>
+        <div id="quizResultWrongList" style="font-size:0.9rem;line-height:2;"></div>
+      </div>
+      <button onclick="backToQuizSelect()" tabindex="0" style="background:linear-gradient(135deg,var(--coral),var(--peach));color:white;border:none;border-radius:50px;padding:14px 28px;font-size:1rem;font-weight:900;cursor:pointer;box-shadow:0 4px 0 #CC4444;font-family:inherit;">もう一度やる 🔄</button>
+    </div>
   </div>
 </section>
 
@@ -851,7 +878,46 @@
 
 
   <!-- ===== SETTINGS SECTION ===== -->
-  <section id="settings" class="section">
+  <!-- ===== きろく ===== -->
+<section id="record" class="section">
+  <div class="card">
+    <div class="section-title" style="color:var(--sky)">📊 きろく</div>
+    <p style="text-align:center;color:#666;margin-bottom:16px;font-size:0.9rem">なぞり・クイズ・マッチングのきろくです</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:#F0FFF8;border-radius:16px;padding:14px;text-align:center;border:2px solid #4ECDC4;">
+        <div style="font-size:1.5rem;font-weight:900;color:#4ECDC4" id="recTraceCount">0</div>
+        <div style="font-size:0.75rem;font-weight:700;color:#666;margin-top:4px">👆 なぞり</div>
+        <div style="font-size:0.7rem;color:#999;word-break:break-all" id="recTraceChars">もじ</div>
+      </div>
+      <div style="background:#FFF0F5;border-radius:16px;padding:14px;text-align:center;border:2px solid var(--coral);">
+        <div style="font-size:1.5rem;font-weight:900;color:var(--coral)" id="recQuizScore">-</div>
+        <div style="font-size:0.75rem;font-weight:700;color:#666;margin-top:4px">❓ クイズ</div>
+        <div style="font-size:0.7rem;color:#999" id="recQuizDetail">もんだい</div>
+      </div>
+      <div style="background:#F0F8FF;border-radius:16px;padding:14px;text-align:center;border:2px solid var(--sky);">
+        <div style="font-size:1.5rem;font-weight:900;color:var(--sky)" id="recMatchCount">0</div>
+        <div style="font-size:0.75rem;font-weight:700;color:#666;margin-top:4px">🎯 マッチング</div>
+        <div style="font-size:0.7rem;color:#999">かいクリア</div>
+      </div>
+    </div>
+    <div style="background:#FFF5F5;border-radius:14px;padding:14px;margin-bottom:16px;border:2px solid #FFCDD2;">
+      <div style="font-weight:700;color:var(--coral);font-size:0.88rem;margin-bottom:8px">❌ まちがえた もじ</div>
+      <div id="recWrongList" style="font-size:0.85rem;line-height:2;">
+        <span style="color:#bbb">まだきろくがありません</span>
+      </div>
+    </div>
+    <div style="margin-bottom:8px;font-weight:700;color:#888;font-size:0.85rem">📋 くわしいきろく</div>
+    <div id="recordLog" style="max-height:320px;overflow-y:auto;background:#FAFAFA;border-radius:12px;border:2px solid #EEE;padding:10px;font-size:0.82rem;line-height:1.8;">
+      <div style="color:#bbb;text-align:center;padding:20px">まだきろくがありません</div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;">
+      <button onclick="downloadCSV()" tabindex="0" style="background:var(--sky);color:white;border:none;border-radius:50px;padding:12px 24px;font-size:0.95rem;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 0 #3A7AB0;">⬇️ CSVダウンロード</button>
+      <button onclick="clearRecord()" tabindex="0" style="background:var(--coral);color:white;border:none;border-radius:50px;padding:12px 24px;font-size:0.95rem;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 0 #CC4444;">🗑️ きろくをけす</button>
+    </div>
+  </div>
+</section>
+
+<section id="settings" class="section">
     <h2 class="section-title">⚙️ つかいやすく せっていしよう</h2>
     <div class="a11y-panel">
       <div class="a11y-row">
@@ -1794,6 +1860,7 @@ function endTrace() {
     celebrate();
     speak('じょうず！');
     traceStrokeCount = 0;
+    addLog('trace', {kana: currentTraceKana});
   }
 }
 
@@ -1803,8 +1870,58 @@ setTraceKana('あ');
 // ===== 4. QUIZ =====
 let quizCorrect = 0;
 let quizTotal = 0;
+let quizMax = 10;
 let quizCurrent = null;
 let quizAnswered = false;
+let quizWrongList = [];
+
+function startQuizWithCount(n) {
+  quizMax = n;
+  quizCorrect = 0;
+  quizTotal = 0;
+  quizAnswered = false;
+  quizWrongList = [];
+  document.getElementById('quizSelectScreen').style.display = 'none';
+  document.getElementById('quizResultScreen').style.display = 'none';
+  document.getElementById('quizPlayScreen').style.display = 'block';
+  document.getElementById('quizMaxNum').textContent = n;
+  newQuiz();
+}
+
+function backToQuizSelect() {
+  document.getElementById('quizPlayScreen').style.display = 'none';
+  document.getElementById('quizResultScreen').style.display = 'none';
+  document.getElementById('quizSelectScreen').style.display = 'block';
+}
+
+function showQuizResult() {
+  document.getElementById('quizPlayScreen').style.display = 'none';
+  document.getElementById('quizResultScreen').style.display = 'block';
+  const pct = Math.round(quizCorrect / quizMax * 100);
+  document.getElementById('quizResultScore').textContent = `${quizCorrect} / ${quizMax} もん (${pct}%)`;
+  let emoji, msg;
+  if (pct === 100) { emoji = '🏆'; msg = 'ぜんぶ せいかい！ すごい！！'; }
+  else if (pct >= 80) { emoji = '🌟'; msg = 'よくできました！'; }
+  else if (pct >= 60) { emoji = '😊'; msg = 'がんばったね！'; }
+  else { emoji = '💪'; msg = 'もう一度 ちょうせんしよう！'; }
+  document.getElementById('quizResultEmoji').textContent = emoji;
+  document.getElementById('quizResultMsg').textContent = msg;
+  // 間違えた文字
+  if (quizWrongList.length > 0) {
+    const wrongDiv = document.getElementById('quizResultWrong');
+    const wrongCount = {};
+    quizWrongList.forEach(k => { wrongCount[k] = (wrongCount[k] || 0) + 1; });
+    document.getElementById('quizResultWrongList').innerHTML = Object.keys(wrongCount).map(k =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;background:#FFF0F0;border:2px solid var(--coral);border-radius:10px;padding:4px 10px;margin:3px;font-weight:700;">
+        <span style="font-size:1.1rem;color:var(--coral)">${k}</span>
+        <span style="font-size:0.75rem;color:#888">(${wrongCount[k]}かい)</span>
+      </span>`
+    ).join('');
+    wrongDiv.style.display = 'block';
+  }
+  speak(msg);
+  bigCelebrate();
+}
 
 function newQuiz() {
   quizAnswered = false;
@@ -1816,9 +1933,13 @@ function newQuiz() {
 
   document.getElementById('quizChar').textContent = quizCurrent.k;
   document.getElementById('quizHint').textContent = 'このもじは なんとよむ？';
-  speak(quizCurrent.k);
+  document.getElementById('quizCurrentNum').textContent = quizTotal + 1;
+  document.getElementById('quizCorrect').textContent = quizCorrect;
+  const pct = quizMax > 0 ? Math.round(quizTotal / quizMax * 100) : 0;
+  document.getElementById('quizProgressBar').style.width = pct + '%';
+  if (autoRead) speak(quizCurrent.k);
 
-  // 4 choices
+  // 4択
   const choices = new Set([quizCurrent.r]);
   while (choices.size < 4) {
     const r = KANA[Math.floor(Math.random() * KANA.length)].r;
@@ -1835,24 +1956,30 @@ function newQuiz() {
       if (quizAnswered) return;
       quizAnswered = true;
       quizTotal++;
-      if (r === quizCurrent.r) {
+      const correct = r === quizCurrent.r;
+      if (correct) {
         btn.classList.add('correct');
         quizCorrect++;
         celebrate();
         speak('せいかい！');
       } else {
         btn.classList.add('wrong');
-        // Show correct
         document.querySelectorAll('.choice-btn').forEach(b => {
           if (b.textContent === quizCurrent.r) b.classList.add('correct');
         });
+        quizWrongList.push(quizCurrent.k);
         speak('ざんねん！');
       }
-      document.getElementById('quizCorrect').textContent = `⭐ ${quizCorrect}`;
-      document.getElementById('quizTotal').textContent = quizTotal;
-      const pct = quizTotal > 0 ? Math.round(quizCorrect / quizTotal * 100) : 0;
-      document.getElementById('quizProgressBar').style.width = pct + '%';
-      document.getElementById('quizNextBtn').style.display = 'block';
+      addLog('quiz', { kana: quizCurrent.k, answer: r, correct: correct, correct_ans: quizCurrent.r });
+      document.getElementById('quizCorrect').textContent = quizCorrect;
+      document.getElementById('quizCurrentNum').textContent = quizTotal;
+      const p = Math.round(quizTotal / quizMax * 100);
+      document.getElementById('quizProgressBar').style.width = p + '%';
+      if (quizTotal >= quizMax) {
+        setTimeout(showQuizResult, 800);
+      } else {
+        document.getElementById('quizNextBtn').style.display = 'block';
+      }
     });
     grid.appendChild(btn);
   });
@@ -1863,12 +1990,18 @@ function nextQuiz() {
   newQuiz();
 }
 
-newQuiz();
-
 // ===== 5. MATCH =====
 const MATCH_SET = [
-  {k:'あ',r:'a'},{k:'い',r:'i'},{k:'う',r:'u'},{k:'え',r:'e'},{k:'お',r:'o'},
-  {k:'か',r:'ka'},{k:'き',r:'ki'},{k:'く',r:'ku'},
+  {k:'あ',r:'a',kt:'ア'},{k:'い',r:'i',kt:'イ'},{k:'う',r:'u',kt:'ウ'},{k:'え',r:'e',kt:'エ'},{k:'お',r:'o',kt:'オ'},
+  {k:'か',r:'ka',kt:'カ'},{k:'き',r:'ki',kt:'キ'},{k:'く',r:'ku',kt:'ク'},{k:'け',r:'ke',kt:'ケ'},{k:'こ',r:'ko',kt:'コ'},
+  {k:'さ',r:'sa',kt:'サ'},{k:'し',r:'shi',kt:'シ'},{k:'す',r:'su',kt:'ス'},{k:'せ',r:'se',kt:'セ'},{k:'そ',r:'so',kt:'ソ'},
+  {k:'た',r:'ta',kt:'タ'},{k:'ち',r:'chi',kt:'チ'},{k:'つ',r:'tsu',kt:'ツ'},{k:'て',r:'te',kt:'テ'},{k:'と',r:'to',kt:'ト'},
+  {k:'な',r:'na',kt:'ナ'},{k:'に',r:'ni',kt:'ニ'},{k:'ぬ',r:'nu',kt:'ヌ'},{k:'ね',r:'ne',kt:'ネ'},{k:'の',r:'no',kt:'ノ'},
+  {k:'は',r:'ha',kt:'ハ'},{k:'ひ',r:'hi',kt:'ヒ'},{k:'ふ',r:'fu',kt:'フ'},{k:'へ',r:'he',kt:'ヘ'},{k:'ほ',r:'ho',kt:'ホ'},
+  {k:'ま',r:'ma',kt:'マ'},{k:'み',r:'mi',kt:'ミ'},{k:'む',r:'mu',kt:'ム'},{k:'め',r:'me',kt:'メ'},{k:'も',r:'mo',kt:'モ'},
+  {k:'や',r:'ya',kt:'ヤ'},{k:'ゆ',r:'yu',kt:'ユ'},{k:'よ',r:'yo',kt:'ヨ'},
+  {k:'ら',r:'ra',kt:'ラ'},{k:'り',r:'ri',kt:'リ'},{k:'る',r:'ru',kt:'ル'},{k:'れ',r:'re',kt:'レ'},{k:'ろ',r:'ro',kt:'ロ'},
+  {k:'わ',r:'wa',kt:'ワ'},{k:'を',r:'wo',kt:'ヲ'},{k:'ん',r:'n',kt:'ン'},
 ];
 
 let matchSelected = null;
@@ -1883,7 +2016,7 @@ function buildMatch() {
 
   const set = [...MATCH_SET].sort(() => Math.random()-0.5).slice(0,6);
   const kanas = [...set].sort(() => Math.random()-0.5);
-  const romajis = [...set].sort(() => Math.random()-0.5);
+  const katas = [...set].sort(() => Math.random()-0.5);
 
   const leftCol = document.createElement('div');
   leftCol.className = 'match-col';
@@ -1902,14 +2035,14 @@ function buildMatch() {
     leftCol.appendChild(el);
   });
 
-  romajis.forEach(item => {
+  katas.forEach(item => {
     const el = document.createElement('div');
     el.className = 'match-item';
     el.setAttribute('tabindex', '0');
     el.setAttribute('role', 'button');
-    el.textContent = item.r;
+    el.textContent = item.kt;
     el.dataset.key = item.k;
-    el.dataset.type = 'romaji';
+    el.dataset.type = 'katakana';
     el.addEventListener('click', () => matchClick(el, item.k, 'romaji'));
     rightCol.appendChild(el);
   });
@@ -1949,6 +2082,7 @@ function matchClick(el, key, type) {
         document.getElementById('matchComplete').classList.add('show');
         bigCelebrate();
         speak('ぜんぶ せいかい！ すごい！');
+        addLog('match', {});
       }
     } else {
       // Wrong
@@ -2002,6 +2136,145 @@ function bigCelebrate() {
   celebrate(false);
   setTimeout(() => celebrate(false), 800);
 }
+
+// ===== RECORD =====
+var learningLog = [];
+try { learningLog = JSON.parse(localStorage.getItem('hiragana_log') || '[]'); } catch(e) { learningLog = []; }
+
+function saveLog() {
+  try { localStorage.setItem('hiragana_log', JSON.stringify(learningLog)); } catch(e) {}
+}
+
+function now() {
+  var d = new Date();
+  return d.toLocaleDateString('ja-JP') + ' ' +
+    String(d.getHours()).padStart(2,'0') + ':' +
+    String(d.getMinutes()).padStart(2,'0');
+}
+
+function addLog(type, data) {
+  learningLog.push({ time: now(), type: type, data: data });
+  saveLog();
+  const rec = document.getElementById('record');
+  if (rec && rec.classList.contains('active')) updateRecordView();
+}
+
+function updateRecordView() {
+  var traceSet = new Set();
+  var quizOk = 0, quizNg = 0, matchClears = 0;
+  var wrongList = [];
+
+  learningLog.forEach(function(entry) {
+    if (entry.type === 'trace') traceSet.add(entry.data.kana);
+    if (entry.type === 'quiz') {
+      if (entry.data.correct) quizOk++;
+      else { quizNg++; wrongList.push(entry); }
+    }
+    if (entry.type === 'match') matchClears++;
+  });
+
+  var total = quizOk + quizNg;
+  var pct = total > 0 ? Math.round(quizOk / total * 100) : 0;
+
+  document.getElementById('recTraceCount').textContent = traceSet.size;
+  document.getElementById('recTraceChars').textContent = traceSet.size > 0 ? [...traceSet].join(' ') : 'もじ';
+  document.getElementById('recQuizScore').textContent = total > 0 ? pct + '%' : '-';
+  document.getElementById('recQuizDetail').textContent = total > 0 ? quizOk + '/' + total + 'もん' : 'もんだい';
+  document.getElementById('recMatchCount').textContent = matchClears;
+
+  // まちがえたもじ
+  var wrongEl = document.getElementById('recWrongList');
+  if (wrongEl) {
+    if (wrongList.length === 0) {
+      wrongEl.innerHTML = '<span style="color:#4ECDC4;font-weight:700">まちがいなし！</span>';
+    } else {
+      var wrongCount = {};
+      wrongList.forEach(function(e) {
+        var k = e.data.kana;
+        if (!wrongCount[k]) wrongCount[k] = 0;
+        wrongCount[k]++;
+      });
+      var html = '';
+      Object.keys(wrongCount).forEach(function(k) {
+        html += '<span style="display:inline-flex;align-items:center;gap:4px;background:#FFF0F0;border:2px solid var(--coral);border-radius:10px;padding:4px 10px;margin:3px;font-weight:700;">'
+          + '<span style="font-size:1.1rem;color:var(--coral)">' + k + '</span>'
+          + '<span style="font-size:0.75rem;color:#888">(' + wrongCount[k] + 'かい)</span>'
+          + '</span>';
+      });
+      wrongEl.innerHTML = html;
+    }
+  }
+
+  // くわしいきろく
+  var logEl = document.getElementById('recordLog');
+  if (learningLog.length === 0) {
+    logEl.innerHTML = '<div style="color:#bbb;text-align:center;padding:20px">まだきろくがありません</div>';
+    return;
+  }
+  var html2 = '';
+  learningLog.slice().reverse().forEach(function(entry) {
+    var icon = entry.type === 'quiz' ? '❓' : entry.type === 'trace' ? '👆' : '🎯';
+    var detail = '';
+    if (entry.type === 'quiz') {
+      var ok = entry.data.correct;
+      detail = '<span style="font-size:1rem;font-weight:900;margin:0 4px">' + entry.data.kana + '</span>'
+        + '<span style="color:#aaa">→</span>'
+        + ' <span style="font-weight:700;color:' + (ok ? '#2ECC71' : '#E74C3C') + '">' + entry.data.answer + '</span>'
+        + ' <span style="font-weight:900;color:' + (ok ? '#2ECC71' : '#E74C3C') + '">' + (ok ? '✓' : '✗') + '</span>'
+        + (!ok ? ' <span style="color:#999;font-size:0.8rem">(こたえ: ' + entry.data.correct_ans + ')</span>' : '');
+    } else if (entry.type === 'trace') {
+      detail = '<span style="font-size:1rem;font-weight:900;margin:0 4px">' + entry.data.kana + '</span>なぞり ✓';
+    } else {
+      detail = 'マッチング クリア 🎉';
+    }
+    html2 += '<div style="padding:5px 6px;border-bottom:1px solid #F0F0F0;display:flex;align-items:center;gap:6px;">'
+      + '<span style="color:#bbb;font-size:0.75rem;white-space:nowrap">' + entry.time + '</span>'
+      + icon + ' ' + detail + '</div>';
+  });
+  logEl.innerHTML = html2;
+}
+
+function downloadCSV() {
+  var rows = [["日時","種類","もじ","こたえ","せいかい","せいかいのこたえ"]];
+  learningLog.forEach(function(entry) {
+    if (entry.type === "quiz") {
+      rows.push([entry.time,"クイズ",entry.data.kana,entry.data.answer,
+        entry.data.correct ? "○" : "×", entry.data.correct_ans]);
+    } else if (entry.type === "trace") {
+      rows.push([entry.time,"なぞり",entry.data.kana,"","○",""]);
+    } else if (entry.type === "match") {
+      rows.push([entry.time,"マッチング","","","○",""]);
+    }
+  });
+  var lines = rows.map(function(r) {
+    return r.map(function(cell) { return '"' + String(cell).replace(/"/g,'""') + '"'; }).join(",");
+  });
+  var bom = String.fromCharCode(0xFEFF);
+  var csv = bom + lines.join("\r\n");
+  var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "hiragana_log_" + new Date().toLocaleDateString("ja-JP").replace(/\//g,"-") + ".csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearRecord() {
+  learningLog = [];
+  saveLog();
+  updateRecordView();
+}
+
+// タブ切り替え時にきろくを更新
+document.addEventListener('DOMContentLoaded', function() {
+  const recordBtn = document.querySelector('[data-tab="record"]');
+  if (recordBtn) {
+    recordBtn.addEventListener('click', function() {
+      setTimeout(updateRecordView, 100);
+    });
+  }
+});
 
 // ===== INIT =====
 // (stroke init is handled by SVG directly)
