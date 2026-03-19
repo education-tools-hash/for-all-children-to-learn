@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>マッチング</title>
+<style>
+:root {
+  --bg:#fdf8f2;--surface:#fff;--surface2:#f5f0ea;
+  --primary:#e8956d;--primary-dark:#c97a52;
+  --text:#3d2f24;--text-muted:#9c8878;
+  --card-back:#e8b48a;--card-back2:#d49870;
+  --shadow:rgba(61,47,36,.12);
+  --font:'Hiragino Maru Gothic ProN','BIZ UDPGothic',sans-serif;
+  --scan-outline:4px solid #f5c400;--fs:17px;
+}
+body.large-text{--fs:21px;}
+body.high-contrast{
+  --bg:#000;--surface:#111;--surface2:#1a1a1a;
+  --text:#fff;--text-muted:#bbb;--primary:#ffaa00;
+  --card-back:#333;--card-back2:#444;
+  --shadow:rgba(255,255,255,.12);
+}
+body.reduce-motion *{animation-duration:.01ms!important;transition-duration:.01ms!important;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);
+  height:100dvh;display:flex;flex-direction:column;font-size:var(--fs);
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none;overflow:hidden;}
+
+/* ヘッダー */
+#hdr{background:var(--surface);padding:9px 14px;display:flex;align-items:center;
+  justify-content:space-between;box-shadow:0 2px 10px var(--shadow);flex-shrink:0;z-index:50;}
+.hdr-l{display:flex;align-items:center;gap:10px;}
+.app-icon{width:38px;height:38px;background:linear-gradient(135deg,#e8956d,#d47a52);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.app-title{font-size:1.3em;font-weight:800;letter-spacing:.04em;}
+.hdr-r{display:flex;gap:8px;}
+.icon-btn{width:42px;height:42px;border-radius:11px;border:none;background:var(--surface2);
+  color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:.15s;}
+.icon-btn:active{transform:scale(.92);}
+.icon-btn:focus-visible{outline:var(--scan-outline);}
+
+/* メイン */
+#main{padding:10px 14px;max-width:700px;width:100%;margin:0 auto;
+  flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;}
+
+/* ステータス */
+#stat-bar{display:flex;gap:7px;margin-bottom:8px;flex-shrink:0;}
+.stat-c{flex:1;background:var(--surface);border-radius:11px;padding:7px 8px;
+  text-align:center;box-shadow:0 2px 6px var(--shadow);}
+.stat-l{font-size:.6em;color:var(--text-muted);font-weight:600;margin-bottom:2px;}
+.stat-v{font-size:1.2em;font-weight:800;color:var(--primary);line-height:1;}
+
+/* セレクト画面 */
+#sel-screen{flex:1;display:flex;flex-direction:column;overflow-y:auto;gap:0;padding-bottom:6px;}
+#sel-screen::-webkit-scrollbar{display:none;}
+.sec-ttl{font-size:.73em;font-weight:700;color:var(--text-muted);letter-spacing:.07em;
+  text-transform:uppercase;margin:12px 0 7px;}
+
+/* セットリスト */
+#set-list{display:flex;flex-direction:column;gap:7px;}
+.set-item{background:var(--surface);border-radius:13px;padding:11px 13px;
+  display:flex;align-items:center;gap:11px;box-shadow:0 2px 7px var(--shadow);
+  border:2.5px solid transparent;cursor:pointer;transition:.17s;min-height:58px;}
+.set-item:active{transform:scale(.98);}
+.set-item:focus-visible{outline:var(--scan-outline);}
+.set-item.selected{border-color:var(--primary);}
+body.high-contrast .set-item.selected{border-color:#ffaa00;}
+.set-thumb{width:42px;height:42px;border-radius:8px;background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;font-size:1.6em;
+  flex-shrink:0;overflow:hidden;}
+.set-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.set-info{flex:1;min-width:0;}
+.set-name{font-weight:700;font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.set-meta{font-size:.68em;color:var(--text-muted);margin-top:2px;}
+.set-acts{display:flex;gap:5px;flex-shrink:0;}
+.set-act{width:32px;height:32px;border-radius:8px;border:none;background:var(--surface2);
+  color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.set-act:active{transform:scale(.9);}
+.set-act.red{color:#e53935;}
+.add-set-btn{background:var(--surface);border-radius:13px;padding:11px 13px;
+  display:flex;align-items:center;gap:11px;box-shadow:0 2px 7px var(--shadow);
+  border:2.5px dashed var(--primary);cursor:pointer;color:var(--primary);
+  font-weight:700;font-size:.92em;min-height:50px;width:100%;font-family:var(--font);}
+.add-set-btn:active{transform:scale(.98);}
+
+/* 難易度 */
+#lvl-list{display:flex;flex-direction:column;gap:7px;}
+.lvl-btn{padding:12px 16px;border-radius:14px;border:2.5px solid transparent;
+  cursor:pointer;font-family:var(--font);font-size:.97em;font-weight:700;
+  display:flex;align-items:center;gap:12px;min-height:56px;transition:.18s;}
+.lvl-btn:active{transform:scale(.97);}
+.lvl-btn:focus-visible{outline:var(--scan-outline);}
+.lvl-btn.easy{background:#e8f5e9;border-color:#7dc98a;color:#2e7d32;}
+.lvl-btn.normal{background:#fff3e0;border-color:#e8956d;color:#e65100;}
+.lvl-btn.hard{background:#e3f2fd;border-color:#6db5e8;color:#1565c0;}
+body.high-contrast .lvl-btn.easy{background:#003300;border-color:#00cc44;color:#00ff55;}
+body.high-contrast .lvl-btn.normal{background:#331a00;border-color:#ffaa00;color:#ffcc44;}
+body.high-contrast .lvl-btn.hard{background:#001a33;border-color:#44aaff;color:#66ccff;}
+.lvl-icon{font-size:1.7em;}
+.lvl-name{font-size:.97em;}
+.lvl-desc{font-size:.72em;font-weight:400;opacity:.75;margin-top:2px;}
+
+#start-btn{margin-top:10px;padding:14px;border-radius:15px;border:none;
+  background:var(--primary);color:#fff;font-family:var(--font);font-size:1em;
+  font-weight:800;cursor:pointer;flex-shrink:0;box-shadow:0 4px 13px rgba(232,149,109,.42);}
+#start-btn:active{transform:scale(.97);}
+#start-btn:disabled{background:var(--surface2);color:var(--text-muted);box-shadow:none;cursor:default;}
+
+/* ゲーム画面 */
+#game-screen{display:none;flex:1;flex-direction:column;overflow:hidden;min-height:0;}
+#card-grid{display:grid;gap:7px;flex:1;min-height:0;align-content:stretch;}
+.cg-4 {grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(1,1fr);}
+.cg-12{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);}
+.cg-16{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);}
+@media(max-width:380px){.cg-12{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);}}
+
+.card{width:100%;height:100%;perspective:600px;cursor:pointer;border-radius:12px;}
+.card:focus-visible{outline:var(--scan-outline);border-radius:12px;}
+.ci{width:100%;height:100%;position:relative;transform-style:preserve-3d;
+  transition:transform .38s cubic-bezier(.4,0,.2,1);border-radius:12px;}
+.card.flipped .ci,.card.matched .ci{transform:rotateY(180deg);}
+.cf{position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;display:flex;align-items:center;
+  justify-content:center;overflow:hidden;box-shadow:0 2px 7px var(--shadow);}
+.cf-back{background:linear-gradient(135deg,var(--card-back),var(--card-back2));font-size:1.8em;}
+.cf-back-pat{position:absolute;inset:0;opacity:.1;
+  background:repeating-linear-gradient(45deg,rgba(255,255,255,.5) 0,rgba(255,255,255,.5) 2px,transparent 2px,transparent 10px);}
+.cf-front{background:var(--surface);transform:rotateY(180deg);flex-direction:column;gap:3px;padding:5px;}
+.card-img{width:100%;flex:1;object-fit:cover;border-radius:8px;min-height:0;}
+.card-big-em{font-size:clamp(1.6em,5.5vw,2.8em);line-height:1;}
+.card-lbl{font-size:clamp(.52em,2.1vw,.76em);font-weight:700;text-align:center;
+  color:var(--text);line-height:1.2;padding:0 2px;word-break:break-all;}
+.card-txt{font-size:clamp(.9em,3.5vw,1.5em);font-weight:800;text-align:center;
+  color:var(--text);line-height:1.25;padding:4px;word-break:break-all;}
+.card.matched .cf-front{background:linear-gradient(135deg,#e8f5e9,#c8e6c9);border:2.5px solid #7dc98a;}
+body.high-contrast .card.matched .cf-front{background:#003300;border-color:#00cc44;}
+@keyframes mPop{0%{transform:rotateY(180deg) scale(1)}40%{transform:rotateY(180deg) scale(1.1)}70%{transform:rotateY(180deg) scale(.96)}100%{transform:rotateY(180deg) scale(1)}}
+.card.matched .ci{animation:mPop .38s ease forwards;}
+@keyframes shk{0%,100%{transform:rotateY(180deg) translateX(0)}25%{transform:rotateY(180deg) translateX(-5px)}75%{transform:rotateY(180deg) translateX(5px)}}
+.card.wrong .ci{animation:shk .3s ease;}
+
+.game-acts{display:flex;gap:7px;margin-top:7px;flex-shrink:0;}
+.act-btn{flex:1;padding:11px;border-radius:12px;border:none;font-family:var(--font);
+  font-size:.88em;font-weight:700;cursor:pointer;transition:.15s;min-height:44px;}
+.act-btn:active{transform:scale(.96);}
+.act-btn:focus-visible{outline:var(--scan-outline);}
+.btn-re{background:var(--primary);color:#fff;}
+.btn-bk{background:var(--surface2);color:var(--text);}
+
+/* スキャンバー */
+#scan-bar{display:none;background:#f5c400;color:#222;padding:9px 14px;
+  text-align:center;font-size:.85em;font-weight:700;flex-shrink:0;}
+body.scan-mode #scan-bar{display:flex;align-items:center;justify-content:center;gap:10px;}
+.scan-hl{outline:var(--scan-outline)!important;outline-offset:3px!important;}
+
+/* クリア */
+#clear-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;
+  align-items:center;justify-content:center;}
+#clear-ov.show{display:flex;}
+.clear-card{background:var(--surface);border-radius:22px;padding:28px 24px;text-align:center;
+  max-width:290px;width:90%;box-shadow:0 18px 50px rgba(0,0,0,.28);}
+@keyframes cPop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.clear-card{animation:cPop .42s cubic-bezier(.34,1.56,.64,1);}
+.clear-ic{font-size:3.2em;margin-bottom:9px;}
+.clear-ttl{font-size:1.7em;font-weight:800;color:var(--primary);margin-bottom:6px;}
+.clear-st{color:var(--text-muted);font-size:.88em;margin-bottom:18px;line-height:1.9;}
+.clear-sv{color:var(--text);font-weight:800;}
+.clear-btns{display:flex;gap:9px;}
+.clear-btn{flex:1;padding:13px;border-radius:13px;border:none;font-family:var(--font);
+  font-size:.97em;font-weight:700;cursor:pointer;min-height:50px;}
+.clear-btn:active{transform:scale(.96);}
+.clear-btn.pri{background:var(--primary);color:#fff;}
+.clear-btn.sec{background:var(--surface2);color:var(--text);}
+
+/* オーバーレイ共通 */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.52);z-index:200;
+  align-items:flex-end;justify-content:center;}
+.ov.show{display:flex;}
+.sheet{background:var(--surface);border-radius:22px 22px 0 0;padding:22px 18px 32px;
+  width:100%;max-width:520px;max-height:93vh;overflow-y:auto;}
+.sheet::-webkit-scrollbar{display:none;}
+.sh-handle{width:36px;height:4px;background:var(--surface2);border-radius:2px;margin:0 auto 16px;}
+.sh-title{font-size:1.15em;font-weight:800;margin-bottom:14px;}
+
+/* 設定 */
+.set-row{display:flex;align-items:center;justify-content:space-between;
+  padding:11px 0;border-bottom:1px solid var(--surface2);}
+.set-row:last-of-type{border-bottom:none;}
+.set-lbl{display:flex;flex-direction:column;gap:2px;}
+.set-nm{font-weight:700;font-size:.93em;}
+.set-ds{font-size:.7em;color:var(--text-muted);}
+.tog{position:relative;width:50px;height:27px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tog-sl{position:absolute;inset:0;background:var(--surface2);border-radius:14px;
+  cursor:pointer;transition:.26s;border:1.5px solid rgba(0,0,0,.07);}
+.tog-sl::before{content:'';position:absolute;width:19px;height:19px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:.26s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.tog input:checked+.tog-sl{background:var(--primary);}
+.tog input:checked+.tog-sl::before{transform:translateX(23px);}
+.tog input:focus-visible+.tog-sl{outline:var(--scan-outline);}
+.scan-spd-row{display:none;padding:7px 0;align-items:center;gap:10px;}
+body.scan-mode .scan-spd-row{display:flex;}
+.scan-spd-row label{font-size:.8em;color:var(--text-muted);min-width:52px;}
+.scan-spd-row input[type=range]{flex:1;accent-color:var(--primary);}
+.close-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--primary);
+  color:#fff;font-family:var(--font);font-size:.97em;font-weight:700;cursor:pointer;margin-top:12px;}
+
+/* セット編集 */
+.name-row{margin-bottom:12px;}
+.name-inp{width:100%;padding:10px 13px;border-radius:11px;border:2px solid var(--surface2);
+  background:var(--surface);color:var(--text);font-family:var(--font);
+  font-size:.92em;font-weight:600;outline:none;}
+.name-inp:focus{border-color:var(--primary);}
+.mode-lbl{font-size:.73em;font-weight:700;color:var(--text-muted);letter-spacing:.06em;
+  text-transform:uppercase;margin-bottom:7px;}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px;}
+.mode-btn{padding:10px 8px;border-radius:11px;border:2.5px solid var(--surface2);
+  background:var(--surface2);cursor:pointer;font-family:var(--font);font-size:.78em;
+  font-weight:700;color:var(--text-muted);text-align:center;transition:.16s;line-height:1.4;}
+.mode-btn:active{transform:scale(.97);}
+.mode-btn.active{border-color:var(--primary);background:rgba(232,149,109,.1);color:var(--primary);}
+body.high-contrast .mode-btn.active{border-color:#ffaa00;background:#331a00;color:#ffcc44;}
+.mode-ic{font-size:1.35em;display:block;margin-bottom:3px;}
+.mode-hint{font-size:.71em;color:var(--text-muted);margin-bottom:12px;line-height:1.55;
+  padding:8px 10px;background:var(--surface2);border-radius:9px;}
+
+#edit-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.ec-item{background:var(--surface2);border-radius:12px;padding:9px 11px;
+  display:flex;align-items:center;gap:9px;}
+.ec-img{width:50px;height:50px;border-radius:8px;background:var(--surface);
+  display:flex;align-items:center;justify-content:center;font-size:1.65em;
+  flex-shrink:0;overflow:hidden;cursor:pointer;border:2px dashed var(--text-muted);
+  position:relative;transition:.15s;}
+.ec-img:hover,.ec-img:focus{border-color:var(--primary);outline:none;}
+.ec-img img{width:100%;height:100%;object-fit:cover;border-radius:6px;}
+.ec-img-ov{display:none;position:absolute;inset:0;background:rgba(0,0,0,.38);
+  border-radius:6px;align-items:center;justify-content:center;
+  color:#fff;font-size:.6em;font-weight:700;}
+.ec-img:hover .ec-img-ov,.ec-img:focus .ec-img-ov{display:flex;}
+.ec-texts{flex:1;display:flex;flex-direction:column;gap:5px;min-width:0;}
+.ec-inp{width:100%;padding:8px 10px;border-radius:9px;border:1.5px solid var(--surface);
+  background:var(--surface);color:var(--text);font-family:var(--font);
+  font-size:.85em;font-weight:600;outline:none;}
+.ec-inp:focus{border-color:var(--primary);}
+.ec-del{width:30px;height:30px;border-radius:8px;border:none;background:transparent;
+  color:#e53935;font-size:16px;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;}
+.ec-del:active{background:#fde8e8;}
+.add-ec-btn{width:100%;padding:10px;border-radius:11px;border:2px dashed var(--primary);
+  background:transparent;color:var(--primary);font-family:var(--font);
+  font-size:.88em;font-weight:700;cursor:pointer;margin-bottom:8px;}
+.add-ec-btn:active{background:rgba(232,149,109,.08);}
+.save-btn{width:100%;padding:13px;border-radius:12px;border:none;background:var(--primary);
+  color:#fff;font-family:var(--font);font-size:.97em;font-weight:800;cursor:pointer;
+  box-shadow:0 3px 10px rgba(232,149,109,.36);}
+.save-btn:active{transform:scale(.98);}
+
+#file-input{display:none;}
+#aria-live{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+@keyframes sBurst{0%{opacity:1;transform:translate(-50%,-50%) scale(0)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(2)}}
+.spar{position:fixed;pointer-events:none;font-size:1.7em;z-index:500;animation:sBurst .7s ease forwards;}
+
+/* ── 使い方バナー ── */
+.how-banner{background:var(--surface);border-radius:13px;padding:11px 14px;
+  display:flex;align-items:center;gap:11px;box-shadow:0 2px 7px var(--shadow);
+  border:2px solid rgba(109,181,232,.35);cursor:pointer;transition:.16s;
+  width:100%;font-family:var(--font);text-align:left;}
+.how-banner:active{transform:scale(.98);}
+.how-banner:focus-visible{outline:var(--scan-outline);}
+.how-banner-icon{font-size:1.8em;flex-shrink:0;}
+.how-banner-text{flex:1;}
+.how-banner-title{font-weight:700;font-size:.92em;color:var(--text);}
+.how-banner-sub{font-size:.71em;color:var(--text-muted);margin-top:2px;}
+.how-banner-arr{font-size:1em;color:var(--text-muted);}
+/* ── 使い方シート ── */
+.how-steps{display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
+.how-step{display:flex;align-items:flex-start;gap:12px;}
+.how-step-num{width:30px;height:30px;border-radius:50%;background:var(--primary);
+  color:#fff;font-size:.82em;font-weight:800;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;margin-top:1px;}
+.how-step-title{font-weight:700;font-size:.93em;margin-bottom:3px;}
+.how-step-desc{font-size:.77em;color:var(--text-muted);line-height:1.55;}
+.how-divider{height:1px;background:var(--surface2);margin:6px 0 10px;}
+.how-modes{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
+.how-mode-row{display:flex;align-items:center;gap:10px;padding:8px 10px;
+  background:var(--surface2);border-radius:10px;}
+.how-mode-ic{font-size:1.35em;width:26px;text-align:center;flex-shrink:0;}
+.how-mode-name{font-weight:700;font-size:.84em;}
+.how-mode-desc{font-size:.71em;color:var(--text-muted);margin-top:2px;line-height:1.4;}
+.how-access-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:6px;}
+.how-access-item{background:var(--surface2);border-radius:10px;padding:9px 10px;}
+.how-access-ic{font-size:1.25em;margin-bottom:3px;}
+.how-access-name{font-weight:700;font-size:.8em;}
+.how-access-desc{font-size:.7em;color:var(--text-muted);margin-top:2px;line-height:1.4;}
+
+/* ═══ プレイヤーカラー ═══ */
+:root{
+  --p1:#e8956d;--p2:#6db5e8;--p3:#7dc98a;--p4:#c98ae8;
+}
+
+/* ── モード選択バナー ── */
+.mode-select-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:2px;}
+.game-mode-btn{padding:13px 10px;border-radius:13px;border:2.5px solid var(--surface2);
+  background:var(--surface);cursor:pointer;font-family:var(--font);
+  font-size:.85em;font-weight:700;color:var(--text-muted);
+  text-align:center;transition:.16s;display:flex;flex-direction:column;
+  align-items:center;gap:5px;min-height:72px;justify-content:center;}
+.game-mode-btn:active{transform:scale(.97);}
+.game-mode-btn.active{border-color:var(--primary);background:rgba(232,149,109,.08);color:var(--primary);}
+body.high-contrast .game-mode-btn.active{border-color:#ffaa00;background:#331a00;color:#ffcc44;}
+.game-mode-ic{font-size:1.7em;}
+.game-mode-nm{font-size:.85em;font-weight:800;}
+.game-mode-ds{font-size:.68em;font-weight:400;opacity:.75;}
+
+/* ── 人数選択 ── */
+#player-count-row{display:none;flex-direction:column;gap:7px;}
+#player-count-row.show{display:flex;}
+.player-count-label{font-size:.73em;font-weight:700;color:var(--text-muted);
+  letter-spacing:.07em;text-transform:uppercase;}
+.player-count-btns{display:flex;gap:7px;}
+.pc-btn{flex:1;padding:11px 6px;border-radius:12px;border:2.5px solid var(--surface2);
+  background:var(--surface);cursor:pointer;font-family:var(--font);font-size:.95em;
+  font-weight:700;color:var(--text-muted);text-align:center;transition:.16s;min-height:50px;}
+.pc-btn:active{transform:scale(.96);}
+.pc-btn.active{border-color:var(--primary);background:rgba(232,149,109,.08);color:var(--primary);}
+
+/* ── 対戦ステータスバー ── */
+#vs-bar{display:none;flex-direction:column;gap:6px;margin-bottom:8px;flex-shrink:0;}
+#vs-bar.show{display:flex;}
+#vs-players{display:flex;gap:6px;}
+.vs-player{flex:1;border-radius:11px;padding:7px 8px;text-align:center;
+  border:2.5px solid transparent;transition:.25s;position:relative;overflow:hidden;}
+.vs-player.active-player{border-width:3px;}
+.vs-player-name{font-size:.65em;font-weight:700;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin-bottom:2px;opacity:.8;}
+.vs-player-score{font-size:1.4em;font-weight:800;line-height:1;}
+.vs-player.p1{background:rgba(232,149,109,.12);color:var(--p1);}
+.vs-player.p2{background:rgba(109,181,232,.12);color:var(--p2);}
+.vs-player.p3{background:rgba(125,201,138,.12);color:var(--p3);}
+.vs-player.p4{background:rgba(201,138,232,.12);color:var(--p4);}
+.vs-player.active-player.p1{border-color:var(--p1);background:rgba(232,149,109,.2);}
+.vs-player.active-player.p2{border-color:var(--p2);background:rgba(109,181,232,.2);}
+.vs-player.active-player.p3{border-color:var(--p3);background:rgba(125,201,138,.2);}
+.vs-player.active-player.p4{border-color:var(--p4);background:rgba(201,138,232,.2);}
+body.high-contrast .vs-player{background:#111;}
+body.high-contrast .vs-player.active-player{background:#222;}
+/* 現在の手番インジケーター */
+.turn-arrow{display:none;position:absolute;top:3px;right:4px;font-size:.75em;}
+.vs-player.active-player .turn-arrow{display:block;}
+
+#vs-turn-banner{background:var(--surface);border-radius:11px;padding:8px 12px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 2px 6px var(--shadow);font-weight:700;font-size:.88em;
+  flex-shrink:0;}
+.vs-turn-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* ── 対戦クリア ── */
+#vs-result-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);
+  z-index:300;align-items:center;justify-content:center;}
+#vs-result-ov.show{display:flex;}
+.vs-result-card{background:var(--surface);border-radius:24px;padding:28px 22px;
+  text-align:center;max-width:320px;width:92%;box-shadow:0 20px 55px rgba(0,0,0,.3);
+  animation:cPop .42s cubic-bezier(.34,1.56,.64,1);}
+.vs-crown{font-size:3em;margin-bottom:6px;}
+.vs-winner-name{font-size:1.6em;font-weight:800;margin-bottom:4px;}
+.vs-result-sub{font-size:.85em;color:var(--text-muted);margin-bottom:16px;line-height:1.7;}
+.vs-score-list{display:flex;flex-direction:column;gap:6px;margin-bottom:18px;}
+.vs-score-row{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border-radius:10px;background:var(--surface2);}
+.vs-score-rank{font-size:1.1em;width:26px;text-align:center;}
+.vs-score-name{flex:1;font-weight:700;font-size:.9em;text-align:left;}
+.vs-score-pts{font-weight:800;font-size:1em;}
+.vs-score-row.rank1{background:rgba(245,196,0,.18);}
+body.high-contrast .vs-score-row.rank1{background:#332200;}
+.vs-result-btns{display:flex;gap:9px;}
+.vs-result-btn{flex:1;padding:13px;border-radius:13px;border:none;font-family:var(--font);
+  font-size:.95em;font-weight:700;cursor:pointer;min-height:50px;transition:.15s;}
+.vs-result-btn:active{transform:scale(.96);}
+.vs-result-btn.pri{background:var(--primary);color:#fff;}
+.vs-result-btn.sec{background:var(--surface2);color:var(--text);}
+
+/* パーティクル追加アニメ */
+@keyframes scoreUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-50px) scale(1.4)}}
+.score-up{position:fixed;pointer-events:none;font-weight:800;font-size:1.3em;
+  z-index:500;animation:scoreUp .8s ease forwards;}
+</style>
+</head>
+<body>
+<div id="aria-live" role="status" aria-live="polite" aria-atomic="true"></div>
+<input type="file" id="file-input" accept="image/*" multiple>
+
+<!-- ヘッダー -->
+<div id="hdr">
+  <div class="hdr-l">
+    <div class="app-icon">🃏</div>
+    <div class="app-title">マッチング</div>
+  </div>
+  <div class="hdr-r">
+    <button class="icon-btn" id="btn-settings" aria-label="せってい">⚙️</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="stat-bar" style="display:none">
+    <div class="stat-c"><div class="stat-l">⏱ じかん</div><div class="stat-v" id="s-time">0:00</div></div>
+    <div class="stat-c"><div class="stat-l">🔄 かいすう</div><div class="stat-v" id="s-moves">0</div></div>
+    <div class="stat-c"><div class="stat-l">✅ ペア</div><div class="stat-v" id="s-pairs">0/0</div></div>
+  </div>
+
+  <!-- セレクト -->
+  <div id="sel-screen">
+    <div class="sec-ttl">❓ つかいかた</div>
+    <button class="how-banner" id="btn-how" aria-label="つかいかたをみる">
+      <div class="how-banner-icon">📖</div>
+      <div class="how-banner-text">
+        <div class="how-banner-title">マッチングゲームのつかいかた</div>
+        <div class="how-banner-sub">カードのえらびかた・あそびかた・きのうせつめい</div>
+      </div>
+      <div class="how-banner-arr">›</div>
+    </button>
+
+    <div class="sec-ttl">📦 カードセット</div>
+    <div id="set-list"></div>
+    <button class="add-set-btn" id="btn-add-set">＋ あたらしいセットをつくる</button>
+    <div class="sec-ttl">🎮 ゲームモード</div>
+    <div class="mode-select-row">
+      <button class="game-mode-btn active" id="gm-solo" aria-pressed="true">
+        <span class="game-mode-ic">🧩</span>
+        <span class="game-mode-nm">ひとりで</span>
+        <span class="game-mode-ds">タイムアタック</span>
+      </button>
+      <button class="game-mode-btn" id="gm-vs" aria-pressed="false">
+        <span class="game-mode-ic">🏆</span>
+        <span class="game-mode-nm">たいせん</span>
+        <span class="game-mode-ds">1〜4にん</span>
+      </button>
+    </div>
+    <div id="player-count-row">
+      <div class="player-count-label">👥 プレイヤーのにんずう</div>
+      <div class="player-count-btns">
+        <button class="pc-btn active" data-pc="2">2にん</button>
+        <button class="pc-btn" data-pc="3">3にん</button>
+        <button class="pc-btn" data-pc="4">4にん</button>
+      </div>
+    </div>
+
+    <div class="sec-ttl">🎯 むずかしさ</div>
+    <div id="lvl-list">
+      <button class="lvl-btn easy" data-lv="easy">
+        <span class="lvl-icon">🌟</span>
+        <div><div class="lvl-name">かんたん</div><div class="lvl-desc">カード4まい（2ペア）</div></div>
+      </button>
+      <button class="lvl-btn normal" data-lv="normal">
+        <span class="lvl-icon">🌈</span>
+        <div><div class="lvl-name">ふつう</div><div class="lvl-desc">カード12まい（6ペア）</div></div>
+      </button>
+      <button class="lvl-btn hard" data-lv="hard">
+        <span class="lvl-icon">🚀</span>
+        <div><div class="lvl-name">むずかしい</div><div class="lvl-desc">カード16まい（8ペア）</div></div>
+      </button>
+    </div>
+    <button id="start-btn" disabled>▶ ゲームをはじめる</button>
+  </div>
+
+  <!-- ゲーム -->
+  <div id="game-screen">
+    <!-- 対戦バー（対戦モード時のみ表示） -->
+    <div id="vs-bar">
+      <div id="vs-players"></div>
+      <div id="vs-turn-banner">
+        <div class="vs-turn-dot" id="vs-dot"></div>
+        <span id="vs-turn-text">のターン</span>
+      </div>
+    </div>
+
+
+    <div id="card-grid" role="grid"></div>
+    <div class="game-acts">
+      <button class="act-btn btn-re" id="btn-retry">🔄 もういちど</button>
+      <button class="act-btn btn-bk" id="btn-back">📋 もどる</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 対戦結果 -->
+<div id="vs-result-ov" role="dialog" aria-modal="true">
+  <div class="vs-result-card">
+    <div class="vs-crown" id="vr-crown">🏆</div>
+    <div class="vs-winner-name" id="vr-winner"></div>
+    <div class="vs-result-sub" id="vr-sub"></div>
+    <div class="vs-score-list" id="vr-score-list"></div>
+    <div class="vs-result-btns">
+      <button class="vs-result-btn pri" id="btn-vs-again">もういちど</button>
+      <button class="vs-result-btn sec" id="btn-vs-back">もどる</button>
+    </div>
+  </div>
+</div>
+
+<div id="scan-bar"><span>🔍 スキャンモード</span><span>スペース・スイッチで決定</span></div>
+
+<!-- クリア -->
+<div id="clear-ov" role="dialog" aria-modal="true">
+  <div class="clear-card">
+    <div class="clear-ic">🎉</div>
+    <div class="clear-ttl">クリア！</div>
+    <div class="clear-st">
+      じかん：<span class="clear-sv" id="c-time"></span><br>
+      かいすう：<span class="clear-sv" id="c-moves"></span>回<br>
+      <span id="c-msg"></span>
+    </div>
+    <div class="clear-btns">
+      <button class="clear-btn pri" id="btn-again">もういちど</button>
+      <button class="clear-btn sec" id="btn-clear-back">もどる</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 使い方 -->
+<div class="ov" id="how-ov" role="dialog" aria-modal="true" aria-label="つかいかた">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title">📖 つかいかた</div>
+
+    <div class="sec-ttl" style="margin-top:0">🎮 あそびかた</div>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-num">1</div>
+        <div class="how-step-body">
+          <div class="how-step-title">カードセットをえらぶ</div>
+          <div class="how-step-desc">「📦 カードセット」からつかうセットをタップしてえらびます。デフォルトのどうぶつセットや、じぶんでつくったセットがつかえます。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">2</div>
+        <div class="how-step-body">
+          <div class="how-step-title">むずかしさをえらぶ</div>
+          <div class="how-step-desc">かんたん（4まい）・ふつう（12まい）・むずかしい（16まい）から1つえらびます。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">3</div>
+        <div class="how-step-body">
+          <div class="how-step-title">「▶ ゲームをはじめる」をタップ</div>
+          <div class="how-step-desc">カードがうらむきにならんだらスタート！2まいめくって同じカードをみつけましょう。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">4</div>
+        <div class="how-step-body">
+          <div class="how-step-title">ペアをみつけてクリア！</div>
+          <div class="how-step-desc">同じカードを2まいみつけるとマッチ！すべてのペアをみつけたらクリアです。なんかいでクリアできるかちょうせんしよう！</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="how-divider"></div>
+    <div class="sec-ttl" style="margin-top:0">➕ オリジナルセットのつくりかた</div>
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="how-step-num">1</div>
+        <div class="how-step-body">
+          <div class="how-step-title">「＋ あたらしいセットをつくる」をタップ</div>
+          <div class="how-step-desc">ホーム画面のボタンからセット作成画面をひらきます。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">2</div>
+        <div class="how-step-body">
+          <div class="how-step-title">ひょうじモードをえらぶ</div>
+          <div class="how-step-desc">4しゅるいのモードからえらびます（くわしくは下のひょうじモードせつめいをみてね）。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">3</div>
+        <div class="how-step-body">
+          <div class="how-step-title">しゃしん・テキストをついか</div>
+          <div class="how-step-desc">🖼️をタップするとカメラロールやファイルからしゃしんをえらべます。なまえのらんにテキストをにゅうりょくするとよみあげにもつかわれます。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num">4</div>
+        <div class="how-step-body">
+          <div class="how-step-title">「💾 ほぞんする」でかんせい</div>
+          <div class="how-step-desc">さいだい8しゅるいのカードをほぞんできます。つぎにひらいてもそのままつかえます。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="how-divider"></div>
+    <div class="sec-ttl" style="margin-top:0">🖼️ ひょうじモード</div>
+    <div class="how-modes">
+      <div class="how-mode-row">
+        <div class="how-mode-ic">🖼️📝</div>
+        <div><div class="how-mode-name">写真＋テキスト</div><div class="how-mode-desc">しゃしんとなまえをいっしょにひょうじ。おなじしゃしんのカードをあわせます。</div></div>
+      </div>
+      <div class="how-mode-row">
+        <div class="how-mode-ic">🖼️</div>
+        <div><div class="how-mode-name">写真のみ</div><div class="how-mode-desc">しゃしんだけひょうじ。おなじしゃしんをさがします。</div></div>
+      </div>
+      <div class="how-mode-row">
+        <div class="how-mode-ic">📝</div>
+        <div><div class="how-mode-name">テキストのみ</div><div class="how-mode-desc">テキストだけをおおきくひょうじ。おなじことばをさがします。</div></div>
+      </div>
+      <div class="how-mode-row">
+        <div class="how-mode-ic">あ⇔字</div>
+        <div><div class="how-mode-name">よみ⇔別テキスト</div><div class="how-mode-desc">「よみ」と「かんじなどべつのテキスト」をペアにします。れい：とうきょう ⇔ 東京</div></div>
+      </div>
+    </div>
+
+
+    <div class="how-divider"></div>
+    <div class="sec-ttl" style="margin-top:0">🎮 ゲームモード</div>
+
+    <!-- ひとりでモード -->
+    <div class="how-mode-row" style="margin-bottom:7px;flex-direction:column;align-items:flex-start;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;width:100%;">
+        <div class="how-mode-ic">🧩</div>
+        <div><div class="how-mode-name">🧩 ひとりで（タイムアタック）</div></div>
+      </div>
+      <div class="how-step-desc" style="padding-left:36px;">
+        1人でペアをさがします。タイマーとかいすうが記録されるので、<strong>なんびょうでクリアできるか</strong>ちょうせんしましょう！クリア後は「すごい / じょうず / またちょうせんして」の3だんかいひょうかがあります。
+      </div>
+    </div>
+
+    <!-- たいせんモード -->
+    <div class="how-mode-row" style="margin-bottom:4px;flex-direction:column;align-items:flex-start;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;width:100%;">
+        <div class="how-mode-ic">🏆</div>
+        <div><div class="how-mode-name">🏆 たいせん（2〜4にん）</div></div>
+      </div>
+      <div class="how-step-desc" style="padding-left:36px;">
+        2〜4人でじゅんばんにカードをめくります。<br>
+        <strong>ペアが揃ったら→そのままつづけてめくれる！</strong>外れたら次の人に交代。いちばん多くペアを集めた人のかちです。<br>
+        引き分けの場合は🤝ひきわけになります。
+      </div>
+    </div>
+
+    <!-- たいせんモードの流れ -->
+    <div class="how-steps" style="margin-top:10px;">
+      <div class="how-step">
+        <div class="how-step-num" style="background:#6db5e8;">1</div>
+        <div class="how-step-body">
+          <div class="how-step-title">「🏆 たいせん」をえらんで人数を決める</div>
+          <div class="how-step-desc">2・3・4にんから選びます。プレイヤーはそれぞれ色で区別されます（🔴🔵🟢🟣）。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num" style="background:#6db5e8;">2</div>
+        <div class="how-step-body">
+          <div class="how-step-title">じゅんばんにカードをめくる</div>
+          <div class="how-step-desc">画面上に「◯◯のターン」と表示されます。表示されているプレイヤーがカードを2まいめくります。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num" style="background:#6db5e8;">3</div>
+        <div class="how-step-body">
+          <div class="how-step-title">ペアが揃ったら＋1点＆もう1回！</div>
+          <div class="how-step-desc">マッチするとスコアに＋1点！そのままもう1回めくれます。外れたら次のプレイヤーに交代。</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="how-step-num" style="background:#6db5e8;">4</div>
+        <div class="how-step-body">
+          <div class="how-step-title">全ペアが揃ったら結果発表！</div>
+          <div class="how-step-desc">🥇🥈🥉のランキング形式でスコアをひょうじ。「もういちど」でスコアリセットして再戦できます！</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="how-divider"></div>
+    <div class="sec-ttl" style="margin-top:0">♿ アクセシビリティ（せってい⚙️）</div>
+    <div class="how-access-grid">
+      <div class="how-access-item"><div class="how-access-ic">🔤</div><div class="how-access-name">もじを大きく</div><div class="how-access-desc">もじやカードをおおきくひょうじします</div></div>
+      <div class="how-access-item"><div class="how-access-ic">🌓</div><div class="how-access-name">ハイコントラスト</div><div class="how-access-desc">みやすいはいしょくにきりかえます</div></div>
+      <div class="how-access-item"><div class="how-access-ic">🎬</div><div class="how-access-name">アニメを減らす</div><div class="how-access-desc">カードのうごきをシンプルにします</div></div>
+      <div class="how-access-item"><div class="how-access-ic">🔍</div><div class="how-access-name">スイッチスキャン</div><div class="how-access-desc">スペース・スイッチ1つでそうさできます</div></div>
+      <div class="how-access-item"><div class="how-access-ic">🔊</div><div class="how-access-name">よみあげ</div><div class="how-access-desc">カードをめくるとなまえをよみあげます</div></div>
+    </div>
+
+    <button class="close-btn" id="btn-close-how">とじる</button>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="ov" id="settings-ov" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title">⚙️ せってい</div>
+    <div class="set-row">
+      <div class="set-lbl"><div class="set-nm">🔤 もじを大きく</div><div class="set-ds">文字やカードを大きく表示</div></div>
+      <label class="tog"><input type="checkbox" id="t-large"><span class="tog-sl"></span></label>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl"><div class="set-nm">🌓 ハイコントラスト</div><div class="set-ds">見やすい配色に切り替え</div></div>
+      <label class="tog"><input type="checkbox" id="t-hc"><span class="tog-sl"></span></label>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl"><div class="set-nm">🎬 アニメーションを減らす</div><div class="set-ds">カードの動きをシンプルに</div></div>
+      <label class="tog"><input type="checkbox" id="t-rm"><span class="tog-sl"></span></label>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl"><div class="set-nm">🔍 スイッチスキャン</div><div class="set-ds">スペース・スイッチ1つで操作</div></div>
+      <label class="tog"><input type="checkbox" id="t-scan"><span class="tog-sl"></span></label>
+    </div>
+    <div class="scan-spd-row">
+      <label for="scan-spd">速度</label>
+      <input type="range" id="scan-spd" min="1" max="5" value="3">
+    </div>
+    <div class="set-row">
+      <div class="set-lbl"><div class="set-nm">🔊 おと・よみあげ</div><div class="set-ds">効果音と音声読み上げ</div></div>
+      <label class="tog"><input type="checkbox" id="t-sound" checked><span class="tog-sl"></span></label>
+    </div>
+    <button class="close-btn" id="btn-close-settings">とじる</button>
+  </div>
+</div>
+
+<!-- セット編集 -->
+<div class="ov" id="edit-ov" role="dialog" aria-modal="true">
+  <div class="sheet">
+    <div class="sh-handle"></div>
+    <div class="sh-title" id="edit-title">📦 セットをつくる</div>
+    <div class="name-row">
+      <input type="text" class="name-inp" id="edit-name" placeholder="セットのなまえ（例：くだもの）" maxlength="20">
+    </div>
+    <div class="mode-lbl">カードの表示モード</div>
+    <div class="mode-grid">
+      <button class="mode-btn active" data-mode="img-text"><span class="mode-ic">🖼️📝</span>写真＋テキスト</button>
+      <button class="mode-btn" data-mode="img-only"><span class="mode-ic">🖼️</span>写真のみ</button>
+      <button class="mode-btn" data-mode="text-only"><span class="mode-ic">📝</span>テキストのみ</button>
+      <button class="mode-btn" data-mode="read-kanji"><span class="mode-ic">あ⇔字</span>よみ⇔べつテキスト</button>
+    </div>
+    <div class="mode-hint" id="mode-hint"></div>
+    <div id="edit-list"></div>
+    <button class="add-ec-btn" id="btn-add-card">＋ カードをついか（さいだい8まい）</button>
+    <button class="save-btn" id="btn-save-set">💾 ほぞんする</button>
+  </div>
+</div>
+
+<script>
+/* ── DB ── */
+const DB='matching3',VER=1,ST='sets';
+let db=null;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,VER);r.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains(ST))e.target.result.createObjectStore(ST,{keyPath:'id'});};r.onsuccess=e=>{db=e.target.result;res();};r.onerror=rej;});}
+function dbAll(){return new Promise((res,rej)=>{const r=db.transaction(ST,'readonly').objectStore(ST).getAll();r.onsuccess=()=>res(r.result);r.onerror=rej;});}
+function dbPut(o){return new Promise((res,rej)=>{const tx=db.transaction(ST,'readwrite');tx.objectStore(ST).put(o);tx.oncomplete=res;tx.onerror=rej;});}
+function dbDel(id){return new Promise((res,rej)=>{const tx=db.transaction(ST,'readwrite');tx.objectStore(ST).delete(id);tx.oncomplete=res;tx.onerror=rej;});}
+
+/* ── 定数 ── */
+const MODE_HINTS={
+  'img-text':'📸 写真とテキストを一緒に表示。同じ写真のカードを2枚ならべます。',
+  'img-only':'📸 写真だけを表示。同じ写真のカードを2枚ならべます。',
+  'text-only':'📝 テキストだけを大きく表示。同じテキストのカードを2枚ならべます。',
+  'read-kanji':'📖「よみ」と「別テキスト（漢字など）」のカードをペアにします。例：とうきょう ⇔ 東京',
+};
+const DEFAULT_SET={id:'__default__',name:'🐾 どうぶつ（デフォルト）',displayMode:'img-text',
+  cards:[{emoji:'🐶',label:'いぬ'},{emoji:'🐱',label:'ねこ'},{emoji:'🐼',label:'ぱんだ'},
+         {emoji:'🐸',label:'かえる'},{emoji:'🐧',label:'ぺんぎん'},{emoji:'🦊',label:'きつね'},
+         {emoji:'🐨',label:'こあら'},{emoji:'🐰',label:'うさぎ'}]};
+const LEVELS={easy:{pairs:2,cg:'cg-4'},normal:{pairs:6,cg:'cg-12'},hard:{pairs:8,cg:'cg-16'}};
+const P_COLORS=['p1','p2','p3','p4'];
+const P_EMOJIS=['🔴','🔵','🟢','🟣'];
+const DEFAULT_NAMES=['プレイヤー1','プレイヤー2','プレイヤー3','プレイヤー4'];
+
+/* ── 状態 ── */
+let allSets=[],selSetId='__default__',selLevel=null;
+let curLevel=null,gameCards=[],flipped=[],matched=0,moves=0;
+let timerIv=null,secs=0,locked=false,soundOn=true;
+let scanMode=false,scanIdx=0,scanIv=null,scanMs=1200,audioCtx=null;
+let editId=null,editItems=[],editMode='img-text',pendingFileIdx=null;
+/* ── 対戦モード ── */
+let vsMode=false,vsPlayers=[],vsCur=0,vsCombo=false;
+
+/* ── 音 ── */
+function ac(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playSound(t){if(!soundOn)return;try{const c=ac(),n=c.currentTime,o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);if(t==='flip'){o.type='sine';o.frequency.value=520;g.gain.setValueAtTime(.13,n);g.gain.exponentialRampToValueAtTime(.001,n+.1);o.start(n);o.stop(n+.1);}else if(t==='match'){o.type='triangle';o.frequency.setValueAtTime(660,n);o.frequency.setValueAtTime(880,n+.1);g.gain.setValueAtTime(.16,n);g.gain.exponentialRampToValueAtTime(.001,n+.3);o.start(n);o.stop(n+.3);}else if(t==='wrong'){o.type='sawtooth';o.frequency.value=200;g.gain.setValueAtTime(.09,n);g.gain.exponentialRampToValueAtTime(.001,n+.18);o.start(n);o.stop(n+.18);}else if(t==='clear'){[523,659,784,1047].forEach((f,i)=>{const oo=c.createOscillator(),gg=c.createGain();oo.connect(gg);gg.connect(c.destination);oo.type='sine';oo.frequency.value=f;gg.gain.setValueAtTime(0,n+i*.12);gg.gain.linearRampToValueAtTime(.15,n+i*.12+.05);gg.gain.exponentialRampToValueAtTime(.001,n+i*.12+.26);oo.start(n+i*.12);oo.stop(n+i*.12+.3);});}}catch(e){}}
+function speak(txt){if(!soundOn||!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(txt);u.lang='ja-JP';u.rate=.9;u.pitch=1.1;const v=window.speechSynthesis.getVoices().find(x=>x.lang.startsWith('ja'));if(v)u.voice=v;window.speechSynthesis.speak(u);}
+if('speechSynthesis' in window){window.speechSynthesis.getVoices();window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
+
+/* ── ユーティリティ ── */
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function ann(msg){const e=$('aria-live');e.textContent='';setTimeout(()=>e.textContent=msg,50);}
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function startTimer(){clearInterval(timerIv);secs=0;drawTimer();timerIv=setInterval(()=>{secs++;drawTimer();},1000);}
+function stopTimer(){clearInterval(timerIv);}
+function drawTimer(){$('s-time').textContent=`${~~(secs/60)}:${String(secs%60).padStart(2,'0')}`;}
+function fmtTime(s){return `${~~(s/60)}分${s%60}秒`;}
+
+/* ── セット読み込み ── */
+async function loadSets(){const stored=await dbAll();allSets=[DEFAULT_SET,...stored];renderSets();updateStartBtn();}
+function getSet(id){return allSets.find(s=>s.id===id)||null;}
+
+function renderSets(){
+  const list=$('set-list');list.innerHTML='';
+  allSets.forEach(set=>{
+    const item=document.createElement('div');
+    item.className='set-item'+(set.id===selSetId?' selected':'');
+    item.tabIndex=0;item.setAttribute('role','radio');
+    item.setAttribute('aria-checked',set.id===selSetId?'true':'false');
+    const first=set.cards[0];
+    const isDef=set.id==='__default__';
+    const modeLabel={'img-text':'🖼️📝','img-only':'🖼️','text-only':'📝','read-kanji':'あ⇔字'}[set.displayMode||'img-text'];
+    item.innerHTML=`
+      <div class="set-thumb">${first?.imgDataUrl?`<img src="${first.imgDataUrl}" alt="">`:first?.emoji||'📦'}</div>
+      <div class="set-info">
+        <div class="set-name">${esc(set.name)}</div>
+        <div class="set-meta">${set.cards.length}しゅるい ・ ${modeLabel}</div>
+      </div>
+      <div class="set-acts">
+        ${!isDef?`<button class="set-act" data-edit="${set.id}" aria-label="へんしゅう">✏️</button><button class="set-act red" data-del="${set.id}" aria-label="さくじょ">🗑️</button>`:''}
+      </div>`;
+    const sel=()=>{selSetId=set.id;document.querySelectorAll('.set-item').forEach(e=>{e.classList.remove('selected');e.setAttribute('aria-checked','false');});item.classList.add('selected');item.setAttribute('aria-checked','true');updateStartBtn();};
+    item.addEventListener('click',e=>{if(e.target.closest('[data-edit],[data-del]'))return;sel();});
+    item.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sel();}});
+    item.querySelector('[data-edit]')?.addEventListener('click',e=>{e.stopPropagation();openEdit(set.id);});
+    item.querySelector('[data-del]')?.addEventListener('click',async e=>{e.stopPropagation();if(!confirm(`「${set.name}」をさくじょしますか？`))return;await dbDel(set.id);if(selSetId===set.id)selSetId='__default__';await loadSets();});
+    list.appendChild(item);
+  });
+}
+
+function updateStartBtn(){
+  const set=getSet(selSetId),btn=$('start-btn');
+  if(!selLevel){btn.disabled=true;btn.textContent='むずかしさをえらんでください';return;}
+  const need=LEVELS[selLevel].pairs;
+  if(!set||set.cards.length<need){btn.disabled=true;btn.textContent=`カードが${need}まい以上ひつようです`;return;}
+  btn.disabled=false;btn.textContent='▶ ゲームをはじめる';
+}
+
+/* ── ゲーム ── */
+function startGame(){
+  const set=getSet(selSetId);if(!set||!selLevel)return;
+  curLevel=selLevel;const{pairs,cg}=LEVELS[curLevel];const mode=set.displayMode||'img-text';
+  $('sel-screen').style.display='none';$('game-screen').style.display='flex';
+
+  // 対戦モード初期化
+  if(vsMode){
+    $('stat-bar').style.display='none';
+    initVsBar(pairs);
+  } else {
+    $('stat-bar').style.display='flex';
+    $('vs-bar').classList.remove('show');
+  }
+
+  flipped=[];matched=0;moves=0;locked=false;updateStats();startTimer();
+
+  const selected=shuffle([...set.cards]).slice(0,pairs);
+  if(mode==='read-kanji'){
+    // ペアAとB（よみと漢字）を別カードとして生成
+    const arr=[];
+    selected.forEach((c,i)=>{
+      arr.push({...c,_pid:i,_side:'a'});
+      arr.push({...c,_pid:i,_side:'b'});
+    });
+    gameCards=shuffle(arr);
+  } else {
+    gameCards=shuffle([...selected,...selected].map((c,i)=>({...c,_pid:selected.indexOf(c),_side:'same'})));
+  }
+
+  const grid=$('card-grid');grid.innerHTML='';grid.className=cg;
+  gameCards.forEach((card,idx)=>grid.appendChild(mkCard(card,idx,mode)));
+  if(scanMode){scanIdx=0;startScan();}
+  ann(`${pairs}ペアのゲームをはじめます`);
+}
+
+function mkCard(card,idx,mode){
+  const el=document.createElement('div');
+  el.className='card';el.tabIndex=0;el.setAttribute('role','button');
+  el.setAttribute('aria-label',`カード${idx+1}：おもてむき`);el.setAttribute('aria-pressed','false');
+
+  let front='';
+  if(mode==='img-only'){
+    front=card.imgDataUrl?`<img class="card-img" src="${card.imgDataUrl}" alt="${esc(card.label||'')}">`:
+      `<div class="card-big-em">${card.emoji||'?'}</div>`;
+  } else if(mode==='text-only'){
+    front=`<div class="card-txt">${esc(card.label||card.emoji||'?')}</div>`;
+  } else if(mode==='read-kanji'){
+    const txt=card._side==='a'?(card.label||card.emoji||'?'):(card.label2||card.label||'?');
+    front=`<div class="card-txt">${esc(txt)}</div>`;
+  } else { // img-text
+    if(card.imgDataUrl){
+      front=`<img class="card-img" src="${card.imgDataUrl}" alt="${esc(card.label||'')}">`;
+      if(card.label)front+=`<div class="card-lbl">${esc(card.label)}</div>`;
+    } else {
+      front=`<div class="card-big-em">${card.emoji||'?'}</div>`;
+      if(card.label)front+=`<div class="card-lbl">${esc(card.label)}</div>`;
+    }
+  }
+  el.innerHTML=`<div class="ci"><div class="cf cf-back" aria-hidden="true"><div class="cf-back-pat"></div>🃏</div><div class="cf cf-front" aria-hidden="true">${front}</div></div>`;
+  el.addEventListener('click',()=>flip(el,idx));
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();flip(el,idx);}});
+  return el;
+}
+
+function getSpeak(card,mode){
+  if(mode==='read-kanji')return card._side==='a'?(card.label||card.emoji||''):(card.label2||card.label||'');
+  return card.label||card.emoji||'';
+}
+
+function flip(el,idx){
+  if(locked||el.classList.contains('flipped')||el.classList.contains('matched'))return;
+  const mode=getSet(selSetId)?.displayMode||'img-text';
+  el.classList.add('flipped');
+  const spk=getSpeak(gameCards[idx],mode);
+  el.setAttribute('aria-label',`カード${idx+1}：${spk}`);el.setAttribute('aria-pressed','true');
+  playSound('flip');if(spk)speak(spk);
+  flipped.push({el,idx});
+  if(flipped.length===2){moves++;updateStats();checkMatch();}
+}
+
+function checkMatch(){
+  locked=true;const[a,b]=flipped;
+  const ca=gameCards[a.idx],cb=gameCards[b.idx];
+  const isMatch=ca._pid===cb._pid&&(ca._side==='same'?a.idx!==b.idx:ca._side!==cb._side);
+  if(isMatch){
+    matched++;a.el.classList.add('matched');b.el.classList.add('matched');
+    updateStats();playSound('match');
+    const nm=ca.label||ca.emoji||'';ann(`${nm}がマッチ！`);speak(`${nm}、マッチ！`);
+    spawnPar(a.el);
+    if(vsMode){
+      vsPlayers[vsCur].score++;
+      vsCombo=true;
+      spawnScoreUp(a.el,vsPlayers[vsCur].color);
+      updateVsBar();
+    }
+    flipped=[];locked=false;
+    if(matched===LEVELS[curLevel].pairs){
+      setTimeout(vsMode?showVsResult:showClear,480);
+    }
+  } else {
+    a.el.classList.add('wrong');b.el.classList.add('wrong');
+    playSound('wrong');ann('ちがいます');speak('ちがいます');
+    setTimeout(()=>{
+      a.el.classList.remove('flipped','wrong');b.el.classList.remove('flipped','wrong');
+      a.el.setAttribute('aria-label',`カード${a.idx+1}：おもてむき`);b.el.setAttribute('aria-label',`カード${b.idx+1}：おもてむき`);
+      a.el.setAttribute('aria-pressed','false');b.el.setAttribute('aria-pressed','false');
+      flipped=[];locked=false;
+      if(vsMode){vsCombo=false;nextPlayer();}
+    },900);
+  }
+}
+
+function updateStats(){$('s-moves').textContent=moves;$('s-pairs').textContent=`${matched}/${LEVELS[curLevel]?.pairs||0}`;}
+/* ── 対戦モード関数 ── */
+function initVsBar(pairs){
+  const n=vsPlayers.length;
+  $('vs-bar').classList.add('show');
+  const cont=$('vs-players');cont.innerHTML='';
+  vsPlayers.forEach((p,i)=>{
+    const el=document.createElement('div');
+    el.className=`vs-player ${p.color}`+(i===0?' active-player':'');
+    el.id=`vsp-${i}`;
+    el.innerHTML=`<div class="vs-player-name">${esc(p.name)}</div><div class="vs-player-score" id="vss-${i}">0</div><div class="turn-arrow">▼</div>`;
+    cont.appendChild(el);
+  });
+  vsCur=0;vsCombo=false;
+  updateVsTurnBanner();
+}
+
+function updateVsBar(){
+  vsPlayers.forEach((p,i)=>{
+    const el=$(`vsp-${i}`);if(!el)return;
+    el.classList.toggle('active-player',i===vsCur);
+    $(`vss-${i}`).textContent=p.score;
+  });
+  updateVsTurnBanner();
+}
+
+function updateVsTurnBanner(){
+  const p=vsPlayers[vsCur];if(!p)return;
+  const dot=$('vs-dot');const txt=$('vs-turn-text');
+  const colors={p1:'#e8956d',p2:'#6db5e8',p3:'#7dc98a',p4:'#c98ae8'};
+  dot.style.background=colors[p.color]||'var(--primary)';
+  txt.textContent=`${p.name} のターン`;
+}
+
+function nextPlayer(){
+  vsCur=(vsCur+1)%vsPlayers.length;
+  updateVsBar();
+  const p=vsPlayers[vsCur];
+  speak(`${p.name}のターン`);
+}
+
+function spawnScoreUp(el,colorClass){
+  const r=el.getBoundingClientRect();
+  const s=document.createElement('div');s.className='score-up';
+  s.textContent='+1';
+  const colors={p1:'#e8956d',p2:'#6db5e8',p3:'#7dc98a',p4:'#c98ae8'};
+  s.style.color=colors[colorClass]||'var(--primary)';
+  s.style.left=(r.left+r.width/2-16)+'px';s.style.top=(r.top-10)+'px';
+  document.body.appendChild(s);setTimeout(()=>s.remove(),820);
+}
+
+function showVsResult(){
+  stopTimer();playSound('clear');
+  const sorted=[...vsPlayers].sort((a,b)=>b.score-a.score);
+  const topScore=sorted[0].score;
+  const winners=sorted.filter(p=>p.score===topScore);
+  const isDraw=winners.length>1;
+  const colors={p1:'#e8956d',p2:'#6db5e8',p3:'#7dc98a',p4:'#c98ae8'};
+
+  $('vr-crown').textContent=isDraw?'🤝':'🏆';
+  $('vr-winner').textContent=isDraw?'ひきわけ！':winners[0].name+'のかち！';
+  $('vr-winner').style.color=isDraw?'var(--text)':(colors[winners[0].color]||'var(--primary)');
+  $('vr-sub').textContent=`${fmtTime(secs)} ・ ${LEVELS[curLevel].pairs}ペア`;
+
+  const ranks=['🥇','🥈','🥉','4️⃣'];
+  const listEl=$('vr-score-list');listEl.innerHTML='';
+  sorted.forEach((p,i)=>{
+    const row=document.createElement('div');
+    row.className='vs-score-row'+(i===0?' rank1':'');
+    row.innerHTML=`<span class="vs-score-rank">${ranks[i]||''}</span><span class="vs-score-name" style="color:${colors[p.color]||'var(--text)'}">${esc(p.name)}</span><span class="vs-score-pts">${p.score}ペア</span>`;
+    listEl.appendChild(row);
+  });
+
+  $('vs-result-ov').classList.add('show');$('btn-vs-again').focus();
+  const msg=isDraw?'ひきわけ！':winners[0].name+'のかちでした！';
+  ann(msg);speak(msg);
+}
+
+
+function showClear(){
+  stopTimer();playSound('clear');
+  $('c-time').textContent=fmtTime(secs);$('c-moves').textContent=moves;
+  const p=LEVELS[curLevel].pairs;
+  $('c-msg').textContent=moves<=p*2?'🌟 すごい！かんぺきなスコア！':moves<=p*3?'😊 よくできました！':'👏 クリア！またちょうせんしてね！';
+  $('clear-ov').classList.add('show');$('btn-again').focus();
+  ann(`クリア！${moves}かい`);speak(`クリア！${moves}かいでクリアしました！`);
+}
+
+function backToSel(){stopTimer();$('game-screen').style.display='none';$('stat-bar').style.display='none';$('vs-bar').classList.remove('show');$('sel-screen').style.display='flex';stopScan();}
+
+function spawnPar(el){
+  if(document.body.classList.contains('reduce-motion'))return;
+  const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  ['⭐','✨','🌟'].forEach((s,i)=>{const p=document.createElement('div');p.className='spar';p.textContent=s;p.style.left=(cx+(i-1)*26)+'px';p.style.top=cy+'px';p.style.animationDelay=(i*.09)+'s';document.body.appendChild(p);setTimeout(()=>p.remove(),750);});
+}
+
+/* ── スキャン ── */
+function startScan(){stopScan();const its=scanItems();if(!its.length)return;its[scanIdx%its.length].classList.add('scan-hl');scanIv=setInterval(()=>{const i2=scanItems();i2.forEach(x=>x.classList.remove('scan-hl'));scanIdx=(scanIdx+1)%Math.max(i2.length,1);if(i2[scanIdx])i2[scanIdx].classList.add('scan-hl');},scanMs);}
+function stopScan(){clearInterval(scanIv);document.querySelectorAll('.scan-hl').forEach(e=>e.classList.remove('scan-hl'));}
+function scanItems(){if($('game-screen').style.display!=='none')return[...document.querySelectorAll('.card:not(.matched)')];return[...document.querySelectorAll('.set-item,.lvl-btn,#start-btn')];}
+function scanAct(){const its=scanItems(),cur=its[scanIdx%Math.max(its.length,1)];if(cur)cur.click();}
+
+/* ── セット編集 ── */
+function openEdit(id){
+  editId=id||null;const set=id?getSet(id):null;
+  $('edit-title').textContent=id?'✏️ セットをへんしゅう':'📦 セットをつくる';
+  $('edit-name').value=set?.name||'';
+  editMode=set?.displayMode||'img-text';
+  editItems=set?set.cards.map(c=>({...c})):[{label:'',label2:'',imgDataUrl:null,emoji:''}];
+  applyMode(editMode);$('edit-ov').classList.add('show');$('edit-name').focus();
+}
+
+function applyMode(mode){
+  editMode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>{const a=b.dataset.mode===mode;b.classList.toggle('active',a);b.setAttribute('aria-pressed',a?'true':'false');});
+  $('mode-hint').textContent=MODE_HINTS[mode]||'';
+  renderEditList();
+}
+
+function renderEditList(){
+  const list=$('edit-list');list.innerHTML='';
+  const showImg=editMode==='img-text'||editMode==='img-only';
+  const showLbl=editMode!=='img-only';
+  const showLbl2=editMode==='read-kanji';
+
+  editItems.forEach((item,i)=>{
+    const div=document.createElement('div');div.className='ec-item';
+    let imgHtml='';
+    if(showImg){
+      const prev=item.imgDataUrl?`<img src="${item.imgDataUrl}" alt=""><div class="ec-img-ov">かえる</div>`:`<span style="font-size:1.5em">${item.emoji||'🖼️'}</span>`;
+      imgHtml=`<div class="ec-img" tabindex="0" aria-label="がぞうをえらぶ（タップ）" data-ii="${i}">${prev}</div>`;
+    }
+    let txtHtml='';
+    if(showLbl){
+      const ph=editMode==='read-kanji'?'よみ（例：とうきょう）':'なまえ（読み上げ用）';
+      txtHtml+=`<input type="text" class="ec-inp" data-ti="${i}" data-f="label" placeholder="${ph}" value="${esc(item.label||'')}" maxlength="20">`;
+    }
+    if(showLbl2){
+      txtHtml+=`<input type="text" class="ec-inp" data-ti="${i}" data-f="label2" placeholder="漢字・別テキスト（例：東京）" value="${esc(item.label2||'')}" maxlength="20">`;
+    }
+    div.innerHTML=`${imgHtml}<div class="ec-texts">${txtHtml}</div><button class="ec-del" data-di="${i}" aria-label="カード${i+1}をさくじょ">✕</button>`;
+    div.querySelector('.ec-img')?.addEventListener('click',()=>triggerFile(i));
+    div.querySelector('.ec-img')?.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();triggerFile(i);}});
+    div.querySelectorAll('.ec-inp').forEach(inp=>inp.addEventListener('input',e=>{editItems[i][e.target.dataset.f]=e.target.value;}));
+    div.querySelector('.ec-del').addEventListener('click',()=>{if(editItems.length<=1){alert('カードは1まい以上ひつようです');return;}editItems.splice(i,1);renderEditList();});
+    list.appendChild(div);
+  });
+  $('btn-add-card').style.display=editItems.length>=8?'none':'block';
+}
+
+function triggerFile(idx){pendingFileIdx=idx;$('file-input').value='';$('file-input').click();}
+
+$('file-input').addEventListener('change',async e=>{
+  const files=[...e.target.files];if(!files.length||pendingFileIdx===null)return;
+  for(let i=0;i<files.length;i++){
+    const url=await toDataURL(files[i]);
+    const idx=pendingFileIdx+i;
+    if(i===0){editItems[idx]={...editItems[idx],imgDataUrl:url,emoji:''};}
+    else{if(editItems.length>=8)break;editItems.splice(idx,0,{label:'',label2:'',imgDataUrl:url,emoji:''});}
+  }
+  renderEditList();pendingFileIdx=null;
+});
+
+function toDataURL(file){return new Promise((res,rej)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{const MAX=320;let w=img.width,h=img.height;if(w>MAX||h>MAX){const r=Math.min(MAX/w,MAX/h);w=~~(w*r);h=~~(h*r);}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',.82));};img.onerror=rej;img.src=url;});}
+
+$('btn-add-card').addEventListener('click',()=>{if(editItems.length>=8)return;editItems.push({label:'',label2:'',imgDataUrl:null,emoji:''});renderEditList();});
+document.querySelectorAll('.mode-btn').forEach(b=>b.addEventListener('click',()=>applyMode(b.dataset.mode)));
+
+$('btn-save-set').addEventListener('click',async()=>{
+  const name=$('edit-name').value.trim();
+  if(!name){alert('セットのなまえをにゅうりょくしてください');return;}
+  const valid=editItems.filter(c=>c.imgDataUrl||c.label||c.emoji);
+  if(valid.length<2){alert('カードを2まい以上ついかしてください');return;}
+  const set={id:editId||('set_'+Date.now()),name,displayMode:editMode,cards:valid};
+  await dbPut(set);selSetId=set.id;$('edit-ov').classList.remove('show');await loadSets();
+});
+
+/* ── 設定 ── */
+function loadPrefs(){const p=JSON.parse(localStorage.getItem('match-prefs3')||'{}');if(p.large){$('t-large').checked=true;document.body.classList.add('large-text');}if(p.hc){$('t-hc').checked=true;document.body.classList.add('high-contrast');}if(p.rm){$('t-rm').checked=true;document.body.classList.add('reduce-motion');}if(p.scan){$('t-scan').checked=true;enableScan();}if(p.sound===false){$('t-sound').checked=false;soundOn=false;}if(p.spd){$('scan-spd').value=p.spd;setScanSpd(p.spd);}}
+function savePrefs(){localStorage.setItem('match-prefs3',JSON.stringify({large:$('t-large').checked,hc:$('t-hc').checked,rm:$('t-rm').checked,scan:$('t-scan').checked,sound:$('t-sound').checked,spd:$('scan-spd').value}));}
+function enableScan(){scanMode=true;document.body.classList.add('scan-mode');scanIdx=0;startScan();}
+function disableScan(){scanMode=false;document.body.classList.remove('scan-mode');stopScan();}
+function setScanSpd(v){scanMs=2500-v*400;if(scanMode)startScan();}
+
+/* ── イベント ── */
+
+$('btn-how').addEventListener('click',()=>$('how-ov').classList.add('show'));
+$('btn-close-how').addEventListener('click',()=>$('how-ov').classList.remove('show'));
+$('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov'))$('how-ov').classList.remove('show');});
+$('btn-settings').addEventListener('click',()=>$('settings-ov').classList.add('show'));
+$('btn-close-settings').addEventListener('click',()=>$('settings-ov').classList.remove('show'));
+$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov'))$('settings-ov').classList.remove('show');});
+$('t-large').addEventListener('change',e=>{document.body.classList.toggle('large-text',e.target.checked);savePrefs();});
+$('t-hc').addEventListener('change',e=>{document.body.classList.toggle('high-contrast',e.target.checked);savePrefs();});
+$('t-rm').addEventListener('change',e=>{document.body.classList.toggle('reduce-motion',e.target.checked);savePrefs();});
+$('t-scan').addEventListener('change',e=>{if(e.target.checked)enableScan();else disableScan();savePrefs();});
+$('t-sound').addEventListener('change',e=>{soundOn=e.target.checked;savePrefs();});
+$('scan-spd').addEventListener('input',e=>{setScanSpd(e.target.value);savePrefs();});
+$('btn-add-set').addEventListener('click',()=>openEdit(null));
+$('edit-ov').addEventListener('click',e=>{if(e.target===$('edit-ov'))$('edit-ov').classList.remove('show');});
+document.querySelectorAll('.lvl-btn').forEach(b=>{b.addEventListener('click',()=>{selLevel=b.dataset.lv;document.querySelectorAll('.lvl-btn').forEach(x=>{x.style.opacity='.55';x.style.boxShadow='';});b.style.opacity='1';b.style.boxShadow='0 0 0 3px var(--primary)';updateStartBtn();});});
+
+/* ── 対戦モードイベント ── */
+let selPlayerCount=2;
+$('gm-solo').addEventListener('click',()=>{
+  vsMode=false;
+  $('gm-solo').classList.add('active');$('gm-solo').setAttribute('aria-pressed','true');
+  $('gm-vs').classList.remove('active');$('gm-vs').setAttribute('aria-pressed','false');
+  $('player-count-row').classList.remove('show');
+});
+$('gm-vs').addEventListener('click',()=>{
+  vsMode=true;
+  $('gm-vs').classList.add('active');$('gm-vs').setAttribute('aria-pressed','true');
+  $('gm-solo').classList.remove('active');$('gm-solo').setAttribute('aria-pressed','false');
+  $('player-count-row').classList.add('show');
+});
+document.querySelectorAll('.pc-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    selPlayerCount=parseInt(b.dataset.pc);
+    document.querySelectorAll('.pc-btn').forEach(x=>{x.classList.remove('active');});
+    b.classList.add('active');
+  });
+});
+$('btn-vs-again').addEventListener('click',()=>{
+  $('vs-result-ov').classList.remove('show');
+  // スコアリセット
+  vsPlayers.forEach(p=>p.score=0);
+  startGame();
+});
+$('btn-vs-back').addEventListener('click',()=>{
+  $('vs-result-ov').classList.remove('show');
+  backToSel();
+});
+$('start-btn').addEventListener('click',()=>{
+  if(vsMode){
+    vsPlayers=Array.from({length:selPlayerCount},(_,i)=>({
+      name:DEFAULT_NAMES[i],color:P_COLORS[i],score:0
+    }));
+    vsCur=0;vsCombo=false;
+  }
+  startGame();
+});
+$('btn-retry').addEventListener('click',()=>{
+  if(vsMode){vsPlayers.forEach(p=>p.score=0);vsCur=0;vsCombo=false;}
+  startGame();
+});
+$('btn-back').addEventListener('click',backToSel);
+$('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');startGame();});
+$('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');backToSel();});
+document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');}});
+let tStart=0;
+document.addEventListener('touchstart',e=>{if(!scanMode)return;tStart=Date.now();},{passive:true});
+document.addEventListener('touchend',e=>{if(!scanMode)return;if(Date.now()-tStart<500)scanAct();});
+
+/* ── 起動 ── */
+(async()=>{await openDB();await loadSets();loadPrefs();})();
+</script>
+</body>
+</html>
