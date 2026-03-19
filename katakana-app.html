@@ -1255,17 +1255,21 @@ function newQuiz(){
         document.getElementById('quizCorrect').textContent=quizCorrect;
         celebrate(); speak('せいかい！');
         addLog('quiz',{kana:quizCurrent.k,answer:toHira(choiceK),correct:true,correct_ans:toHira(quizCurrent.k)});
+        // 正解時は1秒後に自動で次へ
+        setTimeout(function(){
+          if(quizCount>=quizMax){ showQuizResult(); }
+          else { nextQuiz(); }
+        }, 900);
       } else {
         btn.classList.add('wrong');
         document.querySelectorAll('.choice-btn').forEach(b=>{ if(b.textContent===toHira(quizCurrent.k)) b.classList.add('correct'); });
         speak('ざんねん！');
         quizWrongList.push({kana:quizCurrent.k,answer:toHira(choiceK),correct_ans:toHira(quizCurrent.k)});
         addLog('quiz',{kana:quizCurrent.k,answer:toHira(choiceK),correct:false,correct_ans:toHira(quizCurrent.k)});
+        // 不正解時はボタンで次へ
+        document.getElementById('quizNextBtn').textContent = quizCount>=quizMax ? 'けっか をみる →' : 'つぎへ →';
+        document.getElementById('quizNextBtn').style.display='block';
       }
-      if(quizCount>=quizMax){
-        document.getElementById('quizNextBtn').textContent='けっか をみる →';
-      }
-      document.getElementById('quizNextBtn').style.display='block';
     });
     grid.appendChild(btn);
   });
@@ -1276,6 +1280,48 @@ function nextQuiz(){
   newQuiz();
 }
 
+
+// マッチングデータ
+const MATCH_SET=[
+  {k:'ア',r:'あ'},{k:'イ',r:'い'},{k:'ウ',r:'う'},{k:'エ',r:'え'},{k:'オ',r:'お'},
+  {k:'カ',r:'か'},{k:'キ',r:'き'},{k:'ク',r:'く'},{k:'ケ',r:'け'},{k:'コ',r:'こ'},
+  {k:'サ',r:'さ'},{k:'シ',r:'し'},{k:'ス',r:'す'},{k:'セ',r:'せ'},{k:'ソ',r:'そ'},
+  {k:'タ',r:'た'},{k:'チ',r:'ち'},{k:'ツ',r:'つ'},{k:'テ',r:'て'},{k:'ト',r:'と'},
+  {k:'ナ',r:'な'},{k:'ニ',r:'に'},{k:'ヌ',r:'ぬ'},{k:'ネ',r:'ね'},{k:'ノ',r:'の'},
+  {k:'ハ',r:'は'},{k:'ヒ',r:'ひ'},{k:'フ',r:'ふ'},{k:'ヘ',r:'へ'},{k:'ホ',r:'ほ'},
+  {k:'マ',r:'ま'},{k:'ミ',r:'み'},{k:'ム',r:'む'},{k:'メ',r:'め'},{k:'モ',r:'も'},
+  {k:'ヤ',r:'や'},{k:'ユ',r:'ゆ'},{k:'ヨ',r:'よ'},
+  {k:'ラ',r:'ら'},{k:'リ',r:'り'},{k:'ル',r:'る'},{k:'レ',r:'れ'},{k:'ロ',r:'ろ'},
+  {k:'ワ',r:'わ'},{k:'ヲ',r:'を'},{k:'ン',r:'ん'},
+];
+let matchSelected=null, matchSelectedType=null;
+
+function buildMatch(){
+  const area=document.getElementById('matchArea');
+  area.innerHTML='';
+  document.getElementById('matchComplete').classList.remove('show');
+  matchSelected=null; matchSelectedType=null;
+  const set=[...MATCH_SET].sort(()=>Math.random()-0.5).slice(0,6);
+  const kanas=[...set].sort(()=>Math.random()-0.5);
+  const romajis=[...set].sort(()=>Math.random()-0.5);
+  const lc=document.createElement('div'); lc.className='match-col';
+  const rc=document.createElement('div'); rc.className='match-col';
+  kanas.forEach(item=>{
+    const el=document.createElement('div'); el.className='match-item';
+    el.setAttribute('tabindex','0'); el.textContent=item.k;
+    el.dataset.key=item.k; el.dataset.type='kana';
+    el.addEventListener('click',()=>matchClick(el,item.k,'kana'));
+    lc.appendChild(el);
+  });
+  romajis.forEach(item=>{
+    const el=document.createElement('div'); el.className='match-item';
+    el.setAttribute('tabindex','0'); el.textContent=item.r;
+    el.dataset.key=item.k; el.dataset.type='romaji';
+    el.addEventListener('click',()=>matchClick(el,item.k,'romaji'));
+    rc.appendChild(el);
+  });
+  area.appendChild(lc); area.appendChild(rc);
+}
 
 function matchClick(el,key,type){
   if(el.classList.contains('matched'))return;
