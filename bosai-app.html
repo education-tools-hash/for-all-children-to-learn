@@ -915,6 +915,9 @@
   }
   .placeholder-msg .ph-icon { font-size: 56px; }
 </style>
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <style>
 /* ===== フルスクリーンボタン共通 ===== */
@@ -943,12 +946,7 @@
 }
 #fs-btn:hover { background: rgba(45,42,74,1); transform: scale(1.05); }
 #fs-btn:focus { outline: 3px solid #5BC4F5; outline-offset: 2px; }
-:fullscreen #fs-btn,
-:-webkit-full-screen #fs-btn { top: 10px; right: 10px; }
 </style>
-<link rel="icon" href="favicon.png" type="image/png">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
 <button id="fs-btn" onclick="toggleFS()" aria-label="全画面表示の切り替え" title="ぜんぶにひろげる">
@@ -1392,58 +1390,7 @@ function printReport() {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  
-<script>
-/* ===== フルスクリーン共通 ===== */
-function toggleFS() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  const el = document.documentElement;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (!isFS) {
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) req.call(el);
-  } else {
-    const ex = document.exitFullscreen || document.webkitExitFullscreen;
-    if (ex) ex.call(document);
-  }
-}
-function updateFSBtn() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  if (!btn) return;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  icon.textContent = isFS ? '✕' : '⛶';
-  label.textContent = isFS ? 'もとにもどす' : 'ぜんぶにひろげる';
-}
-document.addEventListener('fullscreenchange', updateFSBtn);
-document.addEventListener('webkitfullscreenchange', updateFSBtn);
-
-/* ===== キーボード：Spaceキー・Enterキーで主要ボタンを操作 ===== */
-document.addEventListener('keydown', function(e) {
-  // Escapeは全画面解除（ブラウザデフォルト）に任せる
-  if (e.key === 'Escape') return;
-  // フォーム入力中は無視
-  const tag = document.activeElement ? document.activeElement.tagName : '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  // フォーカスが当たっている要素があればEnter/Spaceでクリック
-  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement !== document.body) {
-    const el = document.activeElement;
-    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('tabindex') !== null) {
-      e.preventDefault();
-      el.click();
-      return;
-    }
-  }
-  // F キーで全画面トグル
-  if (e.key === 'f' || e.key === 'F') {
-    toggleFS();
-  }
-});
-</script>
-</body></html>`);
+  </body></html>`);
   win.document.close();
 }
 
@@ -3392,6 +3339,46 @@ function backToMenu() {
   const vp = document.getElementById('sim-viewport');
   vp.classList.remove('active');
 }
+</script>
+
+<script>
+/* ===== フルスクリーン共通 ===== */
+function toggleFS() {
+  const el = document.documentElement;
+  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (!isFS) {
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el);
+  } else {
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if (ex) ex.call(document);
+  }
+}
+function updateFSBtn() {
+  const btn = document.getElementById('fs-btn');
+  const icon = document.getElementById('fs-icon');
+  const label = document.getElementById('fs-label');
+  if (!btn) return;
+  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  icon.textContent = isFS ? '✕' : '⛶';
+  label.textContent = isFS ? 'もとにもどす' : 'ぜんぶにひろげる';
+}
+document.addEventListener('fullscreenchange', updateFSBtn);
+document.addEventListener('webkitfullscreenchange', updateFSBtn);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') return;
+  const tag = document.activeElement ? document.activeElement.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement !== document.body) {
+    const el = document.activeElement;
+    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('tabindex') !== null) {
+      e.preventDefault();
+      el.click();
+      return;
+    }
+  }
+  if (e.key === 'f' || e.key === 'F') { toggleFS(); }
+});
 </script>
 </body>
 </html>
