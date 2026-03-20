@@ -80,7 +80,9 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 .item.drag-over{border-color:var(--mint);background:var(--mint-light);}
 .item.dragging{opacity:.35;}
 .item.scan-focus{outline:4px solid var(--sun);outline-offset:2px;box-shadow:0 0 0 6px rgba(245,166,35,.25);}
-.drag-handle{cursor:grab;color:var(--text3);font-size:14px;padding:3px 2px;margin-top:3px;flex-shrink:0;}
+.drag-handle{cursor:grab;color:var(--text3);font-size:20px;padding:6px 4px;margin-top:0;flex-shrink:0;touch-action:none;user-select:none;-webkit-user-select:none;display:flex;align-items:center;border-radius:8px;transition:background .15s;}
+.drag-handle:hover{background:var(--sky-light);color:var(--sky);}
+.drag-handle:active{cursor:grabbing;}
 .item-check{width:42px;height:42px;border-radius:50%;border:3px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;transition:all .15s;background:var(--bg);margin-top:2px;}
 .item-check:hover{border-color:var(--mint);background:var(--mint-light);}
 .item.done .item-check{background:var(--mint);border-color:var(--mint);color:#fff;}
@@ -576,7 +578,25 @@ ruby rt{font-size:.55em;font-weight:400;color:var(--text2);}
 <div class="toast" id="toast"></div>
 
 <script>
-const EMOJIS=['📚','✏️','🎒','🍱','🏃','🎵','🎨','🔢','💻','🌸','⚽','🏊','🎮','🍎','☀️','🌙','🚌','🏠','🛁','🧹','📖','🗣️','🎤','🔔','⏰','🧸','🔬','🌏','🍳','☕','🎯','🧩'];
+// 学校生活・日常生活向け絵文字（カテゴリ順）
+const EMOJIS=[
+  // 学習・教科
+  '📚','✏️','📖','🔢','🔬','🌏','🎵','🎨','💻','🇬🇧','📐','🖊️',
+  // 生活・身じたく
+  '👕','🧥','👖','🧦','👟','🎒','🪥','🚿','🛁','🚽','🧴','🪒',
+  // 食事
+  '🍱','🍚','🥢','🥛','🍎','🍌','🥗','🍞','🍜','🍳','☕','🧃',
+  // 運動・体育
+  '🏃','⚽','🏊','🏀','⚾','🏸','🤸','🎽',
+  // 移動・場所
+  '🚌','🚗','🏫','🏠','🏥','🏪','🚶','🛗',
+  // 活動・余暇
+  '🎮','🎯','🧩','🎤','🎤','🧸','🌸','🌳','🎪','🎠',
+  // 時間・気持ち
+  '⏰','☀️','🌙','🌅','🌇','😊','😴','💪','👏','🌟',
+  // その他
+  '🔔','🧹','🧺','💊','🩺','📋','📅','🗂️'
+];
 const DEF_EMOJI={
   こくご:'📖',さんすう:'🔢',りか:'🔬',しゃかい:'🌏',おんがく:'🎵',ずこう:'🎨',
   たいいく:'🏃',かてい:'🍳',えいご:'🇬🇧',きゅうしょく:'🍱',そうじ:'🧹',
@@ -595,6 +615,55 @@ const FURIGANA={
 };
 
 // STATE
+// ===== TOUCH DRAG (タッチ操作でのドラッグ並び替え) =====
+function addTouchDrag(handle, el, idx) {
+  let touchStartY=0, touchStartX=0, clone=null, srcIdx=null;
+  handle.addEventListener('touchstart', e=>{
+    e.stopPropagation();
+    const t=e.touches[0];
+    touchStartY=t.clientY; touchStartX=t.clientX;
+    srcIdx=parseInt(el.dataset.idx);
+    // クローンを作って視覚フィードバック
+    clone=el.cloneNode(true);
+    clone.style.cssText='position:fixed;left:'+el.getBoundingClientRect().left+'px;top:'+el.getBoundingClientRect().top+'px;width:'+el.offsetWidth+'px;opacity:0.75;z-index:999;pointer-events:none;border:2px solid var(--sky);border-radius:18px;background:var(--sky-light);transition:none;';
+    document.body.appendChild(clone);
+    el.style.opacity='0.3';
+  },{passive:true});
+
+  handle.addEventListener('touchmove', e=>{
+    if(!clone)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    const dy=t.clientY-touchStartY;
+    clone.style.transform='translateY('+dy+'px)';
+    // 重なっているカードを探す
+    const cards=Array.from(document.querySelectorAll('.item'));
+    cards.forEach(c=>c.classList.remove('drag-over'));
+    const under=document.elementFromPoint(t.clientX, t.clientY);
+    const overCard=under&&under.closest('.item');
+    if(overCard&&overCard!==el)overCard.classList.add('drag-over');
+  },{passive:false});
+
+  handle.addEventListener('touchend', e=>{
+    if(!clone){return;}
+    const t=e.changedTouches[0];
+    const under=document.elementFromPoint(t.clientX, t.clientY);
+    const overCard=under&&under.closest('.item');
+    clone.remove(); clone=null;
+    el.style.opacity='';
+    document.querySelectorAll('.item').forEach(c=>c.classList.remove('drag-over'));
+    if(overCard&&overCard!==el){
+      const toIdx=parseInt(overCard.dataset.idx);
+      if(!isNaN(toIdx)&&toIdx!==srcIdx){
+        const moved=items.splice(srcIdx,1)[0];
+        items.splice(toIdx,0,moved);
+        renderEditor(); saveLocal();
+      }
+    }
+    srcIdx=null;
+  },{passive:true});
+}
+
 let items=[],checks={},scheduleId=null,scheduleName='きょうのよてい';
 let activeTab='editor',currentImgItemId=null,dragSrcIdx=null,db;
 
@@ -772,7 +841,7 @@ function renderEditor(){
   items.forEach((item,idx)=>{
     const done=!!checks[item.id];
     const el=document.createElement('div');
-    el.className='item'+(done?' done':'');el.draggable=true;el.dataset.idx=idx;
+    el.className='item'+(done?' done':'');el.draggable=false;el.dataset.idx=idx;
     const labelHtml=prefs.furigana
       ?`<div class="item-label-ruby">${addFurigana(item.label)}</div><input class="item-label-input hidden" value="${esc(item.label)}" oninput="updateField(${item.id},'label',this.value)">`
       :`<input class="item-label-input" value="${esc(item.label)}" placeholder="こうもくのなまえ" oninput="updateField(${item.id},'label',this.value)">`;
@@ -791,11 +860,17 @@ function renderEditor(){
         ${prefs.showNote ? '<textarea class="item-note-input" placeholder="📝 メモ・てじゅんなど" rows="1" oninput="updateField('+item.id+',\'note\',this.value);ar(this)">'+esc(item.note)+'</textarea>' : ''}
       </div>
       <button class="item-del" onclick="removeItem(${item.id})">✕</button>`;
-    el.addEventListener('dragstart',()=>{dragSrcIdx=idx;el.classList.add('dragging');});
-    el.addEventListener('dragend',()=>el.classList.remove('dragging'));
-    el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
-    el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+    // ハンドルのみドラッグ開始
+    const handle=el.querySelector('.drag-handle');
+    handle.addEventListener('mousedown',()=>{el.draggable=true;});
+    handle.addEventListener('mouseup',()=>{el.draggable=false;});
+    el.addEventListener('dragstart',(e)=>{if(!el.draggable)return;dragSrcIdx=idx;el.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    el.addEventListener('dragend',()=>{el.draggable=false;el.classList.remove('dragging');document.querySelectorAll('.item').forEach(i=>i.classList.remove('drag-over'));});
+    el.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';el.classList.add('drag-over');});
+    el.addEventListener('dragleave',(e)=>{if(!el.contains(e.relatedTarget))el.classList.remove('drag-over');});
     el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('drag-over');if(dragSrcIdx!==null&&dragSrcIdx!==idx){const m=items.splice(dragSrcIdx,1)[0];items.splice(idx,0,m);renderEditor();saveLocal();}dragSrcIdx=null;});
+    // タッチ対応
+    addTouchDrag(handle,el,idx);
     c.appendChild(el);
     const ta=el.querySelector('.item-note-input');if(ta)ar(ta);
   });
@@ -916,7 +991,37 @@ function handleImg(e){
   };img.src=ev.target.result;};
   reader.readAsDataURL(file);e.target.value='';
 }
-function buildEmojiGrid(){document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<button class="emoji-btn" onclick="setEmojiImg('${e}')">${e}</button>`).join('');}
+function buildEmojiGrid(){
+  const cats=[
+    {label:'📚 がくしゅう・きょうか', emojis:['📚','✏️','📖','🔢','🔬','🌏','🎵','🎨','💻','🇬🇧','📐','🖊️']},
+    {label:'👕 せいかつ・みじたく', emojis:['👕','🧥','👖','🧦','👟','🎒','🪥','🚿','🛁','🚽','🧴','🪒']},
+    {label:'🍱 しょくじ', emojis:['🍱','🍚','🥢','🥛','🍎','🍌','🥗','🍞','🍜','🍳','☕','🧃']},
+    {label:'🏃 うんどう・たいいく', emojis:['🏃','⚽','🏊','🏀','⚾','🏸','🤸','🎽']},
+    {label:'🚌 いどう・ばしょ', emojis:['🚌','🚗','🏫','🏠','🏥','🏪','🚶','🛗']},
+    {label:'🎮 かつどう・よか', emojis:['🎮','🎯','🧩','🎤','🧸','🌸','🌳','🎪','🎠','🎨']},
+    {label:'⏰ じかん・きもち', emojis:['⏰','☀️','🌙','🌅','🌇','😊','😴','💪','👏','🌟']},
+    {label:'📋 その他', emojis:['🔔','🧹','🧺','💊','🩺','📋','📅','🗂️']},
+  ];
+  const g=document.getElementById('emoji-grid');
+  g.innerHTML='';
+  g.style.cssText='display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto;';
+  cats.forEach(cat=>{
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-size:0.72rem;font-weight:700;color:var(--text2);margin-bottom:2px;';
+    lbl.textContent=cat.label;
+    g.appendChild(lbl);
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;flex-wrap:wrap;gap:5px;';
+    cat.emojis.forEach(e=>{
+      const btn=document.createElement('button');
+      btn.className='emoji-btn';
+      btn.textContent=e;
+      btn.onclick=()=>setEmojiImg(e);
+      row.appendChild(btn);
+    });
+    g.appendChild(row);
+  });
+}
 function setEmojiImg(emoji){
   if(!currentImgItemId)return;
   const canvas=document.createElement('canvas');canvas.width=200;canvas.height=200;
