@@ -627,25 +627,39 @@ const FURIGANA={
 // ===== TOUCH DRAG (タッチ操作でのドラッグ並び替え) =====
 function addTouchDrag(handle, el, idx) {
   let touchStartY=0, touchStartX=0, clone=null, srcIdx=null;
+  let holdTimer=null, dragging=false;
+
   handle.addEventListener('touchstart', e=>{
-    e.stopPropagation();
     const t=e.touches[0];
     touchStartY=t.clientY; touchStartX=t.clientX;
     srcIdx=parseInt(el.dataset.idx);
-    // クローンを作って視覚フィードバック
-    clone=el.cloneNode(true);
-    clone.style.cssText='position:fixed;left:'+el.getBoundingClientRect().left+'px;top:'+el.getBoundingClientRect().top+'px;width:'+el.offsetWidth+'px;opacity:0.75;z-index:999;pointer-events:none;border:2px solid var(--sky);border-radius:18px;background:var(--sky-light);transition:none;';
-    document.body.appendChild(clone);
-    el.style.opacity='0.3';
+    dragging=false;
+    // 長押し500msでドラッグ開始
+    holdTimer=setTimeout(()=>{
+      dragging=true;
+      clone=el.cloneNode(true);
+      clone.style.cssText='position:fixed;left:'+el.getBoundingClientRect().left+'px;top:'+el.getBoundingClientRect().top+'px;width:'+el.offsetWidth+'px;opacity:0.75;z-index:999;pointer-events:none;border:2px solid var(--sky);border-radius:18px;background:var(--sky-light);transition:none;';
+      document.body.appendChild(clone);
+      el.style.opacity='0.3';
+      // 振動フィードバック（対応端末のみ）
+      if(navigator.vibrate)navigator.vibrate(40);
+    }, 500);
   },{passive:true});
 
   handle.addEventListener('touchmove', e=>{
+    // 少し動いたらタイマーキャンセル（ドラッグ開始前）
+    if(!dragging){
+      const t=e.touches[0];
+      const dx=Math.abs(t.clientX-touchStartX);
+      const dy=Math.abs(t.clientY-touchStartY);
+      if(dx>8||dy>8){clearTimeout(holdTimer);holdTimer=null;}
+      return;
+    }
     if(!clone)return;
     e.preventDefault();
     const t=e.touches[0];
     const dy=t.clientY-touchStartY;
     clone.style.transform='translateY('+dy+'px)';
-    // 重なっているカードを探す
     const cards=Array.from(document.querySelectorAll('.item'));
     cards.forEach(c=>c.classList.remove('drag-over'));
     const under=document.elementFromPoint(t.clientX, t.clientY);
@@ -654,12 +668,14 @@ function addTouchDrag(handle, el, idx) {
   },{passive:false});
 
   handle.addEventListener('touchend', e=>{
-    if(!clone){return;}
+    clearTimeout(holdTimer); holdTimer=null;
+    if(!dragging||!clone){dragging=false;return;}
     const t=e.changedTouches[0];
     const under=document.elementFromPoint(t.clientX, t.clientY);
     const overCard=under&&under.closest('.item');
     clone.remove(); clone=null;
     el.style.opacity='';
+    dragging=false;
     document.querySelectorAll('.item').forEach(c=>c.classList.remove('drag-over'));
     if(overCard&&overCard!==el){
       const toIdx=parseInt(overCard.dataset.idx);
@@ -670,6 +686,13 @@ function addTouchDrag(handle, el, idx) {
       }
     }
     srcIdx=null;
+  },{passive:true});
+
+  handle.addEventListener('touchcancel', ()=>{
+    clearTimeout(holdTimer); holdTimer=null;
+    if(clone){clone.remove();clone=null;}
+    el.style.opacity=''; dragging=false;
+    document.querySelectorAll('.item').forEach(c=>c.classList.remove('drag-over'));
   },{passive:true});
 }
 
