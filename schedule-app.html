@@ -75,6 +75,8 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 /* ITEM CARDS */
 .items{display:flex;flex-direction:column;gap:9px;}
 .item{background:var(--card);border:2.5px solid var(--border);border-radius:var(--r);padding:13px 13px 11px;display:flex;align-items:flex-start;gap:11px;transition:all .2s;position:relative;}
+.item-num{position:absolute;top:-1px;left:-1px;width:36px;height:36px;background:var(--sky-dark);color:#fff;border-radius:var(--r) 0 14px 0;font-size:1.1rem;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}
+.v-item-num{width:44px;height:44px;background:var(--sky-dark);color:#fff;border-radius:50%;font-size:1.3rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;}
 .item.done{opacity:.52;}.item.done .item-label-input{text-decoration:line-through;}
 .item:hover{border-color:var(--sky);box-shadow:var(--shadow);}
 .item.drag-over{border-color:var(--mint);background:var(--mint-light);}
@@ -831,7 +833,7 @@ function clearChecks(){checks={};renderEditor();renderViewer();saveLocal();}
 async function saveLocal(){
   const name=document.getElementById('schedule-name').value;
   await dbPut('cur',{k:'state',id:scheduleId,name,items,checks,ts:Date.now()});
-  await dbPut('schedules',{id:scheduleId,name,items,checks,ts:Date.now(),date:new Date().toLocaleDateString('ja-JP')});
+  const _now=new Date();const _dateStr=_now.getFullYear()+'年'+(_now.getMonth()+1)+'月'+_now.getDate()+'日';const _timeStr=String(_now.getHours()).padStart(2,'0')+':'+String(_now.getMinutes()).padStart(2,'0');await dbPut('schedules',{id:scheduleId,name,items,checks,ts:Date.now(),date:_dateStr,time:_timeStr});
   setSaveStatus('saved','このデバイスに自動保存済み ✓');
 }
 
@@ -878,6 +880,7 @@ function renderEditor(){
       ?`<div class="item-label-ruby">${addFurigana(item.label)}</div><input class="item-label-input hidden" value="${esc(item.label)}" oninput="updateField(${item.id},'label',this.value)">`
       :`<input class="item-label-input" value="${esc(item.label)}" placeholder="こうもくのなまえ" oninput="updateField(${item.id},'label',this.value)">`;
     el.innerHTML=`
+      <div class="item-num">${idx+1}</div>
       <div class="drag-handle">⠿</div>
       <div class="item-check" onclick="toggleCheck(${item.id})">${done?'✓':''}</div>
       <div class="item-thumb" onclick="openImgModal(${item.id})">
@@ -928,6 +931,9 @@ function renderViewer(){
     const el=document.createElement('div');
     el.className='v-item'+(isDone?' done':'')+(isCur?' current':'');
     el.onclick=()=>toggleCheck(item.id);
+
+    // 番号バッジ
+    const numBadge=document.createElement("div");numBadge.className="v-item-num";numBadge.textContent=idx+1;el.appendChild(numBadge);
 
     // 画像 or 絵文字
     if(item.img){
@@ -984,7 +990,7 @@ async function renderSaved(){
   g.innerHTML='';
   all.forEach(s=>{
     const el=document.createElement('div');el.className='saved-card';
-    el.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px">📅</span><div class="saved-title">${esc(s.name)}</div></div><div class="saved-meta">${s.date||''} · ${(s.items||[]).length}こうもく</div><div class="saved-acts"><button class="btn btn-sky btn-sm" onclick="loadSaved('${s.id}')">ひらく</button><button class="btn btn-ghost btn-sm" onclick="exportSaved('${s.id}')">📤 書き出し</button><button class="btn btn-ghost btn-sm" style="color:var(--rose)" onclick="deleteSaved('${s.id}')">🗑</button></div>`;
+    el.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px">📅</span><div class="saved-title">${esc(s.name)}</div></div><div class="saved-meta">${s.date||''} ${s.time?s.time+'　':''}· ${(s.items||[]).length}こうもく</div><div class="saved-acts"><button class="btn btn-sky btn-sm" onclick="loadSaved('${s.id}')">ひらく</button><button class="btn btn-ghost btn-sm" onclick="exportSaved('${s.id}')">📤 書き出し</button><button class="btn btn-ghost btn-sm" style="color:var(--rose)" onclick="deleteSaved('${s.id}')">🗑</button></div>`;
     g.appendChild(el);
   });
 }
