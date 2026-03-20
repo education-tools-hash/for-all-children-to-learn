@@ -489,8 +489,43 @@
     100% { transform: translateY(-120px) scale(1.5); opacity: 0; }
   }
 </style>
+
+<style>
+/* ===== フルスクリーンボタン共通 ===== */
+#fs-btn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 99999;
+  background: rgba(45,42,74,0.82);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  transition: background 0.18s, transform 0.18s;
+  letter-spacing: 1px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+#fs-btn:hover { background: rgba(45,42,74,1); transform: scale(1.05); }
+#fs-btn:focus { outline: 3px solid #5BC4F5; outline-offset: 2px; }
+:fullscreen #fs-btn,
+:-webkit-full-screen #fs-btn { top: 10px; right: 10px; }
+</style>
 </head>
 <body>
+<button id="fs-btn" onclick="toggleFS()" aria-label="全画面表示の切り替え" title="ぜんぶにひろげる">
+  <span id="fs-icon">⛶</span><span id="fs-label">ぜんぶにひろげる</span>
+</button>
+
 
 <div class="cloud cloud1"></div>
 <div class="cloud cloud2"></div>
@@ -1056,6 +1091,57 @@ function startGame(numQuestions) {
 
 // ── 起動（スタート画面を表示するだけ）────────────────────────
 // ゲームはstartGame()が呼ばれてから始まる
+</script>
+
+<script>
+/* ===== フルスクリーン共通 ===== */
+function toggleFS() {
+  const btn = document.getElementById('fs-btn');
+  const icon = document.getElementById('fs-icon');
+  const label = document.getElementById('fs-label');
+  const el = document.documentElement;
+  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  if (!isFS) {
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) req.call(el);
+  } else {
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if (ex) ex.call(document);
+  }
+}
+function updateFSBtn() {
+  const btn = document.getElementById('fs-btn');
+  const icon = document.getElementById('fs-icon');
+  const label = document.getElementById('fs-label');
+  if (!btn) return;
+  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  icon.textContent = isFS ? '✕' : '⛶';
+  label.textContent = isFS ? 'もとにもどす' : 'ぜんぶにひろげる';
+}
+document.addEventListener('fullscreenchange', updateFSBtn);
+document.addEventListener('webkitfullscreenchange', updateFSBtn);
+
+/* ===== キーボード：Spaceキー・Enterキーで主要ボタンを操作 ===== */
+document.addEventListener('keydown', function(e) {
+  // Escapeは全画面解除（ブラウザデフォルト）に任せる
+  if (e.key === 'Escape') return;
+  // フォーム入力中は無視
+  const tag = document.activeElement ? document.activeElement.tagName : '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  // フォーカスが当たっている要素があればEnter/Spaceでクリック
+  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement !== document.body) {
+    const el = document.activeElement;
+    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('tabindex') !== null) {
+      e.preventDefault();
+      el.click();
+      return;
+    }
+  }
+  // F キーで全画面トグル
+  if (e.key === 'f' || e.key === 'F') {
+    toggleFS();
+  }
+});
 </script>
 </body>
 </html>
