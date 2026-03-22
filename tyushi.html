@@ -2,19 +2,22 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>原因と結果・マイフォト版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>原因と結果・アクセシビリティ版</title>
     <style>
         :root {
-            --bg-color: #fdf6e3;
+            --bg-color: #fdf6e3; /* 初期背景色 */
+            --target-idle: #ffffff;
+            --target-active: #ffeb3b;
             --accent: #4fc3f7;
+            --text-base-size: 16px;
         }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-color); font-family: sans-serif; }
-
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-color); font-family: sans-serif; transition: background-color 0.3s; }
+        
         /* ターゲット（円） */
         #target {
             position: absolute;
-            background-color: #ffffff;
+            background-color: var(--target-idle);
             border: 8px solid var(--accent);
             border-radius: 50%;
             display: flex;
@@ -26,11 +29,12 @@
             transition: left 0.5s ease-out, top 0.5s ease-out, background-color 0.1s, transform 0.1s;
             overflow: hidden;
             box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            z-index: 10;
         }
 
         /* 反応時の演出 */
         #target.active {
-            background-color: #ffeb3b;
+            background-color: var(--target-active);
             border-color: #fbc02d;
             transform: translate(-50%, -50%) scale(1.1);
             box-shadow: 0 0 50px #fff176;
@@ -41,81 +45,142 @@
             width: 90%; height: 90%;
             object-fit: contain;
             pointer-events: none;
-            border-radius: 50%; /* 画像も丸く切り抜く */
+            border-radius: 50%;
+        }
+
+        /* 設定ボタン（右上の歯車アイコン） */
+        #settingsBtn {
+            position: fixed; top: 10px; right: 10px;
+            width: 44px; height: 44px;
+            background-color: rgba(255,255,255,0.8);
+            border: none; border-radius: 50%;
+            cursor: pointer; z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         /* 設定パネル（先生用） */
-        #settings {
-            position: fixed; bottom: 0; left: 0; right: 0;
-            background: rgba(255,255,255,0.95);
-            padding: 10px; display: flex; gap: 15px;
-            font-size: 14px; border-top: 2px solid #ddd;
-            flex-wrap: wrap; z-index: 100;
-            justify-content: center;
-            align-items: center;
+        #settingsPanel {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.98);
+            z-index: 1000;
+            display: none; /* 初期は非表示 */
+            overflow-y: auto;
+            flex-direction: column;
+            padding: 20px;
         }
-        
-        /* カスタムファイルアップロードボタン */
-        .file-label {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
+
+        /* パネルタイトル */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+        .panel-title { font-size: 1.2rem; font-weight: bold; }
+        .panel-close { font-size: 1.5rem; background: none; border: none; cursor: pointer; }
+
+        /* 設定項目 */
+        .setting-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 0; border-bottom: 1px solid #f0f0f0;
+            font-size: var(--text-base-size);
         }
-        .file-label:hover { background: #eee; }
-        #fileInput { display: none; } /* 本物のボタンは隠す */
-        
+        .setting-label { display: flex; flex-direction: column; }
+        .setting-sub-label { font-size: 0.8rem; color: #888; }
+        .setting-control { display: flex; align-items: center; gap: 10px; }
+
+        /* プラス・マイナスボタン */
+        .qty-btn { width: 30px; height: 30px; border: 1px solid #ccc; border-radius: 5px; background: #fff; cursor: pointer; }
+
+        /* ハイコントラストモード */
+        body.high-contrast { background-color: #000; --target-idle: #333; --target-active: #fff; --accent: #fff; }
+        body.high-contrast #settingsBtn { background-color: rgba(0,0,0,0.8); }
+        body.high-contrast #target.active { border-color: #ffeb3b; }
+
     </style>
 </head>
-<body>
+<body class="futsū">
 
     <div id="target">
         <img id="content-img" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234fc3f7' d='M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z'/%3E%3C/svg%3E" alt="target">
     </div>
 
-    <div id="settings">
-        <div>
-            サイズ: <input type="range" id="sizeRange" min="100" max="600" value="300">
+    <button id="settingsBtn">⚙️</button>
+
+    <div id="settingsPanel">
+        <div class="panel-header">
+            <div class="panel-title">アクセシビリティ設定</div>
+            <button class="panel-close" id="settingsClose">×</button>
         </div>
-        <div>
-            <label><input type="checkbox" id="moveMode"> 反応後に移動</label>
+
+        <div class="setting-item">
+            <div class="setting-label">🔠 もじを おおきく<span class="setting-sub-label">もじのサイズをかえます</span></div>
+            <div class="setting-control">
+                <button class="qty-btn" id="textSizeMinus">－</button>
+                <span id="textSizeStatus">ふつう</span>
+                <button class="qty-btn" id="textSizePlus">＋</button>
+            </div>
         </div>
-        <div>
-            <label class="file-label" for="fileInput">画像を選択</label>
-            <input type="file" id="fileInput" accept="image/*">
+
+        <div class="setting-item">
+            <div class="setting-label">🌑 ハイコントラスト<span class="setting-sub-label">くろいはいけいにきりかえます</span></div>
+            <div class="setting-control">
+                <input type="checkbox" id="highContrastToggle">
+            </div>
         </div>
-        <p style="margin:0; font-size:11px; color: #888;">※Tobiiはマウスモード推奨</p>
+
+        <div class="setting-item">
+            <div class="setting-label">♿ スイッチスキャン<span class="setting-sub-label">スペース または Enter でそうさ</span></div>
+            <div class="setting-control">
+                <input type="checkbox" id="switchScanToggle">
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-label">🔊 じどう よみあげ<span class="setting-sub-label">タップしたら じどうでよみます</span></div>
+            <div class="setting-control">
+                <input type="checkbox" id="ttsToggle">
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <div class="setting-label">⏱️ スキャンかんかく<span class="setting-sub-label">じどうスキャンのスピード</span></div>
+            <div class="setting-control">
+                <button class="qty-btn" id="scanIntervalMinus">－</button>
+                <span id="scanIntervalValue">2.0</span>秒
+                <button class="qty-btn" id="scanIntervalPlus">＋</button>
+            </div>
+        </div>
+
+        <div class="setting-item" style="border: none;">
+            <div class="setting-label">📋 このアプリについて<span class="setting-sub-label">障がいのある子どもたちが楽しみながら学べるように作り...</span></div>
+        </div>
+
+        <div style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; font-size: 0.8rem; color: #888;">
+            <p>【元の設定】</p>
+            <div>背景色: <input type="color" id="bgColorInput" value="#fdf6e3"></div>
+            <div>サイズ: <input type="range" id="sizeRange" min="100" max="600" value="300"></div>
+            <div><label><input type="checkbox" id="moveMode"> 反応後に移動</label></div>
+            <div>注視時間(秒): <input type="range" id="dwellRange" min="0" max="2" step="0.1" value="0.5"> <span id="dwellValue">0.5</span></div>
+            <div><label class="file-label" for="fileInput">画像を選択</label><input type="file" id="fileInput" accept="image/*"></div>
+        </div>
+
     </div>
 
     <script>
+        // DOM要素の取得
         const target = document.getElementById('target');
-        const contentImg = document.getElementById('content-img');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsPanel = document.getElementById('settingsPanel');
+        const settingsClose = document.getElementById('settingsClose');
+        const highContrastToggle = document.getElementById('highContrastToggle');
         const sizeRange = document.getElementById('sizeRange');
+        const dwellRange = document.getElementById('dwellRange');
+        const dwellValue = document.getElementById('dwellValue');
         const moveMode = document.getElementById('moveMode');
-        const fileInput = document.getElementById('fileInput');
+        const bgColorInput = document.getElementById('bgColorInput');
+        const ttsToggle = document.getElementById('ttsToggle');
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let dwellTimer;
 
-        // サイズ変更
-        sizeRange.addEventListener('input', () => {
-            target.style.width = sizeRange.value + 'px';
-            target.style.height = sizeRange.value + 'px';
-        });
-
-        // 端末内の画像を選択する処理
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                // 円の中の画像を、選択した画像に差し替える
-                contentImg.src = event.target.result;
-            };
-            reader.readAsDataURL(file); // 画像ファイルを読み込む
-        });
-
+        // 音源：Web Audio API
         function playSuccessSound() {
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -128,6 +193,15 @@
             osc.start(); osc.stop(audioCtx.currentTime + 0.4);
         }
 
+        // 読み上げ機能（Web Speech API）
+        function speakText(text) {
+            if (!ttsToggle.checked) return;
+            const uttr = new SpeechSynthesisUtterance(text);
+            uttr.lang = 'ja-JP';
+            speechSynthesis.speak(uttr);
+        }
+
+        // 移動機能
         function move() {
             if (!moveMode.checked) return;
             const pad = 100;
@@ -137,30 +211,102 @@
             target.style.top = y + 'px';
         }
 
+        // アクティベート時の共通処理
         function activate() {
             if (!target.classList.contains('active')) {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 target.classList.add('active');
-                playSuccessSound(); // 注視で音が鳴る
-                if (moveMode.checked) setTimeout(move, 800);
+                playSuccessSound(); // 音を鳴らす
+                speakText("アタリ！"); // 読み上げる
+                if (moveMode.checked) setTimeout(move, 800); // 移動
             }
         }
 
         function deactivate() {
             target.classList.remove('active');
+            clearTimeout(dwellTimer); // 注視タイマーをクリア
         }
 
-        // 入力イベント
-        target.addEventListener('mouseenter', activate);
+        // --- 設定パネルの開閉 ---
+        settingsBtn.addEventListener('click', () => { settingsPanel.style.display = 'flex'; });
+        settingsClose.addEventListener('click', () => { settingsPanel.style.display = 'none'; });
+
+        // --- アクセシビリティ機能の実装 ---
+
+        // 文字サイズ変更
+        const textSizeStatus = document.getElementById('textSizeStatus');
+        const textSizeMinus = document.getElementById('textSizeMinus');
+        const textSizePlus = document.getElementById('textSizePlus');
+        const textSizes = ['ちいさい', 'ふつう', 'おおきい'];
+        let currentTextSizeIdx = 1;
+
+        function updateTextSize() {
+            textSizeStatus.textContent = textSizes[currentTextSizeIdx];
+            document.documentElement.style.setProperty('--text-base-size', (1 + currentTextSizeIdx * 0.5) + 'rem');
+        }
+        textSizeMinus.addEventListener('click', () => { if (currentTextSizeIdx > 0) currentTextSizeIdx--; updateTextSize(); });
+        textSizePlus.addEventListener('click', () => { if (currentTextSizeIdx < textSizes.length - 1) currentTextSizeIdx++; updateTextSize(); });
+
+        // ハイコントラストモード
+        highContrastToggle.addEventListener('change', () => {
+            document.body.classList.toggle('high-contrast');
+        });
+
+        // スキャン間隔変更
+        const scanIntervalValue = document.getElementById('scanIntervalValue');
+        const scanIntervalMinus = document.getElementById('scanIntervalMinus');
+        const scanIntervalPlus = document.getElementById('scanIntervalPlus');
+        let scanInterval = 2.0;
+
+        function updateScanInterval() {
+            scanIntervalValue.textContent = scanInterval.toFixed(1);
+        }
+        scanIntervalMinus.addEventListener('click', () => { if (scanInterval > 0.5) scanInterval -= 0.1; updateScanInterval(); });
+        scanIntervalPlus.addEventListener('click', () => { if (scanInterval < 5.0) scanInterval += 0.1; updateScanInterval(); });
+
+        // --- 訓練イベント ---
+
+        // 視線入力・マウス (mouseenter = 注視開始)
+        target.addEventListener('mouseenter', () => {
+            // 指定した注視時間の後にactivateを実行
+            dwellTimer = setTimeout(activate, dwellRange.value * 1000);
+        });
         target.addEventListener('mouseleave', deactivate);
-        window.addEventListener('keydown', (e) => { if(!e.repeat) activate(); });
+
+        // スイッチ入力・キーボード (keydown)
+        window.addEventListener('keydown', (e) => {
+            if (!e.repeat) activate();
+        });
         window.addEventListener('keyup', deactivate);
-        target.addEventListener('touchstart', (e) => { e.preventDefault(); activate(); });
+
+        // タッチ操作 (touchstart)
+        target.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            activate();
+        });
         target.addEventListener('touchend', deactivate);
 
-        // 初期サイズ反映
+        // --- 元の設定 ---
+        sizeRange.addEventListener('input', () => {
+            target.style.width = sizeRange.value + 'px';
+            target.style.height = sizeRange.value + 'px';
+        });
+
+        bgColorInput.addEventListener('input', () => {
+            document.body.style.backgroundColor = bgColorInput.value;
+        });
+
+        dwellRange.addEventListener('input', () => {
+            dwellValue.textContent = dwellRange.value;
+        });
+
+        // 初期設定の反映
         target.style.width = sizeRange.value + 'px';
         target.style.height = sizeRange.value + 'px';
+        document.body.style.backgroundColor = bgColorInput.value;
+        updateTextSize();
+        updateScanInterval();
+
     </script>
 </body>
 </html>
