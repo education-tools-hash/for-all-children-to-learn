@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>原因と結果・注視訓練アプリ</title>
+    <style>
+        :root {
+            --bg-color: #e3f2fd; /* 優しい水色 */
+            --target-idle: #ffffff;
+            --target-active: #ffeb3b;
+            --accent-color: #03a9f4;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: sans-serif;
+        }
+
+        /* ターゲットの基本スタイル */
+        #target {
+            position: absolute;
+            width: 300px; /* サイズは適宜調整 */
+            height: 300px;
+            background-color: var(--target-idle);
+            border: 10px solid var(--accent-color);
+            border-radius: 50%; /* 円形にして視覚的に分かりやすく */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.1s, transform 0.1s, left 0.5s ease-out, top 0.5s ease-out;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 反応時の演出 */
+        #target.active {
+            background-color: var(--target-active);
+            transform: translate(-50%, -50%) scale(1.2);
+            box-shadow: 0 0 100px rgba(255, 235, 59, 1);
+            border-color: #fbc02d;
+        }
+
+        .icon { font-size: 6rem; user-select: none; }
+        .label { font-weight: bold; color: var(--accent-color); margin-top: 10px; user-select: none; }
+
+        /* 設定エリア（先生用） */
+        #controls {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+        #controls:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="target">
+        <div class="icon" id="emoji">👀</div>
+        <div class="label" id="text">みてね</div>
+    </div>
+
+    <div id="controls">
+        <label><input type="checkbox" id="moveMode"> ランダム移動を有効にする</label>
+    </div>
+
+    <script>
+        const target = document.getElementById('target');
+        const emoji = document.getElementById('emoji');
+        const text = document.getElementById('text');
+        const moveMode = document.getElementById('moveMode');
+        
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // ポーンという音を生成
+        function playSound() {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(659.25, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        // ターゲットをランダムな場所に移動
+        function moveTarget() {
+            if (!moveMode.checked) return;
+            
+            const padding = 150; // 画面端に隠れないための余白
+            const maxX = window.innerWidth - padding * 2;
+            const maxY = window.innerHeight - padding * 2;
+            
+            const newX = Math.random() * maxX + padding;
+            const newY = Math.random() * maxY + padding;
+            
+            target.style.left = `${newX}px`;
+            target.style.top = `${newY}px`;
+        }
+
+        function activate() {
+            if (!target.classList.contains('active')) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                target.classList.add('active');
+                emoji.textContent = '🌟';
+                text.textContent = 'アタリ！';
+                playSound();
+
+                // 反応した後に場所を変える（成功体験と次の課題提示）
+                if (moveMode.checked) {
+                    setTimeout(moveTarget, 1000); 
+                }
+            }
+        }
+
+        function deactivate() {
+            target.classList.remove('active');
+            emoji.textContent = '👀';
+            text.textContent = 'みてね';
+        }
+
+        // --- 操作イベント ---
+        target.addEventListener('mouseenter', activate);
+        target.addEventListener('mouseleave', deactivate);
+
+        window.addEventListener('keydown', (e) => { if(!e.repeat) activate(); });
+        window.addEventListener('keyup', deactivate);
+
+        target.addEventListener('touchstart', (e) => { e.preventDefault(); activate(); });
+        target.addEventListener('touchend', deactivate);
+
+    </script>
+</body>
+</html>
