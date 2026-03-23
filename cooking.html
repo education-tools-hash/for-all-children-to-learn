@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>みんなのバーチャルクッキング・コンプリート</title>
+    <title>みんなのバーチャルクッキング V2</title>
     <style>
         :root { --primary: #FF7043; --secondary: #FFD54F; --bg: #FFF9E1; }
         body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; background-color: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
@@ -22,9 +22,17 @@
         /* クッキング画面 */
         #game-area { max-width: 500px; margin: auto; background: white; border-radius: 30px; border: 8px solid var(--primary); min-height: 600px; position: relative; }
         #instruction { background: var(--primary); color: white; padding: 15px; font-size: 22px; font-weight: bold; }
-        #cooking-zone { height: 250px; display: flex; align-items: center; justify-content: center; position: relative; font-size: 100px; }
+        
+        /* 調理ゾーンとお鍋 */
+        #cooking-zone { height: 280px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .pot-container { position: relative; font-size: 120px; }
+        #pot { z-index: 1; position: relative; }
+        #pot-content { position: absolute; top: 20px; left: 20px; font-size: 60px; z-index: 2; } /* お鍋の中身 */
+        #steam { position: absolute; top: -50px; left: 30px; font-size: 60px; opacity: 0; transition: 0.5s; z-index: 3; } /* 湯気 */
+
+        /* 具材エリア */
         #ingredient-shelf { height: 180px; display: flex; justify-content: space-around; align-items: center; background: #FFE0B2; border-top: 4px solid #D84315; }
-        .ingredient { font-size: 60px; cursor: grab; user-select: none; touch-action: none; z-index: 10; }
+        .ingredient { font-size: 60px; cursor: grab; user-select: none; touch-action: none; z-index: 10; transition: transform 0.1s; }
         
         /* ワークシート画面 */
         .worksheet { background: white; max-width: 600px; margin: auto; padding: 20px; border-radius: 20px; border: 3px dashed #777; }
@@ -46,7 +54,10 @@
     <div id="game-area">
         <div id="instruction"></div>
         <div id="cooking-zone">
-            <div id="pot">🍲</div>
+            <div id="steam">♨️</div>
+            <div class="pot-container">
+                <div id="pot">🍲</div>
+                <div id="pot-content"></div> </div>
         </div>
         <div id="ingredient-shelf" id="shelf"></div>
     </div>
@@ -61,9 +72,9 @@
         <div class="photo-area" id="photo-preview">📷 しゃしんを えらんでね</div>
         <p>どうだったかな？</p>
         <div class="stamp-box">
-            <button class="stamp-btn" onclick="saveWS('😊')">😊</button>
-            <button class="stamp-btn" onclick="saveWS('😐')">😐</button>
-            <button class="stamp-btn" onclick="saveWS('😢')">😢</button>
+            <button class="stamp-btn" onclick="saveWS('😊おいしかった！')">😊</button>
+            <button class="stamp-btn" onclick="saveWS('😐ふつう')">😐</button>
+            <button class="stamp-btn" onclick="saveWS('😢むずかしかった')">😢</button>
         </div>
         <div id="ws-result" style="margin-top:15px; font-weight:bold;"></div>
     </div>
@@ -71,24 +82,26 @@
 </div>
 
 <script>
-    // レシピデータ
+    // レシピデータ（細分化版）
     const recipes = [
         { name: "カレー", icon: "🍛", steps: [
-            { msg: "おにくを いれよう！", target: "🥩", items: ["🥩", "🍎", "🐟"] },
-            { msg: "やさいを きろう！", target: "🔪", items: ["🥄", "🔪", "✂️"] },
-            { msg: "ルーを いれよう！", target: "🤎", items: ["🧂", "🤎", "🍬"] }
+            { msg: "おなべを じゅんびして、あぶらを いれよう！", target: "💧", items: ["💧", "🥛", "☕"], pot: "🔘", steam: false },
+            { msg: "おにくを いれて いためよう！", target: "🥩", items: ["🥩", "🐟", "🍎"], pot: "🥩", steam: true },
+            { msg: "たまねぎを いれよう！", target: "🧅", items: ["🥕", "🧅", "🥔"], pot: "🧅🥩", steam: true },
+            { msg: "にんじんと じゃがいもを いれよう！", target: "🥕🥔", items: ["🥕🥔", "🍇🍌", "🥒🍆"], pot: "🥕🧅🥔🥩", steam: true },
+            { msg: "おみずを いれて によう！", target: "🚰", items: ["🚰", "🥤", "🍼"], pot: "🍲", steam: true },
+            { msg: "あくを とろう！", target: "🥄", items: ["🥄", "🔪", "✂️"], pot: "🍲", steam: true },
+            { msg: "カレールーを いれよう！", target: "🤎", items: ["🤍", "🤎", "💛"], pot: "🥘", steam: true },
+            { msg: "さいごに 10ぷん にたら かんせい！", target: "⏱️", items: ["⏱️", "📱", "⌚"], pot: "🍛", steam: true }
         ]},
-        { name: "オムライス", icon: "🍳", steps: [
-            { msg: "ごはんを いためよう！", target: "🍚", items: ["🍚", "🍞", "🍝"] },
-            { msg: "たまごで つつもう！", target: "🟡", items: ["⚪", "🟡", "🔴"] },
-            { msg: "ケチャップを かけよう！", target: "🥫", items: ["🥛", "🥫", "☕"] }
-        ]},
-        { name: "ハンバーグ", icon: "🍔", steps: [
-            { msg: "おにくを こねよう！", target: "👐", items: ["👐", "🥢", "🍴"] },
-            { msg: "フライパンで やこう！", target: "🍳", items: ["🥣", "🍳", "🥤"] },
-            { msg: "ソースを かけよう！", target: "🤎", items: ["🤍", "🤎", "💛"] }
+        { name: "おにぎり", icon: "🍙", steps: [
+            { msg: "てを あらおう！", target: "🧼", items: ["🧼", "🧻", "🧤"], pot: "👐", steam: false },
+            { msg: "ごはんに しおを ふろう！", target: "🧂", items: ["🧂", "🍬", "🤍"], pot: "🍚", steam: false },
+            { msg: "うめぼしを いれよう！", target: "🔴", items: ["🔴", "🟢", "🟡"], pot: "🔴🍚", steam: false },
+            { msg: "ごはんで つつもう！", target: "👐", items: ["👐", "🥢", "🍴"], pot: "⚪", steam: false },
+            { msg: "のりを まこう！", target: "⬛", items: ["⬛", "⬜", "🟥"], pot: "🍙", steam: false }
         ]}
-        // 15種類分ここにデータを追加できます
+        // 他のメニューも同様に細分化して追加可能です
     ];
 
     let currentRecipe = null;
@@ -124,6 +137,7 @@
     function startCooking(recipe) {
         currentRecipe = recipe;
         currentStepIndex = 0;
+        document.getElementById('pot-content').innerText = ""; // お鍋を空に
         showScreen('screen-game');
         loadStep();
     }
@@ -133,6 +147,10 @@
         document.getElementById('instruction').innerText = step.msg;
         speak(step.msg);
         
+        // お鍋の中身と湯気を更新
+        document.getElementById('pot-content').innerText = step.pot;
+        document.getElementById('steam').style.opacity = step.steam ? "1" : "0";
+
         const shelf = document.getElementById('ingredient-shelf');
         shelf.innerHTML = '';
         step.items.forEach(emoji => {
@@ -148,6 +166,7 @@
     function onPointerDown(e) {
         activeItem = e.target;
         activeItem.style.position = 'absolute';
+        activeItem.style.zIndex = 1000;
         moveAt(e.pageX, e.pageY);
         
         function onPointerMove(e) { moveAt(e.pageX, e.pageY); }
@@ -161,39 +180,61 @@
 
     function moveAt(x, y) {
         if(!activeItem) return;
-        activeItem.style.left = (x - 30) + 'px';
-        activeItem.style.top = (y - 30) + 'px';
+        activeItem.style.left = (x - activeItem.offsetWidth / 2) + 'px';
+        activeItem.style.top = (y - activeItem.offsetHeight / 2) + 'px';
     }
 
     function checkDrop(x, y) {
         const pot = document.getElementById('pot').getBoundingClientRect();
+        // お鍋の範囲に入ったか判定
         if(x > pot.left && x < pot.right && y > pot.top && y < pot.bottom) {
+            // 正解判定
             if(activeItem.innerText === currentRecipe.steps[currentStepIndex].target) {
-                currentStepIndex++;
-                if(currentStepIndex < currentRecipe.steps.length) {
-                    speak("せいかい！つぎだよ。");
-                    loadStep();
-                } else {
-                    finishCooking();
-                }
+                // 正解の演出（具材が消える）
+                activeItem.style.display = 'none';
+                speak("せいかい！");
+                
+                // 少し待ってから次のステップへ
+                setTimeout(() => {
+                    currentStepIndex++;
+                    if(currentStepIndex < currentRecipe.steps.length) {
+                        loadStep();
+                    } else {
+                        finishCooking();
+                    }
+                }, 800);
             } else {
                 speak("あれれ？ちがうみたい。");
-                activeItem.style.position = 'static';
+                resetItem();
             }
         } else {
-            activeItem.style.position = 'static';
+            resetItem();
         }
-        activeItem = null;
+    }
+
+    function resetItem() {
+        if(!activeItem) return;
+        activeItem.style.position = 'static';
+        activeItem.style.zIndex = 10;
     }
 
     function finishCooking() {
-        speak("やったー！かんせい！じっさいに つくってみよう！");
-        document.getElementById('ws-title').innerText = currentRecipe.name + "の きろく";
-        showScreen('screen-worksheet');
+        // 完成時の表示
+        const finalPot = currentRecipe.steps[currentRecipe.steps.length - 1].pot;
+        document.getElementById('pot-content').innerText = finalPot;
+        document.getElementById('steam').style.opacity = "0";
+        speak("やったー！おいしい" + currentRecipe.name + "の かんせいだ！じっさいに つくってみよう！");
+        
+        // ワークシートへ
+        setTimeout(() => {
+            document.getElementById('ws-title').innerText = currentRecipe.name + "の きろく";
+            showScreen('screen-worksheet');
+        }, 2000);
     }
 
+    // ワークシート保存
     function saveWS(stamp) {
-        document.getElementById('ws-result').innerText = "きろくしたよ！ " + stamp;
+        document.getElementById('ws-result').innerText = "きろくしたよ！ 感想：" + stamp;
         speak("きろくしました。はなまるです！");
     }
 
