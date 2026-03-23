@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>みんなのバーチャルクッキング・コンプリート</title>
+    <style>
+        :root { --primary: #FF7043; --secondary: #FFD54F; --bg: #FFF9E1; }
+        body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; background-color: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
+        
+        /* 画面切り替え管理 */
+        .screen { display: none; padding: 20px; text-align: center; animation: fadeIn 0.5s; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* メニュー選択画面 */
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; max-width: 800px; margin: auto; }
+        .menu-item { background: white; border: 4px solid var(--primary); border-radius: 20px; padding: 15px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .menu-item:hover { transform: scale(1.05); background: var(--secondary); }
+        .menu-icon { font-size: 50px; display: block; margin-bottom: 5px; }
+
+        /* クッキング画面 */
+        #game-area { max-width: 500px; margin: auto; background: white; border-radius: 30px; border: 8px solid var(--primary); min-height: 600px; position: relative; }
+        #instruction { background: var(--primary); color: white; padding: 15px; font-size: 22px; font-weight: bold; }
+        #cooking-zone { height: 250px; display: flex; align-items: center; justify-content: center; position: relative; font-size: 100px; }
+        #ingredient-shelf { height: 180px; display: flex; justify-content: space-around; align-items: center; background: #FFE0B2; border-top: 4px solid #D84315; }
+        .ingredient { font-size: 60px; cursor: grab; user-select: none; touch-action: none; z-index: 10; }
+        
+        /* ワークシート画面 */
+        .worksheet { background: white; max-width: 600px; margin: auto; padding: 20px; border-radius: 20px; border: 3px dashed #777; }
+        .photo-area { width: 100%; height: 200px; background: #eee; display: flex; align-items: center; justify-content: center; margin: 15px 0; border-radius: 10px; }
+        .stamp-box { display: flex; justify-content: space-around; margin-top: 20px; }
+        .stamp-btn { font-size: 40px; background: none; border: 2px solid #ccc; border-radius: 50%; padding: 10px; cursor: pointer; }
+
+        button.nav-btn { background: var(--primary); color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="screen-menu" class="screen active">
+    <h1>なにを つくる？</h1>
+    <div class="menu-grid" id="menu-list"></div>
+</div>
+
+<div id="screen-game" class="screen">
+    <div id="game-area">
+        <div id="instruction"></div>
+        <div id="cooking-zone">
+            <div id="pot">🍲</div>
+        </div>
+        <div id="ingredient-shelf" id="shelf"></div>
+    </div>
+    <button class="nav-btn" onclick="showScreen('screen-menu')">もどる</button>
+</div>
+
+<div id="screen-worksheet" class="screen">
+    <h1>りょうりの きろく</h1>
+    <div class="worksheet">
+        <h2 id="ws-title"></h2>
+        <input type="file" accept="image/*" id="file-input">
+        <div class="photo-area" id="photo-preview">📷 しゃしんを えらんでね</div>
+        <p>どうだったかな？</p>
+        <div class="stamp-box">
+            <button class="stamp-btn" onclick="saveWS('😊')">😊</button>
+            <button class="stamp-btn" onclick="saveWS('😐')">😐</button>
+            <button class="stamp-btn" onclick="saveWS('😢')">😢</button>
+        </div>
+        <div id="ws-result" style="margin-top:15px; font-weight:bold;"></div>
+    </div>
+    <button class="nav-btn" onclick="showScreen('screen-menu')">メニューへ もどる</button>
+</div>
+
+<script>
+    // レシピデータ
+    const recipes = [
+        { name: "カレー", icon: "🍛", steps: [
+            { msg: "おにくを いれよう！", target: "🥩", items: ["🥩", "🍎", "🐟"] },
+            { msg: "やさいを きろう！", target: "🔪", items: ["🥄", "🔪", "✂️"] },
+            { msg: "ルーを いれよう！", target: "🤎", items: ["🧂", "🤎", "🍬"] }
+        ]},
+        { name: "オムライス", icon: "🍳", steps: [
+            { msg: "ごはんを いためよう！", target: "🍚", items: ["🍚", "🍞", "🍝"] },
+            { msg: "たまごで つつもう！", target: "🟡", items: ["⚪", "🟡", "🔴"] },
+            { msg: "ケチャップを かけよう！", target: "🥫", items: ["🥛", "🥫", "☕"] }
+        ]},
+        { name: "ハンバーグ", icon: "🍔", steps: [
+            { msg: "おにくを こねよう！", target: "👐", items: ["👐", "🥢", "🍴"] },
+            { msg: "フライパンで やこう！", target: "🍳", items: ["🥣", "🍳", "🥤"] },
+            { msg: "ソースを かけよう！", target: "🤎", items: ["🤍", "🤎", "💛"] }
+        ]}
+        // 15種類分ここにデータを追加できます
+    ];
+
+    let currentRecipe = null;
+    let currentStepIndex = 0;
+    let activeItem = null;
+
+    // 画面切り替え
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'screen-menu') window.speechSynthesis.cancel();
+    }
+
+    // 音声読み上げ
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const uttr = new SpeechSynthesisUtterance(text);
+        uttr.lang = 'ja-JP';
+        window.speechSynthesis.speak(uttr);
+    }
+
+    // メニュー生成
+    const menuList = document.getElementById('menu-list');
+    recipes.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'menu-item';
+        div.innerHTML = `<span class="menu-icon">${r.icon}</span>${r.name}`;
+        div.onclick = () => startCooking(r);
+        menuList.appendChild(div);
+    });
+
+    // ゲーム開始
+    function startCooking(recipe) {
+        currentRecipe = recipe;
+        currentStepIndex = 0;
+        showScreen('screen-game');
+        loadStep();
+    }
+
+    function loadStep() {
+        const step = currentRecipe.steps[currentStepIndex];
+        document.getElementById('instruction').innerText = step.msg;
+        speak(step.msg);
+        
+        const shelf = document.getElementById('ingredient-shelf');
+        shelf.innerHTML = '';
+        step.items.forEach(emoji => {
+            const item = document.createElement('div');
+            item.className = 'ingredient';
+            item.innerText = emoji;
+            item.addEventListener('pointerdown', onPointerDown);
+            shelf.appendChild(item);
+        });
+    }
+
+    // ドラッグ＆ドロップ処理
+    function onPointerDown(e) {
+        activeItem = e.target;
+        activeItem.style.position = 'absolute';
+        moveAt(e.pageX, e.pageY);
+        
+        function onPointerMove(e) { moveAt(e.pageX, e.pageY); }
+        window.addEventListener('pointermove', onPointerMove);
+
+        window.addEventListener('pointerup', (e) => {
+            window.removeEventListener('pointermove', onPointerMove);
+            checkDrop(e.pageX, e.pageY);
+        }, { once: true });
+    }
+
+    function moveAt(x, y) {
+        if(!activeItem) return;
+        activeItem.style.left = (x - 30) + 'px';
+        activeItem.style.top = (y - 30) + 'px';
+    }
+
+    function checkDrop(x, y) {
+        const pot = document.getElementById('pot').getBoundingClientRect();
+        if(x > pot.left && x < pot.right && y > pot.top && y < pot.bottom) {
+            if(activeItem.innerText === currentRecipe.steps[currentStepIndex].target) {
+                currentStepIndex++;
+                if(currentStepIndex < currentRecipe.steps.length) {
+                    speak("せいかい！つぎだよ。");
+                    loadStep();
+                } else {
+                    finishCooking();
+                }
+            } else {
+                speak("あれれ？ちがうみたい。");
+                activeItem.style.position = 'static';
+            }
+        } else {
+            activeItem.style.position = 'static';
+        }
+        activeItem = null;
+    }
+
+    function finishCooking() {
+        speak("やったー！かんせい！じっさいに つくってみよう！");
+        document.getElementById('ws-title').innerText = currentRecipe.name + "の きろく";
+        showScreen('screen-worksheet');
+    }
+
+    function saveWS(stamp) {
+        document.getElementById('ws-result').innerText = "きろくしたよ！ " + stamp;
+        speak("きろくしました。はなまるです！");
+    }
+
+    // 写真プレビュー
+    document.getElementById('file-input').onchange = (e) => {
+        const reader = new FileReader();
+        reader.onload = (f) => {
+            document.getElementById('photo-preview').innerHTML = `<img src="${f.target.result}" style="max-height:100%">`;
+        }
+        reader.readAsDataURL(e.target.files[0]);
+    };
+</script>
+
+</body>
+</html>
