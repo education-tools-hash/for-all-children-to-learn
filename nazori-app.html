@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>なぞり書き練習ツール</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho:wght@400;700&display=swap');
+
+  :root {
+    --sky: #e8f4fd;
+    --cloud: #ffffff;
+    --ink: #2c3e6b;
+    --ink-light: #5a6a9a;
+    --peach: #ff8c69;
+    --peach-light: #ffd4c8;
+    --mint: #5ec2a0;
+    --mint-light: #c8ede3;
+    --sun: #ffd166;
+    --lavender: #a78bfa;
+    --shadow: 0 4px 24px rgba(44,62,107,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'BIZ UDPGothic', sans-serif;
+    background: var(--sky);
+    min-height: 100vh;
+    color: var(--ink);
+    overflow-x: clip;
+  }
+  body::before {
+    content: '';
+    position: fixed; top: -80px; right: -80px;
+    width: 320px; height: 320px; border-radius: 50%;
+    background: radial-gradient(circle, #ffd16655 0%, transparent 70%);
+    pointer-events: none;
+  }
+  body::after {
+    content: '';
+    position: fixed; bottom: -60px; left: -60px;
+    width: 260px; height: 260px; border-radius: 50%;
+    background: radial-gradient(circle, #5ec2a055 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ヘッダー */
+  header {
+    background: var(--cloud); box-shadow: var(--shadow);
+    padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-icon { font-size: 2rem; line-height: 1; }
+  .header-title { font-family: 'BIZ UDPMincho', serif; font-size: 1.4rem; font-weight: 700; color: var(--ink); letter-spacing: 0.04em; }
+  .header-sub { font-size: 0.75rem; color: var(--ink-light); margin-top: 2px; }
+
+  /* タブ */
+  .tabs { display: flex; padding: 16px 16px 0; max-width: 980px; margin: 0 auto; }
+  .tab {
+    flex: 1; padding: 10px 8px; border: none; background: rgba(255,255,255,0.5);
+    color: var(--ink-light); font-family: 'BIZ UDPGothic', sans-serif;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    border-radius: 12px 12px 0 0; transition: all 0.2s; border-bottom: 3px solid transparent;
+  }
+  .tab.active { background: var(--cloud); color: var(--ink); border-bottom-color: var(--peach); box-shadow: 0 -2px 12px rgba(44,62,107,0.07); }
+  .tab:hover:not(.active) { background: rgba(255,255,255,0.8); }
+
+  .main { max-width: 980px; margin: 0 auto; padding: 0 16px 60px; }
+  .panel { background: var(--cloud); border-radius: 0 12px 12px 12px; box-shadow: var(--shadow); padding: 20px; display: none; }
+  .panel.active { display: block; }
+
+  /* 共通部品 */
+  .setting-label { font-size: 0.82rem; font-weight: 700; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .setting-group { display: flex; flex-direction: column; gap: 6px; }
+
+  input[type="text"], select {
+    font-family: 'BIZ UDPGothic', sans-serif; font-size: 1rem;
+    padding: 10px 14px; border: 2px solid #e0e8f0; border-radius: 10px;
+    outline: none; width: 100%; transition: border-color 0.2s; color: var(--ink); background: var(--sky);
+  }
+  input[type="text"]:focus, select:focus { border-color: var(--peach); background: #fff; }
+  .char-input-large { font-family: 'BIZ UDPMincho', serif; font-size: 2.2rem; text-align: center; letter-spacing: 0.15em; padding: 12px; }
+
+  input[type="range"] {
+    flex: 1; height: 6px; -webkit-appearance: none;
+    background: linear-gradient(to right, var(--peach) 0%, #e0e8f0 0%);
+    border-radius: 3px; outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--peach); box-shadow: 0 2px 8px rgba(255,140,105,0.4); cursor: pointer;
+  }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-value { font-size: 0.9rem; font-weight: 700; color: var(--peach); min-width: 38px; text-align: right; }
+
+  .color-palette { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent;
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+  }
+  .color-swatch:hover { transform: scale(1.15); }
+  .color-swatch.selected { border-color: var(--ink); transform: scale(1.1); }
+
+  .btn {
+    font-family: 'BIZ UDPGothic', sans-serif; font-size: 1rem; font-weight: 800;
+    padding: 11px 22px; border: none; border-radius: 12px; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: linear-gradient(135deg,var(--peach),#ff6b45); color:#fff; box-shadow: 0 4px 16px rgba(255,140,105,0.35); }
+  .btn-secondary { background: var(--sky); color: var(--ink); border: 2px solid #e0e8f0; }
+  .btn-mint { background: linear-gradient(135deg,var(--mint),#3aad89); color:#fff; box-shadow: 0 4px 16px rgba(94,194,160,0.35); }
+  .btn-sun { background: linear-gradient(135deg,var(--sun),#f5b800); color:var(--ink); box-shadow: 0 4px 16px rgba(255,209,102,0.4); }
+  .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .divider { height: 1px; background: #e8eef5; margin: 16px 0; }
+
+  .preset-chars { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .preset-btn {
+    font-family: 'BIZ UDPMincho', serif; font-size: 1.1rem;
+    width: 42px; height: 42px; border: 2px solid #e0e8f0; background: var(--sky);
+    border-radius: 10px; cursor: pointer; transition: all 0.15s; color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .preset-btn:hover { border-color: var(--peach); background: var(--peach-light); transform: scale(1.1); }
+
+  /* 先生パネル */
+  .teacher-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 600px) { .teacher-grid { grid-template-columns: 1fr; } }
+
+  /* 練習モードトグル */
+  .mode-toggle {
+    display: flex; background: var(--sky); border-radius: 16px; padding: 5px; width: 100%;
+  }
+  .mode-btn {
+    flex: 1; padding: 16px 20px; border: none; background: transparent;
+    font-family: 'BIZ UDPGothic', sans-serif; font-size: 1.1rem; font-weight: 700;
+    color: var(--ink-light); cursor: pointer; border-radius: 12px; transition: all 0.2s; white-space: nowrap;
+    text-align: center;
+  }
+  .mode-btn.active { background: var(--cloud); color: var(--ink); box-shadow: 0 2px 10px rgba(44,62,107,0.1); }
+
+  /* ブラシ */
+  .brush-options { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .brush-opt {
+    border: 2px solid #e0e8f0; background: #fff; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0;
+  }
+  .brush-opt.selected { border-color: var(--peach); background: var(--peach-light); }
+  .brush-circle { border-radius: 50%; background: var(--ink); pointer-events: none; }
+
+  .control-card { background: var(--sky); border-radius: 14px; padding: 12px; }
+  .control-card-title { font-size: 0.76rem; font-weight: 700; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .sample-char-display { font-family: 'BIZ UDPMincho', serif; font-size: 1.1rem; font-weight: 700; color: var(--ink); text-align: center; word-break: break-all; line-height: 1.6; }
+
+  .stamp-area { text-align: center; min-height: 52px; display: flex; align-items: center; justify-content: center; }
+  .stamp { font-size: 3rem; display: none; animation: stampIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .stamp.show { display: block; }
+  @keyframes stampIn { 0%{transform:scale(0) rotate(-15deg);opacity:0} 100%{transform:scale(1) rotate(0);opacity:1} }
+
+  /* ── 一文字モード ── */
+  .single-layout { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 650px) { .single-layout { grid-template-columns: 1fr; } }
+
+  .canvas-wrapper { display: inline-block; }
+  .canvas-container {
+    position: relative; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(44,62,107,0.15); background: #fff; touch-action: none;
+  }
+  #guideCanvas { position: absolute; top:0; left:0; pointer-events: none; }
+  #drawCanvas { display: block; cursor: crosshair; touch-action: none; }
+
+  .page-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
+  .page-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--ink); color: #fff;
+    font-size: 1.2rem; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+  }
+  .page-btn:hover { background: var(--peach); transform: scale(1.1); }
+  .page-btn:disabled { background: #e0e8f0; cursor: default; transform: none; }
+  .page-indicator { font-size: 0.95rem; font-weight: 700; color: var(--ink); min-width: 60px; text-align: center; }
+
+  .char-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .char-chip {
+    font-family: 'BIZ UDPMincho', serif; font-size: 1.1rem; padding: 4px 12px;
+    border-radius: 20px; background: var(--sky); border: 2px solid #e0e8f0;
+    cursor: pointer; transition: all 0.15s; color: var(--ink);
+  }
+  .char-chip.done { background: var(--mint-light); border-color: var(--mint); color: var(--mint); text-decoration: line-through; }
+  .char-chip.current { background: var(--peach-light); border-color: var(--peach); font-weight: 700; transform: scale(1.05); }
+
+  .practice-controls { display: flex; flex-direction: column; gap: 12px; min-width: 150px; }
+
+  /* ── 続けて書くモード ── */
+  .wide-controls-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  /* 外枠ボーダー（スクロールしない・内側のコンテンツ幅に合わせる） */
+  .cells-outer-border {
+    border: 2px solid rgba(44,62,107,0.2); border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(44,62,107,0.13);
+    display: inline-block;
+    overflow: visible;
+  }
+
+  /* 行ラッパー */
+  .cells-row-wrap { display: flex; flex-direction: column; min-width: fit-content; }
+
+  /* 一行 */
+  .cells-row { display: flex; min-width: fit-content; border-bottom: 2px dashed rgba(44,62,107,0.1); }
+  .cells-row:last-child { border-bottom: none; }
+
+  /* 各マス */
+  .cell-wrapper {
+    position: relative; flex-shrink: 0;
+    border-right: 1px dashed rgba(44,62,107,0.13); background: #fff;
+    cursor: crosshair; touch-action: none;
+  }
+  .cell-wrapper:last-child { border-right: none; }
+
+  .cell-guide { position: absolute; top:0; left:0; pointer-events:none; display:block; }
+  .cell-draw  { display: block; cursor: crosshair; touch-action: none; }
+
+  /* 行追加エリア */
+  .wide-bottom { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+
+  /* トースト */
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: #fff; padding: 12px 24px; border-radius: 30px;
+    font-weight: 700; font-size: 0.95rem;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999; box-shadow: 0 8px 24px rgba(44,62,107,0.25); pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* モーダル */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(44,62,107,0.35); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 20px; padding: 28px; max-width: 340px; width: 90%;
+    box-shadow: 0 16px 48px rgba(44,62,107,0.2); text-align: center;
+    animation: modalIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes modalIn { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+  .modal-emoji { font-size: 4rem; margin-bottom: 10px; }
+  .modal-title { font-family: 'BIZ UDPMincho', serif; font-size: 1.6rem; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+  .modal-body { font-size: 1rem; color: var(--ink-light); margin-bottom: 20px; line-height: 1.6; white-space: pre-line; }
+
+  /* ── 活動記録 ── */
+  .rec-day-group { margin-bottom: 24px; }
+  .rec-day-label {
+    font-size: 0.8rem; font-weight: 700; color: var(--ink-light);
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 4px 0 8px; border-bottom: 1px solid #e8eef5; margin-bottom: 10px;
+  }
+  .record-card {
+    background: var(--sky); border-radius: 14px; padding: 14px 16px;
+    margin-bottom: 8px; border-left: 4px solid var(--peach);
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  .record-card.mode-wide { border-left-color: var(--mint); }
+  .rec-time-col { flex-shrink: 0; text-align: center; min-width: 42px; }
+  .rec-time { font-size: 0.78rem; font-weight: 700; color: var(--ink-light); line-height: 1.3; }
+  .rec-stamp-icon { font-size: 1.4rem; line-height: 1; }
+  .rec-body { flex: 1; min-width: 0; }
+  .rec-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .rec-char-badge {
+    font-family: 'BIZ UDPMincho', serif; font-size: 1.15rem; font-weight: 700;
+    background: var(--peach-light); color: var(--peach);
+    padding: 2px 12px; border-radius: 20px;
+  }
+  .rec-char-badge.wide { background: var(--mint-light); color: var(--mint); }
+  .rec-meta { font-size: 0.8rem; color: var(--ink-light); }
+  .rec-detail-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px; margin-top: 6px;
+  }
+  .rec-detail-item {
+    background: #fff; border-radius: 8px; padding: 6px 10px;
+  }
+  .rec-detail-label { font-size: 0.7rem; font-weight: 700; color: var(--ink-light); margin-bottom: 2px; }
+  .rec-detail-value { font-size: 0.85rem; color: var(--ink); font-weight: 700; }
+  .rec-progress-bar {
+    height: 6px; background: #e8eef5; border-radius: 3px; margin-top: 8px; overflow: hidden;
+  }
+  .rec-progress-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--peach), #ff6b45);
+    transition: width 0.5s ease;
+  }
+  .rec-progress-fill.wide { background: linear-gradient(90deg, var(--mint), #3aad89); }
+  .rec-progress-label { font-size: 0.72rem; color: var(--ink-light); margin-top: 3px; }
+  .record-delete-btn {
+    background: none; border: none; cursor: pointer; color: #c0c8d8;
+    font-size: 1rem; padding: 4px 6px; border-radius: 6px;
+    transition: color 0.15s, background 0.15s; flex-shrink: 0; align-self: flex-start;
+  }
+  .record-delete-btn:hover { color: #e74c3c; background: #fdecea; }
+
+
+  /* ── パスコード画面 ── */
+  .passcode-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 48px 20px; gap: 20px;
+  }
+  .passcode-icon { font-size: 3rem; }
+  .passcode-title { font-family: 'BIZ UDPMincho', serif; font-size: 1.3rem; font-weight: 700; color: var(--ink); }
+  .passcode-dots { display: flex; gap: 12px; margin: 4px 0; }
+  .passcode-dot {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #e0e8f0; transition: background 0.15s;
+  }
+  .passcode-dot.filled { background: var(--ink); }
+  .passcode-keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; }
+  .passcode-key {
+    width: 72px; height: 72px; border-radius: 50%; border: none;
+    background: var(--cloud); box-shadow: 0 2px 10px rgba(44,62,107,0.12);
+    font-family: 'BIZ UDPGothic', sans-serif; font-size: 1.5rem; font-weight: 700;
+    color: var(--ink); cursor: pointer; transition: all 0.12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .passcode-key:hover { background: var(--peach-light); transform: scale(1.06); }
+  .passcode-key:active { transform: scale(0.96); }
+  .passcode-key.del { font-size: 1.1rem; background: var(--sky); }
+  .passcode-error { color: #e74c3c; font-size: 0.88rem; font-weight: 700; min-height: 1.2em; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)}
+  }
+  .shake { animation: shake 0.35s ease; }
+
+  /* ── 記録カードに画像 ── */
+  .rec-image-wrap {
+    margin-top: 10px; border-radius: 10px; overflow: hidden;
+    border: 1px solid #e0e8f0; display: inline-block;
+    background: #fff; max-width: 100%;
+  }
+  .rec-image { display: block; width: 120px; height: 120px; object-fit: contain; }
+  .rec-image-wide { width: 100%; max-width: 340px; height: auto; }
+
+  /* 記録一覧：画像グリッド表示 */
+  .rec-images-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+  }
+  .rec-img-card {
+    background: #fff; border-radius: 12px; overflow: hidden;
+    border: 2px solid #e0e8f0; display: flex; flex-direction: column;
+    align-items: center; width: 130px; flex-shrink: 0;
+  }
+  .rec-img-card img { width: 130px; height: 130px; object-fit: contain; display: block; }
+  .rec-img-label {
+    font-family: 'BIZ UDPMincho', serif; font-size: 0.8rem; font-weight: 700;
+    color: var(--ink-light); padding: 4px 6px; text-align: center;
+  }
+
+  /* passcode modal: managed by inline style */
+
+  /* ── 設定パネル ── */
+  .stg-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .stg-row-col { flex-direction: column; align-items: flex-start; }
+  .stg-label { flex: 1; min-width: 0; }
+  .stg-name { font-size: 0.95rem; font-weight: 700; color: var(--ink); }
+  .stg-desc { font-size: 0.78rem; color: var(--ink-light); margin-top: 2px; line-height: 1.4; }
+
+  /* トグルスイッチ */
+  .stg-toggle { position: relative; display: inline-block; width: 48px; height: 28px; flex-shrink: 0; }
+  .stg-toggle input { opacity: 0; width: 0; height: 0; }
+  .stg-slider {
+    position: absolute; inset: 0; background: #d0dae8; border-radius: 28px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .stg-slider::before {
+    content: ''; position: absolute;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; top: 3px; left: 3px;
+    box-shadow: 0 2px 6px rgba(44,62,107,0.18);
+    transition: transform 0.2s;
+  }
+  .stg-toggle input:checked + .stg-slider { background: var(--peach); }
+  .stg-toggle input:checked + .stg-slider::before { transform: translateX(20px); }
+
+  /* 設定適用：文字を大きく */
+  body.large-text { font-size: 18px !important; }
+  body.large-text .header-title { font-size: 1.6rem; }
+  body.large-text .btn { font-size: 1.1rem; padding: 14px 26px; }
+  body.large-text .tab { font-size: 1rem; }
+  body.large-text input[type="text"], body.large-text select { font-size: 1.1rem; }
+  body.large-text .setting-label { font-size: 0.92rem; }
+  body.large-text .char-chip { font-size: 1.3rem; }
+  body.large-text .passcode-key { font-size: 1.7rem; }
+
+  /* 設定適用：ハイコントラスト */
+  body.high-contrast {
+    background: #000 !important;
+    color: #fff !important;
+  }
+  body.high-contrast header { background: #111 !important; border-bottom: 2px solid #ff0 !important; }
+  body.high-contrast .header-title, body.high-contrast .header-sub { color: #fff !important; }
+  body.high-contrast .panel { background: #111 !important; color: #fff !important; }
+  body.high-contrast .tab { background: #222 !important; color: #ccc !important; }
+  body.high-contrast .tab.active { background: #333 !important; color: #ff0 !important; border-bottom-color: #ff0 !important; }
+  body.high-contrast .btn-primary { background: #ff0 !important; color: #000 !important; }
+  body.high-contrast .btn-mint { background: #0f0 !important; color: #000 !important; }
+  body.high-contrast .btn-secondary { background: #333 !important; color: #fff !important; border-color: #666 !important; }
+  body.high-contrast input[type="text"], body.high-contrast select {
+    background: #222 !important; color: #fff !important; border-color: #666 !important;
+  }
+  body.high-contrast .control-card { background: #222 !important; }
+  body.high-contrast .setting-label { color: #aaa !important; }
+  body.high-contrast .canvas-container { box-shadow: 0 0 0 3px #ff0 !important; }
+
+  /* スキャンハイライト */
+  .scan-highlight {
+    outline: 4px solid var(--peach) !important;
+    outline-offset: 4px;
+    box-shadow: 0 0 0 8px rgba(255,140,105,0.35) !important;
+    transform: scale(1.06) !important;
+    position: relative;
+    z-index: 10;
+    transition: transform 0.12s, box-shadow 0.12s !important;
+  }
+
+
+
+  /* ── 続けて書くモード スクロールエリア ── */
+  .wide-scroll-outer {
+    /* パネルpadding(20px)を打ち消して画面端まで広げる */
+    margin: 12px -20px 0;
+    padding: 4px 20px 12px;
+    overflow-x: scroll;            /* 常にスクロール可能（量がなくても領域確保） */
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .wide-scroll-outer::-webkit-scrollbar { display: none; }
+
+  /* フェーダー行 */
+  .wide-fader-row {
+    display: flex; align-items: center; gap: 10px;
+    margin: 10px 0 4px;
+    padding: 0 4px;
+  }
+
+  /* 大きなスクロールフェーダー */
+  .wide-scroll-fader {
+    flex: 1; height: 20px; -webkit-appearance: none; appearance: none;
+    background: #e0e8f0; border-radius: 10px; outline: none; cursor: pointer;
+  }
+  .wide-scroll-fader::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 56px; height: 28px; border-radius: 14px;
+    background: var(--peach);
+    box-shadow: 0 2px 10px rgba(255,140,105,0.45);
+    cursor: grab;
+    transition: background 0.15s;
+  }
+  .wide-scroll-fader::-webkit-slider-thumb:active { cursor: grabbing; background: #ff6b45; }
+  .wide-scroll-fader::-moz-range-thumb {
+    width: 56px; height: 28px; border-radius: 14px; border: none;
+    background: var(--peach);
+    box-shadow: 0 2px 10px rgba(255,140,105,0.45);
+    cursor: grab;
+  }
+
+  /* 矢印ボタン */
+  .fader-arrow {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--sky); border: 2px solid #e0e8f0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+    user-select: none; -webkit-user-select: none;
+  }
+  .fader-arrow:hover  { background: var(--peach-light); border-color: var(--peach); }
+  .fader-arrow:active { transform: scale(0.93); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">✏️</div>
+  <div style="flex:1;">
+    <div class="header-title">なぞり書き練習ツール</div>
+    <div class="header-sub">先生がカスタマイズ → 子どもが練習</div>
+  </div>
+  <button onclick="openHelp()" aria-label="使い方" style="
+    background:none; border:none; cursor:pointer;
+    font-size:1.6rem; line-height:1; padding:6px;
+    border-radius:10px; transition:background 0.15s; flex-shrink:0;
+  " onmouseover="this.style.background='var(--sky)'" onmouseout="this.style.background='none'">❓</button>
+  <button id="settingsBtn" aria-label="設定" style="
+    background:none; border:none; cursor:pointer;
+    font-size:1.6rem; line-height:1; padding:6px;
+    border-radius:10px; transition:background 0.15s; flex-shrink:0;
+  " onmouseover="this.style.background='var(--sky)'" onmouseout="this.style.background='none'">⚙️</button>
+</header>
+
+<!-- 設定パネル（スライドイン） -->
+<div id="settingsOverlay" style="display:none; position:fixed; inset:0; background:rgba(44,62,107,0.35); z-index:800;" onclick="closeSettings()"></div>
+<div id="settingsPanel" style="
+  position:fixed; top:0; right:0; height:100%; width:min(340px,95vw);
+  background:#fff; z-index:801; box-shadow:-8px 0 32px rgba(44,62,107,0.15);
+  display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  overflow-y:auto;
+">
+  <!-- パネルヘッダー -->
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 20px 14px; border-bottom:1px solid #e8eef5; flex-shrink:0;">
+    <div style="font-family:'BIZ UDPMincho', serif; font-size:1.1rem; font-weight:700; color:#2c3e6b;">⚙️ 設定</div>
+    <button onclick="closeSettings()" style="background:none; border:none; cursor:pointer; font-size:1.4rem; color:#5a6a9a; padding:4px 8px; border-radius:8px;">✕</button>
+  </div>
+
+  <!-- 設定項目 -->
+  <div style="padding:20px; display:flex; flex-direction:column; gap:20px; flex:1;">
+
+    <!-- 文字を大きく -->
+    <div class="stg-row">
+      <div class="stg-label">
+        <div class="stg-name">🔠 文字を大きく</div>
+        <div class="stg-desc">画面全体のテキストを大きくします</div>
+      </div>
+      <label class="stg-toggle">
+        <input type="checkbox" id="stgLargeText" onchange="applySettings()">
+        <span class="stg-slider"></span>
+      </label>
+    </div>
+
+    <!-- ハイコントラスト -->
+    <div class="stg-row">
+      <div class="stg-label">
+        <div class="stg-name">🌓 ハイコントラスト</div>
+        <div class="stg-desc">背景・文字のコントラストを高めます</div>
+      </div>
+      <label class="stg-toggle">
+        <input type="checkbox" id="stgHighContrast" onchange="applySettings()">
+        <span class="stg-slider"></span>
+      </label>
+    </div>
+
+    <!-- スイッチスキャン -->
+    <div class="stg-row">
+      <div class="stg-label">
+        <div class="stg-name">🔲 スイッチスキャン</div>
+        <div class="stg-desc">ボタンを順番にハイライトします</div>
+      </div>
+      <label class="stg-toggle">
+        <input type="checkbox" id="stgSwitchScan" onchange="applySettings()">
+        <span class="stg-slider"></span>
+      </label>
+    </div>
+
+    <!-- スキャン間隔 -->
+    <div class="stg-row stg-row-col">
+      <div class="stg-label">
+        <div class="stg-name">⏱ スキャン間隔</div>
+        <div class="stg-desc">スキャンが移動する速さ（秒）</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
+        <input type="range" id="stgScanInterval" min="1" max="5" value="2" step="0.5"
+          style="flex:1;" oninput="document.getElementById('stgScanIntervalVal').textContent=this.value+'秒'; applySettings();">
+        <span id="stgScanIntervalVal" style="font-size:0.9rem; font-weight:700; color:var(--peach); min-width:36px;">2秒</span>
+      </div>
+    </div>
+
+    <!-- 自動読み上げ -->
+    <div class="stg-row">
+      <div class="stg-label">
+        <div class="stg-name">🔊 自動読み上げ</div>
+        <div class="stg-desc">文字や操作を音声で読み上げます</div>
+      </div>
+      <label class="stg-toggle">
+        <input type="checkbox" id="stgSpeech" onchange="applySettings()">
+        <span class="stg-slider"></span>
+      </label>
+    </div>
+
+    <div style="height:1px; background:#e8eef5;"></div>
+
+    <!-- このアプリについて -->
+    <div>
+      <div class="stg-name" style="margin-bottom:8px;">ℹ️ このアプリについて</div>
+      <div style="background:var(--sky); border-radius:12px; padding:14px; font-size:0.85rem; color:#5a6a9a; line-height:1.7;">
+        <strong style="color:#2c3e6b;">なぞり書き練習ツール</strong><br>
+        先生が練習する文字をカスタマイズし、子どもが薄いお手本をなぞりながら文字を練習するアプリです。<br><br>
+        「できた！」を押すたびに書いた字が自動で記録され、活動記録タブで確認できます。<br><br>
+        <span style="color:#aab4c8;">すべての子どもの学びのためのデジタル教材</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="teacher">🍎 先生モード</button>
+  <button class="tab" data-tab="practice">✏️ 練習モード</button>
+  <button class="tab" data-tab="record">📋 活動記録</button>
+</div>
+
+<div class="main">
+
+  <!-- 先生パネル -->
+  <div class="panel active" id="tab-teacher">
+    <div class="teacher-grid">
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="setting-group">
+          <div class="setting-label">📝 練習する文字・言葉</div>
+          <input type="text" class="char-input-large" id="charInput" placeholder="あいうえお" maxlength="20" value="あいう">
+          <div style="font-size:0.8rem;color:var(--ink-light);">1文字〜最大20文字。名前・漢字・ひらがなOK</div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="setting-group">
+          <div class="setting-label">🖊 練習スタイル</div>
+          <select id="practiceStyleSelect">
+            <option value="single">一文字ずつ（個別マス）</option>
+            <option value="wide">続けて書く（連続マス）</option>
+            <option value="both" selected>両方使う（切り替えあり）</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">📏 マスのサイズ</div>
+          <select id="canvasSizeSelect">
+            <option value="220">小 (220px)</option>
+            <option value="300" selected>中 (300px) — 標準</option>
+            <option value="380">大 (380px) — iPad向け</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">🔁 一文字あたりの練習回数</div>
+          <div class="range-row">
+            <input type="range" id="repeatRange" min="1" max="6" value="3" step="1">
+            <span class="range-value" id="repeatVal">3回</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">🔍 お手本の大きさ</div>
+          <div class="range-row">
+            <span style="font-size:0.85rem;">小</span>
+            <input type="range" id="fontSizeRange" min="40" max="92" value="88" step="4">
+            <span style="font-size:0.85rem;">大</span>
+            <span class="range-value" id="fontSizeVal">88%</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">👁 お手本の薄さ</div>
+          <div class="range-row">
+            <span style="font-size:0.85rem;">薄</span>
+            <input type="range" id="opacityRange" min="5" max="40" value="22" step="1">
+            <span style="font-size:0.85rem;">濃</span>
+            <span class="range-value" id="opacityVal">22%</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">📐 ガイド線</div>
+          <select id="guideLineSelect">
+            <option value="cross">十字線</option>
+            <option value="grid">マス目</option>
+            <option value="box" selected>外枠のみ</option>
+            <option value="none">なし</option>
+          </select>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">🎨 お手本の色</div>
+          <div class="color-palette" id="guideColorPalette"></div>
+        </div>
+
+        <div class="setting-group">
+          <div class="setting-label">✏️ なぞる色（デフォルト）</div>
+          <div class="color-palette" id="traceColorPalette"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="startPracticeBtn">✏️ 練習をはじめる</button>
+    </div>
+  </div>
+
+  <!-- 練習パネル -->
+  <div class="panel" id="tab-practice">
+
+    <!-- モード切り替えトグル -->
+    <div id="modeToggleRow" style="margin-bottom:14px;display:none;">
+      <div class="mode-toggle">
+        <button class="mode-btn active" data-pmode="single">📦 一文字ずつ</button>
+        <button class="mode-btn" data-pmode="wide">📜 続けて書く</button>
+      </div>
+    </div>
+
+    <!-- 一文字モード -->
+    <div id="singleModeView">
+      <div style="margin-bottom:12px;">
+        <div class="setting-label">もじいちらん</div>
+        <div class="char-list" id="charList"></div>
+      </div>
+      <div class="single-layout">
+        <div>
+          <div class="canvas-wrapper">
+            <div class="canvas-container" id="canvasContainer">
+              <canvas id="guideCanvas"></canvas>
+              <canvas id="drawCanvas"></canvas>
+            </div>
+          </div>
+          <div class="page-nav">
+            <button class="page-btn" id="prevBtn">◀</button>
+            <div class="page-indicator" id="pageIndicator">1 / 3</div>
+            <button class="page-btn" id="nextBtn">▶</button>
+          </div>
+        </div>
+        <div class="practice-controls">
+          <div class="control-card">
+            <div class="control-card-title">いまのもじ</div>
+            <div class="sample-char-display" id="currentCharDisplay">あ</div>
+          </div>
+          <div class="control-card">
+            <div class="control-card-title">ふでの大きさ</div>
+            <div class="brush-options" id="brushOptions"></div>
+          </div>
+          <div class="control-card">
+            <div class="control-card-title">ふでの色</div>
+            <div class="color-palette" id="brushColorPalette" style="gap:6px;"></div>
+          </div>
+          <div class="stamp-area"><div class="stamp" id="stamp">⭐</div></div>
+          <button class="btn btn-secondary" id="clearBtn" style="width:100%;">🗑 けす</button>
+          <button class="btn btn-mint" id="doneBtn" style="width:100%; font-size:1.4rem; padding:20px; letter-spacing:0.05em;">✅ できた！</button>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 続けて書くモード -->
+    <div id="wideModeView" style="display:none;">
+
+      <!-- コントロール行 -->
+      <div class="wide-controls-row">
+        <div class="control-card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;">
+          <span class="control-card-title" style="margin:0;white-space:nowrap;">ふでの大きさ</span>
+          <div class="brush-options" id="brushOptionsWide"></div>
+        </div>
+        <div class="control-card" style="display:flex;align-items:center;gap:8px;padding:10px 14px;">
+          <span class="control-card-title" style="margin:0;white-space:nowrap;">ふでの色</span>
+          <div class="color-palette" id="brushColorPaletteWide" style="gap:5px;"></div>
+        </div>
+        <button class="btn btn-secondary" id="clearBtnWide">🗑 けす</button>
+        <button class="btn btn-mint" id="doneBtnWide" style="font-size:1.4rem; padding:18px 32px; letter-spacing:0.05em;">✅ できた！</button>
+
+      </div>
+
+      <!-- 連続マス：パネルのpaddingをネガティブマージンで打ち消して全幅に -->
+      <div class="wide-scroll-outer">
+        <div class="cells-outer-border" id="cellsOuterBorder">
+          <div class="cells-row-wrap" id="cellsRowWrap"></div>
+        </div>
+      </div>
+
+      <!-- スクロールフェーダー -->
+      <div class="wide-fader-row">
+        <span class="fader-arrow" id="wideScrollLeft">◀</span>
+        <input type="range" id="wideScrollBar" min="0" max="1000" value="0" step="1"
+          class="wide-scroll-fader" aria-label="横スクロール">
+        <span class="fader-arrow" id="wideScrollRight">▶</span>
+      </div>
+
+      <div class="wide-bottom">
+        <div class="stamp-area" style="min-height:unset;">
+          <div class="stamp" id="stampWide" style="font-size:2.5rem;">⭐</div>
+        </div>
+        <button class="btn btn-sun" id="addRowBtn">➕ もう一行追加</button>
+      </div>
+    </div>
+
+  </div>
+  <!-- 記録パネル -->
+  <div class="panel" id="tab-record">
+    <!-- 記録コンテンツ（解錠後のみ表示） -->
+    <div id="recordContent" style="display:none;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
+      <div>
+        <div style="font-family:'BIZ UDPMincho', serif;font-size:1.2rem;font-weight:700;color:var(--ink);">📋 活動記録</div>
+        <div style="font-size:0.8rem;color:var(--ink-light);margin-top:2px;">「できた！」を押すたびに自動で記録されます</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" id="exportRecordsBtn" style="font-size:0.85rem;padding:8px 16px;">📥 CSVで書き出し</button>
+        <button class="btn btn-secondary" id="clearAllRecordsBtn" style="font-size:0.85rem;padding:8px 16px;color:#e74c3c;">🗑 全件削除</button>
+      </div>
+    </div>
+
+    <!-- フィルター行 -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+      <input type="text" id="filterName" placeholder="名前で絞り込み" style="max-width:180px;font-size:0.9rem;padding:8px 12px;">
+      <input type="date" id="filterDate" style="font-family:'BIZ UDPGothic', sans-serif;font-size:0.9rem;padding:8px 12px;border:2px solid #e0e8f0;border-radius:10px;background:var(--sky);color:var(--ink);outline:none;">
+      <button class="btn btn-secondary" id="filterClearBtn" style="font-size:0.85rem;padding:8px 14px;">✕ リセット</button>
+      <span id="recordCount" style="font-size:0.85rem;color:var(--ink-light);margin-left:4px;"></span>
+    </div>
+
+    <div id="recordsList">
+      <div style="color:var(--ink-light);font-size:0.9rem;text-align:center;padding:32px 0;">まだ記録がありません<br><span style="font-size:0.8rem;">練習モードで「できた！」を押すと自動で記録されます</span></div>
+    </div>
+
+    </div><!-- /recordContent -->
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="completeModal">
+  <div class="modal">
+    <div class="modal-emoji">🎉</div>
+    <div class="modal-title">ぜんぶできた！</div>
+    <div class="modal-body" id="completeModalBody"></div>
+    <button class="btn btn-sun" style="width:100%;" id="modalCloseBtn">もういちど ▶</button>
+  </div>
+</div>
+
+<!-- 使い方モーダル -->
+<div id="helpModal" style="display:none; position:fixed; inset:0; z-index:700; background:rgba(44,62,107,0.4); align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#fff; border-radius:20px; width:100%; max-width:520px; max-height:88vh; overflow-y:auto; box-shadow:0 16px 48px rgba(44,62,107,0.2);">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px 14px; border-bottom:1px solid #e8eef5; position:sticky; top:0; background:#fff; border-radius:20px 20px 0 0;">
+      <div style="font-family:'BIZ UDPMincho',serif; font-size:1.2rem; font-weight:700; color:#2c3e6b;">❓ 使い方</div>
+      <button onclick="closeHelp()" style="background:none; border:none; cursor:pointer; font-size:1.4rem; color:#5a6a9a; padding:4px 10px; border-radius:8px;">✕</button>
+    </div>
+    <div style="padding:20px 24px; display:flex; flex-direction:column; gap:20px; font-size:0.93rem; line-height:1.75; color:#2c3e6b;">
+
+      <div style="background:#e8f4fd; border-radius:14px; padding:16px 18px;">
+        <div style="font-weight:700; font-size:1rem; margin-bottom:6px;">✏️ このアプリについて</div>
+        <p>先生が練習する文字を自由に設定し、子どもが薄く表示されたお手本をなぞりながら文字の形を学ぶツールです。ひらがな・カタカナ・漢字・名前など、どんな文字でも設定できます。「できた！」を押すと書いた字が自動で記録され、活動後に先生が確認できます。</p>
+      </div>
+
+      <div>
+        <div style="font-weight:700; color:#ff8c69; margin-bottom:8px; font-size:0.95rem;">🍎 先生モードの使い方</div>
+        <ol style="padding-left:1.4em; display:flex; flex-direction:column; gap:6px;">
+          <li>「練習する文字・言葉」に文字を入力します（例：あいう、山田たろう）</li>
+          <li>練習スタイルを選びます
+            <ul style="margin-top:4px; padding-left:1.2em; color:#5a6a9a; list-style:disc;">
+              <li><b>一文字ずつ</b>：1文字ずつ個別マスで繰り返し練習</li>
+              <li><b>続けて書く</b>：入力した文字が横一列に並び続けて書く</li>
+              <li><b>両方使う</b>：練習中にどちらも切り替えられる</li>
+            </ul>
+          </li>
+          <li>マスのサイズ・お手本の大きさ・薄さ・ガイド線などを調整します</li>
+          <li>「練習をはじめる」を押すと練習モードに切り替わります</li>
+        </ol>
+      </div>
+
+      <div>
+        <div style="font-weight:700; color:#5ec2a0; margin-bottom:8px; font-size:0.95rem;">✏️ 練習モードの使い方</div>
+        <ol style="padding-left:1.4em; display:flex; flex-direction:column; gap:6px;">
+          <li>薄く表示されたお手本の文字をなぞって書きます</li>
+          <li>書き終わったら「✅ できた！」を押します
+            <ul style="margin-top:4px; padding-left:1.2em; color:#5a6a9a; list-style:disc;">
+              <li><b>一文字ずつ</b>：設定回数練習してから次の文字へ進みます</li>
+              <li><b>続けて書く</b>：全文字が横に並びます。「もう一行追加」で行を増やせます</li>
+            </ul>
+          </li>
+          <li>全文字完了すると「🎉ぜんぶできた！」が表示されます</li>
+          <li>筆の大きさ・色は練習中いつでも変更できます</li>
+          <li>間違えたら「🗑 けす」で書き直せます</li>
+        </ol>
+      </div>
+
+      <div>
+        <div style="font-weight:700; color:#a78bfa; margin-bottom:8px; font-size:0.95rem;">📋 活動記録の見方</div>
+        <ul style="padding-left:1.4em; display:flex; flex-direction:column; gap:6px; list-style:disc;">
+          <li>「できた！」を押すたびに書いた字の画像が自動保存されます</li>
+          <li>全文字完了時に全文字の画像がまとめて1件の記録として保存されます</li>
+          <li>活動記録タブはパスコード（初期値：<b>1234</b>）で保護されています</li>
+          <li>記録はCSVで書き出してExcelなどで管理することもできます</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-weight:700; color:#2c3e6b; margin-bottom:8px; font-size:0.95rem;">⚙️ 設定の説明</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="background:#f7f9fc; border-radius:10px; padding:10px 14px;"><b>🔠 文字を大きく</b><br><span style="color:#5a6a9a;">画面全体のテキストとボタンを大きく表示します。</span></div>
+          <div style="background:#f7f9fc; border-radius:10px; padding:10px 14px;"><b>🌓 ハイコントラスト</b><br><span style="color:#5a6a9a;">背景を黒・文字を白にして視認性を高めます。</span></div>
+          <div style="background:#f7f9fc; border-radius:10px; padding:10px 14px;"><b>🔲 スイッチスキャン</b><br><span style="color:#5a6a9a;">ボタンを順番にハイライトします。ハイライト中に画面を<b>タップ</b>、またはスペース・Enterキーで選択できます。外付けスイッチはスペースキーに対応させてください。</span></div>
+          <div style="background:#f7f9fc; border-radius:10px; padding:10px 14px;"><b>⏱ スキャン間隔</b><br><span style="color:#5a6a9a;">スキャンが次のボタンに移る時間（1〜5秒）を調整します。</span></div>
+          <div style="background:#f7f9fc; border-radius:10px; padding:10px 14px;"><b>🔊 自動読み上げ</b><br><span style="color:#5a6a9a;">スキャン中のボタン名を音声で読み上げます。スイッチスキャンと組み合わせて使うと効果的です。</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div style="padding:0 24px 24px;">
+      <button onclick="closeHelp()" style="width:100%; padding:13px; background:linear-gradient(135deg,#ff8c69,#ff6b45); color:#fff; border:none; border-radius:12px; font-family:'BIZ UDPGothic',sans-serif; font-size:1rem; font-weight:700; cursor:pointer;">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- パスコードモーダル -->
+<div id="passcodeModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#e8f4fd; z-index:9999; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:40px 20px;">
+  <div style="font-size:3rem;">🔒</div>
+  <div style="font-family:'BIZ UDPMincho', serif; font-size:1.25rem; font-weight:700; color:#2c3e6b;">活動記録</div>
+  <div style="font-size:0.82rem; color:#5a6a9a;">パスコードを入力してください</div>
+  <div style="background:#fff3cc; border-radius:10px; padding:8px 20px; font-size:0.82rem; color:#8a6800; font-weight:700; text-align:center;">
+    🔑 デフォルトのパスコード：<span style="font-size:1.1rem; letter-spacing:0.25em; margin-left:4px;">1234</span>
+  </div>
+  <div id="passcodeDots" style="display:flex; gap:12px; margin:4px 0;">
+    <div id="dot0" style="width:16px;height:16px;border-radius:50%;background:#e0e8f0;transition:background 0.15s;"></div>
+    <div id="dot1" style="width:16px;height:16px;border-radius:50%;background:#e0e8f0;transition:background 0.15s;"></div>
+    <div id="dot2" style="width:16px;height:16px;border-radius:50%;background:#e0e8f0;transition:background 0.15s;"></div>
+    <div id="dot3" style="width:16px;height:16px;border-radius:50%;background:#e0e8f0;transition:background 0.15s;"></div>
+  </div>
+  <div id="passcodeError" style="color:#e74c3c; font-size:0.88rem; font-weight:700; min-height:1.2em;"></div>
+  <div style="display:grid; grid-template-columns:repeat(3,72px); gap:10px;">
+    <button onclick="pcKey('1')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">1</button>
+    <button onclick="pcKey('2')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">2</button>
+    <button onclick="pcKey('3')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">3</button>
+    <button onclick="pcKey('4')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">4</button>
+    <button onclick="pcKey('5')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">5</button>
+    <button onclick="pcKey('6')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">6</button>
+    <button onclick="pcKey('7')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">7</button>
+    <button onclick="pcKey('8')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">8</button>
+    <button onclick="pcKey('9')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">9</button>
+    <div></div>
+    <button onclick="pcKey('0')" style="width:72px;height:72px;border-radius:50%;border:none;background:#fff;box-shadow:0 2px 10px rgba(44,62,107,0.12);font-size:1.5rem;font-weight:700;color:#2c3e6b;cursor:pointer;">0</button>
+    <button onclick="pcKey('del')" style="width:72px;height:72px;border-radius:50%;border:none;background:#e8f4fd;box-shadow:0 2px 10px rgba(44,62,107,0.08);font-size:1.2rem;font-weight:700;color:#2c3e6b;cursor:pointer;">⌫</button>
+  </div>
+  <button onclick="pcCancel()" style="margin-top:8px; font-size:0.85rem; color:#5a6a9a; background:none; border:none; cursor:pointer; text-decoration:underline; padding:8px;">キャンセル</button>
+</div>
+
+<script>
+// =============================================
+// 状態
+// =============================================
+const S = {
+  chars: ['あ','い','う'],
+  currentCharIdx: 0,
+  currentPage: 0,
+  repeatCount: 3,
+  guideColor: '#2c3e6b',
+  traceColor: '#ff8c69',
+  brushColor: '#ff8c69',
+  brushSize: 12,
+  fontSize: 88,
+  opacity: 22,
+  guideStyle: 'box',
+  cellSize: 300,
+  doneChars: new Set(),
+  practiceStyle: 'both',
+  practiceMode: 'single',
+  isDrawing: false,
+  lastX: 0, lastY: 0,
+  activeCanvas: null,
+};
+
+const HIRAGANA = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん'.split('');
+const KATAKANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン'.split('');
+const NUMS = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+const GUIDE_COLORS = [
+  {v:'#2c3e6b',l:'濃紺'},{v:'#e74c3c',l:'赤'},{v:'#16a085',l:'緑'},
+  {v:'#8e44ad',l:'紫'},{v:'#e67e22',l:'橙'},{v:'#95a5a6',l:'灰'},
+];
+const TRACE_COLORS = [
+  {v:'#ff8c69',l:'サーモン'},{v:'#5ec2a0',l:'ミント'},{v:'#a78bfa',l:'ラベンダー'},
+  {v:'#ffd166',l:'イエロー'},{v:'#3b82f6',l:'ブルー'},{v:'#2c3e6b',l:'濃紺'},
+];
+
+// =============================================
+// 初期化
+// =============================================
+// =============================================
+// 設定パネル
+// =============================================
+const settings = {
+  largeText:     false,
+  highContrast:  false,
+  switchScan:    false,
+  scanInterval:  2,
+  speech:        false,
+};
+
+// 設定パネル開閉
+function openSettings() {
+  document.getElementById('settingsOverlay').style.display = 'block';
+  document.getElementById('settingsPanel').style.transform = 'translateX(0)';
+}
+function closeSettings() {
+  document.getElementById('settingsOverlay').style.display = 'none';
+  document.getElementById('settingsPanel').style.transform = 'translateX(100%)';
+}
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+// 設定を適用
+function applySettings() {
+  settings.largeText    = document.getElementById('stgLargeText').checked;
+  settings.highContrast = document.getElementById('stgHighContrast').checked;
+  settings.switchScan   = document.getElementById('stgSwitchScan').checked;
+  settings.scanInterval = +document.getElementById('stgScanInterval').value;
+  settings.speech       = document.getElementById('stgSpeech').checked;
+
+  // 文字を大きく
+  document.body.classList.toggle('large-text', settings.largeText);
+  // ハイコントラスト
+  document.body.classList.toggle('high-contrast', settings.highContrast);
+  // スイッチスキャン
+  if (settings.switchScan) {
+    startScan();
+  } else {
+    stopScan();
+  }
+}
+
+// ── スイッチスキャン ─────────────────────────────────────────
+let scanTimer = null;
+let scanIdx = 0;
+
+// スキャン対象：現在アクティブな表示エリア内の可視ボタンのみ
+function getScanTargets() {
+  // アクティブパネルを取得
+  const activePanel = document.querySelector('.panel.active');
+  if (!activePanel) return [];
+
+  // 練習パネルの場合は表示中のビューに絞る
+  let root = activePanel;
+  if (activePanel.id === 'tab-practice') {
+    const singleVisible = document.getElementById('singleModeView')?.style.display !== 'none';
+    root = singleVisible
+      ? document.getElementById('singleModeView')
+      : document.getElementById('wideModeView');
+  }
+  if (!root) return [];
+
+  // 可視ボタンのみ（display:none の子孫は offsetParent が null になる）
+  return Array.from(root.querySelectorAll('button:not([disabled])'))
+    .filter(el => {
+      // offsetParent チェック（非表示要素は null）
+      if (el.offsetParent === null) return false;
+      // 幅・高さが 0 の要素を除外
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+}
+
+function startScan() {
+  stopScan();
+  scanIdx = 0;
+  document.body.classList.add('scan-active');
+  tickScan();
+}
+
+function stopScan() {
+  if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+  document.querySelectorAll('.scan-highlight').forEach(el => {
+    el.classList.remove('scan-highlight');
+    if (el._scanClickHandler) {
+      el.removeEventListener('click', el._scanClickHandler);
+      delete el._scanClickHandler;
+    }
+  });
+  document.body.classList.remove('scan-active');
+}
+
+function tickScan() {
+  // 前のハイライトをクリア
+  document.querySelectorAll('.scan-highlight').forEach(el => {
+    el.classList.remove('scan-highlight');
+    if (el._scanClickHandler) {
+      el.removeEventListener('click', el._scanClickHandler);
+      delete el._scanClickHandler;
+    }
+  });
+
+  const targets = getScanTargets();
+  if (!targets.length) {
+    scanTimer = setTimeout(tickScan, settings.scanInterval * 1000);
+    return;
+  }
+
+  // 末尾まで来たら先頭に戻る（ループ）
+  scanIdx = scanIdx % targets.length;
+
+  const target = targets[scanIdx];
+  target.classList.add('scan-highlight');
+  target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
+  // タップ/クリックされたら → ボタン機能実行後、次のスキャンへ
+  target._scanClickHandler = () => {
+    target.classList.remove('scan-highlight');
+    delete target._scanClickHandler;
+    if (scanTimer) clearTimeout(scanTimer);
+    scanIdx = (scanIdx + 1) % targets.length; // ループして次へ
+    scanTimer = setTimeout(tickScan, 400);
+  };
+  target.addEventListener('click', target._scanClickHandler, { once: true });
+
+  // 読み上げ
+  if (settings.speech) {
+    const label = (target.getAttribute('aria-label') || target.textContent || '').trim();
+    speak(label);
+  }
+
+  // タイマーで自動的に次へ（末尾なら先頭へ）
+  scanIdx = (scanIdx + 1) % targets.length;
+  scanTimer = setTimeout(tickScan, settings.scanInterval * 1000);
+}
+
+// スキャン選択：ハイライト中ボタンがクリック／タップされたら次へ進む
+// （ボタン自体のクリックは通常通り発火する。スキャンのタイマーをリセットするだけ）
+function selectScanTarget() {
+  if (!settings.switchScan) return;
+  const highlighted = document.querySelector('.scan-highlight');
+  if (highlighted) {
+    highlighted.classList.remove('scan-highlight');
+    if (scanTimer) clearTimeout(scanTimer);
+    // ボタン自体のイベントが先に発火するので、少し待ってから次へ
+    scanTimer = setTimeout(tickScan, 500);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (!settings.switchScan) return;
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    selectScanTarget();
+  }
+});
+
+// スキャン中はハイライトボタンを直接タップして選択（touchstart横取りなし）
+// → scan-highlight CSSで大きく見やすくしているので、そのままタップできる
+
+// ── 読み上げ（Web Speech API） ───────────────────────────────
+function speak(text) {
+  if (!settings.speech || !text) return;
+  if (!window.speechSynthesis) return;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'ja-JP';
+  utt.rate = 0.9;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utt);
+}
+
+// 「できた！」「次の文字」など操作時に読み上げ
+function speakIfEnabled(text) {
+  if (settings.speech) speak(text);
+}
+
+
+// =============================================
+// 続けて書くモード スクロールフェーダー
+// =============================================
+let _faderOuter = null;  // スクロール対象を保持
+
+function initWideFader() {
+  _faderOuter = document.querySelector('.wide-scroll-outer');
+  const fader = document.getElementById('wideScrollBar');
+  const btnL  = document.getElementById('wideScrollLeft');
+  const btnR  = document.getElementById('wideScrollRight');
+  if (!_faderOuter || !fader) return;
+
+  // 既存リスナーをリセット（buildWideRows再呼び出し対策）
+  const outer = _faderOuter;
+  const newOuter = outer.cloneNode(false);
+  // ※ cloneNodeはしない、リスナー管理フラグで対応
+  if (outer._faderInited) return;
+  outer._faderInited = true;
+
+  function syncFader() {
+    const scrollable = outer.scrollWidth - outer.clientWidth;
+    if (scrollable <= 0) {
+      fader.value = 0;
+      fader.style.background = '#e0e8f0';
+      return;
+    }
+    fader.max = Math.ceil(scrollable);
+    fader.value = Math.round(outer.scrollLeft);
+    const pct = (outer.scrollLeft / scrollable * 100).toFixed(1);
+    fader.style.background =
+      `linear-gradient(to right,var(--peach) ${pct}%,#e0e8f0 ${pct}%)`;
+  }
+
+  // フェーダー操作 → スクロール
+  fader.addEventListener('input', function() {
+    outer.scrollLeft = +this.value;
+  });
+
+  // スクロール（指・マウス）→ フェーダー同期
+  outer.addEventListener('scroll', syncFader, { passive: true });
+
+  // セル幅を取得（最初のcell-wrapperの幅）
+  function getCellSize() {
+    const cell = document.querySelector('.cell-wrapper');
+    return cell ? cell.offsetWidth : 80;
+  }
+
+  // 現在の中心セルインデックスを返す
+  function currentCellIdx() {
+    const cs = getCellSize();
+    return Math.round(outer.scrollLeft / cs);
+  }
+
+  // 指定セルの中心にスムーズスクロール
+  function snapToCell(idx) {
+    const cs = getCellSize();
+    const total = S.chars.length;
+    const clamped = Math.max(0, Math.min(total - 1, idx));
+    // セルの左端 → 中心をビュー中央に
+    const target = clamped * cs - (outer.clientWidth / 2 - cs / 2);
+    outer.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }
+
+  // 矢印：1タップで1セル分スナップ
+  btnL.addEventListener('click', () => snapToCell(currentCellIdx() - 1));
+  btnR.addEventListener('click', () => snapToCell(currentCellIdx() + 1));
+  btnL.addEventListener('touchend', e => { e.preventDefault(); snapToCell(currentCellIdx() - 1); }, { passive: false });
+  btnR.addEventListener('touchend', e => { e.preventDefault(); snapToCell(currentCellIdx() + 1); }, { passive: false });
+
+  // ResizeObserver でキャンバスサイズ変化にも追従
+  if (window.ResizeObserver) {
+    new ResizeObserver(syncFader).observe(outer);
+  }
+
+  syncFader();
+}
+
+async function init() {
+  await loadRecords();
+  buildPalette('guideColorPalette',      GUIDE_COLORS, 'guideColor',  () => renderTeacherGuide());
+  buildPalette('traceColorPalette',      TRACE_COLORS, 'traceColor',  v => { S.brushColor = v; });
+  buildPalette('brushColorPalette',      TRACE_COLORS, 'brushColor',  () => {});
+  buildPalette('brushColorPaletteWide',  TRACE_COLORS, 'brushColor',  () => {});
+  buildBrushUI('brushOptions');
+  buildBrushUI('brushOptionsWide');
+  attachTeacherEvents();
+  attachSingleCanvasEvents();
+  attachControlEvents();
+  attachModeBtns();
+  updateAllRanges();
+  syncSingleCanvas();
+  renderTeacherGuide();
+}
+
+
+
+// =============================================
+// カラーパレット
+// =============================================
+function buildPalette(id, colors, key, onChange) {
+  const el = document.getElementById(id); if (!el) return;
+  el.innerHTML = '';
+  colors.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (S[key] === c.v ? ' selected' : '');
+    sw.style.background = c.v; sw.title = c.l;
+    sw.addEventListener('click', () => {
+      el.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+      S[key] = c.v; onChange(c.v);
+    });
+    el.appendChild(sw);
+  });
+}
+
+// =============================================
+// ブラシUI
+// =============================================
+function buildBrushUI(id) {
+  const el = document.getElementById(id); if (!el) return;
+  el.innerHTML = '';
+  [8,12,18,26].forEach(size => {
+    const btn = document.createElement('div');
+    btn.className = 'brush-opt' + (S.brushSize===size?' selected':'');
+    btn.style.width = (size+12)+'px'; btn.style.height = (size+12)+'px';
+    const c = document.createElement('div');
+    c.className = 'brush-circle'; c.style.width = size+'px'; c.style.height = size+'px';
+    btn.appendChild(c);
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#'+id+' .brush-opt').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected'); S.brushSize = size;
+    });
+    el.appendChild(btn);
+  });
+}
+
+// =============================================
+// レンジ更新
+// =============================================
+function updateAllRanges() { document.querySelectorAll('input[type="range"]').forEach(updateRange); }
+function updateRange(el) {
+  const pct = (+el.value - +el.min) / (+el.max - +el.min) * 100;
+  el.style.background = `linear-gradient(to right,var(--peach) ${pct}%,#e0e8f0 ${pct}%)`;
+}
+
+// =============================================
+// 先生モード
+// =============================================
+function attachTeacherEvents() {
+  const bind = (id, stateKey, display, onChange) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', function() {
+      S[stateKey] = +this.value || this.value;
+      if (display) document.getElementById(display).textContent = this.value + (id.toLowerCase().includes('repeat')?'回':'%');
+      updateRange(this); if (onChange) onChange();
+    });
+  };
+  bind('fontSizeRange','fontSize','fontSizeVal', renderTeacherGuide);
+  bind('opacityRange', 'opacity',  'opacityVal',  renderTeacherGuide);
+  bind('repeatRange',  'repeatCount','repeatVal', null);
+  document.getElementById('guideLineSelect').addEventListener('change', function() { S.guideStyle=this.value; renderTeacherGuide(); });
+  document.getElementById('canvasSizeSelect').addEventListener('change', function() { S.cellSize=+this.value; syncSingleCanvas(); renderTeacherGuide(); });
+  document.getElementById('charInput').addEventListener('input', renderTeacherGuide);
+  document.getElementById('startPracticeBtn').addEventListener('click', startPractice);
+}
+
+// =============================================
+// ガイド描画ヘルパー
+// =============================================
+function drawGuideLines(ctx, s, style) {
+  ctx.strokeStyle = 'rgba(44,62,107,0.12)'; ctx.lineWidth = 1;
+  if (style==='cross'||style==='grid') {
+    ctx.beginPath(); ctx.moveTo(s/2,0); ctx.lineTo(s/2,s); ctx.moveTo(0,s/2); ctx.lineTo(s,s/2); ctx.stroke();
+  }
+  if (style==='grid') {
+    ctx.beginPath();
+    [1,3].forEach(i => { ctx.moveTo(s*i/4,0); ctx.lineTo(s*i/4,s); ctx.moveTo(0,s*i/4); ctx.lineTo(s,s*i/4); });
+    ctx.stroke();
+  }
+  if (style!=='none') {
+    ctx.strokeStyle='rgba(44,62,107,0.2)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(2,2,s-4,s-4,10); ctx.stroke();
+  }
+}
+function drawGuideChar(ctx, s, char, color, fontSize, opacity) {
+  const r=parseInt(color.slice(1,3),16), g=parseInt(color.slice(3,5),16), b=parseInt(color.slice(5,7),16);
+  ctx.save();
+  ctx.globalAlpha = opacity/100;
+  ctx.fillStyle = `rgb(${r},${g},${b})`;
+  ctx.font = `bold ${Math.round(s*fontSize/100)}px "BIZ UDPMincho", serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(char, s/2, s/2);
+  ctx.restore();
+}
+function renderOnCanvas(gCanvas, char, style, color, fontSize, opacity) {
+  const ctx = gCanvas.getContext('2d'), s = gCanvas.width;
+  ctx.clearRect(0,0,s,s);
+  drawGuideLines(ctx,s,style);
+  drawGuideChar(ctx,s,char,color,fontSize,opacity);
+}
+
+// =============================================
+// 先生タブ プレビュー
+// =============================================
+function syncSingleCanvas() {
+  const s = Math.min(S.cellSize, window.innerWidth-90);
+  const gc=document.getElementById('guideCanvas'), dc=document.getElementById('drawCanvas'), cc=document.getElementById('canvasContainer');
+  gc.width=dc.width=s; gc.height=dc.height=s; cc.style.width=s+'px'; cc.style.height=s+'px';
+}
+function renderTeacherGuide() {
+  const gc = document.getElementById('guideCanvas'); if(!gc) return;
+  const val = document.getElementById('charInput').value||'あ';
+  renderOnCanvas(gc, val.charAt(0), S.guideStyle, S.guideColor, S.fontSize, S.opacity);
+}
+
+// =============================================
+// 練習開始
+// =============================================
+function startPractice() {
+  const input = document.getElementById('charInput').value.trim();
+  if (!input) { showToast('文字を入力してください'); return; }
+
+  S.chars = input.split('');
+  S.currentCharIdx=0; S.currentPage=0;
+  S.repeatCount = +document.getElementById('repeatRange').value;
+  S.guideStyle  = document.getElementById('guideLineSelect').value;
+  S.fontSize    = +document.getElementById('fontSizeRange').value;
+  S.opacity     = +document.getElementById('opacityRange').value;
+  S.cellSize    = +document.getElementById('canvasSizeSelect').value;
+  S.practiceStyle = document.getElementById('practiceStyleSelect').value;
+  S.doneChars   = new Set();
+  S.brushColor  = S.traceColor;
+
+  // パレット・ブラシ再構築
+  buildPalette('brushColorPalette',     TRACE_COLORS,'brushColor',()=>{});
+  buildPalette('brushColorPaletteWide', TRACE_COLORS,'brushColor',()=>{});
+  buildBrushUI('brushOptions');
+  buildBrushUI('brushOptionsWide');
+
+  switchTab('practice');
+
+  // モード切り替えUI
+  document.getElementById('modeToggleRow').style.display = S.practiceStyle==='both' ? 'block' : 'none';
+
+  const startMode = S.practiceStyle==='wide' ? 'wide' : 'single';
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.pmode===startMode));
+  S.practiceMode = startMode;
+  document.getElementById('singleModeView').style.display = startMode==='single' ? '' : 'none';
+  document.getElementById('wideModeView').style.display   = startMode==='wide'   ? '' : 'none';
+
+  buildCharList();
+  syncSingleCanvas();
+  updateSingleView();
+  buildWideRows();
+  startSession();
+}
+
+// =============================================
+// 一文字モード
+// =============================================
+function buildCharList() {
+  const el = document.getElementById('charList'); el.innerHTML='';
+  S.chars.forEach((c,i) => {
+    const chip = document.createElement('div');
+    chip.className='char-chip'+(i===0?' current':'');
+    chip.textContent=c; chip.dataset.idx=i;
+    chip.addEventListener('click', () => { S.currentCharIdx=i; S.currentPage=0; updateSingleView(); updateCharList(); });
+    el.appendChild(chip);
+  });
+}
+function updateCharList() {
+  document.querySelectorAll('.char-chip').forEach((chip,i) => {
+    chip.classList.remove('current','done');
+    if(S.doneChars.has(i)) chip.classList.add('done');
+    if(i===S.currentCharIdx) chip.classList.add('current');
+  });
+}
+function updateSingleView() {
+  const char = S.chars[S.currentCharIdx]||'あ';
+  document.getElementById('currentCharDisplay').textContent=char;
+  document.getElementById('pageIndicator').textContent=`${S.currentPage+1} / ${S.repeatCount}`;
+  document.getElementById('prevBtn').disabled = S.currentCharIdx===0 && S.currentPage===0;
+  const dc=document.getElementById('drawCanvas'), gc=document.getElementById('guideCanvas');
+  dc.getContext('2d').clearRect(0,0,dc.width,dc.height);
+  renderOnCanvas(gc, char, S.guideStyle, S.guideColor, S.fontSize, S.opacity);
+  hideStamp('stamp');
+  // 文字が変わったら読み上げ
+  speakIfEnabled(char);
+}
+
+// =============================================
+// 一文字モード 描画
+// =============================================
+function attachSingleCanvasEvents() {
+  const dc = document.getElementById('drawCanvas');
+  const on = (type, fn) => dc.addEventListener(type, fn, type.startsWith('touch')?{passive:false}:undefined);
+  on('mousedown',  e => startDraw(dc,e));
+  on('mousemove',  e => { if(S.isDrawing && S.activeCanvas===dc) continueDraw(dc,e); });
+  on('mouseup',    () => endDraw());
+  on('mouseleave', () => endDraw());
+  on('touchstart', e => { e.preventDefault(); startDraw(dc,e.touches[0]); });
+  on('touchmove',  e => { e.preventDefault(); if(S.isDrawing && S.activeCanvas===dc) continueDraw(dc,e.touches[0]); });
+  on('touchend',   () => endDraw());
+}
+
+// =============================================
+// 続けて書くモード
+// =============================================
+function buildWideRows() {
+  const wrap = document.getElementById('cellsRowWrap'); wrap.innerHTML='';
+  appendWideRow(wrap);
+  // フラグをリセットして再初期化
+  const outer = document.querySelector('.wide-scroll-outer');
+  if (outer) outer._faderInited = false;
+  setTimeout(initWideFader, 80);
+}
+function appendWideRow(wrap) {
+  const cs = calcCellSize();
+  const row = document.createElement('div'); row.className='cells-row';
+  S.chars.forEach(char => {
+    const {wrapper, dCanvas} = makeCell(char, cs);
+    row.appendChild(wrapper);
+    attachCellEvents(dCanvas);
+  });
+  wrap.appendChild(row);
+}
+
+function calcCellSize() {
+  // マス数が多い場合は設定サイズを維持しスクロールさせる
+  // 最小80px、最大は設定値
+  return Math.max(S.cellSize, 80);
+}
+
+function makeCell(char, cs) {
+  const wrapper = document.createElement('div');
+  wrapper.className='cell-wrapper'; wrapper.style.width=cs+'px'; wrapper.style.height=cs+'px';
+
+  const gCanvas=document.createElement('canvas'); gCanvas.className='cell-guide';
+  gCanvas.width=cs; gCanvas.height=cs; gCanvas.style.width=cs+'px'; gCanvas.style.height=cs+'px';
+
+  const dCanvas=document.createElement('canvas'); dCanvas.className='cell-draw';
+  dCanvas.width=cs; dCanvas.height=cs; dCanvas.style.width=cs+'px'; dCanvas.style.height=cs+'px';
+
+  wrapper.appendChild(gCanvas); wrapper.appendChild(dCanvas);
+  renderOnCanvas(gCanvas, char, S.guideStyle, S.guideColor, S.fontSize, S.opacity);
+  return {wrapper, gCanvas, dCanvas};
+}
+
+function attachCellEvents(canvas) {
+  const on = (type,fn) => canvas.addEventListener(type, fn, type.startsWith('touch')?{passive:false}:undefined);
+  on('mousedown',  e => startDraw(canvas,e));
+  on('mousemove',  e => { if(S.isDrawing && S.activeCanvas===canvas) continueDraw(canvas,e); });
+  on('mouseup',    () => endDraw());
+  on('mouseleave', () => endDraw());
+  on('touchstart', e => { e.preventDefault(); startDraw(canvas,e.touches[0]); });
+  on('touchmove',  e => { e.preventDefault(); if(S.isDrawing && S.activeCanvas===canvas) continueDraw(canvas,e.touches[0]); });
+  on('touchend',   () => endDraw());
+}
+
+// =============================================
+// 汎用描画
+// =============================================
+function getPos(canvas,e) {
+  const r=canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*canvas.width/r.width, y:(e.clientY-r.top)*canvas.height/r.height };
+}
+function startDraw(canvas,e) {
+  S.isDrawing=true; S.activeCanvas=canvas;
+  const {x,y}=getPos(canvas,e); S.lastX=x; S.lastY=y;
+  const ctx=canvas.getContext('2d');
+  ctx.beginPath(); ctx.arc(x,y,S.brushSize/2,0,Math.PI*2); ctx.fillStyle=S.brushColor; ctx.fill();
+}
+function continueDraw(canvas,e) {
+  const {x,y}=getPos(canvas,e), ctx=canvas.getContext('2d');
+  ctx.beginPath(); ctx.moveTo(S.lastX,S.lastY); ctx.lineTo(x,y);
+  ctx.strokeStyle=S.brushColor; ctx.lineWidth=S.brushSize; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke();
+  S.lastX=x; S.lastY=y;
+}
+function endDraw() { S.isDrawing=false; S.activeCanvas=null; }
+
+// =============================================
+// コントロールイベント
+// =============================================
+function attachControlEvents() {
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    const dc=document.getElementById('drawCanvas'); dc.getContext('2d').clearRect(0,0,dc.width,dc.height); hideStamp('stamp');
+    speakIfEnabled('けした');
+  });
+  document.getElementById('doneBtn').addEventListener('click', async () => {
+    // 1. 今のキャンバスをキャプチャして文字ごとに保存
+    const char = S.chars[S.currentCharIdx];
+    const page = S.currentPage;
+    const image = captureCanvas('single');
+    sessionDoneCount++;
+    // 同じ文字は最後の回で上書き
+    const idx = sessionCharImages.findIndex(e => e.char === char);
+    if (idx >= 0) { sessionCharImages[idx].image = image; }
+    else          { sessionCharImages.push({ char, image }); }
+
+    // 2. これが最後の文字の最後のページかチェック
+    const isLastPage = (page >= S.repeatCount - 1);
+    const isLastChar = (S.currentCharIdx >= S.chars.length - 1);
+
+    speakIfEnabled('できた！'); showStamp('stamp');
+
+    if (isLastPage && isLastChar) {
+      // 3a. 全完了 → まとめて保存してからモーダル表示
+      await logSessionComplete('single');
+      setTimeout(() => {
+        hideStamp('stamp');
+        S.doneChars.add(S.currentCharIdx); updateCharList();
+        document.getElementById('completeModalBody').textContent =
+          `「${S.chars.join('')}」\n全${S.chars.length}文字を練習しました！\nよくがんばりました！`;
+        document.getElementById('completeModal').classList.add('open');
+      }, 800);
+    } else {
+      // 3b. まだ続く → 通常の画面遷移
+      setTimeout(advanceSinglePage, 800);
+    }
+  });
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if(S.currentPage>0){ S.currentPage--; } else if(S.currentCharIdx>0){ S.currentCharIdx--; S.currentPage=S.repeatCount-1; updateCharList(); }
+    updateSingleView();
+  });
+  document.getElementById('nextBtn').addEventListener('click', advanceSinglePage);
+
+
+  document.getElementById('clearBtnWide').addEventListener('click', () => {
+    document.querySelectorAll('.cell-draw').forEach(c => c.getContext('2d').clearRect(0,0,c.width,c.height));
+    hideStamp('stampWide');
+  });
+  document.getElementById('doneBtnWide').addEventListener('click', async () => {
+    logDoneAction(S.chars.join(''), 0, 'wide');
+    showStamp('stampWide'); showToast('🌟 よくできました！'); speakIfEnabled('よくできました'); setTimeout(()=>hideStamp('stampWide'),1600);
+  });
+  document.getElementById('addRowBtn').addEventListener('click', () => {
+    const wrap=document.getElementById('cellsRowWrap'); appendWideRow(wrap);
+    showToast('✨ もう一行追加しました！');
+    setTimeout(() => {
+      const outer = document.querySelector('.wide-scroll-outer');
+      if (outer) outer.scrollTop = outer.scrollHeight;
+      initWideFader();
+    }, 100);
+  });
+  document.getElementById('modalCloseBtn').addEventListener('click', () => {
+    document.getElementById('completeModal').classList.remove('open');
+    S.currentCharIdx=0; S.currentPage=0; S.doneChars=new Set(); buildCharList(); updateSingleView();
+  });
+}
+
+function advanceSinglePage() {
+  // ※ nextBtn（スキップ）用。doneBtn経由の完了処理はdoneBtn内で行う
+  hideStamp('stamp');
+  if(S.currentPage < S.repeatCount-1) { S.currentPage++; updateSingleView(); }
+  else {
+    S.doneChars.add(S.currentCharIdx); updateCharList();
+    if(S.currentCharIdx < S.chars.length-1) {
+      S.currentCharIdx++; S.currentPage=0; updateCharList(); updateSingleView(); showToast('✨ つぎの もじ！'); speakIfEnabled('つぎの もじ');
+    } else {
+      // nextBtnで最後まで来た場合（画像キャプチャなし）
+      document.getElementById('completeModalBody').textContent = `「${S.chars.join('')}」\n全${S.chars.length}文字を練習しました！\nよくがんばりました！`;
+      document.getElementById('completeModal').classList.add('open');
+      if (sessionCharImages.length > 0) logSessionComplete('single');
+    }
+  }
+}
+
+// =============================================
+// モード切り替え
+// =============================================
+function attachModeBtns() {
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.pmode;
+      S.practiceMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.pmode===mode));
+      document.getElementById('singleModeView').style.display = mode==='single' ? '' : 'none';
+      document.getElementById('wideModeView').style.display   = mode==='wide'   ? '' : 'none';
+      if(mode==='single') { syncSingleCanvas(); updateSingleView(); }
+      if(mode==='wide')   { buildWideRows(); }
+    });
+  });
+}
+
+// =============================================
+// タブ切り替え
+// =============================================
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id==='tab-'+name));
+  if(name==='teacher') renderTeacherGuide();
+  if(name==='practice' && S.practiceMode==='single') { syncSingleCanvas(); updateSingleView(); }
+  if(name==='record') {
+    lockRecord();
+    if(!recordUnlocked) {
+      showPasscodeModal();
+    }
+  }
+  // スキャン再起動
+  if (settings.switchScan) { stopScan(); setTimeout(startScan, 200); }
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+// =============================================
+// スタンプ / トースト
+// =============================================
+const STAMPS = ['⭐','🌟','💖','🎉','👏','🌈','🦋','🌸'];
+function showStamp(id) { const el=document.getElementById(id); if(!el) return; el.textContent=STAMPS[Math.floor(Math.random()*STAMPS.length)]; el.classList.add('show'); }
+function hideStamp(id) { const el=document.getElementById(id); if(el) el.classList.remove('show'); }
+function showToast(msg) {
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+// =============================================
+// リサイズ
+// =============================================
+window.addEventListener('resize', () => {
+  syncSingleCanvas();
+  if(document.getElementById('tab-practice').classList.contains('active')) {
+    if(S.practiceMode==='single') updateSingleView();
+    else buildWideRows();
+  } else renderTeacherGuide();
+});
+
+// =============================================
+// 記録機能（自動ログ）
+// =============================================
+let records = [];
+
+// window.storage API（アーティファクト対応）でロード
+async function loadRecords() {
+  try {
+    const result = await window.storage.get('nazori_records');
+    if (result && result.value) {
+      records = JSON.parse(result.value);
+    }
+  } catch(e) {
+    records = [];
+  }
+}
+
+async function saveRecords() {
+  try {
+    await window.storage.set('nazori_records', JSON.stringify(records));
+  } catch(e) {
+    console.warn('saveRecords failed', e);
+  }
+}
+
+function nowStr() {
+  return new Date().toISOString();
+}
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+function formatDateJP(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+}
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// セッション管理（練習開始〜終了の1セッション）
+let sessionId = null;
+let sessionStartTime = null;
+let sessionDoneCount = 0;
+let sessionTotalCount = 0;
+// 各文字の「最後のできた」画像を保持する: { char, image }[]
+let sessionCharImages = [];
+
+function startSession() {
+  sessionId = Date.now().toString();
+  sessionStartTime = nowStr();
+  sessionDoneCount = 0;
+  sessionTotalCount = S.chars.length * S.repeatCount;
+  sessionCharImages = [];
+}
+
+// キャンバスを合成してbase64スクリーンショットを取る
+function captureCanvas(mode) {
+  try {
+    if (mode === 'single') {
+      // ガイド + 描画を合成
+      const guide = document.getElementById('guideCanvas');
+      const draw  = document.getElementById('drawCanvas');
+      const merged = document.createElement('canvas');
+      merged.width = guide.width; merged.height = guide.height;
+      const ctx = merged.getContext('2d');
+      // 白背景
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, merged.width, merged.height);
+      ctx.drawImage(guide, 0, 0);
+      ctx.drawImage(draw,  0, 0);
+      return merged.toDataURL('image/png');
+    } else {
+      // 続けて書くモード：全セルを横に並べて合成
+      const draws  = Array.from(document.querySelectorAll('.cell-draw'));
+      const guides = Array.from(document.querySelectorAll('.cell-guide'));
+      if (!draws.length) return null;
+      const cs = draws[0].width;
+      const merged = document.createElement('canvas');
+      merged.width = cs * draws.length; merged.height = cs;
+      const ctx = merged.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, merged.width, merged.height);
+      draws.forEach((dc, i) => {
+        if (guides[i]) ctx.drawImage(guides[i], cs*i, 0);
+        ctx.drawImage(dc, cs*i, 0);
+      });
+      return merged.toDataURL('image/png');
+    }
+  } catch(e) {
+    console.warn('capture failed', e);
+    return null;
+  }
+}
+
+// 続けて書くモードの「できた！」保存
+async function logDoneAction(char, page, mode) {
+  sessionDoneCount++;
+  const image = captureCanvas(mode);
+  const entry = {
+    id:           Date.now().toString(),
+    sessionId:    sessionId,
+    timestamp:    nowStr(),
+    mode:         'wide',
+    allChars:     S.chars.join(''),
+    charCount:    S.chars.length,
+    sessionDone:  sessionDoneCount,
+    sessionTotal: sessionTotalCount,
+    image:        image,
+  };
+  records.push(entry);
+  await saveRecords();
+}
+
+// セッション完了：全文字画像をまとめて1件保存 ───────────────────
+async function logSessionComplete(mode) {
+  const entry = {
+    id:           'session_' + Date.now().toString(),
+    sessionId:    sessionId,
+    timestamp:    nowStr(),
+    mode:         mode,
+    isComplete:   true,
+    allChars:     S.chars.join(''),
+    charCount:    S.chars.length,
+    sessionDone:  sessionDoneCount,
+    sessionTotal: sessionTotalCount,
+    startTime:    sessionStartTime,
+    durationMin:  Math.round((Date.now() - new Date(sessionStartTime).getTime()) / 60000),
+    charImages:   sessionCharImages,   // [{ char, image }, ...]
+  };
+  records.push(entry);
+  await saveRecords();
+  sessionCharImages = [];
+}
+
+// 記録一覧レンダリング ────────────────────────────────────────
+function renderRecordsList() {
+  const el = document.getElementById('recordsList');
+  if (!el) return;
+
+  // フィルター
+  const nameFilter = (document.getElementById('filterName')?.value || '').trim();
+  const dateFilter = document.getElementById('filterDate')?.value || '';
+
+  let filtered = [...records].reverse();
+  if (nameFilter) filtered = filtered.filter(r => (r.allChars||'').includes(nameFilter));
+  if (dateFilter) filtered = filtered.filter(r => (r.timestamp||'').startsWith(dateFilter));
+
+  // カウント表示
+  const countEl = document.getElementById('recordCount');
+  if (countEl) countEl.textContent = `${filtered.length} 件`;
+
+  if (filtered.length === 0) {
+    el.innerHTML = records.length === 0
+      ? '<div style="color:var(--ink-light);font-size:0.9rem;text-align:center;padding:32px 0;">まだ記録がありません<br><span style="font-size:0.8rem;">練習モードで「できた！」を押すと自動で記録されます</span></div>'
+      : '<div style="color:var(--ink-light);font-size:0.9rem;text-align:center;padding:24px 0;">条件に合う記録がありません</div>';
+    return;
+  }
+
+  // 日付ごとにグループ化
+  const groups = {};
+  filtered.forEach(rec => {
+    const day = (rec.timestamp||'').slice(0,10);
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(rec);
+  });
+
+  el.innerHTML = '';
+  Object.keys(groups).sort().reverse().forEach(day => {
+    const group = document.createElement('div');
+    group.className = 'rec-day-group';
+    group.innerHTML = `<div class="rec-day-label">📅 ${formatDateJP(day+'T00:00:00')}</div>`;
+
+    groups[day].forEach((rec, gi) => {
+      const card = document.createElement('div');
+      const isWide = rec.mode === 'wide';
+      const isComplete = rec.isComplete;
+      card.className = 'record-card' + (isWide ? ' mode-wide' : '') + (isComplete ? ' mode-complete' : '');
+
+      // 完了エントリ（全文字画像まとめ）
+      if (isComplete) {
+        const dur = rec.durationMin > 0 ? `約${rec.durationMin}分` : '';
+        card.style.cssText += 'flex-direction:column; border-left-color:#ffd166; background:#fffbe6;';
+
+        // 全文字の画像グリッドを生成
+        const imagesHtml = (rec.charImages && rec.charImages.length > 0)
+          ? `<div class="rec-images-grid">
+              ${rec.charImages.map(ci => `
+                <div class="rec-img-card">
+                  <img src="${ci.image}" alt="${ci.char}">
+                  <div class="rec-img-label">「${ci.char}」</div>
+                </div>
+              `).join('')}
+             </div>`
+          : '';
+
+        card.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="rec-time-col">
+                <div class="rec-stamp-icon">🎉</div>
+                <div class="rec-time">${formatTime(rec.timestamp)}</div>
+              </div>
+              <div>
+                <div class="rec-header">
+                  <span class="rec-char-badge" style="background:#fff3cc;color:#b8860b; font-size:1.2rem;">「${rec.allChars}」完了</span>
+                  <span class="rec-meta">${dur}</span>
+                </div>
+                <div style="font-size:0.82rem;color:var(--ink-light); margin-top:4px;">
+                  全${rec.charCount}文字・${rec.sessionDone}回「できた！」
+                </div>
+              </div>
+            </div>
+            <button class="record-delete-btn" data-id="${rec.id}" title="削除">✕</button>
+          </div>
+          ${imagesHtml}
+        `;
+      } else {
+        // 続けて書くモードの個別エントリ
+        const imgHtml = rec.image
+          ? `<div class="rec-image-wrap">
+               <img class="rec-image rec-image-wide" src="${rec.image}" alt="なぞり書き">
+             </div>`
+          : '';
+        card.innerHTML = `
+          <div class="rec-time-col">
+            <div class="rec-stamp-icon">📜</div>
+            <div class="rec-time">${formatTime(rec.timestamp)}</div>
+          </div>
+          <div class="rec-body">
+            <div class="rec-header">
+              <span class="rec-char-badge wide">「${rec.allChars}」続けて書く</span>
+            </div>
+            ${imgHtml}
+          </div>
+          <button class="record-delete-btn" data-id="${rec.id}" title="削除">✕</button>
+        `;
+      }
+
+      card.querySelector('.record-delete-btn').addEventListener('click', function() {
+        records = records.filter(r => r.id !== this.dataset.id);
+        saveRecords(); renderRecordsList();
+      });
+      group.appendChild(card);
+    });
+
+    el.appendChild(group);
+  });
+}
+
+function attachRecordEvents() {
+  document.getElementById('exportRecordsBtn').addEventListener('click', () => {
+    if (records.length === 0) { showToast('保存された記録がありません'); return; }
+    const header = ['日時','練習した文字（全体）','対象文字','回数','モード','活動内の進捗','セッションID'];
+    const rows = records.map(r => [
+      r.timestamp, r.allChars, r.char, r.isComplete ? '完了' : `${r.pageNo}/${r.totalPages}`,
+      r.mode === 'wide' ? '続けて書く' : r.isComplete ? '完了' : '一文字ずつ',
+      r.isComplete ? `${r.sessionDone}/${r.sessionTotal}` : `${r.sessionDone}/${r.sessionTotal}`,
+      r.sessionId
+    ].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`));
+    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`なぞり書き記録_${todayStr()}.csv`; a.click();
+    showToast('📥 CSVを書き出しました');
+  });
+
+  document.getElementById('clearAllRecordsBtn').addEventListener('click', () => {
+    if (records.length === 0) { showToast('記録がありません'); return; }
+    if (confirm(`${records.length}件の記録をすべて削除しますか？`)) {
+      records = []; saveRecords(); renderRecordsList();
+      showToast('🗑 全件削除しました');
+    }
+  });
+
+  document.getElementById('filterName').addEventListener('input', renderRecordsList);
+  document.getElementById('filterDate').addEventListener('input', renderRecordsList);
+  document.getElementById('filterClearBtn').addEventListener('click', () => {
+    document.getElementById('filterName').value = '';
+    document.getElementById('filterDate').value = '';
+    renderRecordsList();
+  });
+}
+
+// =============================================
+// パスコード機能
+// =============================================
+const PASSCODE = '1234';
+let passcodeInput = '';
+let recordUnlocked = false;
+
+// ボタンのonclickから直接呼ばれるグローバル関数
+function pcKey(key) {
+  if (key === 'del') {
+    passcodeInput = passcodeInput.slice(0, -1);
+  } else if (passcodeInput.length < 4) {
+    passcodeInput += key;
+  }
+  // ドット更新
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('dot' + i);
+    if (dot) dot.style.background = i < passcodeInput.length ? '#2c3e6b' : '#e0e8f0';
+  }
+  // 4桁入力完了
+  if (passcodeInput.length === 4) {
+    setTimeout(pcCheck, 80);
+  }
+}
+
+function pcCheck() {
+  if (passcodeInput === PASSCODE) {
+    recordUnlocked = true;
+    document.getElementById('passcodeModal').style.display = 'none';
+    document.getElementById('recordContent').style.display = 'block';
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab==='record'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id==='tab-record'));
+    renderRecordsList();
+  } else {
+    const dots = document.getElementById('passcodeDots');
+    dots.style.animation = 'none';
+    dots.offsetHeight; // reflow
+    dots.style.animation = 'shake 0.35s ease';
+    const err = document.getElementById('passcodeError');
+    if (err) err.textContent = 'パスコードが違います';
+    setTimeout(() => { if (err) err.textContent = ''; }, 1500);
+    passcodeInput = '';
+    for (let i = 0; i < 4; i++) {
+      const dot = document.getElementById('dot' + i);
+      if (dot) dot.style.background = '#e0e8f0';
+    }
+  }
+}
+
+function pcCancel() {
+  document.getElementById('passcodeModal').style.display = 'none';
+  document.querySelectorAll('.tab')[0].click();
+}
+
+function showPasscodeModal() {
+  passcodeInput = '';
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById('dot' + i);
+    if (dot) dot.style.background = '#e0e8f0';
+  }
+  const err = document.getElementById('passcodeError');
+  if (err) err.textContent = '';
+  document.getElementById('passcodeModal').style.display = 'flex';
+}
+
+function lockRecord() {
+  recordUnlocked = false;
+  passcodeInput = '';
+  const rc = document.getElementById('recordContent');
+  if (rc) rc.style.display = 'none';
+}
+
+function attachPasscodeEvents() {
+  // 何もしない（onclick直接呼び出し方式に変更）
+}
+
+init();
+setTimeout(renderTeacherGuide,80);
+attachRecordEvents();
+renderRecordsList();
+// 使い方モーダル
+function openHelp() {
+  document.getElementById('helpModal').style.display = 'flex';
+}
+function closeHelp() {
+  document.getElementById('helpModal').style.display = 'none';
+}
+document.getElementById('helpModal').addEventListener('click', function(e) {
+  if (e.target === this) closeHelp();
+});
+
+</script>
+</body>
+</html>
