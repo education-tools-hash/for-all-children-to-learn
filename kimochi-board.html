@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>コミュニケーションボード</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kosugi+Maru&display=swap');
+
+  :root {
+    --scan-color: #FFD700;
+    --scan-glow: rgba(255,215,0,0.55);
+    --scan-width: 6px;
+    --bg: #1a1a2e;
+    --card-radius: 28px;
+    --gap: 20px;
+    --font-scale: 1;
+    --label-fs: calc(clamp(16px, 4vw, 34px) * var(--font-scale));
+    --icon-fs:  calc(clamp(44px, 10vw, 80px) * var(--font-scale));
+    --hint-fs:  calc(13px * var(--font-scale));
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent; user-select:none; }
+
+  html, body {
+    height:100%; overflow:hidden;
+    background: var(--bg);
+    font-family:'Kosugi Maru',sans-serif;
+    touch-action:manipulation;
+    transition: background 0.3s;
+  }
+  body {
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    min-height:100vh; padding:16px;
+  }
+
+  /* ── ハイコントラスト ── */
+  body.high-contrast,
+  html.high-contrast { --bg:#000; background:#000 !important; }
+  body.high-contrast .title { color:#fff; }
+  body.high-contrast .hint  { color:#ccc; }
+  body.high-contrast .scan-bar { background:#333; }
+  body.high-contrast .card-hai   { background:#005533; }
+  body.high-contrast .card-iie   { background:#880000; }
+  body.high-contrast .card-mou   { background:#664400; }
+  body.high-contrast .card-owari { background:#003366; }
+  body.high-contrast .card.scanning {
+    border-color:#fff;
+    box-shadow:0 0 0 6px rgba(255,255,255,.45),0 0 30px rgba(255,255,255,.25);
+  }
+
+  /* ── 上部バー ── */
+  .top-bar {
+    width:100%; max-width:700px;
+    display:flex; align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px; gap:10px;
+  }
+  .title {
+    font-size:clamp(12px,3vw,20px);
+    color:#fff; letter-spacing:.06em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    text-shadow: 0 1px 8px rgba(0,0,0,.8), 0 0 20px rgba(0,0,0,.5);
+    background: rgba(255,255,255,0.13);
+    padding: 6px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.28);
+    backdrop-filter: blur(4px);
+  }
+  .settings-btn {
+    font-family:'Kosugi Maru',sans-serif;
+    font-size:22px; padding:6px 12px;
+    border-radius:12px; border:none;
+    background:#2e2e50; color:#fff;
+    cursor:pointer; flex-shrink:0;
+    transition:background .2s,transform .1s;
+  }
+  .settings-btn:active { transform:scale(.94); }
+  body.high-contrast .settings-btn { background:#333; }
+
+  /* ── カードグリッド ── */
+  .grid {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:var(--gap);
+    width:100%; max-width:700px;
+    flex:1; max-height:76vh;
+  }
+  .card {
+    border-radius:var(--card-radius);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:10px; cursor:pointer;
+    transition:transform .12s;
+    border:6px solid transparent;
+    position:relative; overflow:hidden;
+  }
+  .card:active { transform:scale(.97); }
+
+  /* Tobii・キーボードナビ用フォーカスリング */
+  .card:focus { outline: none; }
+  .card:focus-visible {
+    border-color: #fff;
+    box-shadow: 0 0 0 6px rgba(255,255,255,.5), 0 0 32px rgba(255,255,255,.3);
+    transform: scale(1.04);
+  }
+  .card-hai   { background:linear-gradient(145deg,#06d6a0,#0cb87c); }
+  .card-iie   { background:linear-gradient(145deg,#ef476f,#c93358); }
+  .card-mou   { background:linear-gradient(145deg,#ffd166,#f4b12e); }
+  .card-owari { background:linear-gradient(145deg,#8ecae6,#5aa8d2); }
+  .card.scanning {
+    border-color:var(--scan-color);
+    border-width:var(--scan-width);
+    box-shadow:0 0 0 var(--scan-width) var(--scan-glow),0 0 40px var(--scan-glow);
+    transform:scale(1.04); z-index:10;
+  }
+  .card-icon  { font-size:var(--icon-fs);  line-height:1; filter:drop-shadow(0 4px 8px rgba(0,0,0,.25)); }
+  .card-label { font-size:var(--label-fs); color:#fff; font-weight:bold;
+                text-shadow:0 3px 8px rgba(0,0,0,.3); letter-spacing:.05em; }
+
+  /* ── スキャンバー ── */
+  .scan-bar {
+    width:100%; max-width:700px; height:8px;
+    background:#2e2e50; border-radius:4px;
+    margin-top:14px; overflow:hidden;
+  }
+  .scan-bar-fill {
+    height:100%; background:var(--scan-color);
+    border-radius:4px; width:0%; transition:width linear;
+  }
+
+  /* ── ヒント ── */
+  .hint { margin-top:9px; color:#888; font-size:var(--hint-fs); text-align:center; }
+
+  /* ── 決定フラッシュ ── */
+  .flash-overlay {
+    position:fixed; inset:0; background:rgba(255,255,255,0);
+    pointer-events:none; z-index:200;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .flash-overlay.active { animation:flashAnim .5s ease forwards; }
+  .result-popup {
+    display:none; flex-direction:column;
+    align-items:center; gap:16px;
+    background:rgba(255,255,255,.15); backdrop-filter:blur(12px);
+    border-radius:32px; padding:36px 56px;
+    border:3px solid rgba(255,255,255,.4);
+  }
+  .flash-overlay.active .result-popup { display:flex; }
+  .result-icon  { font-size:80px; }
+  .result-label { font-size:56px; font-weight:bold; color:#fff; text-shadow:0 4px 16px rgba(0,0,0,.4); }
+  @keyframes flashAnim {
+    0%   { background:rgba(255,255,255,.7); }
+    40%  { background:rgba(255,255,255,.15); }
+    100% { background:rgba(0,0,0,.45); }
+  }
+
+  /* ════════════════════════════
+     設定パネル
+  ════════════════════════════ */
+  .settings-overlay {
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.55); backdrop-filter:blur(4px);
+    z-index:300;
+    display:flex; align-items:flex-end; justify-content:center;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s;
+  }
+  .settings-overlay.open { opacity:1; pointer-events:auto; }
+
+  .settings-panel {
+    width:100%; max-width:640px;
+    background:#fff; border-radius:28px 28px 0 0;
+    padding:0 0 40px 0;
+    transform:translateY(60px);
+    transition:transform .3s cubic-bezier(.22,1,.36,1);
+    max-height:92vh; overflow-y:auto;
+  }
+  .settings-overlay.open .settings-panel { transform:translateY(0); }
+
+  .sp-header {
+    position:sticky; top:0; background:#fff;
+    padding:18px 24px 14px;
+    border-bottom:1.5px solid #eee;
+    display:flex; align-items:center; justify-content:space-between;
+    z-index:1;
+  }
+  .sp-title { font-size:18px; font-weight:bold; color:#333; }
+  .sp-close {
+    font-size:26px; background:none; border:none;
+    color:#aaa; cursor:pointer; padding:4px 8px;
+    border-radius:8px; transition:background .15s; line-height:1;
+  }
+  .sp-close:hover { background:#f0f0f0; }
+
+  .sp-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px; border-bottom:1px solid #f0f0f0; gap:16px;
+  }
+  .sp-row-info { flex:1; min-width:0; }
+  .sp-row-label {
+    font-size:17px; font-weight:bold; color:#222;
+    display:flex; align-items:center; gap:8px;
+  }
+  .sp-row-desc { font-size:12px; color:#999; margin-top:3px; }
+
+  /* トグルスイッチ */
+  .toggle { position:relative; width:54px; height:30px; flex-shrink:0; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle-track {
+    position:absolute; inset:0;
+    background:#ddd; border-radius:15px;
+    cursor:pointer; transition:background .2s;
+  }
+  .toggle input:checked + .toggle-track { background:#ff6b9d; }
+  .toggle-thumb {
+    position:absolute; top:3px; left:3px;
+    width:24px; height:24px;
+    background:#fff; border-radius:50%;
+    box-shadow:0 1px 4px rgba(0,0,0,.2);
+    transition:left .2s; pointer-events:none;
+  }
+  .toggle input:checked ~ .toggle-thumb { left:27px; }
+
+  /* ステッパー */
+  .stepper { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+  .stepper-btn {
+    font-family:'Kosugi Maru',sans-serif;
+    font-size:20px; width:38px; height:38px;
+    border:2px solid #ffb3cc; border-radius:10px;
+    background:#fff; color:#ff6b9d;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background .15s,transform .1s;
+  }
+  .stepper-btn:active { background:#fff0f5; transform:scale(.93); }
+  .stepper-val { font-size:15px; color:#ff6b9d; font-weight:bold; min-width:60px; text-align:center; }
+
+  /* このアプリについて */
+  .about-section {
+    margin:0 16px; padding:18px 20px;
+    background:#fff8fa; border-radius:16px;
+    border:1px solid #ffd6e4;
+  }
+  .about-title {
+    font-size:15px; font-weight:bold; color:#ff6b9d;
+    display:flex; align-items:center; gap:6px; margin-bottom:10px;
+  }
+  .about-body { font-size:13px; color:#555; line-height:1.75; }
+
+  .reset-row { padding:14px 24px 0; }
+  .reset-btn {
+    font-family:'Kosugi Maru',sans-serif;
+    font-size:13px; color:#aaa; background:none; border:none;
+    cursor:pointer; text-decoration:underline; padding:0;
+  }
+  .reset-btn:hover { color:#888; }
+
+
+  /* ── カスタマイズセクション ── */
+  .sp-section-title {
+    padding:18px 24px 8px;
+    font-size:15px; font-weight:bold; color:#888;
+    border-top:4px solid #f5f5f5; margin-top:8px;
+  }
+  .card-edit-row {
+    display:flex; align-items:center;
+    padding:12px 24px; gap:14px;
+    border-bottom:1px solid #f0f0f0;
+  }
+  .card-edit-preview {
+    width:52px; height:52px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:28px; flex-shrink:0;
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+  }
+  .card-edit-fields { flex:1; display:flex; flex-direction:column; gap:6px; }
+  .field-row { display:flex; align-items:center; gap:8px; }
+  .field-label { font-size:11px; color:#aaa; width:36px; flex-shrink:0; }
+  .edit-input {
+    font-family:'Kosugi Maru',sans-serif;
+    font-size:15px; padding:6px 10px;
+    border:1.5px solid #eee; border-radius:10px;
+    color:#333; background:#fafafa; flex:1; min-width:0;
+    transition:border-color .15s; user-select:text;
+  }
+  .edit-input:focus { outline:none; border-color:#ff6b9d; background:#fff; }
+  .emoji-pick-btn {
+    font-family:'Kosugi Maru',sans-serif;
+    font-size:13px; padding:6px 10px;
+    border:1.5px solid #ffb3cc; border-radius:10px;
+    background:#fff; color:#ff6b9d;
+    cursor:pointer; white-space:nowrap; flex-shrink:0;
+    transition:background .15s;
+  }
+  .emoji-pick-btn:active { background:#fff0f5; }
+  /* 絵文字ピッカー */
+  .emoji-picker-overlay {
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.45); backdrop-filter:blur(3px);
+    z-index:500;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .emoji-picker-overlay.open { opacity:1; pointer-events:auto; }
+  .emoji-picker {
+    background:#fff; border-radius:24px;
+    padding:20px; width:min(420px,90vw);
+    max-height:72vh; display:flex; flex-direction:column; gap:12px;
+    transform:scale(.92); transition:transform .2s;
+    box-shadow:0 8px 40px rgba(0,0,0,.18);
+  }
+  .emoji-picker-overlay.open .emoji-picker { transform:scale(1); }
+  .emoji-picker-header { display:flex; align-items:center; justify-content:space-between; }
+  .emoji-picker-title { font-size:16px; font-weight:bold; color:#333; }
+  .emoji-picker-close {
+    font-size:22px; background:none; border:none;
+    color:#aaa; cursor:pointer; padding:2px 6px; border-radius:6px;
+  }
+  .emoji-categories {
+    display:flex; gap:6px; overflow-x:auto; padding-bottom:4px;
+    scrollbar-width:none;
+  }
+  .emoji-categories::-webkit-scrollbar { display:none; }
+  .emoji-cat-btn {
+    font-size:18px; padding:6px 10px;
+    border:none; border-radius:10px; background:#f5f5f5;
+    cursor:pointer; flex-shrink:0; transition:background .15s;
+  }
+  .emoji-cat-btn.active { background:#ffe0ec; }
+  .emoji-grid {
+    display:grid; grid-template-columns:repeat(7,1fr);
+    gap:4px; overflow-y:auto; flex:1;
+  }
+  .emoji-btn {
+    font-size:26px; padding:6px 2px;
+    border:none; border-radius:10px; background:none;
+    cursor:pointer; text-align:center; line-height:1.2;
+    transition:background .12s;
+  }
+  .emoji-btn:hover  { background:#f5f5f5; }
+  /* ── スキャン枠カスタマイズ ── */
+  .color-swatch-row {
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  .color-swatch {
+    width:32px; height:32px; border-radius:8px;
+    border:3px solid transparent; cursor:pointer;
+    transition:transform .12s, border-color .12s;
+    flex-shrink:0;
+  }
+  .color-swatch.selected { border-color:#333; transform:scale(1.15); }
+  .color-swatch-custom {
+    width:32px; height:32px; border-radius:8px;
+    border:2px dashed #ccc; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; background:#f9f9f9; flex-shrink:0;
+    transition:border-color .12s;
+  }
+  .color-swatch-custom:hover { border-color:#ff6b9d; }
+  input[type="color"]#scanColorPicker { opacity:0; width:0; height:0; position:absolute; }
+
+  .emoji-btn:active { background:#ffe0ec; }
+
+  .photo-pick-btn {
+    font-family:'Kosugi Maru',sans-serif;
+    font-size:13px; padding:6px 10px;
+    border:1.5px solid #b3d4ff; border-radius:10px;
+    background:#fff; color:#3a86ff;
+    cursor:pointer; white-space:nowrap; flex-shrink:0;
+    transition:background .15s;
+  }
+  .photo-pick-btn:active { background:#f0f5ff; }
+  .card-edit-preview.has-photo { font-size:0; overflow:hidden; }
+  .card-edit-preview.has-photo img {
+    width:100%; height:100%; object-fit:cover; border-radius:14px;
+  }
+
+  /* 写真モード: カード全体に画像を敷く */
+  .card.photo-mode {
+    position:relative; overflow:hidden; gap:0;
+  }
+  .card.photo-mode .card-photo-bg {
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover; border-radius:calc(var(--card-radius) - 6px);
+    z-index:0;
+  }
+  .card.photo-mode .card-icon { display:none; }
+  .card.photo-mode .card-label {
+    position:absolute; bottom:0; left:0; right:0;
+    z-index:1;
+    background:rgba(0,0,0,0.52);
+    padding:8px 6px 10px;
+    font-size:calc(clamp(14px, 3.5vw, 26px) * var(--font-scale));
+    text-align:center;
+    border-radius:0 0 calc(var(--card-radius) - 6px) calc(var(--card-radius) - 6px);
+    letter-spacing:.04em;
+  }
+
+
+  @media (max-aspect-ratio:3/4) { .grid { max-height:70vh; } }
+  @media (max-width:360px) { :root { --gap:12px; } }
+</style>
+</head>
+<body>
+
+<!-- 上部バー -->
+<div class="top-bar">
+  <div class="title">🌟 コミュニケーションボード</div>
+  <button class="settings-btn" id="settingsBtn" aria-label="設定">⚙️</button>
+</div>
+
+<!-- カードグリッド -->
+<div class="grid" id="grid">
+  <div class="card card-hai"   data-index="0" data-icon="⭕️" data-label="はい"
+       tabindex="0" role="button" aria-label="はい">
+    <div class="card-icon">⭕️</div>
+    <div class="card-label">はい</div>
+  </div>
+  <div class="card card-iie"   data-index="1" data-icon="❌" data-label="いいえ"
+       tabindex="0" role="button" aria-label="いいえ">
+    <div class="card-icon">❌</div>
+    <div class="card-label">いいえ</div>
+  </div>
+  <div class="card card-mou"   data-index="2" data-icon="🔄" data-label="もういちど"
+       tabindex="0" role="button" aria-label="もういちど">
+    <div class="card-icon">🔄</div>
+    <div class="card-label">もういちど</div>
+  </div>
+  <div class="card card-owari" data-index="3" data-icon="🏁" data-label="おわり"
+       tabindex="0" role="button" aria-label="おわり">
+    <div class="card-icon">🏁</div>
+    <div class="card-label">おわり</div>
+  </div>
+</div>
+
+<!-- スキャンバー -->
+<div class="scan-bar"><div class="scan-bar-fill" id="scanBarFill"></div></div>
+<div class="hint">どこかをクリック・スイッチを押すと、光っているカードが選ばれます</div>
+
+<!-- 決定フラッシュ -->
+<div class="flash-overlay" id="flashOverlay">
+  <div class="result-popup">
+    <div class="result-icon"  id="resultIcon"></div>
+    <div class="result-label" id="resultLabel"></div>
+  </div>
+</div>
+
+<!-- 設定パネル -->
+<div class="settings-overlay" id="settingsOverlay">
+  <div class="settings-panel">
+
+    <div class="sp-header">
+      <div class="sp-title">⚙️ つかいやすく せっていしよう</div>
+      <button class="sp-close" id="settingsClose" aria-label="閉じる">×</button>
+    </div>
+
+    <!-- ① もじを おおきく -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">🔤 もじを おおきく</div>
+        <div class="sp-row-desc">もじのサイズを かえます</div>
+      </div>
+      <div class="stepper">
+        <button class="stepper-btn" id="fontMinus">－</button>
+        <div class="stepper-val" id="fontVal">ふつう</div>
+        <button class="stepper-btn" id="fontPlus">＋</button>
+      </div>
+    </div>
+
+    <!-- ② ハイコントラスト -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">🌑 ハイコントラスト</div>
+        <div class="sp-row-desc">くろい はいけいに きりかえます</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggleHC">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <!-- ③ スイッチスキャン -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">♿ スイッチスキャン</div>
+        <div class="sp-row-desc">スペース または Enter で そうさ</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggleSwitch">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <!-- ④ じどう よみあげ -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">🔊 じどう よみあげ</div>
+        <div class="sp-row-desc">タップしたら じどうで よみます</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggleTTS">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <!-- ⑤ スキャンかんかく -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">⏱️ スキャンかんかく</div>
+        <div class="sp-row-desc">じどうスキャンの スピード</div>
+      </div>
+      <div class="stepper">
+        <button class="stepper-btn" id="intervalMinus">－</button>
+        <div class="stepper-val" id="intervalVal">2.0秒</div>
+        <button class="stepper-btn" id="intervalPlus">＋</button>
+      </div>
+    </div>
+
+    <!-- ⑥ このアプリについて -->
+    <div style="padding:16px 16px 8px;">
+      <div class="about-section">
+        <div class="about-title">📋 このアプリについて</div>
+        <div class="about-body">
+          表情や発声での意思表示が難しい子どもが、スイッチやタップで気持ちを伝えるためのアプリです。<br><br>
+          「はい」「いいえ」「もういちど」「おわり」の4つのカードが順番に光り（オートスキャン）、タイミングを合わせてスイッチ・クリック・タップで選びます。<br><br>
+          ● スキャン間隔はお子さんの反応速度に合わせて調整してください。<br>
+          ● スイッチスキャンをONにすると、スペースキー・Enterキーで決定できます。<br>
+          ● 自動読み上げをONにすると、カードを選んだときに声で読み上げます。
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- ── スキャン枠カスタマイズ ── -->
+    <div class="sp-section-title">✨ スキャンの ふちを かえる</div>
+
+    <!-- 枠の色 -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">🎨 枠の いろ</div>
+        <div class="sp-row-desc">スキャン中の ひかりの いろ</div>
+      </div>
+      <div class="color-swatch-row" id="scanColorSwatches">
+        <!-- JSで生成 -->
+        <div class="color-swatch-custom" id="scanColorCustomBtn" title="自由に選ぶ">🎨</div>
+        <input type="color" id="scanColorPicker" value="#FFD700">
+      </div>
+    </div>
+
+    <!-- 枠の太さ -->
+    <div class="sp-row">
+      <div class="sp-row-info">
+        <div class="sp-row-label">📏 枠の ふとさ</div>
+        <div class="sp-row-desc">スキャン枠の せんの ふとさ</div>
+      </div>
+      <div class="stepper">
+        <button class="stepper-btn" id="scanWidthMinus">－</button>
+        <div class="stepper-val" id="scanWidthVal">ふつう</div>
+        <button class="stepper-btn" id="scanWidthPlus">＋</button>
+      </div>
+    </div>
+
+    <!-- ── カスタマイズセクション ── -->
+    <div class="sp-section-title">🎨 カードを かえる</div>
+
+    <!-- カード0: はい -->
+    <div class="card-edit-row" data-card="0">
+      <div class="card-edit-preview" style="background:linear-gradient(145deg,#06d6a0,#0cb87c);" id="prev0">⭕️</div>
+      <div class="card-edit-fields">
+        <div class="field-row">
+          <span class="field-label">アイコン</span>
+          <input class="edit-input" id="iconInput0" value="⭕️" maxlength="4" readonly
+                 placeholder="絵文字">
+          <button class="emoji-pick-btn" data-target="0">えらぶ</button><button class="photo-pick-btn" data-target="0">📷 写真</button><input type="file" id="photoInput0" accept="image/*" style="display:none">
+        </div>
+        <div class="field-row">
+          <span class="field-label">テキスト</span>
+          <input class="edit-input" id="labelInput0" value="はい" maxlength="10"
+                 placeholder="ラベル">
+        </div>
+      </div>
+    </div>
+
+    <!-- カード1: いいえ -->
+    <div class="card-edit-row" data-card="1">
+      <div class="card-edit-preview" style="background:linear-gradient(145deg,#ef476f,#c93358);" id="prev1">❌</div>
+      <div class="card-edit-fields">
+        <div class="field-row">
+          <span class="field-label">アイコン</span>
+          <input class="edit-input" id="iconInput1" value="❌" maxlength="4" readonly
+                 placeholder="絵文字">
+          <button class="emoji-pick-btn" data-target="1">えらぶ</button><button class="photo-pick-btn" data-target="1">📷 写真</button><input type="file" id="photoInput1" accept="image/*" style="display:none">
+        </div>
+        <div class="field-row">
+          <span class="field-label">テキスト</span>
+          <input class="edit-input" id="labelInput1" value="いいえ" maxlength="10"
+                 placeholder="ラベル">
+        </div>
+      </div>
+    </div>
+
+    <!-- カード2: もういちど -->
+    <div class="card-edit-row" data-card="2">
+      <div class="card-edit-preview" style="background:linear-gradient(145deg,#ffd166,#f4b12e);" id="prev2">🔄</div>
+      <div class="card-edit-fields">
+        <div class="field-row">
+          <span class="field-label">アイコン</span>
+          <input class="edit-input" id="iconInput2" value="🔄" maxlength="4" readonly
+                 placeholder="絵文字">
+          <button class="emoji-pick-btn" data-target="2">えらぶ</button><button class="photo-pick-btn" data-target="2">📷 写真</button><input type="file" id="photoInput2" accept="image/*" style="display:none">
+        </div>
+        <div class="field-row">
+          <span class="field-label">テキスト</span>
+          <input class="edit-input" id="labelInput2" value="もういちど" maxlength="10"
+                 placeholder="ラベル">
+        </div>
+      </div>
+    </div>
+
+    <!-- カード3: おわり -->
+    <div class="card-edit-row" data-card="3">
+      <div class="card-edit-preview" style="background:linear-gradient(145deg,#8ecae6,#5aa8d2);" id="prev3">🏁</div>
+      <div class="card-edit-fields">
+        <div class="field-row">
+          <span class="field-label">アイコン</span>
+          <input class="edit-input" id="iconInput3" value="🏁" maxlength="4" readonly
+                 placeholder="絵文字">
+          <button class="emoji-pick-btn" data-target="3">えらぶ</button><button class="photo-pick-btn" data-target="3">📷 写真</button><input type="file" id="photoInput3" accept="image/*" style="display:none">
+        </div>
+        <div class="field-row">
+          <span class="field-label">テキスト</span>
+          <input class="edit-input" id="labelInput3" value="おわり" maxlength="10"
+                 placeholder="ラベル">
+        </div>
+      </div>
+    </div>
+
+    <div class="reset-row">
+      <button class="reset-btn" id="resetBtn">【元の設定にもどす】</button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- 絵文字ピッカー -->
+<div class="emoji-picker-overlay" id="emojiPickerOverlay">
+  <div class="emoji-picker">
+    <div class="emoji-picker-header">
+      <div class="emoji-picker-title">絵文字を えらんでね</div>
+      <button class="emoji-picker-close" id="emojiPickerClose">×</button>
+    </div>
+    <div class="emoji-categories" id="emojiCategories"></div>
+    <div class="emoji-grid" id="emojiGrid"></div>
+  </div>
+</div>
+
+<script>
+/* ── 定数 ── */
+const FONT_LEVELS  = ['ちいさい','ふつう','おおきい','とても おおきい'];
+const FONT_SCALES  = [0.78, 1, 1.28, 1.6];
+const INTERVAL_STEPS = [0.8,1.0,1.2,1.5,2.0,2.5,3.0,4.0,5.0];
+
+/* ── 状態 ── */
+let state = { fontIndex:1, highContrast:false, switchScan:true, tts:false, intervalIndex:4,
+              scanColor:'#FFD700', scanWidthIndex:1 };
+let currentIndex = 0;
+let scanInterval  = null;
+let isShowingResult = false;
+let isPanelOpen = false;
+
+/* ── DOM ── */
+const cards        = Array.from(document.querySelectorAll('.card'));
+const scanBarFill  = document.getElementById('scanBarFill');
+const flashOverlay = document.getElementById('flashOverlay');
+const resultIcon   = document.getElementById('resultIcon');
+const resultLabel  = document.getElementById('resultLabel');
+const settingsBtn     = document.getElementById('settingsBtn');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const settingsClose   = document.getElementById('settingsClose');
+const fontMinusBtn    = document.getElementById('fontMinus');
+const fontPlusBtn     = document.getElementById('fontPlus');
+const fontValEl       = document.getElementById('fontVal');
+const toggleHC        = document.getElementById('toggleHC');
+const toggleSwitch    = document.getElementById('toggleSwitch');
+const toggleTTS       = document.getElementById('toggleTTS');
+const intervalMinus   = document.getElementById('intervalMinus');
+const intervalPlus    = document.getElementById('intervalPlus');
+const intervalValEl   = document.getElementById('intervalVal');
+const resetBtn        = document.getElementById('resetBtn');
+
+/* ── 保存・復元 ── */
+function saveState() {
+  try { localStorage.setItem('kimochi_v2', JSON.stringify(state)); } catch(e) {}
+}
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('kimochi_v2') || '{}');
+    if (s.fontIndex     !== undefined) state.fontIndex     = s.fontIndex;
+    if (s.highContrast  !== undefined) state.highContrast  = s.highContrast;
+    if (s.switchScan    !== undefined) state.switchScan    = s.switchScan;
+    if (s.tts           !== undefined) state.tts           = s.tts;
+    if (s.intervalIndex !== undefined) state.intervalIndex = s.intervalIndex;
+    if (s.cardCustom    !== undefined) state.cardCustom    = s.cardCustom;
+    if (s.scanColor    !== undefined) state.scanColor    = s.scanColor;
+    if (s.scanWidthIndex !== undefined) state.scanWidthIndex = s.scanWidthIndex;
+  } catch(e) {}
+}
+
+/* ── 設定反映 ── */
+function applySettings() {
+  document.documentElement.style.setProperty('--font-scale', FONT_SCALES[state.fontIndex]);
+  fontValEl.textContent = FONT_LEVELS[state.fontIndex];
+  document.body.classList.toggle('high-contrast', state.highContrast);
+  document.documentElement.classList.toggle('high-contrast', state.highContrast);
+  toggleHC.checked     = state.highContrast;
+  toggleSwitch.checked = state.switchScan;
+  toggleTTS.checked    = state.tts;
+  intervalValEl.textContent = INTERVAL_STEPS[state.intervalIndex].toFixed(1) + '秒';
+  applyScanStyle();
+  saveState();
+  if (!isShowingResult && !isPanelOpen) {
+    startScan();
+  }
+}
+
+/* ── パネル開閉 ── */
+function openPanel() {
+  isPanelOpen = true;
+  stopScan();
+  settingsOverlay.classList.add('open');
+}
+function closePanel() {
+  isPanelOpen = false;
+  settingsOverlay.classList.remove('open');
+  if (!isShowingResult) startScan();
+}
+
+settingsBtn.addEventListener('click',    e => { e.stopPropagation(); openPanel(); });
+settingsClose.addEventListener('click',  e => { e.stopPropagation(); closePanel(); });
+settingsOverlay.addEventListener('click',e => { if (e.target === settingsOverlay) closePanel(); });
+
+/* ステッパー・トグル */
+[fontMinusBtn, fontPlusBtn, intervalMinus, intervalPlus,
+ toggleHC, toggleSwitch, toggleTTS, resetBtn].forEach(el => {
+  el.addEventListener('click',  e => e.stopPropagation());
+  el.addEventListener('touchstart', e => e.stopPropagation());
+});
+
+fontMinusBtn.addEventListener('click', () => {
+  if (state.fontIndex > 0) { state.fontIndex--; applySettings(); }
+});
+fontPlusBtn.addEventListener('click', () => {
+  if (state.fontIndex < FONT_LEVELS.length-1) { state.fontIndex++; applySettings(); }
+});
+toggleHC.addEventListener('change',     () => { state.highContrast = toggleHC.checked;     applySettings(); });
+toggleSwitch.addEventListener('change', () => { state.switchScan   = toggleSwitch.checked;  applySettings(); });
+toggleTTS.addEventListener('change',    () => { state.tts          = toggleTTS.checked;     applySettings(); });
+intervalMinus.addEventListener('click', () => {
+  if (state.intervalIndex > 0) { state.intervalIndex--; applySettings(); }
+});
+intervalPlus.addEventListener('click',  () => {
+  if (state.intervalIndex < INTERVAL_STEPS.length-1) { state.intervalIndex++; applySettings(); }
+});
+resetBtn.addEventListener('click', () => {
+  state = {
+    fontIndex:1, highContrast:false, switchScan:true, tts:false, intervalIndex:4,
+    scanColor:'#FFD700', scanWidthIndex:1,
+    cardCustom: DEFAULT_CARDS.map(c => ({ ...c }))
+  };
+  applySettings();
+  applyCardCustom();
+  initCardEditors();
+});
+
+/* ── スキャン ── */
+function startScan() {
+  if (scanInterval) clearInterval(scanInterval);
+  const ms = Math.round(INTERVAL_STEPS[state.intervalIndex] * 1000);
+  highlightCard(currentIndex);
+  animateBar(ms);
+  scanInterval = setInterval(() => {
+    currentIndex = (currentIndex + 1) % cards.length;
+    highlightCard(currentIndex);
+    animateBar(ms);
+  }, ms);
+}
+function stopScan() {
+  clearInterval(scanInterval); scanInterval = null;
+  scanBarFill.style.transition = 'none';
+  scanBarFill.style.width = '0%';
+  cards.forEach(c => c.classList.remove('scanning'));
+}
+function highlightCard(i) {
+  cards.forEach((c,j) => c.classList.toggle('scanning', j === i));
+}
+function animateBar(ms) {
+  scanBarFill.style.transition = 'none';
+  scanBarFill.style.width = '0%';
+  scanBarFill.offsetWidth;
+  scanBarFill.style.transition = `width ${ms}ms linear`;
+  scanBarFill.style.width = '100%';
+}
+
+/* ── 選択 ── */
+function selectCard(index) {
+  if (isShowingResult || isPanelOpen) return;
+  isShowingResult = true;
+  stopScan();
+  const card = cards[index];
+  playBeep();
+  if (state.tts) speak(card.dataset.label);
+  resultIcon.textContent  = card.dataset.icon;
+  resultLabel.textContent = card.dataset.label;
+  flashOverlay.classList.add('active');
+  setTimeout(() => {
+    flashOverlay.classList.remove('active');
+    isShowingResult = false;
+    if (!isPanelOpen) startScan();
+  }, 1600);
+}
+
+function handleDecide() {
+  if (isShowingResult || isPanelOpen) return;
+  selectCard(currentIndex);
+}
+
+/* ── 入力 ── */
+
+// ① キーボード/外部スイッチ（Space・Enter）
+//    スイッチスキャンOFFのときは無視する
+document.addEventListener('keydown', e => {
+  if (isPanelOpen) return;
+  if (!state.switchScan) return;          // ★ OFFなら何もしない
+  if (e.code === 'Space' || e.code === 'Enter') {
+    e.preventDefault();
+    handleDecide();
+  }
+});
+
+// ② カード直接クリック／タッチ（タッチ操作・Tobiiクリック送出モード）
+cards.forEach(card => {
+  card.addEventListener('click', e => {
+    e.stopPropagation();
+    if (isShowingResult || isPanelOpen) return;
+    currentIndex = parseInt(card.dataset.index, 10);
+    selectCard(currentIndex);
+  });
+  card.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (isShowingResult || isPanelOpen) return;
+    currentIndex = parseInt(card.dataset.index, 10);
+    selectCard(currentIndex);
+  }, { passive:false });
+
+  // ③ Tobii フォーカス連動
+  //    視線でフォーカスが移動したとき、スキャン位置をそのカードに同期する
+  card.addEventListener('focus', () => {
+    if (isShowingResult || isPanelOpen) return;
+    const idx = parseInt(card.dataset.index, 10);
+    currentIndex = idx;
+    // スキャンを一時停止し、そのカードをハイライト
+    stopScan();
+    highlightCard(idx);
+    // ドウェル後に自動決定させたい場合は下の行のコメントを外す
+    // setTimeout(() => selectCard(idx), 1000);
+  });
+
+  // ④ Tobii フォーカス離脱でスキャン再開
+  card.addEventListener('blur', () => {
+    if (isShowingResult || isPanelOpen) return;
+    startScan();
+  });
+});
+
+// ⑤ 背景クリック（スイッチ入力のシングルスイッチ代替操作）
+//    スイッチスキャンOFFのときは無視する
+document.body.addEventListener('click', e => {
+  if (isPanelOpen || isShowingResult) return;
+  if (!state.switchScan) return;          // ★ OFFなら何もしない
+  if (e.target === settingsBtn || settingsBtn.contains(e.target)) return;
+  if (cards.some(c => c.contains(e.target))) return;
+  handleDecide();
+});
+
+/* ── 音・読み上げ ── */
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880; osc.type = 'sine';
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
+}
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP'; u.rate = 0.9; u.pitch = 1.1;
+  window.speechSynthesis.speak(u);
+}
+
+
+
+/* ════════════════════════════════════════
+   スキャン枠カスタマイズ
+════════════════════════════════════════ */
+const SCAN_COLORS = [
+  { color:'#FFD700', name:'きいろ' },
+  { color:'#FF6B9D', name:'ピンク' },
+  { color:'#3A86FF', name:'あお' },
+  { color:'#06D6A0', name:'みどり' },
+  { color:'#FF4444', name:'あか' },
+  { color:'#FFFFFF', name:'しろ' },
+];
+const SCAN_WIDTHS      = [4, 6, 10, 16];
+const SCAN_WIDTH_NAMES = ['ほそい','ふつう','ふとい','とても ふとい'];
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function applyScanStyle() {
+  const col = state.scanColor;
+  const w   = SCAN_WIDTHS[state.scanWidthIndex] + 'px';
+  const root = document.documentElement;
+  root.style.setProperty('--scan-color', col);
+  root.style.setProperty('--scan-glow',  hexToRgba(col, 0.55));
+  root.style.setProperty('--scan-width', w);
+  // スキャンバーも同色に
+  scanBarFill.style.background = col;
+  // UIに反映
+  const wVal = document.getElementById('scanWidthVal');
+  if (wVal) wVal.textContent = SCAN_WIDTH_NAMES[state.scanWidthIndex];
+  renderSwatches();
+}
+
+function renderSwatches() {
+  const container = document.getElementById('scanColorSwatches');
+  if (!container) return;
+  // 既存スウォッチだけ削除（カスタムボタンは残す）
+  container.querySelectorAll('.color-swatch').forEach(el => el.remove());
+  const customBtn = document.getElementById('scanColorCustomBtn');
+  SCAN_COLORS.forEach(sc => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (state.scanColor === sc.color ? ' selected' : '');
+    sw.style.background = sc.color;
+    sw.title = sc.name;
+    sw.addEventListener('click', e => {
+      e.stopPropagation();
+      state.scanColor = sc.color;
+      applyScanStyle();
+      saveState();
+    });
+    container.insertBefore(sw, customBtn);
+  });
+  // カスタムカラーが既定以外なら選択状態を示す
+  const isPreset = SCAN_COLORS.some(s => s.color === state.scanColor);
+  customBtn.style.borderColor = isPreset ? '#ccc' : state.scanColor;
+}
+
+// カスタムカラーピッカー
+const scanColorPicker = document.getElementById('scanColorPicker');
+const scanColorCustomBtn = document.getElementById('scanColorCustomBtn');
+if (scanColorCustomBtn) {
+  scanColorCustomBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    scanColorPicker.click();
+  });
+}
+if (scanColorPicker) {
+  scanColorPicker.addEventListener('input', e => {
+    e.stopPropagation();
+    state.scanColor = e.target.value;
+    applyScanStyle();
+    saveState();
+  });
+  scanColorPicker.addEventListener('click', e => e.stopPropagation());
+}
+
+// 枠の太さステッパー
+const scanWidthMinus = document.getElementById('scanWidthMinus');
+const scanWidthPlus  = document.getElementById('scanWidthPlus');
+if (scanWidthMinus) {
+  scanWidthMinus.addEventListener('click', e => {
+    e.stopPropagation();
+    if (state.scanWidthIndex > 0) { state.scanWidthIndex--; applyScanStyle(); saveState(); }
+  });
+}
+if (scanWidthPlus) {
+  scanWidthPlus.addEventListener('click', e => {
+    e.stopPropagation();
+    if (state.scanWidthIndex < SCAN_WIDTHS.length-1) { state.scanWidthIndex++; applyScanStyle(); saveState(); }
+  });
+}
+
+/* ════════════════════════════════════════
+   カスタマイズ機能
+════════════════════════════════════════ */
+
+/* デフォルトのカード設定 */
+const DEFAULT_CARDS = [
+  { icon:'⭕️', label:'はい',     photoUrl:null },
+  { icon:'❌', label:'いいえ',   photoUrl:null },
+  { icon:'🔄', label:'もういちど', photoUrl:null },
+  { icon:'🏁', label:'おわり',   photoUrl:null },
+];
+
+/* カード設定を state に含める */
+if (!state.cardCustom) {
+  state.cardCustom = DEFAULT_CARDS.map(c => ({ ...c }));
+}
+
+/* カード表示を更新 */
+function applyCardCustom() {
+  state.cardCustom.forEach((cfg, i) => {
+    const card      = cards[i];
+    const iconEl    = card.querySelector('.card-icon');
+    const labelEl   = card.querySelector('.card-label');
+    const prev      = document.getElementById('prev' + i);
+    const iconInput = document.getElementById('iconInput' + i);
+
+    card.dataset.label = cfg.label;
+    card.setAttribute('aria-label', cfg.label);
+    labelEl.textContent = cfg.label;
+
+    if (cfg.photoUrl) {
+      // 写真モード：画像をカード全体に敷き、ラベルを下部帯に表示
+      card.dataset.icon = '📷';
+      card.classList.add('photo-mode');
+      iconEl.textContent = '';
+
+      let bg = card.querySelector('.card-photo-bg');
+      if (!bg) {
+        bg = document.createElement('img');
+        bg.className = 'card-photo-bg';
+        card.insertBefore(bg, card.firstChild);
+      }
+      bg.src = cfg.photoUrl;
+      bg.alt = cfg.label;
+
+      if (prev) { prev.classList.add('has-photo'); prev.innerHTML = '<img src="' + cfg.photoUrl + '" alt="">'; }
+      if (iconInput) iconInput.value = '📷';
+
+    } else {
+      // 絵文字モード：写真要素を除去してアイコン表示に戻す
+      card.dataset.icon = cfg.icon;
+      card.classList.remove('photo-mode');
+      iconEl.textContent = cfg.icon;
+
+      const bg = card.querySelector('.card-photo-bg');
+      if (bg) bg.remove();
+
+      if (prev) { prev.classList.remove('has-photo'); prev.textContent = cfg.icon; }
+      if (iconInput) iconInput.value = cfg.icon;
+    }
+  });
+  saveState();
+}
+
+
+/* 設定パネルの入力欄を初期化 */
+function initCardEditors() {
+  state.cardCustom.forEach((cfg, i) => {
+    const iconInp  = document.getElementById('iconInput'  + i);
+    const labelInp = document.getElementById('labelInput' + i);
+    if (!iconInp || !labelInp) return;
+    iconInp.value  = cfg.icon;
+    labelInp.value = cfg.label;
+
+    // テキスト入力 → リアルタイム反映
+    labelInp.addEventListener('input', e => {
+      e.stopPropagation();
+      state.cardCustom[i].label = labelInp.value || DEFAULT_CARDS[i].label;
+      applyCardCustom();
+    });
+    labelInp.addEventListener('click',     e => e.stopPropagation());
+    labelInp.addEventListener('touchstart',e => e.stopPropagation(), { passive:false });
+    labelInp.addEventListener('focus',     e => e.stopPropagation());
+    iconInp.addEventListener('click',      e => e.stopPropagation());
+  });
+
+  // 「えらぶ」ボタン（絵文字）
+  document.querySelectorAll('.emoji-pick-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openEmojiPicker(parseInt(btn.dataset.target, 10));
+    });
+  });
+
+  // 「写真」ボタン
+  document.querySelectorAll('.photo-pick-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.target, 10);
+      const fileInput = document.getElementById('photoInput' + idx);
+      fileInput.click();
+    });
+    btn.addEventListener('touchstart', e => e.stopPropagation(), { passive:false });
+  });
+
+  // ファイル選択
+  for (let i = 0; i < 4; i++) {
+    const fi = document.getElementById('photoInput' + i);
+    if (!fi) continue;
+    fi.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        // 画像をリサイズして base64 保存（容量削減）
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX = 200;
+          const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+          canvas.width  = img.width  * scale;
+          canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          state.cardCustom[i].photoUrl = canvas.toDataURL('image/jpeg', 0.8);
+          applyCardCustom();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+      fi.value = ''; // 同じファイルを再選択できるようにリセット
+    });
+  }
+}
+
+/* ════════════════════════════════════════
+   絵文字ピッカー
+════════════════════════════════════════ */
+const EMOJI_CATS = [
+  { label:'😊', name:'きもち', emojis:['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👾','🤖'] },
+  { label:'👋', name:'てぶり', emojis:['👍','👎','👌','🤌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','☝️','👇','✋','🤚','🖐️','🖖','👋','🤏','✊','👊','🤛','🤜','👏','🙌','🫶','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️','👅','👄','🫦'] },
+  { label:'🐶', name:'どうぶつ', emojis:['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🦆','🐧','🐦','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐟','🐠','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'] },
+  { label:'🍎', name:'たべもの', emojis:['🍏','🍎','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🫒','🥦','🥬','🥒','🌶️','🫑','🥕','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍱','🍘','🍙','🍚','🍛','🍜','🍝','🍠','🍢','🍣','🍤','🍥','🥮','🍡','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🧃','🥤','🧋','☕','🍵','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾'] },
+  { label:'🚗', name:'のりもの', emojis:['🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🏍️','🛵','🛺','🚲','🛴','🛹','🚏','🛣️','🛤️','⛽','🚨','🚥','🚦','🛑','🚧','⚓','🛟','⛵','🛶','🚤','🛳️','⛴️','🛥️','🚢','✈️','🛩️','🛫','🛬','🪂','💺','🚁','🚟','🚠','🚡','🛰️','🚀','🛸','🛎️','🧳'] },
+  { label:'⚽', name:'スポーツ', emojis:['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🏒','🥊','🥋','🎯','🏹','🎣','🤿','🎽','🛷','🥌','🏋️','🤸','🤼','🤺','🏇','⛷️','🏂','🪂','🏄','🚣','🧗','🚴','🏆','🥇','🥈','🥉','🏅','🎖️','🎗️','🎪','🤹','🎭','🎨','🎬','🎤','🎼','🎹','🥁','🎷','🎺','🎸','🪕','🎻','🎲','♟️','🎮','🕹️','🎯'] },
+  { label:'❤️', name:'しるし', emojis:['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☯️','✡️','🕎','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','⛔','🚫','💢','♨️','🚷','📵','🔞','❌','⭕','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔶','🔷','🔸','🔹','🔺','🔻','💠','🔘','🔲','🔳','⬛','⬜','▪️','▫️'] },
+  { label:'🌟', name:'しぜん', emojis:['🌸','🌺','🌻','🌹','🌷','🌼','💐','🍀','🌿','🌱','🌲','🌳','🌴','🪴','🍁','🍂','🍃','🪨','🌾','🪸','🍄','🌰','🦠','💧','🌊','🌬','🌀','🌈','☁️','⛅','🌤️','🔥','⚡','❄️','🌙','⭐','🌟','💫','✨','☀️','🌝','🌛','🌜','🌚','🌕','🌖','🌗','🌘','🌑','🌒','🌓','🌔','🌙','🪐','🌍','🌎','🌏','🌋','🏔️','⛰️','🗻','🏝️','🏜️','🏕️'] },
+];
+
+let pickerTargetIndex = 0;
+
+const emojiPickerOverlay = document.getElementById('emojiPickerOverlay');
+const emojiPickerClose   = document.getElementById('emojiPickerClose');
+const emojiCategories    = document.getElementById('emojiCategories');
+const emojiGrid          = document.getElementById('emojiGrid');
+
+let currentCatIndex = 0;
+
+function buildEmojiCategories() {
+  emojiCategories.innerHTML = '';
+  EMOJI_CATS.forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-cat-btn' + (i === currentCatIndex ? ' active' : '');
+    btn.textContent = cat.label;
+    btn.title = cat.name;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      currentCatIndex = i;
+      buildEmojiCategories();
+      buildEmojiGrid();
+    });
+    emojiCategories.appendChild(btn);
+  });
+}
+
+function buildEmojiGrid() {
+  emojiGrid.innerHTML = '';
+  EMOJI_CATS[currentCatIndex].emojis.forEach(emoji => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-btn';
+    btn.textContent = emoji;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      selectEmoji(emoji);
+    });
+    emojiGrid.appendChild(btn);
+  });
+}
+
+function openEmojiPicker(targetIdx) {
+  pickerTargetIndex = targetIdx;
+  buildEmojiCategories();
+  buildEmojiGrid();
+  emojiPickerOverlay.classList.add('open');
+}
+
+function closeEmojiPicker() {
+  emojiPickerOverlay.classList.remove('open');
+}
+
+function selectEmoji(emoji) {
+  const i = pickerTargetIndex;
+  state.cardCustom[i].icon     = emoji;
+  state.cardCustom[i].photoUrl = null;  // 写真をクリア
+  applyCardCustom();
+  closeEmojiPicker();
+}
+
+emojiPickerClose.addEventListener('click', e => { e.stopPropagation(); closeEmojiPicker(); });
+emojiPickerOverlay.addEventListener('click', e => { if (e.target === emojiPickerOverlay) closeEmojiPicker(); });
+
+/* ── 初期化 ── */
+loadState();
+// cardCustom が保存されていない場合はデフォルトを使用
+if (!state.cardCustom) {
+  state.cardCustom = DEFAULT_CARDS.map(c => ({ ...c }));
+}
+applySettings();
+applyCardCustom();
+initCardEditors();
+</script>
+</body>
+</html>
