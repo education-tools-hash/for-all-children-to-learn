@@ -912,7 +912,7 @@
           <div class="settings-desc">タップしたら じどうで よみます</div>
         </div>
       </div>
-      <button class="btn-toggle" id="toggle-tts" role="switch" aria-checked="true"
+      <button class="btn-toggle" id="toggle-tts" role="switch" aria-checked="false"
               onclick="toggleSetting('tts')" aria-label="じどうよみあげ">
         <span class="toggle-thumb"></span>
       </button>
@@ -1327,9 +1327,11 @@ function play(chosen) {
   result.className = 'battle-result ready';
   result.textContent = '✊ ✌️ 🖐️ じゃんけん ぽん！';
 
-  // 「じゃんけん」→ 少し間を置いて「ぽん！」（ttsOn設定に関係なく常に鳴らす）
-  speakDirect('じゃんけん', 0.8, 1.1);
-  setTimeout(() => speakDirect('ぽん', 0.9, 1.2), 900);
+  // 「じゃんけん」→ 少し間を置いて「ぽん！」（ttsOnのときだけ）
+  if (ttsOn) {
+    speakDirect('じゃんけん', 0.8, 1.1);
+    setTimeout(() => speakDirect('ぽん', 0.9, 1.2), 900);
+  }
 
   const cpu = ['guu','choki','paa'][Math.floor(Math.random()*3)];
 
@@ -1395,7 +1397,7 @@ const FONT_SCALES = [0.82, 1.0, 1.22, 1.5];
 let fontStep     = 1;
 let contrastOn   = false;
 let scanOn       = false;
-let ttsOn        = true;
+let ttsOn        = false;
 let scanInterval = 2.0;
 let scanTimer    = null;
 let scanTargets  = [];
@@ -1473,8 +1475,11 @@ function highlightScan() {
   document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
   scanTargets = getScanTargets();
   if (scanTargets[scanIdx]) {
-    scanTargets[scanIdx].classList.add('scan-focus');
-    scanTargets[scanIdx].focus();
+    const el = scanTargets[scanIdx];
+    el.classList.add('scan-focus');
+    el.focus({ preventScroll: true });
+    // ボタンが画面内に収まるようにスクロール
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
@@ -1529,7 +1534,7 @@ window.showScreen = function(id) {
 };
 
 // 初期TTS状態をトグルに反映
-document.getElementById('toggle-tts').setAttribute('aria-checked', 'true');
+document.getElementById('toggle-tts').setAttribute('aria-checked', 'false');
 </script>
 </body>
 </html>
