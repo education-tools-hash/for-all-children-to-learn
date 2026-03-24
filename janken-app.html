@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>じゃんけん まなぼう！</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap');
+
+  :root {
+    --guu: #FF6B6B;
+    --choki: #4ECDC4;
+    --paa: #FFE66D;
+    --bg: #FFF8F0;
+    --dark: #2D2D2D;
+    --win: #51cf66;
+    --lose: #ff6b6b;
+    --draw: #74c0fc;
+    --shadow: 0 8px 32px rgba(0,0,0,0.12);
+    --radius: 24px;
+    --fs: 1rem; /* フォントスケール基準 */
+  }
+
+  /* フォントサイズ段階 */
+  html[data-font="0"] { font-size: 13px; }
+  html[data-font="1"] { font-size: 16px; }
+  html[data-font="2"] { font-size: 20px; }
+  html[data-font="3"] { font-size: 24px; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-size: 1rem;
+  }
+
+  /* ===== STARS BACKGROUND ===== */
+  .bg-stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,230,109,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(78,205,196,0.15) 0%, transparent 50%);
+  }
+
+  /* ===== SCREENS ===== */
+  .screen {
+    display: none;
+    position: relative; z-index: 1;
+    min-height: 100vh;
+    padding: 20px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .screen.active { display: flex; }
+
+  /* ===== TITLE SCREEN ===== */
+  #screen-title {
+    gap: 28px;
+    background: linear-gradient(160deg, #fff9f0 0%, #e8f8ff 100%);
+  }
+
+  .title-header {
+    text-align: center;
+  }
+
+  .title-emoji {
+    font-size: 80px;
+    animation: bounce 1.2s infinite alternate;
+    display: block;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.15));
+  }
+
+  @keyframes bounce {
+    from { transform: translateY(0) rotate(-5deg); }
+    to   { transform: translateY(-16px) rotate(5deg); }
+  }
+
+  .title-text {
+    font-family: 'Kaisei Decol', serif;
+    font-size: clamp(2rem, 8vw, 4rem);
+    font-weight: 700;
+    color: var(--dark);
+    line-height: 1.2;
+    margin-top: 12px;
+  }
+
+  .title-sub {
+    font-size: clamp(1rem, 3.5vw, 1.4rem);
+    color: #666;
+    margin-top: 8px;
+  }
+
+  /* ===== HANDS PREVIEW ===== */
+  .hands-preview {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .hand-card-mini {
+    background: white;
+    border-radius: 20px;
+    padding: 16px 20px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    border: 4px solid transparent;
+    transition: transform 0.2s, border-color 0.2s;
+    cursor: default;
+  }
+  .hand-card-mini:nth-child(1) { border-color: var(--guu); }
+  .hand-card-mini:nth-child(2) { border-color: var(--choki); }
+  .hand-card-mini:nth-child(3) { border-color: var(--paa); }
+
+  .hand-emoji-mini { font-size: 52px; display: block; }
+  .hand-label-mini { font-size: 1.25rem; font-weight: 800; margin-top: 6px; color: var(--dark); }
+
+  /* ===== MENU BUTTONS ===== */
+  .menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  #screen-quiz-mode {
+    gap: 0;
+    background: linear-gradient(140deg, #e8f8ff 0%, #fff3e0 100%);
+    justify-content: center;
+  }
+
+  #screen-quiz-mode .screen-title {
+    margin-bottom: 16px;
+  }
+
+  #screen-quiz-mode .menu-buttons {
+    gap: 20px;
+    margin-top: 12px;
+    margin-bottom: 32px;
+  }
+
+  #screen-quiz-mode .btn-menu {
+    padding: 26px 32px;
+    font-size: clamp(22px, 4.5vw, 28px);
+  }
+
+  .btn-menu {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-size: clamp(1.2rem, 4vw, 1.6rem);
+    font-weight: 800;
+    padding: 20px 32px;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+    transition: transform 0.1s, box-shadow 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    outline: none;
+  }
+  .btn-menu:focus { outline: 4px solid #333; outline-offset: 2px; }
+  .btn-menu:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+
+  .btn-menu.green  { background: #51cf66; color: white; }
+  .btn-menu.orange { background: #ff922b; color: white; }
+  .btn-menu.purple { background: #845ef7; color: white; }
+
+  /* ===== RULE SCREEN ===== */
+  #screen-rule {
+    gap: 24px;
+    background: #f8f4ff;
+  }
+
+  .screen-title {
+    font-family: 'Kaisei Decol', serif;
+    font-size: clamp(1.6rem, 6vw, 2.75rem);
+    font-weight: 700;
+    color: var(--dark);
+    text-align: center;
+  }
+
+  .rule-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .rule-card {
+    background: white;
+    border-radius: 20px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow);
+    animation: slideIn 0.4s ease both;
+  }
+
+  .rule-card:nth-child(1) { animation-delay: 0.1s; border-left: 8px solid var(--guu); }
+  .rule-card:nth-child(2) { animation-delay: 0.2s; border-left: 8px solid var(--choki); }
+  .rule-card:nth-child(3) { animation-delay: 0.3s; border-left: 8px solid var(--paa); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .rule-emoji { font-size: 52px; flex-shrink: 0; }
+
+  .rule-text {
+    flex: 1;
+  }
+  .rule-name {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--dark);
+  }
+  .rule-desc {
+    font-size: 1.1rem;
+    color: #555;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .rule-vs {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .rule-vs-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    border-radius: 20px;
+    padding: 14px 20px;
+    box-shadow: var(--shadow);
+  }
+
+  .vs-item {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--dark);
+    flex: 1;
+  }
+  .vs-item .big { font-size: 44px; display: block; margin-bottom: 2px; }
+  .vs-arrow {
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+    background: #51cf66;
+    border-radius: 100px;
+    padding: 6px 14px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .quiz-trigger {
+    background: #fff3e0;
+    border-radius: 16px;
+    padding: 16px 20px;
+    font-size: 18px;
+    color: #e67700;
+    font-weight: 700;
+    text-align: center;
+    border: 3px dashed #ff922b;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  /* ===== QUIZ SCREEN ===== */
+  #screen-quiz {
+    gap: 20px;
+    background: linear-gradient(140deg, #e8f8ff 0%, #fff3e0 100%);
+  }
+
+  .quiz-mode-badge {
+    font-size: 20px;
+    font-weight: 800;
+    background: white;
+    border-radius: 100px;
+    padding: 10px 24px;
+    box-shadow: var(--shadow);
+    color: var(--dark);
+  }
+
+  .quiz-question {
+    background: white;
+    border-radius: 24px;
+    padding: 28px 32px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .quiz-q-emoji { font-size: 72px; display: block; margin-bottom: 12px; }
+  .quiz-q-text {
+    font-size: clamp(1.2rem, 4vw, 1.75rem);
+    font-weight: 800;
+    color: var(--dark);
+    line-height: 1.4;
+  }
+
+  .quiz-choices {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: nowrap;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .btn-choice {
+    flex: 1 1 0;
+    min-width: 0;
+    background: white;
+    border: 4px solid #ddd;
+    border-radius: 20px;
+    padding: 16px 8px;
+    cursor: pointer;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--dark);
+    box-shadow: 0 6px 0 #ccc;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.2s;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-choice:focus { outline: 4px solid #333; outline-offset: 2px; }
+  .btn-choice:hover { transform: translateY(-4px); box-shadow: 0 10px 0 #ccc; }
+  .btn-choice:active { transform: translateY(3px); box-shadow: 0 3px 0 #ccc; }
+  .btn-choice.correct { border-color: var(--win); background: #e6fcf5; box-shadow: 0 6px 0 #2f9e44; }
+  .btn-choice.wrong   { border-color: var(--lose); background: #fff5f5; box-shadow: 0 6px 0 #c92a2a; }
+  .btn-choice span.ce { font-size: 44px; }
+
+  .quiz-feedback {
+    font-size: clamp(1.3rem, 5vw, 2rem);
+    font-weight: 800;
+    text-align: center;
+    padding: 12px 24px;
+    border-radius: 16px;
+    min-height: 56px;
+  }
+  .quiz-feedback.correct { background: #e6fcf5; color: #2f9e44; }
+  .quiz-feedback.wrong   { background: #fff5f5; color: #c92a2a; }
+  .quiz-feedback.hidden  { visibility: hidden; }
+
+  .quiz-progress {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .progress-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #ddd;
+    transition: background 0.3s;
+  }
+  .progress-dot.done { background: var(--win); }
+  .progress-dot.wrong { background: var(--lose); }
+  .progress-dot.active { background: #ff922b; }
+
+  /* ===== BATTLE SCREEN ===== */
+  #screen-battle {
+    gap: 16px;
+    background: linear-gradient(160deg, #fff9f0 0%, #f0fff4 100%);
+    justify-content: flex-start;
+    padding-top: 24px;
+  }
+
+  /* スコアボード */
+  .score-board {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    width: 100%;
+    max-width: 500px;
+  }
+  .score-item {
+    flex: 1;
+    background: white;
+    border-radius: 16px;
+    padding: 10px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .score-label { font-size: 14px; color: #888; font-weight: 700; }
+  .score-num { font-size: 34px; font-weight: 800; line-height: 1.1; }
+  .score-item.wins  .score-num { color: var(--win); }
+  .score-item.loses .score-num { color: var(--lose); }
+  .score-item.draws .score-num { color: var(--draw); }
+
+  /* 対戦フィールド全体 */
+  .battle-field {
+    width: 100%;
+    max-width: 500px;
+    background: white;
+    border-radius: 28px;
+    padding: 20px 16px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  /* あいての手（上、180度回転で向かい合う） */
+  .battle-cpu-area {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .battle-cpu-label {
+    font-size: 18px; font-weight: 700; color: #888;
+  }
+  .battle-cpu-hand {
+    font-size: 88px;
+    line-height: 1;
+    display: block;
+    transform: rotate(180deg);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    min-height: 96px;
+  }
+  .battle-cpu-hand.shake { animation: shakeDown 0.5s ease; }
+  @keyframes shakeDown {
+    0%,100% { transform: rotate(180deg) translateY(0); }
+    25% { transform: rotate(180deg) translateY(-18px); }
+    75% { transform: rotate(180deg) translateY(-18px); }
+  }
+
+  /* 結果バナー（中央） */
+  .battle-result {
+    font-size: clamp(1.3rem, 5vw, 1.9rem);
+    font-weight: 800;
+    text-align: center;
+    padding: 14px 20px;
+    border-radius: 20px;
+    width: 100%;
+    transition: all 0.4s;
+    line-height: 1.4;
+  }
+  .battle-result.win   { background: #e6fcf5; color: #2f9e44; }
+  .battle-result.lose  { background: #fff5f5; color: #c92a2a; }
+  .battle-result.draw  { background: #e7f5ff; color: #1971c2; }
+  .battle-result.ready { background: #fff3e0; color: #e67700; }
+
+  /* 選んだ手の表示エリア（横一列） */
+  .battle-my-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .battle-my-label {
+    font-size: 18px; font-weight: 700; color: #888;
+    writing-mode: horizontal-tb;
+    white-space: nowrap;
+  }
+  .battle-my-hand {
+    font-size: 88px;
+    line-height: 1;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    min-height: 96px;
+    flex-shrink: 0;
+  }
+  .battle-my-hand.shake { animation: shakeUp 0.5s ease; }
+  @keyframes shakeUp {
+    0%,100% { transform: translateY(0); }
+    25% { transform: translateY(-18px); }
+    75% { transform: translateY(-18px); }
+  }
+
+  /* 選択ボタン（横一列） */
+  .battle-choices {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .btn-hand {
+    flex: 1 1 0;
+    min-width: 0;
+    background: white;
+    border: 4px solid #eee;
+    border-radius: 20px;
+    padding: 14px 8px;
+    cursor: pointer;
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--dark);
+    box-shadow: 0 6px 0 #ddd;
+    transition: transform 0.1s, box-shadow 0.1s;
+    outline: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-hand:focus { outline: 4px solid #333; outline-offset: 2px; }
+  .btn-hand:nth-child(1) { border-color: var(--guu);   box-shadow: 0 6px 0 #c92a2a; }
+  .btn-hand:nth-child(2) { border-color: var(--choki); box-shadow: 0 6px 0 #0c8599; }
+  .btn-hand:nth-child(3) { border-color: var(--paa);   box-shadow: 0 6px 0 #e67700; }
+  .btn-hand:hover { transform: translateY(-6px); }
+  .btn-hand:active { transform: translateY(3px); box-shadow: 0 3px 0 #ddd !important; }
+  .btn-hand span.he { font-size: 44px; }
+
+
+  /* ===== BACK BUTTON ===== */
+  .btn-back {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    background: white;
+    border: 3px solid #ddd;
+    border-radius: 100px;
+    padding: 10px 24px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #555;
+    box-shadow: 0 4px 0 #ddd;
+    transition: transform 0.1s;
+    outline: none;
+  }
+  .btn-back:focus { outline: 4px solid #333; }
+  .btn-back:active { transform: translateY(2px); box-shadow: 0 2px 0 #ddd; }
+
+  /* ===== CONFETTI ===== */
+  .confetti-container {
+    position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 2px;
+    animation: confettiFall 1.5s ease-in forwards;
+    top: -20px;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ===== SETTINGS BUTTON (title) ===== */
+  .btn-settings {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    background: white;
+    border: 3px solid #ccc;
+    border-radius: 100px;
+    padding: 12px 28px;
+    cursor: pointer;
+    color: #555;
+    box-shadow: 0 4px 0 #ccc;
+    transition: transform 0.1s;
+    outline: none;
+  }
+  .btn-settings:focus { outline: 4px solid #333; outline-offset: 2px; }
+  .btn-settings:active { transform: translateY(2px); box-shadow: 0 2px 0 #ccc; }
+
+  /* ===== SETTINGS SCREEN ===== */
+  #screen-settings {
+    gap: 20px;
+    background: linear-gradient(160deg, #f0f4ff 0%, #fff9f0 100%);
+    justify-content: flex-start;
+    padding-top: 32px;
+  }
+
+  .settings-list {
+    width: 100%;
+    max-width: 500px;
+    background: white;
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px;
+    gap: 12px;
+  }
+
+  .settings-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+  }
+
+  .settings-icon { font-size: 28px; flex-shrink: 0; }
+
+  .settings-label {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--dark);
+  }
+
+  .settings-desc {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  .settings-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 0 20px;
+  }
+
+  /* トグルスイッチ */
+  .btn-toggle {
+    width: 58px; height: 32px;
+    border-radius: 100px;
+    background: #ddd;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.25s;
+    flex-shrink: 0;
+    outline: none;
+    padding: 0;
+  }
+  .btn-toggle:focus { outline: 4px solid #333; outline-offset: 2px; }
+  .btn-toggle[aria-checked="true"]  { background: #ff6b6b; }
+  .toggle-thumb {
+    position: absolute;
+    top: 4px; left: 4px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.25s;
+  }
+  .btn-toggle[aria-checked="true"] .toggle-thumb { transform: translateX(26px); }
+
+  /* ステッパー */
+  .settings-stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .btn-step {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: 3px solid #ff6b6b;
+    background: white;
+    color: #ff6b6b;
+    font-size: 22px;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    outline: none;
+    transition: background 0.1s;
+  }
+  .btn-step:focus  { outline: 4px solid #333; outline-offset: 2px; }
+  .btn-step:active { background: #fff0f0; }
+  .step-val {
+    font-size: 17px;
+    font-weight: 800;
+    color: #ff6b6b;
+    min-width: 52px;
+    text-align: center;
+  }
+
+  /* ===== HIGH CONTRAST MODE ===== */
+  body.high-contrast {
+    --bg: #000;
+    --dark: #fff;
+    background: #000 !important;
+  }
+  body.high-contrast .screen { background: #111 !important; }
+  body.high-contrast .rule-card,
+  body.high-contrast .quiz-question,
+  body.high-contrast .battle-field,
+  body.high-contrast .score-item,
+  body.high-contrast .hand-card-mini,
+  body.high-contrast .settings-list,
+  body.high-contrast .btn-choice,
+  body.high-contrast .btn-hand,
+  body.high-contrast .btn-menu,
+  body.high-contrast .btn-back,
+  body.high-contrast .btn-settings,
+  body.high-contrast .btn-toggle { background: #222 !important; border-color: #fff !important; }
+  body.high-contrast .rule-name,
+  body.high-contrast .settings-label,
+  body.high-contrast .screen-title,
+  body.high-contrast .title-text,
+  body.high-contrast .hand-label-mini,
+  body.high-contrast .btn-hand,
+  body.high-contrast .btn-choice,
+  body.high-contrast .battle-cpu-label,
+  body.high-contrast .battle-my-label,
+  body.high-contrast .score-label { color: #fff !important; }
+  body.high-contrast .rule-desc,
+  body.high-contrast .settings-desc { color: #aaa !important; }
+
+  /* ===== SCAN HIGHLIGHT ===== */
+  .scan-focus {
+    outline: 5px solid #ff922b !important;
+    outline-offset: 3px !important;
+    transform: scale(1.04);
+    transition: outline 0.1s, transform 0.1s;
+  }
+
+  /* ===== FONT SCALE OVERRIDES ===== */
+  /* body の font-size を JS で変えると、em 単位の要素は自動で追従する。
+     clamp() や px 固定の部分だけここで上書きする。 */
+
+  [data-font="0"] .title-text    { font-size: 28px; }
+  [data-font="2"] .title-text    { font-size: 52px; }
+  [data-font="3"] .title-text    { font-size: 64px; }
+
+  [data-font="0"] .btn-menu      { font-size: 16px; padding: 14px 20px; }
+  [data-font="2"] .btn-menu      { font-size: 26px; padding: 24px 32px; }
+  [data-font="3"] .btn-menu      { font-size: 32px; padding: 28px 32px; }
+
+  [data-font="0"] .rule-name     { font-size: 18px; }
+  [data-font="2"] .rule-name     { font-size: 26px; }
+  [data-font="3"] .rule-name     { font-size: 32px; }
+
+  [data-font="0"] .rule-desc     { font-size: 14px; }
+  [data-font="2"] .rule-desc     { font-size: 22px; }
+  [data-font="3"] .rule-desc     { font-size: 27px; }
+
+  [data-font="0"] .quiz-q-text   { font-size: 18px; }
+  [data-font="2"] .quiz-q-text   { font-size: 28px; }
+  [data-font="3"] .quiz-q-text   { font-size: 34px; }
+
+  [data-font="0"] .btn-choice    { font-size: 16px; }
+  [data-font="2"] .btn-choice    { font-size: 24px; }
+  [data-font="3"] .btn-choice    { font-size: 28px; }
+
+  [data-font="0"] .btn-hand      { font-size: 14px; }
+  [data-font="2"] .btn-hand      { font-size: 22px; }
+  [data-font="3"] .btn-hand      { font-size: 26px; }
+
+  [data-font="0"] .battle-result { font-size: 20px; }
+  [data-font="2"] .battle-result { font-size: 32px; }
+  [data-font="3"] .battle-result { font-size: 40px; }
+
+  [data-font="0"] .screen-title  { font-size: 22px; }
+  [data-font="2"] .screen-title  { font-size: 40px; }
+  [data-font="3"] .screen-title  { font-size: 50px; }
+
+  [data-font="0"] .settings-label { font-size: 16px; }
+  [data-font="2"] .settings-label { font-size: 24px; }
+  [data-font="3"] .settings-label { font-size: 30px; }
+
+  [data-font="0"] .vs-item       { font-size: 14px; }
+  [data-font="2"] .vs-item       { font-size: 22px; }
+  [data-font="3"] .vs-item       { font-size: 28px; }
+
+  /* ===== SCAN HINT ===== */
+  .scan-hint {
+    background: #fff9db;
+    border: 3px dashed #ffd43b;
+    border-radius: 16px;
+    padding: 12px 16px;
+    font-size: 16px;
+    color: #7c5f00;
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 400px) {
+    .battle-hand { font-size: 60px; min-height: 70px; line-height: 70px; }
+    .btn-hand span.he { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-stars"></div>
+<div class="confetti-container" id="confetti"></div>
+
+<!-- ===== TITLE SCREEN ===== -->
+<div class="screen active" id="screen-title">
+  <div class="title-header">
+    <span class="title-emoji">✌️</span>
+    <div class="title-text">じゃんけん<br>まなぼう！</div>
+    <div class="title-sub">たのしく おぼえよう🌟</div>
+  </div>
+
+  <div class="hands-preview">
+    <div class="hand-card-mini">
+      <span class="hand-emoji-mini">✊</span>
+      <div class="hand-label-mini">グー</div>
+    </div>
+    <div class="hand-card-mini">
+      <span class="hand-emoji-mini">✌️</span>
+      <div class="hand-label-mini">チョキ</div>
+    </div>
+    <div class="hand-card-mini">
+      <span class="hand-emoji-mini">🖐️</span>
+      <div class="hand-label-mini">パー</div>
+    </div>
+  </div>
+
+  <div class="menu-buttons">
+    <button class="btn-menu green" onclick="showScreen('rule')">
+      📖 ルールをみる
+    </button>
+    <button class="btn-menu orange" onclick="showScreen('quiz-mode')">
+      🧠 クイズにちょうせん！
+    </button>
+    <button class="btn-menu purple" onclick="showScreen('battle')">
+      ⚔️ たいせんしてみよう！
+    </button>
+  </div>
+
+  <button class="btn-settings" onclick="showScreen('settings')" aria-label="せってい">
+    ⚙️ せってい
+  </button>
+</div>
+
+<!-- ===== SETTINGS SCREEN ===== -->
+<div class="screen" id="screen-settings">
+  <div class="screen-title">⚙️ つかいやすく せってい</div>
+
+  <div class="settings-list">
+
+    <!-- もじサイズ -->
+    <div class="settings-row">
+      <div class="settings-info">
+        <span class="settings-icon">🔤</span>
+        <div>
+          <div class="settings-label">もじを おおきく</div>
+          <div class="settings-desc">もじのサイズを かえます</div>
+        </div>
+      </div>
+      <div class="settings-stepper">
+        <button class="btn-step" onclick="changeFontSize(-1)" aria-label="もじを ちいさく">－</button>
+        <span class="step-val" id="font-size-label">ふつう</span>
+        <button class="btn-step" onclick="changeFontSize(+1)" aria-label="もじを おおきく">＋</button>
+      </div>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <!-- ハイコントラスト -->
+    <div class="settings-row">
+      <div class="settings-info">
+        <span class="settings-icon">🌑</span>
+        <div>
+          <div class="settings-label">ハイコントラスト</div>
+          <div class="settings-desc">くろい はいけいに きりかえます</div>
+        </div>
+      </div>
+      <button class="btn-toggle" id="toggle-contrast" role="switch" aria-checked="false"
+              onclick="toggleSetting('contrast')" aria-label="ハイコントラスト">
+        <span class="toggle-thumb"></span>
+      </button>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <!-- スイッチスキャン -->
+    <div class="settings-row">
+      <div class="settings-info">
+        <span class="settings-icon">♿</span>
+        <div>
+          <div class="settings-label">スイッチスキャン</div>
+          <div class="settings-desc">スペース または Enter で そうさ</div>
+        </div>
+      </div>
+      <button class="btn-toggle" id="toggle-scan" role="switch" aria-checked="false"
+              onclick="toggleSetting('scan')" aria-label="スイッチスキャン">
+        <span class="toggle-thumb"></span>
+      </button>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <!-- じどうよみあげ -->
+    <div class="settings-row">
+      <div class="settings-info">
+        <span class="settings-icon">🔊</span>
+        <div>
+          <div class="settings-label">じどう よみあげ</div>
+          <div class="settings-desc">タップしたら じどうで よみます</div>
+        </div>
+      </div>
+      <button class="btn-toggle" id="toggle-tts" role="switch" aria-checked="true"
+              onclick="toggleSetting('tts')" aria-label="じどうよみあげ">
+        <span class="toggle-thumb"></span>
+      </button>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <!-- スキャンかんかく -->
+    <div class="settings-row">
+      <div class="settings-info">
+        <span class="settings-icon">⏱️</span>
+        <div>
+          <div class="settings-label">スキャン かんかく</div>
+          <div class="settings-desc">じどうスキャンの スピード</div>
+        </div>
+      </div>
+      <div class="settings-stepper">
+        <button class="btn-step" onclick="changeScanInterval(-0.5)" aria-label="はやく">－</button>
+        <span class="step-val" id="scan-interval-label">2.0秒</span>
+        <button class="btn-step" onclick="changeScanInterval(+0.5)" aria-label="おそく">＋</button>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="btn-back" onclick="showScreen('title')">🏠 もどる</button>
+</div>
+
+<!-- ===== RULE SCREEN ===== -->
+<div class="screen" id="screen-rule">
+  <div class="screen-title">📖 じゃんけんのルール</div>
+
+  <div class="rule-cards">
+    <div class="rule-card">
+      <span class="rule-emoji">✊</span>
+      <div class="rule-text">
+        <div class="rule-name" style="color:var(--guu)">グー　（こぶし）</div>
+        <div class="rule-desc">チョキに かつ<br>パーに まける</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <span class="rule-emoji">✌️</span>
+      <div class="rule-text">
+        <div class="rule-name" style="color:#0c8599">チョキ　（はさみ）</div>
+        <div class="rule-desc">パーに かつ<br>グーに まける</div>
+      </div>
+    </div>
+    <div class="rule-card">
+      <span class="rule-emoji">🖐️</span>
+      <div class="rule-text">
+        <div class="rule-name" style="color:#e67700">パー　（てのひら）</div>
+        <div class="rule-desc">グーに かつ<br>チョキに まける</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-size:20px; font-weight:700; color:#555; text-align:center;">かんけいを みてみよう👇</div>
+
+  <div class="rule-vs">
+    <div class="rule-vs-row">
+      <div class="vs-item"><span class="big">✊</span>グー</div>
+      <div class="vs-arrow">かつ →</div>
+      <div class="vs-item"><span class="big">✌️</span>チョキ</div>
+    </div>
+    <div class="rule-vs-row">
+      <div class="vs-item"><span class="big">✌️</span>チョキ</div>
+      <div class="vs-arrow">かつ →</div>
+      <div class="vs-item"><span class="big">🖐️</span>パー</div>
+    </div>
+    <div class="rule-vs-row">
+      <div class="vs-item"><span class="big">🖐️</span>パー</div>
+      <div class="vs-arrow">かつ →</div>
+      <div class="vs-item"><span class="big">✊</span>グー</div>
+    </div>
+  </div>
+
+  <div class="quiz-trigger">💡 おぼえたら クイズにちょうせん！</div>
+
+  <button class="btn-back" onclick="showScreen('title')">🏠 もどる</button>
+</div>
+
+<!-- ===== QUIZ MODE SELECT SCREEN ===== -->
+<div class="screen" id="screen-quiz-mode">
+  <div class="screen-title">🧠 クイズ！</div>
+  <div style="font-size:22px; color:#555; font-weight:700; text-align:center; margin-bottom:8px;">どっちを れんしゅうする？</div>
+
+  <div class="menu-buttons" style="gap:20px; margin-top:12px; margin-bottom:32px;">
+    <button class="btn-menu" style="background:#51cf66; color:white;" onclick="startQuiz('win')">
+      🏆 かつのは どれ？
+    </button>
+    <button class="btn-menu" style="background:#ff6b6b; color:white;" onclick="startQuiz('lose')">
+      😿 まけるのは どれ？
+    </button>
+    <button class="btn-menu" style="background:#845ef7; color:white;" onclick="startQuiz('both')">
+      🌟 どちらも まぜる！
+    </button>
+  </div>
+
+  <button class="btn-back" onclick="showScreen('title')">🏠 もどる</button>
+</div>
+
+<!-- ===== QUIZ SCREEN ===== -->
+<div class="screen" id="screen-quiz">
+  <div class="quiz-mode-badge" id="quiz-mode-badge">🏆 かつのは どれ？</div>
+
+  <div class="quiz-progress" id="quiz-progress"></div>
+
+  <div class="quiz-question">
+    <span class="quiz-q-emoji" id="quiz-emoji">✊</span>
+    <div class="quiz-q-text" id="quiz-text">よみこみちゅう…</div>
+  </div>
+
+  <div class="quiz-choices" id="quiz-choices"></div>
+
+  <div class="quiz-feedback hidden" id="quiz-feedback">　</div>
+
+  <button class="btn-back" onclick="showScreen('quiz-mode')">← もどる</button>
+</div>
+
+<!-- ===== BATTLE SCREEN ===== -->
+<div class="screen" id="screen-battle">
+  <div class="screen-title">⚔️ たいせん！</div>
+
+  <!-- スコア -->
+  <div class="score-board">
+    <div class="score-item wins">
+      <div class="score-label">かち</div>
+      <div class="score-num" id="score-win">0</div>
+    </div>
+    <div class="score-item draws">
+      <div class="score-label">あいこ</div>
+      <div class="score-num" id="score-draw">0</div>
+    </div>
+    <div class="score-item loses">
+      <div class="score-label">まけ</div>
+      <div class="score-num" id="score-lose">0</div>
+    </div>
+  </div>
+
+  <!-- 対戦フィールド -->
+  <div class="battle-field">
+    <!-- あいての手（上・180度回転で向かい合う） -->
+    <div class="battle-cpu-area">
+      <div class="battle-cpu-label">🤖 あいて</div>
+      <span class="battle-cpu-hand" id="cpu-hand">❓</span>
+    </div>
+
+    <!-- 結果バナー -->
+    <div class="battle-result ready" id="battle-result">
+      👇 てをえらんでね！
+    </div>
+
+    <!-- あなたの手（下・横一列で選んだものを表示） -->
+    <div class="battle-my-row">
+      <div class="battle-my-label">👦 あなた</div>
+      <span class="battle-my-hand" id="my-hand">❓</span>
+    </div>
+  </div>
+
+  <!-- 選択ボタン（横一列） -->
+  <div class="battle-choices">
+    <button class="btn-hand" onclick="play('guu')" data-key="1">
+      <span class="he">✊</span>グー
+    </button>
+    <button class="btn-hand" onclick="play('choki')" data-key="2">
+      <span class="he">✌️</span>チョキ
+    </button>
+    <button class="btn-hand" onclick="play('paa')" data-key="3">
+      <span class="he">🖐️</span>パー
+    </button>
+  </div>
+
+  <button class="btn-back" onclick="showScreen('title'); resetBattle()">🏠 もどる</button>
+</div>
+
+<script>
+// ===== SCREEN MANAGEMENT =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  // Focus first focusable element
+  const first = document.getElementById('screen-' + id).querySelector('button');
+  if (first) setTimeout(() => first.focus(), 100);
+}
+
+// ===== SOUNDS =====
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let ctx;
+function ensureCtx() {
+  if (!ctx) ctx = new AudioCtx();
+  if (ctx.state === 'suspended') ctx.resume();
+}
+
+function playTone(freq, type, dur, vol = 0.3) {
+  ensureCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+  osc.start(); osc.stop(ctx.currentTime + dur);
+}
+
+function playWin()  { playTone(523,  'sine', 0.12); setTimeout(()=>playTone(659,'sine',0.12),150); setTimeout(()=>playTone(784,'sine',0.2),300); }
+function playLose() { playTone(330, 'sawtooth', 0.15); setTimeout(()=>playTone(262,'sawtooth',0.2),180); }
+function playClick(){ playTone(440, 'sine', 0.08, 0.2); }
+function playDraw() { playTone(392, 'triangle', 0.2); }
+
+// ===== CONFETTI =====
+function launchConfetti() {
+  const c = document.getElementById('confetti');
+  const colors = ['#FF6B6B','#FFE66D','#4ECDC4','#51cf66','#845ef7','#ff922b'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `
+      left: ${Math.random()*100}%;
+      background: ${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay: ${Math.random()*0.8}s;
+      animation-duration: ${1.2 + Math.random()*0.8}s;
+      width: ${8+Math.random()*12}px; height: ${8+Math.random()*12}px;
+      border-radius: ${Math.random()>0.5?'50%':'2px'};
+    `;
+    c.appendChild(p);
+    setTimeout(() => p.remove(), 2500);
+  }
+}
+
+// ===== QUIZ LOGIC =====
+const HANDS = [
+  { id:'guu',   emoji:'✊', name:'グー',   beats:'choki', beatenBy:'paa' },
+  { id:'choki', emoji:'✌️', name:'チョキ', beats:'paa',   beatenBy:'guu' },
+  { id:'paa',   emoji:'🖐️', name:'パー',   beats:'guu',   beatenBy:'choki' },
+];
+
+const QUIZ_WIN = [
+  { q_emoji:'✊', q_text:'グーに かつのは どれ？',   answer:'paa'   },
+  { q_emoji:'✌️', q_text:'チョキに かつのは どれ？', answer:'guu'   },
+  { q_emoji:'🖐️', q_text:'パーに かつのは どれ？',   answer:'choki' },
+];
+const QUIZ_LOSE = [
+  { q_emoji:'✊', q_text:'グーに まけるのは どれ？',   answer:'choki' },
+  { q_emoji:'✌️', q_text:'チョキに まけるのは どれ？', answer:'paa'   },
+  { q_emoji:'🖐️', q_text:'パーに まけるのは どれ？',   answer:'guu'   },
+];
+
+const MODE_LABEL = {
+  win:  '🏆 かつのは どれ？',
+  lose: '😿 まけるのは どれ？',
+  both: '🌟 かちまけ まぜる！',
+};
+
+let quizList = [], quizIdx = 0, quizResults = [], quizMode = 'win';
+
+function startQuiz(mode) {
+  quizMode = mode;
+  let pool;
+  if (mode === 'win')  pool = [...QUIZ_WIN];
+  else if (mode === 'lose') pool = [...QUIZ_LOSE];
+  else pool = [...QUIZ_WIN, ...QUIZ_LOSE];
+
+  quizList = pool.sort(() => Math.random() - 0.5).slice(0, mode === 'both' ? 6 : 3);
+  quizIdx = 0;
+  quizResults = [];
+  document.getElementById('quiz-mode-badge').textContent = MODE_LABEL[mode];
+  showScreen('quiz');
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const q = quizList[quizIdx];
+  document.getElementById('quiz-emoji').textContent = q.q_emoji;
+  document.getElementById('quiz-text').textContent = q.q_text;
+  document.getElementById('quiz-feedback').className = 'quiz-feedback hidden';
+  document.getElementById('quiz-feedback').textContent = '　';
+
+  // Progress dots
+  const prog = document.getElementById('quiz-progress');
+  prog.innerHTML = '';
+  for (let i = 0; i < quizList.length; i++) {
+    const d = document.createElement('div');
+    d.className = 'progress-dot' +
+      (i < quizIdx ? (quizResults[i] ? ' done' : ' wrong') : i === quizIdx ? ' active' : '');
+    prog.appendChild(d);
+  }
+
+  // Choices
+  const choices = document.getElementById('quiz-choices');
+  choices.innerHTML = '';
+  const shuffled = [...HANDS].sort(() => Math.random() - 0.5);
+  shuffled.forEach(h => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-choice';
+    btn.innerHTML = `<span class="ce">${h.emoji}</span>${h.name}`;
+    btn.addEventListener('click', () => answerQuiz(h.id, btn, choices.querySelectorAll('.btn-choice')));
+    choices.appendChild(btn);
+  });
+}
+
+function answerQuiz(chosen, btn, allBtns) {
+  const q = quizList[quizIdx];
+  const correct = chosen === q.answer;
+  const fb = document.getElementById('quiz-feedback');
+
+  allBtns.forEach(b => b.disabled = true);
+
+  if (correct) {
+    btn.classList.add('correct');
+    fb.textContent = '🎉 せいかい！すごい！';
+    fb.className = 'quiz-feedback correct';
+    playWin();
+    launchConfetti();
+  } else {
+    btn.classList.add('wrong');
+    fb.textContent = '😅 ざんねん… もういちどためしてね！';
+    fb.className = 'quiz-feedback wrong';
+    playLose();
+    // Show correct answer
+    const correctHand = HANDS.find(h => h.id === q.answer);
+    allBtns.forEach(b => {
+      if (b.textContent.includes(correctHand.name)) b.classList.add('correct');
+    });
+  }
+
+  quizResults.push(correct);
+
+  setTimeout(() => {
+    quizIdx++;
+    if (quizIdx < quizList.length) {
+      renderQuiz();
+    } else {
+      showQuizResult();
+    }
+  }, 1800);
+}
+
+function showQuizResult() {
+  const wins = quizResults.filter(Boolean).length;
+  const total = quizResults.length;
+  const emoji = wins === total ? '🏆' : wins >= total*0.6 ? '⭐' : '💪';
+  document.getElementById('quiz-emoji').textContent = emoji;
+  document.getElementById('quiz-text').textContent = `${total}もんちゅう ${wins}もん せいかい！`;
+  document.getElementById('quiz-choices').innerHTML = `
+    <button class="btn-menu orange" style="margin-top:8px" onclick="startQuiz(quizMode)">🔄 もういちど</button>
+    <button class="btn-menu green"  style="margin-top:8px" onclick="showScreen('quiz-mode')">← モードえらびに もどる</button>
+  `;
+  document.getElementById('quiz-feedback').className = 'quiz-feedback hidden';
+  document.getElementById('quiz-progress').innerHTML = '';
+  if (wins === total) { launchConfetti(); playWin(); }
+}
+
+// ===== SPEECH =====
+let speakQueue = [];
+let isSpeaking = false;
+
+function speakDirect(text, rate = 0.85, pitch = 1.1) {
+  if (!window.speechSynthesis) return;
+  // 既存の発話をキャンセルしてから少し待って発話（Safari対策）
+  window.speechSynthesis.cancel();
+  setTimeout(() => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang   = 'ja-JP';
+    utter.rate   = rate;
+    utter.pitch  = pitch;
+    utter.volume = 1;
+    // ja-JP 音声を優先選択
+    const voices  = window.speechSynthesis.getVoices();
+    const jaVoice = voices.find(v => v.lang === 'ja-JP') ||
+                    voices.find(v => v.lang.startsWith('ja'));
+    if (jaVoice) utter.voice = jaVoice;
+    window.speechSynthesis.speak(utter);
+  }, 80);
+}
+
+// ttsOn の場合のみ読み上げ（設定・クイズ結果など）
+function speak(text, rate = 0.85, pitch = 1.1) {
+  if (!ttsOn) return;
+  speakDirect(text, rate, pitch);
+}
+
+// 音声リスト読み込みを待つ（Safari など遅延対策）
+function loadVoices() {
+  if (!window.speechSynthesis) return;
+  const v = window.speechSynthesis.getVoices();
+  if (v.length === 0) {
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+  }
+}
+loadVoices();
+
+// ===== BATTLE LOGIC =====
+let scores = { win: 0, draw: 0, lose: 0 };
+let battleLocked = false;
+
+const HAND_MAP = { guu:'✊', choki:'✌️', paa:'🖐️' };
+
+function play(chosen) {
+  if (battleLocked) return;
+  battleLocked = true;
+  playClick();
+
+  const myEl  = document.getElementById('my-hand');
+  const cpuEl = document.getElementById('cpu-hand');
+  const result = document.getElementById('battle-result');
+
+  myEl.textContent  = '✊';
+  cpuEl.textContent = '✊';
+  myEl.classList.add('shake');
+  cpuEl.classList.add('shake');
+  result.className = 'battle-result ready';
+  result.textContent = '✊ ✌️ 🖐️ じゃんけん ぽん！';
+
+  // 「じゃんけん」→ 少し間を置いて「ぽん！」（ttsOn設定に関係なく常に鳴らす）
+  speakDirect('じゃんけん', 0.8, 1.1);
+  setTimeout(() => speakDirect('ぽん', 0.9, 1.2), 900);
+
+  const cpu = ['guu','choki','paa'][Math.floor(Math.random()*3)];
+
+  setTimeout(() => {
+    myEl.classList.remove('shake');
+    cpuEl.classList.remove('shake');
+    myEl.textContent  = HAND_MAP[chosen];
+    cpuEl.textContent = HAND_MAP[cpu];
+
+    let res;
+    if (chosen === cpu) res = 'draw';
+    else {
+      const win = HANDS.find(h=>h.id===chosen).beats;
+      res = win === cpu ? 'win' : 'lose';
+    }
+
+    const chosenName = HANDS.find(h=>h.id===chosen).name;
+    const cpuName    = HANDS.find(h=>h.id===cpu).name;
+
+    if (res === 'win') {
+      result.className = 'battle-result win';
+      result.textContent = `🎉 かった！　${chosenName} ＞ ${cpuName}`;
+      scores.win++;
+      playWin(); launchConfetti();
+      speak('やったー！かった！', 0.85, 1.2);
+    } else if (res === 'lose') {
+      result.className = 'battle-result lose';
+      result.textContent = `😿 まけた…　${chosenName} ＜ ${cpuName}`;
+      scores.lose++;
+      playLose();
+      speak('まけた…またちょうせんしてね！', 0.8, 1.0);
+    } else {
+      result.className = 'battle-result draw';
+      result.textContent = `🤝 あいこ！　${chosenName} ＝ ${cpuName}`;
+      scores.draw++;
+      playDraw();
+      speak('あいこ！', 0.85, 1.1);
+    }
+
+    document.getElementById('score-win').textContent  = scores.win;
+    document.getElementById('score-draw').textContent = scores.draw;
+    document.getElementById('score-lose').textContent = scores.lose;
+
+    setTimeout(() => { battleLocked = false; }, 800);
+  }, 900);
+}
+
+function resetBattle() {
+  scores = { win:0, draw:0, lose:0 };
+  document.getElementById('score-win').textContent  = '0';
+  document.getElementById('score-draw').textContent = '0';
+  document.getElementById('score-lose').textContent = '0';
+  document.getElementById('my-hand').textContent   = '❓';
+  document.getElementById('cpu-hand').textContent  = '❓';
+  document.getElementById('battle-result').className = 'battle-result ready';
+  document.getElementById('battle-result').textContent = '👇 てをえらんでね！';
+  battleLocked = false;
+}
+
+// ===== ACCESSIBILITY SETTINGS =====
+const FONT_STEPS  = ['ちいさい', 'ふつう', 'おおきい', 'とても おおきい'];
+const FONT_SCALES = [0.82, 1.0, 1.22, 1.5];
+let fontStep     = 1;
+let contrastOn   = false;
+let scanOn       = false;
+let ttsOn        = true;
+let scanInterval = 2.0;
+let scanTimer    = null;
+let scanTargets  = [];
+let scanIdx      = 0;
+
+// ---- フォントサイズ ----
+// body の font-size を直接変え、rem ベースの要素全体に反映する
+function applyFontScale() {
+  const scale = FONT_SCALES[fontStep];
+  // body に --fs-scale 変数を設定し、CSSの全fontSize指定を上書き
+  document.body.style.fontSize = (scale * 16) + 'px';
+  // clamp() を使っている要素はそのままでは変わらないので、
+  // 専用クラスで font-size を em 単位で上書きする
+  document.body.setAttribute('data-font', fontStep);
+  document.getElementById('font-size-label').textContent = FONT_STEPS[fontStep];
+}
+
+function changeFontSize(delta) {
+  fontStep = Math.max(0, Math.min(FONT_STEPS.length - 1, fontStep + delta));
+  applyFontScale();
+  speakDirect(FONT_STEPS[fontStep]);
+}
+
+function toggleSetting(key) {
+  if (key === 'contrast') {
+    contrastOn = !contrastOn;
+    document.body.classList.toggle('high-contrast', contrastOn);
+    const btn = document.getElementById('toggle-contrast');
+    btn.setAttribute('aria-checked', contrastOn ? 'true' : 'false');
+    if (ttsOn) speak(contrastOn ? 'ハイコントラスト オン' : 'ハイコントラスト オフ');
+  } else if (key === 'scan') {
+    scanOn = !scanOn;
+    const btn = document.getElementById('toggle-scan');
+    btn.setAttribute('aria-checked', scanOn ? 'true' : 'false');
+    if (scanOn) startScan(); else stopScan();
+    if (ttsOn) speak(scanOn ? 'スイッチスキャン オン' : 'スイッチスキャン オフ');
+  } else if (key === 'tts') {
+    ttsOn = !ttsOn;
+    const btn = document.getElementById('toggle-tts');
+    btn.setAttribute('aria-checked', ttsOn ? 'true' : 'false');
+    if (ttsOn) speak('よみあげ オン');
+  }
+}
+
+function changeScanInterval(delta) {
+  scanInterval = Math.max(0.5, Math.min(5.0, Math.round((scanInterval + delta) * 10) / 10));
+  document.getElementById('scan-interval-label').textContent = scanInterval.toFixed(1) + '秒';
+  if (scanOn) { stopScan(); startScan(); }
+}
+
+// ===== SWITCH SCAN ENGINE =====
+function getScanTargets() {
+  const screen = document.querySelector('.screen.active');
+  return Array.from(screen.querySelectorAll('button:not([disabled])'));
+}
+
+function startScan() {
+  stopScan();
+  scanTargets = getScanTargets();
+  scanIdx = 0;
+  highlightScan();
+  scanTimer = setInterval(() => {
+    scanTargets = getScanTargets();
+    scanIdx = (scanIdx + 1) % Math.max(scanTargets.length, 1);
+    highlightScan();
+  }, scanInterval * 1000);
+}
+
+function stopScan() {
+  clearInterval(scanTimer);
+  document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+}
+
+function highlightScan() {
+  document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+  scanTargets = getScanTargets();
+  if (scanTargets[scanIdx]) {
+    scanTargets[scanIdx].classList.add('scan-focus');
+    scanTargets[scanIdx].focus();
+  }
+}
+
+function activateScan() {
+  if (!scanOn) return;
+  scanTargets = getScanTargets();
+  if (scanTargets[scanIdx]) scanTargets[scanIdx].click();
+}
+
+// ===== TTS on tap (じどうよみあげ) =====
+// battle ボタンはじゃんけん掛け声があるので除外
+document.addEventListener('click', e => {
+  if (!ttsOn) return;
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  // 対戦ボタン（.btn-hand）はじゃんけん掛け声があるのでスキップ
+  if (btn.classList.contains('btn-hand')) return;
+  const label = btn.getAttribute('aria-label') ||
+                btn.textContent.trim().replace(/\s+/g,' ').slice(0, 24);
+  if (label) speakDirect(label, 0.85, 1.05);
+}, true);
+
+// ===== KEYBOARD / SWITCH ACCESS =====
+document.addEventListener('keydown', e => {
+  const screen = document.querySelector('.screen.active').id;
+
+  // スキャンアクティベート
+  if (scanOn && (e.code === 'Space' || e.code === 'Enter')) {
+    e.preventDefault();
+    activateScan();
+    return;
+  }
+
+  if (!scanOn && (e.code === 'Space' || e.code === 'Enter')) {
+    const focused = document.activeElement;
+    if (focused && focused.tagName === 'BUTTON') { focused.click(); return; }
+  }
+
+  // Battle shortcuts
+  if (screen === 'screen-battle') {
+    if (e.key === '1') play('guu');
+    else if (e.key === '2') play('choki');
+    else if (e.key === '3') play('paa');
+  }
+});
+
+// 画面切替時にスキャンをリセット
+const _origShowScreen = showScreen;
+window.showScreen = function(id) {
+  _origShowScreen(id);
+  if (scanOn) { setTimeout(startScan, 150); }
+};
+
+// 初期TTS状態をトグルに反映
+document.getElementById('toggle-tts').setAttribute('aria-checked', 'true');
+</script>
+</body>
+</html>
