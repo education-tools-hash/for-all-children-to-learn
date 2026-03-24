@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>よみかき サポートエディタ</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700;900&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#2D7DD2;--pl:#EBF4FF;--accent:#F5A623;--ok:#5ba81c;--ng:#E85D75;
+  --bg:#FDFAF5;--bg2:#F4EFE8;--sf:#fff;--tx:#2C2C2C;--mu:#6B6B6B;--bd:#DDD5C8;
+  --hl:#FF9F0A;--radius:16px;
+  --fsz:28px;--ff:'BIZ UDPGothic',sans-serif;--lh:2.2;--ls:0.08em;--ws:0.5em;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+
+/* header */
+header{background:var(--primary);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;
+  box-shadow:0 3px 10px rgba(45,125,210,.3);position:sticky;top:0;z-index:100}
+.logo{font-size:22px;font-weight:900;line-height:1}.logo span{color:var(--accent)}
+.sub{font-size:12px;opacity:.85;font-family:'BIZ UDPGothic',sans-serif}
+.sp{flex:1}
+.hbtn{background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.45);color:#fff;
+  padding:7px 16px;border-radius:30px;cursor:pointer;font-size:13px;font-family:'Zen Maru Gothic',sans-serif;
+  font-weight:700;transition:.2s;white-space:nowrap}
+.hbtn:hover,.hbtn:focus{background:rgba(255,255,255,.32);outline:3px solid #fff}
+
+/* tabs */
+.tabs{display:flex;background:var(--bg2);border-bottom:2px solid var(--bd);padding:0 20px;gap:4px}
+.tab{padding:11px 20px;border:none;background:transparent;font-family:'Zen Maru Gothic',sans-serif;
+  font-size:14px;font-weight:700;color:var(--mu);cursor:pointer;border-bottom:3px solid transparent;
+  margin-bottom:-2px;transition:.15s}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary);background:var(--sf);border-radius:12px 12px 0 0}
+.tab:focus{outline:3px solid var(--accent);outline-offset:2px}
+
+/* pages */
+.wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+.pg{display:none}.pg.active{display:block;overflow:visible}
+
+/* guide */
+.hero{background:linear-gradient(135deg,var(--primary),#1a5fa8);color:#fff;border-radius:var(--radius);
+  padding:32px;margin-bottom:24px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-40px;right:-40px;width:160px;height:160px;
+  background:rgba(255,255,255,.07);border-radius:50%}
+.hero h1{font-size:22px;font-weight:900;margin-bottom:10px;line-height:1.7}
+.hero p{font-size:15px;opacity:.93;font-family:'BIZ UDPGothic',sans-serif;line-height:2.1}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.step{background:var(--sf);border-radius:var(--radius);padding:20px;border:2px solid var(--bd)}
+.snum{width:38px;height:38px;background:var(--primary);color:#fff;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;margin-bottom:10px}
+.step h3{font-size:14px;color:var(--primary);margin-bottom:6px;line-height:1.7}
+.step p{font-size:13px;line-height:2.1;color:var(--mu);font-family:'BIZ UDPGothic',sans-serif}
+.feats{background:var(--sf);border-radius:var(--radius);padding:22px;border:2px solid var(--bd);margin-bottom:28px}
+.feats h2{font-size:16px;color:var(--primary);margin-bottom:14px}
+.fgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.fi{display:flex;gap:10px;padding:11px;background:var(--bg2);border-radius:10px;align-items:flex-start}
+.ficon{font-size:22px;flex-shrink:0;margin-top:2px}
+.fi p{font-size:12px;line-height:2.1;font-family:'BIZ UDPGothic',sans-serif;word-break:break-word;overflow-wrap:anywhere}
+.fi strong{display:block;font-size:13px;margin-bottom:2px;color:var(--tx)}
+.swinfo{background:#fff5f7;border:2px solid var(--ng);border-radius:var(--radius);padding:20px;margin-bottom:24px}
+.swinfo h2{font-size:16px;color:var(--ng);margin-bottom:10px}
+.swinfo p{font-size:13px;line-height:2.1;font-family:'BIZ UDPGothic',sans-serif;margin-bottom:6px}
+
+/* ruby */
+ruby{ruby-align:center}
+rt{font-size:.47em;color:var(--primary);font-weight:700;font-family:'BIZ UDPGothic',sans-serif}
+.hero rt{color:rgba(255,255,255,.9)}
+.swinfo rt{color:var(--ng)}
+
+/* editor */
+.elay{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:680px){.elay{grid-template-columns:1fr}}
+.panel{background:var(--sf);border-radius:var(--radius);border:2px solid var(--bd);overflow:hidden}
+.ph{background:var(--bg2);padding:10px 16px;font-weight:700;font-size:13px;color:var(--mu);
+  border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:7px}
+textarea{width:100%;min-height:190px;padding:16px;border:none;outline:none;
+  font-family:var(--ff);font-size:17px;line-height:1.85;resize:vertical;background:transparent;color:var(--tx)}
+
+/* control */
+.cbar{display:flex;flex-wrap:wrap;gap:9px;padding:14px 0;justify-content:center;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border:none;border-radius:40px;
+  font-family:'Zen Maru Gothic',sans-serif;font-size:15px;font-weight:700;cursor:pointer;
+  transition:.13s;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.btn:focus{outline:4px solid var(--accent);outline-offset:3px}
+.bp{background:var(--primary);color:#fff;box-shadow:0 3px 9px rgba(45,125,210,.35)}
+.bp:hover:not(:disabled){background:#1a5fa8;transform:translateY(-1px)}
+.bs{background:var(--ok);color:#fff;box-shadow:0 3px 9px rgba(91,168,28,.35)}
+.bs:hover:not(:disabled){background:#4a8c15}
+.bd2{background:var(--ng);color:#fff;box-shadow:0 3px 9px rgba(232,93,117,.3)}
+.bd2:hover:not(:disabled){background:#c8354f}
+.bn{background:var(--bg2);color:var(--tx);border:2px solid var(--bd)}
+.bn:hover:not(:disabled){background:var(--bd)}
+.btn:disabled{opacity:.36;cursor:not-allowed;transform:none!important;pointer-events:none}
+
+/* reading panel */
+.rpanel{grid-column:1/-1}
+#rdisplay{padding:22px;font-family:var(--ff);font-size:var(--fsz);line-height:var(--lh);
+  letter-spacing:var(--ls);word-spacing:var(--ws);min-height:150px;color:var(--tx)}
+.wc{display:inline;margin-right:var(--ws);cursor:pointer;border-radius:6px;padding:2px 4px;transition:background .08s}
+.wc:hover{background:var(--pl)}
+.wc.cur{background:var(--hl);color:#fff;border-radius:8px}
+.pbwrap{height:5px;background:var(--bg2);margin:0 22px;border-radius:3px;overflow:hidden}
+.pbfill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:3px;transition:width .2s;width:0%}
+
+/* status */
+#stmsg{text-align:center;font-size:13px;color:var(--mu);padding:7px 0 3px;
+  font-family:'BIZ UDPGothic',sans-serif;min-height:26px}
+
+/* sample */
+.samp{background:var(--pl);border-left:4px solid var(--primary);padding:12px 16px;border-radius:0 10px 10px 0;
+  font-size:13px;font-family:'BIZ UDPGothic',sans-serif;line-height:1.9;margin-bottom:9px;cursor:pointer}
+.samp:hover{background:#d4eaff}
+
+/* settings */
+.sgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.sc{background:var(--sf);border-radius:var(--radius);border:2px solid var(--bd);padding:20px}
+.sc h3{font-size:14px;color:var(--primary);margin-bottom:14px;padding-bottom:9px;
+  border-bottom:2px solid var(--pl);display:flex;align-items:center;gap:7px}
+.srow{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.srow label{font-size:13px;font-family:'BIZ UDPGothic',sans-serif;font-weight:700;flex:1;min-width:0}
+.srow input[type=range]{flex:1;accent-color:var(--primary);cursor:pointer;min-width:0}
+.sv{font-size:12px;font-weight:700;color:var(--primary);min-width:46px;text-align:right}
+.fopts{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px}
+.fo{padding:9px;border:2px solid var(--bd);border-radius:10px;cursor:pointer;text-align:center;font-size:13px;transition:.13s}
+.fo:hover{border-color:var(--primary)}
+.fo.sel{border-color:var(--primary);background:var(--pl);color:var(--primary)}
+.copts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.co{width:38px;height:38px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:.13s}
+.co.sel,.co:hover{border-color:var(--primary);transform:scale(1.15)}
+.trow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
+  padding:9px 11px;background:var(--bg2);border-radius:10px;gap:10px}
+.trow>label:first-child{font-size:13px;font-family:'BIZ UDPGothic',sans-serif;font-weight:700;flex:1}
+.tog{position:relative;width:50px;height:27px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0}
+.tsl{position:absolute;inset:0;background:var(--bd);border-radius:27px;cursor:pointer;transition:.18s}
+.tsl::before{content:'';position:absolute;width:19px;height:19px;left:4px;top:4px;background:#fff;
+  border-radius:50%;transition:.18s;box-shadow:0 2px 4px rgba(0,0,0,.18)}
+.tog input:checked+.tsl{background:var(--primary)}
+.tog input:checked+.tsl::before{transform:translateX(23px)}
+.tog input:focus+.tsl{outline:3px solid var(--accent);outline-offset:2px}
+.pvbox{background:var(--bg2);border-radius:10px;padding:12px 16px;font-family:var(--ff);
+  font-size:var(--fsz);line-height:var(--lh);margin-top:7px;border:2px dashed var(--bd)}
+
+/* scan overlay */
+.scov{position:fixed;bottom:20px;right:20px;z-index:200;display:none;flex-direction:column;gap:10px;align-items:flex-end}
+.scov.on{display:flex}
+.scbadge{background:var(--ng);color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.55}}
+.sckh{background:rgba(0,0,0,.7);color:#fff;padding:9px 13px;border-radius:11px;font-size:12px;
+  font-family:'BIZ UDPGothic',sans-serif;line-height:1.8}
+.scfoc{outline:4px solid var(--ng)!important;outline-offset:4px!important;box-shadow:0 0 0 8px rgba(232,93,117,.18)!important}
+
+/* themes */
+body.dk{--bg:#1A1A2E;--bg2:#16213E;--sf:#0F3460;--tx:#E0E0E0;--mu:#A0A0B0;--bd:#1A4A7A;--pl:rgba(45,125,210,.2);--hl:#C87900}
+body.cr{--bg:#FFF9F0;--bg2:#FFF0D8;--sf:#FFFDF8;--bd:#E8D5B0}
+body.gr{--bg:#F0FFF4;--bg2:#E0F5E9;--sf:#FAFFF8;--bd:#C3E6CB;--primary:#2E7D4F;--pl:rgba(46,125,79,.1)}
+
+@media(max-width:860px){.steps{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.steps,.fgrid,.sgrid{grid-template-columns:1fr}.tabs{padding:0 10px}.tab{padding:9px 12px;font-size:13px}.sub{display:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <div><div class="logo">よみかき <span>サポート</span></div><div class="sub">読み書きを助けるエディタ</div></div>
+  <div class="sp"></div>
+  <button class="hbtn" id="scbtn" onclick="toggleScan()">🎮 スキャンモード</button>
+</header>
+
+<div class="tabs" role="tablist">
+  <button class="tab active" id="tab-guide"    onclick="showPg('guide')">📖 つかいかた</button>
+  <button class="tab"        id="tab-editor"   onclick="showPg('editor')">✏️ エディタ</button>
+  <button class="tab"        id="tab-settings" onclick="showPg('settings')">⚙️ せってい</button>
+</div>
+
+<div class="wrap">
+
+<!-- ===== GUIDE ===== -->
+<section class="pg active" id="pg-guide">
+  <div class="hero">
+    <h1>📚 よみかき<ruby>サポート<rt>さぽーと</rt></ruby>エディタへ<br>ようこそ！</h1>
+    <p>この<ruby>道具<rt>どうぐ</rt></ruby>は、<ruby>文字<rt>もじ</rt></ruby>を<ruby>読<rt>よ</rt></ruby>むのがむずかしいと<ruby>感<rt>かん</rt></ruby>じる<ruby>子<rt>こ</rt></ruby>どもたちのためにつくりました。<br>
+    <ruby>自分<rt>じぶん</rt></ruby>のペースで、<ruby>安心<rt>あんしん</rt></ruby>して<ruby>文章<rt>ぶんしょう</rt></ruby>を<ruby>読<rt>よ</rt></ruby>めるようサポートします。</p>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="snum">1</div><h3>✏️ <ruby>文字<rt>もじ</rt></ruby>をうつす</h3><p>「エディタ」のページを<ruby>開<rt>ひら</rt></ruby>いて、<ruby>読<rt>よ</rt></ruby>みたい<ruby>文章<rt>ぶんしょう</rt></ruby>を<ruby>入力<rt>にゅうりょく</rt></ruby>します。サンプル<ruby>文<rt>ぶん</rt></ruby>を<ruby>使<rt>つか</rt></ruby>うこともできます。</p></div>
+    <div class="step"><div class="snum">2</div><h3>🔤 <ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>きにする</h3><p>「<ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>き」ボタンを<ruby>押<rt>お</rt></ruby>すと、<ruby>文章<rt>ぶんしょう</rt></ruby>がことばの<ruby>まとまりに分<rt>わ</rt></ruby>けられます。<ruby>読<rt>よ</rt></ruby>みやすくなります。</p></div>
+    <div class="step"><div class="snum">3</div><h3>🔊 <ruby>読<rt>よ</rt></ruby>み<ruby>上<rt>あ</rt></ruby>げをきく</h3><p>「よみあげ」ボタンを<ruby>押<rt>お</rt></ruby>すと、ことばごとにハイライトしながら<ruby>声<rt>こえ</rt></ruby>で<ruby>読<rt>よ</rt></ruby>み<ruby>上<rt>あ</rt></ruby>げます。</p></div>
+    <div class="step"><div class="snum">4</div><h3>⚙️ じぶんに<ruby>合<rt>あ</rt></ruby>わせる</h3><p>「せってい」から<ruby>文字<rt>もじ</rt></ruby>の<ruby>大<rt>おお</rt></ruby>きさ・フォント・<ruby>速<rt>はや</rt></ruby>さなどを<ruby>自分<rt>じぶん</rt></ruby>に<ruby>合<rt>あ</rt></ruby>わせて<ruby>変<rt>か</rt></ruby>えられます。</p></div>
+  </div>
+
+  <div class="feats">
+    <h2>✨ できること</h2>
+    <div class="fgrid">
+      <div class="fi"><div class="ficon">📝</div><p><strong><ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>き</strong><ruby>文章<rt>ぶんしょう</rt></ruby>をことばの<ruby>まとまりに分<rt>わ</rt></ruby>けて<ruby>読<rt>よ</rt></ruby>みやすくします</p></div>
+      <div class="fi"><div class="ficon">📖</div><p><strong>ルビ（よみがな）</strong>むずかしい<ruby>漢字<rt>かんじ</rt></ruby>にふりがなを<ruby>表示<rt>ひょうじ</rt></ruby>します</p></div>
+      <div class="fi"><div class="ficon">🔊</div><p><strong><ruby>読<rt>よ</rt></ruby>み<ruby>上<rt>あ</rt></ruby>げ</strong>ことばごとに<ruby>光<rt>ひか</rt></ruby>らせながら<ruby>声<rt>こえ</rt></ruby>で<ruby>読<rt>よ</rt></ruby>み<ruby>上<rt>あ</rt></ruby>げます</p></div>
+      <div class="fi"><div class="ficon">🖱️</div><p><strong>タップ<ruby>読<rt>よ</rt></ruby>み<ruby>上<rt>あ</rt></ruby>げ</strong><ruby>読<rt>よ</rt></ruby>みたいことばをタップして<ruby>読<rt>よ</rt></ruby>めます</p></div>
+      <div class="fi"><div class="ficon">🔡</div><p><strong><ruby>文字<rt>もじ</rt></ruby>サイズ<ruby>変更<rt>へんこう</rt></ruby></strong><ruby>大<rt>おお</rt></ruby>きな<ruby>文字<rt>もじ</rt></ruby>から<ruby>小<rt>ちい</rt></ruby>さな<ruby>文字<rt>もじ</rt></ruby>まで<ruby>調整<rt>ちょうせい</rt></ruby>できます</p></div>
+      <div class="fi"><div class="ficon">🎨</div><p><strong>フォント・<ruby>色<rt>いろ</rt></ruby><ruby>変更<rt>へんこう</rt></ruby></strong><ruby>見<rt>み</rt></ruby>やすいフォントや<ruby>背景色<rt>はいけいしょく</rt></ruby>を<ruby>選<rt>えら</rt></ruby>べます</p></div>
+      <div class="fi"><div class="ficon">🐢</div><p><strong>スピード<ruby>調整<rt>ちょうせい</rt></ruby></strong>ゆっくりからはやくまで<ruby>速度<rt>そくど</rt></ruby>を<ruby>変<rt>か</rt></ruby>えられます</p></div>
+      <div class="fi"><div class="ficon">🎮</div><p><strong>スイッチスキャン</strong>スペースキーや<ruby>外部<rt>がいぶ</rt></ruby>スイッチで<ruby>操作<rt>そうさ</rt></ruby>できます</p></div>
+    </div>
+  </div>
+
+  <div class="swinfo">
+    <h2>🎮 スイッチスキャンについて</h2>
+    <p>マウスやタッチ<ruby>操作<rt>そうさ</rt></ruby>がむずかしい<ruby>場合<rt>ばあい</rt></ruby>、<strong>スペースキー（または<ruby>外部<rt>がいぶ</rt></ruby>スイッチ）</strong>だけで<ruby>操作<rt>そうさ</rt></ruby>できます。</p>
+    <p><ruby>右上<rt>みぎうえ</rt></ruby>の「スキャンモード」ボタンを<ruby>押<rt>お</rt></ruby>すと、ボタンが<ruby>順番<rt>じゅんばん</rt></ruby>に<ruby>光<rt>ひか</rt></ruby>ります。スイッチを<ruby>押<rt>お</rt></ruby>すと<ruby>選択<rt>せんたく</rt></ruby>できます。</p>
+    <p><ruby>設定<rt>せってい</rt></ruby>でスキャンの<ruby>間隔<rt>かんかく</rt></ruby>も<ruby>調整<rt>ちょうせい</rt></ruby>できます。</p>
+  </div>
+
+  <div style="text-align:center;margin-top:24px">
+    <button class="btn bp" onclick="showPg('editor')" style="font-size:17px;padding:14px 32px">✏️ エディタをひらく</button>
+  </div>
+</section>
+
+<!-- ===== EDITOR ===== -->
+<section class="pg" id="pg-editor">
+  <div class="elay">
+    <div class="panel">
+      <div class="ph">✏️ <ruby>文章<rt>ぶんしょう</rt></ruby>を<ruby>入力<rt>にゅうりょく</rt></ruby></div>
+      <textarea id="itxt" placeholder="ここに文章をうってください..."></textarea>
+      <div style="padding:11px 15px;border-top:1px solid var(--bd)">
+        <p style="font-size:12px;color:var(--mu);margin-bottom:7px;font-family:'BIZ UDPGothic',sans-serif">📌 サンプル<ruby>文<rt>ぶん</rt></ruby>（クリックで<ruby>入力<rt>にゅうりょく</rt></ruby>）：</p>
+        <div class="samp" onclick="loadSamp(0)">きょうは いいてんきです。こうえんに いきましょう。</div>
+        <div class="samp" onclick="loadSamp(1)">わたしは まいにち がっこうに かよっています。ともだちと あそぶのが すきです。</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph">📖 よみあげ<ruby>表示<rt>ひょうじ</rt></ruby></div>
+      <div class="pbwrap"><div class="pbfill" id="pb"></div></div>
+      <div id="rdisplay" aria-live="polite"><span style="color:var(--mu);font-size:15px">「<ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>き」ボタンを<ruby>押<rt>お</rt></ruby>すとここに<ruby>表示<rt>ひょうじ</rt></ruby>されます</span></div>
+    </div>
+  </div>
+  <div class="cbar">
+    <button class="btn bp"  id="bwk" onclick="doWakachi()">📝 <ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>き</button>
+    <button class="btn bs"  id="bpl" onclick="startRead()" disabled>▶️ よみあげ</button>
+    <button class="btn bd2" id="bst" onclick="stopRead()"  disabled>⏹️ とめる</button>
+    <button class="btn bn"  id="brs" onclick="resetAll()">🔄 リセット</button>
+  </div>
+  <div id="stmsg"><ruby>文章<rt>ぶんしょう</rt></ruby>を<ruby>入力<rt>にゅうりょく</rt></ruby>して「<ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>き」ボタンを<ruby>押<rt>お</rt></ruby>してください</div>
+</section>
+
+<!-- ===== SETTINGS ===== -->
+<section class="pg" id="pg-settings">
+  <div class="sgrid">
+
+    <div class="sc">
+      <h3>🔡 <ruby>文字<rt>もじ</rt></ruby>のサイズ</h3>
+      <div class="srow"><label><ruby>大<rt>おお</rt></ruby>きさ</label><input type="range" min="16" max="64" step="2" value="28" oninput="setCSS('--fsz',this.value+'px');setV('vfsz',this.value+'px')"><span class="sv" id="vfsz">28px</span></div>
+      <div class="srow"><label><ruby>行間<rt>ぎょうかん</rt></ruby></label><input type="range" min="1.4" max="3.5" step="0.1" value="2.2" oninput="setCSS('--lh',this.value);setV('vlh',(+this.value).toFixed(1))"><span class="sv" id="vlh">2.2</span></div>
+      <div class="srow"><label><ruby>文字間<rt>もじかん</rt></ruby></label><input type="range" min="0" max="0.4" step="0.02" value="0.08" oninput="setCSS('--ls',this.value+'em');setV('vls',(+this.value).toFixed(2)+'em')"><span class="sv" id="vls">0.08em</span></div>
+      <div class="srow"><label>ことば<ruby>間<rt>かん</rt></ruby></label><input type="range" min="0" max="2" step="0.1" value="0.5" oninput="setCSS('--ws',this.value+'em');setV('vws',(+this.value).toFixed(1)+'em')"><span class="sv" id="vws">0.5em</span></div>
+      <p style="font-size:12px;color:var(--mu);margin-top:6px;font-family:'BIZ UDPGothic',sans-serif"><ruby>見本<rt>みほん</rt></ruby>:</p>
+      <div class="pvbox">あいうえお かきくけこ</div>
+    </div>
+
+    <div class="sc">
+      <h3>🔤 フォント（<ruby>文字<rt>もじ</rt></ruby>の<ruby>形<rt>かたち</rt></ruby>）</h3>
+      <div class="fopts">
+        <div class="fo sel" style="font-family:'BIZ UDPGothic'" onclick="setFont('BIZ UDPGothic',this)">BIZ UD<br><small><ruby>教科書体<rt>きょうかしょたい</rt></ruby></small></div>
+        <div class="fo" style="font-family:'Zen Maru Gothic'" onclick="setFont('Zen Maru Gothic',this)"><ruby>丸<rt>まる</rt></ruby>ゴシック<br><small>まるい<ruby>字<rt>じ</rt></ruby></small></div>
+        <div class="fo" style="font-family:serif" onclick="setFont('serif',this)"><ruby>明朝体<rt>みんちょうたい</rt></ruby><br><small>よみもの</small></div>
+        <div class="fo" style="font-family:monospace" onclick="setFont('monospace',this)"><ruby>等幅<rt>とうはば</rt></ruby><br><small>はばそろう</small></div>
+      </div>
+      <div class="pvbox" id="fpv">あいうえお　1234<br><ruby>漢字<rt>かんじ</rt></ruby>のテスト</div>
+    </div>
+
+    <div class="sc">
+      <h3>🎨 テーマ・<ruby>色<rt>いろ</rt></ruby></h3>
+      <p style="font-size:12px;color:var(--mu);margin-bottom:9px;font-family:'BIZ UDPGothic',sans-serif"><ruby>背景<rt>はいけい</rt></ruby>のテーマ</p>
+      <div class="copts" id="thopt">
+        <div class="co sel" style="background:#FDFAF5;border:2px solid #DDD5C8" onclick="setTheme('',this)" title="デフォルト"></div>
+        <div class="co" style="background:#1A1A2E" onclick="setTheme('dk',this)" title="ダーク"></div>
+        <div class="co" style="background:#FFF9F0" onclick="setTheme('cr',this)" title="クリーム"></div>
+        <div class="co" style="background:#F0FFF4" onclick="setTheme('gr',this)" title="グリーン"></div>
+      </div>
+      <p style="font-size:12px;color:var(--mu);margin:10px 0 9px;font-family:'BIZ UDPGothic',sans-serif">ハイライト<ruby>色<rt>いろ</rt></ruby></p>
+      <div class="copts" id="hlopt">
+        <div class="co sel" style="background:#FF9F0A" onclick="setHL('#FF9F0A',this)" title="オレンジ"></div>
+        <div class="co" style="background:#5ba81c" onclick="setHL('#5ba81c',this)" title="みどり"></div>
+        <div class="co" style="background:#E85D75" onclick="setHL('#E85D75',this)" title="ピンク"></div>
+        <div class="co" style="background:#2D7DD2" onclick="setHL('#2D7DD2',this)" title="あお"></div>
+        <div class="co" style="background:#8A5CF6" onclick="setHL('#8A5CF6',this)" title="むらさき"></div>
+      </div>
+    </div>
+
+    <div class="sc">
+      <h3>🔊 <ruby>読<rt>よ</rt></ruby>み<ruby>上<rt>あ</rt></ruby>げ</h3>
+      <div class="srow"><label><ruby>速<rt>はや</rt></ruby>さ</label><input type="range" id="rspd" min="0.3" max="2" step="0.1" value="0.85" oninput="spd=+this.value;setV('vspd',spd.toFixed(1))"><span class="sv" id="vspd">0.85</span></div>
+      <div class="srow"><label><ruby>高<rt>たか</rt></ruby>さ</label><input type="range" id="rpch" min="0.5" max="2" step="0.1" value="1.1"  oninput="pch=+this.value;setV('vpch',pch.toFixed(1))"><span class="sv" id="vpch">1.1</span></div>
+      <div class="srow"><label><ruby>音量<rt>おんりょう</rt></ruby></label><input type="range" id="rvol" min="0" max="1" step="0.1" value="1"    oninput="vol=+this.value;setV('vvol',(+this.value).toFixed(1))"><span class="sv" id="vvol">1.0</span></div>
+      <div class="trow"><label for="tgr">ルビ（ふりがな）<ruby>表示<rt>ひょうじ</rt></ruby></label><label class="tog"><input type="checkbox" id="tgr" checked onchange="toggleRuby(this.checked)"><span class="tsl"></span></label></div>
+      <div class="trow"><label for="tgp"><ruby>文<rt>ぶん</rt></ruby>の<ruby>区切<rt>くぎ</rt></ruby>りで<ruby>一時停止<rt>いちじていし</rt></ruby></label><label class="tog"><input type="checkbox" id="tgp" checked><span class="tsl"></span></label></div>
+    </div>
+
+    <div class="sc">
+      <h3>🎮 スイッチスキャン</h3>
+      <div class="trow"><label for="tgs">スキャンモード</label><label class="tog"><input type="checkbox" id="tgs" onchange="setScan(this.checked)"><span class="tsl"></span></label></div>
+      <div class="srow"><label>スキャン<ruby>間隔<rt>かんかく</rt></ruby></label><input type="range" min="0.5" max="5" step="0.5" value="2" oninput="scanIv=+this.value*1000;setV('vsiv',(+this.value).toFixed(1)+'<ruby>秒<rt>びょう</rt></ruby>');restartScan()"><span class="sv" id="vsiv">2<ruby>秒<rt>びょう</rt></ruby></span></div>
+      <div style="font-size:12px;color:var(--mu);margin-top:7px;font-family:'BIZ UDPGothic',sans-serif;line-height:2">
+        <p>🎮 スキャンキー：<strong>スペース・Enter</strong></p>
+        <p><ruby>外部<rt>がいぶ</rt></ruby>スイッチはスペースキーに<ruby>対応<rt>たいおう</rt></ruby>している<ruby>機器<rt>きき</rt></ruby>をお<ruby>使<rt>つか</rt></ruby>いください</p>
+      </div>
+    </div>
+
+    <div class="sc">
+      <h3>👁️ <ruby>表示<rt>ひょうじ</rt></ruby></h3>
+      <div class="trow"><label for="tgw"><ruby>分<rt>わ</rt></ruby>かち<ruby>書<rt>が</rt></ruby>きの<ruby>間隔<rt>かんかく</rt></ruby>を<ruby>広<rt>ひろ</rt></ruby>げる</label><label class="tog"><input type="checkbox" id="tgw" checked onchange="setCSS('--ws',this.checked?'0.5em':'0.1em')"><span class="tsl"></span></label></div>
+      <div class="trow"><label for="tgu"><ruby>文節<rt>ぶんせつ</rt></ruby>に<ruby>下線<rt>かせん</rt></ruby>を<ruby>表示<rt>ひょうじ</rt></ruby></label><label class="tog"><input type="checkbox" id="tgu" onchange="underOn=this.checked;applyUnder()"><span class="tsl"></span></label></div>
+    </div>
+
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<div class="scov" id="scov">
+  <div class="scbadge">🎮 スキャン<ruby>中<rt>ちゅう</rt></ruby></div>
+  <div class="sckh">スペース / Enter で<ruby>決定<rt>けってい</rt></ruby><br><ruby>外部<rt>がいぶ</rt></ruby>スイッチ<ruby>対応<rt>たいおう</rt></ruby></div>
+</div>
+
+<script>
+/* ============================================================
+   SPEECH ENGINE
+   Safari / Chrome 共通の安全な実装：
+   - 文章全体を「1つの Utterance」にまとめて渡す
+   - onboundary でチャンク位置を特定してハイライト
+   - onend が来なくてもタイムアウトで次へ進める保険
+   - keepalive (pause/resume) で Chrome の沈黙バグ対策
+   ============================================================ */
+
+const SYN = window.speechSynthesis;
+let spd=0.85, pch=1.1, vol=1.0;
+let chunks=[], curIdx=-1;
+let playing=false;
+let showRuby=true, underOn=false;
+
+// チャンクの文字位置マップ（onboundary 用）
+let chunkOffsets=[];   // [{start, end, idx}]
+let currentUtterance=null;
+let endTimer=null;     // onend が来なかった時の保険タイマー
+
+// keepalive: Chrome は長時間で synth を止める
+let kaTimer=null;
+function startKA(){
+  stopKA();
+  kaTimer=setInterval(()=>{
+    if(SYN&&playing){
+      try{SYN.pause();SYN.resume();}catch(e){}
+    }
+  },8000);
+}
+function stopKA(){ if(kaTimer){clearInterval(kaTimer);kaTimer=null;} }
+
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&SYN&&playing){ try{SYN.resume();}catch(e){} }
+});
+
+function safeCancel(){
+  try{SYN.cancel();}catch(e){}
+  currentUtterance=null;
+  if(endTimer){clearTimeout(endTimer);endTimer=null;}
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function showPg(id){
+  document.querySelectorAll('.pg' ).forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pg-'+id).classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+  if(scanOn) setTimeout(setupScanTargets,80);
+}
+
+/* ============================================================
+   SAMPLES
+   ============================================================ */
+const SAMPS=[
+  'きょうは いいてんきです。こうえんに いきましょう。',
+  'わたしは まいにち がっこうに かよっています。ともだちと あそぶのが すきです。'
+];
+function loadSamp(i){ document.getElementById('itxt').value=SAMPS[i]; showPg('editor'); setSt('サンプルを読み込みました。「分かち書き」ボタンを押してください。'); }
+
+/* ============================================================
+   TOKENIZER
+   ============================================================ */
+let kuro=null;
+(()=>{
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js';
+  s.onload=()=>{ try{ kuromoji.builder({dicPath:'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict'}).build((e,t)=>{ if(!e)kuro=t; }); }catch(e){} };
+  document.head.appendChild(s);
+})();
+
+function simTok(text){
+  if(/[\s　]/.test(text)) return text.split(/[\s　]+/).filter(Boolean).map(t=>({s:t,r:t}));
+  const res=[],pu='。、！？…\n「」『』（）';
+  const pa=['ました','ません','ます','です','した','から','まで','より','ため','ので','のに','には','でも','ても','ては','は','が','を','に','で','と','も','の','へ','や','か'];
+  let buf='';
+  for(const c of text){
+    if(pu.includes(c)){ if(buf){res.push({s:buf,r:buf});buf='';} res.push({s:c,r:c}); continue; }
+    buf+=c;
+    let sp=false;
+    for(const p of pa){ if(buf.length>p.length&&buf.endsWith(p)){ res.push({s:buf,r:buf});buf='';sp=true;break; } }
+    if(!sp&&buf.length>=5){ res.push({s:buf,r:buf});buf=''; }
+  }
+  if(buf)res.push({s:buf,r:buf});
+  return res;
+}
+
+function tokenize(text){
+  if(kuro) return kuro.tokenize(text).map(t=>({s:t.surface_form,r:t.reading||t.surface_form}));
+  return simTok(text);
+}
+
+function buildGroups(toks){
+  const G=[],pu='。、！？…\n「」『』';
+  let cur=null;
+  for(const t of toks){
+    if(pu.includes(t.s)){
+      if(cur){cur.t+=t.s;cur.r+=(t.r||t.s);G.push(cur);cur=null;}
+      else G.push({t:t.s,r:t.s});
+    } else if(!cur){
+      cur={t:t.s,r:t.r||t.s};
+    } else if(cur.t.length<7&&!/[。、！？]/.test(cur.t)){
+      cur.t+=t.s; cur.r+=(t.r||t.s);
+    } else { G.push(cur); cur={t:t.s,r:t.r||t.s}; }
+  }
+  if(cur)G.push(cur);
+  return G;
+}
+
+function k2h(s){ return s.replace(/[\u30A1-\u30F6]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60)); }
+function hasKj(s){ return /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(s); }
+
+function mkEl(chunk){
+  const el=document.createElement('span');
+  el.className='wc';
+  if(underOn) el.style.textDecoration='underline dotted var(--primary)';
+  const rd=k2h(chunk.r||chunk.t);
+  if(showRuby&&hasKj(chunk.t)&&chunk.t!==rd)
+    el.innerHTML=`<ruby>${chunk.t}<rt>${rd}</rt></ruby>`;
+  else
+    el.textContent=chunk.t;
+  // クリック読み上げ — playing 中は無効
+  el.addEventListener('click',()=>{ if(!playing) speakOne(chunk.t); });
+  return el;
+}
+
+/* ============================================================
+   WAKACHI
+   ============================================================ */
+function doWakachi(){
+  const text=document.getElementById('itxt').value.trim();
+  if(!text){ setSt('文章を入力してください ✏️'); return; }
+  hardStop();
+  chunks=[]; curIdx=-1;
+  const d=document.getElementById('rdisplay');
+  d.innerHTML='<span style="color:var(--mu);font-size:14px">処理中...</span>';
+  // rAF × 2 で UI 更新を先に確定させてからトークナイズ
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    chunks=buildGroups(tokenize(text));
+    d.innerHTML='';
+    chunks.forEach(ch=>{
+      ch.el=mkEl(ch);
+      d.appendChild(ch.el);
+      if(ch.t!=='\n') d.appendChild(document.createTextNode(' '));
+      else            d.appendChild(document.createElement('br'));
+    });
+    document.getElementById('bpl').disabled=false;
+    document.getElementById('pb').style.width='0%';
+    setSt('分かち書きが完成しました！▶️ よみあげ を押してください');
+  }));
+}
+
+/* ============================================================
+   SPEECH
+   ============================================================ */
+/* ============================================================
+   SPEECH FUNCTIONS
+   ============================================================ */
+function speakOne(text){
+  // クリック単語読み上げ（再生中は無効）
+  if(playing) return;
+  safeCancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP'; u.rate=spd; u.pitch=pch; u.volume=vol;
+  SYN.speak(u);
+}
+
+function startRead(){
+  if(!SYN){ setSt('このブラウザは読み上げに対応していません'); return; }
+  if(!chunks.length) return;
+  hardStop();
+
+  // 読み上げ可能なチャンクだけ抽出
+  const readable=chunks.filter(c=>c.t.trim()&&c.t!=='\n');
+  if(!readable.length) return;
+
+  playing=true;
+  document.getElementById('bpl').disabled=true;
+  document.getElementById('bst').disabled=false;
+  setSt('読み上げ中...');
+  startKA();
+
+  // チャンクをスペースで結合して1つの文字列に
+  // 各チャンクの開始文字位置を記録
+  chunkOffsets=[];
+  let fullText='';
+  readable.forEach((ch,i)=>{
+    const start=fullText.length;
+    fullText+=ch.t;
+    const end=fullText.length;
+    chunkOffsets.push({start,end,chunk:ch});
+    if(i<readable.length-1) fullText+=' ';
+  });
+
+  curIdx=-1;
+  currentUtterance=new SpeechSynthesisUtterance(fullText);
+  currentUtterance.lang='ja-JP';
+  currentUtterance.rate=spd;
+  currentUtterance.pitch=pch;
+  currentUtterance.volume=vol;
+
+  // onboundary: 単語境界ごとに呼ばれる（Safari/Chrome両対応）
+  currentUtterance.onboundary=(e)=>{
+    if(!playing) return;
+    const pos=e.charIndex;
+    // pos がどのチャンクに属するか探す
+    for(let i=0;i<chunkOffsets.length;i++){
+      const o=chunkOffsets[i];
+      if(pos>=o.start&&pos<o.end){
+        if(i!==curIdx){
+          highlightChunk(i);
+        }
+        break;
+      }
+    }
+  };
+
+  currentUtterance.onend=()=>{
+    if(!playing) return;
+    onDone();
+  };
+
+  currentUtterance.onerror=(e)=>{
+    if(e.error==='interrupted'||e.error==='canceled') return;
+    if(!playing) return;
+    onDone();
+  };
+
+  SYN.speak(currentUtterance);
+
+  // Safari は onboundary が来ないことがある → タイムアウト保険
+  // 文字数 × 速度係数 で推定時間を計算
+  const estimatedMs=(fullText.length/spd)*120+3000;
+  endTimer=setTimeout(()=>{
+    if(playing){ safeCancel(); onDone(); }
+  }, estimatedMs);
+}
+
+function highlightChunk(idx){
+  // 前のハイライト解除
+  if(curIdx>=0&&curIdx<chunkOffsets.length){
+    const prev=chunkOffsets[curIdx].chunk;
+    if(prev.el) prev.el.classList.remove('cur');
+  }
+  curIdx=idx;
+  document.getElementById('pb').style.width=((idx+1)/chunkOffsets.length*100)+'%';
+  const ch=chunkOffsets[idx].chunk;
+  if(ch.el){
+    ch.el.classList.add('cur');
+    ch.el.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+}
+
+function stopRead(){ hardStop(); setSt('とめました'); }
+
+function hardStop(){
+  playing=false;
+  stopKA();
+  safeCancel();
+  chunks.forEach(c=>{ if(c.el)c.el.classList.remove('cur'); });
+  chunkOffsets=[];
+  curIdx=-1;
+  document.getElementById('bpl').disabled=!chunks.length;
+  document.getElementById('bst').disabled=true;
+  document.getElementById('pb').style.width='0%';
+}
+
+function onDone(){
+  if(endTimer){clearTimeout(endTimer);endTimer=null;}
+  playing=false; stopKA();
+  chunks.forEach(c=>{ if(c.el)c.el.classList.remove('cur'); });
+  document.getElementById('bpl').disabled=false;
+  document.getElementById('bst').disabled=true;
+  setSt('読み上げが終わりました ✅');
+  document.getElementById('pb').style.width='100%';
+  setTimeout(()=>{ document.getElementById('pb').style.width='0%'; },2500);
+}
+
+function resetAll(){
+  hardStop(); chunks=[];
+  document.getElementById('itxt').value='';
+  document.getElementById('rdisplay').innerHTML=
+    '<span style="color:var(--mu);font-size:14px">「分かち書き」ボタンを押すとここに表示されます</span>';
+  document.getElementById('bpl').disabled=true;
+  setSt('リセットしました');
+}
+
+function setSt(m){ document.getElementById('stmsg').textContent=m; }
+
+/* ============================================================
+   SETTINGS HELPERS
+   ============================================================ */
+function setCSS(prop,val){ document.documentElement.style.setProperty(prop,val); }
+function setV(id,html){ document.getElementById(id).innerHTML=html; }
+
+function setFont(f,el){
+  setCSS('--ff',`'${f}',sans-serif`);
+  document.querySelectorAll('.fo').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('fpv').style.fontFamily=`'${f}',sans-serif`;
+}
+function setTheme(cls,el){
+  document.body.className=cls;
+  document.getElementById('thopt').querySelectorAll('.co').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function setHL(c,el){
+  setCSS('--hl',c);
+  document.getElementById('hlopt').querySelectorAll('.co').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function toggleRuby(on){
+  showRuby=on;
+  chunks.forEach(ch=>{
+    if(!ch.el) return;
+    const rd=k2h(ch.r||ch.t);
+    if(on&&hasKj(ch.t)&&ch.t!==rd) ch.el.innerHTML=`<ruby>${ch.t}<rt>${rd}</rt></ruby>`;
+    else                             ch.el.textContent=ch.t;
+  });
+}
+function applyUnder(){
+  document.querySelectorAll('.wc').forEach(el=>{
+    el.style.textDecoration=underOn?'underline dotted var(--primary)':'none';
+  });
+}
+
+/* ============================================================
+   SWITCH SCAN
+   ============================================================ */
+let scanOn=false, scanIv=2000, scanTimer2=null, scanTgts=[], scanIdx2=-1;
+
+function toggleScan(){ scanOn=!scanOn; document.getElementById('tgs').checked=scanOn; setScan(scanOn); }
+function setScan(on){
+  scanOn=on;
+  document.getElementById('scov').className='scov'+(on?' on':'');
+  document.getElementById('scbtn').style.background=on?'rgba(232,93,117,.5)':'rgba(255,255,255,.18)';
+  if(on){ setupScanTargets(); restartScan(); document.addEventListener('keydown',onScanKey); }
+  else  { clearScanTimer(); clearScanHL(); document.removeEventListener('keydown',onScanKey); }
+}
+function setupScanTargets(){
+  scanTgts=Array.from(document.querySelectorAll('.btn,.tab,.hbtn')).filter(e=>!e.disabled&&e.offsetParent!==null);
+  scanIdx2=-1;
+}
+function restartScan(){ clearScanTimer(); if(scanOn) scanTimer2=setInterval(advScan,scanIv); }
+function clearScanTimer(){ if(scanTimer2){clearInterval(scanTimer2);scanTimer2=null;} }
+function advScan(){
+  if(!scanOn) return;
+  if(!scanTgts.length) setupScanTargets();
+  clearScanHL();
+  scanIdx2=(scanIdx2+1)%Math.max(scanTgts.length,1);
+  const t=scanTgts[scanIdx2]; if(t) t.classList.add('scfoc');
+}
+function clearScanHL(){ document.querySelectorAll('.scfoc').forEach(e=>e.classList.remove('scfoc')); }
+function onScanKey(e){
+  if(!scanOn||!(e.code==='Space'||e.code==='Enter')) return;
+  e.preventDefault();
+  const t=scanTgts[scanIdx2];
+  if(t){ t.click(); clearScanTimer(); setTimeout(restartScan,600); }
+}
+</script>
+</body>
+</html>
