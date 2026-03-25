@@ -1189,8 +1189,6 @@ function startGame(level) {
   document.getElementById('progress-dots').innerHTML = '';
   document.getElementById('q-now').textContent   = '1';
   document.getElementById('q-total').textContent = levels[level].totalQuestions;
-  // ブラウザ履歴にゲーム画面を追加 → もどるボタンでスタート画面へ戻れる
-  history.pushState({screen:'game'}, '');
   updateGridCols(); updateModeTabs(); nextQuestion();
 }
 
@@ -1477,10 +1475,14 @@ function togglePause() {
 }
 function confirmBack() {
   stopScan();
-  gameRunning = false;
-  document.getElementById('btn-back-float').classList.remove('visible');
+  scanAfterSpeech = false;
   window.speechSynthesis && window.speechSynthesis.cancel();
-  history.back();
+  gameRunning = false;
+  paused = false;
+  document.getElementById('btn-pause').textContent = '⏸ ポーズ';
+  document.getElementById('btn-back-float').classList.remove('visible');
+  document.getElementById('level-complete').classList.remove('show');
+  document.getElementById('start-screen').style.display = 'flex';
 }
 function showHelp() {
   const wp=paused;
@@ -2078,19 +2080,6 @@ document.addEventListener('click', e => {
 });
 
 // ブラウザ・端末の「もどる」ボタン対応
-window.addEventListener('popstate', () => {
-  if (gameRunning) {
-    stopScan();
-    gameRunning = false;
-    window.speechSynthesis && window.speechSynthesis.cancel();
-    document.getElementById('level-complete').classList.remove('show');
-    document.getElementById('start-screen').style.display = 'flex';
-    document.getElementById('btn-back-float').classList.remove('visible');
-    paused = false;
-    document.getElementById('btn-pause').textContent = '⏸ ポーズ';
-  }
-});
-
 // =====================================================================
 // KEYBOARD / SWITCH
 // =====================================================================
