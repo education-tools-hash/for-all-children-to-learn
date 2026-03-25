@@ -669,5 +669,45 @@
     } catch (e) { alert('送信に失敗しました。時間をおいて再度お試しください。'); btn.disabled = false; btn.textContent = '✉️ 送信する'; }
   }
 </script>
+  <script>
+async function loadApps(){
+  const res = await fetch("apps.json");
+  return await res.json();
+}
+
+function createCard(app){
+  return `
+    <a class="app-card ${app.class}" href="${app.link}"
+      data-name="${app.name}"
+      data-desc="${app.desc}"
+      data-tag="${app.tag}"
+      ${app.isNew?'data-new="true"':''}
+      ${app.isRecommend?'data-recommend="true"':''}>
+      <div class="card-icon">${app.icon}</div>
+      <div class="card-name">${app.name}</div>
+      <div class="card-desc">${app.desc}</div>
+      <div class="card-tag">${app.tag}</div>
+    </a>`;
+}
+
+async function renderApps(){
+  const apps = await loadApps();
+  const cats=["gakushu","ninchi","jiritsu","sousaku"];
+  cats.forEach(cat=>{
+    const grid=document.getElementById("appGrid-"+cat);
+    if(!grid) return;
+    grid.innerHTML = apps
+      .filter(a=>a.category===cat)
+      .map(createCard)
+      .join("");
+  });
+
+  if(typeof applyFilter === "function"){
+    applyFilter();
+  }
+}
+
+renderApps();
+</script>
 </body>
 </html>
