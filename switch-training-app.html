@@ -994,38 +994,50 @@ header {
 // SPEECH
 // =====================================================================
 let speechEnabled = true;
-let scanAfterSpeech = false; // 読み上げ後にスキャン開始するか
+let scanAfterSpeech = false;
 
+// 問題文を読み上げる（読み終わったらスキャン開始）
 function speakQuestion(text) {
-  scanAfterSpeech = true; // 読み上げ後にスキャン開始するフラグ
-  if (!speechEnabled || !window.speechSynthesis) {
-    scanAfterSpeech = false;
-    return;
-  }
+  scanAfterSpeech = false;
+  if (!speechEnabled || !window.speechSynthesis) return;
+
+  // cancel は onend を発火させるので、フラグを立てる前にキャンセル
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ja-JP'; u.rate = 0.85; u.pitch = 1.1; u.volume = 1.0;
-  const vs = window.speechSynthesis.getVoices();
-  const v = vs.find(x => x.lang === 'ja-JP') || vs.find(x => x.lang.startsWith('ja'));
-  if (v) u.voice = v;
-  u.onend = () => {
-    if (scanAfterSpeech && autoScan && gameRunning && !paused) {
-      scanAfterSpeech = false;
-      startScan();
-    }
-  };
-  u.onerror = () => {
-    if (scanAfterSpeech && autoScan && gameRunning && !paused) {
-      scanAfterSpeech = false;
-      startScan();
-    }
-  };
-  window.speechSynthesis.speak(u);
+
+  // 少し待ってから発話（cancel直後の発話は一部ブラウザで無視される）
+  setTimeout(() => {
+    if (!gameRunning) return;
+    scanAfterSpeech = true;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = 0.85; u.pitch = 1.1; u.volume = 1.0;
+    const vs = window.speechSynthesis.getVoices();
+    const v = vs.find(x => x.lang === 'ja-JP') || vs.find(x => x.lang.startsWith('ja'));
+    if (v) u.voice = v;
+
+    const doScan = () => {
+      if (scanAfterSpeech && autoScan && gameRunning && !paused) {
+        scanAfterSpeech = false;
+        startScan();
+      }
+    };
+    u.onend   = doScan;
+    u.onerror = doScan;
+
+    // フォールバック：読み上げが3秒経っても終わらない場合は強制スキャン開始
+    const fallback = setTimeout(() => {
+      if (scanAfterSpeech) { scanAfterSpeech = false; if (autoScan && gameRunning && !paused) startScan(); }
+    }, 3000);
+    u.onend = () => { clearTimeout(fallback); doScan(); };
+    u.onerror = () => { clearTimeout(fallback); doScan(); };
+
+    window.speechSynthesis.speak(u);
+  }, 80);
 }
 
-// スキャン中の選択肢読み上げ（onend不要・スキャンを止めない）
+// スキャン中の選択肢読み上げ（問題文のフラグを壊さない）
 function speak(text) {
   if (!speechEnabled || !window.speechSynthesis) return;
+  // スキャン中の読み上げは scanAfterSpeech を変えない
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'ja-JP'; u.rate = 0.9; u.pitch = 1.1; u.volume = 1.0;
@@ -1035,14 +1047,14 @@ function speak(text) {
   window.speechSynthesis.speak(u);
 }
 
-// 読み上げ完了を待ってスキャン開始（autoScan=true 時に nextQuestion から呼ぶ）
+// 読み上げ完了後にスキャン開始（autoScan=true 時に nextQuestion から呼ぶ）
 function waitForSpeechThenScan() {
   currentScanIdx = 0;
   if (!speechEnabled || !window.speechSynthesis) {
+    // 読み上げOFFのときはすぐスキャン
     setTimeout(startScan, 400);
   }
-  // speakQuestion の onend で自動的に startScan() が呼ばれる
-  // speechEnabled=false の場合は上でタイマー済み
+  // 読み上げONのときは speakQuestion の onend/onerror で startScan() が呼ばれる
 }
 
 window.speechSynthesis && window.speechSynthesis.addEventListener('voiceschanged', () => {});
