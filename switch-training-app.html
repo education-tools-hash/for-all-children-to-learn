@@ -81,6 +81,7 @@ header {
 .btn-header.pause-btn:hover { border-color: var(--accent2); color: var(--accent2); }
 .btn-header.back-btn:hover  { border-color: var(--accent1); color: var(--accent1); }
 .btn-header.help-btn:hover  { border-color: var(--accent4); color: var(--accent4); }
+.btn-header.fs-btn:hover    { border-color: var(--accent5); color: var(--accent5); }
 
 /* SETTINGS */
 .settings-panel {
@@ -292,8 +293,27 @@ header {
 .btn-help-close:hover { transform:translateY(-2px); }
 
 /* MISC */
-.gaze-cursor { position:fixed; width:36px; height:36px; border-radius:50%; border:3px solid var(--accent4); background:rgba(78,205,196,0.12); pointer-events:none; transform:translate(-50%,-50%); z-index:300; display:none; box-shadow:0 0 9px rgba(78,205,196,0.42); }
+.gaze-cursor { position:fixed; width:36px; height:36px; border-radius:50%; border:3px solid var(--accent4); background:rgba(78,205,196,0.12); pointer-events:none; transform:translate(-50%,-50%); z-index:300; display:none; box-shadow:0 0 9px rgba(78,205,196,0.42); transition: width 0.1s, height 0.1s; }
 .gaze-cursor.visible { display:block; }
+
+/* DWELL RING (SVG progress overlay on each choice-btn) */
+.dwell-ring-wrap {
+  position: absolute; top: 6px; right: 6px;
+  width: 38px; height: 38px;
+  pointer-events: none; z-index: 10;
+  opacity: 0; transition: opacity 0.1s;
+}
+.dwell-ring-wrap.active { opacity: 1; }
+.dwell-ring-bg { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 4; }
+.dwell-ring-fg {
+  fill: none; stroke: var(--accent4); stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 100.53;
+  stroke-dashoffset: 100.53;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  transition: stroke-dashoffset 0.05s linear;
+}
 .screen-flash { position:fixed; inset:0; pointer-events:none; z-index:90; opacity:0; transition:opacity 0.1s; }
 .screen-flash.flash-correct { background:rgba(107,203,119,0.26); }
 .screen-flash.flash-wrong   { background:rgba(255,107,107,0.26); }
@@ -649,13 +669,23 @@ header {
 
 /* 削除ボタン */
 .btn-del-item {
-  background: none; border: 1.5px solid rgba(255,107,107,0.3);
-  color: rgba(255,107,107,0.6); border-radius: 8px;
-  width: 30px; height: 30px; cursor: pointer; font-size: 1rem;
+  background: rgba(255,107,107,0.12);
+  border: 2px solid rgba(255,107,107,0.5);
+  color: var(--accent1);
+  border-radius: 10px;
+  width: 44px; height: 44px;
+  cursor: pointer; font-size: 1.1rem;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.14s; flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
-.btn-del-item:hover { border-color: var(--accent1); color: var(--accent1); background: rgba(255,107,107,0.08); }
+.btn-del-item:hover,
+.btn-del-item:active {
+  background: rgba(255,107,107,0.28);
+  border-color: var(--accent1);
+  transform: scale(1.08);
+}
 
 /* 追加ボタン */
 .btn-add-item {
@@ -699,9 +729,15 @@ header {
 }
 .editor-set-tab.active { border-color: var(--accent2); color: var(--accent2); background: rgba(255,217,61,0.09); }
 .editor-set-tab .tab-del {
-  font-size: 0.7rem; color: rgba(255,107,107,0.5); margin-left: 2px; cursor: pointer;
+  font-size: 0.8rem;
+  color: rgba(255,107,107,0.7);
+  margin-left: 4px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: inline-block;
 }
-.editor-set-tab .tab-del:hover { color: var(--accent1); }
+.editor-set-tab .tab-del:hover { color: var(--accent1); background: rgba(255,107,107,0.15); }
 .btn-new-set {
   background: none; border: 2px dashed rgba(255,255,255,0.18);
   color: rgba(255,255,255,0.4); border-radius: 10px; padding: 5px 12px;
@@ -756,7 +792,7 @@ header {
   <div class="start-title">スイッチトレーニング</div>
   <div class="start-sub">
     スイッチ・視線入力でつかえる がくしゅうアプリ<br>
-    <span style="font-size:0.8rem;color:rgba(255,255,255,0.32)">Blue2 / Tobii / キーボード（スペース・Enter）対応</span>
+    <span style="font-size:0.8rem;color:rgba(255,255,255,0.32)">Blue2 / Tobii / 見るマウス / キーボード（スペース・Enter）対応</span>
   </div>
   <div style="font-size:0.78rem;color:rgba(255,255,255,0.42);text-align:center">かだいをえらんでね</div>
   <div class="start-mode-row">
@@ -817,8 +853,9 @@ header {
       <div class="help-row"><span class="help-icon">➡️</span><span>スイッチ１（<span class="help-key">→</span>/<span class="help-key">Tab</span>）で次へ。スイッチ２（<span class="help-key">スペース</span>/<span class="help-key">Enter</span>）でえらぶ。</span></div>
     </div>
     <div class="help-section">
-      <div class="help-section-title">👁 視線入力（Tobii等）</div>
-      <div class="help-row"><span class="help-icon">👁</span><span>「視線」モードで、えもじに視線をあわせて1.5秒でえらべます（Tobii EyeX対応）。</span></div>
+      <div class="help-section-title">👁 視線入力・見るマウス（Tobii等）</div>
+      <div class="help-row"><span class="help-icon">👁</span><span>「視線/マウス」モードで、選択肢に視線またはマウスポインターを合わせると、右上のリングが回転します。リングが1周するとその選択肢を選べます（Tobii EyeX・PCEye・Windows「見るマウス」対応）。</span></div>
+      <div class="help-row"><span class="help-icon">⏱</span><span>「ドウェル時間」で待ち時間を1.0 / 1.5 / 2.0秒から選べます。</span></div>
     </div>
     <div class="help-section">
       <div class="help-section-title">⚙️ せっていについて</div>
@@ -861,6 +898,13 @@ header {
     <div class="editor-btn-row" style="margin-top:16px">
       <button class="btn-editor-save"  onclick="editorSave()">💾 保存してつかう</button>
       <button class="btn-editor-close" onclick="closeEditor()">とじる</button>
+    </div>
+    <div style="margin-top:10px">
+      <button onclick="editorClearAllSets()" style="width:100%;background:none;border:2px solid rgba(255,107,107,0.3);color:rgba(255,107,107,0.7);border-radius:12px;padding:9px;font-family:'Kosugi Maru',sans-serif;font-size:0.85rem;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:all 0.14s;"
+        onmouseover="this.style.borderColor='var(--accent1)';this.style.color='var(--accent1)'"
+        onmouseout="this.style.borderColor='rgba(255,107,107,0.3)';this.style.color='rgba(255,107,107,0.7)'">
+        🗑 すべてのきょうざいをけす
+      </button>
     </div>
   </div>
 </div>
@@ -921,6 +965,7 @@ header {
       <div class="level-badge" id="level-badge">Lv.1</div>
       <div class="score-badge" id="score-badge">⭐ 0</div>
       <button class="btn-header pause-btn" id="btn-pause" onclick="togglePause()">⏸ ポーズ</button>
+      <button class="btn-header fs-btn"    id="btn-fs"    onclick="toggleFullscreen()">⛶ 全画面</button>
       <button class="btn-header help-btn" onclick="showHelp()">❓ つかいかた</button>
       <button class="btn-header" onclick="showRecord()" style="border-color:rgba(107,203,119,0.3);color:rgba(107,203,119,0.7);" onmouseover="this.style.borderColor='var(--accent3)';this.style.color='var(--accent3)'" onmouseout="this.style.borderColor='rgba(107,203,119,0.3)';this.style.color='rgba(107,203,119,0.7)'">📊 きろく</button>
       <button class="btn-header" onclick="showEditor()" style="border-color:rgba(255,217,61,0.3);color:rgba(255,217,61,0.7);" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='rgba(255,217,61,0.3)';this.style.color='rgba(255,217,61,0.7)'">✏️ へんしゅう</button>
@@ -932,7 +977,7 @@ header {
       <div class="setting-label">インプット</div>
       <div class="setting-control">
         <button class="btn-setting active" id="mode-switch" onclick="setInputMode('switch')">🔘 スイッチ</button>
-        <button class="btn-setting" id="mode-gaze"  onclick="setInputMode('gaze')">👁 視線</button>
+        <button class="btn-setting" id="mode-gaze"  onclick="setInputMode('gaze')">👁 視線/マウス</button>
         <button class="btn-setting" id="mode-touch" onclick="setInputMode('touch')">👆 タッチ</button>
       </div>
     </div>
@@ -956,6 +1001,15 @@ header {
       <div class="setting-control">
         <button class="btn-setting active" id="auto-scan-on"  onclick="setAutoScan(true)">🔄 じどう</button>
         <button class="btn-setting"        id="auto-scan-off" onclick="setAutoScan(false)">⏸ しゅどう</button>
+      </div>
+    </div>
+    <!-- ★ ドウェル時間設定（視線/マウスモード時のみ表示） -->
+    <div class="setting-group" id="dwell-group" style="display:none;">
+      <div class="setting-label">ドウェル時間</div>
+      <div class="setting-control">
+        <button class="btn-setting"        id="dwell-short"  onclick="setDwellTime(1000)">1.0秒</button>
+        <button class="btn-setting active" id="dwell-normal" onclick="setDwellTime(1500)">1.5秒</button>
+        <button class="btn-setting"        id="dwell-long"   onclick="setDwellTime(2000)">2.0秒</button>
       </div>
     </div>
   </div>
@@ -995,7 +1049,7 @@ header {
   </div>
 </div>
 
-<div class="device-badge">Blue2 / Tobii EyeX / Switch Access 対応</div>
+<div class="device-badge">Blue2 / Tobii EyeX / 見るマウス / Switch Access 対応</div>
 
 <script>
 // =====================================================================
@@ -1314,27 +1368,124 @@ function renderChoices(innerFn) {
 // =====================================================================
 // GAZE
 // =====================================================================
-function setupGazeDwell(btn, idx) {
-  let t=null;
-  btn.addEventListener('mouseenter',()=>{ if(inputMode!=='gaze')return; t=setTimeout(()=>selectChoice(idx),1500); });
-  btn.addEventListener('mouseleave',()=>clearTimeout(t));
+// =====================================================================
+// DWELL (視線/マウス入力) — Tobii・見るマウス対応
+// =====================================================================
+let dwellTimeMs = 1500;  // デフォルトドウェル時間
+const dwellState = {};   // { idx: { timer, rafId, startTime, ringEl, fgEl } }
+
+function setDwellTime(ms) {
+  dwellTimeMs = ms;
+  ['short','normal','long'].forEach(k=>{
+    const el = document.getElementById('dwell-'+k);
+    if(el) el.classList.remove('active');
+  });
+  const key = ms===1000?'short': ms===1500?'normal':'long';
+  const btn = document.getElementById('dwell-'+key);
+  if(btn) btn.classList.add('active');
 }
-const dwellT={};
-document.addEventListener('pointerover',e=>{
-  if(inputMode!=='gaze')return;
-  const b=e.target.closest('.choice-btn'); if(!b)return;
-  const idx=parseInt(b.id.split('-')[1]);
-  dwellT[idx]=setTimeout(()=>{ beep(880,0.05); selectChoice(idx); },1500);
+
+/** 選択肢ボタンにドウェルリングSVGを注入する */
+function injectDwellRing(btn) {
+  if(btn.querySelector('.dwell-ring-wrap')) return;
+  const svg = `<div class="dwell-ring-wrap" id="ring-${btn.id}">
+    <svg viewBox="0 0 38 38" width="38" height="38">
+      <circle class="dwell-ring-bg" cx="19" cy="19" r="16"/>
+      <circle class="dwell-ring-fg" id="ring-fg-${btn.id}" cx="19" cy="19" r="16"/>
+    </svg>
+  </div>`;
+  btn.insertAdjacentHTML('beforeend', svg);
+}
+
+/** ドウェル開始 */
+function dwellStart(btn, idx) {
+  if(inputMode !== 'gaze') return;
+  if(dwellState[idx]) return; // 既に進行中
+  injectDwellRing(btn);
+  const ringWrap = document.getElementById('ring-'+btn.id);
+  const ringFg   = document.getElementById('ring-fg-'+btn.id);
+  if(!ringWrap || !ringFg) return;
+
+  const CIRCUM = 100.53; // 2π×16
+  ringWrap.classList.add('active');
+  ringFg.style.strokeDashoffset = CIRCUM;
+  ringFg.style.stroke = 'var(--accent4)';
+
+  const startTime = performance.now();
+  let rafId;
+
+  function tick(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / dwellTimeMs, 1);
+    const offset = CIRCUM * (1 - progress);
+    ringFg.style.strokeDashoffset = offset;
+
+    // 色変化: ターコイズ → 黄 → 緑
+    if(progress < 0.5) {
+      ringFg.style.stroke = 'var(--accent4)';
+    } else if(progress < 0.85) {
+      ringFg.style.stroke = 'var(--accent2)';
+    } else {
+      ringFg.style.stroke = 'var(--accent3)';
+    }
+
+    if(progress < 1) {
+      rafId = requestAnimationFrame(tick);
+      dwellState[idx].rafId = rafId;
+    } else {
+      // ドウェル完了
+      dwellEnd(idx, false);
+      beep(880, 0.05);
+      selectChoice(idx);
+    }
+  }
+  rafId = requestAnimationFrame(tick);
+  dwellState[idx] = { rafId, ringWrap, ringFg };
+}
+
+/** ドウェルキャンセル */
+function dwellEnd(idx, clearRing=true) {
+  const s = dwellState[idx];
+  if(!s) return;
+  cancelAnimationFrame(s.rafId);
+  if(clearRing && s.ringWrap) {
+    s.ringWrap.classList.remove('active');
+    if(s.ringFg) s.ringFg.style.strokeDashoffset = 100.53;
+  }
+  delete dwellState[idx];
+}
+
+/** 全ドウェルキャンセル */
+function dwellEndAll() {
+  Object.keys(dwellState).forEach(k => dwellEnd(parseInt(k)));
+}
+
+// pointerover / pointerout でドウェル制御（マウス・ペン・Tobii 全対応）
+document.addEventListener('pointerover', e => {
+  if(inputMode !== 'gaze') return;
+  const b = e.target.closest('.choice-btn');
+  if(!b) return;
+  const idx = parseInt(b.id.split('-')[1]);
+  if(!isNaN(idx)) dwellStart(b, idx);
 });
-document.addEventListener('pointerout',e=>{
-  const b=e.target.closest('.choice-btn'); if(!b)return;
-  clearTimeout(dwellT[parseInt(b.id.split('-')[1])]);
+document.addEventListener('pointerout', e => {
+  if(inputMode !== 'gaze') return;
+  const b = e.target.closest('.choice-btn');
+  if(!b) return;
+  const idx = parseInt(b.id.split('-')[1]);
+  if(!isNaN(idx)) dwellEnd(idx);
 });
-document.addEventListener('mousemove',e=>{
-  if(inputMode!=='gaze')return;
-  const c=document.getElementById('gazeCursor');
-  c.style.left=e.clientX+'px'; c.style.top=e.clientY+'px';
+
+// ゲーズカーソル（ポインター位置の視覚フィードバック）
+document.addEventListener('pointermove', e => {
+  if(inputMode !== 'gaze') return;
+  const c = document.getElementById('gazeCursor');
+  c.style.left = e.clientX + 'px';
+  c.style.top  = e.clientY + 'px';
 });
+
+// 旧 mousemove / setupGazeDwell は廃止済み
+function setupGazeDwell(btn, idx) { injectDwellRing(btn); } // 互換ラッパー（中身はリング注入のみ）
 
 // =====================================================================
 // SCAN
@@ -1502,11 +1653,15 @@ document.addEventListener('click',e=>{ if(e.target===document.getElementById('he
 // =====================================================================
 function setInputMode(mode) {
   inputMode=mode;
+  dwellEndAll(); // モード切り替え時は全ドウェルキャンセル
   ['switch','gaze','touch'].forEach(m=>document.getElementById('mode-'+m).classList.toggle('active',m===mode));
   document.getElementById('gazeCursor').classList.toggle('visible',mode==='gaze');
+  // ドウェル時間設定UIの表示制御
+  const dg = document.getElementById('dwell-group');
+  if(dg) dg.style.display = mode==='gaze' ? '' : 'none';
   document.getElementById('input-hint').textContent=
     mode==='switch'?'スペース / Enter / スイッチ で決定':
-    mode==='gaze'  ?'視線をあわせて 1.5秒でえらぶ（Tobii対応）':
+    mode==='gaze'  ?'選択肢に視線/マウスをあわせて待つ（Tobii・見るマウス対応）':
                     'タップ / クリックでえらぶ';
   if(choices.length){
     if      (taskMode==='emoji')      renderChoices(i=>`<span class="choice-emoji">${choices[i].emoji}</span><span class="choice-label">${choices[i].label}</span>`);
@@ -1535,6 +1690,36 @@ function setAutoScan(on) {
     :'スイッチ１: 次へ　スイッチ２: 決定';
   if(!on){stopScan();if(choices.length)scanToIdx(0);}
 }
+
+// =====================================================================
+// FULLSCREEN
+// =====================================================================
+function toggleFullscreen() {
+  const btn = document.getElementById('btn-fs');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    // 全画面に入る
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) req.call(el).catch(()=>{});
+  } else {
+    // 全画面を抜ける
+    const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (ex) ex.call(document).catch(()=>{});
+  }
+}
+// ボタンアイコンを全画面状態に合わせて更新
+function onFullscreenChange() {
+  const btn = document.getElementById('btn-fs');
+  if (!btn) return;
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  btn.textContent = isFs ? '✕ 全画面解除' : '⛶ 全画面';
+  btn.style.borderColor = isFs ? 'rgba(199,125,255,0.5)' : '';
+  btn.style.color        = isFs ? 'var(--accent5)'        : '';
+}
+document.addEventListener('fullscreenchange',       onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+document.addEventListener('mozfullscreenchange',    onFullscreenChange);
+document.addEventListener('MSFullscreenChange',     onFullscreenChange);
 
 
 
@@ -1707,8 +1892,12 @@ function renderEditorItems() {
           oninput="editorFieldChange(this)" maxlength="20">
       </div>
       <!-- 削除 -->
-      <button class="btn-del-item" onclick="editorDeleteItem(${i})" title="けす">✕</button>
+      <button class="btn-del-item" data-delidx="${i}" title="このカードをけす">🗑</button>
     `;
+    // touchend でも削除できるよう（iPad対応）
+    const delBtn = row.querySelector('.btn-del-item');
+    delBtn.addEventListener('click', () => editorDeleteItem(i));
+    delBtn.addEventListener('touchend', (e) => { e.preventDefault(); editorDeleteItem(i); }, { passive: false });
     wrap.appendChild(row);
   });
 }
@@ -1752,9 +1941,25 @@ function editorAddItem() {
 
 function editorDeleteItem(idx) {
   const items = editorSets[editorSetIdx].items;
-  if (items.length <= 2) { alert('カードは2枚以上必要です'); return; }
+  if (items.length <= 2) { alert('カードは2まい以上必要です'); return; }
   items.splice(idx, 1);
   renderEditorItems();
+}
+
+// セットをすべて削除
+function editorClearAllSets() {
+  if (!confirm('すべてのきょうざいをけしますか？\nもとにはもどせません。')) return;
+  localStorage.removeItem(CUSTOM_KEY);
+  editorSets = [defaultSet()];
+  editorSetIdx = 0;
+  // カスタムタブを非表示に
+  const tabCustom = document.getElementById('tab-custom');
+  const smodeCustom = document.getElementById('smode-custom');
+  if (tabCustom)   tabCustom.style.display   = 'none';
+  if (smodeCustom) smodeCustom.style.display = 'none';
+  renderEditorSetTabs();
+  renderEditorItems();
+  alert('けしました。');
 }
 
 // フィールドの現在値をモデルに反映
@@ -1770,11 +1975,16 @@ function editorSaveCurrentFields() {
 function editorSave() {
   editorSaveCurrentFields();
 
-  // バリデーション
+  // 空ラベルのカードを除外
   for (const s of editorSets) {
-    const valid = s.items.filter(it => it.label.trim() !== '');
-    if (valid.length < 2) {
+    s.items = s.items.filter(it => it.label && it.label.trim() !== '');
+  }
+
+  // バリデーション：各セット2枚以上
+  for (const s of editorSets) {
+    if (s.items.length < 2) {
       alert(`「${s.name}」のカードに ことば を入れてください（2つ以上）`);
+      renderEditorItems(); // 除外後の状態を再描画
       return;
     }
   }
@@ -1787,14 +1997,12 @@ function editorSave() {
 
   closeEditor();
 
-  // 保存後すぐにカスタムモードで遊べるよう案内
   if (gameRunning) {
     switchTaskMode('custom');
   } else {
     selectStartMode('custom');
   }
 
-  // ちょっと教える
   setTimeout(() => {
     alert('💾 保存しました！\n「📸 じぶんのきょうざい」タブでつかえます。');
   }, 200);
@@ -1883,9 +2091,16 @@ function escHtml(str) {
 // ページロード時にカスタムセットがあればタブを表示
 (function initCustomTabs() {
   const sets = loadCustomSets();
-  if (sets.length > 0 && sets.some(s => s.items.some(it => it.label.trim()))) {
+  // ラベルが1つ以上入っているセットがある場合のみタブを表示
+  const hasValid = sets.length > 0 && sets.some(s =>
+    s.items && s.items.some(it => it.label && it.label.trim() !== '')
+  );
+  if (hasValid) {
     document.getElementById('tab-custom').style.display   = '';
     document.getElementById('smode-custom').style.display = '';
+  } else {
+    // 不正なデータが残っていたらきれいにする
+    localStorage.removeItem(CUSTOM_KEY);
   }
 })();
 

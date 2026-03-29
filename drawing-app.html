@@ -11,17 +11,16 @@
     --shadow: rgba(0,0,0,0.12);
     --accent: #FF6B6B;
     --accent2: #4ECDC4;
-    --accent3: #FFE66D;
     --text: #2D2D2D;
     --border: #E8DDD0;
     --btn-size: 64px;
-    --gaze-size: 80px;
+    --gaze-btn-size: 88px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; }
 
   body {
-    font-family: 'Kosugi Maru', 'M PLUS Rounded 1c', 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
+    font-family: 'Kosugi Maru', 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
     background: var(--bg);
     width: 100vw; height: 100vh;
     overflow: hidden;
@@ -29,43 +28,44 @@
     user-select: none;
   }
 
-  /* ── TOP BAR ── */
+  /* TOP BAR */
   #topbar {
     display: flex; align-items: center; gap: 8px;
     padding: 8px 12px;
     background: var(--panel);
     border-bottom: 3px solid var(--border);
     box-shadow: 0 3px 12px var(--shadow);
-    flex-shrink: 0;
-    flex-wrap: wrap;
+    flex-shrink: 0; flex-wrap: wrap;
     z-index: 100;
+    transition: padding .3s, gap .3s;
   }
+  body.gaze-on #topbar { padding: 12px 16px; gap: 12px; }
 
   #app-title {
     font-size: 1.4rem; font-weight: 900;
-    background: linear-gradient(135deg, #FF6B6B, #FF8E53, #FFE66D, #4ECDC4, #45B7D1);
+    background: linear-gradient(135deg,#FF6B6B,#FF8E53,#FFE66D,#4ECDC4,#45B7D1);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    white-space: nowrap; margin-right: 4px;
+    white-space: nowrap; margin-right: 4px; flex-shrink: 0;
   }
 
+  /* TOOL BUTTON */
   .tool-btn {
     width: var(--btn-size); height: var(--btn-size);
     border-radius: 20px;
     border: 3px solid transparent;
-    cursor: pointer;
-    font-size: 1.6rem;
+    cursor: pointer; font-size: 1.6rem;
     display: flex; align-items: center; justify-content: center;
-    transition: transform .15s, box-shadow .15s, border-color .15s;
+    transition: transform .15s, box-shadow .15s, border-color .15s,
+                width .3s, height .3s, font-size .3s, border-radius .3s;
     background: var(--bg);
     box-shadow: 0 3px 8px var(--shadow);
-    flex-shrink: 0;
-    position: relative;
+    flex-shrink: 0; position: relative;
   }
-  .tool-btn:hover, .tool-btn.active {
-    transform: scale(1.12);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
-    border-color: var(--accent);
+  body.gaze-on .tool-btn {
+    width: var(--gaze-btn-size); height: var(--gaze-btn-size);
+    font-size: 2rem; border-radius: 24px;
   }
+  .tool-btn:hover { transform: scale(1.1); box-shadow: 0 6px 18px rgba(0,0,0,.2); border-color: var(--accent); }
   .tool-btn.active { background: #FFE0E0; border-color: var(--accent); }
   .tool-btn[data-tip]:hover::after {
     content: attr(data-tip);
@@ -75,231 +75,272 @@
     white-space: nowrap; pointer-events: none; z-index: 999;
   }
 
-  .sep { width: 2px; height: 40px; background: var(--border); flex-shrink: 0; }
+  .sep { width: 2px; height: 40px; background: var(--border); flex-shrink: 0; transition: height .3s; }
+  body.gaze-on .sep { height: 60px; }
 
-  /* ── SIZE SLIDER ── */
-  #size-wrap {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    min-width: 70px;
-  }
-  #size-label { font-size: .65rem; color: #888; }
+  /* SIZE */
+  #size-wrap { display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px; }
+  #size-label { font-size:.65rem;color:#888; }
   #brush-size {
-    -webkit-appearance: none; appearance: none;
-    width: 80px; height: 8px;
-    border-radius: 4px; background: var(--border);
-    outline: none; cursor: pointer;
+    -webkit-appearance:none;appearance:none;
+    width:80px;height:8px;border-radius:4px;background:var(--border);outline:none;cursor:pointer;
   }
   #brush-size::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 22px; height: 22px;
-    border-radius: 50%; background: var(--accent);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
   }
 
-  /* ── COLOR PALETTE ── */
-  #palette {
-    display: flex; flex-wrap: wrap; gap: 5px;
-    max-width: 260px;
-  }
+  /* PALETTE */
+  #palette { display:flex;flex-wrap:wrap;gap:5px;max-width:260px; }
   .color-dot {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 3px solid transparent;
-    cursor: pointer;
-    transition: transform .15s, border-color .15s;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    flex-shrink: 0;
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid transparent;cursor:pointer;
+    transition:transform .15s,border-color .15s,width .3s,height .3s;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);flex-shrink:0;
   }
-  .color-dot:hover, .color-dot.active {
-    transform: scale(1.25); border-color: #fff;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-  }
+  body.gaze-on .color-dot { width:46px;height:46px; }
+  .color-dot:hover,.color-dot.active { transform:scale(1.25);border-color:#fff; box-shadow:0 4px 12px rgba(0,0,0,.35); }
   #custom-color {
-    width: 36px; height: 36px; border-radius: 50%;
-    border: 3px dashed #bbb; cursor: pointer;
-    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
-    flex-shrink: 0;
+    width:36px;height:36px;border-radius:50%;
+    border:3px dashed #bbb;cursor:pointer;flex-shrink:0;
+    background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
+    transition:width .3s,height .3s;
   }
+  body.gaze-on #custom-color { width:46px;height:46px; }
 
-  /* ── OPACITY ── */
-  #opacity-wrap {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    min-width: 70px;
-  }
-  #opacity-label { font-size: .65rem; color: #888; }
+  /* OPACITY */
+  #opacity-wrap { display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px; }
+  #opacity-label { font-size:.65rem;color:#888; }
   #opacity-range {
-    -webkit-appearance: none; appearance: none;
-    width: 80px; height: 8px;
-    border-radius: 4px; background: linear-gradient(to right, transparent, currentColor);
-    outline: none; cursor: pointer;
+    -webkit-appearance:none;appearance:none;
+    width:80px;height:8px;border-radius:4px;background:var(--border);outline:none;cursor:pointer;
   }
   #opacity-range::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none;
-    width: 22px; height: 22px;
-    border-radius: 50%; background: var(--accent2);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent2);
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
   }
 
-  /* ── MAIN AREA ── */
-  #main {
-    display: flex; flex: 1; overflow: hidden; position: relative;
-  }
+  /* MAIN */
+  #main { display:flex;flex:1;overflow:hidden;position:relative; }
 
-  /* ── CANVAS ── */
+  /* CANVAS */
   #canvas-wrap {
-    flex: 1; position: relative; overflow: hidden;
-    background: repeating-conic-gradient(#e8e0d8 0% 25%, #f5f0ea 0% 50%) 0 0 / 20px 20px;
+    flex:1;position:relative;overflow:hidden;
+    background:repeating-conic-gradient(#e8e0d8 0% 25%,#f5f0ea 0% 50%) 0 0/20px 20px;
   }
-  #bg-canvas, #draw-canvas, #overlay-canvas {
-    position: absolute; top: 0; left: 0;
-    touch-action: none;
+  #bg-canvas,#draw-canvas,#overlay-canvas {
+    position:absolute;top:0;left:0;touch-action:none;
   }
-  #bg-canvas { z-index: 1; }
-  #draw-canvas { z-index: 2; }
-  #overlay-canvas { z-index: 3; pointer-events: none; }
+  #bg-canvas { z-index:1; }
+  #draw-canvas { z-index:2; }
+  #overlay-canvas { z-index:3;pointer-events:none; }
 
-  /* ── LAYERS PANEL ── */
+  /* LAYERS */
   #layers-panel {
-    width: 130px; background: var(--panel);
-    border-left: 2px solid var(--border);
-    display: flex; flex-direction: column;
-    padding: 8px; gap: 6px; overflow-y: auto;
-    flex-shrink: 0;
+    width:130px;background:var(--panel);border-left:2px solid var(--border);
+    display:flex;flex-direction:column;padding:8px;gap:6px;overflow-y:auto;flex-shrink:0;
   }
-  #layers-panel h3 { font-size: .8rem; color: #666; text-align: center; }
-  .layer-item {
-    display: flex; align-items: center; gap: 4px;
-    padding: 4px 6px; border-radius: 10px;
-    cursor: pointer; font-size: .75rem;
-    background: var(--bg); border: 2px solid transparent;
-    transition: border-color .15s;
-  }
-  .layer-item.active { border-color: var(--accent); background: #FFE0E0; }
-  .layer-thumb {
-    width: 40px; height: 30px; border-radius: 6px;
-    background: #fff; border: 1px solid #ddd;
-    overflow: hidden; flex-shrink: 0;
-  }
-  .layer-thumb canvas { width: 100%; height: 100%; }
-  .layer-eye { cursor: pointer; font-size: .9rem; }
+  #layers-panel h3 { font-size:.8rem;color:#666;text-align:center; }
 
-  /* ── BOTTOM STATUSBAR ── */
+  /* STATUSBAR */
   #statusbar {
-    padding: 4px 12px;
-    background: var(--panel);
-    border-top: 2px solid var(--border);
-    font-size: .7rem; color: #999;
-    display: flex; gap: 16px; align-items: center;
-    flex-shrink: 0;
+    padding:4px 12px;background:var(--panel);border-top:2px solid var(--border);
+    font-size:.7rem;color:#999;display:flex;gap:16px;align-items:center;flex-shrink:0;
   }
 
-  /* ── GAZE CURSOR ── */
+  /* =====================
+     GAZE CURSOR SYSTEM
+     =====================
+     pointer-events:none で絶対に他の操作を邪魔しない。
+     Tobii等 OS カーソルの位置に追従して視覚フィードバックだけ提供。
+  */
   #gaze-cursor {
-    display: none;
-    position: fixed; pointer-events: none;
-    width: var(--gaze-size); height: var(--gaze-size);
-    border-radius: 50%;
-    border: 4px solid rgba(255,107,107,0.8);
-    background: rgba(255,107,107,0.15);
-    transform: translate(-50%, -50%);
-    z-index: 9999;
-    transition: width .15s, height .15s;
+    display:none;position:fixed;pointer-events:none;z-index:9999;
+    width:56px;height:56px;border-radius:50%;
+    border:4px solid rgba(255,107,107,0.85);
+    background:rgba(255,107,107,0.1);
+    transform:translate(-50%,-50%);
+    transition:border-color .15s,background .15s;
   }
-  #gaze-cursor.dwell {
-    animation: gaze-dwell 1.2s linear forwards;
-  }
-  @keyframes gaze-dwell {
-    from { box-shadow: 0 0 0 0 rgba(255,107,107,0.6); }
-    to   { box-shadow: 0 0 0 30px rgba(255,107,107,0); }
-  }
+  #gaze-cursor.dwelling  { border-color:rgba(255,60,60,1); background:rgba(255,60,60,0.18); }
+  #gaze-cursor.activated { border-color:rgba(40,200,80,1); background:rgba(40,200,80,0.18); }
+
+  /* SVG dwell-progress ring */
   #gaze-ring {
-    position: fixed; pointer-events: none;
-    width: var(--gaze-size); height: var(--gaze-size);
-    border-radius: 50%; border: 3px solid transparent;
-    transform: translate(-50%,-50%);
-    z-index: 9998;
+    display:none;position:fixed;pointer-events:none;z-index:10000;
+    width:56px;height:56px;
+    transform:translate(-50%,-50%);
+    overflow:visible;
   }
-  #gaze-progress {
-    position: fixed; pointer-events: none;
-    transform: translate(-50%,-50%);
-    z-index: 9997;
+  #ring-track { fill:none;stroke:rgba(255,107,107,0.2);stroke-width:5; }
+  #ring-fill  {
+    fill:none;stroke:rgba(255,107,107,1);stroke-width:5;stroke-linecap:round;
+    stroke-dasharray:150.8;stroke-dashoffset:150.8;
+    transform-origin:28px 28px;transform:rotate(-90deg);
+  }
+  #ring-fill.done { stroke:rgba(40,200,80,1); }
+
+  /* GAZE BANNER */
+  #gaze-banner {
+    display:none;position:fixed;bottom:56px;left:50%;transform:translateX(-50%);
+    background:rgba(255,107,107,0.93);color:#fff;
+    padding:10px 22px;border-radius:20px;
+    font-size:.82rem;font-weight:700;line-height:1.7;
+    z-index:500;pointer-events:none;text-align:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.2);
   }
 
-  /* ── MODAL ── */
+  /* GAZE SETTINGS PANEL */
+  #gaze-panel {
+    display:none;position:fixed;bottom:56px;right:16px;
+    background:var(--panel);border-radius:16px;padding:14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.2);z-index:500;
+    flex-direction:column;gap:10px;min-width:170px;
+  }
+  body.gaze-on #gaze-panel { display:flex; }
+  #gaze-panel label { font-size:.75rem;color:#555;font-weight:700; }
+  #gaze-panel select {
+    width:100%;border-radius:8px;border:2px solid var(--border);
+    padding:5px 8px;font-size:.8rem;cursor:pointer;
+    font-family:inherit;
+  }
+
+  /* MODAL */
   .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.5); z-index: 10000;
-    align-items: center; justify-content: center;
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.5);z-index:10000;
+    align-items:center;justify-content:center;
   }
-  .modal-overlay.open { display: flex; }
+  .modal-overlay.open { display:flex; }
   .modal {
-    background: var(--panel); border-radius: 24px;
-    padding: 28px; max-width: 520px; width: 90%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    background:var(--panel);border-radius:24px;padding:28px;
+    max-width:520px;width:90%;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
   }
-  .modal h2 { margin-bottom: 16px; font-size: 1.3rem; }
-  .modal p { margin-bottom: 12px; font-size: .9rem; color: #555; line-height: 1.6; }
+  .modal h2 { margin-bottom:16px;font-size:1.3rem; }
+  .modal p  { margin-bottom:12px;font-size:.9rem;color:#555;line-height:1.6; }
   .modal input[type=text] {
-    width: 100%; padding: 10px 14px; border-radius: 12px;
-    border: 2px solid var(--border); font-size: .9rem;
-    margin-bottom: 12px;
+    width:100%;padding:10px 14px;border-radius:12px;
+    border:2px solid var(--border);font-size:.9rem;margin-bottom:12px;
   }
-  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-btns { display:flex;gap:10px;justify-content:flex-end; }
   .btn {
-    padding: 10px 22px; border-radius: 14px; border: none;
-    font-size: .9rem; font-weight: 700; cursor: pointer;
-    transition: transform .1s, box-shadow .1s;
+    padding:10px 22px;border-radius:14px;border:none;
+    font-size:.9rem;font-weight:700;cursor:pointer;
+    transition:transform .1s,box-shadow .1s;
   }
-  .btn:hover { transform: scale(1.05); box-shadow: 0 4px 14px rgba(0,0,0,0.2); }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-secondary { background: var(--bg); color: var(--text); border: 2px solid var(--border); }
+  .btn:hover { transform:scale(1.05);box-shadow:0 4px 14px rgba(0,0,0,.2); }
+  .btn-primary   { background:var(--accent);color:#fff; }
+  .btn-secondary { background:var(--bg);color:var(--text);border:2px solid var(--border); }
 
-  /* ── GAZE MODE INDICATOR ── */
-  #gaze-indicator {
-    display: none;
-    position: fixed; top: 80px; right: 16px;
-    background: rgba(255,107,107,0.9); color: #fff;
-    padding: 8px 14px; border-radius: 20px;
-    font-size: .8rem; font-weight: 700;
-    z-index: 500; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-  }
-
-  /* ── IMAGE TRACE OVERLAY ── */
+  /* TRACE CONTROLS */
   #trace-controls {
-    display: none;
-    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
-    background: var(--panel); border-radius: 20px;
-    padding: 10px 18px; gap: 12px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.2);
-    align-items: center; z-index: 500;
-    flex-wrap: wrap; justify-content: center;
+    display:none;position:fixed;bottom:56px;left:50%;transform:translateX(-50%);
+    background:var(--panel);border-radius:20px;padding:10px 18px;gap:12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.2);
+    align-items:center;z-index:500;flex-wrap:wrap;justify-content:center;
   }
-  #trace-controls label { font-size: .8rem; color: #555; }
+  #trace-controls label { font-size:.8rem;color:#555; }
   #trace-opacity {
-    width: 100px; height: 8px; border-radius: 4px;
-    -webkit-appearance: none; background: var(--border); cursor: pointer;
+    width:100px;height:8px;border-radius:4px;
+    -webkit-appearance:none;background:var(--border);cursor:pointer;
   }
   #trace-opacity::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 20px; height: 20px;
-    border-radius: 50%; background: var(--accent2);
+    -webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent2);
   }
 
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  /* FULLSCREEN */
+  body.fullscreen #topbar,
+  body.fullscreen #statusbar,
+  body.fullscreen #layers-panel { display:none !important; }
 
-  @media (max-width: 600px) {
-    :root { --btn-size: 52px; }
-    #palette .color-dot { width: 30px; height: 30px; }
-    #layers-panel { display: none; }
-    #app-title { font-size: 1rem; }
+  #float-toolbar {
+    display:none;
+    position:fixed; top:12px; left:50%; transform:translateX(-50%);
+    background:rgba(255,255,255,0.96);
+    backdrop-filter:blur(12px);
+    border-radius:24px; border:2px solid var(--border);
+    padding:8px 14px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.18);
+    z-index:8000;
+    align-items:center; gap:6px;
+    flex-wrap:wrap; max-width:calc(100vw - 32px);
+    transition:opacity .3s, transform .3s;
   }
+  body.fullscreen #float-toolbar { display:flex; }
+  body.fullscreen.toolbar-hidden #float-toolbar {
+    opacity:0; transform:translateX(-50%) translateY(-110%); pointer-events:none;
+  }
+  #float-toolbar .tool-btn { width:52px;height:52px;font-size:1.35rem;border-radius:16px; }
+  body.gaze-on #float-toolbar .tool-btn { width:74px;height:74px;font-size:1.8rem; }
+  #float-toolbar .sep { height:32px; }
+  #float-toolbar .color-dot { width:30px;height:30px; }
+  body.gaze-on #float-toolbar .color-dot { width:40px;height:40px; }
+  #float-toolbar #fc-custom-color { width:30px;height:30px;border-radius:50%;border:3px dashed #bbb;cursor:pointer;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);flex-shrink:0; }
+  body.gaze-on #float-toolbar #fc-custom-color { width:40px;height:40px; }
 
-  /* printing */
+  #fs-hover-zone {
+    display:none; position:fixed; top:0; left:0; right:0;
+    height:48px; z-index:7999;
+  }
+  body.fullscreen #fs-hover-zone { display:block; }
+
+  #btn-fs-exit {
+    display:none; position:fixed; bottom:16px; right:16px;
+    width:52px;height:52px; border-radius:16px; border:none;
+    background:rgba(255,255,255,0.9); backdrop-filter:blur(8px);
+    box-shadow:0 4px 14px rgba(0,0,0,.2);
+    font-size:1.4rem; cursor:pointer; z-index:8000;
+    align-items:center; justify-content:center;
+    transition:transform .15s;
+  }
+  body.fullscreen #btn-fs-exit { display:flex; }
+  #btn-fs-exit:hover { transform:scale(1.1); }
+
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border);border-radius:3px; }
+
+  @media (max-width:600px) {
+    :root { --btn-size:52px; }
+    .color-dot { width:28px!important;height:28px!important; }
+    #layers-panel { display:none; }
+    #app-title { font-size:1rem; }
+  }
   @media print {
-    body * { visibility: hidden; }
-    #print-target, #print-target * { visibility: visible; }
-    #print-target { position: fixed; top: 0; left: 0; }
+    body * { visibility:hidden; }
+    #print-target,#print-target * { visibility:visible; }
+    #print-target { position:fixed;top:0;left:0; }
+  }
+
+  /* HELP MODAL */
+  .help-section { margin-bottom:20px; }
+  .help-heading {
+    font-size:1rem;font-weight:900;margin-bottom:12px;
+    padding:6px 14px;border-radius:12px;
+    background:linear-gradient(135deg,#FF6B6B22,#4ECDC422);
+    border-left:4px solid var(--accent);
+  }
+  .help-grid {
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:10px;
+  }
+  .help-item {
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--bg);border-radius:14px;padding:10px 12px;
+    font-size:.82rem;line-height:1.5;
+  }
+  .help-icon { font-size:1.6rem;flex-shrink:0;margin-top:2px; }
+  .help-keys { display:flex;flex-wrap:wrap;gap:8px; }
+  .help-key {
+    background:var(--bg);border-radius:10px;
+    padding:6px 12px;font-size:.8rem;
+    border:2px solid var(--border);
+  }
+  kbd {
+    background:#2D2D2D;color:#fff;
+    border-radius:6px;padding:1px 6px;
+    font-size:.75rem;font-family:monospace;
   }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -311,17 +352,15 @@
 <div id="topbar">
   <div id="app-title">🎨 おえかきひろば</div>
 
-  <!-- Drawing tools -->
-  <button class="tool-btn active" id="btn-pen"     data-tool="pen"     data-tip="えんぴつ">✏️</button>
-  <button class="tool-btn"        id="btn-brush"   data-tool="brush"   data-tip="ふで">🖌️</button>
-  <button class="tool-btn"        id="btn-fill"    data-tool="fill"    data-tip="ぬりつぶし">🪣</button>
-  <button class="tool-btn"        id="btn-spray"   data-tool="spray"   data-tip="スプレー">💨</button>
-  <button class="tool-btn"        id="btn-eraser"  data-tool="eraser"  data-tip="けしごむ">🧹</button>
-  <button class="tool-btn"        id="btn-stamp"   data-tool="stamp"   data-tip="スタンプ">⭐</button>
+  <button class="tool-btn active" id="btn-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
+  <button class="tool-btn"        id="btn-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
+  <button class="tool-btn"        id="btn-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
+  <button class="tool-btn"        id="btn-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
+  <button class="tool-btn"        id="btn-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
+  <button class="tool-btn"        id="btn-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
 
   <div class="sep"></div>
 
-  <!-- Brush size -->
   <div id="size-wrap">
     <span id="size-label">おおきさ: <b id="size-val">12</b></span>
     <input type="range" id="brush-size" min="2" max="80" value="12">
@@ -329,13 +368,11 @@
 
   <div class="sep"></div>
 
-  <!-- Color palette -->
   <div id="palette"></div>
   <input type="color" id="custom-color" title="じぶんでいろをえらぶ" value="#FF6B6B">
 
   <div class="sep"></div>
 
-  <!-- Opacity -->
   <div id="opacity-wrap">
     <span id="opacity-label">とうめいど: <b id="opacity-val">100</b>%</span>
     <input type="range" id="opacity-range" min="5" max="100" value="100">
@@ -343,18 +380,43 @@
 
   <div class="sep"></div>
 
-  <!-- Actions -->
-  <button class="tool-btn" id="btn-undo"    data-tip="もどす">↩️</button>
-  <button class="tool-btn" id="btn-redo"    data-tip="やりなおし">↪️</button>
-  <button class="tool-btn" id="btn-clear"   data-tip="ぜんぶけす">🗑️</button>
-  <button class="tool-btn" id="btn-reset"   data-tip="さいしょからやりなおす" style="color:#FF4444;">🔄</button>
-  <button class="tool-btn" id="btn-bg"      data-tip="はいけい">🖼️</button>
-  <button class="tool-btn" id="btn-image"   data-tip="えをよみこむ">📷</button>
-  <button class="tool-btn" id="btn-share"   data-tip="きょうゆう">🔗</button>
-  <button class="tool-btn" id="btn-print"   data-tip="いんさつ">🖨️</button>
-  <button class="tool-btn" id="btn-save"    data-tip="ほぞん">💾</button>
-  <button class="tool-btn" id="btn-gaze"    data-tip="しせんにゅうりょく">👁️</button>
+  <button class="tool-btn" id="btn-undo"  data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="btn-redo"  data-tip="やりなおし">↪️</button>
+  <button class="tool-btn" id="btn-clear" data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="btn-reset" data-tip="さいしょから" style="color:#FF4444">🔄</button>
+  <button class="tool-btn" id="btn-bg"    data-tip="はいけい">🖼️</button>
+  <button class="tool-btn" id="btn-image" data-tip="えをよみこむ">📷</button>
+  <button class="tool-btn" id="btn-share" data-tip="きょうゆう">🔗</button>
+  <button class="tool-btn" id="btn-print" data-tip="いんさつ">🖨️</button>
+  <button class="tool-btn" id="btn-save"  data-tip="ほぞん">💾</button>
+  <button class="tool-btn" id="btn-gaze"       data-tip="しせんにゅうりょく">👁️</button>
+  <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめんひょうじ" style="font-size:1.3rem">⛶</button>
+  <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
 </div>
+
+<!-- FLOAT TOOLBAR (フルスクリーン時) -->
+<div id="float-toolbar">
+  <button class="tool-btn active" id="fc-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
+  <button class="tool-btn"        id="fc-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
+  <button class="tool-btn"        id="fc-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
+  <button class="tool-btn"        id="fc-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
+  <button class="tool-btn"        id="fc-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
+  <button class="tool-btn"        id="fc-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
+  <div class="sep"></div>
+  <div id="fc-palette"></div>
+  <input type="color" id="fc-custom-color" value="#FF6B6B" title="いろをえらぶ" style="width:30px;height:30px;border-radius:50%;border:3px dashed #bbb;cursor:pointer;flex-shrink:0;">
+  <div class="sep"></div>
+  <button class="tool-btn" id="fc-undo"  data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="fc-redo"  data-tip="やりなおし">↪️</button>
+  <button class="tool-btn" id="fc-clear" data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="fc-save"  data-tip="ほぞん">💾</button>
+</div>
+
+<!-- フルスクリーン終了ボタン (右下) -->
+<button id="btn-fs-exit" title="ぜんがめんおわり">✕</button>
+
+<!-- ツールバー再表示ゾーン (上端ホバー) -->
+<div id="fs-hover-zone"></div>
 
 <!-- MAIN -->
 <div id="main">
@@ -363,16 +425,13 @@
     <canvas id="draw-canvas"></canvas>
     <canvas id="overlay-canvas"></canvas>
   </div>
-
-  <!-- LAYERS -->
   <div id="layers-panel">
     <h3>📄 レイヤー</h3>
     <div id="layers-list"></div>
-    <button class="btn btn-secondary" id="btn-add-layer" style="font-size:.75rem;padding:6px;border-radius:10px;">＋ レイヤー追加</button>
   </div>
 </div>
 
-<!-- STATUSBAR -->
+<!-- STATUS BAR -->
 <div id="statusbar">
   <span id="status-tool">ツール: えんぴつ</span>
   <span id="status-pos">X: 0  Y: 0</span>
@@ -382,18 +441,48 @@
 
 <!-- TRACE CONTROLS -->
 <div id="trace-controls">
-  <label>📷 なぞりえ のとうめいど:</label>
+  <label>📷 なぞりえのとうめいど:</label>
   <input type="range" id="trace-opacity" min="5" max="100" value="40">
   <span id="trace-val">40%</span>
   <button class="btn btn-secondary" id="btn-trace-close" style="font-size:.75rem;padding:6px 12px;">✕ とじる</button>
 </div>
 
-<!-- GAZE CURSOR -->
+<!-- GAZE CURSOR (pointer-events:none — 絶対にクリック等を邪魔しない) -->
 <div id="gaze-cursor"></div>
-<canvas id="gaze-progress" width="80" height="80" style="display:none;"></canvas>
-<div id="gaze-indicator">👁️ しせんにゅうりょく: オン</div>
+<svg id="gaze-ring" viewBox="0 0 56 56">
+  <circle id="ring-track" cx="28" cy="28" r="24"/>
+  <circle id="ring-fill"  cx="28" cy="28" r="24"/>
+</svg>
 
-<!-- STAMP PICKER -->
+<!-- GAZE BANNER -->
+<div id="gaze-banner">
+  👁️ しせんにゅうりょく オン<br>
+  <small>キャンバスを見つめると えがけます &nbsp;|&nbsp; ボタンを見つめると おせます</small>
+</div>
+
+<!-- GAZE SETTINGS -->
+<div id="gaze-panel">
+  <label>⏱ ドウェル時間</label>
+  <select id="sel-dwell">
+    <option value="600">はやい (0.6秒)</option>
+    <option value="1000" selected>ふつう (1秒)</option>
+    <option value="1500">ゆっくり (1.5秒)</option>
+    <option value="2000">とてもゆっくり (2秒)</option>
+  </select>
+  <label>📐 ブレの許容</label>
+  <select id="sel-tol">
+    <option value="30">すくない (30px)</option>
+    <option value="55" selected>ふつう (55px)</option>
+    <option value="85">おおい (85px)</option>
+  </select>
+  <label>🖊 えをかくモード</label>
+  <select id="sel-draw-mode">
+    <option value="dwell-draw" selected>見つめて→えがく</option>
+    <option value="dwell-click">見つめて→クリックのみ</option>
+  </select>
+</div>
+
+<!-- STAMP MODAL -->
 <div id="stamp-modal" class="modal-overlay">
   <div class="modal">
     <h2>⭐ スタンプをえらぼう</h2>
@@ -417,29 +506,13 @@
   </div>
 </div>
 
-<!-- RESET MODAL -->
-<div id="reset-modal" class="modal-overlay">
-  <div class="modal" style="text-align:center;">
-    <div style="font-size:3rem;margin-bottom:12px;">🔄</div>
-    <h2 style="margin-bottom:10px;">さいしょからやりなおす？</h2>
-    <p style="margin-bottom:20px;">かいたえが <b>ぜんぶきえます</b>。<br>もとにはもどせません。ほんとうにいいですか？</p>
-    <div class="modal-btns" style="justify-content:center;gap:16px;">
-      <button class="btn btn-secondary" onclick="closeModal('reset-modal')" style="font-size:1rem;padding:12px 24px;">
-        やめる
-      </button>
-      <button class="btn btn-primary" id="btn-reset-confirm" style="font-size:1rem;padding:12px 24px;background:#FF4444;">
-        🔄 やりなおす
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- BG COLOR MODAL -->
+<!-- BG MODAL -->
 <div id="bg-modal" class="modal-overlay">
   <div class="modal">
     <h2>🖼️ はいけいのいろをえらぶ</h2>
     <div id="bg-palette" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;"></div>
-    <input type="color" id="bg-custom" value="#FFFFFF" style="width:50px;height:50px;border-radius:12px;border:none;cursor:pointer;">
+    <input type="color" id="bg-custom" value="#FFFFFF"
+      style="width:50px;height:50px;border-radius:12px;border:none;cursor:pointer;">
     <div class="modal-btns">
       <button class="btn btn-secondary" onclick="closeModal('bg-modal')">とじる</button>
       <button class="btn btn-primary" id="btn-apply-bg">てきよう</button>
@@ -447,821 +520,756 @@
   </div>
 </div>
 
-<!-- hidden file inputs -->
+<!-- RESET MODAL -->
+<div id="reset-modal" class="modal-overlay">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:3rem;margin-bottom:12px;">🔄</div>
+    <h2 style="margin-bottom:10px;">さいしょからやりなおす？</h2>
+    <p style="margin-bottom:20px;">かいたえが <b>ぜんぶきえます</b>。<br>もとにはもどせません。ほんとうにいいですか？</p>
+    <div class="modal-btns" style="justify-content:center;gap:16px;">
+      <button class="btn btn-secondary" onclick="closeModal('reset-modal')"
+        style="font-size:1rem;padding:12px 24px;">やめる</button>
+      <button class="btn btn-primary" id="btn-reset-confirm"
+        style="font-size:1rem;padding:12px 24px;background:#FF4444;">🔄 やりなおす</button>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div id="help-modal" class="modal-overlay">
+  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+    <h2 style="margin-bottom:20px;font-size:1.5rem;">❓ つかいかた</h2>
+
+    <div class="help-section">
+      <div class="help-heading">🖊 えをかくどうぐ</div>
+      <div class="help-grid">
+        <div class="help-item"><span class="help-icon">✏️</span><span><b>えんぴつ</b><br>なめらかなせんがかける</span></div>
+        <div class="help-item"><span class="help-icon">🖌️</span><span><b>ふで</b><br>やわらかくひかるせん</span></div>
+        <div class="help-item"><span class="help-icon">🪣</span><span><b>ぬりつぶし</b><br>タップしたばしょをいっぱいぬる</span></div>
+        <div class="help-item"><span class="help-icon">💨</span><span><b>スプレー</b><br>きりのようにふわっとぬれる</span></div>
+        <div class="help-item"><span class="help-icon">🧹</span><span><b>けしごむ</b><br>かいたところをけせる</span></div>
+        <div class="help-item"><span class="help-icon">⭐</span><span><b>スタンプ</b><br>たのしいえもじをおせる</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-heading">🎨 いろとおおきさ</div>
+      <div class="help-grid">
+        <div class="help-item"><span class="help-icon">🔴</span><span><b>パレット</b><br>すきないろをえらんでタップ</span></div>
+        <div class="help-item"><span class="help-icon">🌈</span><span><b>じぶんのいろ</b><br>グラデーションのまるでじゆうにえらべる</span></div>
+        <div class="help-item"><span class="help-icon">📏</span><span><b>おおきさ</b><br>スライダーでふとさをかえられる</span></div>
+        <div class="help-item"><span class="help-icon">💧</span><span><b>とうめいど</b><br>うすくしたりこくしたりできる</span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-heading">📋 そのほかのきのう</div>
+      <div class="help-grid">
+        <div class="help-item"><span class="help-icon">↩️</span><span><b>もどす</b><br>まちがえても1つまえにもどせる</span></div>
+        <div class="help-item"><span class="help-icon">🗑️</span><span><b>ぜんぶけす</b><br>キャンバスをまっさらにする</span></div>
+        <div class="help-item"><span class="help-icon">🔄</span><span><b>さいしょから</b><br>ぜんぶリセットしてやりなおす</span></div>
+        <div class="help-item"><span class="help-icon">🖼️</span><span><b>はいけい</b><br>かみのいろをかえられる</span></div>
+        <div class="help-item"><span class="help-icon">📷</span><span><b>えをよみこむ</b><br>しゃしんをしたじきにしてなぞれる</span></div>
+        <div class="help-item"><span class="help-icon">💾</span><span><b>ほぞん</b><br>えをPNGがぞうでほぞんできる</span></div>
+        <div class="help-item"><span class="help-icon">🔗</span><span><b>きょうゆう</b><br>URLでともだちにおくれる</span></div>
+        <div class="help-item"><span class="help-icon">🖨️</span><span><b>いんさつ</b><br>えをプリンターでいんさつできる</span></div>
+        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる<br><small>じょうはしにマウスをうごかすとどうぐがでる</small></span></div>
+        <div class="help-item"><span class="help-icon">👁️</span><span><b>しせんにゅうりょく</b><br>Tobii等の視線デバイスでえがける<br><small>みつめるとドウェルリングがまわる</small></span></div>
+      </div>
+    </div>
+
+    <div class="help-section">
+      <div class="help-heading">⌨️ キーボードショートカット</div>
+      <div class="help-keys">
+        <div class="help-key"><kbd>Ctrl</kbd>+<kbd>Z</kbd> もどす</div>
+        <div class="help-key"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> やりなおし</div>
+        <div class="help-key"><kbd>P</kbd> えんぴつ</div>
+        <div class="help-key"><kbd>B</kbd> ふで</div>
+        <div class="help-key"><kbd>E</kbd> けしごむ</div>
+        <div class="help-key"><kbd>[</kbd> ちいさく <kbd>]</kbd> おおきく</div>
+      </div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:20px;">
+      <button class="btn btn-primary" onclick="closeModal('help-modal')"
+        style="font-size:1rem;padding:12px 32px;">とじる ✕</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="file-image" accept="image/*" style="display:none">
-<input type="file" id="file-save-load" accept=".json" style="display:none">
 
 <script>
-// ======================================================
-// STATE
-// ======================================================
+// ================================================================
+// CONSTANTS
+// ================================================================
 const COLORS = [
-  '#FF0000','#FF6B6B','#FF8E53','#FFA500',
-  '#FFE66D','#FFFF00','#90EE90','#00CC66',
-  '#4ECDC4','#00BFFF','#4169E1','#9B59B6',
-  '#FF69B4','#8B4513','#696969','#000000',
-  '#FFFFFF','#C0C0C0',
+  '#FF0000','#FF6B6B','#FF8E53','#FFA500','#FFE66D','#FFFF00',
+  '#90EE90','#00CC66','#4ECDC4','#00BFFF','#4169E1','#9B59B6',
+  '#FF69B4','#8B4513','#696969','#000000','#FFFFFF','#C0C0C0',
 ];
 const BG_COLORS = ['#FFFFFF','#FFF8F0','#F0F8FF','#F0FFF0','#FFF0F0','#1A1A2E','#000000','#FFFDE7'];
-const STAMPS = ['⭐','❤️','🌟','🌈','🦋','🌸','🍎','🐶','🐱','🐻','🐸','🌊','⚡','🔥','🎵','😊','🎃','🎄','🦄','🌙'];
+const STAMPS    = ['⭐','❤️','🌟','🌈','🦋','🌸','🍎','🐶','🐱','🐻','🐸','🌊','⚡','🔥','🎵','😊','🎃','🎄','🦄','🌙'];
+const TOOL_NAMES = { pen:'えんぴつ', brush:'ふで', fill:'ぬりつぶし', spray:'スプレー', eraser:'けしごむ', stamp:'スタンプ' };
+const RING_CIRC = 2 * Math.PI * 24; // ≈150.8
 
-let state = {
-  tool: 'pen',
-  color: '#FF6B6B',
-  size: 12,
-  opacity: 1,
-  stamp: '⭐',
-  bgColor: '#FFFFFF',
-  traceOpacity: 0.4,
-  gazeMode: false,
-  gazeDwellTime: 1200, // ms
+// ================================================================
+// STATE
+// ================================================================
+const S = {
+  tool:'pen', color:'#FF6B6B', size:12, opacity:1,
+  stamp:'⭐', bgColor:'#FFFFFF', traceOpacity:0.4,
+  gazeMode:false,
+  gazeDwellMs:1000,
+  gazeTolerance:55,       // ブレ許容半径px
+  gazeDrawMode:'dwell-draw',
 };
 
-let isDrawing = false;
-let lastX = 0, lastY = 0;
-let undoStack = [], redoStack = [];
-const MAX_UNDO = 40;
-
-// Gaze tracking state
-let gazeX = 0, gazeY = 0;
-let gazePrevX = 0, gazePrevY = 0;
-let gazeTimer = null;
-let gazeDwellEl = null;
-let gazeDwellProgress = 0;
-let gazeRAF = null;
-let gazeDrawing = false;
-
-// Trace image
-let traceImg = null;
-
-// ======================================================
-// CANVAS SETUP
-// ======================================================
-const bgCanvas = document.getElementById('bg-canvas');
+// ================================================================
+// CANVAS
+// ================================================================
+const bgCanvas   = document.getElementById('bg-canvas');
 const drawCanvas = document.getElementById('draw-canvas');
-const overlayCanvas = document.getElementById('overlay-canvas');
-const bgCtx = bgCanvas.getContext('2d');
-const ctx = drawCanvas.getContext('2d');
-const overlayCtx = overlayCanvas.getContext('2d');
+const ovCanvas   = document.getElementById('overlay-canvas');
+const bgCtx      = bgCanvas.getContext('2d');
+const ctx        = drawCanvas.getContext('2d');
+let traceImg     = null;
 
-function resizeCanvases() {
+function resize() {
   const wrap = document.getElementById('canvas-wrap');
   const W = wrap.clientWidth, H = wrap.clientHeight;
-  [bgCanvas, drawCanvas, overlayCanvas].forEach(c => {
+  [bgCanvas, drawCanvas, ovCanvas].forEach(c => {
     c.width = W; c.height = H;
-    c.style.width = W + 'px'; c.style.height = H + 'px';
+    c.style.width = W+'px'; c.style.height = H+'px';
   });
   fillBg();
-  redrawAll();
   document.getElementById('status-size').textContent = `キャンバス: ${W}×${H}px`;
 }
+window.addEventListener('resize', resize);
 
 function fillBg() {
-  bgCtx.fillStyle = state.bgColor;
-  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
-  if (traceImg) drawTrace();
+  bgCtx.fillStyle = S.bgColor;
+  bgCtx.fillRect(0,0,bgCanvas.width,bgCanvas.height);
+  if (traceImg) {
+    const sc = Math.min(bgCanvas.width/traceImg.width, bgCanvas.height/traceImg.height)*0.9;
+    const dw = traceImg.width*sc, dh = traceImg.height*sc;
+    bgCtx.globalAlpha = S.traceOpacity;
+    bgCtx.drawImage(traceImg,(bgCanvas.width-dw)/2,(bgCanvas.height-dh)/2,dw,dh);
+    bgCtx.globalAlpha = 1;
+  }
 }
 
-function redrawAll() {
-  // reapply saved state if any
-}
-
-window.addEventListener('resize', resizeCanvases);
-resizeCanvases();
-
-// ======================================================
+// ================================================================
 // UNDO / REDO
-// ======================================================
+// ================================================================
+let undoStack=[], redoStack=[];
+const MAX_UNDO=40;
+
 function saveState() {
-  const data = ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
-  undoStack.push(data);
-  if (undoStack.length > MAX_UNDO) undoStack.shift();
-  redoStack = [];
+  undoStack.push(ctx.getImageData(0,0,drawCanvas.width,drawCanvas.height));
+  if (undoStack.length>MAX_UNDO) undoStack.shift();
+  redoStack=[];
 }
-
 function undo() {
-  if (undoStack.length === 0) return;
-  redoStack.push(ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
-  const data = undoStack.pop();
-  ctx.putImageData(data, 0, 0);
+  if (!undoStack.length) return;
+  redoStack.push(ctx.getImageData(0,0,drawCanvas.width,drawCanvas.height));
+  ctx.putImageData(undoStack.pop(),0,0);
 }
-
 function redo() {
-  if (redoStack.length === 0) return;
-  undoStack.push(ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
-  const data = redoStack.pop();
-  ctx.putImageData(data, 0, 0);
+  if (!redoStack.length) return;
+  undoStack.push(ctx.getImageData(0,0,drawCanvas.width,drawCanvas.height));
+  ctx.putImageData(redoStack.pop(),0,0);
 }
 
-// ======================================================
-// DRAWING CORE
-// ======================================================
-function getCanvasPos(e) {
-  const rect = drawCanvas.getBoundingClientRect();
-  const src = e.touches ? e.touches[0] : e;
-  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+// ================================================================
+// DRAWING
+// ================================================================
+let isDrawing=false, lastX=0, lastY=0;
+
+function applyStyle() {
+  ctx.globalAlpha = S.opacity;
+  ctx.strokeStyle = S.color; ctx.fillStyle = S.color;
+  ctx.lineWidth = S.size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.globalCompositeOperation = 'source-over';
 }
 
-function applyContextStyle() {
-  ctx.globalAlpha = state.opacity;
-  ctx.strokeStyle = state.color;
-  ctx.fillStyle = state.color;
-  ctx.lineWidth = state.size;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+function startDraw(x,y) {
+  saveState(); isDrawing=true; lastX=x; lastY=y;
+  applyStyle();
+  if (S.tool==='fill')  { floodFill(Math.round(x),Math.round(y)); isDrawing=false; return; }
+  if (S.tool==='stamp') { drawStamp(x,y); isDrawing=false; return; }
+  ctx.beginPath(); ctx.moveTo(x,y);
+  if (S.tool==='spray') sprayDot(x,y);
 }
 
-function startDraw(x, y) {
-  saveState();
-  isDrawing = true;
-  lastX = x; lastY = y;
-  applyContextStyle();
-
-  if (state.tool === 'fill') {
-    floodFill(Math.round(x), Math.round(y), hexToRgba(state.color));
-    isDrawing = false;
-    return;
-  }
-  if (state.tool === 'stamp') {
-    drawStamp(x, y);
-    isDrawing = false;
-    return;
-  }
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  if (state.tool === 'spray') sprayDot(x, y);
-}
-
-function moveDraw(x, y) {
+function moveDraw(x,y) {
   if (!isDrawing) return;
-  applyContextStyle();
-
-  if (state.tool === 'eraser') {
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.globalAlpha = 1;
-    ctx.lineWidth = state.size * 2;
-    ctx.beginPath(); ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y); ctx.stroke();
-    ctx.globalCompositeOperation = 'source-over';
-  } else if (state.tool === 'brush') {
-    ctx.shadowColor = state.color;
-    ctx.shadowBlur = state.size * 1.5;
-    ctx.lineWidth = state.size;
-    ctx.beginPath(); ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y); ctx.stroke();
-    ctx.shadowBlur = 0;
-  } else if (state.tool === 'spray') {
-    sprayDot(x, y);
+  applyStyle();
+  if (S.tool==='eraser') {
+    ctx.globalCompositeOperation='destination-out'; ctx.globalAlpha=1; ctx.lineWidth=S.size*2;
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y); ctx.stroke();
+    ctx.globalCompositeOperation='source-over';
+  } else if (S.tool==='brush') {
+    ctx.shadowColor=S.color; ctx.shadowBlur=S.size*1.5;
+    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y); ctx.stroke();
+    ctx.shadowBlur=0;
+  } else if (S.tool==='spray') {
+    sprayDot(x,y);
   } else {
-    ctx.lineTo(x, y); ctx.stroke();
+    ctx.lineTo(x,y); ctx.stroke();
   }
-  lastX = x; lastY = y;
-
-  // Update status
-  document.getElementById('status-pos').textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
+  lastX=x; lastY=y;
+  document.getElementById('status-pos').textContent = `X:${Math.round(x)} Y:${Math.round(y)}`;
 }
 
 function endDraw() {
-  isDrawing = false;
-  ctx.beginPath();
+  if (!isDrawing) return;
+  isDrawing=false; ctx.beginPath();
 }
 
-function sprayDot(x, y) {
-  const radius = state.size * 3;
-  const dots = Math.floor(state.size * 2);
-  ctx.globalAlpha = state.opacity * 0.4;
-  ctx.fillStyle = state.color;
-  for (let i = 0; i < dots; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const r = Math.random() * radius;
-    ctx.beginPath();
-    ctx.arc(x + r * Math.cos(angle), y + r * Math.sin(angle), 1.5, 0, Math.PI * 2);
-    ctx.fill();
+function sprayDot(x,y) {
+  const r=S.size*3, n=Math.floor(S.size*2);
+  ctx.globalAlpha=S.opacity*0.4;
+  for (let i=0;i<n;i++) {
+    const a=Math.random()*Math.PI*2, d=Math.random()*r;
+    ctx.beginPath(); ctx.arc(x+d*Math.cos(a),y+d*Math.sin(a),1.5,0,Math.PI*2); ctx.fill();
   }
-  ctx.globalAlpha = state.opacity;
+  ctx.globalAlpha=S.opacity;
 }
 
-function drawStamp(x, y) {
-  ctx.font = `${state.size * 4}px serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(state.stamp, x, y);
+function drawStamp(x,y) {
+  ctx.font=`${S.size*4}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(S.stamp,x,y);
 }
 
-// ======================================================
-// FLOOD FILL (BFS)
-// ======================================================
 function hexToRgba(hex) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  return [r, g, b, Math.round(state.opacity * 255)];
+  return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),
+          parseInt(hex.slice(5,7),16),Math.round(S.opacity*255)];
 }
 
-function floodFill(startX, startY, fillColor) {
-  const W = drawCanvas.width, H = drawCanvas.height;
-  const imageData = ctx.getImageData(0, 0, W, H);
-  const data = imageData.data;
-
-  // Also check bg
-  const bgData = bgCtx.getImageData(0, 0, W, H).data;
-
-  function getPixel(x, y) {
-    const i = (y * W + x) * 4;
-    // Composite draw+bg
-    const da = data[i+3] / 255;
-    const r = da * data[i] + (1-da) * bgData[i];
-    const g = da * data[i+1] + (1-da) * bgData[i+1];
-    const b = da * data[i+2] + (1-da) * bgData[i+2];
-    return [Math.round(r), Math.round(g), Math.round(b)];
+function floodFill(sx,sy) {
+  const W=drawCanvas.width,H=drawCanvas.height;
+  const dd=ctx.getImageData(0,0,W,H), bd=bgCtx.getImageData(0,0,W,H);
+  const d=dd.data, b=bd.data;
+  function comp(i){ const a=d[i+3]/255; return[Math.round(a*d[i]+(1-a)*b[i]),Math.round(a*d[i+1]+(1-a)*b[i+1]),Math.round(a*d[i+2]+(1-a)*b[i+2])]; }
+  const [tr,tg,tb]=comp((sy*W+sx)*4);
+  const [fr,fg,fb,fa]=hexToRgba(S.color);
+  if(tr===fr&&tg===fg&&tb===fb) return;
+  const vis=new Uint8Array(W*H), stk=[sy*W+sx], tol=30;
+  while(stk.length){
+    const p=stk.pop(); if(vis[p]) continue;
+    const px=p%W,py=(p/W)|0;
+    if(px<0||px>=W||py<0||py>=H) continue;
+    const i=p*4,[cr,cg,cb]=comp(i);
+    if(Math.abs(cr-tr)+Math.abs(cg-tg)+Math.abs(cb-tb)>=tol) continue;
+    vis[p]=1; d[i]=fr;d[i+1]=fg;d[i+2]=fb;d[i+3]=fa;
+    if(px>0) stk.push(p-1); if(px<W-1) stk.push(p+1);
+    if(py>0) stk.push(p-W); if(py<H-1) stk.push(p+W);
   }
-
-  const targetColor = getPixel(startX, startY);
-  const [fr, fg, fb, fa] = fillColor;
-  if (targetColor[0]===fr && targetColor[1]===fg && targetColor[2]===fb) return;
-
-  const tolerance = 30;
-  function matches(x, y) {
-    const [r,g,b] = getPixel(x, y);
-    return Math.abs(r-targetColor[0])+Math.abs(g-targetColor[1])+Math.abs(b-targetColor[2]) < tolerance;
-  }
-
-  const stack = [[startX, startY]];
-  const visited = new Uint8Array(W * H);
-
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (x < 0 || x >= W || y < 0 || y >= H) continue;
-    const idx = y * W + x;
-    if (visited[idx]) continue;
-    if (!matches(x, y)) continue;
-    visited[idx] = 1;
-
-    const i = idx * 4;
-    data[i] = fr; data[i+1] = fg; data[i+2] = fb; data[i+3] = fa;
-
-    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
-  }
-  ctx.putImageData(imageData, 0, 0);
+  ctx.putImageData(dd,0,0);
 }
 
-// ======================================================
-// TRACE IMAGE
-// ======================================================
-function drawTrace() {
-  if (!traceImg) return;
-  const W = bgCanvas.width, H = bgCanvas.height;
-  const scale = Math.min(W / traceImg.width, H / traceImg.height) * 0.9;
-  const dw = traceImg.width * scale, dh = traceImg.height * scale;
-  const dx = (W - dw) / 2, dy = (H - dh) / 2;
-  bgCtx.globalAlpha = state.traceOpacity;
-  bgCtx.drawImage(traceImg, dx, dy, dw, dh);
-  bgCtx.globalAlpha = 1;
+function getPos(e) {
+  const rect=drawCanvas.getBoundingClientRect(), src=e.touches?e.touches[0]:e;
+  return {x:src.clientX-rect.left, y:src.clientY-rect.top};
 }
 
-// ======================================================
-// GAZE TRACKING (WebGazer / Fallback: Mouse)
-// ======================================================
-const gazeCursor = document.getElementById('gaze-cursor');
-const gazeProgressCanvas = document.getElementById('gaze-progress');
-const gazeProgressCtx = gazeProgressCanvas.getContext('2d');
-const gazeIndicator = document.getElementById('gaze-indicator');
+// ================================================================
+// POINTER / TOUCH (通常モード)
+// 視線モード中はキャンバスへの直接操作を受け付けない
+// ================================================================
+drawCanvas.addEventListener('pointerdown',e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); startDraw(p.x,p.y); },{passive:false});
+drawCanvas.addEventListener('pointermove',e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); moveDraw(p.x,p.y); },{passive:false});
+drawCanvas.addEventListener('pointerup',  e=>{ if(S.gazeMode)return; e.preventDefault(); endDraw(); },{passive:false});
+drawCanvas.addEventListener('pointerleave',()=>{ if(!S.gazeMode) endDraw(); });
+drawCanvas.addEventListener('touchstart', e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); startDraw(p.x,p.y); },{passive:false});
+drawCanvas.addEventListener('touchmove',  e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); moveDraw(p.x,p.y); },{passive:false});
+drawCanvas.addEventListener('touchend',   ()=>{ if(!S.gazeMode) endDraw(); });
 
-let gazeLoaded = false;
-let gazeDrawInterval = null;
+// ================================================================
+// GAZE / DWELL ENGINE
+// ================================================================
+/*
+ * Tobii等の仕組み:
+ *   Tobii はOSのマウスカーソルを視線で動かす。
+ *   → ブラウザには通常の mousemove/pointermove イベントが届く。
+ *   → アプリ側は mousemove を監視し「ドウェル（視線停留）」を判定する。
+ *
+ * ドウェル判定:
+ *   視線が一定半径(gazeTolerance)以内に留まり続けた場合に「ドウェル成立」とみなす。
+ *   成立したら:
+ *     - UI要素（ボタン等）→ dispatchEvent(click) で通常クリックと同等の処理
+ *     - キャンバス → startDraw し、その後の視線移動を moveDraw に変換
+ *
+ * 重要: gaze-cursor / gaze-ring は pointer-events:none
+ *       → クリック等の邪魔を一切しない。
+ *
+ * スムージング:
+ *   Tobiiのジッター（±10〜20px程度）をローパスフィルタで吸収。
+ *   SMOOTH_K が小さいほど滑らか（ただし遅延が増える）。
+ */
 
-function toggleGazeMode() {
-  state.gazeMode = !state.gazeMode;
-  document.getElementById('btn-gaze').classList.toggle('active', state.gazeMode);
-  document.getElementById('status-gaze').textContent = `視線: ${state.gazeMode ? 'オン' : 'オフ'}`;
-  gazeIndicator.style.display = state.gazeMode ? 'block' : 'none';
+const gazeCursorEl = document.getElementById('gaze-cursor');
+const gazeRingEl   = document.getElementById('gaze-ring');
+const ringFillEl   = document.getElementById('ring-fill');
+const gazeBanner   = document.getElementById('gaze-banner');
 
-  if (state.gazeMode) {
-    gazeCursor.style.display = 'block';
-    gazeProgressCanvas.style.display = 'block';
-    initGaze();
+// スムージング
+const SMOOTH_K = 0.35; // 0<K≤1 (小さいほど滑らか)
+let sx=0, sy=0;        // スムージング済み座標
+
+// ドウェル状態
+let dwX=0, dwY=0;      // ドウェル開始位置
+let dwStart=0;
+let dwRAF=null;
+let dwActive=false;    // ドウェル完了済み
+let dwTarget=null;     // null=キャンバス / Element=UI要素
+let gazeDrawing=false; // キャンバス描画中か
+
+function moveCursor(x,y) {
+  gazeCursorEl.style.left = x+'px'; gazeCursorEl.style.top = y+'px';
+  gazeRingEl.style.left   = x+'px'; gazeRingEl.style.top  = y+'px';
+}
+
+function setRing(prog, done) {
+  ringFillEl.style.strokeDashoffset = RING_CIRC*(1-prog);
+  if (done) { ringFillEl.classList.add('done'); }
+  else      { ringFillEl.classList.remove('done'); }
+}
+
+function resetDwell() {
+  cancelAnimationFrame(dwRAF); dwRAF=null;
+  dwActive=false; dwStart=0; dwTarget=null;
+  setRing(0,false);
+  gazeCursorEl.classList.remove('dwelling','activated');
+  // キャンバス描画を終了
+  if (gazeDrawing) { endDraw(); gazeDrawing=false; }
+}
+
+function beginDwell(x,y,target) {
+  resetDwell();
+  dwX=x; dwY=y; dwTarget=target;
+  dwStart=performance.now();
+  gazeCursorEl.classList.add('dwelling');
+
+  (function tick(now){
+    const prog=Math.min((now-dwStart)/S.gazeDwellMs,1);
+    setRing(prog,false);
+    if (prog<1) { dwRAF=requestAnimationFrame(tick); return; }
+    // ドウェル完了
+    dwActive=true;
+    setRing(1,true);
+    gazeCursorEl.classList.remove('dwelling');
+    gazeCursorEl.classList.add('activated');
+    onDwellFired(x,y,target);
+  })(dwStart);
+}
+
+function onDwellFired(x,y,target) {
+  if (target) {
+    // UI要素へ click を送る
+    target.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,
+      clientX:x,clientY:y}));
+    // クリック後は少し待ってリセット（連打防止）
+    setTimeout(()=>resetDwell(),600);
   } else {
-    gazeCursor.style.display = 'none';
-    gazeProgressCanvas.style.display = 'none';
-    stopGazeDraw();
-    if (window.webgazer) webgazer.pause();
-  }
-}
-
-function initGaze() {
-  if (gazeLoaded) {
-    if (window.webgazer) webgazer.resume();
-    return;
-  }
-
-  // Try to load WebGazer
-  const script = document.createElement('script');
-  script.src = 'https://webgazer.cs.brown.edu/webgazer.js';
-  script.onload = () => {
-    gazeLoaded = true;
-    webgazer.setGazeListener((data, clock) => {
-      if (!data || !state.gazeMode) return;
-      updateGazePos(data.x, data.y);
-    }).begin();
-    webgazer.showVideoPreview(true).showPredictionPoints(false);
-    webgazer.setTracker('TFFacemesh').setRegression('ridge');
-    showGazeCalibrationHint();
-  };
-  script.onerror = () => {
-    // Fallback: use mouse/pointer as gaze simulation
-    gazeLoaded = true;
-    showGazeFallbackMessage();
-    enableMouseGazeFallback();
-  };
-  document.head.appendChild(script);
-}
-
-function enableMouseGazeFallback() {
-  // In fallback mode, track mouse as gaze (useful for testing / AAC devices)
-  document.addEventListener('mousemove', e => {
-    if (!state.gazeMode) return;
-    updateGazePos(e.clientX, e.clientY);
-  });
-  // Also track pointer events for switch/AAC
-  document.addEventListener('pointermove', e => {
-    if (!state.gazeMode || e.pointerType === 'touch') return;
-    updateGazePos(e.clientX, e.clientY);
-  });
-}
-
-const GAZE_MOVE_THRESHOLD = 40; // pixels — if gaze moves more, reset dwell
-const GAZE_DWELL_MS = 1200;
-
-function updateGazePos(x, y) {
-  gazeX = x; gazeY = y;
-
-  // Move visual cursor
-  gazeCursor.style.left = x + 'px';
-  gazeCursor.style.top = y + 'px';
-  gazeProgressCanvas.style.left = x + 'px';
-  gazeProgressCanvas.style.top = y + 'px';
-
-  const moved = Math.hypot(x - gazePrevX, y - gazePrevY);
-
-  if (moved > GAZE_MOVE_THRESHOLD) {
-    // Moved too much — reset dwell
-    gazePrevX = x; gazePrevY = y;
-    clearGazeDwell();
-    // If we were drawing, stop
-    if (gazeDrawing) {
-      endDraw();
-      gazeDrawing = false;
+    // キャンバス描画開始
+    if (S.gazeDrawMode==='dwell-draw') {
+      const rect=drawCanvas.getBoundingClientRect();
+      startDraw(x-rect.left, y-rect.top);
+      gazeDrawing=true;
     }
-    startGazeDwell(x, y);
-  } else {
-    // Still dwelling — continue drawing if dwell activated
-    if (gazeDrawing) {
-      const pos = clientToCanvas(x, y);
-      moveDraw(pos.x, pos.y);
-    }
+    // dwell-click モードでは何もしない（描画はしない）
   }
 }
 
-let gazeDwellTimeout = null;
-let gazeDwellAnimFrame = null;
-let gazeDwellStart = 0;
+// ================================================================
+// 全ページの mousemove を捕捉（capture=true で最優先）
+// ================================================================
+document.addEventListener('mousemove', onGazePointer, {capture:true,passive:true});
+document.addEventListener('pointermove', onGazePointer, {capture:true,passive:true});
 
-function startGazeDwell(x, y) {
-  clearGazeDwell();
-  gazeDwellStart = performance.now();
+function onGazePointer(e) {
+  if (!S.gazeMode) return;
+  // タッチは無視（Tobiiはmouseとして届く）
+  if (e.pointerType==='touch') return;
 
-  function animateDwell(now) {
-    const elapsed = now - gazeDwellStart;
-    const progress = Math.min(elapsed / GAZE_DWELL_MS, 1);
-    drawGazeProgress(progress);
-    if (progress < 1) {
-      gazeDwellAnimFrame = requestAnimationFrame(animateDwell);
+  // スムージング（ローパスフィルタ）
+  sx = sx + (e.clientX - sx)*SMOOTH_K;
+  sy = sy + (e.clientY - sy)*SMOOTH_K;
+
+  moveCursor(sx,sy);
+
+  // ─ キャンバスで描画中 ─
+  if (gazeDrawing) {
+    const rect=drawCanvas.getBoundingClientRect();
+    const cx=sx-rect.left, cy=sy-rect.top;
+    // キャンバス内なら描画継続
+    if (cx>=0&&cy>=0&&cx<=rect.width&&cy<=rect.height) {
+      moveDraw(cx,cy);
+      // 大きく動いたら一旦ストローク終了→新ドウェルへ
+      const moved=Math.hypot(sx-dwX, sy-dwY);
+      if (moved > S.gazeTolerance*2) {
+        endDraw(); gazeDrawing=false;
+        resetDwell();
+        dwX=sx; dwY=sy;
+        beginDwell(sx,sy,null);
+      }
+      return;
     } else {
-      // Dwell complete — start drawing!
-      activateGazeDraw(x, y);
+      // キャンバス外に出た → 描画終了
+      endDraw(); gazeDrawing=false;
+      resetDwell();
     }
   }
-  gazeDwellAnimFrame = requestAnimationFrame(animateDwell);
+
+  // ─ 移動量でドウェルリセット判定 ─
+  const moved=Math.hypot(sx-dwX, sy-dwY);
+  if (moved > S.gazeTolerance) {
+    // 視線が動いた → 新しい対象でドウェル開始
+    dwX=sx; dwY=sy;
+    // hit-test: カーソルを一時非表示にして elementFromPoint
+    gazeCursorEl.style.visibility='hidden';
+    gazeRingEl.style.visibility='hidden';
+    const el=document.elementFromPoint(e.clientX, e.clientY);
+    gazeCursorEl.style.visibility='';
+    gazeRingEl.style.visibility='';
+    const target=findClickableTarget(el);
+    beginDwell(sx,sy,target);
+  }
+  // 動いていなければ dwRAF が進行中のまま
 }
 
-function clearGazeDwell() {
-  if (gazeDwellAnimFrame) { cancelAnimationFrame(gazeDwellAnimFrame); gazeDwellAnimFrame = null; }
-  if (gazeDwellTimeout) { clearTimeout(gazeDwellTimeout); gazeDwellTimeout = null; }
-  drawGazeProgress(0);
+function findClickableTarget(el) {
+  if (!el) return null;
+  let cur=el;
+  for (let i=0;i<6;i++) {
+    if (!cur||cur===document.body) break;
+    const tag=cur.tagName;
+    if (cur.classList.contains('tool-btn')||cur.classList.contains('btn')||
+        cur.classList.contains('color-dot')||
+        tag==='BUTTON'||tag==='SELECT'||tag==='INPUT') return cur;
+    // キャンバス関連ならnull
+    if (cur===drawCanvas||cur===bgCanvas||cur===ovCanvas||cur.id==='canvas-wrap') return null;
+    cur=cur.parentElement;
+  }
+  // その他（背景など）→ null扱い（キャンバスモード）
+  return null;
 }
 
-function drawGazeProgress(progress) {
-  const size = 80;
-  gazeProgressCtx.clearRect(0, 0, size, size);
-  if (progress <= 0) return;
-  gazeProgressCtx.beginPath();
-  gazeProgressCtx.arc(size/2, size/2, size/2-6, -Math.PI/2, -Math.PI/2 + Math.PI*2*progress);
-  gazeProgressCtx.lineWidth = 6;
-  gazeProgressCtx.strokeStyle = `rgba(255,107,107,${0.5 + progress*0.5})`;
-  gazeProgressCtx.stroke();
-}
+// ================================================================
+// 視線モード ON/OFF
+// ================================================================
+function toggleGaze() {
+  S.gazeMode=!S.gazeMode;
+  document.body.classList.toggle('gaze-on',S.gazeMode);
+  document.getElementById('btn-gaze').classList.toggle('active',S.gazeMode);
+  document.getElementById('status-gaze').textContent=`視線: ${S.gazeMode?'オン':'オフ'}`;
 
-function activateGazeDraw(x, y) {
-  const pos = clientToCanvas(x, y);
-  startDraw(pos.x, pos.y);
-  gazeDrawing = true;
-  gazeCursor.style.background = 'rgba(255,50,50,0.3)';
-  // Auto-stop after 2 seconds of drawing without movement feedback
-  gazeDwellTimeout = setTimeout(() => {
-    endDraw();
-    gazeDrawing = false;
-    gazeCursor.style.background = 'rgba(255,107,107,0.15)';
-  }, 2000);
+  if (S.gazeMode) {
+    // 初期位置を中央に
+    sx=window.innerWidth/2; sy=window.innerHeight/2;
+    dwX=sx; dwY=sy;
+    moveCursor(sx,sy);
+    gazeCursorEl.style.display='block';
+    gazeRingEl.style.display='block';
+    gazeBanner.style.display='block';
+    resetDwell();
+    beginDwell(sx,sy,null);
+  } else {
+    gazeCursorEl.style.display='none';
+    gazeRingEl.style.display='none';
+    gazeBanner.style.display='none';
+    resetDwell();
+  }
 }
+document.getElementById('btn-gaze').addEventListener('click',toggleGaze);
 
-function stopGazeDraw() {
-  clearGazeDwell();
-  if (gazeDrawing) { endDraw(); gazeDrawing = false; }
-}
+// 設定パネル
+document.getElementById('sel-dwell').addEventListener('change',e=>{ S.gazeDwellMs=+e.target.value; resetDwell(); });
+document.getElementById('sel-tol').addEventListener('change',e=>{ S.gazeTolerance=+e.target.value; resetDwell(); });
+document.getElementById('sel-draw-mode').addEventListener('change',e=>{ S.gazeDrawMode=e.target.value; resetDwell(); });
 
-function clientToCanvas(cx, cy) {
-  const rect = drawCanvas.getBoundingClientRect();
-  return { x: cx - rect.left, y: cy - rect.top };
-}
+// ================================================================
+// PALETTE
+// ================================================================
+const palEl=document.getElementById('palette');
+let selDot=null;
+COLORS.forEach(c=>{
+  const d=document.createElement('div');
+  d.className='color-dot'; d.style.background=c;
+  d.addEventListener('click',()=>{ S.color=c; if(selDot)selDot.classList.remove('active'); d.classList.add('active'); selDot=d; });
+  if(c===S.color){d.classList.add('active');selDot=d;}
+  palEl.appendChild(d);
+});
+document.getElementById('custom-color').addEventListener('input',e=>{ S.color=e.target.value; if(selDot)selDot.classList.remove('active'); selDot=null; });
 
-function showGazeCalibrationHint() {
-  // brief onscreen hint
-  const hint = document.createElement('div');
-  hint.style.cssText = `
-    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:rgba(0,0,0,0.85);color:#fff;padding:20px 30px;
-    border-radius:20px;z-index:99999;text-align:center;font-size:1rem;
-    max-width:320px;line-height:1.7;
-  `;
-  hint.innerHTML = `
-    <div style="font-size:2rem;margin-bottom:8px;">👁️</div>
-    <b>しせんにゅうりょく ON</b><br>
-    カメラをきょかしてください。<br>
-    しばらくがめんをみつめると えがかけます。<br>
-    <small style="opacity:.7">WebGazer によるしせんついせき</small>
-  `;
-  document.body.appendChild(hint);
-  setTimeout(() => hint.remove(), 4000);
-}
-
-function showGazeFallbackMessage() {
-  const hint = document.createElement('div');
-  hint.style.cssText = `
-    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:rgba(0,0,0,0.85);color:#fff;padding:20px 30px;
-    border-radius:20px;z-index:99999;text-align:center;font-size:1rem;
-    max-width:360px;line-height:1.7;
-  `;
-  hint.innerHTML = `
-    <div style="font-size:2rem;margin-bottom:8px;">🖱️</div>
-    <b>シミュレーションモード</b><br>
-    WebGazer をよみこめませんでした。<br>
-    マウスやポインタで しせんをシミュレートします。<br>
-    <small style="opacity:.7">視線入力デバイス（Tobii等）はOSレベルでポインタとして動作するため、このモードで対応できます。</small>
-  `;
-  document.body.appendChild(hint);
-  setTimeout(() => hint.remove(), 5000);
-}
-
-// ======================================================
-// POINTER / TOUCH EVENTS
-// ======================================================
-function pointerStart(e) {
-  if (state.gazeMode) return;
-  e.preventDefault();
-  const pos = getCanvasPos(e);
-  startDraw(pos.x, pos.y);
-}
-function pointerMove(e) {
-  if (state.gazeMode) return;
-  e.preventDefault();
-  const pos = getCanvasPos(e);
-  moveDraw(pos.x, pos.y);
-  document.getElementById('status-pos').textContent = `X: ${Math.round(pos.x)}  Y: ${Math.round(pos.y)}`;
-}
-function pointerEnd(e) {
-  if (state.gazeMode) return;
-  e.preventDefault();
-  endDraw();
-}
-
-drawCanvas.addEventListener('pointerdown', pointerStart, { passive: false });
-drawCanvas.addEventListener('pointermove', pointerMove, { passive: false });
-drawCanvas.addEventListener('pointerup', pointerEnd, { passive: false });
-drawCanvas.addEventListener('pointerleave', pointerEnd, { passive: false });
-drawCanvas.addEventListener('touchstart', pointerStart, { passive: false });
-drawCanvas.addEventListener('touchmove', pointerMove, { passive: false });
-drawCanvas.addEventListener('touchend', pointerEnd, { passive: false });
-
-// ======================================================
-// PALETTE BUILD
-// ======================================================
-const palette = document.getElementById('palette');
-let selectedColorDot = null;
-
-COLORS.forEach(c => {
-  const dot = document.createElement('div');
-  dot.className = 'color-dot';
-  dot.style.background = c;
-  dot.title = c;
-  dot.addEventListener('click', () => {
-    state.color = c;
-    if (selectedColorDot) selectedColorDot.classList.remove('active');
-    dot.classList.add('active');
-    selectedColorDot = dot;
-  });
-  if (c === state.color) { dot.classList.add('active'); selectedColorDot = dot; }
-  palette.appendChild(dot);
+const bgPalEl=document.getElementById('bg-palette');
+BG_COLORS.forEach(c=>{
+  const d=document.createElement('div');
+  d.className='color-dot'; d.style.background=c; d.style.border='3px solid #ddd';
+  d.addEventListener('click',()=>{ document.getElementById('bg-custom').value=c; });
+  bgPalEl.appendChild(d);
 });
 
-document.getElementById('custom-color').addEventListener('input', e => {
-  state.color = e.target.value;
-  if (selectedColorDot) selectedColorDot.classList.remove('active');
-  selectedColorDot = null;
-});
-
-// BG palette
-const bgPal = document.getElementById('bg-palette');
-BG_COLORS.forEach(c => {
-  const dot = document.createElement('div');
-  dot.className = 'color-dot';
-  dot.style.background = c;
-  dot.style.border = '3px solid #ddd';
-  dot.title = c;
-  dot.addEventListener('click', () => {
-    document.getElementById('bg-custom').value = c;
-  });
-  bgPal.appendChild(dot);
-});
-
-// ======================================================
+// ================================================================
 // TOOL BUTTONS
-// ======================================================
-const toolNames = { pen:'えんぴつ', brush:'ふで', fill:'ぬりつぶし', spray:'スプレー', eraser:'けしごむ', stamp:'スタンプ' };
-
-document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+// ================================================================
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    state.tool = btn.dataset.tool;
-    document.getElementById('status-tool').textContent = `ツール: ${toolNames[state.tool] || state.tool}`;
-    if (state.tool === 'stamp') openModal('stamp-modal');
+    S.tool=btn.dataset.tool;
+    document.getElementById('status-tool').textContent=`ツール: ${TOOL_NAMES[S.tool]||S.tool}`;
+    if(S.tool==='stamp') openModal('stamp-modal');
   });
 });
 
-// Size
-document.getElementById('brush-size').addEventListener('input', e => {
-  state.size = +e.target.value;
-  document.getElementById('size-val').textContent = state.size;
-});
+document.getElementById('brush-size').addEventListener('input',e=>{ S.size=+e.target.value; document.getElementById('size-val').textContent=S.size; });
+document.getElementById('opacity-range').addEventListener('input',e=>{ S.opacity=+e.target.value/100; document.getElementById('opacity-val').textContent=e.target.value; });
 
-// Opacity
-document.getElementById('opacity-range').addEventListener('input', e => {
-  state.opacity = +e.target.value / 100;
-  document.getElementById('opacity-val').textContent = e.target.value;
-});
-
-// Actions
-document.getElementById('btn-undo').addEventListener('click', undo);
-document.getElementById('btn-redo').addEventListener('click', redo);
-document.getElementById('btn-clear').addEventListener('click', () => {
-  if (confirm('ぜんぶけしますか？')) { saveState(); ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height); }
-});
-document.getElementById('btn-reset').addEventListener('click', () => openModal('reset-modal'));
-document.getElementById('btn-reset-confirm').addEventListener('click', () => {
-  // Clear drawing canvas
-  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-  // Reset bg to white
-  state.bgColor = '#FFFFFF';
-  // Remove trace image
-  traceImg = null;
-  document.getElementById('trace-controls').style.display = 'none';
-  fillBg();
-  // Clear undo/redo history
-  undoStack = [];
-  redoStack = [];
-  // Reset URL hash
-  history.replaceState(null, '', location.pathname);
+// ================================================================
+// ACTIONS
+// ================================================================
+document.getElementById('btn-undo').addEventListener('click',undo);
+document.getElementById('btn-redo').addEventListener('click',redo);
+document.getElementById('btn-clear').addEventListener('click',()=>{ if(confirm('ぜんぶけしますか？')){saveState();ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);} });
+document.getElementById('btn-reset').addEventListener('click',()=>openModal('reset-modal'));
+document.getElementById('btn-reset-confirm').addEventListener('click',()=>{
+  ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height);
+  S.bgColor='#FFFFFF'; traceImg=null;
+  document.getElementById('trace-controls').style.display='none';
+  fillBg(); undoStack=[]; redoStack=[];
+  history.replaceState(null,'',location.pathname);
   closeModal('reset-modal');
 });
-document.getElementById('btn-gaze').addEventListener('click', toggleGazeMode);
 
-// BG
-document.getElementById('btn-bg').addEventListener('click', () => openModal('bg-modal'));
-document.getElementById('btn-apply-bg').addEventListener('click', () => {
-  state.bgColor = document.getElementById('bg-custom').value;
-  fillBg();
-  closeModal('bg-modal');
+document.getElementById('btn-bg').addEventListener('click',()=>openModal('bg-modal'));
+document.getElementById('btn-apply-bg').addEventListener('click',()=>{ S.bgColor=document.getElementById('bg-custom').value; fillBg(); closeModal('bg-modal'); });
+
+document.getElementById('btn-image').addEventListener('click',()=>document.getElementById('file-image').click());
+document.getElementById('file-image').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{ traceImg=img; fillBg(); document.getElementById('trace-controls').style.display='flex'; };
+  img.src=URL.createObjectURL(f); e.target.value='';
+});
+document.getElementById('trace-opacity').addEventListener('input',e=>{ S.traceOpacity=+e.target.value/100; document.getElementById('trace-val').textContent=e.target.value+'%'; fillBg(); });
+document.getElementById('btn-trace-close').addEventListener('click',()=>{ traceImg=null; fillBg(); document.getElementById('trace-controls').style.display='none'; });
+
+// STAMPS
+const sg=document.getElementById('stamp-grid');
+STAMPS.forEach(s=>{
+  const b=document.createElement('button');
+  b.style.cssText='font-size:2.2rem;background:none;border:3px solid transparent;border-radius:14px;cursor:pointer;padding:8px;transition:border-color .15s,transform .15s;';
+  b.textContent=s;
+  b.addEventListener('click',()=>{ S.stamp=s; document.querySelectorAll('.tool-btn[data-tool]').forEach(x=>x.classList.remove('active')); document.getElementById('btn-stamp').classList.add('active'); S.tool='stamp'; closeModal('stamp-modal'); });
+  b.addEventListener('mouseenter',()=>{b.style.borderColor='#FF6B6B';b.style.transform='scale(1.2)';});
+  b.addEventListener('mouseleave',()=>{b.style.borderColor='transparent';b.style.transform='scale(1)';});
+  sg.appendChild(b);
 });
 
-// Image load (trace)
-document.getElementById('btn-image').addEventListener('click', () => {
-  document.getElementById('file-image').click();
-});
-document.getElementById('file-image').addEventListener('change', e => {
-  const file = e.target.files[0]; if (!file) return;
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    traceImg = img;
-    fillBg();
-    document.getElementById('trace-controls').style.display = 'flex';
-  };
-  img.src = url;
-  e.target.value = '';
-});
+// FLAT CANVAS HELPER
+function flatCanvas(){
+  const c=document.createElement('canvas');
+  c.width=drawCanvas.width; c.height=drawCanvas.height;
+  const fc=c.getContext('2d');
+  fc.fillStyle=S.bgColor; fc.fillRect(0,0,c.width,c.height);
+  fc.drawImage(bgCanvas,0,0); fc.drawImage(drawCanvas,0,0);
+  return c;
+}
 
-// Trace opacity
-document.getElementById('trace-opacity').addEventListener('input', e => {
-  state.traceOpacity = +e.target.value / 100;
-  document.getElementById('trace-val').textContent = e.target.value + '%';
-  fillBg();
-});
-document.getElementById('btn-trace-close').addEventListener('click', () => {
-  traceImg = null;
-  fillBg();
-  document.getElementById('trace-controls').style.display = 'none';
-});
-
-// ======================================================
-// STAMP MODAL
-// ======================================================
-const stampGrid = document.getElementById('stamp-grid');
-STAMPS.forEach(s => {
-  const btn = document.createElement('button');
-  btn.style.cssText = 'font-size:2.2rem;background:none;border:3px solid transparent;border-radius:14px;cursor:pointer;padding:8px;transition:border-color .15s,transform .15s;';
-  btn.textContent = s;
-  btn.addEventListener('click', () => {
-    state.stamp = s;
-    closeModal('stamp-modal');
-    // switch to stamp tool
-    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn-stamp').classList.add('active');
-    state.tool = 'stamp';
-  });
-  btn.addEventListener('mouseenter', () => { btn.style.borderColor = '#FF6B6B'; btn.style.transform = 'scale(1.2)'; });
-  btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'transparent'; btn.style.transform = 'scale(1)'; });
-  stampGrid.appendChild(btn);
-});
-
-// ======================================================
-// SHARE (Base64 URL encoding)
-// ======================================================
-document.getElementById('btn-share').addEventListener('click', async () => {
-  // Flatten bg + drawing into one image
-  const flat = document.createElement('canvas');
-  flat.width = drawCanvas.width; flat.height = drawCanvas.height;
-  const fCtx = flat.getContext('2d');
-  fCtx.fillStyle = state.bgColor;
-  fCtx.fillRect(0,0,flat.width,flat.height);
-  if (traceImg) {
-    const scale = Math.min(flat.width/traceImg.width, flat.height/traceImg.height)*0.9;
-    const dw=traceImg.width*scale, dh=traceImg.height*scale;
-    fCtx.globalAlpha = state.traceOpacity;
-    fCtx.drawImage(traceImg,(flat.width-dw)/2,(flat.height-dh)/2,dw,dh);
-    fCtx.globalAlpha=1;
-  }
-  fCtx.drawImage(drawCanvas,0,0);
-
-  // Compress to JPEG, encode as base64, embed in URL hash
-  const quality = 0.7;
-  flat.toBlob(blob => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const b64 = reader.result.split(',')[1];
-      // Truncate if too large for URL (use sessionStorage as fallback)
-      if (b64.length < 500000) {
-        const url = location.href.split('#')[0] + '#img=' + encodeURIComponent(b64);
-        document.getElementById('share-url').value = url;
-      } else {
-        const key = 'drawing_' + Date.now();
-        try { sessionStorage.setItem(key, b64); } catch(e) {}
-        const url = location.href.split('#')[0] + '#key=' + key;
-        document.getElementById('share-url').value = url + ' (※このページを開いている間だけ有効です)';
-      }
+// SHARE
+document.getElementById('btn-share').addEventListener('click',()=>{
+  flatCanvas().toBlob(blob=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const b64=r.result.split(',')[1];
+      const url=b64.length<500000
+        ? location.href.split('#')[0]+'#img='+encodeURIComponent(b64)
+        : (()=>{ const k='drw_'+Date.now(); try{sessionStorage.setItem(k,b64);}catch(e){} return location.href.split('#')[0]+'#key='+k+'（このタブを開いている間のみ有効）'; })();
+      document.getElementById('share-url').value=url;
       openModal('share-modal');
     };
-    reader.readAsDataURL(blob);
-  }, 'image/jpeg', quality);
+    r.readAsDataURL(blob);
+  },'image/jpeg',0.7);
 });
-
-document.getElementById('btn-copy-url').addEventListener('click', () => {
-  const input = document.getElementById('share-url');
-  navigator.clipboard.writeText(input.value).then(() => {
-    document.getElementById('btn-copy-url').textContent = '✅ コピーしました！';
-    setTimeout(() => document.getElementById('btn-copy-url').textContent = '📋 コピー', 2000);
+document.getElementById('btn-copy-url').addEventListener('click',()=>{
+  navigator.clipboard.writeText(document.getElementById('share-url').value).then(()=>{
+    document.getElementById('btn-copy-url').textContent='✅ コピーしました！';
+    setTimeout(()=>document.getElementById('btn-copy-url').textContent='📋 コピー',2000);
   });
 });
 
-// Load shared image from URL hash
-function loadFromHash() {
-  const hash = location.hash;
-  if (hash.startsWith('#img=')) {
-    const b64 = decodeURIComponent(hash.slice(5));
-    loadBase64Image(b64);
-  } else if (hash.startsWith('#key=')) {
-    const key = hash.slice(5);
-    const b64 = sessionStorage.getItem(key);
-    if (b64) loadBase64Image(b64);
-  }
+function loadFromHash(){
+  const h=location.hash;
+  if(h.startsWith('#img=')){const i=new Image();i.onload=()=>ctx.drawImage(i,0,0,drawCanvas.width,drawCanvas.height);i.src='data:image/jpeg;base64,'+decodeURIComponent(h.slice(5));}
+  else if(h.startsWith('#key=')){const b64=sessionStorage.getItem(h.slice(5).split('（')[0]);if(b64){const i=new Image();i.onload=()=>ctx.drawImage(i,0,0,drawCanvas.width,drawCanvas.height);i.src='data:image/jpeg;base64,'+b64;}}
 }
-function loadBase64Image(b64) {
-  const img = new Image();
-  img.onload = () => { ctx.drawImage(img,0,0,drawCanvas.width,drawCanvas.height); };
-  img.src = 'data:image/jpeg;base64,' + b64;
-}
-window.addEventListener('load', () => setTimeout(loadFromHash, 300));
+window.addEventListener('load',()=>setTimeout(loadFromHash,300));
 
-// ======================================================
 // PRINT
-// ======================================================
-document.getElementById('btn-print').addEventListener('click', () => {
-  const flat = document.createElement('canvas');
-  flat.width = drawCanvas.width; flat.height = drawCanvas.height;
-  const fCtx = flat.getContext('2d');
-  fCtx.fillStyle = state.bgColor;
-  fCtx.fillRect(0,0,flat.width,flat.height);
-  fCtx.drawImage(bgCanvas,0,0);
-  fCtx.drawImage(drawCanvas,0,0);
-
-  const printWin = window.open('','_blank');
-  if (!printWin) { alert('ポップアップをきょかしてから もういちどためしてください'); return; }
-  printWin.document.write(`
-    <html><head><title>おえかき さくひん</title>
-    <style>
-      body{margin:0;padding:0;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}
-      img{max-width:100%;max-height:100vh;object-fit:contain;}
-      @media print{body{margin:0;}img{width:100%;}}
-    </style></head>
-    <body><img src="${flat.toDataURL('image/png')}" id="pi">
-    <script>
-      document.getElementById('pi').onload=function(){window.print();setTimeout(function(){window.close();},500);};
-    <\/script>
-    </body></html>
-  `);
-  printWin.document.close();
+document.getElementById('btn-print').addEventListener('click',()=>{
+  const w=window.open('','_blank');
+  if(!w){alert('ポップアップをきょかしてください');return;}
+  w.document.write(`<html><head><title>おえかき</title><style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;}img{max-width:100%;max-height:100vh;}@media print{img{width:100%;}}</style></head><body><img src="${flatCanvas().toDataURL('image/png')}" id="p"><script>document.getElementById('p').onload=()=>{window.print();setTimeout(()=>window.close(),500);}<\/script></body></html>`);
+  w.document.close();
 });
 
-// ======================================================
-// SAVE / LOAD
-// ======================================================
-document.getElementById('btn-save').addEventListener('click', () => {
-  // Save as PNG
-  const flat = document.createElement('canvas');
-  flat.width = drawCanvas.width; flat.height = drawCanvas.height;
-  const fCtx = flat.getContext('2d');
-  fCtx.fillStyle = state.bgColor;
-  fCtx.fillRect(0,0,flat.width,flat.height);
-  fCtx.drawImage(bgCanvas,0,0);
-  fCtx.drawImage(drawCanvas,0,0);
+// SAVE
+document.getElementById('btn-save').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.download='oekaki_'+new Date().toISOString().slice(0,10)+'.png';
+  a.href=flatCanvas().toDataURL('image/png'); a.click();
+});
+
+// KEYBOARD
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();}
+  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key==='Z'){e.preventDefault();redo();}
+  const map={e:'btn-eraser',p:'btn-pen',b:'btn-brush'};
+  if(map[e.key]) document.getElementById(map[e.key]).click();
+  if(e.key==='['){const s=Math.max(2,S.size-2);document.getElementById('brush-size').value=s;S.size=s;document.getElementById('size-val').textContent=s;}
+  if(e.key===']'){const s=Math.min(80,S.size+2);document.getElementById('brush-size').value=s;S.size=s;document.getElementById('size-val').textContent=s;}
+});
+
+// MODALS
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+window.closeModal=closeModal;
+document.querySelectorAll('.modal-overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});});
+
+// ================================================================
+// FULLSCREEN
+// ================================================================
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (el.requestFullscreen)            el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  else if (el.mozRequestFullScreen)    el.mozRequestFullScreen();
+  else if (el.msRequestFullscreen)     el.msRequestFullscreen();
+}
+function exitFullscreen() {
+  if (document.exitFullscreen)            document.exitFullscreen();
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  else if (document.mozCancelFullScreen)  document.mozCancelFullScreen();
+  else if (document.msExitFullscreen)     document.msExitFullscreen();
+}
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement ||
+            document.mozFullScreenElement || document.msFullscreenElement);
+}
+function onFullscreenChange() {
+  const fs = isFullscreen();
+  document.body.classList.toggle('fullscreen', fs);
+  document.getElementById('btn-fullscreen').textContent = fs ? '⊡' : '⛶';
+  document.getElementById('btn-fullscreen').setAttribute('data-tip', fs ? 'もとにもどす' : 'ぜんがめんひょうじ');
+  resize(); // キャンバスをリサイズ
+  syncFloatToolbar();
+}
+document.addEventListener('fullscreenchange',       onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+document.addEventListener('mozfullscreenchange',    onFullscreenChange);
+document.addEventListener('msfullscreenchange',     onFullscreenChange);
+
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  if (isFullscreen()) exitFullscreen(); else enterFullscreen();
+});
+document.getElementById('btn-fs-exit').addEventListener('click', exitFullscreen);
+
+// ツールバー自動隠し / 上端ホバーで再表示
+let toolbarHideTimer = null;
+function scheduleToolbarHide() {
+  clearTimeout(toolbarHideTimer);
+  toolbarHideTimer = setTimeout(() => {
+    if (isFullscreen()) document.body.classList.add('toolbar-hidden');
+  }, 3000);
+}
+function showToolbar() {
+  document.body.classList.remove('toolbar-hidden');
+  scheduleToolbarHide();
+}
+document.getElementById('fs-hover-zone').addEventListener('mouseenter', showToolbar);
+document.getElementById('fs-hover-zone').addEventListener('pointermove', showToolbar);
+document.getElementById('float-toolbar').addEventListener('mouseenter', () => {
+  clearTimeout(toolbarHideTimer);
+  document.body.classList.remove('toolbar-hidden');
+});
+document.getElementById('float-toolbar').addEventListener('mouseleave', scheduleToolbarHide);
+
+// ================================================================
+// FLOAT TOOLBAR (フルスクリーン用) — メインUIと同期
+// ================================================================
+// カラーパレットをフロートにも複製
+const fcPalEl = document.getElementById('fc-palette');
+fcPalEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;max-width:220px;';
+let fcSelDot = null;
+COLORS.forEach(c => {
+  const d = document.createElement('div');
+  d.className = 'color-dot';
+  d.style.cssText = `background:${c};width:28px;height:28px;`;
+  d.addEventListener('click', () => {
+    S.color = c;
+    // メインパレットも同期
+    palEl.querySelectorAll('.color-dot').forEach(dot => {
+      if (dot.style.background === c || dot.style.backgroundColor === c) {
+        if (selDot) selDot.classList.remove('active');
+        dot.classList.add('active'); selDot = dot;
+      }
+    });
+    if (fcSelDot) fcSelDot.classList.remove('active');
+    d.classList.add('active'); fcSelDot = d;
+  });
+  if (c === S.color) { d.classList.add('active'); fcSelDot = d; }
+  fcPalEl.appendChild(d);
+});
+document.getElementById('fc-custom-color').addEventListener('input', e => {
+  S.color = e.target.value;
+  document.getElementById('custom-color').value = e.target.value;
+  if (fcSelDot) fcSelDot.classList.remove('active'); fcSelDot = null;
+  if (selDot)   selDot.classList.remove('active');   selDot   = null;
+});
+
+// フロートのツールボタン
+document.querySelectorAll('#float-toolbar .tool-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // メイン側も同期
+    const mainBtn = document.getElementById('btn-' + btn.dataset.tool) ||
+                    document.getElementById('btn-' + btn.id.replace('fc-',''));
+    if (mainBtn) mainBtn.click();
+    // フロート側のactive更新
+    syncFloatToolbar();
+  });
+});
+document.getElementById('fc-undo').addEventListener('click', undo);
+document.getElementById('fc-redo').addEventListener('click', redo);
+document.getElementById('fc-clear').addEventListener('click', () => {
+  if (confirm('ぜんぶけしますか？')) { saveState(); ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height); }
+});
+document.getElementById('fc-save').addEventListener('click', () => {
   const a = document.createElement('a');
   a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
-  a.href = flat.toDataURL('image/png');
-  a.click();
+  a.href = flatCanvas().toDataURL('image/png'); a.click();
 });
 
-// ======================================================
-// KEYBOARD SHORTCUTS
-// ======================================================
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if ((e.ctrlKey||e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
-  if ((e.ctrlKey||e.metaKey) && e.shiftKey && e.key === 'Z') { e.preventDefault(); redo(); }
-  if (e.key === 'e') { state.tool='eraser'; document.getElementById('btn-eraser').click(); }
-  if (e.key === 'p') { state.tool='pen'; document.getElementById('btn-pen').click(); }
-  if (e.key === 'b') { state.tool='brush'; document.getElementById('btn-brush').click(); }
-  if (e.key === '[') {
-    const s = Math.max(2, state.size - 2);
-    document.getElementById('brush-size').value = s;
-    state.size = s; document.getElementById('size-val').textContent = s;
-  }
-  if (e.key === ']') {
-    const s = Math.min(80, state.size + 2);
-    document.getElementById('brush-size').value = s;
-    state.size = s; document.getElementById('size-val').textContent = s;
-  }
-});
+function syncFloatToolbar() {
+  // ツール active 同期
+  const toolMap = { pen:'fc-pen', brush:'fc-brush', fill:'fc-fill', spray:'fc-spray', eraser:'fc-eraser', stamp:'fc-stamp' };
+  document.querySelectorAll('#float-toolbar .tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+  const fcId = toolMap[S.tool];
+  if (fcId) { const el=document.getElementById(fcId); if(el) el.classList.add('active'); }
+}
 
-// ======================================================
-// MODAL HELPERS
-// ======================================================
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-window.closeModal = closeModal;
+// ================================================================
+// HELP
+document.getElementById('btn-help').addEventListener('click', () => openModal('help-modal'));
 
-document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
-});
-
-// ======================================================
-// MULTI-TOUCH PINCH-ZOOM (future: for canvas zoom)
-// ======================================================
-// placeholder — pinch gesture tracking for later enhancement
-
-// ======================================================
-// DONE
-// ======================================================
-console.log('🎨 おえかきひろば ready');
+// ================================================================
+// INIT
+resize();
+syncFloatToolbar();
+console.log('🎨 おえかきひろば — Tobii対応版 ready');
 </script>
 </body>
 </html>
