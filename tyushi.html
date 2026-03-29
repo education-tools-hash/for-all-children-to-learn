@@ -1,415 +1,1616 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>原因と結果・完全版</title>
-    <style>
-        :root {
-            --bg-color: #fdf6e3; /* 初期背景色 */
-            --target-idle: #ffffff;
-            --target-active: #ffeb3b;
-            --accent: #4fc3f7;
-            --text-base-size: 16px;
-            --settings-btn-bg: rgba(255,255,255,0.8);
-            --settings-btn-color: #333;
-        }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-color); font-family: sans-serif; transition: background-color 0.3s, color 0.3s; }
-        
-        /* ターゲット（円） */
-        #target {
-            position: absolute;
-            background-color: var(--target-idle);
-            border: 8px solid var(--accent);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            left: 50%; top: 50%;
-            transform: translate(-50%, -50%);
-            transition: left 0.5s ease-out, top 0.5s ease-out, background-color 0.1s, transform 0.1s;
-            overflow: hidden;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ひかるボタン</title>
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --bg:         #060610;
+  --btn-size:   140px;
+  --btn-color:  #ff4400;
+  --btn-border: #ff8844;
+  --glow:       #ff6622;
+  --dwell-ms:   1200;
+  --move-ms:    800;
+  --anim-speed: 1;
+  --ring-dur:   2.4s;
+  --float-dur:  3s;
+}
 
-        /* 反応時の演出 */
-        #target.active {
-            background-color: var(--target-active);
-            border-color: #fbc02d;
-            transform: translate(-50%, -50%) scale(1.1);
-            box-shadow: 0 0 50px #fff176;
-        }
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
-        /* 円の中の画像 */
-        #content-img {
-            width: 90%; height: 90%;
-            object-fit: contain;
-            pointer-events: none;
-            border-radius: 50%; /* 画像も丸く切り抜く */
-        }
+html, body {
+  width:100%; height:100%; overflow:hidden;
+  background: var(--bg);
+  touch-action: manipulation;
+  user-select:none; -webkit-user-select:none;
+  cursor: none;
+}
 
-        /* 設定ボタン（右上の歯車アイコン） */
-        #settingsBtn {
-            position: fixed; top: 10px; right: 10px;
-            width: 44px; height: 44px;
-            background-color: var(--settings-btn-bg);
-            color: var(--settings-btn-color);
-            border: none; border-radius: 50%;
-            cursor: pointer; z-index: 100;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            font-size: 1.2rem;
-        }
+/* ── STAR BACKGROUND ── */
+#stars {
+  position:fixed; inset:0;
+  pointer-events:none; z-index:0;
+  overflow:hidden;
+}
+.star {
+  position:absolute; border-radius:50%;
+  background:#fff; opacity:0;
+  animation: twinkle var(--dur,3s) ease-in-out infinite var(--delay,0s);
+}
+@keyframes twinkle {
+  0%,100% { opacity:0; }
+  50%      { opacity: var(--bright,0.4); }
+}
 
-        /* 設定パネル（先生用） */
-        #settingsPanel {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.98);
-            z-index: 1000;
-            display: none; /* 初期は非表示 */
-            overflow-y: auto;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box; /* パディングを含める */
-        }
+/* ── STAGE ── */
+#stage { position:fixed; inset:0; z-index:1; overflow:hidden; }
 
-        /* パネルタイトル */
-        .panel-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 2px solid #eee; margin-bottom: 20px; }
-        .panel-title { font-size: 1.2rem; font-weight: bold; }
-        .panel-close { font-size: 1.5rem; background: none; border: none; cursor: pointer; color: #333; }
+/* ── BUTTON WRAPPER (moves) ── */
+#btn-wrap {
+  position:absolute;
+  width: var(--btn-size);
+  height: var(--btn-size);
+  transform: translate(-50%,-50%);
+  will-change: left, top;
+  transition:
+    left  calc(var(--move-ms) * 1ms) cubic-bezier(0.34,1.56,0.64,1),
+    top   calc(var(--move-ms) * 1ms) cubic-bezier(0.34,1.56,0.64,1);
+}
+#btn-wrap.instant { transition: none !important; }
 
-        /* 設定項目 */
-        .setting-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 0; border-bottom: 1px solid #f0f0f0;
-            font-size: var(--text-base-size);
-            box-sizing: border-box;
-        }
-        .setting-label { display: flex; flex-direction: column; flex-grow: 1; margin-right: 10px; }
-        .setting-sub-label { font-size: 0.8rem; color: #888; margin-top: 3px; }
-        .setting-control { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+/* ── OUTER GLOW HALO ── */
+#btn-halo {
+  position:absolute;
+  inset: -30%;
+  border-radius:50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--glow) 35%, transparent) 0%, transparent 70%);
+  pointer-events:none;
+  animation: haloPulse calc(var(--float-dur) / var(--anim-speed)) ease-in-out infinite;
+}
+@keyframes haloPulse {
+  0%,100% { transform:scale(1);   opacity:0.6; }
+  50%      { transform:scale(1.2); opacity:1.0; }
+}
 
-        /* プラス・マイナスボタン */
-        .qty-btn { width: 34px; height: 34px; border: 1px solid #ccc; border-radius: 5px; background: #fff; cursor: pointer; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; }
+/* ── BUTTON CORE ── */
+#btn-core {
+  position:relative;
+  width:100%; height:100%;
+  border-radius:50%;
+  background: var(--btn-color);
+  border: 4px solid var(--btn-border);
+  display:flex; align-items:center; justify-content:center;
+  overflow:visible;
+  box-shadow:
+    0 0 18px var(--glow),
+    0 0 50px color-mix(in srgb, var(--glow) 40%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.25);
+  transition: box-shadow 0.18s, transform 0.15s, filter 0.18s;
+  animation: btnFloat calc(var(--float-dur) / var(--anim-speed)) ease-in-out infinite;
+  z-index:2;
+}
+@keyframes btnFloat {
+  0%,100% { transform: translateY(0)  scale(1); }
+  50%      { transform: translateY(calc(var(--btn-size) * -0.07)) scale(1.02); }
+}
 
-        /* スイッチスキャン・自動読み上げトグル */
-        .toggle-switch {
-            width: 50px; height: 26px; border-radius: 13px;
-            background: #ccc; position: relative; cursor: pointer;
-            transition: background 0.3s;
-        }
-        .toggle-switch.on { background: #4caf50; }
-        .toggle-knob {
-            width: 22px; height: 22px; border-radius: 50%;
-            background: #fff; position: absolute; left: 2px; top: 2px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: left 0.3s;
-        }
-        .toggle-switch.on .toggle-knob { left: 26px; }
+#btn-core.gazing {
+  box-shadow:
+    0 0 35px var(--glow),
+    0 0 90px var(--glow),
+    0 0 160px color-mix(in srgb, var(--glow) 50%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+  filter: brightness(1.5) saturate(1.2);
+  animation-play-state: paused;
+  transform: scale(1.1) !important;
+}
+#btn-core.burst-out {
+  box-shadow:
+    0 0 80px var(--glow),
+    0 0 200px var(--glow),
+    0 0 400px white;
+  filter: brightness(2.5);
+  animation-play-state: paused;
+  transform: scale(1.35) !important;
+  transition: box-shadow 0.08s, transform 0.08s, filter 0.08s;
+}
 
-        /* カスタムファイルアップロードボタン */
-        .file-label {
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        .file-label:hover { background: #eee; }
-        #fileInput { display: none; } /* 本物のボタンは隠す */
-        
-        /* 色選択用入力 */
-        #bgColorInput {
-            border: none;
-            width: 40px;
-            height: 25px;
-            cursor: pointer;
-            background: none;
-        }
+/* inner shine */
+#btn-core::after {
+  content:'';
+  position:absolute;
+  top: 8%; left: 15%;
+  width: 40%; height: 28%;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+  pointer-events:none;
+  transform: rotate(-30deg);
+}
 
-        /* アプリ説明の全文表示 */
-        #app-about-text {
-            line-height: 1.5; margin-top: 10px;
-        }
+/* pulse rings */
+#btn-rings { position:absolute; inset:0; border-radius:50%; pointer-events:none; }
+.ring {
+  position:absolute; inset:-8%; border-radius:50%;
+  border: 2.5px solid var(--glow); opacity:0;
+  animation: ringOut calc(var(--ring-dur) / var(--anim-speed)) ease-out infinite;
+}
+.ring:nth-child(2) { animation-delay: calc(0.8s / var(--anim-speed)); }
+.ring:nth-child(3) { animation-delay: calc(1.6s / var(--anim-speed)); }
+@keyframes ringOut {
+  0%   { transform:scale(1);   opacity:0.55; }
+  100% { transform:scale(2.1); opacity:0; }
+}
+#btn-core.gazing .ring {
+  border-color:#fff;
+  animation-duration: calc(0.65s / var(--anim-speed));
+}
 
-        /* --- ハイコントラストモードのスタイル定義 --- */
-        body.high-contrast {
-            background-color: #000;
-            --bg-color: #000;
-            --target-idle: #333;
-            --target-active: #ffffff;
-            --accent: #ffffff;
-            color: #ffffff;
-            --settings-btn-bg: rgba(0,0,0,0.8);
-            --settings-btn-color: #fff;
-        }
-        
-        body.high-contrast #settingsPanel { background: rgba(0,0,0,0.95); color: #fff; }
-        body.high-contrast .setting-item { border-color: #444; }
-        body.high-contrast .setting-sub-label { color: #bbb; }
-        body.high-contrast .panel-close { color: #fff; }
-        body.high-contrast .qty-btn { background: #222; border-color: #666; color: #fff; }
-        body.high-contrast .panel-header { border-bottom-color: #444; }
-        body.high-contrast .file-label { background: #222; border-color: #666; color: #fff; }
+/* ── BUTTON CONTENT ── */
+#btn-content {
+  position:relative; z-index:3;
+  width:72%; height:72%;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%; overflow:hidden;
+  pointer-events:none;
+}
+#btn-emoji {
+  font-size: calc(var(--btn-size) * 0.40);
+  line-height:1;
+  transition: font-size 0.2s;
+  pointer-events:none;
+}
+#btn-image {
+  width:100%; height:100%;
+  object-fit:cover; border-radius:50%;
+  display:none; pointer-events:none;
+}
 
-        /* レスポンシブ調整（スマホ） */
-        @media screen and (max-width: 600px) {
-            .setting-item { flex-direction: column; align-items: flex-start; }
-            .setting-control { margin-top: 10px; width: 100%; justify-content: space-between; }
-            .panel-title { font-size: 1.1rem; }
-        }
+/* ── DWELL ARC (SVG overlay) ── */
+#dwell-svg {
+  position:absolute;
+  inset: -18px;
+  width: calc(100% + 36px);
+  height: calc(100% + 36px);
+  pointer-events:none; z-index:4;
+  transform: rotate(-90deg);
+}
+#dwell-bg  { fill:none; stroke:rgba(255,255,255,0.10); stroke-width:6; }
+#dwell-fg  {
+  fill:none; stroke:#fff; stroke-width:6;
+  stroke-linecap:round;
+  stroke-dasharray: 502;
+  stroke-dashoffset: 502;
+  filter: drop-shadow(0 0 5px rgba(255,255,255,0.9));
+  transition: stroke-dashoffset calc(var(--dwell-ms) * 1ms) linear;
+}
 
-    </style>
+/* ── SCAN HIGHLIGHT ── */
+#scan-ring {
+  position:absolute; inset:-14px;
+  border-radius:50%;
+  border: 5px solid #ffe066;
+  box-shadow: 0 0 22px #ffe066, 0 0 50px #ffe06688;
+  opacity:0; pointer-events:none;
+  transition: opacity 0.18s;
+  z-index:5;
+  animation: scanPulse 1s ease-in-out infinite;
+}
+#scan-ring.visible { opacity:1; }
+@keyframes scanPulse {
+  0%,100% { box-shadow: 0 0 22px #ffe066, 0 0 50px #ffe06688; }
+  50%      { box-shadow: 0 0 36px #ffe066, 0 0 80px #ffe066aa; }
+}
+
+/* ── EFFECTS LAYER ── */
+#fx-layer {
+  position:fixed; inset:0;
+  pointer-events:none; z-index:20;
+  overflow:hidden;
+}
+
+#screen-flash {
+  position:fixed; inset:0;
+  pointer-events:none; z-index:19;
+  opacity:0;
+}
+@keyframes flashOut {
+  0%   { opacity:0.72; }
+  100% { opacity:0; }
+}
+
+.burst-dot {
+  position:absolute; border-radius:50%;
+  pointer-events:none;
+  animation: dotFly calc(0.85s / var(--anim-speed)) ease-out forwards;
+}
+@keyframes dotFly {
+  0%   { transform:translate(0,0) scale(1.2); opacity:1; }
+  100% { transform:translate(var(--tx),var(--ty)) scale(0.05); opacity:0; }
+}
+
+.burst-emoji {
+  position:absolute;
+  font-size: 2.2rem; line-height:1;
+  pointer-events:none;
+  animation: emojiFly calc(1.15s / var(--anim-speed)) cubic-bezier(0.22,1,0.36,1) forwards;
+}
+@keyframes emojiFly {
+  0%   { transform:translate(-50%,-50%) scale(0.2) rotate(0deg);   opacity:1; }
+  65%  { opacity:1; }
+  100% { transform:translate(calc(-50% + var(--tx)),calc(-50% + var(--ty))) scale(1.1) rotate(var(--rot)); opacity:0; }
+}
+
+.ripple-ring {
+  position:absolute; border-radius:50%;
+  border:4px solid; pointer-events:none;
+  transform:translate(-50%,-50%) scale(0);
+  animation: rippleOut calc(0.95s / var(--anim-speed)) ease-out forwards;
+}
+@keyframes rippleOut {
+  0%   { transform:translate(-50%,-50%) scale(0); opacity:0.9; }
+  100% { transform:translate(-50%,-50%) scale(7); opacity:0; }
+}
+
+/* ══════════════════════════════════════════
+   HELP MODAL
+══════════════════════════════════════════ */
+#help-overlay {
+  position:fixed; inset:0; z-index:300;
+  background: rgba(0,0,8,0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  padding: 16px;
+  animation: overlayIn 0.35s ease-out;
+}
+@keyframes overlayIn {
+  from { opacity:0; }
+  to   { opacity:1; }
+}
+#help-overlay.closing {
+  animation: overlayOut 0.25s ease-in forwards;
+}
+@keyframes overlayOut {
+  to { opacity:0; }
+}
+
+#help-box {
+  background: rgba(10,10,26,0.98);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 22px;
+  width: 100%; max-width: 560px;
+  max-height: calc(100svh - 40px);
+  overflow-y: auto;
+  padding: 28px 26px 26px;
+  font-family: 'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;
+  color: rgba(255,255,255,0.85);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+  animation: boxIn 0.38s cubic-bezier(0.34,1.4,0.64,1);
+}
+@keyframes boxIn {
+  from { transform: translateY(22px) scale(0.97); opacity:0; }
+  to   { transform: translateY(0)    scale(1);    opacity:1; }
+}
+
+#help-box h1 {
+  font-size: 1.25rem; font-weight: 700;
+  color: #fff; margin-bottom: 4px;
+  display:flex; align-items:center; gap: 10px;
+}
+#help-box h1 .app-icon { font-size:1.6rem; }
+
+.help-subtitle {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.38);
+  margin-bottom: 22px;
+  letter-spacing: 0.03em;
+}
+
+/* step cards */
+.help-steps {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 22px;
+}
+.step-card {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 13px;
+  padding: 13px 14px;
+}
+.step-num {
+  flex-shrink:0;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--btn-color, #ff4400);
+  box-shadow: 0 0 12px var(--glow, #ff6622);
+  display:flex; align-items:center; justify-content:center;
+  font-size: 0.85rem; font-weight:700; color:#fff;
+}
+.step-body { flex:1; }
+.step-title { font-size:0.9rem; font-weight:600; color:#fff; margin-bottom:3px; }
+.step-desc  { font-size:0.78rem; color:rgba(255,255,255,0.52); line-height:1.6; }
+
+/* section heading in modal */
+.hsh {
+  font-size: 0.67rem; font-weight:700;
+  letter-spacing:0.13em; text-transform:uppercase;
+  color: rgba(255,255,255,0.3);
+  margin: 18px 0 9px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+/* device/input table */
+.help-table {
+  width:100%; border-collapse:collapse;
+  font-size:0.80rem; margin-bottom: 18px;
+}
+.help-table th {
+  text-align:left; padding: 5px 8px;
+  color:rgba(255,255,255,0.35); font-weight:600;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase;
+}
+.help-table td {
+  padding: 8px 8px;
+  color:rgba(255,255,255,0.70);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  vertical-align:top; line-height:1.55;
+}
+.help-table tr:last-child td { border-bottom:none; }
+.tag {
+  display:inline-block; padding:2px 7px;
+  border-radius:5px; font-size:0.70rem; font-weight:600;
+  background:rgba(255,204,68,0.18); color:#ffcc44;
+  border:1px solid rgba(255,204,68,0.35);
+  margin-right:3px; white-space:nowrap;
+}
+
+/* setting quick reference */
+.help-settings-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:7px; margin-bottom:18px;
+}
+.hsg-item {
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px; padding:10px 11px;
+}
+.hsg-label { font-size:0.75rem; color:#ffcc44; font-weight:600; margin-bottom:3px; }
+.hsg-desc  { font-size:0.72rem; color:rgba(255,255,255,0.48); line-height:1.5; }
+
+/* notice box */
+.help-notice {
+  background: rgba(255,204,68,0.07);
+  border: 1px solid rgba(255,204,68,0.22);
+  border-radius:11px; padding:12px 14px;
+  font-size:0.78rem; color:rgba(255,255,255,0.60);
+  line-height:1.65; margin-bottom:20px;
+}
+.help-notice strong { color:#ffcc44; }
+
+/* close button */
+#help-close {
+  display:block; width:100%;
+  padding:13px;
+  background: var(--btn-color, #ff4400);
+  box-shadow: 0 0 20px var(--glow, #ff6622);
+  border:none; border-radius:13px;
+  color:#fff; font-size:1rem; font-weight:700;
+  cursor:pointer; letter-spacing:0.06em;
+  font-family:inherit;
+  transition: filter 0.15s, transform 0.1s;
+}
+#help-close:hover  { filter:brightness(1.2); }
+#help-close:active { transform:scale(0.97); }
+
+
+/* ── HELP TABS ── */
+.help-tabs {
+  display:flex; gap:6px; margin-bottom:20px;
+  border-bottom:1px solid rgba(255,255,255,0.10);
+  padding-bottom:0;
+}
+.htab {
+  flex:1; padding:9px 4px 10px;
+  background:transparent;
+  border:none; border-bottom:3px solid transparent;
+  color:rgba(255,255,255,0.38);
+  font-family:'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;
+  font-size:0.78rem; font-weight:600;
+  cursor:pointer; letter-spacing:0.02em;
+  transition:color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color:transparent;
+  line-height:1.3; text-align:center;
+}
+.htab:hover { color:rgba(255,255,255,0.7); }
+.htab.active {
+  color:#fff;
+  border-bottom-color: var(--btn-color,#ff4400);
+}
+.htab .htab-icon { display:block; font-size:1.2rem; margin-bottom:2px; }
+
+/* tab panes */
+.hpane { display:none; animation:paneIn 0.22s ease-out; }
+.hpane.active { display:block; }
+@keyframes paneIn {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* child-mode pane: large friendly cards */
+.child-intro {
+  text-align:center; margin-bottom:18px;
+}
+.child-big-icon {
+  font-size:4.5rem; display:block; margin-bottom:8px;
+  animation:childBob 2s ease-in-out infinite;
+}
+@keyframes childBob {
+  0%,100%{ transform:translateY(0); }
+  50%    { transform:translateY(-8px); }
+}
+.child-heading {
+  font-size:1.4rem; font-weight:800; color:#fff;
+  margin-bottom:6px; letter-spacing:0.02em;
+}
+.child-sub {
+  font-size:0.88rem; color:rgba(255,255,255,0.50); margin-bottom:20px;
+}
+.child-steps { display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+.child-step {
+  display:flex; align-items:center; gap:14px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:14px; padding:14px 16px;
+}
+.child-step-icon { font-size:2.2rem; flex-shrink:0; }
+.child-step-text { font-size:0.92rem; font-weight:600; color:#fff; line-height:1.5; }
+.child-step-sub  { font-size:0.78rem; color:rgba(255,255,255,0.45); margin-top:2px; line-height:1.4; }
+.child-tip {
+  background:rgba(255,204,68,0.09);
+  border:1px solid rgba(255,204,68,0.25);
+  border-radius:12px; padding:12px 14px;
+  font-size:0.84rem; color:rgba(255,255,255,0.65);
+  line-height:1.65; text-align:center; margin-bottom:18px;
+}
+.child-tip strong { color:#ffcc44; }
+
+/* home-use pane */
+.home-card {
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.09);
+  border-radius:13px; padding:14px 15px;
+  margin-bottom:10px;
+}
+.home-card-title {
+  font-size:0.88rem; font-weight:700; color:#fff;
+  margin-bottom:5px; display:flex; align-items:center; gap:7px;
+}
+.home-card-body {
+  font-size:0.78rem; color:rgba(255,255,255,0.52); line-height:1.68;
+}
+.home-card-body li { margin-left:14px; margin-bottom:3px; }
+
+/* ── HELP BUTTON (?) ── */
+#help-btn {
+  position:fixed; bottom:22px; left:22px;
+  height:56px;
+  padding: 0 24px;
+  border-radius:28px;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.20);
+  color:rgba(255,255,255,0.65);
+  font-size:1.0rem; font-weight:600;
+  cursor:pointer; z-index:200;
+  display:flex; align-items:center; justify-content:center;
+  gap: 8px;
+  transition:all 0.2s;
+  -webkit-tap-highlight-color:transparent;
+  font-family:'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+#help-btn:hover {
+  background:rgba(255,255,255,0.13);
+  border-color:rgba(255,255,255,0.38);
+  color:#fff;
+}
+#help-btn .hb-icon { font-size:1.3rem; }
+
+/* ── SETTINGS BUTTON ── */
+#settings-btn {
+  position:fixed; bottom:22px; right:22px;
+  width:62px; height:62px; border-radius:50%;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.16);
+  color:rgba(255,255,255,0.55);
+  font-size:1.7rem; cursor:pointer; z-index:200;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s;
+  -webkit-tap-highlight-color:transparent;
+}
+#settings-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
+
+/* ── SETTINGS PANEL ── */
+#settings-panel {
+  position:fixed; bottom:96px; right:22px;
+  width:292px;
+  max-height: calc(100svh - 110px);
+  overflow-y:auto;
+  background:rgba(6,6,18,0.97);
+  border:1px solid rgba(255,255,255,0.13);
+  border-radius:20px;
+  padding:18px 16px 22px;
+  z-index:200;
+  display:none;
+  font-family:'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;
+  color:rgba(255,255,255,0.80);
+  font-size:0.83rem;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.12) transparent;
+}
+#settings-panel.open { display:block; }
+
+/* section heading */
+.sh {
+  font-size:0.67rem; font-weight:700;
+  letter-spacing:0.13em; text-transform:uppercase;
+  color:rgba(255,255,255,0.28);
+  margin: 16px 0 9px;
+  padding-bottom:5px;
+  border-bottom:1px solid rgba(255,255,255,0.07);
+}
+.sh:first-child { margin-top:0; }
+
+/* slider row */
+.sr {
+  display:flex; align-items:center;
+  gap:9px; margin-bottom:9px;
+}
+.sr .lbl { flex:1; line-height:1.4; }
+.sr input[type=range] { flex:1.5; accent-color:#ffcc44; }
+.sv { min-width:40px; text-align:right; color:#ffcc44; font-weight:700; font-size:0.81rem; }
+
+/* color row */
+.cr { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+.cr .lbl { flex:1; }
+.cr input[type=color] {
+  width:36px; height:28px; border:none;
+  border-radius:6px; padding:2px; cursor:pointer;
+  background:transparent;
+}
+
+/* big toggle (pill switch) */
+.big-sw {
+  display:flex; align-items:center; justify-content:space-between;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.11);
+  border-radius:11px; padding:10px 12px;
+  margin-bottom:9px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background 0.15s;
+}
+.big-sw:hover { background:rgba(255,255,255,0.09); }
+.big-sw .sw-label { font-size:0.83rem; flex:1; }
+.pill {
+  width:40px; height:22px; border-radius:11px;
+  background:rgba(255,255,255,0.14);
+  position:relative; flex-shrink:0;
+  transition:background 0.2s;
+}
+.pill::after {
+  content:''; position:absolute;
+  top:3px; left:3px;
+  width:16px; height:16px; border-radius:50%;
+  background:#fff; transition:transform 0.2s;
+}
+.big-sw.on .pill { background:#ffcc44; }
+.big-sw.on .pill::after { transform:translateX(18px); }
+
+/* emoji palette */
+.ep {
+  display:flex; flex-wrap:wrap; gap:5px; margin-bottom:9px;
+}
+.ep-btn {
+  width:36px; height:36px; border-radius:8px;
+  border:1.5px solid rgba(255,255,255,0.13);
+  background:rgba(255,255,255,0.05);
+  font-size:1.35rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.14s;
+  -webkit-tap-highlight-color:transparent;
+}
+.ep-btn:hover { background:rgba(255,204,68,0.18); border-color:#ffcc44; }
+.ep-btn.sel   { background:rgba(255,204,68,0.25); border-color:#ffcc44; box-shadow:0 0 8px #ffcc4455; }
+
+/* upload */
+#upload-lbl {
+  display:flex; align-items:center; gap:8px;
+  background:rgba(255,255,255,0.06);
+  border:1px dashed rgba(255,255,255,0.22);
+  border-radius:10px; padding:9px 12px;
+  cursor:pointer; font-size:0.81rem;
+  color:rgba(255,255,255,0.65); width:100%;
+  transition:all 0.15s; margin-bottom:8px;
+}
+#upload-lbl:hover { background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.42); }
+#file-in { display:none; }
+#img-prev { width:48px; height:48px; border-radius:50%; object-fit:cover;
+  border:2px solid rgba(255,255,255,0.2); display:none; margin-bottom:7px; }
+#clear-img { font-size:0.76rem; color:rgba(255,90,90,0.72); cursor:pointer; display:none; margin-bottom:9px; }
+#clear-img:hover { color:#ff6666; }
+
+/* effect chip toggles */
+.chips { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:9px; }
+.chip {
+  padding:4px 10px; border-radius:7px;
+  border:1px solid rgba(255,255,255,0.16);
+  background:transparent; color:rgba(255,255,255,0.5);
+  cursor:pointer; font-size:0.77rem;
+  transition:all 0.14s; font-family:inherit;
+  -webkit-tap-highlight-color:transparent;
+}
+.chip.on { background:#ffcc44; color:#000; border-color:#ffcc44; font-weight:700; }
+
+/* ── CONTRAST INVERT ── */
+html.invert-contrast {
+  filter: invert(1) hue-rotate(180deg);
+}
+/* keep emoji/images natural under inversion */
+html.invert-contrast img,
+html.invert-contrast #btn-emoji,
+html.invert-contrast .burst-emoji,
+html.invert-contrast .child-big-icon,
+html.invert-contrast .htab-icon,
+html.invert-contrast .step-card .step-num {
+  filter: invert(1) hue-rotate(180deg);
+}
+</style>
 </head>
-<body class="futsū">
+<body>
 
-    <div id="target">
-        <img id="content-img" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%234fc3f7' d='M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z'/%3E%3C/svg%3E" alt="target">
+<!-- starfield -->
+<div id="stars"></div>
+
+<!-- effects -->
+<div id="screen-flash"></div>
+<div id="fx-layer"></div>
+
+<!-- main stage -->
+<div id="stage">
+  <div id="btn-wrap" class="instant">
+    <div id="btn-halo"></div>
+    <div id="btn-core">
+      <div id="btn-rings">
+        <div class="ring"></div>
+        <div class="ring"></div>
+        <div class="ring"></div>
+      </div>
+      <div id="btn-content">
+        <span id="btn-emoji">⭐</span>
+        <img id="btn-image" alt="">
+      </div>
+      <div id="scan-ring"></div>
+      <svg id="dwell-svg" viewBox="0 0 176 176">
+        <circle id="dwell-bg" cx="88" cy="88" r="82"/>
+        <circle id="dwell-fg" cx="88" cy="88" r="82"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HELP MODAL ══ -->
+<div id="help-overlay" role="dialog" aria-modal="true" aria-label="使い方" style="display:none">
+  <div id="help-box">
+
+    <h1><span class="app-icon">✨</span>ひかるボタン　使い方</h1>
+    <p class="help-subtitle">対象に合わせてタブを選んでください</p>
+
+    <!-- TAB BAR -->
+    <div class="help-tabs" role="tablist">
+      <button class="htab active" data-tab="staff" role="tab" aria-selected="true">
+        <span class="htab-icon">🏫</span>先生・支援者
+      </button>
+      <button class="htab" data-tab="child" role="tab" aria-selected="false">
+        <span class="htab-icon">🌟</span>こどもへ
+      </button>
+      <button class="htab" data-tab="home" role="tab" aria-selected="false">
+        <span class="htab-icon">🏠</span>保護者向け
+      </button>
     </div>
 
-    <button id="settingsBtn">⚙️</button>
+    <!-- ══ TAB 1: STAFF / TEACHER ══ -->
+    <div class="hpane active" id="pane-staff" role="tabpanel">
 
-    <div id="settingsPanel">
-        <div class="panel-header">
-            <div class="panel-title">アクセシビリティ設定</div>
-            <button class="panel-close" id="settingsClose">×</button>
+      <div class="hsh">基本の使い方</div>
+      <div class="help-steps">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">👀 ボタンを見る（注視する）</div>
+            <div class="step-desc">光る丸いボタンに視線を向けると、白い円弧がカウントダウンします。これがドウェルです。注視を継続することでボタンを「押す」操作になります。</div>
+          </div>
         </div>
-
-        <div class="setting-item">
-            <div class="setting-label">🔠 もじを おおきく<span class="setting-sub-label">もじのサイズをかえます</span></div>
-            <div class="setting-control">
-                <button class="qty-btn" id="textSizeMinus">－</button>
-                <span id="textSizeStatus">ふつう</span>
-                <button class="qty-btn" id="textSizePlus">＋</button>
-            </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">💥 円弧が一周 → 光って反応</div>
+            <div class="step-desc">設定した時間（初期値1.2秒）注視し続けると、花火・フラッシュ・音が出ます。「自分が見たら画面が変わった」という原因と結果の体験です。</div>
+          </div>
         </div>
-
-        <div class="setting-item">
-            <div class="setting-label">🌑 ハイコントラスト<span class="setting-sub-label">くろいはいけいにきりかえます</span></div>
-            <div class="setting-control">
-                <div class="toggle-switch" id="highContrastToggle">
-                    <div class="toggle-knob"></div>
-                </div>
-            </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">🎯 ボタンが別の場所へ飛ぶ</div>
+            <div class="step-desc">反応後、ボタンはランダムな位置へ移動します。再び追いかけて注視する…という追視訓練・注視訓練の繰り返しができます。</div>
+          </div>
         </div>
+      </div>
 
-        <div class="setting-item">
-            <div class="setting-label">♿ スイッチスキャン<span class="setting-sub-label">スペース または Enter でそうさ</span></div>
-            <div class="setting-control">
-                <div class="toggle-switch" id="switchScanToggle">
-                    <div class="toggle-knob"></div>
-                </div>
-            </div>
+      <div class="hsh">対応する入力デバイス</div>
+      <table class="help-table">
+        <tr><th>デバイス</th><th>操作方法</th></tr>
+        <tr>
+          <td>👁 視線入力装置<br><span style="font-size:0.70rem;color:rgba(255,255,255,0.38)">Tobii / PCEye / タブレット視線入力</span></td>
+          <td>OSのマウスカーソルとして動作するため設定不要。ドウェル時間で選択。</td>
+        </tr>
+        <tr>
+          <td>🔲 外部スイッチ<br><span style="font-size:0.70rem;color:rgba(255,255,255,0.38)">Bluetooth・USB スイッチ類</span></td>
+          <td><span class="tag">Space</span> または <span class="tag">Enter</span> に割り当てて使用。スキャンモードと組み合わせてください。</td>
+        </tr>
+        <tr>
+          <td>📱 タッチ操作<br><span style="font-size:0.70rem;color:rgba(255,255,255,0.38)">タブレット・スマートフォン</span></td>
+          <td>ボタンをタップすると即反応。スワイプしながら触れてもOK。</td>
+        </tr>
+        <tr>
+          <td>🎮 ゲームパッド<br><span style="font-size:0.70rem;color:rgba(255,255,255,0.38)">Bluetoothコントローラー等</span></td>
+          <td>いずれかのボタンを押すと反応。ジョイスティックスイッチにも対応。</td>
+        </tr>
+      </table>
+
+      <div class="hsh">スキャンモード（スイッチ使用時）</div>
+      <div class="help-notice">
+        <strong>スキャンモード</strong>とは、ボタンが自動で黄色くハイライトされ、スイッチを押したタイミングで選択する方法です。<br>
+        設定 ⚙ →「スキャンモード」をオンにしてください。点滅間隔（初期値2秒）も調整できます。<br>
+        視線操作が難しいお子さんや、１スイッチ操作の練習に最適です。
+      </div>
+
+      <div class="hsh">設定でできること（右下の ⚙ ボタン）</div>
+      <div class="help-settings-grid">
+        <div class="hsg-item">
+          <div class="hsg-label">📏 ボタンサイズ</div>
+          <div class="hsg-desc">60〜360pxで調整。視野が狭いお子さんには大きめに。</div>
         </div>
-
-        <div class="setting-item">
-            <div class="setting-label">🔊 じどう よみあげ<span class="setting-sub-label">タップしたら じどうでよみます</span></div>
-            <div class="setting-control">
-                <div class="toggle-switch" id="ttsToggle">
-                    <div class="toggle-knob"></div>
-                </div>
-            </div>
+        <div class="hsg-item">
+          <div class="hsg-label">🎨 色のカスタマイズ</div>
+          <div class="hsg-desc">ボタン色・ふち・背景色を変更。高コントラスト配色に対応。</div>
         </div>
-
-        <div class="setting-item">
-            <div class="setting-label">⏱️ スキャンかんかく<span class="setting-sub-label">じどうスキャンのスピード</span></div>
-            <div class="setting-control">
-                <button class="qty-btn" id="scanIntervalMinus">－</button>
-                <span id="scanIntervalValue">2.0</span>秒
-                <button class="qty-btn" id="scanIntervalPlus">＋</button>
-            </div>
+        <div class="hsg-item">
+          <div class="hsg-label">⏱ ドウェル時間</div>
+          <div class="hsg-desc">0.2〜4秒で注視時間を調整。最初は長めに設定して徐々に短く。</div>
         </div>
-
-        <div class="setting-item" style="border: none; flex-direction: column; align-items: flex-start;">
-            <div class="setting-label" style="width: 100%;">📋 このアプリについて</div>
-            <p id="app-about-text">障がいのある子どもたちが楽しみながら学べるように作りました。視線入力、スイッチ入力、タッチ操作に対応しています。ご意見、ご感想、不具合報告などは、私のサイトの連絡先までお送りください。</p>
+        <div class="hsg-item">
+          <div class="hsg-label">🖼 画像・えもじ</div>
+          <div class="hsg-desc">お子さんの好きな画像をアップロードしてボタンに表示できます。</div>
         </div>
-
-        <div style="margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; font-size: 0.9rem;">
-            <p>【元の設定】</p>
-            
-            <div class="setting-item" style="border: none;">
-                <div class="setting-label">🖼️ 画像を選択</div>
-                <div class="setting-control">
-                    <label class="file-label" for="fileInput">端末から選ぶ</label>
-                    <input type="file" id="fileInput" accept="image/*">
-                </div>
-            </div>
-
-            <div class="setting-item" style="border: none; margin-top: 10px;">
-                <div class="setting-label">🎨 背景色を変更</div>
-                <div class="setting-control">
-                    <input type="color" id="bgColorInput" value="#fdf6e3">
-                </div>
-            </div>
-
-            <div class="setting-item" style="flex-direction: column; align-items: flex-start; border:none; padding:10px 0;">
-                <div style="margin-top:10px; width: 100%; display: flex; justify-content: space-between;">円の大きさ: <input type="range" id="sizeRange" min="100" max="600" value="300"></div>
-                <div style="margin-top:10px; width: 100%;"><label><input type="checkbox" id="moveMode"> 反応後に移動</label></div>
-                <div style="margin-top:10px; width: 100%; display: flex; justify-content: space-between;">注視時間(秒): <input type="range" id="dwellRange" min="0" max="2" step="0.1" value="0.5"> <span id="dwellValue">0.5</span></div>
-            </div>
+        <div class="hsg-item">
+          <div class="hsg-label">⚡ アニメを抑える</div>
+          <div class="hsg-desc">光感受性に配慮。フラッシュ等の演出を個別にオフできます。</div>
         </div>
+        <div class="hsg-item">
+          <div class="hsg-label">🔊 音量・BGM</div>
+          <div class="hsg-desc">効果音・BGMを個別にオン・オフ。音量は0〜100%で調整。</div>
+        </div>
+      </div>
 
-    </div>
+    </div><!-- /pane-staff -->
 
-    <script>
-        // DOM要素の取得
-        const target = document.getElementById('target');
-        const settingsBtn = document.getElementById('settingsBtn');
-        const settingsPanel = document.getElementById('settingsPanel');
-        const settingsClose = document.getElementById('settingsClose');
-        const highContrastToggle = document.getElementById('highContrastToggle');
-        const switchScanToggle = document.getElementById('switchScanToggle');
-        const ttsToggle = document.getElementById('ttsToggle');
-        const sizeRange = document.getElementById('sizeRange');
-        const dwellRange = document.getElementById('dwellRange');
-        const dwellValue = document.getElementById('dwellValue');
-        const moveMode = document.getElementById('moveMode');
-        const bgColorInput = document.getElementById('bgColorInput');
-        const fileInput = document.getElementById('fileInput');
-        const contentImg = document.getElementById('content-img');
+    <!-- ══ TAB 2: CHILD ══ -->
+    <div class="hpane" id="pane-child" role="tabpanel">
 
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        let dwellTimer;
+      <div class="child-intro">
+        <span class="child-big-icon">⭐</span>
+        <div class="child-heading">ひかるボタンで あそぼう！</div>
+        <div class="child-sub">みているだけで　ぴかっ！ってひかるよ ✨</div>
+      </div>
 
-        // 音源：Web Audio API
-        function playSuccessSound() {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(440, audioCtx.currentTime); 
-            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08); 
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
-        }
+      <div class="child-steps">
+        <div class="child-step">
+          <span class="child-step-icon">👀</span>
+          <div>
+            <div class="child-step-text">ボタンを　じっと　みてね</div>
+            <div class="child-step-sub">まるいボタンに　めをむけよう</div>
+          </div>
+        </div>
+        <div class="child-step">
+          <span class="child-step-icon">✨</span>
+          <div>
+            <div class="child-step-text">しろいわっかが　くるっとまわるよ</div>
+            <div class="child-step-sub">そのまま　みつづけてね</div>
+          </div>
+        </div>
+        <div class="child-step">
+          <span class="child-step-icon">💥</span>
+          <div>
+            <div class="child-step-text">ぴかっ！ってひかって　おとがなるよ</div>
+            <div class="child-step-sub">はなびが　とびだすよ🎆</div>
+          </div>
+        </div>
+        <div class="child-step">
+          <span class="child-step-icon">🎯</span>
+          <div>
+            <div class="child-step-text">ボタンが　ぴょーんと　とぶよ</div>
+            <div class="child-step-sub">またさがして　みてみよう！</div>
+          </div>
+        </div>
+      </div>
 
-        // 読み上げ機能（Web Speech API）
-        function speakText(text) {
-            if (!ttsToggle.classList.contains('on')) return;
-            const uttr = new SpeechSynthesisUtterance(text);
-            uttr.lang = 'ja-JP';
-            speechSynthesis.speak(uttr);
-        }
+      <div class="child-tip">
+        <strong>スイッチでも　あそべるよ！</strong><br>
+        ボタンをおすと　ぴかっ！ってなるよ 🎉
+      </div>
 
-        // 移動機能
-        function move() {
-            if (!moveMode.checked) return;
-            const pad = 100;
-            const x = Math.random() * (window.innerWidth - pad * 2) + pad;
-            const y = Math.random() * (window.innerHeight - pad * 2) + pad;
-            target.style.left = x + 'px';
-            target.style.top = y + 'px';
-        }
+    </div><!-- /pane-child -->
 
-        // アクティベート時の共通処理
-        function activate() {
-            if (!target.classList.contains('active')) {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                target.classList.add('active');
-                playSuccessSound(); // 音を鳴らす
-                speakText("アタリ！"); // 読み上げる
-                if (moveMode.checked) setTimeout(move, 800); // 移動
-            }
-        }
+    <!-- ══ TAB 3: HOME / PARENT ══ -->
+    <div class="hpane" id="pane-home" role="tabpanel">
 
-        function deactivate() {
-            target.classList.remove('active');
-            clearTimeout(dwellTimer); 
-        }
+      <div class="hsh">このアプリでできること</div>
+      <div class="home-card">
+        <div class="home-card-title">🎯 注視訓練・追視訓練</div>
+        <div class="home-card-body">
+          光るボタンを目で追い、一定時間見続けることで反応が出ます。「見る力」「目を向け続ける力」を楽しみながら育てることができます。
+        </div>
+      </div>
+      <div class="home-card">
+        <div class="home-card-title">💡 原因と結果の体験</div>
+        <div class="home-card-body">
+          「自分が見た（またはスイッチを押した）から画面が光った」という因果関係を体感できます。意思の表出・コミュニケーションの基礎につながります。
+        </div>
+      </div>
 
-        // --- 設定パネルの開閉 ---
-        settingsBtn.addEventListener('click', () => { settingsPanel.style.display = 'flex'; });
-        settingsClose.addEventListener('click', () => { settingsPanel.style.display = 'none'; });
+      <div class="hsh">ご家庭での使い方のヒント</div>
+      <div class="home-card">
+        <div class="home-card-title">🌟 はじめてのとき</div>
+        <div class="home-card-body">
+          <ul>
+            <li>最初はドウェル時間を長め（2〜3秒）に設定してください</li>
+            <li>ボタンを大きく（200px以上）にすると見つけやすくなります</li>
+            <li>暗い部屋で使うとボタンの光が映えて注目しやすくなります</li>
+          </ul>
+        </div>
+      </div>
+      <div class="home-card">
+        <div class="home-card-title">🎨 お子さん好みにカスタマイズ</div>
+        <div class="home-card-body">
+          <ul>
+            <li>好きなキャラクターや家族の写真をボタンに表示できます（⚙ → 画像アップロード）</li>
+            <li>光が苦手な場合は「アニメを抑える」をオンにしてください</li>
+            <li>音が苦手な場合は効果音・BGMを個別にオフにできます</li>
+          </ul>
+        </div>
+      </div>
+      <div class="home-card">
+        <div class="home-card-title">🔲 スイッチを使うとき</div>
+        <div class="home-card-body">
+          Bluetooth スイッチやキーボードをお持ちの場合、スペースキーまたはEnterキーで反応します。設定からスキャンモードをオンにするとスイッチだけで操作できます。
+        </div>
+      </div>
 
-        // --- トグルのクリックイベント ---
-        function toggle(toggleElement) {
-            toggleElement.classList.toggle('on');
-        }
+      <div class="help-notice">
+        このアプリは学校の授業や家庭での練習を想定して作られています。お子さんの状態に合わせて設定を調整しながらお使いください。設定の変更はいつでも ⚙ ボタンから行えます。
+      </div>
 
-        highContrastToggle.addEventListener('click', () => {
-            toggle(highContrastToggle);
-            document.body.classList.toggle('high-contrast');
-        });
+    </div><!-- /pane-home -->
 
-        switchScanToggle.addEventListener('click', () => { toggle(switchScanToggle); });
-        ttsToggle.addEventListener('click', () => { toggle(ttsToggle); });
+    <button id="help-close">はじめる ✨</button>
+  </div>
+</div>
 
-        // --- アクセシビリティ機能の実装 ---
+<!-- help reopen button -->
+<button id="help-btn" title="使い方を見る"><span class="hb-icon">❓</span>使い方</button>
 
-        // 文字サイズ変更
-        const textSizeStatus = document.getElementById('textSizeStatus');
-        const textSizes = ['ちいさい', 'ふつう', 'おおきい'];
-        let currentTextSizeIdx = 1;
+<!-- settings toggle -->
+<button id="settings-btn" title="設定を開く">⚙</button>
 
-        function updateTextSize() {
-            textSizeStatus.textContent = textSizes[currentTextSizeIdx];
-            document.documentElement.style.setProperty('--text-base-size', (1 + currentTextSizeIdx * 0.5) + 'rem');
-        }
-        document.getElementById('textSizeMinus').addEventListener('click', () => { if (currentTextSizeIdx > 0) currentTextSizeIdx--; updateTextSize(); });
-        document.getElementById('textSizePlus').addEventListener('click', () => { if (currentTextSizeIdx < textSizes.length - 1) currentTextSizeIdx++; updateTextSize(); });
+<!-- settings panel -->
+<div id="settings-panel" role="dialog" aria-label="設定">
 
-        // スキャン間隔変更
-        const scanIntervalValue = document.getElementById('scanIntervalValue');
-        let scanInterval = 2.0;
+  <!-- BUTTON SIZE & COLOR -->
+  <div class="sh">ボタンのサイズ・色</div>
 
-        function updateScanInterval() {
-            scanIntervalValue.textContent = scanInterval.toFixed(1);
-        }
-        document.getElementById('scanIntervalMinus').addEventListener('click', () => { if (scanInterval > 0.5) scanInterval -= 0.1; updateScanInterval(); });
-        document.getElementById('scanIntervalPlus').addEventListener('click', () => { if (scanInterval < 5.0) scanInterval += 0.1; updateScanInterval(); });
+  <div class="sr">
+    <span class="lbl">サイズ</span>
+    <input type="range" id="sl-size" min="60" max="360" step="10" value="140">
+    <span class="sv" id="v-size">140px</span>
+  </div>
+  <div class="cr"><span class="lbl">ボタン色</span><input type="color" id="cp-btn"    value="#ff4400"></div>
+  <div class="cr"><span class="lbl">ふちの色</span><input type="color" id="cp-bdr"    value="#ff8844"></div>
+  <div class="cr"><span class="lbl">背景色  </span><input type="color" id="cp-bg"     value="#060610"></div>
 
-        // 訓練イベント
-        target.addEventListener('mouseenter', () => {
-            dwellTimer = setTimeout(activate, dwellRange.value * 1000);
-        });
-        target.addEventListener('mouseleave', deactivate);
-        window.addEventListener('keydown', (e) => { if (!e.repeat) activate(); });
-        window.addEventListener('keyup', deactivate);
-        target.addEventListener('touchstart', (e) => { e.preventDefault(); activate(); });
-        target.addEventListener('touchend', deactivate);
+  <!-- BUTTON CONTENT -->
+  <div class="sh">ボタンの中身</div>
+  <div class="ep" id="ep-grid">
+    <button class="ep-btn sel" data-em="⭐">⭐</button>
+    <button class="ep-btn" data-em="🌟">🌟</button>
+    <button class="ep-btn" data-em="🎈">🎈</button>
+    <button class="ep-btn" data-em="🐱">🐱</button>
+    <button class="ep-btn" data-em="🐶">🐶</button>
+    <button class="ep-btn" data-em="🌸">🌸</button>
+    <button class="ep-btn" data-em="🦋">🦋</button>
+    <button class="ep-btn" data-em="🍎">🍎</button>
+    <button class="ep-btn" data-em="🚂">🚂</button>
+    <button class="ep-btn" data-em="🎵">🎵</button>
+    <button class="ep-btn" data-em="🌈">🌈</button>
+    <button class="ep-btn" data-em="❤️">❤️</button>
+  </div>
+  <label id="upload-lbl" for="file-in"><span>📁</span> 好きな画像をアップロード</label>
+  <input type="file" id="file-in" accept="image/*">
+  <img id="img-prev" alt="プレビュー">
+  <div id="clear-img">✕ 画像を削除してえもじに戻す</div>
 
-        // --- 元の設定 ---
-        sizeRange.addEventListener('input', () => {
-            target.style.width = sizeRange.value + 'px';
-            target.style.height = sizeRange.value + 'px';
-        });
+  <!-- GAZE / DWELL -->
+  <div class="sh">注視・動き</div>
+  <div class="sr">
+    <span class="lbl">ドウェル時間</span>
+    <input type="range" id="sl-dwell" min="200" max="4000" step="100" value="1200">
+    <span class="sv" id="v-dwell">1.2秒</span>
+  </div>
+  <div class="sr">
+    <span class="lbl">移動速度</span>
+    <input type="range" id="sl-move" min="200" max="3000" step="100" value="800">
+    <span class="sv" id="v-move">0.8秒</span>
+  </div>
 
-        // 背景色の変更を反映
-        bgColorInput.addEventListener('input', () => {
-            if (!document.body.classList.contains('high-contrast')) {
-                document.body.style.backgroundColor = bgColorInput.value;
-            }
-        });
+  <!-- ACCESSIBILITY -->
+  <div class="sh">アクセシビリティ</div>
 
-        dwellRange.addEventListener('input', () => {
-            dwellValue.textContent = dwellRange.value;
-        });
+  <!-- scan mode -->
+  <div class="big-sw" id="sw-scan" role="switch" aria-checked="false" tabindex="0">
+    <span class="sw-label">🔲 スキャンモード</span>
+    <div class="pill"></div>
+  </div>
+  <div id="scan-row" class="sr" style="display:none">
+    <span class="lbl">スキャン間隔</span>
+    <input type="range" id="sl-scan" min="500" max="6000" step="250" value="2000">
+    <span class="sv" id="v-scan">2.0秒</span>
+  </div>
 
-        // 画像選択機能を実装
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                contentImg.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
+  <!-- reduced motion -->
+  <div class="big-sw" id="sw-reduce" role="switch" aria-checked="false" tabindex="0">
+    <span class="sw-label">⚡ アニメを抑える（光感受性）</span>
+    <div class="pill"></div>
+  </div>
 
-        // 初期設定の反映
-        target.style.width = sizeRange.value + 'px';
-        target.style.height = sizeRange.value + 'px';
-        if (!document.body.classList.contains('high-contrast')) {
-            document.body.style.backgroundColor = bgColorInput.value;
-        }
-        updateTextSize();
-        updateScanInterval();
+  <!-- contrast invert -->
+  <div class="big-sw" id="sw-invert" role="switch" aria-checked="false" tabindex="0">
+    <span class="sw-label">🔄 コントラスト反転</span>
+    <div class="pill"></div>
+  </div>
 
-    </script>
+  <div class="sr">
+    <span class="lbl">アニメ速度</span>
+    <input type="range" id="sl-anim" min="0.3" max="2.0" step="0.1" value="1.0">
+    <span class="sv" id="v-anim">1.0×</span>
+  </div>
+  <div class="sr">
+    <span class="lbl">音量</span>
+    <input type="range" id="sl-vol" min="0" max="1" step="0.05" value="0.7">
+    <span class="sv" id="v-vol">70%</span>
+  </div>
+
+  <!-- effect chips -->
+  <div class="sh">演出のオン・オフ</div>
+  <div class="chips">
+    <button class="chip on" data-fx="flash">フラッシュ</button>
+    <button class="chip on" data-fx="burst">花火</button>
+    <button class="chip on" data-fx="ripple">リップル</button>
+    <button class="chip on" data-fx="emojifx">えもじ</button>
+    <button class="chip on" data-fx="sfx">効果音</button>
+    <button class="chip on" data-fx="bgm">BGM</button>
+  </div>
+
+  <!-- switch key hint -->
+  <div class="sh">スイッチ入力</div>
+  <div style="color:rgba(255,255,255,0.4);font-size:0.78rem;line-height:1.7">
+    Space / Enter キー、タッチ、ゲームパッドボタン に対応
+  </div>
+
+</div><!-- /settings-panel -->
+
+<script>
+/* ════════════════════════════════════════
+   CONFIG STATE
+════════════════════════════════════════ */
+const C = {
+  btnSize:   140,
+  btnColor:  '#ff4400',
+  btnBorder: '#ff8844',
+  bgColor:   '#060610',
+  dwellMs:   1200,
+  moveMs:    800,
+  animSpeed: 1.0,
+  volume:    0.7,
+  scanMode:  false,
+  scanMs:    2000,
+  reduced:   false,
+  useImage:  false,
+  activeEmoji: '⭐',
+  fx: { flash:true, burst:true, ripple:true, emojifx:true, sfx:true, bgm:true }
+};
+
+/* ════════════════════════════════════════
+   STAR FIELD
+════════════════════════════════════════ */
+const starsDiv = document.getElementById('stars');
+for (let i=0; i<90; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const sz = Math.random()*2.2;
+  s.style.cssText =
+    `width:${sz}px;height:${sz}px;` +
+    `left:${Math.random()*100}%;top:${Math.random()*100}%;` +
+    `--dur:${2+Math.random()*4}s;` +
+    `--delay:${Math.random()*5}s;` +
+    `--bright:${0.15+Math.random()*0.5};`;
+  starsDiv.appendChild(s);
+}
+
+/* ════════════════════════════════════════
+   DOM REFS
+════════════════════════════════════════ */
+const stage      = document.getElementById('stage');
+const btnWrap    = document.getElementById('btn-wrap');
+const btnCore    = document.getElementById('btn-core');
+const btnEmoji   = document.getElementById('btn-emoji');
+const btnImg     = document.getElementById('btn-image');
+const dwellFg    = document.getElementById('dwell-fg');
+const scanRing   = document.getElementById('scan-ring');
+const fxLayer    = document.getElementById('fx-layer');
+const flashEl    = document.getElementById('screen-flash');
+const settBtn    = document.getElementById('settings-btn');
+const settPanel  = document.getElementById('settings-panel');
+
+/* ════════════════════════════════════════
+   DWELL ARC GEOMETRY  (updates on size change)
+════════════════════════════════════════ */
+let CIRC = 515; // 2π×82
+
+function updateDwellGeom(size) {
+  const r  = size/2 + 18;
+  const cx = r + 6;
+  const vb = cx * 2;
+  const svg = document.getElementById('dwell-svg');
+  svg.setAttribute('viewBox', `0 0 ${vb} ${vb}`);
+  ['dwell-bg','dwell-fg'].forEach(id => {
+    const el = document.getElementById(id);
+    el.setAttribute('cx', cx); el.setAttribute('cy', cx); el.setAttribute('r', r);
+  });
+  CIRC = +(2 * Math.PI * r).toFixed(1);
+  dwellFg.style.strokeDasharray  = CIRC;
+  dwellFg.style.strokeDashoffset = CIRC;
+}
+
+/* ════════════════════════════════════════
+   POSITION
+════════════════════════════════════════ */
+let bx = 0.5, by = 0.5;
+const PAD = 0.12;
+
+function setPos(rx, ry, instant=false) {
+  bx = Math.max(PAD, Math.min(1-PAD, rx));
+  by = Math.max(PAD, Math.min(1-PAD, ry));
+  if (instant) btnWrap.classList.add('instant');
+  btnWrap.style.left = (bx*100)+'%';
+  btnWrap.style.top  = (by*100)+'%';
+  if (instant) requestAnimationFrame(() => btnWrap.classList.remove('instant'));
+}
+
+function applyMoveMs(ms) {
+  btnWrap.style.transitionDuration = `${ms}ms, ${ms}ms`;
+}
+
+function jumpRandom() {
+  let nx, ny, tries=0;
+  do {
+    nx = PAD + Math.random()*(1-PAD*2);
+    ny = PAD + Math.random()*(1-PAD*2);
+    tries++;
+  } while (tries < 25 && Math.hypot(nx-bx, ny-by) < 0.28);
+  applyMoveMs(C.moveMs);
+  setPos(nx, ny);
+}
+
+/* ════════════════════════════════════════
+   DWELL
+════════════════════════════════════════ */
+let dwellTimer  = null;
+let isDwelling  = false;
+let isCooldown  = false;
+
+function startDwell() {
+  if (isDwelling || isCooldown) return;
+  isDwelling = true;
+  btnCore.classList.add('gazing');
+
+  dwellFg.style.transition = 'none';
+  dwellFg.style.strokeDashoffset = CIRC;
+  void dwellFg.offsetWidth;
+  dwellFg.style.transition = `stroke-dashoffset ${C.dwellMs}ms linear`;
+  dwellFg.style.strokeDashoffset = '0';
+
+  dwellTimer = setTimeout(trigger, C.dwellMs);
+}
+
+function cancelDwell() {
+  if (!isDwelling) return;
+  isDwelling = false;
+  clearTimeout(dwellTimer);
+  btnCore.classList.remove('gazing');
+  dwellFg.style.transition = 'none';
+  dwellFg.style.strokeDashoffset = CIRC;
+}
+
+function trigger() {
+  if (isCooldown) return;
+  isDwelling = false;
+  isCooldown = true;
+  clearTimeout(dwellTimer);
+
+  btnCore.classList.remove('gazing');
+  btnCore.classList.add('burst-out');
+  dwellFg.style.transition = 'none';
+  dwellFg.style.strokeDashoffset = CIRC;
+
+  const cx = bx * stage.clientWidth;
+  const cy = by * stage.clientHeight;
+
+  if (C.fx.flash  && !C.reduced) doFlash();
+  if (C.fx.burst)                doBurst(cx, cy);
+  if (C.fx.ripple)               doRipple(cx, cy);
+  if (C.fx.emojifx && !C.reduced) doEmojiFx(cx, cy);
+  playSfx();
+  if (C.fx.bgm) startBgm();
+
+  setTimeout(() => {
+    btnCore.classList.remove('burst-out');
+    jumpRandom();
+    setTimeout(() => { isCooldown = false; }, C.moveMs + 100);
+  }, 380);
+}
+
+/* ════════════════════════════════════════
+   HIT TEST
+════════════════════════════════════════ */
+function hit(px, py) {
+  const r = btnWrap.getBoundingClientRect();
+  const cx = r.left + r.width/2;
+  const cy = r.top  + r.height/2;
+  return Math.hypot(px-cx, py-cy) <= r.width/2 + 24;
+}
+
+/* Mouse (Tobii → OS mouse cursor) */
+document.addEventListener('mousemove', e => {
+  if (settPanel.classList.contains('open')) return;
+  hit(e.clientX, e.clientY) ? startDwell() : cancelDwell();
+});
+document.addEventListener('mouseleave', cancelDwell);
+
+/* Click (Tobii click-dwell / regular) */
+document.addEventListener('click', e => {
+  if (e.target.closest('#settings-panel') || e.target.closest('#settings-btn')) return;
+  if (hit(e.clientX, e.clientY)) trigger();
+});
+
+/* Touch */
+document.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  if (hit(t.clientX, t.clientY)) trigger();
+}, { passive:true });
+document.addEventListener('touchmove', e => {
+  const t = e.touches[0];
+  hit(t.clientX, t.clientY) ? startDwell() : cancelDwell();
+}, { passive:true });
+document.addEventListener('touchend', cancelDwell, { passive:true });
+
+/* Keyboard switch */
+document.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.key===' ' || e.key==='Enter') { e.preventDefault(); trigger(); }
+});
+
+/* Gamepad switch */
+;(function() {
+  let active=false, wasDown=false;
+  window.addEventListener('gamepadconnected', () => {
+    if (active) return; active=true;
+    function poll() {
+      const gps = navigator.getGamepads?.() ?? [];
+      let down = false;
+      for (const g of gps) if (g?.buttons.some(b=>b.pressed)) { down=true; break; }
+      if (down && !wasDown) trigger();
+      wasDown = down;
+      requestAnimationFrame(poll);
+    }
+    poll();
+  });
+})();
+
+/* ════════════════════════════════════════
+   SCAN MODE
+════════════════════════════════════════ */
+let scanTimer = null, scanOn = false;
+
+function startScan() {
+  stopScan();
+  scanTimer = setInterval(() => {
+    scanOn = !scanOn;
+    scanRing.classList.toggle('visible', scanOn);
+  }, C.scanMs);
+}
+function stopScan() {
+  clearInterval(scanTimer);
+  scanOn = false;
+  scanRing.classList.remove('visible');
+}
+
+/* ════════════════════════════════════════
+   VISUAL EFFECTS
+════════════════════════════════════════ */
+function doFlash() {
+  flashEl.style.background = C.btnColor;
+  flashEl.style.animation  = 'none';
+  void flashEl.offsetWidth;
+  const dur = (0.42 / C.animSpeed).toFixed(2);
+  flashEl.style.animation  = `flashOut ${dur}s ease-out forwards`;
+}
+
+const FX_EMOJIS = ['⭐','🌟','✨','🎉','🎊','🎈','💥','🌈','🦋','🌸','🎆','🍀','🎵','🐾'];
+
+function doBurst(cx, cy) {
+  const cols = [C.btnColor, C.btnBorder, '#ffffff', '#ffe082'];
+  const N = C.reduced ? 10 : 22;
+  for (let i=0; i<N; i++) {
+    const angle = (i/N)*Math.PI*2;
+    const dist  = 80 + Math.random()*110;
+    const d     = document.createElement('div');
+    d.className = 'burst-dot';
+    const sz    = 6 + Math.random()*9;
+    const dur   = (0.8/C.animSpeed).toFixed(2);
+    d.style.cssText =
+      `left:${cx}px;top:${cy}px;` +
+      `width:${sz}px;height:${sz}px;` +
+      `background:${cols[i%cols.length]};` +
+      `box-shadow:0 0 8px ${cols[i%cols.length]};` +
+      `--tx:${(Math.cos(angle)*dist).toFixed(1)}px;` +
+      `--ty:${(Math.sin(angle)*dist).toFixed(1)}px;` +
+      `animation-duration:${dur}s;`;
+    fxLayer.appendChild(d);
+    setTimeout(()=>d.remove(), 950);
+  }
+  // second ring delayed
+  if (!C.reduced) setTimeout(()=>{
+    for (let i=0;i<14;i++) {
+      const angle = (i/14)*Math.PI*2 + 0.22;
+      const dist  = 140+Math.random()*70;
+      const d = document.createElement('div');
+      d.className='burst-dot';
+      d.style.cssText=
+        `left:${cx}px;top:${cy}px;width:7px;height:7px;` +
+        `background:${C.btnBorder};box-shadow:0 0 6px ${C.btnBorder};` +
+        `--tx:${(Math.cos(angle)*dist).toFixed(1)}px;` +
+        `--ty:${(Math.sin(angle)*dist).toFixed(1)}px;` +
+        `animation-duration:${(0.85/C.animSpeed).toFixed(2)}s;`;
+      fxLayer.appendChild(d);
+      setTimeout(()=>d.remove(), 1000);
+    }
+  }, 110);
+}
+
+function doRipple(cx, cy) {
+  [C.btnColor, C.btnBorder, '#ffffff'].forEach((col,i) => {
+    setTimeout(()=>{
+      const r = document.createElement('div');
+      r.className = 'ripple-ring';
+      const dur = ((0.9+i*0.14)/C.animSpeed).toFixed(2);
+      r.style.cssText=
+        `left:${cx}px;top:${cy}px;` +
+        `width:${C.btnSize*0.8}px;height:${C.btnSize*0.8}px;` +
+        `border-color:${col};` +
+        `box-shadow:0 0 10px ${col};` +
+        `animation-duration:${dur}s;`;
+      fxLayer.appendChild(r);
+      setTimeout(()=>r.remove(), 1300);
+    }, i*75);
+  });
+}
+
+function doEmojiFx(cx, cy) {
+  const N = 7;
+  for (let i=0;i<N;i++) {
+    setTimeout(()=>{
+      const em    = FX_EMOJIS[Math.floor(Math.random()*FX_EMOJIS.length)];
+      const angle = Math.random()*Math.PI*2;
+      const dist  = 100+Math.random()*130;
+      const e     = document.createElement('div');
+      e.className = 'burst-emoji';
+      e.textContent = em;
+      const dur = (1.1/C.animSpeed).toFixed(2);
+      e.style.cssText=
+        `left:${cx}px;top:${cy}px;` +
+        `--tx:${(Math.cos(angle)*dist).toFixed(1)}px;` +
+        `--ty:${(Math.sin(angle)*dist).toFixed(1)}px;` +
+        `--rot:${((Math.random()-0.5)*340).toFixed(1)}deg;` +
+        `animation-duration:${dur}s;`;
+      fxLayer.appendChild(e);
+      setTimeout(()=>e.remove(), 1500);
+    }, i*52);
+  }
+}
+
+/* ════════════════════════════════════════
+   AUDIO
+════════════════════════════════════════ */
+let audioCtx = null;
+function ctx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+['pointerdown','keydown'].forEach(ev =>
+  document.addEventListener(ev, ()=>{ try{ctx().resume()}catch(e){} }, {once:true}));
+
+function playSfx() {
+  if (!C.fx.sfx) return;
+  try {
+    const ac = ctx(), t = ac.currentTime;
+    [523.25,659.25,783.99,1046.5].forEach((f,i)=>{
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type='sine';
+      o.frequency.setValueAtTime(f*0.5,t);
+      o.frequency.exponentialRampToValueAtTime(f, t+0.05);
+      const d=i*0.04;
+      g.gain.setValueAtTime(0,t+d);
+      g.gain.linearRampToValueAtTime(C.volume*0.21,t+d+0.05);
+      g.gain.exponentialRampToValueAtTime(0.001,t+d+0.55);
+      o.start(t+d); o.stop(t+d+0.6);
+    });
+  } catch(e){}
+}
+
+let bgmPlaying=false, bgmTick=null, bgmStop=null;
+function startBgm() {
+  if (!C.fx.bgm || bgmPlaying) return;
+  bgmPlaying=true;
+  try {
+    const ac=ctx();
+    const scale=[523.25,587.33,659.25,698.46,783.99,880,987.77,1046.5];
+    const pat=[0,2,4,7,5,4,2,4,0,2,5,4,2,0,4,7];
+    let idx=0;
+    function tick() {
+      if(!bgmPlaying) return;
+      const f=scale[pat[idx%pat.length]];
+      const o=ac.createOscillator(), g=ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type='triangle'; o.frequency.value=f;
+      const t=ac.currentTime;
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(C.volume*0.085,t+0.04);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.30);
+      o.start(t); o.stop(t+0.32);
+      idx++;
+      bgmTick=setTimeout(tick, 255);
+    }
+    tick();
+    clearTimeout(bgmStop);
+    bgmStop=setTimeout(()=>{ bgmPlaying=false; clearTimeout(bgmTick); }, 7500);
+  } catch(e){}
+}
+
+/* ════════════════════════════════════════
+   SETTINGS PANEL WIRING
+════════════════════════════════════════ */
+settBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  settPanel.classList.toggle('open');
+});
+document.addEventListener('click', e=>{
+  if (!settPanel.contains(e.target) && e.target!==settBtn)
+    settPanel.classList.remove('open');
+});
+
+/* generic slider helper */
+function sl(slId, valId, getter, formatter, onChange) {
+  const el = document.getElementById(slId);
+  const vl = document.getElementById(valId);
+  el.addEventListener('input', ()=>{
+    const v = parseFloat(el.value);
+    getter(v);
+    vl.textContent = formatter(v);
+    if (onChange) onChange(v);
+  });
+}
+
+sl('sl-size','v-size', v=>{C.btnSize=v;},
+  v=>v+'px',
+  v=>{
+    document.documentElement.style.setProperty('--btn-size', v+'px');
+    btnEmoji.style.fontSize = (v*0.40)+'px';
+    updateDwellGeom(v);
+  });
+
+sl('sl-dwell','v-dwell', v=>{C.dwellMs=v;},
+  v=>(v/1000).toFixed(1)+'秒',
+  ()=>{ cancelDwell(); });
+
+sl('sl-move','v-move', v=>{C.moveMs=v;},
+  v=>(v/1000).toFixed(1)+'秒');
+
+sl('sl-anim','v-anim', v=>{C.animSpeed=v;},
+  v=>v.toFixed(1)+'×',
+  v=>document.documentElement.style.setProperty('--anim-speed', v));
+
+sl('sl-vol','v-vol', v=>{C.volume=v;},
+  v=>Math.round(v*100)+'%');
+
+sl('sl-scan','v-scan', v=>{C.scanMs=v;},
+  v=>(v/1000).toFixed(1)+'秒',
+  ()=>{ if(C.scanMode) startScan(); });
+
+/* color pickers */
+document.getElementById('cp-btn').addEventListener('input', e=>{
+  C.btnColor=e.target.value;
+  document.documentElement.style.setProperty('--btn-color',  C.btnColor);
+  document.documentElement.style.setProperty('--glow',       C.btnColor);
+});
+document.getElementById('cp-bdr').addEventListener('input', e=>{
+  C.btnBorder=e.target.value;
+  document.documentElement.style.setProperty('--btn-border', C.btnBorder);
+});
+document.getElementById('cp-bg').addEventListener('input', e=>{
+  C.bgColor=e.target.value;
+  document.documentElement.style.setProperty('--bg', C.bgColor);
+  document.body.style.background = C.bgColor;
+});
+
+/* emoji palette */
+document.getElementById('ep-grid').addEventListener('click', e=>{
+  const b = e.target.closest('.ep-btn');
+  if (!b) return;
+  document.querySelectorAll('.ep-btn').forEach(x=>x.classList.remove('sel'));
+  b.classList.add('sel');
+  C.activeEmoji = b.dataset.em;
+  setContent('emoji', b.dataset.em);
+});
+
+/* image upload */
+document.getElementById('file-in').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = ev=>{
+    const src = ev.target.result;
+    document.getElementById('img-prev').src = src;
+    document.getElementById('img-prev').style.display = 'block';
+    document.getElementById('clear-img').style.display = 'block';
+    setContent('image', src);
+  };
+  rd.readAsDataURL(f);
+});
+document.getElementById('clear-img').addEventListener('click', ()=>{
+  document.getElementById('img-prev').style.display = 'none';
+  document.getElementById('clear-img').style.display = 'none';
+  document.getElementById('file-in').value = '';
+  setContent('emoji', C.activeEmoji);
+});
+
+function setContent(type, val) {
+  if (type==='image') {
+    btnImg.src = val;
+    btnImg.style.display = 'block';
+    btnEmoji.style.display = 'none';
+    C.useImage = true;
+  } else {
+    btnImg.style.display = 'none';
+    btnEmoji.style.display = '';
+    btnEmoji.textContent = val;
+    C.useImage = false;
+  }
+}
+
+/* big toggles */
+function bigToggle(id, onFn, offFn) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', ()=>{
+    const now = el.classList.toggle('on');
+    el.setAttribute('aria-checked', now);
+    now ? onFn() : offFn();
+  });
+  el.addEventListener('keydown', e=>{
+    if (e.key===' '||e.key==='Enter'){ e.preventDefault(); el.click(); }
+  });
+}
+
+bigToggle('sw-scan',
+  ()=>{ C.scanMode=true;  document.getElementById('scan-row').style.display='flex'; startScan(); },
+  ()=>{ C.scanMode=false; document.getElementById('scan-row').style.display='none'; stopScan(); }
+);
+
+bigToggle('sw-reduce',
+  ()=>{ C.reduced=true;  document.documentElement.style.setProperty('--anim-speed','0.4'); document.getElementById('sl-anim').value='0.4'; document.getElementById('v-anim').textContent='0.4×'; },
+  ()=>{ C.reduced=false; document.documentElement.style.setProperty('--anim-speed', C.animSpeed); }
+);
+
+bigToggle('sw-invert',
+  ()=>{ document.documentElement.classList.add('invert-contrast'); },
+  ()=>{ document.documentElement.classList.remove('invert-contrast'); }
+);
+
+/* effect chips */
+document.querySelectorAll('.chip').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const k = btn.dataset.fx;
+    C.fx[k] = !C.fx[k];
+    btn.classList.toggle('on', C.fx[k]);
+    if (k==='bgm' && !C.fx.bgm) { bgmPlaying=false; clearTimeout(bgmTick); }
+  });
+});
+
+/* ════════════════════════════════════════
+   HELP MODAL
+════════════════════════════════════════ */
+const helpOverlay = document.getElementById('help-overlay');
+const helpBtn     = document.getElementById('help-btn');
+
+/* ── HELP TABS ── */
+document.querySelectorAll('.htab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.htab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+    document.querySelectorAll('.hpane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected','true');
+    document.getElementById('pane-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+function closeHelp() {
+  helpOverlay.classList.add('closing');
+  helpOverlay.addEventListener('animationend', () => {
+    helpOverlay.style.display = 'none';
+    helpOverlay.classList.remove('closing');
+  }, { once: true });
+}
+
+function openHelp() {
+  helpOverlay.style.display = 'flex';
+  helpOverlay.classList.remove('closing');
+  document.getElementById('help-box').scrollTop = 0;
+}
+
+document.getElementById('help-close').addEventListener('click', closeHelp);
+helpBtn.addEventListener('click', e => { e.stopPropagation(); openHelp(); });
+
+helpOverlay.addEventListener('click', e => {
+  if (e.target === helpOverlay) closeHelp();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && helpOverlay.style.display !== 'none') closeHelp();
+});
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+setPos(0.5, 0.5, true);
+updateDwellGeom(C.btnSize);
+document.body.style.background = C.bgColor;
+</script>
 </body>
 </html>
