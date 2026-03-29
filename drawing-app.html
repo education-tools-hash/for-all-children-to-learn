@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎨 おえかきひろば</title>
+<style>
+  :root {
+    --bg: #FFF8F0;
+    --panel: #FFFFFF;
+    --shadow: rgba(0,0,0,0.12);
+    --accent: #FF6B6B;
+    --accent2: #4ECDC4;
+    --accent3: #FFE66D;
+    --text: #2D2D2D;
+    --border: #E8DDD0;
+    --btn-size: 64px;
+    --gaze-size: 80px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; }
+
+  body {
+    font-family: 'Kosugi Maru', 'M PLUS Rounded 1c', 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    user-select: none;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-bottom: 3px solid var(--border);
+    box-shadow: 0 3px 12px var(--shadow);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    z-index: 100;
+  }
+
+  #app-title {
+    font-size: 1.4rem; font-weight: 900;
+    background: linear-gradient(135deg, #FF6B6B, #FF8E53, #FFE66D, #4ECDC4, #45B7D1);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    white-space: nowrap; margin-right: 4px;
+  }
+
+  .tool-btn {
+    width: var(--btn-size); height: var(--btn-size);
+    border-radius: 20px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    font-size: 1.6rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s, box-shadow .15s, border-color .15s;
+    background: var(--bg);
+    box-shadow: 0 3px 8px var(--shadow);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .tool-btn:hover, .tool-btn.active {
+    transform: scale(1.12);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+    border-color: var(--accent);
+  }
+  .tool-btn.active { background: #FFE0E0; border-color: var(--accent); }
+  .tool-btn[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
+    background: #2D2D2D; color: #fff;
+    font-size: .7rem; padding: 4px 8px; border-radius: 8px;
+    white-space: nowrap; pointer-events: none; z-index: 999;
+  }
+
+  .sep { width: 2px; height: 40px; background: var(--border); flex-shrink: 0; }
+
+  /* ── SIZE SLIDER ── */
+  #size-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 70px;
+  }
+  #size-label { font-size: .65rem; color: #888; }
+  #brush-size {
+    -webkit-appearance: none; appearance: none;
+    width: 80px; height: 8px;
+    border-radius: 4px; background: var(--border);
+    outline: none; cursor: pointer;
+  }
+  #brush-size::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%; background: var(--accent);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* ── COLOR PALETTE ── */
+  #palette {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    max-width: 260px;
+  }
+  .color-dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform .15s, border-color .15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+  .color-dot:hover, .color-dot.active {
+    transform: scale(1.25); border-color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  }
+  #custom-color {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px dashed #bbb; cursor: pointer;
+    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+    flex-shrink: 0;
+  }
+
+  /* ── OPACITY ── */
+  #opacity-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    min-width: 70px;
+  }
+  #opacity-label { font-size: .65rem; color: #888; }
+  #opacity-range {
+    -webkit-appearance: none; appearance: none;
+    width: 80px; height: 8px;
+    border-radius: 4px; background: linear-gradient(to right, transparent, currentColor);
+    outline: none; cursor: pointer;
+  }
+  #opacity-range::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%; background: var(--accent2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* ── MAIN AREA ── */
+  #main {
+    display: flex; flex: 1; overflow: hidden; position: relative;
+  }
+
+  /* ── CANVAS ── */
+  #canvas-wrap {
+    flex: 1; position: relative; overflow: hidden;
+    background: repeating-conic-gradient(#e8e0d8 0% 25%, #f5f0ea 0% 50%) 0 0 / 20px 20px;
+  }
+  #bg-canvas, #draw-canvas, #overlay-canvas {
+    position: absolute; top: 0; left: 0;
+    touch-action: none;
+  }
+  #bg-canvas { z-index: 1; }
+  #draw-canvas { z-index: 2; }
+  #overlay-canvas { z-index: 3; pointer-events: none; }
+
+  /* ── LAYERS PANEL ── */
+  #layers-panel {
+    width: 130px; background: var(--panel);
+    border-left: 2px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 8px; gap: 6px; overflow-y: auto;
+    flex-shrink: 0;
+  }
+  #layers-panel h3 { font-size: .8rem; color: #666; text-align: center; }
+  .layer-item {
+    display: flex; align-items: center; gap: 4px;
+    padding: 4px 6px; border-radius: 10px;
+    cursor: pointer; font-size: .75rem;
+    background: var(--bg); border: 2px solid transparent;
+    transition: border-color .15s;
+  }
+  .layer-item.active { border-color: var(--accent); background: #FFE0E0; }
+  .layer-thumb {
+    width: 40px; height: 30px; border-radius: 6px;
+    background: #fff; border: 1px solid #ddd;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .layer-thumb canvas { width: 100%; height: 100%; }
+  .layer-eye { cursor: pointer; font-size: .9rem; }
+
+  /* ── BOTTOM STATUSBAR ── */
+  #statusbar {
+    padding: 4px 12px;
+    background: var(--panel);
+    border-top: 2px solid var(--border);
+    font-size: .7rem; color: #999;
+    display: flex; gap: 16px; align-items: center;
+    flex-shrink: 0;
+  }
+
+  /* ── GAZE CURSOR ── */
+  #gaze-cursor {
+    display: none;
+    position: fixed; pointer-events: none;
+    width: var(--gaze-size); height: var(--gaze-size);
+    border-radius: 50%;
+    border: 4px solid rgba(255,107,107,0.8);
+    background: rgba(255,107,107,0.15);
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    transition: width .15s, height .15s;
+  }
+  #gaze-cursor.dwell {
+    animation: gaze-dwell 1.2s linear forwards;
+  }
+  @keyframes gaze-dwell {
+    from { box-shadow: 0 0 0 0 rgba(255,107,107,0.6); }
+    to   { box-shadow: 0 0 0 30px rgba(255,107,107,0); }
+  }
+  #gaze-ring {
+    position: fixed; pointer-events: none;
+    width: var(--gaze-size); height: var(--gaze-size);
+    border-radius: 50%; border: 3px solid transparent;
+    transform: translate(-50%,-50%);
+    z-index: 9998;
+  }
+  #gaze-progress {
+    position: fixed; pointer-events: none;
+    transform: translate(-50%,-50%);
+    z-index: 9997;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 10000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: 24px;
+    padding: 28px; max-width: 520px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal h2 { margin-bottom: 16px; font-size: 1.3rem; }
+  .modal p { margin-bottom: 12px; font-size: .9rem; color: #555; line-height: 1.6; }
+  .modal input[type=text] {
+    width: 100%; padding: 10px 14px; border-radius: 12px;
+    border: 2px solid var(--border); font-size: .9rem;
+    margin-bottom: 12px;
+  }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn {
+    padding: 10px 22px; border-radius: 14px; border: none;
+    font-size: .9rem; font-weight: 700; cursor: pointer;
+    transition: transform .1s, box-shadow .1s;
+  }
+  .btn:hover { transform: scale(1.05); box-shadow: 0 4px 14px rgba(0,0,0,0.2); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--bg); color: var(--text); border: 2px solid var(--border); }
+
+  /* ── GAZE MODE INDICATOR ── */
+  #gaze-indicator {
+    display: none;
+    position: fixed; top: 80px; right: 16px;
+    background: rgba(255,107,107,0.9); color: #fff;
+    padding: 8px 14px; border-radius: 20px;
+    font-size: .8rem; font-weight: 700;
+    z-index: 500; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+
+  /* ── IMAGE TRACE OVERLAY ── */
+  #trace-controls {
+    display: none;
+    position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border-radius: 20px;
+    padding: 10px 18px; gap: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.2);
+    align-items: center; z-index: 500;
+    flex-wrap: wrap; justify-content: center;
+  }
+  #trace-controls label { font-size: .8rem; color: #555; }
+  #trace-opacity {
+    width: 100px; height: 8px; border-radius: 4px;
+    -webkit-appearance: none; background: var(--border); cursor: pointer;
+  }
+  #trace-opacity::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px;
+    border-radius: 50%; background: var(--accent2);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    :root { --btn-size: 52px; }
+    #palette .color-dot { width: 30px; height: 30px; }
+    #layers-panel { display: none; }
+    #app-title { font-size: 1rem; }
+  }
+
+  /* printing */
+  @media print {
+    body * { visibility: hidden; }
+    #print-target, #print-target * { visibility: visible; }
+    #print-target { position: fixed; top: 0; left: 0; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="app-title">🎨 おえかきひろば</div>
+
+  <!-- Drawing tools -->
+  <button class="tool-btn active" id="btn-pen"     data-tool="pen"     data-tip="えんぴつ">✏️</button>
+  <button class="tool-btn"        id="btn-brush"   data-tool="brush"   data-tip="ふで">🖌️</button>
+  <button class="tool-btn"        id="btn-fill"    data-tool="fill"    data-tip="ぬりつぶし">🪣</button>
+  <button class="tool-btn"        id="btn-spray"   data-tool="spray"   data-tip="スプレー">💨</button>
+  <button class="tool-btn"        id="btn-eraser"  data-tool="eraser"  data-tip="けしごむ">🧹</button>
+  <button class="tool-btn"        id="btn-stamp"   data-tool="stamp"   data-tip="スタンプ">⭐</button>
+
+  <div class="sep"></div>
+
+  <!-- Brush size -->
+  <div id="size-wrap">
+    <span id="size-label">おおきさ: <b id="size-val">12</b></span>
+    <input type="range" id="brush-size" min="2" max="80" value="12">
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Color palette -->
+  <div id="palette"></div>
+  <input type="color" id="custom-color" title="じぶんでいろをえらぶ" value="#FF6B6B">
+
+  <div class="sep"></div>
+
+  <!-- Opacity -->
+  <div id="opacity-wrap">
+    <span id="opacity-label">とうめいど: <b id="opacity-val">100</b>%</span>
+    <input type="range" id="opacity-range" min="5" max="100" value="100">
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Actions -->
+  <button class="tool-btn" id="btn-undo"    data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="btn-redo"    data-tip="やりなおし">↪️</button>
+  <button class="tool-btn" id="btn-clear"   data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="btn-reset"   data-tip="さいしょからやりなおす" style="color:#FF4444;">🔄</button>
+  <button class="tool-btn" id="btn-bg"      data-tip="はいけい">🖼️</button>
+  <button class="tool-btn" id="btn-image"   data-tip="えをよみこむ">📷</button>
+  <button class="tool-btn" id="btn-share"   data-tip="きょうゆう">🔗</button>
+  <button class="tool-btn" id="btn-print"   data-tip="いんさつ">🖨️</button>
+  <button class="tool-btn" id="btn-save"    data-tip="ほぞん">💾</button>
+  <button class="tool-btn" id="btn-gaze"    data-tip="しせんにゅうりょく">👁️</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="canvas-wrap">
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="draw-canvas"></canvas>
+    <canvas id="overlay-canvas"></canvas>
+  </div>
+
+  <!-- LAYERS -->
+  <div id="layers-panel">
+    <h3>📄 レイヤー</h3>
+    <div id="layers-list"></div>
+    <button class="btn btn-secondary" id="btn-add-layer" style="font-size:.75rem;padding:6px;border-radius:10px;">＋ レイヤー追加</button>
+  </div>
+</div>
+
+<!-- STATUSBAR -->
+<div id="statusbar">
+  <span id="status-tool">ツール: えんぴつ</span>
+  <span id="status-pos">X: 0  Y: 0</span>
+  <span id="status-size">キャンバス: 読込中...</span>
+  <span id="status-gaze">視線: オフ</span>
+</div>
+
+<!-- TRACE CONTROLS -->
+<div id="trace-controls">
+  <label>📷 なぞりえ のとうめいど:</label>
+  <input type="range" id="trace-opacity" min="5" max="100" value="40">
+  <span id="trace-val">40%</span>
+  <button class="btn btn-secondary" id="btn-trace-close" style="font-size:.75rem;padding:6px 12px;">✕ とじる</button>
+</div>
+
+<!-- GAZE CURSOR -->
+<div id="gaze-cursor"></div>
+<canvas id="gaze-progress" width="80" height="80" style="display:none;"></canvas>
+<div id="gaze-indicator">👁️ しせんにゅうりょく: オン</div>
+
+<!-- STAMP PICKER -->
+<div id="stamp-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>⭐ スタンプをえらぼう</h2>
+    <div id="stamp-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('stamp-modal')">とじる</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div id="share-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>🔗 さくひんをきょうゆうする</h2>
+    <p>このURLをともだちやかぞくにおしえよう！</p>
+    <input type="text" id="share-url" readonly>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('share-modal')">とじる</button>
+      <button class="btn btn-primary" id="btn-copy-url">📋 コピー</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET MODAL -->
+<div id="reset-modal" class="modal-overlay">
+  <div class="modal" style="text-align:center;">
+    <div style="font-size:3rem;margin-bottom:12px;">🔄</div>
+    <h2 style="margin-bottom:10px;">さいしょからやりなおす？</h2>
+    <p style="margin-bottom:20px;">かいたえが <b>ぜんぶきえます</b>。<br>もとにはもどせません。ほんとうにいいですか？</p>
+    <div class="modal-btns" style="justify-content:center;gap:16px;">
+      <button class="btn btn-secondary" onclick="closeModal('reset-modal')" style="font-size:1rem;padding:12px 24px;">
+        やめる
+      </button>
+      <button class="btn btn-primary" id="btn-reset-confirm" style="font-size:1rem;padding:12px 24px;background:#FF4444;">
+        🔄 やりなおす
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- BG COLOR MODAL -->
+<div id="bg-modal" class="modal-overlay">
+  <div class="modal">
+    <h2>🖼️ はいけいのいろをえらぶ</h2>
+    <div id="bg-palette" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;"></div>
+    <input type="color" id="bg-custom" value="#FFFFFF" style="width:50px;height:50px;border-radius:12px;border:none;cursor:pointer;">
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal('bg-modal')">とじる</button>
+      <button class="btn btn-primary" id="btn-apply-bg">てきよう</button>
+    </div>
+  </div>
+</div>
+
+<!-- hidden file inputs -->
+<input type="file" id="file-image" accept="image/*" style="display:none">
+<input type="file" id="file-save-load" accept=".json" style="display:none">
+
+<script>
+// ======================================================
+// STATE
+// ======================================================
+const COLORS = [
+  '#FF0000','#FF6B6B','#FF8E53','#FFA500',
+  '#FFE66D','#FFFF00','#90EE90','#00CC66',
+  '#4ECDC4','#00BFFF','#4169E1','#9B59B6',
+  '#FF69B4','#8B4513','#696969','#000000',
+  '#FFFFFF','#C0C0C0',
+];
+const BG_COLORS = ['#FFFFFF','#FFF8F0','#F0F8FF','#F0FFF0','#FFF0F0','#1A1A2E','#000000','#FFFDE7'];
+const STAMPS = ['⭐','❤️','🌟','🌈','🦋','🌸','🍎','🐶','🐱','🐻','🐸','🌊','⚡','🔥','🎵','😊','🎃','🎄','🦄','🌙'];
+
+let state = {
+  tool: 'pen',
+  color: '#FF6B6B',
+  size: 12,
+  opacity: 1,
+  stamp: '⭐',
+  bgColor: '#FFFFFF',
+  traceOpacity: 0.4,
+  gazeMode: false,
+  gazeDwellTime: 1200, // ms
+};
+
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+let undoStack = [], redoStack = [];
+const MAX_UNDO = 40;
+
+// Gaze tracking state
+let gazeX = 0, gazeY = 0;
+let gazePrevX = 0, gazePrevY = 0;
+let gazeTimer = null;
+let gazeDwellEl = null;
+let gazeDwellProgress = 0;
+let gazeRAF = null;
+let gazeDrawing = false;
+
+// Trace image
+let traceImg = null;
+
+// ======================================================
+// CANVAS SETUP
+// ======================================================
+const bgCanvas = document.getElementById('bg-canvas');
+const drawCanvas = document.getElementById('draw-canvas');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+const ctx = drawCanvas.getContext('2d');
+const overlayCtx = overlayCanvas.getContext('2d');
+
+function resizeCanvases() {
+  const wrap = document.getElementById('canvas-wrap');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  [bgCanvas, drawCanvas, overlayCanvas].forEach(c => {
+    c.width = W; c.height = H;
+    c.style.width = W + 'px'; c.style.height = H + 'px';
+  });
+  fillBg();
+  redrawAll();
+  document.getElementById('status-size').textContent = `キャンバス: ${W}×${H}px`;
+}
+
+function fillBg() {
+  bgCtx.fillStyle = state.bgColor;
+  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+  if (traceImg) drawTrace();
+}
+
+function redrawAll() {
+  // reapply saved state if any
+}
+
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+// ======================================================
+// UNDO / REDO
+// ======================================================
+function saveState() {
+  const data = ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+  undoStack.push(data);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack = [];
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  redoStack.push(ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
+  const data = undoStack.pop();
+  ctx.putImageData(data, 0, 0);
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  undoStack.push(ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height));
+  const data = redoStack.pop();
+  ctx.putImageData(data, 0, 0);
+}
+
+// ======================================================
+// DRAWING CORE
+// ======================================================
+function getCanvasPos(e) {
+  const rect = drawCanvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+function applyContextStyle() {
+  ctx.globalAlpha = state.opacity;
+  ctx.strokeStyle = state.color;
+  ctx.fillStyle = state.color;
+  ctx.lineWidth = state.size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
+
+function startDraw(x, y) {
+  saveState();
+  isDrawing = true;
+  lastX = x; lastY = y;
+  applyContextStyle();
+
+  if (state.tool === 'fill') {
+    floodFill(Math.round(x), Math.round(y), hexToRgba(state.color));
+    isDrawing = false;
+    return;
+  }
+  if (state.tool === 'stamp') {
+    drawStamp(x, y);
+    isDrawing = false;
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  if (state.tool === 'spray') sprayDot(x, y);
+}
+
+function moveDraw(x, y) {
+  if (!isDrawing) return;
+  applyContextStyle();
+
+  if (state.tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = state.size * 2;
+    ctx.beginPath(); ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y); ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+  } else if (state.tool === 'brush') {
+    ctx.shadowColor = state.color;
+    ctx.shadowBlur = state.size * 1.5;
+    ctx.lineWidth = state.size;
+    ctx.beginPath(); ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y); ctx.stroke();
+    ctx.shadowBlur = 0;
+  } else if (state.tool === 'spray') {
+    sprayDot(x, y);
+  } else {
+    ctx.lineTo(x, y); ctx.stroke();
+  }
+  lastX = x; lastY = y;
+
+  // Update status
+  document.getElementById('status-pos').textContent = `X: ${Math.round(x)}  Y: ${Math.round(y)}`;
+}
+
+function endDraw() {
+  isDrawing = false;
+  ctx.beginPath();
+}
+
+function sprayDot(x, y) {
+  const radius = state.size * 3;
+  const dots = Math.floor(state.size * 2);
+  ctx.globalAlpha = state.opacity * 0.4;
+  ctx.fillStyle = state.color;
+  for (let i = 0; i < dots; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = Math.random() * radius;
+    ctx.beginPath();
+    ctx.arc(x + r * Math.cos(angle), y + r * Math.sin(angle), 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = state.opacity;
+}
+
+function drawStamp(x, y) {
+  ctx.font = `${state.size * 4}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(state.stamp, x, y);
+}
+
+// ======================================================
+// FLOOD FILL (BFS)
+// ======================================================
+function hexToRgba(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return [r, g, b, Math.round(state.opacity * 255)];
+}
+
+function floodFill(startX, startY, fillColor) {
+  const W = drawCanvas.width, H = drawCanvas.height;
+  const imageData = ctx.getImageData(0, 0, W, H);
+  const data = imageData.data;
+
+  // Also check bg
+  const bgData = bgCtx.getImageData(0, 0, W, H).data;
+
+  function getPixel(x, y) {
+    const i = (y * W + x) * 4;
+    // Composite draw+bg
+    const da = data[i+3] / 255;
+    const r = da * data[i] + (1-da) * bgData[i];
+    const g = da * data[i+1] + (1-da) * bgData[i+1];
+    const b = da * data[i+2] + (1-da) * bgData[i+2];
+    return [Math.round(r), Math.round(g), Math.round(b)];
+  }
+
+  const targetColor = getPixel(startX, startY);
+  const [fr, fg, fb, fa] = fillColor;
+  if (targetColor[0]===fr && targetColor[1]===fg && targetColor[2]===fb) return;
+
+  const tolerance = 30;
+  function matches(x, y) {
+    const [r,g,b] = getPixel(x, y);
+    return Math.abs(r-targetColor[0])+Math.abs(g-targetColor[1])+Math.abs(b-targetColor[2]) < tolerance;
+  }
+
+  const stack = [[startX, startY]];
+  const visited = new Uint8Array(W * H);
+
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || x >= W || y < 0 || y >= H) continue;
+    const idx = y * W + x;
+    if (visited[idx]) continue;
+    if (!matches(x, y)) continue;
+    visited[idx] = 1;
+
+    const i = idx * 4;
+    data[i] = fr; data[i+1] = fg; data[i+2] = fb; data[i+3] = fa;
+
+    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// ======================================================
+// TRACE IMAGE
+// ======================================================
+function drawTrace() {
+  if (!traceImg) return;
+  const W = bgCanvas.width, H = bgCanvas.height;
+  const scale = Math.min(W / traceImg.width, H / traceImg.height) * 0.9;
+  const dw = traceImg.width * scale, dh = traceImg.height * scale;
+  const dx = (W - dw) / 2, dy = (H - dh) / 2;
+  bgCtx.globalAlpha = state.traceOpacity;
+  bgCtx.drawImage(traceImg, dx, dy, dw, dh);
+  bgCtx.globalAlpha = 1;
+}
+
+// ======================================================
+// GAZE TRACKING (WebGazer / Fallback: Mouse)
+// ======================================================
+const gazeCursor = document.getElementById('gaze-cursor');
+const gazeProgressCanvas = document.getElementById('gaze-progress');
+const gazeProgressCtx = gazeProgressCanvas.getContext('2d');
+const gazeIndicator = document.getElementById('gaze-indicator');
+
+let gazeLoaded = false;
+let gazeDrawInterval = null;
+
+function toggleGazeMode() {
+  state.gazeMode = !state.gazeMode;
+  document.getElementById('btn-gaze').classList.toggle('active', state.gazeMode);
+  document.getElementById('status-gaze').textContent = `視線: ${state.gazeMode ? 'オン' : 'オフ'}`;
+  gazeIndicator.style.display = state.gazeMode ? 'block' : 'none';
+
+  if (state.gazeMode) {
+    gazeCursor.style.display = 'block';
+    gazeProgressCanvas.style.display = 'block';
+    initGaze();
+  } else {
+    gazeCursor.style.display = 'none';
+    gazeProgressCanvas.style.display = 'none';
+    stopGazeDraw();
+    if (window.webgazer) webgazer.pause();
+  }
+}
+
+function initGaze() {
+  if (gazeLoaded) {
+    if (window.webgazer) webgazer.resume();
+    return;
+  }
+
+  // Try to load WebGazer
+  const script = document.createElement('script');
+  script.src = 'https://webgazer.cs.brown.edu/webgazer.js';
+  script.onload = () => {
+    gazeLoaded = true;
+    webgazer.setGazeListener((data, clock) => {
+      if (!data || !state.gazeMode) return;
+      updateGazePos(data.x, data.y);
+    }).begin();
+    webgazer.showVideoPreview(true).showPredictionPoints(false);
+    webgazer.setTracker('TFFacemesh').setRegression('ridge');
+    showGazeCalibrationHint();
+  };
+  script.onerror = () => {
+    // Fallback: use mouse/pointer as gaze simulation
+    gazeLoaded = true;
+    showGazeFallbackMessage();
+    enableMouseGazeFallback();
+  };
+  document.head.appendChild(script);
+}
+
+function enableMouseGazeFallback() {
+  // In fallback mode, track mouse as gaze (useful for testing / AAC devices)
+  document.addEventListener('mousemove', e => {
+    if (!state.gazeMode) return;
+    updateGazePos(e.clientX, e.clientY);
+  });
+  // Also track pointer events for switch/AAC
+  document.addEventListener('pointermove', e => {
+    if (!state.gazeMode || e.pointerType === 'touch') return;
+    updateGazePos(e.clientX, e.clientY);
+  });
+}
+
+const GAZE_MOVE_THRESHOLD = 40; // pixels — if gaze moves more, reset dwell
+const GAZE_DWELL_MS = 1200;
+
+function updateGazePos(x, y) {
+  gazeX = x; gazeY = y;
+
+  // Move visual cursor
+  gazeCursor.style.left = x + 'px';
+  gazeCursor.style.top = y + 'px';
+  gazeProgressCanvas.style.left = x + 'px';
+  gazeProgressCanvas.style.top = y + 'px';
+
+  const moved = Math.hypot(x - gazePrevX, y - gazePrevY);
+
+  if (moved > GAZE_MOVE_THRESHOLD) {
+    // Moved too much — reset dwell
+    gazePrevX = x; gazePrevY = y;
+    clearGazeDwell();
+    // If we were drawing, stop
+    if (gazeDrawing) {
+      endDraw();
+      gazeDrawing = false;
+    }
+    startGazeDwell(x, y);
+  } else {
+    // Still dwelling — continue drawing if dwell activated
+    if (gazeDrawing) {
+      const pos = clientToCanvas(x, y);
+      moveDraw(pos.x, pos.y);
+    }
+  }
+}
+
+let gazeDwellTimeout = null;
+let gazeDwellAnimFrame = null;
+let gazeDwellStart = 0;
+
+function startGazeDwell(x, y) {
+  clearGazeDwell();
+  gazeDwellStart = performance.now();
+
+  function animateDwell(now) {
+    const elapsed = now - gazeDwellStart;
+    const progress = Math.min(elapsed / GAZE_DWELL_MS, 1);
+    drawGazeProgress(progress);
+    if (progress < 1) {
+      gazeDwellAnimFrame = requestAnimationFrame(animateDwell);
+    } else {
+      // Dwell complete — start drawing!
+      activateGazeDraw(x, y);
+    }
+  }
+  gazeDwellAnimFrame = requestAnimationFrame(animateDwell);
+}
+
+function clearGazeDwell() {
+  if (gazeDwellAnimFrame) { cancelAnimationFrame(gazeDwellAnimFrame); gazeDwellAnimFrame = null; }
+  if (gazeDwellTimeout) { clearTimeout(gazeDwellTimeout); gazeDwellTimeout = null; }
+  drawGazeProgress(0);
+}
+
+function drawGazeProgress(progress) {
+  const size = 80;
+  gazeProgressCtx.clearRect(0, 0, size, size);
+  if (progress <= 0) return;
+  gazeProgressCtx.beginPath();
+  gazeProgressCtx.arc(size/2, size/2, size/2-6, -Math.PI/2, -Math.PI/2 + Math.PI*2*progress);
+  gazeProgressCtx.lineWidth = 6;
+  gazeProgressCtx.strokeStyle = `rgba(255,107,107,${0.5 + progress*0.5})`;
+  gazeProgressCtx.stroke();
+}
+
+function activateGazeDraw(x, y) {
+  const pos = clientToCanvas(x, y);
+  startDraw(pos.x, pos.y);
+  gazeDrawing = true;
+  gazeCursor.style.background = 'rgba(255,50,50,0.3)';
+  // Auto-stop after 2 seconds of drawing without movement feedback
+  gazeDwellTimeout = setTimeout(() => {
+    endDraw();
+    gazeDrawing = false;
+    gazeCursor.style.background = 'rgba(255,107,107,0.15)';
+  }, 2000);
+}
+
+function stopGazeDraw() {
+  clearGazeDwell();
+  if (gazeDrawing) { endDraw(); gazeDrawing = false; }
+}
+
+function clientToCanvas(cx, cy) {
+  const rect = drawCanvas.getBoundingClientRect();
+  return { x: cx - rect.left, y: cy - rect.top };
+}
+
+function showGazeCalibrationHint() {
+  // brief onscreen hint
+  const hint = document.createElement('div');
+  hint.style.cssText = `
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.85);color:#fff;padding:20px 30px;
+    border-radius:20px;z-index:99999;text-align:center;font-size:1rem;
+    max-width:320px;line-height:1.7;
+  `;
+  hint.innerHTML = `
+    <div style="font-size:2rem;margin-bottom:8px;">👁️</div>
+    <b>しせんにゅうりょく ON</b><br>
+    カメラをきょかしてください。<br>
+    しばらくがめんをみつめると えがかけます。<br>
+    <small style="opacity:.7">WebGazer によるしせんついせき</small>
+  `;
+  document.body.appendChild(hint);
+  setTimeout(() => hint.remove(), 4000);
+}
+
+function showGazeFallbackMessage() {
+  const hint = document.createElement('div');
+  hint.style.cssText = `
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.85);color:#fff;padding:20px 30px;
+    border-radius:20px;z-index:99999;text-align:center;font-size:1rem;
+    max-width:360px;line-height:1.7;
+  `;
+  hint.innerHTML = `
+    <div style="font-size:2rem;margin-bottom:8px;">🖱️</div>
+    <b>シミュレーションモード</b><br>
+    WebGazer をよみこめませんでした。<br>
+    マウスやポインタで しせんをシミュレートします。<br>
+    <small style="opacity:.7">視線入力デバイス（Tobii等）はOSレベルでポインタとして動作するため、このモードで対応できます。</small>
+  `;
+  document.body.appendChild(hint);
+  setTimeout(() => hint.remove(), 5000);
+}
+
+// ======================================================
+// POINTER / TOUCH EVENTS
+// ======================================================
+function pointerStart(e) {
+  if (state.gazeMode) return;
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  startDraw(pos.x, pos.y);
+}
+function pointerMove(e) {
+  if (state.gazeMode) return;
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  moveDraw(pos.x, pos.y);
+  document.getElementById('status-pos').textContent = `X: ${Math.round(pos.x)}  Y: ${Math.round(pos.y)}`;
+}
+function pointerEnd(e) {
+  if (state.gazeMode) return;
+  e.preventDefault();
+  endDraw();
+}
+
+drawCanvas.addEventListener('pointerdown', pointerStart, { passive: false });
+drawCanvas.addEventListener('pointermove', pointerMove, { passive: false });
+drawCanvas.addEventListener('pointerup', pointerEnd, { passive: false });
+drawCanvas.addEventListener('pointerleave', pointerEnd, { passive: false });
+drawCanvas.addEventListener('touchstart', pointerStart, { passive: false });
+drawCanvas.addEventListener('touchmove', pointerMove, { passive: false });
+drawCanvas.addEventListener('touchend', pointerEnd, { passive: false });
+
+// ======================================================
+// PALETTE BUILD
+// ======================================================
+const palette = document.getElementById('palette');
+let selectedColorDot = null;
+
+COLORS.forEach(c => {
+  const dot = document.createElement('div');
+  dot.className = 'color-dot';
+  dot.style.background = c;
+  dot.title = c;
+  dot.addEventListener('click', () => {
+    state.color = c;
+    if (selectedColorDot) selectedColorDot.classList.remove('active');
+    dot.classList.add('active');
+    selectedColorDot = dot;
+  });
+  if (c === state.color) { dot.classList.add('active'); selectedColorDot = dot; }
+  palette.appendChild(dot);
+});
+
+document.getElementById('custom-color').addEventListener('input', e => {
+  state.color = e.target.value;
+  if (selectedColorDot) selectedColorDot.classList.remove('active');
+  selectedColorDot = null;
+});
+
+// BG palette
+const bgPal = document.getElementById('bg-palette');
+BG_COLORS.forEach(c => {
+  const dot = document.createElement('div');
+  dot.className = 'color-dot';
+  dot.style.background = c;
+  dot.style.border = '3px solid #ddd';
+  dot.title = c;
+  dot.addEventListener('click', () => {
+    document.getElementById('bg-custom').value = c;
+  });
+  bgPal.appendChild(dot);
+});
+
+// ======================================================
+// TOOL BUTTONS
+// ======================================================
+const toolNames = { pen:'えんぴつ', brush:'ふで', fill:'ぬりつぶし', spray:'スプレー', eraser:'けしごむ', stamp:'スタンプ' };
+
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.tool = btn.dataset.tool;
+    document.getElementById('status-tool').textContent = `ツール: ${toolNames[state.tool] || state.tool}`;
+    if (state.tool === 'stamp') openModal('stamp-modal');
+  });
+});
+
+// Size
+document.getElementById('brush-size').addEventListener('input', e => {
+  state.size = +e.target.value;
+  document.getElementById('size-val').textContent = state.size;
+});
+
+// Opacity
+document.getElementById('opacity-range').addEventListener('input', e => {
+  state.opacity = +e.target.value / 100;
+  document.getElementById('opacity-val').textContent = e.target.value;
+});
+
+// Actions
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (confirm('ぜんぶけしますか？')) { saveState(); ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height); }
+});
+document.getElementById('btn-reset').addEventListener('click', () => openModal('reset-modal'));
+document.getElementById('btn-reset-confirm').addEventListener('click', () => {
+  // Clear drawing canvas
+  ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  // Reset bg to white
+  state.bgColor = '#FFFFFF';
+  // Remove trace image
+  traceImg = null;
+  document.getElementById('trace-controls').style.display = 'none';
+  fillBg();
+  // Clear undo/redo history
+  undoStack = [];
+  redoStack = [];
+  // Reset URL hash
+  history.replaceState(null, '', location.pathname);
+  closeModal('reset-modal');
+});
+document.getElementById('btn-gaze').addEventListener('click', toggleGazeMode);
+
+// BG
+document.getElementById('btn-bg').addEventListener('click', () => openModal('bg-modal'));
+document.getElementById('btn-apply-bg').addEventListener('click', () => {
+  state.bgColor = document.getElementById('bg-custom').value;
+  fillBg();
+  closeModal('bg-modal');
+});
+
+// Image load (trace)
+document.getElementById('btn-image').addEventListener('click', () => {
+  document.getElementById('file-image').click();
+});
+document.getElementById('file-image').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    traceImg = img;
+    fillBg();
+    document.getElementById('trace-controls').style.display = 'flex';
+  };
+  img.src = url;
+  e.target.value = '';
+});
+
+// Trace opacity
+document.getElementById('trace-opacity').addEventListener('input', e => {
+  state.traceOpacity = +e.target.value / 100;
+  document.getElementById('trace-val').textContent = e.target.value + '%';
+  fillBg();
+});
+document.getElementById('btn-trace-close').addEventListener('click', () => {
+  traceImg = null;
+  fillBg();
+  document.getElementById('trace-controls').style.display = 'none';
+});
+
+// ======================================================
+// STAMP MODAL
+// ======================================================
+const stampGrid = document.getElementById('stamp-grid');
+STAMPS.forEach(s => {
+  const btn = document.createElement('button');
+  btn.style.cssText = 'font-size:2.2rem;background:none;border:3px solid transparent;border-radius:14px;cursor:pointer;padding:8px;transition:border-color .15s,transform .15s;';
+  btn.textContent = s;
+  btn.addEventListener('click', () => {
+    state.stamp = s;
+    closeModal('stamp-modal');
+    // switch to stamp tool
+    document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-stamp').classList.add('active');
+    state.tool = 'stamp';
+  });
+  btn.addEventListener('mouseenter', () => { btn.style.borderColor = '#FF6B6B'; btn.style.transform = 'scale(1.2)'; });
+  btn.addEventListener('mouseleave', () => { btn.style.borderColor = 'transparent'; btn.style.transform = 'scale(1)'; });
+  stampGrid.appendChild(btn);
+});
+
+// ======================================================
+// SHARE (Base64 URL encoding)
+// ======================================================
+document.getElementById('btn-share').addEventListener('click', async () => {
+  // Flatten bg + drawing into one image
+  const flat = document.createElement('canvas');
+  flat.width = drawCanvas.width; flat.height = drawCanvas.height;
+  const fCtx = flat.getContext('2d');
+  fCtx.fillStyle = state.bgColor;
+  fCtx.fillRect(0,0,flat.width,flat.height);
+  if (traceImg) {
+    const scale = Math.min(flat.width/traceImg.width, flat.height/traceImg.height)*0.9;
+    const dw=traceImg.width*scale, dh=traceImg.height*scale;
+    fCtx.globalAlpha = state.traceOpacity;
+    fCtx.drawImage(traceImg,(flat.width-dw)/2,(flat.height-dh)/2,dw,dh);
+    fCtx.globalAlpha=1;
+  }
+  fCtx.drawImage(drawCanvas,0,0);
+
+  // Compress to JPEG, encode as base64, embed in URL hash
+  const quality = 0.7;
+  flat.toBlob(blob => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const b64 = reader.result.split(',')[1];
+      // Truncate if too large for URL (use sessionStorage as fallback)
+      if (b64.length < 500000) {
+        const url = location.href.split('#')[0] + '#img=' + encodeURIComponent(b64);
+        document.getElementById('share-url').value = url;
+      } else {
+        const key = 'drawing_' + Date.now();
+        try { sessionStorage.setItem(key, b64); } catch(e) {}
+        const url = location.href.split('#')[0] + '#key=' + key;
+        document.getElementById('share-url').value = url + ' (※このページを開いている間だけ有効です)';
+      }
+      openModal('share-modal');
+    };
+    reader.readAsDataURL(blob);
+  }, 'image/jpeg', quality);
+});
+
+document.getElementById('btn-copy-url').addEventListener('click', () => {
+  const input = document.getElementById('share-url');
+  navigator.clipboard.writeText(input.value).then(() => {
+    document.getElementById('btn-copy-url').textContent = '✅ コピーしました！';
+    setTimeout(() => document.getElementById('btn-copy-url').textContent = '📋 コピー', 2000);
+  });
+});
+
+// Load shared image from URL hash
+function loadFromHash() {
+  const hash = location.hash;
+  if (hash.startsWith('#img=')) {
+    const b64 = decodeURIComponent(hash.slice(5));
+    loadBase64Image(b64);
+  } else if (hash.startsWith('#key=')) {
+    const key = hash.slice(5);
+    const b64 = sessionStorage.getItem(key);
+    if (b64) loadBase64Image(b64);
+  }
+}
+function loadBase64Image(b64) {
+  const img = new Image();
+  img.onload = () => { ctx.drawImage(img,0,0,drawCanvas.width,drawCanvas.height); };
+  img.src = 'data:image/jpeg;base64,' + b64;
+}
+window.addEventListener('load', () => setTimeout(loadFromHash, 300));
+
+// ======================================================
+// PRINT
+// ======================================================
+document.getElementById('btn-print').addEventListener('click', () => {
+  const flat = document.createElement('canvas');
+  flat.width = drawCanvas.width; flat.height = drawCanvas.height;
+  const fCtx = flat.getContext('2d');
+  fCtx.fillStyle = state.bgColor;
+  fCtx.fillRect(0,0,flat.width,flat.height);
+  fCtx.drawImage(bgCanvas,0,0);
+  fCtx.drawImage(drawCanvas,0,0);
+
+  const printWin = window.open('','_blank');
+  if (!printWin) { alert('ポップアップをきょかしてから もういちどためしてください'); return; }
+  printWin.document.write(`
+    <html><head><title>おえかき さくひん</title>
+    <style>
+      body{margin:0;padding:0;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+      img{max-width:100%;max-height:100vh;object-fit:contain;}
+      @media print{body{margin:0;}img{width:100%;}}
+    </style></head>
+    <body><img src="${flat.toDataURL('image/png')}" id="pi">
+    <script>
+      document.getElementById('pi').onload=function(){window.print();setTimeout(function(){window.close();},500);};
+    <\/script>
+    </body></html>
+  `);
+  printWin.document.close();
+});
+
+// ======================================================
+// SAVE / LOAD
+// ======================================================
+document.getElementById('btn-save').addEventListener('click', () => {
+  // Save as PNG
+  const flat = document.createElement('canvas');
+  flat.width = drawCanvas.width; flat.height = drawCanvas.height;
+  const fCtx = flat.getContext('2d');
+  fCtx.fillStyle = state.bgColor;
+  fCtx.fillRect(0,0,flat.width,flat.height);
+  fCtx.drawImage(bgCanvas,0,0);
+  fCtx.drawImage(drawCanvas,0,0);
+  const a = document.createElement('a');
+  a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
+  a.href = flat.toDataURL('image/png');
+  a.click();
+});
+
+// ======================================================
+// KEYBOARD SHORTCUTS
+// ======================================================
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if ((e.ctrlKey||e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+  if ((e.ctrlKey||e.metaKey) && e.shiftKey && e.key === 'Z') { e.preventDefault(); redo(); }
+  if (e.key === 'e') { state.tool='eraser'; document.getElementById('btn-eraser').click(); }
+  if (e.key === 'p') { state.tool='pen'; document.getElementById('btn-pen').click(); }
+  if (e.key === 'b') { state.tool='brush'; document.getElementById('btn-brush').click(); }
+  if (e.key === '[') {
+    const s = Math.max(2, state.size - 2);
+    document.getElementById('brush-size').value = s;
+    state.size = s; document.getElementById('size-val').textContent = s;
+  }
+  if (e.key === ']') {
+    const s = Math.min(80, state.size + 2);
+    document.getElementById('brush-size').value = s;
+    state.size = s; document.getElementById('size-val').textContent = s;
+  }
+});
+
+// ======================================================
+// MODAL HELPERS
+// ======================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+window.closeModal = closeModal;
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ======================================================
+// MULTI-TOUCH PINCH-ZOOM (future: for canvas zoom)
+// ======================================================
+// placeholder — pinch gesture tracking for later enhancement
+
+// ======================================================
+// DONE
+// ======================================================
+console.log('🎨 おえかきひろば ready');
+</script>
+</body>
+</html>
