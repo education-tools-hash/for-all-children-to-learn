@@ -13,334 +13,353 @@
     --accent2: #4ECDC4;
     --text: #2D2D2D;
     --border: #E8DDD0;
-    --btn-size: 64px;
-    --gaze-btn-size: 88px;
+    --sidebar-w: 58px;   /* 左サイドバー幅（折りたたみ時） */
+    --sidebar-w-open: 220px; /* ツールパネル展開時 */
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; }
+  * { box-sizing:border-box; margin:0; padding:0; touch-action:none; }
 
   body {
-    font-family: 'Kosugi Maru', 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
-    background: var(--bg);
-    width: 100vw; height: 100vh;
-    overflow: hidden;
-    display: flex; flex-direction: column;
-    user-select: none;
+    font-family:'Kosugi Maru','M PLUS Rounded 1c','Noto Sans JP',sans-serif;
+    background:var(--bg);
+    width:100vw; height:100vh;
+    overflow:hidden;
+    display:flex; flex-direction:row; /* 横並び：サイドバー ＋ キャンバス */
+    user-select:none;
   }
 
-  /* TOP BAR */
-  #topbar {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px;
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     LEFT SIDEBAR
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  #sidebar {
+    width: var(--sidebar-w);
+    height: 100vh;
     background: var(--panel);
-    border-bottom: 3px solid var(--border);
-    box-shadow: 0 3px 12px var(--shadow);
-    flex-shrink: 0; flex-wrap: wrap;
+    border-right: 2px solid var(--border);
+    box-shadow: 3px 0 12px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
     z-index: 100;
-    transition: padding .3s, gap .3s;
+    transition: width .22s ease, box-shadow .22s ease;
+    /* ホバーで展開 */
   }
-  body.gaze-on #topbar { padding: 12px 16px; gap: 12px; }
+  #sidebar:hover, #sidebar.pinned {
+    width: var(--sidebar-w-open);
+    box-shadow: 6px 0 24px var(--shadow);
+    overflow-x: visible;
+  }
+  /* 展開時だけラベル・テキスト要素を表示 */
+  #sidebar .show-on-open {
+    display: none;
+    white-space: nowrap;
+  }
+  #sidebar:hover .show-on-open,
+  #sidebar.pinned .show-on-open {
+    display: block;
+  }
+  #sidebar::-webkit-scrollbar { width:4px; }
+  #sidebar::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
 
+  /* アプリタイトル (縦書き風にコンパクトに) */
   #app-title {
-    font-size: 1.4rem; font-weight: 900;
-    background: linear-gradient(135deg,#FF6B6B,#FF8E53,#FFE66D,#4ECDC4,#45B7D1);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    white-space: nowrap; margin-right: 4px; flex-shrink: 0;
+    font-size:.65rem; font-weight:900; writing-mode:initial;
+    background:linear-gradient(135deg,#FF6B6B,#FF8E53,#FFE66D,#4ECDC4,#45B7D1);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    white-space:nowrap; margin-bottom:4px; text-align:center;
+    line-height:1.2;
   }
 
-  /* TOOL BUTTON */
+  .sidebar-sep {
+    width:80%; height:1px; background:var(--border);
+    margin:2px 0; flex-shrink:0;
+  }
+
+  /* ━━━ TOOL BUTTON ━━━ */
   .tool-btn {
-    width: var(--btn-size); height: var(--btn-size);
-    border-radius: 20px;
-    border: 3px solid transparent;
-    cursor: pointer; font-size: 1.6rem;
-    display: flex; align-items: center; justify-content: center;
-    transition: transform .15s, box-shadow .15s, border-color .15s,
-                width .3s, height .3s, font-size .3s, border-radius .3s;
-    background: var(--bg);
-    box-shadow: 0 3px 8px var(--shadow);
-    flex-shrink: 0; position: relative;
+    width:46px; height:46px;
+    border-radius:12px;
+    border:2px solid transparent;
+    cursor:pointer; font-size:1.4rem;
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .12s, box-shadow .12s, border-color .12s, background .12s;
+    background:var(--bg);
+    box-shadow:0 2px 6px var(--shadow);
+    flex-shrink:0; position:relative;
   }
-  body.gaze-on .tool-btn {
-    width: var(--gaze-btn-size); height: var(--gaze-btn-size);
-    font-size: 2rem; border-radius: 24px;
-  }
-  .tool-btn:hover { transform: scale(1.1); box-shadow: 0 6px 18px rgba(0,0,0,.2); border-color: var(--accent); }
-  .tool-btn.active { background: #FFE0E0; border-color: var(--accent); }
+  .tool-btn:hover { transform:scale(1.1); box-shadow:0 4px 14px rgba(0,0,0,.2); border-color:var(--accent); }
+  .tool-btn.active { background:#FFE0E0; border-color:var(--accent); }
+
+  /* ツールチップ (右に出す) */
   .tool-btn[data-tip]:hover::after {
-    content: attr(data-tip);
-    position: absolute; top: 110%; left: 50%; transform: translateX(-50%);
-    background: #2D2D2D; color: #fff;
-    font-size: .7rem; padding: 4px 8px; border-radius: 8px;
-    white-space: nowrap; pointer-events: none; z-index: 999;
+    content:attr(data-tip);
+    position:absolute; left:110%; top:50%; transform:translateY(-50%);
+    background:#2D2D2D; color:#fff;
+    font-size:.7rem; padding:4px 10px; border-radius:8px;
+    white-space:nowrap; pointer-events:none; z-index:999;
   }
 
-  .sep { width: 2px; height: 40px; background: var(--border); flex-shrink: 0; transition: height .3s; }
-  body.gaze-on .sep { height: 60px; }
-
-  /* SIZE */
-  #size-wrap { display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px; }
-  #size-label { font-size:.65rem;color:#888; }
-  #brush-size {
-    -webkit-appearance:none;appearance:none;
-    width:80px;height:8px;border-radius:4px;background:var(--border);outline:none;cursor:pointer;
+  /* ━━━ COLOR DOTS ━━━ */
+  #palette {
+    display:flex; flex-direction:column; gap:4px; align-items:center;
   }
-  #brush-size::-webkit-slider-thumb {
-    -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);
-    box-shadow:0 2px 6px rgba(0,0,0,.3);
-  }
-
-  /* PALETTE */
-  #palette { display:flex;flex-wrap:wrap;gap:5px;max-width:260px; }
+  .palette-row { display:flex; gap:4px; }
   .color-dot {
-    width:36px;height:36px;border-radius:50%;
-    border:3px solid transparent;cursor:pointer;
-    transition:transform .15s,border-color .15s,width .3s,height .3s;
-    box-shadow:0 2px 6px rgba(0,0,0,.2);flex-shrink:0;
+    width:20px; height:20px; border-radius:50%;
+    border:2px solid transparent; cursor:pointer;
+    transition:transform .12s, border-color .12s;
+    box-shadow:0 1px 4px rgba(0,0,0,.2); flex-shrink:0;
   }
-  body.gaze-on .color-dot { width:46px;height:46px; }
-  .color-dot:hover,.color-dot.active { transform:scale(1.25);border-color:#fff; box-shadow:0 4px 12px rgba(0,0,0,.35); }
+  .color-dot:hover, .color-dot.active {
+    transform:scale(1.3); border-color:#fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.35);
+  }
   #custom-color {
-    width:36px;height:36px;border-radius:50%;
-    border:3px dashed #bbb;cursor:pointer;flex-shrink:0;
+    width:22px; height:22px; border-radius:50%;
+    border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
     background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
-    transition:width .3s,height .3s;
-  }
-  body.gaze-on #custom-color { width:46px;height:46px; }
-
-  /* OPACITY */
-  #opacity-wrap { display:flex;flex-direction:column;align-items:center;gap:2px;min-width:70px; }
-  #opacity-label { font-size:.65rem;color:#888; }
-  #opacity-range {
-    -webkit-appearance:none;appearance:none;
-    width:80px;height:8px;border-radius:4px;background:var(--border);outline:none;cursor:pointer;
-  }
-  #opacity-range::-webkit-slider-thumb {
-    -webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent2);
-    box-shadow:0 2px 6px rgba(0,0,0,.3);
   }
 
-  /* MAIN */
-  #main { display:flex;flex:1;overflow:hidden;position:relative; }
+  /* ━━━ SLIDERS ━━━ */
+  /* 展開時のみ幅いっぱい表示 */
+  #sidebar .slider-wrap,
+  #sidebar #palette,
+  #sidebar #custom-color {
+    transition: opacity .2s;
+  }
+  #sidebar:not(:hover):not(.pinned) .slider-wrap { opacity: 0.3; pointer-events: none; }
+  #sidebar:not(:hover):not(.pinned) #palette .color-dot { width:16px; height:16px; }
+  #sidebar:not(:hover):not(.pinned) #custom-color { width:16px; height:16px; }
+  #sidebar:hover .slider-wrap,
+  #sidebar.pinned .slider-wrap { opacity:1; pointer-events:auto; }
+  #sidebar:hover .vslider,
+  #sidebar.pinned .vslider { width: 160px; }
+  #sidebar:not(:hover):not(.pinned) .vslider { width: 40px; }
 
-  /* CANVAS */
+  .slider-wrap {
+    display:flex; flex-direction:column; align-items:center; gap:2px; width:100%;
+  }
+  .slider-label { font-size:.55rem; color:#888; white-space:nowrap; }
+  input[type=range].vslider {
+    -webkit-appearance:none; appearance:none;
+    width:52px; height:6px;
+    border-radius:3px; background:var(--border);
+    outline:none; cursor:pointer;
+  }
+  input[type=range].vslider::-webkit-slider-thumb {
+    -webkit-appearance:none; width:18px; height:18px;
+    border-radius:50%; background:var(--accent);
+    box-shadow:0 1px 4px rgba(0,0,0,.3);
+  }
+  #opacity-range::-webkit-slider-thumb { background:var(--accent2); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     CANVAS AREA (右側いっぱい)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   #canvas-wrap {
-    flex:1;position:relative;overflow:hidden;
+    flex:1; position:relative; overflow:hidden;
     background:repeating-conic-gradient(#e8e0d8 0% 25%,#f5f0ea 0% 50%) 0 0/20px 20px;
   }
   #bg-canvas,#draw-canvas,#overlay-canvas {
-    position:absolute;top:0;left:0;touch-action:none;
+    position:absolute; top:0; left:0; touch-action:none;
   }
-  #bg-canvas { z-index:1; }
+  #bg-canvas   { z-index:1; }
   #draw-canvas { z-index:2; }
-  #overlay-canvas { z-index:3;pointer-events:none; }
+  #overlay-canvas { z-index:3; pointer-events:none; }
 
-  /* LAYERS */
-  #layers-panel {
-    width:130px;background:var(--panel);border-left:2px solid var(--border);
-    display:flex;flex-direction:column;padding:8px;gap:6px;overflow-y:auto;flex-shrink:0;
-  }
-  #layers-panel h3 { font-size:.8rem;color:#666;text-align:center; }
-
-  /* STATUSBAR */
+  /* ━━━ STATUS (キャンバス右下に小さく) ━━━ */
   #statusbar {
-    padding:4px 12px;background:var(--panel);border-top:2px solid var(--border);
-    font-size:.7rem;color:#999;display:flex;gap:16px;align-items:center;flex-shrink:0;
+    position:fixed; bottom:0; left:var(--sidebar-w); right:0;
+    transition: left .22s ease;
+    padding:2px 10px;
+    background:rgba(255,255,255,.82); backdrop-filter:blur(6px);
+    border-top:1px solid var(--border);
+    font-size:.62rem; color:#aaa;
+    display:flex; gap:14px; align-items:center;
+    z-index:200; pointer-events:none;
+    transition:left .25s ease;
   }
 
-  /* =====================
-     GAZE CURSOR SYSTEM
-     =====================
-     pointer-events:none で絶対に他の操作を邪魔しない。
-     Tobii等 OS カーソルの位置に追従して視覚フィードバックだけ提供。
-  */
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     GAZE CURSOR
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   #gaze-cursor {
-    display:none;position:fixed;pointer-events:none;z-index:9999;
-    width:56px;height:56px;border-radius:50%;
-    border:4px solid rgba(255,107,107,0.85);
-    background:rgba(255,107,107,0.1);
+    display:none; position:fixed; pointer-events:none; z-index:9999;
+    width:56px; height:56px; border-radius:50%;
+    border:4px solid rgba(255,107,107,.85);
+    background:rgba(255,107,107,.1);
     transform:translate(-50%,-50%);
-    transition:border-color .15s,background .15s;
+    transition:border-color .15s, background .15s;
   }
-  #gaze-cursor.dwelling  { border-color:rgba(255,60,60,1); background:rgba(255,60,60,0.18); }
-  #gaze-cursor.activated { border-color:rgba(40,200,80,1); background:rgba(40,200,80,0.18); }
+  #gaze-cursor.dwelling  { border-color:rgba(255,60,60,1);  background:rgba(255,60,60,.18); }
+  #gaze-cursor.activated { border-color:rgba(40,200,80,1);  background:rgba(40,200,80,.18); }
 
-  /* SVG dwell-progress ring */
   #gaze-ring {
-    display:none;position:fixed;pointer-events:none;z-index:10000;
-    width:56px;height:56px;
-    transform:translate(-50%,-50%);
-    overflow:visible;
+    display:none; position:fixed; pointer-events:none; z-index:10000;
+    width:56px; height:56px;
+    transform:translate(-50%,-50%); overflow:visible;
   }
-  #ring-track { fill:none;stroke:rgba(255,107,107,0.2);stroke-width:5; }
+  #ring-track { fill:none; stroke:rgba(255,107,107,.2); stroke-width:5; }
   #ring-fill  {
-    fill:none;stroke:rgba(255,107,107,1);stroke-width:5;stroke-linecap:round;
-    stroke-dasharray:150.8;stroke-dashoffset:150.8;
-    transform-origin:28px 28px;transform:rotate(-90deg);
+    fill:none; stroke:rgba(255,107,107,1); stroke-width:5; stroke-linecap:round;
+    stroke-dasharray:150.8; stroke-dashoffset:150.8;
+    transform-origin:28px 28px; transform:rotate(-90deg);
   }
   #ring-fill.done { stroke:rgba(40,200,80,1); }
 
-  /* GAZE BANNER */
   #gaze-banner {
-    display:none;position:fixed;bottom:56px;left:50%;transform:translateX(-50%);
-    background:rgba(255,107,107,0.93);color:#fff;
-    padding:10px 22px;border-radius:20px;
-    font-size:.82rem;font-weight:700;line-height:1.7;
-    z-index:500;pointer-events:none;text-align:center;
+    display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+    background:rgba(255,107,107,.93); color:#fff;
+    padding:8px 20px; border-radius:20px;
+    font-size:.8rem; font-weight:700; line-height:1.7;
+    z-index:500; pointer-events:none; text-align:center;
     box-shadow:0 4px 14px rgba(0,0,0,.2);
   }
 
-  /* GAZE SETTINGS PANEL */
+  /* ━━━ GAZE SETTINGS PANEL ━━━ */
   #gaze-panel {
-    display:none;position:fixed;bottom:56px;right:16px;
-    background:var(--panel);border-radius:16px;padding:14px;
-    box-shadow:0 6px 24px rgba(0,0,0,.2);z-index:500;
-    flex-direction:column;gap:10px;min-width:170px;
+    position:fixed; bottom:28px; right:12px;
+    background:var(--panel); border-radius:14px; padding:12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.18); z-index:500;
+    display:flex; flex-direction:column; gap:8px; min-width:160px;
   }
-  #gaze-panel { display:flex; }  /* 常時表示 */
-  #gaze-panel label { font-size:.75rem;color:#555;font-weight:700; }
+  #gaze-panel label { font-size:.7rem; color:#555; font-weight:700; }
   #gaze-panel select {
-    width:100%;border-radius:8px;border:2px solid var(--border);
-    padding:5px 8px;font-size:.8rem;cursor:pointer;
-    font-family:inherit;
+    width:100%; border-radius:8px; border:2px solid var(--border);
+    padding:4px 6px; font-size:.75rem; cursor:pointer; font-family:inherit;
   }
 
-  /* MODAL */
-  .modal-overlay {
-    display:none;position:fixed;inset:0;
-    background:rgba(0,0,0,.5);z-index:10000;
-    align-items:center;justify-content:center;
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     FULLSCREEN
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  body.fullscreen #sidebar   { display:none !important; }
+  body.fullscreen #statusbar { display:none !important; }
+  body.fullscreen #canvas-wrap {
+    position:fixed; inset:0; width:100vw !important; height:100vh !important; z-index:50;
   }
-  .modal-overlay.open { display:flex; }
-  .modal {
-    background:var(--panel);border-radius:24px;padding:28px;
-    max-width:520px;width:90%;
-    box-shadow:0 20px 60px rgba(0,0,0,.3);
-  }
-  .modal h2 { margin-bottom:16px;font-size:1.3rem; }
-  .modal p  { margin-bottom:12px;font-size:.9rem;color:#555;line-height:1.6; }
-  .modal input[type=text] {
-    width:100%;padding:10px 14px;border-radius:12px;
-    border:2px solid var(--border);font-size:.9rem;margin-bottom:12px;
-  }
-  .modal-btns { display:flex;gap:10px;justify-content:flex-end; }
-  .btn {
-    padding:10px 22px;border-radius:14px;border:none;
-    font-size:.9rem;font-weight:700;cursor:pointer;
-    transition:transform .1s,box-shadow .1s;
-  }
-  .btn:hover { transform:scale(1.05);box-shadow:0 4px 14px rgba(0,0,0,.2); }
-  .btn-primary   { background:var(--accent);color:#fff; }
-  .btn-secondary { background:var(--bg);color:var(--text);border:2px solid var(--border); }
-
-  /* TRACE CONTROLS */
-  #trace-controls {
-    display:none;position:fixed;bottom:56px;left:50%;transform:translateX(-50%);
-    background:var(--panel);border-radius:20px;padding:10px 18px;gap:12px;
-    box-shadow:0 6px 24px rgba(0,0,0,.2);
-    align-items:center;z-index:500;flex-wrap:wrap;justify-content:center;
-  }
-  #trace-controls label { font-size:.8rem;color:#555; }
-  #trace-opacity {
-    width:100px;height:8px;border-radius:4px;
-    -webkit-appearance:none;background:var(--border);cursor:pointer;
-  }
-  #trace-opacity::-webkit-slider-thumb {
-    -webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent2);
-  }
-
-  /* FULLSCREEN */
-  body.fullscreen #topbar,
-  body.fullscreen #statusbar,
-  body.fullscreen #layers-panel { display:none !important; }
 
   #float-toolbar {
     display:none;
-    position:fixed; top:12px; left:50%; transform:translateX(-50%);
-    background:rgba(255,255,255,0.96);
-    backdrop-filter:blur(12px);
-    border-radius:24px; border:2px solid var(--border);
-    padding:8px 14px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.18);
+    position:fixed; top:10px; left:50%; transform:translateX(-50%);
+    background:rgba(255,255,255,.96); backdrop-filter:blur(12px);
+    border-radius:22px; border:2px solid var(--border);
+    padding:6px 12px;
+    box-shadow:0 8px 32px rgba(0,0,0,.18);
     z-index:8000;
-    align-items:center; gap:6px;
-    flex-wrap:wrap; max-width:calc(100vw - 32px);
+    align-items:center; gap:5px; flex-wrap:wrap;
+    max-width:calc(100vw - 24px);
     transition:opacity .3s, transform .3s;
   }
   body.fullscreen #float-toolbar { display:flex; }
   body.fullscreen.toolbar-hidden #float-toolbar {
-    opacity:0; transform:translateX(-50%) translateY(-110%); pointer-events:none;
+    opacity:0; transform:translateX(-50%) translateY(-120%); pointer-events:none;
   }
-  #float-toolbar .tool-btn { width:52px;height:52px;font-size:1.35rem;border-radius:16px; }
-  body.gaze-on #float-toolbar .tool-btn { width:74px;height:74px;font-size:1.8rem; }
-  #float-toolbar .sep { height:32px; }
-  #float-toolbar .color-dot { width:30px;height:30px; }
-  body.gaze-on #float-toolbar .color-dot { width:40px;height:40px; }
-  #float-toolbar #fc-custom-color { width:30px;height:30px;border-radius:50%;border:3px dashed #bbb;cursor:pointer;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);flex-shrink:0; }
-  body.gaze-on #float-toolbar #fc-custom-color { width:40px;height:40px; }
+  #float-toolbar .tool-btn { width:46px; height:46px; font-size:1.3rem; border-radius:12px; }
+  #float-toolbar .sidebar-sep { width:1px; height:30px; margin:0 2px; }
+  #float-toolbar .color-dot  { width:24px; height:24px; }
+  #float-toolbar #fc-custom-color {
+    width:24px; height:24px; border-radius:50%;
+    border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
+    background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
+  }
+  #float-toolbar #fc-palette { display:flex; flex-wrap:wrap; gap:3px; max-width:180px; }
 
   #fs-hover-zone {
-    display:none; position:fixed; top:0; left:0; right:0;
-    height:48px; z-index:7999;
+    display:none; position:fixed; top:0; left:0; right:0; height:48px; z-index:7999;
   }
   body.fullscreen #fs-hover-zone { display:block; }
 
   #btn-fs-exit {
-    display:none; position:fixed; bottom:16px; right:16px;
-    width:52px;height:52px; border-radius:16px; border:none;
-    background:rgba(255,255,255,0.9); backdrop-filter:blur(8px);
+    display:none; position:fixed; bottom:14px; right:14px;
+    width:46px; height:46px; border-radius:14px; border:none;
+    background:rgba(255,255,255,.9); backdrop-filter:blur(8px);
     box-shadow:0 4px 14px rgba(0,0,0,.2);
-    font-size:1.4rem; cursor:pointer; z-index:8000;
-    align-items:center; justify-content:center;
-    transition:transform .15s;
+    font-size:1.3rem; cursor:pointer; z-index:8000;
+    align-items:center; justify-content:center; transition:transform .12s;
   }
   body.fullscreen #btn-fs-exit { display:flex; }
   #btn-fs-exit:hover { transform:scale(1.1); }
 
-  ::-webkit-scrollbar { width:6px; }
-  ::-webkit-scrollbar-track { background:var(--bg); }
-  ::-webkit-scrollbar-thumb { background:var(--border);border-radius:3px; }
-
-  @media (max-width:600px) {
-    :root { --btn-size:52px; }
-    .color-dot { width:28px!important;height:28px!important; }
-    #layers-panel { display:none; }
-    #app-title { font-size:1rem; }
+  /* ━━━ TRACE CONTROLS ━━━ */
+  #trace-controls {
+    display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
+    background:var(--panel); border-radius:18px; padding:8px 16px; gap:10px;
+    box-shadow:0 6px 24px rgba(0,0,0,.2);
+    align-items:center; z-index:500; flex-wrap:wrap; justify-content:center;
   }
-  @media print {
-    body * { visibility:hidden; }
-    #print-target,#print-target * { visibility:visible; }
-    #print-target { position:fixed;top:0;left:0; }
+  #trace-controls label { font-size:.75rem; color:#555; }
+  #trace-opacity {
+    width:90px; height:6px; border-radius:3px;
+    -webkit-appearance:none; background:var(--border); cursor:pointer;
+  }
+  #trace-opacity::-webkit-slider-thumb {
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent2);
   }
 
-  /* HELP MODAL */
-  .help-section { margin-bottom:20px; }
+  /* ━━━ MODAL ━━━ */
+  .modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,.5); z-index:10000;
+    align-items:center; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:var(--panel); border-radius:22px; padding:26px;
+    max-width:520px; width:90%;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .modal h2 { margin-bottom:14px; font-size:1.2rem; }
+  .modal p  { margin-bottom:10px; font-size:.88rem; color:#555; line-height:1.6; }
+  .modal input[type=text] {
+    width:100%; padding:9px 12px; border-radius:10px;
+    border:2px solid var(--border); font-size:.88rem; margin-bottom:10px;
+  }
+  .modal-btns { display:flex; gap:10px; justify-content:flex-end; }
+  .btn {
+    padding:9px 20px; border-radius:12px; border:none;
+    font-size:.88rem; font-weight:700; cursor:pointer;
+    transition:transform .1s, box-shadow .1s;
+  }
+  .btn:hover { transform:scale(1.05); box-shadow:0 4px 14px rgba(0,0,0,.2); }
+  .btn-primary   { background:var(--accent); color:#fff; }
+  .btn-secondary { background:var(--bg); color:var(--text); border:2px solid var(--border); }
+
+  /* ━━━ HELP MODAL ━━━ */
+  .help-section { margin-bottom:18px; }
   .help-heading {
-    font-size:1rem;font-weight:900;margin-bottom:12px;
-    padding:6px 14px;border-radius:12px;
+    font-size:.95rem; font-weight:900; margin-bottom:10px;
+    padding:5px 12px; border-radius:10px;
     background:linear-gradient(135deg,#FF6B6B22,#4ECDC422);
     border-left:4px solid var(--accent);
   }
   .help-grid {
-    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-    gap:10px;
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px;
   }
   .help-item {
-    display:flex;align-items:flex-start;gap:10px;
-    background:var(--bg);border-radius:14px;padding:10px 12px;
-    font-size:.82rem;line-height:1.5;
+    display:flex; align-items:flex-start; gap:8px;
+    background:var(--bg); border-radius:12px; padding:8px 10px;
+    font-size:.8rem; line-height:1.5;
   }
-  .help-icon { font-size:1.6rem;flex-shrink:0;margin-top:2px; }
-  .help-keys { display:flex;flex-wrap:wrap;gap:8px; }
-  .help-key {
-    background:var(--bg);border-radius:10px;
-    padding:6px 12px;font-size:.8rem;
-    border:2px solid var(--border);
+  .help-icon { font-size:1.4rem; flex-shrink:0; margin-top:2px; }
+  .help-keys { display:flex; flex-wrap:wrap; gap:6px; }
+  .help-key  { background:var(--bg); border-radius:8px; padding:5px 10px; font-size:.78rem; border:2px solid var(--border); }
+  kbd { background:#2D2D2D; color:#fff; border-radius:5px; padding:1px 5px; font-size:.72rem; font-family:monospace; }
+
+  @media (max-width:480px) {
+    :root { --sidebar-w:56px; }
+    .tool-btn { width:44px; height:44px; font-size:1.3rem; }
+    .color-dot { width:18px!important; height:18px!important; }
+    #custom-color { width:18px!important; height:18px!important; }
   }
-  kbd {
-    background:#2D2D2D;color:#fff;
-    border-radius:6px;padding:1px 6px;
-    font-size:.75rem;font-family:monospace;
+  @media print {
+    body * { visibility:hidden; }
+    #print-target,#print-target * { visibility:visible; }
+    #print-target { position:fixed; top:0; left:0; }
   }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -348,10 +367,14 @@
 </head>
 <body>
 
-<!-- TOP BAR -->
-<div id="topbar">
-  <div id="app-title">🎨 おえかきひろば</div>
+<!-- ━━━━━━━━━━━━━━ LEFT SIDEBAR ━━━━━━━━━━━━━━ -->
+<div id="sidebar">
 
+  <div id="app-title">🎨<br>おえかき<br>ひろば</div>
+  <button id="btn-pin" class="tool-btn" data-tip="ひらいたままにする" style="font-size:1rem;opacity:.6">📌</button>
+  <div class="sidebar-sep"></div>
+
+  <!-- ツール -->
   <button class="tool-btn active" id="btn-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
   <button class="tool-btn"        id="btn-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
   <button class="tool-btn"        id="btn-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
@@ -359,82 +382,66 @@
   <button class="tool-btn"        id="btn-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
   <button class="tool-btn"        id="btn-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
 
-  <div class="sep"></div>
+  <div class="sidebar-sep"></div>
 
-  <div id="size-wrap">
-    <span id="size-label">おおきさ: <b id="size-val">12</b></span>
-    <input type="range" id="brush-size" min="2" max="80" value="12">
+  <!-- ブラシサイズ -->
+  <div class="slider-wrap">
+    <span class="slider-label show-on-open">ふとさ <b id="size-val">12</b></span>
+    <input type="range" class="vslider" id="brush-size" min="2" max="80" value="12">
   </div>
 
-  <div class="sep"></div>
+  <div class="sidebar-sep"></div>
 
+  <!-- カラーパレット (2列) -->
   <div id="palette"></div>
-  <input type="color" id="custom-color" title="じぶんでいろをえらぶ" value="#FF6B6B">
+  <input type="color" id="custom-color" title="じぶんのいろ" value="#FF6B6B">
 
-  <div class="sep"></div>
+  <div class="sidebar-sep"></div>
 
-  <div id="opacity-wrap">
-    <span id="opacity-label">とうめいど: <b id="opacity-val">100</b>%</span>
-    <input type="range" id="opacity-range" min="5" max="100" value="100">
+  <!-- 透明度 -->
+  <div class="slider-wrap">
+    <span class="slider-label show-on-open">うすさ <b id="opacity-val">100</b>%</span>
+    <input type="range" class="vslider" id="opacity-range" min="5" max="100" value="100">
   </div>
 
-  <div class="sep"></div>
+  <div class="sidebar-sep"></div>
 
-  <button class="tool-btn" id="btn-undo"  data-tip="もどす">↩️</button>
-  <button class="tool-btn" id="btn-redo"  data-tip="やりなおし">↪️</button>
-  <button class="tool-btn" id="btn-clear" data-tip="ぜんぶけす">🗑️</button>
-  <button class="tool-btn" id="btn-reset" data-tip="さいしょから" style="color:#FF4444">🔄</button>
-  <button class="tool-btn" id="btn-bg"    data-tip="はいけい">🖼️</button>
-  <button class="tool-btn" id="btn-image" data-tip="えをよみこむ">📷</button>
-  <button class="tool-btn" id="btn-share" data-tip="きょうゆう">🔗</button>
-  <button class="tool-btn" id="btn-print" data-tip="いんさつ">🖨️</button>
-  <button class="tool-btn" id="btn-save"  data-tip="ほぞん">💾</button>
-  <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめんひょうじ" style="font-size:1.3rem">⛶</button>
+  <!-- アクション -->
+  <button class="tool-btn" id="btn-undo"       data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="btn-redo"       data-tip="やりなおし">↪️</button>
+  <button class="tool-btn" id="btn-clear"      data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="btn-reset"      data-tip="さいしょから" style="color:#FF4444">🔄</button>
+
+  <div class="sidebar-sep"></div>
+
+  <button class="tool-btn" id="btn-bg"         data-tip="はいけい">🖼️</button>
+  <button class="tool-btn" id="btn-image"      data-tip="えをよみこむ">📷</button>
+
+  <div class="sidebar-sep"></div>
+
+  <button class="tool-btn" id="btn-share"      data-tip="きょうゆう">🔗</button>
+  <button class="tool-btn" id="btn-print"      data-tip="いんさつ">🖨️</button>
+  <button class="tool-btn" id="btn-save"       data-tip="ほぞん">💾</button>
+
+  <div class="sidebar-sep"></div>
+
+  <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめん" style="font-size:1.2rem">⛶</button>
   <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
+
 </div>
 
-<!-- FLOAT TOOLBAR (フルスクリーン時) -->
-<div id="float-toolbar">
-  <button class="tool-btn active" id="fc-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
-  <button class="tool-btn"        id="fc-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
-  <button class="tool-btn"        id="fc-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
-  <button class="tool-btn"        id="fc-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
-  <button class="tool-btn"        id="fc-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
-  <button class="tool-btn"        id="fc-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
-  <div class="sep"></div>
-  <div id="fc-palette"></div>
-  <input type="color" id="fc-custom-color" value="#FF6B6B" title="いろをえらぶ" style="width:30px;height:30px;border-radius:50%;border:3px dashed #bbb;cursor:pointer;flex-shrink:0;">
-  <div class="sep"></div>
-  <button class="tool-btn" id="fc-undo"  data-tip="もどす">↩️</button>
-  <button class="tool-btn" id="fc-redo"  data-tip="やりなおし">↪️</button>
-  <button class="tool-btn" id="fc-clear" data-tip="ぜんぶけす">🗑️</button>
-  <button class="tool-btn" id="fc-save"  data-tip="ほぞん">💾</button>
+<!-- ━━━━━━━━━━━━━━ CANVAS ━━━━━━━━━━━━━━ -->
+<div id="canvas-wrap">
+  <canvas id="bg-canvas"></canvas>
+  <canvas id="draw-canvas"></canvas>
+  <canvas id="overlay-canvas"></canvas>
 </div>
 
-<!-- フルスクリーン終了ボタン (右下) -->
-<button id="btn-fs-exit" title="ぜんがめんおわり">✕</button>
-
-<!-- ツールバー再表示ゾーン (上端ホバー) -->
-<div id="fs-hover-zone"></div>
-
-<!-- MAIN -->
-<div id="main">
-  <div id="canvas-wrap">
-    <canvas id="bg-canvas"></canvas>
-    <canvas id="draw-canvas"></canvas>
-    <canvas id="overlay-canvas"></canvas>
-  </div>
-  <div id="layers-panel">
-    <h3>📄 レイヤー</h3>
-    <div id="layers-list"></div>
-  </div>
-</div>
-
-<!-- STATUS BAR -->
+<!-- ステータスバー -->
 <div id="statusbar">
   <span id="status-tool">ツール: えんぴつ</span>
-  <span id="status-pos">X: 0  Y: 0</span>
-  <span id="status-size">キャンバス: 読込中...</span>
+  <span id="status-pos">X:0 Y:0</span>
+  <span id="status-size">キャンバス: 読込中</span>
   <span id="status-gaze">視線: 常時オン</span>
 </div>
 
@@ -443,17 +450,15 @@
   <label>📷 なぞりえのとうめいど:</label>
   <input type="range" id="trace-opacity" min="5" max="100" value="40">
   <span id="trace-val">40%</span>
-  <button class="btn btn-secondary" id="btn-trace-close" style="font-size:.75rem;padding:6px 12px;">✕ とじる</button>
+  <button class="btn btn-secondary" id="btn-trace-close" style="font-size:.72rem;padding:5px 10px;">✕ とじる</button>
 </div>
 
-<!-- GAZE CURSOR (pointer-events:none — 絶対にクリック等を邪魔しない) -->
+<!-- GAZE CURSOR -->
 <div id="gaze-cursor"></div>
 <svg id="gaze-ring" viewBox="0 0 56 56">
   <circle id="ring-track" cx="28" cy="28" r="24"/>
   <circle id="ring-fill"  cx="28" cy="28" r="24"/>
 </svg>
-
-<!-- GAZE BANNER -->
 <div id="gaze-banner">
   👁️ しせんにゅうりょく きどうちゅう…<br>
   <small>みたいところを みつめてね！ボタンも みつめればおせるよ</small>
@@ -488,18 +493,43 @@
   </select>
 </div>
 
-<!-- STAMP MODAL -->
+<!-- FLOAT TOOLBAR (フルスクリーン時) -->
+<div id="float-toolbar">
+  <button class="tool-btn active" id="fc-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
+  <button class="tool-btn"        id="fc-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
+  <button class="tool-btn"        id="fc-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
+  <button class="tool-btn"        id="fc-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
+  <button class="tool-btn"        id="fc-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
+  <button class="tool-btn"        id="fc-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
+  <div class="sidebar-sep"></div>
+  <div id="fc-palette"></div>
+  <input type="color" id="fc-custom-color" value="#FF6B6B" title="いろをえらぶ">
+  <div class="sidebar-sep"></div>
+  <button class="tool-btn" id="fc-undo"  data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="fc-redo"  data-tip="やりなおし">↪️</button>
+  <button class="tool-btn" id="fc-clear" data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="fc-save"  data-tip="ほぞん">💾</button>
+  <div class="sidebar-sep" style="width:1px;height:30px;margin:0 2px;background:var(--border);flex-shrink:0;"></div>
+  <button class="tool-btn" id="fc-fs-exit" data-tip="ぜんがめんおわり" style="font-size:1.2rem;color:#888">⊡</button>
+</div>
+
+<!-- フルスクリーン終了 -->
+<button id="btn-fs-exit" title="ぜんがめんおわり">✕</button>
+<div id="fs-hover-zone"></div>
+
+<!-- MODALS -->
+<!-- STAMP -->
 <div id="stamp-modal" class="modal-overlay">
   <div class="modal">
     <h2>⭐ スタンプをえらぼう</h2>
-    <div id="stamp-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;"></div>
+    <div id="stamp-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
     <div class="modal-btns">
       <button class="btn btn-secondary" onclick="closeModal('stamp-modal')">とじる</button>
     </div>
   </div>
 </div>
 
-<!-- SHARE MODAL -->
+<!-- SHARE -->
 <div id="share-modal" class="modal-overlay">
   <div class="modal">
     <h2>🔗 さくひんをきょうゆうする</h2>
@@ -512,40 +542,39 @@
   </div>
 </div>
 
-<!-- BG MODAL -->
+<!-- BG -->
 <div id="bg-modal" class="modal-overlay">
   <div class="modal">
     <h2>🖼️ はいけいのいろをえらぶ</h2>
-    <div id="bg-palette" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;"></div>
+    <div id="bg-palette" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
     <input type="color" id="bg-custom" value="#FFFFFF"
-      style="width:50px;height:50px;border-radius:12px;border:none;cursor:pointer;">
-    <div class="modal-btns">
+      style="width:46px;height:46px;border-radius:10px;border:none;cursor:pointer;">
+    <div class="modal-btns" style="margin-top:12px;">
       <button class="btn btn-secondary" onclick="closeModal('bg-modal')">とじる</button>
       <button class="btn btn-primary" id="btn-apply-bg">てきよう</button>
     </div>
   </div>
 </div>
 
-<!-- RESET MODAL -->
+<!-- RESET -->
 <div id="reset-modal" class="modal-overlay">
   <div class="modal" style="text-align:center;">
-    <div style="font-size:3rem;margin-bottom:12px;">🔄</div>
-    <h2 style="margin-bottom:10px;">さいしょからやりなおす？</h2>
-    <p style="margin-bottom:20px;">かいたえが <b>ぜんぶきえます</b>。<br>もとにはもどせません。ほんとうにいいですか？</p>
-    <div class="modal-btns" style="justify-content:center;gap:16px;">
+    <div style="font-size:2.8rem;margin-bottom:10px;">🔄</div>
+    <h2 style="margin-bottom:8px;">さいしょからやりなおす？</h2>
+    <p style="margin-bottom:18px;">かいたえが <b>ぜんぶきえます</b>。<br>もとにはもどせません。ほんとうにいいですか？</p>
+    <div class="modal-btns" style="justify-content:center;gap:14px;">
       <button class="btn btn-secondary" onclick="closeModal('reset-modal')"
-        style="font-size:1rem;padding:12px 24px;">やめる</button>
+        style="font-size:.95rem;padding:11px 22px;">やめる</button>
       <button class="btn btn-primary" id="btn-reset-confirm"
-        style="font-size:1rem;padding:12px 24px;background:#FF4444;">🔄 やりなおす</button>
+        style="font-size:.95rem;padding:11px 22px;background:#FF4444;">🔄 やりなおす</button>
     </div>
   </div>
 </div>
 
-<!-- HELP MODAL -->
+<!-- HELP -->
 <div id="help-modal" class="modal-overlay">
   <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
-    <h2 style="margin-bottom:20px;font-size:1.5rem;">❓ つかいかた</h2>
-
+    <h2 style="margin-bottom:18px;font-size:1.4rem;">❓ つかいかた</h2>
     <div class="help-section">
       <div class="help-heading">🖊 えをかくどうぐ</div>
       <div class="help-grid">
@@ -557,17 +586,15 @@
         <div class="help-item"><span class="help-icon">⭐</span><span><b>スタンプ</b><br>たのしいえもじをおせる</span></div>
       </div>
     </div>
-
     <div class="help-section">
       <div class="help-heading">🎨 いろとおおきさ</div>
       <div class="help-grid">
         <div class="help-item"><span class="help-icon">🔴</span><span><b>パレット</b><br>すきないろをえらんでタップ</span></div>
         <div class="help-item"><span class="help-icon">🌈</span><span><b>じぶんのいろ</b><br>グラデーションのまるでじゆうにえらべる</span></div>
-        <div class="help-item"><span class="help-icon">📏</span><span><b>おおきさ</b><br>スライダーでふとさをかえられる</span></div>
-        <div class="help-item"><span class="help-icon">💧</span><span><b>とうめいど</b><br>うすくしたりこくしたりできる</span></div>
+        <div class="help-item"><span class="help-icon">📏</span><span><b>ふとさ</b><br>スライダーでふとさをかえられる</span></div>
+        <div class="help-item"><span class="help-icon">💧</span><span><b>うすさ</b><br>うすくしたりこくしたりできる</span></div>
       </div>
     </div>
-
     <div class="help-section">
       <div class="help-heading">📋 そのほかのきのう</div>
       <div class="help-grid">
@@ -579,11 +606,10 @@
         <div class="help-item"><span class="help-icon">💾</span><span><b>ほぞん</b><br>えをPNGがぞうでほぞんできる</span></div>
         <div class="help-item"><span class="help-icon">🔗</span><span><b>きょうゆう</b><br>URLでともだちにおくれる</span></div>
         <div class="help-item"><span class="help-icon">🖨️</span><span><b>いんさつ</b><br>えをプリンターでいんさつできる</span></div>
-        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる<br><small>じょうはしにマウスをうごかすとどうぐがでる</small></span></div>
-        <div class="help-item"><span class="help-icon">👁️</span><span><b>しせんにゅうりょく</b><br>つねにオン！Tobii等の視線デバイスでそのままえがける<br><small>みつめるとドウェルリングがまわる</small></span></div>
+        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる</span></div>
+        <div class="help-item"><span class="help-icon">👁️</span><span><b>しせんにゅうりょく</b><br>つねにオン！みつめるだけでえがける</span></div>
       </div>
     </div>
-
     <div class="help-section">
       <div class="help-heading">⌨️ キーボードショートカット</div>
       <div class="help-keys">
@@ -595,10 +621,9 @@
         <div class="help-key"><kbd>[</kbd> ちいさく <kbd>]</kbd> おおきく</div>
       </div>
     </div>
-
-    <div class="modal-btns" style="margin-top:20px;">
+    <div class="modal-btns" style="margin-top:18px;">
       <button class="btn btn-primary" onclick="closeModal('help-modal')"
-        style="font-size:1rem;padding:12px 32px;">とじる ✕</button>
+        style="font-size:.95rem;padding:11px 28px;">とじる ✕</button>
     </div>
   </div>
 </div>
@@ -650,6 +675,9 @@ function resize() {
   });
   fillBg();
   document.getElementById('status-size').textContent = `キャンバス: ${W}×${H}px`;
+  // statusbar left を sidebar 幅に合わせる
+  const sbW = document.getElementById('sidebar') ? document.getElementById('sidebar').offsetWidth : 0;
+  document.getElementById('statusbar').style.left = sbW + 'px';
 }
 window.addEventListener('resize', resize);
 
@@ -1033,19 +1061,26 @@ document.getElementById('sel-stop').addEventListener('change',e=>{
 // ================================================================
 const palEl=document.getElementById('palette');
 let selDot=null;
-COLORS.forEach(c=>{
-  const d=document.createElement('div');
-  d.className='color-dot'; d.style.background=c;
-  d.addEventListener('click',()=>{ S.color=c; if(selDot)selDot.classList.remove('active'); d.classList.add('active'); selDot=d; });
-  if(c===S.color){d.classList.add('active');selDot=d;}
-  palEl.appendChild(d);
-});
+
+// サイドバー用: 2列グリッドで色を並べる
+(function buildPalette(){
+  let row;
+  COLORS.forEach((c,i)=>{
+    if (i%2===0) { row=document.createElement('div'); row.className='palette-row'; palEl.appendChild(row); }
+    const d=document.createElement('div');
+    d.className='color-dot'; d.style.background=c;
+    d.addEventListener('click',()=>{ S.color=c; if(selDot)selDot.classList.remove('active'); d.classList.add('active'); selDot=d; });
+    if(c===S.color){d.classList.add('active');selDot=d;}
+    row.appendChild(d);
+  });
+})();
 document.getElementById('custom-color').addEventListener('input',e=>{ S.color=e.target.value; if(selDot)selDot.classList.remove('active'); selDot=null; });
 
 const bgPalEl=document.getElementById('bg-palette');
 BG_COLORS.forEach(c=>{
   const d=document.createElement('div');
-  d.className='color-dot'; d.style.background=c; d.style.border='3px solid #ddd';
+  d.className='color-dot'; d.style.background=c; d.style.border='2px solid #ddd';
+  d.style.width='36px'; d.style.height='36px';
   d.addEventListener('click',()=>{ document.getElementById('bg-custom').value=c; });
   bgPalEl.appendChild(d);
 });
@@ -1201,10 +1236,11 @@ function isFullscreen() {
 function onFullscreenChange() {
   const fs = isFullscreen();
   document.body.classList.toggle('fullscreen', fs);
+  document.getElementById('statusbar').style.left = fs ? '0' : (document.getElementById('sidebar').offsetWidth + 'px');
   document.getElementById('btn-fullscreen').textContent = fs ? '⊡' : '⛶';
   document.getElementById('btn-fullscreen').setAttribute('data-tip', fs ? 'もとにもどす' : 'ぜんがめんひょうじ');
-  resize(); // キャンバスをリサイズ
-  syncFloatToolbar();
+  // CSS が適用されてからリサイズ
+  setTimeout(() => { resize(); syncFloatToolbar(); }, 100);
 }
 document.addEventListener('fullscreenchange',       onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
@@ -1290,6 +1326,7 @@ document.getElementById('fc-save').addEventListener('click', () => {
   a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
   a.href = flatCanvas().toDataURL('image/png'); a.click();
 });
+document.getElementById('fc-fs-exit').addEventListener('click', exitFullscreen);
 
 function syncFloatToolbar() {
   // ツール active 同期
@@ -1302,6 +1339,15 @@ function syncFloatToolbar() {
 // ================================================================
 // HELP
 document.getElementById('btn-help').addEventListener('click', () => openModal('help-modal'));
+
+// ================================================================
+// PIN SIDEBAR
+document.getElementById('btn-pin').addEventListener('click', () => {
+  const sb = document.getElementById('sidebar');
+  const pinned = sb.classList.toggle('pinned');
+  document.getElementById('btn-pin').style.opacity = pinned ? '1' : '.6';
+  document.getElementById('btn-pin').setAttribute('data-tip', pinned ? 'とじる' : 'ひらいたままにする');
+});
 
 // ================================================================
 // INIT
