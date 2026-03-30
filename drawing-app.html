@@ -474,10 +474,17 @@
     <option value="55" selected>ふつう (55px)</option>
     <option value="85">おおい (85px)</option>
   </select>
+  <label>⏸ てをあげるまでの時間</label>
+  <select id="sel-stop">
+    <option value="400">はやめ (0.4秒)</option>
+    <option value="600" selected>ふつう (0.6秒)</option>
+    <option value="900">ゆっくり (0.9秒)</option>
+    <option value="1400">とてもゆっくり (1.4秒)</option>
+  </select>
   <label>🖊 えをかくモード</label>
   <select id="sel-draw-mode">
-    <option value="dwell-draw" selected>見つめて→えがく</option>
-    <option value="dwell-click">見つめて→クリックのみ</option>
+    <option value="dwell-draw" selected>みつめてえがく（おすすめ）</option>
+    <option value="dwell-click">みつめてクリックのみ</option>
   </select>
 </div>
 
@@ -813,130 +820,167 @@ const gazeRingEl   = document.getElementById('gaze-ring');
 const ringFillEl   = document.getElementById('ring-fill');
 const gazeBanner   = document.getElementById('gaze-banner');
 
-// スムージング
-const SMOOTH_K = 0.35; // 0<K≤1 (小さいほど滑らか)
-let sx=0, sy=0;        // スムージング済み座標
+// ================================================================
+// スムージング設定
+// Tobiiのジッター（±10〜20px）をカルマンフィルタ風の適応型で吸収
+// ================================================================
+const SMOOTH_K = 0.55;   // 追従感度（高いほど素早く追従・ジッターも乗る）
+const SMOOTH_MIN = 0.15; // 静止時の最小係数（ジッター抑制）
+const SMOOTH_JITTER = 8; // この距離以下の動きはジッターとみなす
+
+let sx=0, sy=0, spx=0, spy=0; // 現在・前フレームのスムージング座標
 
 // ドウェル状態
-let dwX=0, dwY=0;      // ドウェル開始位置
-let dwStart=0;
-let dwRAF=null;
-let dwActive=false;    // ドウェル完了済み
-let dwTarget=null;     // null=キャンバス / Element=UI要素
-let gazeDrawing=false; // キャンバス描画中か
+let dwX=0, dwY=0;
+let dwStart=0, dwRAF=null;
+let dwActive=false, dwTarget=null;
 
+// 描画状態
+// gazeDrawMode:
+//   'dwell-draw'  → ドウェル後に描画開始、視線移動で線を引き続ける
+//   'continuous'  → キャンバス上にいる間ずっと描く（ドウェル不要）
+//   'dwell-click' → ドウェルでクリックのみ
+let gazeDrawing  = false;
+let gazeStrokeActive = false; // 現在のストロークが有効か
+let lastDrawX = 0, lastDrawY = 0;
+
+// ── UI ──
 function moveCursor(x,y) {
   gazeCursorEl.style.left = x+'px'; gazeCursorEl.style.top = y+'px';
   gazeRingEl.style.left   = x+'px'; gazeRingEl.style.top  = y+'px';
 }
-
 function setRing(prog, done) {
   ringFillEl.style.strokeDashoffset = RING_CIRC*(1-prog);
-  if (done) { ringFillEl.classList.add('done'); }
-  else      { ringFillEl.classList.remove('done'); }
+  ringFillEl.classList.toggle('done', done);
 }
 
+// ── ドウェル ──
 function resetDwell() {
   cancelAnimationFrame(dwRAF); dwRAF=null;
   dwActive=false; dwStart=0; dwTarget=null;
   setRing(0,false);
   gazeCursorEl.classList.remove('dwelling','activated');
-  // キャンバス描画を終了
-  if (gazeDrawing) { endDraw(); gazeDrawing=false; }
 }
 
 function beginDwell(x,y,target) {
   resetDwell();
   dwX=x; dwY=y; dwTarget=target;
   dwStart=performance.now();
-  gazeCursorEl.classList.add('dwelling');
+  if (target) gazeCursorEl.classList.add('dwelling'); // UI要素のみリング表示
 
   (function tick(now){
     const prog=Math.min((now-dwStart)/S.gazeDwellMs,1);
-    setRing(prog,false);
+    if (target) setRing(prog,false);
     if (prog<1) { dwRAF=requestAnimationFrame(tick); return; }
-    // ドウェル完了
     dwActive=true;
-    setRing(1,true);
-    gazeCursorEl.classList.remove('dwelling');
-    gazeCursorEl.classList.add('activated');
+    if (target) { setRing(1,true); gazeCursorEl.classList.remove('dwelling'); gazeCursorEl.classList.add('activated'); }
     onDwellFired(x,y,target);
   })(dwStart);
 }
 
 function onDwellFired(x,y,target) {
   if (target) {
-    // UI要素へ click を送る
-    target.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,
-      clientX:x,clientY:y}));
-    // クリック後は少し待ってリセット（連打防止）
+    target.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:x,clientY:y}));
     setTimeout(()=>resetDwell(),600);
-  } else {
-    // キャンバス描画開始
-    if (S.gazeDrawMode==='dwell-draw') {
-      const rect=drawCanvas.getBoundingClientRect();
-      startDraw(x-rect.left, y-rect.top);
-      gazeDrawing=true;
-    }
-    // dwell-click モードでは何もしない（描画はしない）
+  } else if (S.gazeDrawMode==='dwell-draw') {
+    // ドウェル完了 → 描画開始
+    const rect=drawCanvas.getBoundingClientRect();
+    const cx=x-rect.left, cy=y-rect.top;
+    startDraw(cx,cy);
+    gazeDrawing=true; gazeStrokeActive=true;
+    lastDrawX=cx; lastDrawY=cy;
+  }
+}
+
+// ── ストップタイマー (視線が止まったらストローク終了) ──
+// 「止まる」= STOP_RADIUS 内に STOP_MS 間とどまる
+const STOP_RADIUS = 18;  // px — これより小さい動きは「止まった」とみなす
+let STOP_MS       = 600; // ms — この時間止まったらストローク終了
+let stopTimer     = null;
+let stopX=0, stopY=0;
+
+function resetStopTimer(cx,cy) {
+  const moved=Math.hypot(cx-stopX, cy-stopY);
+  if (moved > STOP_RADIUS) {
+    // 動いた → タイマーリセット
+    clearTimeout(stopTimer); stopTimer=null;
+    stopX=cx; stopY=cy;
+    const _sm = window._STOP_MS_OVERRIDE||STOP_MS;
+    stopTimer=setTimeout(()=>{
+      // 止まった → ストローク終了、次のドウェルを待つ
+      if (gazeDrawing) {
+        endDraw(); gazeDrawing=false; gazeStrokeActive=false;
+        resetDwell();
+        beginDwell(sx,sy,null);
+      }
+    }, _sm);
   }
 }
 
 // ================================================================
-// 全ページの mousemove を捕捉（capture=true で最優先）
+// 全ページの mousemove を捕捉
 // ================================================================
-document.addEventListener('mousemove', onGazePointer, {capture:true,passive:true});
-document.addEventListener('pointermove', onGazePointer, {capture:true,passive:true});
+document.addEventListener('mousemove',    onGazePointer, {capture:true,passive:true});
+document.addEventListener('pointermove',  onGazePointer, {capture:true,passive:true});
 
 function onGazePointer(e) {
   if (!S.gazeMode) return;
-  // タッチは無視（Tobiiはmouseとして届く）
   if (e.pointerType==='touch') return;
 
-  // スムージング（ローパスフィルタ）
-  sx = sx + (e.clientX - sx)*SMOOTH_K;
-  sy = sy + (e.clientY - sy)*SMOOTH_K;
+  // ── 適応型スムージング ──
+  // 大きく動いたときは素早く追従、ジッター範囲内では強く平滑化
+  const raw_dx = e.clientX - sx;
+  const raw_dy = e.clientY - sy;
+  const raw_d  = Math.hypot(raw_dx, raw_dy);
+  const k = raw_d < SMOOTH_JITTER ? SMOOTH_MIN : SMOOTH_K;
+  spx=sx; spy=sy;
+  sx = sx + raw_dx*k;
+  sy = sy + raw_dy*k;
 
   moveCursor(sx,sy);
 
-  // ─ キャンバスで描画中 ─
-  if (gazeDrawing) {
-    const rect=drawCanvas.getBoundingClientRect();
-    const cx=sx-rect.left, cy=sy-rect.top;
-    // キャンバス内なら描画継続
-    if (cx>=0&&cy>=0&&cx<=rect.width&&cy<=rect.height) {
-      moveDraw(cx,cy);
-      // 大きく動いたら一旦ストローク終了→新ドウェルへ
-      const moved=Math.hypot(sx-dwX, sy-dwY);
-      if (moved > S.gazeTolerance*2) {
-        endDraw(); gazeDrawing=false;
-        resetDwell();
-        dwX=sx; dwY=sy;
-        beginDwell(sx,sy,null);
+  // ── キャンバス矩形 ──
+  const rect = drawCanvas.getBoundingClientRect();
+  const cx   = sx - rect.left;
+  const cy   = sy - rect.top;
+  const onCanvas = cx>=0 && cy>=0 && cx<=rect.width && cy<=rect.height;
+
+  // ── hit-test (UI要素) ──
+  gazeCursorEl.style.visibility='hidden';
+  gazeRingEl.style.visibility='hidden';
+  const hitEl  = document.elementFromPoint(e.clientX, e.clientY);
+  gazeCursorEl.style.visibility='';
+  gazeRingEl.style.visibility='';
+  const uiTarget = findClickableTarget(hitEl);
+
+  // ── 描画中の処理 ──
+  if (gazeDrawing && gazeStrokeActive) {
+    if (onCanvas && !uiTarget) {
+      // 描画継続（最小移動距離フィルタで微細ジッターを除去）
+      const drawMoved = Math.hypot(cx-lastDrawX, cy-lastDrawY);
+      if (drawMoved >= 1.5) {
+        moveDraw(cx,cy);
+        lastDrawX=cx; lastDrawY=cy;
       }
+      resetStopTimer(cx,cy);
       return;
     } else {
-      // キャンバス外に出た → 描画終了
-      endDraw(); gazeDrawing=false;
+      // キャンバス外またはUIに視線が移った → ストローク終了
+      clearTimeout(stopTimer); stopTimer=null;
+      endDraw(); gazeDrawing=false; gazeStrokeActive=false;
       resetDwell();
+      if (uiTarget) beginDwell(sx,sy,uiTarget);
+      else          beginDwell(sx,sy,null);
+      return;
     }
   }
 
-  // ─ 移動量でドウェルリセット判定 ─
-  const moved=Math.hypot(sx-dwX, sy-dwY);
-  if (moved > S.gazeTolerance) {
-    // 視線が動いた → 新しい対象でドウェル開始
+  // ── 非描画時: ドウェル判定 ──
+  const movedFromDwell = Math.hypot(sx-dwX, sy-dwY);
+  if (movedFromDwell > S.gazeTolerance) {
     dwX=sx; dwY=sy;
-    // hit-test: カーソルを一時非表示にして elementFromPoint
-    gazeCursorEl.style.visibility='hidden';
-    gazeRingEl.style.visibility='hidden';
-    const el=document.elementFromPoint(e.clientX, e.clientY);
-    gazeCursorEl.style.visibility='';
-    gazeRingEl.style.visibility='';
-    const target=findClickableTarget(el);
-    beginDwell(sx,sy,target);
+    beginDwell(sx,sy,uiTarget);
   }
-  // 動いていなければ dwRAF が進行中のまま
 }
 
 function findClickableTarget(el) {
@@ -979,6 +1023,10 @@ function initGaze() {
 document.getElementById('sel-dwell').addEventListener('change',e=>{ S.gazeDwellMs=+e.target.value; resetDwell(); });
 document.getElementById('sel-tol').addEventListener('change',e=>{ S.gazeTolerance=+e.target.value; resetDwell(); });
 document.getElementById('sel-draw-mode').addEventListener('change',e=>{ S.gazeDrawMode=e.target.value; resetDwell(); });
+document.getElementById('sel-stop').addEventListener('change',e=>{
+  // STOP_MS を動的に変更
+  window._STOP_MS_OVERRIDE = +e.target.value;
+});
 
 // ================================================================
 // PALETTE
