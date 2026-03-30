@@ -223,6 +223,22 @@
   #overlay-canvas { z-index:3; pointer-events:none; }
 
   /* ━━━ STATUS (キャンバス右下に小さく) ━━━ */
+  /* ━━━ ボトムバー（スマホ専用・通常は非表示） ━━━ */
+  #bottombar {
+    display:none; /* スマホのみ表示 (@media で上書き) */
+    position:fixed; bottom:0; left:0; right:0;
+    height:var(--bottombar-h, 58px);
+    background:var(--panel);
+    border-top:2px solid var(--border);
+    box-shadow:0 -2px 10px var(--shadow);
+    z-index:100;
+    align-items:center;
+    gap:5px; padding:0 8px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  #bottombar::-webkit-scrollbar { display:none; }
+
   #statusbar {
     position:fixed; bottom:0; left:var(--sidebar-w); right:0;
     transition: left .22s ease;
@@ -453,11 +469,61 @@
   .help-key  { background:var(--bg); border-radius:8px; padding:5px 10px; font-size:.78rem; border:2px solid var(--border); }
   kbd { background:#2D2D2D; color:#fff; border-radius:5px; padding:1px 5px; font-size:.72rem; font-family:monospace; }
 
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   スマホ対応：サイドバーを非表示にして
+   ボトムバーにツールをまとめる
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  @media (max-width:600px) {
+    :root {
+      --topbar-h: 52px;
+      --bottombar-h: 58px;
+    }
+
+    /* サイドバーを非表示 */
+    #sidebar { display:none !important; }
+
+    /* main-rowをcanvas全面に */
+    #main-row { position:relative; }
+
+    /* キャンバス下にbottombarの高さ分の余白 */
+    #canvas-wrap { padding-bottom:0; }
+
+    /* statusbarも非表示（邪魔なので） */
+    #statusbar { display:none !important; }
+
+    /* topbarをコンパクトに */
+    #topbar {
+      padding:0 8px;
+      gap:4px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    #topbar .tool-btn { width:40px; height:40px; font-size:1.25rem; border-radius:10px; }
+    #topbar .tsep { height:24px; margin:0 2px; }
+
+    /* ボトムバー（スマホ専用） */
+    #bottombar {
+      display:flex !important;
+    }
+    #bottombar .tool-btn { width:44px; height:44px; font-size:1.4rem; border-radius:12px; flex-shrink:0; }
+    #bottombar .bsep { width:1px; height:30px; background:var(--border); flex-shrink:0; margin:0 2px; }
+    #bottombar .color-dot { width:32px; height:32px; flex-shrink:0; }
+    #bottombar #m-custom-color {
+      width:32px; height:32px; border-radius:50%;
+      border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
+      background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
+    }
+    #bottombar #m-palette {
+      display:flex; gap:5px; flex-shrink:0;
+    }
+
+    /* color-dot サイズ */
+    .color-dot { width:28px; height:28px; }
+    #custom-color { width:28px; height:28px; }
+  }
+
   @media (max-width:480px) {
-    :root { --sidebar-w:100px; }
-    .tool-btn { width:44px; height:44px; font-size:1.3rem; }
-    .color-dot { width:28px!important; height:28px!important; }
-    #custom-color { width:28px!important; height:28px!important; }
+    #topbar .tool-btn { width:36px; height:36px; font-size:1.15rem; }
   }
   @media print {
     body * { visibility:hidden; }
@@ -558,6 +624,27 @@
   <span id="status-pos">X:0 Y:0</span>
   <span id="status-size">キャンバス: 読込中</span>
   <span id="status-gaze">視線: 常時オン</span>
+</div>
+
+<!-- ボトムバー（スマホ専用） -->
+<div id="bottombar">
+  <!-- ツール -->
+  <button class="tool-btn active" id="m-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
+  <button class="tool-btn"        id="m-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
+  <button class="tool-btn"        id="m-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
+  <button class="tool-btn"        id="m-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
+  <button class="tool-btn"        id="m-eraser" data-tool="eraser" data-tip="けしごむ"><svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="10" width="18" height="11" rx="2.5" fill="#F9C6D0" stroke="#E07090" stroke-width="1.8"/><rect x="3" y="10" width="7" height="11" rx="2.5" fill="#E07090"/><line x1="14" y1="5" x2="26" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="23" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="22" width="16" height="3" rx="1.5" fill="#E0E0E0"/></svg></button>
+  <button class="tool-btn"        id="m-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
+  <div class="bsep"></div>
+  <!-- カラーパレット（横スクロール） -->
+  <div id="m-palette"></div>
+  <input type="color" id="m-custom-color" value="#FF6B6B" title="いろをえらぶ">
+  <div class="bsep"></div>
+  <!-- アクション -->
+  <button class="tool-btn" id="m-undo"  data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="m-redo"  data-tip="やりなおし">↪️</button>
+  <button class="tool-btn" id="m-clear" data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="m-save"  data-tip="ほぞん">💾</button>
 </div>
 
 <!-- TRACE CONTROLS -->
@@ -1635,6 +1722,97 @@ document.getElementById('btn-pin').addEventListener('click', () => {
   document.getElementById('btn-pin').style.opacity = pinned ? '1' : '.6';
   document.getElementById('btn-pin').setAttribute('data-tip', pinned ? 'とじる' : 'ひらいたままにする');
 });
+
+// ================================================================
+// MOBILE BOTTOM BAR
+// ================================================================
+(function(){
+  const isMobile = () => window.innerWidth <= 600;
+
+  // ── パレット生成 ──
+  const mPal = document.getElementById('m-palette');
+  if (mPal) {
+    let mSelDot = null;
+    COLORS.forEach(c => {
+      const d = document.createElement('div');
+      d.className = 'color-dot';
+      d.style.background = c;
+      d.style.width = '32px'; d.style.height = '32px';
+      d.addEventListener('click', () => {
+        S.color = c;
+        // メインパレットも同期
+        document.querySelectorAll('#palette .color-dot').forEach(dot => {
+          const bg = dot.style.background || dot.style.backgroundColor;
+          if (bg === c) { if(selDot) selDot.classList.remove('active'); dot.classList.add('active'); selDot = dot; }
+        });
+        if (mSelDot) mSelDot.classList.remove('active');
+        d.classList.add('active'); mSelDot = d;
+      });
+      if (c === S.color) { d.classList.add('active'); mSelDot = d; }
+      mPal.appendChild(d);
+    });
+  }
+
+  // カスタムカラー
+  const mCustom = document.getElementById('m-custom-color');
+  if (mCustom) {
+    mCustom.addEventListener('input', e => {
+      S.color = e.target.value;
+      document.getElementById('custom-color').value = e.target.value;
+    });
+  }
+
+  // ── ツールボタン ──
+  document.querySelectorAll('#bottombar .tool-btn[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // メインのツールボタンも同期
+      const mainBtn = document.getElementById('btn-' + btn.dataset.tool);
+      if (mainBtn) mainBtn.click();
+      // ボトムバー側のactive更新
+      document.querySelectorAll('#bottombar .tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // ── アクション ──
+  const mUndo  = document.getElementById('m-undo');
+  const mRedo  = document.getElementById('m-redo');
+  const mClear = document.getElementById('m-clear');
+  const mSave  = document.getElementById('m-save');
+  if (mUndo)  mUndo.addEventListener('click', undo);
+  if (mRedo)  mRedo.addEventListener('click', redo);
+  if (mClear) mClear.addEventListener('click', () => {
+    if (confirm('ぜんぶけしますか？')) { saveState(); ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height); }
+  });
+  if (mSave)  mSave.addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
+    a.href = flatCanvas().toDataURL('image/png'); a.click();
+  });
+
+  // ── ツール切替時にボトムバーも同期 ──
+  const origToolClick = document.querySelectorAll('.tool-btn[data-tool]');
+  origToolClick.forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#bottombar .tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
+      const mBtn = document.getElementById('m-' + btn.dataset.tool);
+      if (mBtn) mBtn.classList.add('active');
+    });
+  });
+
+  // ── キャンバスのbottom paddingをボトムバー分確保 ──
+  function adjustCanvasPadding() {
+    if (isMobile()) {
+      const bbH = document.getElementById('bottombar').offsetHeight || 58;
+      // canvas-wrapの高さをbottombar分縮める
+      document.getElementById('canvas-wrap').style.marginBottom = bbH + 'px';
+    } else {
+      document.getElementById('canvas-wrap').style.marginBottom = '';
+    }
+  }
+  window.addEventListener('resize', adjustCanvasPadding);
+  adjustCanvasPadding();
+})();
 
 // ================================================================
 // GAZE PANEL TOGGLE
