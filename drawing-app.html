@@ -56,7 +56,7 @@
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   #sidebar {
     width: var(--sidebar-w);
-    height: 100vh;
+    height: 100%;
     background: var(--panel);
     border-right: 2px solid var(--border);
     box-shadow: 3px 0 12px var(--shadow);
@@ -358,6 +358,8 @@
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   body.fullscreen #sidebar   { display:none !important; }
   body.fullscreen #statusbar { display:none !important; }
+  body.fullscreen #bottombar { display:none !important; }
+  body.fullscreen #topbar    { display:none !important; }
   body.fullscreen #canvas-wrap {
     position:fixed; inset:0; width:100vw !important; height:100vh !important; z-index:50;
   }
@@ -470,60 +472,63 @@
   kbd { background:#2D2D2D; color:#fff; border-radius:5px; padding:1px 5px; font-size:.72rem; font-family:monospace; }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   スマホ対応：サイドバーを非表示にして
-   ボトムバーにツールをまとめる
+   タブレット・スマホ対応（〜1024px）
+   サイドバーを非表示 → ボトムバーに集約
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  @media (max-width:600px) {
+  @media (max-width:1024px) {
     :root {
       --topbar-h: 52px;
-      --bottombar-h: 58px;
+      --bottombar-h: 62px;
     }
 
     /* サイドバーを非表示 */
     #sidebar { display:none !important; }
 
-    /* main-rowをcanvas全面に */
-    #main-row { position:relative; }
-
-    /* キャンバス下にbottombarの高さ分の余白 */
-    #canvas-wrap { padding-bottom:0; }
-
-    /* statusbarも非表示（邪魔なので） */
+    /* statusbarも非表示 */
     #statusbar { display:none !important; }
 
-    /* topbarをコンパクトに */
+    /* topbarを横スクロール可能に */
     #topbar {
       padding:0 8px;
       gap:4px;
       overflow-x:auto;
+      overflow-y:hidden;
       -webkit-overflow-scrolling:touch;
+      scroll-snap-type:x proximity;
     }
-    #topbar .tool-btn { width:40px; height:40px; font-size:1.25rem; border-radius:10px; }
-    #topbar .tsep { height:24px; margin:0 2px; }
+    #topbar::-webkit-scrollbar { display:none; }
+    #topbar .tool-btn { width:44px; height:44px; font-size:1.3rem; border-radius:12px; flex-shrink:0; }
+    #topbar .tsep { height:26px; margin:0 2px; flex-shrink:0; }
 
-    /* ボトムバー（スマホ専用） */
+    /* ボトムバーを表示 */
     #bottombar {
       display:flex !important;
     }
-    #bottombar .tool-btn { width:44px; height:44px; font-size:1.4rem; border-radius:12px; flex-shrink:0; }
-    #bottombar .bsep { width:1px; height:30px; background:var(--border); flex-shrink:0; margin:0 2px; }
-    #bottombar .color-dot { width:32px; height:32px; flex-shrink:0; }
+    #bottombar .tool-btn {
+      width:50px; height:50px; font-size:1.5rem;
+      border-radius:14px; flex-shrink:0;
+    }
+    #bottombar .tool-btn svg { width:30px; height:30px; }
+    #bottombar .bsep {
+      width:1px; height:34px;
+      background:var(--border); flex-shrink:0; margin:0 3px;
+    }
+    #bottombar .color-dot { width:36px; height:36px; flex-shrink:0; }
     #bottombar #m-custom-color {
-      width:32px; height:32px; border-radius:50%;
+      width:36px; height:36px; border-radius:50%;
       border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
       background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
     }
-    #bottombar #m-palette {
-      display:flex; gap:5px; flex-shrink:0;
-    }
-
-    /* color-dot サイズ */
-    .color-dot { width:28px; height:28px; }
-    #custom-color { width:28px; height:28px; }
+    #bottombar #m-palette { display:flex; gap:6px; flex-shrink:0; }
   }
 
-  @media (max-width:480px) {
-    #topbar .tool-btn { width:36px; height:36px; font-size:1.15rem; }
+  /* スマホ（〜600px）はさらにコンパクトに */
+  @media (max-width:600px) {
+    :root { --bottombar-h: 56px; }
+    #topbar .tool-btn { width:38px; height:38px; font-size:1.15rem; border-radius:10px; }
+    #bottombar .tool-btn { width:44px; height:44px; font-size:1.35rem; }
+    #bottombar .color-dot { width:30px; height:30px; }
+    #bottombar #m-custom-color { width:30px; height:30px; }
   }
   @media print {
     body * { visibility:hidden; }
@@ -1300,6 +1305,13 @@ function onGazePointer(e) {
   // タッチ・ペンは描画ハンドラが担当 → 視線エンジンでは無視
   if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
 
+  // マウス（視線デバイス）が動いたら視線カーソルを表示
+  if (!gazeVisible) {
+    clearTimeout(gazeHideTimer);
+    showGazeCursor();
+    beginDwell(sx, sy, null);
+  }
+
   // ── 適応型スムージング ──
   // 大きく動いたときは素早く追従、ジッター範囲内では強く平滑化
   const raw_dx = e.clientX - sx;
@@ -1397,6 +1409,62 @@ function findClickableTarget(el) {
 // ================================================================
 // 視線モード ON/OFF
 // ================================================================
+// ── 視線カーソルの表示状態を管理 ──
+// タッチ／ペンが検出されたら非表示、マウス（視線デバイス）が検出されたら表示
+let gazeVisible = false;
+let gazeHideTimer = null;
+
+function showGazeCursor() {
+  if (gazeVisible) return;
+  gazeVisible = true;
+  gazeCursorEl.style.display = 'block';
+  gazeRingEl.style.display   = 'block';
+}
+
+function hideGazeCursor() {
+  if (!gazeVisible) return;
+  gazeVisible = false;
+  gazeCursorEl.style.display = 'none';
+  gazeRingEl.style.display   = 'none';
+  // 描画中なら止める
+  if (gazeDrawing) { endDraw(); gazeDrawing = false; gazeStrokeActive = false; }
+  resetDwell();
+}
+
+// タッチ／ペン操作を検出したら視線カーソルを非表示
+// 一定時間タッチがなければ視線モードに自動復帰
+const GAZE_RESUME_MS = 3000; // タッチから何ms後に視線カーソルを再表示するか
+
+function onTouchInputDetected() {
+  hideGazeCursor();
+  clearTimeout(gazeHideTimer);
+  gazeHideTimer = setTimeout(() => {
+    // 3秒タッチがなければ視線カーソルを再表示
+    showGazeCursor();
+    beginDwell(sx, sy, null);
+  }, GAZE_RESUME_MS);
+}
+
+// pointertypeがtouchまたはpenのイベントを全体で監視
+document.addEventListener('pointerdown', e => {
+  if (!S.gazeMode) return;
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+    onTouchInputDetected();
+  }
+}, { capture: true, passive: true });
+
+document.addEventListener('pointermove', e => {
+  if (!S.gazeMode) return;
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+    // タッチ移動中もタイマーをリセット
+    clearTimeout(gazeHideTimer);
+    gazeHideTimer = setTimeout(() => {
+      showGazeCursor();
+      beginDwell(sx, sy, null);
+    }, GAZE_RESUME_MS);
+  }
+}, { capture: true, passive: true });
+
 function initGaze() {
   S.gazeMode = true;
   document.body.classList.add('gaze-on');
@@ -1404,8 +1472,10 @@ function initGaze() {
   sx = window.innerWidth/2; sy = window.innerHeight/2;
   dwX = sx; dwY = sy;
   moveCursor(sx, sy);
-  gazeCursorEl.style.display = 'block';
-  gazeRingEl.style.display   = 'block';
+  // 起動時は非表示（マウスが動いたら自動表示）
+  gazeCursorEl.style.display = 'none';
+  gazeRingEl.style.display   = 'none';
+  gazeVisible = false;
   // バナーは3秒後に自動で隠す
   gazeBanner.style.display   = 'block';
   setTimeout(() => { gazeBanner.style.opacity='0'; gazeBanner.style.transition='opacity 1s'; setTimeout(()=>{ gazeBanner.style.display='none'; }, 1000); }, 4000);
@@ -1727,7 +1797,7 @@ document.getElementById('btn-pin').addEventListener('click', () => {
 // MOBILE BOTTOM BAR
 // ================================================================
 (function(){
-  const isMobile = () => window.innerWidth <= 600;
+  const isMobile = () => window.innerWidth <= 1024;
 
   // ── パレット生成 ──
   const mPal = document.getElementById('m-palette');
