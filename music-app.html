@@ -144,8 +144,8 @@
   .btn-save:active { transform: scale(0.97); }
 
   /* ===== PIN MODAL ===== */
-  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center; }
-  .modal-bg.active { display: flex; }
+  .modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center; pointer-events:none; }
+  .modal-bg.active { display: flex; pointer-events:all; }
   .modal { background:var(--surface); border-radius:var(--radius-lg); padding:32px; width:90%; max-width:360px; display:flex; flex-direction:column; gap:20px; text-align:center; }
   .modal h3 { font-size: 1.4rem; }
   .modal p { color: var(--text-dim); font-size: 0.95rem; }
@@ -478,15 +478,16 @@
   .track-picker {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
     backdrop-filter: blur(4px); z-index: 110; align-items: flex-end; justify-content: center;
+    pointer-events: none;
   }
-  .track-picker.active { display: flex; }
+  .track-picker.active { display: flex; pointer-events: all; }
   .track-picker-sheet {
     background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     padding: 24px; width: 100%; max-width: 600px;
     display: flex; flex-direction: column; gap: 16px;
     max-height: 80vh; overflow-y: auto;
   }
-  .track-picker-sheet h3 { font-size: 1.2rem; font-weight: 900; }
+  .track-picker-sheet h3 { font-size: 1.2rem; font-weight: 900; flex-shrink: 0; }
   .track-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
   .track-pick-btn {
     background: var(--surface2); border: 2px solid transparent; border-radius: 16px;
@@ -497,7 +498,13 @@
   .track-pick-btn:hover { border-color: var(--accent4); transform: scale(1.04); }
   .track-pick-btn .tp-emoji { font-size: 2rem; }
   .track-pick-btn .tp-name { font-size: 0.75rem; font-weight: 900; color: var(--text-dim); text-align: center; }
-  .track-picker-close { background: var(--surface2); border: none; color: var(--text-dim); font-family: inherit; font-size: 1rem; font-weight: 700; padding: 14px; border-radius: var(--radius); cursor: pointer; }
+  .track-picker-close {
+    background: var(--surface2); border: none; color: var(--text); font-family: inherit;
+    font-size: 1rem; font-weight: 900; padding: 16px; border-radius: var(--radius);
+    cursor: pointer; flex-shrink: 0; width: 100%;
+    transition: background 0.15s;
+  }
+  .track-picker-close:hover { background: var(--accent1); color: white; }
 
   /* Save composition */
   .compose-save-bar {
@@ -642,9 +649,9 @@
         <label>ぼたんのかず</label>
         <select class="styled" id="btn-count" onchange="buildBtnConfig()">
           <option value="2">2こ</option>
-          <option value="4" selected>4こ</option>
+          <option value="4">4こ</option>
           <option value="6">6こ</option>
-          <option value="8">8こ</option>
+          <option value="8" selected>8こ</option>
           <option value="9">9こ</option>
         </select>
       </div>
@@ -720,11 +727,11 @@
     <div class="settings-section">
       <h3>✨ みためのせってい</h3>
       <div class="setting-row">
-        <label>おしたらびかる</label>
+        <label>ひかりエフェクト<span class="hint">ボタンをおしたときにひかる</span></label>
         <label class="toggle"><input type="checkbox" id="visual-feedback" checked><span class="toggle-slider"></span></label>
       </div>
       <div class="setting-row">
-        <label>えもじをひょうじ</label>
+        <label>えもじをひょうじ<span class="hint">おとをならしたときにえもじがでる</span></label>
         <label class="toggle"><input type="checkbox" id="emoji-feedback" checked><span class="toggle-slider"></span></label>
       </div>
     </div>
@@ -883,7 +890,7 @@
 </div>
 
 <!-- Track picker sheet -->
-<div class="track-picker" id="track-picker">
+<div class="track-picker" id="track-picker" onclick="if(event.target===this)closeTrackPicker()">
   <div class="track-picker-sheet">
     <h3>🎵 おとをえらんでね</h3>
     <div class="track-pick-grid" id="track-pick-grid"></div>
@@ -963,26 +970,55 @@
 // ===== STATE =====
 let settings = {
   modeTouch: true, modeSwitch: false, switchCount: 1, scanSpeed: 2,
-  btnCount: 4, bgmEnabled: true, bgmType: 'beat1', bgmVolume: 60,
+  btnCount: 8, bgmEnabled: true, bgmType: 'beat1', bgmVolume: 60,
   preventRepeat: true, cooldown: 0.5, visualFeedback: true, emojiFeedback: true,
   buttons: []
 };
 
 const SOUNDS = {
-  kick:     { emoji:'🥁', label:'ドン',   color:'#ff6b6b' },
-  snare:    { emoji:'💥', label:'パン',   color:'#ffd93d' },
-  hihat:    { emoji:'🎵', label:'チッ',   color:'#6bcb77' },
-  bass:     { emoji:'🎸', label:'ボン',   color:'#4d96ff' },
-  piano_c:  { emoji:'🎹', label:'ド',     color:'#ff4d4d' },
-  piano_d:  { emoji:'🎹', label:'レ',     color:'#ff8c00' },
-  piano_e:  { emoji:'🎹', label:'ミ',     color:'#ffd700' },
-  piano_f:  { emoji:'🎹', label:'ファ',   color:'#4caf50' },
-  piano_g:  { emoji:'🎹', label:'ソ',     color:'#00bcd4' },
-  piano_a:  { emoji:'🎹', label:'ラ',     color:'#3b82f6' },
-  piano_b:  { emoji:'🎹', label:'シ',     color:'#9c27b0' },
-  piano_c2: { emoji:'🎹', label:'ド（高）',color:'#ff80ab' },
-  bell:     { emoji:'🔔', label:'リン',   color:'#ff6b9d' },
-  marimba:  { emoji:'🪘', label:'コン',   color:'#a8e6cf' },
+  // ── ドラム・パーカッション ──
+  kick:      { emoji:'🥁', label:'ドン',     color:'#ff4d4d' },
+  snare:     { emoji:'💥', label:'パン',     color:'#ffd700' },
+  hihat:     { emoji:'🎵', label:'チッ',     color:'#6bcb77' },
+  hihat_o:   { emoji:'🎵', label:'チーン',   color:'#a8e6cf' },
+  clap:      { emoji:'👏', label:'パチ',     color:'#ff8c00' },
+  tom:       { emoji:'🥁', label:'トン',     color:'#e879f9' },
+  cowbell:   { emoji:'🔔', label:'カーン',   color:'#fbbf24' },
+  // ── ベース ──
+  bass:      { emoji:'🎸', label:'ボン',     color:'#4d96ff' },
+  bass_e:    { emoji:'🎸', label:'ベン',     color:'#2563eb' },
+  // ── けんばん（ドレミ） ──
+  piano_c:   { emoji:'🎹', label:'ド',       color:'#ff4d4d' },
+  piano_d:   { emoji:'🎹', label:'レ',       color:'#ff8c00' },
+  piano_e:   { emoji:'🎹', label:'ミ',       color:'#ffd700' },
+  piano_f:   { emoji:'🎹', label:'ファ',     color:'#4caf50' },
+  piano_g:   { emoji:'🎹', label:'ソ',       color:'#00bcd4' },
+  piano_a:   { emoji:'🎹', label:'ラ',       color:'#3b82f6' },
+  piano_b:   { emoji:'🎹', label:'シ',       color:'#9c27b0' },
+  piano_c2:  { emoji:'🎹', label:'ド（高）', color:'#ff80ab' },
+  // ── 木管楽器 ──
+  flute:     { emoji:'🪈', label:'フルート', color:'#bef264' },
+  clarinet:  { emoji:'🎷', label:'クラリネット', color:'#f9a8d4' },
+  sax:       { emoji:'🎷', label:'サックス', color:'#fcd34d' },
+  // ── 金管楽器 ──
+  trumpet:   { emoji:'🎺', label:'トランペット', color:'#fb923c' },
+  trombone:  { emoji:'🎺', label:'トロンボーン', color:'#a78bfa' },
+  // ── 弦楽器 ──
+  violin:    { emoji:'🎻', label:'バイオリン', color:'#f87171' },
+  cello:     { emoji:'🎻', label:'チェロ',   color:'#c084fc' },
+  guitar:    { emoji:'🎸', label:'ギター',   color:'#34d399' },
+  guitar_e:  { emoji:'🎸', label:'エレキ',   color:'#22d3ee' },
+  // ── その他 ──
+  bell:      { emoji:'🔔', label:'リン',     color:'#ff6b9d' },
+  marimba:   { emoji:'🪘', label:'コン',     color:'#a8e6cf' },
+  xylophone: { emoji:'🎵', label:'ポン',     color:'#86efac' },
+  // ── 電子音 ──
+  synth:     { emoji:'⚡', label:'シンセ',   color:'#7c3aed' },
+  laser:     { emoji:'🔴', label:'レーザー', color:'#dc2626' },
+  beep:      { emoji:'📳', label:'ビープ',   color:'#0ea5e9' },
+  // ── 声 ──
+  vox_a:     { emoji:'🗣️', label:'あー',    color:'#f472b6' },
+  vox_o:     { emoji:'🗣️', label:'おー',    color:'#fb7185' },
 };
 const COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff9f1c','#4ecdc4','#ff6b9d'];
 const EMOJIS = ['🎤','⭐','🌈','🐶','🐱','🦁','🐸','🌸','🎉','🍎','🚀','❤️','🎵','🦋','🌟','🐘'];
@@ -1130,6 +1166,177 @@ function playSound(type, recAudioData) {
       osc2.connect(g2); g2.connect(g); osc.connect(g);
       g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
       osc.start(now); osc.stop(now+0.6); osc2.start(now); osc2.stop(now+0.6); break;
+    }
+    // ── 新楽器 ──
+    case 'hihat_o': { // オープンハイハット（長め）
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.4,ctx.sampleRate);
+      const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length*0.6);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=6000;
+      src.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.4);
+      src.start(now); break;
+    }
+    case 'clap': { // クラップ（複数回の白色ノイズ）
+      [0, 0.01, 0.02].forEach(offset => {
+        const buf=ctx.createBuffer(1,ctx.sampleRate*0.06,ctx.sampleRate);
+        const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+        const src=ctx.createBufferSource(); src.buffer=buf;
+        const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200; f.Q.value=0.5;
+        src.connect(f); f.connect(g);
+        src.start(now+offset);
+      });
+      g.gain.setValueAtTime(1.0,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.15); break;
+    }
+    case 'tom': { // タム（低めのドラム）
+      const osc=ctx.createOscillator();
+      osc.frequency.setValueAtTime(160,now); osc.frequency.exponentialRampToValueAtTime(60,now+0.25);
+      g.gain.setValueAtTime(1.2,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.35);
+      osc.connect(g); osc.start(now); osc.stop(now+0.35); break;
+    }
+    case 'cowbell': { // カウベル（金属的な音）
+      const osc=ctx.createOscillator(); osc.type='square'; osc.frequency.value=562;
+      const osc2=ctx.createOscillator(); osc2.type='square'; osc2.frequency.value=845;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      osc2.connect(g2); g2.connect(g); osc.connect(g);
+      g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.7);
+      osc.start(now); osc.stop(now+0.7); osc2.start(now); osc2.stop(now+0.7); break;
+    }
+    case 'bass_e': { // エレキベース（低め）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=55;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=300;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(1.0,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
+      osc.start(now); osc.stop(now+0.6); break;
+    }
+    case 'flute': { // フルート（サイン波 + ビブラート風）
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=698;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=5;
+      const lfoG=ctx.createGain(); lfoG.gain.value=4;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      osc.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.7,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.0);
+      lfo.start(now); lfo.stop(now+1.0); osc.start(now); osc.stop(now+1.0); break;
+    }
+    case 'clarinet': { // クラリネット（奇数倍音中心）
+      const osc=ctx.createOscillator(); osc.type='square'; osc.frequency.value=311;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1800;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.9); 
+      osc.start(now); osc.stop(now+0.9); break;
+    }
+    case 'sax': { // サックス（のこぎり波 + フィルター）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=233;
+      const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200; f.Q.value=2;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.7,now+0.04);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.start(now); osc.stop(now+0.8); break;
+    }
+    case 'trumpet': { // トランペット（倍音豊か）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=523;
+      const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=400;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.8,now+0.03);
+      g.gain.setValueAtTime(0.8,now+0.1); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
+      osc.start(now); osc.stop(now+0.6); break;
+    }
+    case 'trombone': { // トロンボーン（低め・サイン波ベース）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=147;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=900;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.7,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.0);
+      osc.start(now); osc.stop(now+1.0); break;
+    }
+    case 'violin': { // バイオリン（のこぎり波 + ビブラート）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=440;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=6;
+      const lfoG=ctx.createGain(); lfoG.gain.value=6;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=1;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.6,now+0.08);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.0);
+      lfo.start(now); lfo.stop(now+1.0); osc.start(now); osc.stop(now+1.0); break;
+    }
+    case 'cello': { // チェロ（低いバイオリン）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=196;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=5;
+      const lfoG=ctx.createGain(); lfoG.gain.value=4;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1200;
+      osc.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.7,now+0.1);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.2);
+      lfo.start(now); lfo.stop(now+1.2); osc.start(now); osc.stop(now+1.2); break;
+    }
+    case 'guitar': { // アコギ（プラック音）
+      const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=330;
+      const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=660;
+      const g2=ctx.createGain(); g2.gain.value=0.4;
+      osc2.connect(g2); g2.connect(g); osc.connect(g);
+      g.gain.setValueAtTime(1.0,now); g.gain.exponentialRampToValueAtTime(0.01,now+1.2);
+      osc.start(now); osc.stop(now+1.2); osc2.start(now); osc2.stop(now+1.2); break;
+    }
+    case 'guitar_e': { // エレキギター（歪み感）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=330;
+      const wv=ctx.createWaveShaper();
+      const curve=new Float32Array(256);
+      for(let i=0;i<256;i++){const x=i*2/256-1; curve[i]=Math.tanh(x*3);}
+      wv.curve=curve;
+      osc.connect(wv); wv.connect(g);
+      g.gain.setValueAtTime(0.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.start(now); osc.stop(now+0.8); break;
+    }
+    case 'xylophone': { // シロフォン（短い打音）
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=880;
+      const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=2200;
+      const g2=ctx.createGain(); g2.gain.value=0.2;
+      osc2.connect(g2); g2.connect(g); osc.connect(g);
+      g.gain.setValueAtTime(0.9,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.3);
+      osc.start(now); osc.stop(now+0.3); osc2.start(now); osc2.stop(now+0.3); break;
+    }
+    case 'synth': { // シンセ（デチューン）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=440;
+      const osc2=ctx.createOscillator(); osc2.type='sawtooth'; osc2.frequency.value=443;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      osc2.connect(g2); g2.connect(g); osc.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.7,now+0.02);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.start(now); osc.stop(now+0.8); osc2.start(now); osc2.stop(now+0.8); break;
+    }
+    case 'laser': { // レーザー（下降）
+      const osc=ctx.createOscillator(); osc.type='square';
+      osc.frequency.setValueAtTime(1200,now); osc.frequency.exponentialRampToValueAtTime(200,now+0.3);
+      g.gain.setValueAtTime(0.6,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.3);
+      osc.connect(g); osc.start(now); osc.stop(now+0.3); break;
+    }
+    case 'beep': { // ビープ（短い単音）
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=1000;
+      g.gain.setValueAtTime(0.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.15);
+      osc.connect(g); osc.start(now); osc.stop(now+0.15); break;
+    }
+    case 'vox_a': { // 声「あー」（フォルマント合成）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=220;
+      const f1=ctx.createBiquadFilter(); f1.type='bandpass'; f1.frequency.value=800;  f1.Q.value=5;
+      const f2=ctx.createBiquadFilter(); f2.type='bandpass'; f2.frequency.value=1200; f2.Q.value=5;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      osc.connect(f1); osc.connect(f2); f1.connect(g); f2.connect(g2); g2.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.6,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.start(now); osc.stop(now+0.8); break;
+    }
+    case 'vox_o': { // 声「おー」（フォルマント合成）
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=200;
+      const f1=ctx.createBiquadFilter(); f1.type='bandpass'; f1.frequency.value=500;  f1.Q.value=5;
+      const f2=ctx.createBiquadFilter(); f2.type='bandpass'; f2.frequency.value=900;  f2.Q.value=5;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      osc.connect(f1); osc.connect(f2); f1.connect(g); f2.connect(g2); g2.connect(g);
+      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.6,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.start(now); osc.stop(now+0.8); break;
     }
   }
 }
@@ -1748,22 +1955,85 @@ function showToast(msg) {
 }
 
 // ===== COMPOSE MODE =====
-const TRACK_SOUNDS = [
-  { id:'kick',    emoji:'🥁', name:'ドン',   color:'#ff6b6b' },
-  { id:'snare',   emoji:'💥', name:'パン',   color:'#ffd93d' },
-  { id:'hihat',   emoji:'🎵', name:'チッ',   color:'#6bcb77' },
-  { id:'bass',    emoji:'🎸', name:'ボン',   color:'#4d96ff' },
-  { id:'piano_c', emoji:'🎹', name:'ド',     color:'#ff4d4d' },
-  { id:'piano_d', emoji:'🎹', name:'レ',     color:'#ff8c00' },
-  { id:'piano_e', emoji:'🎹', name:'ミ',     color:'#ffd700' },
-  { id:'piano_f', emoji:'🎹', name:'ファ',   color:'#4caf50' },
-  { id:'piano_g', emoji:'🎹', name:'ソ',     color:'#00bcd4' },
-  { id:'piano_a', emoji:'🎹', name:'ラ',     color:'#3b82f6' },
-  { id:'piano_b', emoji:'🎹', name:'シ',     color:'#9c27b0' },
-  { id:'piano_c2',emoji:'🎹', name:'ド（高）',color:'#ff80ab' },
-  { id:'bell',    emoji:'🔔', name:'リン',   color:'#ff6b9d' },
-  { id:'marimba', emoji:'🪘', name:'コン',   color:'#a8e6cf' },
+// カテゴリ付きトラック音源リスト（つくるモードのトラック追加で使用）
+const TRACK_SOUND_CATEGORIES = [
+  {
+    label: '🥁 ドラム・パーカッション',
+    sounds: [
+      { id:'kick',    emoji:'🥁', name:'ドン',       color:'#ff4d4d' },
+      { id:'snare',   emoji:'💥', name:'パン',       color:'#ffd700' },
+      { id:'hihat',   emoji:'🎵', name:'チッ',       color:'#6bcb77' },
+      { id:'hihat_o', emoji:'🎵', name:'チーン',     color:'#a8e6cf' },
+      { id:'clap',    emoji:'👏', name:'パチ',       color:'#ff8c00' },
+      { id:'tom',     emoji:'🥁', name:'トン',       color:'#e879f9' },
+      { id:'cowbell', emoji:'🔔', name:'カーン',     color:'#fbbf24' },
+    ]
+  },
+  {
+    label: '🎹 けんばん（ドレミ）',
+    sounds: [
+      { id:'piano_c',  emoji:'🎹', name:'ド',         color:'#ff4d4d' },
+      { id:'piano_d',  emoji:'🎹', name:'レ',         color:'#ff8c00' },
+      { id:'piano_e',  emoji:'🎹', name:'ミ',         color:'#ffd700' },
+      { id:'piano_f',  emoji:'🎹', name:'ファ',       color:'#4caf50' },
+      { id:'piano_g',  emoji:'🎹', name:'ソ',         color:'#00bcd4' },
+      { id:'piano_a',  emoji:'🎹', name:'ラ',         color:'#3b82f6' },
+      { id:'piano_b',  emoji:'🎹', name:'シ',         color:'#9c27b0' },
+      { id:'piano_c2', emoji:'🎹', name:'ド（高）',   color:'#ff80ab' },
+    ]
+  },
+  {
+    label: '🎸 ベース・ギター',
+    sounds: [
+      { id:'bass',    emoji:'🎸', name:'ボン',       color:'#4d96ff' },
+      { id:'bass_e',  emoji:'🎸', name:'ベン',       color:'#2563eb' },
+      { id:'guitar',  emoji:'🎸', name:'ギター',     color:'#34d399' },
+      { id:'guitar_e',emoji:'🎸', name:'エレキ',     color:'#22d3ee' },
+    ]
+  },
+  {
+    label: '🎷 木管・金管楽器',
+    sounds: [
+      { id:'flute',    emoji:'🪈', name:'フルート',   color:'#bef264' },
+      { id:'clarinet', emoji:'🎷', name:'クラリネット',color:'#f9a8d4' },
+      { id:'sax',      emoji:'🎷', name:'サックス',   color:'#fcd34d' },
+      { id:'trumpet',  emoji:'🎺', name:'トランペット',color:'#fb923c' },
+      { id:'trombone', emoji:'🎺', name:'トロンボーン',color:'#a78bfa' },
+    ]
+  },
+  {
+    label: '🎻 弦楽器',
+    sounds: [
+      { id:'violin', emoji:'🎻', name:'バイオリン',   color:'#f87171' },
+      { id:'cello',  emoji:'🎻', name:'チェロ',       color:'#c084fc' },
+    ]
+  },
+  {
+    label: '🎵 その他の楽器',
+    sounds: [
+      { id:'bell',      emoji:'🔔', name:'リン',       color:'#ff6b9d' },
+      { id:'marimba',   emoji:'🪘', name:'コン',       color:'#a8e6cf' },
+      { id:'xylophone', emoji:'🎵', name:'ポン',       color:'#86efac' },
+    ]
+  },
+  {
+    label: '⚡ 電子音',
+    sounds: [
+      { id:'synth', emoji:'⚡', name:'シンセ',         color:'#7c3aed' },
+      { id:'laser', emoji:'🔴', name:'レーザー',       color:'#dc2626' },
+      { id:'beep',  emoji:'📳', name:'ビープ',         color:'#0ea5e9' },
+    ]
+  },
+  {
+    label: '🗣️ 声',
+    sounds: [
+      { id:'vox_a', emoji:'🗣️', name:'あー',          color:'#f472b6' },
+      { id:'vox_o', emoji:'🗣️', name:'おー',          color:'#fb7185' },
+    ]
+  },
 ];
+// 後方互換用フラットリスト
+const TRACK_SOUNDS = TRACK_SOUND_CATEGORIES.flatMap(c => c.sounds);
 
 let composeTracks = []; // [{soundId, steps:[bool*N], vol:1.0}]
 let composeStepCount = 16;
@@ -2090,23 +2360,31 @@ function openTrackPicker() {
   const grid = document.getElementById('track-pick-grid');
   grid.innerHTML = '';
 
-  // Built-in sounds
-  TRACK_SOUNDS.forEach(ts => {
-    const btn = document.createElement('button');
-    btn.className = 'track-pick-btn';
-    btn.style.borderColor = 'transparent';
-    btn.innerHTML = `<span class="tp-emoji">${ts.emoji}</span><span class="tp-name">${ts.name}</span>`;
-    btn.onmouseenter = () => btn.style.borderColor = ts.color;
-    btn.onmouseleave = () => { if(!btn.dataset.sel) btn.style.borderColor='transparent'; };
-    btn.onclick = () => { addTrack(ts.id); closeTrackPicker(); };
-    grid.appendChild(btn);
+  // カテゴリ別に表示
+  TRACK_SOUND_CATEGORIES.forEach(cat => {
+    // カテゴリ見出し
+    const sep = document.createElement('div');
+    sep.style.cssText = 'grid-column:1/-1;font-size:0.82rem;color:var(--text-dim);font-weight:900;letter-spacing:0.5px;padding:6px 0 2px;border-top:1px solid var(--surface2);margin-top:4px;';
+    sep.textContent = cat.label;
+    grid.appendChild(sep);
+
+    cat.sounds.forEach(ts => {
+      const btn = document.createElement('button');
+      btn.className = 'track-pick-btn';
+      btn.style.borderColor = 'transparent';
+      btn.innerHTML = `<span class="tp-emoji">${ts.emoji}</span><span class="tp-name">${ts.name}</span>`;
+      btn.onmouseenter = () => btn.style.borderColor = ts.color;
+      btn.onmouseleave = () => { btn.style.borderColor = 'transparent'; };
+      btn.onclick = () => { addTrack(ts.id); closeTrackPicker(); };
+      grid.appendChild(btn);
+    });
   });
 
-  // Recorded sounds
+  // ろくおんした音
   getAllRecordings().then(recs => {
-    if(recs.length) {
+    if (recs.length) {
       const sep = document.createElement('div');
-      sep.style.cssText = 'grid-column:1/-1;font-size:0.8rem;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:4px 0;';
+      sep.style.cssText = 'grid-column:1/-1;font-size:0.82rem;color:var(--text-dim);font-weight:900;letter-spacing:0.5px;padding:6px 0 2px;border-top:1px solid var(--surface2);margin-top:4px;';
       sep.textContent = '🎤 ろくおんしたおと';
       grid.appendChild(sep);
       recs.forEach(rec => {
@@ -2114,6 +2392,8 @@ function openTrackPicker() {
         btn.className = 'track-pick-btn';
         btn.style.borderColor = 'transparent';
         btn.innerHTML = `<span class="tp-emoji">${rec.emoji}</span><span class="tp-name">${rec.name}</span>`;
+        btn.onmouseenter = () => btn.style.borderColor = rec.color || '#4d96ff';
+        btn.onmouseleave = () => { btn.style.borderColor = 'transparent'; };
         btn.onclick = () => { addTrack(`rec_${rec.id}`, rec.emoji, rec.name, rec.color); closeTrackPicker(); };
         grid.appendChild(btn);
       });
@@ -2420,20 +2700,152 @@ function scheduleSynthSound(offCtx, soundId, vol, when) {
       o.start(when); o.stop(when+0.6); o2.start(when); o2.stop(when+0.6); break;
     }
     default: {
-      // Piano notes: ド〜ド（高）
+      // Piano notes ド〜ド（高）
       const freqMap = {
         piano_c:261.63, piano_d:293.66, piano_e:329.63, piano_f:349.23,
         piano_g:392.00, piano_a:440.00, piano_b:493.88, piano_c2:523.25
       };
       const freq = freqMap[soundId];
-      if (!freq) return;
-      const o  = offCtx.createOscillator(); o.type='triangle';  o.frequency.value=freq;
-      const o2 = offCtx.createOscillator(); o2.type='sine'; o2.frequency.value=freq*2;
-      const g2 = offCtx.createGain(); g2.gain.value=0.3;
-      const pg = offCtx.createGain();
-      pg.gain.setValueAtTime(0.7, when); pg.gain.exponentialRampToValueAtTime(0.01, when+0.8);
-      o.connect(pg); o2.connect(g2); g2.connect(pg); pg.connect(g);
-      o.start(when); o.stop(when+0.8); o2.start(when); o2.stop(when+0.8); break;
+      if (freq) {
+        const o  = offCtx.createOscillator(); o.type='triangle'; o.frequency.value=freq;
+        const o2 = offCtx.createOscillator(); o2.type='sine'; o2.frequency.value=freq*2;
+        const g2 = offCtx.createGain(); g2.gain.value=0.3;
+        const pg = offCtx.createGain();
+        pg.gain.setValueAtTime(0.7, when); pg.gain.exponentialRampToValueAtTime(0.01, when+0.8);
+        o.connect(pg); o2.connect(g2); g2.connect(pg); pg.connect(g);
+        o.start(when); o.stop(when+0.8); o2.start(when); o2.stop(when+0.8);
+        return;
+      }
+      // 新楽器の書き出し対応（playSound と同じロジック）
+      switch(soundId) {
+        case 'hihat_o': {
+          const buf=offCtx.createBuffer(1,offCtx.sampleRate*0.4,offCtx.sampleRate);
+          const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length*0.6);
+          const src=offCtx.createBufferSource(); src.buffer=buf;
+          const f=offCtx.createBiquadFilter(); f.type='highpass'; f.frequency.value=6000;
+          src.connect(f); f.connect(g); g.gain.setValueAtTime(0.7,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.4);
+          src.start(when); break;
+        }
+        case 'clap': {
+          [0,0.01,0.02].forEach(off => {
+            const buf=offCtx.createBuffer(1,offCtx.sampleRate*0.06,offCtx.sampleRate);
+            const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+            const src=offCtx.createBufferSource(); src.buffer=buf;
+            const f=offCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200; f.Q.value=0.5;
+            src.connect(f); f.connect(g); src.start(when+off);
+          });
+          g.gain.setValueAtTime(1.0,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.15); break;
+        }
+        case 'tom': {
+          const o=offCtx.createOscillator();
+          o.frequency.setValueAtTime(160,when); o.frequency.exponentialRampToValueAtTime(60,when+0.25);
+          g.gain.setValueAtTime(1.2,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.35);
+          o.connect(g); o.start(when); o.stop(when+0.35); break;
+        }
+        case 'cowbell': {
+          const o=offCtx.createOscillator(); o.type='square'; o.frequency.value=562;
+          const o2=offCtx.createOscillator(); o2.type='square'; o2.frequency.value=845;
+          const g2=offCtx.createGain(); g2.gain.value=0.5;
+          o2.connect(g2); g2.connect(g); o.connect(g);
+          g.gain.setValueAtTime(0.8,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.7);
+          o.start(when); o.stop(when+0.7); o2.start(when); o2.stop(when+0.7); break;
+        }
+        case 'bass_e': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=55;
+          const f=offCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=300;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(1.0,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.6);
+          o.start(when); o.stop(when+0.6); break;
+        }
+        case 'flute': {
+          const o=offCtx.createOscillator(); o.type='sine'; o.frequency.value=698;
+          o.connect(g); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.7,when+0.05);
+          g.gain.exponentialRampToValueAtTime(0.01,when+1.0); o.start(when); o.stop(when+1.0); break;
+        }
+        case 'clarinet': {
+          const o=offCtx.createOscillator(); o.type='square'; o.frequency.value=311;
+          const f=offCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1800;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(0.5,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.9);
+          o.start(when); o.stop(when+0.9); break;
+        }
+        case 'sax': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=233;
+          const f=offCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200; f.Q.value=2;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.7,when+0.04);
+          g.gain.exponentialRampToValueAtTime(0.01,when+0.8); o.start(when); o.stop(when+0.8); break;
+        }
+        case 'trumpet': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=523;
+          const f=offCtx.createBiquadFilter(); f.type='highpass'; f.frequency.value=400;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.8,when+0.03);
+          g.gain.exponentialRampToValueAtTime(0.01,when+0.6); o.start(when); o.stop(when+0.6); break;
+        }
+        case 'trombone': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=147;
+          const f=offCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=900;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.7,when+0.05);
+          g.gain.exponentialRampToValueAtTime(0.01,when+1.0); o.start(when); o.stop(when+1.0); break;
+        }
+        case 'violin': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=440;
+          const f=offCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=1;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.6,when+0.08);
+          g.gain.exponentialRampToValueAtTime(0.01,when+1.0); o.start(when); o.stop(when+1.0); break;
+        }
+        case 'cello': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=196;
+          const f=offCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1200;
+          o.connect(f); f.connect(g);
+          g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.7,when+0.1);
+          g.gain.exponentialRampToValueAtTime(0.01,when+1.2); o.start(when); o.stop(when+1.2); break;
+        }
+        case 'guitar': {
+          const o=offCtx.createOscillator(); o.type='triangle'; o.frequency.value=330;
+          o.connect(g); g.gain.setValueAtTime(1.0,when); g.gain.exponentialRampToValueAtTime(0.01,when+1.2);
+          o.start(when); o.stop(when+1.2); break;
+        }
+        case 'guitar_e': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=330;
+          o.connect(g); g.gain.setValueAtTime(0.6,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.8);
+          o.start(when); o.stop(when+0.8); break;
+        }
+        case 'xylophone': {
+          const o=offCtx.createOscillator(); o.type='sine'; o.frequency.value=880;
+          o.connect(g); g.gain.setValueAtTime(0.9,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.3);
+          o.start(when); o.stop(when+0.3); break;
+        }
+        case 'synth': {
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=440;
+          o.connect(g); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.7,when+0.02);
+          g.gain.exponentialRampToValueAtTime(0.01,when+0.8); o.start(when); o.stop(when+0.8); break;
+        }
+        case 'laser': {
+          const o=offCtx.createOscillator(); o.type='square';
+          o.frequency.setValueAtTime(1200,when); o.frequency.exponentialRampToValueAtTime(200,when+0.3);
+          o.connect(g); g.gain.setValueAtTime(0.6,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.3);
+          o.start(when); o.stop(when+0.3); break;
+        }
+        case 'beep': {
+          const o=offCtx.createOscillator(); o.type='sine'; o.frequency.value=1000;
+          o.connect(g); g.gain.setValueAtTime(0.5,when); g.gain.exponentialRampToValueAtTime(0.01,when+0.15);
+          o.start(when); o.stop(when+0.15); break;
+        }
+        case 'vox_a': case 'vox_o': {
+          const f0 = soundId==='vox_a' ? 220 : 200;
+          const f1v = soundId==='vox_a' ? 800 : 500;
+          const o=offCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=f0;
+          const f1=offCtx.createBiquadFilter(); f1.type='bandpass'; f1.frequency.value=f1v; f1.Q.value=5;
+          o.connect(f1); f1.connect(g);
+          g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(0.6,when+0.05);
+          g.gain.exponentialRampToValueAtTime(0.01,when+0.8); o.start(when); o.stop(when+0.8); break;
+        }
+      }
+      break;
     }
   }
 }
