@@ -713,6 +713,13 @@
 
     <!-- ④ 視線入力 -->
     <div class="help-section">
+      <div class="help-heading">👆 タッチ / ペンでもえがけるよ</div>
+      <div class="help-grid">
+        <div class="help-item"><span class="help-icon">👆</span><span><b>タッチ</b><br>ゆびでキャンバスをなぞると えがける。2ほんゆびはキャンセル</span></div>
+        <div class="help-item"><span class="help-icon">✏️</span><span><b>スタイラス・ペン</b><br>Apple Pencilなどのペンでもえがける</span></div>
+      </div>
+    </div>
+    <div class="help-section">
       <div class="help-heading">👁️ しせんにゅうりょく（つねにオン）</div>
       <div class="help-grid">
         <div class="help-item"><span class="help-icon">👁️</span><span><b>みつめてえがく</b><br>キャンバスをみつめると えがきはじめる。うごかすとせんがつながる</span></div>
@@ -926,13 +933,80 @@ function getPos(e) {
 // POINTER / TOUCH (通常モード)
 // 視線モード中はキャンバスへの直接操作を受け付けない
 // ================================================================
-drawCanvas.addEventListener('pointerdown',e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); startDraw(p.x,p.y); },{passive:false});
-drawCanvas.addEventListener('pointermove',e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); moveDraw(p.x,p.y); },{passive:false});
-drawCanvas.addEventListener('pointerup',  e=>{ if(S.gazeMode)return; e.preventDefault(); endDraw(); },{passive:false});
-drawCanvas.addEventListener('pointerleave',()=>{ if(!S.gazeMode) endDraw(); });
-drawCanvas.addEventListener('touchstart', e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); startDraw(p.x,p.y); },{passive:false});
-drawCanvas.addEventListener('touchmove',  e=>{ if(S.gazeMode)return; e.preventDefault(); const p=getPos(e); moveDraw(p.x,p.y); },{passive:false});
-drawCanvas.addEventListener('touchend',   ()=>{ if(!S.gazeMode) endDraw(); });
+// ================================================================
+// タッチ / マウス 描画
+// ================================================================
+// 方針:
+//   - タッチ (pointerType==='touch' or touchstart) は常に描画OK
+//   - マウス (pointerType==='mouse') は視線ドウェルエンジンが担当
+//     → キャンバスへの直接 pointerdown は無視（ドウェルで startDraw する）
+//   - Apple Pencil / スタイラス (pointerType==='pen') は常に描画OK
+
+function isTouchOrPen(e) {
+  return e.pointerType === 'touch' || e.pointerType === 'pen' || e.touches;
+}
+
+// ── Pointer Events（タッチ・ペン入力）──
+drawCanvas.addEventListener('pointerdown', e => {
+  if (!isTouchOrPen(e)) return;   // マウスは視線エンジンに任せる
+  e.preventDefault();
+  // 視線描画中なら一旦終了
+  if (gazeDrawing) { endDraw(); gazeDrawing = false; gazeStrokeActive = false; resetDwell(); }
+  const p = getPos(e);
+  startDraw(p.x, p.y);
+}, { passive: false });
+
+drawCanvas.addEventListener('pointermove', e => {
+  if (!isTouchOrPen(e)) return;
+  if (!isDrawing) return;
+  e.preventDefault();
+  const p = getPos(e);
+  moveDraw(p.x, p.y);
+}, { passive: false });
+
+drawCanvas.addEventListener('pointerup', e => {
+  if (!isTouchOrPen(e)) return;
+  e.preventDefault();
+  endDraw();
+}, { passive: false });
+
+drawCanvas.addEventListener('pointercancel', e => {
+  if (!isTouchOrPen(e)) return;
+  endDraw();
+});
+
+drawCanvas.addEventListener('pointerleave', e => {
+  if (!isTouchOrPen(e)) return;
+  endDraw();
+});
+
+// ── Touch Events（念のため fallback）──
+drawCanvas.addEventListener('touchstart', e => {
+  // pointerdown で処理済みのはずだが念のため重複防止
+  if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+  e.preventDefault();
+  const p = getPos(e);
+  startDraw(p.x, p.y);
+}, { passive: false });
+
+drawCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!isDrawing) return;
+  const p = getPos(e);
+  moveDraw(p.x, p.y);
+}, { passive: false });
+
+drawCanvas.addEventListener('touchend', () => {
+  endDraw();
+}, { passive: false });
+
+// マルチタッチ: 2本指以上はピンチ操作とみなして描画キャンセル
+drawCanvas.addEventListener('touchstart', e => {
+  if (e.touches.length >= 2) {
+    endDraw();
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // ================================================================
 // GAZE / DWELL ENGINE
@@ -1073,7 +1147,8 @@ document.addEventListener('pointermove',  onGazePointer, {capture:true,passive:t
 
 function onGazePointer(e) {
   if (!S.gazeMode) return;
-  if (e.pointerType==='touch') return;
+  // タッチ・ペンは描画ハンドラが担当 → 視線エンジンでは無視
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
 
   // ── 適応型スムージング ──
   // 大きく動いたときは素早く追従、ジッター範囲内では強く平滑化
