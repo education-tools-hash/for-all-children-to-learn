@@ -1236,11 +1236,15 @@ function playSound(type, recAudioData) {
     }
     case 'trumpet': { // トランペット（倍音豊か）
       const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=523;
-      const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=400;
-      osc.connect(f); f.connect(g);
-      g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(0.8,now+0.03);
-      g.gain.setValueAtTime(0.8,now+0.1); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
-      osc.start(now); osc.stop(now+0.6); break;
+      const osc2=ctx.createOscillator(); osc2.type='square'; osc2.frequency.value=1046;
+      const g2=ctx.createGain(); g2.gain.value=0.3;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=3000;
+      osc.connect(f); osc2.connect(g2); g2.connect(f); f.connect(g);
+      g.gain.setValueAtTime(0.01, now);
+      g.gain.linearRampToValueAtTime(0.9, now+0.04);
+      g.gain.exponentialRampToValueAtTime(0.01, now+0.7);
+      osc.start(now); osc.stop(now+0.7);
+      osc2.start(now); osc2.stop(now+0.7); break;
     }
     case 'trombone': { // トロンボーン（低め・サイン波ベース）
       const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=147;
@@ -2307,6 +2311,171 @@ function playSoundWithVol(soundId, vol) {
       const g2=ctx.createGain(); g2.gain.value=0.3;
       osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
       osc.start(now); osc.stop(now+0.6); osc2.start(now); osc2.stop(now+0.6); break;
+    }
+    case 'hihat_o': {
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.4,ctx.sampleRate);
+      const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length*0.6);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=6000;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.7,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.4);
+      src.connect(f); f.connect(g); g.connect(master); src.start(now); break;
+    }
+    case 'clap': {
+      [0,0.01,0.02].forEach(offset => {
+        const buf=ctx.createBuffer(1,ctx.sampleRate*0.06,ctx.sampleRate);
+        const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+        const src=ctx.createBufferSource(); src.buffer=buf;
+        const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200; f.Q.value=0.5;
+        const g=ctx.createGain(); g.gain.setValueAtTime(1.0,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.15);
+        src.connect(f); f.connect(g); g.connect(master); src.start(now+offset);
+      }); break;
+    }
+    case 'tom': {
+      const osc=ctx.createOscillator();
+      osc.frequency.setValueAtTime(160,now); osc.frequency.exponentialRampToValueAtTime(60,now+0.25);
+      const g=ctx.createGain(); g.gain.setValueAtTime(1.2,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.35);
+      osc.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.35); break;
+    }
+    case 'cowbell': {
+      const osc=ctx.createOscillator(); osc.type='square'; osc.frequency.value=562;
+      const osc2=ctx.createOscillator(); osc2.type='square'; osc2.frequency.value=845;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.8,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.7);
+      osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.7); osc2.start(now); osc2.stop(now+0.7); break;
+    }
+    case 'bass_e': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=55;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=300;
+      const g=ctx.createGain(); g.gain.setValueAtTime(1.0,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.6);
+      osc.connect(f); f.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.6); break;
+    }
+    case 'flute': {
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=698;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=5;
+      const lfoG=ctx.createGain(); lfoG.gain.value=4;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.7,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.0);
+      osc.connect(g); g.connect(master);
+      lfo.start(now); lfo.stop(now+1.0); osc.start(now); osc.stop(now+1.0); break;
+    }
+    case 'clarinet': {
+      const osc=ctx.createOscillator(); osc.type='square'; osc.frequency.value=311;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1800;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.9);
+      osc.connect(f); f.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.9); break;
+    }
+    case 'sax': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=233;
+      const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1200; f.Q.value=2;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.7,now+0.04);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.connect(f); f.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.8); break;
+    }
+    case 'trumpet': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=523;
+      const osc2=ctx.createOscillator(); osc2.type='square'; osc2.frequency.value=1046;
+      const g2=ctx.createGain(); g2.gain.value=0.3;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=3000;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.9,now+0.04);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.7);
+      osc.connect(f); osc2.connect(g2); g2.connect(f); f.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.7); osc2.start(now); osc2.stop(now+0.7); break;
+    }
+    case 'trombone': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=147;
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=900;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.7,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.0);
+      osc.connect(f); f.connect(g); g.connect(master); osc.start(now); osc.stop(now+1.0); break;
+    }
+    case 'violin': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=440;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=6;
+      const lfoG=ctx.createGain(); lfoG.gain.value=6;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=2000; f.Q.value=1;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.6,now+0.08);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.0);
+      osc.connect(f); f.connect(g); g.connect(master);
+      lfo.start(now); lfo.stop(now+1.0); osc.start(now); osc.stop(now+1.0); break;
+    }
+    case 'cello': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=196;
+      const lfo=ctx.createOscillator(); lfo.frequency.value=5;
+      const lfoG=ctx.createGain(); lfoG.gain.value=4;
+      lfo.connect(lfoG); lfoG.connect(osc.frequency);
+      const f=ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=1200;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.7,now+0.1);
+      g.gain.exponentialRampToValueAtTime(0.01,now+1.2);
+      osc.connect(f); f.connect(g); g.connect(master);
+      lfo.start(now); lfo.stop(now+1.2); osc.start(now); osc.stop(now+1.2); break;
+    }
+    case 'guitar': {
+      const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=330;
+      const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=660;
+      const g2=ctx.createGain(); g2.gain.value=0.4;
+      const g=ctx.createGain(); g.gain.setValueAtTime(1.0,now); g.gain.exponentialRampToValueAtTime(0.01,now+1.2);
+      osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+1.2); osc2.start(now); osc2.stop(now+1.2); break;
+    }
+    case 'guitar_e': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=330;
+      const wv=ctx.createWaveShaper();
+      const curve=new Float32Array(256);
+      for(let i=0;i<256;i++){const x=i*2/256-1; curve[i]=Math.tanh(x*3);}
+      wv.curve=curve;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.connect(wv); wv.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.8); break;
+    }
+    case 'xylophone': {
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=880;
+      const osc2=ctx.createOscillator(); osc2.type='sine'; osc2.frequency.value=2200;
+      const g2=ctx.createGain(); g2.gain.value=0.2;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.9,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.3);
+      osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.3); osc2.start(now); osc2.stop(now+0.3); break;
+    }
+    case 'synth': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=440;
+      const osc2=ctx.createOscillator(); osc2.type='sawtooth'; osc2.frequency.value=443;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.7,now+0.02);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.8); osc2.start(now); osc2.stop(now+0.8); break;
+    }
+    case 'laser': {
+      const osc=ctx.createOscillator(); osc.type='square';
+      osc.frequency.setValueAtTime(1200,now); osc.frequency.exponentialRampToValueAtTime(200,now+0.3);
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.6,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.3);
+      osc.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.3); break;
+    }
+    case 'beep': {
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=1000;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.5,now); g.gain.exponentialRampToValueAtTime(0.01,now+0.15);
+      osc.connect(g); g.connect(master); osc.start(now); osc.stop(now+0.15); break;
+    }
+    case 'vox_a': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=220;
+      const f1=ctx.createBiquadFilter(); f1.type='bandpass'; f1.frequency.value=800; f1.Q.value=5;
+      const f2=ctx.createBiquadFilter(); f2.type='bandpass'; f2.frequency.value=1200; f2.Q.value=5;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.6,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.connect(f1); osc.connect(f2); f1.connect(g); f2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.8); break;
+    }
+    case 'vox_o': {
+      const osc=ctx.createOscillator(); osc.type='sawtooth'; osc.frequency.value=200;
+      const f1=ctx.createBiquadFilter(); f1.type='bandpass'; f1.frequency.value=500; f1.Q.value=5;
+      const f2=ctx.createBiquadFilter(); f2.type='bandpass'; f2.frequency.value=900; f2.Q.value=5;
+      const g2=ctx.createGain(); g2.gain.value=0.5;
+      const g=ctx.createGain(); g.gain.setValueAtTime(0.01,now); g.gain.linearRampToValueAtTime(0.6,now+0.05);
+      g.gain.exponentialRampToValueAtTime(0.01,now+0.8);
+      osc.connect(f1); osc.connect(f2); f1.connect(g); f2.connect(g2); g2.connect(g); g.connect(master);
+      osc.start(now); osc.stop(now+0.8); break;
     }
   }
 }
