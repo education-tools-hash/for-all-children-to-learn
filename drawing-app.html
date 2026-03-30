@@ -13,8 +13,8 @@
     --accent2: #4ECDC4;
     --text: #2D2D2D;
     --border: #E8DDD0;
-    --sidebar-w: 120px;  /* 左サイドバー幅（2列ボタン） */
-    --sidebar-w-open: 120px; /* 同幅で固定 */
+    --sidebar-w: 110px;   /* 左サイドバー幅 */
+    --topbar-h: 56px;     /* 上部アクションバー高さ */
   }
 
   * { box-sizing:border-box; margin:0; padding:0; touch-action:none; }
@@ -24,8 +24,31 @@
     background:var(--bg);
     width:100vw; height:100vh;
     overflow:hidden;
-    display:flex; flex-direction:row; /* 横並び：サイドバー ＋ キャンバス */
+    display:flex; flex-direction:column; /* 縦: topbar → (sidebar+canvas) */
     user-select:none;
+  }
+
+  /* ━━━ 上部アクションバー ━━━ */
+  #topbar {
+    width:100%; height:var(--topbar-h);
+    background:var(--panel);
+    border-bottom:2px solid var(--border);
+    box-shadow:0 2px 10px var(--shadow);
+    display:flex; align-items:center;
+    gap:6px; padding:0 12px;
+    flex-shrink:0; z-index:100;
+    overflow-x:auto; overflow-y:hidden;
+  }
+  #topbar::-webkit-scrollbar { height:3px; }
+  #topbar::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+  #topbar .tool-btn {
+    width:44px; height:44px; font-size:1.4rem; border-radius:12px; flex-shrink:0;
+  }
+  #topbar .tsep { width:1px; height:28px; background:var(--border); flex-shrink:0; margin:0 2px; }
+
+  /* ━━━ 下段エリア（サイドバー＋キャンバス） ━━━ */
+  #main-row {
+    display:flex; flex-direction:row; flex:1; overflow:hidden;
   }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -98,13 +121,16 @@
   #float-toolbar .tool-btn svg { width:24px; height:24px; }
   .tool-btn.active { background:#FFE0E0; border-color:var(--accent); }
 
-  /* ツールチップ (右に出す) */
+  /* ツールチップ: サイドバー内は右、topbar内は下に出す */
   .tool-btn[data-tip]:hover::after {
     content:attr(data-tip);
     position:absolute; left:110%; top:50%; transform:translateY(-50%);
     background:#2D2D2D; color:#fff;
     font-size:.7rem; padding:4px 10px; border-radius:8px;
     white-space:nowrap; pointer-events:none; z-index:999;
+  }
+  #topbar .tool-btn[data-tip]:hover::after {
+    left:50%; top:110%; transform:translateX(-50%);
   }
 
   /* ━━━ BTN GRID (2列) ━━━ */
@@ -123,7 +149,7 @@
   #palette {
     display:flex; flex-direction:column; gap:4px; align-items:center;
   }
-  .palette-row { display:flex; gap:4px; }
+  .palette-row { display:flex; gap:5px; }
   .color-dot {
     width:20px; height:20px; border-radius:50%;
     border:2px solid transparent; cursor:pointer;
@@ -135,7 +161,7 @@
     box-shadow:0 2px 8px rgba(0,0,0,.35);
   }
   #custom-color {
-    width:22px; height:22px; border-radius:50%;
+    width:30px; height:30px; border-radius:50%;
     border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
     background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
   }
@@ -399,6 +425,28 @@
 </head>
 <body>
 
+<!-- ━━━━━━━━━━━━━━ TOP ACTION BAR ━━━━━━━━━━━━━━ -->
+<div id="topbar">
+  <button class="tool-btn" id="btn-undo"  data-tip="もどす">↩️</button>
+  <button class="tool-btn" id="btn-redo"  data-tip="やりなおし">↪️</button>
+  <div class="tsep"></div>
+  <button class="tool-btn" id="btn-clear" data-tip="ぜんぶけす">🗑️</button>
+  <button class="tool-btn" id="btn-reset" data-tip="さいしょから" style="color:#FF4444">🔄</button>
+  <div class="tsep"></div>
+  <button class="tool-btn" id="btn-bg"    data-tip="はいけい">🖼️</button>
+  <button class="tool-btn" id="btn-image" data-tip="えをよみこむ">📷</button>
+  <div class="tsep"></div>
+  <button class="tool-btn" id="btn-share" data-tip="きょうゆう">🔗</button>
+  <button class="tool-btn" id="btn-print" data-tip="いんさつ">🖨️</button>
+  <button class="tool-btn" id="btn-save"  data-tip="ほぞん">💾</button>
+  <div class="tsep"></div>
+  <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめん" style="font-size:1.2rem">⛶</button>
+  <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
+</div>
+
+<!-- ━━━━━━━━━━━━━━ MAIN ROW (sidebar + canvas) ━━━━━━━━━━━━━━ -->
+<div id="main-row">
+
 <!-- ━━━━━━━━━━━━━━ LEFT SIDEBAR ━━━━━━━━━━━━━━ -->
 <div id="sidebar">
 
@@ -448,31 +496,16 @@
     <input type="range" class="vslider" id="opacity-range" min="5" max="100" value="100">
   </div>
 
-  <div class="sidebar-sep"></div>
 
-  <!-- アクション: 2列グリッド -->
-  <div class="btn-grid">
-    <button class="tool-btn" id="btn-undo"  data-tip="もどす">↩️</button>
-    <button class="tool-btn" id="btn-redo"  data-tip="やりなおし">↪️</button>
-    <button class="tool-btn" id="btn-clear" data-tip="ぜんぶけす">🗑️</button>
-    <button class="tool-btn" id="btn-reset" data-tip="さいしょから" style="color:#FF4444">🔄</button>
-    <button class="tool-btn" id="btn-bg"    data-tip="はいけい">🖼️</button>
-    <button class="tool-btn" id="btn-image" data-tip="えをよみこむ">📷</button>
-    <button class="tool-btn" id="btn-share" data-tip="きょうゆう">🔗</button>
-    <button class="tool-btn" id="btn-print" data-tip="いんさつ">🖨️</button>
-    <button class="tool-btn" id="btn-save"  data-tip="ほぞん">💾</button>
-    <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめん" style="font-size:1.2rem">⛶</button>
-    <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
-  </div>
-
-</div>
+</div><!-- /sidebar -->
 
 <!-- ━━━━━━━━━━━━━━ CANVAS ━━━━━━━━━━━━━━ -->
 <div id="canvas-wrap">
   <canvas id="bg-canvas"></canvas>
   <canvas id="draw-canvas"></canvas>
   <canvas id="overlay-canvas"></canvas>
-</div>
+</div><!-- /canvas-wrap -->
+</div><!-- /main-row -->
 
 <!-- ステータスバー -->
 <div id="statusbar">
@@ -1330,7 +1363,7 @@ function isFullscreen() {
 function onFullscreenChange() {
   const fs = isFullscreen();
   document.body.classList.toggle('fullscreen', fs);
-  document.getElementById('statusbar').style.left = fs ? '0' : (document.getElementById('sidebar').offsetWidth + 'px');
+  const sbar = document.getElementById('statusbar'); if(sbar) sbar.style.left = fs ? '0' : (document.getElementById('sidebar').offsetWidth + 'px');
   document.getElementById('btn-fullscreen').textContent = fs ? '⊡' : '⛶';
   document.getElementById('btn-fullscreen').setAttribute('data-tip', fs ? 'もとにもどす' : 'ぜんがめんひょうじ');
   // CSS が適用されてからリサイズ
