@@ -13,8 +13,8 @@
     --accent2: #4ECDC4;
     --text: #2D2D2D;
     --border: #E8DDD0;
-    --sidebar-w: 58px;   /* 左サイドバー幅（折りたたみ時） */
-    --sidebar-w-open: 220px; /* ツールパネル展開時 */
+    --sidebar-w: 120px;  /* 左サイドバー幅（2列ボタン） */
+    --sidebar-w-open: 120px; /* 同幅で固定 */
   }
 
   * { box-sizing:border-box; margin:0; padding:0; touch-action:none; }
@@ -50,7 +50,7 @@
     /* ホバーで展開 */
   }
   #sidebar:hover, #sidebar.pinned {
-    width: var(--sidebar-w-open);
+    width: var(--sidebar-w);
     box-shadow: 6px 0 24px var(--shadow);
     overflow-x: visible;
   }
@@ -76,7 +76,7 @@
   }
 
   .sidebar-sep {
-    width:80%; height:1px; background:var(--border);
+    width:100%; height:1px; background:var(--border);
     margin:2px 0; flex-shrink:0;
   }
 
@@ -93,6 +93,9 @@
     flex-shrink:0; position:relative;
   }
   .tool-btn:hover { transform:scale(1.1); box-shadow:0 4px 14px rgba(0,0,0,.2); border-color:var(--accent); }
+  /* SVGアイコンのサイズ調整 */
+  .tool-btn svg { width:28px; height:28px; pointer-events:none; }
+  #float-toolbar .tool-btn svg { width:24px; height:24px; }
   .tool-btn.active { background:#FFE0E0; border-color:var(--accent); }
 
   /* ツールチップ (右に出す) */
@@ -102,6 +105,18 @@
     background:#2D2D2D; color:#fff;
     font-size:.7rem; padding:4px 10px; border-radius:8px;
     white-space:nowrap; pointer-events:none; z-index:999;
+  }
+
+  /* ━━━ BTN GRID (2列) ━━━ */
+  .btn-grid {
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:4px;
+    width:100%;
+    padding:0 2px;
+  }
+  .btn-grid .tool-btn {
+    width:100%; /* グリッドセルいっぱい */
   }
 
   /* ━━━ COLOR DOTS ━━━ */
@@ -224,15 +239,28 @@
   /* ━━━ GAZE SETTINGS PANEL ━━━ */
   #gaze-panel {
     position:fixed; bottom:28px; right:12px;
-    background:var(--panel); border-radius:14px; padding:12px;
-    box-shadow:0 6px 24px rgba(0,0,0,.18); z-index:500;
-    display:flex; flex-direction:column; gap:8px; min-width:160px;
+    background:rgba(255,255,255,0.18);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,0.35);
+    border-radius:14px; padding:10px 12px;
+    box-shadow:0 4px 20px rgba(0,0,0,.10); z-index:500;
+    display:flex; flex-direction:column; gap:7px; min-width:155px;
+    transition:background .3s;
   }
-  #gaze-panel label { font-size:.7rem; color:#555; font-weight:700; }
+  #gaze-panel:hover {
+    background:rgba(255,255,255,0.72);
+  }
+  #gaze-panel label { font-size:.68rem; color:rgba(40,40,40,.7); font-weight:700; }
   #gaze-panel select {
-    width:100%; border-radius:8px; border:2px solid var(--border);
-    padding:4px 6px; font-size:.75rem; cursor:pointer; font-family:inherit;
+    width:100%; border-radius:8px;
+    border:1px solid rgba(0,0,0,.12);
+    background:rgba(255,255,255,.45);
+    padding:4px 6px; font-size:.72rem; cursor:pointer; font-family:inherit;
+    color:var(--text);
   }
+  #gaze-panel:hover label { color:var(--text); }
+  #gaze-panel:hover select { background:rgba(255,255,255,.9); border-color:var(--border); }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      FULLSCREEN
@@ -351,7 +379,7 @@
   kbd { background:#2D2D2D; color:#fff; border-radius:5px; padding:1px 5px; font-size:.72rem; font-family:monospace; }
 
   @media (max-width:480px) {
-    :root { --sidebar-w:56px; }
+    :root { --sidebar-w:100px; }
     .tool-btn { width:44px; height:44px; font-size:1.3rem; }
     .color-dot { width:18px!important; height:18px!important; }
     #custom-color { width:18px!important; height:18px!important; }
@@ -374,13 +402,25 @@
   <button id="btn-pin" class="tool-btn" data-tip="ひらいたままにする" style="font-size:1rem;opacity:.6">📌</button>
   <div class="sidebar-sep"></div>
 
-  <!-- ツール -->
+  <!-- ツール: 2列 -->
+  <div class="btn-grid">
   <button class="tool-btn active" id="btn-pen"    data-tool="pen"    data-tip="えんぴつ">✏️</button>
   <button class="tool-btn"        id="btn-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
   <button class="tool-btn"        id="btn-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
   <button class="tool-btn"        id="btn-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
-  <button class="tool-btn"        id="btn-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
+  <button class="tool-btn"        id="btn-eraser" data-tool="eraser" data-tip="けしごむ"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 消しゴム本体 -->
+  <rect x="3" y="10" width="18" height="11" rx="2.5" fill="#F9C6D0" stroke="#E07090" stroke-width="1.8"/>
+  <!-- 消しゴムの帯 -->
+  <rect x="3" y="10" width="7" height="11" rx="2.5" fill="#E07090"/>
+  <!-- 消えた跡（横線2本） -->
+  <line x1="14" y1="5" x2="26" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="11" y1="5" x2="23" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 消しカス -->
+  <rect x="4" y="22" width="16" height="3" rx="1.5" fill="#E0E0E0"/>
+</svg></button>
   <button class="tool-btn"        id="btn-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
+  </div><!-- /btn-grid tools -->
 
   <div class="sidebar-sep"></div>
 
@@ -406,27 +446,20 @@
 
   <div class="sidebar-sep"></div>
 
-  <!-- アクション -->
-  <button class="tool-btn" id="btn-undo"       data-tip="もどす">↩️</button>
-  <button class="tool-btn" id="btn-redo"       data-tip="やりなおし">↪️</button>
-  <button class="tool-btn" id="btn-clear"      data-tip="ぜんぶけす">🗑️</button>
-  <button class="tool-btn" id="btn-reset"      data-tip="さいしょから" style="color:#FF4444">🔄</button>
-
-  <div class="sidebar-sep"></div>
-
-  <button class="tool-btn" id="btn-bg"         data-tip="はいけい">🖼️</button>
-  <button class="tool-btn" id="btn-image"      data-tip="えをよみこむ">📷</button>
-
-  <div class="sidebar-sep"></div>
-
-  <button class="tool-btn" id="btn-share"      data-tip="きょうゆう">🔗</button>
-  <button class="tool-btn" id="btn-print"      data-tip="いんさつ">🖨️</button>
-  <button class="tool-btn" id="btn-save"       data-tip="ほぞん">💾</button>
-
-  <div class="sidebar-sep"></div>
-
-  <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめん" style="font-size:1.2rem">⛶</button>
-  <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
+  <!-- アクション: 2列グリッド -->
+  <div class="btn-grid">
+    <button class="tool-btn" id="btn-undo"  data-tip="もどす">↩️</button>
+    <button class="tool-btn" id="btn-redo"  data-tip="やりなおし">↪️</button>
+    <button class="tool-btn" id="btn-clear" data-tip="ぜんぶけす">🗑️</button>
+    <button class="tool-btn" id="btn-reset" data-tip="さいしょから" style="color:#FF4444">🔄</button>
+    <button class="tool-btn" id="btn-bg"    data-tip="はいけい">🖼️</button>
+    <button class="tool-btn" id="btn-image" data-tip="えをよみこむ">📷</button>
+    <button class="tool-btn" id="btn-share" data-tip="きょうゆう">🔗</button>
+    <button class="tool-btn" id="btn-print" data-tip="いんさつ">🖨️</button>
+    <button class="tool-btn" id="btn-save"  data-tip="ほぞん">💾</button>
+    <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめん" style="font-size:1.2rem">⛶</button>
+    <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
+  </div>
 
 </div>
 
@@ -499,7 +532,17 @@
   <button class="tool-btn"        id="fc-brush"  data-tool="brush"  data-tip="ふで">🖌️</button>
   <button class="tool-btn"        id="fc-fill"   data-tool="fill"   data-tip="ぬりつぶし">🪣</button>
   <button class="tool-btn"        id="fc-spray"  data-tool="spray"  data-tip="スプレー">💨</button>
-  <button class="tool-btn"        id="fc-eraser" data-tool="eraser" data-tip="けしごむ">🧹</button>
+  <button class="tool-btn"        id="fc-eraser" data-tool="eraser" data-tip="けしごむ"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 消しゴム本体 -->
+  <rect x="3" y="10" width="18" height="11" rx="2.5" fill="#F9C6D0" stroke="#E07090" stroke-width="1.8"/>
+  <!-- 消しゴムの帯 -->
+  <rect x="3" y="10" width="7" height="11" rx="2.5" fill="#E07090"/>
+  <!-- 消えた跡（横線2本） -->
+  <line x1="14" y1="5" x2="26" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="11" y1="5" x2="23" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- 消しカス -->
+  <rect x="4" y="22" width="16" height="3" rx="1.5" fill="#E0E0E0"/>
+</svg></button>
   <button class="tool-btn"        id="fc-stamp"  data-tool="stamp"  data-tip="スタンプ">⭐</button>
   <div class="sidebar-sep"></div>
   <div id="fc-palette"></div>
@@ -573,43 +616,62 @@
 
 <!-- HELP -->
 <div id="help-modal" class="modal-overlay">
-  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+  <div class="modal" style="max-width:620px;max-height:90vh;overflow-y:auto;">
     <h2 style="margin-bottom:18px;font-size:1.4rem;">❓ つかいかた</h2>
+
+    <!-- ① えをかくどうぐ -->
     <div class="help-section">
-      <div class="help-heading">🖊 えをかくどうぐ</div>
+      <div class="help-heading">🖊 えをかくどうぐ（2れつならんでいるよ）</div>
       <div class="help-grid">
         <div class="help-item"><span class="help-icon">✏️</span><span><b>えんぴつ</b><br>なめらかなせんがかける</span></div>
         <div class="help-item"><span class="help-icon">🖌️</span><span><b>ふで</b><br>やわらかくひかるせん</span></div>
-        <div class="help-item"><span class="help-icon">🪣</span><span><b>ぬりつぶし</b><br>タップしたばしょをいっぱいぬる</span></div>
+        <div class="help-item"><span class="help-icon">🪣</span><span><b>ぬりつぶし</b><br>みつめたばしょをいっぱいぬる</span></div>
         <div class="help-item"><span class="help-icon">💨</span><span><b>スプレー</b><br>きりのようにふわっとぬれる</span></div>
-        <div class="help-item"><span class="help-icon">🧹</span><span><b>けしごむ</b><br>かいたところをけせる</span></div>
+        <div class="help-item"><span class="help-icon" style="font-size:1rem;padding-top:2px;"><svg width="22" height="22" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="10" width="18" height="11" rx="2.5" fill="#F9C6D0" stroke="#E07090" stroke-width="1.8"/><rect x="3" y="10" width="7" height="11" rx="2.5" fill="#E07090"/><line x1="14" y1="5" x2="26" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="23" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="22" width="16" height="3" rx="1.5" fill="#E0E0E0"/></svg></span><span><b>けしごむ</b><br>かいたところをけせる</span></div>
         <div class="help-item"><span class="help-icon">⭐</span><span><b>スタンプ</b><br>たのしいえもじをおせる</span></div>
       </div>
     </div>
+
+    <!-- ② いろとおおきさ -->
     <div class="help-section">
       <div class="help-heading">🎨 いろとおおきさ</div>
       <div class="help-grid">
-        <div class="help-item"><span class="help-icon">🔴</span><span><b>パレット</b><br>すきないろをえらんでタップ</span></div>
-        <div class="help-item"><span class="help-icon">🌈</span><span><b>じぶんのいろ</b><br>グラデーションのまるでじゆうにえらべる</span></div>
+        <div class="help-item"><span class="help-icon">🔴</span><span><b>パレット</b><br>すきないろをえらんでみつめる</span></div>
+        <div class="help-item"><span class="help-icon">🌈</span><span><b>じぶんのいろ</b><br>グラデーションのまるをみつめる</span></div>
         <div class="help-item"><span class="help-icon">📏</span><span><b>ふとさ</b><br>スライダーでふとさをかえられる</span></div>
         <div class="help-item"><span class="help-icon">💧</span><span><b>うすさ</b><br>うすくしたりこくしたりできる</span></div>
       </div>
     </div>
+
+    <!-- ③ アクションボタン（2列） -->
     <div class="help-section">
-      <div class="help-heading">📋 そのほかのきのう</div>
+      <div class="help-heading">📋 アクションボタン（2れつならんでいるよ）</div>
       <div class="help-grid">
-        <div class="help-item"><span class="help-icon">↩️</span><span><b>もどす</b><br>まちがえても1つまえにもどせる</span></div>
+        <div class="help-item"><span class="help-icon">↩️</span><span><b>もどす</b><br>まちがえたら1つまえにもどせる</span></div>
+        <div class="help-item"><span class="help-icon">↪️</span><span><b>やりなおし</b><br>もどしすぎたらまたすすめる</span></div>
         <div class="help-item"><span class="help-icon">🗑️</span><span><b>ぜんぶけす</b><br>キャンバスをまっさらにする</span></div>
         <div class="help-item"><span class="help-icon">🔄</span><span><b>さいしょから</b><br>ぜんぶリセットしてやりなおす</span></div>
         <div class="help-item"><span class="help-icon">🖼️</span><span><b>はいけい</b><br>かみのいろをかえられる</span></div>
         <div class="help-item"><span class="help-icon">📷</span><span><b>えをよみこむ</b><br>しゃしんをしたじきにしてなぞれる</span></div>
-        <div class="help-item"><span class="help-icon">💾</span><span><b>ほぞん</b><br>えをPNGがぞうでほぞんできる</span></div>
         <div class="help-item"><span class="help-icon">🔗</span><span><b>きょうゆう</b><br>URLでともだちにおくれる</span></div>
         <div class="help-item"><span class="help-icon">🖨️</span><span><b>いんさつ</b><br>えをプリンターでいんさつできる</span></div>
-        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる</span></div>
-        <div class="help-item"><span class="help-icon">👁️</span><span><b>しせんにゅうりょく</b><br>つねにオン！みつめるだけでえがける</span></div>
+        <div class="help-item"><span class="help-icon">💾</span><span><b>ほぞん</b><br>えをPNGがぞうでほぞんできる</span></div>
+        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる<br><small>じょうはしにうごかすとボタンがでる</small></span></div>
       </div>
     </div>
+
+    <!-- ④ 視線入力 -->
+    <div class="help-section">
+      <div class="help-heading">👁️ しせんにゅうりょく（つねにオン）</div>
+      <div class="help-grid">
+        <div class="help-item"><span class="help-icon">👁️</span><span><b>みつめてえがく</b><br>キャンバスをみつめると えがきはじめる。うごかすとせんがつながる</span></div>
+        <div class="help-item"><span class="help-icon">🔵</span><span><b>ドウェルリング</b><br>まるいわっかがいっぱいになったらクリックやえがきがはじまる</span></div>
+        <div class="help-item"><span class="help-icon">⚙️</span><span><b>せってい（みぎした）</b><br>ドウェル時間・ブレのゆるさ・てをあげるまでの時間をかえられる</span></div>
+        <div class="help-item"><span class="help-icon">🪟</span><span><b>せっていパネル</b><br>みぎしたの半透明のパネルをみつめると せっていができる</span></div>
+      </div>
+    </div>
+
+    <!-- ⑤ キーボード -->
     <div class="help-section">
       <div class="help-heading">⌨️ キーボードショートカット</div>
       <div class="help-keys">
@@ -621,6 +683,7 @@
         <div class="help-key"><kbd>[</kbd> ちいさく <kbd>]</kbd> おおきく</div>
       </div>
     </div>
+
     <div class="modal-btns" style="margin-top:18px;">
       <button class="btn btn-primary" onclick="closeModal('help-modal')"
         style="font-size:.95rem;padding:11px 28px;">とじる ✕</button>
@@ -906,11 +969,22 @@ function beginDwell(x,y,target) {
   })(dwStart);
 }
 
+// クリックを送るべき要素かどうか判定
+function isReallyClickable(el) {
+  if (!el) return false;
+  return el.classList.contains('tool-btn') ||
+         el.classList.contains('btn') ||
+         el.classList.contains('color-dot') ||
+         el.tagName === 'BUTTON' ||
+         el.tagName === 'SELECT' ||
+         el.tagName === 'INPUT';
+}
+
 function onDwellFired(x,y,target) {
-  if (target) {
+  if (target && isReallyClickable(target)) {
     target.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,clientX:x,clientY:y}));
     setTimeout(()=>resetDwell(),600);
-  } else if (S.gazeDrawMode==='dwell-draw') {
+  } else if (!target && S.gazeDrawMode==='dwell-draw') {
     // ドウェル完了 → 描画開始
     const rect=drawCanvas.getBoundingClientRect();
     const cx=x-rect.left, cy=y-rect.top;
@@ -920,29 +994,24 @@ function onDwellFired(x,y,target) {
   }
 }
 
-// ── ストップタイマー (視線が止まったらストローク終了) ──
-// 「止まる」= STOP_RADIUS 内に STOP_MS 間とどまる
-const STOP_RADIUS = 18;  // px — これより小さい動きは「止まった」とみなす
-let STOP_MS       = 600; // ms — この時間止まったらストローク終了
-let stopTimer     = null;
-let stopX=0, stopY=0;
+// ── ストップ検出 ──
+// 「mousemove が途絶える or 微細ジッターのみ」＝止まった、と判定する。
+// STOP_MICRO_PX 以上動いたときだけタイマーをリセットする。
+// 止まると自然にタイムアウト → ストローク終了。
+const STOP_MICRO_PX = 8;   // これ以下の移動は「実質静止」とみなす
+let STOP_MS = 600;          // デフォルト静止判定時間 (ms)
+let stopTimer = null;
 
-function resetStopTimer(cx,cy) {
-  const moved=Math.hypot(cx-stopX, cy-stopY);
-  if (moved > STOP_RADIUS) {
-    // 動いた → タイマーリセット
-    clearTimeout(stopTimer); stopTimer=null;
-    stopX=cx; stopY=cy;
-    const _sm = window._STOP_MS_OVERRIDE||STOP_MS;
-    stopTimer=setTimeout(()=>{
-      // 止まった → ストローク終了、次のドウェルを待つ
-      if (gazeDrawing) {
-        endDraw(); gazeDrawing=false; gazeStrokeActive=false;
-        resetDwell();
-        beginDwell(sx,sy,null);
-      }
-    }, _sm);
-  }
+function armStopTimer() {
+  clearTimeout(stopTimer);
+  const _sm = window._STOP_MS_OVERRIDE || STOP_MS;
+  stopTimer = setTimeout(() => {
+    if (gazeDrawing) {
+      endDraw(); gazeDrawing = false; gazeStrokeActive = false;
+      resetDwell();
+      beginDwell(sx, sy, null);
+    }
+  }, _sm);
 }
 
 // ================================================================
@@ -986,11 +1055,14 @@ function onGazePointer(e) {
     if (onCanvas && !uiTarget) {
       // 描画継続（最小移動距離フィルタで微細ジッターを除去）
       const drawMoved = Math.hypot(cx-lastDrawX, cy-lastDrawY);
-      if (drawMoved >= 1.5) {
+      if (drawMoved >= STOP_MICRO_PX) {
+        // 十分動いている → 描画してタイマーリセット
         moveDraw(cx,cy);
         lastDrawX=cx; lastDrawY=cy;
+        armStopTimer();
+      } else {
+        // 微細ジッター → タイマーは動かさない（止まった扱いに自然に移行）
       }
-      resetStopTimer(cx,cy);
       return;
     } else {
       // キャンバス外またはUIに視線が移った → ストローク終了
@@ -1013,19 +1085,37 @@ function onGazePointer(e) {
 
 function findClickableTarget(el) {
   if (!el) return null;
-  let cur=el;
-  for (let i=0;i<6;i++) {
-    if (!cur||cur===document.body) break;
-    const tag=cur.tagName;
-    if (cur.classList.contains('tool-btn')||cur.classList.contains('btn')||
-        cur.classList.contains('color-dot')||
-        tag==='BUTTON'||tag==='SELECT'||tag==='INPUT') return cur;
-    // キャンバス関連ならnull
-    if (cur===drawCanvas||cur===bgCanvas||cur===ovCanvas||cur.id==='canvas-wrap') return null;
-    cur=cur.parentElement;
+  let cur = el;
+  for (let i = 0; i < 10; i++) {
+    if (!cur || cur === document.body) break;
+
+    // ── キャンバス領域 → 描画モード (null)
+    if (cur === drawCanvas || cur === bgCanvas || cur === ovCanvas ||
+        cur.id === 'canvas-wrap') return null;
+
+    // ── クリック可能なUI要素 → そのまま返す
+    if (cur.classList.contains('tool-btn') ||
+        cur.classList.contains('btn') ||
+        cur.classList.contains('color-dot') ||
+        cur.tagName === 'BUTTON' ||
+        cur.tagName === 'SELECT' ||
+        cur.tagName === 'INPUT') return cur;
+
+    // ── UI領域全体（サイドバー・設定パネル・モーダル等）
+    // → キャンバス描画は止めるが、クリック先は親要素を返す
+    if (cur.id === 'sidebar' ||
+        cur.id === 'gaze-panel' ||
+        cur.id === 'float-toolbar' ||
+        cur.id === 'trace-controls' ||
+        cur.id === 'statusbar' ||
+        cur.classList.contains('modal-overlay') ||
+        cur.classList.contains('modal')) return cur;
+
+    cur = cur.parentElement;
   }
-  // その他（背景など）→ null扱い（キャンバスモード）
-  return null;
+  // 判定できなかったもの → UI領域扱い（安全側）でキャンバス描画は止める
+  // ただし el がキャンバスの外なら描画しない
+  return el;
 }
 
 // ================================================================
