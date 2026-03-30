@@ -197,7 +197,7 @@
     box-shadow:0 6px 24px rgba(0,0,0,.2);z-index:500;
     flex-direction:column;gap:10px;min-width:170px;
   }
-  body.gaze-on #gaze-panel { display:flex; }
+  #gaze-panel { display:flex; }  /* 常時表示 */
   #gaze-panel label { font-size:.75rem;color:#555;font-weight:700; }
   #gaze-panel select {
     width:100%;border-radius:8px;border:2px solid var(--border);
@@ -389,7 +389,6 @@
   <button class="tool-btn" id="btn-share" data-tip="きょうゆう">🔗</button>
   <button class="tool-btn" id="btn-print" data-tip="いんさつ">🖨️</button>
   <button class="tool-btn" id="btn-save"  data-tip="ほぞん">💾</button>
-  <button class="tool-btn" id="btn-gaze"       data-tip="しせんにゅうりょく">👁️</button>
   <button class="tool-btn" id="btn-fullscreen" data-tip="ぜんがめんひょうじ" style="font-size:1.3rem">⛶</button>
   <button class="tool-btn" id="btn-help"       data-tip="つかいかた">❓</button>
 </div>
@@ -436,7 +435,7 @@
   <span id="status-tool">ツール: えんぴつ</span>
   <span id="status-pos">X: 0  Y: 0</span>
   <span id="status-size">キャンバス: 読込中...</span>
-  <span id="status-gaze">視線: オフ</span>
+  <span id="status-gaze">視線: 常時オン</span>
 </div>
 
 <!-- TRACE CONTROLS -->
@@ -456,8 +455,8 @@
 
 <!-- GAZE BANNER -->
 <div id="gaze-banner">
-  👁️ しせんにゅうりょく オン<br>
-  <small>キャンバスを見つめると えがけます &nbsp;|&nbsp; ボタンを見つめると おせます</small>
+  👁️ しせんにゅうりょく きどうちゅう…<br>
+  <small>みたいところを みつめてね！ボタンも みつめればおせるよ</small>
 </div>
 
 <!-- GAZE SETTINGS -->
@@ -574,7 +573,7 @@
         <div class="help-item"><span class="help-icon">🔗</span><span><b>きょうゆう</b><br>URLでともだちにおくれる</span></div>
         <div class="help-item"><span class="help-icon">🖨️</span><span><b>いんさつ</b><br>えをプリンターでいんさつできる</span></div>
         <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる<br><small>じょうはしにマウスをうごかすとどうぐがでる</small></span></div>
-        <div class="help-item"><span class="help-icon">👁️</span><span><b>しせんにゅうりょく</b><br>Tobii等の視線デバイスでえがける<br><small>みつめるとドウェルリングがまわる</small></span></div>
+        <div class="help-item"><span class="help-icon">👁️</span><span><b>しせんにゅうりょく</b><br>つねにオン！Tobii等の視線デバイスでそのままえがける<br><small>みつめるとドウェルリングがまわる</small></span></div>
       </div>
     </div>
 
@@ -619,7 +618,7 @@ const RING_CIRC = 2 * Math.PI * 24; // ≈150.8
 const S = {
   tool:'pen', color:'#FF6B6B', size:12, opacity:1,
   stamp:'⭐', bgColor:'#FFFFFF', traceOpacity:0.4,
-  gazeMode:false,
+  gazeMode:true,  // 常時ON
   gazeDwellMs:1000,
   gazeTolerance:55,       // ブレ許容半径px
   gazeDrawMode:'dwell-draw',
@@ -960,30 +959,21 @@ function findClickableTarget(el) {
 // ================================================================
 // 視線モード ON/OFF
 // ================================================================
-function toggleGaze() {
-  S.gazeMode=!S.gazeMode;
-  document.body.classList.toggle('gaze-on',S.gazeMode);
-  document.getElementById('btn-gaze').classList.toggle('active',S.gazeMode);
-  document.getElementById('status-gaze').textContent=`視線: ${S.gazeMode?'オン':'オフ'}`;
-
-  if (S.gazeMode) {
-    // 初期位置を中央に
-    sx=window.innerWidth/2; sy=window.innerHeight/2;
-    dwX=sx; dwY=sy;
-    moveCursor(sx,sy);
-    gazeCursorEl.style.display='block';
-    gazeRingEl.style.display='block';
-    gazeBanner.style.display='block';
-    resetDwell();
-    beginDwell(sx,sy,null);
-  } else {
-    gazeCursorEl.style.display='none';
-    gazeRingEl.style.display='none';
-    gazeBanner.style.display='none';
-    resetDwell();
-  }
+function initGaze() {
+  S.gazeMode = true;
+  document.body.classList.add('gaze-on');
+  document.getElementById('status-gaze').textContent = '視線: 常時オン';
+  sx = window.innerWidth/2; sy = window.innerHeight/2;
+  dwX = sx; dwY = sy;
+  moveCursor(sx, sy);
+  gazeCursorEl.style.display = 'block';
+  gazeRingEl.style.display   = 'block';
+  // バナーは3秒後に自動で隠す
+  gazeBanner.style.display   = 'block';
+  setTimeout(() => { gazeBanner.style.opacity='0'; gazeBanner.style.transition='opacity 1s'; setTimeout(()=>{ gazeBanner.style.display='none'; }, 1000); }, 4000);
+  resetDwell();
+  beginDwell(sx, sy, null);
 }
-document.getElementById('btn-gaze').addEventListener('click',toggleGaze);
 
 // 設定パネル
 document.getElementById('sel-dwell').addEventListener('change',e=>{ S.gazeDwellMs=+e.target.value; resetDwell(); });
@@ -1269,6 +1259,7 @@ document.getElementById('btn-help').addEventListener('click', () => openModal('h
 // INIT
 resize();
 syncFloatToolbar();
+initGaze();
 console.log('🎨 おえかきひろば — Tobii対応版 ready');
 </script>
 </body>
