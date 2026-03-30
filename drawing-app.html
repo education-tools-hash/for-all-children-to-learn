@@ -124,19 +124,21 @@
   /* ツールチップ: JS制御の fixed 要素で描画（他要素に絶対に隠れない） */
   #tooltip {
     position:fixed;
-    background:rgba(30,30,30,0.92);
+    top:-999px; left:-999px;          /* 初期は画面外 */
+    background:rgba(20,20,20,0.92);
     color:#fff;
-    font-size:.82rem;
+    font-size:.88rem;
     font-weight:700;
-    padding:6px 13px;
+    line-height:1.4;
+    padding:7px 14px;
     border-radius:10px;
     white-space:nowrap;
     pointer-events:none;
     z-index:99999;
-    box-shadow:0 4px 16px rgba(0,0,0,0.28);
+    box-shadow:0 4px 20px rgba(0,0,0,0.32);
     opacity:0;
-    transition:opacity .12s;
-    transform:translateX(-50%);
+    transition:opacity .12s ease;
+    /* transform は JS で上書き */
   }
   #tooltip.visible { opacity:1; }
 
@@ -156,9 +158,9 @@
   #palette {
     display:flex; flex-direction:column; gap:4px; align-items:center;
   }
-  .palette-row { display:flex; gap:5px; }
+  .palette-row { display:flex; gap:7px; }
   .color-dot {
-    width:20px; height:20px; border-radius:50%;
+    width:36px; height:36px; border-radius:50%;
     border:2px solid transparent; cursor:pointer;
     transition:transform .12s, border-color .12s;
     box-shadow:0 1px 4px rgba(0,0,0,.2); flex-shrink:0;
@@ -168,7 +170,7 @@
     box-shadow:0 2px 8px rgba(0,0,0,.35);
   }
   #custom-color {
-    width:30px; height:30px; border-radius:50%;
+    width:36px; height:36px; border-radius:50%;
     border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
     background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
   }
@@ -181,8 +183,8 @@
     transition: opacity .2s;
   }
   #sidebar:not(:hover):not(.pinned) .slider-wrap { opacity: 0.3; pointer-events: none; }
-  #sidebar:not(:hover):not(.pinned) #palette .color-dot { width:16px; height:16px; }
-  #sidebar:not(:hover):not(.pinned) #custom-color { width:16px; height:16px; }
+  #sidebar:not(:hover):not(.pinned) #palette .color-dot { width:22px; height:22px; }
+  #sidebar:not(:hover):not(.pinned) #custom-color { width:22px; height:22px; }
   #sidebar:hover .slider-wrap,
   #sidebar.pinned .slider-wrap { opacity:1; pointer-events:auto; }
   #sidebar:hover .vslider,
@@ -270,25 +272,54 @@
   }
 
   /* ━━━ GAZE SETTINGS PANEL ━━━ */
-  #gaze-panel {
-    position:fixed; bottom:28px; right:12px;
-    /* 画面上端からも制限してパネルが切れないようにする */
-    max-height:calc(100vh - 80px);
-    overflow-y:auto;
-    background:rgba(255,255,255,0.18);
+  /* ━━━ 設定ボタン（常時表示・小さく） ━━━ */
+  #gaze-toggle-btn {
+    position:fixed; bottom:16px; right:16px;
+    width:44px; height:44px;
+    border-radius:50%; border:none; cursor:pointer;
+    background:rgba(255,255,255,0.22);
     backdrop-filter:blur(10px);
     -webkit-backdrop-filter:blur(10px);
-    border:1px solid rgba(255,255,255,0.35);
-    border-radius:14px; padding:10px 12px;
-    box-shadow:0 4px 20px rgba(0,0,0,.10); z-index:500;
-    display:flex; flex-direction:column; gap:7px; min-width:160px;
-    transition:background .3s;
+    box-shadow:0 2px 12px rgba(0,0,0,0.15);
+    font-size:1.3rem;
+    display:flex; align-items:center; justify-content:center;
+    z-index:600;
+    transition:background .2s, transform .15s;
+  }
+  #gaze-toggle-btn:hover,
+  #gaze-toggle-btn.open { background:rgba(255,255,255,0.92); transform:scale(1.1); }
+
+  /* ━━━ 設定パネル（折りたたみ） ━━━ */
+  #gaze-panel {
+    position:fixed; bottom:68px; right:16px;
+    max-height:calc(100vh - 100px);
+    overflow-y:auto;
+    background:rgba(255,255,255,0.97);
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--border);
+    border-radius:16px; padding:14px 14px 10px;
+    box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:599;
+    display:flex; flex-direction:column; gap:8px; min-width:190px;
+    opacity:0; pointer-events:none;
+    transform:translateY(10px) scale(0.97);
+    transform-origin:bottom right;
+    transition:opacity .2s, transform .2s;
+  }
+  #gaze-panel.open { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+  #gaze-panel label { font-size:.7rem; color:#555; font-weight:700; margin-top:2px; }
+  #gaze-panel select {
+    width:100%; border-radius:8px;
+    border:1px solid var(--border); background:#fff;
+    padding:6px 8px; font-size:.75rem; cursor:pointer; font-family:inherit; color:var(--text);
+    appearance:auto; -webkit-appearance:auto;
+  }
+  #gaze-panel .panel-title {
+    font-size:.78rem; font-weight:900; color:var(--text);
+    margin-bottom:2px; display:flex; align-items:center; gap:5px;
   }
   #gaze-panel::-webkit-scrollbar { width:3px; }
-  #gaze-panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,.15); border-radius:2px; }
-  #gaze-panel:hover {
-    background:rgba(255,255,255,0.72);
-  }
+  #gaze-panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
   #gaze-panel label { font-size:.68rem; color:rgba(40,40,40,.7); font-weight:700; }
   #gaze-panel select {
     width:100%; border-radius:8px;
@@ -425,8 +456,8 @@
   @media (max-width:480px) {
     :root { --sidebar-w:100px; }
     .tool-btn { width:44px; height:44px; font-size:1.3rem; }
-    .color-dot { width:18px!important; height:18px!important; }
-    #custom-color { width:18px!important; height:18px!important; }
+    .color-dot { width:28px!important; height:28px!important; }
+    #custom-color { width:28px!important; height:28px!important; }
   }
   @media print {
     body * { visibility:hidden; }
@@ -548,10 +579,15 @@
   <small>みたいところを みつめてね！ボタンも みつめればおせるよ</small>
 </div>
 
-<!-- GAZE SETTINGS -->
+<!-- GAZE SETTINGS TOGGLE BUTTON -->
+<button id="gaze-toggle-btn" data-tip="しせんのせってい">⚙️</button>
+
+<!-- GAZE SETTINGS PANEL -->
 <div id="gaze-panel">
+  <div class="panel-title">⚙️ しせんのせってい</div>
   <label>⏱ みつめてからはじまるまで</label>
   <select id="sel-dwell">
+    <option value="300">とてもはやい (0.3秒)</option>
     <option value="600">はやい (0.6秒)</option>
     <option value="1000" selected>ふつう (1秒)</option>
     <option value="1500">ゆっくり (1.5秒)</option>
@@ -565,6 +601,7 @@
   </select>
   <label>✏️ せんがとまるまでの時間</label>
   <select id="sel-stop">
+    <option value="200">とてもはやめ (0.2秒)</option>
     <option value="400">はやめ (0.4秒)</option>
     <option value="600" selected>ふつう (0.6秒)</option>
     <option value="900">ゆっくり (0.9秒)</option>
@@ -672,11 +709,11 @@
 
     <!-- ① えをかくどうぐ -->
     <div class="help-section">
-      <div class="help-heading">🖊 えをかくどうぐ（2れつならんでいるよ）</div>
+      <div class="help-heading">🖊 えをかくどうぐ（ひだりのサイドバーにあるよ）</div>
       <div class="help-grid">
         <div class="help-item"><span class="help-icon">✏️</span><span><b>えんぴつ</b><br>なめらかなせんがかける</span></div>
         <div class="help-item"><span class="help-icon">🖌️</span><span><b>ふで</b><br>やわらかくひかるせん</span></div>
-        <div class="help-item"><span class="help-icon">🪣</span><span><b>ぬりつぶし</b><br>みつめたばしょをいっぱいぬる</span></div>
+        <div class="help-item"><span class="help-icon">🪣</span><span><b>ぬりつぶし</b><br>タップやみつめたところをいっぱいぬる</span></div>
         <div class="help-item"><span class="help-icon">💨</span><span><b>スプレー</b><br>きりのようにふわっとぬれる</span></div>
         <div class="help-item"><span class="help-icon" style="font-size:1rem;padding-top:2px;"><svg width="22" height="22" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="10" width="18" height="11" rx="2.5" fill="#F9C6D0" stroke="#E07090" stroke-width="1.8"/><rect x="3" y="10" width="7" height="11" rx="2.5" fill="#E07090"/><line x1="14" y1="5" x2="26" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="23" y2="17" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="22" width="16" height="3" rx="1.5" fill="#E0E0E0"/></svg></span><span><b>けしごむ</b><br>かいたところをけせる</span></div>
         <div class="help-item"><span class="help-icon">⭐</span><span><b>スタンプ</b><br>たのしいえもじをおせる</span></div>
@@ -685,18 +722,18 @@
 
     <!-- ② いろとおおきさ -->
     <div class="help-section">
-      <div class="help-heading">🎨 いろとおおきさ</div>
+      <div class="help-heading">🎨 いろとおおきさ（ひだりのサイドバーにあるよ）</div>
       <div class="help-grid">
-        <div class="help-item"><span class="help-icon">🔴</span><span><b>パレット</b><br>すきないろをえらんでみつめる</span></div>
-        <div class="help-item"><span class="help-icon">🌈</span><span><b>じぶんのいろ</b><br>グラデーションのまるをみつめる</span></div>
-        <div class="help-item"><span class="help-icon">📏</span><span><b>ふとさ</b><br>スライダーでふとさをかえられる</span></div>
-        <div class="help-item"><span class="help-icon">💧</span><span><b>うすさ</b><br>うすくしたりこくしたりできる</span></div>
+        <div class="help-item"><span class="help-icon">🔴</span><span><b>パレット</b><br>まるいいろのボタンをタップかみつめてえらぶ</span></div>
+        <div class="help-item"><span class="help-icon">🌈</span><span><b>じぶんのいろ</b><br>グラデーションのまるをタップかみつめてじゆうにえらべる</span></div>
+        <div class="help-item"><span class="help-icon">📏</span><span><b>ふとさ</b><br>スライダーをうごかしてせんのふとさをかえる</span></div>
+        <div class="help-item"><span class="help-icon">💧</span><span><b>うすさ</b><br>スライダーをうごかしてうすくしたりこくしたりできる</span></div>
       </div>
     </div>
 
-    <!-- ③ アクションボタン（2列） -->
+    <!-- ③ アクションボタン -->
     <div class="help-section">
-      <div class="help-heading">📋 アクションボタン（2れつならんでいるよ）</div>
+      <div class="help-heading">📋 アクションボタン（うえのバーにならんでいるよ）</div>
       <div class="help-grid">
         <div class="help-item"><span class="help-icon">↩️</span><span><b>もどす</b><br>まちがえたら1つまえにもどせる</span></div>
         <div class="help-item"><span class="help-icon">↪️</span><span><b>やりなおし</b><br>もどしすぎたらまたすすめる</span></div>
@@ -707,29 +744,31 @@
         <div class="help-item"><span class="help-icon">🔗</span><span><b>きょうゆう</b><br>URLでともだちにおくれる</span></div>
         <div class="help-item"><span class="help-icon">🖨️</span><span><b>いんさつ</b><br>えをプリンターでいんさつできる</span></div>
         <div class="help-item"><span class="help-icon">💾</span><span><b>ほぞん</b><br>えをPNGがぞうでほぞんできる</span></div>
-        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる<br><small>じょうはしにうごかすとボタンがでる</small></span></div>
+        <div class="help-item"><span class="help-icon">⛶</span><span><b>ぜんがめん</b><br>がめんいっぱいにひろげる。がめんのうえはしにカーソルをうごかすとボタンがでてくる</span></div>
       </div>
     </div>
 
-    <!-- ④ 視線入力 -->
+    <!-- ④ タッチ・ペン -->
     <div class="help-section">
-      <div class="help-heading">👆 タッチ / ペンでもえがけるよ</div>
+      <div class="help-heading">👆 タッチ・ペンでえがく</div>
       <div class="help-grid">
-        <div class="help-item"><span class="help-icon">👆</span><span><b>タッチ</b><br>ゆびでキャンバスをなぞると えがける。2ほんゆびはキャンセル</span></div>
-        <div class="help-item"><span class="help-icon">✏️</span><span><b>スタイラス・ペン</b><br>Apple Pencilなどのペンでもえがける</span></div>
-      </div>
-    </div>
-    <div class="help-section">
-      <div class="help-heading">👁️ しせんにゅうりょく（つねにオン）</div>
-      <div class="help-grid">
-        <div class="help-item"><span class="help-icon">👁️</span><span><b>みつめてえがく</b><br>キャンバスをみつめると えがきはじめる。うごかすとせんがつながる</span></div>
-        <div class="help-item"><span class="help-icon">🔵</span><span><b>ドウェルリング</b><br>まるいわっかがいっぱいになったらクリックやえがきがはじまる</span></div>
-        <div class="help-item"><span class="help-icon">⚙️</span><span><b>せってい（みぎした）</b><br>みつめてからはじまるまでの時間・めのブレのゆるさ・せんがとまるまでの時間をかえられる</span></div>
-        <div class="help-item"><span class="help-icon">🪟</span><span><b>せっていパネル</b><br>みぎしたの半透明のパネルをみつめると せっていができる</span></div>
+        <div class="help-item"><span class="help-icon">👆</span><span><b>ゆびでタッチ</b><br>キャンバスをゆびでなぞるとそのままえがける。2ほんゆびでさわるとキャンセル</span></div>
+        <div class="help-item"><span class="help-icon">🖊</span><span><b>スタイラス・ペン</b><br>Apple PencilやタッチペンでもOK。ゆびとおなじようになぞればえがける</span></div>
       </div>
     </div>
 
-    <!-- ⑤ キーボード -->
+    <!-- ⑤ 視線入力 -->
+    <div class="help-section">
+      <div class="help-heading">👁️ しせんにゅうりょく（つねにはたらいているよ）</div>
+      <div class="help-grid">
+        <div class="help-item"><span class="help-icon">👁️</span><span><b>みつめてえがく</b><br>キャンバスをみつめるとまるいわっかがまわる。わっかがいっぱいになるとえがきはじめる</span></div>
+        <div class="help-item"><span class="help-icon">✋</span><span><b>えをとめるには</b><br>キャンバスからめをはなすか、しばらくじっとしているとせんがとまる</span></div>
+        <div class="help-item"><span class="help-icon">🔘</span><span><b>ボタンをおすには</b><br>おしたいボタンをみつめるとわっかがまわる。わっかがいっぱいになると自動でおせる</span></div>
+        <div class="help-item"><span class="help-icon">⚙️</span><span><b>せってい（みぎしたの⚙️）</b><br>⚙️ボタンをみつめるかタップするとせっていがひらく。わっかのはやさやせんのとまるはやさをかえられる</span></div>
+      </div>
+    </div>
+
+    <!-- ⑥ キーボード -->
     <div class="help-section">
       <div class="help-heading">⌨️ キーボードショートカット</div>
       <div class="help-keys">
@@ -790,11 +829,35 @@ let traceImg     = null;
 function resize() {
   const wrap = document.getElementById('canvas-wrap');
   const W = wrap.clientWidth, H = wrap.clientHeight;
+  const prevW = drawCanvas.width, prevH = drawCanvas.height;
+
+  // ── サイズが変わっていない場合はスキップ ──
+  if (W === prevW && H === prevH) return;
+
+  // ── リサイズ前に描画内容を保存 ──
+  // drawCanvas の内容を一時 canvas に退避
+  let savedDraw = null;
+  if (prevW > 0 && prevH > 0) {
+    savedDraw = document.createElement('canvas');
+    savedDraw.width  = prevW;
+    savedDraw.height = prevH;
+    savedDraw.getContext('2d').drawImage(drawCanvas, 0, 0);
+  }
+
+  // ── キャンバスをリサイズ（この時点でピクセルバッファがクリアされる）──
   [bgCanvas, drawCanvas, ovCanvas].forEach(c => {
-    c.width = W; c.height = H;
-    c.style.width = W+'px'; c.style.height = H+'px';
+    c.width  = W; c.height = H;
+    c.style.width  = W + 'px'; c.style.height = H + 'px';
   });
+
+  // ── 背景を再描画 ──
   fillBg();
+
+  // ── 描画内容を復元（スケーリングして貼り直す）──
+  if (savedDraw) {
+    ctx.drawImage(savedDraw, 0, 0, prevW, prevH, 0, 0, W, H);
+  }
+
   document.getElementById('status-size').textContent = `キャンバス: ${W}×${H}px`;
   // statusbar left を sidebar 幅に合わせる
   const sbW = document.getElementById('sidebar') ? document.getElementById('sidebar').offsetWidth : 0;
@@ -1452,11 +1515,19 @@ function isFullscreen() {
 function onFullscreenChange() {
   const fs = isFullscreen();
   document.body.classList.toggle('fullscreen', fs);
-  const sbar = document.getElementById('statusbar'); if(sbar) sbar.style.left = fs ? '0' : (document.getElementById('sidebar').offsetWidth + 'px');
+  const sbar = document.getElementById('statusbar');
+  if (sbar) sbar.style.left = fs ? '0' : (document.getElementById('sidebar').offsetWidth + 'px');
   document.getElementById('btn-fullscreen').textContent = fs ? '⊡' : '⛶';
   document.getElementById('btn-fullscreen').setAttribute('data-tip', fs ? 'もとにもどす' : 'ぜんがめんひょうじ');
-  // CSS が適用されてからリサイズ
-  setTimeout(() => { resize(); syncFloatToolbar(); }, 100);
+
+  // CSS (display:none 等) がレイアウトに反映されてからリサイズする
+  // requestAnimationFrame を2フレーム待つことでブラウザの再計算を確実に待機
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      resize();
+      syncFloatToolbar();
+    });
+  });
 }
 document.addEventListener('fullscreenchange',       onFullscreenChange);
 document.addEventListener('webkitfullscreenchange', onFullscreenChange);
@@ -1566,71 +1637,119 @@ document.getElementById('btn-pin').addEventListener('click', () => {
 });
 
 // ================================================================
-// TOOLTIP (position:fixed で他要素に絶対に隠れない)
+// GAZE PANEL TOGGLE
+// ================================================================
+(function(){
+  const toggleBtn = document.getElementById('gaze-toggle-btn');
+  const panel     = document.getElementById('gaze-panel');
+  if (!toggleBtn || !panel) return;
+
+  function openPanel() {
+    panel.classList.add('open');
+    toggleBtn.classList.add('open');
+    toggleBtn.textContent = '✕';
+  }
+  function closePanel() {
+    panel.classList.remove('open');
+    toggleBtn.classList.remove('open');
+    toggleBtn.textContent = '⚙️';
+  }
+  function togglePanel() {
+    if (panel.classList.contains('open')) closePanel(); else openPanel();
+  }
+
+  toggleBtn.addEventListener('click', togglePanel);
+
+  // パネル外クリックで閉じる
+  document.addEventListener('click', e => {
+    if (!panel.contains(e.target) && e.target !== toggleBtn) closePanel();
+  }, { capture: false });
+
+  // 視線ドウェルでもトグルできるよう data-tip を付与済み
+  // → ドウェル完了で click が来るのでそのまま動く
+})();
+
+// ================================================================
+// TOOLTIP
 // ================================================================
 (function(){
   const tip = document.getElementById('tooltip');
+  if (!tip) return;
+
   let hideTimer = null;
+  let currentEl = null;
 
-  function showTip(el, x, y) {
-    const label = el.getAttribute('data-tip');
-    if (!label) return;
-    tip.textContent = label;
-    tip.classList.add('visible');
+  function place(el) {
+    const r   = el.getBoundingClientRect();
+    const isTop = !!el.closest('#topbar') || !!el.closest('#float-toolbar');
+    const pad = 8;
 
-    // ボタンの位置から上下を自動判定
-    const rect = el.getBoundingClientRect();
-    const isTopbar = !!el.closest('#topbar') || !!el.closest('#float-toolbar');
-    let tx, ty;
-
-    if (isTopbar) {
-      // topbar内 → ボタンの下に出す
-      tx = rect.left + rect.width / 2;
-      ty = rect.bottom + 8;
-      // 画面下端を超えないよう補正
-      if (ty + 36 > window.innerHeight) ty = rect.top - 36;
+    // offsetWidth/Height は visible クラス付与後に取る
+    // → 先に座標の方向だけ決め、requestAnimationFrame 内で微調整
+    if (isTop) {
+      // 下に出す
+      tip.style.left = Math.round(r.left + r.width / 2) + 'px';
+      tip.style.top  = Math.round(r.bottom + pad) + 'px';
+      tip.style.transform = 'translateX(-50%)';
     } else {
-      // サイドバー内 → ボタンの右に出す
-      tx = rect.right + 10;
-      ty = rect.top + rect.height / 2;
+      // 右に出す
+      tip.style.left = Math.round(r.right + pad) + 'px';
+      tip.style.top  = Math.round(r.top + r.height / 2) + 'px';
       tip.style.transform = 'translateY(-50%)';
-      // 画面右端補正
-      const tipW = tip.offsetWidth || 100;
-      if (tx + tipW > window.innerWidth - 8) {
-        tx = rect.left - tipW - 10;
-      }
-      tip.style.left = tx + 'px';
-      tip.style.top  = ty + 'px';
-      return;
     }
 
-    tip.style.transform = 'translateX(-50%)';
-    tip.style.left = tx + 'px';
-    tip.style.top  = ty + 'px';
-  }
-
-  function hideTip() {
-    tip.classList.remove('visible');
-    tip.style.transform = '';
-  }
-
-  // すべての data-tip 要素にイベント付与（動的追加も対応）
-  function attachTips(root) {
-    root.querySelectorAll('[data-tip]').forEach(el => {
-      el.addEventListener('mouseenter', e => {
-        clearTimeout(hideTimer);
-        showTip(el, e.clientX, e.clientY);
-      });
-      el.addEventListener('mouseleave', () => {
-        hideTimer = setTimeout(hideTip, 80);
-      });
-      el.addEventListener('click', hideTip);
+    // 表示後に画面端からはみ出ていたら補正
+    requestAnimationFrame(() => {
+      const tr = tip.getBoundingClientRect();
+      let lv = parseFloat(tip.style.left);
+      let tv = parseFloat(tip.style.top);
+      if (tr.right  > window.innerWidth  - 4) lv -= (tr.right  - window.innerWidth  + 8);
+      if (tr.bottom > window.innerHeight - 4) tv -= (tr.bottom - window.innerHeight + 8);
+      if (tr.left < 4) lv = 4;
+      if (tr.top  < 4) tv = 4;
+      tip.style.left = lv + 'px';
+      tip.style.top  = tv + 'px';
     });
   }
-  attachTips(document.body);
 
-  // 動的に追加されるフロートツールバーにも対応
-  window._attachTooltips = attachTips;
+  function show(el) {
+    const label = el.getAttribute('data-tip');
+    if (!label) return;
+    clearTimeout(hideTimer);
+    currentEl = el;
+    tip.textContent = label;
+    place(el);
+    tip.classList.add('visible');
+  }
+
+  function hide() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      tip.classList.remove('visible');
+      currentEl = null;
+    }, 80);
+  }
+
+  // document全体でデリゲーション
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest('[data-tip]');
+    if (el) { clearTimeout(hideTimer); if (el !== currentEl) show(el); }
+    else if (currentEl && !e.target.closest('#tooltip')) hide();
+  }, true);
+
+  document.addEventListener('mouseout', e => {
+    // relatedTarget がdata-tip要素またはtooltip自身なら消さない
+    const to = e.relatedTarget;
+    if (to && (to.closest('[data-tip]') || to === tip)) return;
+    hide();
+  }, true);
+
+  document.addEventListener('click', () => {
+    tip.classList.remove('visible');
+    currentEl = null;
+  }, true);
+
+  window._attachTooltips = () => {};
 })();
 
 // ================================================================
