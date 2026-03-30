@@ -121,17 +121,24 @@
   #float-toolbar .tool-btn svg { width:24px; height:24px; }
   .tool-btn.active { background:#FFE0E0; border-color:var(--accent); }
 
-  /* ツールチップ: サイドバー内は右、topbar内は下に出す */
-  .tool-btn[data-tip]:hover::after {
-    content:attr(data-tip);
-    position:absolute; left:110%; top:50%; transform:translateY(-50%);
-    background:#2D2D2D; color:#fff;
-    font-size:.7rem; padding:4px 10px; border-radius:8px;
-    white-space:nowrap; pointer-events:none; z-index:999;
+  /* ツールチップ: JS制御の fixed 要素で描画（他要素に絶対に隠れない） */
+  #tooltip {
+    position:fixed;
+    background:rgba(30,30,30,0.92);
+    color:#fff;
+    font-size:.82rem;
+    font-weight:700;
+    padding:6px 13px;
+    border-radius:10px;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:99999;
+    box-shadow:0 4px 16px rgba(0,0,0,0.28);
+    opacity:0;
+    transition:opacity .12s;
+    transform:translateX(-50%);
   }
-  #topbar .tool-btn[data-tip]:hover::after {
-    left:50%; top:110%; transform:translateX(-50%);
-  }
+  #tooltip.visible { opacity:1; }
 
   /* ━━━ BTN GRID (2列) ━━━ */
   .btn-grid {
@@ -1484,11 +1491,80 @@ document.getElementById('btn-pin').addEventListener('click', () => {
 });
 
 // ================================================================
+// TOOLTIP (position:fixed で他要素に絶対に隠れない)
+// ================================================================
+(function(){
+  const tip = document.getElementById('tooltip');
+  let hideTimer = null;
+
+  function showTip(el, x, y) {
+    const label = el.getAttribute('data-tip');
+    if (!label) return;
+    tip.textContent = label;
+    tip.classList.add('visible');
+
+    // ボタンの位置から上下を自動判定
+    const rect = el.getBoundingClientRect();
+    const isTopbar = !!el.closest('#topbar') || !!el.closest('#float-toolbar');
+    let tx, ty;
+
+    if (isTopbar) {
+      // topbar内 → ボタンの下に出す
+      tx = rect.left + rect.width / 2;
+      ty = rect.bottom + 8;
+      // 画面下端を超えないよう補正
+      if (ty + 36 > window.innerHeight) ty = rect.top - 36;
+    } else {
+      // サイドバー内 → ボタンの右に出す
+      tx = rect.right + 10;
+      ty = rect.top + rect.height / 2;
+      tip.style.transform = 'translateY(-50%)';
+      // 画面右端補正
+      const tipW = tip.offsetWidth || 100;
+      if (tx + tipW > window.innerWidth - 8) {
+        tx = rect.left - tipW - 10;
+      }
+      tip.style.left = tx + 'px';
+      tip.style.top  = ty + 'px';
+      return;
+    }
+
+    tip.style.transform = 'translateX(-50%)';
+    tip.style.left = tx + 'px';
+    tip.style.top  = ty + 'px';
+  }
+
+  function hideTip() {
+    tip.classList.remove('visible');
+    tip.style.transform = '';
+  }
+
+  // すべての data-tip 要素にイベント付与（動的追加も対応）
+  function attachTips(root) {
+    root.querySelectorAll('[data-tip]').forEach(el => {
+      el.addEventListener('mouseenter', e => {
+        clearTimeout(hideTimer);
+        showTip(el, e.clientX, e.clientY);
+      });
+      el.addEventListener('mouseleave', () => {
+        hideTimer = setTimeout(hideTip, 80);
+      });
+      el.addEventListener('click', hideTip);
+    });
+  }
+  attachTips(document.body);
+
+  // 動的に追加されるフロートツールバーにも対応
+  window._attachTooltips = attachTips;
+})();
+
+// ================================================================
 // INIT
 resize();
 syncFloatToolbar();
 initGaze();
 console.log('🎨 おえかきひろば — Tobii対応版 ready');
 </script>
+<div id="tooltip"></div>
 </body>
 </html>
