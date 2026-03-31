@@ -839,6 +839,7 @@
         <div><div class="intro-section-title">⚠️ 使用上の留意点</div><div class="caution-box"><p>視線入力（Tobii・見るマウス）を使用する場合は、事前にキャリブレーションを行ってください。「みつめるじかん」はお子さんの視線の安定度に合わせて調整が必要です。シャッフルのアニメーションが刺激になる場合は「うごきをゆっくり」をオンにしてご使用ください。</p></div></div>
       </div>
     </div>
+    </div>
 
     <!-- SST -->
     <div class="intro-card theme-sst" data-cat="jiritsu">
@@ -1045,246 +1046,149 @@
 
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-// =====================
-// QRコード生成（未生成のdivにのみ実行）
-// =====================
-function generateQR(container) {
-  container.querySelectorAll('.header-qr-img[data-url]').forEach(function(el) {
-    if (el.querySelector('canvas') || el.querySelector('img')) return;
-    var url = el.getAttribute('data-url');
-    if (!url) return;
-    new QRCode(el, {
-      text: url,
-      width: 72,
-      height: 72,
-      colorDark: '#2D2A4A',
-      colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  });
-}
+document.addEventListener('DOMContentLoaded', function() {
 
-// =====================
-// カテゴリパネルへのカード配置
-// クローンではなく「参照の配列」を保持し、
-// タブ切り替え時に実DOMノードを対象パネルへ移動する方式。
-// QRコードのcanvasがそのまま引き継がれる。
-// =====================
-(function() {
-  const catKeys = ['gakushu','ninchi','jiritsu','sousaku'];
-
-  // allパネルから各カードのDOM参照を収集（順番保持）
-  const cardRefs = {}; // { gakushu: [node, ...], ... }
-  catKeys.forEach(function(cat) { cardRefs[cat] = []; });
-
-  // allパネル内の全カードを走査（cat-labelのwrapperも含め順番を保持）
-  document.querySelectorAll('#panel-all > *').forEach(function(el) {
-    const cat = el.getAttribute('data-cat');
-    if (cat && cardRefs[cat]) cardRefs[cat].push(el);
-  });
-
-  // 各カテゴリパネルに実ノードを追加（最初は非表示なので問題なし）
+  /* 1. カテゴリパネルへのカード振り分け */
+  var catKeys = ['gakushu','ninchi','jiritsu','sousaku'];
+  var catLabelText = {
+    gakushu: '✏️ 学習アプリ',
+    ninchi:  '🧠 認知支援',
+    jiritsu: '🎯 自立活動',
+    sousaku: '🎨 創作表現'
+  };
   catKeys.forEach(function(cat) {
-    const panel = document.getElementById('panel-' + cat);
+    var panel = document.getElementById('panel-' + cat);
     if (!panel) return;
-    cardRefs[cat].forEach(function(node) {
-      panel.appendChild(node.cloneNode(true)); // cloneして追加
+    var label = document.createElement('div');
+    label.className = 'cat-label';
+    label.textContent = catLabelText[cat];
+    panel.appendChild(label);
+    document.querySelectorAll('#panel-all .intro-card[data-cat="' + cat + '"]').forEach(function(card) {
+      var clone = card.cloneNode(true);
+      clone.querySelectorAll('.header-qr-img canvas, .header-qr-img img').forEach(function(el){ el.remove(); });
+      panel.appendChild(clone);
     });
   });
 
-  // 全パネルのQRを一括生成
-  generateQR(document);
-})();
+  /* 2. QRコード生成（CDN動的ロード） */
+  function generateQR(container) {
+    if (typeof QRCode === 'undefined') return;
+    container.querySelectorAll('.header-qr-img[data-url]').forEach(function(el) {
+      if (el.querySelector('canvas') || el.querySelector('img')) return;
+      var url = el.getAttribute('data-url');
+      if (!url) return;
+      try { new QRCode(el, { text: url, width: 72, height: 72,
+        colorDark: '#2D2A4A', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M }); } catch(e) {}
+    });
+  }
+  var qrScript = document.createElement('script');
+  qrScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  qrScript.onload = function() { generateQR(document); };
+  document.head.appendChild(qrScript);
 
-// =====================
-// タブ切り替え
-// =====================
-(function() {
-  const tabs = document.querySelectorAll('.tab-btn');
-  const panels = document.querySelectorAll('.tab-panel');
+  /* 3. タブ切り替え */
+  var tabs   = document.querySelectorAll('.tab-btn');
+  var panels = document.querySelectorAll('.tab-panel');
 
   function switchTab(target) {
-    tabs.forEach(function(t) {
-      t.classList.remove('active');
-      t.setAttribute('aria-selected', 'false');
-    });
-    const activeBtn = document.querySelector('.tab-btn[data-tab="' + target + '"]');
-    if (activeBtn) {
-      activeBtn.classList.add('active');
-      activeBtn.setAttribute('aria-selected', 'true');
-    }
+    tabs.forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+    var btn = document.querySelector('.tab-btn[data-tab="' + target + '"]');
+    if (btn) { btn.classList.add('active'); btn.setAttribute('aria-selected','true'); }
     panels.forEach(function(p) { p.classList.remove('active'); });
-    const targetPanel = document.getElementById('panel-' + target);
-    if (targetPanel) {
-      targetPanel.classList.add('active');
-      // 表示後にQRを再生成（display:none中は canvas サイズが0になるため）
-      generateQR(targetPanel);
-    }
-
-    // タブ切り替え時は検索・フィルターをリセット
+    var tp = document.getElementById('panel-' + target);
+    if (tp) { tp.classList.add('active'); generateQR(tp); }
     clearSearch();
   }
-
   tabs.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      switchTab(btn.getAttribute('data-tab'));
-    });
+    btn.addEventListener('click', function() { switchTab(this.getAttribute('data-tab')); });
   });
-})();
 
-// =====================
-// 検索・フィルター
-// =====================
-(function() {
-  const searchInput = document.getElementById('searchInput');
-  const searchClear = document.getElementById('searchClear');
-  const filterBadges = document.querySelectorAll('.filter-badge');
-  const resultCountEl = document.getElementById('resultCount');
-
-  let currentKeyword = '';
-  let activeFilters = new Set();
-
-  // フィルターと各カードの対応キーワード（access-badge の内容を検索に使う）
-  const filterKeywords = {
-    'switch':       'スイッチスキャン',
-    'ipad':         'iPad',
-    'voice':        '音声よみあげ',
-    'highcontrast': 'ハイコントラスト',
-    'record':       'きろく',
-    'coming':       'じゅんびちゅう'
+  /* 4. 検索・フィルター */
+  var searchInput   = document.getElementById('searchInput');
+  var searchClear   = document.getElementById('searchClear');
+  var filterBadges  = document.querySelectorAll('.filter-badge');
+  var resultCountEl = document.getElementById('resultCount');
+  var currentKeyword = '';
+  var activeFilters  = new Set();
+  var filterKeywords = {
+    'switch':'スイッチスキャン','ipad':'iPad',
+    'voice':'音声よみあげ',
+    'highcontrast':'ハイコントラスト',
+    'record':'きろく','coming':'じゅんびちゅう'
   };
 
-  // カード1枚のテキスト全体を取得（検索対象）
-  function getCardText(card) {
-    return card.innerText || card.textContent || '';
-  }
-
-  // カードが「準備中」かどうか
-  function isComing(card) {
-    return card.classList.contains('coming-overlay');
-  }
-
-  // カードを表示/非表示にして件数を返す
   function applyFilter() {
-    const activePanel = document.querySelector('.tab-panel.active');
-    if (!activePanel) return;
-
-    const cards = activePanel.querySelectorAll('.intro-card');
-    let visible = 0;
-
+    var ap = document.querySelector('.tab-panel.active');
+    if (!ap) return;
+    var cards = ap.querySelectorAll('.intro-card');
+    var vis = 0;
     cards.forEach(function(card) {
-      const text = getCardText(card);
-      const lowerText = text.toLowerCase();
-      const lowerKeyword = currentKeyword.toLowerCase().trim();
-
-      // キーワード検索
-      let keywordMatch = true;
-      if (lowerKeyword !== '') {
-        keywordMatch = lowerText.includes(lowerKeyword);
-      }
-
-      // フィルターバッジ
-      let filterMatch = true;
+      var txt = (card.innerText||card.textContent||'').toLowerCase();
+      var kw = currentKeyword.toLowerCase().trim();
+      var km = !kw || txt.includes(kw);
+      var fm = true;
       if (activeFilters.size > 0) {
-        filterMatch = Array.from(activeFilters).every(function(f) {
-          if (f === 'coming') return isComing(card);
-          return lowerText.includes(filterKeywords[f].toLowerCase());
+        fm = Array.from(activeFilters).every(function(f) {
+          if (f==='coming') return card.classList.contains('coming-overlay');
+          return txt.includes((filterKeywords[f]||'').toLowerCase());
         });
       }
-
-      const show = keywordMatch && filterMatch;
+      var show = km && fm;
       card.style.display = show ? '' : 'none';
-      if (show) visible++;
+      if (show) vis++;
     });
-
-    // カテゴリラベルの表示制御（直後にカードがない場合は非表示）
-    const catLabels = activePanel.querySelectorAll('.cat-label');
-    catLabels.forEach(function(label) {
-      // ラベルの親divの次の兄弟要素以降で表示中のカードがあるか確認
-      const wrapper = label.closest('div');
-      if (!wrapper) return;
-      let next = wrapper.nextElementSibling;
-      let hasVisible = false;
-      while (next) {
-        if (next.classList.contains('intro-card') && next.style.display !== 'none') {
-          hasVisible = true;
-          break;
-        }
-        // 次のカテゴリラベルに達したら終了
-        if (next.querySelector && next.querySelector('.cat-label')) break;
-        next = next.nextElementSibling;
+    ap.querySelectorAll('.cat-label').forEach(function(lbl) {
+      var nxt = lbl.nextElementSibling; var found = false;
+      while (nxt) {
+        if (nxt.classList.contains('intro-card') && nxt.style.display!=='none') { found=true; break; }
+        if (nxt.classList.contains('cat-label')) break;
+        nxt = nxt.nextElementSibling;
       }
-      wrapper.style.display = hasVisible ? '' : 'none';
+      lbl.style.display = found ? '' : 'none';
     });
-
-    // 結果ゼロ表示
-    let noResults = activePanel.querySelector('.no-results');
-    if (!noResults) {
-      noResults = document.createElement('div');
-      noResults.className = 'no-results';
-      noResults.innerHTML = '<span class="no-results-emoji">🔍</span>「' + (currentKeyword || Array.from(activeFilters).join('・')) + '」に一致するアプリが見つかりませんでした';
-      activePanel.appendChild(noResults);
-    } else {
-      noResults.innerHTML = '<span class="no-results-emoji">🔍</span>「' + (currentKeyword || Array.from(activeFilters).map(f => filterKeywords[f]).join('・')) + '」に一致するアプリが見つかりませんでした';
-    }
-    noResults.classList.toggle('visible', visible === 0);
-
-    // 件数表示
-    const total = cards.length;
-    if (currentKeyword || activeFilters.size > 0) {
-      resultCountEl.innerHTML = '<span>' + visible + '</span> / ' + total + ' 件表示中';
-    } else {
-      resultCountEl.innerHTML = '';
-    }
+    var nr = ap.querySelector('.no-results');
+    if (!nr) { nr=document.createElement('div'); nr.className='no-results'; ap.appendChild(nr); }
+    var kwl = currentKeyword || Array.from(activeFilters).map(function(f){return filterKeywords[f]||f;}).join('・');
+    nr.innerHTML = '<span class="no-results-emoji">🔍</span>「'+kwl+'」に一致するアプリが見つかりませんでした';
+    nr.classList.toggle('visible', vis===0);
+    resultCountEl.innerHTML = (currentKeyword||activeFilters.size>0)
+      ? '<span>'+vis+'</span> / '+cards.length+' 件表示中' : '';
   }
 
-  // 検索クリア
-  window.clearSearch = function() {
-    searchInput.value = '';
-    currentKeyword = '';
-    searchClear.classList.remove('visible');
+  function clearSearch() {
+    if (searchInput) searchInput.value='';
+    currentKeyword='';
+    if (searchClear) searchClear.classList.remove('visible');
     activeFilters.clear();
-    filterBadges.forEach(function(b) { b.classList.remove('active'); });
-    // 全カード表示に戻す
-    document.querySelectorAll('.tab-panel.active .intro-card').forEach(function(c) { c.style.display = ''; });
-    document.querySelectorAll('.tab-panel.active .cat-label').forEach(function(l) {
-      const wrapper = l.closest('div');
-      if (wrapper) wrapper.style.display = '';
+    filterBadges.forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.tab-panel.active .intro-card').forEach(function(c){c.style.display='';});
+    document.querySelectorAll('.tab-panel.active .cat-label').forEach(function(l){l.style.display='';});
+    var nr=document.querySelector('.tab-panel.active .no-results');
+    if (nr) nr.classList.remove('visible');
+    resultCountEl.innerHTML='';
+  }
+  window.clearSearch = clearSearch;
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      currentKeyword=this.value;
+      if (searchClear) searchClear.classList.toggle('visible', currentKeyword.length>0);
+      applyFilter();
     });
-    const noResults = document.querySelector('.tab-panel.active .no-results');
-    if (noResults) noResults.classList.remove('visible');
-    resultCountEl.innerHTML = '';
-  };
-
-  // 検索入力
-  searchInput.addEventListener('input', function() {
-    currentKeyword = this.value;
-    searchClear.classList.toggle('visible', currentKeyword.length > 0);
-    applyFilter();
-  });
-
-  // クリアボタン
-  searchClear.addEventListener('click', function() {
-    clearSearch();
-  });
-
-  // フィルターバッジ
+  }
+  if (searchClear) searchClear.addEventListener('click', clearSearch);
   filterBadges.forEach(function(badge) {
     badge.addEventListener('click', function() {
-      const f = this.getAttribute('data-filter');
-      if (activeFilters.has(f)) {
-        activeFilters.delete(f);
-        this.classList.remove('active');
-      } else {
-        activeFilters.add(f);
-        this.classList.add('active');
-      }
+      var f=this.getAttribute('data-filter');
+      if (activeFilters.has(f)){activeFilters.delete(f);this.classList.remove('active');}
+      else{activeFilters.add(f);this.classList.add('active');}
       applyFilter();
     });
   });
-})();
+
+}); // end DOMContentLoaded
 </script>
 </body>
 </html>
