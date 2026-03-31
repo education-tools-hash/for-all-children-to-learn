@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>どこかな？カップゲーム</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=Zen+Maru+Gothic:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #FFF8E7;
+    --sky: #B8E4FF;
+    --ground: #A8D8A8;
+    --text-dark: #3A2A1A;
+    --text-mid: #6B4C2A;
+    --accent: #FF6B6B;
+    --star: #FFD700;
+    --shadow: rgba(0,0,0,0.15);
+    --scan-color: #00AAFF;
+    --dwell-color: #FF6B6B;
+    --dwell-time: 1.5s;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Zen Maru Gothic', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    overflow-x: hidden; position: relative;
+  }
+
+  /* 背景雲 */
+  .bg-clouds { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; overflow:hidden; }
+  .cloud { position:absolute; background:white; border-radius:50px; opacity:0.6; animation:floatCloud linear infinite; }
+  .cloud::before { content:''; position:absolute; background:white; border-radius:50%; }
+  .cloud:nth-child(1) { width:80px; height:30px; top:8%; animation-duration:20s; }
+  .cloud:nth-child(1)::before { width:40px; height:40px; top:-20px; left:10px; }
+  .cloud:nth-child(2) { width:120px; height:40px; top:15%; animation-duration:28s; animation-delay:-8s; }
+  .cloud:nth-child(2)::before { width:60px; height:60px; top:-30px; left:20px; }
+  .cloud:nth-child(3) { width:60px; height:25px; top:5%; animation-duration:22s; animation-delay:-12s; }
+  @keyframes floatCloud { from{left:-200px} to{left:calc(100% + 200px)} }
+
+  /* 星 */
+  .stars-container { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:100; }
+  .star-particle { position:absolute; font-size:2rem; animation:starFly 1.2s ease-out forwards; pointer-events:none; }
+  @keyframes starFly { 0%{opacity:1;transform:translateY(0) scale(1) rotate(0deg)} 100%{opacity:0;transform:translateY(-120px) scale(0.3) rotate(360deg)} }
+
+  /* コンテナ */
+  .container { position:relative; z-index:10; width:100%; max-width:700px; padding:16px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+
+  /* タイトル */
+  .title-area { text-align:center; padding:12px 60px 12px 24px; background:white; border-radius:30px; box-shadow:0 4px 16px var(--shadow); border:3px solid #FFD166; margin-top:10px; width:100%; position:relative; }
+  .title-main { font-family:'Kaisei Decol',serif; font-size:clamp(1.6rem,5vw,2.4rem); color:var(--accent); text-shadow:2px 2px 0 #FFD166; line-height:1.2; }
+  .title-sub { font-size:clamp(0.8rem,3vw,1rem); color:var(--text-mid); margin-top:4px; }
+  .gear-btn { position:absolute; top:50%; right:12px; transform:translateY(-50%); background:#f0e8d8; border:2px solid #d4c4a0; border-radius:50%; width:46px; height:46px; font-size:1.5rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.25s; box-shadow:0 2px 6px var(--shadow); }
+  .gear-btn:hover { transform:translateY(-50%) rotate(40deg) scale(1.1); background:#FFD166; }
+
+  /* HUD */
+  .hud { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; width:100%; }
+  .hud-card { background:white; border-radius:20px; padding:8px 20px; box-shadow:0 3px 10px var(--shadow); text-align:center; flex:1; min-width:100px; border:2px solid #e8d5b0; }
+  .hud-label { font-size:0.75rem; color:var(--text-mid); font-weight:700; letter-spacing:0.05em; }
+  .hud-value { font-size:clamp(1.2rem,4vw,1.8rem); font-weight:900; color:var(--text-dark); }
+  .hud-value.stars { color:var(--star); }
+
+  /* カップ数 */
+  .settings-area { background:white; border-radius:24px; padding:14px 20px; box-shadow:0 4px 14px var(--shadow); width:100%; border:2px solid #e8d5b0; }
+  .settings-label { font-size:0.9rem; color:var(--text-mid); font-weight:700; margin-bottom:8px; text-align:center; }
+  .cup-count-btns { display:flex; gap:10px; justify-content:center; }
+  .cup-count-btn { flex:1; max-width:95px; padding:10px 4px; border-radius:16px; border:3px solid transparent; background:#f0e8d8; font-family:'Zen Maru Gothic',sans-serif; font-size:0.95rem; font-weight:900; color:var(--text-dark); cursor:pointer; transition:all 0.2s; box-shadow:0 3px 0 #d4c4a0; line-height:1.4; position:relative; overflow:hidden; }
+  .cup-count-btn:hover { transform:translateY(-2px); }
+  .cup-count-btn.active { background:var(--accent); color:white; border-color:#cc3333; box-shadow:0 3px 0 #cc3333; }
+
+  /* ヒント */
+  .hint-bar { display:none; width:100%; text-align:center; border-radius:16px; padding:8px 16px; font-size:0.9rem; font-weight:700; }
+  .hint-bar.show { display:block; }
+  .hint-scan { background:rgba(0,170,255,0.1); border:2px dashed var(--scan-color); color:#0077AA; }
+  .hint-dwell { background:rgba(255,107,107,0.1); border:2px dashed var(--dwell-color); color:#AA2222; }
+
+  /* メッセージ */
+  .message-box { width:100%; background:white; border-radius:24px; padding:14px 20px; text-align:center; font-size:clamp(1rem,4vw,1.4rem); font-weight:700; color:var(--text-dark); box-shadow:0 4px 14px var(--shadow); border:3px solid var(--sky); min-height:60px; display:flex; align-items:center; justify-content:center; transition:all 0.3s; }
+  .message-box.success { background:#E8F8E8; border-color:#88D8B0; color:#2A7A2A; }
+  .message-box.fail { background:#FFF0F0; border-color:#FFB0B0; color:#AA2222; }
+
+  /* ゲームフィールド */
+  .game-field { width:100%; background:linear-gradient(to bottom,var(--sky) 0%,var(--sky) 60%,var(--ground) 60%,var(--ground) 100%); border-radius:32px; padding:24px 16px 20px; box-shadow:0 6px 24px var(--shadow); position:relative; min-height:220px; display:flex; flex-direction:column; align-items:center; overflow:hidden; }
+  .cups-area { display:flex; justify-content:center; align-items:flex-end; gap:16px; width:100%; position:relative; z-index:5; flex-wrap:nowrap; }
+
+  /* カップラッパー */
+  .cup-wrapper { display:flex; flex-direction:column; align-items:center; position:relative; cursor:pointer; transition:transform 0.15s; flex:1; max-width:130px; }
+  .cup-wrapper.disabled { cursor:default; pointer-events:none; }
+  .cup-wrapper.large-touch { max-width:165px; }
+
+  /* ドウェルリング（視線注視インジケーター） */
+  .dwell-ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .dwell-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .dwell-ring circle.track { fill: none; stroke: rgba(255,255,255,0.5); stroke-width: 6; }
+  .dwell-ring circle.progress {
+    fill: none;
+    stroke: var(--dwell-color);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    transition: stroke-dashoffset linear;
+  }
+  .cup-wrapper.dwell-active .dwell-ring { opacity: 1; }
+  .cup-wrapper.dwell-active { transform: scale(1.06); }
+  .cup-wrapper.dwell-active .cup-body { filter: brightness(1.12) drop-shadow(0 0 12px rgba(255,107,107,0.6)); }
+
+  /* スキャンフォーカス */
+  .cup-wrapper.scan-focus { outline: 4px solid var(--scan-color); border-radius: 12px; }
+  .cup-wrapper.scan-focus .cup-body { filter: brightness(1.15) drop-shadow(0 0 10px var(--scan-color)) drop-shadow(0 0 22px var(--scan-color)); }
+
+  /* 人形 */
+  .doll { font-size:clamp(2rem,7vw,3.2rem); line-height:1; transition:all 0.3s; position:relative; z-index:3; user-select:none; opacity:1; transform:translateY(0); margin-bottom:-4px; }
+  .doll.hidden { opacity:0; transform:translateY(8px); pointer-events:none; }
+  .doll.revealed { animation:dollPop 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes dollPop { 0%{transform:translateY(20px) scale(0.5);opacity:0} 100%{transform:translateY(0) scale(1);opacity:1} }
+
+  /* カップ本体 */
+  .cup-body { position:relative; width:100%; aspect-ratio:1/1.1; max-width:110px; cursor:pointer; transition:transform 0.15s, filter 0.2s; }
+  .cup-svg { width:100%; height:100%; filter:drop-shadow(3px 4px 6px rgba(0,0,0,0.2)); }
+  .cup-body.lifting { animation:liftUp 0.5s ease-out forwards; }
+  @keyframes liftUp { 0%{transform:translateY(0)} 100%{transform:translateY(-40px)} }
+  .cup-body.lowering { animation:lowerDown 0.4s ease-in forwards; }
+  @keyframes lowerDown { 0%{transform:translateY(-40px)} 100%{transform:translateY(0)} }
+  .cup-base { width:75%; height:8px; background:rgba(0,0,0,0.1); border-radius:50%; margin-top:-2px; }
+
+  /* 草 */
+  .deco-grass { position:absolute; bottom:0; left:0; width:100%; height:20px; z-index:2; pointer-events:none; display:flex; }
+  .grass-blade { flex:1; background:#78C878; border-radius:50% 50% 0 0; transform:scaleY(0.8); opacity:0.7; }
+  .grass-blade:nth-child(even) { background:#5AB85A; transform:scaleY(1) rotate(-3deg); opacity:0.9; }
+
+  /* ドウェル対応汎用ボタン */
+  .btn {
+    padding:14px 28px; border-radius:50px; border:none;
+    font-family:'Zen Maru Gothic',sans-serif;
+    font-size:clamp(1rem,4vw,1.3rem); font-weight:900;
+    cursor:pointer; transition:all 0.2s;
+    box-shadow:0 5px 0 rgba(0,0,0,0.2); letter-spacing:0.05em;
+    min-width:130px; user-select:none;
+    position:relative; overflow:hidden;
+  }
+  .btn:hover { transform:translateY(-3px); box-shadow:0 8px 0 rgba(0,0,0,0.2); }
+  .btn:active { transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,0.2); }
+  .btn-start { background:linear-gradient(135deg,#FF8C69,#FF5757); color:white; }
+  .btn-replay { background:linear-gradient(135deg,#88D8B0,#44B888); color:white; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; box-shadow:0 3px 0 rgba(0,0,0,0.1); }
+
+  /* ボタン上のドウェルプログレスバー */
+  .btn-dwell-bar {
+    position:absolute; left:0; bottom:0; height:5px;
+    background:rgba(255,255,255,0.7); width:0%;
+    border-radius:0 0 50px 50px;
+    transition: width linear;
+    pointer-events:none;
+  }
+  .btn.dwell-active { box-shadow:0 0 0 4px rgba(255,107,107,0.5), 0 5px 0 rgba(0,0,0,0.2); }
+
+  .action-area { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; width:100%; }
+  .score-bump { animation:scoreBump 0.4s ease-out; }
+  @keyframes scoreBump { 0%{transform:scale(1)} 50%{transform:scale(1.4);color:var(--accent)} 100%{transform:scale(1)} }
+
+  /* ========== 設定モーダル ========== */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .modal-overlay.show { display:flex; }
+  .settings-modal { background:white; border-radius:36px; padding:28px 24px 20px; max-width:480px; width:92%; box-shadow:0 20px 60px rgba(0,0,0,0.3); animation:modalPop 0.35s cubic-bezier(0.34,1.56,0.64,1); max-height:90vh; overflow-y:auto; }
+  @keyframes modalPop { from{transform:scale(0.3);opacity:0} to{transform:scale(1);opacity:1} }
+  .modal-title { font-family:'Kaisei Decol',serif; font-size:1.5rem; color:var(--text-dark); margin-bottom:18px; text-align:center; border-bottom:2px solid #f0e8d8; padding-bottom:12px; }
+
+  .setting-section { margin-bottom:18px; }
+  .section-title { font-size:0.8rem; font-weight:900; color:var(--text-mid); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f9f5ee; border-radius:16px; margin-bottom:7px; border:2px solid transparent; transition:border-color 0.2s; }
+  .toggle-row:hover { border-color:#e8d5b0; }
+  .toggle-row.dimmed { opacity:0.38; pointer-events:none; }
+  .toggle-label { font-size:0.92rem; font-weight:700; color:var(--text-dark); }
+  .toggle-desc { font-size:0.72rem; color:var(--text-mid); margin-top:2px; line-height:1.4; }
+  .toggle-switch { position:relative; width:52px; height:28px; flex-shrink:0; margin-left:12px; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-track { position:absolute; inset:0; background:#ccc; border-radius:28px; cursor:pointer; transition:background 0.3s; }
+  .toggle-track::after { content:''; position:absolute; width:22px; height:22px; left:3px; top:3px; background:white; border-radius:50%; transition:transform 0.3s; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
+  .toggle-switch input:checked + .toggle-track { background:#44B888; }
+  .toggle-switch input:checked + .toggle-track::after { transform:translateX(24px); }
+
+  .slider-row { padding:10px 14px 12px; background:#f9f5ee; border-radius:16px; margin-bottom:7px; }
+  .slider-row.dimmed { opacity:0.38; pointer-events:none; }
+  .slider-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .slider-label { font-size:0.85rem; font-weight:700; color:var(--text-mid); }
+  .slider-val { font-weight:900; color:var(--accent); font-size:1rem; }
+  input[type=range] { width:100%; accent-color:var(--accent); cursor:pointer; }
+
+  .color-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .color-btn { padding:10px 4px; border-radius:14px; border:3px solid transparent; cursor:pointer; font-family:'Zen Maru Gothic',sans-serif; font-size:0.78rem; font-weight:700; transition:all 0.2s; text-align:center; box-shadow:0 3px 0 rgba(0,0,0,0.15); }
+  .color-btn:hover { transform:translateY(-2px); }
+  .color-btn.active { border-color:#333; transform:scale(1.06); box-shadow:0 4px 0 rgba(0,0,0,0.25); }
+  .color-btn span { display:block; font-size:1.4rem; margin-bottom:2px; }
+
+  .modal-close-btn { width:100%; margin-top:4px; padding:12px; border-radius:50px; border:none; background:#f0e8d8; font-family:'Zen Maru Gothic',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text-dark); cursor:pointer; transition:all 0.2s; box-shadow:0 3px 0 #d4c4a0; position:relative; overflow:hidden; }
+  .modal-close-btn:hover { background:#e0d0b0; transform:translateY(-2px); }
+
+  /* 結果モーダル */
+  .result-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+  .result-overlay.show { display:flex; }
+  .result-modal { background:white; border-radius:36px; padding:36px 40px; text-align:center; max-width:360px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3); animation:modalPop 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  .result-emoji { font-size:5rem; margin-bottom:12px; display:block; }
+  .result-title { font-family:'Kaisei Decol',serif; font-size:2rem; font-weight:700; margin-bottom:8px; }
+  .result-title.ok { color:#2A7A2A; }
+  .result-title.ng { color:#AA2222; }
+  .result-desc { font-size:1.1rem; color:var(--text-mid); margin-bottom:20px; line-height:1.6; white-space:pre-line; }
+
+  /* 視線カーソル表示（デバッグ／確認用） */
+  .gaze-cursor {
+    display: none;
+    position: fixed;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(255,107,107,0.35);
+    border: 2px solid rgba(255,107,107,0.8);
+    transform: translate(-50%,-50%);
+    pointer-events: none;
+    z-index: 9999;
+    transition: left 0.06s linear, top 0.06s linear;
+  }
+  .gaze-cursor.show { display: block; }
+
+  /* スキャンインジケーター */
+  .scan-indicator { display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.75); color:white; border-radius:20px; padding:8px 22px; font-size:0.9rem; font-weight:700; z-index:150; white-space:nowrap; }
+  .scan-indicator.show { display:block; }
+</style>
+</head>
+<body>
+
+<div class="bg-clouds">
+  <div class="cloud"></div><div class="cloud"></div><div class="cloud"></div>
+</div>
+<div class="stars-container" id="starsContainer"></div>
+<div class="gaze-cursor" id="gazeCursor"></div>
+
+<div class="container">
+
+  <!-- タイトル -->
+  <div class="title-area">
+    <div class="title-main">🎩 どこかな？</div>
+    <div class="title-sub">カップの中におにんぎょうがかくれているよ！</div>
+    <button class="gear-btn" id="gearBtn" aria-label="せってい">⚙️</button>
+  </div>
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hud-card"><div class="hud-label">⭐ せいかい</div><div class="hud-value stars" id="scoreDisplay">0</div></div>
+    <div class="hud-card"><div class="hud-label">🎮 ちょうせん</div><div class="hud-value" id="trialDisplay">0</div></div>
+    <div class="hud-card"><div class="hud-label">🔀 シャッフル</div><div class="hud-value" id="shuffleDisplay">3</div></div>
+  </div>
+
+  <!-- カップ数 -->
+  <div class="settings-area">
+    <div class="settings-label">🏆 カップのかず（むずかしさ）</div>
+    <div class="cup-count-btns">
+      <button class="cup-count-btn active" data-count="2">2つ<br>🟢やさしい<div class="btn-dwell-bar"></div></button>
+      <button class="cup-count-btn" data-count="3">3つ<br>🟡ふつう<div class="btn-dwell-bar"></div></button>
+      <button class="cup-count-btn" data-count="4">4つ<br>🔴むずかしい<div class="btn-dwell-bar"></div></button>
+    </div>
+  </div>
+
+  <!-- ヒントバー -->
+  <div class="hint-bar" id="hintBar"></div>
+
+  <!-- メッセージ -->
+  <div class="message-box" id="messageBox">🎩 したの「はじめる」ボタンをおしてね！</div>
+
+  <!-- ゲームフィールド -->
+  <div class="game-field">
+    <div class="cups-area" id="cupsArea"></div>
+    <div class="deco-grass" id="decoGrass"></div>
+  </div>
+
+  <!-- ボタン -->
+  <div class="action-area">
+    <button class="btn btn-start" id="startBtn">✨ はじめる<div class="btn-dwell-bar"></div></button>
+    <button class="btn btn-replay" id="replayBtn" style="display:none">🔁 もういちど<div class="btn-dwell-bar"></div></button>
+  </div>
+
+</div>
+
+<!-- スキャンインジケーター -->
+<div class="scan-indicator" id="scanIndicator"></div>
+
+<!-- ========== 設定モーダル ========== -->
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="settings-modal">
+    <div class="modal-title">⚙️ せってい</div>
+
+    <!-- 視線入力 -->
+    <div class="setting-section">
+      <div class="section-title">👁 視線入力（Tobii・見るマウス）</div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">👁 みつめてえらぶ</div>
+          <div class="toggle-desc">しばらくみつめると自動でえらべる。Tobii・見るマウスと組み合わせて使う</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleDwell" onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="slider-row dimmed" id="dwellTimeRow">
+        <div class="slider-top">
+          <span class="slider-label">⏱ みつめるじかん</span>
+          <span class="slider-val" id="dwellTimeVal">1.5びょう</span>
+        </div>
+        <input type="range" id="dwellTimeSlider" min="0.5" max="5" step="0.5" value="1.5" oninput="updateDwellTime()">
+      </div>
+
+      <div class="slider-row dimmed" id="dwellToleranceRow">
+        <div class="slider-top">
+          <span class="slider-label">🎯 視線のぶれ許容（ピクセル）</span>
+          <span class="slider-val" id="dwellToleranceVal">60px</span>
+        </div>
+        <input type="range" id="dwellToleranceSlider" min="20" max="150" step="10" value="60" oninput="updateDwellTolerance()">
+      </div>
+
+      <div class="toggle-row dimmed" id="gazeCursorRow">
+        <div>
+          <div class="toggle-label">🔴 視線カーソルを表示</div>
+          <div class="toggle-desc">マウスの位置に赤い丸を表示（動作確認用）</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleGazeCursor" onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- スキャン -->
+    <div class="setting-section">
+      <div class="section-title">♿ スイッチスキャン</div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">🔵 スイッチスキャン</div>
+          <div class="toggle-desc">カップを順番にひかり、スイッチ/スペースでえらぶ</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleScan" onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="slider-row dimmed" id="scanSpeedRow">
+        <div class="slider-top">
+          <span class="slider-label">⏱ スキャンのはやさ</span>
+          <span class="slider-val" id="scanSpeedVal">1.5びょう</span>
+        </div>
+        <input type="range" id="scanSpeed" min="0.5" max="5" step="0.5" value="1.5" oninput="updateScanSpeed()">
+      </div>
+
+      <div class="toggle-row dimmed" id="autoScanRow">
+        <div>
+          <div class="toggle-label">🔄 じどうスキャン</div>
+          <div class="toggle-desc">オフ＝スペース:次へ / Enter:えらぶ（2スイッチ）</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleAutoScan" checked onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 表示 -->
+    <div class="setting-section">
+      <div class="section-title">🖥 表示・操作</div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">👆 タップエリアをひろく</div>
+          <div class="toggle-desc">カップを大きくして押しやすくする</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleLargeTouch" onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">🐢 うごきをゆっくり</div>
+          <div class="toggle-desc">シャッフルやアニメーションをゆっくりにする</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleSlow" onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">🌗 ハイコントラスト</div>
+          <div class="toggle-desc">カップのふちを太くして見やすくする</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggleHighContrast" onchange="applySettings()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- カップの色 -->
+    <div class="setting-section">
+      <div class="section-title">🎨 カップのいろ</div>
+      <div class="color-grid" id="colorGrid"></div>
+    </div>
+
+    <button class="modal-close-btn" id="settingsCloseBtn">✅ とじる<div class="btn-dwell-bar"></div></button>
+  </div>
+</div>
+
+<!-- 結果モーダル -->
+<div class="result-overlay" id="resultOverlay">
+  <div class="result-modal">
+    <span class="result-emoji" id="resultEmoji"></span>
+    <div class="result-title" id="resultTitle"></div>
+    <div class="result-desc" id="resultDesc"></div>
+    <button class="btn btn-start" id="nextBtn" style="width:100%">つぎのゲーム！<div class="btn-dwell-bar"></div></button>
+  </div>
+</div>
+
+<script>
+// ========== 状態 ==========
+let cupCount = 2, dollIndex = -1, phase = 'idle';
+let score = 0, trials = 0, shuffleCount = 3;
+let cupsData = [];
+
+// ========== 設定値 ==========
+let useDwell       = false;
+let dwellTime      = 1500;   // ms
+let dwellTolerance = 60;     // px（視線ぶれ許容）
+let showGazeCursor = false;
+
+let useScan        = false;
+let autoScan       = true;
+let scanInterval   = 1500;
+let scanTimer      = null;
+let scanFocusIdx   = 0;
+
+let useLargeTouch  = false;
+let useSlow        = false;
+let useHighContrast= false;
+
+// ========== ドウェル管理 ==========
+// 各ドウェル対象要素 { el, callback, timer, startTime, ringEl? }
+const dwellTargets = new Map();
+let activeDwellEl  = null;
+let dwellTimer     = null;
+let dwellStartPos  = { x: 0, y: 0 };
+
+function registerDwell(el, callback) {
+  dwellTargets.set(el, callback);
+}
+function unregisterDwell(el) {
+  dwellTargets.delete(el);
+  cancelDwell(el);
+}
+function cancelAllDwells() {
+  if (activeDwellEl) cancelDwell(activeDwellEl);
+  activeDwellEl = null;
+}
+
+function startDwellOn(el, x, y) {
+  if (!useDwell) return;
+  if (activeDwellEl === el) return;
+  cancelAllDwells();
+  activeDwellEl = el;
+  dwellStartPos = { x, y };
+
+  el.classList.add('dwell-active');
+
+  // リング/バーのアニメーション開始
+  const ring = el.querySelector('.dwell-ring circle.progress');
+  const bar  = el.querySelector('.btn-dwell-bar');
+  if (ring) {
+    ring.style.transition = 'none';
+    ring.style.strokeDashoffset = '220';
+    requestAnimationFrame(() => {
+      ring.style.transition = `stroke-dashoffset ${dwellTime}ms linear`;
+      ring.style.strokeDashoffset = '0';
+    });
+  }
+  if (bar) {
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    requestAnimationFrame(() => {
+      bar.style.transition = `width ${dwellTime}ms linear`;
+      bar.style.width = '100%';
+    });
+  }
+
+  dwellTimer = setTimeout(() => {
+    if (activeDwellEl === el) {
+      cancelDwell(el);
+      const cb = dwellTargets.get(el);
+      if (cb) cb();
+    }
+  }, dwellTime);
+}
+
+function cancelDwell(el) {
+  if (!el) return;
+  clearTimeout(dwellTimer);
+  el.classList.remove('dwell-active');
+  const ring = el.querySelector('.dwell-ring circle.progress');
+  const bar  = el.querySelector('.btn-dwell-bar');
+  if (ring) { ring.style.transition = 'none'; ring.style.strokeDashoffset = '220'; }
+  if (bar)  { bar.style.transition = 'none'; bar.style.width = '0%'; }
+  if (activeDwellEl === el) activeDwellEl = null;
+}
+
+// マウス移動でドウェル制御
+document.addEventListener('mousemove', e => {
+  const cursor = document.getElementById('gazeCursor');
+  if (showGazeCursor) { cursor.classList.add('show'); cursor.style.left = e.clientX + 'px'; cursor.style.top = e.clientY + 'px'; }
+  else cursor.classList.remove('show');
+
+  if (!useDwell) return;
+
+  // 現在ドウェル中の要素の視線ぶれチェック
+  if (activeDwellEl) {
+    const dx = e.clientX - dwellStartPos.x, dy = e.clientY - dwellStartPos.y;
+    if (Math.sqrt(dx*dx + dy*dy) > dwellTolerance) {
+      cancelDwell(activeDwellEl);
+    }
+    return;
+  }
+
+  // ヒットテストで対象要素を探す
+  const hit = e.target.closest('[data-dwell]');
+  if (hit && dwellTargets.has(hit) && !hit.disabled && !hit.classList.contains('disabled')) {
+    startDwellOn(hit, e.clientX, e.clientY);
+  }
+});
+
+document.addEventListener('mouseleave', () => cancelAllDwells());
+
+// ========== ドウェルリングSVG ==========
+function makeDwellRing() {
+  const div = document.createElement('div');
+  div.className = 'dwell-ring';
+  div.innerHTML = `<svg viewBox="0 0 80 80"><circle class="track" cx="40" cy="40" r="35"/><circle class="progress" cx="40" cy="40" r="35" stroke-dasharray="220" stroke-dashoffset="220"/></svg>`;
+  return div;
+}
+
+// ========== カラーテーマ ==========
+const COLOR_THEMES = [
+  { id:'multi', label:'カラフル', icon:'🌈',
+    colors:[
+      {main:'#FF8C69',dark:'#CC5533',light:'#FFAA88',rim:'#FFCCAA'},
+      {main:'#FFD166',dark:'#CC9933',light:'#FFE599',rim:'#FFEEBB'},
+      {main:'#88D8B0',dark:'#44AA77',light:'#AAEEBB',rim:'#CCF2DD'},
+      {main:'#C9B1FF',dark:'#8866CC',light:'#DDCCFF',rim:'#EEDDFF'},
+    ]},
+  { id:'red',    label:'あか',     icon:'🔴', bg:'#EE4444', colors:Array(4).fill({main:'#FF6666',dark:'#CC2222',light:'#FF9999',rim:'#FFBBBB'})},
+  { id:'blue',   label:'あお',     icon:'🔵', bg:'#3377EE', colors:Array(4).fill({main:'#5599FF',dark:'#2244CC',light:'#88BBFF',rim:'#BBDDFF'})},
+  { id:'green',  label:'みどり',   icon:'🟢', bg:'#33AA55', colors:Array(4).fill({main:'#55CC77',dark:'#229944',light:'#88EE99',rim:'#BBFFCC'})},
+  { id:'yellow', label:'きいろ',   icon:'🟡', bg:'#DDAA00', colors:Array(4).fill({main:'#FFD633',dark:'#CC9900',light:'#FFE880',rim:'#FFF2B0'})},
+  { id:'purple', label:'むらさき', icon:'🟣', bg:'#8855EE', colors:Array(4).fill({main:'#AA77FF',dark:'#6633CC',light:'#CCAAFF',rim:'#EEDDFF'})},
+  { id:'orange', label:'オレンジ', icon:'🟠', bg:'#EE7722', colors:Array(4).fill({main:'#FF9944',dark:'#CC5511',light:'#FFBB77',rim:'#FFDDB0'})},
+  { id:'white',  label:'しろ',     icon:'⬜', bg:'#BBBBBB', colors:Array(4).fill({main:'#EEEEEE',dark:'#AAAAAA',light:'#FFFFFF',rim:'#F5F5F5'})},
+];
+let currentThemeId = 'multi';
+function getColors(i) { const t = COLOR_THEMES.find(t=>t.id===currentThemeId)||COLOR_THEMES[0]; return t.colors[i]||t.colors[0]; }
+
+// ========== カラーグリッド ==========
+function buildColorGrid() {
+  const grid = document.getElementById('colorGrid');
+  grid.innerHTML = '';
+  COLOR_THEMES.forEach(theme => {
+    const btn = document.createElement('button');
+    btn.className = 'color-btn' + (currentThemeId===theme.id?' active':'');
+    btn.style.background = theme.id==='multi'
+      ? 'linear-gradient(135deg,#FF8C69 0%,#FFD166 35%,#88D8B0 65%,#C9B1FF 100%)'
+      : (theme.bg||'#eee');
+    btn.style.color = (theme.id==='white'||theme.id==='yellow') ? '#333':'white';
+    btn.innerHTML = `<span>${theme.icon}</span>${theme.label}`;
+    btn.dataset.dwell = '1';
+    btn.onclick = () => { currentThemeId=theme.id; buildColorGrid(); renderCups(); };
+    registerDwell(btn, () => btn.onclick());
+    grid.appendChild(btn);
+  });
+}
+
+// ========== カップSVG（口が下・底が上）==========
+function makeCupSVG(color) {
+  const sw = useHighContrast ? 4 : 2;
+  return `
+  <svg class="cup-svg" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="50" cy="10" rx="28" ry="7" fill="${color.dark}" opacity="0.25"/>
+    <ellipse cx="50" cy="8" rx="28" ry="7" fill="${color.rim}" stroke="${useHighContrast?'#222':'none'}" stroke-width="${sw}"/>
+    <path d="M22 8 Q6 15 4 92 L96 92 Q94 15 78 8 Z" fill="${color.main}" stroke="${useHighContrast?'#222':'none'}" stroke-width="${sw}"/>
+    <path d="M30 14 Q18 50 16 86" stroke="${color.light}" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.6"/>
+    <ellipse cx="50" cy="92" rx="46" ry="10" fill="${color.rim}" stroke="${color.dark}" stroke-width="${sw}" opacity="0.9"/>
+  </svg>`;
+}
+
+// ========== カップ描画 ==========
+function renderCups() {
+  // 既存ドウェル解除
+  cupsData.forEach(c => unregisterDwell(c.wrapper));
+  const area = document.getElementById('cupsArea');
+  area.innerHTML = '';
+  cupsData = [];
+  const grass = document.getElementById('decoGrass');
+  grass.innerHTML = '';
+  for (let i=0;i<20;i++){const b=document.createElement('div');b.className='grass-blade';grass.appendChild(b);}
+
+  for (let i=0;i<cupCount;i++) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'cup-wrapper disabled' + (useLargeTouch?' large-touch':'');
+    wrapper.dataset.index = i;
+    wrapper.dataset.dwell = '1';
+
+    const dollEl = document.createElement('div');
+    dollEl.className = 'doll hidden';
+    dollEl.textContent = '🧸';
+
+    const cupBody = document.createElement('div');
+    cupBody.className = 'cup-body';
+    cupBody.innerHTML = makeCupSVG(getColors(i));
+
+    const base = document.createElement('div');
+    base.className = 'cup-base';
+
+    // ドウェルリング
+    const ring = makeDwellRing();
+    wrapper.appendChild(ring);
+    wrapper.appendChild(dollEl);
+    wrapper.appendChild(cupBody);
+    wrapper.appendChild(base);
+    area.appendChild(wrapper);
+
+    cupsData.push({ wrapper, cupBody, dollEl });
+  }
+}
+
+// ========== ドウェル対応ボタン登録 ==========
+function setupDwellButtons() {
+  const map = [
+    { id:'startBtn',       cb: () => startGame() },
+    { id:'replayBtn',      cb: () => replayShuffle() },
+    { id:'nextBtn',        cb: () => closeResult() },
+    { id:'gearBtn',        cb: () => openSettings() },
+    { id:'settingsCloseBtn', cb: () => closeSettings() },
+  ];
+  map.forEach(({ id, cb }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.dataset.dwell = '1';
+    el.onclick = cb;
+    registerDwell(el, cb);
+  });
+
+  // カップ数ボタン
+  document.querySelectorAll('.cup-count-btn').forEach(btn => {
+    const n = parseInt(btn.dataset.count);
+    btn.dataset.dwell = '1';
+    btn.onclick = () => setCupCount(n);
+    registerDwell(btn, () => setCupCount(n));
+  });
+}
+
+// ========== 設定モーダル ==========
+function openSettings()  { buildColorGrid(); document.getElementById('settingsOverlay').classList.add('show'); }
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
+
+function applySettings() {
+  useDwell        = document.getElementById('toggleDwell').checked;
+  showGazeCursor  = document.getElementById('toggleGazeCursor').checked;
+  useScan         = document.getElementById('toggleScan').checked;
+  autoScan        = document.getElementById('toggleAutoScan').checked;
+  useLargeTouch   = document.getElementById('toggleLargeTouch').checked;
+  useSlow         = document.getElementById('toggleSlow').checked;
+  useHighContrast = document.getElementById('toggleHighContrast').checked;
+
+  // UI 活性制御
+  ['dwellTimeRow','dwellToleranceRow','gazeCursorRow'].forEach(id =>
+    document.getElementById(id).classList.toggle('dimmed', !useDwell));
+  ['scanSpeedRow','autoScanRow'].forEach(id =>
+    document.getElementById(id).classList.toggle('dimmed', !useScan));
+
+  // ヒントバー
+  const hint = document.getElementById('hintBar');
+  hint.className = 'hint-bar';
+  if (useDwell && useScan) {
+    hint.classList.add('show','hint-dwell');
+    hint.textContent = '👁 みつめてえらぶ ＋ 🔵 スイッチスキャン　どちらも使えます';
+  } else if (useDwell) {
+    hint.classList.add('show','hint-dwell');
+    hint.textContent = `👁 みつめてえらぶ（${(dwellTime/1000).toFixed(1)}びょうみつめると えらべるよ） — Tobii・見るマウスと組み合わせてね`;
+  } else if (useScan) {
+    hint.classList.add('show','hint-scan');
+    hint.textContent = autoScan
+      ? '🔵 スペースキー / スイッチ でえらぶ'
+      : '🔵 スペース：次へ　Enter：えらぶ（2スイッチ）';
+  }
+
+  if (!showGazeCursor) document.getElementById('gazeCursor').classList.remove('show');
+  if (phase !== 'guess') stopScan();
+  renderCups();
+  // カップドウェル再登録
+  cupsData.forEach((c, i) => registerDwell(c.wrapper, () => { if (phase==='guess') guess(i); }));
+}
+
+function updateDwellTime() {
+  const v = parseFloat(document.getElementById('dwellTimeSlider').value);
+  dwellTime = v * 1000;
+  document.getElementById('dwellTimeVal').textContent = v.toFixed(1) + 'びょう';
+  document.documentElement.style.setProperty('--dwell-time', v + 's');
+}
+function updateDwellTolerance() {
+  dwellTolerance = parseInt(document.getElementById('dwellToleranceSlider').value);
+  document.getElementById('dwellToleranceVal').textContent = dwellTolerance + 'px';
+}
+function updateScanSpeed() {
+  const v = parseFloat(document.getElementById('scanSpeed').value);
+  scanInterval = v * 1000;
+  document.getElementById('scanSpeedVal').textContent = v.toFixed(1) + 'びょう';
+}
+
+// ========== カップ数 ==========
+function setCupCount(n) {
+  if (phase !== 'idle') return;
+  cupCount = n;
+  shuffleCount = n===2?3:n===3?5:7;
+  document.querySelectorAll('.cup-count-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.count)===n));
+  document.getElementById('shuffleDisplay').textContent = shuffleCount;
+  renderCups();
+  cupsData.forEach((c,i) => registerDwell(c.wrapper, () => { if(phase==='guess') guess(i); }));
+  setMessage('🎩 したの「はじめる」ボタンをおしてね！','');
+}
+
+// ========== メッセージ ==========
+function setMessage(text, type='') {
+  const box = document.getElementById('messageBox');
+  box.textContent = text;
+  box.className = 'message-box' + (type?' '+type:'');
+}
+
+// ========== ゲーム開始 ==========
+async function startGame() {
+  if (phase !== 'idle') return;
+  phase = 'peek';
+  stopScan(); cancelAllDwells();
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('replayBtn').style.display = 'none';
+
+  dollIndex = Math.floor(Math.random() * cupCount);
+  cupsData.forEach(c => {
+    c.wrapper.classList.add('disabled');
+    c.dollEl.className = 'doll hidden';
+    c.cupBody.style.transform = '';
+    c.cupBody.className = 'cup-body';
+  });
+
+  trials++;
+  document.getElementById('trialDisplay').textContent = trials;
+  setMessage('👀 おにんぎょうのいばしょをよくみてね！','');
+
+  const spd = useSlow ? 2.2 : 1;
+  await sleep(400);
+  cupsData[dollIndex].dollEl.classList.remove('hidden');
+  await sleep(200);
+  cupsData[dollIndex].dollEl.classList.add('revealed');
+  cupsData[dollIndex].cupBody.classList.add('lifting');
+  await sleep(1500 * spd);
+
+  setMessage('🙈 かくれるよ～！おぼえてね！','');
+  cupsData[dollIndex].cupBody.classList.remove('lifting');
+  cupsData[dollIndex].cupBody.classList.add('lowering');
+  await sleep(100);
+  cupsData[dollIndex].dollEl.classList.remove('revealed');
+  cupsData[dollIndex].dollEl.classList.add('hidden');
+  await sleep(500 * spd);
+  cupsData[dollIndex].cupBody.classList.remove('lowering');
+
+  await sleep(600);
+  setMessage('🔀 シャッフルするよ！よくみてね！','');
+  await sleep(500);
+
+  phase = 'shuffle';
+  await doShuffle();
+
+  phase = 'guess';
+  setMessage('🤔 どのカップかな？みつめて（またはタップして）えらんでみよう！','');
+  cupsData.forEach((c, i) => {
+    c.wrapper.classList.remove('disabled');
+    c.wrapper.onclick = () => guess(i);
+    registerDwell(c.wrapper, () => guess(i));
+  });
+
+  if (useScan) {
+    const ind = document.getElementById('scanIndicator');
+    ind.textContent = autoScan ? '🔵 スキャンちゅう… スペースでえらぶ' : '🔵 スペース:つぎへ　Enter:えらぶ';
+    ind.classList.add('show');
+    startScan();
+  }
+}
+
+// ========== シャッフル ==========
+async function doShuffle() {
+  const spd = useSlow ? 2.2 : 1;
+  for (let s=0;s<shuffleCount;s++) {
+    let a=Math.floor(Math.random()*cupCount), b;
+    do{b=Math.floor(Math.random()*cupCount);}while(b===a);
+    await swapCups(a,b,spd);
+    if(a===dollIndex) dollIndex=b; else if(b===dollIndex) dollIndex=a;
+    await sleep(120*spd);
+  }
+}
+
+async function swapCups(a,b,spd=1) {
+  const area=document.getElementById('cupsArea');
+  const wA=cupsData[a].wrapper, wB=cupsData[b].wrapper;
+  const rA=wA.getBoundingClientRect(), rB=wB.getBoundingClientRect();
+  const dx=rB.left-rA.left, dur=380*spd;
+  wA.style.transition=`transform ${dur}ms cubic-bezier(0.4,0,0.2,1)`;
+  wB.style.transition=`transform ${dur}ms cubic-bezier(0.4,0,0.2,1)`;
+  wA.style.transform=`translateX(${dx}px)`;
+  wB.style.transform=`translateX(${-dx}px)`;
+  await sleep(dur);
+  wA.style.transition=''; wB.style.transition='';
+  wA.style.transform=''; wB.style.transform='';
+  const ch=Array.from(area.children);
+  const iA=ch.indexOf(wA), iB=ch.indexOf(wB);
+  if(iA<iB){area.insertBefore(wB,wA);area.insertBefore(wA,ch[iB+1]||null);}
+  else{area.insertBefore(wA,wB);area.insertBefore(wB,ch[iA+1]||null);}
+  [cupsData[a],cupsData[b]]=[cupsData[b],cupsData[a]];
+}
+
+// ========== スイッチスキャン ==========
+function startScan() {
+  scanFocusIdx=0; highlightScan(0);
+  if (autoScan) scanTimer=setInterval(()=>{scanFocusIdx=(scanFocusIdx+1)%cupCount;highlightScan(scanFocusIdx);},scanInterval);
+}
+function stopScan() {
+  clearInterval(scanTimer); scanTimer=null;
+  cupsData.forEach(c=>c.wrapper.classList.remove('scan-focus'));
+  document.getElementById('scanIndicator').classList.remove('show');
+}
+function highlightScan(idx){ cupsData.forEach((c,i)=>c.wrapper.classList.toggle('scan-focus',i===idx)); }
+
+document.addEventListener('keydown', e => {
+  if (phase!=='guess'||!useScan) return;
+  if (e.code==='Space') {
+    e.preventDefault();
+    if (autoScan){stopScan();guess(scanFocusIdx);}
+    else{scanFocusIdx=(scanFocusIdx+1)%cupCount;highlightScan(scanFocusIdx);}
+  }
+  if (e.code==='Enter'&&!autoScan){e.preventDefault();stopScan();guess(scanFocusIdx);}
+});
+
+// ========== 答え合わせ ==========
+async function guess(i) {
+  if (phase!=='guess') return;
+  phase='result';
+  stopScan(); cancelAllDwells();
+  cupsData.forEach(c=>{c.wrapper.classList.add('disabled');c.wrapper.onclick=null;unregisterDwell(c.wrapper);});
+
+  const correct=(i===dollIndex);
+  for(let k=0;k<cupCount;k++){
+    cupsData[k].cupBody.classList.add('lifting');
+    if(k===dollIndex){cupsData[k].dollEl.classList.remove('hidden');cupsData[k].dollEl.classList.add('revealed');}
+  }
+  await sleep(600);
+
+  if(correct){
+    score++;
+    const sd=document.getElementById('scoreDisplay');
+    sd.classList.add('score-bump'); setTimeout(()=>sd.classList.remove('score-bump'),500);
+    sd.textContent=score;
+    setMessage('🎉 せいかい！やったね！','success');
+    showStars(cupsData[i].wrapper);
+    await sleep(800); showResult(true);
+  } else {
+    setMessage(`😢 ざんねん！おにんぎょうは ${dollIndex+1}ばんめ だったよ！`,'fail');
+    await sleep(800); showResult(false);
+  }
+}
+
+// ========== 結果モーダル ==========
+function showResult(correct) {
+  document.getElementById('resultEmoji').textContent = correct?'🌟':'😢';
+  document.getElementById('resultTitle').textContent = correct?'せいかい！':'ざんねん…';
+  document.getElementById('resultTitle').className = 'result-title '+(correct?'ok':'ng');
+  document.getElementById('resultDesc').textContent = correct
+    ? `すごい！おにんぎょうをみつけたね！\nせいかい ${score} かい！`
+    : `つぎはわかるかな？\nがんばってね！`;
+  document.getElementById('resultOverlay').classList.add('show');
+}
+
+function closeResult() {
+  document.getElementById('resultOverlay').classList.remove('show');
+  phase='idle';
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('replayBtn').style.display='inline-block';
+  renderCups();
+  cupsData.forEach((c,i) => registerDwell(c.wrapper, () => { if(phase==='guess') guess(i); }));
+  setMessage('🎩 もういちどためしてみよう！','');
+}
+
+function replayShuffle(){ if(phase!=='idle')return; startGame(); }
+
+// ========== 星エフェクト ==========
+function showStars(el) {
+  const container=document.getElementById('starsContainer');
+  const rect=el.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const emojis=['⭐','✨','🌟','💫','🎊'];
+  for(let i=0;i<8;i++){
+    setTimeout(()=>{
+      const star=document.createElement('div'); star.className='star-particle';
+      star.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+      const angle=Math.PI*2*i/8, dist=60+Math.random()*40;
+      star.style.left=(cx+Math.cos(angle)*dist-16)+'px';
+      star.style.top=(cy+Math.sin(angle)*dist-16)+'px';
+      container.appendChild(star); setTimeout(()=>star.remove(),1300);
+    },i*60);
+  }
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ========== 起動 ==========
+buildColorGrid();
+renderCups();
+setupDwellButtons();
+document.getElementById('shuffleDisplay').textContent = shuffleCount;
+</script>
+</body>
+</html>
