@@ -33,9 +33,28 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 .hdr-title{font-size:1.75rem;font-weight:700;letter-spacing:3px;position:relative;z-index:1;}
 .hdr-sub{font-size:0.8125rem;opacity:.85;margin-top:4px;position:relative;z-index:1;}
 
-/* LEVEL TABS */
-.lvtabs{display:flex;gap:8px;padding:14px 14px 0;overflow-x:auto;scrollbar-width:none;}
+/* グローバルレベルタブ：ホーム画面のみ表示 */
+.lvtabs{ display:flex;gap:8px;padding:14px 14px 0;overflow-x:auto;scrollbar-width:none; }
 .lvtabs::-webkit-scrollbar{display:none;}
+.lvtabs.hidden-on-activity{ display:none; }
+
+/* アクティビティ内レベルタブ */
+.act-lvtabs{
+  display:flex;gap:8px;padding:10px 14px 0;overflow-x:auto;scrollbar-width:none;
+}
+.act-lvtabs::-webkit-scrollbar{display:none;}
+.act-lvtab{
+  flex-shrink:0;min-height:40px;padding:0 16px;border-radius:30px;
+  font-family:inherit;font-size:0.8125rem;font-weight:700;border:2.5px solid;
+  cursor:pointer;transition:all .2s;background:#fff;box-shadow:var(--shadow-sm);
+}
+.act-lvtab[data-lv="1"]{color:var(--lv1);border-color:var(--lv1);}
+.act-lvtab[data-lv="2"]{color:var(--lv2);border-color:var(--lv2);}
+.act-lvtab[data-lv="3"]{color:var(--lv3);border-color:var(--lv3);}
+.act-lvtab.on[data-lv="1"]{background:var(--lv1);color:#fff;}
+.act-lvtab.on[data-lv="2"]{background:var(--lv2);color:#fff;}
+.act-lvtab.on[data-lv="3"]{background:var(--lv3);color:#fff;}
+.act-lvtab.on{transform:scale(1.05);}
 .lvtab{flex-shrink:0;min-height:var(--min-tap);padding:0 18px;border-radius:30px;font-family:inherit;font-size:0.875rem;font-weight:700;border:2.5px solid;cursor:pointer;transition:all .2s;background:#fff;box-shadow:var(--shadow-sm);}
 .lvtab[data-lv="1"]{color:var(--lv1);border-color:var(--lv1);}
 .lvtab[data-lv="2"]{color:var(--lv2);border-color:var(--lv2);}
@@ -251,6 +270,9 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 .cf{position:absolute;top:-12px;width:10px;height:10px;border-radius:50%;animation:cfFall linear forwards;}
 @keyframes cfFall{to{transform:translateY(110vh) rotate(720deg);opacity:0;}}
 
+/* レベルタブ（各画面内） */
+.scr-lvtabs{padding:10px 14px 0;}
+
 /* DIVIDER */
 .divider{height:1px;background:#EEE;margin:0 14px 12px;}
 
@@ -357,46 +379,8 @@ body.dark .font-btn.on{background:var(--or);color:#fff;}
 body.dark .ecard,.dark .story-item,.dark .sitem,.dark .quiz-opt,.dark .wq-btn,.dark .ch-btn,.dark .story-a-btn{background:#1E2D4A;}
 body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 </style>
-
-<style>
-/* ===== フルスクリーンボタン共通 ===== */
-#fs-btn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 99999;
-  background: rgba(45,42,74,0.82);
-  color: white;
-  border: none;
-  border-radius: 50px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 800;
-  font-family: 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-  transition: background 0.18s, transform 0.18s;
-  letter-spacing: 1px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-#fs-btn:hover { background: rgba(45,42,74,1); transform: scale(1.05); }
-#fs-btn:focus { outline: 3px solid #5BC4F5; outline-offset: 2px; }
-:fullscreen #fs-btn,
-:-webkit-full-screen #fs-btn { top: 10px; right: 10px; }
-</style>
-<link rel="icon" href="favicon.png" type="image/png">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
-<button id="fs-btn" onclick="toggleFS()" aria-label="全画面表示の切り替え" title="ぜんぶにひろげる">
-  <span id="fs-icon">⛶</span><span id="fs-label">ぜんぶにひろげる</span>
-</button>
-
 
 <div class="hdr">
   <button class="hdr-gear" onclick="openSettings()" aria-label="設定">⚙️</button>
@@ -481,17 +465,25 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
   </div>
 </div>
 
-<div class="lvtabs">
-  <button class="lvtab on" data-lv="1" onclick="setLv(1)">🌱 はじめて</button>
-  <button class="lvtab" data-lv="2" onclick="setLv(2)">🌿 なれてきた</button>
-  <button class="lvtab" data-lv="3" onclick="setLv(3)">🌳 もっとできる</button>
-</div>
+<!-- レベルタブはホーム画面と各アクティビティ内に移動したため削除 -->
 
 <!-- HOME -->
 <div id="s-home" class="scr on">
   <div class="stitle">📚 なにをする？</div>
+  <!-- ホームのレベルタブ -->
+  <div class="lvtabs" id="home-lvtabs">
+    <button class="lvtab on" data-lv="1" onclick="setLv(1)">🌱 はじめて</button>
+    <button class="lvtab" data-lv="2" onclick="setLv(2)">🌿 なれてきた</button>
+    <button class="lvtab" data-lv="3" onclick="setLv(3)">🌳 もっとできる</button>
+  </div>
   <div class="mgrid">
-    <button class="mcard mc-emotion" onclick="go('s-emotion')"><span class="mico">😊</span><div class="mtitle">きもちカード</div><div class="mdesc">いろんなきもちを知ろう</div></button>
+    <button class="mcard mc-emotion" onclick="go('s-emotion')" style="grid-column:1/-1;flex-direction:row;justify-content:flex-start;text-align:left;padding:18px 20px;gap:16px;">
+      <span class="mico" style="font-size:2rem;margin-bottom:0;">😊</span>
+      <div>
+        <div class="mtitle">きもちカード</div>
+        <div class="mdesc">全レベル共通・18種類の気持ちを知ろう</div>
+      </div>
+    </button>
     <button class="mcard mc-scene" onclick="go('s-scene-list')"><span class="mico">🎭</span><div class="mtitle">ロールプレイ</div><div class="mdesc">場面を練習しよう</div></button>
     <button class="mcard mc-word" onclick="go('s-word')"><span class="mico">💬</span><div class="mtitle">ことばクイズ</div><div class="mdesc">どんな言葉がいいかな</div></button>
     <button class="mcard mc-story" onclick="go('s-story-list')"><span class="mico">📖</span><div class="mtitle">ソーシャルストーリー</div><div class="mdesc">場面を読んで学ぼう</div></button>
@@ -501,7 +493,7 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
   </div>
 </div>
 
-<!-- EMOTION -->
+<!-- EMOTION（レベル不問・全画面固定） -->
 <div id="s-emotion" class="scr">
   <button class="back" onclick="home()">← もどる</button>
   <div class="stitle">😊 きもちカード</div>
@@ -520,6 +512,11 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 <div id="s-scene-list" class="scr">
   <button class="back" onclick="home()">← もどる</button>
   <div class="stitle">🎭 ロールプレイ</div>
+  <div class="lvtabs scr-lvtabs">
+    <button class="lvtab on" data-lv="1" onclick="setLvAndRefresh(1,'scene-list')">🌱 はじめて</button>
+    <button class="lvtab" data-lv="2" onclick="setLvAndRefresh(2,'scene-list')">🌿 なれてきた</button>
+    <button class="lvtab" data-lv="3" onclick="setLvAndRefresh(3,'scene-list')">🌳 もっとできる</button>
+  </div>
   <div class="slist" id="slist"></div>
 </div>
 
@@ -533,6 +530,11 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 <div id="s-word" class="scr">
   <button class="back" onclick="home()">← もどる</button>
   <div class="stitle">💬 ことばクイズ</div>
+  <div class="lvtabs scr-lvtabs">
+    <button class="lvtab on" data-lv="1" onclick="setLvAndRefresh(1,'word')">🌱 はじめて</button>
+    <button class="lvtab" data-lv="2" onclick="setLvAndRefresh(2,'word')">🌿 なれてきた</button>
+    <button class="lvtab" data-lv="3" onclick="setLvAndRefresh(3,'word')">🌳 もっとできる</button>
+  </div>
   <div id="wq-content"></div>
 </div>
 
@@ -540,6 +542,11 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 <div id="s-story-list" class="scr">
   <button class="back" onclick="home()">← もどる</button>
   <div class="stitle">📖 ソーシャルストーリー</div>
+  <div class="lvtabs scr-lvtabs">
+    <button class="lvtab on" data-lv="1" onclick="setLvAndRefresh(1,'story-list')">🌱 はじめて</button>
+    <button class="lvtab" data-lv="2" onclick="setLvAndRefresh(2,'story-list')">🌿 なれてきた</button>
+    <button class="lvtab" data-lv="3" onclick="setLvAndRefresh(3,'story-list')">🌳 もっとできる</button>
+  </div>
   <div class="storylist" id="storylist"></div>
 </div>
 
@@ -553,6 +560,11 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 <div id="s-quiz" class="scr">
   <button class="back" onclick="home()">← もどる</button>
   <div class="stitle">❓ SSTクイズ</div>
+  <div class="lvtabs scr-lvtabs">
+    <button class="lvtab on" data-lv="1" onclick="setLvAndRefresh(1,'quiz')">🌱 はじめて</button>
+    <button class="lvtab" data-lv="2" onclick="setLvAndRefresh(2,'quiz')">🌿 なれてきた</button>
+    <button class="lvtab" data-lv="3" onclick="setLvAndRefresh(3,'quiz')">🌳 もっとできる</button>
+  </div>
   <div id="quiz-content"></div>
 </div>
 
@@ -1024,8 +1036,20 @@ function go(id){
   if(id==='s-quiz'){ currentQuizIdx=0; currentQuizScore=0; buildQuiz(); }
 }
 function setLv(lv){
-  currentLv=lv;
-  document.querySelectorAll('.lvtab').forEach(t=>t.classList.toggle('on',+t.dataset.lv===lv));
+  currentLv = lv;
+  // すべてのレベルタブを同期
+  document.querySelectorAll('.lvtab').forEach(t=>{
+    t.classList.toggle('on', +t.dataset.lv === lv);
+  });
+}
+
+// アクティビティ画面内でレベル変更→内容を即リフレッシュ
+function setLvAndRefresh(lv, screen){
+  setLv(lv);
+  if(screen === 'scene-list') buildSceneList();
+  if(screen === 'word'){ currentWQIdx=0; buildWordQuiz(); }
+  if(screen === 'story-list') buildStoryList();
+  if(screen === 'quiz'){ currentQuizIdx=0; currentQuizScore=0; buildQuiz(); }
 }
 
 // ============================================================
@@ -1713,57 +1737,6 @@ function autoSpeak(fn){
 // ============================================================
 loadCfg();
 buildEmotions();
-</script>
-
-<script>
-/* ===== フルスクリーン共通 ===== */
-function toggleFS() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  const el = document.documentElement;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (!isFS) {
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) req.call(el);
-  } else {
-    const ex = document.exitFullscreen || document.webkitExitFullscreen;
-    if (ex) ex.call(document);
-  }
-}
-function updateFSBtn() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  if (!btn) return;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  icon.textContent = isFS ? '✕' : '⛶';
-  label.textContent = isFS ? 'もとにもどす' : 'ぜんぶにひろげる';
-}
-document.addEventListener('fullscreenchange', updateFSBtn);
-document.addEventListener('webkitfullscreenchange', updateFSBtn);
-
-/* ===== キーボード：Spaceキー・Enterキーで主要ボタンを操作 ===== */
-document.addEventListener('keydown', function(e) {
-  // Escapeは全画面解除（ブラウザデフォルト）に任せる
-  if (e.key === 'Escape') return;
-  // フォーム入力中は無視
-  const tag = document.activeElement ? document.activeElement.tagName : '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  // フォーカスが当たっている要素があればEnter/Spaceでクリック
-  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement !== document.body) {
-    const el = document.activeElement;
-    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('tabindex') !== null) {
-      e.preventDefault();
-      el.click();
-      return;
-    }
-  }
-  // F キーで全画面トグル
-  if (e.key === 'f' || e.key === 'F') {
-    toggleFS();
-  }
-});
 </script>
 </body>
 </html>
