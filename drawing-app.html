@@ -253,6 +253,30 @@
     min-width:0;
   }
   #bottombar::-webkit-scrollbar { display:none; }
+  /* ── ボトムバー内スライダー ── */
+  .bb-slider-wrap {
+    display:flex; flex-direction:column; align-items:center;
+    gap:2px; flex-shrink:0; padding:0 4px;
+    touch-action:pan-x;
+  }
+  .bb-slider-label {
+    font-size:.6rem; color:#888; font-weight:700; white-space:nowrap;
+  }
+  .bb-slider-val {
+    font-size:.6rem; color:#555; font-weight:900; white-space:nowrap;
+  }
+  .bb-slider {
+    -webkit-appearance:none; appearance:none;
+    width:80px; height:6px; border-radius:3px;
+    background:var(--border); outline:none; cursor:pointer;
+    touch-action:pan-x;
+  }
+  .bb-slider::-webkit-slider-thumb {
+    -webkit-appearance:none; width:20px; height:20px;
+    border-radius:50%; background:var(--accent);
+    box-shadow:0 2px 6px rgba(0,0,0,.25);
+  }
+  #m-opacity::-webkit-slider-thumb { background:var(--accent2); }
   /* 右端に「まだある」ことを示すフェード */
   #bottombar::after {
     content:'';
@@ -449,13 +473,22 @@
   .modal-overlay {
     display:none; position:fixed; inset:0;
     background:rgba(0,0,0,.5); z-index:10000;
-    align-items:center; justify-content:center;
+    align-items:flex-start; justify-content:center;
+    padding:16px 0;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;       /* タッチで縦スクロール可 */
   }
   .modal-overlay.open { display:flex; }
   .modal {
     background:var(--panel); border-radius:22px; padding:26px;
     max-width:520px; width:90%;
+    max-height:calc(100dvh - 32px); /* 画面高さいっぱいまで */
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
     box-shadow:0 20px 60px rgba(0,0,0,.3);
+    margin:auto;               /* 縦中央寄せ */
   }
   .modal h2 { margin-bottom:14px; font-size:1.2rem; }
   .modal p  { margin-bottom:10px; font-size:.88rem; color:#555; line-height:1.6; }
@@ -672,6 +705,19 @@
   <div id="m-palette"></div>
   <input type="color" id="m-custom-color" value="#FF6B6B" title="いろをえらぶ">
   <div class="bsep"></div>
+  <!-- ふとさ・うすさ -->
+  <div class="bb-slider-wrap">
+    <span class="bb-slider-label">ふとさ</span>
+    <input type="range" id="m-brush-size" min="2" max="80" value="12" class="bb-slider">
+    <span class="bb-slider-val" id="m-size-val">12</span>
+  </div>
+  <div class="bsep"></div>
+  <div class="bb-slider-wrap">
+    <span class="bb-slider-label">うすさ</span>
+    <input type="range" id="m-opacity" min="5" max="100" value="100" class="bb-slider">
+    <span class="bb-slider-val" id="m-opacity-val">100%</span>
+  </div>
+  <div class="bsep"></div>
   <!-- アクション -->
   <button class="tool-btn" id="m-undo"  data-tip="もどす">↩️</button>
   <button class="tool-btn" id="m-redo"  data-tip="やりなおし">↪️</button>
@@ -772,7 +818,7 @@
 <div id="stamp-modal" class="modal-overlay">
   <div class="modal">
     <h2>⭐ スタンプをえらぼう</h2>
-    <div id="stamp-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
+    <div id="stamp-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;touch-action:pan-y;"></div>
     <div class="modal-btns">
       <button class="btn btn-secondary" onclick="closeModal('stamp-modal')">とじる</button>
     </div>
@@ -823,7 +869,7 @@
 
 <!-- HELP -->
 <div id="help-modal" class="modal-overlay">
-  <div class="modal" style="max-width:620px;max-height:90vh;overflow-y:auto;">
+  <div class="modal" style="max-width:620px;">
     <h2 style="margin-bottom:18px;font-size:1.4rem;">❓ つかいかた</h2>
 
     <!-- ① えをかくどうぐ -->
@@ -1561,8 +1607,20 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn=>{
   });
 });
 
-document.getElementById('brush-size').addEventListener('input',e=>{ S.size=+e.target.value; document.getElementById('size-val').textContent=S.size; });
-document.getElementById('opacity-range').addEventListener('input',e=>{ S.opacity=+e.target.value/100; document.getElementById('opacity-val').textContent=e.target.value; });
+document.getElementById('brush-size').addEventListener('input',e=>{
+  S.size=+e.target.value;
+  document.getElementById('size-val').textContent=S.size;
+  // ボトムバー側も同期
+  const ms=document.getElementById('m-brush-size'); if(ms) ms.value=e.target.value;
+  const mv=document.getElementById('m-size-val'); if(mv) mv.textContent=e.target.value;
+});
+document.getElementById('opacity-range').addEventListener('input',e=>{
+  S.opacity=+e.target.value/100;
+  document.getElementById('opacity-val').textContent=e.target.value;
+  // ボトムバー側も同期
+  const mo=document.getElementById('m-opacity'); if(mo) mo.value=e.target.value;
+  const mov=document.getElementById('m-opacity-val'); if(mov) mov.textContent=e.target.value+'%';
+});
 
 // ================================================================
 // ACTIONS
@@ -1886,6 +1944,34 @@ document.getElementById('btn-pin').addEventListener('click', () => {
     a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
     a.href = flatCanvas().toDataURL('image/png'); a.click();
   });
+
+  // ── ふとさスライダー ──
+  const mSize = document.getElementById('m-brush-size');
+  const mSizeVal = document.getElementById('m-size-val');
+  if (mSize) {
+    mSize.addEventListener('input', e => {
+      S.size = +e.target.value;
+      if (mSizeVal) mSizeVal.textContent = e.target.value;
+      // サイドバー側も同期
+      const sb = document.getElementById('brush-size');
+      if (sb) sb.value = e.target.value;
+      document.getElementById('size-val').textContent = e.target.value;
+    });
+  }
+
+  // ── うすさスライダー ──
+  const mOpacity = document.getElementById('m-opacity');
+  const mOpacityVal = document.getElementById('m-opacity-val');
+  if (mOpacity) {
+    mOpacity.addEventListener('input', e => {
+      S.opacity = +e.target.value / 100;
+      if (mOpacityVal) mOpacityVal.textContent = e.target.value + '%';
+      // サイドバー側も同期
+      const sob = document.getElementById('opacity-range');
+      if (sob) sob.value = e.target.value;
+      document.getElementById('opacity-val').textContent = e.target.value;
+    });
+  }
 
   // ── ツール切替時にボトムバーも同期 ──
   const origToolClick = document.querySelectorAll('.tool-btn[data-tool]');
