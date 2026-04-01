@@ -477,18 +477,32 @@
     padding:16px 0;
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
-    touch-action:pan-y;       /* タッチで縦スクロール可 */
+    touch-action:pan-y;
   }
   .modal-overlay.open { display:flex; }
+  /* モーダル内は全子孫要素の touch-action を pan-y に戻す */
+  .modal-overlay *,
+  .modal * {
+    touch-action:pan-y;
+  }
+  /* ただしボタン・入力系は auto に（クリック・スライダー操作を正常に） */
+  .modal-overlay button,
+  .modal-overlay input,
+  .modal-overlay select,
+  .modal button,
+  .modal input,
+  .modal select {
+    touch-action:manipulation;
+  }
   .modal {
     background:var(--panel); border-radius:22px; padding:26px;
     max-width:520px; width:90%;
-    max-height:calc(100dvh - 32px); /* 画面高さいっぱいまで */
+    max-height:calc(100dvh - 32px);
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
     touch-action:pan-y;
     box-shadow:0 20px 60px rgba(0,0,0,.3);
-    margin:auto;               /* 縦中央寄せ */
+    margin:auto;
   }
   .modal h2 { margin-bottom:14px; font-size:1.2rem; }
   .modal p  { margin-bottom:10px; font-size:.88rem; color:#555; line-height:1.6; }
@@ -717,12 +731,7 @@
     <input type="range" id="m-opacity" min="5" max="100" value="100" class="bb-slider">
     <span class="bb-slider-val" id="m-opacity-val">100%</span>
   </div>
-  <div class="bsep"></div>
-  <!-- アクション -->
-  <button class="tool-btn" id="m-undo"  data-tip="もどす">↩️</button>
-  <button class="tool-btn" id="m-redo"  data-tip="やりなおし">↪️</button>
-  <button class="tool-btn" id="m-clear" data-tip="ぜんぶけす">🗑️</button>
-  <button class="tool-btn" id="m-save"  data-tip="ほぞん">💾</button>
+
 </div>
 
 <!-- TRACE CONTROLS -->
@@ -1847,9 +1856,7 @@ document.querySelectorAll('#float-toolbar .tool-btn[data-tool]').forEach(btn => 
 });
 document.getElementById('fc-undo').addEventListener('click', undo);
 document.getElementById('fc-redo').addEventListener('click', redo);
-document.getElementById('fc-clear').addEventListener('click', () => {
-  if (confirm('ぜんぶけしますか？')) { saveState(); ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height); }
-});
+document.getElementById('fc-clear').addEventListener('click', () => document.getElementById('btn-clear').click());
 document.getElementById('fc-save').addEventListener('click', () => {
   const a = document.createElement('a');
   a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
@@ -1934,16 +1941,7 @@ document.getElementById('btn-pin').addEventListener('click', () => {
   const mRedo  = document.getElementById('m-redo');
   const mClear = document.getElementById('m-clear');
   const mSave  = document.getElementById('m-save');
-  if (mUndo)  mUndo.addEventListener('click', undo);
-  if (mRedo)  mRedo.addEventListener('click', redo);
-  if (mClear) mClear.addEventListener('click', () => {
-    if (confirm('ぜんぶけしますか？')) { saveState(); ctx.clearRect(0,0,drawCanvas.width,drawCanvas.height); }
-  });
-  if (mSave)  mSave.addEventListener('click', () => {
-    const a = document.createElement('a');
-    a.download = 'oekaki_' + new Date().toISOString().slice(0,10) + '.png';
-    a.href = flatCanvas().toDataURL('image/png'); a.click();
-  });
+  // アクションボタンは上部バーに集約
 
   // ── ふとさスライダー ──
   const mSize = document.getElementById('m-brush-size');
