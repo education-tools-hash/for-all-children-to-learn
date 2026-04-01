@@ -412,6 +412,7 @@
 <div class="top-bar">
   <button class="home-btn" id="homeBtn" onclick="goHome()" style="display:none">🏠 ホーム</button>
   <button class="settings-btn" onclick="openSettings()">⚙️ せってい</button>
+  <button class="settings-btn" id="fullscreenBtn" onclick="toggleFullscreen()">⛶ 全画面</button>
 </div>
 
 <!-- 設定パネル -->
@@ -606,7 +607,7 @@ const words = [
   { word: 'しか',        emoji: '🦌',  start: 'し', end: 'か' },
   { word: 'かえる',      emoji: '🐸',  start: 'か', end: 'る' },
   { word: 'さる',        emoji: '🐒',  start: 'さ', end: 'る' },
-  { word: 'るびー',      emoji: '💎',  start: 'る', end: 'い' },
+  { word: 'るびー',      emoji: '💎',  start: 'る', end: 'び' },
   { word: 'ばす',        emoji: '🚌',  start: 'ば', end: 'す' },
   { word: 'たぬき',      emoji: '🦝',  start: 'た', end: 'き' },
   { word: 'とら',        emoji: '🐯',  start: 'と', end: 'ら' },
@@ -626,7 +627,7 @@ const words = [
   { word: 'かぼちゃ',    emoji: '🎃',  start: 'か', end: 'ゃ' },
   { word: 'やきゅう',    emoji: '⚾',  start: 'や', end: 'う' },
   { word: 'うえき',      emoji: '🪴',  start: 'う', end: 'き' },
-  { word: 'ぎたー',      emoji: '🎸',  start: 'ぎ', end: 'あ' },
+  { word: 'ぎたー',      emoji: '🎸',  start: 'ぎ', end: 'た' },
   { word: 'がっこう',    emoji: '🏫',  start: 'が', end: 'う' },
   { word: 'えんぴつ',    emoji: '✏️',  start: 'え', end: 'つ' },
   { word: 'つる',        emoji: '🦢',  start: 'つ', end: 'る' },
@@ -883,9 +884,9 @@ function loadQuestion() {
   document.getElementById('feedback').classList.remove('show','correct','wrong');
   document.getElementById('nextBtn').classList.remove('show');
   setTimeout(() => {
-    speak(`「${currentChar}」`, speechRate, 1.2);
-    setTimeout(() => speak(`から はじまる ことばは、 どれ？`, speechRate, 1.1), 1200);
-  }, 300);
+    speak(`${currentChar}！`, speechRate * 0.75, 1.3);
+    setTimeout(() => speak(`から はじまる ことばは、 どれ？`, speechRate * 0.9, 1.0), 1800);
+  }, 900);
   if (scanEnabled) setTimeout(() => startScan(), 400);
 }
 
@@ -1031,7 +1032,31 @@ function goHome() {
   document.getElementById('gameover').classList.remove('show');
 }
 
-function startGame(n) {
+function toggleFullscreen() {
+  const btn = document.getElementById('fullscreenBtn');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    btn.textContent = '✕ 全画面終了';
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    btn.textContent = '⛶ 全画面';
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('fullscreenBtn');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    btn.textContent = '⛶ 全画面';
+  }
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  const btn = document.getElementById('fullscreenBtn');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    btn.textContent = '⛶ 全画面';
+  }
+});
   MAX_QUESTIONS = n;
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('chainDisplay').style.display = 'block';
