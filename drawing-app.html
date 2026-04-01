@@ -18,6 +18,11 @@
   }
 
   * { box-sizing:border-box; margin:0; padding:0; touch-action:none; }
+  /* スクロール可能なバーは横スワイプを許可 */
+  #topbar,
+  #bottombar { touch-action:pan-x; }
+  #topbar *,
+  #bottombar * { touch-action:pan-x; }
 
   body {
     font-family:'Kosugi Maru','M PLUS Rounded 1c','Noto Sans JP',sans-serif;
@@ -38,8 +43,12 @@
     gap:6px; padding:0 12px;
     flex-shrink:0; z-index:100;
     overflow-x:auto; overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+    flex-wrap:nowrap;
   }
   #topbar::-webkit-scrollbar { height:3px; }
+  #topbar::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
   #topbar::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
   #topbar .tool-btn {
     width:44px; height:44px; font-size:1.4rem; border-radius:12px; flex-shrink:0;
@@ -225,7 +234,7 @@
   /* ━━━ STATUS (キャンバス右下に小さく) ━━━ */
   /* ━━━ ボトムバー（スマホ専用・通常は非表示） ━━━ */
   #bottombar {
-    display:none; /* スマホのみ表示 (@media で上書き) */
+    display:none; /* タブレット・スマホのみ表示 (@media で上書き) */
     position:fixed; bottom:0; left:0; right:0;
     height:var(--bottombar-h, 58px);
     background:var(--panel);
@@ -233,11 +242,25 @@
     box-shadow:0 -2px 10px var(--shadow);
     z-index:100;
     align-items:center;
-    gap:5px; padding:0 8px;
+    gap:5px; padding:0 10px;
     overflow-x:auto;
+    overflow-y:hidden;
     -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+    scroll-snap-type:none;
+    /* コンテンツが縮まないよう */
+    flex-wrap:nowrap;
+    min-width:0;
   }
   #bottombar::-webkit-scrollbar { display:none; }
+  /* 右端に「まだある」ことを示すフェード */
+  #bottombar::after {
+    content:'';
+    position:sticky; right:0;
+    min-width:24px; height:100%;
+    background:linear-gradient(to right, transparent, var(--panel));
+    pointer-events:none; flex-shrink:0;
+  }
 
   #statusbar {
     position:fixed; bottom:0; left:var(--sidebar-w); right:0;
@@ -504,6 +527,9 @@
     #bottombar {
       display:flex !important;
     }
+    #bottombar {
+      flex-wrap:nowrap;
+    }
     #bottombar .tool-btn {
       width:50px; height:50px; font-size:1.5rem;
       border-radius:14px; flex-shrink:0;
@@ -519,13 +545,14 @@
       border:2px dashed #bbb; cursor:pointer; flex-shrink:0;
       background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);
     }
-    #bottombar #m-palette { display:flex; gap:6px; flex-shrink:0; }
+    #bottombar #m-palette { display:flex; gap:6px; flex-shrink:0; min-width:max-content; }
   }
 
   /* スマホ（〜600px）はさらにコンパクトに */
   @media (max-width:600px) {
     :root { --bottombar-h: 56px; }
     #topbar .tool-btn { width:38px; height:38px; font-size:1.15rem; border-radius:10px; }
+    #bottombar { flex-wrap:nowrap; }
     #bottombar .tool-btn { width:44px; height:44px; font-size:1.35rem; }
     #bottombar .color-dot { width:30px; height:30px; }
     #bottombar #m-custom-color { width:30px; height:30px; }
