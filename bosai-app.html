@@ -131,7 +131,16 @@
     transform: translateY(-4px);
     box-shadow: 0 -4px 20px rgba(46,125,50,0.3);
   }
-  .tab-btn.teacher {
+  .tab-btn.bag {
+    background: #FFF3E0;
+    color: #E65100;
+  }
+  .tab-btn.active.bag {
+    background: #E65100;
+    color: #fff;
+    transform: translateY(-4px);
+    box-shadow: 0 -4px 20px rgba(230,81,0,0.3);
+  }
     background: #FFF8E1;
     color: #F57F17;
   }
@@ -536,25 +545,52 @@
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 1px;
+    white-space: nowrap;
   }
   .hud-bar-wrap {
     flex: 1;
-    height: 16px;
+    height: 20px;
     background: #37474F;
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
   }
   .hud-bar {
     height: 100%;
-    border-radius: 8px;
-    transition: width 0.3s ease;
-    background: linear-gradient(90deg, #66BB6A, #FFA726, #EF5350);
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(.34,1.56,.64,1);
+    background: linear-gradient(90deg,#66BB6A,#A5D6A7);
+    position: relative;
+    overflow: hidden;
+  }
+  /* shimmer on bar */
+  .hud-bar::after {
+    content:'';
+    position:absolute;
+    top:0;left:-60%;width:40%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer { to { left:130%; } }
+  /* star burst on milestone */
+  .hud-star {
+    position:absolute;
+    font-size:18px;
+    animation: starPop 0.6s ease forwards;
+    pointer-events:none;
+    z-index:100;
+  }
+  @keyframes starPop {
+    0%  { transform:scale(0) rotate(-20deg); opacity:1; }
+    60% { transform:scale(1.4) rotate(10deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0deg) translateY(-20px); opacity:0; }
   }
   .hud-danger-label {
-    color: #EF5350;
+    color: #66BB6A;
     font-weight: 800;
-    font-size: 14px;
-    min-width: 60px;
+    font-size: 16px;
+    min-width: 56px;
     text-align: right;
   }
 
@@ -913,51 +949,265 @@
     font-size: 18px;
     gap: 12px;
   }
-  .placeholder-msg .ph-icon { font-size: 56px; }
-</style>
-<link rel="icon" href="favicon.png" type="image/png">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+  /* ==================== SWITCH SCAN ==================== */
+  .scan-highlight {
+    outline: 5px solid #FFD600 !important;
+    outline-offset: 3px !important;
+    box-shadow: 0 0 0 8px rgba(255,214,0,0.35), 0 0 24px rgba(255,214,0,0.5) !important;
+    transform: scale(1.04) !important;
+    position: relative;
+    z-index: 500;
+    transition: outline 0.08s, box-shadow 0.08s, transform 0.08s !important;
+  }
+  /* scan indicator bar */
+  #scan-bar {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: #1C2833;
+    border-top: 2px solid #FFD600;
+    padding: 10px 16px;
+    z-index: 9000;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  #scan-bar.active { display: flex; }
+  #scan-item-label {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 800;
+    color: #FFD600;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #scan-progress-dots {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+  .scan-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #37474F;
+    transition: background 0.15s;
+  }
+  .scan-dot.active { background: #FFD600; }
+  #scan-controls-hint {
+    font-size: 11px;
+    color: #78909C;
+    flex-shrink: 0;
+  }
+  /* body bottom padding when scan bar active */
+  body.scan-active { padding-bottom: 56px; }
+  body.mode-slow .choice-btn { font-size: 20px !important; padding: 18px 16px !important; line-height: 1.5; }
+  body.mode-slow .sim-choices h4 { font-size: 18px !important; }
+  body.mode-slow .result-title { font-size: 22px !important; }
+  body.mode-slow #result-msg { font-size: 16px !important; line-height: 1.9 !important; }
 
-<style>
-/* ===== フルスクリーンボタン共通 ===== */
-#fs-btn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 99999;
-  background: rgba(45,42,74,0.82);
-  color: white;
-  border: none;
-  border-radius: 50px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 800;
-  font-family: 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-  transition: background 0.18s, transform 0.18s;
-  letter-spacing: 1px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-#fs-btn:hover { background: rgba(45,42,74,1); transform: scale(1.05); }
-#fs-btn:focus { outline: 3px solid #5BC4F5; outline-offset: 2px; }
+  body.mode-picture .sim-choices h4 { font-size: 16px; }
+  body.mode-picture .choice-btn { font-size: 22px !important; padding: 16px 12px !important; }
+  body.mode-picture .choice-text-label { display: none !important; }
+
+  body.mode-contrast { background: #000 !important; color: #FFD600 !important; }
+  body.mode-contrast .choice-btn { background: #000 !important; border: 3px solid #FFD600 !important; color: #FFD600 !important; font-size: 18px !important; }
+  body.mode-contrast .choice-btn.correct { background: #1B5E20 !important; border-color: #69F0AE !important; color: #69F0AE !important; }
+  body.mode-contrast .choice-btn.wrong   { background: #B71C1C !important; border-color: #FF5252 !important; color: #FF5252 !important; }
+  body.mode-contrast .sim-canvas { filter: brightness(1.3) contrast(1.2); }
+  body.mode-contrast header { background: #000 !important; border-bottom: 3px solid #FFD600; }
+  body.mode-contrast .tab-btn { background: #111 !important; color: #FFD600 !important; border: 2px solid #FFD600; }
+  body.mode-contrast .tab-btn.active { background: #FFD600 !important; color: #000 !important; }
+  body.mode-contrast .panel { background: #111 !important; }
+
+  /* support mode bar */
+  #support-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 20px;
+    background: #263238;
+    border-bottom: 1px solid #37474F;
+    justify-content: flex-end;
+  }
+  #support-bar span {
+    font-size: 11px;
+    color: #78909C;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .support-btn {
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 2px solid #546E7A;
+    background: transparent;
+    color: #90A4AE;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .support-btn.on {
+    border-color: #FFD600;
+    background: rgba(255,214,0,0.15);
+    color: #FFD600;
+  }
+  .support-btn:focus { outline: 3px solid #FFD600; }
+
+  /* ① 結果カード */
+  .result-card {
+    background: rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin: 8px 0;
+    text-align: left;
+  }
+  .result-card .rc-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    opacity: 0.7;
+  }
+  .result-card .rc-body {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .result-card.rc-why   { border-left: 4px solid #66BB6A; }
+  .result-card.rc-what  { border-left: 4px solid #EF5350; }
+  .result-card.rc-how   { border-left: 4px solid #29B6F6; }
+  .result-card.rc-you   { border-left: 4px solid #FFD600; background: rgba(255,214,0,0.08); }
+  .result-card.rc-trivia { border-left: 4px solid #AB47BC; background: rgba(171,71,188,0.08); }
+
+  /* header position:relative for settings button */
+  header { position: relative; }
+
+  /* new tab colours */
+  .tab-btn.quiz-tab { background:#F3E5F5; color:#7B1FA2; }
+  .tab-btn.active.quiz-tab { background:#7B1FA2; color:#fff; transform:translateY(-4px); box-shadow:0 -4px 20px rgba(123,31,162,0.3); }
+  .tab-btn.checklist-tab { background:#E8F5E9; color:#1B5E20; }
+  .tab-btn.active.checklist-tab { background:#1B5E20; color:#fff; transform:translateY(-4px); box-shadow:0 -4px 20px rgba(27,94,32,0.3); }
+
+  /* badge system */
+  .badge-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:12px; margin:16px 0; }
+  .badge-item { background:#fff; border-radius:16px; padding:14px 8px; text-align:center;
+    box-shadow:0 3px 12px rgba(0,0,0,0.08); transition:transform 0.2s; }
+  .badge-item.earned { background:linear-gradient(135deg,#FFF8E1,#FFF3CD); border:2px solid #FFD600; }
+  .badge-item.locked { opacity:0.35; filter:grayscale(1); }
+  .badge-icon { font-size:36px; display:block; margin-bottom:6px; }
+  .badge-name { font-size:11px; font-weight:800; color:#37474F; }
+  .badge-name.earned { color:#E65100; }
+  .master-bar-wrap { height:22px; background:#37474F; border-radius:11px; overflow:hidden; margin:10px 0; }
+  .master-bar { height:100%; border-radius:11px; transition:width 0.8s cubic-bezier(.34,1.56,.64,1);
+    background:linear-gradient(90deg,#43A047,#66BB6A,#FFD600); }
+
+  /* checklist */
+  .cl-category { background:#fff; border-radius:16px; padding:16px; margin-bottom:14px;
+    box-shadow:0 3px 12px rgba(0,0,0,0.07); }
+  .cl-category-title { font-size:15px; font-weight:800; color:#1B5E20; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .cl-item { display:flex; align-items:center; gap:12px; padding:10px 0;
+    border-bottom:1px solid #F1F8E9; cursor:pointer; transition:background 0.15s; border-radius:8px; }
+  .cl-item:last-child { border-bottom:none; }
+  .cl-item:active { background:#F9FBE7; }
+  .cl-check { width:28px; height:28px; border-radius:50%; border:2.5px solid #A5D6A7;
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; transition:all 0.2s; }
+  .cl-check.done { background:#43A047; border-color:#43A047; }
+  .cl-label { font-size:14px; font-weight:700; color:#37474F; flex:1; }
+  .cl-label.done { text-decoration:line-through; color:#90A4AE; }
+  .cl-star { font-size:18px; transition:transform 0.3s; }
+
+  /* quiz */
+  .quiz-card { background:#fff; border-radius:16px; padding:20px; box-shadow:0 3px 12px rgba(0,0,0,0.08); margin-bottom:16px; }
+  .quiz-q { font-size:16px; font-weight:800; color:#1A237E; margin-bottom:14px; line-height:1.5; }
+  .quiz-choices { display:flex; flex-direction:column; gap:8px; }
+  .quiz-btn { padding:12px 16px; border-radius:12px; border:2.5px solid #C5CAE9;
+    background:#F8F9FF; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer;
+    text-align:left; transition:all 0.2s; color:#37474F; }
+  .quiz-btn:hover { border-color:#7986CB; background:#EDE7F6; }
+  .quiz-btn.correct-ans { background:#E8F5E9; border-color:#43A047; color:#1B5E20; }
+  .quiz-btn.wrong-ans { background:#FFEBEE; border-color:#EF5350; color:#C62828; }
+  .quiz-explanation { margin-top:12px; padding:12px; background:#FFF8E1;
+    border-left:4px solid #FFD600; border-radius:8px; font-size:13px; color:#37474F; line-height:1.6; display:none; }
+  .quiz-score-bar { height:12px; background:#E0E0E0; border-radius:6px; overflow:hidden; margin:8px 0; }
+  .quiz-score-fill { height:100%; border-radius:6px; background:linear-gradient(90deg,#7B1FA2,#AB47BC); transition:width 0.5s; }
 </style>
 </head>
 <body>
-<button id="fs-btn" onclick="toggleFS()" aria-label="全画面表示の切り替え" title="ぜんぶにひろげる">
-  <span id="fs-icon">⛶</span><span id="fs-label">ぜんぶにひろげる</span>
-</button>
 
+<!-- ⚙️ 設定モーダル -->
+<div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:#1C2833;border-radius:24px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 16px 48px rgba(0,0,0,0.5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:18px;font-weight:800;color:#fff">⚙️ せってい</div>
+      <button onclick="closeSettings()" style="background:none;border:none;color:#90A4AE;font-size:22px;cursor:pointer;line-height:1">✕</button>
+    </div>
+
+    <!-- TTS -->
+    <div style="margin-bottom:18px">
+      <div style="font-size:12px;font-weight:800;color:#78909C;letter-spacing:1px;margin-bottom:8px">🔊 おんせいよみあげ</div>
+      <button id="settings-tts-btn" onclick="toggleTTS()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #0288D1;background:rgba(2,136,209,0.15);color:#4FC3F7;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;text-align:left">
+        🔊 よみあげ：オン
+      </button>
+    </div>
+
+    <!-- Support modes -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:12px;font-weight:800;color:#78909C;letter-spacing:1px;margin-bottom:8px">🎛️ しえんモード</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button id="settings-slow" onclick="toggleMode('slow')" aria-pressed="false"
+          style="padding:12px;border-radius:12px;border:2px solid #546E7A;background:transparent;color:#90A4AE;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all 0.2s">
+          🐢 ゆっくりモード（文字大きめ・ゆっくり読み上げ）
+        </button>
+        <button id="settings-picture" onclick="toggleMode('picture')" aria-pressed="false"
+          style="padding:12px;border-radius:12px;border:2px solid #546E7A;background:transparent;color:#90A4AE;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all 0.2s">
+          🖼️ えだけモード（せんたくしを絵文字中心に）
+        </button>
+        <button id="settings-contrast" onclick="toggleMode('contrast')" aria-pressed="false"
+          style="padding:12px;border-radius:12px;border:2px solid #546E7A;background:transparent;color:#90A4AE;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all 0.2s">
+          ⬛ ハイコントラスト（黒背景・黄文字）
+        </button>
+        <button id="settings-scan" onclick="toggleScanMode()" aria-pressed="false"
+          style="padding:12px;border-radius:12px;border:2px solid #FFD600;background:transparent;color:#90A4AE;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;text-align:left;transition:all 0.2s">
+          🔲 スイッチスキャン（1スイッチ）
+        </button>
+        <div id="settings-scan-speed" style="display:none;padding:10px 12px;background:rgba(255,214,0,0.08);border-radius:10px;border:1px solid rgba(255,214,0,0.3)">
+          <div style="font-size:12px;color:#FFD600;font-weight:800;margin-bottom:8px">⏱ スキャン間かく</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:12px;color:#90A4AE">おそい</span>
+            <input type="range" id="scan-speed-slider" min="800" max="4000" step="200" value="2000"
+              style="flex:1;accent-color:#FFD600" oninput="setScanInterval(this.value)"
+              aria-label="スキャン間隔"/>
+            <span style="font-size:12px;color:#90A4AE">はやい</span>
+          </div>
+          <div style="font-size:11px;color:#78909C;margin-top:4px;text-align:center" id="scan-speed-label">2.0びょう</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ★ スイッチスキャン インジケーターバー -->
+<div id="scan-bar" role="status" aria-live="polite" aria-label="スキャン中">
+  <div id="scan-item-label">—</div>
+  <div id="scan-progress-dots"></div>
+  <div id="scan-controls-hint">タップ/スペース：選択</div>
+</div>
 
 <header>
   <div class="header-icons" aria-hidden="true">🌍 🛡️ 🌊</div>
   <h1>ぼうさいたんけんたい</h1>
   <p>天災のしくみをまなんで、もしものときにそなえよう！</p>
+  <button id="settings-open-btn" onclick="openSettings()" aria-label="設定"
+    style="position:absolute;top:16px;right:16px;width:42px;height:42px;border-radius:50%;
+           background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);
+           color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+           z-index:9500;touch-action:manipulation;">
+    ⚙️
+  </button>
 </header>
 
 <div class="tab-nav" role="tablist">
@@ -965,7 +1215,16 @@
     📚 まなぶ
   </button>
   <button class="tab-btn simulate" role="tab" aria-selected="false" aria-controls="panel-simulate" id="tab-simulate" onclick="switchTab('simulate')">
-    🎮 たいけんする
+    🎮 たいけん
+  </button>
+  <button class="tab-btn quiz-tab" role="tab" aria-selected="false" aria-controls="panel-quiz" id="tab-quiz" onclick="switchTab('quiz')">
+    📝 クイズ
+  </button>
+  <button class="tab-btn checklist-tab" role="tab" aria-selected="false" aria-controls="panel-checklist" id="tab-checklist" onclick="switchTab('checklist')">
+    ✅ チェック
+  </button>
+  <button class="tab-btn bag" role="tab" aria-selected="false" aria-controls="panel-bag" id="tab-bag" onclick="switchTab('bag')">
+    🎒 にもつ
   </button>
   <button class="tab-btn teacher" role="tab" aria-selected="false" aria-controls="panel-teacher" id="tab-teacher" onclick="switchTab('teacher')">
     👩‍🏫 きろく
@@ -999,12 +1258,52 @@
         <div class="disaster-name">たいふう</div>
         <div class="disaster-sub">台風</div>
       </div>
+      <div class="disaster-card" style="background:linear-gradient(135deg,#FBE9E7,#FFCCBC);border:2px solid #FF8A65" role="listitem" tabindex="0" onclick="selectDisaster('volcano')" onkeydown="if(event.key==='Enter'||event.key===' ')selectDisaster('volcano')" aria-label="火山について学ぶ">
+        <span class="disaster-icon" aria-hidden="true">🌋</span>
+        <div class="disaster-name">かざん</div>
+        <div class="disaster-sub">火山</div>
+      </div>
+      <div class="disaster-card" style="background:linear-gradient(135deg,#E3F2FD,#BBDEFB);border:2px solid #64B5F6" role="listitem" tabindex="0" onclick="selectDisaster('snow')" onkeydown="if(event.key==='Enter'||event.key===' ')selectDisaster('snow')" aria-label="大雪について学ぶ">
+        <span class="disaster-icon" aria-hidden="true">❄️</span>
+        <div class="disaster-name">おおゆき</div>
+        <div class="disaster-sub">大雪</div>
+      </div>
+      <div class="disaster-card" style="background:linear-gradient(135deg,#FFEBEE,#FFCDD2);border:2px solid #EF9A9A" role="listitem" tabindex="0" onclick="selectDisaster('fire')" onkeydown="if(event.key==='Enter'||event.key===' ')selectDisaster('fire')" aria-label="火災について学ぶ">
+        <span class="disaster-icon" aria-hidden="true">🔥</span>
+        <div class="disaster-name">かじ</div>
+        <div class="disaster-sub">火災</div>
+      </div>
     </div>
 
     <div id="mechanism-box" class="mechanism-box" aria-live="polite">
       <div class="placeholder-msg">
         <span class="ph-icon" aria-hidden="true">👆</span>
         <span>上のカードをえらんでね！</span>
+      </div>
+    </div>
+
+    <!-- ③ ハザードマップ誘導 -->
+    <div style="margin-top:28px;background:linear-gradient(135deg,#E3F2FD,#E8F5E9);border-radius:20px;padding:22px 24px;border:2px solid #90CAF9">
+      <div style="font-size:18px;font-weight:800;color:#1565C0;margin-bottom:10px">🗺️ おうちのひとと、ハザードマップをみてみよう！</div>
+      <p style="font-size:14px;color:#455A64;line-height:1.7;margin-bottom:14px">
+        アプリでまなんだことを、じぶんのまちでもかくにんしよう。<br>
+        学校やいえのまわりに、どんなきけんがあるか、おうちのひとといっしょにしらべてみよう。
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a href="https://disaportal.gsi.go.jp/" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;
+                  background:linear-gradient(135deg,#1565C0,#0288D1);color:#fff;
+                  border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;
+                  box-shadow:0 3px 12px rgba(21,101,192,0.3)">
+          🌐 ハザードマップポータルサイト（国土交通省）
+        </a>
+        <a href="https://www.nhk.or.jp/sonae/" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:8px;padding:12px 20px;
+                  background:linear-gradient(135deg,#2E7D32,#43A047);color:#fff;
+                  border-radius:999px;font-size:14px;font-weight:800;text-decoration:none;
+                  box-shadow:0 3px 12px rgba(46,125,50,0.3)">
+          📺 NHK そなえる防災
+        </a>
       </div>
     </div>
   </div>
@@ -1014,30 +1313,65 @@
     <div class="sim-title">🎮 バーチャル体験</div>
     <div class="sim-sub">もしもの時に、あなたはどうする？正しいこうどうをえらぼう！</div>
 
+    <!-- 🏆 バッジ・進捗 -->
+    <div style="background:linear-gradient(135deg,#1A237E,#283593);border-radius:18px;padding:18px;margin-bottom:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:15px;font-weight:800;color:#fff">🏆 ぼうさいマスター度</div>
+        <div id="master-pct-label" style="font-size:20px;font-weight:800;color:#FFD600">0%</div>
+      </div>
+      <div class="master-bar-wrap"><div id="master-bar" class="master-bar" style="width:0%"></div></div>
+      <div class="badge-grid" id="badge-grid"></div>
+    </div>
+
     <div class="sim-choice-grid" id="sim-menu">
-      <button class="sim-btn sq" onclick="startSim('quake')" aria-label="地震シミュレーションを始める">
+      <button class="sim-btn sq" onclick="showSceneSelect('quake')" aria-label="地震シミュレーション">
         <span class="sim-icon" aria-hidden="true">🌋</span>
         じしん
       </button>
-      <button class="sim-btn st" onclick="startSim('tsunami')" aria-label="津波シミュレーションを始める">
+      <button class="sim-btn st" onclick="showSceneSelect('tsunami')" aria-label="津波シミュレーション">
         <span class="sim-icon" aria-hidden="true">🌊</span>
         つなみ
       </button>
-      <button class="sim-btn sf" onclick="startSim('flood')" aria-label="洪水シミュレーションを始める">
+      <button class="sim-btn sf" onclick="showSceneSelect('flood')" aria-label="洪水シミュレーション">
         <span class="sim-icon" aria-hidden="true">🌧️</span>
         こうずい
       </button>
-      <button class="sim-btn sy" onclick="startSim('typhoon')" aria-label="台風シミュレーションを始める">
+      <button class="sim-btn sy" onclick="showSceneSelect('typhoon')" aria-label="台風シミュレーション">
         <span class="sim-icon" aria-hidden="true">🌀</span>
         たいふう
       </button>
+      <button class="sim-btn" style="background:linear-gradient(135deg,#BF360C,#E64A19)" onclick="showSceneSelect('volcano')" aria-label="火山シミュレーション">
+        <span class="sim-icon" aria-hidden="true">🌋</span>
+        かざん
+      </button>
+      <button class="sim-btn" style="background:linear-gradient(135deg,#1565C0,#1976D2)" onclick="showSceneSelect('snow')" aria-label="大雪シミュレーション">
+        <span class="sim-icon" aria-hidden="true">❄️</span>
+        おおゆき
+      </button>
+      <button class="sim-btn" style="background:linear-gradient(135deg,#B71C1C,#C62828)" onclick="showSceneSelect('fire')" aria-label="火災シミュレーション">
+        <span class="sim-icon" aria-hidden="true">🔥</span>
+        かじ
+      </button>
+    </div>
+
+    <!-- ★ 問題選択パネル（災害選択後に表示） -->
+    <div id="scene-select" style="display:none">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <button onclick="backToDisasterMenu()" style="padding:8px 16px;background:#37474F;color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">◀ もどる</button>
+        <div>
+          <div id="scene-select-title" style="font-size:18px;font-weight:800;color:#fff"></div>
+          <div style="font-size:12px;color:#78909C;margin-top:2px">といをえらんでチャレンジ！</div>
+        </div>
+        <button onclick="startAllScenes()" style="margin-left:auto;padding:10px 20px;background:linear-gradient(135deg,#F57F17,#FF8F00);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.2)">▶▶ ぜんもんチャレンジ</button>
+      </div>
+      <div id="scene-card-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
     </div>
 
     <div class="sim-viewport" id="sim-viewport">
       <div class="sim-progress" id="sim-progress" aria-label="進行状況"></div>
       <div class="sim-canvas" id="sim-canvas" aria-label="シミュレーション画面"></div>
       <div class="sim-hud">
-        <span class="hud-label">あぶなさ</span>
+        <span class="hud-label">🛡️ あんぜん度</span>
         <div class="hud-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="hud-bar-wrap">
           <div class="hud-bar" id="hud-bar" style="width:0%"></div>
         </div>
@@ -1051,13 +1385,73 @@
         <div class="result-icon" id="result-icon"></div>
         <div class="result-title" id="result-title"></div>
         <div class="result-msg" id="result-msg"></div>
-        <button class="restart-btn" onclick="restartSim()" aria-label="もう一度チャレンジする">
-          🔄 もういちどチャレンジ！
-        </button>
-        <button class="restart-btn" style="background:linear-gradient(135deg,#37474F,#546E7A);margin-left:8px;" onclick="backToMenu()" aria-label="メニューに戻る">
-          🏠 メニューにもどる
-        </button>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px">
+          <button class="restart-btn" onclick="restartSim()" aria-label="もう一度チャレンジする">
+            🔄 もういちど
+          </button>
+          <button class="restart-btn" style="background:linear-gradient(135deg,#1565C0,#0288D1);" onclick="backToSceneSelect()" aria-label="といえらびにもどる">
+            📋 といえらび
+          </button>
+          <button class="restart-btn" style="background:linear-gradient(135deg,#37474F,#546E7A);" onclick="backToMenu()" aria-label="メニューに戻る">
+            🏠 メニュー
+          </button>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ====== BAG GAME PANEL ====== -->
+  <div id="panel-bag" class="panel" role="tabpanel" aria-labelledby="tab-bag">
+    <div style="font-size:22px;font-weight:800;color:#E65100;margin-bottom:6px">🎒 ひなんリュックをつめよう！</div>
+    <div style="font-size:14px;color:#546E7A;margin-bottom:20px">かさいや地震のとき、もっていくものをえらぼう。リュックに入るのは <strong id="bag-capacity-label">5こ</strong> まで！</div>
+
+    <!-- difficulty selector -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button onclick="setBagDiff(5)" id="bag-diff-5" style="padding:8px 18px;border-radius:999px;border:2px solid #E65100;background:#E65100;color:#fff;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">かんたん（5こ）</button>
+      <button onclick="setBagDiff(4)" id="bag-diff-4" style="padding:8px 18px;border-radius:999px;border:2px solid #E65100;background:#FFF3E0;color:#E65100;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">ふつう（4こ）</button>
+      <button onclick="setBagDiff(3)" id="bag-diff-3" style="padding:8px 18px;border-radius:999px;border:2px solid #E65100;background:#FFF3E0;color:#E65100;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">むずかしい（3こ）</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+      <!-- Item grid -->
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#546E7A;margin-bottom:10px">📦 もちものリスト（タップしてえらぶ）</div>
+        <div id="bag-items-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+      </div>
+      <!-- Backpack visual -->
+      <div style="text-align:center">
+        <div style="font-size:14px;font-weight:800;color:#546E7A;margin-bottom:8px">🎒 リュックのなか</div>
+        <div style="position:relative;display:inline-block">
+          <div style="font-size:90px;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.15))">🎒</div>
+          <div id="bag-fill-bar" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+               width:50px;height:6px;background:#E0E0E0;border-radius:3px;overflow:hidden">
+            <div id="bag-fill-inner" style="height:100%;width:0%;background:linear-gradient(90deg,#66BB6A,#43A047);border-radius:3px;transition:width 0.3s"></div>
+          </div>
+        </div>
+        <div id="bag-slots" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;min-height:40px"></div>
+        <div id="bag-count" style="font-size:22px;font-weight:800;color:#E65100;margin-top:6px">0 / <span id="bag-max">5</span></div>
+      </div>
+    </div>
+
+    <!-- Check button -->
+    <button id="bag-check-btn" onclick="checkBag()" disabled
+      style="display:block;margin:20px auto 0;padding:14px 40px;background:linear-gradient(135deg,#E65100,#FF8F00);
+             color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:17px;font-weight:800;
+             cursor:pointer;box-shadow:0 4px 16px rgba(230,81,0,0.3);opacity:0.5;transition:opacity 0.2s"
+      aria-label="こたえをかくにんする">
+      ✅ こたえをかくにんする
+    </button>
+
+    <!-- Result -->
+    <div id="bag-result" style="display:none;margin-top:20px;background:linear-gradient(135deg,#1A237E,#283593);
+         color:#fff;border-radius:20px;padding:22px;text-align:center">
+      <div id="bag-result-icon" style="font-size:48px;margin-bottom:8px"></div>
+      <div id="bag-result-title" style="font-size:20px;font-weight:800;margin-bottom:10px"></div>
+      <div id="bag-result-msg" style="font-size:14px;color:#B0BEC5;line-height:1.7;margin-bottom:16px"></div>
+      <button onclick="resetBag()" style="padding:12px 28px;background:linear-gradient(135deg,#E65100,#FF8F00);
+              color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">
+        🔄 もういちどあそぶ
+      </button>
     </div>
   </div>
 
@@ -1126,9 +1520,757 @@
     </div>
   </div>
 
+  <!-- ====== QUIZ PANEL ====== -->
+  <div id="panel-quiz" class="panel" role="tabpanel" aria-labelledby="tab-quiz">
+    <div style="font-size:22px;font-weight:800;color:#7B1FA2;margin-bottom:4px">📝 ぼうさいクイズ</div>
+    <div style="font-size:14px;color:#546E7A;margin-bottom:20px">知識をためそう！まちがえたら解説がでるよ。</div>
+
+    <!-- progress -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="flex:1;min-width:160px">
+        <div style="font-size:12px;color:#78909C;font-weight:700;margin-bottom:4px">せいかいすう</div>
+        <div class="quiz-score-bar"><div id="quiz-score-fill" class="quiz-score-fill" style="width:0%"></div></div>
+        <div id="quiz-score-label" style="font-size:13px;color:#7B1FA2;font-weight:800">0 / 0</div>
+      </div>
+      <button onclick="initQuiz()" style="padding:10px 20px;background:linear-gradient(135deg,#7B1FA2,#AB47BC);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">🔄 リセット</button>
+    </div>
+
+    <div id="quiz-container"></div>
+  </div>
+
+  <!-- ====== CHECKLIST PANEL ====== -->
+  <div id="panel-checklist" class="panel" role="tabpanel" aria-labelledby="tab-checklist">
+    <div style="font-size:22px;font-weight:800;color:#1B5E20;margin-bottom:4px">✅ ぼうさいチェックリスト</div>
+    <div style="font-size:14px;color:#546E7A;margin-bottom:6px">おうちのひとといっしょに、ぜんぶチェックしよう！</div>
+
+    <!-- progress stars -->
+    <div style="background:linear-gradient(135deg,#E8F5E9,#F1F8E9);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:36px" id="cl-trophy">🌱</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:800;color:#2E7D32" id="cl-status-label">チェックをはじめよう！</div>
+        <div style="height:10px;background:#C8E6C9;border-radius:5px;overflow:hidden;margin-top:6px">
+          <div id="cl-progress-bar" style="height:100%;background:linear-gradient(90deg,#43A047,#66BB6A);border-radius:5px;width:0%;transition:width 0.5s"></div>
+        </div>
+        <div id="cl-progress-label" style="font-size:12px;color:#66BB6A;font-weight:800;margin-top:3px">0 / 0</div>
+      </div>
+    </div>
+
+    <div id="checklist-container"></div>
+
+    <button onclick="resetChecklist()" style="display:block;margin:16px auto 0;padding:10px 24px;background:#546E7A;color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer">🔄 リセット</button>
+  </div>
+
 </div>
 
 <script>
+// ==================== SETTINGS MODAL ====================
+function openSettings() {
+  const m = document.getElementById('settings-modal');
+  m.style.display = 'flex';
+  updateSettingsUI();
+  // スキャン中は一時停止
+  if (scan.active) {
+    clearTimeout(scan.timer);
+    scan.clearHighlight();
+  }
+}
+function closeSettings() {
+  document.getElementById('settings-modal').style.display = 'none';
+  // スキャン再開
+  if (scan.active) {
+    setTimeout(() => { scan.items = scan.collectItems(); scan.idx = 0; scan.highlight(); scan.scheduleNext(); }, 300);
+  }
+}
+// close on overlay click
+document.getElementById('settings-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+function updateSettingsUI() {
+  // TTS button
+  const tb = document.getElementById('settings-tts-btn');
+  if (tb) {
+    tb.textContent = ttsEnabled ? '🔊 よみあげ：オン' : '🔇 よみあげ：オフ';
+    tb.style.borderColor = ttsEnabled ? '#0288D1' : '#546E7A';
+    tb.style.color = ttsEnabled ? '#4FC3F7' : '#78909C';
+    tb.style.background = ttsEnabled ? 'rgba(2,136,209,0.15)' : 'transparent';
+  }
+  // mode buttons
+  ['slow','picture','contrast'].forEach(mode => {
+    const btn = document.getElementById('settings-' + mode);
+    if (!btn) return;
+    const on = activeModes.has(mode);
+    btn.style.borderColor = on ? '#FFD600' : '#546E7A';
+    btn.style.background = on ? 'rgba(255,214,0,0.12)' : 'transparent';
+    btn.style.color = on ? '#FFD600' : '#90A4AE';
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// ==================== TTS ====================
+let ttsEnabled = true;
+let ttsUtterance = null;
+
+function speak(text) {
+  if (!ttsEnabled || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  ttsUtterance = new SpeechSynthesisUtterance(text);
+  ttsUtterance.lang = 'ja-JP';
+  ttsUtterance.rate = activeModes.has('slow') ? 0.65 : 0.88;
+  ttsUtterance.pitch = 1.05;
+  const voices = window.speechSynthesis.getVoices();
+  const jaVoice = voices.find(v => v.lang.startsWith('ja'));
+  if (jaVoice) ttsUtterance.voice = jaVoice;
+  window.speechSynthesis.speak(ttsUtterance);
+}
+
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  if (!ttsEnabled) window.speechSynthesis && window.speechSynthesis.cancel();
+  updateSettingsUI();
+}
+function speakSituation(text) { speak(text); }
+
+// ==================== ④ 支援モード ====================
+const activeModes = new Set();
+function toggleMode(mode) {
+  if (activeModes.has(mode)) {
+    activeModes.delete(mode);
+    document.body.classList.remove('mode-' + mode);
+  } else {
+    activeModes.add(mode);
+    document.body.classList.add('mode-' + mode);
+  }
+  updateSettingsUI();
+}
+
+// ==================== 🏆 BADGE SYSTEM ====================
+const BADGES = [
+  { id:'quake',    emoji:'🌋', name:'じしんマスター',  simType:'quake',    scoreNeeded:60 },
+  { id:'tsunami',  emoji:'🌊', name:'つなみマスター',  simType:'tsunami',  scoreNeeded:60 },
+  { id:'flood',    emoji:'🌧️', name:'こうずいマスター', simType:'flood',    scoreNeeded:60 },
+  { id:'typhoon',  emoji:'🌀', name:'たいふうマスター', simType:'typhoon',  scoreNeeded:60 },
+  { id:'perfect',  emoji:'💯', name:'パーフェクト！',  simType:null,       scoreNeeded:100 },
+  { id:'allclear', emoji:'🏅', name:'ぜんぶクリア！',  simType:'all',      scoreNeeded:60  },
+  { id:'checklist',emoji:'✅', name:'じゅんびばっちり', simType:'cl',       scoreNeeded:100 },
+  { id:'quiz10',   emoji:'🧠', name:'クイズはかせ',    simType:'quiz',     scoreNeeded:80  },
+  { id:'volcano',  emoji:'🌋', name:'かざんマスター',  simType:'volcano',  scoreNeeded:60  },
+  { id:'snow',     emoji:'❄️', name:'おおゆきマスター', simType:'snow',     scoreNeeded:60  },
+  { id:'fire',     emoji:'🔥', name:'かじマスター',    simType:'fire',     scoreNeeded:60  },
+];
+
+let earnedBadges = new Set(JSON.parse(sessionStorage.getItem('bosai_badges') || '[]'));
+
+function saveBadges() {
+  try { sessionStorage.setItem('bosai_badges', JSON.stringify([...earnedBadges])); } catch(e) {}
+}
+
+function checkBadges(simType, score) {
+  let newlyEarned = [];
+  BADGES.forEach(b => {
+    if (earnedBadges.has(b.id)) return;
+    if (b.simType === simType && score >= b.scoreNeeded) {
+      earnedBadges.add(b.id); newlyEarned.push(b);
+    }
+    if (b.id === 'perfect' && score === 100) {
+      earnedBadges.add(b.id); newlyEarned.push(b);
+    }
+    // allclear: check if all 4 disaster types cleared
+    if (b.id === 'allclear') {
+      const cleared = ['quake','tsunami','flood','typhoon','volcano','snow','fire'].every(t =>
+        allRecords.some(r => r.simType === t && r.score >= 60));
+      if (cleared) { earnedBadges.add(b.id); newlyEarned.push(b); }
+    }
+  });
+  saveBadges();
+  renderBadgeGrid();
+  newlyEarned.forEach(b => showBadgeToast(b));
+}
+
+function checkClBadge() {
+  const total = clData.reduce((s,c) => s + c.items.length, 0);
+  const done  = clData.reduce((s,c) => s + c.items.filter(i => i.done).length, 0);
+  if (done === total && total > 0 && !earnedBadges.has('checklist')) {
+    earnedBadges.add('checklist'); saveBadges();
+    renderBadgeGrid();
+    showBadgeToast(BADGES.find(b => b.id === 'checklist'));
+  }
+}
+
+function checkQuizBadge(pct) {
+  if (pct >= 80 && !earnedBadges.has('quiz10')) {
+    earnedBadges.add('quiz10'); saveBadges();
+    renderBadgeGrid();
+    showBadgeToast(BADGES.find(b => b.id === 'quiz10'));
+  }
+}
+
+function renderBadgeGrid() {
+  const grid = document.getElementById('badge-grid');
+  if (!grid) return;
+  const earned = earnedBadges.size;
+  const total  = BADGES.length;
+  const pct    = Math.round(earned / total * 100);
+
+  document.getElementById('master-bar').style.width = pct + '%';
+  document.getElementById('master-pct-label').textContent = pct + '%';
+
+  grid.innerHTML = BADGES.map(b => {
+    const has = earnedBadges.has(b.id);
+    return '<div class="badge-item ' + (has ? 'earned' : 'locked') + '">' +
+      '<span class="badge-icon">' + b.emoji + '</span>' +
+      '<div class="badge-name ' + (has ? 'earned' : '') + '">' + b.name + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function showBadgeToast(badge) {
+  if (!badge) return;
+  playSound('milestone');
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%) scale(0);' +
+    'background:linear-gradient(135deg,#E65100,#FF8F00);color:#fff;padding:14px 24px;border-radius:16px;' +
+    'font-size:15px;font-weight:800;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.3);' +
+    'transition:transform 0.3s cubic-bezier(.34,1.56,.64,1);text-align:center;white-space:nowrap';
+  t.innerHTML = badge.emoji + ' バッジかくとく！<br><span style="font-size:12px;opacity:0.9">' + badge.name + '</span>';
+  document.body.appendChild(t);
+  setTimeout(() => t.style.transform = 'translateX(-50%) scale(1)', 50);
+  setTimeout(() => { t.style.transform = 'translateX(-50%) scale(0)'; setTimeout(() => t.remove(), 350); }, 3000);
+  speak(badge.emoji + 'バッジをかくとくしました！' + badge.name);
+}
+
+// ==================== ✅ CHECKLIST ====================
+const clData = [
+  { cat:'💧 みずと食べもの', items:[
+    { id:'cl1',  label:'のみずを3日分じゅんびした',         done:false },
+    { id:'cl2',  label:'かんづめやインスタント食品を備えた', done:false },
+    { id:'cl3',  label:'赤ちゃんや子ども用の食べものがある', done:false },
+  ]},
+  { cat:'🔦 あかりと情報', items:[
+    { id:'cl4',  label:'かいちゅうでんとうが使える状態にある', done:false },
+    { id:'cl5',  label:'ラジオ（できれば手回し）がある',       done:false },
+    { id:'cl6',  label:'モバイルバッテリーを充電している',     done:false },
+  ]},
+  { cat:'🩹 けんこうとあんぜん', items:[
+    { id:'cl7',  label:'きゅうきゅうばこの中身を確認した',     done:false },
+    { id:'cl8',  label:'家族の常備薬をまとめてある',           done:false },
+    { id:'cl9',  label:'マスク・手袋・消毒液がある',           done:false },
+  ]},
+  { cat:'🗺️ にげかたのじゅんび', items:[
+    { id:'cl10', label:'ちかくのひなんばしょを知っている',     done:false },
+    { id:'cl11', label:'ハザードマップを見たことがある',        done:false },
+    { id:'cl12', label:'家族の集合場所を決めている',           done:false },
+    { id:'cl13', label:'171（伝言ダイヤル）の使い方を知っている', done:false },
+  ]},
+  { cat:'🏠 いえのじゅんび', items:[
+    { id:'cl14', label:'たな・冷蔵庫の転倒防止をした',         done:false },
+    { id:'cl15', label:'まどにフィルムやガムテープを準備した',  done:false },
+    { id:'cl16', label:'ガス・水道・電気の止め方を知っている',  done:false },
+  ]},
+];
+
+function renderChecklist() {
+  const container = document.getElementById('checklist-container');
+  if (!container) return;
+  container.innerHTML = clData.map(cat =>
+    '<div class="cl-category">' +
+    '<div class="cl-category-title">' + cat.cat + '</div>' +
+    cat.items.map(item =>
+      '<div class="cl-item" onclick="toggleCl(\'' + item.id + '\')" role="checkbox" aria-checked="' + item.done + '" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \')toggleCl(\'' + item.id + '\')">' +
+      '<div class="cl-check' + (item.done ? ' done' : '') + '" id="clcheck-' + item.id + '">' + (item.done ? '★' : '') + '</div>' +
+      '<div class="cl-label' + (item.done ? ' done' : '') + '" id="cllabel-' + item.id + '">' + item.label + '</div>' +
+      '<div class="cl-star" id="clstar-' + item.id + '">' + (item.done ? '⭐' : '　') + '</div>' +
+      '</div>'
+    ).join('') +
+    '</div>'
+  ).join('');
+  updateClProgress();
+}
+
+function toggleCl(id) {
+  for (const cat of clData) {
+    const item = cat.items.find(i => i.id === id);
+    if (item) {
+      item.done = !item.done;
+      // animate
+      const check = document.getElementById('clcheck-' + id);
+      const label = document.getElementById('cllabel-' + id);
+      const star  = document.getElementById('clstar-' + id);
+      if (check) { check.className = 'cl-check' + (item.done ? ' done' : ''); check.textContent = item.done ? '★' : ''; }
+      if (label) { label.className = 'cl-label' + (item.done ? ' done' : ''); }
+      if (star)  { star.textContent = item.done ? '⭐' : '　'; }
+      if (item.done) playSound('correct');
+      updateClProgress();
+      checkClBadge();
+      break;
+    }
+  }
+}
+
+function updateClProgress() {
+  const total = clData.reduce((s,c) => s + c.items.length, 0);
+  const done  = clData.reduce((s,c) => s + c.items.filter(i => i.done).length, 0);
+  const pct   = total ? Math.round(done / total * 100) : 0;
+  const bar   = document.getElementById('cl-progress-bar');
+  const lbl   = document.getElementById('cl-progress-label');
+  const status= document.getElementById('cl-status-label');
+  const trophy= document.getElementById('cl-trophy');
+  if (bar)    bar.style.width = pct + '%';
+  if (lbl)    lbl.textContent = done + ' / ' + total + ' こクリア！';
+  if (status) status.textContent = pct === 100 ? '🎉 ぜんぶクリア！すごい！' : pct >= 60 ? 'もうすこし！がんばって！' : 'チェックをはじめよう！';
+  if (trophy) trophy.textContent = pct === 100 ? '🏆' : pct >= 60 ? '🌟' : pct >= 30 ? '🌿' : '🌱';
+}
+
+function resetChecklist() {
+  clData.forEach(cat => cat.items.forEach(i => i.done = false));
+  renderChecklist();
+}
+
+// ==================== 📝 QUIZ ====================
+const quizData = [
+  { q:'地震がきたとき、まず何をする？', choices:['🛡️ 机の下にかくれる','🚪 すぐ外へとびだす','📱 スマホをとる'], ans:0,
+    exp:'机が頭を守ってくれる。外は倒れてくるものや割れガラスが危険！' },
+  { q:'津波警報が出た。どうする？', choices:['🌊 海の様子を見にいく','🏔️ すぐ高いところへ逃げる','🏠 家に帰って荷物をまとめる'], ans:1,
+    exp:'津波はとても速い。見に行っている間に来てしまう。すぐ高台へ！' },
+  { q:'地震のあと、ガスコンロの火をどうする？', choices:['📺 テレビを見てから考える','🔥 すぐに消す','🍜 料理を続ける'], ans:1,
+    exp:'余震で鍋がずれて火事になることがある。揺れがおさまったらすぐ消そう。' },
+  { q:'洪水の時、車で逃げるのは？', choices:['✅ 安全だから大丈夫','⚠️ 危険！水の中では使えない','🟡 場合による'], ans:1,
+    exp:'水深30cmでも車は流される。浸水した道路での運転は命取りになることがある。' },
+  { q:'台風の時、外に出てはいけないのは？', choices:['🌀 台風の目のとき','⛅ 台風が来る前日','🌧️ 台風が接近・上陸しているとき'], ans:2,
+    exp:'台風接近・上陸中の外出は最も危険。台風の目は一時的に静かになるが、その後また暴風が来る。' },
+  { q:'ひなん持ち出し袋に入れる飲み水は何日分？', choices:['半日分','1日分','3日分'], ans:2,
+    exp:'最低3日分、できれば1週間分の水を用意しよう。1人1日3リットルが目安。' },
+  { q:'災害用伝言ダイヤルの番号は？', choices:['110','119','171'], ans:2,
+    exp:'171に電話→1（録音）→自宅の電話番号→メッセージ。家族で練習しておこう。' },
+  { q:'洪水の時、安全なのはどれ？', choices:['🚶 ひざ以上の水の中を歩く','⬆️ 2階以上の高い場所にいる','🚗 車で移動する'], ans:1,
+    exp:'「垂直避難」が基本。水が来たら上へ！ひざ以上の水は歩いて渡れない。' },
+  { q:'地震でエレベーターに乗っていたら？', choices:['⏸️ そのままいる','🔢 全部のボタンを押して最寄り階で降りる','🆘 緊急停止ボタンだけ押す'], ans:1,
+    exp:'全部のボタンを押して、止まったかいですぐ降りよう。閉じ込められたら非常ボタンで助けを呼ぼう。' },
+  { q:'台風が去った後、倒れた電線はどうする？', choices:['⚡ 片付けようとさわる','📞 電力会社や119番に連絡する','🏃 飛び越えて通る'], ans:1,
+    exp:'切れた電線には電気が流れていることがある。触ると感電死する可能性がある。絶対に触らないで！' },
+  { q:'避難所に着いたら、まず何をする？', choices:['😴 空いているところで寝る','📋 受付スタッフに名前を伝える','📱 SNSに状況を投稿する'], ans:1,
+    exp:'避難所の受付に名前を伝えると、家族が探しやすくなる。スタッフの指示に従って行動しよう。' },
+  { q:'洪水が引いた後の水道水は？', choices:['💧 すぐ飲める','⚠️ 行政の「使ってOK」連絡を待つ','🔥 沸かせば大丈夫'], ans:1,
+    exp:'洪水後は水道管が破損して汚染水が混入している可能性がある。行政の安全確認を待ってから使おう。' },
+  { q:'火山灰を吸い込まないためには？', choices:['🏃 はやくはしる','😷 ぬれたハンカチで口をふさぐ','🤸 よこになる'], ans:1,
+    exp:'火山灰は肺に入ると危険。濡れた布やN95マスクで口と鼻をふさいで移動しよう。' },
+  { q:'大雪で屋根の雪下ろし、一人でやっていい？', choices:['✅ いい','🚫 ダメ！かならずふたりいじょうで','🧒 こどもがやる'], ans:1,
+    exp:'屋根からの転落事故は毎年多発。必ず2人以上で、命綱をつけて作業しよう。' },
+  { q:'火事のとき「まず」やることは？', choices:['🧯 しょうかきでけす','🏃 にげる','📦 にもつをもつ'], ans:1,
+    exp:'まず逃げることが最優先。消火は出火直後の小さな火だけ。煙も非常に危険！' },
+  { q:'けむりの中をどうやって移動する？', choices:['🏃 たって走る','🧎 ひくくはう','🦘 ジャンプする'], ans:1,
+    exp:'煙は上に溜まる。姿勢を低くして移動すると、新鮮な空気の多い層を通れる。' },
+];
+
+let quizAnswered = new Array(quizData.length).fill(null);
+
+function initQuiz() {
+  quizAnswered = new Array(quizData.length).fill(null);
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const container = document.getElementById('quiz-container');
+  if (!container) return;
+  container.innerHTML = quizData.map((q, qi) =>
+    '<div class="quiz-card">' +
+    '<div class="quiz-q">Q' + (qi+1) + '. ' + q.q + '</div>' +
+    '<div class="quiz-choices">' +
+    q.choices.map((c, ci) => {
+      let cls = 'quiz-btn';
+      if (quizAnswered[qi] !== null) {
+        if (ci === q.ans) cls += ' correct-ans';
+        else if (ci === quizAnswered[qi]) cls += ' wrong-ans';
+      }
+      const disabled = quizAnswered[qi] !== null ? 'disabled' : '';
+      return '<button class="' + cls + '" ' + disabled + ' onclick="answerQuiz(' + qi + ',' + ci + ')">' + c + '</button>';
+    }).join('') +
+    '</div>' +
+    '<div class="quiz-explanation" id="qexp-' + qi + '" style="display:' + (quizAnswered[qi] !== null ? 'block' : 'none') + '">' +
+    (quizAnswered[qi] === q.ans ? '✅ せいかい！ ' : '❌ ざんねん… ') + q.exp +
+    '</div>' +
+    '</div>'
+  ).join('');
+  updateQuizScore();
+}
+
+function answerQuiz(qi, ci) {
+  if (quizAnswered[qi] !== null) return;
+  quizAnswered[qi] = ci;
+  const q = quizData[qi];
+  const correct = ci === q.ans;
+  playSound(correct ? 'correct' : 'wrong');
+
+  // update this card's buttons
+  const card = document.getElementById('quiz-container').children[qi];
+  const btns = card.querySelectorAll('.quiz-btn');
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.ans) b.classList.add('correct-ans');
+    else if (i === ci) b.classList.add('wrong-ans');
+  });
+  const expEl = document.getElementById('qexp-' + qi);
+  if (expEl) {
+    expEl.style.display = 'block';
+    expEl.textContent = (correct ? '✅ せいかい！ ' : '❌ ざんねん… ') + q.exp;
+  }
+  speak((correct ? 'せいかい！' : 'ざんねん。') + q.exp);
+  updateQuizScore();
+}
+
+function updateQuizScore() {
+  const answered = quizAnswered.filter(a => a !== null).length;
+  const correct  = quizAnswered.filter((a, i) => a === quizData[i].ans).length;
+  const pct = answered ? Math.round(correct / answered * 100) : 0;
+  const fill = document.getElementById('quiz-score-fill');
+  const lbl  = document.getElementById('quiz-score-label');
+  if (fill) fill.style.width = (answered / quizData.length * 100) + '%';
+  if (lbl)  lbl.textContent  = correct + ' / ' + answered + ' せいかい';
+  if (answered === quizData.length) checkQuizBadge(pct);
+}
+
+// ==================== TAB ====================
+const BAG_ITEMS = [
+  { id:'water',    emoji:'💧', name:'おみず',        essential:true,  reason:'のみものはいのちづな！かならずいれよう。' },
+  { id:'light',    emoji:'🔦', name:'かいちゅうでんとう', essential:true, reason:'ていでんでもあかりがひつよう！' },
+  { id:'food',     emoji:'🍙', name:'たべもの',       essential:true,  reason:'エネルギーをたもつためにひつよう！' },
+  { id:'firstaid', emoji:'🩹', name:'きゅうきゅうばこ', essential:true,  reason:'けがをしたときのために！' },
+  { id:'radio',    emoji:'📻', name:'ラジオ',         essential:true,  reason:'ていでんでもじょうほうをあつめられる！' },
+  { id:'medicine', emoji:'💊', name:'くすり',         essential:false, reason:'もっていると安心。でもひつよう度はひとによる。' },
+  { id:'blanket',  emoji:'🛏️', name:'もうふ',         essential:false, reason:'あると便利！でも重くなる。' },
+  { id:'snack',    emoji:'🍬', name:'おかし',         essential:false, reason:'気もちがラクになるけど、必須ではない。' },
+  { id:'toy',      emoji:'🧸', name:'おもちゃ',       essential:false, reason:'もっていくと安心できる。でもかさばる。' },
+  { id:'phone',    emoji:'📱', name:'スマホじゅうでんき', essential:true, reason:'れんらくのためにかならずほしい！' },
+  { id:'map',      emoji:'🗺️', name:'ちず',           essential:false, reason:'スマホが使えないときに役立つ！' },
+  { id:'cash',     emoji:'💴', name:'げんきん',        essential:false, reason:'ていでんでATMが使えないことも。' },
+];
+let bagCapacity = 5;
+let bagSelected = new Set();
+
+function setBagDiff(n) {
+  bagCapacity = n;
+  document.getElementById('bag-capacity-label').textContent = n + 'こ';
+  document.getElementById('bag-max').textContent = n;
+  ['5','4','3'].forEach(k => {
+    const b = document.getElementById('bag-diff-'+k);
+    b.style.background = k == n ? '#E65100' : '#FFF3E0';
+    b.style.color = k == n ? '#fff' : '#E65100';
+  });
+  resetBag();
+}
+
+function initBag() {
+  bagSelected.clear();
+  const grid = document.getElementById('bag-items-grid');
+  grid.innerHTML = '';
+  BAG_ITEMS.forEach(item => {
+    const btn = document.createElement('button');
+    btn.id = 'bag-item-' + item.id;
+    btn.setAttribute('aria-label', item.name);
+    btn.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;
+      border:2.5px solid #E0E0E0;border-radius:14px;background:#fff;cursor:pointer;
+      font-family:inherit;transition:all 0.2s;`;
+    btn.innerHTML = `<span style="font-size:28px">${item.emoji}</span>
+      <span style="font-size:10px;font-weight:700;color:#546E7A;text-align:center;line-height:1.2">${item.name}</span>`;
+    btn.onclick = () => toggleBagItem(item.id, btn);
+    grid.appendChild(btn);
+  });
+  updateBagUI();
+  document.getElementById('bag-result').style.display = 'none';
+  document.getElementById('bag-check-btn').disabled = true;
+  document.getElementById('bag-check-btn').style.opacity = '0.5';
+}
+
+function toggleBagItem(id, btn) {
+  if (bagSelected.has(id)) {
+    bagSelected.delete(id);
+    btn.style.borderColor = '#E0E0E0';
+    btn.style.background = '#fff';
+    btn.style.transform = 'scale(1)';
+  } else {
+    if (bagSelected.size >= bagCapacity) {
+      btn.style.animation = 'shakeAnim 0.3s';
+      setTimeout(() => btn.style.animation = '', 400);
+      speak('もうリュックがいっぱいです！');
+      return;
+    }
+    bagSelected.add(id);
+    btn.style.borderColor = '#E65100';
+    btn.style.background = '#FFF3E0';
+    btn.style.transform = 'scale(1.06)';
+  }
+  updateBagUI();
+}
+
+function updateBagUI() {
+  const slots = document.getElementById('bag-slots');
+  const count = document.getElementById('bag-count');
+  const fillInner = document.getElementById('bag-fill-inner');
+  const checkBtn = document.getElementById('bag-check-btn');
+
+  slots.innerHTML = '';
+  bagSelected.forEach(id => {
+    const item = BAG_ITEMS.find(i => i.id === id);
+    if (item) {
+      const span = document.createElement('span');
+      span.style.cssText = 'font-size:24px;background:#FFF3E0;border-radius:8px;padding:4px 6px;';
+      span.textContent = item.emoji;
+      span.title = item.name;
+      slots.appendChild(span);
+    }
+  });
+  count.innerHTML = `${bagSelected.size} / <span id="bag-max">${bagCapacity}</span>`;
+  const pct = (bagSelected.size / bagCapacity) * 100;
+  fillInner.style.width = pct + '%';
+  fillInner.style.background = pct >= 100
+    ? 'linear-gradient(90deg,#EF5350,#C62828)'
+    : 'linear-gradient(90deg,#66BB6A,#43A047)';
+
+  const canCheck = bagSelected.size === bagCapacity;
+  checkBtn.disabled = !canCheck;
+  checkBtn.style.opacity = canCheck ? '1' : '0.5';
+}
+
+function checkBag() {
+  const essentials = BAG_ITEMS.filter(i => i.essential).map(i => i.id);
+  const selected = [...bagSelected];
+  const gotEssentials = essentials.filter(id => selected.includes(id));
+  const missed = essentials.filter(id => !selected.includes(id));
+  const unnecessary = selected.filter(id => {
+    const item = BAG_ITEMS.find(i => i.id === id);
+    return item && !item.essential;
+  });
+
+  const score = gotEssentials.length;
+  const total = Math.min(essentials.length, bagCapacity);
+  const pct = Math.round(score / total * 100);
+
+  const resultEl = document.getElementById('bag-result');
+  const icon = document.getElementById('bag-result-icon');
+  const title = document.getElementById('bag-result-title');
+  const msg = document.getElementById('bag-result-msg');
+
+  icon.textContent = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '📖';
+  title.textContent = pct >= 80 ? 'すばらしい！よいじゅんびだね！' : pct >= 50 ? 'がんばった！もうすこしだ！' : 'もういちどかんがえてみよう！';
+
+  let msgHTML = `<div style="margin-bottom:12px">`;
+  if (gotEssentials.length > 0) {
+    msgHTML += `<div style="color:#A5D6A7;margin-bottom:6px">✅ よくできた！</div>`;
+    gotEssentials.forEach(id => {
+      const item = BAG_ITEMS.find(i => i.id === id);
+      msgHTML += `<div style="margin:3px 0">${item.emoji} <strong>${item.name}</strong> — ${item.reason}</div>`;
+    });
+  }
+  if (missed.length > 0) {
+    msgHTML += `<div style="color:#EF9A9A;margin:10px 0 6px">❌ いれるとよかったもの：</div>`;
+    missed.forEach(id => {
+      const item = BAG_ITEMS.find(i => i.id === id);
+      msgHTML += `<div style="margin:3px 0">${item.emoji} <strong>${item.name}</strong> — ${item.reason}</div>`;
+    });
+  }
+  if (unnecessary.length > 0) {
+    msgHTML += `<div style="color:#FFE082;margin:10px 0 6px">💡 なくてもよかったかも：</div>`;
+    unnecessary.forEach(id => {
+      const item = BAG_ITEMS.find(i => i.id === id);
+      msgHTML += `<div style="margin:3px 0">${item.emoji} <strong>${item.name}</strong> — ${item.reason}</div>`;
+    });
+  }
+  msgHTML += `</div>`;
+  msg.innerHTML = msgHTML;
+  resultEl.style.display = 'block';
+  resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  speak(title.textContent);
+}
+
+function resetBag() {
+  bagSelected.clear();
+  initBag();
+}
+
+// ==================== SWITCH SCAN ENGINE ====================
+const scan = {
+  active: false,
+  idx: 0,
+  items: [],
+  timer: null,
+  intervalMs: 2000,
+  touchStartTime: 0,
+  selectThreshold: 600,
+
+  collectItems() {
+    const selectors = [
+      '#sim-menu:not([style*="none"]) .sim-btn',
+      '#scene-select:not([style*="display: none"]) [role="button"]',
+      '#scene-select:not([style*="display: none"]) button',
+      '#choice-btns .choice-btn:not([disabled])',
+      '#quiz-container button:not([disabled])',
+      '#checklist-container [onclick]',
+      '#bag-items-grid button:not([disabled])',
+      '#bag-check-btn:not([disabled])',
+      '#sim-result.show button',
+      '#panel-learn.active .disaster-card',
+      '.tab-btn',
+    ];
+    const seen = new Set();
+    const items = [];
+    selectors.forEach(sel => {
+      try {
+        document.querySelectorAll(sel).forEach(el => {
+          if (!seen.has(el) && el.offsetParent !== null && !el.disabled) {
+            seen.add(el); items.push(el);
+          }
+        });
+      } catch(e) {}
+    });
+    return items;
+  },
+
+  start() {
+    this.active = true;
+    document.body.classList.add('scan-active');
+    document.getElementById('scan-bar').classList.add('active');
+    this.idx = 0;
+    this.items = this.collectItems();
+    this.highlight();
+    this.scheduleNext();
+    document.addEventListener('keydown', scan._onKey, true);
+    document.addEventListener('touchstart', scan._onTouchStart, { passive: true, capture: true });
+    document.addEventListener('touchend', scan._onTouchEnd, { passive: false, capture: true });
+  },
+
+  stop() {
+    this.active = false;
+    document.body.classList.remove('scan-active');
+    document.getElementById('scan-bar').classList.remove('active');
+    clearTimeout(this.timer);
+    this.clearHighlight();
+    document.removeEventListener('keydown', scan._onKey, true);
+    document.removeEventListener('touchstart', scan._onTouchStart, true);
+    document.removeEventListener('touchend', scan._onTouchEnd, true);
+  },
+
+  clearHighlight() {
+    document.querySelectorAll('.scan-highlight').forEach(el => el.classList.remove('scan-highlight'));
+  },
+
+  highlight() {
+    this.items = this.collectItems();
+    if (!this.items.length) { this.updateBar('（えらべるものがありません）', 0, 0); return; }
+    if (this.idx >= this.items.length) this.idx = 0;
+    this.clearHighlight();
+    const el = this.items[this.idx];
+    el.classList.add('scan-highlight');
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const label = el.getAttribute('aria-label') || el.textContent.trim().replace(/\s+/g,' ').slice(0, 40);
+    this.updateBar(label, this.idx, this.items.length);
+    if (ttsEnabled) speak(label.replace(/[①②③④▶◀]/g, ''));
+  },
+
+  updateBar(label, idx, total) {
+    const lbl = document.getElementById('scan-item-label');
+    const dots = document.getElementById('scan-progress-dots');
+    if (lbl) lbl.textContent = label || '—';
+    if (dots) {
+      dots.innerHTML = '';
+      const shown = Math.min(total, 12);
+      for (let i = 0; i < shown; i++) {
+        const d = document.createElement('div');
+        d.className = 'scan-dot' + (i === (idx % shown) ? ' active' : '');
+        dots.appendChild(d);
+      }
+    }
+  },
+
+  next() {
+    this.idx = (this.idx + 1) % Math.max(1, this.items.length);
+    this.highlight();
+  },
+
+  select() {
+    const el = this.items[this.idx];
+    if (!el) return;
+    el.classList.remove('scan-highlight');
+    el.click();
+    setTimeout(() => {
+      if (!this.active) return;
+      this.idx = 0;
+      this.items = this.collectItems();
+      this.highlight();
+      this.scheduleNext();
+    }, 400);
+  },
+
+  scheduleNext() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (!this.active) return;
+      this.next();
+      this.scheduleNext();
+    }, this.intervalMs);
+  },
+
+  _onKey(e) {
+    if (!scan.active) return;
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault(); e.stopPropagation();
+      clearTimeout(scan.timer); scan.select(); scan.scheduleNext();
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      clearTimeout(scan.timer); scan.next(); scan.scheduleNext();
+    }
+  },
+
+  _onTouchStart(e) {
+    if (!scan.active) return;
+    if (e.target.closest('#settings-modal') || e.target.closest('#scan-bar') || e.target.closest('#settings-open-btn')) return;
+    scan.touchStartTime = Date.now();
+  },
+
+  _onTouchEnd(e) {
+    if (!scan.active) return;
+    if (e.target.closest('#settings-modal') || e.target.closest('#scan-bar') || e.target.closest('#settings-open-btn')) return;
+    const held = Date.now() - scan.touchStartTime;
+    e.preventDefault(); e.stopPropagation();
+    clearTimeout(scan.timer);
+    if (held >= scan.selectThreshold) { scan.next(); }
+    else { scan.select(); }
+    scan.scheduleNext();
+  },
+};
+
+function toggleScanMode() {
+  const btn = document.getElementById('settings-scan');
+  const speedDiv = document.getElementById('settings-scan-speed');
+  if (scan.active) {
+    scan.stop();
+    if (btn) { btn.style.background='transparent'; btn.style.color='#90A4AE'; btn.setAttribute('aria-pressed','false'); btn.textContent='🔲 スイッチスキャン（1スイッチ）'; }
+    if (speedDiv) speedDiv.style.display='none';
+    speak('スイッチスキャンをオフにしました');
+  } else {
+    if (btn) { btn.style.background='rgba(255,214,0,0.18)'; btn.style.color='#FFD600'; btn.setAttribute('aria-pressed','true'); btn.textContent='🔲 スイッチスキャン：オン ✓'; }
+    if (speedDiv) speedDiv.style.display='block';
+    closeSettings();
+    setTimeout(() => scan.start(), 350);
+    speak('スイッチスキャンをオンにしました。タップで選択、長押しで次のこうもくへ');
+  }
+}
+
+function setScanInterval(ms) {
+  scan.intervalMs = parseInt(ms);
+  const lbl = document.getElementById('scan-speed-label');
+  if (lbl) lbl.textContent = (scan.intervalMs / 1000).toFixed(1) + 'びょう';
+  if (scan.active) { clearTimeout(scan.timer); scan.scheduleNext(); }
+}
+
+function scanRefresh() {
+  if (!scan.active) return;
+  clearTimeout(scan.timer);
+  scan.idx = 0;
+  scan.items = scan.collectItems();
+  scan.highlight();
+  scan.scheduleNext();
+}
+
+// init bag on load
 // ==================== TAB ====================
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
@@ -1136,12 +2278,15 @@ function switchTab(tab) {
     b.setAttribute('aria-selected', 'false');
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-
   document.getElementById('tab-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).setAttribute('aria-selected', 'true');
   document.getElementById('panel-' + tab).classList.add('active');
 
-  if (tab === 'teacher') renderTeacherDash();
+  if (tab === 'teacher')   renderTeacherDash();
+  if (tab === 'bag')       resetBag();
+  if (tab === 'checklist') renderChecklist();
+  if (tab === 'quiz')      renderQuiz();
+  setTimeout(scanRefresh, 200);
 }
 
 // ==================== PIN ====================
@@ -1201,6 +2346,7 @@ function recordResult(simType, log) {
 
   allRecords.push({ id: Date.now(), name, simType, correct, total, score, dateStr, log });
   saveRecords();
+  checkBadges(simType, score);
   if (nameEl) nameEl.value = '';
 }
 
@@ -1338,60 +2484,93 @@ function exportCSV() {
 // ==================== PRINT ====================
 function printReport() {
   if (allRecords.length === 0) { alert('きろくがありません'); return; }
-  const win = window.open('', '_blank');
   const types = ['quake','tsunami','flood','typhoon'];
 
-  let rows = [...allRecords].reverse().map(r => {
-    const qCells = r.log.map((l,i) =>
-      `<td style="padding:6px 8px;text-align:center;background:${l.correct?'#E8F5E9':'#FFEBEE'};color:${l.correct?'#2E7D32':'#C62828'};font-weight:bold">${l.correct?'○':'×'}</td>`
+  const rows = [...allRecords].reverse().map(r => {
+    const qCells = r.log.map(l =>
+      '<td style="padding:6px 8px;text-align:center;background:' +
+      (l.correct ? '#E8F5E9' : '#FFEBEE') + ';color:' +
+      (l.correct ? '#2E7D32' : '#C62828') + ';font-weight:bold">' +
+      (l.correct ? '○' : '×') + '</td>'
     ).join('');
-    return `<tr>
-      <td style="padding:6px 10px;white-space:nowrap;border:1px solid #ddd">${r.dateStr}</td>
-      <td style="padding:6px 10px;border:1px solid #ddd;font-weight:bold">${r.name}</td>
-      <td style="padding:6px 10px;border:1px solid #ddd">${disasterEmoji[r.simType]} ${disasterLabels[r.simType]}</td>
-      <td style="padding:6px 10px;text-align:center;border:1px solid #ddd">${r.correct}/${r.total}</td>
-      <td style="padding:6px 10px;text-align:center;font-weight:bold;border:1px solid #ddd">${r.score}%</td>
-      ${qCells}
-    </tr>`;
+    return '<tr>' +
+      '<td style="padding:6px 8px;white-space:nowrap">' + r.dateStr + '</td>' +
+      '<td style="padding:6px 8px;font-weight:bold">' + r.name + '</td>' +
+      '<td style="padding:6px 8px">' + (disasterEmoji[r.simType] || '') + ' ' + (disasterLabels[r.simType] || '') + '</td>' +
+      '<td style="padding:6px 8px;text-align:center">' + r.correct + '/' + r.total + '</td>' +
+      '<td style="padding:6px 8px;text-align:center;font-weight:bold">' + r.score + '%</td>' +
+      qCells + '</tr>';
   }).join('');
 
-  // Summary section
-  let summaryHTML = types.map(t => {
+  const summaryHTML = types.map(t => {
     const recs = allRecords.filter(r => r.simType === t);
-    const avg = recs.length ? Math.round(recs.reduce((s,r)=>s+r.score,0)/recs.length) : null;
-    return `<div style="display:inline-block;margin:6px;padding:10px 18px;border:2px solid #ddd;border-radius:8px;text-align:center">
-      <div style="font-size:22px">${disasterEmoji[t]}</div>
-      <div style="font-weight:bold">${disasterLabels[t]}</div>
-      <div style="font-size:20px;font-weight:bold;color:${avg===null?'#999':avg>=70?'green':avg>=40?'orange':'red'}">${avg===null?'—':avg+'%'}</div>
-      <div style="font-size:12px;color:#777">${recs.length}回</div>
-    </div>`;
+    const avg = recs.length ? Math.round(recs.reduce((s, r) => s + r.score, 0) / recs.length) : null;
+    const col = avg === null ? '#999' : avg >= 70 ? '#2E7D32' : avg >= 40 ? '#E65100' : '#C62828';
+    return '<div style="display:inline-block;margin:6px;padding:10px 14px;border:2px solid #ddd;border-radius:8px;text-align:center;min-width:80px">' +
+      '<div style="font-size:20px">' + (disasterEmoji[t] || '') + '</div>' +
+      '<div style="font-weight:bold;font-size:13px">' + (disasterLabels[t] || '') + '</div>' +
+      '<div style="font-size:18px;font-weight:bold;color:' + col + '">' + (avg === null ? '—' : avg + '%') + '</div>' +
+      '<div style="font-size:11px;color:#777">' + recs.length + '回</div></div>';
   }).join('');
 
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>ぼうさいたんけんたい せいせきひょう</title>
-  <style>
-    body { font-family: 'Meiryo', sans-serif; padding: 24px; color: #222; }
-    h1 { font-size: 22px; margin-bottom: 4px; }
-    h2 { font-size: 16px; color: #555; font-weight: normal; margin-bottom: 16px; }
-    table { border-collapse: collapse; width: 100%; font-size: 13px; }
-    th { background: #37474F; color: #fff; padding: 8px 10px; border: 1px solid #555; }
-    td { border: 1px solid #ddd; }
-    @media print { button { display: none; } }
-  </style>
-  </head><body>
-  <button onclick="window.print()" style="margin-bottom:16px;padding:8px 20px;background:#1565C0;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">🖨️ 印刷する</button>
-  <h1>🛡️ ぼうさいたんけんたい — せいせきひょう</h1>
-  <h2>印刷日: ${new Date().toLocaleString('ja-JP')} | 記録件数: ${allRecords.length}件</h2>
-  <div style="margin-bottom:20px"><strong>【てんさいべつ へいきんスコア】</strong><br/>${summaryHTML}</div>
-  <table>
-    <thead><tr>
-      <th>日時</th><th>なまえ</th><th>てんさい</th><th>せいかい</th><th>スコア</th>
-      <th>Q1</th><th>Q2</th><th>Q3</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  </body></html>`);
-  win.document.close();
+  // Build report HTML string (no JS, pure HTML)
+  const reportHTML =
+    '<h2 style="font-size:18px;margin:0 0 4px">&#x1F6E1; ぼうさいたんけんたい — せいせきひょう</h2>' +
+    '<p style="font-size:13px;color:#555;margin:0 0 12px">印刷日: ' + new Date().toLocaleString('ja-JP') + ' | 記録件数: ' + allRecords.length + '件</p>' +
+    '<div style="margin-bottom:14px"><strong style="font-size:13px">【てんさいべつ へいきんスコア】</strong><br>' + summaryHTML + '</div>' +
+    '<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:12px">' +
+    '<thead><tr style="background:#37474F;color:#fff">' +
+    '<th style="padding:7px 8px;text-align:left">日時</th>' +
+    '<th style="padding:7px 8px;text-align:left">なまえ</th>' +
+    '<th style="padding:7px 8px;text-align:left">てんさい</th>' +
+    '<th style="padding:7px 8px;text-align:center">せいかい</th>' +
+    '<th style="padding:7px 8px;text-align:center">スコア</th>' +
+    '<th style="padding:7px 8px;text-align:center">Q1</th>' +
+    '<th style="padding:7px 8px;text-align:center">Q2</th>' +
+    '<th style="padding:7px 8px;text-align:center">Q3</th>' +
+    '<th style="padding:7px 8px;text-align:center">Q4</th>' +
+    '<th style="padding:7px 8px;text-align:center">Q5</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + '</tbody>' +
+    '</table></div>';
+
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'print-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;flex-direction:column;';
+
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = 'background:#37474F;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0';
+  toolbar.innerHTML =
+    '<span style="color:#fff;font-weight:800;font-size:15px">&#x1F5A8; せいせきひょう</span>' +
+    '<div style="display:flex;gap:8px">' +
+    '<button onclick="window.print()" style="padding:8px 16px;background:#1565C0;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">&#x1F5A8; 印刷</button>' +
+    '<button onclick="document.getElementById(\'print-overlay\').remove()" style="padding:8px 16px;background:#546E7A;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">&#x2715; とじる</button>' +
+    '</div>';
+
+  const content = document.createElement('div');
+  content.id = 'print-content';
+  content.style.cssText = 'background:#fff;flex:1;overflow-y:auto;padding:20px;font-family:sans-serif;color:#222;';
+  content.innerHTML = reportHTML;
+
+  overlay.appendChild(toolbar);
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
+
+  // Inject print-specific CSS into the main page's <head> for this session
+  let printStyle = document.getElementById('dynamic-print-style');
+  if (!printStyle) {
+    printStyle = document.createElement('style');
+    printStyle.id = 'dynamic-print-style';
+    document.head.appendChild(printStyle);
+  }
+  printStyle.textContent =
+    '@media print {' +
+    '  body > *:not(#print-overlay) { display: none !important; }' +
+    '  #print-overlay { position:static !important; background:none !important; display:block !important; }' +
+    '  #print-overlay > div:first-child { display:none !important; }' +
+    '  #print-content { overflow:visible !important; padding:0 !important; }' +
+    '}';
 }
 
 // ==================== LEARN (unchanged) ====================
@@ -1473,17 +2652,76 @@ const disasterData = {
       { icon: '📦', text: '食べ物・のみもの・かいちゅうでんとうをじゅんびする' },
       { icon: '📱', text: 'けいたいでんわをじゅうでんしておく' },
     ]
+  },
+  volcano: {
+    title: '🌋 かざん（火山）のしくみ',
+    color: '#BF360C',
+    borderColor: '#E64A19',
+    anim: 'buildVolcanoAnim',
+    steps: [
+      { n:1, html: '地球のなかには<strong>マグマ</strong>とよばれるとけたいわがあります。' },
+      { n:2, html: 'マグマがちかくまであがってくると、ガスがふくらんで<strong>ふんか</strong>がおきます。' },
+      { n:3, html: 'ふんかすると<strong>ようがん・かざんばい・ふんせき</strong>などがとびだします。ふんせきは時速300km以上にもなります！' },
+      { n:4, html: 'かざんばいは何百kmも遠くまでとんでいきます。すいこむと肺がきけんなので<strong>マスクが必須</strong>です。' },
+    ],
+    tips: [
+      { icon: '🚗', text: 'ひなんしじがでたらすぐくるまでにげる' },
+      { icon: '😷', text: 'マスクやぬれたハンカチで口をふさぐ' },
+      { icon: '🥽', text: 'かざんばいからめをまもるゴーグルをつける' },
+      { icon: '📻', text: 'ラジオでさいしんじょうほうをかくにんする' },
+      { icon: '🏠', text: 'ひなんしじまでは頑丈な建物のなかにいる' },
+    ]
+  },
+  snow: {
+    title: '❄️ おおゆき（大雪）のしくみ',
+    color: '#1565C0',
+    borderColor: '#1976D2',
+    anim: 'buildSnowAnim',
+    steps: [
+      { n:1, html: '<strong>つめたいきたかぜ</strong>と日本海の水じょうきがぶつかると、大量の雪がふります。' },
+      { n:2, html: '1日で1m以上の雪がつもることもあります。これを<strong>どか雪</strong>といいます。' },
+      { n:3, html: '雪の重さは1㎡で<strong>100〜300kg</strong>にもなります。屋根がたおれることもあります。' },
+      { n:4, html: '視界がゼロになる<strong>ホワイトアウト</strong>や、気温が急に下がる<strong>低体温症</strong>にも注意が必要です。' },
+    ],
+    tips: [
+      { icon: '🏠', text: 'おおゆきのときはそとにでない' },
+      { icon: '🧹', text: 'やねのゆきはプロにたのむかふたりいじょうで' },
+      { icon: '🚗', text: 'くるまにはスタッドレスタイヤをはく' },
+      { icon: '🎒', text: 'かいちゅうでんとう・あたたかいふくをじゅんびする' },
+      { icon: '📱', text: 'きしょうじょうほうをかくにんしてはやめにこうどうする' },
+    ]
+  },
+  fire: {
+    title: '🔥 かじ（火災）のしくみ',
+    color: '#B71C1C',
+    borderColor: '#C62828',
+    anim: 'buildFireAnim',
+    steps: [
+      { n:1, html: '火災は<strong>ねつ・さんそ・もえるもの</strong>の3つがそろうとおきます。このどれかをなくすと火はきえます。' },
+      { n:2, html: '火のまわりはとても速く、<strong>2〜3分</strong>で部屋全体に広がることがあります。' },
+      { n:3, html: '火災でなくなる人の多くは<strong>けむり（一酸化炭素中毒）</strong>が原因。火よりけむりが危険です！' },
+      { n:4, html: '<strong>火事だ！</strong>と大声で叫んで周囲に知らせ、ためらわず119番へ。初期消火は出火直後の小さな火だけ。' },
+    ],
+    tips: [
+      { icon: '🚪', text: 'にげるときはドアをしめて（さんそを遮断）' },
+      { icon: '🧎', text: 'けむりのなかはひくくはって移動する' },
+      { icon: '🚫', text: 'もどらない！にもつをとりにいかない' },
+      { icon: '📱', text: '119番に通報する（にげながらでもOK）' },
+      { icon: '🔔', text: 'けむり感知器を各部屋につけておく' },
+    ]
   }
 };
 
 let currentAnim = null;
 
 function selectDisaster(type) {
-  // Update card selection
+  // Update card selection (safe - new cards may not have type as class)
   document.querySelectorAll('.disaster-card').forEach(c => c.classList.remove('selected'));
-  document.querySelector('.' + type).classList.add('selected');
+  const card = document.querySelector('.' + type) || document.querySelector('[onclick*="' + type + '"]');
+  if (card) card.classList.add('selected');
 
   const data = disasterData[type];
+  if (!data) return;
   const box = document.getElementById('mechanism-box');
   box.style.borderLeftColor = data.borderColor;
   box.style.background = 'linear-gradient(135deg, #F8FBFF, #EEF4FF)';
@@ -1503,8 +2741,9 @@ function selectDisaster(type) {
     </div>
   `;
 
-  // Build animation
-  data.anim();
+  // Build animation — support both direct function ref and string name
+  const animFn = typeof data.anim === 'function' ? data.anim : window[data.anim];
+  if (typeof animFn === 'function') animFn();
 
   // Animate steps in sequence
   const stepsContainer = document.getElementById('steps-container');
@@ -2074,258 +3313,231 @@ function buildTyphoonAnim() {
   </svg>`;
 }
 
-// ==================== SIMULATION ====================
-const simData = {
-  quake: {
-    scenes: [
-      {
-        situation: '地震がきた！机のそばにいます。',
-        danger: 30,
-        scene: buildQSScene1,
-        choices: [
-          { text: '🛡️ つくえのしたにかくれる', correct: true, feedback: '正しい！頭を守って、机の脚をしっかりつかもう。' },
-          { text: '🚪 すぐそとへとびだす', correct: false, feedback: 'あぶない！外は倒れてくるものや割れたガラスが危険。まず揺れがおさまるまで待とう。' },
-          { text: '📱 スマホをさがす', correct: false, feedback: 'ゆれているときはうごかないで！まずあんぜんをかくほしよう。' },
-          { text: '🪟 まどをあける', correct: false, feedback: 'まどはあぶない！ガラスがわれることがある。' },
-        ]
-      },
-      {
-        situation: 'ゆれがおさまった。次にすること は？',
-        danger: 50,
-        scene: buildQSScene2,
-        choices: [
-          { text: '🔥 ガスのひをけす', correct: true, feedback: 'せいかい！余震のまえにガスをけしておこう。火事をふせぐことがだいじ。' },
-          { text: '📺 テレビをみる', correct: false, feedback: 'まず安全を確認してから。まずひをけして、ドアを開けておこう。' },
-          { text: '🍜 たべものをさがす', correct: false, feedback: 'まだあんぜんではないかも。ガスをけして、にげみちをかくほしよう。' },
-          { text: '🚪 ドアをひらいてにげみちをかくほ', correct: true, feedback: 'せいかい！ゆがんでドアがあかなくなるまえに、にげみちをかくほしよう！' },
-        ]
-      },
-      {
-        situation: '外へにげる！どのみちをとおる？',
-        danger: 70,
-        scene: buildQSScene3,
-        choices: [
-          { text: '🏢 たかいビルのそば', correct: false, feedback: 'あぶない！ビルからガラスやへいがふってくることがある。' },
-          { text: '🌳 こうえんなど、ひらけたばしょ', correct: true, feedback: 'せいかい！ものがたおれてこない、ひらけたばしょへにげよう。' },
-          { text: '🚗 くるまでいどう', correct: false, feedback: '大きな地震のあとは道路がこわれていることも。基本はあるいてひなん。' },
-          { text: '🏠 いえにもどる', correct: false, feedback: '余震でたおれるかも。まずひなんばしょへいこう。' },
-        ]
-      },
-      {
-        situation: 'ひなんばしょについた。じぶんのかぞくがいない！',
-        danger: 55,
-        scene: buildQSScene2,
-        choices: [
-          { text: '🔍 ひとりでさがしにいく', correct: false, feedback: 'ひとりであぶないところへいかないで。おとなにたのんでいっしょにさがそう。' },
-          { text: '🧑‍🤝‍🧑 ひなんじょのひとにしらせる', correct: true, feedback: 'せいかい！ひなんじょのスタッフやおとなにしらせよう。いっしょにさがしてもらえる。' },
-          { text: '📱 でんわ・れんらくさきにかける', correct: true, feedback: 'せいかい！かぞくのでんわにかけるか、れんらくさきにれんらくしよう。' },
-          { text: '😢 そのまままつ', correct: false, feedback: 'じぶんからうごいてしらせることがだいじ。おとなにそうだんしよう。' },
-        ]
-      },
-      {
-        situation: 'よしんがきた！そのとき、いまいるのはトイレのなか。',
-        danger: 65,
-        scene: buildQSScene1,
-        choices: [
-          { text: '🚪 すぐにドアをあけてでる', correct: true, feedback: 'せいかい！よしんのとき、ドアをあけてにげみちをかくほしてから、あんぜんなばしょでまもろう。' },
-          { text: '🪑 トイレのなかでそのまままつ', correct: false, feedback: 'トイレはせまくて、ドアがゆがんであかなくなることがある。まずドアをあけよう！' },
-          { text: '🏃 まどからとびだす', correct: false, feedback: 'まどからとびだすのはきけん！ドアをあけてでよう。' },
-          { text: '📢 おおきなこえでよぶ', correct: false, feedback: 'まずドアをあけてにげみちをかくほすることがさきけつ！' },
-        ]
-      },
-      {
-        situation: 'じしんのあと、でんきがとまった。夜になった。',
-        danger: 40,
-        scene: buildQSScene3,
-        choices: [
-          { text: '🕯️ ろうそくをつける', correct: false, feedback: 'よしんのときに火がついていると火事のきけんがある。かいちゅうでんとうをつかおう！' },
-          { text: '🔦 かいちゅうでんとうをつかう', correct: true, feedback: 'せいかい！かいちゅうでんとうがいちばんあんぜん。ひを使わないでんとうをつかおう。' },
-          { text: '📱 スマホのライトをつかう', correct: true, feedback: 'せいかい！スマホのライトも使える。でもバッテリーをたいせつに。' },
-          { text: '🌑 くらいままにする', correct: false, feedback: 'くらいとあぶない。かいちゅうでんとうやスマホのライトをつかおう。' },
-        ]
-      }
-    ]
-  },
-  tsunami: {
-    scenes: [
-      {
-        situation: '大きな地震がきた。海のちかくにいる！',
-        danger: 60,
-        scene: buildTSScene1,
-        choices: [
-          { text: '🏔️ すぐに高いところへにげる', correct: true, feedback: 'せいかい！つなみはじしんのあとすぐに来ることがある。一刻もはやく高台へ！' },
-          { text: '🌊 つなみをみにいく', correct: false, feedback: 'ぜったいダメ！つなみはとても速い。見ている間に到達してしまう。' },
-          { text: '🏠 いえにもどって荷物をまとめる', correct: false, feedback: 'じかんがない！荷物よりも命！すぐにたかいところへ。' },
-          { text: '📱 ともだちにれんらくする', correct: false, feedback: 'れんらくはあとで！まず命を守って。にげながられんらくしよう。' },
-        ]
-      },
-      {
-        situation: 'たかだいへむかっている。どの道？',
-        danger: 80,
-        scene: buildTSScene2,
-        choices: [
-          { text: '🚶 かわのそばのちかいみち', correct: false, feedback: 'あぶない！かわもつなみでみずがあふれる。かわからはなれよう。' },
-          { text: '🏔️ たかだいへのさかみち', correct: true, feedback: 'せいかい！たかいところへ一直線！かわからははなれたみちがあんぜん。' },
-          { text: '🏢 たかいビルへにげこむ', correct: true, feedback: 'せいかい！たかいてっきんこんくりーとのビルの上のかいへにげるのもいい方法！' },
-          { text: '🚗 くるまでにげる', correct: false, feedback: 'じゅうたいになったらうごけなくなる！できるかぎりあるいてにげよう。' },
-        ]
-      },
-      {
-        situation: 'たかだいへついた。つなみがきた！つぎにすること は？',
-        danger: 70,
-        scene: buildTSScene1,
-        choices: [
-          { text: '👀 つなみをながめる', correct: false, feedback: 'きけん！つなみはなんどもくることがある。たかいばしょにいて、むやみにうごかないで。' },
-          { text: '📻 ラジオやほうそうをきく', correct: true, feedback: 'せいかい！つなみけいほうがでているかどうか、ほうそうでかくにんしよう。' },
-          { text: '🏠 いえにもどる', correct: false, feedback: 'まだあぶない！けいほうがかいじょされるまでたかいばしょにいよう。' },
-          { text: '📱 かぞくにれんらくする', correct: true, feedback: 'せいかい！あんぜんなたかいばしょにいながら、かぞくにれんらくしよう。' },
-        ]
-      },
-      {
-        situation: 'つなみけいほうがかいじょされた。いえにかえっていい？',
-        danger: 45,
-        scene: buildTSScene2,
-        choices: [
-          { text: '🏃 すぐかえる', correct: false, feedback: 'まだはやい！けいほうかいじょのあとも、しばらくはつなみがくることがある。放送をよく聞いて。' },
-          { text: '📢 ほうそうや行政のしじにしたがう', correct: true, feedback: 'せいかい！けいほうがかいじょされても、行政のあんないがあるまではたかいばしょにいよう。' },
-          { text: '🌊 かいがんのようすをみにいく', correct: false, feedback: 'きわめてきけん！つなみはなんどもくることがある。かいがんにちかづかないで。' },
-          { text: '😴 たかだいでやすむ', correct: true, feedback: 'せいかい！あんぜんがかくにんされるまで、たかいばしょでまっていよう。' },
-        ]
-      },
-      {
-        situation: 'じしんのとき、バスのなかにいた。うみにちかい。',
-        danger: 75,
-        scene: buildTSScene1,
-        choices: [
-          { text: '🚌 バスのなかにのこる', correct: false, feedback: 'バスのなかはあぶない！うんてんしゅのしじにしたがい、すぐにでてたかいところへにげよう。' },
-          { text: '🏔️ バスをおりてたかいところへにげる', correct: true, feedback: 'せいかい！バスをおりて、すぐにたかいばしょへにげよう。うんてんしゅのしじにしたがって。' },
-          { text: '📱 だれかにれんらくする', correct: false, feedback: 'れんらくよりもまず命！すぐにたかいところへにげよう。' },
-          { text: '🎒 にもつをもってにげる', correct: false, feedback: 'にもつはすてていい！命がいちばんだいじ。にもつよりはやさ。' },
-        ]
-      }
-    ]
-  },
-  flood: {
-    scenes: [
-      {
-        situation: 'おおあめがふりつづけている。かわがあふれそう！',
-        danger: 50,
-        scene: buildFSScene1,
-        choices: [
-          { text: '⬆️ 2かいへあがる', correct: true, feedback: 'せいかい！みずがくる前に高いところへ。2かい以上がいちばんあんぜん。' },
-          { text: '🚗 くるまで逃げる', correct: false, feedback: 'こうずいのなかでくるまはとても危険。エンジンがとまったり、水にながされることも。' },
-          { text: '🌊 かわをみにいく', correct: false, feedback: 'ぜったいダメ！かわのそばはきわめてあぶない。' },
-          { text: '🏃 はやめにひなんばしょへいく', correct: true, feedback: 'せいかい！みずがくる前にひなんばしょへいくのがいちばん！はやめがポイント。' },
-        ]
-      },
-      {
-        situation: 'みずがあふれてきた！いまのじょうきょうは？',
-        danger: 90,
-        scene: buildFSScene2,
-        choices: [
-          { text: '⬆️ さらにたかいところへ（やね・2かい）', correct: true, feedback: 'せいかい！できるかぎり高いところへ。ヘリコプターでのきゅうじょをまつ。' },
-          { text: '🏊 みずのなかをあるく', correct: false, feedback: 'あぶない！こうずいの水はみえない危険がいっぱい。ながれもとても強い。' },
-          { text: '📱 きゅうじょをよぶ（119番）', correct: true, feedback: 'せいかい！たかいところにいながらきゅうじょをよぼう。ばしょをちゃんとつたえよう。' },
-          { text: '🚗 くるまをとりにいく', correct: false, feedback: 'あぶない！くるまよりもいのちのほうがだいじ。' },
-        ]
-      },
-      {
-        situation: 'おおあめのよほうがでた。いえのまわりがひくいばしょにある。',
-        danger: 40,
-        scene: buildFSScene1,
-        choices: [
-          { text: '🗺️ ハザードマップでひなんばしょをかくにんする', correct: true, feedback: 'せいかい！ハザードマップでひなんばしょをかくにんしておこう。はやめのかくにんがだいじ。' },
-          { text: '🌧️ あめがふってからかんがえる', correct: false, feedback: 'おそい！よほうがでたときにすぐかくにんするのがポイント。あとでは間に合わないことも。' },
-          { text: '🎒 ひなんぶくろをじゅんびする', correct: true, feedback: 'せいかい！すぐにひなんできるように、ひなんぶくろをじゅんびしておこう。' },
-          { text: '😴 ねてまつ', correct: false, feedback: 'こうずいはよるにくることも。よほうがでたらすぐうごこう！' },
-        ]
-      },
-      {
-        situation: 'こうずいで道がみずにつかっている。ひなんじょへいきたい。',
-        danger: 75,
-        scene: buildFSScene2,
-        choices: [
-          { text: '🚶 みずのなかをあるいていく', correct: false, feedback: 'あぶない！みずがひざより上なら歩くのはきけん。ながれにながされることがある。' },
-          { text: '🆘 2かいでたすけをまつ', correct: true, feedback: 'せいかい！みずが深いときは、むりにうごかず高いところでまとう。119番にれんらくしよう。' },
-          { text: '🚗 くるまではしる', correct: false, feedback: 'みずのなかでくるまはエンジンがとまる。みずかさによっては動けなくなる。' },
-          { text: '📱 119番にれんらくしてきゅうじょをまつ', correct: true, feedback: 'せいかい！たかいところにいながらきゅうじょをよぼう。ばしょをくわしくつたえよう。' },
-        ]
-      },
-      {
-        situation: 'こうずいがひいた。ようやくそとにでられる。',
-        danger: 30,
-        scene: buildFSScene1,
-        choices: [
-          { text: '⚡ でんせんやでんきせつびにちかづく', correct: false, feedback: 'きけん！こうずいのあと、でんせんはとくにきけん。ちかづかないで。' },
-          { text: '💧 じゃぐちのみずをそのままのむ', correct: false, feedback: 'こうずいのあと、みずどうかんがおれていることがある。ほうそうをかくにんしてからにしよう。' },
-          { text: '🧤 てぶくろをつけてかたづける', correct: true, feedback: 'せいかい！こうずいのあとのどろや水にはきけんなものがまじっていることがある。てぶくろをつけよう。' },
-          { text: '📻 ラジオやほうそうでじょうほうをあつめる', correct: true, feedback: 'せいかい！こうずいのあとも、ていでんやみずのあんぜんなどのじょうほうをあつめよう。' },
-        ]
-      }
-    ]
-  },
-  typhoon: {
-    scenes: [
-      {
-        situation: '台風がちかづいている。外がすごいかぜ！',
-        danger: 60,
-        scene: buildTYScene1,
-        choices: [
-          { text: '🏠 いえのなかにいる', correct: true, feedback: 'せいかい！台風のときはそとにでないことがいちばん。' },
-          { text: '🌀 たいふうをみにいく', correct: false, feedback: 'きょくどにあぶない！強いかぜでとばされる。絶対ダメ！' },
-          { text: '🪟 まどをしっかりしめる', correct: true, feedback: 'せいかい！まどをしめてシャッターをおろそう。まどがれて危険。' },
-          { text: '🏃 そとでひなんする', correct: false, feedback: 'あぶない！台風のなかを歩くのはとても危険。早めにひなんしておくのがポイント。' },
-        ]
-      },
-      {
-        situation: '台風のなか、いえにひびがはいった！',
-        danger: 85,
-        scene: buildTYScene2,
-        choices: [
-          { text: '🏛️ ちかくのひなんじょへ（たいふうがさるまでまつ）', correct: true, feedback: 'せいかい！あんぜんなひなんじょへにげよう。かぜがよわくなったすきにいどう。' },
-          { text: '🌊 かわやうみをみにいく', correct: false, feedback: 'きわめてあぶない！台風のときかわやうみは命取り。絶対行かない。' },
-          { text: '📱 119番・市役所へれんらくする', correct: true, feedback: 'せいかい！きゅうじょをよぼう。ばしょをちゃんとつたえよう。' },
-          { text: '😴 そのままいえにいる', correct: false, feedback: 'ひびがはいったいえはきけん！はやくひなんしよう。' },
-        ]
-      },
-      {
-        situation: '台風がちかづく前日。じゅんびすることは？',
-        danger: 25,
-        scene: buildTYScene1,
-        choices: [
-          { text: '🪟 まどにガムテープをはる', correct: true, feedback: 'せいかい！まどがわれても、ガムテープがあるとガラスがとびちらない。' },
-          { text: '📦 そとのものをなかにいれる', correct: true, feedback: 'せいかい！植木ばちや自転車など、かぜでとんでいくものをなかにいれよう。' },
-          { text: '🌀 台風がきてからじゅんびする', correct: false, feedback: 'おそい！台風が来てからでは、そとへでることじたいがきけん。まえの日にじゅんびしよう。' },
-          { text: '🛒 みずや食べものをじゅんびする', correct: true, feedback: 'せいかい！台風のあとはでんきやみずがとまることもある。食べものとみずをじゅんびしよう。' },
-        ]
-      },
-      {
-        situation: '台風がすぎた。そとのようすをかくにんしたい。',
-        danger: 35,
-        scene: buildTYScene2,
-        choices: [
-          { text: '🏃 すぐそとにでる', correct: false, feedback: 'まだあぶないかも！台風のあとも、よわった木やでんせんがたおれることがある。まずほうそうをきこう。' },
-          { text: '📻 ラジオやほうそうでたいふうのじょうほうをかくにんする', correct: true, feedback: 'せいかい！台風がほんとうにさったか、ほうそうでかくにんしてからそとへでよう。' },
-          { text: '⚡ たおれたでんせんにさわる', correct: false, feedback: 'きわめてきけん！たおれたでんせんにはぜったいさわらないで。すぐに110番または119番へ。' },
-          { text: '🧤 てぶくろをつけて、あんぜんをたしかめてからでる', correct: true, feedback: 'せいかい！でんせんやわれたガラスなどにきをつけながら、あんぜんをたしかめてでよう。' },
-        ]
-      },
-      {
-        situation: '台風のとき、でんきがとまった。どうする？',
-        danger: 50,
-        scene: buildTYScene1,
-        choices: [
-          { text: '🕯️ ろうそくをともす', correct: false, feedback: 'かぜがつよいとき、ろうそくは火事のきけんがある。かいちゅうでんとうをつかおう。' },
-          { text: '🔦 かいちゅうでんとうをつかう', correct: true, feedback: 'せいかい！でんきがとまったらかいちゅうでんとう。ろうそくよりあんぜん。' },
-          { text: '⚡ ブレーカーをなおそうとする', correct: false, feedback: 'じぶんでブレーカーをさわるのはきけんなことも。でんりょくがいしゃのれんらくをまとう。' },
-          { text: '📻 かんいラジオでじょうほうをきく', correct: true, feedback: 'せいかい！でんきがとまってもラジオはつかえる。たいふうのじょうほうをあつめよう。' },
-        ]
-      }
-    ]
+// ── VOLCANO LEARN ANIMATION ────────────────────────────────
+function buildVolcanoAnim() {
+  const stage = document.getElementById('anim-stage');
+  stage.style.background = 'none';
+  let sparks = '';
+  for (let i = 0; i < 10; i++) {
+    const x = 240 + (Math.random() * 60 - 30);
+    const tx = (Math.random() * 80 - 40).toFixed(0);
+    const dur = (0.8 + Math.random() * 0.8).toFixed(2);
+    const delay = (Math.random() * 1.2).toFixed(2);
+    sparks += `<circle cx="${x}" cy="85" r="${2 + Math.random() * 3}" fill="#FF6D00" opacity="0.9">
+      <animateTransform attributeName="transform" type="translate"
+        values="0,0;${tx},-60;${tx * 1.2},-10" dur="${dur}s" begin="${delay}s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.9;0.6;0" dur="${dur}s" begin="${delay}s" repeatCount="indefinite"/>
+    </circle>`;
   }
-};
+  stage.innerHTML = `
+  <svg viewBox="0 0 500 220" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="vaSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#212121"/><stop offset="100%" stop-color="#4E342E"/>
+      </linearGradient>
+      <radialGradient id="vaGlow" cx="50%" cy="80%" r="50%">
+        <stop offset="0%" stop-color="#FF6D00" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="transparent"/>
+      </radialGradient>
+    </defs>
+    <!-- sky -->
+    <rect width="500" height="220" fill="url(#vaSky)"/>
+    <!-- glow -->
+    <ellipse cx="250" cy="175" rx="120" ry="50" fill="url(#vaGlow)"/>
+    <!-- ash clouds -->
+    <ellipse cx="240" cy="40" rx="100" ry="35" fill="#37474F" opacity="0.9">
+      <animate attributeName="rx" values="100;120;100" dur="3s" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="210" cy="55" rx="75" ry="28" fill="#263238" opacity="0.95"/>
+    <ellipse cx="280" cy="48" rx="65" ry="24" fill="#37474F" opacity="0.85"/>
+    <!-- smoke column -->
+    <path d="M 220 90 Q 230 60 240 30" stroke="#546E7A" stroke-width="22" fill="none" opacity="0.7" stroke-linecap="round">
+      <animate attributeName="stroke-width" values="22;30;22" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <!-- lava flows -->
+    <path d="M 230 130 Q 200 155 170 175" stroke="#FF6D00" stroke-width="10" fill="none" stroke-linecap="round">
+      <animate attributeName="stroke-width" values="10;14;10" dur="1s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 255 128 Q 260 155 270 178" stroke="#FF3D00" stroke-width="8" fill="none" stroke-linecap="round">
+      <animate attributeName="stroke-width" values="8;12;8" dur="0.8s" repeatCount="indefinite"/>
+    </path>
+    <!-- volcano shape -->
+    <polygon points="60,180 250,60 440,180" fill="#3E2723"/>
+    <polygon points="130,180 250,60 370,180" fill="#4E342E"/>
+    <!-- crater glow -->
+    <ellipse cx="250" cy="88" rx="22" ry="10" fill="#FF6D00" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;1;0.5;0.8" dur="0.6s" repeatCount="indefinite"/>
+    </ellipse>
+    <!-- sparks -->
+    ${sparks}
+    <!-- ground -->
+    <rect x="0" y="178" width="500" height="42" fill="#1A1A1A"/>
+    <!-- ash particles falling -->
+    ${[...Array(15)].map((_,i) => {
+      const x = (Math.random() * 500).toFixed(0);
+      const delay = (Math.random() * 2).toFixed(1);
+      return `<circle cx="${x}" cy="${Math.random()*80}" r="1.5" fill="rgba(200,190,180,0.7)">
+        <animateTransform attributeName="transform" type="translate" values="0,0;5,220" dur="${(1.2+Math.random()).toFixed(1)}s" begin="${delay}s" repeatCount="indefinite"/>
+      </circle>`;
+    }).join('')}
+    <!-- labels -->
+    <rect x="10" y="8" width="80" height="16" rx="4" fill="rgba(183,28,28,0.85)"/>
+    <text x="50" y="20" font-size="9" fill="#fff" font-weight="800" text-anchor="middle">🌋 ふんか！</text>
+    <rect x="355" y="8" width="135" height="16" rx="4" fill="rgba(0,0,0,0.5)"/>
+    <text x="422" y="20" font-size="9" fill="#FFAB91" font-weight="800" text-anchor="middle">かざんばい・ようがん</text>
+  </svg>`;
+}
 
-let currentSim = null;
+// ── SNOW LEARN ANIMATION ───────────────────────────────────
+function buildSnowAnim() {
+  const stage = document.getElementById('anim-stage');
+  stage.style.background = 'none';
+  let snowflakes = '';
+  for (let i = 0; i < 55; i++) {
+    const x = (Math.random() * 500).toFixed(0);
+    const y = (Math.random() * 140).toFixed(0);
+    const r = (1.5 + Math.random() * 3).toFixed(1);
+    const dur = (1 + Math.random() * 1.5).toFixed(1);
+    const delay = (Math.random() * 2).toFixed(1);
+    const dx = (Math.random() * 20 - 8).toFixed(0);
+    snowflakes += `<circle cx="${x}" cy="${y}" r="${r}" fill="white" opacity="${(0.5+Math.random()*0.5).toFixed(1)}">
+      <animateTransform attributeName="transform" type="translate"
+        values="0,0;${dx},220" dur="${dur}s" begin="${delay}s" repeatCount="indefinite"/>
+    </circle>`;
+  }
+  stage.innerHTML = `
+  <svg viewBox="0 0 500 220" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="snSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#90A4AE"/><stop offset="100%" stop-color="#ECEFF1"/>
+      </linearGradient>
+    </defs>
+    <rect width="500" height="220" fill="url(#snSky)"/>
+    <!-- storm clouds -->
+    <ellipse cx="120" cy="38" rx="110" ry="40" fill="#B0BEC5"/>
+    <ellipse cx="95"  cy="52" rx="85"  ry="32" fill="#90A4AE"/>
+    <ellipse cx="340" cy="30" rx="140" ry="44" fill="#B0BEC5"/>
+    <ellipse cx="310" cy="48" rx="105" ry="35" fill="#78909C"/>
+    <ellipse cx="460" cy="42" rx="70"  ry="30" fill="#90A4AE"/>
+    <!-- snowflakes -->
+    ${snowflakes}
+    <!-- deep snow ground -->
+    <path d="M 0,158 Q 125,138 250,158 Q 375,175 500,152 L 500,220 L 0,220 Z" fill="white"/>
+    <path d="M 0,165 Q 125,145 250,165 Q 375,182 500,160 L 500,220 L 0,220 Z" fill="#E3F2FD"/>
+    <!-- house with heavy snow on roof -->
+    <rect x="55" y="120" width="100" height="65" rx="2" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="1.5"/>
+    <polygon points="43,120 167,120 105,75" fill="#90A4AE"/>
+    <!-- thick snow on roof -->
+    <path d="M 40,120 Q 105,100 170,120" stroke="white" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <rect x="76" y="130" width="18" height="14" rx="1" fill="#B3E5FC" stroke="#90A4AE" stroke-width="0.5"/>
+    <rect x="110" y="130" width="18" height="14" rx="1" fill="#FFF9C4" stroke="#90A4AE" stroke-width="0.5"/>
+    <!-- snow weight arrow -->
+    <path d="M 105 96 L 105 115" stroke="#EF5350" stroke-width="2.5" marker-end="url(#arSnDn)"/>
+    <defs>
+      <marker id="arSnDn" markerWidth="8" markerHeight="6" refX="4" refY="6" orient="auto">
+        <polygon points="0 0,8 0,4 6" fill="#EF5350"/>
+      </marker>
+    </defs>
+    <text x="105" y="92" font-size="9" fill="#EF5350" font-weight="800" text-anchor="middle">おもい！</text>
+    <!-- car buried in snow -->
+    <rect x="300" y="148" width="120" height="28" rx="8" fill="#78909C"/>
+    <rect x="312" y="133" width="96" height="18" rx="6" fill="#607D8B"/>
+    <path d="M 296,148 Q 360,128 424,148" stroke="white" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <!-- person bundled up -->
+    <circle cx="230" cy="148" r="9" fill="#FFA726"/>
+    <rect x="221" y="157" width="18" height="22" rx="3" fill="#1565C0"/>
+    <line x1="221" y1="162" x2="210" y2="172" stroke="#1565C0" stroke-width="5" stroke-linecap="round"/>
+    <line x1="239" y1="162" x2="250" y2="172" stroke="#1565C0" stroke-width="5" stroke-linecap="round"/>
+    <!-- labels -->
+    <rect x="8" y="8" width="140" height="16" rx="4" fill="rgba(21,101,192,0.85)"/>
+    <text x="78" y="20" font-size="9" fill="#fff" font-weight="800" text-anchor="middle">❄️ ホワイトアウト！視界ゼロ</text>
+    <rect x="155" y="8" width="140" height="16" rx="4" fill="rgba(183,28,28,0.8)"/>
+    <text x="225" y="20" font-size="9" fill="#fff" font-weight="800" text-anchor="middle">⚠️ やねのゆき 100〜300kg</text>
+  </svg>`;
+}
+
+// ── FIRE LEARN ANIMATION ───────────────────────────────────
+function buildFireAnim() {
+  const stage = document.getElementById('anim-stage');
+  stage.style.background = 'none';
+  let flames = '';
+  for (let i = 0; i < 7; i++) {
+    const x = 130 + i * 28;
+    const h = 35 + Math.floor(Math.random() * 45);
+    const dur = (0.35 + Math.random() * 0.3).toFixed(2);
+    const col = i % 2 === 0 ? '#FF6D00' : '#FF3D00';
+    flames += `<path d="M ${x},128 Q ${x-12},${128-h*0.55} ${x},${128-h} Q ${x+12},${128-h*0.55} ${x+22},128" fill="${col}" opacity="0.92">
+      <animate attributeName="d" dur="${dur}s" repeatCount="indefinite"
+        values="M ${x},128 Q ${x-12},${128-h*0.55} ${x},${128-h} Q ${x+12},${128-h*0.55} ${x+22},128;
+                M ${x},128 Q ${x-16},${128-h*0.45} ${x+3},${128-h*1.15} Q ${x+16},${128-h*0.45} ${x+22},128;
+                M ${x},128 Q ${x-12},${128-h*0.55} ${x},${128-h} Q ${x+12},${128-h*0.55} ${x+22},128"/>
+    </path>`;
+  }
+  stage.innerHTML = `
+  <svg viewBox="0 0 500 220" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="fiSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1A1A1A"/><stop offset="70%" stop-color="#BF360C" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#3E2723"/>
+      </linearGradient>
+      <radialGradient id="fiGlow" cx="50%" cy="90%" r="55%">
+        <stop offset="0%" stop-color="#FF6D00" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="transparent"/>
+      </radialGradient>
+    </defs>
+    <rect width="500" height="220" fill="url(#fiSky)"/>
+    <rect width="500" height="220" fill="url(#fiGlow)"/>
+    <!-- smoke column -->
+    <ellipse cx="250" cy="45" rx="90" ry="32" fill="#37474F" opacity="0.88">
+      <animate attributeName="rx" values="90;110;90" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="cy" values="45;38;45" dur="2s" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="240" cy="62" rx="65" ry="22" fill="#263238" opacity="0.92"/>
+    <!-- burning house -->
+    <rect x="120" y="65" width="160" height="105" rx="3" fill="#4E342E" stroke="#3E2723" stroke-width="1.5"/>
+    <polygon points="108,65 292,65 200,18" fill="#3E2723"/>
+    <!-- broken window glowing -->
+    <rect x="138" y="85" width="30" height="24" rx="2" fill="#FF6D00" opacity="0.85">
+      <animate attributeName="opacity" values="0.85;1;0.6;0.85" dur="0.4s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="198" y="85" width="30" height="24" rx="2" fill="#FF8F00" opacity="0.75">
+      <animate attributeName="opacity" values="0.75;0.9;0.5;0.75" dur="0.5s" repeatCount="indefinite"/>
+    </rect>
+    <!-- flames -->
+    ${flames}
+    <!-- ground -->
+    <rect x="0" y="178" width="500" height="42" fill="#1A1A1A"/>
+    <!-- smoke particles rising -->
+    ${[...Array(8)].map((_,i) => {
+      const x = 160 + Math.random()*80;
+      const delay = (Math.random()*1.5).toFixed(1);
+      return `<circle cx="${x}" cy="128" r="${3+Math.random()*4}" fill="#424242" opacity="0.6">
+        <animateTransform attributeName="transform" type="translate"
+          values="0,0;${(Math.random()*30-15).toFixed(0)},-100" dur="${(1.5+Math.random()).toFixed(1)}s" begin="${delay}s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.6;0.3;0" dur="${(1.5+Math.random()).toFixed(1)}s" begin="${delay}s" repeatCount="indefinite"/>
+      </circle>`;
+    }).join('')}
+    <!-- person running away (low) -->
+    <g id="fi-escape">
+      <circle cx="390" cy="163" r="9" fill="#FFA726"/>
+      <line x1="390" y1="172" x2="390" y2="190" stroke="#FFA726" stroke-width="5" stroke-linecap="round"/>
+      <line x1="390" y1="178" x2="378" y2="186" stroke="#FFA726" stroke-width="4" stroke-linecap="round"/>
+      <line x1="390" y1="178" x2="402" y2="184" stroke="#FFA726" stroke-width="4" stroke-linecap="round"/>
+      <animateTransform attributeName="transform" type="translate"
+        values="0,0;-1,-2;1,0;-1,-2;0,0" dur="0.5s" repeatCount="indefinite"/>
+    </g>
+    <!-- smoke warning -->
+    <rect x="8" y="8" width="150" height="16" rx="4" fill="rgba(183,28,28,0.9)"/>
+    <text x="83" y="20" font-size="9" fill="#fff" font-weight="800" text-anchor="middle">🔥 けむりが一番きけん！</text>
+    <!-- 3 elements of fire -->
+    <rect x="340" y="55" width="152" height="50" rx="8" fill="rgba(0,0,0,0.45)"/>
+    <text x="416" y="72" font-size="9" fill="#FFAB91" font-weight="800" text-anchor="middle">かじの3つのもと</text>
+    <text x="358" y="87" font-size="9" fill="#FF8A65">🔥 ねつ</text>
+    <text x="398" y="87" font-size="9" fill="#80DEEA">💨 さんそ</text>
+    <text x="447" y="87" font-size="9" fill="#A5D6A7">🪵 もえるもの</text>
+    <text x="416" y="101" font-size="8" fill="rgba(255,255,255,0.6)" text-anchor="middle">どれかをなくすと火はきえる</text>
+  </svg>`;
+}
 let currentSceneIdx = 0;
 let answered = false;
 
@@ -3188,65 +4400,1138 @@ function buildTYScene2() {
   // debris fly (already in SVG animation)
 }
 
-function startSim(type) {
+// ==================== SIMULATION ====================
+const simData = {
+  quake: {
+    // ③ 連続シナリオ：地震→火災→避難→安否確認
+    scenarioTitle: '🌋 じしん — 連続シナリオ',
+    scenarioBadge: ['🌋 ゆれる','🔥 ひがでた','🏃 にげる','📱 あんぴかくにん'],
+    scenes: [
+      {
+        situation: '【学校の教室で】地震がきた！机のそばにいます。',
+        scene: buildQSScene1,
+        trivia: '💡 エレベーターのなかで地震にあったら、全部のかいのボタンをおして、とまったかいですぐおりよう！',
+        myAction: 'あなたの教室では、どこにかくれる？机のそば？かべぎわ？おうちのひとと決めておこう！',
+        choices: [
+          { text: '🛡️ つくえのしたにかくれる', correct: true,
+            feedback: 'せいかい！',
+            reason: '机が落下物から頭を守ってくれるよ。机の脚をしっかりにぎろう。',
+            consequence: null,
+            howTo: '頭を下げ、机の脚を両手でにぎって体を小さくする。' },
+          { text: '🚪 すぐそとへとびだす', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '外は割れたガラスや落下物があぶない。ゆれているときに走ると転んでケガをするよ。',
+            howTo: 'まずゆれがおさまるまで机の下で待つ。' },
+          { text: '📱 スマホをさがす', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '動いているあいだに落下物にあたるかもしれない。スマホよりも命がだいじ！',
+            howTo: 'まず頭を守る。スマホはあとで使える。' },
+          { text: '🪟 まどをあける', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: 'まどのガラスがゆれで割れてとびちることがある。まどのそばにいかないで。',
+            howTo: 'まどからはなれて、机やじょうぶなものの下にかくれよう。' },
+        ]
+      },
+      {
+        situation: '【じたく・台所で】ゆれがおさまった。台所でガスがついたまま！',
+        scene: buildQSScene2,
+        trivia: '💡 地震のあと火事の原因でいちばん多いのはガスコンロ。ゆれがおさまったらすぐ消そう！',
+        myAction: 'じぶんのいえのガスのせんはどこにある？おうちのひとといっしょに確認しておこう！',
+        choices: [
+          { text: '🔥 ガスのひをけす', correct: true,
+            feedback: 'せいかい！',
+            reason: 'ゆれで鍋がずれて火がまわることがある。余震の前に必ず消そう。',
+            consequence: null,
+            howTo: 'つまみをまわしてガスを消してから、ガス栓も閉める。' },
+          { text: '🚪 ドアをひらいてにげみちをかくほ', correct: true,
+            feedback: 'せいかい！',
+            reason: '地震でドアが歪んで開かなくなることがある。先に開けておくと逃げ道が確保できる。',
+            consequence: null,
+            howTo: 'ドアをすぐに開けて、廊下への出口を確保しよう。' },
+          { text: '📺 テレビをみる', correct: false,
+            feedback: 'まずは行動！',
+            reason: null,
+            consequence: 'ガスがついたままだと火事になるかもしれない。情報収集はガスを消してから！',
+            howTo: 'ガスを消して、にげみちを確保してからラジオ等で情報収集。' },
+          { text: '🍜 たべものをさがす', correct: false,
+            feedback: 'まずは安全確保！',
+            reason: null,
+            consequence: 'ガスがついたまま台所をうろうろするのは危ない。まず火を消して。',
+            howTo: 'ガスを消して安全を確保してから行動しよう。' },
+        ]
+      },
+      {
+        situation: '【じたくの外へ】ガスから火が出た！家の中から逃げる！',
+        scene: buildQSScene3,
+        trivia: '💡 「おかしも」を覚えてる？おさない・かけない・しゃべらない・もどらない。避難のルールだよ！',
+        myAction: 'あなたの学校や家からのひなんルートを知ってる？地図で確認してみよう！',
+        choices: [
+          { text: '🌳 こうえんなど、ひらけたばしょ', correct: true,
+            feedback: 'せいかい！',
+            reason: '公園や広場は落下物がなく、火事からも距離がとれる。一番安全な場所だよ。',
+            consequence: null,
+            howTo: '建物から離れ、電柱・ブロック塀のない広い場所へ向かおう。' },
+          { text: '🏢 たかいビルのそば', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '地震のあとビルからガラスや外壁がはがれ落ちてくることがある。絶対避けて。',
+            howTo: '建物から離れた広い場所へにげよう。' },
+          { text: '🚗 くるまでいどう', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '大地震の後は道路が割れたり渋滞になる。車が動けなくなって逃げ遅れる危険がある。',
+            howTo: 'まず徒歩で避難。車は渋滞のもとになるので基本は使わない。' },
+          { text: '🏠 いえにもどる', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '余震で家が倒れるかもしれない。火事も広がっている可能性がある。絶対もどらないで。',
+            howTo: 'まず避難場所へ。家の確認はあとで大人と一緒に行おう。' },
+        ]
+      },
+      {
+        situation: '【ひなんじょで】避難所についた。家族に連絡したい！',
+        scene: buildQSScene2,
+        trivia: '💡 ひなんじょには「ひなんしゃカード」がある。名前と連絡先を書いておくと家族が見つけやすいよ。',
+        myAction: 'かぞくとの待ち合わせ場所、決めてある？「もしものとき」に会う場所を決めておこう！',
+        choices: [
+          { text: '📱 でんわ・れんらくさきにかける', correct: true,
+            feedback: 'せいかい！',
+            reason: '家族の安否を確認することが最優先。避難所でスタッフに場所を伝えながら連絡しよう。',
+            consequence: null,
+            howTo: '171（災害用伝言ダイヤル）も使える。家族で使い方を練習しておこう。' },
+          { text: '🧑‍🤝‍🧑 ひなんじょのひとにしらせる', correct: true,
+            feedback: 'せいかい！',
+            reason: '避難所のスタッフは行方不明者の情報を集めている。早く知らせると一緒に探してもらえる。',
+            consequence: null,
+            howTo: '受付スタッフに自分の名前と、家族の名前・特徴を伝えよう。' },
+          { text: '🔍 ひとりでさがしにいく', correct: false,
+            feedback: 'まってて！',
+            reason: null,
+            consequence: '一人で外に出ると今度はあなた自身が行方不明になってしまう。絶対に一人で探しに行かないで。',
+            howTo: 'まず避難所スタッフに相談。一人で行動しないこと。' },
+          { text: '😢 そのまままつ', correct: false,
+            feedback: 'うごこう！',
+            reason: null,
+            consequence: '待つだけでは情報が届かない。自分からスタッフに知らせることで早く見つけられる。',
+            howTo: 'スタッフに声をかけよう。あなたの情報を伝えることがだいじ。' },
+        ]
+      },
+      {
+        situation: '【トイレの中】よしんがきた！今いるのはトイレのなか。',
+        scene: buildQSScene1,
+        trivia: '💡 地震のとき「頭をまもる」ことがいちばんだいじ。かばんやクッション、本など頭にのせよう！',
+        myAction: 'もし一人でトイレにいるとき地震がきたら、どうする？練習してみよう！',
+        choices: [
+          { text: '🚪 すぐにドアをあけてでる', correct: true,
+            feedback: 'せいかい！',
+            reason: '地震でドアが歪んで開かなくなることがある。ゆれている間にドアを開けて逃げ道を確保。',
+            consequence: null,
+            howTo: 'ドアを開けてから、頭を守りながら揺れがおさまるまで待つ。' },
+          { text: '🪑 トイレのなかでそのまままつ', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: 'トイレは狭くて、ドアが歪むと閉じ込められてしまう。まず必ずドアを開けよう。',
+            howTo: 'すぐにドアを開けてから、揺れがおさまるまで待とう。' },
+          { text: '🏃 まどからとびだす', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '窓から飛び出すと落下してケガをする。窓ガラスも危ない。絶対にやめよう。',
+            howTo: 'ドアを開けて、廊下など広い場所へ。窓からは出ないで。' },
+          { text: '📢 おおきなこえでよぶ', correct: false,
+            feedback: 'まず行動！',
+            reason: null,
+            consequence: '声を出しながらでもいいが、まず先にドアを開けて逃げ道を確保することが最優先。',
+            howTo: 'ドアを開けながら声も出す。両方やろう！' },
+        ]
+      },
+    ]
+  },
+  tsunami: {
+    scenes: [
+      {
+        situation: '【海水浴場で】大きな地震がきた。海のちかくにいる！',
+        scene: buildTSScene1,
+        trivia: '💡 津波は海が急にひく「引き波」がくることがある。海がひいても近づかないで！',
+        myAction: 'いつも遊ぶ海や川の近くで、高台はどこ？今度行ったとき確認してみよう！',
+        choices: [
+          { text: '🏔️ すぐに高いところへにげる', correct: true,
+            feedback: 'せいかい！',
+            reason: '津波は地震の数分後に来ることがある。一刻も早く高台へ！',
+            consequence: null,
+            howTo: '「内陸へ」「高台へ」。走れるだけ走って少しでも高い場所へ向かおう。' },
+          { text: '🌊 つなみをみにいく', correct: false,
+            feedback: 'ぜったいダメ！',
+            reason: null,
+            consequence: '津波は時速数十kmで押し寄せる。見に行った瞬間に逃げられなくなる。',
+            howTo: '津波は「見えてから逃げる」では遅い。警報が出たらすぐ逃げる！' },
+          { text: '🏠 いえにもどって荷物をまとめる', correct: false,
+            feedback: 'じかんがない！',
+            reason: null,
+            consequence: '荷物をまとめている間に津波が来てしまう。荷物より命が大事！',
+            howTo: '手ぶらでいい。すぐに高台へ向かおう。' },
+          { text: '📱 ともだちにれんらくする', correct: false,
+            feedback: 'あとで！',
+            reason: null,
+            consequence: 'れんらくしているあいだに津波が来る。逃げながら連絡するのが正解。',
+            howTo: '走りながらか、高台に着いてから連絡しよう。' },
+        ]
+      },
+      {
+        situation: '【海岸のまちの中】たかだいへむかっている。どの道？',
+        scene: buildTSScene2,
+        trivia: '💡 津波はなんどもくる。1回目の後も2回目・3回目がある。警報が解除されるまでもどらないで！',
+        myAction: '学校の避難訓練では、どこまで逃げる？先生に「津波のときのルート」を聞いてみよう！',
+        choices: [
+          { text: '🏔️ たかだいへのさかみち', correct: true,
+            feedback: 'せいかい！',
+            reason: '川から離れた高台への道が一番安全。川も津波で増水する。',
+            consequence: null,
+            howTo: '川沿いの道を避けて、高い土地へ一直線に向かおう。' },
+          { text: '🏢 たかいビルへにげこむ', correct: true,
+            feedback: 'せいかい！',
+            reason: '鉄筋コンクリートの高層ビルに逃げ込むのも有効な方法。上の階へ！',
+            consequence: null,
+            howTo: 'できれば5階以上へ。「津波避難ビル」の標識を覚えておこう。' },
+          { text: '🚶 かわのそばのちかいみち', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '川も津波でみずがあふれる。川沿いは最も危険な場所の一つ。',
+            howTo: '川から離れた道を選ぼう。遠回りでも川沿いは通らない。' },
+          { text: '🚗 くるまでにげる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '渋滞で車が動けなくなると、逃げるどころか命取りになる。',
+            howTo: '車は渋滞のもと。基本は徒歩で高台へ。' },
+        ]
+      },
+      {
+        situation: '【高台で】たかだいへついた。つぎにすること は？',
+        scene: buildTSScene1,
+        trivia: '💡 津波の速さは深い海では時速800km！陸に近づくとスピードは落ちるが高さが増す。',
+        myAction: 'もし一人で高台にいて、家族と離れてしまったら？待ち合わせ場所を決めておこう！',
+        choices: [
+          { text: '📻 ラジオやほうそうをきく', correct: true,
+            feedback: 'せいかい！',
+            reason: '警報が続いているか解除されたか、ラジオで正確な情報を得られる。',
+            consequence: null,
+            howTo: '携帯ラジオを使おう。スマホのラジオアプリでもOK。' },
+          { text: '📱 かぞくにれんらくする', correct: true,
+            feedback: 'せいかい！',
+            reason: '高台に着いたら家族に安全を知らせよう。171（伝言ダイヤル）も使える。',
+            consequence: null,
+            howTo: '171に電話→1を押す→自宅の電話番号→メッセージ録音。' },
+          { text: '👀 つなみをながめる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '見物しているうちに足を滑らせたり、2波目が来て巻き込まれることがある。',
+            howTo: '高台にいても海からは離れた場所にいよう。' },
+          { text: '🏠 いえにもどる', correct: false,
+            feedback: 'まだダメ！',
+            reason: null,
+            consequence: '警報中に戻ると2波目・3波目に巻き込まれる危険がある。',
+            howTo: '必ず公式の警報解除アナウンスを待ってから行動しよう。' },
+        ]
+      },
+      {
+        situation: '【ラジオで】つなみけいほうがかいじょされた。いえにかえっていい？',
+        scene: buildTSScene2,
+        trivia: '💡 「津波てんでんこ」―それぞれが自分で逃げて、あとで合流しよう、という考え方。命を守ることが最優先！',
+        myAction: 'ハザードマップで、自分の家は津波のリスクエリアに入ってる？おうちの人と確認しよう！',
+        choices: [
+          { text: '📢 ほうそうや行政のしじにしたがう', correct: true,
+            feedback: 'せいかい！',
+            reason: '解除のアナウンスの後も行政の指示に従うのが一番安全。勝手に動かない。',
+            consequence: null,
+            howTo: '市町村の防災無線・エリアメール・ラジオで確認してから動こう。' },
+          { text: '😴 たかだいでやすむ', correct: true,
+            feedback: 'せいかい！',
+            reason: '焦らず高台で待つのが賢明。急いで戻って2波目に巻き込まれた例がある。',
+            consequence: null,
+            howTo: '避難場所でスタッフの指示を待ちながら休もう。' },
+          { text: '🏃 すぐかえる', correct: false,
+            feedback: 'まだはやい！',
+            reason: null,
+            consequence: '警報解除直後に戻ってきた人が2波目・3波目にのまれた事例がある。',
+            howTo: '行政の帰宅許可が出るまで絶対に戻らない。' },
+          { text: '🌊 かいがんのようすをみにいく', correct: false,
+            feedback: 'きわめてきけん！',
+            reason: null,
+            consequence: '「海が引いている＝次の波が来るサイン」の場合がある。見に行くと命取り。',
+            howTo: '解除後も海岸には近づかない。しばらくは高台にいよう。' },
+        ]
+      },
+      {
+        situation: '【スクールバスの中】じしんのとき、バスのなかにいた。うみにちかい。',
+        scene: buildTSScene1,
+        trivia: '💡 バスや電車に乗っているとき地震がきたら、つり革やてすりをしっかりにぎろう。急ブレーキに備えて。',
+        myAction: 'バスや電車で地震になったら、どこへ逃げる？乗る前に「高台」を確認する習慣を持とう！',
+        choices: [
+          { text: '🏔️ バスをおりてたかいところへにげる', correct: true,
+            feedback: 'せいかい！',
+            reason: 'バス内にとどまるより、高台へ向かうことが最優先。運転手の指示に従って降りよう。',
+            consequence: null,
+            howTo: '運転手さんの指示を聞きながら、すぐバスを降りて高台へ走る。' },
+          { text: '🚌 バスのなかにのこる', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: 'バスごと津波にのまれると脱出できなくなる。バスの中は安全ではない。',
+            howTo: 'バスを降りてすぐ高台へ。にもつはその場に置いていい。' },
+          { text: '📱 だれかにれんらくする', correct: false,
+            feedback: 'まず逃げて！',
+            reason: null,
+            consequence: '連絡している数分間で津波が到達する場合がある。逃げながら連絡しよう。',
+            howTo: '走りながらか高台に着いてから連絡。まず自分の命を守る。' },
+          { text: '🎒 にもつをもってにげる', correct: false,
+            feedback: 'おいていって！',
+            reason: null,
+            consequence: '荷物を持つことで逃げるスピードが落ちる。数秒の差が命取りになることがある。',
+            howTo: '荷物は置いていい。あとで探せる。命は取り戻せない。' },
+        ]
+      },
+    ]
+  },
+  flood: {
+    scenes: [
+      {
+        situation: '【じたく・1かいで】おおあめがふりつづけている。かわがあふれそう！',
+        scene: buildFSScene1,
+        trivia: '💡 洪水のとき車の中に水が入るとドアが水圧で開かなくなる。脱出ハンマーをくるまに常備しよう！',
+        myAction: 'じぶんの家はハザードマップで洪水のリスクエリア？おうちの人と確認しよう！',
+        choices: [
+          { text: '⬆️ 2かいへあがる', correct: true,
+            feedback: 'せいかい！',
+            reason: '1階は浸水するリスクがある。水が来る前に上の階へ移動するのが垂直避難の基本。',
+            consequence: null,
+            howTo: '重要なものだけ持って2階以上へ。電気のコンセントも高い位置に移しておこう。' },
+          { text: '🏃 はやめにひなんばしょへいく', correct: true,
+            feedback: 'せいかい！',
+            reason: '雨が強くなる前の早めの避難が最善。水が出てからでは動けなくなる。',
+            consequence: null,
+            howTo: 'ハザードマップで確認した避難場所へ、まだ道路が乾いているうちに。' },
+          { text: '🚗 くるまで逃げる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '水深30cmでも車は流される。浸水した道路での運転は命取りになることがある。',
+            howTo: '徒歩か自転車で避難。車は浸水リスクが高い。' },
+          { text: '🌊 かわをみにいく', correct: false,
+            feedback: 'ぜったいダメ！',
+            reason: null,
+            consequence: '川の水量が急増するタイミングに近づくと、一瞬で川に飲み込まれる。',
+            howTo: '川には絶対に近づかない。増水した川は見た目より遥かに危ない。' },
+        ]
+      },
+      {
+        situation: '【屋根の上で】みずがあふれてきた！やねの上でたすけをまっている。',
+        scene: buildFSScene2,
+        trivia: '💡 屋根の上で助けを待つとき、明るい色のものを振ったりライトを照らすとヘリコプターに気づいてもらいやすい！',
+        myAction: 'もし洪水で家が浸水したら、家族で何階に集まる？今のうちに決めておこう！',
+        choices: [
+          { text: '📱 119番にれんらくしてきゅうじょをよぶ', correct: true,
+            feedback: 'せいかい！',
+            reason: '屋根の上にいながら救助を呼ぶのが正解。住所と状況を正確に伝えよう。',
+            consequence: null,
+            howTo: '119番→住所→「洪水で屋根の上にいる」→何人いるか、を伝える。' },
+          { text: '🌟 あかるいもので合図をおくる', correct: true,
+            feedback: 'せいかい！',
+            reason: 'ヘリコプターや救助隊に気づいてもらうために、明るいものを振って位置を知らせよう。',
+            consequence: null,
+            howTo: '白いタオル・スマホライト・鏡など、目立つものを使って合図しよう。' },
+          { text: '🏊 みずのなかにおりていく', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '洪水の水には電線・ガラス・ごみが混ざり、流れも強い。水に入ると命取りになる。',
+            howTo: '屋根の上にとどまって救助を待つのが最善。絶対に水に入らない。' },
+          { text: '🚗 くるまのところまで泳いでいく', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '浸水した場所を泳ぐのは非常に危険。車より命が大事。',
+            howTo: '屋根の上で救助を待とう。' },
+        ]
+      },
+      {
+        situation: '【前日の夜】おおあめのよほうがでた。いえのまわりがひくいばしょにある。',
+        scene: buildFSScene1,
+        trivia: '💡 ハザードマップは「危険な場所」だけでなく「避難場所」や「避難ルート」も書いてある！',
+        myAction: 'おうちのハザードマップ、みたことある？いっしょに見てみよう！',
+        choices: [
+          { text: '🗺️ ハザードマップでひなんばしょをかくにんする', correct: true,
+            feedback: 'せいかい！',
+            reason: '洪水前に避難場所・ルートを確認するのが命を守る第一歩。',
+            consequence: null,
+            howTo: '国土交通省のハザードマップポータルサイトで自宅の周辺を調べよう。' },
+          { text: '🎒 ひなんぶくろをじゅんびする', correct: true,
+            feedback: 'せいかい！',
+            reason: 'いつでも逃げられる準備をしておくことが大切。水・食料・薬・懐中電灯を用意しよう。',
+            consequence: null,
+            howTo: '3日分の水と食料・充電器・常備薬・懐中電灯をリュックに入れておこう。' },
+          { text: '🌧️ あめがふってからかんがえる', correct: false,
+            feedback: 'おそい！',
+            reason: null,
+            consequence: '雨が本格的に降り出してから考えると、川が増水して道が使えなくなることがある。',
+            howTo: '予報が出た段階で「空振りでもいい」と思って早めに動くことが大切。' },
+          { text: '😴 ねてまつ', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '洪水は夜間に発生することも多い。寝ている間に浸水して逃げ遅れる例がある。',
+            howTo: '予報が出たら就寝前に避難するか、逃げ道を確認してから寝よう。' },
+        ]
+      },
+      {
+        situation: '【いえの2かいで】こうずいで道がみずにつかっている。ひなんじょへいきたい。',
+        scene: buildFSScene2,
+        trivia: '💡 「垂直避難」は横（水平）でなく上（垂直）に逃げること。洪水ではとても有効な方法！',
+        myAction: 'もし洪水で2階に逃げることになったら、何を持って上がる？今のうちリストアップしよう！',
+        choices: [
+          { text: '🆘 2かいでたすけをまつ', correct: true,
+            feedback: 'せいかい！',
+            reason: '水深が深い場合、むりに歩くより高所で待つ方がはるかに安全。',
+            consequence: null,
+            howTo: '119番に電話して現在地と状況を伝え、救助を待とう。' },
+          { text: '📱 119番にれんらくしてきゅうじょをまつ', correct: true,
+            feedback: 'せいかい！',
+            reason: '助けを求めると同時に待機することが最善。自分の場所を正確に伝えよう。',
+            consequence: null,
+            howTo: '住所・何階にいるか・何人いるかを伝える。電池が切れないよう節約しながら待つ。' },
+          { text: '🚶 みずのなかをあるいていく', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: 'ひざ以上の水深は歩行が困難で、ごみや電線が混ざった水は非常に危険。流されてしまう。',
+            howTo: '水深が膝以上なら歩かない。2階で待機して救助を待とう。' },
+          { text: '🚗 くるまではしる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '水深30cmでも走行不能になる車種がある。エンジンが水を吸うと停止し流される危険も。',
+            howTo: '浸水した道路での運転は絶対にしない。' },
+        ]
+      },
+      {
+        situation: '【翌日・いえのそと】こうずいがひいた。ようやくそとにでられる。',
+        scene: buildFSScene1,
+        trivia: '💡 洪水のあとのどろにはバイキンがたくさんいる。片付けは手袋・長靴・マスクをつけよう！',
+        myAction: '洪水の後の片付けで必要なものは？防災リュックにいれておくべきグッズを調べてみよう！',
+        choices: [
+          { text: '🧤 てぶくろをつけてかたづける', correct: true,
+            feedback: 'せいかい！',
+            reason: '洪水の泥には細菌や有害物質が含まれることがある。素手で触るのは危険。',
+            consequence: null,
+            howTo: 'ゴム手袋・長靴・マスクを着けてから片付けを始めよう。消毒も忘れずに。' },
+          { text: '📻 ラジオやほうそうでじょうほうをあつめる', correct: true,
+            feedback: 'せいかい！',
+            reason: '断水・停電・道路の状況などをラジオで確認してから動くと安全。',
+            consequence: null,
+            howTo: '行政の情報で「水道が使えるか」「電気は復旧したか」を確認しよう。' },
+          { text: '⚡ でんせんやでんきせつびにちかづく', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '水に濡れた電線や電気設備に触ると感電死することがある。見ても触らない！',
+            howTo: '倒れた電線は110番か119番に通報。絶対に自分では触らない。' },
+          { text: '💧 じゃぐちのみずをそのままのむ', correct: false,
+            feedback: 'まってて！',
+            reason: null,
+            consequence: '洪水後は水道管が破損して汚染水が混入している可能性がある。お腹を壊す危険がある。',
+            howTo: '水道局の「飲んでいい」アナウンスを確認してから。それまでペットボトルの水を使おう。' },
+        ]
+      },
+    ]
+  },
+  typhoon: {
+    scenes: [
+      {
+        situation: '【公園で遊んでいたとき】台風がちかづいている。外がすごいかぜになってきた！',
+        scene: buildTYScene1,
+        trivia: '💡 台風の「目」の部分はかぜがよわくなるけど、「目」がすぎたあとにまたつよいかぜがくる。「目」がきても外にでないで！',
+        myAction: '公園で台風に巻き込まれたとき、近くの「逃げ込める場所」はどこ？散歩のときに確認しよう！',
+        choices: [
+          { text: '🏛️ ちかくのけんもつ（学校・コンビニ）にひなんする', correct: true,
+            feedback: 'せいかい！',
+            reason: '公園にいるときは、すぐに近くの頑丈な建物に逃げ込もう。外にいることが最も危険。',
+            consequence: null,
+            howTo: '学校・コンビニ・公民館など、近くのじょうぶな建物に素早く入ろう。' },
+          { text: '🌳 おおきなきのしたにかくれる', correct: false,
+            feedback: 'あぶない！',
+            reason: null,
+            consequence: '台風の強風で木が倒れたり枝が折れて飛んでくることがある。木の近くは危険。',
+            howTo: '木や電柱から離れて、すぐに建物の中へ入ろう。' },
+          { text: '🌀 たいふうのようすをみる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '台風の暴風は時速60km以上になることも。飛来物が直撃すると重傷を負う危険がある。',
+            howTo: '台風の時は絶対に外にいない。すぐ建物の中へ。' },
+          { text: '🏃 そのままいえまではしる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '台風の強風の中を走ると、飛来物にあたったり、強風で転倒する危険がある。遠い場合は近くの建物へ。',
+            howTo: '家が近ければ素早く帰宅。遠ければ近くの建物に入ろう。' },
+        ]
+      },
+      {
+        situation: '【夜・じたくで】台風のなか、いえにひびがはいった！',
+        scene: buildTYScene2,
+        trivia: '💡 台風のとき、かぜが「ふいてくるほう」より「ふいていくほう」の窓がこわれやすい「負圧」という現象がある。',
+        myAction: 'いえのまわりの「壊れやすそうなもの」を今すぐ確認してみよう！',
+        choices: [
+          { text: '🏛️ ちかくのひなんじょへ（たいふうがさるまでまつ）', correct: true,
+            feedback: 'せいかい！',
+            reason: 'ひびが入った家は倒壊の危険がある。風が少し弱まったすきに避難しよう。',
+            consequence: null,
+            howTo: '風が少し弱い「台風の目」のタイミングを利用して、近くの避難所へ移動。' },
+          { text: '📱 119番・市役所へれんらくする', correct: true,
+            feedback: 'せいかい！',
+            reason: '家が危険な状態なら行政に助けを求めることも大切。状況を正確に伝えよう。',
+            consequence: null,
+            howTo: '119番に「家の壁にひびが入って危険」と伝える。自力での避難が難しい場合も相談を。' },
+          { text: '🌊 かわやうみをみにいく', correct: false,
+            feedback: 'きわめてきけん！',
+            reason: null,
+            consequence: '台風時の川や海は通常の何倍もの危険がある。見に行った人が流された事例が多数ある。',
+            howTo: '川・海・用水路からは絶対に近づかない。台風中は特に危険。' },
+          { text: '😴 そのままいえにいる', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: 'ひびが入った家は余震・強風で倒壊する危険がある。そのままでいると下敷きになることも。',
+            howTo: '少しでも危険を感じたら迷わず避難。「大丈夫だろう」が命取りになる。' },
+        ]
+      },
+      {
+        situation: '【前日・いえで】台風がちかづく前日。じゅんびすることは？',
+        scene: buildTYScene1,
+        trivia: '💡 ガムテープをまどに✕にはるのは「割れにくくする」ためではなく「割れてもとびちらないようにする」のが目的！',
+        myAction: '台風の前日にやること、家族で分担するとどうなる？役割分担を考えてみよう！',
+        choices: [
+          { text: '🪟 まどにガムテープをはる', correct: true,
+            feedback: 'せいかい！',
+            reason: 'ガラスが割れてもとびちらないようにする応急処置。新聞紙も代わりになる。',
+            consequence: null,
+            howTo: '窓の内側にX字・井字型にはる。剥がれないようしっかり貼ろう。' },
+          { text: '📦 そとのものをなかにいれる', correct: true,
+            feedback: 'せいかい！',
+            reason: '植木鉢・傘・自転車などが風で飛ぶと、他の人の家を壊したり人にあたったりする危険がある。',
+            consequence: null,
+            howTo: '庭・ベランダのものはすべて室内へ。固定できないものは全部入れよう。' },
+          { text: '🛒 みずや食べものをじゅんびする', correct: true,
+            feedback: 'せいかい！',
+            reason: '台風の後は断水・停電が数日続くことがある。3日分の備蓄があると安心。',
+            consequence: null,
+            howTo: '水2L×1人3日分。カップ麺・缶詰・モバイルバッテリー・懐中電灯を用意しよう。' },
+          { text: '🌀 台風がきてからじゅんびする', correct: false,
+            feedback: 'おそい！',
+            reason: null,
+            consequence: '台風上陸後に外へ出て準備しようとすると強風に巻き込まれる。準備は必ず前日までに。',
+            howTo: '「台風が来てから動く」は最も危険。前日の晴れているうちに全部準備を終わらせよう。' },
+        ]
+      },
+      {
+        situation: '【翌日の朝】台風がすぎた。そとのようすをかくにんしたい。',
+        scene: buildTYScene2,
+        trivia: '💡 台風のあと倒れた木や看板を動かそうとして、下がくさっていて急に倒れてきた事例がある。一人でさわらないで！',
+        myAction: '台風が来る前と後で、家のまわりをチェックするポイントはどこ？リストを作ってみよう！',
+        choices: [
+          { text: '📻 ラジオやほうそうでたいふうのじょうほうをかくにんする', correct: true,
+            feedback: 'せいかい！',
+            reason: '台風が本当に去ったか確認が必要。「台風の目」の後に再び暴風が来ることがある。',
+            consequence: null,
+            howTo: 'ラジオやテレビで気象情報を確認。完全に通過したことを確認してから外へ。' },
+          { text: '🧤 てぶくろをつけて、あんぜんをたしかめてからでる', correct: true,
+            feedback: 'せいかい！',
+            reason: '台風後は割れたガラス・倒れた電柱・切れた電線があちこちにある。装備が必要。',
+            consequence: null,
+            howTo: 'ゴム手袋・長靴・ヘルメットを着けて、ゆっくり周囲を確認しながら歩こう。' },
+          { text: '🏃 すぐそとにでる', correct: false,
+            feedback: 'まってて！',
+            reason: null,
+            consequence: '台風直後は倒れた木・電線・看板がいたるところにある。慌てて出るとケガをする。',
+            howTo: '放送で安全が確認できてから、装備を整えて外に出よう。' },
+          { text: '⚡ たおれたでんせんにさわる', correct: false,
+            feedback: 'きわめてきけん！',
+            reason: null,
+            consequence: '切れた電線には電気が流れていることがある。触ると感電死する可能性がある。',
+            howTo: '電線が切れているのを見つけたら、110番か119番に通報。絶対に触らない！' },
+        ]
+      },
+      {
+        situation: '【停電した夜・じたくで】台風のとき、でんきがとまった。どうする？',
+        scene: buildTYScene1,
+        trivia: '💡 カセットコンロは停電中でも使えて便利。でも室内で使うときは必ず換気しよう。一酸化炭素中毒に注意！',
+        myAction: 'もし停電したら、家族で何をする？停電への備えを一緒に考えてみよう！',
+        choices: [
+          { text: '🔦 かいちゅうでんとうをつかう', correct: true,
+            feedback: 'せいかい！',
+            reason: 'ろうそくと違い、懐中電灯は火事の危険がない。停電の必需品として常備しよう。',
+            consequence: null,
+            howTo: '懐中電灯はすぐ取り出せる場所に保管。LEDタイプは電池が長持ちするよ。' },
+          { text: '📻 かんいラジオでじょうほうをきく', correct: true,
+            feedback: 'せいかい！',
+            reason: '停電中もラジオは使える。台風の最新情報・停電復旧見込みを確認できる。',
+            consequence: null,
+            howTo: '手回し充電ラジオなら電池切れの心配なし。防災グッズとして準備しよう。' },
+          { text: '🕯️ ろうそくをともす', correct: false,
+            feedback: 'きけん！',
+            reason: null,
+            consequence: '強風の時はわずかな隙間からの気流でもろうそくが倒れて火事になることがある。台風中は特に危険。',
+            howTo: 'ろうそくより懐中電灯。LEDランタンや手回し充電ライトがおすすめ。' },
+          { text: '⚡ ブレーカーをなおそうとする', correct: false,
+            feedback: 'やめて！',
+            reason: null,
+            consequence: '自分でブレーカーを操作すると感電や再通電時の火花で火事になることがある。',
+            howTo: '停電の場合は電力会社に連絡。自分でブレーカーをいじらない。' },
+        ]
+      },
+    ]
+  }
+};
+
+// ============================================================
+//  NEW DISASTER SCENE BUILDERS
+// ============================================================
+
+function buildVOScene1() {
+  const c = document.getElementById('sim-canvas');
+  c.style.background = 'none';
+  const W=860, H=320, GY=230;
+  let ashLines = '';
+  for(let i=0;i<20;i++){
+    const x=(Math.random()*W).toFixed(0), delay=(Math.random()*2).toFixed(1), dur=(1.2+Math.random()).toFixed(1);
+    ashLines += '<line x1="'+x+'" y1="0" x2="'+(parseFloat(x)+5)+'" y2="20" stroke="rgba(200,200,200,0.5)" stroke-width="1.5"><animateTransform attributeName="transform" type="translate" values="0,0;10,'+H+'" dur="'+dur+'s" begin="'+delay+'s" repeatCount="indefinite"/></line>';
+  }
+  c.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="skVO1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#212121"/><stop offset="100%" stop-color="#4E342E"/></linearGradient><radialGradient id="glowVO" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FF6D00" stop-opacity="0.8"/><stop offset="100%" stop-color="transparent"/></radialGradient></defs><rect width="'+W+'" height="'+H+'" fill="url(#skVO1)"/><ellipse cx="430" cy="60" rx="200" ry="70" fill="#37474F" opacity="0.9"/><ellipse cx="350" cy="80" rx="150" ry="55" fill="#263238" opacity="0.95"/><ellipse cx="430" cy="'+(GY-120)+'" rx="80" ry="60" fill="url(#glowVO)" opacity="0.6"/><polygon points="180,'+(GY)+' 430,'+(GY-220)+' 680,'+(GY)+'" fill="#3E2723"/><polygon points="270,'+(GY)+' 430,'+(GY-220)+' 590,'+(GY)+'" fill="#4E342E"/><path d="M 410,'+(GY-160)+' Q 400,'+(GY-80)+' 380,'+(GY)+'" stroke="#FF6D00" stroke-width="14" fill="none" opacity="0.9"><animate attributeName="stroke-width" values="14;18;14" dur="1s" repeatCount="indefinite"/></path><path d="M 440,'+(GY-155)+' Q 455,'+(GY-70)+' 480,'+(GY)+'" stroke="#FF3D00" stroke-width="10" fill="none" opacity="0.8"><animate attributeName="stroke-width" values="10;14;10" dur="0.8s" repeatCount="indefinite"/></path>'+ashLines+'<rect x="0" y="'+(GY)+'" width="'+W+'" height="'+(H-GY)+'" fill="#1A1A1A"/>'+svgPerson(650,GY,50,'#FFA726','vo-p1')+'</svg>'+alertBanner('⚠️ かざんがふんかした！', 'rgba(183,28,28,0.95)');
+}
+
+function buildVOScene2() {
+  const c = document.getElementById('sim-canvas');
+  c.style.background = 'none';
+  const W=860, H=320, GY=220;
+  let ash = '';
+  for(let i=0;i<30;i++){
+    const x=(Math.random()*W).toFixed(0), y=(Math.random()*H).toFixed(0);
+    const delay=(Math.random()*2).toFixed(1), dur=(1+Math.random()).toFixed(1);
+    ash += '<circle cx="'+x+'" cy="'+y+'" r="2" fill="rgba(220,210,200,0.7)"><animateTransform attributeName="transform" type="translate" values="0,0;5,'+H+'" dur="'+dur+'s" begin="'+delay+'s" repeatCount="indefinite"/></circle>';
+  }
+  c.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="'+W+'" height="'+H+'" fill="#607D8B"/><rect width="'+W+'" height="'+H+'" fill="rgba(200,190,180,0.35)"/>'+ash+'<rect x="0" y="'+GY+'" width="'+W+'" height="'+(H-GY)+'" fill="#78909C"/><rect x="80" y="'+(GY-30)+'" width="110" height="35" rx="8" fill="#546E7A"/><rect x="95" y="'+(GY-50)+'" width="80" height="25" rx="6" fill="#607D8B"/><rect x="580" y="'+(GY-80)+'" width="110" height="80" rx="6" fill="#1B5E20"/><rect x="580" y="'+(GY-85)+'" width="110" height="25" rx="4" fill="#2E7D32"/><text x="635" y="'+(GY-67)+'" font-size="11" fill="white" font-weight="800" text-anchor="middle">ひなんじょ</text>'+svgPerson(400,GY,52,'#FFA726','vo-p2')+'</svg>'+alertBanner('⚠️ かざんばい！マスクを！', 'rgba(62,39,35,0.95)');
+}
+
+function buildSNScene1() {
+  const c = document.getElementById('sim-canvas');
+  c.style.background = 'none';
+  const W=860, H=320, GY=220;
+  let snow = '';
+  for(let i=0;i<50;i++){
+    const x=(Math.random()*W).toFixed(0), y=(Math.random()*H).toFixed(0);
+    const dur=(1+Math.random()*1.5).toFixed(1), delay=(Math.random()*2).toFixed(1), r=(1+Math.random()*3).toFixed(1);
+    snow += '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="white" opacity="'+(0.5+Math.random()*0.5).toFixed(1)+'"><animateTransform attributeName="transform" type="translate" values="0,0;'+(Math.random()*20-10).toFixed(0)+','+H+'" dur="'+dur+'s" begin="'+delay+'s" repeatCount="indefinite"/></circle>';
+  }
+  c.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="'+W+'" height="'+H+'" fill="#ECEFF1"/><ellipse cx="200" cy="50" rx="160" ry="55" fill="#CFD8DC"/><ellipse cx="550" cy="40" rx="200" ry="60" fill="#CFD8DC"/>'+snow+'<path d="M 0,'+(GY)+' Q 215,'+(GY-25)+' 430,'+(GY)+' Q 645,'+(GY+20)+' 860,'+(GY-10)+' L 860,'+H+' L 0,'+H+' Z" fill="white"/><rect x="500" y="'+(GY-20)+'" width="130" height="30" rx="8" fill="#90A4AE"/><ellipse cx="565" cy="'+(GY-22)+'" rx="65" ry="12" fill="white" opacity="0.85"/><rect x="60" y="'+(GY-85)+'" width="120" height="85" rx="3" fill="#ECEFF1" stroke="#B0BEC5" stroke-width="2"/><polygon points="48,'+(GY-85)+' 192,'+(GY-85)+' 120,'+(GY-135)+'" fill="#90A4AE"/>'+svgPerson(350,GY-15,52,'#FFA726','sn-p1')+'</svg>'+alertBanner('⚠️ おおゆき！そとはきけん！', 'rgba(30,136,229,0.95)');
+}
+
+function buildSNScene2() {
+  const c = document.getElementById('sim-canvas');
+  c.style.background = 'none';
+  const W=860, H=320, GY=220;
+  c.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="'+W+'" height="'+H+'" fill="#E3F2FD"/><rect x="0" y="0" width="'+W+'" height="'+GY+'" fill="#FAFAFA"/><rect x="0" y="'+GY+'" width="'+W+'" height="'+(H-GY)+'" fill="#A1887F"/><rect x="0" y="0" width="'+W+'" height="22" fill="#90A4AE"/>'+svgCrack(150,18,200,'#546E7A')+svgCrack(450,14,180,'#546E7A')+'<defs><marker id="arDn" markerWidth="8" markerHeight="6" refX="4" refY="6" orient="auto"><polygon points="0 0,8 0,4 6" fill="#1565C0"/></marker></defs><path d="M 430 0 L 430 35" stroke="#1565C0" stroke-width="3" marker-end="url(#arDn)"/><path d="M 280 0 L 280 30" stroke="#1565C0" stroke-width="2.5" marker-end="url(#arDn)"/><path d="M 580 0 L 580 30" stroke="#1565C0" stroke-width="2.5" marker-end="url(#arDn)"/><text x="430" y="55" font-size="11" fill="#1565C0" font-weight="800" text-anchor="middle">ゆきのおもさ</text><rect x="80" y="'+(GY-55)+'" width="120" height="55" rx="3" fill="#A1887F"/>'+svgPerson(420,GY,52,'#FFA726','sn-p2')+'<rect x="600" y="50" width="130" height="100" rx="4" fill="#E3F2FD" stroke="#90A4AE" stroke-width="2"/><rect x="600" y="50" width="130" height="25" fill="white" opacity="0.9"/></svg>'+alertBanner('⚠️ やねにゆきがつもっている！', 'rgba(21,101,192,0.95)');
+}
+
+function buildFIScene1() {
+  const c = document.getElementById('sim-canvas');
+  c.style.background = 'none';
+  const W=860, H=320, GY=220;
+  let flames = '';
+  for(let i=0;i<6;i++){
+    const x=170+i*24, h=30+Math.floor(Math.random()*50);
+    const dur=(0.4+Math.random()*0.4).toFixed(2);
+    flames += '<path d="M '+x+','+(GY-110)+' Q '+(x-10)+','+(GY-110-h*0.6)+' '+x+','+(GY-110-h)+' Q '+(x+10)+','+(GY-110-h*0.6)+' '+(x+20)+','+(GY-110)+'" fill="#FF6D00" opacity="0.9"><animate attributeName="d" dur="'+dur+'s" repeatCount="indefinite" values="M '+x+','+(GY-110)+' Q '+(x-10)+','+(GY-110-h*0.6)+' '+x+','+(GY-110-h)+' Q '+(x+10)+','+(GY-110-h*0.6)+' '+(x+20)+','+(GY-110)+';M '+x+','+(GY-110)+' Q '+(x-14)+','+(GY-110-h*0.5)+' '+(x+3)+','+(GY-110-h*1.1)+' Q '+(x+14)+','+(GY-110-h*0.5)+' '+(x+20)+','+(GY-110)+';M '+x+','+(GY-110)+' Q '+(x-10)+','+(GY-110-h*0.6)+' '+x+','+(GY-110-h)+' Q '+(x+10)+','+(GY-110-h*0.6)+' '+(x+20)+','+(GY-110)+'"/></path>';
+  }
+  c.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="skFI1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#212121"/><stop offset="60%" stop-color="#BF360C" stop-opacity="0.4"/><stop offset="100%" stop-color="#4E342E"/></linearGradient></defs><rect width="'+W+'" height="'+H+'" fill="url(#skFI1)"/><rect x="160" y="'+(GY-110)+'" width="160" height="110" rx="3" fill="#4E342E"/><polygon points="148,'+(GY-110)+' 332,'+(GY-110)+' 240,'+(GY-165)+'" fill="#3E2723"/>'+flames+'<ellipse cx="240" cy="'+(GY-190)+'" rx="40" ry="25" fill="#424242" opacity="0.85"><animate attributeName="cy" values="'+(GY-190)+';'+(GY-230)+';'+(GY-190)+'" dur="2s" repeatCount="indefinite"/></ellipse><rect x="0" y="'+GY+'" width="'+W+'" height="'+(H-GY)+'" fill="#1A1A1A"/>'+svgPerson(550,GY,52,'#FFA726','fi-p1')+'<rect x="720" y="'+(GY-40)+'" width="80" height="22" rx="5" fill="rgba(76,175,80,0.85)"/><text x="760" y="'+(GY-25)+'" font-size="11" fill="white" font-weight="800" text-anchor="middle">✅ あんぜん</text></svg>'+alertBanner('🔥 かじだ！にげろ！', 'rgba(183,28,28,0.95)');
+}
+
+function buildFIScene2() {
+  const c = document.getElementById('sim-canvas');
+  c.style.background = 'none';
+  const W=860, H=320, GY=220;
+  let smoke = '';
+  for(let i=0;i<4;i++){
+    const y=20+i*55, op=(0.6+i*0.08).toFixed(2);
+    smoke += '<rect x="0" y="'+y+'" width="'+W+'" height="45" fill="rgba(80,80,80,'+op+')" opacity="0.9"/>';
+  }
+  c.innerHTML = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="'+W+'" height="'+H+'" fill="#212121"/>'+smoke+'<rect x="0" y="'+GY+'" width="'+W+'" height="'+(H-GY)+'" fill="#1A1A1A"/><rect x="700" y="'+(GY-85)+'" width="80" height="30" rx="5" fill="#B71C1C"><animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="indefinite"/></rect><text x="740" y="'+(GY-64)+'" font-size="13" fill="white" font-weight="800" text-anchor="middle">EXIT ▶</text><rect x="80" y="'+(GY-100)+'" width="70" height="100" rx="3" fill="#4E342E" stroke="#FF6D00" stroke-width="3"/><text x="115" y="'+(GY-45)+'" font-size="10" fill="#FF6D00" font-weight="800" text-anchor="middle">あつい！さわるな</text><circle cx="430" cy="30" r="14" fill="#78909C"><animate attributeName="fill" values="#78909C;#EF5350;#78909C" dur="0.5s" repeatCount="indefinite"/></circle><text x="430" y="35" font-size="10" fill="white" font-weight="800" text-anchor="middle">🔔</text>'+svgPerson(350,GY-15,52,'#FFA726','fi-p2')+'<text x="350" y="'+(GY-52)+'" font-size="10" fill="#FFF9C4" font-weight="700" text-anchor="middle">ひくくはう</text></svg>'+alertBanner('🔥 けむりがいっぱい！どうする？', 'rgba(183,28,28,0.95)');
+}
+
+// ============================================================
+//  EXTRA simData (volcano / snow / fire)
+// ============================================================
+const simDataExtra = {
+  volcano: {
+    scenes: [
+      {
+        situation: '【山のちかくで】かざんがふんかした！空がくらくなってきた。',
+        scene: buildVOScene1,
+        trivia: '💡 ふんせきは時速300km以上で飛んでくる。山に近づくのは絶対ダメ！',
+        myAction: '自分の家の近くに火山はある？ハザードマップで確認しよう！',
+        choices: [
+          { text: '🚗 すぐにくるまでにげる', correct: true, feedback: 'せいかい！',
+            reason: '火山灰や溶岩流は速い。早めの車での避難が最も有効。', consequence: null,
+            howTo: '行政の避難指示が出たら迷わず車で逃げよう。渋滞前の早めの行動が重要。' },
+          { text: '👀 ようすをみる', correct: false, feedback: 'あぶない！', reason: null,
+            consequence: '噴火は急速に状況が悪化する。「少し見てから」では逃げ遅れる。',
+            howTo: '噴火が見えたら即座に避難。様子見は命取りになる。' },
+          { text: '🏠 いえのなかにいる', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '火山灰が積もると屋根が崩壊する危険がある。',
+            howTo: '避難指示が出たらすぐに家を出よう。' },
+          { text: '🏔️ やまをみにいく', correct: false, feedback: 'ぜったいダメ！', reason: null,
+            consequence: 'ふんせきが時速300km以上で飛んでくる。山に近づくのは死に直結。',
+            howTo: '山からできるだけ離れる方向に逃げよう。' },
+        ]
+      },
+      {
+        situation: '【避難中】かざんばいがふってきた。マスクがない。',
+        scene: buildVOScene2,
+        trivia: '💡 火山灰はゴーグルでも守ろう。目に入ると炎症を起こすことがある。',
+        myAction: '防災リュックにマスクやゴーグルは入ってる？今すぐ確認しよう！',
+        choices: [
+          { text: '💧 ぬれたハンカチで口と鼻をふさぐ', correct: true, feedback: 'せいかい！',
+            reason: '濡れた布は火山灰の粒子を一定程度フィルタリングできる。', consequence: null,
+            howTo: 'できれば複数枚重ねよう。N95マスクが一番効果的。' },
+          { text: '😤 そのまますいこんでいどうする', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '火山灰を吸い込むと肺に炎症が起き、呼吸困難になることがある。',
+            howTo: '必ず口と鼻を布でふさいで移動しよう。' },
+          { text: '🏃 口をとじたままはしる', correct: true, feedback: 'せいかい！',
+            reason: '口を閉じるだけでも吸い込む灰の量を減らせる。', consequence: null,
+            howTo: '目も守りながら、風上から逃げるようにしよう。' },
+          { text: '🏠 しらないいえにはいる', correct: false, feedback: 'まずかくにんを！', reason: null,
+            consequence: '知らない家に勝手に入るのは問題がある。指定避難場所へ向かおう。',
+            howTo: '公共施設や指定避難場所に逃げ込もう。' },
+        ]
+      },
+    ]
+  },
+  snow: {
+    scenes: [
+      {
+        situation: '【大雪の日】そとがおおゆきになった。学校から帰りたい。',
+        scene: buildSNScene1,
+        trivia: '💡 ホワイトアウトは視界がゼロになる現象。外では方向感覚を失うことがある。',
+        myAction: '大雪の日に外出する時、どんな準備が必要？おうちの人と話してみよう！',
+        choices: [
+          { text: '🏫 学校でしばらくまつ', correct: true, feedback: 'せいかい！',
+            reason: '吹雪の中の外出はホワイトアウトで道に迷う危険がある。安全な場所で待つのが最善。',
+            consequence: null, howTo: '先生に相談して、天候が回復するか迎えが来るまで待機しよう。' },
+          { text: '🚶 ひとりであるいてかえる', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '視界が悪く道に迷ったり、吹き溜まりにはまることがある。体温も急低下する。',
+            howTo: '一人での外出は避けて。必ず大人と一緒か、お迎えを頼もう。' },
+          { text: '📱 おうちのひとにれんらくする', correct: true, feedback: 'せいかい！',
+            reason: '現在地と状況を伝えることで迎えや適切な指示をもらえる。', consequence: null,
+            howTo: '学校の先生にも状況を伝えて、一緒に対応策を考えよう。' },
+          { text: '🚗 しらないひとのくるまにのる', correct: false, feedback: 'きをつけて！', reason: null,
+            consequence: '知らない人の車には絶対に乗らないこと。',
+            howTo: '知っている人・保護者に連絡してから判断しよう。' },
+        ]
+      },
+      {
+        situation: '【じたくで】やねにゆきがたくさんつもっている。',
+        scene: buildSNScene2,
+        trivia: '💡 雪下ろし中の転落事故は毎年多発する。命綱を使い、必ず2人以上で作業しよう。',
+        myAction: '雪国に住んでいる人は、雪下ろしの安全な方法を家族で確認しておこう！',
+        choices: [
+          { text: '⚠️ ひとりでのぼらないようにとめる', correct: true, feedback: 'せいかい！',
+            reason: '雪下ろし中の転落事故は命に関わる。一人での作業は絶対に避けるべき。', consequence: null,
+            howTo: '必ず2人以上で、命綱を使って作業しよう。業者に頼むのが最善。' },
+          { text: '🧑‍🤝‍🧑 こどもがいっしょにてつだいにのぼる', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '子どもも一緒に屋根に上がると2人とも転落する危険がある。',
+            howTo: '子どもは地上で見守り役。命綱なしでは大人も登らないこと。' },
+          { text: '📱 ゆきおろし業者にれんらくする', correct: true, feedback: 'せいかい！',
+            reason: '専門の除雪業者は安全な装備と技術を持っている。', consequence: null,
+            howTo: '地域の除雪サービスの連絡先を事前に調べておこう。' },
+          { text: '🌡️ そのままにしておく', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '雪が積もりすぎると屋根が崩壊することがある。放置は危険。',
+            howTo: '安全な方法で除雪するか、業者に依頼しよう。' },
+        ]
+      },
+    ]
+  },
+  fire: {
+    scenes: [
+      {
+        situation: '【じたくで】かじがはっせいした！けむりがみえる。',
+        scene: buildFIScene1,
+        trivia: '💡 火災で亡くなる人の多くは煙による一酸化炭素中毒。火よりも煙からの避難が最優先！',
+        myAction: '自分の家の火事の時の避難ルートを知ってる？家族で決めておこう！',
+        choices: [
+          { text: '🚪 すぐにそとへにげる', correct: true, feedback: 'せいかい！',
+            reason: '火災では初期消火より素早い避難が最優先。命が一番大切。', consequence: null,
+            howTo: 'ドアを手の甲で触って熱くなければ開けて逃げる。熱ければ別の出口を探そう。' },
+          { text: '🧯 しょうかきでけそうとする', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '炎が天井まで届いたら消火は不可能。消火を試みて逃げ遅れると命取り。',
+            howTo: '消火器を使うのは出火直後の小さな火だけ。少しでも広がったらすぐ逃げよう。' },
+          { text: '📱 119番に通報してからにげる', correct: true, feedback: 'せいかい！',
+            reason: '逃げながら119番できれば理想的。まず自分の安全を確保してから通報しよう。', consequence: null,
+            howTo: '逃げる→119番→近隣に知らせる、の順が基本。' },
+          { text: '💼 だいじなものをとってからにげる', correct: false, feedback: 'あぶない！', reason: null,
+            consequence: '荷物を取りに戻る行動が逃げ遅れの主な原因の一つ。',
+            howTo: '何も持たずに逃げる。貴重品より命が先。' },
+        ]
+      },
+      {
+        situation: '【マンションで】けむりがろうかにみちている。2かいにいる。',
+        scene: buildFIScene2,
+        trivia: '💡 「火事だ！」と大声で叫んで周囲に知らせることも大切。近所の人の命も守れる。',
+        myAction: 'マンションや学校の避難経路、確認したことある？今度確認してみよう！',
+        choices: [
+          { text: '🧎 ひくくはって、すいこまないようにする', correct: true, feedback: 'せいかい！',
+            reason: '煙は上に溜まる。低い姿勢で新鮮な空気の多い層を移動できる。', consequence: null,
+            howTo: '姿勢を低くして、口と鼻を布で押さえながら非常口へ向かおう。' },
+          { text: '🚪 ドアをあけてろうかへでる', correct: false, feedback: 'まずかくにんを！', reason: null,
+            consequence: 'ドアが熱ければその先は猛煙か炎がある。必ず手の甲で温度を確認してから。',
+            howTo: 'ドアに手を当てて熱くなければ静かに開ける。熱ければ開けずに別の方法を。' },
+          { text: '🪟 まどからとびおりる', correct: false, feedback: 'きけん！', reason: null,
+            consequence: '2階以上からの飛び降りは骨折や死亡につながる危険がある。',
+            howTo: 'シーツを使って降りるか、窓から救助を待とう。' },
+          { text: '🏠 へやにとどまってたすけをまつ', correct: true, feedback: 'せいかい！',
+            reason: 'ドアの隙間を濡れタオルで塞いで窓から助けを求める方が安全な場合もある。', consequence: null,
+            howTo: 'ドアの隙間を塞ぎ、窓を少し開けて「助けてください！」と叫んで119番。' },
+        ]
+      },
+    ]
+  },
+};
+
+function getSimData(type) {
+  return simData[type] || simDataExtra[type] || null;
+}
+
+// ── 問題選択フロー ──────────────────────────────────────
+const SIM_META = {
+  quake:   { emoji:'🌋', label:'じしん',    color:'#E65100' },
+  tsunami: { emoji:'🌊', label:'つなみ',    color:'#0277BD' },
+  flood:   { emoji:'🌧️', label:'こうずい',  color:'#1A237E' },
+  typhoon: { emoji:'🌀', label:'たいふう',  color:'#4A148C' },
+  volcano: { emoji:'🌋', label:'かざん',    color:'#BF360C' },
+  snow:    { emoji:'❄️', label:'おおゆき',  color:'#1565C0' },
+  fire:    { emoji:'🔥', label:'かじ',      color:'#B71C1C' },
+};
+
+function showSceneSelect(type) {
   currentSim = type;
-  currentSceneIdx = 0;
-  answered = false;
-  sessionLog = [];
+  const data = getSimData(type);
+  const meta = SIM_META[type] || { emoji:'🎮', label:type, color:'#37474F' };
+
   document.getElementById('sim-menu').style.display = 'none';
+  document.getElementById('scene-select').style.display = 'block';
+  document.getElementById('scene-select-title').innerHTML =
+    meta.emoji + ' ' + meta.label + ' — といをえらぼう';
+
+  const grid = document.getElementById('scene-card-grid');
+  grid.innerHTML = '';
+  data.scenes.forEach((scene, i) => {
+    // Extract location tag e.g. 【学校の教室で】
+    const locMatch = scene.situation.match(/【(.+?)】/);
+    const loc  = locMatch ? locMatch[1] : '';
+    const body = scene.situation.replace(/【.+?】/, '').trim();
+
+    // Check if already attempted this session
+    const attempted = sessionLog.some(l => l.situation === scene.situation);
+
+    const card = document.createElement('div');
+    card.style.cssText =
+      'background:linear-gradient(135deg,#1C2833,#263238);border-radius:16px;padding:16px;' +
+      'cursor:pointer;border:2px solid ' + (attempted ? '#66BB6A' : '#37474F') + ';' +
+      'transition:all 0.2s;position:relative;';
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('aria-label', 'Q' + (i+1) + ' ' + body);
+    card.innerHTML =
+      '<div style="font-size:11px;font-weight:800;letter-spacing:1px;color:' + meta.color + ';margin-bottom:6px">' +
+        'Q' + (i+1) + (loc ? ' <span style="background:rgba(255,255,255,0.08);border-radius:4px;padding:1px 6px;font-size:10px;color:#90A4AE">' + loc + '</span>' : '') +
+        (attempted ? ' <span style="font-size:11px;color:#66BB6A;margin-left:4px">✓ ずみ</span>' : '') +
+      '</div>' +
+      '<div style="font-size:14px;font-weight:700;color:#ECEFF1;line-height:1.5">' + body + '</div>' +
+      '<div style="margin-top:10px;text-align:right">' +
+        '<span style="font-size:12px;background:' + meta.color + ';color:#fff;padding:4px 12px;border-radius:999px;font-weight:800">▶ チャレンジ</span>' +
+      '</div>';
+
+    card.onclick = () => startSimFromScene(type, i);
+    card.onkeydown = (e) => { if(e.key==='Enter'||e.key===' ') startSimFromScene(type, i); };
+    card.onmouseenter = () => { card.style.transform='translateY(-2px)'; card.style.borderColor=meta.color; };
+    card.onmouseleave = () => { card.style.transform=''; card.style.borderColor=attempted?'#66BB6A':'#37474F'; };
+    grid.appendChild(card);
+  });
+}
+
+function startSimFromScene(type, sceneIdx) {
+  currentSim = type;
+  currentSceneIdx = sceneIdx;
+  answered = false;
+  // 1問のみモード
+  singleSceneMode = true;
+  sessionLog = [];
+  safetyPct = 0;
+
+  document.getElementById('scene-select').style.display = 'none';
   const vp = document.getElementById('sim-viewport');
   vp.classList.add('active');
   document.getElementById('sim-result').classList.remove('show');
+  setSafety(0);
   renderScene();
 }
 
+function startAllScenes() {
+  const type = currentSim;
+  currentSceneIdx = 0;
+  answered = false;
+  singleSceneMode = false;
+  sessionLog = [];
+  safetyPct = 0;
+
+  document.getElementById('scene-select').style.display = 'none';
+  const vp = document.getElementById('sim-viewport');
+  vp.classList.add('active');
+  document.getElementById('sim-result').classList.remove('show');
+  setSafety(0);
+  renderScene();
+}
+
+function backToSceneSelect() {
+  sessionLog = [];
+  const vp = document.getElementById('sim-viewport');
+  vp.classList.remove('active');
+  document.getElementById('sim-result').classList.remove('show');
+  showSceneSelect(currentSim);
+}
+
+function backToDisasterMenu() {
+  document.getElementById('scene-select').style.display = 'none';
+  document.getElementById('sim-menu').style.display = 'grid';
+}
+
+let singleSceneMode = false;
+
+function startSim(type) {
+  // Legacy: go straight to scene select
+  showSceneSelect(type);
+}
+
+function restartSim() {
+  sessionLog = [];
+  if (singleSceneMode) {
+    // Return to scene select for same disaster
+    const vp = document.getElementById('sim-viewport');
+    vp.classList.remove('active');
+    showSceneSelect(currentSim);
+  } else {
+    currentSceneIdx = 0;
+    safetyPct = 0;
+    setSafety(0);
+    answered = false;
+    document.getElementById('sim-result').classList.remove('show');
+    renderScene();
+  }
+}
+
+function backToMenu() {
+  currentSim = null;
+  sessionLog = [];
+  singleSceneMode = false;
+  document.getElementById('sim-menu').style.display = 'grid';
+  document.getElementById('scene-select').style.display = 'none';
+  const vp = document.getElementById('sim-viewport');
+  vp.classList.remove('active');
+  renderBadgeGrid();
+}
+
 function renderScene() {
-  const data = simData[currentSim];
+  const data = getSimData(currentSim);
   const scene = data.scenes[currentSceneIdx];
   answered = false;
 
-  // Progress dots
+  // ③ シナリオバッジ
   const progress = document.getElementById('sim-progress');
   progress.innerHTML = '';
   progress.setAttribute('aria-label', `${currentSceneIdx + 1}/${data.scenes.length} 問目`);
   data.scenes.forEach((_, i) => {
     const dot = document.createElement('div');
     dot.className = 'progress-dot' + (i < currentSceneIdx ? ' done' : i === currentSceneIdx ? ' current' : '');
+    // show scenario badge label if available
+    if (data.scenarioBadge && data.scenarioBadge[i]) {
+      dot.title = data.scenarioBadge[i];
+    }
     progress.appendChild(dot);
   });
+  // Scenario step label
+  const h4 = document.getElementById('sim-choices').querySelector('h4');
+  if (data.scenarioBadge) {
+    const badge = data.scenarioBadge[currentSceneIdx];
+    h4.innerHTML = `<span style="background:rgba(255,214,0,0.2);border:1px solid rgba(255,214,0,0.4);border-radius:6px;padding:2px 8px;font-size:11px;color:#FFD600;margin-right:6px">${badge || ''}</span>⚡ ${scene.situation}`;
+  } else {
+    h4.textContent = `⚡ ${scene.situation}`;
+  }
 
   // Build scene
   scene.scene();
 
-  // Danger bar
-  setDanger(scene.danger);
+  // Safety bar stays at current safetyPct (don't reset each scene)
 
-  // Choices
+  // Choices — picture mode: show large emoji only
   const cb = document.getElementById('choice-btns');
   cb.innerHTML = '';
-  scene.choices.forEach((ch, i) => {
+  scene.choices.forEach((ch) => {
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
-    btn.textContent = ch.text;
     btn.setAttribute('aria-label', ch.text);
+
+    if (activeModes.has('picture')) {
+      // Extract leading emoji
+      const emojiMatch = ch.text.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base})/u);
+      const emoji = emojiMatch ? emojiMatch[0] : '❓';
+      btn.innerHTML = `<span style="font-size:32px;display:block">${emoji}</span><span class="choice-text-label" style="font-size:12px;display:block;margin-top:4px">${ch.text.replace(emoji,'').trim()}</span>`;
+    } else {
+      btn.textContent = ch.text;
+    }
     btn.onclick = () => handleChoice(ch, btn, scene);
     cb.appendChild(btn);
   });
 
-  document.getElementById('sim-choices').querySelector('h4').textContent = `⚡ ${scene.situation}`;
   document.getElementById('sim-result').classList.remove('show');
+  // ① 音声読み上げ（ゆっくりモード対応）
+  const rate = activeModes.has('slow') ? 0.65 : 0.88;
+  setTimeout(() => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(scene.situation.replace(/【.*?】/g,''));
+      u.lang = 'ja-JP'; u.rate = rate; u.pitch = 1.05;
+      const voices = window.speechSynthesis.getVoices();
+      const ja = voices.find(v => v.lang.startsWith('ja'));
+      if (ja) u.voice = ja;
+      if (ttsEnabled) window.speechSynthesis.speak(u);
+    }
+  }, 300);
+  setTimeout(scanRefresh, 400);
 }
 
-function setDanger(pct) {
-  const bar = document.getElementById('hud-bar');
+// ==================== SOUND ENGINE (Web Audio API) ====================
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    if (type === 'correct') {
+      // ピンポン♪ — 2音上昇
+      [[600,0,0.12],[900,0.13,0.18]].forEach(([freq, start, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.28, ctx.currentTime + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur + 0.05);
+      });
+    } else if (type === 'wrong') {
+      // ブブッ — 低い2音下降
+      [[280,0,0.14],[200,0.15,0.18]].forEach(([freq, start, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur + 0.05);
+      });
+    } else if (type === 'perfect') {
+      // 全問正解ファンファーレ
+      [[523,0,0.12],[659,0.13,0.12],[784,0.26,0.12],[1047,0.39,0.3]].forEach(([freq, start, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur + 0.05);
+      });
+    } else if (type === 'milestone') {
+      // ゲージ節目（50%, 100%）— 軽やかな3音
+      [[784,0,0.1],[988,0.11,0.1],[1175,0.22,0.18]].forEach(([freq, start, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur + 0.05);
+      });
+    }
+  } catch(e) { /* audio not supported */ }
+}
+
+// ==================== SAFETY GAUGE ====================
+let safetyPct = 0; // 0-100, starts at 0, goes UP on correct
+
+function setSafety(pct, prevPct) {
+  const bar  = document.getElementById('hud-bar');
   const wrap = document.getElementById('hud-bar-wrap');
   const text = document.getElementById('hud-text');
+
+  pct = Math.max(0, Math.min(100, Math.round(pct)));
+  safetyPct = pct;
+
   bar.style.width = pct + '%';
   wrap.setAttribute('aria-valuenow', pct);
-  if (pct < 40) { bar.style.background = 'linear-gradient(90deg,#66BB6A,#A5D6A7)'; text.style.color = '#66BB6A'; }
-  else if (pct < 70) { bar.style.background = 'linear-gradient(90deg,#FFA726,#FFD54F)'; text.style.color = '#FFA726'; }
-  else { bar.style.background = 'linear-gradient(90deg,#EF5350,#FF8A80)'; text.style.color = '#EF5350'; }
+
+  // colour: green→yellow→red (low safety = danger)
+  if (pct >= 70) {
+    bar.style.background = 'linear-gradient(90deg,#43A047,#66BB6A,#A5D6A7)';
+    text.style.color = '#66BB6A';
+  } else if (pct >= 40) {
+    bar.style.background = 'linear-gradient(90deg,#E65100,#FFA726,#FFD54F)';
+    text.style.color = '#FFA726';
+  } else {
+    bar.style.background = 'linear-gradient(90deg,#B71C1C,#EF5350,#FF8A80)';
+    text.style.color = '#EF9A9A';
+  }
   text.textContent = pct + '%';
+
+  // star burst on milestone crossing
+  if (prevPct !== undefined) {
+    [50, 100].forEach(milestone => {
+      if (prevPct < milestone && pct >= milestone) {
+        spawnStar(wrap);
+        playSound('milestone');
+      }
+    });
+  }
+}
+
+function spawnStar(parentEl) {
+  const stars = ['⭐','🌟','✨','💫'];
+  for (let i = 0; i < 4; i++) {
+    setTimeout(() => {
+      const s = document.createElement('span');
+      s.className = 'hud-star';
+      s.textContent = stars[i % stars.length];
+      s.style.left = (20 + Math.random() * 60) + '%';
+      s.style.top  = '-10px';
+      parentEl.style.position = 'relative';
+      parentEl.style.overflow = 'visible';
+      parentEl.appendChild(s);
+      setTimeout(() => s.remove(), 700);
+    }, i * 80);
+  }
 }
 
 function handleChoice(choice, btn, scene) {
@@ -3270,34 +5555,83 @@ function handleChoice(choice, btn, scene) {
     else b.classList.add('wrong');
   });
 
-  // Update danger bar
+  // Update safety gauge + play sound
+  const prev = safetyPct;
   if (choice.correct) {
-    setDanger(Math.max(0, scene.danger - 30));
+    playSound('correct');
+    setSafety(safetyPct + 18, prev);
   } else {
-    setDanger(Math.min(100, scene.danger + 20));
+    playSound('wrong');
+    // shake the bar on wrong
+    const bar = document.getElementById('hud-bar-wrap');
+    bar.style.animation = 'shakeAnim 0.35s ease';
+    setTimeout(() => bar.style.animation = '', 400);
+    setSafety(Math.max(0, safetyPct - 8), prev);
   }
 
   setTimeout(() => {
     const result = document.getElementById('sim-result');
-    const data = simData[currentSim];
+    const data = getSimData(currentSim);
 
-    if (currentSceneIdx < data.scenes.length - 1) {
+    // Build rich result HTML
+    function buildResultCards(ch, sc) {
+      let html = '';
+      // Why correct / what consequence
+      if (ch.correct && ch.reason) {
+        html += `<div class="result-card rc-why">
+          <div class="rc-label">✅ なぜ正しいの？</div>
+          <div class="rc-body">${ch.reason}</div></div>`;
+      }
+      if (!ch.correct && ch.consequence) {
+        html += `<div class="result-card rc-what">
+          <div class="rc-label">⚠️ まちがえるとどうなる？</div>
+          <div class="rc-body">${ch.consequence}</div></div>`;
+      }
+      if (ch.howTo) {
+        html += `<div class="result-card rc-how">
+          <div class="rc-label">💡 じっさいはどうする？</div>
+          <div class="rc-body">${ch.howTo}</div></div>`;
+      }
+      // Trivia on correct
+      if (ch.correct && sc.trivia) {
+        html += `<div class="result-card rc-trivia">
+          <div class="rc-label">🔮 おまけちしき</div>
+          <div class="rc-body">${sc.trivia}</div></div>`;
+      }
+      // My action prompt
+      if (sc.myAction) {
+        html += `<div class="result-card rc-you">
+          <div class="rc-label">🤔 あなたならどうする？</div>
+          <div class="rc-body">${sc.myAction}</div></div>`;
+      }
+      return html;
+    }
+
+    // singleSceneMode: treat this scene as final
+    const isFinalScene = singleSceneMode || currentSceneIdx >= data.scenes.length - 1;
+
+    if (!isFinalScene) {
       document.getElementById('result-icon').textContent = choice.correct ? '✅' : '❌';
       document.getElementById('result-title').textContent = choice.correct ? 'せいかい！' : 'もう一度かんがえよう';
       document.getElementById('result-title').className = 'result-title ' + (choice.correct ? 'result-safe' : 'result-danger');
-      document.getElementById('result-msg').innerHTML = choice.feedback + '<br><br>';
+
+      const msgEl = document.getElementById('result-msg');
+      msgEl.innerHTML = `<div style="margin-bottom:8px;font-size:14px">${choice.feedback}</div>` + buildResultCards(choice, scene);
 
       const nextBtn = document.createElement('button');
       nextBtn.className = 'restart-btn';
       nextBtn.textContent = '▶ つぎへ';
-      nextBtn.style.marginTop = '8px';
+      nextBtn.style.marginTop = '12px';
       nextBtn.onclick = () => {
         currentSceneIdx++;
         result.classList.remove('show');
         renderScene();
       };
-      document.getElementById('result-msg').appendChild(nextBtn);
+      msgEl.appendChild(nextBtn);
       result.classList.add('show');
+      // read result aloud
+      const readText = (choice.correct ? 'せいかい！' : 'もう一度かんがえよう。') + (choice.howTo || '');
+      speak(readText);
     } else {
       // ===== FINAL: save record =====
       recordResult(currentSim, sessionLog);
@@ -3307,22 +5641,33 @@ function handleChoice(choice, btn, scene) {
       const scoreVal     = Math.round(correctCount / totalCount * 100);
       const allOk        = scoreVal === 100;
 
+      // final sound + badge
+      if (allOk) {
+        setSafety(100, safetyPct);
+        setTimeout(() => playSound('perfect'), 200);
+      } else {
+        playSound(scoreVal >= 50 ? 'correct' : 'wrong');
+      }
+      checkBadges(currentSim, scoreVal);
+
       document.getElementById('result-icon').textContent = allOk ? '🎉' : scoreVal >= 50 ? '👍' : '📖';
       document.getElementById('result-title').textContent = allOk ? 'すばらしい！よくできました！' : scoreVal >= 50 ? 'よくがんばりました！' : 'もう少しれんしゅうしよう！';
       document.getElementById('result-title').className = 'result-title ' + (allOk ? 'result-safe' : 'result-danger');
 
-      // Mini score summary
-      const summaryHTML = `<div style="margin-bottom:10px">${choice.feedback}</div>
-        <div style="background:rgba(255,255,255,0.12);border-radius:12px;padding:12px;margin-bottom:12px">
-          <div style="font-size:26px;font-weight:800;color:${scoreVal>=70?'#A5D6A7':scoreVal>=40?'#FFD54F':'#EF9A9A'}">${scoreVal}点</div>
-          <div style="font-size:13px;color:#B0BEC5">${correctCount} / ${totalCount} もんせいかい</div>
-          <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-            ${sessionLog.map((l,i) => `<span style="background:${l.correct?'rgba(102,187,106,0.3)':'rgba(239,83,80,0.3)'};border:1.5px solid ${l.correct?'#66BB6A':'#EF5350'};border-radius:6px;padding:3px 8px;font-size:12px;font-weight:700;color:${l.correct?'#A5D6A7':'#EF9A9A'}">Q${i+1} ${l.correct?'○':'×'}</span>`).join('')}
+      // last question cards + final summary
+      const msgEl = document.getElementById('result-msg');
+      msgEl.innerHTML = `<div style="margin-bottom:8px;font-size:14px">${choice.feedback}</div>`
+        + buildResultCards(choice, scene)
+        + `<div style="background:rgba(255,255,255,0.12);border-radius:12px;padding:14px;margin:12px 0">
+            <div style="font-size:28px;font-weight:800;color:${scoreVal>=70?'#A5D6A7':scoreVal>=40?'#FFD54F':'#EF9A9A'}">${scoreVal}点</div>
+            <div style="font-size:13px;color:#B0BEC5;margin:4px 0">${correctCount} / ${totalCount} もんせいかい</div>
+            <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+              ${sessionLog.map((l,i) => `<span style="background:${l.correct?'rgba(102,187,106,0.3)':'rgba(239,83,80,0.3)'};border:1.5px solid ${l.correct?'#66BB6A':'#EF5350'};border-radius:6px;padding:3px 8px;font-size:12px;font-weight:700;color:${l.correct?'#A5D6A7':'#EF9A9A'}">Q${i+1} ${l.correct?'○':'×'}</span>`).join('')}
+            </div>
           </div>
-        </div>
-        <div style="font-size:12px;color:#78909C">📋 きろくは「きろく」タブで先生がかくにんできます</div>`;
-      document.getElementById('result-msg').innerHTML = summaryHTML;
+          <div style="font-size:12px;color:#78909C;margin-bottom:4px">📋 きろくは「きろく」タブで先生がかくにんできます</div>`;
       result.classList.add('show');
+      speak(allOk ? 'すばらしい！よくできました！' : scoreVal >= 50 ? 'よくがんばりました！' : 'もう少しれんしゅうしよう！');
     }
   }, 400);
 }
@@ -3338,46 +5683,19 @@ function backToMenu() {
   document.getElementById('sim-menu').style.display = 'grid';
   const vp = document.getElementById('sim-viewport');
   vp.classList.remove('active');
+  renderBadgeGrid();
 }
-</script>
 
-<script>
-/* ===== フルスクリーン共通 ===== */
-function toggleFS() {
-  const el = document.documentElement;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (!isFS) {
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) req.call(el);
-  } else {
-    const ex = document.exitFullscreen || document.webkitExitFullscreen;
-    if (ex) ex.call(document);
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', function() {
+  initBag();
+  initQuiz();
+  renderChecklist();
+  renderBadgeGrid();
+  if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = function() { window.speechSynthesis.getVoices(); };
   }
-}
-function updateFSBtn() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  if (!btn) return;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  icon.textContent = isFS ? '✕' : '⛶';
-  label.textContent = isFS ? 'もとにもどす' : 'ぜんぶにひろげる';
-}
-document.addEventListener('fullscreenchange', updateFSBtn);
-document.addEventListener('webkitfullscreenchange', updateFSBtn);
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') return;
-  const tag = document.activeElement ? document.activeElement.tagName : '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement !== document.body) {
-    const el = document.activeElement;
-    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('tabindex') !== null) {
-      e.preventDefault();
-      el.click();
-      return;
-    }
-  }
-  if (e.key === 'f' || e.key === 'F') { toggleFS(); }
 });
 </script>
 </body>
