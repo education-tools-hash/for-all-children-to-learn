@@ -1034,29 +1034,59 @@ function goHome() {
   document.getElementById('gameover').classList.remove('show');
 }
 
+let isFullscreen = false;
 function toggleFullscreen() {
   const btn = document.getElementById('fullscreenBtn');
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+  // まずネイティブFullscreen APIを試みる（Android Chrome等）
+  if (!isFullscreen) {
     const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => applyCSSFullscreen());
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    } else {
+      applyCSSFullscreen();
+    }
+    isFullscreen = true;
     btn.textContent = '✕ 全画面終了';
   } else {
-    if (document.exitFullscreen) document.exitFullscreen();
-    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    if (document.exitFullscreen && document.fullscreenElement) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+      document.webkitExitFullscreen();
+    }
+    removeCSSFullscreen();
+    isFullscreen = false;
     btn.textContent = '⛶ 全画面';
   }
 }
+
+function applyCSSFullscreen() {
+  document.body.style.cssText += ';position:fixed;top:0;left:0;width:100vw;height:100vh;overflow-y:auto;z-index:9999;';
+}
+
+function removeCSSFullscreen() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.width = '';
+  document.body.style.height = '';
+  document.body.style.overflowY = '';
+  document.body.style.zIndex = '';
+}
+
 document.addEventListener('fullscreenchange', () => {
-  const btn = document.getElementById('fullscreenBtn');
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-    btn.textContent = '⛶ 全画面';
+  if (!document.fullscreenElement) {
+    removeCSSFullscreen();
+    isFullscreen = false;
+    document.getElementById('fullscreenBtn').textContent = '⛶ 全画面';
   }
 });
 document.addEventListener('webkitfullscreenchange', () => {
-  const btn = document.getElementById('fullscreenBtn');
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-    btn.textContent = '⛶ 全画面';
+  if (!document.webkitFullscreenElement) {
+    removeCSSFullscreen();
+    isFullscreen = false;
+    document.getElementById('fullscreenBtn').textContent = '⛶ 全画面';
   }
 });
 
