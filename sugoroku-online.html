@@ -507,6 +507,17 @@ body{font-family:var(--font);font-size:var(--fs);background:#120a02;color:var(--
 .help-close:hover{background:rgba(255,255,255,.18);}
 .help-close:focus{outline:3px solid var(--gold);outline-offset:2px;}
 
+/* 名前編集 */
+.name-row{display:flex;align-items:center;gap:8px;}
+.name-av{font-size:1.4rem;flex-shrink:0;}
+.name-input{
+  flex:1;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);
+  border-radius:10px;padding:8px 12px;color:#fff;font-family:var(--font);
+  font-size:.88rem;font-weight:800;outline:none;
+}
+.name-input:focus{border-color:var(--gold);}
+body.hc .name-input{background:rgba(255,255,255,.08);}
+
 @media(max-width:500px){#side{width:155px;}}
 @media(max-width:360px){#side{width:138px;}}
 
@@ -647,6 +658,11 @@ body{font-family:var(--font);font-size:var(--fs);background:#120a02;color:var(--
   <div class="s-card">
     <div class="s-card-title">👥 プレイヤーのにんずう（さいだい10にん）</div>
     <div class="opt-grid" id="pc-grid"></div>
+  </div>
+
+  <div class="s-card" id="name-edit-card">
+    <div class="s-card-title">✏️ プレイヤーのなまえをへんこう（オプション）</div>
+    <div id="name-edit-grid" style="display:flex;flex-direction:column;gap:7px;"></div>
   </div>
 
   <div class="s-card">
@@ -909,28 +925,21 @@ const DP={1:[5],2:[3,7],3:[3,5,7],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 
 // ===== 豊富なイベント定義 =====
 const EVL=[
-  {ic:'🎁',tt:'プレゼント！',ds:'3マスすすむ！',mv:3,cl:'c-adv'},
-  {ic:'⭐',tt:'ラッキースター！',ds:'2マスすすむ！',mv:2,cl:'c-adv'},
-  {ic:'🍀',tt:'よつばのクローバー！',ds:'もう1かいさいころをふれる！',ex:'again',cl:'c-lucky'},
-  {ic:'🚀',tt:'ロケット発射！',ds:'4マスすすむ！',mv:4,cl:'c-adv'},
-  {ic:'🌈',tt:'にじをみつけた！',ds:'3マスすすむ！',mv:3,cl:'c-adv'},
-  {ic:'🍭',tt:'あめだまもらった！',ds:'2マスすすむ！',mv:2,cl:'c-adv'},
-  {ic:'🎠',tt:'メリーゴーランド！',ds:'もう1かいふれる！',ex:'again',cl:'c-lucky'},
-  {ic:'🦋',tt:'ちょうちょにあった！',ds:'3マスすすむ！',mv:3,cl:'c-adv'},
+  {ic:'🍀',tt:'よつばのクローバー！',ds:'ラッキー！ おめでとう！',cl:'c-lucky'},
+  {ic:'🎠',tt:'メリーゴーランド！',ds:'たのしいね！',cl:'c-lucky'},
+  {ic:'🦋',tt:'ちょうちょにあった！',ds:'きれいだね！',cl:'c-lucky'},
+  {ic:'🌈',tt:'にじをみつけた！',ds:'すてきだね！',cl:'c-lucky'},
+  {ic:'🍭',tt:'あめだまもらった！',ds:'うれしいね！',cl:'c-lucky'},
 ];
 const EVU=[
-  {ic:'💤',tt:'ねむってしまった…',ds:'2マスもどる',mv:-2,cl:'c-back'},
+  {ic:'💤',tt:'ねむってしまった…',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'},
   {ic:'🌧',tt:'あめがふってきた…',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'},
-  {ic:'🐛',tt:'むしにびっくり！',ds:'3マスもどる',mv:-3,cl:'c-back'},
-  {ic:'💨',tt:'かぜで吹き飛んだ！',ds:'スタートにもどる',ex:'tostart',cl:'c-unlucky'},
-  {ic:'🕳',tt:'あなにおちた！',ds:'2マスもどる',mv:-2,cl:'c-back'},
-  {ic:'🧊',tt:'こおりですべった！',ds:'3マスもどる',mv:-3,cl:'c-back'},
+  {ic:'🐛',tt:'むしにびっくり！',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'},
+  {ic:'🕳',tt:'あなにおちた！',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'},
   {ic:'😴',tt:'おひるねしちゃった',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'},
-  {ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',cl:'c-unlucky'},
 ];
 const EVE=[
   {ic:'🎵',tt:'うたをうたおう！',ds:'みんなでいっしょにうたおう！',cl:'c-lucky'},
-  {ic:'❓',tt:'なにがおきるかな？',ds:'さいころをもう1かいふる！',ex:'again',cl:'c-lucky'},
   {ic:'🤝',tt:'てをつなごう！',ds:'となりのひととあくしゅしよう！',cl:'c-lucky'},
   {ic:'🎨',tt:'えをかいて！',ds:'すきなものをえにかいてみよう',cl:'c-lucky'},
   {ic:'🎤',tt:'じこしょうかい！',ds:'すきなものを1つはなそう！',cl:'c-lucky'},
@@ -939,8 +948,6 @@ const EVE=[
   {ic:'🎭',tt:'ものまねをしよう！',ds:'どうぶつのものまねをしよう！',cl:'c-lucky'},
   {ic:'📸',tt:'きねんしゃしん！',ds:'みんなでポーズをとろう！',cl:'c-lucky'},
   {ic:'💬',tt:'すきなことを1つ！',ds:'すきなたべものをはなそう！',cl:'c-lucky'},
-  {ic:'🏃',tt:'いちばんに！',ds:'もう1かいさいころをふれる！',ex:'again',cl:'c-lucky'},
-  {ic:'🌸',tt:'はなのマス！',ds:'2マスすすむ！',mv:2,cl:'c-adv'},
 ];
 
 // カスタムマスデータ（プレイヤーが編集可能）
@@ -959,9 +966,9 @@ function buildBoard(n){
     else if(i===n-1) b.push({cl:'c-goal',ic:'🏁',tx:'ゴール！',ev:null});
     else {
       const r=Math.random();
-      if(r<0.16){const e=EVL[Math.floor(Math.random()*EVL.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
-      else if(r<0.30){const e=EVU[Math.floor(Math.random()*EVU.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
-      else if(r<0.50){const e=EVE[Math.floor(Math.random()*EVE.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
+      if(r<0.08){const e=EVL[Math.floor(Math.random()*EVL.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
+      else if(r<0.16){const e=EVU[Math.floor(Math.random()*EVU.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
+      else if(r<0.28){const e=EVE[Math.floor(Math.random()*EVE.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
       else b.push({cl:'c-normal',ic:'',tx:'',ev:null});
     }
   }
@@ -995,10 +1002,35 @@ for(let i=1;i<=10;i++){
   b.className='opt'+(i===1?' sel':'');
   b.dataset.n=i;
   b.innerHTML=`<span>${PD[i-1].av}</span>${i}にん`;
-  b.addEventListener('click',()=>{pcg.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');nP=i;speak(i+'にん');bip(550,.08,.18);});
+  b.addEventListener('click',()=>{
+    pcg.querySelectorAll('.opt').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); nP=i; speak(i+'にん'); bip(550,.08,.18);
+    renderNameEditGrid();
+  });
   pcg.appendChild(b);
 }
 nP=1;
+
+// 名前編集グリッド
+function renderNameEditGrid(){
+  const grid=document.getElementById('name-edit-grid');
+  if(!grid) return;
+  grid.innerHTML='';
+  for(let i=0;i<nP;i++){
+    const row=document.createElement('div');
+    row.className='name-row';
+    row.innerHTML=`
+      <span class="name-av">${PD[i].av}</span>
+      <input class="name-input" id="name-input-${i}"
+        type="text" maxlength="12"
+        placeholder="${PD[i].name}"
+        value="${PD[i].name}"
+        aria-label="プレイヤー${i+1}のなまえ">
+    `;
+    grid.appendChild(row);
+  }
+}
+renderNameEditGrid();
 
 const cpug=document.getElementById('cpu-grid');
 const b0c=document.createElement('button');
@@ -1351,7 +1383,11 @@ function renderPieces(ox,oy){
 function startGame(){
   board=buildBoard(nC);
   players=[];
-  for(let i=0;i<nP;i++) players.push({...PD[i],pos:0,done:false,skip:false,cpu:false});
+  for(let i=0;i<nP;i++){
+    const nameInput=document.getElementById('name-input-'+i);
+    const customName=nameInput&&nameInput.value.trim()?nameInput.value.trim():PD[i].name;
+    players.push({...PD[i], name:customName, pos:0,done:false,skip:false,cpu:false});
+  }
   const cpuAvs=['🤖','🦾','💻','🎮','🕹️','⚙️','🔩','🛸','🧠'];
   for(let i=0;i<nCpu&&players.length<10;i++){
     players.push({name:'CPU'+(i+1),av:cpuAvs[i]||'🤖',pos:0,done:false,skip:false,cpu:true});
@@ -1383,7 +1419,7 @@ function renderList(){
     card.id='pk'+i;
     const pct=Math.round(p.pos/(nC-1)*100);
     const bgs=['🥇','🥈','🥉','4','5','6','7','8','9','10'];
-    const rk=ri>=0?`<div class="pc-rk">${bgs[ri]}い</div>`:'';
+    const rk=ri>=0?`<div class="pc-rk">${bgs[ri]}</div>`:'';
     const cpuBadge=p.cpu?`<span style="font-size:.52rem;background:rgba(93,191,106,.25);color:#5dbf6a;border-radius:5px;padding:1px 4px;font-weight:900;margin-right:2px">CPU</span>`:'';
     card.innerHTML=`<div class="pc-top">
       <div class="pc-av">${p.av}</div>
@@ -1678,6 +1714,20 @@ document.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){if(scan
 let tx=0;
 document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
 document.addEventListener('touchend',e=>{if(scanOn&&Math.abs(e.changedTouches[0].clientX-tx)<40)trigScan();});
+
+// 外部スイッチ対応：pointerdown（タッチ・マウス・スタイラス・スイッチデバイス共通）
+let _ptrLastTime=0;
+document.addEventListener('pointerdown',e=>{
+  if(!scanOn) return;
+  // touchendと二重発火しないよう、touchイベントが直前にあった場合はスキップ
+  const now=Date.now();
+  if(e.pointerType==='touch'&&now-_ptrLastTime<300) return;
+  // ボタン・入力要素への直接タップはスキャン発火させない（通常操作を妨げないため）
+  const tag=e.target.tagName;
+  if(tag==='BUTTON'||tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||tag==='A') return;
+  trigScan();
+});
+document.addEventListener('touchstart',()=>{_ptrLastTime=Date.now();},{passive:true});
 
 let rtmr;
 window.addEventListener('resize',()=>{clearTimeout(rtmr);rtmr=setTimeout(()=>{if(gActive)renderBoard();},200);});
@@ -1993,12 +2043,14 @@ function broadcastAll(data){
 // ===== ゲーム開始（オンライン） =====
 document.getElementById('ol-start-online-btn').addEventListener('click',()=>{
   if(!isHost) return;
-  // ゲーム設定を決定
   nP = onlineMembers.length;
   nCpu = 0;
-  // ボードを構築しホストが決定権を持つ
+  // ホストの名前をカスタム入力から反映
+  const hostNameInput=document.getElementById('name-input-0');
+  if(hostNameInput&&hostNameInput.value.trim()){
+    onlineMembers[0]={...onlineMembers[0], name:hostNameInput.value.trim()};
+  }
   board = buildBoard(nC);
-  // シリアライズ可能なboard（photoUrlを除く）
   const serBoard = board.map(c=>({cl:c.cl,ic:c.ic,tx:c.tx,ev:c.ev}));
   const gameState = {
     board: serBoard,
