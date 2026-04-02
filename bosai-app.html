@@ -1502,7 +1502,7 @@
           <input type="text" id="student-name-input" placeholder="例：たろう"
             style="width:100%;padding:8px 12px;border:2px solid #90CAF9;border-radius:8px;font-size:16px;font-family:inherit;background:#fff;outline:none"/>
         </div>
-        <div style="font-size:12px;color:#78909C;max-width:180px">シミュレーション終了後に自動記録されます</div>
+        <div style="font-size:12px;color:#78909C;max-width:180px">「たいけん」「クイズ」終了後に自動記録されます</div>
       </div>
 
       <!-- summary cards -->
@@ -1513,7 +1513,7 @@
         <div style="text-align:center;padding:40px 20px;color:#90A4AE">
           <div style="font-size:48px;margin-bottom:8px">📋</div>
           <div style="font-size:16px">まだきろくがありません</div>
-          <div style="font-size:13px;margin-top:4px">シミュレーションをやってみよう！</div>
+          <div style="font-size:13px;margin-top:4px">「たいけん」や「クイズ」をやってみよう！</div>
         </div>
       </div>
 
@@ -1925,7 +1925,10 @@ function updateQuizScore() {
   const lbl  = document.getElementById('quiz-score-label');
   if (fill) fill.style.width = (answered / quizData.length * 100) + '%';
   if (lbl)  lbl.textContent  = correct + ' / ' + answered + ' せいかい';
-  if (answered === quizData.length) checkQuizBadge(pct);
+  if (answered === quizData.length) {
+    checkQuizBadge(pct);
+    recordQuizResult();
+  }
 }
 
 // ==================== TAB ====================
@@ -2331,8 +2334,8 @@ function clearAllRecords() {
   renderTeacherDash();
 }
 
-const disasterLabels = { quake:'じしん', tsunami:'つなみ', flood:'こうずい', typhoon:'たいふう' };
-const disasterEmoji  = { quake:'🌋', tsunami:'🌊', flood:'🌧️', typhoon:'🌀' };
+const disasterLabels = { quake:'じしん', tsunami:'つなみ', flood:'こうずい', typhoon:'たいふう', volcano:'かざん', snow:'おおゆき', fire:'かじ' };
+const disasterEmoji  = { quake:'🌋', tsunami:'🌊', flood:'🌧️', typhoon:'🌀', volcano:'🌋', snow:'❄️', fire:'🔥' };
 
 // Called at end of each sim
 function recordResult(simType, log) {
@@ -2344,10 +2347,39 @@ function recordResult(simType, log) {
   const now     = new Date();
   const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
-  allRecords.push({ id: Date.now(), name, simType, correct, total, score, dateStr, log });
+  allRecords.push({ id: Date.now(), kind: 'taiken', name, simType, correct, total, score, dateStr, log });
   saveRecords();
   checkBadges(simType, score);
   if (nameEl) nameEl.value = '';
+}
+
+function recordQuizResult() {
+  const nameEl = document.getElementById('student-name-input');
+  const name = nameEl ? (nameEl.value.trim() || '（なまえなし）') : '（なまえなし）';
+  const answered = quizAnswered.filter(a => a !== null).length;
+  if (answered === 0) return;
+  const correct = quizAnswered.filter((a, i) => a !== null && a === quizData[i].ans).length;
+  const total   = answered;
+  const score   = Math.round(correct / total * 100);
+  const now     = new Date();
+  const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  // Build log in same format as taiken for unified display
+  const log = quizData.map((q, i) => {
+    if (quizAnswered[i] === null) return null;
+    return {
+      situation: q.q,
+      chosen: q.choices[quizAnswered[i]],
+      correct: quizAnswered[i] === q.ans,
+      correctAnswers: [q.choices[q.ans]],
+      explain: q.exp,
+    };
+  }).filter(Boolean);
+
+  allRecords.push({ id: Date.now(), kind: 'quiz', name, simType: 'quiz', correct, total, score, dateStr, log });
+  saveRecords();
+  checkQuizBadge(score);
+  renderTeacherDash();
 }
 
 // ==================== TEACHER DASHBOARD ====================
@@ -2360,19 +2392,24 @@ function renderTeacherDash() {
     ? `${allRecords.length}件の記録 | 最終: ${allRecords[allRecords.length-1].dateStr}`
     : '記録なし';
 
-  // summary cards per disaster
+  // summary cards per disaster (全7種)
   const sc = document.getElementById('summary-cards');
   sc.innerHTML = '';
-  const types = ['quake','tsunami','flood','typhoon'];
+  const types = ['quake','tsunami','flood','typhoon','volcano','snow','fire'];
+  const typeColors = {
+    quake:'#E65100', tsunami:'#0277BD', flood:'#1A237E',
+    typhoon:'#4A148C', volcano:'#BF360C', snow:'#1565C0', fire:'#B71C1C'
+  };
   types.forEach(type => {
     const recs = allRecords.filter(r => r.simType === type);
     const avg  = recs.length ? Math.round(recs.reduce((s,r) => s+r.score, 0) / recs.length) : null;
+    const borderCol = avg===null ? '#ECEFF1' : avg>=70 ? '#66BB6A' : avg>=40 ? '#FFA726' : '#EF5350';
     const card = document.createElement('div');
-    card.style.cssText = 'background:#fff;border-radius:14px;padding:14px;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,0.08);border-top:4px solid ' + (avg===null?'#ECEFF1':avg>=70?'#66BB6A':avg>=40?'#FFA726':'#EF5350');
-    card.innerHTML = `<div style="font-size:28px">${disasterEmoji[type]}</div>
-      <div style="font-size:13px;font-weight:800;color:#455A64;margin:4px 0">${disasterLabels[type]}</div>
-      <div style="font-size:22px;font-weight:800;color:${avg===null?'#90A4AE':avg>=70?'#2E7D32':avg>=40?'#E65100':'#C62828'}">${avg===null?'—':avg+'%'}</div>
-      <div style="font-size:11px;color:#90A4AE">${recs.length}回</div>`;
+    card.style.cssText = 'background:#fff;border-radius:14px;padding:14px;text-align:center;box-shadow:0 3px 12px rgba(0,0,0,0.08);border-top:4px solid ' + borderCol;
+    card.innerHTML = '<div style="font-size:28px">' + (disasterEmoji[type]||'🌀') + '</div>' +
+      '<div style="font-size:12px;font-weight:800;color:#455A64;margin:4px 0">' + (disasterLabels[type]||type) + '</div>' +
+      '<div style="font-size:22px;font-weight:800;color:' + (avg===null?'#90A4AE':avg>=70?'#2E7D32':avg>=40?'#E65100':'#C62828') + '">' + (avg===null?'—':avg+'%') + '</div>' +
+      '<div style="font-size:11px;color:#90A4AE">' + recs.length + '回</div>';
     sc.appendChild(card);
   });
 
@@ -2393,7 +2430,8 @@ function renderTeacherDash() {
       <tr style="background:#37474F;color:#fff">
         <th style="padding:10px 12px;text-align:left;border-radius:8px 0 0 0">日時</th>
         <th style="padding:10px 12px;text-align:left">なまえ</th>
-        <th style="padding:10px 12px;text-align:left">てんさい</th>
+        <th style="padding:10px 12px;text-align:center">種別</th>
+        <th style="padding:10px 12px;text-align:left">てんさい・もくひょう</th>
         <th style="padding:10px 12px;text-align:center">せいかい</th>
         <th style="padding:10px 12px;text-align:center">スコア</th>
         <th style="padding:10px 12px;text-align:center;border-radius:0 8px 0 0">くわしく</th>
@@ -2404,10 +2442,19 @@ function renderTeacherDash() {
   [...allRecords].reverse().forEach((r, idx) => {
     const scoreColor = r.score >= 70 ? '#2E7D32' : r.score >= 40 ? '#E65100' : '#C62828';
     const scoreBg    = r.score >= 70 ? '#E8F5E9' : r.score >= 40 ? '#FFF3E0' : '#FFEBEE';
+    const isQuiz = r.kind === 'quiz';
+    const kindBadge = isQuiz
+      ? '<span style="background:#EDE7F6;color:#7B1FA2;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800">📝 クイズ</span>'
+      : '<span style="background:#E3F2FD;color:#1565C0;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800">🎮 たいけん</span>';
+    const targetLabel = isQuiz
+      ? 'ぼうさいクイズ（全' + r.total + '問）'
+      : (disasterEmoji[r.simType] || '') + ' ' + (disasterLabels[r.simType] || r.simType);
+
     html += `<tr style="background:${idx%2===0?'#fff':'#FAFAFA'};border-bottom:1px solid #ECEFF1">
       <td style="padding:10px 12px;color:#546E7A;white-space:nowrap">${r.dateStr}</td>
       <td style="padding:10px 12px;font-weight:700">${r.name}</td>
-      <td style="padding:10px 12px">${disasterEmoji[r.simType]} ${disasterLabels[r.simType]}</td>
+      <td style="padding:10px 12px;text-align:center">${kindBadge}</td>
+      <td style="padding:10px 12px">${targetLabel}</td>
       <td style="padding:10px 12px;text-align:center">${r.correct} / ${r.total}</td>
       <td style="padding:10px 12px;text-align:center">
         <span style="background:${scoreBg};color:${scoreColor};padding:3px 10px;border-radius:999px;font-weight:800">${r.score}%</span>
@@ -2420,7 +2467,7 @@ function renderTeacherDash() {
       </td>
     </tr>
     <tr id="detail-${r.id}" style="display:none;background:#F8FBFF">
-      <td colspan="6" style="padding:14px 18px">
+      <td colspan="7" style="padding:14px 18px">
         ${buildDetailHTML(r)}
       </td>
     </tr>`;
@@ -2431,8 +2478,12 @@ function renderTeacherDash() {
 }
 
 function buildDetailHTML(r) {
-  let html = `<div style="font-size:13px;font-weight:700;color:#546E7A;margin-bottom:10px">📝 かいとうのくわしいきろく</div>
+  const isQuiz = r.kind === 'quiz';
+  let html = `<div style="font-size:13px;font-weight:700;color:#546E7A;margin-bottom:10px">
+    ${isQuiz ? '📝 クイズのくわしいきろく' : '🎮 たいけんのくわしいきろく'}
+  </div>
   <div style="display:flex;flex-direction:column;gap:8px">`;
+
   r.log.forEach((l, i) => {
     const ok = l.correct;
     html += `<div style="background:${ok?'#E8F5E9':'#FFEBEE'};border-left:4px solid ${ok?'#66BB6A':'#EF5350'};border-radius:6px;padding:10px 14px">
@@ -2442,6 +2493,7 @@ function buildDetailHTML(r) {
         <span style="color:${ok?'#2E7D32':'#C62828'};font-weight:700">${l.chosen}</span>
       </div>
       ${!ok ? `<div style="font-size:12px;color:#546E7A;margin-top:4px">💡 正しいこたえ: ${l.correctAnswers.join(' / ')}</div>` : ''}
+      ${isQuiz && l.explain ? `<div style="font-size:12px;color:#78909C;margin-top:4px;line-height:1.6">${l.explain}</div>` : ''}
     </div>`;
   });
   html += '</div>';
@@ -2458,14 +2510,15 @@ function toggleDetail(id) {
 // ==================== CSV EXPORT ====================
 function exportCSV() {
   if (allRecords.length === 0) { alert('きろくがありません'); return; }
-  let csv = '\uFEFF日時,なまえ,てんさい,せいかい,もんだいすう,スコア,';
-  // find max questions
+  let csv = '\uFEFF日時,なまえ,種別,てんさい・もくひょう,せいかい,もんだいすう,スコア,';
   const maxQ = Math.max(...allRecords.map(r => r.log.length));
-  for(let i=1; i<=maxQ; i++) csv += `Q${i}じょうきょう,Q${i}かいとう,Q${i}せいご,`;
+  for(let i=1; i<=maxQ; i++) csv += `Q${i}もんだい,Q${i}かいとう,Q${i}せいご,`;
   csv += '\n';
 
   allRecords.forEach(r => {
-    let row = `"${r.dateStr}","${r.name}","${disasterLabels[r.simType]}",${r.correct},${r.total},${r.score}%,`;
+    const kind  = r.kind === 'quiz' ? 'クイズ' : 'たいけん';
+    const label = r.kind === 'quiz' ? 'ぼうさいクイズ' : (disasterLabels[r.simType] || r.simType);
+    let row = `"${r.dateStr}","${r.name}","${kind}","${label}",${r.correct},${r.total},${r.score}%,`;
     for(let i=0; i<maxQ; i++) {
       const l = r.log[i];
       if (l) row += `"${l.situation}","${l.chosen}","${l.correct?'○':'×'}",`;
@@ -2484,7 +2537,7 @@ function exportCSV() {
 // ==================== PRINT ====================
 function printReport() {
   if (allRecords.length === 0) { alert('きろくがありません'); return; }
-  const types = ['quake','tsunami','flood','typhoon'];
+  const types = ['quake','tsunami','flood','typhoon','volcano','snow','fire'];
 
   const rows = [...allRecords].reverse().map(r => {
     const qCells = r.log.map(l =>
