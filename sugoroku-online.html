@@ -978,6 +978,7 @@ function buildBoard(n){
 // ===== STATE =====
 let nP=1,nCpu=0,nC=20,board=[],players=[],ci=0;
 let rolling=false,gActive=false,finOrd=[],cpuTimer=null;
+let turnCounts=[];
 let scanOn=false,ttsOn=true,sndOn=true;
 let fontLv=1,scanSec=2.0,hc=false;
 let scanTmr=null,scanTgts=[],sti=0;
@@ -1393,6 +1394,7 @@ function startGame(){
     players.push({name:'CPU'+(i+1),av:cpuAvs[i]||'🤖',pos:0,done:false,skip:false,cpu:true});
   }
   ci=0;finOrd=[];gActive=true;rolling=false;
+  turnCounts=players.map(()=>0);
   if(cpuTimer){clearTimeout(cpuTimer);cpuTimer=null;}
   document.getElementById('setup').style.display='none';
   document.getElementById('game').classList.add('on');
@@ -1447,6 +1449,7 @@ function scheduleCpu(){
 async function roll(){
   if(rolling||!gActive)return;
   rolling=true;
+  turnCounts[ci]=(turnCounts[ci]||0)+1;
   document.getElementById('rollbtn').disabled=true;
   rollSnd();
   const db=document.getElementById('dicebox');
@@ -1559,8 +1562,8 @@ function showGoal(){
   gActive=false;if(scanOn)stopScan();
   const bgs=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
   let html='';
-  finOrd.forEach((pi,ri)=>{html+=`<div class="rkrow"><span class="rrb">${bgs[ri]||ri+1}</span><span class="rrav">${players[pi].av}</span><span class="rrnm">${players[pi].name}</span><span class="rrpos">${players[pi].pos}マス</span></div>`;});
-  players.forEach((p,i)=>{if(!p.done)html+=`<div class="rkrow"><span class="rrb">-</span><span class="rrav">${p.av}</span><span class="rrnm">${p.name}</span><span class="rrpos">${p.pos}マス</span></div>`;});
+  finOrd.forEach((pi,ri)=>{html+=`<div class="rkrow"><span class="rrb">${bgs[ri]||ri+1}</span><span class="rrav">${players[pi].av}</span><span class="rrnm">${players[pi].name}</span><span class="rrpos">${turnCounts[pi]||0}かいでゴール</span></div>`;});
+  players.forEach((p,i)=>{if(!p.done)html+=`<div class="rkrow"><span class="rrb">-</span><span class="rrav">${p.av}</span><span class="rrnm">${p.name}</span><span class="rrpos">${turnCounts[i]||0}かい</span></div>`;});
   document.getElementById('rklist').innerHTML=html;
   document.getElementById('gsub').textContent=players[finOrd[0]].name+'がゴール！';
   document.getElementById('goalmod').classList.add('on');
@@ -2077,6 +2080,7 @@ function startOnlineGame(gameState){
     pos:0, done:false, skip:false, cpu:false
   }));
   ci=0; finOrd=[]; gActive=true; rolling=false;
+  turnCounts=players.map(()=>0);
   if(isHost) myPlayerIdx=0;
 
   // UI更新
