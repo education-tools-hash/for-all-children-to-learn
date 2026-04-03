@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>おかねのおべんきょう</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Rounded+Mplus+1c:wght@400;700;800&display=swap');
@@ -12,8 +12,7 @@
     --shadow: 0 8px 32px rgba(45,42,74,0.12); --radius: 24px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { overflow-x: hidden; overflow-y: scroll; -webkit-overflow-scrolling: touch; height: auto; }
-  body { font-family: 'Rounded Mplus 1c','Noto Sans JP',sans-serif; background: var(--bg); color: var(--dark); display: block; overflow: visible; touch-action: pan-y; }
+  body { font-family: 'Rounded Mplus 1c','Noto Sans JP',sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; display: flex; flex-direction: column; overflow-y: auto; }
 
   header { background: linear-gradient(135deg,#FFD700,#F4A200); padding: 14px 24px; text-align: center; box-shadow: 0 4px 16px rgba(244,162,0,.3); position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
   header h1 { font-size: clamp(18px,4vw,30px); font-weight: 900; color: white; text-shadow: 0 3px 0 rgba(0,0,0,.15); letter-spacing: 2px; }
@@ -30,8 +29,9 @@
 
   .section { display: none; padding: 24px 20px; max-width: 940px; margin: 0 auto; width: 100%; }
   .section.active { display: block; animation: fadeIn .4s ease; }
-  #shop { display: none; padding: 12px 16px; max-width: 100%; }
-  #shop.active { display: block; animation: fadeIn .4s ease; }
+  /* shopはflexで縦配置 */
+  #shop { display: none; flex-direction: column; padding: 12px 16px; max-width: 100%; }
+  #shop.active { display: flex; animation: fadeIn .4s ease; }
   @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
 
   .section-title { font-size: clamp(17px,4vw,25px); font-weight: 900; margin-bottom: 22px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
@@ -140,7 +140,7 @@
   /* カート */
   .cart-box { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
   .cart-title { font-size: 14px; font-weight: 900; text-align: center; display: flex; align-items: center; gap: 6px; justify-content: center; flex-shrink: 0; }
-  .cart-list { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+  .cart-list { flex: 1; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; min-height: 0; }
   .cart-list::-webkit-scrollbar { width: 4px; }
   .cart-list::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
   .cart-list-item { display: flex; align-items: center; gap: 7px; padding: 5px 8px; background: #f8f8f8; border-radius: 10px; font-size: 12px; font-weight: 700; flex-shrink: 0; }
@@ -188,11 +188,12 @@
   .otsuuri-close-btn { margin-top: 8px; padding: 12px 36px; border-radius: 50px; border: none; background: linear-gradient(135deg,var(--mint),#3AB090); color: white; font-family: inherit; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 16px rgba(76,201,160,.35); transition: all .2s; }
   .otsuuri-close-btn:hover { transform: translateY(-2px); }
 
-  /* ===== デスクトップ（1081px以上）: 2カラム ===== */
-  /* NOTE: body/html の overflow:hidden は削除。iPadでスクロール不可になるため。 */
+  /* ===== デスクトップ（1081px以上）: 2カラム・1画面に収める ===== */
   @media (min-width: 1081px) {
-    .shop-items-wrap { overflow-y: auto; max-height: calc(100vh - 200px); }
-    .shop-side { overflow-y: auto; max-height: calc(100vh - 200px); }
+    body { height: 100vh; overflow: hidden; }
+    #shop { height: calc(100vh - 130px); overflow: hidden; }
+    .shop-items-wrap { overflow-y: auto; }
+    .shop-side { overflow: hidden; }
     .cart-list { overflow-y: auto; }
   }
 
@@ -247,46 +248,8 @@
   .confetti-piece { position: absolute; width: 11px; height: 11px; border-radius: 3px; animation: confettiFall 2.5s ease-in forwards; }
   @keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
 </style>
-
-<style>
-/* ===== フルスクリーンボタン共通 ===== */
-#fs-btn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 99999;
-  background: rgba(45,42,74,0.82);
-  color: white;
-  border: none;
-  border-radius: 50px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 800;
-  font-family: 'Rounded Mplus 1c', 'Noto Sans JP', sans-serif;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-  transition: background 0.18s, transform 0.18s;
-  letter-spacing: 1px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-#fs-btn:hover { background: rgba(45,42,74,1); transform: scale(1.05); }
-#fs-btn:focus { outline: 3px solid #5BC4F5; outline-offset: 2px; }
-:fullscreen #fs-btn,
-:-webkit-full-screen #fs-btn { top: 10px; right: 10px; }
-</style>
-<link rel="icon" href="favicon.png" type="image/png">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
 <body>
-<button id="fs-btn" onclick="toggleFS()" aria-label="全画面表示の切り替え" title="ぜんぶにひろげる">
-  <span id="fs-icon">⛶</span><span id="fs-label">ぜんぶにひろげる</span>
-</button>
-
 <div class="otsuuri-overlay" id="otsuuriOverlay">
   <div class="otsuuri-box">
     <div class="otsuuri-title">🎉 おかいものできました！</div>
@@ -421,39 +384,41 @@ function svgCoin(opts) {
     innerRingColor, outerRingColor
   } = opts;
   const cx = size/2, cy = size/2, r = size/2 - 3;
+  const uid = `${value}_${Math.random().toString(36).slice(2,7)}`;
 
   let body = '';
   const defs = `<defs>
-    <radialGradient id="cg_${value}" cx="38%" cy="35%" r="65%">
+    <radialGradient id="cg_${uid}" cx="38%" cy="35%" r="65%">
       <stop offset="0%" stop-color="${outerRim}"/>
       <stop offset="100%" stop-color="${midRim}"/>
     </radialGradient>
-    <radialGradient id="if_${value}" cx="38%" cy="35%" r="60%">
+    <radialGradient id="if_${uid}" cx="38%" cy="35%" r="60%">
       <stop offset="0%" stop-color="${innerFill}"/>
       <stop offset="100%" stop-color="${midRim}"/>
     </radialGradient>
-    <filter id="sh_${value}" x="-20%" y="-20%" width="140%" height="140%">
+    <filter id="sh_${uid}" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.25"/>
     </filter>
   </defs>`;
 
   if (bimetal) {
     body = `
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${outerRingColor}" stroke-width="3" filter="url(#sh_${value})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${uid})" stroke="${outerRingColor}" stroke-width="3" filter="url(#sh_${uid})"/>
       <circle cx="${cx}" cy="${cy}" r="${r*0.62}" fill="${innerRingColor}" stroke="${outerRingColor}" stroke-width="1.5"/>
-      <circle cx="${cx}" cy="${cy}" r="${r*0.58}" fill="url(#if_${value})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r*0.58}" fill="url(#if_${uid})"/>
     `;
   } else if (hasHole) {
     body = `
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${value})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${uid})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${uid})"/>
       <circle cx="${cx}" cy="${cy}" r="${r*0.2}" fill="white" stroke="${midRim}" stroke-width="1.5"/>
     `;
   } else {
     body = `
-      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${value})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${value})"/>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#cg_${uid})" stroke="${midRim}" stroke-width="2.5" filter="url(#sh_${uid})"/>
     `;
   }
 
+  // edge lines (milling)
   let mills = '';
   for(let i=0;i<36;i++){
     const a = (i/36)*Math.PI*2;
@@ -475,6 +440,7 @@ function svgCoin(opts) {
     labels = `<text x="${cx}" y="${cy + fontSize*0.38}" text-anchor="middle" font-family="serif" font-weight="900" font-size="${fontSize}" fill="${textColor}" opacity="0.9">${labelTop||''}</text>`;
   }
 
+  // decorative inner ring
   const ringR = hasHole ? r*0.75 : (bimetal ? r*0.59 : r*0.82);
   const ring = `<circle cx="${cx}" cy="${cy}" r="${ringR}" fill="none" stroke="${textColor}" stroke-width="0.8" opacity="0.2"/>`;
 
@@ -484,7 +450,7 @@ function svgCoin(opts) {
 }
 
 // ==============================
-// SVG BILL GENERATOR
+// SVG BILL GENERATOR (improved)
 // ==============================
 function svgBill(opts) {
   const {
@@ -494,26 +460,28 @@ function svgBill(opts) {
     portraitColor, watermarkText
   } = opts;
   const { w, h } = size;
+  const uid = `${value}_${Math.random().toString(36).slice(2,7)}`;
   const defs = `<defs>
-    <linearGradient id="bg_${value}" x1="0%" y1="0%" x2="100%" y2="0%">
+    <linearGradient id="bg_${uid}" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="${bgColor1}"/>
       <stop offset="55%" stop-color="${bgColor1}" stop-opacity="0.85"/>
       <stop offset="100%" stop-color="${bgColor2}"/>
     </linearGradient>
-    <filter id="bsh_${value}"><feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter>
-    <pattern id="wm_${value}" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+    <filter id="bsh_${uid}"><feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.2"/></filter>
+    <pattern id="wm_${uid}" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
       <text x="0" y="20" font-size="9" fill="${accentColor}" opacity="0.08" font-family="serif">${watermarkText}</text>
     </pattern>
   </defs>`;
 
   const rx = 6;
   let body = `
-    <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#bg_${value})" stroke="${accentColor}" stroke-width="1.5" filter="url(#bsh_${value})"/>
-    <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#wm_${value})"/>
+    <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#bg_${uid})" stroke="${accentColor}" stroke-width="1.5" filter="url(#bsh_${uid})"/>
+    <rect x="2" y="2" width="${w-4}" height="${h-4}" rx="${rx}" fill="url(#wm_${uid})"/>
     <rect x="6" y="6" width="${w-12}" height="${h-12}" rx="${rx-2}" fill="none" stroke="${accentColor}" stroke-width="0.8" opacity="0.5"/>
     <rect x="9" y="9" width="${w-18}" height="${h-18}" rx="${rx-3}" fill="none" stroke="${accentColor}" stroke-width="0.4" opacity="0.3"/>
   `;
 
+  // left portrait circle area
   const pX = 22, pY = h/2, pR = h/2 - 10;
   body += `
     <circle cx="${pX}" cy="${pY}" r="${pR}" fill="${portraitColor}" opacity="0.18"/>
@@ -521,8 +489,10 @@ function svgBill(opts) {
     <text x="${pX}" y="${pY+5}" text-anchor="middle" font-size="${pR*1.1}" fill="${textColor}" opacity="0.25">人</text>
   `;
 
+  // serial number area (top right)
   body += `<text x="${w-10}" y="17" text-anchor="end" font-family="monospace" font-size="6" fill="${textColor}" opacity="0.5">AA000000A</text>`;
 
+  // main value text (center-right)
   const mainFontSize = h * 0.32;
   const subFontSize  = h * 0.14;
   body += `
@@ -530,8 +500,10 @@ function svgBill(opts) {
     <text x="${w/2 + 18}" y="${h/2 + mainFontSize*0.36 + subFontSize*1.3}" text-anchor="middle" font-family="serif" font-size="${subFontSize}" fill="${textColor}" opacity="0.7">${displaySub}</text>
   `;
 
+  // right side decoration bar
   body += `<rect x="${w-14}" y="${h*0.15}" width="5" height="${h*0.7}" rx="2" fill="${accentColor}" opacity="0.2"/>`;
 
+  // bottom ribbon
   body += `
     <rect x="8" y="${h-18}" width="${w-16}" height="8" rx="3" fill="${accentColor}" opacity="0.12"/>
     <text x="${w/2}" y="${h-12}" text-anchor="middle" font-family="serif" font-size="6.5" fill="${textColor}" opacity="0.6">日本銀行券　NIPPON GINKO</text>
@@ -682,9 +654,11 @@ function initMatching() {
   const shuffled = [...ALL_MONEY].sort(()=>Math.random()-.5).slice(0,6);
   matchPairs = shuffled.map(m=>({ id:m.id, value:m.value, type:m.type, moneyObj:m }));
 
+  // イラスト列・ねだん列それぞれ独立してシャッフル
   const leftOrder  = [...matchPairs].sort(()=>Math.random()-.5);
   const rightOrder = [...matchPairs].sort(()=>Math.random()-.5);
 
+  // 行数分のrowを作り、各行に左(イラスト)と右(ねだん)を1つずつ配置
   const gameEl = document.getElementById('matchGame');
   gameEl.innerHTML = leftOrder.map((lm, i) => {
     const rm = rightOrder[i];
@@ -732,7 +706,7 @@ function updateMatchScore() { document.getElementById('matchScore').textContent=
 // ==============================
 let cart=[], paidAmount=0, currentDifficulty='easy';
 let customItems = JSON.parse(localStorage.getItem('okane_custom_items')||'[]');
-let editingImgData = null;
+let editingImgData = null; // base64
 
 function saveCustomStorage() {
   localStorage.setItem('okane_custom_items', JSON.stringify(customItems));
@@ -788,12 +762,14 @@ function addToCartById(id) {
   speakMoney(item.name+' '+item.price.toLocaleString()+'えん');
 }
 
+// 旧関数との互換
 function addToCart(id) { addToCartById(id); }
 
 function removeFromCart(id) { cart=cart.filter(c=>c.item.id!==id); renderShopItems(); renderCart(); clearPayment(); }
 function clearCart() { cart=[]; renderShopItems(); renderCart(); clearPayment(); }
 function getCartTotal() { return cart.reduce((s,c)=>s+c.item.price*c.qty,0); }
 
+// ---- カスタム商品モーダル ----
 function openCustomModal() {
   editingImgData = null;
   document.getElementById('customNameInput').value='';
@@ -877,7 +853,7 @@ function updatePayResult() {
   else if(diff===0){ el.className='pay-result ok'; el.textContent='ぴったり！✨ そのままはらえるよ！'; }
   else { el.className='pay-result ok'; el.textContent=`はらえるよ！おつりは ¥${diff.toLocaleString()} だよ 👍`; }
 }
-
+// おつりを最小枚数で計算する
 function calcChange(amount) {
   const units = [10000,5000,1000,500,100,50,10,5,1];
   const result = [];
@@ -958,64 +934,6 @@ initMatching();
 renderShopItems();
 renderCart();
 renderPaymentButtons();
-
-// iOS Safari スクロール強制許可
-document.addEventListener('touchmove', function(e) {
-  // モーダルが開いているときだけ止める、それ以外は通す
-  const modals = document.querySelectorAll('.otsuuri-overlay.active, .custom-modal-overlay.active');
-  if (modals.length === 0) return; // モーダルなし → スクロール許可
-}, { passive: true });
-</script>
-
-<script>
-/* ===== フルスクリーン共通 ===== */
-function toggleFS() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  const el = document.documentElement;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  if (!isFS) {
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) req.call(el);
-  } else {
-    const ex = document.exitFullscreen || document.webkitExitFullscreen;
-    if (ex) ex.call(document);
-  }
-}
-function updateFSBtn() {
-  const btn = document.getElementById('fs-btn');
-  const icon = document.getElementById('fs-icon');
-  const label = document.getElementById('fs-label');
-  if (!btn) return;
-  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  icon.textContent = isFS ? '✕' : '⛶';
-  label.textContent = isFS ? 'もとにもどす' : 'ぜんぶにひろげる';
-}
-document.addEventListener('fullscreenchange', updateFSBtn);
-document.addEventListener('webkitfullscreenchange', updateFSBtn);
-
-/* ===== キーボード：Spaceキー・Enterキーで主要ボタンを操作 ===== */
-document.addEventListener('keydown', function(e) {
-  // Escapeは全画面解除（ブラウザデフォルト）に任せる
-  if (e.key === 'Escape') return;
-  // フォーム入力中は無視
-  const tag = document.activeElement ? document.activeElement.tagName : '';
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  // フォーカスが当たっている要素があればEnter/Spaceでクリック
-  if ((e.key === 'Enter' || e.key === ' ') && document.activeElement && document.activeElement !== document.body) {
-    const el = document.activeElement;
-    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('tabindex') !== null) {
-      e.preventDefault();
-      el.click();
-      return;
-    }
-  }
-  // F キーで全画面トグル
-  if (e.key === 'f' || e.key === 'F') {
-    toggleFS();
-  }
-});
 </script>
 </body>
 </html>
