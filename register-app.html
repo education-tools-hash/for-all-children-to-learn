@@ -936,12 +936,30 @@
     <!-- QR SCANNER -->
     <div class="qr-section" id="qr-section" style="display:none;" role="region" aria-label="QRコードスキャナー">
       <div class="section-header">
-        <h2 class="section-title">📷 QRコードを読み取る</h2>
-        <button class="btn outline" id="qr-close-btn">閉じる ✕</button>
+        <h2 class="section-title" id="qr-section-title">📷 QRコードを読み取る</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button class="btn outline" id="qr-switch-mode-btn" style="display:none;">⌨️ 手入力に切替</button>
+          <button class="btn outline" id="qr-close-btn">閉じる ✕</button>
+        </div>
       </div>
-      <div class="qr-video-wrap active" id="qr-video-wrap">
-        <video id="qr-video" autoplay muted playsinline aria-label="カメラ映像"></video>
-        <div class="qr-overlay"><div class="qr-frame" role="img" aria-label="QRコード読み取り枠"></div></div>
+      <!-- カメラモード -->
+      <div id="qr-camera-mode">
+        <div class="qr-video-wrap active" id="qr-video-wrap">
+          <video id="qr-video" autoplay muted playsinline aria-label="カメラ映像"></video>
+          <div class="qr-overlay"><div class="qr-frame" role="img" aria-label="QRコード読み取り枠"></div></div>
+        </div>
+      </div>
+      <!-- 手入力モード -->
+      <div id="qr-manual-mode" style="display:none;">
+        <p style="color:var(--text-light);font-size:calc(var(--font-size-base)*0.85);margin-bottom:10px;">
+          📋 商品に設定したQRコードの文字列を入力してください
+        </p>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="qr-manual-input" type="text" placeholder="例：ITEM_001" style="flex:1;"
+            aria-label="QRコードの文字列を入力">
+          <button class="btn" id="qr-manual-submit" aria-label="検索して追加">追加</button>
+        </div>
+        <div id="qr-manual-suggestions" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;" aria-label="登録済みQRコード一覧"></div>
       </div>
       <div class="qr-result" id="qr-result" role="status" aria-live="polite"></div>
     </div>
@@ -1804,6 +1822,17 @@ function updatePaymentDisplay() {
 // ============================================================
 document.getElementById('qr-toggle-btn').addEventListener('click', toggleQrScanner);
 document.getElementById('qr-close-btn').addEventListener('click', closeQrScanner);
+document.getElementById('qr-switch-mode-btn').addEventListener('click', switchToManualMode);
+document.getElementById('qr-manual-submit').addEventListener('click', () => {
+  const val = document.getElementById('qr-manual-input').value.trim();
+  if (val) { handleQrResult(val); document.getElementById('qr-manual-input').value = ''; }
+});
+document.getElementById('qr-manual-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const val = e.target.value.trim();
+    if (val) { handleQrResult(val); e.target.value = ''; }
+  }
+});
 
 async function toggleQrScanner() {
   const section = document.getElementById('qr-section');
@@ -1817,16 +1846,64 @@ async function toggleQrScanner() {
 }
 
 async function startQrScanner() {
+  // HTTPSまたはlocalhostでないとカメラAPIは使えない
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+  if (!isSecure || !hasMediaDevices) {
+    switchToManualMode();
+    return;
+  }
+
   try {
     qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     const video = document.getElementById('qr-video');
     video.srcObject = qrStream;
     await video.play();
+    // カメラ成功 → カメラモード表示、手入力切替ボタンも出す
+    document.getElementById('qr-camera-mode').style.display = 'block';
+    document.getElementById('qr-manual-mode').style.display = 'none';
+    document.getElementById('qr-switch-mode-btn').style.display = 'inline-flex';
+    document.getElementById('qr-section-title').textContent = '📷 QRコードを読み取る';
     scanQrFrame();
   } catch(e) {
-    showToast('📷 カメラにアクセスできませんでした');
-    document.getElementById('qr-section').style.display = 'none';
+    // カメラ失敗 → 手入力モードへ自動切替
+    switchToManualMode();
   }
+}
+
+function switchToManualMode() {
+  // カメラ停止
+  if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
+  if (qrAnimFrame) { cancelAnimationFrame(qrAnimFrame); qrAnimFrame = null; }
+
+  document.getElementById('qr-camera-mode').style.display = 'none';
+  document.getElementById('qr-manual-mode').style.display = 'block';
+  document.getElementById('qr-switch-mode-btn').style.display = 'none';
+  document.getElementById('qr-section-title').textContent = '⌨️ QRコードを手入力する';
+
+  // 登録済みQRコードのクイック選択ボタンを生成
+  const suggestWrap = document.getElementById('qr-manual-suggestions');
+  suggestWrap.innerHTML = '';
+  const withQr = products.filter(p => p.qr && p.qr.trim());
+  if (withQr.length > 0) {
+    const label = document.createElement('div');
+    label.style.cssText = 'width:100%;font-size:calc(var(--font-size-base)*0.8);color:var(--text-light);font-weight:700;';
+    label.textContent = '登録済みの商品：';
+    suggestWrap.appendChild(label);
+    withQr.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'btn outline';
+      btn.style.fontSize = 'calc(var(--font-size-base)*0.85)';
+      btn.style.padding = '8px 12px';
+      btn.innerHTML = `${p.emoji || '🎁'} ${escapeHtml(p.name)}`;
+      btn.setAttribute('aria-label', `${p.name}をカートに追加`);
+      btn.addEventListener('click', () => handleQrResult(p.qr));
+      suggestWrap.appendChild(btn);
+    });
+  }
+
+  document.getElementById('qr-manual-input').focus();
 }
 
 function closeQrScanner() {
@@ -1834,6 +1911,10 @@ function closeQrScanner() {
   if (qrAnimFrame) { cancelAnimationFrame(qrAnimFrame); qrAnimFrame = null; }
   document.getElementById('qr-section').style.display = 'none';
   document.getElementById('qr-result').classList.remove('show');
+  // リセット
+  document.getElementById('qr-camera-mode').style.display = 'block';
+  document.getElementById('qr-manual-mode').style.display = 'none';
+  document.getElementById('qr-switch-mode-btn').style.display = 'none';
 }
 
 function scanQrFrame() {
