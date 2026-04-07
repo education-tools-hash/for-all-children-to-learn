@@ -363,6 +363,26 @@
         <div><div class="setting-label">操作音</div><div class="setting-desc">ボタンを押したときに音を鳴らす</div></div>
         <label class="toggle"><input type="checkbox" id="sound-toggle"><span class="toggle-slider"></span></label>
       </div>
+      <div class="setting-row">
+        <div><div class="setting-label">商品代金の読み上げ</div><div class="setting-desc">商品をタップしたとき「〇〇円」と読み上げる</div></div>
+        <label class="toggle"><input type="checkbox" id="speech-item-toggle"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">合計金額の読み上げ</div><div class="setting-desc">「💰 お会計」ボタンを押したとき「合計〇〇円です」と読み上げる</div></div>
+        <label class="toggle"><input type="checkbox" id="speech-total-toggle"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">おつりの読み上げ</div><div class="setting-desc">お会計完了時に「おつりは〇〇円」と読み上げる</div></div>
+        <label class="toggle"><input type="checkbox" id="speech-change-toggle"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row" id="speech-rate-row">
+        <div><div class="setting-label">読み上げ速度</div><div class="setting-desc">声の速さを変える</div></div>
+        <div class="radio-group">
+          <label class="radio-option" id="speech-slow">  <input type="radio" name="speech-rate" value="0.7"> ゆっくり</label>
+          <label class="radio-option" id="speech-normal"><input type="radio" name="speech-rate" value="1.0"> 普通</label>
+          <label class="radio-option" id="speech-fast">  <input type="radio" name="speech-rate" value="1.4"> 速い</label>
+        </div>
+      </div>
     </div>
     <div class="settings-section">
       <div class="settings-section-title">🗑️ データ管理</div>
@@ -560,7 +580,7 @@ let products=[], cart=[], editMode=false, editingProductId=null, deletingProduct
 let selectedEmoji='🎁', selectedImageData=null, paymentReceived='';
 let switchScanItems=[], switchScanIndex=0, switchScanTimer=null;
 let soundEnabled=false, audioCtx=null;
-let settings={ storeName:'はんばいかい レジ', fontSize:'normal', highContrast:false, switchScan:false, scanSpeed:2000, reduceMotion:false, largeButtons:false, sound:false };
+let settings={ storeName:'はんばいかい レジ', fontSize:'normal', highContrast:false, switchScan:false, scanSpeed:2000, reduceMotion:false, largeButtons:false, sound:false, speechItem:false, speechTotal:false, speechChange:false, speechRate:1.0 };
 
 // UTILS
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -570,6 +590,16 @@ function openModal(id){ const el=document.getElementById(id); el.classList.add('
 function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o)closeModal(o.id); }));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')document.querySelectorAll('.modal-overlay.active').forEach(m=>closeModal(m.id)); });
+
+// SPEECH SYNTHESIS
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='ja-JP';
+  u.rate=settings.speechRate||1.0;
+  window.speechSynthesis.speak(u);
+}
 
 // SETTINGS
 function loadSettings(){ try{ const s=localStorage.getItem('register_settings'); if(s) settings={...settings,...JSON.parse(s)}; }catch(e){} applySettings(); syncSettingsUI(); }
@@ -592,8 +622,12 @@ function syncSettingsUI(){
   document.getElementById('reduce-motion-toggle').checked=settings.reduceMotion;
   document.getElementById('large-buttons-toggle').checked=settings.largeButtons;
   document.getElementById('sound-toggle').checked=settings.sound;
+  document.getElementById('speech-item-toggle').checked=settings.speechItem||false;
+  document.getElementById('speech-total-toggle').checked=settings.speechTotal;
+  document.getElementById('speech-change-toggle').checked=settings.speechChange;
   document.querySelectorAll('input[name="font-size"]').forEach(r=>{ r.checked=r.value===settings.fontSize; r.closest('.radio-option').classList.toggle('active',r.value===settings.fontSize); });
   document.querySelectorAll('input[name="scan-speed"]').forEach(r=>{ r.checked=r.value==settings.scanSpeed; r.closest('.radio-option').classList.toggle('active',r.value==settings.scanSpeed); });
+  document.querySelectorAll('input[name="speech-rate"]').forEach(r=>{ r.checked=parseFloat(r.value)===settings.speechRate; r.closest('.radio-option').classList.toggle('active',parseFloat(r.value)===settings.speechRate); });
   document.getElementById('scan-speed-row').style.display=settings.switchScan?'':'none';
 }
 
@@ -669,6 +703,7 @@ function addToCart(id){
   if(ex) ex.qty++; else cart.push({id:p.id,name:p.name,price:p.price,emoji:p.emoji,qty:1});
   const card=document.querySelector(`.product-card[data-id="${id}"]`);
   if(card){ card.classList.remove('selected-highlight'); void card.offsetWidth; card.classList.add('selected-highlight'); }
+  if(settings.speechItem) speak(`${p.price}円`);
   playSound('add'); renderCart();
 }
 function changeQty(id,d){ const item=cart.find(i=>i.id===id); if(!item) return; item.qty+=d; if(item.qty<=0) cart=cart.filter(i=>i.id!==id); renderCart(); }
@@ -712,9 +747,20 @@ document.getElementById('delete-confirm').addEventListener('click',()=>{ if(!del
 document.getElementById('delete-cancel').addEventListener('click',()=>closeModal('delete-modal'));
 
 // PAYMENT
-document.getElementById('payment-btn').addEventListener('click',()=>{ paymentReceived=''; updatePaymentDisplay(); openModal('payment-modal'); });
+document.getElementById('payment-btn').addEventListener('click',()=>{
+  paymentReceived=''; updatePaymentDisplay(); openModal('payment-modal');
+  if(settings.speechTotal){
+    const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
+    speak(`合計、${total}円です`);
+  }
+});
 document.getElementById('payment-cancel').addEventListener('click',()=>closeModal('payment-modal'));
-document.getElementById('payment-confirm').addEventListener('click',()=>{ clearCart(); closeModal('payment-modal'); showToast('🎉 ありがとうございました！'); playSound('success'); });
+document.getElementById('payment-confirm').addEventListener('click',()=>{
+  const change=parseInt(paymentReceived||'0')-cart.reduce((s,i)=>s+i.price*i.qty,0);
+  clearCart(); closeModal('payment-modal');
+  showToast('🎉 ありがとうございました！'); playSound('success');
+  if(settings.speechChange) speak(`おつりは、${change}円です。ありがとうございました`);
+});
 document.querySelectorAll('.num-btn').forEach(btn=>btn.addEventListener('click',()=>{ const v=btn.dataset.num; if(v==='del') paymentReceived=paymentReceived.slice(0,-1); else if(paymentReceived.length<6) paymentReceived+=v; updatePaymentDisplay(); }));
 function updatePaymentDisplay(){
   const received=parseInt(paymentReceived||'0');
@@ -737,6 +783,10 @@ document.getElementById('switch-scan-toggle').addEventListener('change',e=>{ set
 document.getElementById('reduce-motion-toggle').addEventListener('change',e=>{ settings.reduceMotion=e.target.checked; });
 document.getElementById('large-buttons-toggle').addEventListener('change',e=>{ settings.largeButtons=e.target.checked; });
 document.getElementById('sound-toggle').addEventListener('change',e=>{ settings.sound=e.target.checked; soundEnabled=e.target.checked; });
+document.getElementById('speech-item-toggle').addEventListener('change',e=>{ settings.speechItem=e.target.checked; if(e.target.checked) speak('商品代金の読み上げをオンにしました'); });
+document.getElementById('speech-total-toggle').addEventListener('change',e=>{ settings.speechTotal=e.target.checked; if(e.target.checked) speak('合計金額の読み上げをオンにしました'); });
+document.getElementById('speech-change-toggle').addEventListener('change',e=>{ settings.speechChange=e.target.checked; if(e.target.checked) speak('おつりの読み上げをオンにしました'); });
+document.querySelectorAll('input[name="speech-rate"]').forEach(r=>r.addEventListener('change',()=>{ settings.speechRate=parseFloat(r.value); document.querySelectorAll('input[name="speech-rate"]').forEach(o=>o.closest('.radio-option').classList.toggle('active',parseFloat(o.value)===settings.speechRate)); speak('この速さで読み上げます'); }));
 document.querySelectorAll('input[name="font-size"]').forEach(r=>r.addEventListener('change',()=>{ settings.fontSize=r.value; document.querySelectorAll('input[name="font-size"]').forEach(o=>o.closest('.radio-option').classList.toggle('active',o.value===r.value)); applySettings(); }));
 document.querySelectorAll('input[name="scan-speed"]').forEach(r=>r.addEventListener('change',()=>{ settings.scanSpeed=parseInt(r.value); document.querySelectorAll('input[name="scan-speed"]').forEach(o=>o.closest('.radio-option').classList.toggle('active',o.value==r.value)); if(settings.switchScan){ stopSwitchScan(); startSwitchScan(); } }));
 document.getElementById('reset-data-btn').addEventListener('click',()=>{ if(confirm('すべてのデータをリセットしてもいいですか？')){ localStorage.clear(); location.reload(); } });
