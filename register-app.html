@@ -944,7 +944,7 @@
       <!-- カメラモード -->
       <div id="qr-camera-mode">
         <div class="qr-video-wrap active" id="qr-video-wrap">
-          <video id="qr-video" autoplay muted playsinline aria-label="カメラ映像"></video>
+          <video id="qr-video" autoplay playsinline webkit-playsinline x5-playsinline aria-label="カメラ映像" style="width:100%;max-height:250px;object-fit:cover;display:block;"></video>
           <div class="qr-overlay"><div class="qr-frame" role="img" aria-label="QRコード読み取り枠"></div></div>
         </div>
         <p style="margin-top:8px;font-size:calc(var(--font-size-base)*0.82);color:var(--text-light);text-align:center;">
@@ -2126,23 +2126,63 @@ async function toggleQrScanner() {
 }
 
 async function startQrScanner() {
-  // HTTPSチェックを廃止し、常にカメラ起動を試みる
-  // 使えない環境では catch でタップモードに自動切替
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    switchToTapMode();
-    return;
-  }
-
+  // iOS SafariはgetUserMediaの呼び出し方に独自制約がある
+  // enumerateDevices → 具体的なdeviceIdを指定する方式で回避
   try {
-    qrStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    // まずAPIの存在確認
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('getUserMedia not supported');
+    }
+
     const video = document.getElementById('qr-video');
-    video.srcObject = qrStream;
-    await video.play();
+
+    // iOS Safari向け: まずシンプルな constraints で試みる
+    let stream;
+    try {
+      // 第1試行: 背面カメラを environment で指定
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { exact: 'environment' } },
+        audio: false
+      });
+    } catch(e1) {
+      try {
+        // 第2試行: exact を外してリトライ（フロントカメラにフォールバック）
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false
+        });
+      } catch(e2) {
+        // 第3試行: 制約を最小限に
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+    }
+
+    qrStream = stream;
+    video.srcObject = stream;
+
+    // iOS Safari は play() を明示的に呼ぶ必要がある
+    video.setAttribute('playsinline', true);
+    video.setAttribute('webkit-playsinline', true);
+
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        video.play().then(resolve).catch(reject);
+      };
+      video.onerror = reject;
+      // タイムアウト保険
+      setTimeout(resolve, 3000);
+    });
+
     document.getElementById('qr-camera-mode').style.display = 'block';
     document.getElementById('qr-manual-mode').style.display = 'none';
     document.getElementById('qr-section-title').textContent = '📷 QRコードで商品を追加';
     scanQrFrame();
+
   } catch(e) {
+    console.warn('Camera error:', e);
     switchToTapMode();
   }
 }
