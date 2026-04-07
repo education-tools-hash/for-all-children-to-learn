@@ -925,6 +925,7 @@
     <button class="icon-btn" id="qr-list-btn" aria-label="QRコードリストを見る" title="QRリスト">🗂️</button>
     <button class="icon-btn" id="share-btn" aria-label="商品リストを共有" title="共有">🔗</button>
     <button class="icon-btn" id="fullscreen-btn" aria-label="全画面表示" title="全画面">⛶</button>
+    <button class="icon-btn" id="help-btn" aria-label="つかいかたを見る" title="つかいかた">❓</button>
     <button class="icon-btn" id="settings-btn" aria-label="設定を開く" title="設定">⚙️</button>
   </nav>
 </header>
@@ -936,31 +937,53 @@
     <!-- QR SCANNER -->
     <div class="qr-section" id="qr-section" style="display:none;" role="region" aria-label="QRコードスキャナー">
       <div class="section-header">
-        <h2 class="section-title" id="qr-section-title">📷 QRコードを読み取る</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button class="btn outline" id="qr-switch-mode-btn" style="display:none;">⌨️ 手入力に切替</button>
-          <button class="btn outline" id="qr-close-btn">閉じる ✕</button>
-        </div>
+        <h2 class="section-title" id="qr-section-title">📷 QRコードで商品を追加</h2>
+        <button class="btn outline" id="qr-close-btn">閉じる ✕</button>
       </div>
+
       <!-- カメラモード -->
       <div id="qr-camera-mode">
         <div class="qr-video-wrap active" id="qr-video-wrap">
           <video id="qr-video" autoplay muted playsinline aria-label="カメラ映像"></video>
           <div class="qr-overlay"><div class="qr-frame" role="img" aria-label="QRコード読み取り枠"></div></div>
         </div>
-      </div>
-      <!-- 手入力モード -->
-      <div id="qr-manual-mode" style="display:none;">
-        <p style="color:var(--text-light);font-size:calc(var(--font-size-base)*0.85);margin-bottom:10px;">
-          📋 商品に設定したQRコードの文字列を入力してください
+        <p style="margin-top:8px;font-size:calc(var(--font-size-base)*0.82);color:var(--text-light);text-align:center;">
+          商品に貼ったQRコードをカメラに向けてください
         </p>
-        <div style="display:flex;gap:8px;">
-          <input class="form-input" id="qr-manual-input" type="text" placeholder="例：ITEM_001" style="flex:1;"
-            aria-label="QRコードの文字列を入力">
-          <button class="btn" id="qr-manual-submit" aria-label="検索して追加">追加</button>
-        </div>
-        <div id="qr-manual-suggestions" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;" aria-label="登録済みQRコード一覧"></div>
       </div>
+
+      <!-- タップ選択モード（カメラ不可のときに自動表示） -->
+      <div id="qr-manual-mode" style="display:none;">
+
+        <!-- なぜカメラが使えないかの説明 -->
+        <div style="
+          background:var(--bg);
+          border:2px solid var(--border);
+          border-radius:12px;
+          padding:14px 16px;
+          margin-bottom:14px;
+          font-size:calc(var(--font-size-base)*0.85);
+          color:var(--text-light);
+          line-height:1.6;
+        ">
+          📱 <strong style="color:var(--text);">このファイルはカメラが使えない環境で開かれています</strong><br>
+          カメラでQRコードを読み取るには、このHTMLファイルを<strong style="color:var(--text);">HTTPS対応のサーバー</strong>に置く必要があります。<br>
+          <span style="color:var(--success);font-weight:700;">▼ 下のボタンをタップして商品をカートに追加できます</span>
+        </div>
+
+        <!-- 登録商品のタップ追加ボタン -->
+        <div id="qr-manual-suggestions"
+          style="display:flex;flex-wrap:wrap;gap:10px;"
+          role="group" aria-label="商品をタップして追加"></div>
+
+        <!-- 商品がひとつもない場合 -->
+        <div id="qr-no-products" style="display:none;text-align:center;padding:20px;color:var(--text-light);">
+          <div style="font-size:36px;margin-bottom:6px;">📭</div>
+          <div style="font-weight:700;">商品が登録されていません</div>
+          <div style="font-size:calc(var(--font-size-base)*0.8);margin-top:4px;">「✏️ 編集モード」から商品を追加してください</div>
+        </div>
+      </div>
+
       <div class="qr-result" id="qr-result" role="status" aria-live="polite"></div>
     </div>
 
@@ -1199,8 +1222,9 @@
 <div class="modal-overlay" id="share-modal" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
   <div class="modal">
     <h2 class="modal-title" id="share-modal-title">🔗 共有</h2>
-    <p style="color:var(--text-light); font-size:calc(var(--font-size-base)*0.85);">このURLをコピーして他の人に送ると、同じ商品リストを使えます。</p>
-    <div class="share-url-box" id="share-url-display" aria-label="共有URL"></div>
+    <p style="color:var(--text-light); font-size:calc(var(--font-size-base)*0.85); margin-bottom:12px;">このURLをコピーして他の人に送ると、同じ商品リストを使えます。<br>※ 写真データは共有されません（絵文字・名前・値段・QRコードのみ）</p>
+    <div class="share-url-box" id="share-url-display" aria-label="共有URL" style="user-select:all;"></div>
+    <div id="share-url-size" style="font-size:calc(var(--font-size-base)*0.78); color:var(--text-light); margin-top:6px;"></div>
     <div class="modal-actions">
       <button class="btn outline" id="share-modal-close">閉じる</button>
       <button class="btn secondary" id="copy-url-btn">📋 URLをコピー</button>
@@ -1219,6 +1243,272 @@
     </div>
   </div>
 </div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+  <div class="modal" style="max-width:560px;">
+    <h2 class="modal-title" id="help-modal-title">❓ つかいかた</h2>
+
+    <!-- TAB NAV -->
+    <div style="display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap;" role="tablist" aria-label="つかいかたのページ">
+      <button class="help-tab active" data-tab="basic" role="tab" aria-selected="true">🛒 基本のつかいかた</button>
+      <button class="help-tab" data-tab="edit" role="tab" aria-selected="false">✏️ 商品の編集</button>
+      <button class="help-tab" data-tab="qr" role="tab" aria-selected="false">📷 QRコード</button>
+      <button class="help-tab" data-tab="access" role="tab" aria-selected="false">♿ アクセシビリティ</button>
+    </div>
+
+    <!-- TAB: 基本 -->
+    <div class="help-panel" id="help-tab-basic" role="tabpanel">
+      <div class="help-step">
+        <div class="help-step-num">1</div>
+        <div class="help-step-body">
+          <div class="help-step-title">🛒 商品をえらぶ</div>
+          <div class="help-step-desc">画面の商品カードをタップすると、カートに追加されます。何度もタップすると個数がふえます。</div>
+          <div class="help-img-box">🍪 → 🛒 ＋１</div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">2</div>
+        <div class="help-step-body">
+          <div class="help-step-title">💰 お会計をする</div>
+          <div class="help-step-desc">右の「ごうけいきんがく」を確認したら「💰 お会計」ボタンをおします。数字ボタンでもらったお金を入力すると、おつりが自動で計算されます。</div>
+          <div class="help-img-box">¥100 + ¥200 = <strong>¥300</strong></div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">3</div>
+        <div class="help-step-body">
+          <div class="help-step-title">🗑️ カートをリセット</div>
+          <div class="help-step-desc">お会計が終わると自動でリセットされます。まちがえたときは「🗑️ カートをリセット」ボタンを使います。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: 編集 -->
+    <div class="help-panel" id="help-tab-edit" role="tabpanel" style="display:none;">
+      <div class="help-step">
+        <div class="help-step-num">1</div>
+        <div class="help-step-body">
+          <div class="help-step-title">✏️ 編集モードにする</div>
+          <div class="help-step-desc">「✏️ 編集モード」ボタンをおすと、商品を追加・変更・削除できるようになります。</div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">2</div>
+        <div class="help-step-body">
+          <div class="help-step-title">➕ 商品を追加する</div>
+          <div class="help-step-desc">「➕ 商品を追加」カードをタップして、名前・値段・絵文字・写真を入力して保存します。</div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">3</div>
+        <div class="help-step-body">
+          <div class="help-step-title">✏️🗑️ 変更・削除</div>
+          <div class="help-step-desc">編集モード中に商品カードをさわると「✏️」「🗑️」ボタンが出てきます。✏️で変更、🗑️で削除できます。</div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">4</div>
+        <div class="help-step-body">
+          <div class="help-step-title">🔗 他の人と共有する</div>
+          <div class="help-step-desc">「🔗」ボタンからURLをコピーして送ると、同じ商品リストを他の人のスマホやパソコンで使えます。※写真は共有されません。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: QRコード -->
+    <div class="help-panel" id="help-tab-qr" role="tabpanel" style="display:none;">
+      <div class="help-callout">
+        <div style="font-size:2em;margin-bottom:6px;">📷</div>
+        <div style="font-weight:800;margin-bottom:6px;">QRコード機能とは？</div>
+        <div style="font-size:calc(var(--font-size-base)*0.88);line-height:1.7;">
+          商品にQRコードシールを貼っておき、スキャンするだけでカートに追加できる機能です。
+          バーコードリーダーのようなイメージです。
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">1</div>
+        <div class="help-step-body">
+          <div class="help-step-title">商品にIDをつける</div>
+          <div class="help-step-desc">「✏️ 編集モード」で商品を編集し、「QRコードのID」欄に好きな文字を入力します。<br>例：<code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:0.9em;">cookie-001</code>　<code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:0.9em;">juice-002</code></div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">2</div>
+        <div class="help-step-body">
+          <div class="help-step-title">QRコードシールを作る</div>
+          <div class="help-step-desc">「🗂️」ボタンを押すとQRコード一覧が表示されます。「🖨️ 印刷する」でシートを印刷して、切り取って商品に貼ります。</div>
+          <div class="help-img-box" style="font-size:calc(var(--font-size-base)*0.85);">🗂️ → 🖨️ → ✂️ → 商品に貼る</div>
+        </div>
+      </div>
+      <div class="help-step">
+        <div class="help-step-num">3</div>
+        <div class="help-step-body">
+          <div class="help-step-title">スキャンして追加</div>
+          <div class="help-step-desc">「📷」ボタンを押してカメラを起動し、商品のQRコードにかざすと自動でカートに追加されます。</div>
+        </div>
+      </div>
+      <div class="help-callout" style="background:rgba(255,107,53,0.08);border-color:var(--primary);">
+        <div style="font-weight:800;color:var(--primary);margin-bottom:4px;">⚠️ カメラが使えないとき</div>
+        <div style="font-size:calc(var(--font-size-base)*0.85);line-height:1.6;">
+          iPhoneでこのファイルを直接開いた場合、カメラは使えません。その場合は「📷」ボタンを押すと、登録した商品がボタン一覧で表示されるのでタップして追加できます。
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: アクセシビリティ -->
+    <div class="help-panel" id="help-tab-access" role="tabpanel" style="display:none;">
+      <div class="help-step">
+        <div class="help-step-num">⚙️</div>
+        <div class="help-step-body">
+          <div class="help-step-title">設定の開きかた</div>
+          <div class="help-step-desc">右上の「⚙️」ボタンから設定を開けます。</div>
+        </div>
+      </div>
+      <div class="help-access-grid">
+        <div class="help-access-card">
+          <div class="help-access-icon">🔤</div>
+          <div class="help-access-name">文字の大きさ</div>
+          <div class="help-access-desc">4段階で文字を大きくできます</div>
+        </div>
+        <div class="help-access-card">
+          <div class="help-access-icon">🎨</div>
+          <div class="help-access-name">ハイコントラスト</div>
+          <div class="help-access-desc">白黒で見やすい表示に切り替え</div>
+        </div>
+        <div class="help-access-card">
+          <div class="help-access-icon">🔘</div>
+          <div class="help-access-name">スイッチスキャン</div>
+          <div class="help-access-desc">自動で項目が移動。スペースキーで選択できます</div>
+        </div>
+        <div class="help-access-card">
+          <div class="help-access-icon">✋</div>
+          <div class="help-access-name">大きいボタン</div>
+          <div class="help-access-desc">タップしやすい大きなボタンに変更</div>
+        </div>
+        <div class="help-access-card">
+          <div class="help-access-icon">🔕</div>
+          <div class="help-access-name">アニメーション軽減</div>
+          <div class="help-access-desc">画面の動きを最小限にします</div>
+        </div>
+        <div class="help-access-card">
+          <div class="help-access-icon">🔊</div>
+          <div class="help-access-name">操作音</div>
+          <div class="help-access-desc">ボタンを押したときに音が鳴ります</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:20px;">
+      <button class="btn" id="help-close">とじる</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* HELP TABS */
+  .help-tab {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: calc(var(--font-size-base) * 0.82);
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-family);
+    color: var(--text);
+    transition: all 0.2s;
+    min-height: 44px;
+  }
+  .help-tab:hover { border-color: var(--primary); }
+  .help-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  /* HELP STEPS */
+  .help-step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+    align-items: flex-start;
+  }
+  .help-step-num {
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: calc(var(--font-size-base) * 0.9);
+    flex-shrink: 0;
+  }
+  .help-step-title {
+    font-weight: 800;
+    font-size: calc(var(--font-size-base) * 0.95);
+    margin-bottom: 5px;
+    color: var(--text);
+  }
+  .help-step-desc {
+    font-size: calc(var(--font-size-base) * 0.85);
+    color: var(--text-light);
+    line-height: 1.65;
+  }
+  .help-img-box {
+    margin-top: 8px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: calc(var(--font-size-base) * 0.9);
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+  }
+
+  /* HELP CALLOUT */
+  .help-callout {
+    background: rgba(78,205,196,0.1);
+    border: 2px solid var(--secondary);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    text-align: center;
+    color: var(--text);
+  }
+
+  /* HELP ACCESS GRID */
+  .help-access-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .help-access-card {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .help-access-icon { font-size: 28px; margin-bottom: 6px; }
+  .help-access-name {
+    font-weight: 800;
+    font-size: calc(var(--font-size-base) * 0.82);
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  .help-access-desc {
+    font-size: calc(var(--font-size-base) * 0.75);
+    color: var(--text-light);
+    line-height: 1.5;
+  }
+</style>
 
 <!-- QR LIST MODAL -->
 <div class="modal-overlay" id="qr-list-modal" role="dialog" aria-modal="true" aria-labelledby="qr-list-modal-title">
@@ -1822,17 +2112,6 @@ function updatePaymentDisplay() {
 // ============================================================
 document.getElementById('qr-toggle-btn').addEventListener('click', toggleQrScanner);
 document.getElementById('qr-close-btn').addEventListener('click', closeQrScanner);
-document.getElementById('qr-switch-mode-btn').addEventListener('click', switchToManualMode);
-document.getElementById('qr-manual-submit').addEventListener('click', () => {
-  const val = document.getElementById('qr-manual-input').value.trim();
-  if (val) { handleQrResult(val); document.getElementById('qr-manual-input').value = ''; }
-});
-document.getElementById('qr-manual-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const val = e.target.value.trim();
-    if (val) { handleQrResult(val); e.target.value = ''; }
-  }
-});
 
 async function toggleQrScanner() {
   const section = document.getElementById('qr-section');
@@ -1846,12 +2125,11 @@ async function toggleQrScanner() {
 }
 
 async function startQrScanner() {
-  // HTTPSまたはlocalhostでないとカメラAPIは使えない
   const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 
   if (!isSecure || !hasMediaDevices) {
-    switchToManualMode();
+    switchToTapMode();
     return;
   }
 
@@ -1860,50 +2138,73 @@ async function startQrScanner() {
     const video = document.getElementById('qr-video');
     video.srcObject = qrStream;
     await video.play();
-    // カメラ成功 → カメラモード表示、手入力切替ボタンも出す
     document.getElementById('qr-camera-mode').style.display = 'block';
     document.getElementById('qr-manual-mode').style.display = 'none';
-    document.getElementById('qr-switch-mode-btn').style.display = 'inline-flex';
-    document.getElementById('qr-section-title').textContent = '📷 QRコードを読み取る';
+    document.getElementById('qr-section-title').textContent = '📷 QRコードで商品を追加';
     scanQrFrame();
   } catch(e) {
-    // カメラ失敗 → 手入力モードへ自動切替
-    switchToManualMode();
+    switchToTapMode();
   }
 }
 
-function switchToManualMode() {
-  // カメラ停止
+function switchToTapMode() {
   if (qrStream) { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
   if (qrAnimFrame) { cancelAnimationFrame(qrAnimFrame); qrAnimFrame = null; }
 
   document.getElementById('qr-camera-mode').style.display = 'none';
   document.getElementById('qr-manual-mode').style.display = 'block';
-  document.getElementById('qr-switch-mode-btn').style.display = 'none';
-  document.getElementById('qr-section-title').textContent = '⌨️ QRコードを手入力する';
+  document.getElementById('qr-section-title').textContent = '🛒 商品をえらんで追加';
 
-  // 登録済みQRコードのクイック選択ボタンを生成
+  // 全商品のタップボタンを生成（QR登録有無に関わらず全商品を表示）
   const suggestWrap = document.getElementById('qr-manual-suggestions');
+  const noProducts = document.getElementById('qr-no-products');
   suggestWrap.innerHTML = '';
-  const withQr = products.filter(p => p.qr && p.qr.trim());
-  if (withQr.length > 0) {
-    const label = document.createElement('div');
-    label.style.cssText = 'width:100%;font-size:calc(var(--font-size-base)*0.8);color:var(--text-light);font-weight:700;';
-    label.textContent = '登録済みの商品：';
-    suggestWrap.appendChild(label);
-    withQr.forEach(p => {
-      const btn = document.createElement('button');
-      btn.className = 'btn outline';
-      btn.style.fontSize = 'calc(var(--font-size-base)*0.85)';
-      btn.style.padding = '8px 12px';
-      btn.innerHTML = `${p.emoji || '🎁'} ${escapeHtml(p.name)}`;
-      btn.setAttribute('aria-label', `${p.name}をカートに追加`);
-      btn.addEventListener('click', () => handleQrResult(p.qr));
-      suggestWrap.appendChild(btn);
-    });
+
+  if (products.length === 0) {
+    suggestWrap.style.display = 'none';
+    noProducts.style.display = 'block';
+    return;
   }
 
-  document.getElementById('qr-manual-input').focus();
+  suggestWrap.style.display = 'flex';
+  noProducts.style.display = 'none';
+
+  products.forEach(p => {
+    const btn = document.createElement('button');
+    btn.style.cssText = `
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      cursor: pointer;
+      font-family: var(--font-family);
+      font-size: var(--font-size-base);
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+      min-height: 52px;
+    `;
+    btn.innerHTML = `<span style="font-size:1.4em">${p.emoji || '🎁'}</span><span>${escapeHtml(p.name)}</span><span style="color:var(--primary);margin-left:4px;">¥${p.price.toLocaleString()}</span>`;
+    btn.setAttribute('aria-label', `${p.name} ${p.price}円をカートに追加`);
+    btn.addEventListener('pointerenter', () => { btn.style.borderColor = 'var(--primary)'; btn.style.background = 'var(--bg)'; });
+    btn.addEventListener('pointerleave', () => { btn.style.borderColor = 'var(--border)'; btn.style.background = 'var(--surface)'; });
+    btn.addEventListener('click', () => {
+      addToCart(p.id);
+      // ボタンを一瞬光らせる
+      btn.style.background = 'var(--success)';
+      btn.style.color = 'white';
+      btn.style.borderColor = 'var(--success)';
+      setTimeout(() => {
+        btn.style.background = 'var(--surface)';
+        btn.style.color = 'var(--text)';
+        btn.style.borderColor = 'var(--border)';
+      }, 400);
+    });
+    suggestWrap.appendChild(btn);
+  });
 }
 
 function closeQrScanner() {
@@ -1911,10 +2212,8 @@ function closeQrScanner() {
   if (qrAnimFrame) { cancelAnimationFrame(qrAnimFrame); qrAnimFrame = null; }
   document.getElementById('qr-section').style.display = 'none';
   document.getElementById('qr-result').classList.remove('show');
-  // リセット
   document.getElementById('qr-camera-mode').style.display = 'block';
   document.getElementById('qr-manual-mode').style.display = 'none';
-  document.getElementById('qr-switch-mode-btn').style.display = 'none';
 }
 
 function scanQrFrame() {
@@ -1927,9 +2226,7 @@ function scanQrFrame() {
   ctx.drawImage(video, 0, 0);
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-  if (code) {
-    handleQrResult(code.data);
-  }
+  if (code) handleQrResult(code.data);
   qrAnimFrame = requestAnimationFrame(scanQrFrame);
 }
 
@@ -1964,13 +2261,56 @@ document.getElementById('share-btn').addEventListener('click', openShareModal);
 document.getElementById('share-modal-close').addEventListener('click', () => closeModal('share-modal'));
 document.getElementById('copy-url-btn').addEventListener('click', () => {
   const url = document.getElementById('share-url-display').textContent;
-  navigator.clipboard.writeText(url).then(() => showToast('📋 URLをコピーしました！'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url)
+      .then(() => showToast('📋 URLをコピーしました！'))
+      .catch(() => fallbackCopy(url));
+  } else {
+    fallbackCopy(url);
+  }
 });
 
+function fallbackCopy(text) {
+  // iOS Safari などclipboard APIが使えない場合のフォールバック
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('📋 URLをコピーしました！');
+  } catch(e) {
+    showToast('⚠️ 手動でURLを長押しコピーしてください');
+  }
+  document.body.removeChild(ta);
+}
+
 function openShareModal() {
-  const data = btoa(encodeURIComponent(JSON.stringify(products)));
-  const url = `${location.origin}${location.pathname}?products=${data}`;
+  // 画像（Base64）を除いたテキストデータだけ共有する
+  const shareData = products.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    emoji: p.emoji || '🎁',
+    qr: p.qr || ''
+    // image は意図的に除外
+  }));
+
+  let encoded;
+  try {
+    encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
+  } catch(e) {
+    showToast('⚠️ データのエンコードに失敗しました');
+    return;
+  }
+
+  const url = `${location.origin}${location.pathname}?products=${encoded}`;
+  const sizeKB = Math.round(new Blob([url]).size / 1024);
+
   document.getElementById('share-url-display').textContent = url;
+  document.getElementById('share-url-size').textContent = `URLサイズ：約 ${sizeKB} KB（写真を除く）`;
   openModal('share-modal');
 }
 
@@ -1979,15 +2319,17 @@ function loadSharedProducts() {
   const data = params.get('products');
   if (!data) return;
   try {
-    const decoded = JSON.parse(decodeURIComponent(atob(data)));
+    const decoded = JSON.parse(decodeURIComponent(escape(atob(data))));
     if (Array.isArray(decoded) && decoded.length > 0) {
-      products = decoded;
+      // 既存の商品に上書き（imageフィールドはnullで補完）
+      products = decoded.map(p => ({ ...p, image: p.image || null }));
       saveProducts();
       showToast('🔗 共有された商品リストを読み込みました');
-      // Clean URL
       history.replaceState({}, '', location.pathname);
     }
-  } catch(e) {}
+  } catch(e) {
+    showToast('⚠️ 共有データの読み込みに失敗しました');
+  }
 }
 
 // ============================================================
@@ -2295,6 +2637,26 @@ function printQrList() {
     setTimeout(() => { printArea.style.display = 'none'; }, 500);
   }, 300);
 }
+
+// ============================================================
+//  HELP MODAL
+// ============================================================
+document.getElementById('help-btn').addEventListener('click', () => openModal('help-modal'));
+document.getElementById('help-close').addEventListener('click', () => closeModal('help-modal'));
+
+document.querySelectorAll('.help-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    // タブ切り替え
+    document.querySelectorAll('.help-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.help-panel').forEach(p => p.style.display = 'none');
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    document.getElementById('help-tab-' + tab.dataset.tab).style.display = 'block';
+  });
+});
 
 // ============================================================
 //  INIT
