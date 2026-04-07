@@ -966,9 +966,10 @@
           color:var(--text-light);
           line-height:1.6;
         ">
-          📱 <strong style="color:var(--text);">このファイルはカメラが使えない環境で開かれています</strong><br>
-          カメラでQRコードを読み取るには、このHTMLファイルを<strong style="color:var(--text);">HTTPS対応のサーバー</strong>に置く必要があります。<br>
-          <span style="color:var(--success);font-weight:700;">▼ 下のボタンをタップして商品をカートに追加できます</span>
+          📱 <strong style="color:var(--text);">カメラの許可が得られませんでした</strong><br>
+          iPhoneの場合、Safariの設定でカメラを許可してください。<br>
+          <strong style="color:var(--text);">設定 → Safari → カメラ → 許可</strong><br>
+          <span style="color:var(--success);font-weight:700;">▼ 今すぐ下のボタンをタップして商品をカートに追加できます</span>
         </div>
 
         <!-- 登録商品のタップ追加ボタン -->
@@ -2125,10 +2126,9 @@ async function toggleQrScanner() {
 }
 
 async function startQrScanner() {
-  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-
-  if (!isSecure || !hasMediaDevices) {
+  // HTTPSチェックを廃止し、常にカメラ起動を試みる
+  // 使えない環境では catch でタップモードに自動切替
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     switchToTapMode();
     return;
   }
