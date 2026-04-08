@@ -188,6 +188,26 @@
   @keyframes playBounce { 0%{transform:scale(1)} 40%{transform:scale(0.88)} 70%{transform:scale(1.06)} 100%{transform:scale(1)} }
   .sound-button .btn-icon { font-size: clamp(2rem, 8vw, 3.5rem); }
   .sound-button .btn-label { font-size: clamp(0.8rem, 3vw, 1.1rem); font-weight: 900; color: rgba(0,0,0,0.75); padding: 0 8px; text-align: center; }
+  /* ピアノ音階ボタン専用：アイコンなし・音階名大きく */
+  .sound-button .btn-note-name {
+    font-size: clamp(2rem, 9vw, 3.8rem);
+    font-weight: 900;
+    color: rgba(0,0,0,0.80);
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+  .sound-button .btn-note-yomi {
+    font-size: clamp(0.85rem, 3.5vw, 1.2rem);
+    font-weight: 700;
+    color: rgba(0,0,0,0.60);
+    margin-top: 2px;
+  }
+  .sound-button .btn-note-sub {
+    font-size: clamp(0.6rem, 2.5vw, 0.85rem);
+    font-weight: 700;
+    color: rgba(0,0,0,0.50);
+    margin-top: -2px;
+  }
   .ripple { position:absolute; border-radius:50%; background:rgba(255,255,255,0.5); transform:scale(0); animation:rippleAnim 0.5s linear; pointer-events:none; }
   @keyframes rippleAnim { to{transform:scale(4);opacity:0} }
   .bgm-bar { background:var(--surface); border-radius:var(--radius); padding:14px 18px; display:flex; align-items:center; gap:14px; }
@@ -351,6 +371,13 @@
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* ===== EXPORT ===== */
+  .rec-time-btn {
+    background: var(--surface2); border: 2px solid transparent; color: var(--text-dim);
+    font-family: inherit; font-size: .88rem; font-weight: 900; padding: 7px 14px;
+    border-radius: 50px; cursor: pointer; transition: all .15s;
+  }
+  .rec-time-btn.active { border-color: var(--rec-red); color: var(--rec-red); background: rgba(255,59,59,.1); }
+  .rec-time-btn:hover { border-color: var(--rec-red); color: var(--rec-red); }
   .loop-btn {
     background: var(--surface2); border: 2px solid transparent; color: var(--text-dim);
     font-family: inherit; font-size: .95rem; font-weight: 900; padding: 10px 16px;
@@ -753,6 +780,20 @@
       <div class="mic-icon">🎤</div>
       <h3>マイクをつかいます</h3>
       <p>じぶんのこえや<br>がっきのおとをろくおんできます。<br>はじめにマイクのきょかをしてください。</p>
+
+      <!-- 録音時間の設定（マイク許可前） -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:14px 18px;display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;">
+        <span style="font-size:.88rem;font-weight:700;color:var(--text-dim);text-align:center;">⏱ さいだいろくおんじかん</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+          <button class="rec-time-btn active" onclick="setMaxRecTime(30, this)">30秒</button>
+          <button class="rec-time-btn" onclick="setMaxRecTime(60, this)">1分</button>
+          <button class="rec-time-btn" onclick="setMaxRecTime(120, this)">2分</button>
+          <button class="rec-time-btn" onclick="setMaxRecTime(300, this)">5分</button>
+          <button class="rec-time-btn" onclick="setMaxRecTime(0, this)">無制限</button>
+        </div>
+        <span id="rec-maxtime-label" style="font-size:.82rem;color:var(--accent4);font-weight:900;text-align:center;">30秒</span>
+      </div>
+
       <button class="btn-allow-mic" onclick="requestMic()">🎤 マイクをつかう</button>
     </div>
 
@@ -988,14 +1029,14 @@ const SOUNDS = {
   bass:      { emoji:'🎸', label:'ボン',     color:'#4d96ff' },
   bass_e:    { emoji:'🎸', label:'ベン',     color:'#2563eb' },
   // ── けんばん（ドレミ） ──
-  piano_c:   { emoji:'🎹', label:'ド',       color:'#ff4d4d' },
-  piano_d:   { emoji:'🎹', label:'レ',       color:'#ff8c00' },
-  piano_e:   { emoji:'🎹', label:'ミ',       color:'#ffd700' },
-  piano_f:   { emoji:'🎹', label:'ファ',     color:'#4caf50' },
-  piano_g:   { emoji:'🎹', label:'ソ',       color:'#00bcd4' },
-  piano_a:   { emoji:'🎹', label:'ラ',       color:'#3b82f6' },
-  piano_b:   { emoji:'🎹', label:'シ',       color:'#9c27b0' },
-  piano_c2:  { emoji:'🎹', label:'ド（高）', color:'#ff80ab' },
+  piano_c:   { emoji:'🎹', label:'ド',       yomi:'ど',     color:'#ff4d4d' },
+  piano_d:   { emoji:'🎹', label:'レ',       yomi:'れ',     color:'#ff8c00' },
+  piano_e:   { emoji:'🎹', label:'ミ',       yomi:'み',     color:'#ffd700' },
+  piano_f:   { emoji:'🎹', label:'ファ',     yomi:'ふぁ',   color:'#4caf50' },
+  piano_g:   { emoji:'🎹', label:'ソ',       yomi:'そ',     color:'#00bcd4' },
+  piano_a:   { emoji:'🎹', label:'ラ',       yomi:'ら',     color:'#3b82f6' },
+  piano_b:   { emoji:'🎹', label:'シ',       yomi:'し',     color:'#9c27b0' },
+  piano_c2:  { emoji:'🎹', label:'ド', sub:'たかい', yomi:'ど',   color:'#ff80ab' },
   // ── 木管楽器 ──
   flute:     { emoji:'🪈', label:'フルート', color:'#bef264' },
   clarinet:  { emoji:'🎷', label:'クラリネット', color:'#f9a8d4' },
@@ -1438,7 +1479,20 @@ let recTimerInterval = null, recSeconds = 0;
 let animFrameId = null;
 let analyser = null, micSource = null;
 let selectedEmoji = '🎤', selectedRecColor = '#ff6b6b';
-const MAX_REC_SECONDS = 10;
+let MAX_REC_SECONDS = 30; // デフォルト30秒（画面から変更可能）
+
+function setMaxRecTime(sec, btn) {
+  MAX_REC_SECONDS = sec;
+  // すべてのグループのボタンを同期
+  document.querySelectorAll('.rec-time-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === btn.textContent);
+  });
+  const labelText = sec === 0 ? '無制限' : sec < 60 ? `${sec}秒` : `${sec/60}分`;
+  ['rec-maxtime-label'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = labelText;
+  });
+}
 
 async function requestMic() {
   try {
@@ -1535,7 +1589,8 @@ function startRecording() {
   const btn = document.getElementById('btn-rec-main');
   btn.classList.remove('ready'); btn.classList.add('recording');
   btn.textContent = '⏹';
-  document.getElementById('rec-hint').textContent = 'おしてていし（さいだい10びょう）';
+  const limitText = MAX_REC_SECONDS === 0 ? '無制限' : MAX_REC_SECONDS < 60 ? `さいだい${MAX_REC_SECONDS}びょう` : `さいだい${MAX_REC_SECONDS/60}ふん`;
+  document.getElementById('rec-hint').textContent = `おしてていし（${limitText}）`;
   document.getElementById('rec-time').classList.add('recording');
 
   // Timer
@@ -1544,7 +1599,7 @@ function startRecording() {
   recTimerInterval = setInterval(() => {
     recSeconds++;
     updateRecTime();
-    if(recSeconds >= MAX_REC_SECONDS) stopRecording();
+    if(MAX_REC_SECONDS > 0 && recSeconds >= MAX_REC_SECONDS) stopRecording();
   }, 1000);
 
   // Waveform animation
@@ -1795,7 +1850,7 @@ function buildBtnConfig() {
   grid.innerHTML = '';
   for(let i=0;i<count;i++) {
     const btn = settings.buttons[i];
-    const s = btn.sound.startsWith('rec_') ? {emoji:'🎤',label:btn.label||'録音'} : SOUNDS[btn.sound];
+    const s = btn.sound.startsWith('rec_') ? {emoji: btn.emoji||'🎤', label: btn.label||'録音'} : SOUNDS[btn.sound];
     const el = document.createElement('button');
     el.className = 'sound-btn-config'+(selectedBtnIndex===i?' active':'');
     el.style.borderColor = selectedBtnIndex===i ? btn.color : 'transparent';
@@ -1861,6 +1916,14 @@ function loadSettings() {
     if(saved) Object.assign(settings, JSON.parse(saved));
   } catch(e) {}
   while(settings.buttons.length < settings.btnCount) settings.buttons.push({...DEFAULT_BUTTONS[settings.buttons.length % DEFAULT_BUTTONS.length]});
+  // ローカルストレージの古いデータに対応するため、
+  // 各ボタンの sound が SOUNDS に存在するか確認し、なければデフォルトに戻す
+  settings.buttons = settings.buttons.map(btn => {
+    if (!btn.sound) return btn;
+    if (btn.sound.startsWith('rec_')) return btn;
+    if (!SOUNDS[btn.sound]) return {...DEFAULT_BUTTONS[0]};
+    return btn;
+  });
 }
 
 // ===== PLAY SCREEN =====
@@ -1876,12 +1939,26 @@ function buildPlayScreen() {
   for(let i=0;i<count;i++) {
     const btn = settings.buttons[i] || DEFAULT_BUTTONS[i%DEFAULT_BUTTONS.length];
     const isRec = btn.sound && btn.sound.startsWith('rec_');
-    const s = isRec ? {emoji:'🎤', label: btn.label||'録音'} : SOUNDS[btn.sound];
+    const isPiano = btn.sound && btn.sound.startsWith('piano_');
+    // 常にSOUNDSから最新データを取得（yomi/subも含む）
+    const soundDef = SOUNDS[btn.sound] || {};
+    const s = isRec
+      ? { emoji: btn.emoji||'🎤', label: btn.label||'録音' }
+      : soundDef;
+    let innerHtml;
+    if (isPiano) {
+      // ピアノ音階：アイコンなし、音階名大きく＋sub＋ひらがな
+      const subHtml = soundDef.sub ? `<span class="btn-note-sub">${soundDef.sub}</span>` : '';
+      const yomiHtml = soundDef.yomi ? `<span class="btn-note-yomi">${soundDef.yomi}</span>` : '';
+      innerHtml = `<span class="btn-note-name">${soundDef.label||''}</span>${subHtml}${yomiHtml}`;
+    } else {
+      innerHtml = `<span class="btn-icon">${s.emoji||''}</span><span class="btn-label">${s.label||''}</span>`;
+    }
     const el = document.createElement('button');
     el.className='sound-button';
     el.style.background=btn.color;
     el.dataset.index=i; el.dataset.sound=btn.sound;
-    el.innerHTML=`<span class="btn-icon">${s.emoji}</span><span class="btn-label">${s.label}</span>`;
+    el.innerHTML = innerHtml;
     el.addEventListener('click', e=>onSoundBtnClick(e,i,btn.sound,s.emoji));
     grid.appendChild(el);
   }
@@ -2088,7 +2165,11 @@ function buildSequencerGrid() {
 
   // Tracks
   composeTracks.forEach((track, ti) => {
-    const ts = TRACK_SOUNDS.find(t=>t.id===track.soundId) || TRACK_SOUNDS[0];
+    // rec_トラックはtrack自身のemoji/nameを使う、それ以外はTRACK_SOUNDSから取得
+    const isRec = track.soundId && track.soundId.startsWith('rec_');
+    const ts = isRec
+      ? { emoji: track.emoji || '🎤', name: track.name || '録音', color: track.color || '#4d96ff' }
+      : (TRACK_SOUNDS.find(t=>t.id===track.soundId) || TRACK_SOUNDS[0]);
 
     const row = document.createElement('div');
     row.className = 'seq-row';
