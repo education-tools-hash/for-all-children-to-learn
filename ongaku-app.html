@@ -780,24 +780,25 @@
       <div class="mic-icon">🎤</div>
       <h3>マイクをつかいます</h3>
       <p>じぶんのこえや<br>がっきのおとをろくおんできます。<br>はじめにマイクのきょかをしてください。</p>
-      <button class="btn-allow-mic" onclick="requestMic()">🎤 マイクをつかう</button>
-    </div>
 
-    <!-- Recording studio (shown after permission granted) -->
-    <div class="record-studio" id="record-studio" style="display:none;">
-
-      <!-- 録音時間の設定 -->
-      <div style="background:var(--surface);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <span style="font-size:.88rem;font-weight:700;color:var(--text-dim);white-space:nowrap;">⏱ さいだいじかん</span>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <!-- 録音時間の設定（マイク許可前） -->
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:14px 18px;display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;">
+        <span style="font-size:.88rem;font-weight:700;color:var(--text-dim);text-align:center;">⏱ さいだいろくおんじかん</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
           <button class="rec-time-btn active" onclick="setMaxRecTime(30, this)">30秒</button>
           <button class="rec-time-btn" onclick="setMaxRecTime(60, this)">1分</button>
           <button class="rec-time-btn" onclick="setMaxRecTime(120, this)">2分</button>
           <button class="rec-time-btn" onclick="setMaxRecTime(300, this)">5分</button>
           <button class="rec-time-btn" onclick="setMaxRecTime(0, this)">無制限</button>
         </div>
-        <span id="rec-maxtime-label" style="font-size:.82rem;color:var(--accent4);font-weight:900;margin-left:auto;">30秒</span>
+        <span id="rec-maxtime-label" style="font-size:.82rem;color:var(--accent4);font-weight:900;text-align:center;">30秒</span>
       </div>
+
+      <button class="btn-allow-mic" onclick="requestMic()">🎤 マイクをつかう</button>
+    </div>
+
+    <!-- Recording studio (shown after permission granted) -->
+    <div class="record-studio" id="record-studio" style="display:none;">
 
       <!-- Waveform -->
       <div class="waveform-wrap">
@@ -1482,14 +1483,15 @@ let MAX_REC_SECONDS = 30; // デフォルト30秒（画面から変更可能）
 
 function setMaxRecTime(sec, btn) {
   MAX_REC_SECONDS = sec;
-  document.querySelectorAll('.rec-time-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const label = document.getElementById('rec-maxtime-label');
-  if (label) {
-    if (sec === 0) label.textContent = '無制限';
-    else if (sec < 60) label.textContent = `${sec}秒`;
-    else label.textContent = `${sec/60}分`;
-  }
+  // すべてのグループのボタンを同期
+  document.querySelectorAll('.rec-time-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === btn.textContent);
+  });
+  const labelText = sec === 0 ? '無制限' : sec < 60 ? `${sec}秒` : `${sec/60}分`;
+  ['rec-maxtime-label'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = labelText;
+  });
 }
 
 async function requestMic() {
