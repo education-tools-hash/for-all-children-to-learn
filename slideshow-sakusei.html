@@ -181,7 +181,7 @@ input[type="color"] {
   text-align:center; cursor:pointer; transition:all .3s; position:relative;
 }
 .upload-zone:hover { border-color:var(--gold); background:rgba(201,168,76,.04); }
-.upload-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; padding:0; border:none; }
+/* file input は display:none + .click() で呼び出す方式 */
 .upload-icon { font-size:1.8rem; margin-bottom:6px; }
 .upload-zone p { font-size:.78rem; color:#8A7A6A; }
 .upload-zone strong { color:var(--gold-light); }
@@ -447,13 +447,13 @@ input[type="color"] {
 
       <!-- ファイル選択（デフォルト表示） -->
       <div id="bgmTabFile" class="bgm-tab-pane">
-        <div class="upload-zone">
-          <input type="file" id="musicInput" accept="audio/*">
-          <div class="upload-icon">🎵</div>
-          <p><strong>クリックして音楽ファイルを選択</strong></p>
-          <p>MP3・M4A・WAV・OGG 対応</p>
-          <p id="musicName" style="color:var(--gold-light);margin-top:6px;">未選択</p>
-        </div>
+        <label for="musicInput" style="display:block;border:1.5px dashed rgba(201,168,76,.35);border-radius:10px;padding:22px;text-align:center;cursor:pointer;transition:all .3s;background:transparent;" onmouseover="this.style.borderColor='#C9A84C';this.style.background='rgba(201,168,76,0.04)'" onmouseout="this.style.borderColor='rgba(201,168,76,0.35)';this.style.background='transparent'">
+          <input type="file" id="musicInput" accept="audio/*" style="display:none;">
+          <div style="font-size:1.8rem;margin-bottom:6px;">🎵</div>
+          <p style="font-size:.78rem;color:#8A7A6A;"><strong style="color:#E8D4A0;">クリックして音楽ファイルを選択</strong></p>
+          <p style="font-size:.78rem;color:#8A7A6A;margin-top:4px;">MP3・M4A・WAV・OGG 対応</p>
+          <p id="musicName" style="color:#E8D4A0;font-size:.78px;margin-top:6px;">未選択</p>
+        </label>
       </div>
 
       <!-- 無料BGMサイト案内（改善版） -->
@@ -662,12 +662,12 @@ input[type="color"] {
     <!-- PHOTOS -->
     <div class="card full-width">
       <div class="card-title">写真・キャプション</div>
-      <div class="upload-zone">
-        <input type="file" id="photoInput" accept="image/*" multiple>
-        <div class="upload-icon">📸</div>
-        <p><strong>クリックして写真を選択</strong>（複数選択可）</p>
-        <p>JPG / PNG / WEBP 対応</p>
-      </div>
+      <label for="photoInput" style="display:block;border:1.5px dashed rgba(201,168,76,.35);border-radius:10px;padding:22px;text-align:center;cursor:pointer;transition:all .3s;" onmouseover="this.style.borderColor='#C9A84C';this.style.background='rgba(201,168,76,0.04)'" onmouseout="this.style.borderColor='rgba(201,168,76,0.35)';this.style.background='transparent'">
+        <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
+        <div style="font-size:1.8rem;margin-bottom:6px;">📸</div>
+        <p style="font-size:.78rem;color:#8A7A6A;"><strong style="color:#E8D4A0;">クリックして写真を選択</strong>（複数選択可）</p>
+        <p style="font-size:.78rem;color:#8A7A6A;margin-top:4px;">JPG / PNG / WEBP 対応</p>
+      </label>
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:7px 10px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.25);border-radius:8px;">
         <span style="font-size:.9rem;">🔒</span>
         <span style="font-size:.7rem;color:#86efac;line-height:1.5;">写真はブラウザ内のみで処理され、外部に送信されません</span>
@@ -914,12 +914,12 @@ function buildThemeGrid() {
     uploadZone.id = 'customBgUploadZone';
     uploadZone.className = 'custom-bg-upload' + (selectedTheme.id==='custom' ? ' visible' : '');
     uploadZone.innerHTML = `
-      <div class="upload-zone" style="padding:14px;">
-        <input type="file" id="customBgInput" accept="image/*">
+      <label for="customBgInput" style="display:block;border:1.5px dashed rgba(201,168,76,.35);border-radius:10px;padding:14px;text-align:center;cursor:pointer;">
+        <input type="file" id="customBgInput" accept="image/*" style="display:none;">
         <div class="upload-icon" style="font-size:1.4rem;">🖼️</div>
         <p><strong>背景画像を選択</strong>（JPG・PNG・WEBP）</p>
         <p id="customBgName" style="color:var(--gold-light);margin-top:4px;">未選択</p>
-      </div>`;
+      </label>`;
     grid.parentElement.appendChild(uploadZone);
 
     document.getElementById('customBgInput').addEventListener('change', function(e) {
@@ -1171,15 +1171,25 @@ let photos = [];
 
 document.getElementById('photoInput').addEventListener('change', function(e) {
   const files = Array.from(e.target.files);
+  if (files.length === 0) return;
+
+  // 順番を保持するため、インデックス付きで結果を格納してから追加
+  const results = new Array(files.length).fill(null);
   let loaded = 0;
-  files.forEach(file => {
+
+  files.forEach((file, index) => {
     const reader = new FileReader();
     reader.onload = ev => {
       const img = new Image();
       img.onload = () => {
-        photos.push({ dataUrl: ev.target.result, caption: '', imgEl: img });
+        // インデックス位置に保存（順番を保持）
+        results[index] = { dataUrl: ev.target.result, caption: '', imgEl: img };
         loaded++;
-        if (loaded === files.length) { renderPhotoPrev(); updateCaptionEd(); checkReady(); }
+        if (loaded === files.length) {
+          // 全件読み込み完了後、順番通りに追加
+          results.forEach(r => { if (r) photos.push(r); });
+          renderPhotoPrev(); updateCaptionEd(); checkReady();
+        }
       };
       img.src = ev.target.result;
     };
