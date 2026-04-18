@@ -229,19 +229,27 @@ input[type="color"] {
 #slideshow { display:none; position:fixed; inset:0; background:#000; z-index:100; }
 .slide { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 1.2s ease-in-out; }
 .slide.active { opacity:1; }
-.slide-bg { position:absolute; inset:0; background-size:cover; background-position:center; transition:transform 6s ease-out, background-position 6s ease-out; }
-.slide-bg.motion-zoom-out  { transform:scale(1.08); }
-.slide.active .slide-bg.motion-zoom-out  { transform:scale(1); }
-.slide-bg.motion-zoom-in   { transform:scale(1); }
-.slide.active .slide-bg.motion-zoom-in   { transform:scale(1.08); }
-.slide-bg.motion-pan-left  { transform:scale(1.08) translateX(4%); }
-.slide.active .slide-bg.motion-pan-left  { transform:scale(1.08) translateX(-4%); }
-.slide-bg.motion-pan-right { transform:scale(1.08) translateX(-4%); }
-.slide.active .slide-bg.motion-pan-right { transform:scale(1.08) translateX(4%); }
-.slide-bg.motion-diagonal  { transform:scale(1.08) translate(3%,3%); }
-.slide.active .slide-bg.motion-diagonal  { transform:scale(1.08) translate(-3%,-3%); }
-.slide-bg.motion-random    { transform:scale(1.08); }
-.slide.active .slide-bg.motion-random    { transform:scale(1); }
+.slide-bg {
+  position:absolute; inset:0; background-size:cover; background-position:center;
+  /* モーション: フェードイン完了後(1.2s)から動き始め、スライド時間いっぱい使う */
+  transition:transform 5s ease-in-out 1.2s;
+  will-change: transform;
+}
+/* 初期位置（非アクティブ時）: CSS変数 --sc,--pan,--diag で強さを制御 */
+.slide-bg { --sc:1.1; --pan:6%; --diag:5%; }
+.slide-bg.motion-zoom-out  { transform:scale(var(--sc)); }
+.slide-bg.motion-zoom-in   { transform:scale(1.0); }
+.slide-bg.motion-pan-left  { transform:scale(var(--sc)) translateX(var(--pan)); }
+.slide-bg.motion-pan-right { transform:scale(var(--sc)) translateX(calc(-1 * var(--pan))); }
+.slide-bg.motion-diagonal  { transform:scale(var(--sc)) translate(var(--diag), var(--diag)); }
+.slide-bg.motion-random    { transform:scale(var(--sc)); }
+/* アクティブ時の到達位置 */
+.slide.active .slide-bg.motion-zoom-out  { transform:scale(1.0); }
+.slide.active .slide-bg.motion-zoom-in   { transform:scale(var(--sc)); }
+.slide.active .slide-bg.motion-pan-left  { transform:scale(var(--sc)) translateX(calc(-1 * var(--pan))); }
+.slide.active .slide-bg.motion-pan-right { transform:scale(var(--sc)) translateX(var(--pan)); }
+.slide.active .slide-bg.motion-diagonal  { transform:scale(var(--sc)) translate(calc(-1 * var(--diag)), calc(-1 * var(--diag))); }
+.slide.active .slide-bg.motion-random    { transform:scale(1.0); }
 .slide-content { position:absolute; z-index:2; text-align:center; padding:20px; max-width:85%; }
 .slide-main-text { line-height:1.5; text-shadow:0 2px 30px rgba(0,0,0,.9); opacity:0; transform:translateY(18px); transition:all 1s ease .5s; }
 .slide.active .slide-main-text { opacity:1; transform:translateY(0); }
@@ -251,11 +259,26 @@ input[type="color"] {
 .slide.active .slide-ornament { opacity:.85; }
 
 .progress-bar { position:fixed; bottom:0; left:0; height:2px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); z-index:200; }
-.slideshow-controls { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:200; opacity:0; transition:opacity .3s; flex-wrap:wrap; justify-content:center; }
-#slideshow:hover .slideshow-controls { opacity:1; }
-.ctrl-btn { background:rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:50px; padding:7px 16px; font-size:.76rem; cursor:pointer; font-family:inherit; letter-spacing:.08em; transition:all .2s; }
-.ctrl-btn:hover { background:rgba(201,168,76,.4); border-color:var(--gold); }
-.slide-counter { position:fixed; top:18px; right:22px; font-family:'Cormorant Garamond',serif; font-size:.82rem; color:rgba(255,255,255,.45); z-index:200; }
+/* 常時表示コントロール（下部） */
+.slideshow-controls {
+  position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+  display:flex; gap:10px; z-index:200; flex-wrap:wrap; justify-content:center;
+  opacity:0.25; transition:opacity .3s;
+}
+#slideshow:hover .slideshow-controls, #slideshow:focus-within .slideshow-controls { opacity:1; }
+.ctrl-btn { background:rgba(0,0,0,.72); border:1px solid rgba(255,255,255,.35); color:#fff; border-radius:50px; padding:8px 18px; font-size:.78rem; cursor:pointer; font-family:inherit; letter-spacing:.08em; transition:all .2s; white-space:nowrap; }
+.ctrl-btn:hover { background:rgba(201,168,76,.45); border-color:var(--gold); }
+/* 常時表示の終了ボタン（右上固定） */
+.exit-btn-fixed {
+  position:fixed; top:16px; right:16px; z-index:250;
+  background:rgba(0,0,0,.75); border:1.5px solid rgba(255,255,255,.4);
+  color:#fff; border-radius:50px; padding:9px 20px;
+  font-size:.8rem; cursor:pointer; font-family:inherit; letter-spacing:.1em;
+  display:flex; align-items:center; gap:6px;
+  box-shadow:0 2px 12px rgba(0,0,0,.5); transition:all .2s;
+}
+.exit-btn-fixed:hover { background:rgba(201,168,76,.5); border-color:var(--gold); }
+.slide-counter { position:fixed; top:16px; left:16px; font-family:'Cormorant Garamond',serif; font-size:.82rem; color:rgba(255,255,255,.55); z-index:200; background:rgba(0,0,0,.4); padding:5px 10px; border-radius:20px; }
 
 .firework { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
 .particle { position:absolute; border-radius:50%; animation:burst 2s ease-out forwards; opacity:0; }
@@ -724,12 +747,13 @@ input[type="color"] {
 <div id="slideshow">
   <div class="progress-bar" id="progressBar" style="width:0%"></div>
   <div class="slide-counter" id="slideCounter"></div>
+  <!-- 常時表示の終了ボタン（右上） -->
+  <button class="exit-btn-fixed" onclick="exitSlideshow()">✕ &nbsp;編集に戻る</button>
   <div id="slidesContainer"></div>
   <div class="slideshow-controls">
     <button class="ctrl-btn" onclick="prevSlide()">◀ 前へ</button>
     <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()">⏸ 一時停止</button>
     <button class="ctrl-btn" onclick="nextSlide()">次へ ▶</button>
-    <button class="ctrl-btn" onclick="exitSlideshow()">✕ 終了</button>
   </div>
   <audio id="bgmAudio" loop></audio>
 </div>
@@ -1464,18 +1488,19 @@ function buildSlidesDOM(d) {
   function makeSlide(inner, isTitleType) {
     const s = document.createElement('div');
     s.className = 'slide' + (isTitleType ? ' title-bg-slide' : '');
+    // innerHTML を先にセット
+    s.innerHTML = inner;
     if (isTitleType) {
       if (d.theme.id === 'custom' && customBgDataUrl) {
         s.style.cssText = `background:url(${customBgDataUrl}) center/cover;`;
-        // Add dark overlay child
+        // オーバーレイをinnerHTML後にinsertBefore（最前に挿入）
         const ov = document.createElement('div');
-        ov.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.48);z-index:0;';
-        s.appendChild(ov);
+        ov.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.48);z-index:0;pointer-events:none;';
+        s.insertBefore(ov, s.firstChild);
       } else {
         s.style.cssText = `background:${d.theme.css};`;
       }
     }
-    s.innerHTML = inner;
     c.appendChild(s);
     return s;
   }
@@ -1506,9 +1531,14 @@ function buildSlidesDOM(d) {
     const actualMotion = d.motion === 'random'
       ? MOTION_LIST[i % MOTION_LIST.length]
       : d.motion;
-    const strengthCss = {1:'scale(1.04)',2:'scale(1.08)',3:'scale(1.14)'}[d.motionStrength] || 'scale(1.08)';
+    // 強さに応じてスケール量を変える（CSSで上書き）
+    const scaleAmt = {1:1.05, 2:1.1, 3:1.18}[d.motionStrength] || 1.1;
+    const panAmt   = {1:'3%', 2:'6%', 3:'10%'}[d.motionStrength] || '6%';
+    const diagAmt  = {1:'2%', 2:'5%', 3:'8%'}[d.motionStrength] || '5%';
     const s = makeSlide(`
-      <div class="slide-bg motion-${actualMotion}" style="background-image:url('${p.dataUrl}');filter:brightness(${1-d.overlay});"></div>
+      <div class="slide-bg motion-${actualMotion}"
+        style="background-image:url('${p.dataUrl}');filter:brightness(${1-d.overlay});
+          --sc:${scaleAmt}; --pan:${panAmt}; --diag:${diagAmt};"></div>
       <div class="slide-content" style="${posStyle}text-align:center;">
         <div class="slide-ornament" style="color:${d.colorAccent};font-family:${d.fontSub};font-size:${Math.round(d.sizeSub*scale*.55)}px;">— ${i+1} —</div>
         ${p.caption ? `<div class="slide-caption" style="font-family:${d.fontSub};font-weight:${d.fontWeight};font-size:${captionFontSize};color:${d.colorCaption};">${p.caption.replace(/\n/g,'<br>')}</div>` : ''}
