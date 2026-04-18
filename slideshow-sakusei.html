@@ -574,8 +574,8 @@ input[type="color"] {
         </div>
         <label>写真キャプション文字サイズ</label>
         <div class="range-row">
-          <input type="range" id="sizeCaption" min="16" max="52" value="28" step="2">
-          <span class="range-val" id="sizeCaptionVal">28px</span>
+          <input type="range" id="sizeCaption" min="16" max="150" value="60" step="2">
+          <span class="range-val" id="sizeCaptionVal">60px</span>
         </div>
         <label>クロージングメッセージ文字サイズ</label>
         <div class="range-row">
@@ -990,12 +990,12 @@ function switchTab(btn, paneId) {
 // 著作権フリーの代表的なジャンルをWebAudio APIで生成（外部依存なし）
 // 実際の楽曲はユーザーがファイル選択かサイトからダウンロードして使用
 const BGM_LIBRARY = [
-  { id:'piano1', name:'やさしいピアノ', meta:'感動系・式典向け', genre:'piano', desc:'穏やかなピアノメロディ' },
-  { id:'orch1',  name:'晴れやかなオーケストラ', meta:'卒業・祝典向け', genre:'orch', desc:'明るく華やかな弦楽' },
-  { id:'acoustic1', name:'アコースティックギター', meta:'温かみのある雰囲気', genre:'acoustic', desc:'心温まるギターサウンド' },
-  { id:'piano2', name:'星空のピアノ', meta:'静かで感動的', genre:'piano', desc:'静寂と感動のピアノ' },
-  { id:'pop1',   name:'さわやかポップ', meta:'元気・明るい場面向け', genre:'pop', desc:'前向きな明るいポップス' },
-  { id:'cinematic1', name:'シネマティック', meta:'映像演出・クライマックス向け', genre:'cinematic', desc:'壮大な映画音楽風' },
+  { id:'piano1',    name:'やさしいピアノ',         meta:'感動系・式典向け',         genre:'piano1' },
+  { id:'orch1',     name:'晴れやかなオーケストラ',   meta:'卒業・祝典向け',           genre:'orch1' },
+  { id:'acoustic1', name:'アコースティックギター',   meta:'温かみのある雰囲気',       genre:'acoustic1' },
+  { id:'piano2',    name:'星空のピアノ（高音域）',   meta:'静かで感動的',             genre:'piano2' },
+  { id:'pop1',      name:'さわやかポップ',           meta:'元気・明るい場面向け',     genre:'pop1' },
+  { id:'cinematic1',name:'シネマティック',           meta:'映像演出・クライマックス', genre:'cinematic1' },
 ];
 
 let bgmLibAudio = null; // currently previewing
@@ -1034,37 +1034,131 @@ function buildBgmLibList() {
 }
 
 // WebAudio simple melody generator
-function generateBgm(genre, ctx, duration=30) {
-  const masterGain = ctx.createGain();
-  masterGain.gain.setValueAtTime(0.18, ctx.currentTime);
-  masterGain.connect(ctx.destination);
+// ── BGM Generator: each genre has distinct melody, rhythm, timbre ──
+const BGM_PARAMS = {
+  // やさしいピアノ: ゆっくりCメジャースケール上行、sine波、柔らかいエンベロープ
+  piano1: {
+    bpm: 72, wave: 'sine',
+    melody: [262,294,330,349,392,440,494,523,494,440,392,349,330,294,262,294],
+    chords: [[262,330,392],[294,370,440],[330,392,494],[349,440,523]],
+    chordEvery: 4, attack:0.08, decay:1.4, vol:0.28, harmonics:false,
+  },
+  // 晴れやかなオーケストラ: 跳躍音形、sawtooth弦楽風、和音重ね
+  orch1: {
+    bpm: 88, wave: 'sawtooth',
+    melody: [392,523,659,784,659,523,440,523,587,659,784,880,784,659,523,392],
+    chords: [[196,247,294],[220,277,330],[247,311,370],[262,330,392]],
+    chordEvery: 4, attack:0.04, decay:0.8, vol:0.18, harmonics:true,
+  },
+  // アコースティックギター: アルペジオ風、triangle、歯切れよいリズム
+  acoustic1: {
+    bpm: 100, wave: 'triangle',
+    melody: [330,392,523,392,330,294,330,392,440,392,330,262,294,330,392,330],
+    chords: [[165,196,247],[185,220,277],[196,247,294],[220,262,330]],
+    chordEvery: 8, attack:0.01, decay:0.5, vol:0.32, harmonics:false,
+  },
+  // 星空のピアノ: 高音域スタート下行、sine、長いサスティン
+  piano2: {
+    bpm: 60, wave: 'sine',
+    melody: [1047,988,880,784,698,659,587,523,587,659,698,784,880,988,1047,880],
+    chords: [[523,659,784],[494,622,740],[440,554,659],[392,494,587]],
+    chordEvery: 4, attack:0.12, decay:2.0, vol:0.22, harmonics:false,
+  },
+  // さわやかポップ: 速いテンポ、square波、跳ねるリズム
+  pop1: {
+    bpm: 128, wave: 'square',
+    melody: [523,587,659,523,587,659,784,659,523,440,494,523,587,523,440,392],
+    chords: [[262,330,392],[294,370,440],[330,415,494],[262,330,392]],
+    chordEvery: 4, attack:0.01, decay:0.3, vol:0.14, harmonics:false,
+  },
+  // シネマティック: 重厚なsawtooth、低音域、長いノート
+  cinematic1: {
+    bpm: 58, wave: 'sawtooth',
+    melody: [196,220,247,220,196,175,165,175,196,220,247,262,247,220,196,175],
+    chords: [[98,123,147],[110,138,165],[123,147,175],[131,165,196]],
+    chordEvery: 2, attack:0.15, decay:1.8, vol:0.16, harmonics:true,
+  },
+};
 
-  const bpm = genre==='pop'?120:genre==='cinematic'?70:80;
-  const beat = 60/bpm;
-  const notes = {
-    piano1:    [261,294,330,349,392,440,494,523,494,440,392,349,330,294,261,294],
-    orch1:     [392,440,494,523,494,440,392,440,494,523,587,523,494,440,392,349],
-    acoustic1: [262,330,392,330,262,294,349,294,262,330,392,349,330,294,262,294],
-    piano2:    [523,494,440,392,349,330,294,262,294,330,349,392,440,494,523,494],
-    pop1:      [262,294,330,262,294,330,349,330,262,330,349,392,330,294,262,330],
-    cinematic1:[196,220,247,262,220,196,175,196,220,247,294,262,247,220,196,220],
-  }[genre] || [262,294,330,349,392];
-
-  const waveType = ['piano1','piano2','orch1'].includes(genre)?'sine':'triangle';
-  let t = ctx.currentTime + 0.1;
-  for (let rep=0; rep<Math.ceil(duration/((notes.length)*beat)); rep++) {
-    notes.forEach((freq,i)=>{
-      const osc = ctx.createOscillator();
-      const g   = ctx.createGain();
-      osc.type = waveType; osc.frequency.value = freq;
-      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.5,t+0.04);
-      g.gain.exponentialRampToValueAtTime(0.001,t+beat*0.9);
-      osc.connect(g); g.connect(masterGain);
-      osc.start(t); osc.stop(t+beat);
-      t+=beat;
-    });
+function generateBgm(genreId, ctx, duration=30) {
+  const p = BGM_PARAMS[genreId];
+  if (!p) {
+    // fallback: simple sine
+    const g = ctx.createGain(); g.gain.value=0.1; g.connect(ctx.destination);
+    const o = ctx.createOscillator(); o.frequency.value=440; o.connect(g);
+    o.start(ctx.currentTime); o.stop(ctx.currentTime+duration);
+    return g;
   }
-  return masterGain;
+
+  const master = ctx.createGain();
+  master.gain.setValueAtTime(p.vol, ctx.currentTime);
+
+  // Reverb (simple convolver with noise impulse)
+  const reverbGain = ctx.createGain();
+  reverbGain.gain.value = 0.25;
+  try {
+    const convLen = Math.floor(ctx.sampleRate * 1.5);
+    const impulse = ctx.createBuffer(2, convLen, ctx.sampleRate);
+    for (let ch=0; ch<2; ch++) {
+      const d = impulse.getChannelData(ch);
+      for (let i=0; i<convLen; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/convLen, 2);
+    }
+    const conv = ctx.createConvolver(); conv.buffer = impulse;
+    master.connect(conv); conv.connect(reverbGain); reverbGain.connect(ctx.destination);
+  } catch(e) {}
+  master.connect(ctx.destination);
+
+  const beat = 60 / p.bpm;
+  const totalNotes = Math.ceil(duration / beat);
+  const mel = p.melody;
+  let t = ctx.currentTime + 0.05;
+
+  for (let n=0; n<totalNotes; n++) {
+    const freq = mel[n % mel.length];
+    const noteEnd = t + beat * 0.92;
+
+    // Main melody oscillator
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = p.wave;
+    osc.frequency.setValueAtTime(freq, t);
+    // slight detune for warmth
+    osc.detune.value = (n % 3 === 0) ? 5 : -3;
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.7, t + p.attack);
+    env.gain.exponentialRampToValueAtTime(0.001, t + Math.min(p.decay, beat*0.95));
+    osc.connect(env); env.connect(master);
+    osc.start(t); osc.stop(t + Math.min(p.decay+0.1, beat));
+
+    // Harmonics (octave above) for orch/cinematic
+    if (p.harmonics) {
+      const oh = ctx.createOscillator();
+      const gh = ctx.createGain();
+      oh.type = 'sine'; oh.frequency.value = freq * 2;
+      gh.gain.setValueAtTime(0,t); gh.gain.linearRampToValueAtTime(0.2, t+p.attack*2);
+      gh.gain.exponentialRampToValueAtTime(0.001, t+p.decay*0.8);
+      oh.connect(gh); gh.connect(master);
+      oh.start(t); oh.stop(t+p.decay+0.1);
+    }
+
+    // Chord (on chordEvery beats)
+    if (n % p.chordEvery === 0 && p.chords) {
+      const chord = p.chords[Math.floor(n/p.chordEvery) % p.chords.length];
+      chord.forEach(cf => {
+        const co = ctx.createOscillator();
+        const cg = ctx.createGain();
+        co.type = p.wave; co.frequency.value = cf;
+        cg.gain.setValueAtTime(0,t);
+        cg.gain.linearRampToValueAtTime(0.25, t+p.attack*1.5);
+        cg.gain.exponentialRampToValueAtTime(0.001, t+p.decay*0.7);
+        co.connect(cg); cg.connect(master);
+        co.start(t); co.stop(t+p.decay+0.2);
+      });
+    }
+
+    t += beat;
+  }
+  return master;
 }
 
 function previewBgm(id, btn) {
