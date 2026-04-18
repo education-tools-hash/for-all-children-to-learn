@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SlideMovie — スライドショー・動画作成ツール</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Noto+Serif+JP:wght@300;400;600&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Shippori+Mincho:wght@300;400;600&family=Zen+Kaku+Gothic+New:wght@300;400;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E8D4A0;
+  --cream: #FAF6EF;
+  --dark: #1A1614;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Noto Serif JP',serif; background:var(--dark); color:var(--cream); min-height:100vh; }
+
+/* ===== EDITOR ===== */
+#editor {
+  min-height:100vh;
+  background:linear-gradient(135deg,#1A1614 0%,#2C2420 50%,#1A1614 100%);
+  padding:40px 20px;
+  display:flex; flex-direction:column; align-items:center;
+}
+.editor-header { text-align:center; margin-bottom:40px; }
+.app-logo { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:10px; }
+.logo-icon {
+  width:48px; height:48px; background:linear-gradient(135deg,var(--gold),#A87C30);
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; color:var(--dark); box-shadow:0 4px 18px rgba(201,168,76,.35);
+}
+.logo-text {
+  font-family:'Cormorant Garamond',serif; font-size:clamp(2rem,5vw,2.8rem);
+  font-weight:300; color:var(--gold-light); letter-spacing:.18em;
+}
+.app-tagline { color:#8A7A6A; font-size:.82rem; letter-spacing:.06em; margin-bottom:16px; }
+.use-scene-chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:700px; margin:0 auto; }
+.chip {
+  background:rgba(201,168,76,.1); border:1px solid rgba(201,168,76,.25);
+  border-radius:50px; padding:5px 13px; font-size:.72rem; color:var(--gold-light);
+  letter-spacing:.05em; white-space:nowrap;
+}
+.gold-line { width:100px; height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); margin:16px auto; }
+
+.editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; width:100%; max-width:960px; }
+@media(max-width:660px){ .editor-grid{grid-template-columns:1fr;} }
+.card { background:rgba(255,255,255,.04); border:1px solid rgba(201,168,76,.2); border-radius:12px; padding:24px; }
+.card.full-width { grid-column:1/-1; }
+.card-title {
+  font-family:'Cormorant Garamond',serif; font-size:1rem; color:var(--gold);
+  letter-spacing:.15em; margin-bottom:16px; display:flex; align-items:center; gap:10px;
+}
+.card-title::before { content:''; width:20px; height:1px; background:var(--gold); flex-shrink:0; }
+
+label { display:block; font-size:.75rem; color:#8A7A6A; letter-spacing:.08em; margin-bottom:6px; margin-top:14px; }
+label:first-of-type { margin-top:0; }
+input[type="text"], textarea, select {
+  width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(201,168,76,.25);
+  border-radius:6px; color:var(--cream); font-family:inherit; font-size:.88rem;
+  padding:9px 13px; outline:none; transition:border-color .2s;
+}
+input[type="text"]:focus, textarea:focus, select:focus { border-color:var(--gold); }
+textarea { resize:vertical; min-height:68px; }
+select option { background:#2C2420; }
+
+.range-row { display:flex; align-items:center; gap:10px; }
+input[type="range"] { width:100%; padding:5px 0; cursor:pointer; accent-color:var(--gold); background:none; border:none; }
+.range-val { font-size:.82rem; color:var(--gold-light); min-width:38px; text-align:right; white-space:nowrap; }
+
+/* Color pickers */
+.color-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+input[type="color"] {
+  width:36px; height:36px; border:1px solid rgba(201,168,76,.35); border-radius:6px;
+  background:none; cursor:pointer; padding:2px;
+}
+.color-label { font-size:.75rem; color:#8A7A6A; }
+
+/* Theme cards */
+.theme-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; }
+.theme-card {
+  border-radius:8px; overflow:hidden; cursor:pointer;
+  border:2px solid transparent; transition:all .25s; aspect-ratio:16/9; position:relative;
+}
+.theme-card.selected { border-color:var(--gold); box-shadow:0 0 12px rgba(201,168,76,.4); }
+.theme-card span { position:absolute; bottom:4px; left:0; right:0; text-align:center; font-size:.65rem; color:#fff; text-shadow:0 1px 4px #000; letter-spacing:.05em; }
+/* Custom theme card */
+.theme-card-custom {
+  border-radius:8px; cursor:pointer; border:2px dashed rgba(201,168,76,.4);
+  transition:all .25s; aspect-ratio:16/9; position:relative;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  background:rgba(255,255,255,.04);
+}
+.theme-card-custom:hover { border-color:var(--gold); background:rgba(201,168,76,.07); }
+.theme-card-custom.selected { border-color:var(--gold); border-style:solid; box-shadow:0 0 12px rgba(201,168,76,.4); }
+.theme-card-custom.has-img { border-style:solid; }
+.theme-card-custom .custom-preview { position:absolute; inset:0; border-radius:6px; background-size:cover; background-position:center; opacity:.7; }
+.theme-card-custom .custom-label { position:relative; z-index:2; font-size:.62rem; color:#fff; text-shadow:0 1px 4px #000; text-align:center; letter-spacing:.05em; }
+.theme-card-custom .custom-icon { position:relative; z-index:2; font-size:1.1rem; }
+.custom-bg-upload { margin-top:12px; display:none; }
+.custom-bg-upload.visible { display:block; }
+
+/* Help button */
+.help-btn {
+  position:fixed; bottom:24px; right:24px; z-index:300;
+  width:46px; height:46px; border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),#A87C30);
+  color:var(--dark); border:none; font-size:1.3rem; font-weight:700;
+  cursor:pointer; box-shadow:0 4px 18px rgba(201,168,76,.45);
+  display:flex; align-items:center; justify-content:center;
+  transition:all .25s;
+}
+.help-btn:hover { transform:scale(1.1); box-shadow:0 6px 24px rgba(201,168,76,.6); }
+
+/* Help modal */
+#helpModal { display:none; position:fixed; inset:0; z-index:600; background:rgba(0,0,0,.88); align-items:flex-start; justify-content:center; overflow-y:auto; padding:30px 16px; }
+#helpModal.open { display:flex; }
+.help-box {
+  background:linear-gradient(145deg,#2C2420,#1A1614);
+  border:1px solid rgba(201,168,76,.3); border-radius:16px;
+  padding:36px 32px; max-width:640px; width:100%; margin:auto;
+  position:relative;
+}
+.help-close {
+  position:absolute; top:16px; right:16px;
+  background:rgba(255,255,255,.08); border:none; color:#8A7A6A;
+  width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem;
+  display:flex; align-items:center; justify-content:center; transition:all .2s;
+}
+.help-close:hover { background:rgba(255,255,255,.15); color:var(--cream); }
+.help-title {
+  font-family:'Cormorant Garamond',serif; font-size:1.6rem; font-weight:300;
+  color:var(--gold-light); margin-bottom:6px; letter-spacing:.1em;
+}
+.help-subtitle { font-size:.8rem; color:#8A7A6A; margin-bottom:24px; }
+.help-step {
+  display:flex; gap:14px; margin-bottom:20px; align-items:flex-start;
+}
+.step-num {
+  flex-shrink:0; width:32px; height:32px; border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),#A87C30);
+  color:var(--dark); font-weight:700; font-size:.85rem;
+  display:flex; align-items:center; justify-content:center;
+}
+.step-body h3 { font-size:.9rem; color:var(--gold-light); margin-bottom:4px; font-weight:600; }
+.step-body p { font-size:.8rem; color:#9A8A7A; line-height:1.7; }
+.step-body ul { font-size:.8rem; color:#9A8A7A; line-height:1.9; padding-left:1.2em; }
+.help-divider { height:1px; background:rgba(201,168,76,.12); margin:20px 0; }
+.help-tip {
+  background:rgba(201,168,76,.07); border:1px solid rgba(201,168,76,.15);
+  border-radius:8px; padding:12px 14px; font-size:.78rem; color:#A09080; line-height:1.7;
+}
+.help-tip strong { color:var(--gold-light); }
+
+/* Upload zones */
+.upload-zone {
+  border:1.5px dashed rgba(201,168,76,.35); border-radius:10px; padding:22px;
+  text-align:center; cursor:pointer; transition:all .3s; position:relative;
+}
+.upload-zone:hover { border-color:var(--gold); background:rgba(201,168,76,.04); }
+.upload-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; padding:0; border:none; }
+.upload-icon { font-size:1.8rem; margin-bottom:6px; }
+.upload-zone p { font-size:.78rem; color:#8A7A6A; }
+.upload-zone strong { color:var(--gold-light); }
+
+.photo-preview { display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:8px; margin-top:12px; }
+.photo-thumb { aspect-ratio:1; border-radius:6px; overflow:hidden; position:relative; border:1px solid rgba(201,168,76,.2); }
+.photo-thumb img { width:100%; height:100%; object-fit:cover; }
+.photo-thumb .rm { position:absolute; top:2px; right:2px; width:16px; height:16px; background:rgba(0,0,0,.75); border:none; border-radius:50%; color:#fff; font-size:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.slide-count { font-size:.78rem; color:var(--gold); margin-top:8px; }
+
+/* Font size visual */
+.font-preview { background:rgba(0,0,0,.3); border-radius:8px; padding:12px; text-align:center; margin-top:10px; min-height:60px; display:flex; align-items:center; justify-content:center; }
+
+/* Buttons */
+.btn-row { display:flex; gap:14px; justify-content:center; margin-top:36px; flex-wrap:wrap; }
+.btn-primary {
+  padding:16px 36px; background:linear-gradient(135deg,var(--gold),#A87C30);
+  color:var(--dark); border:none; border-radius:50px;
+  font-family:inherit; font-size:.95rem; font-weight:700; letter-spacing:.18em;
+  cursor:pointer; transition:all .3s; box-shadow:0 8px 28px rgba(201,168,76,.3);
+}
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 12px 36px rgba(201,168,76,.45); }
+.btn-primary:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+.btn-secondary {
+  padding:16px 36px; background:transparent;
+  color:var(--gold-light); border:1.5px solid var(--gold); border-radius:50px;
+  font-family:inherit; font-size:.95rem; letter-spacing:.18em;
+  cursor:pointer; transition:all .3s;
+}
+.btn-secondary:hover { background:rgba(201,168,76,.1); transform:translateY(-2px); }
+.btn-secondary:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+/* Tab system for design settings */
+.tab-bar { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid rgba(201,168,76,.15); }
+.tab-btn {
+  padding:7px 14px; background:none; border:none; color:#8A7A6A;
+  font-family:inherit; font-size:.75rem; letter-spacing:.08em; cursor:pointer;
+  border-bottom:2px solid transparent; margin-bottom:-1px; transition:all .2s;
+}
+.tab-btn.active { color:var(--gold-light); border-bottom-color:var(--gold); }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+/* ===== SLIDESHOW ===== */
+#slideshow { display:none; position:fixed; inset:0; background:#000; z-index:100; }
+.slide { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 1.2s ease-in-out; }
+.slide.active { opacity:1; }
+.slide-bg { position:absolute; inset:0; background-size:cover; background-position:center; transition:transform 6s ease-out, background-position 6s ease-out; }
+.slide-bg.motion-zoom-out  { transform:scale(1.08); }
+.slide.active .slide-bg.motion-zoom-out  { transform:scale(1); }
+.slide-bg.motion-zoom-in   { transform:scale(1); }
+.slide.active .slide-bg.motion-zoom-in   { transform:scale(1.08); }
+.slide-bg.motion-pan-left  { transform:scale(1.08) translateX(4%); }
+.slide.active .slide-bg.motion-pan-left  { transform:scale(1.08) translateX(-4%); }
+.slide-bg.motion-pan-right { transform:scale(1.08) translateX(-4%); }
+.slide.active .slide-bg.motion-pan-right { transform:scale(1.08) translateX(4%); }
+.slide-bg.motion-diagonal  { transform:scale(1.08) translate(3%,3%); }
+.slide.active .slide-bg.motion-diagonal  { transform:scale(1.08) translate(-3%,-3%); }
+.slide-bg.motion-random    { transform:scale(1.08); }
+.slide.active .slide-bg.motion-random    { transform:scale(1); }
+.slide-content { position:absolute; z-index:2; text-align:center; padding:20px; max-width:85%; }
+.slide-main-text { line-height:1.5; text-shadow:0 2px 30px rgba(0,0,0,.9); opacity:0; transform:translateY(18px); transition:all 1s ease .5s; }
+.slide.active .slide-main-text { opacity:1; transform:translateY(0); }
+.slide-caption { margin-top:16px; opacity:0; transition:all 1s ease .9s; line-height:1.9; text-shadow:0 1px 10px rgba(0,0,0,.7); }
+.slide.active .slide-caption { opacity:1; }
+.slide-ornament { opacity:0; transition:all .9s ease .3s; margin-bottom:14px; letter-spacing:.3em; }
+.slide.active .slide-ornament { opacity:.85; }
+
+.progress-bar { position:fixed; bottom:0; left:0; height:2px; background:linear-gradient(90deg,var(--gold),var(--gold-light)); z-index:200; }
+.slideshow-controls { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:200; opacity:0; transition:opacity .3s; flex-wrap:wrap; justify-content:center; }
+#slideshow:hover .slideshow-controls { opacity:1; }
+.ctrl-btn { background:rgba(0,0,0,.65); border:1px solid rgba(255,255,255,.3); color:#fff; border-radius:50px; padding:7px 16px; font-size:.76rem; cursor:pointer; font-family:inherit; letter-spacing:.08em; transition:all .2s; }
+.ctrl-btn:hover { background:rgba(201,168,76,.4); border-color:var(--gold); }
+.slide-counter { position:fixed; top:18px; right:22px; font-family:'Cormorant Garamond',serif; font-size:.82rem; color:rgba(255,255,255,.45); z-index:200; }
+
+.firework { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.particle { position:absolute; border-radius:50%; animation:burst 2s ease-out forwards; opacity:0; }
+@keyframes burst {
+  0%{transform:translate(0,0) scale(1);opacity:1;}
+  100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0;}
+}
+.end-btn { display:inline-block; margin-top:28px; padding:11px 28px; border:1px solid rgba(255,255,255,.35); color:rgba(255,255,255,.8); border-radius:50px; font-size:.82rem; cursor:pointer; background:none; font-family:inherit; letter-spacing:.12em; opacity:0; transition:all 1s ease 1.5s; }
+.slide.active .end-btn { opacity:1; }
+
+/* ===== EXPORT MODAL ===== */
+#exportModal { display:none; position:fixed; inset:0; z-index:500; background:rgba(0,0,0,.88); align-items:center; justify-content:center; }
+#exportModal.open { display:flex; }
+.modal-box { background:linear-gradient(145deg,#2C2420,#1A1614); border:1px solid rgba(201,168,76,.3); border-radius:16px; padding:36px; max-width:460px; width:90%; text-align:center; }
+.modal-box h2 { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:300; color:var(--gold-light); margin-bottom:8px; }
+.modal-box>p { font-size:.8rem; color:#8A7A6A; line-height:1.7; margin-bottom:20px; }
+.progress-track { background:rgba(255,255,255,.08); border-radius:10px; height:6px; overflow:hidden; margin:16px 0 8px; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--gold),var(--gold-light)); border-radius:10px; transition:width .4s; width:0%; }
+.progress-lbl { font-size:.78rem; color:#8A7A6A; margin-bottom:18px; }
+.modal-note { background:rgba(201,168,76,.07); border:1px solid rgba(201,168,76,.15); border-radius:8px; padding:12px 14px; font-size:.75rem; color:#A09080; line-height:1.7; margin-bottom:18px; text-align:left; }
+.modal-note strong { color:var(--gold-light); }
+.modal-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.mbtn-cancel { padding:11px 24px; background:none; border:1px solid rgba(255,255,255,.2); color:#8A7A6A; border-radius:50px; font-family:inherit; font-size:.82rem; cursor:pointer; }
+.mbtn-go { padding:11px 24px; background:linear-gradient(135deg,var(--gold),#A87C30); color:var(--dark); border:none; border-radius:50px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; }
+.mbtn-go:disabled { opacity:.4; cursor:not-allowed; }
+
+#exportCanvas { display:none; }
+
+/* ===== BGM LIBRARY ===== */
+.bgm-tabs { display:flex; gap:6px; margin-bottom:12px; }
+.bgm-tab { padding:5px 12px; background:rgba(255,255,255,.05); border:1px solid rgba(201,168,76,.2); border-radius:20px; font-size:.72rem; color:#8A7A6A; cursor:pointer; transition:all .2s; }
+.bgm-tab.active { background:rgba(201,168,76,.15); border-color:var(--gold); color:var(--gold-light); }
+.bgm-list { display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px; }
+.bgm-list::-webkit-scrollbar { width:4px; }
+.bgm-list::-webkit-scrollbar-track { background:rgba(255,255,255,.04); border-radius:2px; }
+.bgm-list::-webkit-scrollbar-thumb { background:rgba(201,168,76,.3); border-radius:2px; }
+.bgm-item { display:flex; align-items:center; gap:10px; padding:9px 12px; background:rgba(255,255,255,.04); border:1px solid rgba(201,168,76,.12); border-radius:8px; cursor:pointer; transition:all .2s; }
+.bgm-item:hover { border-color:rgba(201,168,76,.35); background:rgba(201,168,76,.07); }
+.bgm-item.playing { border-color:var(--gold); background:rgba(201,168,76,.12); }
+.bgm-item.selected-bgm { border-color:var(--gold); background:rgba(201,168,76,.18); }
+.bgm-play-btn { flex-shrink:0; width:28px; height:28px; border-radius:50%; background:rgba(201,168,76,.2); border:1px solid rgba(201,168,76,.4); color:var(--gold-light); font-size:.7rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.bgm-info { flex:1; min-width:0; }
+.bgm-name { font-size:.78rem; color:var(--cream); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bgm-meta { font-size:.65rem; color:#8A7A6A; margin-top:2px; }
+.bgm-use-btn { flex-shrink:0; padding:4px 10px; background:linear-gradient(135deg,var(--gold),#A87C30); color:var(--dark); border:none; border-radius:12px; font-size:.68rem; font-weight:700; cursor:pointer; }
+.bgm-url-row { display:flex; gap:8px; margin-top:10px; }
+.bgm-url-input { flex:1; font-size:.8rem; padding:8px 12px; }
+.bgm-url-btn { flex-shrink:0; padding:8px 14px; background:rgba(201,168,76,.15); border:1px solid rgba(201,168,76,.35); color:var(--gold-light); border-radius:6px; font-size:.78rem; cursor:pointer; white-space:nowrap; }
+.bgm-site-list { display:flex; flex-direction:column; gap:8px; }
+.bgm-site-item { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:rgba(255,255,255,.04); border:1px solid rgba(201,168,76,.12); border-radius:8px; }
+.bgm-site-info { flex:1; }
+.bgm-site-name { font-size:.8rem; color:var(--cream); }
+.bgm-site-desc { font-size:.68rem; color:#8A7A6A; margin-top:2px; line-height:1.5; }
+.bgm-site-link { flex-shrink:0; padding:5px 12px; background:rgba(201,168,76,.12); border:1px solid rgba(201,168,76,.3); color:var(--gold-light); border-radius:12px; font-size:.7rem; cursor:pointer; text-decoration:none; white-space:nowrap; }
+
+/* ===== MOTION EFFECT ===== */
+.motion-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; margin-bottom:16px; }
+.motion-card {
+  border:2px solid rgba(201,168,76,.18); border-radius:10px; padding:12px 10px;
+  text-align:center; cursor:pointer; transition:all .22s; background:rgba(255,255,255,.03);
+  position:relative; overflow:hidden;
+}
+.motion-card:hover { border-color:rgba(201,168,76,.5); background:rgba(201,168,76,.07); }
+.motion-card.selected { border-color:var(--gold); background:rgba(201,168,76,.14); box-shadow:0 0 10px rgba(201,168,76,.3); }
+.motion-icon { font-size:1.6rem; margin-bottom:6px; display:block; }
+.motion-name { font-size:.72rem; color:var(--cream); letter-spacing:.04em; font-weight:600; }
+.motion-desc { font-size:.62rem; color:#8A7A6A; margin-top:3px; line-height:1.4; }
+/* Mini animation preview on hover */
+.motion-card .preview-img {
+  position:absolute; inset:0; opacity:0; transition:opacity .3s;
+  background:linear-gradient(135deg,rgba(201,168,76,.08),rgba(201,168,76,.02));
+}
+.motion-card:hover .preview-img { opacity:1; }
+
+/* ===== TEXT POSITION DRAG ===== */
+.pos-editor-wrap { margin-top:14px; }
+.pos-preview-label { font-size:.75rem; color:#8A7A6A; letter-spacing:.08em; margin-bottom:8px; }
+.pos-stage {
+  width:100%; aspect-ratio:16/9; background:#111; border-radius:8px;
+  border:1px solid rgba(201,168,76,.2); position:relative; overflow:hidden; cursor:crosshair;
+  touch-action:none; user-select:none;
+}
+.pos-bg-thumb { position:absolute; inset:0; background-size:cover; background-position:center; opacity:.4; }
+.pos-handle {
+  position:absolute; transform:translate(-50%,-50%);
+  background:rgba(201,168,76,.9); border:2px solid #fff;
+  width:22px; height:22px; border-radius:50%; cursor:grab; z-index:10;
+  box-shadow:0 2px 8px rgba(0,0,0,.6);
+  display:flex; align-items:center; justify-content:center; font-size:8px; color:#000;
+  transition:box-shadow .15s;
+}
+.pos-handle:active { cursor:grabbing; box-shadow:0 0 0 4px rgba(201,168,76,.35); }
+.pos-handle-label { position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:.55rem; color:var(--gold-light); white-space:nowrap; background:rgba(0,0,0,.7); padding:1px 5px; border-radius:3px; }
+.pos-grid-btn-row { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.pos-grid-btn { padding:4px 10px; font-size:.68rem; background:rgba(255,255,255,.05); border:1px solid rgba(201,168,76,.2); color:#8A7A6A; border-radius:20px; cursor:pointer; transition:all .15s; }
+.pos-grid-btn:hover { border-color:var(--gold); color:var(--gold-light); }
+</style>
+</head>
+<body>
+
+<!-- ===== EDITOR ===== -->
+<div id="editor">
+  <div class="editor-header">
+    <div class="app-logo">
+      <span class="logo-icon">▶</span>
+      <span class="logo-text">SlideMovie</span>
+    </div>
+    <p class="app-tagline">写真・テキスト・音楽で作る、あなただけのスライドショー動画</p>
+    <div class="use-scene-chips">
+      <span class="chip">🎓 卒業式・祝賀会</span>
+      <span class="chip">🏫 入学式</span>
+      <span class="chip">🏆 表彰式</span>
+      <span class="chip">🎌 文化祭</span>
+      <span class="chip">⚽ 部活動</span>
+      <span class="chip">📸 修学旅行</span>
+      <span class="chip">🎤 発表会</span>
+      <span class="chip">📝 学習発表</span>
+    </div>
+  </div>
+
+  <div class="editor-grid">
+
+    <!-- TEXT SETTINGS -->
+    <div class="card">
+      <div class="card-title">スライド内テキスト</div>
+      <label>オープニングタイトル（例：祝 卒業 / 文化祭 2025）</label>
+      <input type="text" id="mainTitle" placeholder="例：祝 卒業 / 入学おめでとう / 文化祭 2025" value="">
+      <label>サブタイトル</label>
+      <input type="text" id="subTitle" placeholder="例：2025年度 卒業式 / ○○部 引退試合" value="">
+      <label>クロージングメッセージ</label>
+      <textarea id="closingMsg"placeholder="例：ありがとう。また会う日まで。"></textarea>
+    </div>
+
+    <!-- SLIDE TIMING -->
+    <div class="card">
+      <div class="card-title">スライド・書き出し設定</div>
+      <label>1枚あたりの表示時間</label>
+      <div class="range-row">
+        <input type="range" id="slideInterval" min="3" max="15" value="6" step="1">
+        <span class="range-val" id="intervalVal">6秒</span>
+      </div>
+      <label>動画解像度</label>
+      <select id="exportRes">
+        <option value="1280x720">HD (1280×720)</option>
+        <option value="1920x1080" selected>Full HD (1920×1080)</option>
+      </select>
+      <label>BGM設定</label>
+      <div class="bgm-tabs">
+        <button class="bgm-tab active" onclick="switchBgmTab(this,'bgmTabLib')">🎵 内蔵ライブラリ</button>
+        <button class="bgm-tab" onclick="switchBgmTab(this,'bgmTabFile')">📁 ファイル選択</button>
+        <button class="bgm-tab" onclick="switchBgmTab(this,'bgmTabSite')">🌐 フリー音楽サイト</button>
+      </div>
+      <!-- 内蔵ライブラリ -->
+      <div id="bgmTabLib" class="bgm-tab-pane">
+        <div class="bgm-list" id="bgmLibList"></div>
+      </div>
+      <!-- ファイル選択 -->
+      <div id="bgmTabFile" class="bgm-tab-pane" style="display:none;">
+        <div class="upload-zone">
+          <input type="file" id="musicInput" accept="audio/*">
+          <div class="upload-icon">📁</div>
+          <p><strong>クリックして選択</strong>（MP3・M4A・WAV）</p>
+          <p id="musicName" style="color:var(--gold-light);margin-top:4px;">未選択</p>
+        </div>
+      </div>
+      <!-- フリー音楽サイト -->
+      <div id="bgmTabSite" class="bgm-tab-pane" style="display:none;">
+        <div class="bgm-site-list">
+          <div class="bgm-site-item">
+            <div class="bgm-site-info">
+              <div class="bgm-site-name">🎵 DOVA-SYNDROME</div>
+              <div class="bgm-site-desc">国内最大級の著作権フリー音楽。卒業・式典向けも多数</div>
+            </div>
+            <a class="bgm-site-link" href="https://dova-s.jp/" target="_blank">開く</a>
+          </div>
+          <div class="bgm-site-item">
+            <div class="bgm-site-info">
+              <div class="bgm-site-name">🎵 魔王魂</div>
+              <div class="bgm-site-desc">BGM・SE・ジングルが豊富。商用・非商用ともに無料</div>
+            </div>
+            <a class="bgm-site-link" href="https://maoudamashii.jokersounds.com/" target="_blank">開く</a>
+          </div>
+          <div class="bgm-site-item">
+            <div class="bgm-site-info">
+              <div class="bgm-site-name">🎵 MusMus</div>
+              <div class="bgm-site-desc">感動的・ピアノ系の楽曲が多くスライドショーに最適</div>
+            </div>
+            <a class="bgm-site-link" href="https://musmus.main.jp/" target="_blank">開く</a>
+          </div>
+          <div class="bgm-site-item">
+            <div class="bgm-site-info">
+              <div class="bgm-site-name">🎵 Pixabay Music</div>
+              <div class="bgm-site-desc">海外サービス。クレジット不要で高品質な楽曲が豊富</div>
+            </div>
+            <a class="bgm-site-link" href="https://pixabay.com/music/" target="_blank">開く</a>
+          </div>
+        </div>
+        <div style="font-size:.7rem;color:#6A6060;margin-top:10px;">※ ダウンロードしたファイルは「ファイル選択」タブからアップロードしてください</div>
+      </div>
+      <label style="margin-top:14px;">写真の動き（モーション効果）</label>
+      <div class="motion-grid">
+        <div class="motion-card selected" id="mc_zoom_out" onclick="selectMotion('zoom_out',this)">
+          <span class="motion-icon">🔍</span>
+          <div class="motion-name">ズームアウト</div>
+          <div class="motion-desc">引き寄せる・<br>落ち着いた印象</div>
+        </div>
+        <div class="motion-card" id="mc_zoom_in" onclick="selectMotion('zoom_in',this)">
+          <span class="motion-icon">🔎</span>
+          <div class="motion-name">ズームイン</div>
+          <div class="motion-desc">迫力・クライマックス感</div>
+        </div>
+        <div class="motion-card" id="mc_pan_left" onclick="selectMotion('pan_left',this)">
+          <span class="motion-icon">⬅️</span>
+          <div class="motion-name">左パン</div>
+          <div class="motion-desc">左→右へ流れる<br>映画的な動き</div>
+        </div>
+        <div class="motion-card" id="mc_pan_right" onclick="selectMotion('pan_right',this)">
+          <span class="motion-icon">➡️</span>
+          <div class="motion-name">右パン</div>
+          <div class="motion-desc">右→左へ流れる<br>映画的な動き</div>
+        </div>
+        <div class="motion-card" id="mc_diagonal" onclick="selectMotion('diagonal',this)">
+          <span class="motion-icon">↗️</span>
+          <div class="motion-name">斜め移動</div>
+          <div class="motion-desc">対角線上に動く<br>躍動感</div>
+        </div>
+        <div class="motion-card" id="mc_random" onclick="selectMotion('random',this)">
+          <span class="motion-icon">🎲</span>
+          <div class="motion-name">ランダム</div>
+          <div class="motion-desc">毎回異なる動きで<br>変化をつける</div>
+        </div>
+      </div>
+      <label>動きの強さ</label>
+      <div class="range-row">
+        <input type="range" id="motionStrength" min="1" max="3" value="2" step="1">
+        <span class="range-val" id="motionStrengthVal">標準</span>
+      </div>
+      <label style="margin-top:12px;">BGM音量</label>
+      <div class="range-row">
+        <input type="range" id="musicVol" min="0" max="100" value="60" step="5">
+        <span class="range-val" id="volVal">60%</span>
+      </div>
+    </div>
+
+    <!-- DESIGN SETTINGS (tabbed) -->
+    <div class="card full-width">
+      <div class="card-title">デザイン設定</div>
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab(this,'tabTheme')">🎨 テーマ</button>
+        <button class="tab-btn" onclick="switchTab(this,'tabFont')">🔤 フォント</button>
+        <button class="tab-btn" onclick="switchTab(this,'tabColor')">🖌 カラー</button>
+        <button class="tab-btn" onclick="switchTab(this,'tabSize')">📐 サイズ</button>
+      </div>
+
+      <!-- THEME TAB -->
+      <div class="tab-pane active" id="tabTheme">
+        <div style="font-size:.75rem;color:#8A7A6A;margin-bottom:12px;">背景テーマを選択してください</div>
+        <div class="theme-grid" id="themeGrid"></div>
+      </div>
+
+      <!-- FONT TAB -->
+      <div class="tab-pane" id="tabFont">
+        <label>タイトル・メインフォント</label>
+        <select id="fontMain" onchange="updateFontPreview()">
+          <option value="'BIZ UDPGothic',sans-serif" data-gf="BIZ+UDPGothic:wght@400;700">BIZ UDゴシック（UD標準）</option>
+          <option value="'BIZ UDPMincho',serif" data-gf="BIZ+UDPMincho">BIZ UD明朝（UD明朝体）</option>
+          <option value="'Noto Sans JP',sans-serif" data-gf="">Noto Sans JP（モダン）</option>
+          <option value="'Noto Serif JP',serif" data-gf="" selected>Noto Serif JP（伝統的）</option>
+          <option value="'Shippori Mincho',serif" data-gf="">しっぽり明朝（毛筆風）</option>
+          <option value="'Zen Kaku Gothic New',sans-serif" data-gf="">ZEN角ゴシック（スタイリッシュ）</option>
+          <option value="'Cormorant Garamond',serif" data-gf="">Cormorant Garamond（欧風エレガント）</option>
+        </select>
+        <label>キャプション・サブフォント</label>
+        <select id="fontSub" onchange="updateFontPreview()">
+          <option value="'BIZ UDPGothic',sans-serif">BIZ UDゴシック</option>
+          <option value="'BIZ UDPMincho',serif">BIZ UD明朝</option>
+          <option value="'Noto Sans JP',sans-serif" selected>Noto Sans JP</option>
+          <option value="'Noto Serif JP',serif">Noto Serif JP</option>
+          <option value="'Shippori Mincho',serif">しっぽり明朝</option>
+          <option value="'Zen Kaku Gothic New',sans-serif">ZEN角ゴシック</option>
+        </select>
+        <label>フォントウェイト（太さ）</label>
+        <select id="fontWeight">
+          <option value="300">細め（300）</option>
+          <option value="400" selected>標準（400）</option>
+          <option value="700">太め（700）</option>
+        </select>
+        <div class="font-preview" id="fontPreview">
+          <span style="font-size:1.4rem;">スライドムービー / SlideMovie</span>
+        </div>
+      </div>
+
+      <!-- COLOR TAB -->
+      <div class="tab-pane" id="tabColor">
+        <div style="font-size:.75rem;color:#8A7A6A;margin-bottom:14px;">テキストカラーや装飾色をカスタマイズできます</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div>
+            <label style="margin-top:0;">タイトル文字色</label>
+            <div class="color-row">
+              <input type="color" id="colorTitle" value="#FFFFFF">
+              <span class="color-label">タイトル</span>
+            </div>
+          </div>
+          <div>
+            <label style="margin-top:0;">キャプション文字色</label>
+            <div class="color-row">
+              <input type="color" id="colorCaption" value="#F0E8D8">
+              <span class="color-label">キャプション</span>
+            </div>
+          </div>
+          <div>
+            <label style="margin-top:0;">装飾色（ライン・番号）</label>
+            <div class="color-row">
+              <input type="color" id="colorAccent" value="#C9A84C">
+              <span class="color-label">アクセント</span>
+            </div>
+          </div>
+          <div>
+            <label style="margin-top:0;">写真の暗さ（オーバーレイ）</label>
+            <div class="range-row" style="margin-top:8px;">
+              <input type="range" id="overlayOpacity" min="20" max="75" value="45" step="5">
+              <span class="range-val" id="overlayVal">45%</span>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:.75rem;color:#8A7A6A;margin-top:16px;">※ タイトルスライドの背景色はテーマで設定されます</div>
+      </div>
+
+      <!-- SIZE TAB -->
+      <div class="tab-pane" id="tabSize">
+        <label>タイトル文字サイズ</label>
+        <div class="range-row">
+          <input type="range" id="sizeTitleMain" min="40" max="120" value="72" step="4">
+          <span class="range-val" id="sizeTitleMainVal">72px</span>
+        </div>
+        <label>サブタイトル文字サイズ</label>
+        <div class="range-row">
+          <input type="range" id="sizeSub" min="18" max="60" value="30" step="2">
+          <span class="range-val" id="sizeSubVal">30px</span>
+        </div>
+        <label>写真キャプション文字サイズ</label>
+        <div class="range-row">
+          <input type="range" id="sizeCaption" min="16" max="52" value="28" step="2">
+          <span class="range-val" id="sizeCaptionVal">28px</span>
+        </div>
+        <label>クロージングメッセージ文字サイズ</label>
+        <div class="range-row">
+          <input type="range" id="sizeClosing" min="18" max="60" value="36" step="2">
+          <span class="range-val" id="sizeClosingVal">36px</span>
+        </div>
+        <div style="font-size:.72rem;color:#6A6060;margin-top:12px;">※ 上記はFull HD (1920×1080) 基準のピクセル値です。スライドショーではウィンドウサイズに応じて自動調整されます。</div>
+      </div>
+    </div>
+
+    <!-- PHOTOS -->
+    <div class="card full-width">
+      <div class="card-title">写真・キャプション</div>
+      <div class="upload-zone">
+        <input type="file" id="photoInput" accept="image/*" multiple>
+        <div class="upload-icon">📸</div>
+        <p><strong>クリックして写真を選択</strong>（複数選択可）</p>
+        <p>JPG / PNG / WEBP 対応</p>
+      </div>
+      <div id="photoPreview" class="photo-preview"></div>
+      <p class="slide-count" id="slideCount"></p>
+      <div id="captionEditor" style="margin-top:18px;"></div>
+    </div>
+
+  </div><!-- /editor-grid -->
+
+  <div class="btn-row">
+    <button class="btn-primary" id="startBtn" disabled onclick="startSlideshow()">▶　スライドショーを開始</button>
+    <button class="btn-secondary" id="exportBtn" disabled onclick="openExportModal()">⬇　動画として書き出し</button>
+  </div>
+</div>
+
+<!-- ===== HELP BUTTON ===== -->
+<button class="help-btn" onclick="document.getElementById('helpModal').classList.add('open')" title="使い方">❓</button>
+
+<!-- ===== HELP MODAL ===== -->
+<div id="helpModal">
+  <div class="help-box">
+    <button class="help-close" onclick="document.getElementById('helpModal').classList.remove('open')">✕</button>
+    <div class="help-title">SlideMovie の使い方</div>
+    <div class="help-subtitle">写真・テキスト・音楽でスライドショー動画を作成します</div>
+
+    <div class="help-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>📝 スライド内テキストを入力</h3>
+        <p>オープニングタイトル（例：祝 卒業）、サブタイトル、最後に表示するクロージングメッセージを入力します。</p>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>⚙️ スライド・書き出し設定</h3>
+        <ul>
+          <li>1枚あたりの表示時間を設定（3〜15秒）</li>
+          <li>動画解像度を選択（HD / Full HD）</li>
+          <li><strong>BGM</strong>：内蔵ライブラリ（▶試聴可）/ ファイル選択 / フリー音楽サイト案内の3つから選択できます</li>
+          <li>BGM音量を調整</li>
+        </ul>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>🎨 デザイン設定（4タブ）＋テキスト位置</h3>
+        <ul>
+          <li><strong>テーマ</strong>：背景の色合いを選択。「オリジナル」では好きな画像を背景に設定できます</li>
+          <li><strong>フォント</strong>：文字の書体・太さを選択。BIZ UDフォントはユニバーサルデザイン対応</li>
+          <li><strong>カラー</strong>：タイトル・キャプション・アクセント色を個別に設定</li>
+          <li><strong>サイズ</strong>：各テキストの文字サイズを調整（px単位）</li>
+          <li><strong>テキスト位置</strong>：プレビュー画面の金色の丸をドラッグ・タッチで動かすと全スライドのテキスト位置が変わります。スナップボタンで9箇所に即座に配置できます</li>
+        </ul>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>📸 写真・キャプションを追加</h3>
+        <p>写真を複数枚アップロードし、各写真に説明文（キャプション）を入力できます。写真の順番はアップロード順になります。</p>
+      </div>
+    </div>
+    <div class="help-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h3>▶ スライドショーを再生・書き出し</h3>
+        <ul>
+          <li><strong>スライドショーを開始</strong>：ブラウザ上でプレビュー再生します。マウスを動かすと操作ボタンが表示されます</li>
+          <li><strong>動画として書き出し</strong>：WebM形式の動画ファイルをダウンロードします</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="help-divider"></div>
+    <div class="help-tip">
+      <strong>💡 ヒント：</strong><br>
+      ・会場での上映は、PCのブラウザを全画面（F11キー）にしてスライドショーを開始してください<br>
+      ・動画はWebM形式です。MP4に変換したい場合は無料ソフト <strong>HandBrake</strong> をお使いください<br>
+      ・BGMは動画ファイルに含まれません。動画編集ソフト（iMovie・DaVinci Resolve など）で別途合成してください<br>
+      ・動画書き出しは <strong>Chrome または Edge</strong> を推奨します
+    </div>
+  </div>
+</div>
+
+<!-- ===== SLIDESHOW ===== -->
+<div id="slideshow">
+  <div class="progress-bar" id="progressBar" style="width:0%"></div>
+  <div class="slide-counter" id="slideCounter"></div>
+  <div id="slidesContainer"></div>
+  <div class="slideshow-controls">
+    <button class="ctrl-btn" onclick="prevSlide()">◀ 前へ</button>
+    <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()">⏸ 一時停止</button>
+    <button class="ctrl-btn" onclick="nextSlide()">次へ ▶</button>
+    <button class="ctrl-btn" onclick="exitSlideshow()">✕ 終了</button>
+  </div>
+  <audio id="bgmAudio" loop></audio>
+</div>
+
+<!-- ===== EXPORT MODAL ===== -->
+<div id="exportModal">
+  <div class="modal-box">
+    <h2 id="modalTitle">動画として書き出し</h2>
+    <p id="modalDesc">スライドショーをWebM動画ファイルに変換します。<br>写真枚数によって数分かかる場合があります。</p>
+    <div class="modal-note" id="modalNote">
+      <strong>📌 ご注意：</strong><br>
+      出力形式は <strong>WebM</strong>（VP9）です。MP4に変換したい場合は <strong>HandBrake</strong>（無料）をお使いください。<br>BGMは動画には含まれません。動画編集ソフトで別途合成してください。
+    </div>
+    <div class="progress-track" id="progressTrack" style="display:none;">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-lbl" id="progressLbl"></div>
+    <div class="modal-btns">
+      <button class="mbtn-cancel" id="cancelBtn" onclick="cancelExport()">キャンセル</button>
+      <button class="mbtn-go" id="modalGoBtn" onclick="startExport()">書き出し開始</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="exportCanvas"></canvas>
+
+<script>
+// ==========================================
+//  THEMES
+// ==========================================
+const THEMES = [
+  { id:'gold_dark',  name:'ゴールド（定番）',
+    bg: (W,H,ctx) => {
+      const g = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.75);
+      g.addColorStop(0,'#2C2420'); g.addColorStop(1,'#080604'); return g;
+    },
+    css:'radial-gradient(ellipse,#2C2420,#080604)', accentDef:'#C9A84C'
+  },
+  { id:'navy',       name:'ネイビー',
+    bg: (W,H,ctx) => {
+      const g = ctx.createLinearGradient(0,0,W,H);
+      g.addColorStop(0,'#0D1B2A'); g.addColorStop(1,'#1B2A40'); return g;
+    },
+    css:'linear-gradient(135deg,#0D1B2A,#1B2A40)', accentDef:'#7EB8D4'
+  },
+  { id:'cherry',     name:'桜ピンク',
+    bg: (W,H,ctx) => {
+      const g = ctx.createLinearGradient(0,0,W,H);
+      g.addColorStop(0,'#2A0D1A'); g.addColorStop(.5,'#3D1A28'); g.addColorStop(1,'#1A0D22'); return g;
+    },
+    css:'linear-gradient(135deg,#2A0D1A,#3D1A28,#1A0D22)', accentDef:'#E8A0B4'
+  },
+  { id:'forest',     name:'深緑',
+    bg: (W,H,ctx) => {
+      const g = ctx.createLinearGradient(0,0,W,H);
+      g.addColorStop(0,'#0A1F0D'); g.addColorStop(1,'#122B16'); return g;
+    },
+    css:'linear-gradient(135deg,#0A1F0D,#122B16)', accentDef:'#7EC98A'
+  },
+  { id:'white',      name:'ホワイト',
+    bg: (W,H,ctx) => {
+      const g = ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.7);
+      g.addColorStop(0,'#FAFAF8'); g.addColorStop(1,'#E8E4DC'); return g;
+    },
+    css:'radial-gradient(ellipse,#FAFAF8,#E8E4DC)', accentDef:'#8B6914', textLight:false
+  },
+  { id:'lavender',   name:'ラベンダー',
+    bg: (W,H,ctx) => {
+      const g = ctx.createLinearGradient(0,0,W,H);
+      g.addColorStop(0,'#1A1028'); g.addColorStop(1,'#2A1840'); return g;
+    },
+    css:'linear-gradient(135deg,#1A1028,#2A1840)', accentDef:'#B89AE0'
+  },
+  { id:'sky',        name:'スカイブルー',
+    bg: (W,H,ctx) => {
+      const g = ctx.createLinearGradient(0,H,W,0);
+      g.addColorStop(0,'#0A2233'); g.addColorStop(1,'#0E3652'); return g;
+    },
+    css:'linear-gradient(135deg,#0A2233,#0E3652)', accentDef:'#6ECCDF'
+  },
+  { id:'black',      name:'モノクローム',
+    bg: (W,H,ctx) => { return '#0A0A0A'; },
+    css:'#0A0A0A', accentDef:'#CCCCCC'
+  },
+];
+
+// Custom background image for original theme
+let customBgImg = null;
+let customBgDataUrl = null;
+
+let selectedTheme = THEMES[0];
+
+function buildThemeGrid() {
+  const grid = document.getElementById('themeGrid');
+  grid.innerHTML = '';
+  THEMES.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'theme-card' + (t.id === selectedTheme.id ? ' selected' : '');
+    card.style.cssText = `background:${t.css};`;
+    card.innerHTML = `<span>${t.name}</span>`;
+    card.onclick = () => {
+      document.querySelectorAll('.theme-card,.theme-card-custom').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedTheme = t;
+      document.getElementById('colorAccent').value = t.accentDef;
+      document.getElementById('customBgUploadZone').classList.remove('visible');
+    };
+    grid.appendChild(card);
+  });
+
+  // オリジナルテーマカード
+  const origCard = document.createElement('div');
+  origCard.className = 'theme-card-custom' + (selectedTheme.id === 'custom' ? ' selected' : '');
+  origCard.id = 'customThemeCard';
+  updateCustomCardUI(origCard);
+  origCard.onclick = () => {
+    document.querySelectorAll('.theme-card,.theme-card-custom').forEach(c => c.classList.remove('selected'));
+    origCard.classList.add('selected');
+    selectedTheme = {
+      id: 'custom',
+      name: 'オリジナル',
+      bg: (W,H,ctx) => {
+        if (customBgImg) {
+          const ir = customBgImg.naturalWidth/customBgImg.naturalHeight, cr=W/H;
+          let sw,sh,sx,sy;
+          if(ir>cr){sh=H;sw=sh*ir;sx=(W-sw)/2;sy=0;}else{sw=W;sh=sw/ir;sx=0;sy=(H-sh)/2;}
+          ctx.drawImage(customBgImg,sx,sy,sw,sh);
+          return null; // signal: already drawn
+        }
+        const g = ctx.createLinearGradient(0,0,W,H);
+        g.addColorStop(0,'#1a1a2e'); g.addColorStop(1,'#16213e'); return g;
+      },
+      css: customBgDataUrl ? `url(${customBgDataUrl}) center/cover` : 'linear-gradient(135deg,#1a1a2e,#16213e)',
+      accentDef: '#A0C4FF',
+    };
+    document.getElementById('colorAccent').value = selectedTheme.accentDef;
+    document.getElementById('customBgUploadZone').classList.add('visible');
+  };
+  grid.appendChild(origCard);
+
+  // オリジナル背景アップロードゾーン（themeGridの外に）
+  let uploadZone = document.getElementById('customBgUploadZone');
+  if (!uploadZone) {
+    uploadZone = document.createElement('div');
+    uploadZone.id = 'customBgUploadZone';
+    uploadZone.className = 'custom-bg-upload' + (selectedTheme.id==='custom' ? ' visible' : '');
+    uploadZone.innerHTML = `
+      <div class="upload-zone" style="padding:14px;">
+        <input type="file" id="customBgInput" accept="image/*">
+        <div class="upload-icon" style="font-size:1.4rem;">🖼️</div>
+        <p><strong>背景画像を選択</strong>（JPG・PNG・WEBP）</p>
+        <p id="customBgName" style="color:var(--gold-light);margin-top:4px;">未選択</p>
+      </div>`;
+    grid.parentElement.appendChild(uploadZone);
+
+    document.getElementById('customBgInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        customBgDataUrl = ev.target.result;
+        const img = new Image();
+        img.onload = () => {
+          customBgImg = img;
+          document.getElementById('customBgName').textContent = file.name;
+          // Update the custom card preview
+          const card = document.getElementById('customThemeCard');
+          card.classList.add('has-img');
+          updateCustomCardUI(card);
+          // Update selectedTheme css/bg
+          if (selectedTheme.id === 'custom') {
+            selectedTheme.css = `url(${customBgDataUrl}) center/cover`;
+            selectedTheme.bg = (W,H,ctx) => {
+              const ir2=img.naturalWidth/img.naturalHeight,cr2=W/H;
+              let sw,sh,sx,sy;
+              if(ir2>cr2){sh=H;sw=sh*ir2;sx=(W-sw)/2;sy=0;}else{sw=W;sh=sw/ir2;sx=0;sy=(H-sh)/2;}
+              ctx.drawImage(img,sx,sy,sw,sh);
+              return null;
+            };
+          }
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
+function updateCustomCardUI(card) {
+  if (customBgDataUrl) {
+    card.innerHTML = `<div class="custom-preview" style="background-image:url(${customBgDataUrl})"></div><span class="custom-label">オリジナル</span>`;
+  } else {
+    card.innerHTML = `<span class="custom-icon">🖼️</span><span class="custom-label">オリジナル<br>（画像を設定）</span>`;
+  }
+}
+
+buildThemeGrid();
+
+// ==========================================
+//  FONT PREVIEW
+// ==========================================
+function updateFontPreview() {
+  const f = document.getElementById('fontMain').value;
+  const w = document.getElementById('fontWeight').value;
+  const prev = document.getElementById('fontPreview');
+  prev.innerHTML = `<span style="font-family:${f};font-weight:${w};font-size:1.3rem;color:#fff;">${document.getElementById('mainTitle').value || 'スライドムービー'}</span>`;
+}
+
+// ==========================================
+//  RANGE LABELS
+// ==========================================
+function bindRange(id, suffix, labelId) {
+  const el = document.getElementById(id);
+  const lbl = document.getElementById(labelId);
+  el.addEventListener('input', () => { lbl.textContent = el.value + suffix; });
+}
+bindRange('slideInterval','秒','intervalVal');
+bindRange('musicVol','%','volVal');
+bindRange('overlayOpacity','%','overlayVal');
+
+// Motion strength label
+document.getElementById('motionStrength').addEventListener('input', function() {
+  const labels = ['','控えめ','標準','ダイナミック'];
+  document.getElementById('motionStrengthVal').textContent = labels[this.value] || '標準';
+});
+bindRange('sizeTitleMain','px','sizeTitleMainVal');
+bindRange('sizeSub','px','sizeSubVal');
+bindRange('sizeCaption','px','sizeCaptionVal');
+bindRange('sizeClosing','px','sizeClosingVal');
+
+// ==========================================
+//  MOTION EFFECT
+// ==========================================
+let selectedMotion = 'zoom_out';
+
+function selectMotion(id, el) {
+  document.querySelectorAll('.motion-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedMotion = id;
+}
+
+const MOTION_TYPES = ['zoom_out','zoom_in','pan_left','pan_right','diagonal'];
+
+// Compute image draw params for a given motion type at progress 0..1
+function getMotionTransform(motionType, progress, W, H, imgW, imgH, strength) {
+  // strength: 1=控えめ, 2=標準, 3=ダイナミック
+  const amplitudes = { 1: 0.04, 2: 0.08, 3: 0.15 };
+  const amp = amplitudes[strength] || 0.08;
+
+  const ir = imgW / imgH, cr = W / H;
+  // Base fit (cover): fit image to cover canvas exactly
+  let bw, bh;
+  if (ir > cr) { bh = H; bw = bh * ir; }
+  else          { bw = W; bh = bw / ir; }
+
+  let scale = 1 + amp; // extra size to allow panning without black bars
+  let ox = 0, oy = 0; // offset of center from canvas center
+
+  const t = progress; // 0→1 over slide duration
+
+  switch(motionType) {
+    case 'zoom_out':
+      scale = (1 + amp) - amp * t; // zoom out: start zoomed in → normal
+      break;
+    case 'zoom_in':
+      scale = 1 + amp * t; // zoom in: start normal → zoomed in
+      break;
+    case 'pan_left': // image moves left (camera pans right)
+      ox = amp * bw * (0.5 - t); // start right-offset → move left
+      break;
+    case 'pan_right': // image moves right (camera pans left)
+      ox = amp * bw * (t - 0.5);
+      break;
+    case 'diagonal':
+      ox = amp * bw * (0.5 - t);
+      oy = amp * bh * (0.5 - t);
+      break;
+  }
+
+  const sw = bw * scale, sh = bh * scale;
+  const sx = (W - sw) / 2 + ox;
+  const sy = (H - sh) / 2 + oy;
+  return { sx, sy, sw, sh };
+}
+
+// ==========================================
+//  TABS
+// ==========================================
+function switchTab(btn, paneId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(paneId).classList.add('active');
+}
+
+// ==========================================
+//  BGM LIBRARY
+// ==========================================
+// 著作権フリーの代表的なジャンルをWebAudio APIで生成（外部依存なし）
+// 実際の楽曲はユーザーがファイル選択かサイトからダウンロードして使用
+const BGM_LIBRARY = [
+  { id:'piano1', name:'やさしいピアノ', meta:'感動系・式典向け', genre:'piano', desc:'穏やかなピアノメロディ' },
+  { id:'orch1',  name:'晴れやかなオーケストラ', meta:'卒業・祝典向け', genre:'orch', desc:'明るく華やかな弦楽' },
+  { id:'acoustic1', name:'アコースティックギター', meta:'温かみのある雰囲気', genre:'acoustic', desc:'心温まるギターサウンド' },
+  { id:'piano2', name:'星空のピアノ', meta:'静かで感動的', genre:'piano', desc:'静寂と感動のピアノ' },
+  { id:'pop1',   name:'さわやかポップ', meta:'元気・明るい場面向け', genre:'pop', desc:'前向きな明るいポップス' },
+  { id:'cinematic1', name:'シネマティック', meta:'映像演出・クライマックス向け', genre:'cinematic', desc:'壮大な映画音楽風' },
+];
+
+let bgmLibAudio = null; // currently previewing
+let bgmPreviewCtx = null;
+let selectedBgmId = null;
+
+function switchBgmTab(btn, paneId) {
+  document.querySelectorAll('.bgm-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.bgm-tab-pane').forEach(p=>p.style.display='none');
+  btn.classList.add('active');
+  document.getElementById(paneId).style.display='block';
+}
+
+function buildBgmLibList() {
+  const list = document.getElementById('bgmLibList');
+  list.innerHTML = '';
+  BGM_LIBRARY.forEach(bgm => {
+    const item = document.createElement('div');
+    item.className = 'bgm-item' + (selectedBgmId===bgm.id?' selected-bgm':'');
+    item.id = 'bgmItem_'+bgm.id;
+    item.innerHTML = `
+      <button class="bgm-play-btn" id="bgmPlayBtn_${bgm.id}" onclick="previewBgm('${bgm.id}',this)" title="試聴">▶</button>
+      <div class="bgm-info">
+        <div class="bgm-name">${bgm.name}</div>
+        <div class="bgm-meta">${bgm.meta}</div>
+      </div>
+      <button class="bgm-use-btn" onclick="selectLibBgm('${bgm.id}')">使用</button>`;
+    list.appendChild(item);
+  });
+  // WebAudio note
+  list.insertAdjacentHTML('beforeend',
+    `<div style="font-size:.68rem;color:#6A6060;margin-top:8px;line-height:1.6;">
+      ※ 内蔵BGMはWebAudioで生成したサンプル音です。本番には<br>
+      「フリー音楽サイト」タブからダウンロードしたファイルの使用を推奨します。
+    </div>`);
+}
+
+// WebAudio simple melody generator
+function generateBgm(genre, ctx, duration=30) {
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(0.18, ctx.currentTime);
+  masterGain.connect(ctx.destination);
+
+  const bpm = genre==='pop'?120:genre==='cinematic'?70:80;
+  const beat = 60/bpm;
+  const notes = {
+    piano1:    [261,294,330,349,392,440,494,523,494,440,392,349,330,294,261,294],
+    orch1:     [392,440,494,523,494,440,392,440,494,523,587,523,494,440,392,349],
+    acoustic1: [262,330,392,330,262,294,349,294,262,330,392,349,330,294,262,294],
+    piano2:    [523,494,440,392,349,330,294,262,294,330,349,392,440,494,523,494],
+    pop1:      [262,294,330,262,294,330,349,330,262,330,349,392,330,294,262,330],
+    cinematic1:[196,220,247,262,220,196,175,196,220,247,294,262,247,220,196,220],
+  }[genre] || [262,294,330,349,392];
+
+  const waveType = ['piano1','piano2','orch1'].includes(genre)?'sine':'triangle';
+  let t = ctx.currentTime + 0.1;
+  for (let rep=0; rep<Math.ceil(duration/((notes.length)*beat)); rep++) {
+    notes.forEach((freq,i)=>{
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = waveType; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.5,t+0.04);
+      g.gain.exponentialRampToValueAtTime(0.001,t+beat*0.9);
+      osc.connect(g); g.connect(masterGain);
+      osc.start(t); osc.stop(t+beat);
+      t+=beat;
+    });
+  }
+  return masterGain;
+}
+
+function previewBgm(id, btn) {
+  // Stop current preview
+  if (bgmPreviewCtx) { bgmPreviewCtx.close(); bgmPreviewCtx=null; }
+  document.querySelectorAll('.bgm-play-btn').forEach(b=>{ b.textContent='▶'; });
+  document.querySelectorAll('.bgm-item').forEach(el=>el.classList.remove('playing'));
+
+  const wasPlaying = btn.textContent==='⏹';
+  if (wasPlaying) return;
+
+  bgmPreviewCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const bgm = BGM_LIBRARY.find(b=>b.id===id);
+  generateBgm(bgm.genre, bgmPreviewCtx, 20);
+  btn.textContent='⏹';
+  document.getElementById('bgmItem_'+id).classList.add('playing');
+  setTimeout(()=>{
+    if(bgmPreviewCtx){bgmPreviewCtx.close();bgmPreviewCtx=null;}
+    btn.textContent='▶';
+    document.getElementById('bgmItem_'+id)?.classList.remove('playing');
+  }, 20000);
+}
+
+function selectLibBgm(id) {
+  if (bgmPreviewCtx) { bgmPreviewCtx.close(); bgmPreviewCtx=null; }
+  document.querySelectorAll('.bgm-play-btn').forEach(b=>b.textContent='▶');
+  document.querySelectorAll('.bgm-item').forEach(el=>el.classList.remove('playing','selected-bgm'));
+
+  selectedBgmId = id;
+  document.getElementById('bgmItem_'+id).classList.add('selected-bgm');
+  // Create offline render to Blob→objectURL for bgmAudio
+  const bgm = BGM_LIBRARY.find(b=>b.id===id);
+  const dur = 60;
+  const offCtx = new OfflineAudioContext(2, 44100*dur, 44100);
+  generateBgm(bgm.genre, offCtx, dur);
+  offCtx.startRendering().then(buf=>{
+    const wav = audioBufferToWav(buf);
+    const blob = new Blob([wav],{type:'audio/wav'});
+    const url  = URL.createObjectURL(blob);
+    const audio = document.getElementById('bgmAudio');
+    audio.src = url;
+    audio.volume = parseInt(document.getElementById('musicVol').value)/100;
+    document.getElementById('musicName').textContent = bgm.name + '（内蔵）';
+  });
+}
+
+// Minimal AudioBuffer→WAV converter
+function audioBufferToWav(buf) {
+  const nc=buf.numberOfChannels,sr=buf.sampleRate,len=buf.length;
+  const ab=new ArrayBuffer(44+len*nc*2),view=new DataView(ab);
+  const writeStr=(o,s)=>{for(let i=0;i<s.length;i++)view.setUint8(o+i,s.charCodeAt(i));};
+  writeStr(0,'RIFF');view.setUint32(4,36+len*nc*2,true);writeStr(8,'WAVE');
+  writeStr(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);
+  view.setUint16(22,nc,true);view.setUint32(24,sr,true);
+  view.setUint32(28,sr*nc*2,true);view.setUint16(32,nc*2,true);view.setUint16(34,16,true);
+  writeStr(36,'data');view.setUint32(40,len*nc*2,true);
+  let offset=44;
+  for(let i=0;i<len;i++){for(let c=0;c<nc;c++){
+    const s=Math.max(-1,Math.min(1,buf.getChannelData(c)[i]));
+    view.setInt16(offset,s<0?s*0x8000:s*0x7FFF,true);offset+=2;
+  }}
+  return ab;
+}
+
+buildBgmLibList();
+
+// ==========================================
+//  MUSIC FILE INPUT
+// ==========================================
+document.getElementById('musicInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedBgmId = null;
+  document.getElementById('musicName').textContent = file.name;
+  document.getElementById('bgmAudio').src = URL.createObjectURL(file);
+});
+
+// ==========================================
+//  TEXT POSITION
+// ==========================================
+// textPos: {x,y} in fraction 0..1 of stage (center of text block)
+let textPos = { x: 0.5, y: 0.5 };
+
+function initPosEditor() {
+  const stage = document.getElementById('posStage');
+  stage.innerHTML = '<div class="pos-bg-thumb" id="posBgThumb"></div>';
+
+  // Handle
+  const handle = document.createElement('div');
+  handle.className = 'pos-handle';
+  handle.id = 'posHandle';
+  handle.innerHTML = '<span>T</span><div class="pos-handle-label">テキスト</div>';
+  stage.appendChild(handle);
+  updateHandlePos();
+
+  // Update bg thumb from first photo
+  function refreshBg() {
+    const thumb = document.getElementById('posBgThumb');
+    if (photos.length > 0) thumb.style.backgroundImage = `url(${photos[0].dataUrl})`;
+    else thumb.style.backgroundImage = '';
+  }
+  refreshBg();
+
+  // Drag: mouse
+  handle.addEventListener('mousedown', e=>{
+    e.preventDefault();
+    const onMove = ev=>{ moveHandle(ev.clientX, ev.clientY, stage); };
+    const onUp   = ()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+  // Drag: touch
+  handle.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    const onMove = ev=>{ const t=ev.touches[0]; moveHandle(t.clientX,t.clientY,stage); };
+    const onEnd  = ()=>{ document.removeEventListener('touchmove',onMove); document.removeEventListener('touchend',onEnd); };
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('touchend',onEnd);
+  },{passive:false});
+  // Click on stage to move
+  stage.addEventListener('click', e=>{
+    if (e.target===handle||handle.contains(e.target)) return;
+    moveHandle(e.clientX,e.clientY,stage);
+  });
+}
+
+function moveHandle(cx,cy,stage) {
+  const r = stage.getBoundingClientRect();
+  textPos.x = Math.max(0.05, Math.min(0.95, (cx-r.left)/r.width));
+  textPos.y = Math.max(0.05, Math.min(0.95, (cy-r.top)/r.height));
+  updateHandlePos();
+}
+
+function updateHandlePos() {
+  const stage = document.getElementById('posStage');
+  const handle = document.getElementById('posHandle');
+  if (!stage||!handle) return;
+  handle.style.left = (textPos.x*100)+'%';
+  handle.style.top  = (textPos.y*100)+'%';
+}
+
+function snapPos(preset) {
+  const map = {
+    'top-left':{x:.15,y:.2},'top-center':{x:.5,y:.2},'top-right':{x:.85,y:.2},
+    'center':{x:.5,y:.5},
+    'bottom-left':{x:.15,y:.8},'bottom-center':{x:.5,y:.8},'bottom-right':{x:.85,y:.8},
+  };
+  if(map[preset]){ textPos={...map[preset]}; updateHandlePos(); }
+}
+
+// Init after DOM ready
+setTimeout(initPosEditor, 100);
+
+// ==========================================
+//  PHOTOS
+// ==========================================
+let photos = [];
+
+document.getElementById('photoInput').addEventListener('change', function(e) {
+  const files = Array.from(e.target.files);
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        photos.push({ dataUrl: ev.target.result, caption: '', imgEl: img });
+        loaded++;
+        if (loaded === files.length) { renderPhotoPrev(); updateCaptionEd(); checkReady(); }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+function renderPhotoPrev() {
+  const c = document.getElementById('photoPreview');
+  c.innerHTML = '';
+  photos.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'photo-thumb';
+    d.innerHTML = `<img src="${p.dataUrl}"><button class="rm" onclick="removePhoto(${i})">✕</button>`;
+    c.appendChild(d);
+  });
+  document.getElementById('slideCount').textContent = photos.length > 0 ? `${photos.length} 枚の写真` : '';
+}
+
+function removePhoto(i) {
+  photos.splice(i,1); renderPhotoPrev(); updateCaptionEd(); checkReady();
+}
+
+function updateCaptionEd() {
+  const c = document.getElementById('captionEditor');
+  c.innerHTML = photos.length > 0
+    ? `<div style="font-size:.75rem;color:#8A7A6A;letter-spacing:.08em;margin-bottom:12px;">各写真のキャプション（任意）</div>` : '';
+  photos.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;';
+    row.innerHTML = `
+      <img src="${p.dataUrl}" style="width:42px;height:42px;object-fit:cover;border-radius:5px;flex-shrink:0;">
+      <textarea placeholder="写真 ${i+1} のキャプション（例：2020年 入学式）" style="min-height:42px;font-size:.8rem;" oninput="photos[${i}].caption=this.value">${p.caption}</textarea>`;
+    c.appendChild(row);
+  });
+}
+
+function checkReady() {
+  const ok = photos.length > 0;
+  document.getElementById('startBtn').disabled = !ok;
+  document.getElementById('exportBtn').disabled = !ok;
+}
+
+// ==========================================
+//  HELPER: read design settings
+// ==========================================
+function getDesign() {
+  return {
+    fontMain:    document.getElementById('fontMain').value,
+    fontSub:     document.getElementById('fontSub').value,
+    fontWeight:  document.getElementById('fontWeight').value,
+    colorTitle:  document.getElementById('colorTitle').value,
+    colorCaption:document.getElementById('colorCaption').value,
+    colorAccent: document.getElementById('colorAccent').value,
+    overlay:     parseInt(document.getElementById('overlayOpacity').value) / 100,
+    sizeTitleMain: parseInt(document.getElementById('sizeTitleMain').value),
+    sizeSub:       parseInt(document.getElementById('sizeSub').value),
+    sizeCaption:   parseInt(document.getElementById('sizeCaption').value),
+    sizeClosing:   parseInt(document.getElementById('sizeClosing').value),
+    theme:         selectedTheme,
+    motion:        selectedMotion,
+    motionStrength: parseInt(document.getElementById('motionStrength').value),
+  };
+}
+
+// ==========================================
+//  SLIDESHOW PLAYER
+// ==========================================
+let currentSlide = 0, timer = null, isPaused = false, slideInterval = 6000;
+
+function startSlideshow() {
+  slideInterval = parseInt(document.getElementById('slideInterval').value) * 1000;
+  const d = getDesign();
+  buildSlidesDOM(d);
+  document.getElementById('editor').style.display = 'none';
+  document.getElementById('slideshow').style.display = 'block';
+  const audio = document.getElementById('bgmAudio');
+  audio.volume = parseInt(document.getElementById('musicVol').value) / 100;
+  if (audio.src) audio.play().catch(()=>{});
+  currentSlide = 0; showSlide(0); scheduleNext();
+}
+
+function buildSlidesDOM(d) {
+  const c = document.getElementById('slidesContainer');
+  c.innerHTML = '';
+  const mainTitle = document.getElementById('mainTitle').value || 'SlideMovie';
+  const subTitle  = document.getElementById('subTitle').value  || '';
+  const closingMsg= document.getElementById('closingMsg').value|| '';
+  const W = window.innerWidth, H = window.innerHeight;
+  // Ratio to scale font sizes (reference is 1920px wide)
+  const scale = Math.min(W/1920, H/1080);
+
+  function makeSlide(inner, isTitleType) {
+    const s = document.createElement('div');
+    s.className = 'slide' + (isTitleType ? ' title-bg-slide' : '');
+    if (isTitleType) {
+      if (d.theme.id === 'custom' && customBgDataUrl) {
+        s.style.cssText = `background:url(${customBgDataUrl}) center/cover;`;
+        // Add dark overlay child
+        const ov = document.createElement('div');
+        ov.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.48);z-index:0;';
+        s.appendChild(ov);
+      } else {
+        s.style.cssText = `background:${d.theme.css};`;
+      }
+    }
+    s.innerHTML = inner;
+    c.appendChild(s);
+    return s;
+  }
+
+  const titleFontSize = Math.round(d.sizeTitleMain * scale) + 'px';
+  const subFontSize   = Math.round(d.sizeSub * scale) + 'px';
+  const captionFontSize = Math.round(d.sizeCaption * scale) + 'px';
+  const closingFontSize = Math.round(d.sizeClosing * scale) + 'px';
+
+  // textPos → CSS left/top + transform to control block position
+  const tx = (textPos.x * 100).toFixed(1) + '%';
+  const ty = (textPos.y * 100).toFixed(1) + '%';
+  const posStyle = `position:absolute;left:${tx};top:${ty};transform:translate(-50%,-50%);max-width:85%;`;
+
+  // Opening
+  makeSlide(`
+    <div class="firework" id="firework"></div>
+    <div class="slide-content" style="${posStyle}text-align:center;">
+      <div class="slide-ornament" style="color:${d.colorAccent};font-family:${d.fontMain};font-size:${Math.round(d.sizeSub*scale*.7)}px;">✦ ✦ ✦</div>
+      <div class="slide-main-text" style="font-family:${d.fontMain};font-weight:${d.fontWeight};font-size:${titleFontSize};color:${d.colorTitle};">${mainTitle}</div>
+      <div class="slide-caption" style="font-family:${d.fontSub};font-size:${subFontSize};color:${d.colorAccent};">${subTitle}</div>
+    </div>`, true);
+
+  // Photo slides
+  photos.forEach((p, i) => {
+    // Determine actual motion for this slide (random picks from list)
+    const MOTION_LIST = ['zoom_out','zoom_in','pan_left','pan_right','diagonal'];
+    const actualMotion = d.motion === 'random'
+      ? MOTION_LIST[i % MOTION_LIST.length]
+      : d.motion;
+    const strengthCss = {1:'scale(1.04)',2:'scale(1.08)',3:'scale(1.14)'}[d.motionStrength] || 'scale(1.08)';
+    const s = makeSlide(`
+      <div class="slide-bg motion-${actualMotion}" style="background-image:url('${p.dataUrl}');filter:brightness(${1-d.overlay});"></div>
+      <div class="slide-content" style="${posStyle}text-align:center;">
+        <div class="slide-ornament" style="color:${d.colorAccent};font-family:${d.fontSub};font-size:${Math.round(d.sizeSub*scale*.55)}px;">— ${i+1} —</div>
+        ${p.caption ? `<div class="slide-caption" style="font-family:${d.fontSub};font-weight:${d.fontWeight};font-size:${captionFontSize};color:${d.colorCaption};">${p.caption.replace(/\n/g,'<br>')}</div>` : ''}
+      </div>`, false);
+  });
+
+  // Closing
+  makeSlide(`
+    <div class="slide-content" style="${posStyle}text-align:center;">
+      <div class="slide-ornament" style="color:${d.colorAccent};font-family:${d.fontMain};font-size:${Math.round(d.sizeSub*scale*.7)}px;">✦</div>
+      <div class="slide-main-text" style="font-family:${d.fontSub};font-weight:${d.fontWeight};font-size:${closingFontSize};color:${d.colorTitle};">${closingMsg.replace(/\n/g,'<br>')}</div>
+      <button class="end-btn" onclick="exitSlideshow()">編集に戻る</button>
+    </div>`, true);
+}
+
+function showSlide(idx) {
+  const slides = document.querySelectorAll('.slide');
+  slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+  document.getElementById('slideCounter').textContent = `${idx+1} / ${slides.length}`;
+  if (idx === 0) setTimeout(createFirework, 700);
+}
+
+function createFirework() {
+  const fw = document.getElementById('firework');
+  if (!fw) return;
+  const accent = document.getElementById('colorAccent').value;
+  const colors = [accent, '#FFFFFF', '#E8D4A0', '#FFF8E8'];
+  for (let b = 0; b < 3; b++) {
+    setTimeout(() => {
+      const cx = 25 + Math.random()*50, cy = 15 + Math.random()*45;
+      for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const angle = (i/20)*360, dist = 80+Math.random()*100, rad = angle*Math.PI/180;
+        p.style.cssText = `left:${cx}%;top:${cy}%;background:${colors[i%colors.length]};--dx:${Math.cos(rad)*dist}px;--dy:${Math.sin(rad)*dist}px;animation-delay:${Math.random()*.3}s;animation-duration:${1.5+Math.random()}s;width:${2+Math.random()*3}px;height:${2+Math.random()*3}px;`;
+        fw.appendChild(p);
+        setTimeout(() => p.remove(), 3000);
+      }
+    }, b*600);
+  }
+}
+
+function scheduleNext() {
+  if (timer) clearTimeout(timer);
+  const pb = document.getElementById('progressBar');
+  pb.style.transition = 'none'; pb.style.width = '0%';
+  requestAnimationFrame(() => {
+    pb.style.transition = `width ${slideInterval}ms linear`;
+    pb.style.width = '100%';
+  });
+  timer = setTimeout(() => { if (!isPaused) nextSlide(); }, slideInterval);
+}
+
+function nextSlide() {
+  const slides = document.querySelectorAll('.slide');
+  if (currentSlide < slides.length-1) {
+    currentSlide++; showSlide(currentSlide);
+    if (currentSlide < slides.length-1) scheduleNext();
+  }
+}
+function prevSlide() {
+  if (currentSlide > 0) { currentSlide--; showSlide(currentSlide); scheduleNext(); }
+}
+function togglePause() {
+  isPaused = !isPaused;
+  const btn = document.getElementById('pauseBtn');
+  const audio = document.getElementById('bgmAudio');
+  if (isPaused) { btn.textContent = '▶ 再開'; if (timer) clearTimeout(timer); audio.pause(); }
+  else { btn.textContent = '⏸ 一時停止'; audio.play().catch(()=>{}); scheduleNext(); }
+}
+function exitSlideshow() {
+  if (timer) clearTimeout(timer);
+  document.getElementById('bgmAudio').pause();
+  isPaused = false;
+  document.getElementById('pauseBtn').textContent = '⏸ 一時停止';
+  document.getElementById('slideshow').style.display = 'none';
+  document.getElementById('editor').style.display = 'flex';
+}
+
+// ==========================================
+//  VIDEO EXPORT
+// ==========================================
+let exportCancelled = false;
+
+function openExportModal() {
+  exportCancelled = false;
+  document.getElementById('exportModal').classList.add('open');
+  document.getElementById('modalTitle').textContent = '動画として書き出し';
+  document.getElementById('modalNote').style.display = 'block';
+  document.getElementById('progressTrack').style.display = 'none';
+  document.getElementById('progressLbl').textContent = '';
+  document.getElementById('modalGoBtn').disabled = false;
+  document.getElementById('modalGoBtn').textContent = '書き出し開始';
+  document.getElementById('cancelBtn').textContent = 'キャンセル';
+  document.getElementById('cancelBtn').onclick = cancelExport;
+}
+function cancelExport() {
+  exportCancelled = true;
+  document.getElementById('exportModal').classList.remove('open');
+}
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLbl').textContent = label;
+}
+
+async function startExport() {
+  exportCancelled = false;
+  const [W, H] = document.getElementById('exportRes').value.split('x').map(Number);
+  const durSec = parseInt(document.getElementById('slideInterval').value);
+  const FPS = 25;
+  const fadeDur = 1.0;
+  const d = getDesign();
+
+  const mainTitle = document.getElementById('mainTitle').value || 'SlideMovie';
+  const subTitle  = document.getElementById('subTitle').value  || '';
+  const closingMsg= document.getElementById('closingMsg').value|| '';
+
+  const slides = [
+    { type:'title',   title:mainTitle, sub:subTitle },
+    ...photos.map((p,i) => ({ type:'photo', img:p.imgEl, caption:p.caption, num:i+1 })),
+    { type:'closing', msg:closingMsg }
+  ];
+
+  const canvas = document.getElementById('exportCanvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  if (typeof MediaRecorder === 'undefined') {
+    alert('このブラウザは動画書き出しに対応していません。ChromeまたはEdgeをお使いください。');
+    return;
+  }
+  let mimeType = 'video/webm;codecs=vp9';
+  if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+  if (!MediaRecorder.isTypeSupported(mimeType)) {
+    alert('このブラウザは動画書き出しに対応していません。');
+    return;
+  }
+
+  document.getElementById('modalNote').style.display = 'none';
+  document.getElementById('progressTrack').style.display = 'block';
+  document.getElementById('progressLbl').textContent = '準備中...';
+  document.getElementById('modalGoBtn').disabled = true;
+  document.getElementById('modalGoBtn').textContent = '書き出し中...';
+  document.getElementById('cancelBtn').textContent = '中止';
+
+  const stream = canvas.captureStream(FPS);
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = () => {
+    if (exportCancelled) return;
+    const blob = new Blob(chunks, { type: mimeType });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = (document.getElementById('mainTitle').value || 'slidemovie') + '.webm';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setProgress(100, '✅ 書き出し完了！ダウンロードが開始されました。');
+    document.getElementById('cancelBtn').textContent = '閉じる';
+    document.getElementById('cancelBtn').onclick = () => {
+      document.getElementById('exportModal').classList.remove('open');
+      document.getElementById('cancelBtn').onclick = cancelExport;
+      document.getElementById('modalGoBtn').style.display = '';
+    };
+    document.getElementById('modalGoBtn').style.display = 'none';
+  };
+
+  recorder.start(100);
+  const totalFrames = slides.length * durSec * FPS;
+
+  for (let si = 0; si < slides.length; si++) {
+    if (exportCancelled) { recorder.stop(); return; }
+    const slide = slides[si];
+    for (let f = 0; f < durSec * FPS; f++) {
+      if (exportCancelled) { recorder.stop(); return; }
+      const t = f / FPS;
+      let alpha = 1;
+      if (t < fadeDur) alpha = t / fadeDur;
+      if (t > durSec - fadeDur) alpha = (durSec - t) / fadeDur;
+      alpha = Math.max(0, Math.min(1, alpha));
+      drawExportFrame(ctx, W, H, slide, f / (durSec*FPS), alpha, d);
+      if (f % 4 === 0) {
+        const pct = Math.round(((si*durSec*FPS + f) / totalFrames) * 100);
+        setProgress(pct, `書き出し中... ${si+1}/${slides.length} スライド目 (${pct}%)`);
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+  recorder.stop();
+}
+
+// Sparkle seeds for title slides
+const sparkles = Array.from({length:30}, () => ({
+  x:Math.random(), y:Math.random(), r:1+Math.random()*2.2, phase:Math.random()*Math.PI*2, speed:2+Math.random()*4
+}));
+
+function drawExportFrame(ctx, W, H, slide, progress, alpha, d) {
+  ctx.clearRect(0, 0, W, H);
+
+  if (slide.type === 'photo') {
+    // Photo with selected motion effect
+    const img = slide.img;
+    if (img) {
+      const MOTION_LIST = ['zoom_out','zoom_in','pan_left','pan_right','diagonal'];
+      const actualMotion = d.motion === 'random'
+        ? MOTION_LIST[slide.num % MOTION_LIST.length]
+        : d.motion;
+      const { sx, sy, sw, sh } = getMotionTransform(
+        actualMotion, progress, W, H,
+        img.naturalWidth, img.naturalHeight, d.motionStrength
+      );
+      ctx.save(); ctx.globalAlpha = (1-d.overlay) * alpha;
+      ctx.drawImage(img, sx, sy, sw, sh);
+      ctx.restore();
+    }
+    // Vignette
+    ctx.save(); ctx.globalAlpha = alpha;
+    const vg = ctx.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,H*.85);
+    vg.addColorStop(0,'rgba(0,0,0,.05)'); vg.addColorStop(1,'rgba(0,0,0,.55)');
+    ctx.fillStyle = vg; ctx.fillRect(0,0,W,H); ctx.restore();
+
+    // Ornament number
+    if (alpha > .1) {
+      const oa = Math.min(1,(alpha-.1)/.4) * .82;
+      const cx = W * textPos.x, cy = H * textPos.y;
+      ctx.save(); ctx.globalAlpha = oa; ctx.fillStyle = d.colorAccent;
+      ctx.font = `${d.fontWeight} ${Math.round(d.sizeSub*.45)}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`— ${slide.num} —`, cx, cy - d.sizeCaption * 0.8);
+      ctx.restore();
+    }
+    // Caption
+    if (slide.caption && alpha > .25) {
+      const ca = Math.min(1,(alpha-.25)/.4);
+      const fs = d.sizeCaption;
+      const cx = W * textPos.x, cy = H * textPos.y;
+      ctx.save(); ctx.globalAlpha = ca*.92; ctx.fillStyle = d.colorCaption;
+      ctx.font = `${d.fontWeight} ${fs}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 18;
+      const lines = slide.caption.split('\n');
+      const lh = fs * 1.85;
+      lines.forEach((ln, li) => { ctx.fillText(ln, cx, cy+(li-(lines.length-1)/2)*lh); });
+      ctx.restore();
+    }
+
+  } else {
+    // Title / closing background from theme
+    ctx.save();
+    const bgFn = d.theme.bg;
+    const bgVal = bgFn(W, H, ctx);
+    if (bgVal !== null) {
+      ctx.fillStyle = bgVal;
+      ctx.fillRect(0,0,W,H);
+    }
+    ctx.restore();
+    // Dark overlay for custom image bg to keep text readable
+    if (d.theme.id === 'custom' && customBgImg) {
+      ctx.save();
+      ctx.globalAlpha = 0.48;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,W,H);
+      ctx.restore();
+    }
+
+    // Sparkles (title slide)
+    if (slide.type === 'title') {
+      ctx.save();
+      sparkles.forEach(s => {
+        const tw = .35 + .65*Math.abs(Math.sin(progress*s.speed*Math.PI+s.phase));
+        ctx.globalAlpha = alpha * tw * .5;
+        ctx.fillStyle = d.colorAccent;
+        ctx.beginPath(); ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2); ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    // Horizontal decorative lines
+    const la = Math.min(1, alpha*2) * .5;
+    [[.355,'top'],[.665,'bottom']].forEach(([yF]) => {
+      ctx.save(); ctx.globalAlpha = la;
+      const lg = ctx.createLinearGradient(W*.25,0,W*.75,0);
+      lg.addColorStop(0,'transparent'); lg.addColorStop(.5,d.colorAccent); lg.addColorStop(1,'transparent');
+      ctx.strokeStyle = lg; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(W*.25,H*yF); ctx.lineTo(W*.75,H*yF); ctx.stroke();
+      ctx.restore();
+    });
+
+    // Ornament
+    if (alpha > .1) {
+      const oa = Math.min(1, alpha*2) * .8;
+      const isLight = d.theme.id === 'white';
+      ctx.save(); ctx.globalAlpha = oa; ctx.fillStyle = d.colorAccent;
+      ctx.font = `${Math.round(d.sizeSub*.4)}px serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(slide.type === 'title' ? '✦  ✦  ✦' : '✦', W/2, H*.345);
+      ctx.restore();
+    }
+
+    // Main text (use textPos)
+    const ta = Math.min(1, Math.max(0,(alpha-.08)/.55));
+    const tcx = W * textPos.x, tcy = H * textPos.y;
+    if (ta > 0) {
+      const text = slide.type === 'title' ? slide.title : slide.msg;
+      const lines = text.split('\n');
+      const fs = slide.type === 'closing' ? d.sizeClosing : d.sizeTitleMain;
+      ctx.save(); ctx.globalAlpha = ta; ctx.fillStyle = d.colorTitle;
+      ctx.font = `${d.fontWeight} ${fs}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,.85)'; ctx.shadowBlur = 24;
+      const lh = fs * 1.65;
+      lines.forEach((ln, li) => { ctx.fillText(ln, tcx, tcy+(li-(lines.length-1)/2)*lh); });
+      ctx.restore();
+    }
+
+    // Subtitle (title slide only)
+    if (slide.type === 'title' && slide.sub && ta > .35) {
+      const sa = Math.min(1,(ta-.35)/.4) * .88;
+      const subOffset = d.sizeTitleMain * 0.9;
+      ctx.save(); ctx.globalAlpha = sa; ctx.fillStyle = d.colorAccent;
+      ctx.font = `${d.fontWeight} ${d.sizeSub}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(slide.sub, tcx, tcy + subOffset);
+      ctx.restore();
+    }
+  }
+}
+</script>
+</body>
+</html>
