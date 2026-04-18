@@ -224,6 +224,7 @@ input[type="color"] {
 .tab-btn.active { color:var(--gold-light); border-bottom-color:var(--gold); }
 .tab-pane { display:none; }
 .tab-pane.active { display:block; }
+.bgm-tab-pane { /* display controlled by JS (inline style) */ }
 
 /* ===== SLIDESHOW ===== */
 #slideshow { display:none; position:fixed; inset:0; background:#000; z-index:100; }
@@ -1007,8 +1008,6 @@ function selectMotion(id, el) {
   selectedMotion = id;
 }
 
-const MOTION_TYPES = ['zoom_out','zoom_in','pan_left','pan_right','diagonal'];
-
 // Compute image draw params for a given motion type at progress 0..1
 function getMotionTransform(motionType, progress, W, H, imgW, imgH, strength) {
   // strength: 1=控えめ, 2=標準, 3=ダイナミック
@@ -1074,12 +1073,19 @@ function switchBgmTab(btn, paneId) {
 // ==========================================
 //  MUSIC FILE INPUT
 // ==========================================
+let selectedBgmId = null;
+
 document.getElementById('musicInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
   selectedBgmId = null;
-  document.getElementById('musicName').textContent = file.name;
-  document.getElementById('bgmAudio').src = URL.createObjectURL(file);
+  const nameEl = document.getElementById('musicName');
+  if (nameEl) nameEl.textContent = file.name;
+  const audio = document.getElementById('bgmAudio');
+  if (audio) {
+    audio.src = URL.createObjectURL(file);
+    audio.load();
+  }
 });
 
 // ==========================================
@@ -1110,7 +1116,7 @@ function initPosEditor() {
 
   // Drag: mouse
   handle.addEventListener('mousedown', e=>{
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     const onMove = ev=>{ moveHandle(ev.clientX, ev.clientY, stage); };
     const onUp   = ()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
     document.addEventListener('mousemove',onMove);
@@ -1118,7 +1124,7 @@ function initPosEditor() {
   });
   // Drag: touch
   handle.addEventListener('touchstart', e=>{
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     const onMove = ev=>{ const t=ev.touches[0]; moveHandle(t.clientX,t.clientY,stage); };
     const onEnd  = ()=>{ document.removeEventListener('touchmove',onMove); document.removeEventListener('touchend',onEnd); };
     document.addEventListener('touchmove',onMove,{passive:false});
@@ -1191,6 +1197,9 @@ function renderPhotoPrev() {
     c.appendChild(d);
   });
   document.getElementById('slideCount').textContent = photos.length > 0 ? `${photos.length} 枚の写真` : '';
+  // テキスト位置エディタのサムネイル更新
+  const thumb = document.getElementById('posBgThumb');
+  if (thumb) thumb.style.backgroundImage = photos.length > 0 ? `url(${photos[0].dataUrl})` : '';
 }
 
 function removePhoto(i) {
@@ -1252,7 +1261,7 @@ function startSlideshow() {
   document.getElementById('slideshow').style.display = 'block';
   const audio = document.getElementById('bgmAudio');
   audio.volume = parseInt(document.getElementById('musicVol').value) / 100;
-  if (audio.src) audio.play().catch(()=>{});
+  if (audio.src && audio.src !== window.location.href) audio.play().catch(()=>{});
   currentSlide = 0; showSlide(0); scheduleNext();
 }
 
@@ -1377,7 +1386,13 @@ function nextSlide() {
   const slides = document.querySelectorAll('.slide');
   if (currentSlide < slides.length-1) {
     currentSlide++; showSlide(currentSlide);
-    if (currentSlide < slides.length-1) scheduleNext();
+    if (currentSlide < slides.length-1) {
+      scheduleNext();
+    } else {
+      // 最終スライド：プログレスバーを止める
+      const pb = document.getElementById('progressBar');
+      pb.style.transition = 'none'; pb.style.width = '0%';
+    }
   }
 }
 function prevSlide() {
@@ -1388,13 +1403,17 @@ function togglePause() {
   const btn = document.getElementById('pauseBtn');
   const audio = document.getElementById('bgmAudio');
   if (isPaused) { btn.textContent = '▶ 再開'; if (timer) clearTimeout(timer); audio.pause(); }
-  else { btn.textContent = '⏸ 一時停止'; audio.play().catch(()=>{}); scheduleNext(); }
+  else { btn.textContent = '⏸ 一時停止'; if (audio.src && audio.src !== window.location.href) audio.play().catch(()=>{}); scheduleNext(); }
 }
 function exitSlideshow() {
   if (timer) clearTimeout(timer);
+  timer = null;
   document.getElementById('bgmAudio').pause();
   isPaused = false;
   document.getElementById('pauseBtn').textContent = '⏸ 一時停止';
+  // プログレスバーをリセット
+  const pb = document.getElementById('progressBar');
+  pb.style.transition = 'none'; pb.style.width = '0%';
   document.getElementById('slideshow').style.display = 'none';
   document.getElementById('editor').style.display = 'flex';
 }
@@ -1611,7 +1630,6 @@ function drawExportFrame(ctx, W, H, slide, progress, alpha, d) {
     // Ornament
     if (alpha > .1) {
       const oa = Math.min(1, alpha*2) * .8;
-      const isLight = d.theme.id === 'white';
       ctx.save(); ctx.globalAlpha = oa; ctx.fillStyle = d.colorAccent;
       ctx.font = `${Math.round(d.sizeSub*.4)}px serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
