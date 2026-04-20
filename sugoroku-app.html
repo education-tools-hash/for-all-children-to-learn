@@ -96,8 +96,13 @@ body{font-family:var(--font);font-size:var(--fs);background:#120a02;color:var(--
 #setup{
   position:fixed;inset:0;z-index:500;
   background:linear-gradient(150deg,#2a1504,#0d1a05);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:16px;overflow-y:auto;gap:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:20px 16px 32px;overflow-y:auto;gap:12px;
+  -webkit-overflow-scrolling:touch;
+}
+/* PCなど縦に余裕があるときはセンタリング */
+@media(min-height:700px){
+  #setup{justify-content:center;}
 }
 .s-title{font-family:var(--font-d);font-size:clamp(1.8rem,8vw,3.5rem);color:var(--gold);text-align:center;text-shadow:0 0 28px rgba(240,192,64,.5),3px 3px 0 rgba(0,0,0,.4);}
 .s-sub{color:rgba(255,255,255,.5);font-size:.8rem;font-weight:700;text-align:center;}
@@ -559,6 +564,7 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
   <button class="edit-cells-btn" id="open-cell-editor-btn">✏️ マス目をカスタマイズする</button>
   <button class="edit-cells-btn" id="setup-help-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">❓ マス目のかいせつをみる</button>
   <button class="edit-cells-btn" id="setup-set-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">⚙️ せってい</button>
+  <button class="edit-cells-btn" id="fs-btn" style="border-color:rgba(93,191,106,.4);color:#5dbf6a;">⛶ 全画面で表示する</button>
   <button class="go-btn" id="gobtn">▶ ゲームスタート！</button>
 </div>
 
@@ -1547,6 +1553,26 @@ document.getElementById('setup-set-btn').addEventListener('click',()=>{
   document.getElementById('setpanel').classList.add('on');
   speak('せってい');bip(440,.07,.15);
 });
+// 全画面ボタン
+(function(){
+  const fsBtn=document.getElementById('fs-btn');
+  function updateFsBtn(){
+    const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+    fsBtn.textContent=isFs?'✕ 全画面をやめる':'⛶ 全画面で表示する';
+    fsBtn.style.color=isFs?'rgba(255,255,255,.5)':'#5dbf6a';
+  }
+  fsBtn.addEventListener('click',()=>{
+    if(document.fullscreenElement||document.webkitFullscreenElement){
+      (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+    } else {
+      const el=document.documentElement;
+      (el.requestFullscreen||el.webkitRequestFullscreen).call(el);
+    }
+    bip(440,.07,.15);
+  });
+  document.addEventListener('fullscreenchange',updateFsBtn);
+  document.addEventListener('webkitfullscreenchange',updateFsBtn);
+})();
 document.getElementById('helpclose').addEventListener('click',()=>{
   document.getElementById('helpmod').style.display='none';
   bip(440,.07,.15);
