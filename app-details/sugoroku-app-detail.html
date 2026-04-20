@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>すごろく | すべての子どもの学びのためのデジタル教材</title>
+<meta name="description" content="さいころをふって順番を守りながらゴールを目指すすごろくゲームです。1〜10人でプレイでき、CPU対戦も搭載。オンラインモードにより、別々の端末にいる子ども同士がリアルタイムで対戦できます。">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+  :root {
+    --c-bg: #fdf8f2;
+    --c-surface: #ffffff;
+    --c-primary: #e05c5c;
+    --c-primary-light: #e05c5c22;
+    --c-accent: #4a9e8a;
+    --c-accent-light: #d6f0ea;
+    --c-text: #2d2417;
+    --c-muted: #7a6a58;
+    --c-border: #e8ddd0;
+    --c-tag-bg: #f5efe8;
+    --radius: 16px;
+    --shadow: 0 4px 24px rgba(45,36,23,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--c-bg);
+    color: var(--c-text);
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  .site-nav {
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--c-muted);
+    flex-wrap: wrap;
+  }
+  .site-nav a { color: var(--c-primary); text-decoration: none; font-weight: 500; }
+  .site-nav a:hover { text-decoration: underline; }
+  .site-nav .sep { color: var(--c-border); }
+
+  .hero {
+    background: linear-gradient(135deg, #fff8f2 0%, var(--c-primary-light) 50%, #fff3e8 100%);
+    border-bottom: 1px solid var(--c-border);
+    padding: 48px 24px 40px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .app-icon {
+    width: 88px; height: 88px;
+    border-radius: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 32px #e05c5c55;
+    position: relative;
+    background:#e05c5c;font-size:44px;
+  }
+  .hero h1 {
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: clamp(22px, 5vw, 34px);
+    font-weight: 900;
+    color: var(--c-text);
+    margin-bottom: 8px;
+  }
+  .hero-sub {
+    font-size: 15px;
+    color: var(--c-muted);
+    margin-bottom: 20px;
+  }
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 32px;
+  }
+  .tag {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    color: var(--c-muted);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+  .tag.green { background: var(--c-accent-light); border-color: var(--c-accent); color: #2d6b5e; }
+
+  .launch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--c-primary);
+    color: white;
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 18px 40px;
+    border-radius: 999px;
+    text-decoration: none;
+    box-shadow: 0 6px 24px #e05c5c55;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .launch-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 32px #e05c5c77;
+  }
+  .launch-note {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--c-muted);
+  }
+
+  .content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+  }
+
+  .card-title {
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--c-text);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .summary-text {
+    font-size: 15px;
+    line-height: 1.9;
+  }
+
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .feature-item {
+    background: var(--c-tag-bg);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .fi-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .fi-text { line-height: 1.5; }
+
+  .steps { display: flex; flex-direction: column; }
+  .step {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--c-border);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 32px; height: 32px;
+    background: var(--c-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Zen Maru Gothic', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-label { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  .step-desc { font-size: 13px; color: var(--c-muted); line-height: 1.6; }
+
+  .lesson-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .lesson-table th {
+    background: var(--c-tag-bg);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--c-muted);
+    font-size: 12px;
+    border: 1px solid var(--c-border);
+    width: 90px;
+    white-space: nowrap;
+  }
+  .lesson-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--c-border);
+    line-height: 1.7;
+  }
+
+  .a11y-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .a11y-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--c-accent-light);
+    border: 1px solid var(--c-accent);
+    color: #2d6b5e;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 999px;
+  }
+
+  .caution {
+    background: #fffbea;
+    border-left: 4px solid #f0c040;
+    border-radius: 0 12px 12px 0;
+    padding: 16px 20px;
+    font-size: 14px;
+    color: #5a4a10;
+    line-height: 1.8;
+  }
+
+  .bottom-launch {
+    text-align: center;
+    padding: 40px 20px;
+    background: linear-gradient(135deg, #fff8f2, var(--c-primary-light));
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+  }
+  .bottom-launch p { font-size: 15px; color: var(--c-muted); margin-bottom: 20px; }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--c-muted);
+    font-size: 14px;
+    text-decoration: none;
+    margin-top: 16px;
+  }
+  .back-link:hover { color: var(--c-primary); }
+
+  @media (max-width: 600px) {
+    .hero { padding: 36px 16px 32px; }
+    .content { padding: 24px 16px 60px; }
+    .card { padding: 20px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .launch-btn { font-size: 18px; padding: 16px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="../index.html">🏠 トップ</a>
+  <span class="sep">›</span>
+  <a href="../app-intro.html">📱 アプリ一覧</a>
+  <span class="sep">›</span>
+  <span>すごろく</span>
+</nav>
+
+<section class="hero">
+  <div class="app-icon">🎲</div>
+  <h1>すごろく</h1>
+  <p class="hero-sub">認知支援 ／ ゲーム・オンライン対戦</p>
+  <div class="tag-row">
+    
+    <span class="tag green">🔘 スイッチスキャン対応</span>
+    <span class="tag green">🔊 音声よみあげ対応</span>
+    <span class="tag green">📱 iPad対応</span>
+    <span class="tag green">🌐 オンライン対戦対応</span>
+    <span class="tag">🆓 完全無料</span>
+    <span class="tag">📲 インストール不要</span>
+  </div>
+  <a href="../sugoroku-app.html" class="launch-btn">▶ アプリをひらく →</a>
+  <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>
+</section>
+
+<main class="content">
+
+  <div class="card">
+    <h2 class="card-title">📌 概要・ねらい</h2>
+    <p class="summary-text">さいころをふって順番を守りながらゴールを目指すすごろくゲームです。1〜10人でプレイでき、CPU対戦も搭載。オンラインモードにより、別々の端末にいる子ども同士がリアルタイムで対戦できます。</p>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">🔧 主な機能</h2>
+    <div class="feature-grid">
+      <div class="feature-item">
+        <span class="fi-icon">🌐</span>
+        <span class="fi-text"><strong>オンライン対戦モード</strong><br>4桁のルームコードで別端末の子どもと接続、リアルタイム同期</span>
+      </div>
+      <div class="feature-item">
+        <span class="fi-icon">👥</span>
+        <span class="fi-text"><strong>マルチプレイ</strong><br>1〜10人での対応（同じ端末で順番にプレイ）</span>
+      </div>
+      <div class="feature-item">
+        <span class="fi-icon">🤖</span>
+        <span class="fi-text"><strong>CPU対戦</strong><br>CPU対戦機能（最大4台）、プレイ時間選択（15・30・45分）</span>
+      </div>
+      <div class="feature-item">
+        <span class="fi-icon">🎨</span>
+        <span class="fi-text"><strong>カスタマイズ</strong><br>マス目カスタマイズ機能、豊富なイベントマス（30種類以上）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">💡 おすすめの使い方</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-label">2人から始める</div>
+          <div class="step-desc">まず教師と子どもの2人で短時間のゲームから始める。プレイ時間は「15分」から。</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-label">ルールを確認する</div>
+          <div class="step-desc">ルールが理解できたら小集団でのプレイへ。</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-label">🌐 オンライン対戦</div>
+          <div class="step-desc">ホスト役の端末でルームを作成→4桁のコードを参加者と共有→接続してプレイ。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">🏫 授業での活用</h2>
+    <table class="lesson-table">
+      <tr><th>対象</th><td>ルール理解・順番を守ることを学んでいる子ども、集団活動への参加を目指す子ども</td></tr>
+      <tr><th>ねらい</th><td>ルールに沿ってゲームに参加し、順番・数の概念・勝敗の受け入れ方を身につける</td></tr>
+      <tr><th>使い方</th><td>まず2人（教師と子ども）で短時間のゲームから始める→ルールが理解できたら小集団でのプレイへ</td></tr>
+      <tr><th>工夫</th><td>プレイ時間は「15分」から始めて負担を減らす</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">♿ アクセシビリティ</h2>
+    <div class="a11y-grid">
+      <span class="a11y-badge">🔘 スイッチスキャン対応</span>
+      <span class="a11y-badge">🔊 音声よみあげ対応</span>
+      <span class="a11y-badge">⬛ ハイコントラスト対応</span>
+      <span class="a11y-badge">🌐 オンライン対戦対応</span>
+      <span class="a11y-badge">📱 iPad対応</span>
+    </div>
+  </div>
+
+  <div class="caution">
+    ⚠️ <strong>使用上の留意点</strong><br>オンライン対戦はインターネット接続が必要です。学校のWi-Fi環境で動作確認の上ご使用ください。
+  </div>
+
+  <div class="bottom-launch">
+    <p>アプリの内容を確認したら、さっそく使ってみましょう！</p>
+    <a href="../sugoroku-app.html" class="launch-btn">▶ アプリをひらく →</a>
+    <br>
+    <a href="../app-intro.html" class="back-link">← アプリ一覧にもどる</a>
+  </div>
+
+</main>
+</body>
+</html>
