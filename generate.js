@@ -1,11 +1,24 @@
+// variation selector（U+FE00-FE0F）を除去してNode.jsのJSON.parseエラーを防ぐ
+function clean(str) {
+  if (typeof str !== 'string') return str;
+  return str.split('').filter(c => {
+    const cp = c.codePointAt(0);
+    return !(cp >= 0xFE00 && cp <= 0xFE0F);
+  }).join('');
+}
+
 const fs   = require('fs');
 const path = require('path');
 
-const apps   = JSON.parse(fs.readFileSync('./apps-data.json', 'utf-8'));
+const rawJson = fs.readFileSync('./apps-data.json', 'utf-8').split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+const apps   = JSON.parse(rawJson);
 const outDir = './app-details';
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
-function generateHTML(app) {
+// ============================================================
+//  1. app-details/XXX-detail.html を生成（既存機能）
+// ============================================================
+function generateDetailHTML(app) {
   const featuresHTML = app.features.map(f => `
       <div class="feature-item">
         <span class="fi-icon">${f.icon}</span>
@@ -21,10 +34,9 @@ function generateHTML(app) {
         </div>
       </div>`).join('');
 
-  const a11yHTML  = app.a11y.map(a  => `<span class="a11y-badge">${a}</span>`).join('');
+  const a11yHTML   = app.a11y.map(a  => `<span class="a11y-badge">${a}</span>`).join('');
   const badgesHTML = app.badges.map(b => `<span class="tag green">${b}</span>`).join('');
 
-  // 必要ソフトウェア警告ブロック（該当アプリのみ）
   const softwareHTML = app.software ? `
   <div class="software-alert">
     <div class="software-alert-title">
@@ -77,7 +89,6 @@ function generateHTML(app) {
   .card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);}
   .card-title{font-family:'Zen Maru Gothic',sans-serif;font-size:18px;font-weight:700;color:var(--c-text);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
   .summary-text{font-size:15px;line-height:1.9;}
-  /* 必要ソフトウェア警告ブロック */
   .software-alert{background:#fff0f3;border:2.5px solid #e8546a;border-radius:20px;padding:22px 24px 20px;display:flex;flex-direction:column;gap:14px;}
   .software-alert-title{font-family:'Zen Maru Gothic',sans-serif;font-size:clamp(14px,2.5vw,16px);font-weight:900;color:#c0182e;display:flex;align-items:center;gap:10px;line-height:1.5;}
   .software-alert-title .sw-icon{font-size:22px;flex-shrink:0;}
@@ -110,20 +121,20 @@ function generateHTML(app) {
 </head>
 <body>
 <nav class="site-nav">
-  <a href="../index.html">🏠 トップ</a>
+  <a href="../index.html">トップ</a>
   <span class="sep">›</span>
-  <a href="../app-intro.html">📱 アプリ一覧</a>
+  <a href="../app-intro.html">アプリ一覧</a>
   <span class="sep">›</span>
   <span>${app.title}</span>
 </nav>
 <section class="hero">
   <div class="app-icon">${app.icon}</div>
   <h1>${app.title}</h1>
-  <p class="hero-sub">${app.category} ／ ${app.tags_display}</p>
+  <p class="hero-sub">${app.category} / ${app.tags_display}</p>
   <div class="tag-row">
     ${badgesHTML}
-    <span class="tag">🆓 完全無料</span>
-    <span class="tag">📲 インストール不要</span>
+    <span class="tag">完全無料</span>
+    <span class="tag">インストール不要</span>
   </div>
   <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
   <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>
@@ -131,19 +142,19 @@ function generateHTML(app) {
 <main class="content">
   ${softwareHTML}
   <div class="card">
-    <h2 class="card-title">📌 概要・ねらい</h2>
+    <h2 class="card-title">概要・ねらい</h2>
     <p class="summary-text">${app.summary}</p>
   </div>
   <div class="card">
-    <h2 class="card-title">🔧 主な機能</h2>
+    <h2 class="card-title">主な機能</h2>
     <div class="feature-grid">${featuresHTML}</div>
   </div>
   <div class="card">
-    <h2 class="card-title">💡 おすすめの使い方</h2>
+    <h2 class="card-title">おすすめの使い方</h2>
     <div class="steps">${stepsHTML}</div>
   </div>
   <div class="card">
-    <h2 class="card-title">🏫 授業での活用</h2>
+    <h2 class="card-title">授業での活用</h2>
     <table class="lesson-table">
       <tr><th>対象</th><td>${app.lesson.target}</td></tr>
       <tr><th>ねらい</th><td>${app.lesson.goal}</td></tr>
@@ -152,10 +163,10 @@ function generateHTML(app) {
     </table>
   </div>
   <div class="card">
-    <h2 class="card-title">♿ アクセシビリティ</h2>
+    <h2 class="card-title">アクセシビリティ</h2>
     <div class="a11y-grid">${a11yHTML}</div>
   </div>
-  <div class="caution">⚠️ <strong>使用上の留意点</strong><br>${app.caution}</div>
+  <div class="caution"><strong>使用上の留意点</strong><br>${app.caution}</div>
   <div class="bottom-launch">
     <p>アプリの内容を確認したら、さっそく使ってみましょう！</p>
     <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
@@ -167,12 +178,165 @@ function generateHTML(app) {
 </html>`;
 }
 
+// ============================================================
+//  2. index.html の APPS 配列を自動生成して上書き
+// ============================================================
+function generateAppsArray(apps) {
+  const catLabels = { gakushu: '学習アプリ', ninchi: '認知支援', jiritsu: '自立活動', sousaku: '創作表現' };
+  let currentCat = '';
+  const lines = ['const APPS = ['];
+  for (const app of apps) {
+    if (app.category !== currentCat) {
+      currentCat = app.category;
+      lines.push(`  // ${catLabels[currentCat] || currentCat}`);
+    }
+    const need    = JSON.stringify(app.need    || []);
+    const scene   = JSON.stringify(app.scene   || []);
+    const input   = JSON.stringify(app.input   || []);
+    const feature = JSON.stringify(app.feature || []);
+    const cardClass = app.cardClass || `card-${app.filename}`;
+    const extras = [
+      app.isNew       ? 'isNew: true'       : '',
+      app.isRecommend ? 'isRecommend: true'  : '',
+      app.isComing    ? 'isComing: true'     : '',
+    ].filter(Boolean).join(', ');
+    lines.push(`  {`);
+    lines.push(`    name: ${JSON.stringify(app.title)}, link: "app-details/${app.filename}-detail.html", icon: ${JSON.stringify(app.icon)}, desc: ${JSON.stringify(app.summary.slice(0, 30))}, tag: ${JSON.stringify(app.tags_display)},`);
+    lines.push(`    category: "${app.category}", cardClass: "${cardClass}"${extras ? ', ' + extras : ''},`);
+    lines.push(`    need:${need}, scene:${scene}, input:${input},`);
+    lines.push(`    feature:${feature}`);
+    lines.push(`  },`);
+  }
+  lines.push('];');
+  return lines.join('\n');
+}
+
+function updateIndexHTML(appsArray) {
+  const indexPath = './index.html';
+  if (!fs.existsSync(indexPath)) {
+    console.log('⚠️  index.html が見つかりません。スキップします。');
+    return;
+  }
+  let html = fs.readFileSync(indexPath, 'utf-8');
+  // const APPS = [ ... ]; の部分を置き換え
+  const start = html.indexOf('const APPS = [');
+  const end   = html.indexOf('];', start) + 2;
+  if (start === -1 || end < 2) {
+    console.log('⚠️  index.html の APPS 配列が見つかりません。スキップします。');
+    return;
+  }
+  html = html.slice(0, start) + appsArray + html.slice(end);
+  html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+  fs.writeFileSync(indexPath, html, 'utf-8');
+  console.log('✅ index.html の APPS 配列を更新しました');
+}
+
+// ============================================================
+//  3. app-intro.html の panel-all カードを自動生成して上書き
+// ============================================================
+const BASE_URL = 'https://education-tools-hash.github.io/for-all-children-to-learn';
+
+function generateIntroCard(app) {
+  const themeClass = app.themeClass || `theme-${app.filename}`;
+  const featuresHTML = app.features.map(f =>
+    `          <li>${f.icon} ${f.title}：${f.desc}</li>`
+  ).join('\n');
+  const a11yHTML = app.a11y.map(a =>
+    `          <span class="access-badge">${a}</span>`
+  ).join('');
+  return `
+    <!-- ${app.title} -->
+    <div class="intro-card ${themeClass}" data-cat="${app.category}">
+      <div class="intro-card-header">
+        <div class="intro-icon" style="font-size:40px;background:${app.iconColor};width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${app.icon}</div>
+        <div class="intro-header-text">
+          <div class="intro-app-name">${app.title}</div>
+          <span class="intro-tag">${app.tags_display}</span><br>
+          <a class="intro-launch-btn" href="${app.filename}.html">▶ アプリをひらく</a>
+        </div>
+        <div class="intro-header-side">
+          <div class="header-qr-block"><div class="header-qr-label">QR</div><div class="header-qr-img" data-url="${BASE_URL}/${app.filename}.html"></div></div>
+          <a href="${BASE_URL}/index.html#contactSection" class="header-report-btn" target="_blank"><span class="header-report-icon">✏️</span><span class="header-report-text"><span class="header-report-title">実践報告を送る</span></span></a>
+        </div>
+      </div>
+      <div class="intro-body">
+        <div><div class="intro-section-title">概要・ねらい</div><p class="intro-text">${app.summary}</p></div>
+        <div><div class="intro-section-title">主な機能</div><ul class="feature-list">
+${featuresHTML}
+        </ul></div>
+        <div><div class="intro-section-title">使い方</div><p class="intro-text">${app.steps.map((s,i) => `${i+1}. ${s.label}：${s.desc}`).join(' ')}</p></div>
+        <div><div class="intro-section-title">アクセシビリティ</div><div class="access-badges">
+          ${a11yHTML}
+        </div></div>
+        <div><div class="intro-section-title">授業での活用</div><div class="practice-box">
+          <div class="practice-item"><span class="practice-label">対象</span><span class="practice-text">${app.lesson.target}</span></div>
+          <div class="practice-item"><span class="practice-label">ねらい</span><span class="practice-text">${app.lesson.goal}</span></div>
+          <div class="practice-item"><span class="practice-label">使い方</span><span class="practice-text">${app.lesson.howto}</span></div>
+          <div class="practice-item"><span class="practice-label">工夫</span><span class="practice-text">${app.lesson.tips}</span></div>
+        </div></div>
+        <div><div class="intro-section-title">使用上の留意点</div><div class="caution-box"><p>${app.caution}</p></div></div>
+      </div>
+    </div>`;
+}
+
+function updateAppIntroHTML(apps) {
+  const introPath = './app-intro.html';
+  if (!fs.existsSync(introPath)) {
+    console.log('⚠️  app-intro.html が見つかりません。スキップします。');
+    return;
+  }
+  let html = fs.readFileSync(introPath, 'utf-8');
+
+  // カテゴリラベル
+  const catLabels = { gakushu: '✏️ 学習アプリ', ninchi: '🧠 認知支援', jiritsu: '🎯 自立活動', sousaku: '🎨 創作表現' };
+
+  // panel-all の中身を生成
+  let currentCat = '';
+  let cardsHTML = '';
+  for (const app of apps) {
+    if (app.category !== currentCat) {
+      currentCat = app.category;
+      cardsHTML += `\n    <div class="cat-label">${catLabels[currentCat] || currentCat}</div>`;
+    }
+    cardsHTML += generateIntroCard(app);
+  }
+
+  // panel-all の開始〜終了を置き換え
+  const startMarker = '<div class="tab-panel active" id="panel-all" role="tabpanel">';
+  const endMarker   = '</div><!-- /panel-all -->';
+  const start = html.indexOf(startMarker);
+  const end   = html.indexOf(endMarker) + endMarker.length;
+  if (start === -1 || end < endMarker.length) {
+    console.log('⚠️  app-intro.html の panel-all が見つかりません。スキップします。');
+    return;
+  }
+  const newPanel = `${startMarker}${cardsHTML}\n\n  ${endMarker}`;
+  html = html.slice(0, start) + newPanel + html.slice(end);
+  html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+  fs.writeFileSync(introPath, html, 'utf-8');
+  console.log('✅ app-intro.html の panel-all を更新しました');
+}
+
+// ============================================================
+//  実行
+// ============================================================
+
+// 1. 詳細ページ生成
 let count = 0;
 for (const app of apps) {
-  const html    = generateHTML(app);
+  const html    = generateDetailHTML(app);
   const outPath = path.join(outDir, `${app.filename}-detail.html`);
   fs.writeFileSync(outPath, html, 'utf-8');
   console.log(`✅ 生成: ${app.filename}-detail.html`);
   count++;
 }
-console.log(`\n🎉 完了！ ${count}件のHTMLを生成しました → ${outDir}/`);
+console.log(`\n詳細ページ: ${count}件生成 → ${outDir}/`);
+
+// 2. index.html の APPS 配列を更新
+const appsArray = generateAppsArray(apps);
+updateIndexHTML(appsArray);
+
+// 3. app-intro.html の panel-all を更新
+updateAppIntroHTML(apps);
+
+console.log('\n🎉 完了！');
