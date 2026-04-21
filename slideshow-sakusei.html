@@ -103,7 +103,7 @@ body.focus-visible-on *:focus { outline: 3px solid var(--gold) !important; outli
 .toggle-sw.on::after { transform:translateX(18px); }
 
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--bg0);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;font-size:13px;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg0);color:var(--text);height:100vh;overflow-x:auto;overflow-y:hidden;display:flex;flex-direction:column;font-size:13px;min-width:760px;}
 
 /* ═══ TOP BAR ═══ */
 #topbar{
@@ -125,7 +125,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg0);color:var(--tex
 .security-pill{display:flex;align-items:center;gap:5px;padding:3px 10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:20px;font-size:.65rem;color:#4ade80;}
 
 /* ═══ MAIN LAYOUT ═══ */
-#app{flex:1;display:flex;overflow:hidden;}
+#app{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;}
 
 /* ═══ LEFT PANEL ═══ */
 #leftPanel{
@@ -254,6 +254,9 @@ input[type=color]{width:30px;height:30px;border:1px solid var(--border2);border-
 .slide.active{opacity:1;}
 .slide-bg{position:absolute;inset:0;background-size:cover;background-position:center;}
 .slide-bg-inner{position:absolute;inset:0;background-size:cover;background-position:center;}
+/* 縦長写真対応：ぼかし背景レイヤー */
+.slide-bg-blur{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(18px) brightness(0.55);transform:scale(1.08);will-change:transform;}
+.slide-bg-inner.portrait{background-size:contain;background-repeat:no-repeat;background-color:transparent;}
 .slide-content{position:absolute;z-index:2;text-align:center;padding:20px;max-width:85%;}
 .slide-main-text{line-height:1.5;text-shadow:0 2px 30px rgba(0,0,0,.9);opacity:0;transform:translateY(18px);transition:all 1s ease .5s;}
 .slide.active .slide-main-text{opacity:1;transform:translateY(0);}
@@ -335,6 +338,8 @@ input[type=color]{width:30px;height:30px;border:1px solid var(--border2);border-
   <button class="tb-btn primary" id="exportBtn" onclick="openExportModal()" disabled>⬇ 動画を書き出し</button>
   <div class="tb-spacer"></div>
   <div class="security-pill">🔒 データはサーバーに送信されません</div>
+</div>
+
 </div>
 
 <!-- MAIN -->
@@ -1257,7 +1262,8 @@ function buildSlidesDOM(d){
         data-diag="${((slide.motionParams&&slide.motionParams.diagAmount)||5)+'%'}"
         data-speed="${(slide.motionParams&&slide.motionParams.speed)||5}"
         data-delay="${(slide.motionParams&&slide.motionParams.delay)||1.2}">
-        <div class="slide-bg-inner" style="background-image:url('${slide.dataUrl}');filter:brightness(${1-d.overlay});"></div>
+        ${(slide.img&&slide.img.naturalHeight>slide.img.naturalWidth)?`<div class="slide-bg-blur" style="background-image:url('${slide.dataUrl}');"></div>`:''}
+        <div class="slide-bg-inner${(slide.img&&slide.img.naturalHeight>slide.img.naturalWidth)?' portrait':''}" style="background-image:url('${slide.dataUrl}');filter:brightness(${1-d.overlay});"></div>
       </div>
       <div class="slide-content" style="${pos}">
         <div class="slide-ornament" style="color:${d.colorAccent};font-family:${d.fontSub};font-size:${Math.round(d.sizeSub*sc*.55)}px;">— ${i+1} —</div>
@@ -1524,8 +1530,24 @@ function drawExportFrame(ctx,W,H,slide,progress,alpha,d){
       const MLIST=['zoom_out','zoom_in','pan_left','pan_right','diagonal'];
       const actualMotion=slide.motion==='random'?MLIST[(slide.num||1)%MLIST.length]:slide.motion;
       const mp=slide.motionParams||{zoomScale:1.1,panAmount:6,diagAmount:5};
-      const{sx,sy,sw,sh}=getMotionTransformEx(actualMotion,progress,W,H,slide.img.naturalWidth,slide.img.naturalHeight,mp);
-      ctx.save();ctx.globalAlpha=(1-d.overlay)*alpha;ctx.drawImage(slide.img,sx,sy,sw,sh);ctx.restore();
+      const isPortrait = slide.img.naturalHeight > slide.img.naturalWidth;
+      if(isPortrait){
+        // 縦長：ぼかし背景を敷いてからcontainで表示
+        ctx.save();
+        ctx.filter='blur(18px) brightness(0.55)';
+        const{sx:bsx,sy:bsy,sw:bsw,sh:bsh}=getMotionTransformEx(actualMotion,progress,W,H,slide.img.naturalWidth,slide.img.naturalHeight,mp);
+        ctx.drawImage(slide.img,bsx,bsy,bsw,bsh);
+        ctx.restore();
+        // contain: 写真全体が収まるサイズで中央配置
+        const ir=slide.img.naturalWidth/slide.img.naturalHeight;
+        let cw=W,ch=W/ir;
+        if(ch>H){ch=H;cw=H*ir;}
+        const cx=(W-cw)/2,cy=(H-ch)/2;
+        ctx.save();ctx.globalAlpha=(1-d.overlay)*alpha;ctx.drawImage(slide.img,cx,cy,cw,ch);ctx.restore();
+      } else {
+        const{sx,sy,sw,sh}=getMotionTransformEx(actualMotion,progress,W,H,slide.img.naturalWidth,slide.img.naturalHeight,mp);
+        ctx.save();ctx.globalAlpha=(1-d.overlay)*alpha;ctx.drawImage(slide.img,sx,sy,sw,sh);ctx.restore();
+      }
     }
     // Vignette
     ctx.save();ctx.globalAlpha=alpha;
@@ -1629,6 +1651,39 @@ function drawExportFrame(ctx,W,H,slide,progress,alpha,d){
 
 // HELP
 function openHelp(){ document.getElementById('helpModal').classList.add('open'); }
+
+
+
+function rebindDrawerEvents(drawer) {
+  // range スライダーの表示値を再バインド
+  drawer.querySelectorAll('input[type=range]').forEach(input => {
+    // oninput はcloneNodeで引き継がれるのでそのまま動作
+  });
+  // file input の label クリックが動くように
+  drawer.querySelectorAll('label[for]').forEach(label => {
+    const forId = label.getAttribute('for');
+    // ドロワー内のfile inputにidを付け替え
+    const input = drawer.querySelector('input[type=file]');
+    if(input && forId) {
+      const newId = forId + '_drawer';
+      input.id = newId;
+      label.setAttribute('for', newId);
+      input.addEventListener('change', function(e) {
+        // 元のinputにも変更を伝播
+        const origInput = document.getElementById(forId);
+        if(origInput && e.target.files.length > 0) {
+          // DataTransferでファイルを転送
+          try {
+            const dt = new DataTransfer();
+            Array.from(e.target.files).forEach(f => dt.items.add(f));
+            origInput.files = dt.files;
+            origInput.dispatchEvent(new Event('change', {bubbles:true}));
+          } catch(err) {}
+        }
+      });
+    }
+  });
+}
 
 function updateDurationGuide(){
   const sec = parseInt(document.getElementById('slideInterval').value) || 6;
