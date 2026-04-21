@@ -712,25 +712,25 @@
   <div class="a11y-row">
     <div class="a11y-label">🎨 表示モード</div>
     <div class="a11y-btn-group">
-      <button class="a11y-opt active" id="opt-normal" onclick="setContrast('normal')">通常</button>
-      <button class="a11y-opt" id="opt-hc" onclick="setContrast('hc')">ハイコントラスト</button>
+      <button class="a11y-opt active" id="opt-normal" onclick="setContrast('normal');event.stopPropagation()">通常</button>
+      <button class="a11y-opt" id="opt-hc" onclick="setContrast('hc');event.stopPropagation()">ハイコントラスト</button>
     </div>
   </div>
 
   <div class="a11y-row">
     <div class="a11y-label">🔤 文字の大きさ</div>
     <div class="a11y-btn-group">
-      <button class="a11y-opt active" id="opt-fn" onclick="setFont('normal')">標準</button>
-      <button class="a11y-opt" id="opt-fl" onclick="setFont('large')">大</button>
-      <button class="a11y-opt" id="opt-fxl" onclick="setFont('xlarge')">特大</button>
+      <button class="a11y-opt active" id="opt-fn" onclick="setFont('normal');event.stopPropagation()">標準</button>
+      <button class="a11y-opt" id="opt-fl" onclick="setFont('large');event.stopPropagation()">大</button>
+      <button class="a11y-opt" id="opt-fxl" onclick="setFont('xlarge');event.stopPropagation()">特大</button>
     </div>
   </div>
 
   <div class="a11y-row">
     <div class="a11y-label">🔊 選択・タップの読み上げ</div>
     <div class="a11y-btn-group">
-      <button class="a11y-opt active" id="opt-sr-off" onclick="setScreenReader(false)">オフ</button>
-      <button class="a11y-opt" id="opt-sr-on" onclick="setScreenReader(true)">オン</button>
+      <button class="a11y-opt active" id="opt-sr-off" onclick="setScreenReader(false);event.stopPropagation()">オフ</button>
+      <button class="a11y-opt" id="opt-sr-on" onclick="setScreenReader(true);event.stopPropagation()">オン</button>
     </div>
   </div>
 
@@ -1407,8 +1407,9 @@ async function submitForm() {
 
 renderChangelog();
 renderApps();
-// 読み上げが有効な場合、カード生成後にリスナーを再設定
-if (srEnabled) attachSpeakListeners();
+
+// ===== アクセシビリティ設定 =====
+let srEnabled = false;
 
 // ===== アクセシビリティ設定 =====
 function toggleA11yPanel() {
@@ -1416,19 +1417,20 @@ function toggleA11yPanel() {
   const btn   = document.getElementById('a11yBtn');
   const open  = panel.classList.toggle('open');
   btn.setAttribute('aria-expanded', open);
-  // パネル外クリックで閉じる
   if (open) {
     setTimeout(() => document.addEventListener('click', closeA11yOnOutside), 10);
+  } else {
+    document.removeEventListener('click', closeA11yOnOutside);
   }
 }
 function closeA11yOnOutside(e) {
   const panel = document.getElementById('a11yPanel');
   const btn   = document.getElementById('a11yBtn');
-  if (!panel.contains(e.target) && !btn.contains(e.target)) {
-    panel.classList.remove('open');
-    btn.setAttribute('aria-expanded', 'false');
-    document.removeEventListener('click', closeA11yOnOutside);
-  }
+  // パネル内・設定ボタン自体のクリックは無視
+  if (panel.contains(e.target) || btn.contains(e.target)) return;
+  panel.classList.remove('open');
+  document.getElementById('a11yBtn').setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', closeA11yOnOutside);
 }
 
 function setContrast(mode) {
@@ -1449,7 +1451,6 @@ function setFont(size) {
 }
 
 // ===== 読み上げ機能 =====
-let srEnabled = false;
 function speak(text) {
   if (!srEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
