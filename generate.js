@@ -181,31 +181,75 @@ function generateDetailHTML(app) {
 // ============================================================
 //  2. index.html の APPS 配列を自動生成して上書き
 // ============================================================
+
+// apps-data.json の category（日本語）→ index.html の category（英語キー）変換
+const CAT_MAP = {
+  '学習アプリ':   'gakushu',
+  '認知支援':     'ninchi',
+  '自立活動':     'jiritsu',
+  '創作表現':     'sousaku',
+  '教材作成ツール': 'sousaku',
+};
+
+// filename → cardClass のマッピング（既存アプリの色を維持）
+const CARD_CLASS_MAP = {
+  'hiragana-learn':  'card-hiragana',
+  'katakana-app':    'card-katakana',
+  'nazori-app':      'card-nazori',
+  'janken-app':      'card-janken',
+  'shiritori2':      'card-shiritori',
+  'okane-app':       'card-okane',
+  'register-app':    'card-register',
+  'tokei-app':       'card-tokei',
+  'schedule-app':    'card-schedule',
+  'timetable-app':   'card-timetable',
+  'bosai-app':       'card-bosai',
+  'matching-app':    'card-matching',
+  'sugoroku-app':    'card-sugoroku',
+  'tyushi':          'card-sst',
+  'cup_game':        'card-matching',
+  'sst-app':         'card-sst',
+  'kimochi-board':   'card-board',
+  'drawing-app':     'card-oekaki',
+  'music-app':       'card-music',
+  'yomikaki-app':    'card-yomikaki',
+  'slideshow-sakusei': 'card-oekaki', // 創作系の色を流用
+};
+
 function generateAppsArray(apps) {
+  const catOrder = ['gakushu', 'ninchi', 'jiritsu', 'sousaku'];
   const catLabels = { gakushu: '学習アプリ', ninchi: '認知支援', jiritsu: '自立活動', sousaku: '創作表現' };
+
+  // categoryを英語キーに変換してソート
+  const mapped = apps.map(app => ({
+    ...app,
+    _cat: CAT_MAP[app.category] || 'gakushu',
+    _cardClass: app.cardClass || CARD_CLASS_MAP[app.filename] || ('card-' + app.filename),
+  }));
+  mapped.sort((a, b) => catOrder.indexOf(a._cat) - catOrder.indexOf(b._cat));
+
   let currentCat = '';
   const lines = ['const APPS = ['];
-  for (const app of apps) {
-    if (app.category !== currentCat) {
-      currentCat = app.category;
-      lines.push(`  // ${catLabels[currentCat] || currentCat}`);
+  for (const app of mapped) {
+    if (app._cat !== currentCat) {
+      currentCat = app._cat;
+      lines.push('  // ' + (catLabels[currentCat] || currentCat));
     }
     const need    = JSON.stringify(app.need    || []);
     const scene   = JSON.stringify(app.scene   || []);
     const input   = JSON.stringify(app.input   || []);
     const feature = JSON.stringify(app.feature || []);
-    const cardClass = app.cardClass || `card-${app.filename}`;
     const extras = [
-      app.isNew       ? 'isNew: true'       : '',
-      app.isRecommend ? 'isRecommend: true'  : '',
-      app.isComing    ? 'isComing: true'     : '',
+      app.isNew       ? 'isNew: true'      : '',
+      app.isRecommend ? 'isRecommend: true' : '',
+      app.isComing    ? 'isComing: true'    : '',
     ].filter(Boolean).join(', ');
-    lines.push(`  {`);
-    lines.push(`    name: ${JSON.stringify(app.title)}, link: "app-details/${app.filename}-detail.html", icon: ${JSON.stringify(app.icon)}, desc: ${JSON.stringify(app.summary.slice(0, 30))}, tag: ${JSON.stringify(app.tags_display)},`);
-    lines.push(`    category: "${app.category}", cardClass: "${cardClass}"${extras ? ', ' + extras : ''},`);
-    lines.push(`    need:${need}, scene:${scene}, input:${input},`);
-    lines.push(`    feature:${feature}`);
-    lines.push(`  },`);
+    lines.push('  {');
+    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
+    lines.push('    category: "' + app._cat + '", cardClass: "' + app._cardClass + '"' + (extras ? ', ' + extras : '') + ',');
+    lines.push('    need:' + need + ', scene:' + scene + ', input:' + input + ',');
+    lines.push('    feature:' + feature);
+    lines.push('  },');
   }
   lines.push('];');
   return lines.join('\n');
@@ -236,8 +280,34 @@ function updateIndexHTML(appsArray) {
 // ============================================================
 const BASE_URL = 'https://education-tools-hash.github.io/for-all-children-to-learn';
 
+// filename → themeClass のマッピング（app-intro.html のCSSに対応）
+const THEME_CLASS_MAP = {
+  'hiragana-learn':   'theme-hiragana',
+  'katakana-app':     'theme-katakana',
+  'nazori-app':       'theme-nazori',
+  'janken-app':       'theme-janken',
+  'shiritori2':       'theme-shiritori',
+  'okane-app':        'theme-okane',
+  'register-app':     'theme-register',
+  'tokei-app':        'theme-tokei',
+  'schedule-app':     'theme-schedule',
+  'timetable-app':    'theme-jikokuhyo',
+  'bosai-app':        'theme-bousai',
+  'matching-app':     'theme-matching',
+  'sugoroku-app':     'theme-sugoroku',
+  'tyushi':           'theme-sst',
+  'cup_game':         'theme-cupgame',
+  'sst-app':          'theme-sst',
+  'kimochi-board':    'theme-board',
+  'drawing-app':      'theme-oekaki',
+  'music-app':        'theme-music',
+  'yomikaki-app':     'theme-yomikaki',
+  'slideshow-sakusei':'theme-oekaki',
+};
+
 function generateIntroCard(app) {
-  const themeClass = app.themeClass || `theme-${app.filename}`;
+  const themeClass = app.themeClass || THEME_CLASS_MAP[app.filename] || ('theme-' + app.filename);
+  const catKey = CAT_MAP[app.category] || app.category;
   const featuresHTML = app.features.map(f =>
     `          <li>${f.icon} ${f.title}：${f.desc}</li>`
   ).join('\n');
@@ -246,7 +316,7 @@ function generateIntroCard(app) {
   ).join('');
   return `
     <!-- ${app.title} -->
-    <div class="intro-card ${themeClass}" data-cat="${app.category}">
+    <div class="intro-card ${themeClass}" data-cat="${catKey}">
       <div class="intro-card-header">
         <div class="intro-icon" style="font-size:40px;background:${app.iconColor};width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${app.icon}</div>
         <div class="intro-header-text">
@@ -294,11 +364,12 @@ function updateAppIntroHTML(apps) {
   let currentCat = '';
   let cardsHTML = '';
   for (const app of apps) {
-    if (app.category !== currentCat) {
-      currentCat = app.category;
+    const appCatKey = CAT_MAP[app.category] || app.category;
+    if (appCatKey !== currentCat) {
+      currentCat = appCatKey;
       cardsHTML += `\n    <div class="cat-label">${catLabels[currentCat] || currentCat}</div>`;
     }
-    cardsHTML += generateIntroCard(app);
+    cardsHTML += generateIntroCard({...app, _catKey: appCatKey});
   }
 
   // panel-all の開始〜終了を置き換え
