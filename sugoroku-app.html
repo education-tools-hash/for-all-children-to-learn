@@ -837,23 +837,107 @@ let customCells = {}; // index -> {text, type, photoDataUrl}
 
 function buildBoard(n){
   const b=[];
-  for(let i=0;i<n;i++){
-    // カスタム設定があれば優先
-    if(customCells[i]){
-      const cc=customCells[i];
-      b.push({cl:cc.type||'c-custom',ic:cc.photoDataUrl?'':( cc.icon||'📝'),tx:cc.text||'',ev:cc.event||null,photoUrl:cc.photoDataUrl||null});
-      continue;
+
+  // ===== マス数に応じたイベント枠を均等に決定 =====
+  const inner = n - 2; // スタート・ゴールを除いた枠数
+
+  // 各カテゴリの枚数（割合固定）
+  const countEVL = Math.round(inner * 0.10); // ラッキー系：約10%
+  const countEVU = Math.round(inner * 0.10); // アンラッキー系：約10%
+  const countEVE = Math.round(inner * 0.15); // アクティビティ系：約15%
+  // 残りはふつうマス
+
+  // イベントプールを均等に生成（同じイベントが連続しないようシャッフル）
+  function makePool(evArr, count){
+    const pool=[];
+    for(let i=0;i<count;i++) pool.push(evArr[i % evArr.length]);
+    // Fisher-Yatesシャッフル
+    for(let i=pool.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [pool[i],pool[j]]=[pool[j],pool[i]];
     }
-    if(i===0) b.push({cl:'c-start',ic:'🌟',tx:'スタート',ev:null});
-    else if(i===n-1) b.push({cl:'c-goal',ic:'🏁',tx:'ゴール！',ev:null});
-    else {
-      const r=Math.random();
-      if(r<0.08){const e=EVL[Math.floor(Math.random()*EVL.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
-      else if(r<0.16){const e=EVU[Math.floor(Math.random()*EVU.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
-      else if(r<0.28){const e=EVE[Math.floor(Math.random()*EVE.length)];b.push({cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e});}
-      else b.push({cl:'c-normal',ic:'',tx:'',ev:null});
+    return pool;
+  }
+
+  // 竜巻（tostart）は前半（マス数の前40%）のみに配置
+  // EVUを前半用と後半用に分ける
+  const EVU_safe = EVU.filter(e=>e.ex!=='tostart'); // 竜巻以外
+  const EVU_tostart = EVU.filter(e=>e.ex==='tostart'); // 竜巻のみ
+
+  // EVUプールを生成：竜巻は最大1つ、前半用として別管理
+  const evuPool = makePool(EVU_safe, Math.max(1, countEVU - 1));
+  // 竜巻を1つ追加（前半の位置に置く）
+  const hasTatumaki = EVU_tostart.length > 0 && inner >= 6;
+
+  // イベントを内部マス（1〜n-2）に均等配置
+  // まず「normal」で埋めてからイベントを差し込む方式
+  const slots = Array(inner).fill(null).map(()=>({cl:'c-normal',ic:'',tx:'',ev:null}));
+
+  // イベント配置用のインデックスをランダムに選ぶ
+  const indices = Array.from({length:inner},(_,i)=>i+1); // 1〜n-2
+  // シャッフル
+  for(let i=indices.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [indices[i],indices[j]]=[indices[j],indices[i]];
+  }
+
+  // 前半インデックス（マス全体の前40%以内）
+  const halfLine = Math.floor(n * 0.40);
+
+  let idx=0;
+  const evlPool=makePool(EVL, countEVL);
+  const evePool=makePool(EVE, countEVE);
+
+  // EVL配置（前半後半どこでもOK）
+  for(let k=0;k<countEVL&&idx<indices.length;k++,idx++){
+    const pos=indices[idx]-1; // slots配列のindex
+    const e=evlPool[k];
+    slots[pos]={cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e};
+  }
+
+  // EVU（竜巻以外）配置（どこでもOK）
+  for(let k=0;k<evuPool.length&&idx<indices.length;k++,idx++){
+    const pos=indices[idx]-1;
+    const e=evuPool[k];
+    slots[pos]={cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e};
+  }
+
+  // EVE配置
+  for(let k=0;k<countEVE&&idx<indices.length;k++,idx++){
+    const pos=indices[idx]-1;
+    const e=evePool[k];
+    slots[pos]={cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e};
+  }
+
+  // 竜巻（tostart）を前半のスロットに1つ配置
+  if(hasTatumaki){
+    // 前半（マス1〜halfLine）のうち、まだnormalのスロットを探す
+    const frontSlots=[];
+    for(let s=0;s<slots.length;s++){
+      const boardIdx=s+1; // 実際のマス番号
+      if(boardIdx<=halfLine && slots[s].cl==='c-normal') frontSlots.push(s);
+    }
+    if(frontSlots.length>0){
+      const pick=frontSlots[Math.floor(Math.random()*frontSlots.length)];
+      const e=EVU_tostart[0];
+      slots[pick]={cl:e.cl,ic:e.ic,tx:e.tt.slice(0,6),ev:e};
     }
   }
+
+  // ボード構築
+  b.push({cl:'c-start',ic:'🌟',tx:'スタート',ev:null}); // マス0
+  for(let i=0;i<inner;i++){
+    // カスタム設定があれば優先
+    const boardIdx=i+1;
+    if(customCells[boardIdx]){
+      const cc=customCells[boardIdx];
+      b.push({cl:cc.type||'c-custom',ic:cc.photoDataUrl?'':(cc.icon||'📝'),tx:cc.text||'',ev:cc.event||null,photoUrl:cc.photoDataUrl||null});
+    } else {
+      b.push(slots[i]);
+    }
+  }
+  b.push({cl:'c-goal',ic:'🏁',tx:'ゴール！',ev:null}); // 最終マス
+
   return b;
 }
 
