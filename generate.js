@@ -214,6 +214,7 @@ const CARD_CLASS_MAP = {
   'music-app':       'card-music',
   'yomikaki-app':    'card-yomikaki',
   'slideshow-sakusei': 'card-oekaki', // 創作系の色を流用
+  'directions-app':  'card-yomikaki', // 学習系の色を流用
 };
 
 function generateAppsArray(apps) {
@@ -303,6 +304,7 @@ const THEME_CLASS_MAP = {
   'music-app':        'theme-music',
   'yomikaki-app':     'theme-yomikaki',
   'slideshow-sakusei':'theme-oekaki',
+  'directions-app':   'theme-yomikaki',
 };
 
 function generateIntroCard(app) {

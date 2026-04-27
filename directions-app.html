@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>ほうこうとばしょをまなぼう</title>
+<style>
+  :root {
+    --bg: #FFF9F0;
+    --surface: #FFFFFF;
+    --surface-2: #FEF3DE;
+    --ink: #2D2A26;
+    --ink-soft: #6B6760;
+    --border: #E8DFCB;
+    --border-strong: #C9BDA3;
+    --accent: #E8833A;
+    --accent-soft: #FCE5CE;
+    --blue: #3B82C4;
+    --blue-soft: #D9EBF7;
+    --pink: #D4537E;
+    --pink-soft: #F7DEE8;
+    --green: #5FA145;
+    --green-soft: #DDEED3;
+    --purple: #7F77DD;
+    --purple-soft: #E3E0F8;
+    --yellow: #F2B035;
+    --yellow-soft: #FCEBCB;
+    --success: #3B8A5A;
+    --success-bg: #DAEBDF;
+    --warning: #C97B2E;
+    --warning-bg: #FBE6CF;
+    --radius-sm: 10px;
+    --radius: 16px;
+    --radius-lg: 24px;
+    --shadow: 0 2px 8px rgba(45, 42, 38, 0.06);
+    --shadow-hover: 0 4px 16px rgba(45, 42, 38, 0.1);
+    --font-base: 18px;
+  }
+
+  /* ハイコントラストモード */
+  body.hc {
+    --bg: #FFFFFF;
+    --surface: #FFFFFF;
+    --surface-2: #FFFFFF;
+    --ink: #000000;
+    --ink-soft: #000000;
+    --border: #000000;
+    --border-strong: #000000;
+    --accent: #000000;
+    --accent-soft: #FFFF00;
+    --blue: #000000;
+    --blue-soft: #FFFFFF;
+    --pink: #000000;
+    --pink-soft: #FFFFFF;
+    --green: #000000;
+    --green-soft: #FFFFFF;
+    --purple: #000000;
+    --purple-soft: #FFFFFF;
+    --yellow: #000000;
+    --yellow-soft: #FFFF00;
+    --success: #000000;
+    --success-bg: #FFFF00;
+    --warning: #000000;
+    --warning-bg: #FFFF00;
+  }
+  body.hc .btn,
+  body.hc .card,
+  body.hc .slot,
+  body.hc .title-bar {
+    border-width: 3px !important;
+    border-color: #000 !important;
+    background: #FFF !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+  body.hc .btn:hover { background: #FFFF00 !important; }
+  body.hc .scan-focus { outline: 6px solid #000 !important; outline-offset: 3px !important; background: #FFFF00 !important; }
+  body.hc .feedback-success { background: #FFFF00 !important; color: #000 !important; border: 3px solid #000 !important; }
+  body.hc .feedback-warn { background: #FFF !important; color: #000 !important; border: 3px solid #000 !important; }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Kaku Gothic ProN", "ヒラギノ丸ゴ ProN W4", "Yu Gothic", "游ゴシック", "Meiryo", sans-serif;
+    font-size: var(--font-base);
+    line-height: 1.6;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 16px;
+    min-height: 100vh;
+  }
+
+  /* タイトルバー */
+  .title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .title-bar h1 {
+    margin: 0;
+    font-size: 1.3em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: center;
+    flex: 1;
+  }
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.2em;
+    color: var(--ink);
+    flex-shrink: 0;
+    transition: transform 0.1s, background 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface-2); }
+  .icon-btn:active { transform: scale(0.95); }
+  .icon-btn.hidden { visibility: hidden; }
+
+  /* ボタン共通 */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    cursor: pointer;
+    text-align: center;
+    font-family: inherit;
+    font-size: 1em;
+    color: var(--ink);
+    box-shadow: var(--shadow);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.15s;
+    min-height: 96px;
+  }
+  .btn:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+  .btn:active { transform: translateY(0) scale(0.98); }
+  .btn-label {
+    font-weight: 700;
+    font-size: 1.05em;
+  }
+  .btn-sub {
+    font-size: 0.8em;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+  .btn-wide {
+    flex-direction: row;
+    gap: 16px;
+    padding: 18px 20px;
+    justify-content: flex-start;
+    min-height: 80px;
+  }
+  .btn-wide .btn-label,
+  .btn-wide .btn-sub { text-align: left; }
+  .btn-wide .btn-text { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+  .btn-sm {
+    padding: 10px 16px;
+    min-height: 0;
+    border-radius: 10px;
+    font-size: 0.9em;
+  }
+
+  /* スキャンフォーカス */
+  .scan-focus {
+    outline: 4px solid var(--yellow) !important;
+    outline-offset: 3px;
+    background: var(--yellow-soft) !important;
+  }
+
+  /* アイコン円 */
+  .icon-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6em;
+    flex-shrink: 0;
+  }
+  .ic-purple { background: var(--purple-soft); color: var(--purple); }
+  .ic-blue { background: var(--blue-soft); color: var(--blue); }
+  .ic-pink { background: var(--pink-soft); color: var(--pink); }
+  .ic-green { background: var(--green-soft); color: var(--green); }
+  .ic-yellow { background: var(--yellow-soft); color: var(--yellow); }
+  .ic-accent { background: var(--accent-soft); color: var(--accent); }
+
+  /* グリッド */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+
+  /* カード */
+  .card {
+    background: var(--surface-2);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card.soft { background: var(--blue-soft); border-color: var(--blue); }
+  .card.soft.pink { background: var(--pink-soft); border-color: var(--pink); }
+  .card.center { text-align: center; }
+  .card h2 {
+    margin: 0 0 16px;
+    font-size: 1.15em;
+    font-weight: 700;
+  }
+
+  /* フィードバック */
+  .feedback {
+    margin-top: 16px;
+    padding: 14px 18px;
+    border-radius: var(--radius);
+    font-weight: 700;
+    text-align: center;
+    font-size: 1.05em;
+    min-height: 24px;
+  }
+  .feedback-success {
+    background: var(--success-bg);
+    color: var(--success);
+    border: 2px solid var(--success);
+  }
+  .feedback-warn {
+    background: var(--warning-bg);
+    color: var(--warning);
+    border: 2px solid var(--warning);
+  }
+  .feedback-empty { background: transparent; border: none; min-height: 0; padding: 0; }
+
+  /* スロット */
+  .row-scene {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: nowrap;
+    margin: 20px 0;
+    width: 100%;
+  }
+  .row-scene .row-label {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .row-label {
+    font-size: 0.85em;
+    color: var(--ink-soft);
+    font-weight: 700;
+  }
+  .slot {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 84px;
+    aspect-ratio: 6 / 7;
+    border: 3px dashed var(--border-strong);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s, border 0.15s;
+  }
+  .slot:hover { background: var(--surface-2); }
+  .slot.filled {
+    border-style: solid;
+    border-color: var(--green);
+    background: var(--green-soft);
+  }
+  .slot .emoji { font-size: clamp(1.4em, 7vw, 2.2em); }
+
+  @media (max-width: 480px) {
+    .row-scene { gap: 4px; }
+    .row-scene .row-label { font-size: 0.7em; }
+  }
+  @media (max-width: 360px) {
+    .row-scene .row-label { font-size: 0.65em; }
+  }
+
+  /* セッティング */
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 2px solid var(--border);
+    background: var(--surface);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row .label-main {
+    font-weight: 700;
+    font-size: 1.05em;
+  }
+  .setting-row .label-sub {
+    font-size: 0.85em;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .settings-wrap {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .toggle {
+    min-width: 80px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 2px solid var(--border-strong);
+    background: var(--surface);
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.95em;
+  }
+  .toggle.on {
+    background: var(--accent);
+    color: #FFF;
+    border-color: var(--accent);
+  }
+  .size-group {
+    display: flex;
+    gap: 4px;
+  }
+  .size-btn {
+    padding: 8px 12px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--ink);
+    min-width: 44px;
+  }
+  .size-btn.active {
+    background: var(--accent);
+    color: #FFF;
+    border-color: var(--accent);
+  }
+
+  /* ごほうび */
+  .stars-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .star-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 8px;
+    text-align: center;
+  }
+  .star-card.locked { opacity: 0.35; }
+  .star-card .star { font-size: 2em; line-height: 1; }
+  .star-card .lbl { font-size: 0.8em; color: var(--ink-soft); margin-top: 6px; font-weight: 700; }
+
+  /* 使い方 */
+  .howto-step {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #FFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1em;
+    flex-shrink: 0;
+  }
+  .step-text { flex: 1; }
+  .step-text .s-title { font-weight: 700; margin-bottom: 4px; }
+  .step-text .s-desc { font-size: 0.9em; color: var(--ink-soft); }
+
+  .supporter-note {
+    background: var(--blue-soft);
+    border: 2px solid var(--blue);
+    color: var(--blue);
+    padding: 16px;
+    border-radius: var(--radius);
+    font-size: 0.95em;
+  }
+  .supporter-note strong { display: block; margin-bottom: 6px; }
+
+  /* クイズの並び */
+  .animals-line {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    margin: 16px 0;
+    width: 100%;
+  }
+  .animals-line .row-label {
+    flex-shrink: 0;
+    align-self: center;
+    white-space: nowrap;
+    font-size: 0.8em;
+  }
+  .animal-tile {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 4px;
+    text-align: center;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 80px;
+  }
+  .animal-tile .emj {
+    font-size: clamp(1.2em, 5.5vw, 1.8em);
+    display: block;
+    line-height: 1.1;
+  }
+  .animal-tile .nm {
+    font-size: clamp(0.6em, 2.3vw, 0.75em);
+    color: var(--ink-soft);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @media (max-width: 480px) {
+    .animals-line { gap: 4px; }
+    .animals-line .row-label { font-size: 0.7em; }
+  }
+  @media (max-width: 360px) {
+    .animals-line .row-label { font-size: 0.65em; }
+    .animal-tile { padding: 6px 2px; }
+  }
+
+  /* 方角コンパスの絵 */
+  svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+
+  /* ホーム画面タイトル装飾 */
+  .home-hero {
+    text-align: center;
+    padding: 20px 16px 8px;
+  }
+  .home-hero h2 {
+    margin: 0 0 4px;
+    font-size: 1.3em;
+    font-weight: 700;
+  }
+  .home-hero p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.9em;
+  }
+
+  /* フォントサイズの動的切替 */
+  body.fs-small { --font-base: 15px; }
+  body.fs-medium { --font-base: 18px; }
+  body.fs-large { --font-base: 22px; }
+  body.fs-xlarge { --font-base: 28px; }
+
+  @media (max-width: 480px) {
+    .grid-2 { gap: 10px; }
+    .btn { padding: 18px 12px; min-height: 84px; }
+    .stars-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* 表示/非表示 */
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeIn 0.25s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* モーダル:スイッチ操作の説明 */
+  .modal-bg {
+    position: fixed;
+    inset: 0;
+    background: rgba(45, 42, 38, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-bg.hidden { display: none; }
+  .modal {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  }
+
+  .sr-only {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* タイトルバーの右側アイコン群 */
+  .title-right {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 480px) {
+    .title-bar { padding: 10px 12px; gap: 8px; }
+    .title-bar h1 { font-size: 1.1em; }
+    .title-right { gap: 4px; }
+    .title-right .icon-btn { width: 42px; height: 42px; font-size: 1.05em; }
+  }
+  @media (max-width: 360px) {
+    .title-bar h1 { font-size: 1em; }
+    .title-right .icon-btn { width: 38px; height: 38px; }
+  }
+
+  /* ログ画面 */
+  .log-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .log-stat {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .log-stat .num {
+    font-size: 1.6em;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .log-stat .lbl {
+    font-size: 0.75em;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    font-weight: 700;
+  }
+  .log-stat.correct .num { color: var(--success); }
+  .log-stat.wrong .num { color: var(--warning); }
+
+  .log-table-wrap {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+  }
+  .log-table thead {
+    background: var(--surface-2);
+    border-bottom: 2px solid var(--border);
+  }
+  .log-table th {
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.95em;
+  }
+  .log-table td {
+    padding: 10px 8px;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .log-table .result-ok {
+    color: var(--success);
+    font-weight: 700;
+  }
+  .log-table .result-ng {
+    color: var(--warning);
+    font-weight: 700;
+  }
+  .log-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .log-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .log-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .log-filter button {
+    padding: 8px 14px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85em;
+    color: var(--ink);
+  }
+  .log-filter button.active {
+    background: var(--accent);
+    color: #FFF;
+    border-color: var(--accent);
+  }
+  .empty-msg {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--ink-soft);
+  }
+
+  /* パスワード入力 */
+  .password-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 1.1em;
+    font-family: inherit;
+    margin-top: 12px;
+    box-sizing: border-box;
+  }
+  .password-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* 全画面時のスタイル調整 */
+  body:fullscreen {
+    background: var(--bg);
+    overflow-y: auto;
+  }
+  body:fullscreen .app {
+    padding: 24px;
+    max-width: 900px;
+  }
+  body:-webkit-full-screen {
+    background: var(--bg);
+    overflow-y: auto;
+  }
+  body:-webkit-full-screen .app {
+    padding: 24px;
+  }
+</style>
+</head>
+<body class="fs-medium">
+<div class="app" id="app">
+
+  <!-- ホーム -->
+  <div class="screen active" id="screen-home">
+    <div class="title-bar">
+      <button class="icon-btn hidden" aria-hidden="true">・</button>
+      <h1>ほうこうと ばしょを まなぼう</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('ほうこうと ばしょを まなぼう')" aria-label="タイトルを 読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面" id="fs-btn-home">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+
+    <div class="home-hero">
+      <p>したの ボタンを タップして はじめよう</p>
+    </div>
+
+    <div class="grid-2" style="margin-top: 16px;">
+      <button class="btn" data-scan onclick="nav('learn')">
+        <div class="icon-circle ic-purple">📚</div>
+        <span class="btn-label">まなぶ</span>
+        <span class="btn-sub">ほうこう・ほうがく</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('games')">
+        <div class="icon-circle ic-green">🎯</div>
+        <span class="btn-label">ゲーム</span>
+        <span class="btn-sub">こたえてみよう</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('practice')">
+        <div class="icon-circle ic-pink">🐰</div>
+        <span class="btn-label">はいちゲーム</span>
+        <span class="btn-sub">ただしい ばしょに おこう</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('achievements')">
+        <div class="icon-circle ic-yellow">⭐</div>
+        <span class="btn-label">ごほうび</span>
+        <span class="btn-sub">がんばった しるし</span>
+      </button>
+    </div>
+
+    <div class="grid-2" style="margin-top: 14px;">
+      <button class="btn" data-scan onclick="nav('howto')">
+        <div class="icon-circle ic-blue">❓</div>
+        <span class="btn-label">つかいかた</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('settings')">
+        <div class="icon-circle ic-accent">⚙️</div>
+        <span class="btn-label">せってい</span>
+      </button>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <button class="btn btn-wide" data-scan onclick="openTeacherMode()" style="background: var(--purple-soft); border-color: var(--purple); min-height: 64px;">
+        <div class="icon-circle" style="background: var(--purple); color: #FFF;">📊</div>
+        <div class="btn-text">
+          <span class="btn-label" style="color: var(--purple);">せんせい モード</span>
+          <span class="btn-sub">がくしゅうログ・CSV しゅつりょく</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- まなぶメニュー -->
+  <div class="screen" id="screen-learn">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>まなぶ</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('まなぶ。なにを まなぶか えらんでね')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="nav('learn-lr')">
+        <div style="font-size: 2em;">← →</div>
+        <span class="btn-label">みぎ と ひだり</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('learn-fb')">
+        <div style="font-size: 2em;">⬆ ⬇</div>
+        <span class="btn-label">まえ と うしろ</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('learn-ud')">
+        <div style="font-size: 2em;">⇧ ⇩</div>
+        <span class="btn-label">うえ と した</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('learn-compass')">
+        <div style="font-size: 2em;">🧭</div>
+        <span class="btn-label">ほうがく</span>
+      </button>
+      <button class="btn" data-scan onclick="nav('learn-order')" style="grid-column: span 2;">
+        <div style="font-size: 1.8em;">1・2・3</div>
+        <span class="btn-label">じゅんばん（〜ばんめ）</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- みぎとひだり -->
+  <div class="screen" id="screen-learn-lr">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('learn')" aria-label="もどる">←</button>
+      <h1>みぎ と ひだり</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('みぎと ひだり。おはしを もつ ほうが みぎ、ちゃわんを もつ ほうが ひだりだよ')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <svg width="320" height="180" viewBox="0 0 320 180" aria-hidden="true">
+        <circle cx="160" cy="80" r="38" fill="#FAC775"/>
+        <circle cx="146" cy="72" r="5" fill="#412402"/>
+        <circle cx="174" cy="72" r="5" fill="#412402"/>
+        <path d="M148 92 Q160 100 172 92" stroke="#412402" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <rect x="144" y="118" width="32" height="44" fill="#378ADD" rx="3"/>
+        <text x="30" y="86" font-size="22" font-weight="700" fill="#D4537E">← ひだり</text>
+        <text x="220" y="86" font-size="22" font-weight="700" fill="#3B82C4">みぎ →</text>
+      </svg>
+      <p style="margin-top: 12px; font-size: 1.02em;">おはしを もつ ほうが「みぎ」、<br>ちゃわんを もつ ほうが「ひだり」だよ。</p>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="speak('ひだり')" style="background: var(--pink-soft); border-color: var(--pink);">
+        <div style="font-size: 2.6em; color: var(--pink);">←</div>
+        <span class="btn-label" style="color: var(--pink);">ひだり</span>
+      </button>
+      <button class="btn" data-scan onclick="speak('みぎ')" style="background: var(--blue-soft); border-color: var(--blue);">
+        <div style="font-size: 2.6em; color: var(--blue);">→</div>
+        <span class="btn-label" style="color: var(--blue);">みぎ</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- まえとうしろ -->
+  <div class="screen" id="screen-learn-fb">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('learn')" aria-label="もどる">←</button>
+      <h1>まえ と うしろ</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('まえと うしろ。すすんで いく ほうが まえ、はんたいが うしろだよ')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <svg width="340" height="170" viewBox="0 0 340 170" aria-hidden="true">
+        <text x="15" y="92" font-size="18" fill="#5FA145" font-weight="700">うしろ</text>
+        <circle cx="100" cy="80" r="22" fill="#F5C4B3"/>
+        <text x="90" y="87" font-size="22">🐘</text>
+        <circle cx="170" cy="80" r="22" fill="#FAC775"/>
+        <text x="160" y="87" font-size="22">🐰</text>
+        <circle cx="240" cy="80" r="22" fill="#9FE1CB"/>
+        <text x="230" y="87" font-size="22">🐱</text>
+        <text x="275" y="92" font-size="18" fill="#3B82C4" font-weight="700">まえ →</text>
+        <text x="82" y="125" font-size="12" fill="#6B6760">1ばんうしろ</text>
+        <text x="222" y="125" font-size="12" fill="#3B82C4">1ばんまえ</text>
+      </svg>
+      <p style="margin-top: 12px;">すすんで いく ほうが「まえ」、<br>はんたいが「うしろ」だよ。</p>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="speak('まえ')" style="background: var(--blue-soft); border-color: var(--blue);">
+        <div style="font-size: 2.4em; color: var(--blue);">⬆</div>
+        <span class="btn-label" style="color: var(--blue);">まえ</span>
+      </button>
+      <button class="btn" data-scan onclick="speak('うしろ')" style="background: var(--green-soft); border-color: var(--green);">
+        <div style="font-size: 2.4em; color: var(--green);">⬇</div>
+        <span class="btn-label" style="color: var(--green);">うしろ</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- うえとした -->
+  <div class="screen" id="screen-learn-ud">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('learn')" aria-label="もどる">←</button>
+      <h1>うえ と した</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('うえと した。そらは うえ、じめんは しただよ')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <svg width="220" height="220" viewBox="0 0 220 220" aria-hidden="true">
+        <text x="60" y="30" font-size="18" fill="#3B82C4" font-weight="700">うえ ⬆</text>
+        <text x="85" y="75" font-size="30">☀️</text>
+        <text x="85" y="125" font-size="30">🧒</text>
+        <text x="60" y="200" font-size="18" fill="#D4537E" font-weight="700">した ⬇</text>
+        <line x1="110" y1="150" x2="110" y2="180" stroke="#6B6760" stroke-width="2"/>
+        <text x="85" y="175" font-size="18">🌱</text>
+      </svg>
+      <p style="margin-top: 12px;">そらは「うえ」、<br>じめんは「した」だよ。</p>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="speak('うえ')" style="background: var(--blue-soft); border-color: var(--blue);">
+        <div style="font-size: 2.6em; color: var(--blue);">⬆</div>
+        <span class="btn-label" style="color: var(--blue);">うえ</span>
+      </button>
+      <button class="btn" data-scan onclick="speak('した')" style="background: var(--pink-soft); border-color: var(--pink);">
+        <div style="font-size: 2.6em; color: var(--pink);">⬇</div>
+        <span class="btn-label" style="color: var(--pink);">した</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ほうがく -->
+  <div class="screen" id="screen-learn-compass">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('learn')" aria-label="もどる">←</button>
+      <h1>ほうがく</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('ほうがく。きた、みなみ、ひがし、にし。たいようが のぼる ほうが ひがし、しずむ ほうが にしだよ')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <svg width="280" height="240" viewBox="-20 0 280 240" aria-hidden="true">
+        <circle cx="120" cy="120" r="100" fill="#FFFFFF" stroke="#C9BDA3" stroke-width="3"/>
+        <circle cx="120" cy="120" r="70" fill="none" stroke="#E8DFCB" stroke-width="1"/>
+        <path d="M120 30 L133 120 L120 130 L107 120 Z" fill="#E24B4A"/>
+        <path d="M120 210 L133 120 L120 110 L107 120 Z" fill="#6B6760"/>
+        <text x="120" y="22" text-anchor="middle" font-size="22" font-weight="700" fill="#A32D2D">きた</text>
+        <text x="120" y="236" text-anchor="middle" font-size="22" font-weight="700" fill="#2C2C2A">みなみ</text>
+        <text x="4" y="128" text-anchor="middle" font-size="22" font-weight="700" fill="#2C2C2A">にし</text>
+        <text x="228" y="128" text-anchor="middle" font-size="22" font-weight="700" fill="#2C2C2A">ひがし</text>
+        <text x="180" y="74" font-size="24">☀️</text>
+      </svg>
+      <p style="margin-top: 12px;">たいようが のぼる ほうが「ひがし」、<br>しずむ ほうが「にし」だよ。</p>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="speak('きた')"><span class="btn-label">きた（北）</span></button>
+      <button class="btn" data-scan onclick="speak('みなみ')"><span class="btn-label">みなみ（南）</span></button>
+      <button class="btn" data-scan onclick="speak('ひがし。たいようが のぼる ほう')"><span class="btn-label">ひがし（東）</span></button>
+      <button class="btn" data-scan onclick="speak('にし。たいようが しずむ ほう')"><span class="btn-label">にし（西）</span></button>
+    </div>
+  </div>
+
+  <!-- じゅんばん -->
+  <div class="screen" id="screen-learn-order">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('learn')" aria-label="もどる">←</button>
+      <h1>じゅんばん</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('じゅんばん。まえから かぞえたり、うしろから かぞえたり してみよう')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <p style="margin: 0 0 16px; font-weight: 700;">まえから かぞえて みよう！</p>
+      <svg width="100%" viewBox="0 0 400 140" aria-hidden="true">
+        <text x="10" y="76" font-size="14" fill="#6B6760" font-weight="700">うしろ</text>
+        <g><circle cx="80" cy="70" r="24" fill="#F5C4B3"/><text x="66" y="78" font-size="22">🐘</text><text x="66" y="112" font-size="12" fill="#4A1B0C" font-weight="700">4ばんめ</text></g>
+        <g><circle cx="160" cy="70" r="24" fill="#FAC775"/><text x="146" y="78" font-size="22">🐰</text><text x="146" y="112" font-size="12" fill="#412402" font-weight="700">3ばんめ</text></g>
+        <g><circle cx="240" cy="70" r="24" fill="#9FE1CB"/><text x="226" y="78" font-size="22">🐱</text><text x="226" y="112" font-size="12" fill="#04342C" font-weight="700">2ばんめ</text></g>
+        <g><circle cx="320" cy="70" r="24" fill="#B5D4F4"/><text x="306" y="78" font-size="22">🐶</text><text x="306" y="112" font-size="12" fill="#042C53" font-weight="700">1ばんめ</text></g>
+        <text x="355" y="76" font-size="14" fill="#6B6760" font-weight="700">まえ</text>
+      </svg>
+      <p style="margin-top: 16px; font-size: 0.95em; color: var(--ink-soft);">🐱ネコは「まえから 2ばんめ」<br>「うしろから 3ばんめ」だね。</p>
+    </div>
+    <div class="card soft center">
+      <p style="margin: 0; font-weight: 700;">💡 ポイント</p>
+      <p style="margin: 8px 0 0; font-size: 0.95em;">まえから と うしろから では、ばんごうが ちがうよ！</p>
+    </div>
+  </div>
+
+  <!-- ゲームメニュー -->
+  <div class="screen" id="screen-games">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>ゲーム</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('ゲーム。やりたい ゲームを えらんでね')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="stack">
+      <button class="btn btn-wide" data-scan onclick="nav('game-quiz')">
+        <div class="icon-circle ic-purple">?</div>
+        <div class="btn-text">
+          <span class="btn-label">クイズ：なんばんめ？</span>
+          <span class="btn-sub">どうぶつが まえ・うしろから なんばんめか あてよう</span>
+        </div>
+      </button>
+      <button class="btn btn-wide" data-scan onclick="nav('game-direction')">
+        <div class="icon-circle ic-pink">↔</div>
+        <div class="btn-text">
+          <span class="btn-label">どっちかな？</span>
+          <span class="btn-sub">みぎ・ひだり・うえ・した を えらぼう</span>
+        </div>
+      </button>
+      <button class="btn btn-wide" data-scan onclick="nav('game-compass')">
+        <div class="icon-circle ic-yellow">🧭</div>
+        <div class="btn-text">
+          <span class="btn-label">ほうがくクイズ</span>
+          <span class="btn-sub">きた・みなみ・ひがし・にし を あてよう</span>
+        </div>
+      </button>
+      <button class="btn btn-wide" data-scan onclick="nav('practice')">
+        <div class="icon-circle ic-green">🐰</div>
+        <div class="btn-text">
+          <span class="btn-label">はいちゲーム</span>
+          <span class="btn-sub">どうぶつを ただしい ばしょに おこう</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- クイズ:なんばんめ -->
+  <div class="screen" id="screen-game-quiz">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('games')" aria-label="もどる">←</button>
+      <h1>なんばんめ？</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="readQuizQ()" aria-label="問題を 読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <p id="quiz-question" style="margin: 0 0 16px; font-weight: 700; font-size: 1.1em;">よみこみちゅう...</p>
+      <div class="animals-line" id="quiz-line"></div>
+      <button class="btn btn-sm" data-scan onclick="readQuizQ()">🔊 もういちど きく</button>
+    </div>
+    <p style="text-align: center; margin: 12px 0; color: var(--ink-soft); font-size: 0.95em;">こたえを えらんでね</p>
+    <div class="grid-3" id="quiz-answers"></div>
+    <div id="quiz-feedback" class="feedback feedback-empty"></div>
+    <div style="display:flex; justify-content: center; margin-top: 16px;">
+      <button class="btn btn-sm" data-scan onclick="loadQuiz()" style="min-width: 160px;">つぎの もんだい →</button>
+    </div>
+  </div>
+
+  <!-- ゲーム:どっち -->
+  <div class="screen" id="screen-game-direction">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('games')" aria-label="もどる">←</button>
+      <h1>どっちかな？</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="readDirQ()" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <p id="dir-question" style="margin: 0 0 16px; font-weight: 700; font-size: 1.1em;">よみこみちゅう...</p>
+      <div id="dir-scene" style="min-height: 120px; margin: 16px 0;"></div>
+      <button class="btn btn-sm" data-scan onclick="readDirQ()">🔊 もういちど きく</button>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="answerDir('みぎ')"><div style="font-size: 2em;">→</div><span class="btn-label">みぎ</span></button>
+      <button class="btn" data-scan onclick="answerDir('ひだり')"><div style="font-size: 2em;">←</div><span class="btn-label">ひだり</span></button>
+      <button class="btn" data-scan onclick="answerDir('うえ')"><div style="font-size: 2em;">⬆</div><span class="btn-label">うえ</span></button>
+      <button class="btn" data-scan onclick="answerDir('した')"><div style="font-size: 2em;">⬇</div><span class="btn-label">した</span></button>
+    </div>
+    <div id="dir-feedback" class="feedback feedback-empty"></div>
+    <div style="display:flex; justify-content: center; margin-top: 16px;">
+      <button class="btn btn-sm" data-scan onclick="loadDir()" style="min-width: 160px;">つぎの もんだい →</button>
+    </div>
+  </div>
+
+  <!-- ゲーム:方角 -->
+  <div class="screen" id="screen-game-compass">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('games')" aria-label="もどる">←</button>
+      <h1>ほうがくクイズ</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="readCompassQ()" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <p id="compass-question" style="margin: 0 0 16px; font-weight: 700; font-size: 1.1em;">よみこみちゅう...</p>
+      <svg width="220" height="180" viewBox="-20 0 220 180" aria-hidden="true">
+        <circle cx="90" cy="90" r="78" fill="#FFF" stroke="#C9BDA3" stroke-width="3"/>
+        <text x="90" y="22" text-anchor="middle" font-size="16" font-weight="700" fill="#A32D2D">きた</text>
+        <text x="90" y="172" text-anchor="middle" font-size="16" font-weight="700">みなみ</text>
+        <text x="4" y="96" text-anchor="middle" font-size="16" font-weight="700">にし</text>
+        <text x="172" y="96" text-anchor="middle" font-size="16" font-weight="700">ひがし</text>
+      </svg>
+      <button class="btn btn-sm" data-scan onclick="readCompassQ()" style="margin-top: 10px;">🔊 もういちど きく</button>
+    </div>
+    <div class="grid-2">
+      <button class="btn" data-scan onclick="answerCompass('きた')"><span class="btn-label">きた</span></button>
+      <button class="btn" data-scan onclick="answerCompass('みなみ')"><span class="btn-label">みなみ</span></button>
+      <button class="btn" data-scan onclick="answerCompass('ひがし')"><span class="btn-label">ひがし</span></button>
+      <button class="btn" data-scan onclick="answerCompass('にし')"><span class="btn-label">にし</span></button>
+    </div>
+    <div id="compass-feedback" class="feedback feedback-empty"></div>
+    <div style="display:flex; justify-content: center; margin-top: 16px;">
+      <button class="btn btn-sm" data-scan onclick="loadCompass()" style="min-width: 160px;">つぎの もんだい →</button>
+    </div>
+  </div>
+
+  <!-- はいちゲーム -->
+  <div class="screen" id="screen-practice">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>はいちゲーム</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="readPracticeQ()" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <p id="place-question" style="margin: 0; font-weight: 700; font-size: 1.1em;">よみこみちゅう...</p>
+      <button class="btn btn-sm" data-scan onclick="readPracticeQ()" style="margin-top: 10px;">🔊 もういちど きく</button>
+    </div>
+    <div class="row-scene" id="place-row"></div>
+    <p style="text-align: center; color: var(--ink-soft); font-size: 0.9em; margin: 8px 0 14px;">
+      <span id="place-instruction">した の どうぶつを タップして、うえ の マスに おこう</span>
+    </p>
+    <div style="display: flex; justify-content: center;">
+      <button class="btn" data-scan id="animal-pick" onclick="pickAnimal()" style="width: 130px; min-height: 110px;">
+        <div style="font-size: 3em;" id="animal-emoji">🐰</div>
+        <span class="btn-label" id="animal-name">ウサギ</span>
+      </button>
+    </div>
+    <div id="place-feedback" class="feedback feedback-empty"></div>
+    <div style="display:flex; justify-content: center; margin-top: 16px;">
+      <button class="btn btn-sm" data-scan onclick="loadPractice()" style="min-width: 160px;">つぎの もんだい →</button>
+    </div>
+  </div>
+
+  <!-- ごほうび -->
+  <div class="screen" id="screen-achievements">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>ごほうび</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('ごほうび。がんばった しるし が たまるよ')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="card center">
+      <p style="margin: 0; font-weight: 700;">がんばった しるし</p>
+      <p style="margin: 8px 0 0; color: var(--ink-soft); font-size: 0.9em;">せいかいする たびに ⭐が ふえるよ</p>
+      <div class="stars-grid" id="stars-grid"></div>
+      <p style="margin-top: 20px; font-weight: 700;">せいかいの かず: <span id="total-stars">0</span> ⭐</p>
+      <button class="btn btn-sm" data-scan onclick="resetStars()" style="margin-top: 12px;">リセット</button>
+    </div>
+  </div>
+
+  <!-- つかいかた -->
+  <div class="screen" id="screen-howto">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>つかいかた</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('つかいかた')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+        <button class="icon-btn" data-scan onclick="nav('settings')" aria-label="設定">⚙️</button>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="howto-step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <div class="s-title">まなぶ で おぼえよう</div>
+          <div class="s-desc">みぎ・ひだり、まえ・うしろ、うえ・した、ほうがく、じゅんばん を えらんで、えと こえで おぼえよう。</div>
+        </div>
+      </div>
+      <div class="howto-step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <div class="s-title">ゲーム で こたえよう</div>
+          <div class="s-desc">もんだいを きいて、こたえだと おもう ボタンを タップ。 🔊を おすと なんども きけるよ。</div>
+        </div>
+      </div>
+      <div class="howto-step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <div class="s-title">はいちゲーム で おこう</div>
+          <div class="s-desc">したの どうぶつを タップ、そのあと うえの マスを タップすると おけるよ。</div>
+        </div>
+      </div>
+      <div class="howto-step">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          <div class="s-title">せってい で あわせよう</div>
+          <div class="s-desc">もじの おおきさ、いろ、よみあげ、スイッチスキャン を、じぶんに ぴったり あわせよう。</div>
+        </div>
+      </div>
+      <div class="supporter-note">
+        <strong>💡 サポートする かたへ</strong>
+        お子さんの 感覚や 操作特性に 合わせて 設定を 調整してください。スイッチスキャンは <strong>スペースキー</strong> または 外部スイッチで 選択できます。ハイコントラスト・文字サイズ・読み上げは 個別に ON/OFF 可能です。進捗（⭐の数）は ブラウザに 保存されます。
+      </div>
+    </div>
+  </div>
+
+  <!-- せってい -->
+  <div class="screen" id="screen-settings">
+    <div class="title-bar">
+      <button class="icon-btn" data-scan onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>せってい</h1>
+      <div class="title-right">
+        <button class="icon-btn" data-scan onclick="speak('せってい。じぶんに あわせて かえてね')" aria-label="読み上げる">🔊</button>
+        <button class="icon-btn" data-scan onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+      </div>
+    </div>
+    <div class="settings-wrap">
+      <div class="setting-row">
+        <div>
+          <div class="label-main">ハイコントラスト</div>
+          <div class="label-sub">しろと くろで はっきり みえる</div>
+        </div>
+        <button class="toggle" id="toggle-hc" data-scan onclick="toggle('highContrast')">OFF</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label-main">もじの おおきさ</div>
+          <div class="label-sub" id="fontsize-label">いまは：ふつう</div>
+        </div>
+        <div class="size-group">
+          <button class="size-btn" data-scan data-size="small" onclick="setFont('small')" style="font-size: 0.75em;">小</button>
+          <button class="size-btn" data-scan data-size="medium" onclick="setFont('medium')" style="font-size: 0.9em;">中</button>
+          <button class="size-btn" data-scan data-size="large" onclick="setFont('large')" style="font-size: 1.05em;">大</button>
+          <button class="size-btn" data-scan data-size="xlarge" onclick="setFont('xlarge')" style="font-size: 1.2em;">特大</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label-main">もじの よみあげ</div>
+          <div class="label-sub">もんだいを こえで よむ</div>
+        </div>
+        <button class="toggle on" id="toggle-tts" data-scan onclick="toggle('tts')">ON</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label-main">スイッチスキャン</div>
+          <div class="label-sub">じどうで ハイライト。スペースキーで せんたく</div>
+        </div>
+        <button class="toggle" id="toggle-scan" data-scan onclick="toggle('switchScan')">OFF</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="label-main">スキャンの はやさ</div>
+          <div class="label-sub" id="scan-speed-label">いまは：ふつう（1.8びょう）</div>
+        </div>
+        <div class="size-group">
+          <button class="size-btn" data-scan onclick="setScanSpeed(2800)">ゆっくり</button>
+          <button class="size-btn active" data-scan onclick="setScanSpeed(1800)">ふつう</button>
+          <button class="size-btn" data-scan onclick="setScanSpeed(1200)">はやい</button>
+        </div>
+      </div>
+    </div>
+    <p style="text-align: center; color: var(--ink-soft); font-size: 0.9em; margin-top: 16px;">
+      せっては ほぞんされます
+    </p>
+  </div>
+
+  <!-- 先生モード:パスワード入力 -->
+  <div class="screen" id="screen-teacher-auth">
+    <div class="title-bar">
+      <button class="icon-btn" onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>せんせい モード</h1>
+      <div class="title-right">
+        <button class="icon-btn" onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+      </div>
+    </div>
+    <div class="card soft">
+      <h2 style="margin-top: 0;">🔒 パスワードを 入力してください</h2>
+      <p style="margin: 0 0 8px; font-size: 0.95em;">学習ログの閲覧・CSV出力は、先生・保護者向けの機能です。</p>
+      <p style="margin: 0 0 12px; font-size: 0.85em; color: var(--ink-soft);">
+        はじめてお使いの場合、お好きなパスワードを設定してください。
+      </p>
+      <input type="password" id="teacher-password" class="password-input" placeholder="パスワードを入力" autocomplete="off">
+      <div style="display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn btn-sm" onclick="checkTeacherPassword()" style="min-width: 140px; background: var(--accent); color: #FFF; border-color: var(--accent);">ログイン</button>
+        <button class="btn btn-sm" onclick="resetTeacherPassword()" style="min-width: 140px;">パスワードを 変更</button>
+      </div>
+      <p id="teacher-auth-msg" style="text-align: center; margin-top: 12px; color: var(--warning); font-weight: 700; min-height: 20px;"></p>
+    </div>
+    <div class="supporter-note">
+      <strong>💡 ご注意</strong>
+      パスワードは このブラウザにのみ 保存されます。忘れた場合は「パスワードを変更」から 再設定できます。お子さんの誤操作を防ぐための 簡易ロックです。
+    </div>
+  </div>
+
+  <!-- 先生モード:ログ表示 -->
+  <div class="screen" id="screen-teacher">
+    <div class="title-bar">
+      <button class="icon-btn" onclick="nav('home')" aria-label="ホームへ">←</button>
+      <h1>学習ログ</h1>
+      <div class="title-right">
+        <button class="icon-btn" onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+      </div>
+    </div>
+
+    <!-- サマリー -->
+    <div class="log-summary" id="log-summary">
+      <div class="log-stat"><div class="num" id="stat-total">0</div><div class="lbl">総問題数</div></div>
+      <div class="log-stat correct"><div class="num" id="stat-correct">0</div><div class="lbl">正解</div></div>
+      <div class="log-stat wrong"><div class="num" id="stat-wrong">0</div><div class="lbl">不正解</div></div>
+      <div class="log-stat"><div class="num" id="stat-rate">0%</div><div class="lbl">正答率</div></div>
+    </div>
+
+    <!-- カテゴリ別サマリー -->
+    <div class="card" style="padding: 16px; margin-bottom: 16px;">
+      <h2 style="margin: 0 0 12px; font-size: 1em;">カテゴリ別 正答率</h2>
+      <div id="category-summary" style="font-size: 0.9em;"></div>
+    </div>
+
+    <!-- フィルター -->
+    <div class="log-filter" id="log-filter">
+      <button class="active" data-filter="all" onclick="filterLog('all')">すべて</button>
+      <button data-filter="quiz" onclick="filterLog('quiz')">なんばんめ</button>
+      <button data-filter="dir" onclick="filterLog('dir')">どっちかな</button>
+      <button data-filter="compass" onclick="filterLog('compass')">ほうがく</button>
+      <button data-filter="practice" onclick="filterLog('practice')">はいち</button>
+      <button data-filter="wrong" onclick="filterLog('wrong')">不正解のみ</button>
+    </div>
+
+    <!-- ログテーブル -->
+    <div class="log-table-wrap">
+      <div class="log-scroll">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th style="width: 130px;">日時</th>
+              <th style="width: 90px;">種類</th>
+              <th>問題</th>
+              <th style="width: 80px;">回答</th>
+              <th style="width: 60px;">結果</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody">
+            <tr><td colspan="5" class="empty-msg">まだログが ありません</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 操作ボタン -->
+    <div class="log-actions">
+      <button class="btn btn-sm" onclick="exportLogCSV()" style="background: var(--green); color: #FFF; border-color: var(--green); min-width: 180px;">
+        📥 CSVで 書き出す
+      </button>
+      <button class="btn btn-sm" onclick="clearAllLogs()" style="min-width: 160px;">
+        🗑 ログを 削除
+      </button>
+    </div>
+    <p style="text-align: center; color: var(--ink-soft); font-size: 0.85em; margin-top: 16px;">
+      ログは ブラウザに 保存されます。最新 500件まで。
+    </p>
+  </div>
+
+</div>
+
+<script>
+  // ==== State ====
+  const state = {
+    screen: 'home',
+    settings: loadSettings(),
+    scanIndex: 0,
+    scanTimer: null,
+    stars: loadStars(),
+    logs: loadLogs(),
+    logFilter: 'all',
+    // クイズ用
+    quiz: null,
+    dir: null,
+    compass: null,
+    practice: null,
+    practicePicked: false
+  };
+
+  const ANIMALS = [
+    { e: '🦒', n: 'キリン' },
+    { e: '🐰', n: 'ウサギ' },
+    { e: '🐘', n: 'ゾウ' },
+    { e: '🐶', n: 'イヌ' },
+    { e: '🐱', n: 'ネコ' },
+    { e: '🐯', n: 'トラ' },
+    { e: '🐼', n: 'パンダ' },
+    { e: '🦊', n: 'キツネ' }
+  ];
+
+  const NUMBER_KANJI = ['1','2','3','4','5','6','7'];
+
+  // ==== Storage ====
+  function loadSettings() {
+    try {
+      const s = JSON.parse(localStorage.getItem('appSettings') || '{}');
+      return {
+        highContrast: s.highContrast ?? false,
+        fontSize: s.fontSize ?? 'medium',
+        tts: s.tts ?? true,
+        switchScan: s.switchScan ?? false,
+        scanSpeed: s.scanSpeed ?? 1800
+      };
+    } catch(e) {
+      return { highContrast: false, fontSize: 'medium', tts: true, switchScan: false, scanSpeed: 1800 };
+    }
+  }
+  function saveSettings() {
+    try { localStorage.setItem('appSettings', JSON.stringify(state.settings)); } catch(e) {}
+  }
+  function loadStars() {
+    try {
+      const s = JSON.parse(localStorage.getItem('appStars') || '{}');
+      return { quiz: s.quiz||0, dir: s.dir||0, compass: s.compass||0, practice: s.practice||0 };
+    } catch(e) { return { quiz: 0, dir: 0, compass: 0, practice: 0 }; }
+  }
+  function saveStars() {
+    try { localStorage.setItem('appStars', JSON.stringify(state.stars)); } catch(e) {}
+  }
+
+  // ==== Log storage ====
+  const MAX_LOGS = 500;
+  function loadLogs() {
+    try {
+      const arr = JSON.parse(localStorage.getItem('appLogs') || '[]');
+      return Array.isArray(arr) ? arr : [];
+    } catch(e) { return []; }
+  }
+  function saveLogs() {
+    try {
+      // 最新500件のみ保持
+      if (state.logs.length > MAX_LOGS) {
+        state.logs = state.logs.slice(-MAX_LOGS);
+      }
+      localStorage.setItem('appLogs', JSON.stringify(state.logs));
+    } catch(e) {}
+  }
+  function addLog(category, question, userAnswer, correctAnswer, isCorrect) {
+    const now = new Date();
+    const entry = {
+      ts: now.toISOString(),
+      tsLocal: formatDateLocal(now),
+      category,      // 'quiz' | 'dir' | 'compass' | 'practice'
+      question,      // 問題文
+      userAnswer: String(userAnswer),
+      correctAnswer: String(correctAnswer),
+      result: isCorrect ? 'correct' : 'wrong'
+    };
+    state.logs.push(entry);
+    saveLogs();
+  }
+  function formatDateLocal(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  // 教師モード パスワード
+  function getTeacherPassword() {
+    try { return localStorage.getItem('teacherPwd') || ''; } catch(e) { return ''; }
+  }
+  function setTeacherPassword(p) {
+    try { localStorage.setItem('teacherPwd', p); } catch(e) {}
+  }
+  function openTeacherMode() {
+    nav('teacher-auth');
+    setTimeout(() => {
+      const input = document.getElementById('teacher-password');
+      if (input) input.focus();
+      const msg = document.getElementById('teacher-auth-msg');
+      if (msg) {
+        const pwd = getTeacherPassword();
+        msg.style.color = 'var(--ink-soft)';
+        msg.textContent = pwd ? '' : '※ 初回起動です。お好きなパスワードを入力して ログインしてください（自動で設定されます）';
+      }
+    }, 100);
+  }
+  function checkTeacherPassword() {
+    const input = document.getElementById('teacher-password');
+    const msg = document.getElementById('teacher-auth-msg');
+    const entered = input.value;
+    if (!entered) {
+      msg.style.color = 'var(--warning)';
+      msg.textContent = 'パスワードを 入力してください';
+      return;
+    }
+    const stored = getTeacherPassword();
+    if (!stored) {
+      // 初回設定
+      setTeacherPassword(entered);
+      input.value = '';
+      msg.style.color = 'var(--success)';
+      msg.textContent = 'パスワードを 設定しました';
+      setTimeout(() => nav('teacher'), 600);
+      return;
+    }
+    if (entered === stored) {
+      input.value = '';
+      msg.textContent = '';
+      nav('teacher');
+    } else {
+      msg.style.color = 'var(--warning)';
+      msg.textContent = 'パスワードが ちがいます';
+    }
+  }
+  function resetTeacherPassword() {
+    if (!confirm('パスワードを リセットしますか？\n(ログ自体は 消えません)')) return;
+    try { localStorage.removeItem('teacherPwd'); } catch(e) {}
+    const msg = document.getElementById('teacher-auth-msg');
+    const input = document.getElementById('teacher-password');
+    if (input) input.value = '';
+    if (msg) {
+      msg.style.color = 'var(--success)';
+      msg.textContent = 'リセットしました。新しいパスワードを 入力して ログインしてください';
+    }
+  }
+
+  // ==== Fullscreen ====
+  function toggleFullscreen() {
+    const doc = document;
+    const el = document.documentElement;
+    const isFs = doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement;
+    if (!isFs) {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) req.call(el).catch(() => {});
+    } else {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+      if (exit) exit.call(doc).catch(() => {});
+    }
+  }
+  function updateFsIcons() {
+    const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+    document.querySelectorAll('.title-right .icon-btn[aria-label="全画面"]').forEach(b => {
+      b.textContent = isFs ? '⛶' : '⛶';
+      b.title = isFs ? '全画面を 終了' : '全画面';
+    });
+  }
+  document.addEventListener('fullscreenchange', updateFsIcons);
+  document.addEventListener('webkitfullscreenchange', updateFsIcons);
+
+  // ==== Settings apply ====
+  function applySettings() {
+    document.body.classList.toggle('hc', state.settings.highContrast);
+    ['small','medium','large','xlarge'].forEach(s => document.body.classList.remove('fs-'+s));
+    document.body.classList.add('fs-' + state.settings.fontSize);
+
+    // UI反映
+    const fsLabels = { small:'ちいさい', medium:'ふつう', large:'おおきい', xlarge:'とても おおきい'};
+    const fsl = document.getElementById('fontsize-label');
+    if (fsl) fsl.textContent = 'いまは：' + fsLabels[state.settings.fontSize];
+    document.querySelectorAll('.size-btn[data-size]').forEach(b => {
+      b.classList.toggle('active', b.dataset.size === state.settings.fontSize);
+    });
+    const tgHc = document.getElementById('toggle-hc');
+    if (tgHc) { tgHc.textContent = state.settings.highContrast ? 'ON' : 'OFF'; tgHc.classList.toggle('on', state.settings.highContrast); }
+    const tgTts = document.getElementById('toggle-tts');
+    if (tgTts) { tgTts.textContent = state.settings.tts ? 'ON' : 'OFF'; tgTts.classList.toggle('on', state.settings.tts); }
+    const tgScan = document.getElementById('toggle-scan');
+    if (tgScan) { tgScan.textContent = state.settings.switchScan ? 'ON' : 'OFF'; tgScan.classList.toggle('on', state.settings.switchScan); }
+    const ssl = document.getElementById('scan-speed-label');
+    if (ssl) {
+      const sp = state.settings.scanSpeed;
+      const lbl = sp <= 1200 ? 'はやい（1.2びょう）' : sp >= 2800 ? 'ゆっくり（2.8びょう）' : 'ふつう（1.8びょう）';
+      ssl.textContent = 'いまは：' + lbl;
+    }
+  }
+
+  function toggle(key) {
+    state.settings[key] = !state.settings[key];
+    saveSettings();
+    applySettings();
+    if (key === 'switchScan') {
+      if (state.settings.switchScan) startScan();
+      else stopScan();
+    }
+  }
+  function setFont(size) {
+    state.settings.fontSize = size;
+    saveSettings();
+    applySettings();
+  }
+  function setScanSpeed(ms) {
+    state.settings.scanSpeed = ms;
+    saveSettings();
+    applySettings();
+    document.querySelectorAll('.setting-row:last-child .size-btn').forEach(b => b.classList.remove('active'));
+    event && event.target && event.target.classList.add('active');
+    if (state.settings.switchScan) startScan();
+  }
+
+  // ==== Speech ====
+  function speak(text) {
+    if (!state.settings.tts) return;
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ja-JP';
+      u.rate = 0.85;
+      u.pitch = 1.1;
+      window.speechSynthesis.speak(u);
+    } catch(e) {}
+  }
+
+  // ==== Navigation ====
+  function nav(screen) {
+    state.screen = screen;
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('screen-' + screen);
+    if (el) el.classList.add('active');
+
+    // 画面ごとの初期化
+    if (screen === 'game-quiz') loadQuiz();
+    if (screen === 'game-direction') loadDir();
+    if (screen === 'game-compass') loadCompass();
+    if (screen === 'practice') loadPractice();
+    if (screen === 'achievements') renderStars();
+    if (screen === 'teacher') renderLogs();
+
+    window.scrollTo(0, 0);
+    // スキャン再起動
+    if (state.settings.switchScan) setTimeout(startScan, 50);
+  }
+
+  // ==== Switch Scanning ====
+  function startScan() {
+    stopScan();
+    if (!state.settings.switchScan) return;
+    const activeScreen = document.querySelector('.screen.active');
+    if (!activeScreen) return;
+    const items = activeScreen.querySelectorAll('[data-scan]');
+    if (items.length === 0) return;
+    state.scanIndex = 0;
+    const highlight = () => {
+      document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+      if (items[state.scanIndex]) items[state.scanIndex].classList.add('scan-focus');
+      state.scanIndex = (state.scanIndex + 1) % items.length;
+    };
+    highlight();
+    state.scanTimer = setInterval(highlight, state.settings.scanSpeed);
+  }
+  function stopScan() {
+    if (state.scanTimer) { clearInterval(state.scanTimer); state.scanTimer = null; }
+    document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!state.settings.switchScan) return;
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      const focused = document.querySelector('.scan-focus');
+      if (focused) focused.click();
+    }
+  });
+
+  // ==== Quiz: nanbanme ====
+  function loadQuiz() {
+    let count, picked, targetIdx, fromFront, target;
+    let tries = 0;
+    do {
+      count = 4 + Math.floor(Math.random() * 2); // 4 or 5
+      picked = shuffle(ANIMALS).slice(0, count);
+      targetIdx = Math.floor(Math.random() * count);
+      fromFront = Math.random() < 0.5;
+      target = picked[targetIdx];
+      tries++;
+    } while (
+      tries < 8 &&
+      state.quiz &&
+      target.n === state.quiz.target.n &&
+      fromFront === state.quiz.fromFront
+    );
+
+    // 左=うしろ、右=まえ
+    // target が配列index i のとき:
+    //   まえから (count - i) ばんめ
+    //   うしろから (i + 1) ばんめ
+    const frontN = count - targetIdx;
+    const backN = targetIdx + 1;
+    const answer = fromFront ? frontN : backN;
+
+    state.quiz = { picked, target, fromFront, answer, frontN, backN };
+
+    // 質問
+    const qText = `${target.e}${target.n} は ${fromFront ? 'まえ' : 'うしろ'}から なんばんめ かな？`;
+    document.getElementById('quiz-question').textContent = qText;
+
+    // 動物列
+    const line = document.getElementById('quiz-line');
+    line.innerHTML =
+      '<span class="row-label">うしろ →</span>' +
+      picked.map(a => `<div class="animal-tile"><span class="emj">${a.e}</span><span class="nm">${a.n}</span></div>`).join('') +
+      '<span class="row-label">← まえ</span>';
+
+    // 答え選択肢
+    const ans = document.getElementById('quiz-answers');
+    ans.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+      const b = document.createElement('button');
+      b.className = 'btn';
+      b.setAttribute('data-scan', '');
+      b.innerHTML = `<div style="font-size: 2em; font-weight: 700;">${i}</div><span class="btn-sub">ばんめ</span>`;
+      b.onclick = () => answerQuiz(i);
+      ans.appendChild(b);
+    }
+
+    setFeedback('quiz-feedback', '', '');
+    readQuizQ();
+    if (state.settings.switchScan) setTimeout(startScan, 200);
+  }
+  function readQuizQ() {
+    if (!state.quiz) return;
+    const q = state.quiz;
+    speak(`${q.target.n} は、${q.fromFront ? 'まえ' : 'うしろ'}から、なんばんめ かな？`);
+  }
+  function answerQuiz(n) {
+    if (!state.quiz) return;
+    const correct = state.quiz.answer;
+    const q = state.quiz;
+    const qText = `${q.target.n}は ${q.fromFront?'まえ':'うしろ'}から なんばんめ？（並び：${q.picked.map(a=>a.n).join('/')}／左=後ろ・右=前）`;
+    const isCorrect = n === correct;
+    addLog('quiz', qText, `${n}ばんめ`, `${correct}ばんめ`, isCorrect);
+    if (isCorrect) {
+      setFeedback('quiz-feedback',
+        `⭐ せいかい！ ${state.quiz.target.n}は ${state.quiz.fromFront?'まえ':'うしろ'}から ${correct}ばんめ だよ`,
+        'success');
+      speak('せいかい！ よくできました');
+      state.stars.quiz++;
+      saveStars();
+    } else {
+      const frontHint = state.quiz.frontN, backHint = state.quiz.backN;
+      setFeedback('quiz-feedback',
+        `もういちど かんがえてみよう。まえから ${frontHint}、うしろから ${backHint} だよ`,
+        'warn');
+      speak('もういちど かんがえてみよう');
+    }
+  }
+
+  // ==== Game: direction ====
+  // 絵文字と読み上げ用の日本語名のペア
+  const DIR_ANIMALS = [
+    { e: '🐱', n: 'ネコ' },
+    { e: '🐶', n: 'イヌ' },
+    { e: '🐰', n: 'ウサギ' },
+    { e: '🦒', n: 'キリン' },
+    { e: '🐻', n: 'クマ' },
+    { e: '🐸', n: 'カエル' }
+  ];
+  const DIR_OBJECTS = [
+    { e: '⭐', n: 'ほし' },
+    { e: '🎈', n: 'ふうせん' },
+    { e: '🍎', n: 'りんご' },
+    { e: '🌸', n: 'はな' },
+    { e: '🍌', n: 'バナナ' },
+    { e: '⚽', n: 'ボール' }
+  ];
+
+  function loadDir() {
+    const dirs = ['みぎ','ひだり','うえ','した'];
+
+    // 直前と同じ組み合わせを避ける
+    let objA, objB, d;
+    let tries = 0;
+    do {
+      objA = DIR_ANIMALS[Math.floor(Math.random() * DIR_ANIMALS.length)];
+      objB = DIR_OBJECTS[Math.floor(Math.random() * DIR_OBJECTS.length)];
+      d = dirs[Math.floor(Math.random() * dirs.length)];
+      tries++;
+    } while (
+      tries < 10 &&
+      state.dir &&
+      objA.e === state.dir.objA.e &&
+      objB.e === state.dir.objB.e &&
+      d === state.dir.d
+    );
+    // さらに方向だけでも直前と変えるフォールバック
+    if (state.dir && d === state.dir.d && Math.random() < 0.6) {
+      const others = dirs.filter(x => x !== state.dir.d);
+      d = others[Math.floor(Math.random() * others.length)];
+    }
+
+    state.dir = { objA, objB, d };
+    const qText = `${objB.n}は ${objA.n}の どっちに あるかな？`;
+    document.getElementById('dir-question').textContent = qText;
+
+    const sc = document.getElementById('dir-scene');
+    const positions = {
+      'みぎ': { ax:70, ay:90, bx:170, by:90 },
+      'ひだり': { ax:170, ay:90, bx:70, by:90 },
+      'うえ': { ax:120, ay:130, bx:120, by:50 },
+      'した': { ax:120, ay:50, bx:120, by:130 }
+    };
+    const p = positions[d];
+    const svg = `<svg width="240" height="180" viewBox="0 0 240 180" aria-hidden="true">
+      <text x="${p.ax-18}" y="${p.ay+10}" font-size="40">${objA.e}</text>
+      <text x="${p.bx-14}" y="${p.by+10}" font-size="32">${objB.e}</text>
+    </svg>`;
+    sc.innerHTML = svg;
+
+    setFeedback('dir-feedback', '', '');
+    readDirQ();
+    if (state.settings.switchScan) setTimeout(startScan, 200);
+  }
+  function readDirQ() {
+    if (!state.dir) return;
+    speak(`${state.dir.objB.n}は、${state.dir.objA.n}の どっちに あるかな？`);
+  }
+  function answerDir(chosen) {
+    if (!state.dir) return;
+    const isCorrect = chosen === state.dir.d;
+    const qText = `${state.dir.objB.n}は ${state.dir.objA.n}の どっち？`;
+    addLog('dir', qText, chosen, state.dir.d, isCorrect);
+    if (isCorrect) {
+      setFeedback('dir-feedback', '⭐ せいかい！', 'success');
+      speak('せいかい！');
+      state.stars.dir++;
+      saveStars();
+    } else {
+      setFeedback('dir-feedback', 'もういちど よく みてみよう', 'warn');
+      speak('もういちど みてみよう');
+    }
+  }
+
+  // ==== Game: compass ====
+  const COMPASS_Q = [
+    { q: 'たいようが のぼる ほうは？', a: 'ひがし' },
+    { q: 'たいようが しずむ ほうは？', a: 'にし' },
+    { q: 'コンパスの はりが さす ほうは？（きた・みなみの きた）', a: 'きた' },
+    { q: 'きたの はんたいは どこかな？', a: 'みなみ' },
+    { q: 'ひがしの はんたいは どこかな？', a: 'にし' },
+    { q: 'にしの はんたいは どこかな？', a: 'ひがし' }
+  ];
+  function loadCompass() {
+    let item;
+    let tries = 0;
+    do {
+      item = COMPASS_Q[Math.floor(Math.random()*COMPASS_Q.length)];
+      tries++;
+    } while (tries < 10 && state.compass && item.q === state.compass.q);
+    state.compass = item;
+    document.getElementById('compass-question').textContent = item.q;
+    setFeedback('compass-feedback', '', '');
+    readCompassQ();
+    if (state.settings.switchScan) setTimeout(startScan, 200);
+  }
+  function readCompassQ() {
+    if (!state.compass) return;
+    speak(state.compass.q);
+  }
+  function answerCompass(chosen) {
+    if (!state.compass) return;
+    const isCorrect = chosen === state.compass.a;
+    addLog('compass', state.compass.q, chosen, state.compass.a, isCorrect);
+    if (isCorrect) {
+      setFeedback('compass-feedback', `⭐ せいかい！ ${state.compass.a} が こたえだよ`, 'success');
+      speak('せいかい！');
+      state.stars.compass++;
+      saveStars();
+    } else {
+      setFeedback('compass-feedback', 'もういちど コンパスを みてみよう', 'warn');
+      speak('もういちど かんがえてみよう');
+    }
+  }
+
+  // ==== Practice: placement ====
+  function loadPractice() {
+    const count = 5;
+    let animal, fromFront, n;
+    let tries = 0;
+    do {
+      animal = ANIMALS[Math.floor(Math.random()*ANIMALS.length)];
+      fromFront = Math.random() < 0.5;
+      n = 1 + Math.floor(Math.random()*count);
+      tries++;
+    } while (
+      tries < 8 &&
+      state.practice &&
+      animal.n === state.practice.animal.n &&
+      fromFront === state.practice.fromFront &&
+      n === state.practice.n
+    );
+    // 正解のスロットインデックス(左=うしろ=1, 右=まえ=count)
+    // まえから n ばんめ → slot (count - n + 1)
+    // うしろから n ばんめ → slot n
+    const correctSlot = fromFront ? (count - n + 1) : n;
+
+    state.practice = { animal, fromFront, n, correctSlot, count };
+    state.practicePicked = false;
+
+    const qt = `${animal.e}${animal.n}を ${fromFront?'まえ':'うしろ'}から ${n}ばんめに おこう！`;
+    document.getElementById('place-question').textContent = qt;
+    document.getElementById('animal-emoji').textContent = animal.e;
+    document.getElementById('animal-name').textContent = animal.n;
+    document.getElementById('animal-pick').style.outline = '';
+
+    const row = document.getElementById('place-row');
+    let html = '<span class="row-label">うしろ →</span>';
+    for (let i = 1; i <= count; i++) {
+      html += `<div class="slot" data-scan data-slot="${i}" onclick="placeAt(${i})"></div>`;
+    }
+    html += '<span class="row-label">← まえ</span>';
+    row.innerHTML = html;
+
+    setFeedback('place-feedback', '', '');
+    readPracticeQ();
+    if (state.settings.switchScan) setTimeout(startScan, 200);
+  }
+  function readPracticeQ() {
+    if (!state.practice) return;
+    const p = state.practice;
+    speak(`${p.animal.n}を、${p.fromFront?'まえ':'うしろ'}から、${p.n}ばんめに、おこう`);
+  }
+  function pickAnimal() {
+    state.practicePicked = true;
+    const btn = document.getElementById('animal-pick');
+    btn.style.outline = '4px solid ' + getComputedStyle(document.body).getPropertyValue('--accent');
+    btn.style.outlineOffset = '4px';
+    speak(`${state.practice.animal.n}を えらんだよ。マスに おこう`);
+  }
+  function placeAt(slotIdx) {
+    if (!state.practice) return;
+    if (!state.practicePicked) {
+      speak('まず したの どうぶつを タップしてね');
+      setFeedback('place-feedback', 'まず したの どうぶつを タップしてね', 'warn');
+      return;
+    }
+    // 前の配置をクリア
+    document.querySelectorAll('.slot').forEach(el => {
+      el.classList.remove('filled');
+      el.innerHTML = '';
+    });
+    // 配置
+    const target = document.querySelector(`.slot[data-slot="${slotIdx}"]`);
+    target.classList.add('filled');
+    target.innerHTML = `<span class="emoji">${state.practice.animal.e}</span>`;
+
+    const p = state.practice;
+    const isCorrect = slotIdx === p.correctSlot;
+    const qText = `${p.animal.n}を ${p.fromFront?'まえ':'うしろ'}から ${p.n}ばんめに おこう`;
+    addLog('practice', qText, `スロット${slotIdx}`, `スロット${p.correctSlot}`, isCorrect);
+
+    if (isCorrect) {
+      setFeedback('place-feedback', `⭐ せいかい！ よくできました`, 'success');
+      speak('せいかい！ よくできました');
+      state.stars.practice++;
+      saveStars();
+    } else {
+      setFeedback('place-feedback', `ちがうよ。${p.fromFront?'まえ':'うしろ'}から ${p.n}ばんめを さがしてね`, 'warn');
+      speak('もういちど かぞえてみよう');
+    }
+  }
+
+  // ==== Feedback ====
+  function setFeedback(id, text, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!text) {
+      el.className = 'feedback feedback-empty';
+      el.textContent = '';
+      return;
+    }
+    el.className = 'feedback ' + (type === 'success' ? 'feedback-success' : 'feedback-warn');
+    el.textContent = text;
+  }
+
+  // ==== Achievements ====
+  function renderStars() {
+    const grid = document.getElementById('stars-grid');
+    const total = state.stars.quiz + state.stars.dir + state.stars.compass + state.stars.practice;
+    document.getElementById('total-stars').textContent = total;
+    const items = [
+      { key: 'quiz', label: 'なんばんめ', count: state.stars.quiz },
+      { key: 'dir', label: 'どっちかな', count: state.stars.dir },
+      { key: 'compass', label: 'ほうがく', count: state.stars.compass },
+      { key: 'practice', label: 'はいち', count: state.stars.practice }
+    ];
+    grid.innerHTML = items.map(it =>
+      `<div class="star-card${it.count === 0 ? ' locked' : ''}">
+        <div class="star">${it.count > 0 ? '⭐' : '☆'}</div>
+        <div class="lbl">${it.label}</div>
+        <div style="font-weight: 700; margin-top: 4px;">${it.count}こ</div>
+      </div>`
+    ).join('');
+  }
+  function resetStars() {
+    if (!confirm('ごほうびを ぜんぶ リセットしますか？')) return;
+    state.stars = { quiz: 0, dir: 0, compass: 0, practice: 0 };
+    saveStars();
+    renderStars();
+    speak('リセットしたよ');
+  }
+
+  // ==== Teacher: Logs rendering ====
+  const CATEGORY_LABELS = {
+    quiz: 'なんばんめ',
+    dir: 'どっちかな',
+    compass: 'ほうがく',
+    practice: 'はいち'
+  };
+
+  function renderLogs() {
+    const logs = state.logs.slice().reverse(); // 新しい順
+
+    // サマリー
+    const total = logs.length;
+    const correct = logs.filter(l => l.result === 'correct').length;
+    const wrong = total - correct;
+    const rate = total > 0 ? Math.round((correct / total) * 100) : 0;
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-correct').textContent = correct;
+    document.getElementById('stat-wrong').textContent = wrong;
+    document.getElementById('stat-rate').textContent = rate + '%';
+
+    // カテゴリ別
+    const cats = ['quiz', 'dir', 'compass', 'practice'];
+    const catHtml = cats.map(c => {
+      const catLogs = logs.filter(l => l.category === c);
+      const catTotal = catLogs.length;
+      const catCorrect = catLogs.filter(l => l.result === 'correct').length;
+      const catRate = catTotal > 0 ? Math.round((catCorrect / catTotal) * 100) : 0;
+      const barWidth = catRate + '%';
+      const barColor = catRate >= 80 ? 'var(--success)' : catRate >= 50 ? 'var(--accent)' : 'var(--warning)';
+      return `
+        <div style="margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="font-weight: 700;">${CATEGORY_LABELS[c]}</span>
+            <span style="color: var(--ink-soft);">${catCorrect}/${catTotal} (${catRate}%)</span>
+          </div>
+          <div style="height: 10px; background: var(--border); border-radius: 5px; overflow: hidden;">
+            <div style="width: ${barWidth}; height: 100%; background: ${barColor};"></div>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('category-summary').innerHTML = catHtml;
+
+    // フィルター適用
+    let filtered = logs;
+    if (state.logFilter === 'wrong') {
+      filtered = logs.filter(l => l.result === 'wrong');
+    } else if (state.logFilter !== 'all') {
+      filtered = logs.filter(l => l.category === state.logFilter);
+    }
+
+    // テーブル
+    const tbody = document.getElementById('log-tbody');
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">ログが ありません</td></tr>';
+    } else {
+      tbody.innerHTML = filtered.map(l => `
+        <tr>
+          <td style="white-space: nowrap; font-size: 0.85em;">${escapeHtml(l.tsLocal)}</td>
+          <td>${escapeHtml(CATEGORY_LABELS[l.category] || l.category)}</td>
+          <td style="font-size: 0.9em;">${escapeHtml(l.question)}</td>
+          <td>${escapeHtml(l.userAnswer)}<br><span style="font-size: 0.8em; color: var(--ink-soft);">正解: ${escapeHtml(l.correctAnswer)}</span></td>
+          <td class="${l.result === 'correct' ? 'result-ok' : 'result-ng'}">${l.result === 'correct' ? '○' : '×'}</td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  function filterLog(type) {
+    state.logFilter = type;
+    document.querySelectorAll('.log-filter button').forEach(b => {
+      b.classList.toggle('active', b.dataset.filter === type);
+    });
+    renderLogs();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, ch => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[ch]));
+  }
+
+  // CSV 書き出し
+  function exportLogCSV() {
+    if (state.logs.length === 0) {
+      alert('ログが ありません');
+      return;
+    }
+    const headers = ['日時', 'カテゴリ', '問題', '回答', '正解', '結果'];
+    const rows = state.logs.map(l => [
+      l.tsLocal,
+      CATEGORY_LABELS[l.category] || l.category,
+      l.question,
+      l.userAnswer,
+      l.correctAnswer,
+      l.result === 'correct' ? '○' : '×'
+    ]);
+
+    const csvContent = [headers, ...rows].map(row =>
+      row.map(csvEscape).join(',')
+    ).join('\r\n');
+
+    // Excelで文字化けしないよう BOM付きUTF-8
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    const now = new Date();
+    const p = n => String(n).padStart(2, '0');
+    const filename = `学習ログ_${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}_${p(now.getHours())}${p(now.getMinutes())}.csv`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function csvEscape(v) {
+    const s = String(v == null ? '' : v);
+    // カンマ・改行・ダブルクォートを含む場合はクォートで囲み、中の"を""にエスケープ
+    if (/[",\r\n]/.test(s)) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  function clearAllLogs() {
+    if (!confirm('すべての 学習ログを 削除しますか？\n(この操作は 取り消せません)')) return;
+    state.logs = [];
+    saveLogs();
+    renderLogs();
+    alert('ログを 削除しました');
+  }
+
+  // ==== Utility ====
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ==== Init ====
+  applySettings();
+  if (state.settings.switchScan) setTimeout(startScan, 100);
+
+  // expose (inline handler 対策)
+  window.nav = nav;
+  window.speak = speak;
+  window.toggle = toggle;
+  window.setFont = setFont;
+  window.setScanSpeed = setScanSpeed;
+  window.loadQuiz = loadQuiz;
+  window.readQuizQ = readQuizQ;
+  window.answerQuiz = answerQuiz;
+  window.loadDir = loadDir;
+  window.readDirQ = readDirQ;
+  window.answerDir = answerDir;
+  window.loadCompass = loadCompass;
+  window.readCompassQ = readCompassQ;
+  window.answerCompass = answerCompass;
+  window.loadPractice = loadPractice;
+  window.readPracticeQ = readPracticeQ;
+  window.pickAnimal = pickAnimal;
+  window.placeAt = placeAt;
+  window.resetStars = resetStars;
+  window.toggleFullscreen = toggleFullscreen;
+  window.openTeacherMode = openTeacherMode;
+  window.checkTeacherPassword = checkTeacherPassword;
+  window.resetTeacherPassword = resetTeacherPassword;
+  window.filterLog = filterLog;
+  window.exportLogCSV = exportLogCSV;
+  window.clearAllLogs = clearAllLogs;
+
+  // パスワード入力で Enter キー
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement && document.activeElement.id === 'teacher-password') {
+      e.preventDefault();
+      checkTeacherPassword();
+    }
+  });
+</script>
+</body>
+</html>
