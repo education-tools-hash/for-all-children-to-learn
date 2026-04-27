@@ -255,7 +255,7 @@ const CARD_CLASS_MAP = {
   'tokei-app':       'card-tokei',
   'schedule-app':    'card-schedule',
   'timetable-app':   'card-timetable',
-  'bosai-app':       'card-yomikaki',
+  'bosai-app':       'card-bosai',
   'matching-app':    'card-matching',
   'sugoroku-app':    'card-sugoroku',
   'tyushi':          'card-sst',
@@ -266,7 +266,7 @@ const CARD_CLASS_MAP = {
   'music-app':       'card-music',
   'yomikaki-app':    'card-yomikaki',
   'slideshow-sakusei': 'card-oekaki', // 創作系の色を流用
-  'directions-app':  'card-yomikaki', // 学習系の色を流用
+  'directions-app':  'card-directions', // 専用色(ティール系)
 };
 
 function generateAppsArray(apps) {
@@ -345,7 +345,7 @@ const THEME_CLASS_MAP = {
   'tokei-app':        'theme-tokei',
   'schedule-app':     'theme-schedule',
   'timetable-app':    'theme-jikokuhyo',
-  'bosai-app':        'theme-yomikaki',
+  'bosai-app':        'theme-bousai',
   'matching-app':     'theme-matching',
   'sugoroku-app':     'theme-sugoroku',
   'tyushi':           'theme-sst',
@@ -356,7 +356,7 @@ const THEME_CLASS_MAP = {
   'music-app':        'theme-music',
   'yomikaki-app':     'theme-yomikaki',
   'slideshow-sakusei':'theme-oekaki',
-  'directions-app':   'theme-yomikaki',
+  'directions-app':   'theme-directions',
 };
 
 function generateIntroCard(app) {
