@@ -16,6 +16,58 @@ const outDir = './app-details';
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
 // ============================================================
+//  ★★ カテゴリ正本マップ（変更厳禁・ユーザー指定）★★
+//  apps-data.json で category が違っていても、ここの値で強制的に上書きする。
+//  新しいアプリを追加したら、ここにも id を追加すること。
+//  ここに無い id はそのまま apps-data.json の category を使う。
+// ============================================================
+const CATEGORY_TRUTH = {
+  // 学習アプリ
+  'hiragana-learn':  '学習アプリ',
+  'katakana-app':    '学習アプリ',
+  'nazori-app':      '学習アプリ',
+  'janken-app':      '学習アプリ',
+  'shiritori2':      '学習アプリ',
+  'okane-app':       '学習アプリ',
+  'register-app':    '学習アプリ',
+  'tokei-app':       '学習アプリ',
+  'timetable-app':   '学習アプリ',
+  'yomikaki-app':    '学習アプリ',
+  'bosai-app':       '学習アプリ',
+  'directions-app':  '学習アプリ',
+  // 認知支援
+  'matching-app':    '認知支援',
+  'sugoroku-app':    '認知支援',
+  'cup_game':        '認知支援',
+  // 自立活動
+  'tyushi':          '自立活動',
+  'kimochi-board':   '自立活動',
+  'schedule-app':    '自立活動',
+  'sst-app':         '自立活動',
+  // 創作表現
+  'drawing-app':     '創作表現',
+  'music-app':       '創作表現',
+  'slideshow-sakusei':'創作表現',
+};
+
+// apps-data.json のカテゴリと正本がズレていたら、警告を出して正本で強制上書き
+let __corrected = 0;
+for (const app of apps) {
+  const truth = CATEGORY_TRUTH[app.id];
+  if (truth && app.category !== truth) {
+    console.log(`⚠️  カテゴリ自動補正: ${app.title} (${app.id})  ${app.category} → ${truth}`);
+    app.category = truth;
+    __corrected++;
+  }
+}
+if (__corrected > 0) {
+  console.log(`(${__corrected}件のカテゴリを正本に補正しました)\n`);
+  // apps-data.json も書き戻して、次回以降の差異を防ぐ
+  fs.writeFileSync('./apps-data.json', JSON.stringify(apps, null, 2), 'utf-8');
+  console.log('✅ apps-data.json も正本に合わせて更新しました\n');
+}
+
+// ============================================================
 //  1. app-details/XXX-detail.html を生成（既存機能）
 // ============================================================
 function generateDetailHTML(app) {
@@ -203,7 +255,7 @@ const CARD_CLASS_MAP = {
   'tokei-app':       'card-tokei',
   'schedule-app':    'card-schedule',
   'timetable-app':   'card-timetable',
-  'bosai-app':       'card-bosai',
+  'bosai-app':       'card-yomikaki',
   'matching-app':    'card-matching',
   'sugoroku-app':    'card-sugoroku',
   'tyushi':          'card-sst',
@@ -293,7 +345,7 @@ const THEME_CLASS_MAP = {
   'tokei-app':        'theme-tokei',
   'schedule-app':     'theme-schedule',
   'timetable-app':    'theme-jikokuhyo',
-  'bosai-app':        'theme-bousai',
+  'bosai-app':        'theme-yomikaki',
   'matching-app':     'theme-matching',
   'sugoroku-app':     'theme-sugoroku',
   'tyushi':           'theme-sst',
