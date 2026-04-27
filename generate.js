@@ -361,11 +361,19 @@ function updateAppIntroHTML(apps) {
 
   // カテゴリラベル
   const catLabels = { gakushu: '✏️ 学習アプリ', ninchi: '🧠 認知支援', jiritsu: '🎯 自立活動', sousaku: '🎨 創作表現' };
+  const catOrder = ['gakushu', 'ninchi', 'jiritsu', 'sousaku'];
+
+  // カテゴリ順にソートして、カテゴリラベルが重複しないようにする
+  const sortedApps = apps.slice().sort((a, b) => {
+    const aKey = CAT_MAP[a.category] || a.category;
+    const bKey = CAT_MAP[b.category] || b.category;
+    return catOrder.indexOf(aKey) - catOrder.indexOf(bKey);
+  });
 
   // panel-all の中身を生成
   let currentCat = '';
   let cardsHTML = '';
-  for (const app of apps) {
+  for (const app of sortedApps) {
     const appCatKey = CAT_MAP[app.category] || app.category;
     if (appCatKey !== currentCat) {
       currentCat = appCatKey;
