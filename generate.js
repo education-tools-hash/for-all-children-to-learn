@@ -68,6 +68,50 @@ if (__corrected > 0) {
 }
 
 // ============================================================
+//  ★★ おすすめ・新着フラグの正本管理 ★★
+//  ・RECOMMEND_IDS に登録したアプリは「⭐ おすすめ」タブに表示される
+//  ・NEW_IDS に登録したアプリは「🆕 新着」タブに表示される
+//  ・apps-data.json 側で isRecommend/isNew が指定されていればそちらも有効
+//  ・空にならないよう、未指定の場合は最後の N 件を自動的に新着扱いにする
+// ============================================================
+const RECOMMEND_IDS = new Set([
+  'hiragana-learn',    // ひらがな
+  'tokei-app',         // とけい
+  'okane-app',         // おかね
+  'schedule-app',      // スケジュール
+  'matching-app',      // マッチング
+  'sst-app',           // SST
+  'kimochi-board',     // コミュニケーションボード
+  'directions-app',    // ほうこうとばしょ
+]);
+
+const NEW_IDS = new Set([
+  'directions-app',    // 最新追加分
+  'slideshow-sakusei', // 直近追加
+  'bosai-app',         // 直近追加
+]);
+
+// フラグを各appに反映(apps-data.jsonで明示指定された値は維持)
+for (const app of apps) {
+  if (RECOMMEND_IDS.has(app.id) && app.isRecommend !== false) app.isRecommend = true;
+  if (NEW_IDS.has(app.id) && app.isNew !== false) app.isNew = true;
+}
+
+// 念のため、おすすめ/新着が0件にならないかチェック
+const recommendCount = apps.filter(a => a.isRecommend).length;
+const newCount       = apps.filter(a => a.isNew).length;
+if (recommendCount === 0) {
+  console.log('⚠️  おすすめが0件です。最初の3件を自動的におすすめに設定します');
+  apps.slice(0, 3).forEach(a => a.isRecommend = true);
+}
+if (newCount === 0) {
+  console.log('⚠️  新着が0件です。末尾3件を自動的に新着に設定します');
+  apps.slice(-3).forEach(a => a.isNew = true);
+}
+console.log(`📌 おすすめ: ${apps.filter(a => a.isRecommend).length}件, 新着: ${apps.filter(a => a.isNew).length}件\n`);
+
+
+// ============================================================
 //  1. app-details/XXX-detail.html を生成（既存機能）
 // ============================================================
 function generateDetailHTML(app) {
@@ -451,6 +495,159 @@ function updateAppIntroHTML(apps) {
 }
 
 // ============================================================
+//  4. index.html の「場面・目的から探す」セクションを自動更新
+//  ・PURPOSE_CARDS_TRUTH に各目的カードの所属アプリを登録
+//  ・新規アプリ追加時はここに id を追加するだけで自動反映される
+// ============================================================
+const PURPOSE_CARDS_TRUTH = {
+  // theme クラス名 → そのカードに所属するアプリの id 配列
+  'theme-ishi': {
+    title: '思いを伝えたい子に',
+    ids: ['kimochi-board', 'drawing-app', 'yomikaki-app']
+  },
+  'theme-jikan': {
+    title: '時間の見通しを持たせたい',
+    ids: ['schedule-app', 'tokei-app', 'timetable-app']
+  },
+  'theme-moji': {
+    title: '文字に興味を持ち出した子に',
+    ids: ['hiragana-learn', 'katakana-app', 'nazori-app', 'yomikaki-app', 'shiritori2']
+  },
+  'theme-seikatsu': {
+    title: '生活スキルを育てたい',
+    ids: ['okane-app', 'register-app', 'schedule-app', 'timetable-app', 'bosai-app', 'directions-app']
+  },
+  'theme-sst': {
+    title: '友達との関わりを育てたい',
+    ids: ['sst-app', 'janken-app', 'sugoroku-app', 'matching-app']
+  },
+  'theme-switch': {
+    title: '視線入力やスイッチを使う子に',
+    ids: ['kimochi-board', 'hiragana-learn', 'schedule-app', 'matching-app', 'janken-app', 'tyushi', 'cup_game']
+  },
+  'theme-sousaku': {
+    title: '創作・表現活動をしたい',
+    ids: ['drawing-app', 'music-app', 'slideshow-sakusei']
+  },
+};
+
+function updatePurposeCards(apps) {
+  const indexPath = './index.html';
+  if (!fs.existsSync(indexPath)) return;
+  let html = fs.readFileSync(indexPath, 'utf-8');
+
+  // id → app マップ
+  const byId = Object.fromEntries(apps.map(a => [a.id, a]));
+
+  let updated = 0;
+  for (const [themeClass, def] of Object.entries(PURPOSE_CARDS_TRUTH)) {
+    const targetApps = def.ids.map(id => byId[id]).filter(Boolean);
+    if (targetApps.length === 0) continue;
+
+    // applyPurposeFilter の引数(タイトル配列) と、 purpose-apps の中身(リンクタグ群) を生成
+    const titlesArg = targetApps.map(a => `'${a.title.replace(/'/g, "\\'")}'`).join(',');
+    const tagsHTML  = targetApps.map(a => {
+      // タグの表示名は短縮版を使う(タイトル→短縮表記)
+      const display = (a.title || '')
+        .replace(' まなぼう！', '')
+        .replace(' サポートエディタ', '')
+        .replace('はんばいかい レジ', 'レジマスター')
+        .replace('SST ソーシャルスキルトレーニング', 'SST')
+        .replace('ぼうさいたんけんたい', 'ぼうさい')
+        .replace('ほうこうとばしょをまなぼう', 'ほうこうとばしょ')
+        .replace('スライドショー作成', 'スライドショー')
+        .replace('どこかな?カップゲーム', 'どこかな?')
+        .replace('どこかな？カップゲーム', 'どこかな？')
+        .replace('マッチング', 'マッチング(対戦)');
+      return `          <a class="purpose-app-tag" href="${a.filename}.html">${display}</a>`;
+    }).join('\n');
+
+    // index.html 内の該当 purpose-card を正規表現で置換
+    // パターン: <div class="purpose-card themeClass" onclick="applyPurposeFilter([...])"> ... </div>
+    // 中身の onclick の引数と、purpose-apps の中身を更新
+    const cardRegex = new RegExp(
+      `(<div class="purpose-card ${themeClass}" onclick="applyPurposeFilter\\()(\\[[^\\]]*\\])(\\)">[\\s\\S]*?<div class="purpose-apps">)([\\s\\S]*?)(\\s*</div>\\s*</div>)`,
+      'g'
+    );
+    const newOnclick = `[${titlesArg}]`;
+    const before = html;
+    html = html.replace(cardRegex, (m, p1, p2, p3, p4, p5) => {
+      return p1 + newOnclick + p3 + '\n' + tagsHTML + '\n        ' + p5;
+    });
+    if (html !== before) updated++;
+  }
+
+  if (updated > 0) {
+    html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+    fs.writeFileSync(indexPath, html, 'utf-8');
+    console.log(`✅ index.html の「場面・目的から探す」を更新しました (${updated}/${Object.keys(PURPOSE_CARDS_TRUTH).length}カード)`);
+  }
+}
+
+// ============================================================
+//  5. index.html の 更新履歴(CHANGELOG)を自動更新
+//  ・apps-data.json の各アプリに releaseDate (YYYY-MM-DD) があれば
+//    「YYYY年M月D日 「タイトル」を公開しました」を自動追加
+//  ・MANUAL_CHANGELOG に手動エントリーを書けば、それも一緒に表示
+//  ・全エントリーを日付の新しい順にソート
+// ============================================================
+const MANUAL_CHANGELOG = [
+  // ここに「アプリ追加以外」の更新履歴を書く(機能追加・改修・お知らせなど)
+  // 例: { date: "2026-04-20", type: "update", text: "ホーム画面を更新しました" },
+  { date: "2026-04-20", type: "new",  text: "ホーム画面を更新しました" },
+  { date: "2026-03-13", type: "new",  text: "ホームページを開設しました" },
+];
+
+function formatDateJP(ymd) {
+  // "2026-04-22" → "2026年4月22日"
+  const [y, m, d] = ymd.split('-').map(s => parseInt(s, 10));
+  return `${y}年${m}月${d}日`;
+}
+
+function generateChangelog(apps) {
+  // アプリの releaseDate から自動生成
+  const autoEntries = apps
+    .filter(a => a.releaseDate)
+    .map(a => ({
+      date: a.releaseDate,
+      type: 'new',
+      text: `「${a.releaseDisplayName || a.title}」を公開しました`
+    }));
+
+  // 手動エントリーと結合し、日付の新しい順にソート
+  const all = [...autoEntries, ...MANUAL_CHANGELOG];
+  all.sort((a, b) => b.date.localeCompare(a.date));
+
+  return all;
+}
+
+function updateChangelog(apps) {
+  const indexPath = './index.html';
+  if (!fs.existsSync(indexPath)) return;
+  let html = fs.readFileSync(indexPath, 'utf-8');
+
+  const entries = generateChangelog(apps);
+  const lines = ['const CHANGELOG = ['];
+  for (const e of entries) {
+    lines.push(`  { date: ${JSON.stringify(formatDateJP(e.date))}, type: ${JSON.stringify(e.type)}, text: ${JSON.stringify(e.text)} },`);
+  }
+  lines.push('];');
+  const newArray = lines.join('\n');
+
+  // const CHANGELOG = [ ... ]; を置換
+  const start = html.indexOf('const CHANGELOG = [');
+  if (start === -1) {
+    console.log('⚠️  index.html の CHANGELOG 配列が見つかりません。スキップします。');
+    return;
+  }
+  const end = html.indexOf('];', start) + 2;
+  html = html.slice(0, start) + newArray + html.slice(end);
+  html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+  fs.writeFileSync(indexPath, html, 'utf-8');
+  console.log(`✅ index.html の 更新履歴を更新しました (${entries.length}件)`);
+}
+
+// ============================================================
 //  実行
 // ============================================================
 
@@ -471,5 +668,11 @@ updateIndexHTML(appsArray);
 
 // 3. app-intro.html の panel-all を更新
 updateAppIntroHTML(apps);
+
+// 4. index.html の「場面・目的から探す」を更新
+updatePurposeCards(apps);
+
+// 5. index.html の 更新履歴を更新
+updateChangelog(apps);
 
 console.log('\n🎉 完了！');
