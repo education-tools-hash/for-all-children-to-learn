@@ -733,7 +733,10 @@
             <div class="color-palette" id="brushColorPalette" style="gap:6px;"></div>
           </div>
           <div class="stamp-area"><div class="stamp" id="stamp">⭐</div></div>
-          <button class="btn btn-secondary" id="clearBtn" style="width:100%;">🗑 けす</button>
+          <div style="display:flex;gap:8px;width:100%;">
+            <button class="btn btn-secondary" id="undoBtn" style="flex:1;font-size:0.9rem;">↩ 1画もどす</button>
+            <button class="btn btn-secondary" id="clearBtn" style="flex:1;font-size:0.9rem;">🗑 全部けす</button>
+          </div>
           <button class="btn btn-mint" id="doneBtn" style="width:100%; font-size:1.4rem; padding:20px; letter-spacing:0.05em;">✅ できた！</button>
 
         </div>
@@ -753,7 +756,8 @@
           <span class="control-card-title" style="margin:0;white-space:nowrap;">ふでの色</span>
           <div class="color-palette" id="brushColorPaletteWide" style="gap:5px;"></div>
         </div>
-        <button class="btn btn-secondary" id="clearBtnWide">🗑 けす</button>
+        <button class="btn btn-secondary" id="undoBtnWide" style="font-size:0.9rem;">↩ 1画もどす</button>
+        <button class="btn btn-secondary" id="clearBtnWide" style="font-size:0.9rem;">🗑 全部けす</button>
         <button class="btn btn-mint" id="doneBtnWide" style="font-size:1.4rem; padding:18px 32px; letter-spacing:0.05em;">✅ できた！</button>
 
       </div>
@@ -955,6 +959,36 @@ const S = {
   lastX: 0, lastY: 0,
   activeCanvas: null,
 };
+
+// キャンバスごとのストローク履歴 WeakMap
+// canvas → ImageData[] (各strokeEnd時のスナップショット)
+const strokeHistories = new WeakMap();
+function getHistory(canvas) {
+  if (!strokeHistories.has(canvas)) strokeHistories.set(canvas, []);
+  return strokeHistories.get(canvas);
+}
+function pushSnapshot(canvas) {
+  const ctx = canvas.getContext('2d');
+  const snap = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  getHistory(canvas).push(snap);
+}
+function undoStroke(canvas) {
+  const hist = getHistory(canvas);
+  if (!hist.length) return false;
+  hist.pop(); // 直前のストロークを除去
+  const ctx = canvas.getContext('2d');
+  if (hist.length > 0) {
+    ctx.putImageData(hist[hist.length - 1], 0, 0); // 1つ前の状態を復元
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // 全消し
+  }
+  return true;
+}
+function clearCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  strokeHistories.set(canvas, []);
+}
 
 const HIRAGANA = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん'.split('');
 const KATAKANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン'.split('');
@@ -1159,14 +1193,9 @@ function initWideFader() {
   const fader = document.getElementById('wideScrollBar');
   const btnL  = document.getElementById('wideScrollLeft');
   const btnR  = document.getElementById('wideScrollRight');
-  if (!_faderOuter || !fader) return;
+  if (!_faderOuter || !fader || !btnL || !btnR) return;
 
-  // 既存リスナーをリセット（buildWideRows再呼び出し対策）
   const outer = _faderOuter;
-  const newOuter = outer.cloneNode(false);
-  // ※ cloneNodeはしない、リスナー管理フラグで対応
-  if (outer._faderInited) return;
-  outer._faderInited = true;
 
   function syncFader() {
     const scrollable = outer.scrollWidth - outer.clientWidth;
@@ -1182,43 +1211,47 @@ function initWideFader() {
       `linear-gradient(to right,var(--peach) ${pct}%,#e0e8f0 ${pct}%)`;
   }
 
-  // フェーダー操作 → スクロール
-  fader.addEventListener('input', function() {
+  // フェーダー操作 → スクロール（cloneで旧リスナーをリセット）
+  const newFader = fader.cloneNode(true);
+  fader.parentNode.replaceChild(newFader, fader);
+  newFader.addEventListener('input', function() {
     outer.scrollLeft = +this.value;
   });
 
-  // スクロール（指・マウス）→ フェーダー同期
+  // スクロール → フェーダー同期（毎回登録し直し）
+  outer._syncFader = syncFader;
+  outer.removeEventListener('scroll', outer._syncFader);
   outer.addEventListener('scroll', syncFader, { passive: true });
 
-  // セル幅を取得（最初のcell-wrapperの幅）
+  // セル幅・インデックス取得
   function getCellSize() {
     const cell = document.querySelector('.cell-wrapper');
     return cell ? cell.offsetWidth : 80;
   }
-
-  // 現在の中心セルインデックスを返す
   function currentCellIdx() {
     const cs = getCellSize();
     return Math.round(outer.scrollLeft / cs);
   }
-
-  // 指定セルの中心にスムーズスクロール
   function snapToCell(idx) {
     const cs = getCellSize();
     const total = S.chars.length;
     const clamped = Math.max(0, Math.min(total - 1, idx));
-    // セルの左端 → 中心をビュー中央に
     const target = clamped * cs - (outer.clientWidth / 2 - cs / 2);
     outer.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   }
 
-  // 矢印：1タップで1セル分スナップ
-  btnL.addEventListener('click', () => snapToCell(currentCellIdx() - 1));
-  btnR.addEventListener('click', () => snapToCell(currentCellIdx() + 1));
-  btnL.addEventListener('touchend', e => { e.preventDefault(); snapToCell(currentCellIdx() - 1); }, { passive: false });
-  btnR.addEventListener('touchend', e => { e.preventDefault(); snapToCell(currentCellIdx() + 1); }, { passive: false });
+  // 矢印ボタン：cloneで旧リスナーをリセットしてから登録
+  const newBtnL = btnL.cloneNode(true);
+  const newBtnR = btnR.cloneNode(true);
+  btnL.parentNode.replaceChild(newBtnL, btnL);
+  btnR.parentNode.replaceChild(newBtnR, btnR);
 
-  // ResizeObserver でキャンバスサイズ変化にも追従
+  newBtnL.addEventListener('click',    () => snapToCell(currentCellIdx() - 1));
+  newBtnR.addEventListener('click',    () => snapToCell(currentCellIdx() + 1));
+  newBtnL.addEventListener('touchend', e => { e.preventDefault(); snapToCell(currentCellIdx() - 1); }, { passive: false });
+  newBtnR.addEventListener('touchend', e => { e.preventDefault(); snapToCell(currentCellIdx() + 1); }, { passive: false });
+
+  // ResizeObserver でサイズ変化に追従
   if (window.ResizeObserver) {
     new ResizeObserver(syncFader).observe(outer);
   }
@@ -1432,7 +1465,7 @@ function updateSingleView() {
   document.getElementById('pageIndicator').textContent=`${S.currentPage+1} / ${S.repeatCount}`;
   document.getElementById('prevBtn').disabled = S.currentCharIdx===0 && S.currentPage===0;
   const dc=document.getElementById('drawCanvas'), gc=document.getElementById('guideCanvas');
-  dc.getContext('2d').clearRect(0,0,dc.width,dc.height);
+  clearCanvas(dc);  // 履歴もリセット
   renderOnCanvas(gc, char, S.guideStyle, S.guideColor, S.fontSize, S.opacity);
   hideStamp('stamp');
   // 文字が変わったら読み上げ
@@ -1460,9 +1493,7 @@ function attachSingleCanvasEvents() {
 function buildWideRows() {
   const wrap = document.getElementById('cellsRowWrap'); wrap.innerHTML='';
   appendWideRow(wrap);
-  // フラグをリセットして再初期化
-  const outer = document.querySelector('.wide-scroll-outer');
-  if (outer) outer._faderInited = false;
+  // DOM描画後に初期化
   setTimeout(initWideFader, 80);
 }
 function appendWideRow(wrap) {
@@ -1527,15 +1558,27 @@ function continueDraw(canvas,e) {
   ctx.strokeStyle=S.brushColor; ctx.lineWidth=S.brushSize; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke();
   S.lastX=x; S.lastY=y;
 }
-function endDraw() { S.isDrawing=false; S.activeCanvas=null; }
+function endDraw() {
+  if (S.isDrawing && S.activeCanvas) {
+    pushSnapshot(S.activeCanvas); // ストローク確定時に保存
+  }
+  S.isDrawing=false; S.activeCanvas=null;
+}
 
 // =============================================
 // コントロールイベント
 // =============================================
 function attachControlEvents() {
   document.getElementById('clearBtn').addEventListener('click', () => {
-    const dc=document.getElementById('drawCanvas'); dc.getContext('2d').clearRect(0,0,dc.width,dc.height); hideStamp('stamp');
-    speakIfEnabled('けした');
+    const dc=document.getElementById('drawCanvas');
+    clearCanvas(dc);
+    hideStamp('stamp');
+    speakIfEnabled('全部けした');
+  });
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    const dc=document.getElementById('drawCanvas');
+    undoStroke(dc);
+    hideStamp('stamp');
   });
   document.getElementById('doneBtn').addEventListener('click', async () => {
     // 1. 今のキャンバスをキャプチャして文字ごとに保存
@@ -1577,7 +1620,18 @@ function attachControlEvents() {
 
 
   document.getElementById('clearBtnWide').addEventListener('click', () => {
-    document.querySelectorAll('.cell-draw').forEach(c => c.getContext('2d').clearRect(0,0,c.width,c.height));
+    document.querySelectorAll('.cell-draw').forEach(c => clearCanvas(c));
+    hideStamp('stampWide');
+    speakIfEnabled('全部けした');
+  });
+  document.getElementById('undoBtnWide').addEventListener('click', () => {
+    // 最後に描画されたセルに対してundo
+    const draws = Array.from(document.querySelectorAll('.cell-draw'));
+    // 履歴があるセルのうち最後のもの
+    for (let i = draws.length - 1; i >= 0; i--) {
+      const hist = getHistory(draws[i]);
+      if (hist.length > 0) { undoStroke(draws[i]); break; }
+    }
     hideStamp('stampWide');
   });
   document.getElementById('doneBtnWide').addEventListener('click', async () => {
