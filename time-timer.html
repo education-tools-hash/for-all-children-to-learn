@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タイムタイマー</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #FFF8F0;
+    --surface: #FFFFFF;
+    --timer-color: #FF6B35;
+    --timer-bg: #FFE8D6;
+    --text: #2D2D2D;
+    --text-sub: #777777;
+    --border: #E0D5C8;
+    --btn-bg: #F4F0EA;
+    --btn-hover: #E8E0D5;
+    --focus-ring: #FF6B35;
+    --shadow: rgba(0,0,0,0.10);
+    --font-scale: 1;
+    --scan-highlight: #FFD700;
+    --card-size: 110px;
+  }
+  body.high-contrast {
+    --bg:#000; --surface:#111; --timer-color:#FFFF00; --timer-bg:#333300;
+    --text:#FFF; --text-sub:#CCC; --border:#FFF; --btn-bg:#222; --btn-hover:#444;
+    --focus-ring:#FFFF00; --shadow:rgba(255,255,255,0.15);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'M PLUS Rounded 1c',sans-serif;
+    background:var(--bg);color:var(--text);min-height:100vh;
+    font-size:calc(16px * var(--font-scale));transition:background .3s,color .3s;
+  }
+  .app{display:flex;flex-direction:column;align-items:center;padding:16px 12px 48px;gap:14px;max-width:560px;margin:0 auto;}
+  .header{width:100%;display:flex;justify-content:space-between;align-items:center;}
+  .app-title{font-size:calc(1.1em * var(--font-scale));font-weight:900;color:var(--timer-color);letter-spacing:.05em;}
+  .lock-badge{background:#e74c3c;color:#fff;font-size:.75em;font-weight:900;padding:4px 10px;border-radius:20px;display:none;align-items:center;gap:4px;}
+  .lock-badge.visible{display:flex;}
+
+  /* ===== 絵カード ===== */
+  .card-area{width:100%;background:var(--surface);border:3px solid var(--border);border-radius:24px;padding:16px;box-shadow:0 4px 20px var(--shadow);}
+  .card-area-header{font-size:calc(.8em * var(--font-scale));font-weight:900;color:var(--text-sub);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;}
+  .active-card{display:flex;align-items:center;gap:16px;min-height:80px;}
+  .active-card-icon{font-size:calc(3em * var(--font-scale));width:calc(var(--card-size)*.7);height:calc(var(--card-size)*.7);background:var(--timer-bg);border-radius:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .3s;border:3px solid var(--border);}
+  .active-card-info{flex:1;}
+  .active-card-label{font-size:calc(.75em * var(--font-scale));color:var(--text-sub);font-weight:700;margin-bottom:2px;}
+  .active-card-name{font-size:calc(1.4em * var(--font-scale));font-weight:900;color:var(--text);line-height:1.2;}
+  .active-card-empty{color:var(--text-sub);font-size:calc(.95em * var(--font-scale));font-weight:700;text-align:center;width:100%;padding:12px 0;}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--card-size),1fr));gap:10px;margin-top:14px;}
+  .card-item{background:var(--btn-bg);border:3px solid var(--border);border-radius:16px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:all .15s;font-family:inherit;color:var(--text);}
+  .card-item:hover,.card-item:focus-visible{background:var(--timer-bg);border-color:var(--timer-color);outline:3px solid var(--focus-ring);outline-offset:2px;transform:translateY(-2px);}
+  .card-item.selected{background:var(--timer-bg);border-color:var(--timer-color);box-shadow:0 0 0 3px var(--timer-color);}
+  .card-item-emoji{font-size:calc(2.2em * var(--font-scale));}
+  .card-item-name{font-size:calc(.75em * var(--font-scale));font-weight:700;text-align:center;line-height:1.2;}
+
+  /* ===== タイマー本体 ===== */
+  .timer-area{background:var(--surface);border:3px solid var(--border);border-radius:28px;padding:28px 20px 20px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;box-shadow:0 6px 28px var(--shadow);}
+  .clock-wrap{position:relative;width:min(300px,78vw);height:min(300px,78vw);cursor:pointer;touch-action:none;}
+  .clock-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
+  .clock-bg{fill:var(--timer-bg);transition:fill .3s;}
+  .clock-sector{fill:var(--timer-color);transition:fill .3s;}
+  .clock-center{fill:var(--surface);transition:fill .3s;}
+  .time-display{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:100%;}
+  .time-number{font-size:calc(3em * var(--font-scale));font-weight:900;color:var(--text);line-height:1;transition:color .3s;}
+  .time-number.warning{color:#CC0000;animation:pulse 1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+  .time-label{font-size:calc(.85em * var(--font-scale));color:var(--text-sub);font-weight:700;margin-top:4px;}
+
+  /* ===== 時間設定UI ===== */
+  .time-set-area{width:100%;display:flex;flex-direction:column;align-items:center;gap:10px;}
+
+  /* プリセット */
+  .presets{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .preset-btn{background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;padding:calc(7px * var(--font-scale)) calc(13px * var(--font-scale));font-family:inherit;font-weight:700;font-size:calc(.9em * var(--font-scale));color:var(--text);cursor:pointer;transition:all .15s;}
+  .preset-btn:hover,.preset-btn:focus-visible{background:var(--timer-color);color:#FFF;border-color:var(--timer-color);outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .preset-btn.active{background:var(--timer-color);color:#FFF;border-color:var(--timer-color);}
+
+  /* カスタム時間入力 */
+  .custom-time-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;}
+  .custom-time-label{font-weight:700;font-size:calc(.9em * var(--font-scale));color:var(--text-sub);}
+  .time-spin-group{display:flex;align-items:center;gap:4px;}
+  .time-spin-label{font-weight:900;font-size:calc(.85em * var(--font-scale));color:var(--text-sub);}
+  .time-spin{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .spin-display{
+    width:calc(64px * var(--font-scale));height:calc(52px * var(--font-scale));
+    background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;
+    font-size:calc(1.5em * var(--font-scale));font-weight:900;color:var(--text);
+    display:flex;align-items:center;justify-content:center;cursor:default;
+    user-select:none;transition:background .15s;
+  }
+  .spin-display:focus{outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .spin-btn{
+    width:calc(40px * var(--font-scale));height:calc(28px * var(--font-scale));
+    background:var(--btn-bg);border:2px solid var(--border);border-radius:8px;
+    font-size:calc(1em * var(--font-scale));cursor:pointer;color:var(--text);
+    display:flex;align-items:center;justify-content:center;transition:all .12s;font-family:inherit;
+  }
+  .spin-btn:hover,.spin-btn:focus-visible{background:var(--timer-color);color:#FFF;border-color:var(--timer-color);outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .spin-btn:active{transform:scale(.92);}
+  .set-time-btn{
+    background:var(--timer-color);border:none;border-radius:14px;color:#FFF;
+    padding:calc(10px * var(--font-scale)) calc(20px * var(--font-scale));
+    font-family:inherit;font-weight:900;font-size:calc(1em * var(--font-scale));
+    cursor:pointer;transition:all .15s;
+  }
+  .set-time-btn:hover,.set-time-btn:focus-visible{filter:brightness(1.1);outline:3px solid var(--focus-ring);outline-offset:2px;}
+
+  /* コントロール */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+  .btn{border:3px solid var(--border);background:var(--btn-bg);color:var(--text);border-radius:14px;padding:calc(11px * var(--font-scale)) calc(18px * var(--font-scale));font-size:calc(1em * var(--font-scale));font-family:inherit;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+  .btn:hover,.btn:focus-visible{background:var(--btn-hover);outline:4px solid var(--focus-ring);outline-offset:2px;}
+  .btn-primary{background:var(--timer-color);border-color:var(--timer-color);color:#FFF;font-size:calc(1.15em * var(--font-scale));padding:calc(13px * var(--font-scale)) calc(28px * var(--font-scale));}
+  .btn-primary:hover,.btn-primary:focus-visible{filter:brightness(1.1);background:var(--timer-color);}
+
+  /* ===== 設定 ===== */
+  .settings-toggle-btn{width:100%;border:2px solid var(--border);background:var(--surface);color:var(--text);border-radius:16px;padding:12px;font-family:inherit;font-weight:700;font-size:calc(1em * var(--font-scale));cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .settings-toggle-btn:hover,.settings-toggle-btn:focus-visible{background:var(--btn-hover);outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .settings-panel{background:var(--surface);border:2px solid var(--border);border-radius:24px;padding:22px;width:100%;display:none;flex-direction:column;gap:18px;box-shadow:0 4px 20px var(--shadow);}
+  .settings-panel.open{display:flex;}
+  .sec-title{font-size:calc(.8em * var(--font-scale));font-weight:900;color:var(--text-sub);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;}
+  .setting-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .setting-label{font-weight:700;font-size:calc(1em * var(--font-scale));}
+  input[type="range"]{-webkit-appearance:none;width:130px;height:8px;border-radius:4px;background:var(--border);outline:none;cursor:pointer;}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--timer-color);cursor:pointer;border:3px solid var(--surface);box-shadow:0 2px 6px var(--shadow);}
+  input[type="range"]:focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px;}
+  .toggle{position:relative;width:56px;height:30px;flex-shrink:0;}
+  .toggle input{opacity:0;width:0;height:0;position:absolute;}
+  .toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:15px;cursor:pointer;transition:background .2s;}
+  .toggle-slider::after{content:'';position:absolute;width:22px;height:22px;left:4px;top:4px;background:white;border-radius:50%;transition:transform .2s;box-shadow:0 2px 4px rgba(0,0,0,.2);}
+  .toggle input:checked+.toggle-slider{background:var(--timer-color);}
+  .toggle input:checked+.toggle-slider::after{transform:translateX(26px);}
+  .toggle input:focus-visible+.toggle-slider{outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .color-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .color-swatch{width:calc(38px * var(--font-scale));height:calc(38px * var(--font-scale));border-radius:50%;border:3px solid transparent;cursor:pointer;transition:transform .15s;}
+  .color-swatch:hover,.color-swatch:focus-visible{transform:scale(1.15);outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .color-swatch.active{border-color:var(--text);transform:scale(1.1);}
+  input[type="color"]{width:calc(38px * var(--font-scale));height:calc(38px * var(--font-scale));border:3px solid var(--border);border-radius:50%;cursor:pointer;padding:2px;background:none;}
+  .divider{height:1px;background:var(--border);}
+
+  /* ===== 終了音設定 ===== */
+  .sound-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:8px;}
+  .sound-btn{
+    background:var(--btn-bg);border:2px solid var(--border);border-radius:14px;
+    padding:10px 8px;font-family:inherit;font-weight:700;font-size:calc(.88em * var(--font-scale));
+    color:var(--text);cursor:pointer;transition:all .15s;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    position:relative;
+  }
+  .sound-btn:hover,.sound-btn:focus-visible{background:var(--timer-bg);border-color:var(--timer-color);outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .sound-btn.active{background:var(--timer-bg);border-color:var(--timer-color);box-shadow:0 0 0 2px var(--timer-color);}
+  .sound-btn-icon{font-size:1.6em;}
+  .sound-preview-btn{
+    position:absolute;top:6px;right:6px;background:var(--timer-color);color:white;
+    border:none;border-radius:50%;width:22px;height:22px;font-size:12px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .sound-preview-btn:hover{filter:brightness(1.2);}
+
+  /* ===== 録音エリア ===== */
+  .record-area{background:var(--btn-bg);border:2px solid var(--border);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+  .record-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:calc(.9em * var(--font-scale));}
+  .record-dot{width:12px;height:12px;border-radius:50%;background:#ccc;flex-shrink:0;transition:background .3s;}
+  .record-dot.recording{background:#e74c3c;animation:blink .8s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .record-controls{display:flex;gap:8px;flex-wrap:wrap;}
+  .rec-btn{border:2px solid var(--border);background:var(--surface);color:var(--text);border-radius:12px;padding:9px 16px;font-family:inherit;font-weight:700;font-size:calc(.9em * var(--font-scale));cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+  .rec-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .rec-btn:not(:disabled):hover{background:var(--btn-hover);}
+  .rec-btn.danger{background:#e74c3c;border-color:#e74c3c;color:white;}
+  .rec-btn.success{background:#27AE60;border-color:#27AE60;color:white;}
+  .rec-btn:focus-visible{outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .record-timer{font-size:calc(1.3em * var(--font-scale));font-weight:900;color:#e74c3c;font-variant-numeric:tabular-nums;}
+  .rec-waveform{height:40px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .saved-recordings{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .recording-item{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:8px 12px;}
+  .recording-item.active-rec{border-color:var(--timer-color);background:var(--timer-bg);}
+  .rec-name{flex:1;font-weight:700;font-size:calc(.9em * var(--font-scale));}
+  .rec-item-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:.85em;font-family:inherit;color:var(--text);transition:all .12s;}
+  .rec-item-btn:hover{background:var(--btn-hover);}
+
+  /* ===== スキャン ===== */
+  .scannable.scan-focused{outline:6px solid var(--scan-highlight)!important;outline-offset:4px!important;box-shadow:0 0 0 10px rgba(255,215,0,.25)!important;}
+  .scan-mode-badge{position:fixed;top:12px;right:12px;background:var(--scan-highlight);color:#000;padding:6px 14px;border-radius:20px;font-weight:900;font-size:.85em;display:none;z-index:100;}
+  body.scan-mode .scan-mode-badge{display:block;}
+
+  /* ===== 終了オーバーレイ ===== */
+  .finish-overlay{position:fixed;inset:0;background:var(--timer-color);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .4s;}
+  .finish-overlay.show{opacity:1;pointer-events:all;}
+  .finish-emoji{font-size:90px;animation:bounce .5s ease-in-out infinite alternate;}
+  .finish-text{font-size:calc(2.5em * var(--font-scale));font-weight:900;color:white;margin-top:16px;}
+  .finish-sub{font-size:calc(1em * var(--font-scale));color:rgba(255,255,255,.85);margin-top:6px;}
+  .finish-card-name{font-size:calc(1.3em * var(--font-scale));color:white;font-weight:900;margin-top:10px;background:rgba(0,0,0,.15);padding:6px 18px;border-radius:20px;}
+  @keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-18px)}}
+
+  /* ===== モーダル ===== */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .modal-backdrop.open{opacity:1;pointer-events:all;}
+  .modal{background:var(--surface);border-radius:28px;padding:32px 28px;width:min(380px,92vw);box-shadow:0 16px 60px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:16px;animation:slideUp .25s ease;}
+  @keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .modal-title{font-size:calc(1.2em * var(--font-scale));font-weight:900;color:var(--text);display:flex;align-items:center;gap:10px;}
+  .modal-desc{font-size:calc(.9em * var(--font-scale));color:var(--text-sub);line-height:1.6;}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:240px;margin:0 auto;}
+  .key-btn{background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;height:52px;font-size:calc(1.3em * var(--font-scale));font-family:inherit;font-weight:900;color:var(--text);cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center;}
+  .key-btn:hover,.key-btn:focus-visible{background:var(--timer-color);color:white;border-color:var(--timer-color);outline:3px solid var(--focus-ring);outline-offset:2px;}
+  .key-btn:active{transform:scale(.94);}
+  .pin-error{color:#e74c3c;font-size:calc(.85em * var(--font-scale));font-weight:700;text-align:center;min-height:1.4em;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+  .btn-modal{border:2px solid var(--border);background:var(--btn-bg);color:var(--text);border-radius:12px;padding:10px 20px;font-family:inherit;font-weight:700;font-size:calc(.95em * var(--font-scale));cursor:pointer;transition:all .15s;}
+  .btn-modal:hover{background:var(--btn-hover);}
+  .btn-modal.primary{background:var(--timer-color);border-color:var(--timer-color);color:white;}
+  .btn-modal.primary:hover{filter:brightness(1.1);}
+  body.locked .settings-toggle-btn{opacity:.45;cursor:not-allowed;pointer-events:none;}
+
+  @media(max-width:380px){
+    .clock-wrap{width:min(270px,82vw);height:min(270px,82vw);}
+    :root{--card-size:90px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="scan-mode-badge">🔘 スキャンモード ON</div>
+
+<div class="app">
+  <!-- ヘッダー -->
+  <div class="header">
+    <span class="app-title">⏱ タイムタイマー</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="lock-badge" id="lockBadge">🔒 ロック中</span>
+      <button class="btn scannable" id="lockToggleBtn" onclick="openLockModal()" style="padding:8px 14px;font-size:.9em" tabindex="0" aria-label="せっていのロック">🔓</button>
+    </div>
+  </div>
+
+  <!-- 絵カード -->
+  <div class="card-area">
+    <div class="card-area-header">🖼 いまやること</div>
+    <div class="active-card" id="activeCardDisplay">
+      <div class="active-card-empty">↓ したから かつどうを えらんでね</div>
+    </div>
+    <div class="card-grid" id="cardGrid"></div>
+  </div>
+
+  <!-- タイマー -->
+  <div class="timer-area">
+    <div class="clock-wrap scannable" id="clockWrap"
+      role="slider" aria-label="タイマー" aria-valuemin="0" aria-valuemax="99"
+      aria-valuenow="5" tabindex="0">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="clock-bg" cx="100" cy="100" r="98"/>
+        <path class="clock-sector" id="clockSector" d=""/>
+        <circle class="clock-center" cx="100" cy="100" r="70"/>
+        <g id="tickmarks"></g>
+      </svg>
+      <div class="time-display">
+        <div class="time-number" id="timeDisplay">5:00</div>
+        <div class="time-label" id="timeLabel">のこり じかん</div>
+      </div>
+    </div>
+
+    <!-- 時間設定エリア -->
+    <div class="time-set-area">
+      <!-- プリセット -->
+      <div class="presets" role="group" aria-label="プリセット時間">
+        <button class="preset-btn scannable" onclick="setPreset(1)"  tabindex="0">1分</button>
+        <button class="preset-btn scannable" onclick="setPreset(3)"  tabindex="0">3分</button>
+        <button class="preset-btn scannable active" onclick="setPreset(5)"  tabindex="0">5分</button>
+        <button class="preset-btn scannable" onclick="setPreset(10)" tabindex="0">10分</button>
+        <button class="preset-btn scannable" onclick="setPreset(15)" tabindex="0">15分</button>
+        <button class="preset-btn scannable" onclick="setPreset(30)" tabindex="0">30分</button>
+      </div>
+
+      <!-- カスタム時間入力 -->
+      <div class="custom-time-row">
+        <span class="custom-time-label">じぶんで設定：</span>
+        <!-- 分 -->
+        <div class="time-spin">
+          <button class="spin-btn scannable" onclick="changeSpin('min',1)" tabindex="0" aria-label="分をふやす">▲</button>
+          <div class="spin-display" id="spinMin" tabindex="0" role="spinbutton"
+            aria-label="分" aria-valuemin="0" aria-valuemax="99" aria-valuenow="5">05</div>
+          <button class="spin-btn scannable" onclick="changeSpin('min',-1)" tabindex="0" aria-label="分をへらす">▼</button>
+        </div>
+        <span class="time-spin-label">分</span>
+        <!-- 秒 -->
+        <div class="time-spin">
+          <button class="spin-btn scannable" onclick="changeSpin('sec',1)" tabindex="0" aria-label="秒をふやす">▲</button>
+          <div class="spin-display" id="spinSec" tabindex="0" role="spinbutton"
+            aria-label="秒" aria-valuemin="0" aria-valuemax="59" aria-valuenow="0">00</div>
+          <button class="spin-btn scannable" onclick="changeSpin('sec',-1)" tabindex="0" aria-label="秒をへらす">▼</button>
+        </div>
+        <span class="time-spin-label">秒</span>
+        <button class="set-time-btn scannable" onclick="applyCustomTime()" tabindex="0">セット</button>
+      </div>
+    </div>
+
+    <!-- コントロール -->
+    <div class="controls">
+      <button class="btn scannable" onclick="resetTimer()" tabindex="0">🔄 リセット</button>
+      <button class="btn btn-primary scannable" id="startBtn" onclick="toggleTimer()" tabindex="0">▶ スタート</button>
+    </div>
+  </div>
+
+  <!-- 設定トグル -->
+  <button class="settings-toggle-btn scannable" id="settingsToggle" onclick="toggleSettings()" tabindex="0" aria-expanded="false" aria-controls="settingsPanel">
+    ⚙️ せってい（おとな むけ）
+  </button>
+
+  <!-- 設定パネル -->
+  <div class="settings-panel" id="settingsPanel" role="region" aria-label="せってい">
+
+    <!-- 文字サイズ -->
+    <div>
+      <div class="sec-title">📝 もじのおおきさ</div>
+      <div class="setting-row">
+        <span class="setting-label">小 ← → 大</span>
+        <input type="range" id="fontScale" min=".8" max="2" step=".1" value="1"
+          aria-label="もじのおおきさ" class="scannable" tabindex="0"
+          oninput="document.documentElement.style.setProperty('--font-scale',this.value)">
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- みやすさ -->
+    <div>
+      <div class="sec-title">🎨 みやすさ</div>
+      <div class="setting-row">
+        <span class="setting-label">ハイコントラスト</span>
+        <label class="toggle"><input type="checkbox" id="highContrast" class="scannable" tabindex="0" onchange="document.body.classList.toggle('high-contrast',this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- 色 -->
+    <div>
+      <div class="sec-title">🟠 タイマーのいろ</div>
+      <div class="color-row" id="colorSwatches">
+        <button class="color-swatch active scannable" style="background:#FF6B35" onclick="setColor('#FF6B35','#FFE8D6')" tabindex="0" aria-label="オレンジ"></button>
+        <button class="color-swatch scannable" style="background:#E63946" onclick="setColor('#E63946','#FFE0E0')" tabindex="0" aria-label="あか"></button>
+        <button class="color-swatch scannable" style="background:#2D9CDB" onclick="setColor('#2D9CDB','#D0EEFF')" tabindex="0" aria-label="あお"></button>
+        <button class="color-swatch scannable" style="background:#27AE60" onclick="setColor('#27AE60','#D0FFE0')" tabindex="0" aria-label="みどり"></button>
+        <button class="color-swatch scannable" style="background:#9B59B6" onclick="setColor('#9B59B6','#EDD0FF')" tabindex="0" aria-label="むらさき"></button>
+        <button class="color-swatch scannable" style="background:#F39C12" onclick="setColor('#F39C12','#FFF0C0')" tabindex="0" aria-label="きいろ"></button>
+        <input type="color" value="#FF6B35" class="scannable" tabindex="0" aria-label="じぶんでいろをえらぶ" oninput="setColor(this.value,lightenColor(this.value))">
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- 終了音 -->
+    <div>
+      <div class="sec-title">🔔 おわりのおと</div>
+      <div class="setting-row" style="margin-bottom:10px">
+        <span class="setting-label">おとをならす</span>
+        <label class="toggle"><input type="checkbox" id="soundEnabled" class="scannable" tabindex="0" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="sound-grid" id="soundGrid"></div>
+
+      <!-- 録音エリア -->
+      <div style="margin-top:14px">
+        <div class="sec-title" style="margin-bottom:10px">🎙 じぶんのこえを ろくおんする</div>
+        <div class="record-area">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="record-status">
+              <div class="record-dot" id="recDot"></div>
+              <span id="recStatusText">ろくおん じゅんびOK</span>
+            </div>
+            <div class="record-timer" id="recTimer" style="display:none">0:00</div>
+          </div>
+          <canvas class="rec-waveform" id="recCanvas" width="400" height="40"></canvas>
+          <div class="record-controls">
+            <button class="rec-btn danger scannable" id="recStartBtn" onclick="startRecording()" tabindex="0">🔴 ろくおん開始</button>
+            <button class="rec-btn scannable" id="recStopBtn" onclick="stopRecording()" tabindex="0" disabled>⏹ とめる</button>
+          </div>
+          <div id="savedRecordingsList" class="saved-recordings"></div>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- 絵カード管理 -->
+    <div>
+      <div class="sec-title">🖼 えカードのかんり</div>
+      <div id="cardManager"></div>
+    </div>
+    <div class="divider"></div>
+
+    <!-- スイッチスキャン -->
+    <div>
+      <div class="sec-title">🔘 スイッチスキャン</div>
+      <div class="setting-row">
+        <span class="setting-label">スキャンモード</span>
+        <label class="toggle"><input type="checkbox" id="scanMode" class="scannable" tabindex="0" onchange="toggleScanMode(this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row" style="margin-top:10px">
+        <span class="setting-label">スキャン速度</span>
+        <input type="range" id="scanSpeed" min=".8" max="5" step=".2" value="2" aria-label="スキャンのはやさ" class="scannable" tabindex="0" oninput="updateScanSpeed(this.value)">
+      </div>
+      <p style="margin-top:8px;font-size:.82em;color:var(--text-sub);line-height:1.5">スペース・Enter：せんたく　／　Tab：つぎへ</p>
+    </div>
+    <div class="divider"></div>
+
+    <!-- ロック -->
+    <div>
+      <div class="sec-title">🔒 せってい ロック</div>
+      <p style="font-size:.88em;color:var(--text-sub);line-height:1.6;margin-bottom:12px">4けたのPINでせっていをロックできます。</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn scannable" onclick="openSetPinModal()" tabindex="0" style="font-size:.9em">🔑 PINを設定する</button>
+        <button class="btn scannable" id="removePinBtn" onclick="openRemovePinModal()" tabindex="0" style="font-size:.9em;display:none">🗑 PINをけす</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 終了オーバーレイ -->
+<div class="finish-overlay" id="finishOverlay" role="alert" aria-live="assertive">
+  <div class="finish-emoji" id="finishEmoji">🎉</div>
+  <div class="finish-text">おわり！</div>
+  <div class="finish-sub">よくできました！</div>
+  <div class="finish-card-name" id="finishCardName" style="display:none"></div>
+  <button class="btn btn-primary scannable" onclick="closeFinish()" style="margin-top:28px;background:white;color:var(--timer-color);border-color:white;font-size:1.1em" tabindex="0">もういちど</button>
+</div>
+
+<!-- モーダル群（PIN） -->
+<div class="modal-backdrop" id="unlockModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-title">🔓 ロックを解除する</div>
+    <div class="modal-desc">4けたのPINをにゅうりょくしてください。</div>
+    <div class="keypad" id="unlockKeypad"></div>
+    <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="unlockDots">・・・・</div>
+    <div class="pin-error" id="unlockError"></div>
+    <div class="modal-actions"><button class="btn-modal" onclick="closeModal('unlockModal')">キャンセル</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="setPinModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-title">🔑 PINを設定する</div>
+    <div class="modal-desc" id="setPinDesc">あたらしい4けたのPINをにゅうりょくしてください。</div>
+    <div class="keypad" id="setPinKeypad"></div>
+    <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="setPinDots">・・・・</div>
+    <div class="pin-error" id="setPinError"></div>
+    <div class="modal-actions"><button class="btn-modal" onclick="closeModal('setPinModal')">キャンセル</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="removePinModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-title">🗑 PINをけす</div>
+    <div class="modal-desc">現在のPINをにゅうりょくしてください。</div>
+    <div class="keypad" id="removePinKeypad"></div>
+    <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="removePinDots">・・・・</div>
+    <div class="pin-error" id="removePinError"></div>
+    <div class="modal-actions"><button class="btn-modal" onclick="closeModal('removePinModal')">キャンセル</button></div>
+  </div>
+</div>
+<div class="modal-backdrop" id="lockActionModal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-title" id="lockActionTitle">🔒 せってい ロック</div>
+    <div class="modal-desc" id="lockActionDesc"></div>
+    <div class="modal-actions" id="lockActionBtns"></div>
+  </div>
+</div>
+
+<script>
+// ===============================================================
+// 状態
+// ===============================================================
+const DEFAULT_CARDS = [
+  {id:'eat',emoji:'🍱',name:'ごはん'},{id:'study',emoji:'📚',name:'べんきょう'},
+  {id:'play',emoji:'🎮',name:'あそぶ'},{id:'rest',emoji:'😴',name:'やすむ'},
+  {id:'walk',emoji:'🚶',name:'さんぽ'},{id:'wash',emoji:'🛁',name:'おふろ'},
+  {id:'music',emoji:'🎵',name:'おんがく'},{id:'art',emoji:'🎨',name:'おえかき'},
+  {id:'sport',emoji:'⚽',name:'うんどう'},{id:'clean',emoji:'🧹',name:'おそうじ'},
+  {id:'read',emoji:'📖',name:'よみきかせ'},{id:'cook',emoji:'🍳',name:'りょうり'},
+];
+
+let cards       = JSON.parse(localStorage.getItem('tt_cards')||'null') || DEFAULT_CARDS;
+let selectedCard = null;
+let savedPin    = localStorage.getItem('tt_pin') || '';
+let isLocked    = false;
+
+let totalSeconds     = 5 * 60;
+let remainingSeconds = 5 * 60;
+let isRunning        = false;
+let timerInterval    = null;
+let isDragging       = false;
+let audioCtx         = null;
+
+// スキャン
+let scanEnabled = false;
+let scanItems   = [];
+let scanIndex   = 0;
+let scanInterval = null;
+let scanSpeedVal = 2.0;
+
+// カスタム時間スピナー
+let spinMin = 5, spinSec = 0;
+
+// 終了音
+const SOUND_PRESETS = [
+  { id:'bell',    icon:'🔔', name:'ベル',      fn: playBell },
+  { id:'chime',   icon:'🎵', name:'チャイム',  fn: playChime },
+  { id:'fanfare', icon:'🎺', name:'ファンファーレ', fn: playFanfare },
+  { id:'soft',    icon:'🎶', name:'やさしい音', fn: playSoft },
+  { id:'alarm',   icon:'🚨', name:'アラーム',  fn: playAlarm },
+  { id:'custom',  icon:'🎙', name:'じぶんの声', fn: playCustomRecording },
+];
+let selectedSound = localStorage.getItem('tt_sound') || 'bell';
+
+// 録音
+let mediaRecorder   = null;
+let recordedChunks  = [];
+let recTimerInterval = null;
+let recSeconds      = 0;
+let analyser        = null;
+let animFrame       = null;
+let savedRecordings = []; // [{id, name, dataUrl}]
+
+// ===============================================================
+// 初期化
+// ===============================================================
+function init() {
+  drawTicks();
+  renderCardGrid();
+  renderCardManager();
+  renderSoundGrid();
+  buildAllKeypads();
+  updateClock();
+  updateLockUI();
+  updateSpinDisplay();
+  loadRecordingsFromStorage();
+  if (savedPin) document.getElementById('removePinBtn').style.display = 'flex';
+}
+
+// ===============================================================
+// 絵カード
+// ===============================================================
+function renderCardGrid() {
+  const grid = document.getElementById('cardGrid');
+  grid.innerHTML = '';
+  cards.forEach(card => {
+    const btn = document.createElement('button');
+    btn.className = 'card-item scannable' + (selectedCard?.id===card.id?' selected':'');
+    btn.tabIndex = 0;
+    btn.setAttribute('aria-label', card.name);
+    const iconHtml = card.photoUrl
+      ? `<img src="${card.photoUrl}" alt="${card.name}" style="width:calc(var(--card-size)*.65);height:calc(var(--card-size)*.65);object-fit:cover;border-radius:12px;display:block;">`
+      : `<span class="card-item-emoji">${card.emoji}</span>`;
+    btn.innerHTML = iconHtml + `<span class="card-item-name">${card.name}</span>`;
+    btn.onclick = () => selectCard(card);
+    grid.appendChild(btn);
+  });
+  updateScanItems();
+}
+
+function selectCard(card) {
+  selectedCard = card;
+  document.getElementById('cardGrid').style.display = 'none';
+  const iconHtml = card.photoUrl
+    ? `<img src="${card.photoUrl}" alt="${card.name}" style="width:calc(var(--card-size)*.7);height:calc(var(--card-size)*.7);object-fit:cover;border-radius:20px;border:3px solid var(--border);flex-shrink:0;">`
+    : `<div class="active-card-icon">${card.emoji}</div>`;
+  document.getElementById('activeCardDisplay').innerHTML = iconHtml + `
+    <div class="active-card-info">
+      <div class="active-card-label">いまやること</div>
+      <div class="active-card-name">${card.name}</div>
+    </div>
+    <button onclick="clearCardSelection()" class="scannable"
+      style="background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;
+             padding:8px 12px;font-family:inherit;font-weight:700;font-size:calc(.8em * var(--font-scale));
+             color:var(--text-sub);cursor:pointer;flex-shrink:0;transition:all .15s;"
+      aria-label="かつどうをえらびなおす"
+      onmouseover="this.style.background='var(--btn-hover)'"
+      onmouseout="this.style.background='var(--btn-bg)'">
+      🔄 えらびなおす
+    </button>`;
+  updateScanItems();
+}
+
+function clearCardSelection() {
+  selectedCard = null;
+  document.getElementById('cardGrid').style.display = '';
+  document.getElementById('activeCardDisplay').innerHTML =
+    '<div class="active-card-empty">↓ したから かつどうを えらんでね</div>';
+  updateScanItems();
+}
+
+function renderCardManager() {
+  const el = document.getElementById('cardManager');
+  const cardListHtml = cards.map(c => {
+    const thumb = c.photoUrl
+      ? `<img src="${c.photoUrl}" style="width:52px;height:52px;object-fit:cover;border-radius:12px;border:2px solid var(--border);display:block;">`
+      : `<div style="font-size:2em;background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;width:52px;height:52px;display:flex;align-items:center;justify-content:center">${c.emoji}</div>`;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;position:relative">
+      <button onclick="removeCard('${c.id}')" style="position:absolute;top:-6px;right:-6px;background:#e74c3c;border:none;color:white;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1" aria-label="${c.name}をさくじょ">✕</button>
+      ${thumb}
+      <span style="font-size:.75em;font-weight:700;max-width:60px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="font-size:.88em;color:var(--text-sub);margin-bottom:10px;line-height:1.5">✕でさくじょ。下のフォームからついか（えもじまたは写真）。</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">${cardListHtml}</div>
+
+    <div style="background:var(--btn-bg);border:2px solid var(--border);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-weight:900;font-size:.88em;color:var(--text-sub)">＋ あたらしいカードをついか</div>
+
+      <!-- 写真 or 絵文字 切り替え -->
+      <div style="display:flex;gap:8px">
+        <button id="modeEmojiBtn" onclick="setAddMode('emoji')"
+          style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--timer-color);background:var(--timer-color);color:white;font-family:inherit;font-weight:700;font-size:.9em;cursor:pointer;">
+          😀 えもじ
+        </button>
+        <button id="modePhotoBtn" onclick="setAddMode('photo')"
+          style="flex:1;padding:8px;border-radius:10px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-family:inherit;font-weight:700;font-size:.9em;cursor:pointer;">
+          📷 しゃしん
+        </button>
+      </div>
+
+      <!-- 絵文字モード -->
+      <div id="emojiModeRow" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="newCardEmoji" placeholder="😀" maxlength="2"
+          style="width:52px;height:44px;border:2px solid var(--border);border-radius:12px;text-align:center;font-size:1.5em;background:var(--surface);color:var(--text);font-family:inherit">
+        <input type="text" id="newCardName" placeholder="かつどうめい" maxlength="10"
+          style="flex:1;min-width:100px;height:44px;border:2px solid var(--border);border-radius:12px;padding:0 12px;font-size:1em;background:var(--surface);color:var(--text);font-family:inherit;font-weight:700">
+        <button class="btn" onclick="addCard()" style="height:44px;font-size:.9em;white-space:nowrap">＋ ついか</button>
+      </div>
+
+      <!-- 写真モード -->
+      <div id="photoModeRow" style="display:none;flex-direction:column;gap:8px">
+        <!-- プレビュー -->
+        <div id="photoPreviewWrap" style="display:flex;align-items:center;gap:12px">
+          <div id="photoPreviewBox"
+            style="width:72px;height:72px;border:2px dashed var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:2em;background:var(--surface);overflow:hidden;flex-shrink:0;cursor:pointer;"
+            onclick="document.getElementById('photoFileInput').click()"
+            title="タップして写真をえらぶ">📷</div>
+          <div style="flex:1;font-size:.85em;color:var(--text-sub);line-height:1.5">
+            写真をタップしてえらんでください。<br>
+            カメラロールやファイルから選べます。
+          </div>
+        </div>
+        <input type="file" id="photoFileInput" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="newCardNamePhoto" placeholder="かつどうめい" maxlength="10"
+            style="flex:1;height:44px;border:2px solid var(--border);border-radius:12px;padding:0 12px;font-size:1em;background:var(--surface);color:var(--text);font-family:inherit;font-weight:700">
+          <button class="btn" onclick="addPhotoCard()" style="height:44px;font-size:.9em;white-space:nowrap">＋ ついか</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+let addMode = 'emoji';
+let pendingPhotoDataUrl = null;
+
+function setAddMode(mode) {
+  addMode = mode;
+  document.getElementById('emojiModeRow').style.display  = mode==='emoji' ? 'flex' : 'none';
+  document.getElementById('photoModeRow').style.display  = mode==='photo' ? 'flex' : 'none';
+  document.getElementById('modeEmojiBtn').style.background = mode==='emoji' ? 'var(--timer-color)' : 'var(--surface)';
+  document.getElementById('modeEmojiBtn').style.color      = mode==='emoji' ? 'white' : 'var(--text)';
+  document.getElementById('modeEmojiBtn').style.borderColor= mode==='emoji' ? 'var(--timer-color)' : 'var(--border)';
+  document.getElementById('modePhotoBtn').style.background = mode==='photo' ? 'var(--timer-color)' : 'var(--surface)';
+  document.getElementById('modePhotoBtn').style.color      = mode==='photo' ? 'white' : 'var(--text)';
+  document.getElementById('modePhotoBtn').style.borderColor= mode==='photo' ? 'var(--timer-color)' : 'var(--border)';
+}
+
+function onPhotoSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    pendingPhotoDataUrl = e.target.result;
+    // プレビュー表示
+    const box = document.getElementById('photoPreviewBox');
+    box.innerHTML = `<img src="${pendingPhotoDataUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function addPhotoCard() {
+  const name = document.getElementById('newCardNamePhoto').value.trim();
+  if (!name) { alert('なまえをにゅうりょくしてください'); return; }
+  if (!pendingPhotoDataUrl) { alert('写真をえらんでください'); return; }
+  cards.push({ id:'custom_'+Date.now(), emoji:'🖼', name, photoUrl: pendingPhotoDataUrl });
+  pendingPhotoDataUrl = null;
+  saveCards(); renderCardGrid(); renderCardManager();
+}
+
+function addCard() {
+  const emoji = document.getElementById('newCardEmoji').value.trim() || '⭐';
+  const name  = document.getElementById('newCardName').value.trim();
+  if (!name) return;
+  cards.push({ id:'custom_'+Date.now(), emoji, name });
+  saveCards(); renderCardGrid(); renderCardManager();
+}
+
+function removeCard(id) {
+  cards = cards.filter(c => c.id !== id);
+  if (selectedCard?.id === id) {
+    clearCardSelection();
+  }
+  saveCards(); renderCardGrid(); renderCardManager();
+}
+
+function saveCards() {
+  try {
+    localStorage.setItem('tt_cards', JSON.stringify(cards));
+  } catch(e) {
+    alert('ストレージの容量がいっぱいです。写真のまい数をへらしてください。');
+  }
+}
+
+// ===============================================================
+// タイマー描画
+// ===============================================================
+function sectorPath(cx,cy,r,sa,ea) {
+  if (ea-sa >= 2*Math.PI-0.001)
+    return `M${cx} ${cy} m-${r} 0 a${r} ${r} 0 1 1 ${2*r} 0 a${r} ${r} 0 1 1 ${-2*r} 0`;
+  const x1=cx+r*Math.cos(sa),y1=cy+r*Math.sin(sa),x2=cx+r*Math.cos(ea),y2=cy+r*Math.sin(ea);
+  return `M${cx} ${cy} L${x1} ${y1} A${r} ${r} 0 ${ea-sa>Math.PI?1:0} 1 ${x2} ${y2} Z`;
+}
+
+function drawTicks() {
+  const g = document.getElementById('tickmarks');
+  for (let i=0;i<60;i++) {
+    const a=(i/60)*2*Math.PI-Math.PI/2, maj=i%5===0;
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',100+(maj?82:86)*Math.cos(a)); l.setAttribute('y1',100+(maj?82:86)*Math.sin(a));
+    l.setAttribute('x2',100+96*Math.cos(a));          l.setAttribute('y2',100+96*Math.sin(a));
+    l.setAttribute('stroke','rgba(0,0,0,0.13)');
+    l.setAttribute('stroke-width',maj?'2.5':'1.5');
+    g.appendChild(l);
+  }
+}
+
+function updateClock() {
+  const ratio = totalSeconds > 0 ? remainingSeconds/totalSeconds : 0;
+  document.getElementById('clockSector').setAttribute('d',
+    ratio<=0 ? '' : sectorPath(100,100,98,-Math.PI/2,-Math.PI/2+ratio*2*Math.PI));
+  const m=Math.floor(remainingSeconds/60), s=remainingSeconds%60;
+  const disp=document.getElementById('timeDisplay');
+  disp.textContent=`${m}:${String(s).padStart(2,'0')}`;
+  disp.classList.toggle('warning', ratio<=0.1 && remainingSeconds>0);
+  document.getElementById('timeLabel').textContent =
+    remainingSeconds===0 && totalSeconds>0 ? 'かんりょう！' :
+    isRunning ? 'カウントダウン中' : 'のこり じかん';
+  const cw=document.getElementById('clockWrap');
+  cw.setAttribute('aria-valuenow',Math.ceil(remainingSeconds/60));
+  cw.setAttribute('aria-valuetext',`のこり${m}ふん${s}びょう`);
+}
+
+// ===============================================================
+// タイマー操作
+// ===============================================================
+function toggleTimer() { isRunning ? pauseTimer() : startTimer(); }
+
+function startTimer() {
+  if (remainingSeconds<=0) return;
+  isRunning=true;
+  document.getElementById('startBtn').textContent='⏸ とめる';
+  timerInterval=setInterval(()=>{
+    remainingSeconds--;
+    updateClock();
+    if (remainingSeconds<=0) {
+      clearInterval(timerInterval); isRunning=false;
+      document.getElementById('startBtn').textContent='▶ スタート';
+      finishTimer();
+    }
+  },1000);
+}
+
+function pauseTimer() {
+  isRunning=false; clearInterval(timerInterval);
+  document.getElementById('startBtn').textContent='▶ スタート';
+}
+
+function resetTimer() {
+  pauseTimer(); remainingSeconds=totalSeconds; updateClock();
+}
+
+function setPreset(min) {
+  pauseTimer();
+  totalSeconds=min*60; remainingSeconds=min*60;
+  spinMin=min; spinSec=0; updateSpinDisplay();
+  document.querySelectorAll('.preset-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent===`${min}分`);
+  });
+  updateClock();
+}
+
+// ===== カスタム時間スピナー =====
+function changeSpin(type, delta) {
+  if (type==='min') { spinMin=Math.max(0,Math.min(99,spinMin+delta)); }
+  else              { spinSec=Math.max(0,Math.min(59,spinSec+delta)); }
+  updateSpinDisplay();
+  clearPresetActive();
+}
+
+function updateSpinDisplay() {
+  document.getElementById('spinMin').textContent=String(spinMin).padStart(2,'0');
+  document.getElementById('spinMin').setAttribute('aria-valuenow',spinMin);
+  document.getElementById('spinSec').textContent=String(spinSec).padStart(2,'0');
+  document.getElementById('spinSec').setAttribute('aria-valuenow',spinSec);
+}
+
+function applyCustomTime() {
+  const s=spinMin*60+spinSec;
+  if (s<=0) return;
+  pauseTimer();
+  totalSeconds=s; remainingSeconds=s;
+  clearPresetActive(); updateClock();
+}
+
+function clearPresetActive() {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+}
+
+// スピナーキーボード
+document.getElementById('spinMin').addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'){changeSpin('min',1);}
+  if(e.key==='ArrowDown'){changeSpin('min',-1);}
+});
+document.getElementById('spinSec').addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'){changeSpin('sec',1);}
+  if(e.key==='ArrowDown'){changeSpin('sec',-1);}
+  if(e.key==='Enter'){applyCustomTime();}
+});
+
+// ドラッグ
+const clockWrap=document.getElementById('clockWrap');
+function getAngle(e){
+  const r=clockWrap.getBoundingClientRect();
+  const cx=r.left+r.width/2, cy=r.top+r.height/2;
+  const px=e.touches?e.touches[0].clientX:e.clientX;
+  const py=e.touches?e.touches[0].clientY:e.clientY;
+  let a=Math.atan2(py-cy,px-cx)+Math.PI/2;
+  if(a<0)a+=2*Math.PI; return a;
+}
+function setFromAngle(a){
+  // 99分上限
+  const mins=Math.max(1,Math.min(99,Math.round(a/(2*Math.PI)*99)));
+  totalSeconds=mins*60; remainingSeconds=totalSeconds;
+  spinMin=mins; spinSec=0; updateSpinDisplay(); clearPresetActive(); updateClock();
+}
+clockWrap.addEventListener('mousedown',e=>{isDragging=true;if(!isRunning)setFromAngle(getAngle(e));});
+clockWrap.addEventListener('touchstart',e=>{isDragging=true;if(!isRunning)setFromAngle(getAngle(e));},{passive:true});
+window.addEventListener('mousemove',e=>{if(isDragging&&!isRunning)setFromAngle(getAngle(e));});
+window.addEventListener('touchmove',e=>{if(isDragging&&!isRunning)setFromAngle(getAngle(e));},{passive:true});
+window.addEventListener('mouseup',()=>isDragging=false);
+window.addEventListener('touchend',()=>isDragging=false);
+clockWrap.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowUp'){if(!isRunning){totalSeconds=Math.min(99*60,totalSeconds+60);remainingSeconds=totalSeconds;spinMin=Math.floor(totalSeconds/60);spinSec=0;updateSpinDisplay();clearPresetActive();updateClock();}}
+  if(e.key==='ArrowLeft'||e.key==='ArrowDown'){if(!isRunning){totalSeconds=Math.max(60,totalSeconds-60);remainingSeconds=totalSeconds;spinMin=Math.floor(totalSeconds/60);spinSec=0;updateSpinDisplay();clearPresetActive();updateClock();}}
+  if(e.key===' '||e.key==='Enter')toggleTimer();
+});
+
+// ===============================================================
+// 終了処理
+// ===============================================================
+function finishTimer() {
+  const overlay=document.getElementById('finishOverlay');
+  const nameEl=document.getElementById('finishCardName');
+  const emojiEl=document.getElementById('finishEmoji');
+  if(selectedCard){
+    if(selectedCard.photoUrl){
+      emojiEl.innerHTML='<img src="'+selectedCard.photoUrl+'" style="width:120px;height:120px;object-fit:cover;border-radius:24px;border:4px solid white;box-shadow:0 4px 20px rgba(0,0,0,.2);">';
+    } else {
+      emojiEl.textContent=selectedCard.emoji;
+    }
+    nameEl.textContent=selectedCard.name+' おわったよ！';
+    nameEl.style.display='block';
+  } else {
+    emojiEl.textContent='🎉';
+    nameEl.style.display='none';
+  }
+  overlay.classList.add('show');
+  playFinishSound();
+}
+
+function closeFinish() {
+  document.getElementById('finishOverlay').classList.remove('show');
+  resetTimer();
+  clearCardSelection();
+}
+
+// ===============================================================
+// 終了音 プリセット
+// ===============================================================
+function getAudioCtx() {
+  if (!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playFinishSound() {
+  if (!document.getElementById('soundEnabled').checked) return;
+  const preset=SOUND_PRESETS.find(p=>p.id===selectedSound);
+  if (preset) preset.fn();
+}
+
+function playBell() {
+  try {
+    const ctx=getAudioCtx();
+    [880,1108,1318].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sine';o.frequency.value=f;
+      const t=ctx.currentTime+i*0.5;
+      g.gain.setValueAtTime(0.4,t);g.gain.exponentialRampToValueAtTime(0.001,t+1.5);
+      o.start(t);o.stop(t+1.6);
+    });
+  }catch(e){}
+}
+
+function playChime() {
+  try {
+    const ctx=getAudioCtx();
+    const notes=[523,659,784,1047,784,659,523];
+    notes.forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='triangle';o.frequency.value=f;
+      const t=ctx.currentTime+i*0.18;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.35,t+0.04);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.5);
+      o.start(t);o.stop(t+0.55);
+    });
+  }catch(e){}
+}
+
+function playFanfare() {
+  try {
+    const ctx=getAudioCtx();
+    [[523,.0],[659,.15],[784,.3],[1047,.45],[784,.6],[1047,.75],[1047,.9]].forEach(([f,dt])=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sawtooth';o.frequency.value=f;
+      const t=ctx.currentTime+dt;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.25,t+0.05);
+      g.gain.linearRampToValueAtTime(0,t+0.25);
+      o.start(t);o.stop(t+0.3);
+    });
+  }catch(e){}
+}
+
+function playSoft() {
+  try {
+    const ctx=getAudioCtx();
+    [392,494,587,740].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sine';o.frequency.value=f;
+      const t=ctx.currentTime+i*0.4;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.2,t+0.1);
+      g.gain.exponentialRampToValueAtTime(0.001,t+1.2);
+      o.start(t);o.stop(t+1.3);
+    });
+  }catch(e){}
+}
+
+function playAlarm() {
+  try {
+    const ctx=getAudioCtx();
+    for(let i=0;i<6;i++){
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='square';o.frequency.value=i%2===0?880:660;
+      const t=ctx.currentTime+i*0.2;
+      g.gain.setValueAtTime(0.3,t);g.gain.setValueAtTime(0,t+0.15);
+      o.start(t);o.stop(t+0.16);
+    }
+  }catch(e){}
+}
+
+function playCustomRecording() {
+  if (savedRecordings.length===0) { playBell(); return; }
+  // 最後に選択された録音を再生（activeなもの）
+  const active=savedRecordings.find(r=>r.active) || savedRecordings[savedRecordings.length-1];
+  if (!active) { playBell(); return; }
+  const audio=new Audio(active.dataUrl);
+  audio.play().catch(()=>playBell());
+}
+
+// 音グリッド描画
+function renderSoundGrid() {
+  const grid=document.getElementById('soundGrid');
+  grid.innerHTML='';
+  SOUND_PRESETS.forEach(p=>{
+    const btn=document.createElement('button');
+    btn.className='sound-btn scannable'+(selectedSound===p.id?' active':'');
+    btn.tabIndex=0;
+    btn.setAttribute('aria-label',p.name);
+    btn.innerHTML=`<span class="sound-btn-icon">${p.icon}</span><span>${p.name}</span>`;
+    btn.onclick=()=>{
+      selectedSound=p.id;
+      localStorage.setItem('tt_sound',p.id);
+      document.querySelectorAll('.sound-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    // プレビューボタン
+    const prev=document.createElement('button');
+    prev.className='sound-preview-btn';
+    prev.textContent='▶';
+    prev.title='試聴';
+    prev.setAttribute('aria-label',p.name+'を試聴');
+    prev.onclick=(e)=>{e.stopPropagation();p.fn();};
+    btn.appendChild(prev);
+    grid.appendChild(btn);
+  });
+}
+
+// ===============================================================
+// 録音機能
+// ===============================================================
+function loadRecordingsFromStorage() {
+  try {
+    savedRecordings=JSON.parse(localStorage.getItem('tt_recordings')||'[]');
+  } catch(e){ savedRecordings=[]; }
+  renderSavedRecordings();
+}
+
+function saveRecordingsToStorage() {
+  try { localStorage.setItem('tt_recordings',JSON.stringify(savedRecordings)); } catch(e) {
+    alert('ストレージの容量がいっぱいです。古い録音をけしてください。');
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    recordedChunks=[];
+
+    // 波形表示
+    const ctx=getAudioCtx();
+    const source=ctx.createMediaStreamSource(stream);
+    analyser=ctx.createAnalyser();
+    analyser.fftSize=256;
+    source.connect(analyser);
+    drawWaveform();
+
+    mediaRecorder=new MediaRecorder(stream);
+    mediaRecorder.ondataavailable=e=>{ if(e.data.size>0)recordedChunks.push(e.data); };
+    mediaRecorder.onstop=()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      cancelAnimationFrame(animFrame);
+      clearWaveform();
+      processRecording();
+    };
+    mediaRecorder.start();
+
+    // 最大10秒
+    recSeconds=0;
+    document.getElementById('recTimer').style.display='block';
+    recTimerInterval=setInterval(()=>{
+      recSeconds++;
+      document.getElementById('recTimer').textContent=
+        `${Math.floor(recSeconds/60)}:${String(recSeconds%60).padStart(2,'0')}`;
+      if(recSeconds>=10) stopRecording();
+    },1000);
+
+    document.getElementById('recDot').classList.add('recording');
+    document.getElementById('recStatusText').textContent='ろくおん中… (さいだい10びょう)';
+    document.getElementById('recStartBtn').disabled=true;
+    document.getElementById('recStopBtn').disabled=false;
+  } catch(e) {
+    alert('マイクが使えません。ブラウザのマイクきょかを確認してください。');
+  }
+}
+
+function stopRecording() {
+  if(mediaRecorder&&mediaRecorder.state!=='inactive'){
+    mediaRecorder.stop();
+    clearInterval(recTimerInterval);
+    document.getElementById('recDot').classList.remove('recording');
+    document.getElementById('recStatusText').textContent='ろくおん じゅんびOK';
+    document.getElementById('recTimer').style.display='none';
+    document.getElementById('recStartBtn').disabled=false;
+    document.getElementById('recStopBtn').disabled=true;
+  }
+}
+
+function processRecording() {
+  const blob=new Blob(recordedChunks,{type:'audio/webm'});
+  const reader=new FileReader();
+  reader.onloadend=()=>{
+    const id='rec_'+Date.now();
+    const name=`こえ ${savedRecordings.length+1}`;
+    // 既存をすべてactiveオフ
+    savedRecordings.forEach(r=>r.active=false);
+    savedRecordings.push({id,name,dataUrl:reader.result,active:true});
+    // じぶんの声を自動選択
+    selectedSound='custom';
+    localStorage.setItem('tt_sound','custom');
+    document.querySelectorAll('.sound-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.sound-btn').forEach(b=>{
+      if(b.getAttribute('aria-label')==='じぶんの声')b.classList.add('active');
+    });
+    saveRecordingsToStorage();
+    renderSavedRecordings();
+  };
+  reader.readAsDataURL(blob);
+}
+
+function renderSavedRecordings() {
+  const list=document.getElementById('savedRecordingsList');
+  if(savedRecordings.length===0){list.innerHTML='<div style="font-size:.85em;color:var(--text-sub)">まだろくおんがありません</div>';return;}
+  list.innerHTML='';
+  savedRecordings.forEach(rec=>{
+    const item=document.createElement('div');
+    item.className='recording-item'+(rec.active?' active-rec':'');
+    item.innerHTML=`
+      <span class="rec-name">${rec.name}</span>
+      <button class="rec-item-btn" onclick="previewRecording('${rec.id}')" title="試聴">▶</button>
+      <button class="rec-item-btn" onclick="selectRecording('${rec.id}')" style="${rec.active?'background:var(--timer-color);color:white;border-color:var(--timer-color)':''}">
+        ${rec.active?'✓ つかう':'つかう'}
+      </button>
+      <button class="rec-item-btn" onclick="deleteRecording('${rec.id}')" title="さくじょ" style="color:#e74c3c">🗑</button>`;
+    list.appendChild(item);
+  });
+}
+
+function previewRecording(id) {
+  const rec=savedRecordings.find(r=>r.id===id);
+  if(rec){const a=new Audio(rec.dataUrl);a.play();}
+}
+
+function selectRecording(id) {
+  savedRecordings.forEach(r=>r.active=r.id===id);
+  selectedSound='custom';
+  localStorage.setItem('tt_sound','custom');
+  document.querySelectorAll('.sound-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.sound-btn').forEach(b=>{
+    if(b.getAttribute('aria-label')==='じぶんの声')b.classList.add('active');
+  });
+  saveRecordingsToStorage();
+  renderSavedRecordings();
+}
+
+function deleteRecording(id) {
+  savedRecordings=savedRecordings.filter(r=>r.id!==id);
+  if(savedRecordings.length>0&&!savedRecordings.some(r=>r.active))savedRecordings[0].active=true;
+  saveRecordingsToStorage();
+  renderSavedRecordings();
+}
+
+// 波形アニメーション
+function drawWaveform() {
+  const canvas=document.getElementById('recCanvas');
+  const ctx2=canvas.getContext('2d');
+  const buf=new Uint8Array(analyser.frequencyBinCount);
+  function draw(){
+    animFrame=requestAnimationFrame(draw);
+    analyser.getByteTimeDomainData(buf);
+    ctx2.clearRect(0,0,canvas.width,canvas.height);
+    ctx2.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--timer-color').trim()||'#FF6B35';
+    ctx2.lineWidth=2;ctx2.beginPath();
+    const sliceW=canvas.width/buf.length;
+    buf.forEach((v,i)=>{
+      const x=i*sliceW, y=(v/128.0)*(canvas.height/2);
+      i===0?ctx2.moveTo(x,y):ctx2.lineTo(x,y);
+    });
+    ctx2.stroke();
+  }
+  draw();
+}
+
+function clearWaveform() {
+  const canvas=document.getElementById('recCanvas');
+  const ctx2=canvas.getContext('2d');
+  ctx2.clearRect(0,0,canvas.width,canvas.height);
+}
+
+// ===============================================================
+// 設定
+// ===============================================================
+function toggleSettings() {
+  if(isLocked)return;
+  const panel=document.getElementById('settingsPanel');
+  const btn=document.getElementById('settingsToggle');
+  const open=panel.classList.toggle('open');
+  btn.setAttribute('aria-expanded',open);
+  btn.textContent=open?'⚙️ せってい とじる':'⚙️ せってい（おとな むけ）';
+  updateScanItems();
+}
+
+function setColor(main,light) {
+  document.documentElement.style.setProperty('--timer-color',main);
+  document.documentElement.style.setProperty('--timer-bg',light||lightenColor(main));
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('active'));
+  if(event&&event.target)event.target.classList.add('active');
+}
+
+function lightenColor(hex) {
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.round(r+(255-r)*.78)},${Math.round(g+(255-g)*.78)},${Math.round(b+(255-b)*.78)})`;
+}
+
+// ===============================================================
+// スキャン
+// ===============================================================
+function updateScanItems() {
+  const panel=document.getElementById('settingsPanel');
+  scanItems=Array.from(document.querySelectorAll('.scannable'))
+    .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'));
+}
+
+function toggleScanMode(en) {
+  scanEnabled=en;
+  document.body.classList.toggle('scan-mode',en);
+  en?startScan():stopScan();
+}
+
+function startScan() {
+  stopScan(); scanIndex=0; highlightScan();
+  scanInterval=setInterval(()=>{scanIndex=(scanIndex+1)%scanItems.length;highlightScan();},scanSpeedVal*1000);
+}
+
+function stopScan() {
+  clearInterval(scanInterval);
+  scanItems.forEach(el=>el.classList.remove('scan-focused'));
+}
+
+function highlightScan() {
+  updateScanItems();
+  scanItems.forEach(el=>el.classList.remove('scan-focused'));
+  if(scanItems[scanIndex]){scanItems[scanIndex].classList.add('scan-focused');scanItems[scanIndex].scrollIntoView({block:'nearest',behavior:'smooth'});}
+}
+
+function updateScanSpeed(v) { scanSpeedVal=parseFloat(v); if(scanEnabled)startScan(); }
+
+document.addEventListener('keydown',e=>{
+  if(!scanEnabled)return;
+  if(e.key===' '||e.key==='Enter'){e.preventDefault();if(scanItems[scanIndex]){scanItems[scanIndex].click();scanItems[scanIndex].focus();}}
+  if(e.key==='Tab'){e.preventDefault();scanIndex=(scanIndex+(e.shiftKey?-1:1)+scanItems.length)%scanItems.length;highlightScan();clearInterval(scanInterval);scanInterval=setInterval(()=>{scanIndex=(scanIndex+1)%scanItems.length;highlightScan();},scanSpeedVal*1000);}
+});
+
+// ===============================================================
+// PINロック
+// ===============================================================
+function buildKeypad(cid,did,onComplete,eid) {
+  const c=document.getElementById(cid); c.innerHTML=''; let buf='';
+  const upd=()=>{document.getElementById(did).textContent='●'.repeat(buf.length)+'・'.repeat(4-buf.length);};
+  [1,2,3,4,5,6,7,8,9,'⌫',0,'✓'].forEach(k=>{
+    const b=document.createElement('button');
+    b.className='key-btn'; b.textContent=k; b.tabIndex=0;
+    b.onclick=()=>{
+      if(document.getElementById(eid))document.getElementById(eid).textContent='';
+      if(k==='⌫'){buf=buf.slice(0,-1);upd();}
+      else if(k==='✓'){if(buf.length===4)onComplete(buf,()=>{buf='';upd();});}
+      else if(typeof k==='number'&&buf.length<4){buf+=k;upd();if(buf.length===4)setTimeout(()=>onComplete(buf,()=>{buf='';upd();}),120);}
+    };
+    c.appendChild(b);
+  });
+}
+
+function buildAllKeypads() {
+  buildKeypad('unlockKeypad','unlockDots',
+    (pin,reset)=>{if(pin===savedPin){isLocked=false;updateLockUI();closeModal('unlockModal');}else{document.getElementById('unlockError').textContent='PINがちがいます';reset();}},
+    'unlockError');
+  let s1='';
+  buildKeypad('setPinKeypad','setPinDots',
+    (pin,reset)=>{
+      if(!s1){s1=pin;document.getElementById('setPinDesc').textContent='もういちど おなじPINをにゅうりょくしてください。';reset();}
+      else if(pin===s1){savedPin=pin;localStorage.setItem('tt_pin',pin);s1='';document.getElementById('removePinBtn').style.display='flex';closeModal('setPinModal');if(!isLocked){isLocked=true;updateLockUI();}}
+      else{s1='';document.getElementById('setPinError').textContent='PINがいっちしません';document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';reset();}
+    },'setPinError');
+  buildKeypad('removePinKeypad','removePinDots',
+    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');}else{document.getElementById('removePinError').textContent='PINがちがいます';reset();}},
+    'removePinError');
+}
+
+function updateLockUI() {
+  document.getElementById('lockBadge').classList.toggle('visible',isLocked);
+  document.getElementById('lockToggleBtn').textContent=isLocked?'🔒':'🔓';
+  document.getElementById('lockToggleBtn').setAttribute('aria-label',isLocked?'ロックをかいじょする':'せっていをロックする');
+  document.body.classList.toggle('locked',isLocked);
+  if(isLocked){
+    const panel=document.getElementById('settingsPanel');
+    if(panel.classList.contains('open')){panel.classList.remove('open');document.getElementById('settingsToggle').textContent='⚙️ せってい（おとな むけ）';}
+  }
+}
+
+function openLockModal() {
+  if(isLocked){if(savedPin)openModal('unlockModal');}
+  else{
+    document.getElementById('lockActionTitle').textContent=savedPin?'🔒 ロックする':'🔒 せってい ロック';
+    document.getElementById('lockActionDesc').textContent=savedPin?'せっていをロックします。':'まずPINを設定してください。';
+    document.getElementById('lockActionBtns').innerHTML=savedPin
+      ?`<button class="btn-modal" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary" onclick="activateLock()">ロックする</button>`
+      :`<button class="btn-modal" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary" onclick="closeModal('lockActionModal');openSetPinModal()">PINをせっていする</button>`;
+    openModal('lockActionModal');
+  }
+}
+
+function activateLock(){isLocked=true;updateLockUI();closeModal('lockActionModal');}
+function openSetPinModal(){document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';document.getElementById('setPinError').textContent='';document.getElementById('setPinDots').textContent='・・・・';openModal('setPinModal');}
+function openRemovePinModal(){document.getElementById('removePinError').textContent='';document.getElementById('removePinDots').textContent='・・・・';openModal('removePinModal');}
+function openModal(id){document.getElementById(id).classList.add('open');document.getElementById(id).querySelector('button')?.focus();}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+document.querySelectorAll('.modal-backdrop').forEach(el=>{
+  el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);});
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')document.querySelectorAll('.modal-backdrop.open').forEach(el=>closeModal(el.id));
+});
+
+init();
+</script>
+</body>
+</html>
