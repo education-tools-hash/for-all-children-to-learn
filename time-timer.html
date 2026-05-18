@@ -811,6 +811,17 @@ function toggleTimer() { isRunning ? pauseTimer() : startTimer(); }
 
 function startTimer() {
   if (remainingSeconds<=0) return;
+  // ユーザー操作の文脈でAudioContextを初期化・resumeしておく
+  // （タイマー終了時の音はsetInterval内から再生されるため、ここで通しておくのが重要）
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    // カスタム録音が選ばれているなら、ここでデコードもキックしておく（初回再生をスムーズに）
+    if (selectedSound === 'custom') {
+      const active = savedRecordings.find(r=>r.active) || savedRecordings[savedRecordings.length-1];
+      if (active) decodeRecording(active.dataUrl).catch(()=>{});
+    }
+  } catch(e) {}
   isRunning=true;
   document.getElementById('startBtn').textContent='⏸ とめる';
   timerInterval=setInterval(()=>{
@@ -1026,13 +1037,57 @@ function playAlarm() {
   }catch(e){}
 }
 
+// カスタム録音音声のキャッシュ（dataUrl → decodedAudioBuffer）
+const customAudioBufferCache = new Map();
+
+async function decodeRecording(dataUrl) {
+  if (customAudioBufferCache.has(dataUrl)) return customAudioBufferCache.get(dataUrl);
+  // dataUrl (base64) → ArrayBuffer
+  const res = await fetch(dataUrl);
+  const arrayBuffer = await res.arrayBuffer();
+  const ctx = getAudioCtx();
+  // decodeAudioData(モダンPromise版/旧コールバック版どちらでも動くようラップ)
+  const buffer = await new Promise((resolve, reject) => {
+    try {
+      const p = ctx.decodeAudioData(arrayBuffer, resolve, reject);
+      // 一部ブラウザはPromiseも返す
+      if (p && typeof p.then === 'function') p.then(resolve, reject);
+    } catch (e) { reject(e); }
+  });
+  customAudioBufferCache.set(dataUrl, buffer);
+  return buffer;
+}
+
 function playCustomRecording() {
   if (savedRecordings.length===0) { playBell(); return; }
   // 最後に選択された録音を再生（activeなもの）
   const active=savedRecordings.find(r=>r.active) || savedRecordings[savedRecordings.length-1];
   if (!active) { playBell(); return; }
-  const audio=new Audio(active.dataUrl);
-  audio.play().catch(()=>playBell());
+
+  const ctx = getAudioCtx();
+  // suspendedなら resume を試みる
+  if (ctx.state === 'suspended') { try { ctx.resume(); } catch(e){} }
+
+  // WebAudio API 経由で再生（setInterval内からでも自動再生ポリシーを通過しやすい）
+  decodeRecording(active.dataUrl).then(buffer => {
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = ctx.createGain();
+    gain.gain.value = 1.0;
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start(0);
+  }).catch(err => {
+    console.warn('WebAudio recording playback failed, falling back to <audio>:', err);
+    // フォールバック: HTMLAudioElement
+    try {
+      const audio = new Audio(active.dataUrl);
+      audio.play().catch(e2 => {
+        console.warn('Audio element playback also failed:', e2);
+        playBell();
+      });
+    } catch (e) { playBell(); }
+  });
 }
 
 // 音グリッド描画
