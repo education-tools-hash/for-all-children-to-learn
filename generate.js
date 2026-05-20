@@ -289,6 +289,35 @@ const CAT_MAP = {
   '教材作成ツール': 'sousaku',
 };
 
+// ============================================================
+//  色ユーティリティ：iconColor から派生色(明色/暗色/タグ色)を生成
+//  ・新規アプリは CARD_CLASS_MAP / THEME_CLASS_MAP に無くても、
+//    iconColor を元に自動で色付けされる
+// ============================================================
+function hexToRgb(hex) {
+  const h = hex.replace('#', '').trim();
+  const v = h.length === 3
+    ? h.split('').map(c => c + c).join('')
+    : h.padEnd(6, '0').slice(0, 6);
+  return { r: parseInt(v.slice(0,2),16), g: parseInt(v.slice(2,4),16), b: parseInt(v.slice(4,6),16) };
+}
+function rgbToHex(r,g,b) {
+  const c = n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2,'0');
+  return '#' + c(r) + c(g) + c(b);
+}
+function lighten(hex, amount=0.45) {
+  const {r,g,b} = hexToRgb(hex);
+  return rgbToHex(r + (255-r)*amount, g + (255-g)*amount, b + (255-b)*amount);
+}
+function darken(hex, amount=0.25) {
+  const {r,g,b} = hexToRgb(hex);
+  return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
+}
+// アプリID/filename から安全なCSSクラス名を生成
+function safeClassName(prefix, name) {
+  return prefix + String(name).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+}
+
 // filename → cardClass のマッピング（既存アプリの色を維持）
 const CARD_CLASS_MAP = {
   'hiragana-learn':  'card-hiragana',
@@ -319,13 +348,25 @@ function generateAppsArray(apps) {
   const catOrder = ['gakushu', 'ninchi', 'jiritsu', 'sousaku'];
   const catLabels = { gakushu: '学習アプリ', ninchi: '認知支援', jiritsu: '自立活動', sousaku: '創作表現' };
 
-  // categoryを英語キーに変換してソート
-  const mapped = apps.map(app => ({
-    ...app,
-    _cat: CAT_MAP[app.category] || 'gakushu',
-    _cardClass: app.cardClass || CARD_CLASS_MAP[app.filename] || ('card-' + app.filename),
-  }));
-  mapped.sort((a, b) => catOrder.indexOf(a._cat) - catOrder.indexOf(b._cat));
+  // categoryを英語キーに変換してソート、未マッピングなら専用クラス名を付与
+  const mapped = apps.map(app => {
+    const mapped = CARD_CLASS_MAP[app.filename];
+    const dynamic = !mapped && !app.cardClass;
+    return {
+      ...app,
+      _cat: CAT_MAP[app.category] || 'gakushu',
+      _cardClass: app.cardClass || mapped || safeClassName('card-', app.filename),
+      _dynamicCard: dynamic,  // 動的CSS注入対象
+    };
+  });
+  // カテゴリ順 → カテゴリ内では order(無ければ Infinity = 末尾) で安定ソート
+  mapped.sort((a, b) => {
+    const catDiff = catOrder.indexOf(a._cat) - catOrder.indexOf(b._cat);
+    if (catDiff !== 0) return catDiff;
+    const ao = (typeof a.order === 'number') ? a.order : Infinity;
+    const bo = (typeof b.order === 'number') ? b.order : Infinity;
+    return ao - bo;
+  });
 
   let currentCat = '';
   const lines = ['const APPS = ['];
@@ -351,10 +392,28 @@ function generateAppsArray(apps) {
     lines.push('  },');
   }
   lines.push('];');
-  return lines.join('\n');
+  return { code: lines.join('\n'), mapped };
 }
 
-function updateIndexHTML(appsArray) {
+// 動的カードCSS(新規アプリ用)を生成
+function generateDynamicCardCSS(mappedApps) {
+  const rules = [];
+  for (const app of mappedApps) {
+    if (!app._dynamicCard) continue;
+    const base = app.iconColor || '#5B3FD4';
+    const light = lighten(base, 0.30);
+    const dark  = darken(base, 0.15);
+    const tagBg = lighten(base, 0.78);
+    const tagFg = darken(base, 0.35);
+    const cls = app._cardClass;
+    rules.push(`  .${cls} .card-preview { background: linear-gradient(135deg, ${light} 0%, ${dark} 100%); }`);
+    rules.push(`  .${cls}:hover { border-color: ${dark}; }`);
+    rules.push(`  .${cls} .card-tag { background: ${tagBg}; color: ${tagFg}; }`);
+  }
+  return rules.join('\n');
+}
+
+function updateIndexHTML(result) {
   const indexPath = './index.html';
   if (!fs.existsSync(indexPath)) {
     console.log('⚠️  index.html が見つかりません。スキップします。');
@@ -368,10 +427,28 @@ function updateIndexHTML(appsArray) {
     console.log('⚠️  index.html の APPS 配列が見つかりません。スキップします。');
     return;
   }
-  html = html.slice(0, start) + appsArray + html.slice(end);
+  html = html.slice(0, start) + result.code + html.slice(end);
+
+  // ── 動的カードCSSを <style id="dynamic-card-css"> として注入 ──
+  const dynCSS = generateDynamicCardCSS(result.mapped);
+  const dynStart = '<style id="dynamic-card-css">';
+  const dynEnd   = '</style><!-- /dynamic-card-css -->';
+  const block    = `${dynStart}\n${dynCSS}\n${dynEnd}`;
+  const existIdx = html.indexOf(dynStart);
+  if (existIdx !== -1) {
+    // 既存ブロックを置き換え
+    const tailIdx = html.indexOf(dynEnd, existIdx) + dynEnd.length;
+    html = html.slice(0, existIdx) + block + html.slice(tailIdx);
+  } else if (dynCSS) {
+    // 新規挿入: </head> の直前
+    const headEnd = html.indexOf('</head>');
+    if (headEnd !== -1) html = html.slice(0, headEnd) + '\n' + block + '\n' + html.slice(headEnd);
+  }
+
   html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
   fs.writeFileSync(indexPath, html, 'utf-8');
   console.log('✅ index.html の APPS 配列を更新しました');
+  if (dynCSS) console.log(`✅ index.html に新規アプリ用のカードCSSを動的注入 (${(dynCSS.match(/\n/g)||[]).length}行)`);
 }
 
 // ============================================================
@@ -406,7 +483,10 @@ const THEME_CLASS_MAP = {
 };
 
 function generateIntroCard(app) {
-  const themeClass = app.themeClass || THEME_CLASS_MAP[app.filename] || ('theme-' + app.filename);
+  const mappedTheme = THEME_CLASS_MAP[app.filename];
+  const themeClass  = app.themeClass || mappedTheme || safeClassName('theme-', app.filename);
+  app._themeClass = themeClass;
+  app._dynamicTheme = !mappedTheme && !app.themeClass;
   const catKey = CAT_MAP[app.category] || app.category;
   const featuresHTML = app.features.map(f =>
     `          <li>${f.icon} ${f.title}：${f.desc}</li>`
@@ -461,11 +541,15 @@ function updateAppIntroHTML(apps) {
   const catLabels = { gakushu: '✏️ 学習アプリ', ninchi: '🧠 認知支援', jiritsu: '🎯 自立活動', sousaku: '🎨 創作表現' };
   const catOrder = ['gakushu', 'ninchi', 'jiritsu', 'sousaku'];
 
-  // カテゴリ順にソートして、カテゴリラベルが重複しないようにする
+  // カテゴリ順にソート → カテゴリ内では order(無ければ Infinity) で並ぶ
   const sortedApps = apps.slice().sort((a, b) => {
     const aKey = CAT_MAP[a.category] || a.category;
     const bKey = CAT_MAP[b.category] || b.category;
-    return catOrder.indexOf(aKey) - catOrder.indexOf(bKey);
+    const catDiff = catOrder.indexOf(aKey) - catOrder.indexOf(bKey);
+    if (catDiff !== 0) return catDiff;
+    const ao = (typeof a.order === 'number') ? a.order : Infinity;
+    const bo = (typeof b.order === 'number') ? b.order : Infinity;
+    return ao - bo;
   });
 
   // panel-all の中身を生成
@@ -477,7 +561,9 @@ function updateAppIntroHTML(apps) {
       currentCat = appCatKey;
       cardsHTML += `\n    <div class="cat-label">${catLabels[currentCat] || currentCat}</div>`;
     }
-    cardsHTML += generateIntroCard({...app, _catKey: appCatKey});
+    // generateIntroCard 内で app._themeClass / _dynamicTheme を直接書き込むため
+    // シャローコピー({...app}) ではなく元の参照を渡す。catKeyは generateIntroCard 内で再計算される
+    cardsHTML += generateIntroCard(app);
   }
 
   // panel-all の開始〜終了を置き換え
@@ -491,9 +577,59 @@ function updateAppIntroHTML(apps) {
   }
   const newPanel = `${startMarker}${cardsHTML}\n\n  ${endMarker}`;
   html = html.slice(0, start) + newPanel + html.slice(end);
+
+  // ── タブカウントを自動更新 ──
+  // 各カテゴリの件数を計算
+  const counts = { all: apps.length, gakushu: 0, ninchi: 0, jiritsu: 0, sousaku: 0 };
+  for (const a of apps) {
+    const k = CAT_MAP[a.category] || a.category;
+    if (counts[k] !== undefined) counts[k]++;
+  }
+  // <button class="tab-btn ..." data-tab="XXX" ...><span class="tab-icon">...</span>...<span class="tab-count">N</span></button>
+  // の N を置換。button要素内の data-tab に限定するため<button までを含めて厳密にマッチ
+  let countUpdated = 0;
+  for (const [tab, n] of Object.entries(counts)) {
+    const re = new RegExp(
+      `(<button[^>]*data-tab="${tab}"[^>]*>[\\s\\S]*?<span class="tab-count">)\\d+(</span>)`,
+      'g'
+    );
+    const before = html;
+    html = html.replace(re, `$1${n}$2`);
+    if (html !== before) countUpdated++;
+  }
+
+  // ── 動的テーマCSS注入(新規アプリ用) ──
+  const themeRules = [];
+  for (const app of sortedApps) {
+    if (!app._dynamicTheme) continue;
+    const base = app.iconColor || '#5B3FD4';
+    const light = lighten(base, 0.20);
+    const dark  = darken(base, 0.20);
+    const tagBg = lighten(base, 0.82);
+    const tagFg = darken(base, 0.35);
+    const cls = app._themeClass;
+    themeRules.push(`  .${cls} .intro-card-header::before { background: linear-gradient(90deg, ${base}, ${light}); }`);
+    themeRules.push(`  .${cls} .intro-tag { background: ${tagBg}; color: ${tagFg}; }`);
+    themeRules.push(`  .${cls} .intro-launch-btn { background: linear-gradient(135deg, ${base}, ${dark}); color: white; }`);
+  }
+  const themeCSS = themeRules.join('\n');
+  const dynStart = '<style id="dynamic-theme-css">';
+  const dynEnd   = '</style><!-- /dynamic-theme-css -->';
+  const block    = `${dynStart}\n${themeCSS}\n${dynEnd}`;
+  const existIdx = html.indexOf(dynStart);
+  if (existIdx !== -1) {
+    const tailIdx = html.indexOf(dynEnd, existIdx) + dynEnd.length;
+    html = html.slice(0, existIdx) + block + html.slice(tailIdx);
+  } else if (themeCSS) {
+    const headEnd = html.indexOf('</head>');
+    if (headEnd !== -1) html = html.slice(0, headEnd) + '\n' + block + '\n' + html.slice(headEnd);
+  }
+
   html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
   fs.writeFileSync(introPath, html, 'utf-8');
   console.log('✅ app-intro.html の panel-all を更新しました');
+  console.log(`✅ app-intro.html のタブカウントを更新: all=${counts.all}, 学習=${counts.gakushu}, 認知=${counts.ninchi}, 自立=${counts.jiritsu}, 創作=${counts.sousaku}`);
+  if (themeCSS) console.log(`✅ app-intro.html に新規アプリ用のテーマCSSを動的注入 (${themeRules.length}ルール)`);
 }
 
 // ============================================================
@@ -665,8 +801,8 @@ for (const app of apps) {
 console.log(`\n詳細ページ: ${count}件生成 → ${outDir}/`);
 
 // 2. index.html の APPS 配列を更新
-const appsArray = generateAppsArray(apps);
-updateIndexHTML(appsArray);
+const appsResult = generateAppsArray(apps);
+updateIndexHTML(appsResult);
 
 // 3. app-intro.html の panel-all を更新
 updateAppIntroHTML(apps);
