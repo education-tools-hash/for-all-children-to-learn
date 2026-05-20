@@ -24,7 +24,7 @@ const CATEGORY_TRUTH = {
   'hiragana-learn':  '学習アプリ',
   'katakana-app':    '学習アプリ',
   'nazori-app':      '学習アプリ',
-
+  'janken-app':      '学習アプリ',
   'shiritori2':      '学習アプリ',
   'okane-app':       '学習アプリ',
   'register-app':    '学習アプリ',
@@ -38,7 +38,6 @@ const CATEGORY_TRUTH = {
   'matching-app':    '認知支援',
   'sugoroku-app':    '認知支援',
   'cup_game':        '認知支援',
-  'janken-app':      '認知支援',
   // 自立活動
   'tyushi':          '自立活動',
   'kimochi-board':   '自立活動',
@@ -480,13 +479,39 @@ function updateIndexHTML(result) {
   }
 
   // VS除去は廃止(絵文字を壊すため)
+  // ── JavaScript エラー自動修正 ──
+  const jsFixRes = fixIndexJsBugs(html);
+  html = jsFixRes.html;
   // ── ファビコン注入 ──
   const favRes = injectFavicon(html);
   html = favRes.html;
   fs.writeFileSync(indexPath, html, 'utf-8');
   console.log('✅ index.html の APPS 配列を更新しました');
   if (dynCSS) console.log(`✅ index.html に新規アプリ用のカードCSSを動的注入 (${(dynCSS.match(/\n/g)||[]).length}行)`);
+  if (jsFixRes.fixes.length > 0) console.log(`🔧 index.html のJSバグを自動修正: ${jsFixRes.fixes.join(', ')}`);
   if (favRes.action !== 'skipped') console.log(`✅ index.html にファビコンを ${favRes.action} (action=${favRes.action})`);
+}
+
+// ============================================================
+//  index.html のJavaScriptバグを自動修正
+//  ・未定義関数の呼び出しを安全にコメントアウト
+//  ・既知の不具合パターンに対応
+//  冪等: 既に修正済みなら何もしない
+// ============================================================
+function fixIndexJsBugs(html) {
+  const fixes = [];
+  // 修正1: resetMetaFilter() が未定義なのに呼ばれていてエラーで止まる
+  //  → 関数定義が存在しなければ、呼び出し行をコメントアウト
+  if (html.includes('resetMetaFilter()') && !html.match(/function\s+resetMetaFilter\s*\(/)) {
+    // 既にコメントアウト済みの行はマッチしないように先頭の空白を許容
+    const before = html;
+    html = html.replace(
+      /^(\s*)resetMetaFilter\(\);(\s*\/\/.*)?$/gm,
+      '$1// resetMetaFilter(); // [auto-fixed by generate.js] 関数が未定義のため無効化'
+    );
+    if (html !== before) fixes.push('resetMetaFilter() を無効化');
+  }
+  return { html, fixes };
 }
 
 // ============================================================
