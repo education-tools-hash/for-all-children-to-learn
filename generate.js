@@ -1,16 +1,14 @@
-// variation selector（U+FE00-FE0F）を除去してNode.jsのJSON.parseエラーを防ぐ
+// variation selector（U+FE00-FE0F）について:
+// 以前は JSON.parse 対策として除去していたが、絵文字 (例: 1️⃣ = '1' + U+FE0F + U+20E3) が
+// 壊れるため廃止。Node.js の JSON.parse は U+FE0F を問題なくパースできる。
 function clean(str) {
-  if (typeof str !== 'string') return str;
-  return str.split('').filter(c => {
-    const cp = c.codePointAt(0);
-    return !(cp >= 0xFE00 && cp <= 0xFE0F);
-  }).join('');
+  return str; // 互換性のため関数自体は残す(no-op)
 }
 
 const fs   = require('fs');
 const path = require('path');
 
-const rawJson = fs.readFileSync('./apps-data.json', 'utf-8').split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+const rawJson = fs.readFileSync('./apps-data.json', 'utf-8');
 const apps   = JSON.parse(rawJson);
 const outDir = './app-details';
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
@@ -313,9 +311,35 @@ function darken(hex, amount=0.25) {
   const {r,g,b} = hexToRgb(hex);
   return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
 }
-// アプリID/filename から安全なCSSクラス名を生成
+// アプリIDから安全なCSSクラス名を生成
 function safeClassName(prefix, name) {
   return prefix + String(name).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+}
+
+// ============================================================
+//  order を「真の順位」として解釈してカテゴリ内ソート
+//  ・order がないアプリは元の順序を維持
+//  ・order があるアプリを order 値の小さい順で取り出し、
+//    1-indexed の希望位置に順次「挿入」する
+//  ・複数のアプリが同じ位置を希望する場合は order 値の小さい方が先
+// ============================================================
+function sortAppsByOrder(appsList) {
+  // orderあり/なしで分割
+  const withOrder = appsList
+    .map((a, idx) => ({ a, idx }))
+    .filter(x => typeof x.a.order === 'number')
+    .sort((x, y) => x.a.order - y.a.order || x.idx - y.idx);
+  const withoutOrder = appsList.filter(a => typeof a.order !== 'number');
+
+  // orderなしを並べたベース配列に、orderありを順に挿入
+  const result = withoutOrder.slice();
+  for (const { a } of withOrder) {
+    // a.order=N → 「N番目に置く」 = 配列インデックス N-1 に挿入
+    // 範囲外は両端にクランプ
+    const pos = Math.max(0, Math.min(result.length, a.order - 1));
+    result.splice(pos, 0, a);
+  }
+  return result;
 }
 
 // filename → cardClass のマッピング（既存アプリの色を維持）
@@ -359,14 +383,23 @@ function generateAppsArray(apps) {
       _dynamicCard: dynamic,  // 動的CSS注入対象
     };
   });
-  // カテゴリ順 → カテゴリ内では order(無ければ Infinity = 末尾) で安定ソート
-  mapped.sort((a, b) => {
-    const catDiff = catOrder.indexOf(a._cat) - catOrder.indexOf(b._cat);
-    if (catDiff !== 0) return catDiff;
-    const ao = (typeof a.order === 'number') ? a.order : Infinity;
-    const bo = (typeof b.order === 'number') ? b.order : Infinity;
-    return ao - bo;
-  });
+  // カテゴリ別にグループ化し、各カテゴリ内で order を「真の順位」として並べる
+  const byCat = {};
+  for (const app of mapped) {
+    if (!byCat[app._cat]) byCat[app._cat] = [];
+    byCat[app._cat].push(app);
+  }
+  // catOrder の順番で結合、各カテゴリ内は sortAppsByOrder で並べる
+  const sorted = [];
+  for (const cat of catOrder) {
+    if (byCat[cat]) sorted.push(...sortAppsByOrder(byCat[cat]));
+  }
+  // catOrder に無いカテゴリも末尾に追加(安全策)
+  for (const cat of Object.keys(byCat)) {
+    if (!catOrder.includes(cat)) sorted.push(...sortAppsByOrder(byCat[cat]));
+  }
+  mapped.length = 0;
+  mapped.push(...sorted);
 
   let currentCat = '';
   const lines = ['const APPS = ['];
@@ -445,7 +478,7 @@ function updateIndexHTML(result) {
     if (headEnd !== -1) html = html.slice(0, headEnd) + '\n' + block + '\n' + html.slice(headEnd);
   }
 
-  html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+  // VS除去は廃止(絵文字を壊すため)
   fs.writeFileSync(indexPath, html, 'utf-8');
   console.log('✅ index.html の APPS 配列を更新しました');
   if (dynCSS) console.log(`✅ index.html に新規アプリ用のカードCSSを動的注入 (${(dynCSS.match(/\n/g)||[]).length}行)`);
@@ -541,16 +574,20 @@ function updateAppIntroHTML(apps) {
   const catLabels = { gakushu: '✏️ 学習アプリ', ninchi: '🧠 認知支援', jiritsu: '🎯 自立活動', sousaku: '🎨 創作表現' };
   const catOrder = ['gakushu', 'ninchi', 'jiritsu', 'sousaku'];
 
-  // カテゴリ順にソート → カテゴリ内では order(無ければ Infinity) で並ぶ
-  const sortedApps = apps.slice().sort((a, b) => {
-    const aKey = CAT_MAP[a.category] || a.category;
-    const bKey = CAT_MAP[b.category] || b.category;
-    const catDiff = catOrder.indexOf(aKey) - catOrder.indexOf(bKey);
-    if (catDiff !== 0) return catDiff;
-    const ao = (typeof a.order === 'number') ? a.order : Infinity;
-    const bo = (typeof b.order === 'number') ? b.order : Infinity;
-    return ao - bo;
-  });
+  // カテゴリ別にグループ化し、各カテゴリ内で order を「真の順位」として並べる
+  const byCat = {};
+  for (const app of apps) {
+    const k = CAT_MAP[app.category] || app.category;
+    if (!byCat[k]) byCat[k] = [];
+    byCat[k].push(app);
+  }
+  const sortedApps = [];
+  for (const cat of catOrder) {
+    if (byCat[cat]) sortedApps.push(...sortAppsByOrder(byCat[cat]));
+  }
+  for (const cat of Object.keys(byCat)) {
+    if (!catOrder.includes(cat)) sortedApps.push(...sortAppsByOrder(byCat[cat]));
+  }
 
   // panel-all の中身を生成
   let currentCat = '';
@@ -625,7 +662,7 @@ function updateAppIntroHTML(apps) {
     if (headEnd !== -1) html = html.slice(0, headEnd) + '\n' + block + '\n' + html.slice(headEnd);
   }
 
-  html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+  // VS除去は廃止(絵文字を壊すため)
   fs.writeFileSync(introPath, html, 'utf-8');
   console.log('✅ app-intro.html の panel-all を更新しました');
   console.log(`✅ app-intro.html のタブカウントを更新: all=${counts.all}, 学習=${counts.gakushu}, 認知=${counts.ninchi}, 自立=${counts.jiritsu}, 創作=${counts.sousaku}`);
@@ -716,7 +753,7 @@ function updatePurposeCards(apps) {
   }
 
   if (updated > 0) {
-    html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+    // VS除去は廃止(絵文字を壊すため)
     fs.writeFileSync(indexPath, html, 'utf-8');
     console.log(`✅ index.html の「場面・目的から探す」を更新しました (${updated}/${Object.keys(PURPOSE_CARDS_TRUTH).length}カード)`);
   }
@@ -780,7 +817,7 @@ function updateChangelog(apps) {
   }
   const end = html.indexOf('];', start) + 2;
   html = html.slice(0, start) + newArray + html.slice(end);
-  html = html.split('').filter(c => { const cp = c.codePointAt(0); return !(cp >= 0xFE00 && cp <= 0xFE0F); }).join('');
+  // VS除去は廃止(絵文字を壊すため)
   fs.writeFileSync(indexPath, html, 'utf-8');
   console.log(`✅ index.html の 更新履歴を更新しました (${entries.length}件)`);
 }
