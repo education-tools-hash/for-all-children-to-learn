@@ -35,6 +35,7 @@ const CATEGORY_TRUTH = {
   'yomikaki-app':    '学習アプリ',
   'bosai-app':       '学習アプリ',
   'directions-app':  '学習アプリ',
+  'suji-manabou':      '学習アプリ',
   // 認知支援
   'matching-app':    '認知支援',
   'sugoroku-app':    '認知支援',
@@ -89,6 +90,7 @@ const NEW_IDS = new Set([
   'directions-app',    // 最新追加分
   'slideshow-sakusei', // 直近追加
   'bosai-app',         // 直近追加
+  'suji-manabou',    // 最新追加
 ]);
 
 // フラグを各appに反映(apps-data.jsonで明示指定された値は維持)
@@ -511,7 +513,7 @@ const PURPOSE_CARDS_TRUTH = {
   },
   'theme-moji': {
     title: '文字に興味を持ち出した子に',
-    ids: ['hiragana-learn', 'katakana-app', 'nazori-app', 'yomikaki-app', 'shiritori2']
+    ids: ['hiragana-learn', 'katakana-app', 'nazori-app', 'yomikaki-app', 'shiritori2', 'suji-manabou']
   },
   'theme-seikatsu': {
     title: '生活スキルを育てたい',
