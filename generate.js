@@ -24,7 +24,7 @@ const CATEGORY_TRUTH = {
   'hiragana-learn':  '学習アプリ',
   'katakana-app':    '学習アプリ',
   'nazori-app':      '学習アプリ',
-  'janken-app':      '学習アプリ',
+
   'shiritori2':      '学習アプリ',
   'okane-app':       '学習アプリ',
   'register-app':    '学習アプリ',
@@ -38,6 +38,7 @@ const CATEGORY_TRUTH = {
   'matching-app':    '認知支援',
   'sugoroku-app':    '認知支援',
   'cup_game':        '認知支援',
+  'janken-app':      '認知支援',
   // 自立活動
   'tyushi':          '自立活動',
   'kimochi-board':   '自立活動',
