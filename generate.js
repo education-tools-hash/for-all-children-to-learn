@@ -908,4 +908,59 @@ updatePurposeCards(apps);
 // 5. index.html の 更新履歴を更新
 updateChangelog(apps);
 
+// 6. 個別アプリHTML(ルート直下の*.html)にファビコンを一括挿入
+//    対象: apps-data.json に filename が登録されているアプリの本体HTML
+//    対象外: index.html, app-intro.html, app-register.html(ツール本体)
+injectFaviconToAppHtmls(apps);
+
 console.log('\n🎉 完了！');
+
+// ============================================================
+//  個別アプリHTMLに対するファビコン一括注入
+// ============================================================
+function injectFaviconToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  let updated = 0;
+  let skipped = 0;
+  let notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) {
+      notFound++;
+      log.push(`  ⏭️  ${fname} (ファイルなし)`);
+      continue;
+    }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      const result = injectFavicon(original);
+      if (result.action === 'skipped' || result.action === 'no-head') {
+        skipped++;
+        log.push(`  ⚠️  ${fname} (${result.action})`);
+        continue;
+      }
+      // 内容が変わったときだけ書き込み(GitHub上の不要なdiff防止)
+      if (result.html !== original) {
+        fs.writeFileSync(filePath, result.html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname} (${result.action})`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n📌 個別アプリHTML へのファビコン挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    // 件数が多いので最初の5件のみ表示
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
