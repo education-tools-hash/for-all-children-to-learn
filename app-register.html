@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アプリ登録ダッシュボード</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+  :root {
+    --bg:#f0f4f8; --surface:#fff; --surface2:#f8fafc;
+    --primary:#3b82f6; --primary-dark:#2563eb; --primary-light:#eff6ff;
+    --accent:#10b981; --accent-light:#d1fae5;
+    --warn:#f59e0b; --warn-light:#fef3c7;
+    --danger:#ef4444; --danger-light:#fee2e2;
+    --purple:#8b5cf6; --purple-light:#ede9fe;
+    --text:#1e293b; --muted:#64748b; --border:#e2e8f0;
+    --radius:12px; --shadow:0 2px 16px rgba(0,0,0,0.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 8px rgba(0,0,0,0.06);position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Zen Maru Gothic',sans-serif;font-size:20px;font-weight:900;color:var(--primary);}
+  .subtitle{font-size:13px;color:var(--muted);}
+  .container{max-width:900px;margin:32px auto;padding:0 20px 80px;display:flex;flex-direction:column;gap:24px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);}
+  .card-title{font-family:'Zen Maru Gothic',sans-serif;font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .badge{background:var(--primary-light);color:var(--primary-dark);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;}
+  .badge.purple{background:var(--purple-light);color:var(--purple);}
+  .badge.green{background:var(--accent-light);color:#065f46;}
+  .step-num{width:28px;height:28px;background:var(--primary);color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .form-grid.full{grid-template-columns:1fr;}
+  @media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+  .field{display:flex;flex-direction:column;gap:6px;}
+  .field.span2{grid-column:span 2;}
+  @media(max-width:600px){.field.span2{grid-column:span 1;}}
+  label{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;}
+  .req{color:var(--danger);font-size:11px;}
+  .hint{color:var(--muted);font-size:11px;font-weight:400;}
+  input[type="text"],input[type="password"],input[type="date"],select,textarea{border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:14px;font-family:'Noto Sans JP',sans-serif;color:var(--text);background:var(--surface2);transition:border-color .15s,box-shadow .15s;width:100%;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.15);background:var(--surface);}
+  textarea{resize:vertical;min-height:80px;line-height:1.6;}
+  .feature-group{border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--surface2);display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+  .feature-row{display:grid;grid-template-columns:60px 130px 1fr;gap:8px;align-items:start;}
+  @media(max-width:600px){.feature-row{grid-template-columns:1fr;}}
+  .btn-remove{width:32px;height:32px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:background .1s,color .1s;}
+  .btn-remove:hover{background:var(--danger-light);color:var(--danger);border-color:var(--danger);}
+  .btn-add{border:1.5px dashed var(--primary);border-radius:8px;background:var(--primary-light);color:var(--primary-dark);font-size:13px;font-weight:700;padding:8px 16px;cursor:pointer;display:flex;align-items:center;gap:6px;width:fit-content;transition:background .1s;font-family:'Noto Sans JP',sans-serif;}
+  .btn-add:hover{background:#dbeafe;}
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1.5px solid var(--border);border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all .15s;user-select:none;}
+  .chip:hover{border-color:var(--primary);color:var(--primary);}
+  .chip.selected{background:var(--primary);border-color:var(--primary);color:white;font-weight:700;}
+  .file-drop{border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;background:var(--surface2);}
+  .file-drop:hover,.file-drop.dragover{border-color:var(--primary);background:var(--primary-light);}
+  .file-drop .icon{font-size:32px;margin-bottom:8px;}
+  .file-drop .label{font-size:14px;font-weight:700;color:var(--text);}
+  .file-drop .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+  .file-selected{background:var(--accent-light);border:1px solid var(--accent);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:#065f46;}
+  .btn-primary{background:var(--primary);color:white;border:none;border-radius:10px;padding:14px 32px;font-size:16px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s,transform .1s,box-shadow .15s;box-shadow:0 4px 16px rgba(59,130,246,.3);}
+  .btn-primary:hover{background:var(--primary-dark);transform:translateY(-1px);}
+  .btn-primary:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:14px;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer;transition:background .1s;}
+  .btn-secondary:hover{background:var(--border);}
+  .btn-purple{background:var(--purple);color:white;border:none;border-radius:10px;padding:12px 24px;font-size:15px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .15s,transform .1s;box-shadow:0 4px 16px rgba(139,92,246,.3);}
+  .btn-purple:hover{background:#7c3aed;transform:translateY(-1px);}
+  .log-area{background:#0f172a;border-radius:10px;padding:16px;font-family:'Courier New',monospace;font-size:13px;line-height:1.8;max-height:300px;overflow-y:auto;display:none;}
+  .log-area.visible{display:block;}
+  .log-line{display:flex;gap:8px;}
+  .log-line.ok{color:#4ade80;}
+  .log-line.err{color:#f87171;}
+  .log-line.info{color:#93c5fd;}
+  .progress-bar{height:6px;background:var(--border);border-radius:999px;overflow:hidden;margin-top:12px;display:none;}
+  .progress-bar.visible{display:block;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:999px;transition:width .4s ease;width:0%;}
+  .alert{border-radius:10px;padding:14px 16px;font-size:14px;display:none;align-items:flex-start;gap:10px;line-height:1.7;}
+  .alert.visible{display:flex;}
+  .alert.success{background:var(--accent-light);color:#065f46;border:1px solid var(--accent);}
+  .alert.error{background:var(--danger-light);color:#991b1b;border:1px solid var(--danger);}
+  .token-field{position:relative;}
+  .token-field input{padding-right:80px;}
+  .token-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:4px 8px;}
+  .info-box{background:var(--primary-light);border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.7;}
+  .info-box.purple{background:var(--purple-light);border-color:#c4b5fd;color:#4c1d95;}
+  .info-box.green{background:var(--accent-light);border-color:#6ee7b7;color:#065f46;}
+  .divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+  .flag-row{display:flex;gap:24px;flex-wrap:wrap;}
+  .flag-item{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;}
+  .flag-item input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:var(--primary);}
+  .prompt-box{background:#0f172a;border-radius:10px;padding:16px 16px 16px 16px;font-family:'Courier New',monospace;font-size:12px;line-height:1.8;color:#e2e8f0;position:relative;white-space:pre-wrap;word-break:break-all;padding-top:44px;}
+  .copy-btn{position:absolute;top:10px;right:10px;background:#334155;color:#e2e8f0;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;transition:background .1s;}
+  .copy-btn:hover{background:#475569;}
+  .json-paste-area{border:2px dashed var(--purple);border-radius:10px;padding:20px;background:var(--purple-light);display:flex;flex-direction:column;gap:12px;}
+  .json-paste-area textarea{font-family:'Courier New',monospace;font-size:12px;min-height:140px;border-color:#c4b5fd;}
+  .json-paste-area textarea:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(139,92,246,.15);}
+  .flow-steps{display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
+  .flow-step{font-size:13px;font-weight:700;padding:8px 14px;border-radius:8px;background:var(--primary-light);border:1px solid var(--primary);color:var(--primary-dark);}
+  .flow-arrow{color:var(--muted);font-size:18px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="step-num" style="background:var(--accent);">📋</div>
+  <div>
+    <div class="logo">アプリ登録ダッシュボード</div>
+    <div class="subtitle">for-all-children-to-learn</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 操作フロー -->
+  <div class="card">
+    <div class="card-title">📌 操作の流れ</div>
+    <div class="flow-steps">
+      <div class="flow-step">① HTMLをClaudeで作成</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">② Claude.aiでJSON生成</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">③ JSONを貼り付け→自動入力</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">④ 確認・修正</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⑤ アップロード</div>
+    </div>
+  </div>
+
+  <!-- STEP 1: GitHub設定 -->
+  <div class="card">
+    <div class="card-title"><div class="step-num">1</div>GitHub接続設定</div>
+    <div class="form-grid">
+      <div class="field">
+        <label>リポジトリオーナー <span class="req">必須</span></label>
+        <input type="text" id="owner" value="education-tools-hash">
+      </div>
+      <div class="field">
+        <label>リポジトリ名 <span class="req">必須</span></label>
+        <input type="text" id="repo" value="for-all-children-to-learn">
+      </div>
+      <div class="field span2">
+        <label>Personal Access Token <span class="req">必須</span></label>
+        <div class="token-field">
+          <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+          <button class="token-toggle" onclick="toggleToken()">表示</button>
+        </div>
+      </div>
+    </div>
+    <div class="info-box" style="margin-top:12px;">🔒 トークンはこのページ内のみで使用され、外部には送信されません。ページを閉じると消えます。</div>
+  </div>
+
+  <!-- STEP 2: Claude.aiでJSON生成 -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-num" style="background:var(--purple);">2</div>
+      Claude.ai でJSONを生成する
+      <span class="badge purple">まずここから</span>
+    </div>
+    <div class="info-box purple" style="margin-bottom:16px;">
+      下のプロンプトをコピーして <strong>Claude.ai の新しいチャット</strong> に貼り付けてください。<br>
+      その後、作成したアプリのHTMLを続けて貼り付けて送信するとJSONが生成されます。
+    </div>
+    <div style="position:relative;">
+      <div class="prompt-box" id="promptText">以下のHTMLアプリを分析して、apps-data.json に追加するためのJSONオブジェクトを生成してください。
+
+【出力形式】
+必ず以下のキーをすべて含むJSONオブジェクト1つだけを出力してください（説明文・コードブロック不要）。
+
+{
+  "id": "ファイル名（拡張子なし、例: janken-app）",
+  "filename": "idと同じ値",
+  "icon": "アプリ内容を表す絵文字1文字",
+  "iconColor": "アイコン背景色（16進数カラーコード）",
+  "title": "アプリタイトル（日本語）",
+  "category": "学習アプリ / 認知支援 / 自立活動 / 創作表現 のいずれか",
+  "tags_display": "タグ（「・」区切り、例: ひらがな・もじ）",
+  "summary": "アプリの概要説明（2〜4文）",
+  "features": [
+    { "icon": "絵文字", "title": "機能名", "desc": "機能説明" }
+  ],
+  "steps": [
+    { "label": "ステップ名（絵文字+名前）", "desc": "説明" }
+  ],
+  "lesson": {
+    "target": "対象となる子どもの説明",
+    "goal": "学習目標",
+    "howto": "使い方の流れ",
+    "tips": "指導のヒント"
+  },
+  "a11y": ["アクセシビリティ機能（絵文字+説明）"],
+  "caution": "使用上の注意事項",
+  "badges": ["バッジ（絵文字+説明）"],
+  "releaseDate": "今日の日付（YYYY-MM-DD形式）"
+}
+
+【HTMLはこちら】
+↓ここにHTMLを貼り付けてください↓</div>
+      <button class="copy-btn" onclick="copyPrompt()">📋 コピー</button>
+    </div>
+    <div class="info-box green" style="margin-top:12px;">
+      💡 コピー後、Claude.ai で新しいチャットを開き → プロンプトを貼り付け → その下にHTMLを貼り付けて送信してください。
+    </div>
+  </div>
+
+  <!-- STEP 3: JSON貼り付け -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-num" style="background:var(--purple);">3</div>
+      生成されたJSONを貼り付けて自動入力
+      <span class="badge purple">新機能</span>
+    </div>
+    <div class="json-paste-area">
+      <div style="font-size:13px;font-weight:700;color:#4c1d95;">Claude.aiが生成したJSONをここに貼り付けてください</div>
+      <textarea id="jsonInput" placeholder='{
+  "id": "sample-app",
+  "title": "サンプルアプリ",
+  ...
+}'></textarea>
+      <button class="btn-purple" onclick="applyJson()">
+        <span>✨</span><span>フォームに自動入力する</span>
+      </button>
+    </div>
+    <div id="jsonAlert" class="alert" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- STEP 4: 確認・修正 -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-num">4</div>
+      内容を確認・修正
+      <span class="badge">自動入力後に確認してください</span>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label>アプリID <span class="req">必須</span> <span class="hint">（ファイル名、拡張子なし／同じIDなら上書き更新）</span></label>
+        <input type="text" id="appId" placeholder="例: janken-app">
+      </div>
+      <div class="field">
+        <label>アプリタイトル <span class="req">必須</span></label>
+        <input type="text" id="title" placeholder="例: じゃんけん まなぼう！">
+      </div>
+      <div class="field">
+        <label>アイコン絵文字 <span class="req">必須</span></label>
+        <input type="text" id="icon" placeholder="✊" maxlength="2">
+      </div>
+      <div class="field span2">
+        <label>アイコン背景色 <span class="req">必須</span> <span class="hint">（カードと「アプリをひらく」ボタンの色になります）</span></label>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+          <div id="iconColorPreview" style="width:54px;height:54px;border-radius:14px;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:28px;color:white;font-weight:900;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);" aria-hidden="true">A</div>
+          <input type="color" id="iconColorPicker" value="#3b82f6" style="width:54px;height:54px;border:2px solid var(--border);border-radius:10px;cursor:pointer;padding:2px;background:white;flex-shrink:0;" aria-label="カラーピッカー">
+          <input type="text" id="iconColor" value="#3b82f6" style="width:130px;font-family:monospace;flex-shrink:0;" placeholder="#3b82f6">
+        </div>
+        <div id="colorPalette" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
+        <div class="hint" style="margin-top:6px;">💡 パレットの色をクリック / カラーピッカーで選択 / 直接コード入力 のいずれでもOK</div>
+      </div>
+      <div class="field span2">
+        <label>タグ表示 <span class="hint">（「・」区切り）</span></label>
+        <input type="text" id="tagsDisplay" placeholder="例: じゃんけん・ゲーム">
+      </div>
+      <div class="field span2">
+        <label>アプリ概要 <span class="req">必須</span></label>
+        <textarea id="summary" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label>公開日</label>
+        <input type="date" id="releaseDate">
+      </div>
+      <div class="field">
+        <label>カテゴリ内の表示順 <span class="hint">（1=先頭、2=2番目... 空欄=末尾）</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" id="appOrder" min="1" step="1" placeholder="例: 3 (3番目に表示)" style="flex:1;">
+          <button type="button" class="btn-secondary" onclick="loadOrderPreview()" style="white-space:nowrap;padding:8px 14px;">📋 現在の順番を見る</button>
+        </div>
+        <div id="orderPreview" style="display:none;margin-top:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;max-height:240px;overflow-y:auto;"></div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;">カテゴリ <span class="req">必須</span></div>
+    <div class="chip-group" id="categoryChips">
+      <div class="chip" data-value="学習アプリ" onclick="selectCategory(this)">📚 学習アプリ</div>
+      <div class="chip" data-value="認知支援" onclick="selectCategory(this)">🧩 認知支援</div>
+      <div class="chip" data-value="自立活動" onclick="selectCategory(this)">🌱 自立活動</div>
+      <div class="chip" data-value="創作表現" onclick="selectCategory(this)">🎨 創作表現</div>
+    </div>
+  </div>
+
+  <!-- 機能一覧 -->
+  <div class="card">
+    <div class="card-title"><div class="step-num">4-b</div>機能一覧</div>
+    <div id="featuresList"></div>
+    <button class="btn-add" onclick="addFeature()">＋ 機能を追加</button>
+  </div>
+
+  <!-- 使い方ステップ -->
+  <div class="card">
+    <div class="card-title"><div class="step-num">4-c</div>使い方ステップ</div>
+    <div id="stepsList"></div>
+    <button class="btn-add" onclick="addStep()">＋ ステップを追加</button>
+  </div>
+
+  <!-- 指導情報 -->
+  <div class="card">
+    <div class="card-title"><div class="step-num">4-d</div>指導情報</div>
+    <div class="form-grid full">
+      <div class="field"><label>対象</label><textarea id="lessonTarget" rows="2"></textarea></div>
+      <div class="field"><label>目標</label><textarea id="lessonGoal" rows="2"></textarea></div>
+      <div class="field"><label>使い方の流れ</label><textarea id="lessonHowto" rows="2"></textarea></div>
+      <div class="field"><label>指導のヒント</label><textarea id="lessonTips" rows="2"></textarea></div>
+    </div>
+  </div>
+
+  <!-- アクセシビリティ等 -->
+  <div class="card">
+    <div class="card-title"><div class="step-num">4-e</div>アクセシビリティ・バッジ・注意事項</div>
+    <div class="form-grid full">
+      <div class="field">
+        <label>アクセシビリティ機能 <span class="hint">（1行1項目）</span></label>
+        <textarea id="a11y" rows="4"></textarea>
+      </div>
+      <div class="field">
+        <label>バッジ <span class="hint">（1行1項目）</span></label>
+        <textarea id="badges" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label>注意事項</label>
+        <textarea id="caution" rows="3"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- generate.js設定 -->
+  <div class="card">
+    <div class="card-title">
+      <div class="step-num">4-f</div>
+      generate.js 設定
+      <span class="badge green">自動更新される箇所</span>
+    </div>
+    <div class="info-box" style="margin-bottom:16px;">ここで設定した内容は <code>generate.js</code> の該当箇所に自動追記されます。</div>
+    <div class="field" style="margin-bottom:16px;">
+      <label>フラグ</label>
+      <div class="flag-row" style="margin-top:8px;">
+        <label class="flag-item"><input type="checkbox" id="isRecommend"> ⭐ おすすめ に追加</label>
+        <label class="flag-item"><input type="checkbox" id="isNew" checked> 🆕 新着 に追加</label>
+      </div>
+    </div>
+    <div class="field">
+      <label>場面・目的カード <span class="hint">（複数選択可）</span></label>
+      <div class="chip-group" id="purposeChips" style="margin-top:8px;">
+        <div class="chip" data-value="theme-ishi" onclick="togglePurpose(this)">💬 思いを伝えたい子に</div>
+        <div class="chip" data-value="theme-jikan" onclick="togglePurpose(this)">⏰ 時間の見通しを持たせたい</div>
+        <div class="chip" data-value="theme-moji" onclick="togglePurpose(this)">📝 文字に興味を持ち出した子に</div>
+        <div class="chip" data-value="theme-seikatsu" onclick="togglePurpose(this)">🏠 生活スキルを育てたい</div>
+        <div class="chip" data-value="theme-sst" onclick="togglePurpose(this)">👫 友達との関わりを育てたい</div>
+        <div class="chip" data-value="theme-switch" onclick="togglePurpose(this)">🔘 視線入力やスイッチを使う子に</div>
+        <div class="chip" data-value="theme-sousaku" onclick="togglePurpose(this)">🎨 創作・表現活動をしたい</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTMLファイル -->
+  <div class="card">
+    <div class="card-title"><div class="step-num">5</div>アプリHTMLファイル</div>
+    <div id="fileDropArea" class="file-drop"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
+      onclick="document.getElementById('htmlFile').click()">
+      <div class="icon">📄</div>
+      <div class="label">HTMLファイルをドラッグ＆ドロップ</div>
+      <div class="sub">またはクリックして選択</div>
+    </div>
+    <input type="file" id="htmlFile" accept=".html" style="display:none" onchange="onFileSelect(event)">
+    <div id="fileSelected" style="display:none;" class="file-selected">
+      <span>✅</span><span id="fileName"></span>
+      <button class="btn-secondary" onclick="clearFile()" style="margin-left:auto;padding:4px 10px;font-size:12px;">削除</button>
+    </div>
+    <div id="filenameCheck" style="display:none;margin-top:10px;"></div>
+  </div>
+
+  <!-- アップロード -->
+  <div class="card">
+    <div class="card-title"><div class="step-num" style="background:var(--accent);">6</div>GitHubへアップロード</div>
+    <div id="alertArea" class="alert"></div>
+    <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn-primary" id="uploadBtn" onclick="startUpload()">
+        <span>🚀</span><span>GitHubにアップロード</span>
+      </button>
+      <button class="btn-secondary" onclick="previewJson()">📋 JSONプレビュー</button>
+    </div>
+    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="log-area" id="logArea"></div>
+  </div>
+
+  <div class="card" id="jsonPreviewCard" style="display:none;">
+    <div class="card-title">📋 JSONプレビュー</div>
+    <pre id="jsonPreview" style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;font-size:12px;overflow:auto;max-height:400px;line-height:1.6;"></pre>
+  </div>
+
+</div>
+
+<script>
+let featureCount=0, stepCount=0;
+let htmlFileContent=null, htmlFileName=null;
+let selectedCategory='';
+let selectedPurposes=new Set();
+
+// ============================================================
+// ファビコン注入(クライアント側 / アップロード前のHTMLに対して)
+// ・サイトルート絶対パス指定 (/for-all-children-to-learn/) で
+//   どの階層からも同じファビコンを参照
+// ・既存の「<!-- favicon: 自動挿入 (generate.js) -->」ブロックがあれば置換、なければ挿入
+// ・</head>がなければ no-head (警告のみ)
+// ============================================================
+const FAVICON_BASE_PATH = '/for-all-children-to-learn';
+function buildFaviconTags(){
+  return [
+    '<!-- favicon: 自動挿入 (generate.js) -->',
+    `<link rel="icon" type="image/svg+xml" href="${FAVICON_BASE_PATH}/favicon.svg">`,
+    `<link rel="icon" type="image/png" sizes="32x32" href="${FAVICON_BASE_PATH}/favicon-32.png">`,
+    `<link rel="icon" type="image/png" sizes="16x16" href="${FAVICON_BASE_PATH}/favicon-16.png">`,
+    `<link rel="apple-touch-icon" sizes="180x180" href="${FAVICON_BASE_PATH}/apple-touch-icon.png">`,
+    `<link rel="manifest" href="${FAVICON_BASE_PATH}/site.webmanifest">`,
+    `<meta name="theme-color" content="#4A4270">`,
+    '<!-- /favicon -->'
+  ].join('\n  ');
+}
+function injectFaviconClient(html){
+  if(typeof html !== 'string') return { html, action: 'skipped' };
+  const startMark = '<!-- favicon: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /favicon -->';
+  const tags = buildFaviconTags();
+  const startIdx = html.indexOf(startMark);
+  if(startIdx !== -1){
+    const endIdx = html.indexOf(endMark, startIdx);
+    if(endIdx !== -1){
+      const tail = endIdx + endMark.length;
+      return { html: html.slice(0,startIdx) + tags + html.slice(tail), action: 'replaced' };
+    }
+  }
+  const headEnd = html.indexOf('</head>');
+  if(headEnd === -1) return { html, action: 'no-head' };
+  const lineStart = html.lastIndexOf('\n', headEnd) + 1;
+  const indent = (html.slice(lineStart, headEnd).match(/^\s*/)||[''])[0];
+  const insertion = indent + tags + '\n' + indent;
+  return { html: html.slice(0, headEnd) + insertion + html.slice(headEnd), action: 'inserted' };
+}
+
+function copyPrompt(){
+  navigator.clipboard.writeText(document.getElementById('promptText').innerText).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='✅ コピー完了';
+    setTimeout(()=>btn.textContent='📋 コピー',2000);
+  });
+}
+
+function applyJson(){
+  const raw=document.getElementById('jsonInput').value.trim();
+  if(!raw){showJsonAlert('error','⚠️ JSONを貼り付けてください');return;}
+  let data;
+  try{
+    const cleaned=raw.replace(/^```[a-z]*\n?/i,'').replace(/```$/,'').trim();
+    data=JSON.parse(cleaned);
+  }catch(e){
+    showJsonAlert('error','❌ JSONの形式が正しくありません。Claude.aiの出力をそのまま貼り付けてください。<br>エラー: '+e.message);
+    return;
+  }
+  setValue('appId',data.id||'');
+  setValue('title',data.title||'');
+  setValue('icon',data.icon||'');
+  setValue('iconColor',data.iconColor||'#3b82f6');
+  if(typeof setIconColor==='function')setIconColor(data.iconColor||'#3b82f6');
+  setValue('tagsDisplay',data.tags_display||'');
+  setValue('summary',data.summary||'');
+  if(data.releaseDate)setValue('releaseDate',data.releaseDate);
+  if(typeof data.order==='number')setValue('appOrder',data.order);
+  if(data.category){
+    selectedCategory=data.category;
+    document.querySelectorAll('#categoryChips .chip').forEach(c=>c.classList.toggle('selected',c.dataset.value===data.category));
+  }
+  document.getElementById('featuresList').innerHTML=''; featureCount=0;
+  if(Array.isArray(data.features))data.features.forEach(f=>addFeature(f.icon||'',f.title||'',f.desc||''));
+  document.getElementById('stepsList').innerHTML=''; stepCount=0;
+  if(Array.isArray(data.steps))data.steps.forEach(s=>addStep(s.label||'',s.desc||''));
+  if(data.lesson){
+    setValue('lessonTarget',data.lesson.target||'');
+    setValue('lessonGoal',data.lesson.goal||'');
+    setValue('lessonHowto',data.lesson.howto||'');
+    setValue('lessonTips',data.lesson.tips||'');
+  }
+  if(Array.isArray(data.a11y))setValue('a11y',data.a11y.join('\n'));
+  if(Array.isArray(data.badges))setValue('badges',data.badges.join('\n'));
+  setValue('caution',data.caution||'');
+  checkFilenameMatch();
+  showJsonAlert('success','✅ フォームに自動入力しました！内容を確認・修正してください。');
+  setTimeout(()=>document.querySelectorAll('.container .card')[4].scrollIntoView({behavior:'smooth'}),300);
+}
+
+function setValue(id,val){const el=document.getElementById(id);if(el)el.value=val;}
+function showJsonAlert(type,msg){const el=document.getElementById('jsonAlert');el.className=`alert ${type} visible`;el.innerHTML=msg;}
+
+function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function addFeature(icon='',title='',desc=''){
+  featureCount++;
+  const id=`feat_${featureCount}`;
+  const div=document.createElement('div');
+  div.className='feature-group'; div.id=id;
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;font-weight:700;color:var(--muted);">機能 ${featureCount}</span>
+      <button class="btn-remove" onclick="document.getElementById('${id}').remove()">×</button>
+    </div>
+    <div class="feature-row">
+      <div class="field"><label style="font-size:11px;">アイコン</label><input type="text" name="feat_icon" value="${escHtml(icon)}" placeholder="🔊" maxlength="2"></div>
+      <div class="field"><label style="font-size:11px;">機能名</label><input type="text" name="feat_title" value="${escHtml(title)}" placeholder="よみあげ"></div>
+      <div class="field"><label style="font-size:11px;">説明</label><input type="text" name="feat_desc" value="${escHtml(desc)}" placeholder="説明..."></div>
+    </div>`;
+  document.getElementById('featuresList').appendChild(div);
+}
+
+function addStep(label='',desc=''){
+  stepCount++;
+  const id=`step_${stepCount}`;
+  const div=document.createElement('div');
+  div.className='feature-group'; div.id=id;
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12px;font-weight:700;color:var(--muted);">ステップ ${stepCount}</span>
+      <button class="btn-remove" onclick="document.getElementById('${id}').remove()">×</button>
+    </div>
+    <div class="feature-row" style="grid-template-columns:1fr 2fr;">
+      <div class="field"><label style="font-size:11px;">ラベル</label><input type="text" name="step_label" value="${escHtml(label)}" placeholder="🔊 よみあげ"></div>
+      <div class="field"><label style="font-size:11px;">説明</label><input type="text" name="step_desc" value="${escHtml(desc)}" placeholder="説明..."></div>
+    </div>`;
+  document.getElementById('stepsList').appendChild(div);
+}
+
+function selectCategory(el){
+  document.querySelectorAll('#categoryChips .chip').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected'); selectedCategory=el.dataset.value;
+}
+function togglePurpose(el){
+  const val=el.dataset.value;
+  if(selectedPurposes.has(val)){selectedPurposes.delete(val);el.classList.remove('selected');}
+  else{selectedPurposes.add(val);el.classList.add('selected');}
+}
+
+function onDragOver(e){e.preventDefault();document.getElementById('fileDropArea').classList.add('dragover');}
+function onDragLeave(){document.getElementById('fileDropArea').classList.remove('dragover');}
+function onDrop(e){e.preventDefault();document.getElementById('fileDropArea').classList.remove('dragover');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);}
+function onFileSelect(e){if(e.target.files[0])loadFile(e.target.files[0]);}
+function loadFile(file){
+  if(!file.name.endsWith('.html')){showAlert('error','⚠️ HTMLファイルを選択してください');return;}
+  htmlFileName=file.name;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    htmlFileContent=e.target.result;
+    htmlFileName=file.name;
+    document.getElementById('fileDropArea').style.display='none';
+    document.getElementById('fileSelected').style.display='flex';
+    document.getElementById('fileName').textContent=file.name;
+    if(!document.getElementById('appId').value)document.getElementById('appId').value=file.name.replace('.html','');
+    checkFilenameMatch();
+  };
+  reader.readAsText(file);
+}
+function clearFile(){
+  htmlFileContent=null;htmlFileName=null;
+  document.getElementById('fileDropArea').style.display='block';
+  document.getElementById('fileSelected').style.display='none';
+  document.getElementById('htmlFile').value='';
+  const checkEl=document.getElementById('filenameCheck');
+  if(checkEl){checkEl.style.display='none';checkEl.className='';}
+}
+
+// ID と HTML ファイル名の一致をチェックして表示
+function checkFilenameMatch(){
+  const checkEl=document.getElementById('filenameCheck');
+  if(!checkEl)return;
+  const appId=document.getElementById('appId').value.trim();
+  if(!htmlFileName||!appId){checkEl.style.display='none';checkEl.className='';return;}
+  const expected=appId+'.html';
+  if(htmlFileName===expected){
+    checkEl.className='alert success visible';
+    checkEl.innerHTML=`✅ <strong>ファイル名OK</strong>：アプリIDと一致しています（${expected}）`;
+  }else{
+    const baseName=htmlFileName.replace(/\.html$/i,'');
+    checkEl.className='alert error visible';
+    checkEl.innerHTML=`⚠️ <strong>ファイル名不一致</strong>：このままアップすると 404 エラーになります。<br>`
+      +`　アプリID：<code>${appId}</code> → 期待されるファイル名：<code>${expected}</code><br>`
+      +`　現在のファイル名：<code>${htmlFileName}</code><br>`
+      +`<small>📌 アップロード時に「<strong>${expected}</strong> にリネームしてアップ」する確認ダイアログが出ます。<br>`
+      +`または、アプリIDを「<code>${baseName}</code>」に変えると一致します。</small>`;
+  }
+}
+function toggleToken(){
+  const input=document.getElementById('token');
+  const btn=document.querySelector('.token-toggle');
+  input.type=input.type==='password'?'text':'password';
+  btn.textContent=input.type==='password'?'表示':'隠す';
+}
+
+function collectFormData(){
+  const features=[];
+  document.querySelectorAll('#featuresList .feature-group').forEach(g=>{
+    const icon=g.querySelector('[name="feat_icon"]')?.value.trim()||'';
+    const title=g.querySelector('[name="feat_title"]')?.value.trim()||'';
+    const desc=g.querySelector('[name="feat_desc"]')?.value.trim()||'';
+    if(title)features.push({icon,title,desc});
+  });
+  const steps=[];
+  document.querySelectorAll('#stepsList .feature-group').forEach(g=>{
+    const label=g.querySelector('[name="step_label"]')?.value.trim()||'';
+    const desc=g.querySelector('[name="step_desc"]')?.value.trim()||'';
+    if(label)steps.push({label,desc});
+  });
+  const a11y=(document.getElementById('a11y').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const badges=(document.getElementById('badges').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const releaseDate=document.getElementById('releaseDate').value;
+  const orderVal=document.getElementById('appOrder').value.trim();
+  const appData={
+    id:document.getElementById('appId').value.trim(),
+    filename:document.getElementById('appId').value.trim(),
+    icon:document.getElementById('icon').value.trim(),
+    iconColor:(normalizeHex(document.getElementById('iconColor').value)||document.getElementById('iconColor').value.trim()),
+    title:document.getElementById('title').value.trim(),
+    category:selectedCategory,
+    tags_display:document.getElementById('tagsDisplay').value.trim(),
+    summary:document.getElementById('summary').value.trim(),
+    features,steps,
+    lesson:{
+      target:document.getElementById('lessonTarget').value.trim(),
+      goal:document.getElementById('lessonGoal').value.trim(),
+      howto:document.getElementById('lessonHowto').value.trim(),
+      tips:document.getElementById('lessonTips').value.trim(),
+    },
+    a11y,caution:document.getElementById('caution').value.trim(),badges,
+  };
+  if(releaseDate)appData.releaseDate=releaseDate;
+  if(orderVal!=='' && !isNaN(parseInt(orderVal,10)))appData.order=parseInt(orderVal,10);
+  if(document.getElementById('isRecommend').checked)appData.isRecommend=true;
+  if(document.getElementById('isNew').checked)appData.isNew=true;
+  return appData;
+}
+
+function validateForm(){
+  const errors=[];
+  if(!document.getElementById('token').value.trim())errors.push('Personal Access Tokenを入力してください');
+  if(!document.getElementById('appId').value.trim())errors.push('アプリIDを入力してください');
+  if(!document.getElementById('title').value.trim())errors.push('アプリタイトルを入力してください');
+  if(!selectedCategory)errors.push('カテゴリを選択してください');
+  if(!document.getElementById('summary').value.trim())errors.push('アプリ概要を入力してください');
+  if(!htmlFileContent)errors.push('HTMLファイルをアップロードしてください');
+  const colorVal=document.getElementById('iconColor').value.trim();
+  if(colorVal && !normalizeHex(colorVal))errors.push('アイコン背景色は #RRGGBB 形式で入力してください（例: #5BA4D4）');
+  return errors;
+}
+
+function previewJson(){
+  const data=collectFormData();
+  document.getElementById('jsonPreviewCard').style.display='block';
+  document.getElementById('jsonPreview').textContent=JSON.stringify(data,null,2);
+  document.getElementById('jsonPreviewCard').scrollIntoView({behavior:'smooth'});
+}
+
+function log(msg,type='info'){
+  const area=document.getElementById('logArea');
+  area.classList.add('visible');
+  const line=document.createElement('div');
+  line.className=`log-line ${type}`;
+  const icons={ok:'✅',err:'❌',info:'→'};
+  line.innerHTML=`<span>${icons[type]||'→'}</span><span>${msg}</span>`;
+  area.appendChild(line);
+  area.scrollTop=area.scrollHeight;
+}
+function setProgress(pct){document.getElementById('progressBar').classList.add('visible');document.getElementById('progressFill').style.width=pct+'%';}
+function showAlert(type,msg){const el=document.getElementById('alertArea');el.className=`alert ${type} visible`;el.innerHTML=msg;}
+function clearLog(){
+  document.getElementById('logArea').innerHTML='';
+  document.getElementById('logArea').classList.remove('visible');
+  document.getElementById('progressBar').classList.remove('visible');
+  document.getElementById('progressFill').style.width='0%';
+  document.getElementById('alertArea').className='alert';
+}
+
+async function getFileSHA(owner,repo,path,token){
+  const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json'}});
+  if(res.status===404)return null;
+  return(await res.json()).sha||null;
+}
+async function putFile(owner,repo,path,content,message,token,sha=null){
+  const body={message,content:btoa(unescape(encodeURIComponent(content))),branch:'main'};
+  if(sha)body.sha=sha;
+  const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{
+    method:'PUT',
+    headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json','Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  if(!res.ok){const err=await res.json();throw new Error(err.message||`HTTP ${res.status}`);}
+  return await res.json();
+}
+async function getFileContent(owner,repo,path,token){
+  const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json'}});
+  if(!res.ok)throw new Error(`${path} の取得に失敗しました`);
+  const data=await res.json();
+  return{content:decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))),sha:data.sha};
+}
+
+function updateGenerateJs(generateJs,appData,purposes){
+  let js=generateJs;
+  const id=appData.id,cat=appData.category;
+  const catMarkers={'学習アプリ':'// 学習アプリ','認知支援':'// 認知支援','自立活動':'// 自立活動','創作表現':'// 創作表現'};
+  if(!js.includes(`'${id}':`)){
+    const insertBefore=catMarkers[cat];
+    if(insertBefore&&js.includes(insertBefore)){
+      const catIdx=js.indexOf(insertBefore);
+      let nextCat=js.length;
+      for(const oc of Object.values(catMarkers).filter(c=>c!==insertBefore)){const idx=js.indexOf(oc,catIdx+1);if(idx!==-1&&idx<nextCat)nextCat=idx;}
+      const block=js.slice(catIdx,nextCat);
+      const lastComma=block.lastIndexOf(',');
+      if(lastComma!==-1){const insertPos=catIdx+lastComma+1;js=js.slice(0,insertPos)+`\n  '${id}':      '${cat}',`+js.slice(insertPos);}
+    }
+  }
+  if(appData.isRecommend){
+    const marker='const RECOMMEND_IDS = new Set([';
+    const idx=js.indexOf(marker);
+    if(idx!==-1&&!js.slice(idx,js.indexOf(']);',idx)).includes(`'${id}'`)){const end=js.indexOf(']);',idx);js=js.slice(0,end)+`  '${id}',    // ${appData.title}\n`+js.slice(end);}
+  }
+  if(appData.isNew){
+    const marker='const NEW_IDS = new Set([';
+    const idx=js.indexOf(marker);
+    if(idx!==-1&&!js.slice(idx,js.indexOf(']);',idx)).includes(`'${id}'`)){const end=js.indexOf(']);',idx);js=js.slice(0,end)+`  '${id}',    // 最新追加\n`+js.slice(end);}
+  }
+  for(const purpose of purposes){
+    const themeRegex=new RegExp(`('${purpose}':\\s*\\{[^}]+ids:\\s*\\[)([^\\]]*)`, 's');
+    js=js.replace(themeRegex,(m,p1,p2)=>{
+      if(p2.includes(`'${id}'`))return m;
+      const trimmed=p2.trimEnd();
+      return`${p1}${trimmed}${trimmed.endsWith(',')? '':','} '${id}'`;
+    });
+  }
+  return js;
+}
+
+// ============================================================
+// カテゴリ整合性チェック: フォーム選択カテゴリと JSON 入力欄の category を比較
+// ============================================================
+function checkCategoryConsistency(appData) {
+  const result = { conflict: false, jsonCategory: null, formCategory: appData.category || '' };
+  const rawJson = (document.getElementById('jsonInput') || {}).value;
+  if (!rawJson || !rawJson.trim()) return result;
+  let parsed;
+  try {
+    parsed = JSON.parse(rawJson.trim());
+  } catch (e) {
+    // JSON が無効なら、警告対象外 (JSONプレビュー入力中など)
+    return result;
+  }
+  const jsonCat = parsed && typeof parsed.category === 'string' ? parsed.category.trim() : '';
+  if (!jsonCat) return result;
+  result.jsonCategory = jsonCat;
+  if (jsonCat !== result.formCategory) {
+    result.conflict = true;
+  }
+  return result;
+}
+
+async function startUpload(){
+  clearLog();
+  const errors=validateForm();
+  if(errors.length>0){showAlert('error','⚠️ '+errors.join('<br>⚠️ '));return;}
+  const btn=document.getElementById('uploadBtn');
+  btn.disabled=true; btn.innerHTML='<span>⏳</span><span>処理中...</span>';
+  const owner=document.getElementById('owner').value.trim();
+  const repo=document.getElementById('repo').value.trim();
+  const token=document.getElementById('token').value.trim();
+  const appData=collectFormData();
+
+  // ===== ID と HTML ファイル名の一致チェック =====
+  const expectedFileName=appData.id+'.html';
+  let uploadFileName=htmlFileName||expectedFileName;
+  if(uploadFileName!==expectedFileName){
+    const baseName=uploadFileName.replace(/\.html$/i,'');
+    const confirmMsg=`⚠️ アプリIDとHTMLファイル名が一致しません。\n\n`
+      +`アプリID:     ${appData.id}\n`
+      +`HTMLファイル: ${uploadFileName}\n\n`
+      +`このままだと、サイトからリンクできず 404 エラーになります。\n\n`
+      +`【OK】 ファイル名を「${expectedFileName}」に変更してアップロード（推奨）\n`
+      +`【キャンセル】 アップロードを中止し、IDかファイル名を修正してから再実行\n\n`
+      +`「${expectedFileName}」としてアップロードしますか？`;
+    if(!confirm(confirmMsg)){
+      btn.disabled=false; btn.innerHTML='<span>🚀</span><span>GitHubにアップロード</span>';
+      showAlert('error',`⏹ アップロードを中止しました。アプリID「${appData.id}」とファイル名「${uploadFileName}」を一致させてから再度お試しください。<br>※ ローカルのHTMLファイル名を「${expectedFileName}」にリネームするか、アプリIDを「${baseName}」に変更してください。`);
+      return;
+    }
+    uploadFileName=expectedFileName;
+    log(`HTMLファイル名を「${expectedFileName}」に変更してアップロードします`,'info');
+  }
+
+  // ===== カテゴリ整合性チェック (フォーム選択 vs JSON入力欄) =====
+  const jsonCategoryCheck = checkCategoryConsistency(appData);
+  if (jsonCategoryCheck.conflict) {
+    const { jsonCategory, formCategory } = jsonCategoryCheck;
+    const confirmMsg = `⚠️ カテゴリの不一致を検出しました。\n\n`
+      +`フォームで選択中:   ${formCategory}\n`
+      +`貼り付けたJSON内:   ${jsonCategory}\n\n`
+      +`apps-data.json には「${formCategory}」(フォーム選択)が保存されます。\n\n`
+      +`【OK】 このまま「${formCategory}」でアップロード続行\n`
+      +`【キャンセル】 中止して、フォームのカテゴリチップかJSONを修正\n\n`
+      +`このまま続行しますか？`;
+    if (!confirm(confirmMsg)) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🚀</span><span>GitHubにアップロード</span>';
+      showAlert('error', `⏹ アップロードを中止しました。カテゴリの不一致を修正してください。<br>`
+        +`・フォーム選択中: <strong>${formCategory}</strong><br>`
+        +`・JSON内のcategory: <strong>${jsonCategory}</strong><br>`
+        +`どちらか正しい方に揃えてから再度お試しください。`);
+      return;
+    }
+    log(`カテゴリ「${formCategory}」(フォーム選択)で続行します。JSON内の「${jsonCategory}」は無視されます`, 'info');
+  }
+
+  try{
+    log('apps-data.json を取得中...','info'); setProgress(10);
+    const{content:appsJsonStr,sha:appsJsonSha}=await getFileContent(owner,repo,'apps-data.json',token);
+    let appsArray=JSON.parse(appsJsonStr);
+    log('apps-data.json 取得完了','ok');
+    const existingIdx=appsArray.findIndex(a=>a.id===appData.id);
+    let isUpdate=false;
+    if(existingIdx!==-1){
+      const existing=appsArray[existingIdx];
+      const confirmMsg=`⚠️ ID "${appData.id}" は既に登録されています。\n\n`
+        +`既存: ${existing.title}\n`
+        +`新規: ${appData.title}\n\n`
+        +`【OK】 既存データを今回の内容で上書き更新します\n`
+        +`【キャンセル】 アップロードを中止します\n\n`
+        +`上書きしますか？`;
+      if(!confirm(confirmMsg)){
+        log(`ユーザーによりキャンセルされました（ID重複: ${appData.id}）`,'err');
+        showAlert('error',`⏹ アップロードを中止しました（ID "${appData.id}" は既に登録されています）`);
+        return;
+      }
+      isUpdate=true;
+      log(`ID "${appData.id}" を上書き更新します`,'info');
+    }
+    const actionLabel=isUpdate?'更新':'追記';
+    const commitEmoji=isUpdate?'♻️':'✨';
+    const commitVerb=isUpdate?'更新':'追加';
+    log(`apps-data.json に "${appData.title}" を${actionLabel}中...`,'info'); setProgress(25);
+    if(isUpdate){
+      appsArray[existingIdx]=appData;
+    }else{
+      appsArray.push(appData);
+    }
+    await putFile(owner,repo,'apps-data.json',JSON.stringify(appsArray,null,2),`${commitEmoji} アプリ${commitVerb}: ${appData.title}`,token,appsJsonSha);
+    log('apps-data.json 更新完了','ok');
+    log('generate.js を更新中...','info'); setProgress(45);
+    const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
+    const updatedGenerateJs=updateGenerateJs(generateJs,appData,[...selectedPurposes]);
+    await putFile(owner,repo,'generate.js',updatedGenerateJs,`🔧 generate.js 更新: ${appData.id}`,token,generateJsSha);
+    log('generate.js 更新完了','ok');
+    log(`${uploadFileName} をアップロード中...`,'info'); setProgress(70);
+    const htmlSha=await getFileSHA(owner,repo,uploadFileName,token);
+    const htmlEmoji=htmlSha?'♻️':'📱';
+    const htmlVerb=htmlSha?'更新':'追加';
+    // ── ファビコン注入 ──
+    const faviconRes = injectFaviconClient(htmlFileContent);
+    const finalHtmlContent = faviconRes.html;
+    if (faviconRes.action === 'inserted') {
+      log(`HTMLにファビコンタグを挿入しました`, 'ok');
+    } else if (faviconRes.action === 'replaced') {
+      log(`HTML内の既存ファビコンタグを更新しました`, 'ok');
+    } else if (faviconRes.action === 'no-head') {
+      log(`⚠️ HTMLに</head>が見つかりません。ファビコンは挿入されませんでした`, 'err');
+    }
+    await putFile(owner,repo,uploadFileName,finalHtmlContent,`${htmlEmoji} アプリHTML${htmlVerb}: ${appData.title}`,token,htmlSha);
+    log(`${uploadFileName} アップロード完了`,'ok');
+    setProgress(100);
+    log('🎉 全ファイルのアップロード完了！','ok');
+    log('GitHub Actionsが自動でサイトを更新します（約1〜2分）','info');
+    const successVerb=isUpdate?'更新':'登録';
+    const successEmoji=isUpdate?'♻️':'✅';
+    showAlert('success',`${successEmoji} <strong>${appData.title}</strong> の${successVerb}完了！<br>GitHub Actionsが自動でサイトを更新します（約1〜2分後に反映）`);
+  }catch(err){
+    log(`エラー: ${err.message}`,'err');
+    showAlert('error',`❌ エラー: ${err.message}`);
+  }finally{
+    btn.disabled=false; btn.innerHTML='<span>🚀</span><span>GitHubにアップロード</span>';
+  }
+}
+
+// ============================================================
+// カラーパレット & 色プレビュー連携
+// ============================================================
+const COLOR_PALETTE = [
+  // 暖色系
+  '#FF6B6B', '#FF8C42', '#FFB347', '#FFD700', '#F4A200',
+  // 黄〜緑
+  '#F59E0B', '#FBBF24', '#84CC16', '#10B981', '#4ECDC4',
+  // 青系
+  '#06B6D4', '#0EA5E9', '#3B82F6', '#5BA4D4', '#5B3FD4',
+  // 紫〜ピンク
+  '#8B5CF6', '#A78BFA', '#C3A6E8', '#EC4899', '#FF69B4',
+  // モノトーン/アクセント
+  '#2C3E50', '#64748B', '#92400E', '#065F46'
+];
+
+function initColorPalette(){
+  const wrap = document.getElementById('colorPalette');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  COLOR_PALETTE.forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.cssText = `width:34px;height:34px;border-radius:10px;background:${c};border:2px solid white;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:transform .1s,box-shadow .1s;padding:0;`;
+    btn.title = c;
+    btn.setAttribute('aria-label','色 '+c);
+    btn.addEventListener('click', () => setIconColor(c));
+    btn.addEventListener('mouseenter', () => btn.style.transform = 'scale(1.15)');
+    btn.addEventListener('mouseleave', () => btn.style.transform = '');
+    wrap.appendChild(btn);
+  });
+}
+
+function setIconColor(hex){
+  const norm = normalizeHex(hex);
+  if(!norm) return;
+  const input = document.getElementById('iconColor');
+  const picker = document.getElementById('iconColorPicker');
+  const preview = document.getElementById('iconColorPreview');
+  if(input) input.value = norm;
+  if(picker) picker.value = norm;
+  if(preview){
+    preview.style.background = norm;
+    // アイコン絵文字も反映
+    const iconEl = document.getElementById('icon');
+    preview.textContent = (iconEl && iconEl.value.trim()) || 'A';
+    // 文字色を背景の明度で自動調整
+    preview.style.color = isLightColor(norm) ? '#222' : '#fff';
+  }
+}
+
+function normalizeHex(s){
+  if(!s) return null;
+  s = String(s).trim();
+  if(!s.startsWith('#')) s = '#' + s;
+  const m = s.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  if(!m) return null;
+  let h = m[1];
+  if(h.length === 3) h = h.split('').map(c=>c+c).join('');
+  return '#' + h.toLowerCase();
+}
+
+function isLightColor(hex){
+  const h = hex.replace('#','');
+  const r = parseInt(h.slice(0,2),16);
+  const g = parseInt(h.slice(2,4),16);
+  const b = parseInt(h.slice(4,6),16);
+  // 輝度の簡易計算 (sRGB)
+  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return lum > 0.7;
+}
+
+// ============================================================
+// カテゴリ内の表示順プレビュー
+// ============================================================
+let _appsDataCache = null;
+let _appsDataCacheKey = null;
+async function loadOrderPreview(forceRefresh=true){
+  const previewEl = document.getElementById('orderPreview');
+  if(!previewEl) return;
+  const owner = document.getElementById('owner').value.trim();
+  const repo  = document.getElementById('repo').value.trim();
+  const token = document.getElementById('token').value.trim();
+  const cat   = selectedCategory;
+  const newId = document.getElementById('appId').value.trim();
+  const newOrderRaw = document.getElementById('appOrder').value.trim();
+  const newOrder = newOrderRaw !== '' ? parseInt(newOrderRaw,10) : null;
+
+  if(!owner || !repo || !token){
+    previewEl.style.display='block';
+    previewEl.innerHTML='<span style="color:#dc2626;">⚠️ オーナー・リポジトリ名・トークンを入力してから「現在の順番を見る」を押してください</span>';
+    return;
+  }
+  if(!cat){
+    previewEl.style.display='block';
+    previewEl.innerHTML='<span style="color:#dc2626;">⚠️ 先にカテゴリを選択してください</span>';
+    return;
+  }
+  previewEl.style.display='block';
+  const cacheKey = `${owner}/${repo}`;
+  let apps = null;
+  // キャッシュ利用
+  if(!forceRefresh && _appsDataCache && _appsDataCacheKey === cacheKey){
+    apps = _appsDataCache;
+  }else{
+    previewEl.innerHTML='<span style="color:#666;">⏳ apps-data.json を取得中...</span>';
+    try{
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/apps-data.json`,{
+        headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json'}
+      });
+      if(!res.ok)throw new Error('取得に失敗しました ('+res.status+')');
+      const data = await res.json();
+      const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g,''))));
+      apps = JSON.parse(content);
+      _appsDataCache = apps;
+      _appsDataCacheKey = cacheKey;
+    }catch(e){
+      previewEl.innerHTML = '<span style="color:#dc2626;">❌ エラー: '+e.message+'</span>';
+      return;
+    }
+  }
+
+  // 同じカテゴリのアプリだけ抽出
+  const sameCat = apps.filter(a => a.category === cat);
+  if(sameCat.length === 0){
+    previewEl.innerHTML='<span style="color:#666;">このカテゴリにはまだアプリがありません。表示順は空欄でOK(または 1 から)</span>';
+    return;
+  }
+  // order を「真の順位」として並べる: order なしは元の順、order ありを希望位置に挿入
+  function sortByOrderTrue(list){
+    const withOrder = list
+      .map((a, idx) => ({ a, idx }))
+      .filter(x => typeof x.a.order === 'number')
+      .sort((x, y) => x.a.order - y.a.order || x.idx - y.idx);
+    const withoutOrder = list.filter(a => typeof a.order !== 'number');
+    const out = withoutOrder.slice();
+    for (const { a } of withOrder) {
+      const pos = Math.max(0, Math.min(out.length, a.order - 1));
+      out.splice(pos, 0, a);
+    }
+    return out;
+  }
+  // 編集中アプリを除いた現状を計算
+  const others = sameCat.filter(a => a.id !== newId);
+  const currentSorted = sortByOrderTrue(others);
+  // プレビュー用に、編集中アプリを希望位置に挿入した配列も作る
+  let withSelfSorted;
+  const selfApp = sameCat.find(a => a.id === newId) || {
+    id: newId, title: document.getElementById('title').value.trim()||'(新規アプリ)',
+    icon: document.getElementById('icon').value.trim()||'📱',
+    order: newOrder
+  };
+  if(newOrder !== null){
+    withSelfSorted = sortByOrderTrue([...others, { ...selfApp, order: newOrder }]);
+  } else {
+    withSelfSorted = [...currentSorted, selfApp];
+  }
+  let html = `<div style="font-weight:700;margin-bottom:8px;color:var(--text);">📂 ${cat} の表示順プレビュー（${withSelfSorted.length}件）<button type="button" onclick="loadOrderPreview(true)" style="float:right;background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;text-decoration:underline;">🔄 再取得</button></div>`;
+  html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+  withSelfSorted.forEach((a, i) => {
+    const isSelf = a.id === newId;
+    const orderLabel = (typeof a.order === 'number') ? `希望=${a.order}` : '順位指定なし';
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;${isSelf?'background:#fef3c7;font-weight:700;':''}">`
+      +`<span style="display:inline-block;width:24px;text-align:right;color:#888;">${i+1}.</span>`
+      +`<span style="font-size:16px;">${a.icon||'📱'}</span>`
+      +`<span>${a.title}${isSelf?' ← 編集中':''}</span>`
+      +`<span style="margin-left:auto;color:#888;font-size:11px;">${orderLabel}</span>`
+      +`</div>`;
+  });
+  html += '</div>';
+
+  // 自分の最終位置
+  const finalIdx = withSelfSorted.findIndex(a => a.id === newId);
+  if(finalIdx >= 0){
+    if(newOrder !== null){
+      html += `<div style="margin-top:10px;padding:8px 12px;background:#d1fae5;border-radius:6px;color:#065f46;font-weight:700;">`
+        +`✅ あなたのアプリは「<span style="font-size:14px;">${finalIdx+1}番目</span>」に表示されます（順位指定=${newOrder}）`
+        +`</div>`;
+    }else{
+      html += `<div style="margin-top:10px;padding:8px 12px;background:#fef3c7;border-radius:6px;color:#92400e;font-size:11px;">`
+        +`💡 順位を指定しないと末尾（${finalIdx+1}番目）に追加されます。先頭にしたい場合は「1」、3番目なら「3」と入力してください`
+        +`</div>`;
+    }
+  }
+  previewEl.innerHTML = html;
+}
+
+// アプリIDが変わったらファイル名チェックを更新
+document.addEventListener('DOMContentLoaded',()=>{
+  const idInput=document.getElementById('appId');
+  if(idInput){
+    idInput.addEventListener('input',checkFilenameMatch);
+    idInput.addEventListener('change',checkFilenameMatch);
+  }
+  // カラーパレット初期化
+  initColorPalette();
+  const colorInput = document.getElementById('iconColor');
+  const colorPicker = document.getElementById('iconColorPicker');
+  const iconInput = document.getElementById('icon');
+  if(colorInput) colorInput.addEventListener('input', () => setIconColor(colorInput.value));
+  if(colorPicker) colorPicker.addEventListener('input', () => setIconColor(colorPicker.value));
+  if(iconInput) iconInput.addEventListener('input', () => {
+    const preview = document.getElementById('iconColorPreview');
+    if(preview) preview.textContent = iconInput.value.trim() || 'A';
+  });
+  // 初期表示
+  setIconColor(colorInput ? colorInput.value : '#3b82f6');
+  // 表示順プレビューの再計算(キャッシュ済みのapps-data.jsonがあれば即時計算)
+  const orderInput = document.getElementById('appOrder');
+  if(orderInput){
+    orderInput.addEventListener('input', () => {
+      const previewEl = document.getElementById('orderPreview');
+      // プレビューが既に表示されていて、キャッシュがあるなら即時再計算(fetchなし)
+      if(previewEl && previewEl.style.display !== 'none' && _appsDataCache){
+        loadOrderPreview(false);
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>

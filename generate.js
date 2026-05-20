@@ -479,15 +479,66 @@ function updateIndexHTML(result) {
   }
 
   // VS除去は廃止(絵文字を壊すため)
+  // ── ファビコン注入 ──
+  const favRes = injectFavicon(html);
+  html = favRes.html;
   fs.writeFileSync(indexPath, html, 'utf-8');
   console.log('✅ index.html の APPS 配列を更新しました');
   if (dynCSS) console.log(`✅ index.html に新規アプリ用のカードCSSを動的注入 (${(dynCSS.match(/\n/g)||[]).length}行)`);
+  if (favRes.action !== 'skipped') console.log(`✅ index.html にファビコンを ${favRes.action} (action=${favRes.action})`);
 }
 
 // ============================================================
 //  3. app-intro.html の panel-all カードを自動生成して上書き
 // ============================================================
 const BASE_URL = 'https://education-tools-hash.github.io/for-all-children-to-learn';
+const BASE_PATH = '/for-all-children-to-learn'; // GitHub Pages のリポジトリパス
+
+// ============================================================
+//  ファビコン関連: 全ページの <head> に統一して挿入する
+//  ・サイトルート絶対パス指定 (/for-all-children-to-learn/) なので
+//    どの階層のページからも同じファビコンが参照される
+// ============================================================
+const FAVICON_TAGS = [
+  '<!-- favicon: 自動挿入 (generate.js) -->',
+  `<link rel="icon" type="image/svg+xml" href="${BASE_PATH}/favicon.svg">`,
+  `<link rel="icon" type="image/png" sizes="32x32" href="${BASE_PATH}/favicon-32.png">`,
+  `<link rel="icon" type="image/png" sizes="16x16" href="${BASE_PATH}/favicon-16.png">`,
+  `<link rel="apple-touch-icon" sizes="180x180" href="${BASE_PATH}/apple-touch-icon.png">`,
+  `<link rel="manifest" href="${BASE_PATH}/site.webmanifest">`,
+  `<meta name="theme-color" content="#4A4270">`,
+  '<!-- /favicon -->'
+].join('\n  ');
+
+// HTML文字列に対してファビコンタグを冪等に注入する
+// ・既に挿入済みなら何もしない (同じマーカーで再挿入を防止)
+// ・既存の "<!-- favicon: 自動挿入" ブロックがあれば置き換え
+// ・なければ </head> 直前に挿入
+// 戻り値: { html, action: 'inserted'|'replaced'|'skipped'|'no-head' }
+function injectFavicon(html) {
+  if (typeof html !== 'string') return { html, action: 'skipped' };
+  const startMark = '<!-- favicon: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /favicon -->';
+  const startIdx = html.indexOf(startMark);
+  if (startIdx !== -1) {
+    // 既存ブロックを置き換え
+    const endIdx = html.indexOf(endMark, startIdx);
+    if (endIdx !== -1) {
+      const tail = endIdx + endMark.length;
+      const newHtml = html.slice(0, startIdx) + FAVICON_TAGS + html.slice(tail);
+      return { html: newHtml, action: 'replaced' };
+    }
+  }
+  // </head> の直前に挿入
+  const headEnd = html.indexOf('</head>');
+  if (headEnd === -1) return { html, action: 'no-head' };
+  // インデント調整: </head> 行のインデントを取得
+  const lineStart = html.lastIndexOf('\n', headEnd) + 1;
+  const indent = html.slice(lineStart, headEnd).match(/^\s*/)[0];
+  const insertion = indent + FAVICON_TAGS + '\n' + indent;
+  const newHtml = html.slice(0, headEnd) + insertion + html.slice(headEnd);
+  return { html: newHtml, action: 'inserted' };
+}
 
 // filename → themeClass のマッピング（app-intro.html のCSSに対応）
 const THEME_CLASS_MAP = {
@@ -663,10 +714,14 @@ function updateAppIntroHTML(apps) {
   }
 
   // VS除去は廃止(絵文字を壊すため)
+  // ── ファビコン注入 ──
+  const favRes2 = injectFavicon(html);
+  html = favRes2.html;
   fs.writeFileSync(introPath, html, 'utf-8');
   console.log('✅ app-intro.html の panel-all を更新しました');
   console.log(`✅ app-intro.html のタブカウントを更新: all=${counts.all}, 学習=${counts.gakushu}, 認知=${counts.ninchi}, 自立=${counts.jiritsu}, 創作=${counts.sousaku}`);
   if (themeCSS) console.log(`✅ app-intro.html に新規アプリ用のテーマCSSを動的注入 (${themeRules.length}ルール)`);
+  if (favRes2.action !== 'skipped') console.log(`✅ app-intro.html にファビコンを ${favRes2.action}`);
 }
 
 // ============================================================
@@ -754,6 +809,7 @@ function updatePurposeCards(apps) {
 
   if (updated > 0) {
     // VS除去は廃止(絵文字を壊すため)
+    html = injectFavicon(html).html; // 冪等(既存があれば置換)
     fs.writeFileSync(indexPath, html, 'utf-8');
     console.log(`✅ index.html の「場面・目的から探す」を更新しました (${updated}/${Object.keys(PURPOSE_CARDS_TRUTH).length}カード)`);
   }
@@ -818,6 +874,7 @@ function updateChangelog(apps) {
   const end = html.indexOf('];', start) + 2;
   html = html.slice(0, start) + newArray + html.slice(end);
   // VS除去は廃止(絵文字を壊すため)
+  html = injectFavicon(html).html; // 冪等(既存があれば置換)
   fs.writeFileSync(indexPath, html, 'utf-8');
   console.log(`✅ index.html の 更新履歴を更新しました (${entries.length}件)`);
 }
@@ -829,7 +886,8 @@ function updateChangelog(apps) {
 // 1. 詳細ページ生成
 let count = 0;
 for (const app of apps) {
-  const html    = generateDetailHTML(app);
+  let html      = generateDetailHTML(app);
+  html          = injectFavicon(html).html; // ファビコン注入
   const outPath = path.join(outDir, `${app.filename}-detail.html`);
   fs.writeFileSync(outPath, html, 'utf-8');
   console.log(`✅ 生成: ${app.filename}-detail.html`);
