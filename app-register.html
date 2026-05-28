@@ -190,8 +190,18 @@
   "a11y": ["アクセシビリティ機能（絵文字+説明）"],
   "caution": "使用上の注意事項",
   "badges": ["バッジ（絵文字+説明）"],
+  "seoKeywords": ["検索で狙うキーワード（5〜10個、後述の指針を参照）"],
   "releaseDate": "今日の日付（YYYY-MM-DD形式）"
 }
+
+【seoKeywords の作り方】
+このアプリを必要としている人が、Google でどう検索するかを想像してキーワードを5〜10個挙げてください。
+・具体的で検索されやすい複合語にする（例:「とけい」だけでなく「時計 読み方 練習 アプリ」）
+・「特別支援」「療育」「自立活動」など利用シーンの語を1〜2個含める
+・アプリの機能・対象・目的を表す語を入れる
+・1キーワードは2〜4語程度。単語の羅列ではなく、実際に検索窓に打ち込まれそうな形にする
+良い例:「ソーシャルスキル トレーニング アプリ」「sst 教材 無料」「気持ち 伝える 練習」
+（共通キーワードの「特別支援教育」「無料」「ブラウザ」等はシステム側で自動付与されるので、ここでは重複して入れなくて構いません）
 
 【HTMLはこちら】
 ↓ここにHTMLを貼り付けてください↓</div>
@@ -324,6 +334,10 @@
       <div class="field">
         <label>注意事項</label>
         <textarea id="caution" rows="3"></textarea>
+      </div>
+      <div class="field">
+        <label>🔍 SEOキーワード <span class="hint">（1行1項目 / 検索で狙う語。空欄でも自動生成されます）</span></label>
+        <textarea id="seoKeywords" rows="4" placeholder="例:&#10;ソーシャルスキル トレーニング アプリ&#10;sst 教材 無料&#10;気持ち 伝える 練習&#10;特別支援 コミュニケーション"></textarea>
       </div>
     </div>
   </div>
@@ -487,6 +501,12 @@ function applyJson(){
   }
   if(Array.isArray(data.a11y))setValue('a11y',data.a11y.join('\n'));
   if(Array.isArray(data.badges))setValue('badges',data.badges.join('\n'));
+  // seoKeywords: 配列でも文字列でも受け付ける
+  if(Array.isArray(data.seoKeywords)){
+    setValue('seoKeywords',data.seoKeywords.join('\n'));
+  }else if(typeof data.seoKeywords==='string'){
+    setValue('seoKeywords',data.seoKeywords.split(/[,、]/).map(s=>s.trim()).filter(Boolean).join('\n'));
+  }
   setValue('caution',data.caution||'');
   checkFilenameMatch();
   showJsonAlert('success','✅ フォームに自動入力しました！内容を確認・修正してください。');
@@ -614,6 +634,7 @@ function collectFormData(){
   });
   const a11y=(document.getElementById('a11y').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const badges=(document.getElementById('badges').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const seoKeywords=(document.getElementById('seoKeywords').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const releaseDate=document.getElementById('releaseDate').value;
   const orderVal=document.getElementById('appOrder').value.trim();
   const appData={
@@ -635,6 +656,7 @@ function collectFormData(){
     a11y,caution:document.getElementById('caution').value.trim(),badges,
   };
   if(releaseDate)appData.releaseDate=releaseDate;
+  if(seoKeywords.length>0)appData.seoKeywords=seoKeywords;
   if(orderVal!=='' && !isNaN(parseInt(orderVal,10)))appData.order=parseInt(orderVal,10);
   if(document.getElementById('isRecommend').checked)appData.isRecommend=true;
   if(document.getElementById('isNew').checked)appData.isNew=true;
@@ -708,17 +730,56 @@ function updateGenerateJs(generateJs,appData,purposes){
   let js=generateJs;
   const id=appData.id,cat=appData.category;
   const catMarkers={'学習アプリ':'// 学習アプリ','認知支援':'// 認知支援','自立活動':'// 自立活動','創作表現':'// 創作表現'};
-  if(!js.includes(`'${id}':`)){
-    const insertBefore=catMarkers[cat];
-    if(insertBefore&&js.includes(insertBefore)){
-      const catIdx=js.indexOf(insertBefore);
-      let nextCat=js.length;
-      for(const oc of Object.values(catMarkers).filter(c=>c!==insertBefore)){const idx=js.indexOf(oc,catIdx+1);if(idx!==-1&&idx<nextCat)nextCat=idx;}
-      const block=js.slice(catIdx,nextCat);
-      const lastComma=block.lastIndexOf(',');
-      if(lastComma!==-1){const insertPos=catIdx+lastComma+1;js=js.slice(0,insertPos)+`\n  '${id}':      '${cat}',`+js.slice(insertPos);}
+
+  // ── CATEGORY_TRUTH の既存エントリを検索 ──
+  // 例: "  'janken-app':      '学習アプリ',"
+  // インデント・空白・カテゴリ値が異なる場合に対応する正規表現
+  const existingRegex = new RegExp(`(^|\\n)([ \\t]*)'${id}'\\s*:\\s*'([^']+)'\\s*,?`, 'm');
+  const existingMatch = js.match(existingRegex);
+
+  if (existingMatch) {
+    // 既存エントリ発見: カテゴリが違う場合は適切な位置に移動
+    const existingCat = existingMatch[3];
+    if (existingCat !== cat) {
+      // 1) 既存行を削除
+      js = js.replace(existingRegex, (m, lead) => lead);
+      // 2) 新しいカテゴリのセクションに挿入(新規追加と同じロジック)
+      const insertBefore = catMarkers[cat];
+      if (insertBefore && js.includes(insertBefore)) {
+        const catIdx = js.indexOf(insertBefore);
+        let nextCat = js.length;
+        for (const oc of Object.values(catMarkers).filter(c => c !== insertBefore)) {
+          const idx = js.indexOf(oc, catIdx + 1);
+          if (idx !== -1 && idx < nextCat) nextCat = idx;
+        }
+        const block = js.slice(catIdx, nextCat);
+        const lastComma = block.lastIndexOf(',');
+        if (lastComma !== -1) {
+          const insertPos = catIdx + lastComma + 1;
+          js = js.slice(0, insertPos) + `\n  '${id}':      '${cat}',` + js.slice(insertPos);
+        }
+      }
+    }
+    // カテゴリが一致するなら何もしない
+  } else {
+    // 既存エントリ無し: 新規追加(従来通り)
+    const insertBefore = catMarkers[cat];
+    if (insertBefore && js.includes(insertBefore)) {
+      const catIdx = js.indexOf(insertBefore);
+      let nextCat = js.length;
+      for (const oc of Object.values(catMarkers).filter(c => c !== insertBefore)) {
+        const idx = js.indexOf(oc, catIdx + 1);
+        if (idx !== -1 && idx < nextCat) nextCat = idx;
+      }
+      const block = js.slice(catIdx, nextCat);
+      const lastComma = block.lastIndexOf(',');
+      if (lastComma !== -1) {
+        const insertPos = catIdx + lastComma + 1;
+        js = js.slice(0, insertPos) + `\n  '${id}':      '${cat}',` + js.slice(insertPos);
+      }
     }
   }
+
   if(appData.isRecommend){
     const marker='const RECOMMEND_IDS = new Set([';
     const idx=js.indexOf(marker);
