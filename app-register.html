@@ -726,6 +726,59 @@ async function getFileContent(owner,repo,path,token){
   return{content:decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))),sha:data.sha};
 }
 
+// ============================================================
+// sitemap.xml 更新（冪等）
+// ・アプリ追加時: 本体ページ {id}.html と 詳細ページ app-details/{id}-detail.html の
+//   2つのURLを、まだ無ければ </urlset> の直前に追記する。
+// ・既に存在するURLは重複追加しない。
+// ・サイトのベースURLは sitemap 内の既存 <loc> から自動推定する。
+// 戻り値: { xml, added: [追加したURLの配列] }
+// ============================================================
+function updateSitemapXml(sitemapXml, appData){
+  let xml = sitemapXml;
+  const id = appData.id;
+
+  // ベースURLを既存の <loc> から推定（末尾スラッシュまで）
+  // 例: https://education-tools-hash.github.io/for-all-children-to-learn/
+  let baseUrl = '';
+  const firstLoc = xml.match(/<loc>\s*(https?:\/\/[^<]+?for-all-children-to-learn\/)/i);
+  if (firstLoc) {
+    baseUrl = firstLoc[1];
+  } else {
+    // 推定できない場合は既知の値をフォールバックに使用
+    baseUrl = 'https://education-tools-hash.github.io/for-all-children-to-learn/';
+  }
+
+  // 追記したい2つのURL（本体ページ + 詳細ページ）
+  const targets = [
+    { loc: `${baseUrl}${id}.html`,                       priority: '0.8' },
+    { loc: `${baseUrl}app-details/${id}-detail.html`,    priority: '0.9' }
+  ];
+
+  const added = [];
+  for (const t of targets) {
+    // 既に同じ <loc> があればスキップ（冪等）
+    if (xml.includes(`<loc>${t.loc}</loc>`)) continue;
+    const block =
+`  <url>
+    <loc>${t.loc}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>${t.priority}</priority>
+  </url>
+`;
+    // </urlset> の直前に挿入
+    const closeIdx = xml.lastIndexOf('</urlset>');
+    if (closeIdx === -1) {
+      // 閉じタグが無い異常系: 末尾に足す（最低限の保険）
+      xml = xml + '\n' + block;
+    } else {
+      xml = xml.slice(0, closeIdx) + block + xml.slice(closeIdx);
+    }
+    added.push(t.loc);
+  }
+  return { xml, added };
+}
+
 function updateGenerateJs(generateJs,appData,purposes){
   let js=generateJs;
   const id=appData.id,cat=appData.category;
@@ -934,6 +987,24 @@ async function startUpload(){
     }
     await putFile(owner,repo,uploadFileName,finalHtmlContent,`${htmlEmoji} アプリHTML${htmlVerb}: ${appData.title}`,token,htmlSha);
     log(`${uploadFileName} アップロード完了`,'ok');
+
+    // ── sitemap.xml を更新（本体ページ + 詳細ページのURLを追記、冪等）──
+    log('sitemap.xml を確認中...','info'); setProgress(90);
+    try{
+      const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
+      const{xml:newSitemap,added}=updateSitemapXml(sitemapXml,appData);
+      if(added.length>0){
+        await putFile(owner,repo,'sitemap.xml',newSitemap,`🗺️ sitemap更新: ${appData.title}`,token,sitemapSha);
+        log(`sitemap.xml に ${added.length}件のURLを追記しました`,'ok');
+        added.forEach(u=>log(`  + ${u}`,'info'));
+      }else{
+        log('sitemap.xml は既に最新です（追記なし）','ok');
+      }
+    }catch(smErr){
+      // sitemap更新の失敗は致命的ではないので、警告のみで処理を続行
+      log(`⚠️ sitemap.xmlの更新をスキップしました: ${smErr.message}`,'err');
+    }
+
     setProgress(100);
     log('🎉 全ファイルのアップロード完了！','ok');
     log('GitHub Actionsが自動でサイトを更新します（約1〜2分）','info');
