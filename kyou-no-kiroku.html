@@ -1,0 +1,2559 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4A4270">
+<title>きょうのきろく</title>
+<style>
+  :root {
+    --primary: #4A4270;
+    --primary-light: #6B5FA0;
+    --accent: #FFB347;
+    --bg: #1a1830;
+    --bg2: #242240;
+    --bg3: #2e2c50;
+    --card: #2e2c50;
+    --text: #f0eeff;
+    --text-sub: #a09ec0;
+    --green: #3ecf8e;
+    --red: #ff6b6b;
+    --blue: #5bc4ff;
+    --yellow: #ffd166;
+    --radius: 20px;
+    --font-size: 1rem;
+    --scan-interval: 1500;
+  }
+  .hc {
+    --bg: #000;
+    --bg2: #111;
+    --bg3: #1a1a1a;
+    --card: #1a1a1a;
+    --text: #fff;
+    --text-sub: #ccc;
+    --primary: #005fcc;
+    --primary-light: #1a7de0;
+    --accent: #ffcc00;
+  }
+  .font-large { --font-size: 1.3rem; }
+  .font-xlarge { --font-size: 1.6rem; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: var(--font-size);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  .app-header {
+    background: var(--bg2);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--primary);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .app-title { font-size: 1.1em; font-weight: bold; color: var(--accent); }
+  .header-btns { display: flex; gap: 8px; }
+  .icon-btn {
+    background: var(--bg3);
+    border: none;
+    color: var(--text);
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    font-size: 1.2em;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .icon-btn:hover, .icon-btn.active { background: var(--primary); }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+
+  /* 発作タイプボタン */
+  .seizure-type-btn {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 2px solid var(--bg3);
+    background: var(--bg);
+    color: var(--text-sub);
+    font-size: 0.85em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .seizure-type-btn.selected {
+    background: #ff6b6b30;
+    border-color: var(--red);
+    color: var(--red);
+    font-weight: bold;
+  }
+  .screen.active { display: block; }
+
+  /* ===== CHILD SELECT ===== */
+  .section-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 16px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .child-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .child-card {
+    background: var(--card);
+    border: 3px solid transparent;
+    border-radius: var(--radius);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s, background 0.2s;
+    position: relative;
+  }
+  /* 背景色スウォッチ */
+  .color-swatch-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .color-swatch {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .color-swatch:hover  { transform: scale(1.15); }
+  .color-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px #fff4; transform: scale(1.15); }
+  .child-card:active { transform: scale(0.97); }
+  .child-card.scan-focus { border-color: var(--accent) !important; box-shadow: 0 0 0 4px rgba(255,179,71,0.4); }
+  .child-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--primary);
+    margin: 0 auto 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2em;
+    overflow: hidden;
+  }
+  .child-avatar img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  .child-name { font-weight: bold; font-size: 1.1em; }
+  .child-card-btns {
+    position: absolute; top: 6px; right: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .child-card:hover .child-card-btns { display: flex; }
+  .child-card-btn {
+    border: none;
+    color: #fff;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    font-size: 0.8em;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .child-card-btn.edit   { background: var(--primary-light); }
+  .child-card-btn.delete { background: var(--red); }
+
+  .add-child-btn {
+    background: var(--bg3);
+    border: 3px dashed var(--primary-light);
+    border-radius: var(--radius);
+    padding: 20px 12px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text-sub);
+    font-size: 1em;
+    width: 100%;
+    transition: background 0.2s;
+  }
+  .add-child-btn:hover { background: var(--primary); color: var(--text); }
+
+  /* ===== KIMOCHI SCREEN ===== */
+  .kimochi-greeting {
+    text-align: center;
+    margin-bottom: 24px;
+    font-size: 1.3em;
+    font-weight: bold;
+  }
+  .kimochi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .kimochi-btn {
+    background: var(--card);
+    border: 4px solid transparent;
+    border-radius: var(--radius);
+    padding: 24px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .kimochi-btn:active { transform: scale(0.96); }
+  .kimochi-btn.scan-focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 6px rgba(255,179,71,0.5);
+    animation: pulse 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes pulse {
+    from { box-shadow: 0 0 0 4px rgba(255,179,71,0.4); }
+    to   { box-shadow: 0 0 0 10px rgba(255,179,71,0.1); }
+  }
+  .kimochi-emoji { font-size: 3em; display: block; margin-bottom: 8px; }
+  .kimochi-label { font-size: 1.1em; font-weight: bold; }
+
+  .kimochi-btn[data-color="yellow"] { border-color: #ffd16633; background: #ffd16615; }
+  .kimochi-btn[data-color="green"]  { border-color: #3ecf8e33; background: #3ecf8e15; }
+  .kimochi-btn[data-color="blue"]   { border-color: #5bc4ff33; background: #5bc4ff15; }
+  .kimochi-btn[data-color="red"]    { border-color: #ff6b6b33; background: #ff6b6b15; }
+  .kimochi-btn[data-color="purple"] { border-color: #b39ddb33; background: #b39ddb15; }
+  .kimochi-btn[data-color="orange"] { border-color: #ffb34733; background: #ffb34715; }
+
+  .kimochi-btn[data-color="yellow"].scan-focus { border-color: #ffd166 !important; }
+  .kimochi-btn[data-color="green"].scan-focus  { border-color: #3ecf8e !important; }
+  .kimochi-btn[data-color="blue"].scan-focus   { border-color: #5bc4ff !important; }
+  .kimochi-btn[data-color="red"].scan-focus    { border-color: #ff6b6b !important; }
+
+  /* ===== VITAL SCREEN ===== */
+  .vital-section {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .vital-section-title {
+    font-size: 1em;
+    color: var(--text-sub);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .vital-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .vital-label {
+    flex: 0 0 80px;
+    font-size: 0.9em;
+    color: var(--text-sub);
+  }
+  .vital-input {
+    flex: 1;
+    background: var(--bg);
+    border: 2px solid var(--bg3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 1em;
+    font-family: inherit;
+  }
+  .vital-input:focus { outline: none; border-color: var(--primary-light); }
+
+  .condition-btns {
+    display: flex;
+    gap: 8px;
+  }
+  .condition-btn {
+    flex: 1;
+    padding: 10px 6px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9em;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .condition-btn.active-good   { background: #3ecf8e30; border-color: var(--green); color: var(--green); }
+  .condition-btn.active-normal { background: #ffd16630; border-color: var(--yellow); color: var(--yellow); }
+  .condition-btn.active-bad    { background: #ff6b6b30; border-color: var(--red); color: var(--red); }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .custom-check {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    border: 2px solid var(--primary-light);
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 1.1em;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .custom-check.checked { background: var(--primary); border-color: var(--primary); }
+
+  .memo-textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 2px solid var(--bg3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 1em;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+  }
+  .memo-textarea:focus { outline: none; border-color: var(--primary-light); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.2s, transform 0.1s;
+    margin-bottom: 10px;
+  }
+  .btn:active { transform: scale(0.98); opacity: 0.85; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-accent  { background: var(--accent); color: #1a1830; }
+  .btn-green   { background: var(--green); color: #1a1830; }
+  .btn-ghost   { background: var(--bg3); color: var(--text); }
+
+  /* ===== RECORDS SCREEN ===== */
+  .record-filter {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 2px solid var(--bg3);
+    background: var(--bg3);
+    color: var(--text-sub);
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .filter-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  .record-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--primary);
+  }
+  .record-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .record-date { font-size: 0.85em; color: var(--text-sub); }
+  .record-kimochi { font-size: 1.5em; }
+  .record-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.85em;
+  }
+  .record-tag {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 3px 8px;
+    color: var(--text-sub);
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: flex-end;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet {
+    background: var(--bg2);
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 32px;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .modal-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+  .modal-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 2px solid var(--primary);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 1em;
+    font-family: inherit;
+    margin-bottom: 10px;
+  }
+  .modal-input:focus { outline: none; border-color: var(--accent); }
+
+  /* ===== SETTINGS ===== */
+  .settings-section {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--bg3);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .toggle-switch {
+    width: 52px; height: 28px;
+    background: var(--bg3);
+    border-radius: 14px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .toggle-switch.on { background: var(--green); }
+  .toggle-switch::after {
+    content: '';
+    width: 22px; height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px; left: 3px;
+    transition: left 0.3s;
+  }
+  .toggle-switch.on::after { left: 27px; }
+
+  /* ===== SCAN PROGRESS BAR ===== */
+  .scan-bar-container {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 6px;
+    background: var(--bg3);
+    z-index: 300;
+    display: none;
+  }
+  .scan-bar-container.visible { display: block; }
+  .scan-bar {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width linear;
+  }
+
+  /* ===== CELEBRATION ===== */
+  .celebration {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 400;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .celebration.show { display: flex; }
+  .celebration-emoji { font-size: 5em; margin-bottom: 16px; animation: bounceIn 0.5s ease; }
+  .celebration-text { font-size: 1.8em; font-weight: bold; color: var(--accent); }
+  @keyframes bounceIn {
+    0%   { transform: scale(0); }
+    60%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  /* ===== KIMOCHI CUSTOMIZE ===== */
+  .kimochi-edit-item {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .kimochi-edit-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  /* アイコンプレビュー（絵文字 or 画像） */
+  .kimochi-edit-preview {
+    width: 56px; height: 56px;
+    border-radius: 12px;
+    background: var(--bg);
+    border: 2px solid var(--primary-light);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2em;
+    flex-shrink: 0;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+  }
+  .kimochi-edit-preview img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  .kimochi-edit-preview-hint {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.5);
+    font-size: 0.4em;
+    text-align: center;
+    padding: 2px;
+    color: #fff;
+  }
+  .kimochi-edit-input {
+    flex: 1;
+    background: var(--bg);
+    border: 2px solid var(--bg3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 1em;
+    font-family: inherit;
+  }
+  .kimochi-edit-del {
+    background: var(--red);
+    border: none;
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  /* 絵文字・画像切替タブ */
+  .kimochi-edit-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .kimochi-edit-tab {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 2px solid var(--bg3);
+    background: var(--bg);
+    color: var(--text-sub);
+    font-size: 0.85em;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .kimochi-edit-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .kimochi-edit-emoji-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .emoji-pick-btn {
+    background: var(--bg);
+    border: 2px solid var(--bg3);
+    border-radius: 8px;
+    font-size: 1.5em;
+    width: 44px; height: 44px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s;
+  }
+  .emoji-pick-btn:hover, .emoji-pick-btn.selected { border-color: var(--accent); background: var(--primary); }
+  .kimochi-edit-emoji-custom {
+    background: var(--bg);
+    border: 2px solid var(--bg3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-size: 1.4em;
+    width: 60px;
+    text-align: center;
+    font-family: inherit;
+  }
+  .kimochi-edit-img-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .img-upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--bg);
+    border: 2px dashed var(--primary-light);
+    border-radius: 10px;
+    padding: 12px;
+    color: var(--text-sub);
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.2s;
+  }
+  .img-upload-btn:hover { background: var(--primary); color: var(--text); }
+  .img-preview-strip {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .img-strip-item {
+    width: 54px; height: 54px;
+    border-radius: 10px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .img-strip-item.selected { border-color: var(--accent); }
+
+  /* ===== GAZE POINTER ===== */
+  #gazePointer {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 9999;
+    display: none;
+    transform: translate(-50%, -50%);
+    transition: left 0.05s linear, top 0.05s linear;
+  }
+  #gazePointer.visible { display: block; }
+  /* 進捗リング */
+  #gazePointer svg {
+    position: absolute;
+    top: 0; left: 0;
+    transform: rotate(-90deg);
+  }
+  #gazeProgressCircle {
+    transition: stroke-dashoffset linear;
+    fill: none;
+  }
+
+  /* nav tabs */
+  .bottom-nav {
+    position: fixed;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg2);
+    border-radius: 20px;
+    padding: 6px;
+    display: flex;
+    gap: 4px;
+    z-index: 150;
+    border: 2px solid var(--bg3);
+  }
+  .nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-sub);
+    padding: 8px 16px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: all 0.2s;
+  }
+  .nav-btn .nav-icon { font-size: 1.3em; }
+  .nav-btn.active { background: var(--primary); color: var(--text); }
+
+  /* accessibility panel */
+  .a11y-panel {
+    display: none;
+    position: fixed;
+    top: 60px; right: 10px;
+    background: var(--bg2);
+    border: 2px solid var(--primary);
+    border-radius: 16px;
+    padding: 16px;
+    z-index: 200;
+    min-width: 220px;
+  }
+  .a11y-panel.open { display: block; }
+  .a11y-title { font-weight: bold; margin-bottom: 12px; color: var(--accent); font-size: 0.95em; }
+  .a11y-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.9em; }
+  .size-btns { display: flex; gap: 6px; }
+  .size-btn {
+    background: var(--bg3);
+    border: 2px solid transparent;
+    color: var(--text);
+    border-radius: 8px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .size-btn.active { border-color: var(--accent); background: var(--primary); }
+  .speed-control { display: flex; align-items: center; gap: 8px; }
+  .speed-btn {
+    background: var(--bg3);
+    border: none;
+    color: var(--text);
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1em;
+  }
+</style>
+<!-- favicon: 自動挿入 (generate.js) -->
+  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
+  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
+  <meta name="theme-color" content="#4A4270">
+  <!-- /favicon -->
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="app-title">📋 きょうのきろく</div>
+  <div class="header-btns">
+    <button class="icon-btn" id="helpBtn" title="つかいかた">❓</button>
+    <button class="icon-btn" id="a11yBtn" title="アクセシビリティ設定">⚙️</button>
+  </div>
+</header>
+
+<!-- ACCESSIBILITY PANEL -->
+<div class="a11y-panel" id="a11yPanel">
+  <div class="a11y-title">⚙️ アクセシビリティ設定</div>
+  <div class="a11y-row">
+    <span>🔤 文字サイズ</span>
+    <div class="size-btns">
+      <button class="size-btn active" onclick="setFontSize('normal',this)">標準</button>
+      <button class="size-btn" onclick="setFontSize('large',this)">大</button>
+      <button class="size-btn" onclick="setFontSize('xlarge',this)">特大</button>
+    </div>
+  </div>
+  <div class="a11y-row">
+    <span>🌑 ハイコントラスト</span>
+    <div class="toggle-switch" id="hcToggle" onclick="toggleHC()"></div>
+  </div>
+  <div class="a11y-row">
+    <span>🔊 読み上げ</span>
+    <div class="toggle-switch" id="ttsToggle" onclick="toggleTTS()"></div>
+  </div>
+  <div class="a11y-row">
+    <span>🔘 スイッチスキャン</span>
+    <div class="toggle-switch" id="scanToggle" onclick="toggleScan()"></div>
+  </div>
+  <div class="a11y-row" id="scanSpeedRow" style="display:none">
+    <span>⏱ スキャン間隔</span>
+    <div class="speed-control">
+      <button class="speed-btn" onclick="changeScanSpeed(-200)">－</button>
+      <span id="scanSpeedLabel">1.5秒</span>
+      <button class="speed-btn" onclick="changeScanSpeed(200)">＋</button>
+    </div>
+  </div>
+  <div class="a11y-row">
+    <span>👁 視線入力</span>
+    <div class="toggle-switch" id="gazeToggle" onclick="toggleGaze()"></div>
+  </div>
+  <div id="gazeSettingsArea" style="display:none;border-top:1px solid var(--bg3);margin-top:8px;padding-top:8px">
+    <div style="font-size:0.8em;color:var(--accent);margin-bottom:8px">👁 視線ポインター設定</div>
+    <div class="a11y-row">
+      <span>決定までの時間</span>
+      <div class="speed-control">
+        <button class="speed-btn" onclick="changeGazeDwell(-200)">－</button>
+        <span id="gazeDwellLabel">1.0秒</span>
+        <button class="speed-btn" onclick="changeGazeDwell(200)">＋</button>
+      </div>
+    </div>
+    <div class="a11y-row">
+      <span>ポインターの大きさ</span>
+      <div class="speed-control">
+        <button class="speed-btn" onclick="changeGazeSize(-10)">－</button>
+        <span id="gazeSizeLabel">60px</span>
+        <button class="speed-btn" onclick="changeGazeSize(10)">＋</button>
+      </div>
+    </div>
+    <div class="a11y-row" style="flex-wrap:wrap;gap:6px">
+      <span>ポインターの色</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="speed-btn" style="background:#ff6b6b;width:28px;height:28px;border-radius:50%" onclick="setGazeColor('#ff6b6b','#ff6b6b')"></button>
+        <button class="speed-btn" style="background:#5bc4ff;width:28px;height:28px;border-radius:50%" onclick="setGazeColor('#5bc4ff','#5bc4ff')"></button>
+        <button class="speed-btn" style="background:#3ecf8e;width:28px;height:28px;border-radius:50%" onclick="setGazeColor('#3ecf8e','#3ecf8e')"></button>
+        <button class="speed-btn" style="background:#ffd166;width:28px;height:28px;border-radius:50%" onclick="setGazeColor('#ffd166','#ffd166')"></button>
+        <button class="speed-btn" style="background:#fff;width:28px;height:28px;border-radius:50%" onclick="setGazeColor('#fff','#fff')"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="modalHelp">
+  <div class="modal-sheet" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">❓ このアプリのつかいかた</div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-weight:bold;color:var(--accent);margin-bottom:8px">📋 このアプリでできること</div>
+      <div style="color:var(--text-sub);font-size:0.9em;line-height:1.7">
+        子どもの「きょうのきもち」と体調・バイタルを毎日記録できます。<br>
+        記録は一覧で確認・修正でき、CSVで書き出して支援記録や引き継ぎに活用できます。
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <div style="background:var(--bg3);border-radius:14px;padding:14px">
+        <div style="font-weight:bold;margin-bottom:6px">👤 ステップ1：こどもをえらぶ</div>
+        <div style="color:var(--text-sub);font-size:0.9em;line-height:1.6">
+          記録したい子どものカードをタップします。<br>
+          はじめて使うときは「＋子どもを追加する」で登録してください。<br>
+          <br>
+          登録時に設定できること：<br>
+          　😊 絵文字アイコン（20種のプリセット＋自由入力）<br>
+          　📷 写真・イラストをアイコンにする<br>
+          　🎨 カードの背景色（12色から選択）<br>
+          <br>
+          登録後に✏️ボタンをタップすると、名前・アイコン・背景色をいつでも変更できます。
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:14px;padding:14px">
+        <div style="font-weight:bold;margin-bottom:6px">😊 ステップ2：きもちをえらぶ（子どもが操作）</div>
+        <div style="color:var(--text-sub);font-size:0.9em;line-height:1.6">
+          大きなボタンをタップ・視線・スイッチで「きょうのきもち」を選びます。<br>
+          選択肢は🩷きもちページでカスタマイズできます。<br>
+          写真やイラストをアイコンにすることもできます。<br>
+          スキップして体調記録だけ行うこともできます。<br>
+          <br>
+          👁 視線入力をオンにすると、見ているところに丸いポインターが表示され、
+          一定時間見つめると自動で決定されます。
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:14px;padding:14px">
+        <div style="font-weight:bold;margin-bottom:6px">🌡 ステップ3：たいちょうをきろくする（先生が入力）</div>
+        <div style="color:var(--text-sub);font-size:0.9em;line-height:1.6">
+          以下の項目を入力できます（空欄でもOKです）：<br>
+          　🌡 体温・脈拍・SpO2<br>
+          　😊 体調（良い／普通／悪い）<br>
+          　💊 服薬・排泄チェック<br>
+          　📝 自由メモ（改行・箇条書き対応）<br>
+          <br>
+          「✅きろくする」で保存されます。
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:14px;padding:14px">
+        <div style="font-weight:bold;margin-bottom:6px">📊 きろく一覧・修正・CSV書き出し</div>
+        <div style="color:var(--text-sub);font-size:0.9em;line-height:1.6">
+          下のナビバー「きろく」から記録一覧を確認できます。<br>
+          子どもや日付でフィルタリングも可能です。<br>
+          <br>
+          各記録の✏️ボタンをタップすると、気持ち・バイタル・体調・服薬・メモをあとから修正できます。
+          同じ画面から記録の削除もできます。<br>
+          <br>
+          「📥CSV」ボタンで全記録をExcelで開けるCSVファイルとして書き出せます。
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:14px;padding:14px">
+        <div style="font-weight:bold;margin-bottom:6px">🩷 きもちのへんこう</div>
+        <div style="color:var(--text-sub);font-size:0.9em;line-height:1.6">
+          下のナビバー「きもち」から、気持ちの選択肢をカスタマイズできます。<br>
+          <br>
+          　😊 絵文字の変更（プリセット20種＋自由入力）<br>
+          　📷 写真・イラストをアイコンにする<br>
+          　✏️ ラベル（表示名）の変更<br>
+          　＋ 選択肢の追加・削除<br>
+          <br>
+          子どもの実態に合わせて選択肢を増やしたり、顔写真カードを使ったりできます。<br>
+          また、データの削除もこのページから行えます。
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:14px;padding:14px">
+        <div style="font-weight:bold;margin-bottom:6px">⚙️ アクセシビリティ設定</div>
+        <div style="color:var(--text-sub);font-size:0.9em;line-height:1.6">
+          右上の⚙️ボタンから設定できます。<br>
+          <br>
+          🔤 文字サイズ変更（標準・大・特大）<br>
+          🌑 ハイコントラスト表示<br>
+          🔊 タップ時の音声読み上げ<br>
+          🔘 スイッチスキャン（Space/Enterキーで操作）<br>
+          👁 視線入力（対応デバイス接続時）<br>
+          <br>
+          視線入力をオンにすると追加設定が表示されます：<br>
+          　⏱ 決定までの時間（0.3〜3.0秒）<br>
+          　📐 ポインターの大きさ（20〜120px）<br>
+          　🎨 ポインターの色（5色から選択）
+        </div>
+      </div>
+
+      <!-- iPad視線入力の設定説明 -->
+      <div style="background:linear-gradient(135deg,#0d1f3a,#1a1030);border:2px solid #5bc4ff;border-radius:14px;padding:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span style="font-size:1.5em">👁</span>
+          <span style="font-weight:bold;font-size:1.05em;color:#5bc4ff">視線入力デバイスをお使いの方へ</span>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+
+          <div style="background:rgba(91,196,255,0.1);border-radius:10px;padding:12px">
+            <div style="font-weight:bold;color:#5bc4ff;margin-bottom:6px;font-size:0.9em">✅ Tobii（Windows）</div>
+            <div style="color:var(--text);font-size:0.88em;line-height:1.6">
+              Tobiiはマウスカーソルとして動作するため、追加設定なしでそのままご使用いただけます。<br>
+              このアプリの「決定までの時間」設定で操作してください。
+            </div>
+          </div>
+
+          <div style="background:rgba(91,196,255,0.1);border-radius:10px;padding:12px">
+            <div style="font-weight:bold;color:#5bc4ff;margin-bottom:6px;font-size:0.9em">⚠️ iPad アクセシビリティ視線入力の場合</div>
+            <div style="color:var(--text);font-size:0.88em;line-height:1.6">
+              iPadの視線入力には、iOS側にも「一定時間見つめると自動タップ」する機能があります。<br>
+              このアプリ側にも同じ機能があるため、<strong style="color:#ffd166">二重反応を防ぐためにiOS側のdwellをオフにすること</strong>を推奨します。
+            </div>
+          </div>
+
+          <div style="background:rgba(255,209,102,0.1);border:1px solid #ffd16655;border-radius:10px;padding:12px">
+            <div style="font-weight:bold;color:#ffd166;margin-bottom:8px;font-size:0.9em">📱 iPad側の設定手順</div>
+            <div style="color:var(--text);font-size:0.88em;line-height:1.8">
+              1️⃣ 「設定」アプリを開く<br>
+              2️⃣ 「アクセシビリティ」をタップ<br>
+              3️⃣ 「ポインタコントロール」をタップ<br>
+              4️⃣ 「自動的にタップ」をオフにする<br>
+              <br>
+              <span style="color:var(--text-sub)">※ これによりiPad側では自動タップされなくなり、このアプリの「決定までの時間」設定のみで操作できます。</span>
+            </div>
+          </div>
+
+          <div style="background:rgba(91,196,255,0.08);border-radius:10px;padding:10px">
+            <div style="font-size:0.85em;color:var(--text-sub);line-height:1.6">
+              💡 スイッチスキャンとの組み合わせも有効です。視線で場所を確認し、スイッチで決定する使い方は特に安定して操作できます。
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,#1a3a2a,#1a2a3a);border:2px solid var(--green);border-radius:14px;padding:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span style="font-size:1.5em">🔒</span>
+          <span style="font-weight:bold;font-size:1.05em;color:var(--green)">プライバシー・データの安全について</span>
+        </div>
+
+        <div style="background:rgba(62,207,142,0.12);border-radius:10px;padding:12px;margin-bottom:12px">
+          <div style="font-weight:bold;color:var(--green);margin-bottom:6px;font-size:0.95em">✅ 個人情報は外部に一切送信されません</div>
+          <div style="color:var(--text);font-size:0.9em;line-height:1.7">
+            子どもの名前・体温・バイタル・気持ちなど、入力したすべてのデータは<strong>この端末のブラウザ内にのみ保存</strong>されます。<br>
+            インターネット上のサーバーや外部サービスに送信・保存されることは<strong>一切ありません</strong>。
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <div style="display:flex;gap:8px;align-items:flex-start;font-size:0.88em;color:var(--text)">
+            <span style="color:var(--green);flex-shrink:0">🛡</span>
+            <span>通信・送信なし：アプリの動作にインターネット接続は不要です。入力内容がネットワークを経由することはありません。</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start;font-size:0.88em;color:var(--text)">
+            <span style="color:var(--green);flex-shrink:0">🛡</span>
+            <span>広告・解析なし：アクセス解析ツールや広告配信サービスは一切導入していません。</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start;font-size:0.88em;color:var(--text)">
+            <span style="color:var(--green);flex-shrink:0">🛡</span>
+            <span>写真・画像も安全：アイコンに使用した写真・イラストも端末内のみで処理されます。</span>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid rgba(62,207,142,0.3);padding-top:10px">
+          <div style="font-size:0.82em;color:var(--text-sub);line-height:1.6">
+            ⚠️ 端末やブラウザを変更した場合、記録は引き継がれません。大切なデータは定期的に「📥 CSV書き出し」で保存してください。
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <button class="btn btn-accent" style="margin-top:20px" onclick="closeModal('modalHelp')">✅ とじる</button>
+  </div>
+</div>
+
+<!-- SCREENS -->
+<!-- 1. 子ども選択 -->
+<div class="screen active" id="screenChild">
+  <div class="section-title">👤 だれのきろくをつける？</div>
+  <div class="child-grid" id="childGrid"></div>
+  <button class="add-child-btn" onclick="openAddChild()">＋ 子どもを追加する</button>
+</div>
+
+<!-- 2. 気持ち選択 -->
+<div class="screen" id="screenKimochi">
+  <div class="kimochi-greeting" id="kimochiGreeting">きょうのきもちは？</div>
+  <div class="kimochi-grid" id="kimochiGrid"></div>
+  <button class="btn btn-ghost" onclick="skipKimochi()">⏭ スキップして体調記録へ</button>
+  <button class="btn btn-ghost" onclick="goToScreen('screenChild')">◀ もどる</button>
+</div>
+
+<!-- 3. バイタル記録 -->
+<div class="screen" id="screenVital">
+  <div class="section-title" id="vitalTitle">🌡 たいちょうをきろくしよう</div>
+
+  <div class="vital-section">
+    <div class="vital-section-title">🌡 バイタル</div>
+    <div class="vital-row">
+      <div class="vital-label">体温</div>
+      <input class="vital-input" type="number" id="inputTemp" placeholder="36.5" step="0.1" min="35" max="42">
+      <span style="color:var(--text-sub)">℃</span>
+    </div>
+    <div class="vital-row">
+      <div class="vital-label">脈拍</div>
+      <input class="vital-input" type="number" id="inputPulse" placeholder="75" min="30" max="200">
+      <span style="color:var(--text-sub)">回/分</span>
+    </div>
+    <div class="vital-row">
+      <div class="vital-label">SpO2</div>
+      <input class="vital-input" type="number" id="inputSpo2" placeholder="98" min="80" max="100">
+      <span style="color:var(--text-sub)">%</span>
+    </div>
+  </div>
+
+  <div class="vital-section">
+    <div class="vital-section-title">😊 体調</div>
+    <div class="condition-btns">
+      <button class="condition-btn" data-cond="good" onclick="setCondition('good')">😊 よい</button>
+      <button class="condition-btn" data-cond="normal" onclick="setCondition('normal')">😐 ふつう</button>
+      <button class="condition-btn" data-cond="bad" onclick="setCondition('bad')">😞 わるい</button>
+    </div>
+  </div>
+
+  <div class="vital-section">
+    <div class="vital-section-title">💊 服薬・排泄・水分</div>
+    <div class="checkbox-row">
+      <div class="custom-check" id="checkMed" onclick="toggleCheck('checkMed')"></div>
+      <span>服薬した</span>
+    </div>
+    <div class="checkbox-row">
+      <div class="custom-check" id="checkToilet" onclick="toggleCheck('checkToilet')"></div>
+      <span>排泄あり</span>
+    </div>
+    <div style="margin-top:10px;border-top:1px solid var(--bg);padding-top:10px">
+      <div style="font-size:0.85em;color:var(--text-sub);margin-bottom:8px">💧 水分</div>
+      <div class="vital-row">
+        <div class="vital-label">水分量</div>
+        <input class="vital-input" type="number" id="inputWater" placeholder="200" min="0" max="9999">
+        <span style="color:var(--text-sub)">ml</span>
+      </div>
+      <div class="vital-row">
+        <div class="vital-label">時間</div>
+        <input class="vital-input" type="time" id="inputWaterTime">
+      </div>
+    </div>
+  </div>
+
+  <div class="vital-section">
+    <div class="vital-section-title">⚡ 発作</div>
+    <div class="checkbox-row">
+      <div class="custom-check" id="checkSeizure" onclick="toggleSeizure('check')"></div>
+      <span>発作あり</span>
+    </div>
+    <div id="seizureDetail" style="display:none;margin-top:10px;border-top:1px solid var(--bg);padding-top:10px">
+      <div class="vital-row">
+        <div class="vital-label">時間</div>
+        <input class="vital-input" type="time" id="inputSeizureTime">
+      </div>
+      <div class="vital-row">
+        <div class="vital-label">持続</div>
+        <input class="vital-input" type="number" id="inputSeizureDuration" placeholder="2" min="0" max="999">
+        <span style="color:var(--text-sub)">分</span>
+      </div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:0.85em;color:var(--text-sub);margin-bottom:6px">様子（複数選択可）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="seizureTypeGrid">
+          <button class="seizure-type-btn" data-type="強直" onclick="toggleSeizureType(this)">強直</button>
+          <button class="seizure-type-btn" data-type="間代" onclick="toggleSeizureType(this)">間代</button>
+          <button class="seizure-type-btn" data-type="脱力" onclick="toggleSeizureType(this)">脱力</button>
+          <button class="seizure-type-btn" data-type="欠神" onclick="toggleSeizureType(this)">欠神</button>
+          <button class="seizure-type-btn" data-type="ミオクロニー" onclick="toggleSeizureType(this)">ミオクロニー</button>
+          <button class="seizure-type-btn" data-type="意識消失" onclick="toggleSeizureType(this)">意識消失</button>
+          <button class="seizure-type-btn" data-type="嘔吐あり" onclick="toggleSeizureType(this)">嘔吐あり</button>
+          <button class="seizure-type-btn" data-type="チアノーゼ" onclick="toggleSeizureType(this)">チアノーゼ</button>
+        </div>
+      </div>
+      <textarea class="memo-textarea" id="inputSeizureNote" placeholder="その他の様子を記入…" style="min-height:60px"></textarea>
+    </div>
+  </div>
+
+  <div class="vital-section">
+    <div class="vital-section-title">📝 メモ</div>
+    <textarea class="memo-textarea" id="inputMemo" placeholder="気になること、特記事項など…"></textarea>
+  </div>
+
+  <button class="btn btn-accent" onclick="saveRecord()">✅ きろくする</button>
+  <button class="btn btn-ghost" onclick="goToScreen('screenKimochi')">◀ もどる</button>
+</div>
+
+<!-- 4. 記録一覧 -->
+<div class="screen" id="screenRecords">
+  <div class="section-title">📊 きろく一覧</div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <select id="recordFilterChild" class="vital-input" style="flex:1;min-width:120px" onchange="renderRecords()">
+      <option value="">全員</option>
+    </select>
+    <input type="date" id="recordFilterDate" class="vital-input" style="flex:1;min-width:130px" onchange="renderRecords()">
+    <button class="btn btn-green" style="flex:0 0 auto;width:auto;padding:10px 16px;margin:0" onclick="exportCSV()">📥 CSV</button>
+  </div>
+  <div id="recordList"></div>
+</div>
+
+<!-- 5. 設定（気持ちカスタマイズ） -->
+<div class="screen" id="screenSettings">
+  <div class="section-title">🩷 きもちのへんこう</div>
+  <div class="settings-section">
+    <div class="vital-section-title">😊 気持ちの選択肢をカスタマイズ</div>
+    <div id="kimochiEditList"></div>
+    <button class="btn btn-primary" onclick="addKimochiOption()">＋ 追加する</button>
+  </div>
+  <div class="settings-section">
+    <div class="vital-section-title">🗑 データ管理</div>
+    <button class="btn btn-ghost" onclick="exportCSV()">📥 全データをCSVで書き出す</button>
+    <button class="btn" id="clearDataBtn" style="background:#ff6b6b30;color:var(--red);margin-bottom:0" onclick="confirmClearData()">🗑 全データを削除する</button>
+    <div id="clearDataConfirmArea" style="display:none;background:#ff6b6b18;border:2px solid var(--red);border-radius:14px;padding:14px;margin-top:10px">
+      <div style="font-size:0.95em;font-weight:bold;color:var(--red);margin-bottom:10px">🗑 本当に全データを削除しますか？<br><span style="font-size:0.85em;font-weight:normal;color:var(--text-sub)">この操作は取り消せません</span></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="margin:0;flex:1;background:var(--red);color:#fff" onclick="executeClearData()">削除する</button>
+        <button class="btn btn-ghost" style="margin:0;flex:1" onclick="cancelClearData()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="nav-btn active" data-screen="screenChild" onclick="navTo('screenChild',this)">
+    <span class="nav-icon">👤</span><span>こども</span>
+  </button>
+  <button class="nav-btn" data-screen="screenRecords" onclick="navTo('screenRecords',this)">
+    <span class="nav-icon">📊</span><span>きろく</span>
+  </button>
+  <button class="nav-btn" data-screen="screenSettings" onclick="navTo('screenSettings',this)">
+    <span class="nav-icon">🩷</span><span>きもち</span>
+  </button>
+</nav>
+
+<!-- GAZE POINTER -->
+<div id="gazePointer">
+  <svg id="gazeSvg" width="60" height="60">
+    <circle id="gazeProgressCircle" cx="30" cy="30" r="24" stroke-width="4"/>
+  </svg>
+</div>
+
+<!-- SCAN PROGRESS BAR -->
+<div class="scan-bar-container" id="scanBarContainer">
+  <div class="scan-bar" id="scanBar"></div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modalAddChild">
+  <div class="modal-sheet">
+    <div class="modal-title" id="addChildModalTitle">👤 子どもを追加</div>
+
+    <!-- プレビュー＋名前 -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div id="childAvatarPreview" style="
+        width:72px;height:72px;border-radius:50%;
+        background:var(--primary);border:3px solid var(--primary-light);
+        display:flex;align-items:center;justify-content:center;
+        font-size:2.2em;overflow:hidden;flex-shrink:0">😊</div>
+      <input class="modal-input" id="newChildName" placeholder="なまえ（例：たろうさん）" style="margin:0;flex:1">
+    </div>
+
+    <!-- タブ切替 -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="kimochi-edit-tab active" id="childTabEmoji" onclick="switchChildTab('emoji')">😊 絵文字</button>
+      <button class="kimochi-edit-tab" id="childTabPhoto" onclick="switchChildTab('photo')">📷 写真</button>
+    </div>
+
+    <!-- 絵文字タブ -->
+    <div id="childTabContentEmoji">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px" id="childEmojiGrid"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.85em;color:var(--text-sub)">その他：</span>
+        <input id="newChildEmoji" class="kimochi-edit-emoji-custom" value="😊" maxlength="2">
+        <button class="btn btn-primary" style="width:auto;padding:8px 14px;margin:0;font-size:0.85em"
+          onclick="applyChildEmoji(document.getElementById('newChildEmoji').value)">適用</button>
+      </div>
+    </div>
+
+    <!-- 写真タブ -->
+    <div id="childTabContentPhoto" style="display:none">
+      <label class="img-upload-btn" style="margin-bottom:10px">
+        📷 写真・イラストをえらぶ
+        <input type="file" accept="image/*" style="display:none" onchange="loadChildPhoto(this)">
+      </label>
+      <div id="childPhotoPreviewStrip" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <button id="childPhotoClearBtn" class="btn btn-ghost"
+        style="display:none;width:auto;padding:8px 14px;margin-top:8px;font-size:0.85em"
+        onclick="clearChildPhoto()">✕ 写真をはずす</button>
+    </div>
+
+    <!-- 背景色 -->
+    <div style="margin-top:14px">
+      <div style="font-size:0.85em;color:var(--text-sub);margin-bottom:8px">🎨 カードの背景色</div>
+      <div class="color-swatch-grid" id="childColorGrid"></div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-accent" style="margin:0" onclick="addChild()">✅ ついか</button>
+      <button class="btn btn-ghost" style="margin:0" onclick="closeModal('modalAddChild')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalCelebration">
+  <div class="modal-sheet" style="text-align:center;padding:40px 20px">
+    <div style="font-size:4em;margin-bottom:12px">🎉</div>
+    <div style="font-size:1.5em;font-weight:bold;color:var(--accent);margin-bottom:8px">きろくできました！</div>
+    <div id="celebrationMsg" style="color:var(--text-sub);margin-bottom:20px"></div>
+    <button class="btn btn-accent" onclick="afterSave()">✅ つぎへ</button>
+  </div>
+</div>
+
+<!-- 記録編集モーダル -->
+<div class="modal-overlay" id="modalEditRecord">
+  <div class="modal-sheet" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-title">✏️ きろくを修正</div>
+    <div id="editRecordInfo" style="font-size:0.85em;color:var(--text-sub);margin-bottom:14px"></div>
+
+    <!-- 気持ち -->
+    <div class="vital-section">
+      <div class="vital-section-title">😊 きもち</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px" id="editKimochiGrid"></div>
+      <div style="margin-top:8px;font-size:0.85em;color:var(--text-sub)">
+        選択中：<span id="editKimochiSelected">－</span>
+        <button onclick="clearEditKimochi()" style="background:none;border:none;color:var(--text-sub);cursor:pointer;font-size:0.85em;margin-left:6px">✕クリア</button>
+      </div>
+    </div>
+
+    <!-- バイタル -->
+    <div class="vital-section">
+      <div class="vital-section-title">🌡 バイタル</div>
+      <div class="vital-row">
+        <div class="vital-label">体温</div>
+        <input class="vital-input" type="number" id="editTemp" placeholder="36.5" step="0.1" min="35" max="42">
+        <span style="color:var(--text-sub)">℃</span>
+      </div>
+      <div class="vital-row">
+        <div class="vital-label">脈拍</div>
+        <input class="vital-input" type="number" id="editPulse" placeholder="75" min="30" max="200">
+        <span style="color:var(--text-sub)">回/分</span>
+      </div>
+      <div class="vital-row">
+        <div class="vital-label">SpO2</div>
+        <input class="vital-input" type="number" id="editSpo2" placeholder="98" min="80" max="100">
+        <span style="color:var(--text-sub)">%</span>
+      </div>
+    </div>
+
+    <!-- 体調 -->
+    <div class="vital-section">
+      <div class="vital-section-title">😊 体調</div>
+      <div class="condition-btns">
+        <button class="condition-btn" data-cond="good"   onclick="setEditCondition('good')">😊 よい</button>
+        <button class="condition-btn" data-cond="normal" onclick="setEditCondition('normal')">😐 ふつう</button>
+        <button class="condition-btn" data-cond="bad"    onclick="setEditCondition('bad')">😞 わるい</button>
+      </div>
+    </div>
+
+    <!-- 服薬・排泄 -->
+    <div class="vital-section">
+      <div class="vital-section-title">💊 服薬・排泄・水分</div>
+      <div class="checkbox-row">
+        <div class="custom-check" id="editCheckMed" onclick="toggleCheck('editCheckMed')"></div>
+        <span>服薬した</span>
+      </div>
+      <div class="checkbox-row">
+        <div class="custom-check" id="editCheckToilet" onclick="toggleCheck('editCheckToilet')"></div>
+        <span>排泄あり</span>
+      </div>
+      <div style="margin-top:10px;border-top:1px solid var(--bg);padding-top:10px">
+        <div style="font-size:0.85em;color:var(--text-sub);margin-bottom:8px">💧 水分</div>
+        <div class="vital-row">
+          <div class="vital-label">水分量</div>
+          <input class="vital-input" type="number" id="editWater" placeholder="200" min="0" max="9999">
+          <span style="color:var(--text-sub)">ml</span>
+        </div>
+        <div class="vital-row">
+          <div class="vital-label">時間</div>
+          <input class="vital-input" type="time" id="editWaterTime">
+        </div>
+      </div>
+    </div>
+
+    <!-- 発作 -->
+    <div class="vital-section">
+      <div class="vital-section-title">⚡ 発作</div>
+      <div class="checkbox-row">
+        <div class="custom-check" id="editCheckSeizure" onclick="toggleSeizure('edit')"></div>
+        <span>発作あり</span>
+      </div>
+      <div id="editSeizureDetail" style="display:none;margin-top:10px;border-top:1px solid var(--bg);padding-top:10px">
+        <div class="vital-row">
+          <div class="vital-label">時間</div>
+          <input class="vital-input" type="time" id="editSeizureTime">
+        </div>
+        <div class="vital-row">
+          <div class="vital-label">持続</div>
+          <input class="vital-input" type="number" id="editSeizureDuration" placeholder="2" min="0" max="999">
+          <span style="color:var(--text-sub)">分</span>
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:0.85em;color:var(--text-sub);margin-bottom:6px">様子（複数選択可）</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="editSeizureTypeGrid">
+            <button class="seizure-type-btn" data-type="強直" onclick="toggleSeizureType(this)">強直</button>
+            <button class="seizure-type-btn" data-type="間代" onclick="toggleSeizureType(this)">間代</button>
+            <button class="seizure-type-btn" data-type="脱力" onclick="toggleSeizureType(this)">脱力</button>
+            <button class="seizure-type-btn" data-type="欠神" onclick="toggleSeizureType(this)">欠神</button>
+            <button class="seizure-type-btn" data-type="ミオクロニー" onclick="toggleSeizureType(this)">ミオクロニー</button>
+            <button class="seizure-type-btn" data-type="意識消失" onclick="toggleSeizureType(this)">意識消失</button>
+            <button class="seizure-type-btn" data-type="嘔吐あり" onclick="toggleSeizureType(this)">嘔吐あり</button>
+            <button class="seizure-type-btn" data-type="チアノーゼ" onclick="toggleSeizureType(this)">チアノーゼ</button>
+          </div>
+        </div>
+        <textarea class="memo-textarea" id="editSeizureNote" placeholder="その他の様子を記入…" style="min-height:60px"></textarea>
+      </div>
+    </div>
+
+    <!-- メモ -->
+    <div class="vital-section">
+      <div class="vital-section-title">📝 メモ</div>
+      <textarea class="memo-textarea" id="editMemo" placeholder="気になること、特記事項など…"></textarea>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-accent" style="margin:0" onclick="saveEditRecord()">✅ 保存する</button>
+      <button class="btn btn-ghost"  style="margin:0" onclick="closeModal('modalEditRecord')">キャンセル</button>
+    </div>
+
+    <!-- 削除確認エリア -->
+    <div id="deleteConfirmArea" style="display:none;background:#ff6b6b18;border:2px solid var(--red);border-radius:14px;padding:14px;margin-top:10px">
+      <div style="font-size:0.95em;font-weight:bold;color:var(--red);margin-bottom:10px">🗑 本当に削除しますか？<br><span style="font-size:0.85em;font-weight:normal;color:var(--text-sub)">この操作は取り消せません</span></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="margin:0;flex:1;background:var(--red);color:#fff" onclick="confirmDeleteRecord()">削除する</button>
+        <button class="btn btn-ghost" style="margin:0;flex:1" onclick="cancelDeleteRecord()">キャンセル</button>
+      </div>
+    </div>
+    <button class="btn" id="deleteRecordBtn" style="background:#ff6b6b20;color:var(--red);margin-top:8px;margin-bottom:0"
+      onclick="showDeleteConfirm()">🗑 このきろくを削除する</button>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let state = {
+  children: [],
+  records: [],
+  kimochiOptions: [
+    { emoji: '😊', label: 'うれしい', color: 'yellow' },
+    { emoji: '😌', label: 'おちついてる', color: 'green' },
+    { emoji: '😢', label: 'かなしい', color: 'blue' },
+    { emoji: '😠', label: 'おこってる', color: 'red' },
+    { emoji: '😰', label: 'ふあん', color: 'purple' },
+    { emoji: '😴', label: 'ねむい', color: 'orange' },
+  ],
+  selectedChild: null,
+  selectedKimochi: null,
+  selectedCondition: null,
+  a11y: {
+    hc: false,
+    tts: false,
+    scan: false,
+    scanSpeed: 1500,
+    gaze: false,
+  }
+};
+
+let scanIndex = -1;
+let scanElements = [];
+let scanTimer = null;
+let scanBarTimer = null;
+let gazeTimers = {};
+
+// ===== LOAD / SAVE =====
+function loadState() {
+  try {
+    const s = localStorage.getItem('kyounokiroku');
+    if (s) {
+      const loaded = JSON.parse(s);
+      state.children = loaded.children || [];
+      state.records = loaded.records || [];
+      state.kimochiOptions = loaded.kimochiOptions || state.kimochiOptions;
+      state.a11y = { ...state.a11y, ...(loaded.a11y || {}) };
+    }
+  } catch(e) {}
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('kyounokiroku', JSON.stringify({
+      children: state.children,
+      records: state.records,
+      kimochiOptions: state.kimochiOptions,
+      a11y: state.a11y,
+    }));
+  } catch(e) {}
+}
+
+// ===== SCREEN NAV =====
+function goToScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  stopScan();
+  clearGazeDwell(); // 画面遷移時に視線dwellもリセット
+  if (state.a11y.scan) startScan();
+}
+
+function navTo(screenId, btn) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  goToScreen(screenId);
+  if (screenId === 'screenRecords') renderRecords();
+  if (screenId === 'screenSettings') renderKimochiEdit();
+}
+
+// ===== CHILDREN =====
+const CHILD_EMOJIS = ['😊','🌟','🌈','🐱','🐶','🐼','🐸','🌸','⭐','🎵','🍎','🚀','🦁','🐯','🐨','🦊','🐰','🐭','🎀','🏀'];
+const CHILD_COLORS = [
+  { label: 'デフォルト', bg: null,      text: null },
+  { label: 'あか',       bg: '#ffe0e6', text: '#b02040' },
+  { label: 'オレンジ',   bg: '#ffe8cc', text: '#b05000' },
+  { label: 'きいろ',     bg: '#fff9c4', text: '#7a6000' },
+  { label: 'きみどり',   bg: '#e8f5e9', text: '#2e7d32' },
+  { label: 'みどり',     bg: '#c8f0dc', text: '#1b5e3a' },
+  { label: 'みずいろ',   bg: '#d0f0ff', text: '#005f88' },
+  { label: 'あお',       bg: '#dce8ff', text: '#1a3a9e' },
+  { label: 'むらさき',   bg: '#ede0ff', text: '#5a1a9e' },
+  { label: 'ピンク',     bg: '#fce4ec', text: '#9c1a5a' },
+  { label: 'もも',       bg: '#ffd6cc', text: '#9c2a10' },
+  { label: 'グレー',     bg: '#eceff1', text: '#37474f' },
+];
+let newChildPhotoData = null;
+let newChildBgColor   = null; // 選択中の背景色オブジェクト
+
+let editingChildIndex = null; // null=新規, 数値=編集中
+
+function renderChildren() {
+  const grid = document.getElementById('childGrid');
+  grid.innerHTML = '';
+  state.children.forEach((child, i) => {
+    const card = document.createElement('div');
+    card.className = 'child-card';
+    if (child.bgColor) {
+      card.style.background  = child.bgColor.bg;
+      card.style.borderColor = child.bgColor.text + '88';
+    }
+    const avatarBg = child.bgColor ? child.bgColor.text + '22' : '';
+    const avatarBorder = child.bgColor ? `border:2px solid ${child.bgColor.text}55;` : '';
+    const avatarHtml = child.photo
+      ? `<div class="child-avatar" style="background:${avatarBg};${avatarBorder}"><img src="${child.photo}" alt="${child.name}"></div>`
+      : `<div class="child-avatar" style="background:${avatarBg || 'var(--primary)'};${avatarBorder}">${child.emoji || '😊'}</div>`;
+    const nameColor = child.bgColor ? `color:${child.bgColor.text}` : '';
+    card.innerHTML = `
+      ${avatarHtml}
+      <div class="child-name" style="${nameColor}">${child.name}</div>
+      <div class="child-card-btns">
+        <button class="child-card-btn edit"   onclick="event.stopPropagation();editChild(${i})">✏️</button>
+        <button class="child-card-btn delete" onclick="event.stopPropagation();deleteChild(${i})">✕</button>
+      </div>
+    `;
+    card.onclick = () => selectChild(i);
+    grid.appendChild(card);
+  });
+}
+
+function selectChild(i) {
+  state.selectedChild = i;
+  state.selectedKimochi = null;
+  state.selectedCondition = null;
+  clearVitalInputs();
+  const child = state.children[i];
+  document.getElementById('kimochiGreeting').textContent = `${child.name}さん、きょうのきもちは？`;
+  document.getElementById('vitalTitle').textContent = `🌡 ${child.name}さんのたいちょう`;
+  renderKimochi();
+  goToScreen('screenKimochi');
+  speak(`${child.name}さん、きょうのきもちはどうですか？`);
+}
+
+function deleteChild(i) {
+  // confirmはiOS埋め込みでブロックされるため、削除ボタン自体が明示的操作として処理
+  state.children.splice(i, 1);
+  saveState();
+  renderChildren();
+}
+
+function openAddChild() {
+  editingChildIndex = null;
+  document.getElementById('addChildModalTitle').textContent = '👤 子どもを追加';
+  document.querySelector('#modalAddChild .btn-accent').textContent = '✅ ついか';
+  newChildPhotoData = null;
+  newChildBgColor   = null;
+  document.getElementById('newChildName').value = '';
+  document.getElementById('newChildEmoji').value = '😊';
+  document.getElementById('childPhotoPreviewStrip').innerHTML = '';
+  document.getElementById('childPhotoClearBtn').style.display = 'none';
+  updateChildAvatarPreview('😊', null, null);
+  switchChildTab('emoji');
+  buildChildEmojiGrid('😊');
+  buildChildColorGrid(null);
+  openModal('modalAddChild');
+}
+
+function editChild(i) {
+  editingChildIndex = i;
+  const child = state.children[i];
+  document.getElementById('addChildModalTitle').textContent = '✏️ 子どもの情報を変更';
+  document.querySelector('#modalAddChild .btn-accent').textContent = '✅ へんこうする';
+
+  // 既存データを読み込む
+  newChildPhotoData = child.photo || null;
+  newChildBgColor   = child.bgColor || null;
+  document.getElementById('newChildName').value  = child.name;
+  document.getElementById('newChildEmoji').value = child.emoji || '😊';
+
+  // アバタープレビュー
+  updateChildAvatarPreview(child.emoji || '😊', newChildPhotoData, newChildBgColor);
+
+  // 写真がある場合はストリップに表示
+  const strip = document.getElementById('childPhotoPreviewStrip');
+  strip.innerHTML = '';
+  if (child.photo) {
+    const img = document.createElement('img');
+    img.src = child.photo;
+    img.className = 'img-strip-item selected';
+    strip.appendChild(img);
+    document.getElementById('childPhotoClearBtn').style.display = 'block';
+    switchChildTab('photo');
+  } else {
+    document.getElementById('childPhotoClearBtn').style.display = 'none';
+    switchChildTab('emoji');
+  }
+
+  buildChildEmojiGrid(child.emoji || '😊');
+  buildChildColorGrid(child.bgColor || null);
+  openModal('modalAddChild');
+}
+
+function addChild() {
+  const name = document.getElementById('newChildName').value.trim();
+  if (!name) { alert('なまえをいれてください'); return; }
+  const emoji = document.getElementById('newChildEmoji').value.trim() || '😊';
+  const childData = {
+    name,
+    emoji,
+    photo:   newChildPhotoData || null,
+    bgColor: newChildBgColor   || null,
+  };
+  if (editingChildIndex !== null) {
+    // 編集モード：上書き
+    state.children[editingChildIndex] = childData;
+  } else {
+    // 新規追加
+    state.children.push(childData);
+  }
+  editingChildIndex = null;
+  newChildPhotoData = null;
+  newChildBgColor   = null;
+  saveState();
+  renderChildren();
+  closeModal('modalAddChild');
+}
+
+function buildChildEmojiGrid(current) {
+  const grid = document.getElementById('childEmojiGrid');
+  grid.innerHTML = '';
+  CHILD_EMOJIS.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-pick-btn' + (e === current ? ' selected' : '');
+    btn.textContent = e;
+    btn.onclick = () => applyChildEmoji(e);
+    grid.appendChild(btn);
+  });
+}
+
+function buildChildColorGrid(current) {
+  const grid = document.getElementById('childColorGrid');
+  grid.innerHTML = '';
+  CHILD_COLORS.forEach((c, idx) => {
+    const sw = document.createElement('button');
+    sw.className = 'color-swatch' + (!current && idx===0 ? ' active' : current===c ? ' active' : '');
+    sw.title = c.label;
+    sw.style.background = c.bg || 'var(--card)';
+    sw.style.border = c.bg ? `3px solid ${c.text}44` : '3px dashed var(--text-sub)';
+    if (!c.bg) sw.innerHTML = '<span style="font-size:0.8em;color:var(--text-sub)">✕</span>';
+    sw.onclick = () => applyChildColor(c);
+    grid.appendChild(sw);
+  });
+}
+
+function applyChildColor(colorObj) {
+  newChildBgColor = colorObj.bg ? colorObj : null;
+  updateChildAvatarPreview(
+    document.getElementById('newChildEmoji').value || '😊',
+    newChildPhotoData,
+    newChildBgColor
+  );
+  buildChildColorGrid(colorObj);
+}
+
+function applyChildEmoji(emoji) {
+  if (!emoji) return;
+  newChildPhotoData = null;
+  document.getElementById('newChildEmoji').value = emoji;
+  document.getElementById('childPhotoPreviewStrip').innerHTML = '';
+  document.getElementById('childPhotoClearBtn').style.display = 'none';
+  updateChildAvatarPreview(emoji, null, newChildBgColor);
+  buildChildEmojiGrid(emoji);
+}
+
+function switchChildTab(mode) {
+  document.getElementById('childTabContentEmoji').style.display = mode === 'emoji' ? 'block' : 'none';
+  document.getElementById('childTabContentPhoto').style.display = mode === 'photo' ? 'block' : 'none';
+  document.getElementById('childTabEmoji').classList.toggle('active', mode === 'emoji');
+  document.getElementById('childTabPhoto').classList.toggle('active', mode === 'photo');
+}
+
+function loadChildPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    newChildPhotoData = e.target.result;
+    updateChildAvatarPreview(null, newChildPhotoData, newChildBgColor);
+    const strip = document.getElementById('childPhotoPreviewStrip');
+    strip.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = newChildPhotoData;
+    img.className = 'img-strip-item selected';
+    strip.appendChild(img);
+    document.getElementById('childPhotoClearBtn').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearChildPhoto() {
+  newChildPhotoData = null;
+  document.getElementById('childPhotoPreviewStrip').innerHTML = '';
+  document.getElementById('childPhotoClearBtn').style.display = 'none';
+  const emoji = document.getElementById('newChildEmoji').value || '😊';
+  updateChildAvatarPreview(emoji, null, newChildBgColor);
+}
+
+function updateChildAvatarPreview(emoji, photo, colorObj) {
+  const el = document.getElementById('childAvatarPreview');
+  el.style.background   = colorObj ? colorObj.bg  : 'var(--primary)';
+  el.style.borderColor  = colorObj ? colorObj.text : 'var(--primary-light)';
+  el.style.color        = colorObj ? colorObj.text : '';
+  if (photo) {
+    el.innerHTML = `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+  } else {
+    el.innerHTML = emoji || '😊';
+  }
+}
+
+
+
+// ===== KIMOCHI =====
+function renderKimochi() {
+  const grid = document.getElementById('kimochiGrid');
+  grid.innerHTML = '';
+  state.kimochiOptions.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'kimochi-btn';
+    btn.dataset.color = opt.color;
+    btn.dataset.index = i;
+    const iconHtml = opt.image
+      ? `<img src="${opt.image}" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:8px">`
+      : `<span class="kimochi-emoji">${opt.emoji}</span>`;
+    btn.innerHTML = `${iconHtml}<span class="kimochi-label">${opt.label}</span>`;
+    btn.onclick = () => selectKimochi(i, opt);
+    grid.appendChild(btn);
+  });
+  if (state.a11y.gaze) attachGaze(grid.querySelectorAll('.kimochi-btn'));
+}
+
+function selectKimochi(i, opt) {
+  state.selectedKimochi = opt;
+  speak(`${opt.label}ですね`);
+  setTimeout(() => goToScreen('screenVital'), 300);
+}
+
+function skipKimochi() {
+  state.selectedKimochi = null;
+  goToScreen('screenVital');
+}
+
+// ===== VITAL =====
+function setCondition(cond) {
+  state.selectedCondition = cond;
+  document.querySelectorAll('.condition-btn').forEach(b => {
+    b.className = 'condition-btn';
+    if (b.dataset.cond === cond) b.classList.add(`active-${cond}`);
+  });
+}
+
+function toggleCheck(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('checked');
+  el.textContent = el.classList.contains('checked') ? '✓' : '';
+}
+
+// 発作チェック（詳細エリアの表示切替）
+function toggleSeizure(mode) {
+  const checkId  = mode === 'check' ? 'checkSeizure'  : 'editCheckSeizure';
+  const detailId = mode === 'check' ? 'seizureDetail' : 'editSeizureDetail';
+  const el = document.getElementById(checkId);
+  el.classList.toggle('checked');
+  el.textContent = el.classList.contains('checked') ? '✓' : '';
+  document.getElementById(detailId).style.display =
+    el.classList.contains('checked') ? 'block' : 'none';
+}
+
+// 発作の様子ボタン
+function toggleSeizureType(btn) {
+  btn.classList.toggle('selected');
+}
+
+function clearVitalInputs() {
+  ['inputTemp','inputPulse','inputSpo2','inputMemo','inputWater','inputWaterTime',
+   'inputSeizureTime','inputSeizureDuration','inputSeizureNote'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.querySelectorAll('.condition-btn').forEach(b => b.className = 'condition-btn');
+  ['checkMed','checkToilet'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('checked');
+    el.textContent = '';
+  });
+  // 発作リセット
+  const sz = document.getElementById('checkSeizure');
+  sz.classList.remove('checked'); sz.textContent = '';
+  document.getElementById('seizureDetail').style.display = 'none';
+  document.querySelectorAll('#seizureTypeGrid .seizure-type-btn').forEach(b => b.classList.remove('selected'));
+  state.selectedCondition = null;
+}
+
+function saveRecord() {
+  const record = {
+    id: Date.now(),
+    childIndex: state.selectedChild,
+    childName: state.children[state.selectedChild].name,
+    date: new Date().toISOString(),
+    kimochi: state.selectedKimochi,
+    temp: document.getElementById('inputTemp').value,
+    pulse: document.getElementById('inputPulse').value,
+    spo2: document.getElementById('inputSpo2').value,
+    condition: state.selectedCondition,
+    medication: document.getElementById('checkMed').classList.contains('checked'),
+    toilet: document.getElementById('checkToilet').classList.contains('checked'),
+    water: document.getElementById('inputWater').value,
+    waterTime: document.getElementById('inputWaterTime').value,
+    seizure: document.getElementById('checkSeizure').classList.contains('checked'),
+    seizureTime: document.getElementById('inputSeizureTime').value,
+    seizureDuration: document.getElementById('inputSeizureDuration').value,
+    seizureTypes: [...document.querySelectorAll('#seizureTypeGrid .seizure-type-btn.selected')].map(b => b.dataset.type),
+    seizureNote: document.getElementById('inputSeizureNote').value.trim(),
+    memo: document.getElementById('inputMemo').value.trim(),
+  };
+  state.records.push(record);
+  saveState();
+
+  const child = state.children[state.selectedChild];
+  document.getElementById('celebrationMsg').textContent =
+    `${child.name}さんの${formatDate(record.date)}のきろくを保存しました`;
+  openModal('modalCelebration');
+  speak('きろくできました！');
+}
+
+function afterSave() {
+  closeModal('modalCelebration');
+  goToScreen('screenChild');
+}
+
+// ===== RECORDS =====
+function renderRecords() {
+  const filterChild = document.getElementById('recordFilterChild').value;
+  const filterDate = document.getElementById('recordFilterDate').value;
+
+  // populate child filter
+  const sel = document.getElementById('recordFilterChild');
+  const curVal = sel.value;
+  sel.innerHTML = '<option value="">全員</option>';
+  state.children.forEach((c, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = c.name;
+    if (String(i) === curVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  let records = [...state.records].reverse();
+  if (filterChild !== '') records = records.filter(r => String(r.childIndex) === filterChild);
+  if (filterDate) records = records.filter(r => r.date.startsWith(filterDate));
+
+  const list = document.getElementById('recordList');
+  if (records.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-sub);padding:40px 0">まだきろくがありません</div>';
+    return;
+  }
+
+  list.innerHTML = records.map(r => {
+    const condIcon = r.condition === 'good' ? '😊良' : r.condition === 'normal' ? '😐普通' : r.condition === 'bad' ? '😞悪い' : '';
+    const tags = [
+      r.temp ? `🌡${r.temp}℃` : '',
+      r.pulse ? `💓${r.pulse}` : '',
+      r.spo2 ? `O₂${r.spo2}%` : '',
+      condIcon,
+      r.medication ? '💊服薬' : '',
+      r.toilet ? '🚽排泄' : '',
+      r.water ? `💧${r.water}ml${r.waterTime ? ' '+r.waterTime : ''}` : '',
+      r.seizure ? `⚡発作${r.seizureTime ? ' '+r.seizureTime : ''}${r.seizureDuration ? ' '+r.seizureDuration+'分' : ''}` : '',
+    ].filter(Boolean);
+    // state.records上の実際のインデックスを取得
+    const realIdx = state.records.findIndex(s => s.id === r.id);
+    return `
+      <div class="record-card">
+        <div class="record-card-header">
+          <div>
+            <div style="font-weight:bold">${r.childName}</div>
+            <div class="record-date">${formatDate(r.date)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="record-kimochi">${r.kimochi ? r.kimochi.emoji : '－'}</div>
+            <button onclick="openEditRecord(${realIdx})"
+              style="background:var(--primary);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.9em;flex-shrink:0">✏️</button>
+          </div>
+        </div>
+        <div class="record-details">
+          ${tags.map(t => `<span class="record-tag">${t}</span>`).join('')}
+        </div>
+        ${r.memo ? `<div style="font-size:0.85em;color:var(--text-sub);margin-top:6px;white-space:pre-wrap;line-height:1.6">📝 ${r.memo.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ===== RECORD EDIT =====
+let editingRecordIndex = null;
+
+function openEditRecord(idx) {
+  editingRecordIndex = idx;
+  // 削除確認エリアをリセット
+  document.getElementById('deleteConfirmArea').style.display = 'none';
+  document.getElementById('deleteRecordBtn').style.display = 'block';
+  const r = state.records[idx];
+
+  // ヘッダー情報
+  document.getElementById('editRecordInfo').textContent =
+    `${r.childName} ／ ${formatDate(r.date)}`;
+
+  // 気持ちグリッド
+  const grid = document.getElementById('editKimochiGrid');
+  grid.innerHTML = '';
+  state.kimochiOptions.forEach(opt => {
+    const btn = document.createElement('button');
+    const isSelected = r.kimochi && r.kimochi.label === opt.label;
+    btn.style.cssText = `background:${isSelected ? 'var(--primary)' : 'var(--bg3)'};
+      border:2px solid ${isSelected ? 'var(--accent)' : 'transparent'};
+      border-radius:10px;padding:8px 12px;cursor:pointer;
+      display:flex;align-items:center;gap:6px;color:var(--text);font-family:inherit;font-size:0.9em`;
+    const iconHtml = opt.image
+      ? `<img src="${opt.image}" style="width:24px;height:24px;object-fit:cover;border-radius:6px">`
+      : `<span>${opt.emoji}</span>`;
+    btn.innerHTML = `${iconHtml}<span>${opt.label}</span>`;
+    btn.onclick = () => {
+      editingKimochi = opt;
+      document.getElementById('editKimochiSelected').textContent = `${opt.emoji} ${opt.label}`;
+      grid.querySelectorAll('button').forEach(b => {
+        b.style.background   = 'var(--bg3)';
+        b.style.borderColor  = 'transparent';
+      });
+      btn.style.background  = 'var(--primary)';
+      btn.style.borderColor = 'var(--accent)';
+    };
+    grid.appendChild(btn);
+  });
+
+  // 現在の気持ち表示
+  editingKimochi = r.kimochi || null;
+  document.getElementById('editKimochiSelected').textContent =
+    r.kimochi ? `${r.kimochi.emoji} ${r.kimochi.label}` : '－';
+
+  // バイタル
+  document.getElementById('editTemp').value  = r.temp  || '';
+  document.getElementById('editPulse').value = r.pulse || '';
+  document.getElementById('editSpo2').value  = r.spo2  || '';
+
+  // 体調
+  document.querySelectorAll('#modalEditRecord .condition-btn').forEach(b => {
+    b.className = 'condition-btn';
+    if (b.dataset.cond === r.condition) b.classList.add(`active-${r.condition}`);
+  });
+  editingCondition = r.condition || null;
+
+  // 服薬・排泄・水分
+  const medEl = document.getElementById('editCheckMed');
+  const toiEl = document.getElementById('editCheckToilet');
+  medEl.classList.toggle('checked', !!r.medication);
+  medEl.textContent = r.medication ? '✓' : '';
+  toiEl.classList.toggle('checked', !!r.toilet);
+  toiEl.textContent = r.toilet ? '✓' : '';
+  document.getElementById('editWater').value     = r.water     || '';
+  document.getElementById('editWaterTime').value = r.waterTime || '';
+
+  // 発作
+  const szEl = document.getElementById('editCheckSeizure');
+  szEl.classList.toggle('checked', !!r.seizure);
+  szEl.textContent = r.seizure ? '✓' : '';
+  document.getElementById('editSeizureDetail').style.display = r.seizure ? 'block' : 'none';
+  document.getElementById('editSeizureTime').value     = r.seizureTime     || '';
+  document.getElementById('editSeizureDuration').value = r.seizureDuration || '';
+  document.getElementById('editSeizureNote').value     = r.seizureNote     || '';
+  document.querySelectorAll('#editSeizureTypeGrid .seizure-type-btn').forEach(b => {
+    b.classList.toggle('selected', (r.seizureTypes || []).includes(b.dataset.type));
+  });
+
+  // メモ
+  document.getElementById('editMemo').value = r.memo || '';
+
+  openModal('modalEditRecord');
+}
+
+let editingKimochi   = null;
+let editingCondition = null;
+
+function setEditCondition(cond) {
+  editingCondition = cond;
+  document.querySelectorAll('#modalEditRecord .condition-btn').forEach(b => {
+    b.className = 'condition-btn';
+    if (b.dataset.cond === cond) b.classList.add(`active-${cond}`);
+  });
+}
+
+function clearEditKimochi() {
+  editingKimochi = null;
+  document.getElementById('editKimochiSelected').textContent = '－';
+  document.getElementById('editKimochiGrid').querySelectorAll('button').forEach(b => {
+    b.style.background  = 'var(--bg3)';
+    b.style.borderColor = 'transparent';
+  });
+}
+
+function saveEditRecord() {
+  const r = state.records[editingRecordIndex];
+  r.kimochi   = editingKimochi;
+  r.temp      = document.getElementById('editTemp').value;
+  r.pulse     = document.getElementById('editPulse').value;
+  r.spo2      = document.getElementById('editSpo2').value;
+  r.condition = editingCondition;
+  r.medication = document.getElementById('editCheckMed').classList.contains('checked');
+  r.toilet     = document.getElementById('editCheckToilet').classList.contains('checked');
+  r.water      = document.getElementById('editWater').value;
+  r.waterTime  = document.getElementById('editWaterTime').value;
+  r.seizure    = document.getElementById('editCheckSeizure').classList.contains('checked');
+  r.seizureTime     = document.getElementById('editSeizureTime').value;
+  r.seizureDuration = document.getElementById('editSeizureDuration').value;
+  r.seizureTypes    = [...document.querySelectorAll('#editSeizureTypeGrid .seizure-type-btn.selected')].map(b => b.dataset.type);
+  r.seizureNote     = document.getElementById('editSeizureNote').value.trim();
+  r.memo       = document.getElementById('editMemo').value.trim();
+  saveState();
+  closeModal('modalEditRecord');
+  renderRecords();
+}
+
+function showDeleteConfirm() {
+  document.getElementById('deleteConfirmArea').style.display = 'block';
+  document.getElementById('deleteRecordBtn').style.display = 'none';
+}
+
+function cancelDeleteRecord() {
+  document.getElementById('deleteConfirmArea').style.display = 'none';
+  document.getElementById('deleteRecordBtn').style.display = 'block';
+}
+
+function confirmDeleteRecord() {
+  state.records.splice(editingRecordIndex, 1);
+  saveState();
+  closeModal('modalEditRecord');
+  renderRecords();
+}
+
+function deleteRecordFromModal() {
+  showDeleteConfirm();
+}
+
+// ===== CSV EXPORT =====
+function exportCSV() {
+  if (state.records.length === 0) { alert('きろくがありません'); return; }
+  const headers = ['日時','子どもの名前','気持ち','体温(℃)','脈拍(回/分)','SpO2(%)','体調','服薬','排泄','水分量(ml)','水分摂取時間','発作','発作時刻','持続時間(分)','発作の様子','発作メモ','メモ'];
+  const condLabel = { good: '良い', normal: '普通', bad: '悪い' };
+  const rows = state.records.map(r => [
+    formatDate(r.date),
+    r.childName,
+    r.kimochi ? `${r.kimochi.emoji}${r.kimochi.label}` : '',
+    r.temp, r.pulse, r.spo2,
+    r.condition ? condLabel[r.condition] : '',
+    r.medication ? '○' : '',
+    r.toilet ? '○' : '',
+    r.water || '',
+    r.waterTime || '',
+    r.seizure ? '○' : '',
+    r.seizureTime || '',
+    r.seizureDuration || '',
+    (r.seizureTypes || []).join('・'),
+    r.seizureNote || '',
+    r.memo || '',
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `きょうのきろく_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== KIMOCHI CUSTOMIZE =====
+const EMOJI_PRESETS = [
+  '😊','😌','😢','😠','😰','😴','😆','🥰','😎','🤔',
+  '😣','😭','😤','🤒','😇','🥳','😶','😑','🤩','😥'
+];
+
+function renderKimochiEdit() {
+  const list = document.getElementById('kimochiEditList');
+  list.innerHTML = '';
+  state.kimochiOptions.forEach((opt, i) => buildKimochiEditItem(list, opt, i));
+}
+
+function buildKimochiEditItem(container, opt, i) {
+  // decide initial mode
+  const mode = opt.image ? 'image' : 'emoji';
+
+  const item = document.createElement('div');
+  item.className = 'kimochi-edit-item';
+  item.dataset.index = i;
+
+  // preview
+  const previewHtml = opt.image
+    ? `<img src="${opt.image}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`
+    : `<span>${opt.emoji}</span>`;
+
+  item.innerHTML = `
+    <div class="kimochi-edit-top">
+      <div class="kimochi-edit-preview" id="preview_${i}">${previewHtml}<span class="kimochi-edit-preview-hint">アイコン</span></div>
+      <input class="kimochi-edit-input" id="label_${i}" value="${opt.label}" placeholder="ラベル">
+      <button class="kimochi-edit-del" onclick="deleteKimochi(${i})">✕</button>
+    </div>
+    <div class="kimochi-edit-tabs">
+      <button class="kimochi-edit-tab ${mode==='emoji'?'active':''}" id="tab_emoji_${i}" onclick="switchEditTab(${i},'emoji')">😊 絵文字</button>
+      <button class="kimochi-edit-tab ${mode==='image'?'active':''}" id="tab_image_${i}" onclick="switchEditTab(${i},'image')">🖼 写真・イラスト</button>
+    </div>
+    <div id="tabcontent_emoji_${i}" style="display:${mode==='emoji'?'block':'none'}">
+      <div class="kimochi-edit-emoji-picker" id="emojiPicker_${i}"></div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.85em;color:var(--text-sub)">その他：</span>
+        <input class="kimochi-edit-emoji-custom" id="emojiCustom_${i}" value="${opt.emoji}" maxlength="2" placeholder="😶">
+        <button class="btn btn-primary" style="width:auto;padding:8px 14px;margin:0;font-size:0.85em" onclick="applyCustomEmoji(${i})">適用</button>
+      </div>
+    </div>
+    <div id="tabcontent_image_${i}" style="display:${mode==='image'?'block':'none'}">
+      <div class="kimochi-edit-img-area">
+        <label class="img-upload-btn">
+          📷 写真・イラストを選ぶ
+          <input type="file" accept="image/*" style="display:none" onchange="loadKimochiImage(${i}, this)">
+        </label>
+        <div class="img-preview-strip" id="imgStrip_${i}"></div>
+        ${opt.image ? `<button class="btn btn-ghost" style="width:auto;padding:8px 14px;margin:0;font-size:0.85em" onclick="clearKimochiImage(${i})">✕ 画像をはずす</button>` : ''}
+      </div>
+    </div>
+  `;
+  container.appendChild(item);
+
+  // ラベル変更
+  document.getElementById(`label_${i}`).addEventListener('change', e => {
+    state.kimochiOptions[i].label = e.target.value;
+    saveState();
+  });
+
+  // 絵文字プリセット
+  buildEmojiPicker(i, opt.emoji);
+}
+
+function buildEmojiPicker(i, currentEmoji) {
+  const picker = document.getElementById(`emojiPicker_${i}`);
+  if (!picker) return;
+  picker.innerHTML = '';
+  EMOJI_PRESETS.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-pick-btn' + (e === currentEmoji ? ' selected' : '');
+    btn.textContent = e;
+    btn.onclick = () => applyEmoji(i, e);
+    picker.appendChild(btn);
+  });
+}
+
+function applyEmoji(i, emoji) {
+  state.kimochiOptions[i].emoji = emoji;
+  state.kimochiOptions[i].image = null;
+  saveState();
+  // プレビュー更新
+  const preview = document.getElementById(`preview_${i}`);
+  preview.innerHTML = `<span>${emoji}</span><span class="kimochi-edit-preview-hint">アイコン</span>`;
+  // custom inputも更新
+  const custom = document.getElementById(`emojiCustom_${i}`);
+  if (custom) custom.value = emoji;
+  // picker選択状態更新
+  buildEmojiPicker(i, emoji);
+}
+
+function applyCustomEmoji(i) {
+  const val = document.getElementById(`emojiCustom_${i}`).value.trim();
+  if (!val) return;
+  applyEmoji(i, val);
+}
+
+function switchEditTab(i, mode) {
+  document.getElementById(`tabcontent_emoji_${i}`).style.display = mode === 'emoji' ? 'block' : 'none';
+  document.getElementById(`tabcontent_image_${i}`).style.display = mode === 'image' ? 'block' : 'none';
+  document.getElementById(`tab_emoji_${i}`).classList.toggle('active', mode === 'emoji');
+  document.getElementById(`tab_image_${i}`).classList.toggle('active', mode === 'image');
+}
+
+function loadKimochiImage(i, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    state.kimochiOptions[i].image = dataUrl;
+    state.kimochiOptions[i].emoji = '🖼';
+    saveState();
+    // プレビュー更新
+    const preview = document.getElementById(`preview_${i}`);
+    preview.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px"><span class="kimochi-edit-preview-hint">アイコン</span>`;
+    // imgStrip
+    const strip = document.getElementById(`imgStrip_${i}`);
+    if (strip) {
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.className = 'img-strip-item selected';
+      strip.innerHTML = '';
+      strip.appendChild(img);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearKimochiImage(i) {
+  state.kimochiOptions[i].image = null;
+  state.kimochiOptions[i].emoji = '😶';
+  saveState();
+  renderKimochiEdit();
+}
+
+function updateKimochi(i, key, val) {
+  state.kimochiOptions[i][key] = val;
+  saveState();
+}
+
+function deleteKimochi(i) {
+  state.kimochiOptions.splice(i, 1);
+  saveState();
+  renderKimochiEdit();
+}
+
+function addKimochiOption() {
+  const colors = ['yellow','green','blue','red','purple','orange'];
+  state.kimochiOptions.push({
+    emoji: '😶',
+    label: 'あたらしい',
+    color: colors[state.kimochiOptions.length % colors.length],
+    image: null,
+  });
+  saveState();
+  renderKimochiEdit();
+}
+
+function confirmClearData() {
+  const area = document.getElementById('clearDataConfirmArea');
+  if (area) { area.style.display = 'block'; }
+}
+
+function cancelClearData() {
+  document.getElementById('clearDataConfirmArea').style.display = 'none';
+}
+
+function executeClearData() {
+  state.records = [];
+  saveState();
+  document.getElementById('clearDataConfirmArea').style.display = 'none';
+  renderRecords();
+}
+
+// ===== MODAL =====
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ===== ACCESSIBILITY =====
+function setFontSize(size, btn) {
+  document.body.classList.remove('font-large','font-xlarge');
+  if (size === 'large') document.body.classList.add('font-large');
+  if (size === 'xlarge') document.body.classList.add('font-xlarge');
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.a11y.fontsize = size;
+  saveState();
+}
+
+function toggleHC() {
+  state.a11y.hc = !state.a11y.hc;
+  document.documentElement.classList.toggle('hc', state.a11y.hc);
+  document.getElementById('hcToggle').classList.toggle('on', state.a11y.hc);
+  saveState();
+}
+
+function toggleTTS() {
+  state.a11y.tts = !state.a11y.tts;
+  document.getElementById('ttsToggle').classList.toggle('on', state.a11y.tts);
+  saveState();
+}
+
+function speak(text) {
+  if (!state.a11y.tts) return;
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP';
+  window.speechSynthesis.speak(u);
+}
+
+// ===== SWITCH SCAN =====
+function toggleScan() {
+  state.a11y.scan = !state.a11y.scan;
+  document.getElementById('scanToggle').classList.toggle('on', state.a11y.scan);
+  document.getElementById('scanSpeedRow').style.display = state.a11y.scan ? 'flex' : 'none';
+  document.getElementById('scanBarContainer').classList.toggle('visible', state.a11y.scan);
+  if (state.a11y.scan) startScan(); else stopScan();
+  saveState();
+}
+
+function changeScanSpeed(delta) {
+  state.a11y.scanSpeed = Math.max(500, Math.min(4000, state.a11y.scanSpeed + delta));
+  document.getElementById('scanSpeedLabel').textContent = (state.a11y.scanSpeed/1000).toFixed(1) + '秒';
+  saveState();
+  if (state.a11y.scan) { stopScan(); startScan(); }
+}
+
+function getScanTargets() {
+  const screen = document.querySelector('.screen.active');
+  return Array.from(screen.querySelectorAll('.kimochi-btn, .child-card, .btn, .condition-btn'));
+}
+
+function startScan() {
+  stopScan();
+  scanElements = getScanTargets();
+  if (scanElements.length === 0) return;
+  scanIndex = -1;
+  advanceScan();
+}
+
+function advanceScan() {
+  if (!state.a11y.scan) return;
+  scanElements.forEach(el => el.classList.remove('scan-focus'));
+  scanIndex = (scanIndex + 1) % scanElements.length;
+  const el = scanElements[scanIndex];
+  el.classList.add('scan-focus');
+  speak(el.querySelector('.kimochi-label,span')?.textContent || el.textContent.trim().slice(0,10));
+
+  // progress bar
+  const bar = document.getElementById('scanBar');
+  bar.style.transition = 'none'; bar.style.width = '0%';
+  requestAnimationFrame(() => {
+    bar.style.transition = `width ${state.a11y.scanSpeed}ms linear`;
+    bar.style.width = '100%';
+  });
+
+  scanTimer = setTimeout(advanceScan, state.a11y.scanSpeed);
+}
+
+function stopScan() {
+  clearTimeout(scanTimer);
+  document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+}
+
+function activateScan() {
+  if (!state.a11y.scan) return;
+  clearTimeout(scanTimer);
+  const el = scanElements[scanIndex];
+  if (el) { el.click(); setTimeout(() => { scanElements = getScanTargets(); scanIndex = -1; advanceScan(); }, 400); }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'Enter') activateScan();
+});
+
+// ===== GAZE POINTER =====
+let gazeCurrentTarget = null;
+let gazeDwellTimer    = null;
+let gazeMoveListener  = null;
+let gazeLastX = 0, gazeLastY = 0;
+
+function getGazeSettings() {
+  return {
+    dwell: state.a11y.gazeDwell || 1000,
+    size:  state.a11y.gazeSize  || 60,
+    color: state.a11y.gazeColor || '#ff6b6b',
+  };
+}
+
+function updateGazePointerStyle() {
+  const g      = getGazeSettings();
+  const el     = document.getElementById('gazePointer');
+  const svg    = document.getElementById('gazeSvg');
+  const circle = document.getElementById('gazeProgressCircle');
+  if (!el) return;
+  const half = g.size / 2;
+  const r    = half - 5;
+  el.style.width      = g.size + 'px';
+  el.style.height     = g.size + 'px';
+  el.style.background = g.color + '33';
+  el.style.border     = `3px solid ${g.color}`;
+  svg.setAttribute('width',  g.size);
+  svg.setAttribute('height', g.size);
+  circle.setAttribute('cx', half);
+  circle.setAttribute('cy', half);
+  circle.setAttribute('r',  r);
+  circle.setAttribute('stroke', g.color);
+  const circ = 2 * Math.PI * r;
+  circle.style.strokeDasharray  = circ;
+  circle.style.strokeDashoffset = circ;
+}
+
+function toggleGaze() {
+  state.a11y.gaze = !state.a11y.gaze;
+  document.getElementById('gazeToggle').classList.toggle('on', state.a11y.gaze);
+  document.getElementById('gazeSettingsArea').style.display = state.a11y.gaze ? 'block' : 'none';
+  saveState();
+  if (state.a11y.gaze) startGazePointer();
+  else                  stopGazePointer();
+}
+
+function startGazePointer() {
+  stopGazePointer(); // 二重登録防止
+  const el = document.getElementById('gazePointer');
+  el.classList.add('visible');
+  updateGazePointerStyle();
+  gazeCurrentTarget = null;
+
+  gazeMoveListener = (e) => {
+    const x = e.clientX ?? (e.touches?.[0]?.clientX ?? gazeLastX);
+    const y = e.clientY ?? (e.touches?.[0]?.clientY ?? gazeLastY);
+    gazeLastX = x; gazeLastY = y;
+
+    // ポインター移動
+    el.style.left = x + 'px';
+    el.style.top  = y + 'px';
+
+    // ポインター自身を一時的に非表示にしてhitTestを正確に
+    el.style.pointerEvents = 'none';
+    const target = document.elementFromPoint(x, y);
+    el.style.pointerEvents = '';
+
+    const btn = target
+      ? target.closest('.kimochi-btn, .child-card, .btn, .condition-btn, .icon-btn, .nav-btn')
+      : null;
+
+    // スキャン中・モーダル開いているボタンは除外
+    if (btn && btn.offsetParent === null) return;
+
+    if (btn !== gazeCurrentTarget) {
+      clearGazeDwell();
+      gazeCurrentTarget = btn;
+      if (btn) startGazeDwell(btn);
+    }
+  };
+
+  document.addEventListener('mousemove',  gazeMoveListener);
+  document.addEventListener('touchmove',  gazeMoveListener, { passive: true });
+}
+
+function stopGazePointer() {
+  document.getElementById('gazePointer')?.classList.remove('visible');
+  clearGazeDwell();
+  if (gazeMoveListener) {
+    document.removeEventListener('mousemove', gazeMoveListener);
+    document.removeEventListener('touchmove', gazeMoveListener);
+    gazeMoveListener = null;
+  }
+  gazeCurrentTarget = null;
+}
+
+function startGazeDwell(btn) {
+  const g      = getGazeSettings();
+  const circle = document.getElementById('gazeProgressCircle');
+  const r      = parseFloat(circle.getAttribute('r') || 25);
+  const circ   = 2 * Math.PI * r;
+
+  // リセット→次フレームでアニメ開始（2フレーム待ちで確実に発火）
+  circle.style.transition       = 'none';
+  circle.style.strokeDashoffset = circ;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    circle.style.transition       = `stroke-dashoffset ${g.dwell}ms linear`;
+    circle.style.strokeDashoffset = '0';
+  }));
+
+  gazeDwellTimer = setTimeout(() => {
+    // クリック前にポインターを一時無効化（誤hit防止）
+    gazeCurrentTarget = null;
+    clearGazeRing();
+    btn.click();
+    if (state.a11y.tts) {
+      const label = btn.querySelector('.kimochi-label, .child-name, span')
+        ?.textContent?.trim().slice(0, 15) || '';
+      speak(label);
+    }
+  }, g.dwell);
+}
+
+function clearGazeDwell() {
+  clearTimeout(gazeDwellTimer);
+  gazeDwellTimer    = null;
+  gazeCurrentTarget = null;
+  clearGazeRing();
+}
+
+function clearGazeRing() {
+  const circle = document.getElementById('gazeProgressCircle');
+  if (!circle) return;
+  const r    = parseFloat(circle.getAttribute('r') || 25);
+  const circ = 2 * Math.PI * r;
+  circle.style.transition       = 'none';
+  circle.style.strokeDashoffset = circ;
+}
+
+function changeGazeDwell(delta) {
+  state.a11y.gazeDwell = Math.max(300, Math.min(3000, (state.a11y.gazeDwell || 1000) + delta));
+  document.getElementById('gazeDwellLabel').textContent =
+    (state.a11y.gazeDwell / 1000).toFixed(1) + '秒';
+  saveState();
+}
+
+function changeGazeSize(delta) {
+  state.a11y.gazeSize = Math.max(20, Math.min(120, (state.a11y.gazeSize || 60) + delta));
+  document.getElementById('gazeSizeLabel').textContent = state.a11y.gazeSize + 'px';
+  updateGazePointerStyle();
+  saveState();
+}
+
+function setGazeColor(color) {
+  state.a11y.gazeColor = color;
+  updateGazePointerStyle();
+  saveState();
+}
+
+function attachGaze(elements) {
+  // グローバルmousemoveで処理するため個別attachは不要
+}
+
+// ===== PANEL / HELP TOGGLE =====
+document.getElementById('a11yBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('a11yPanel').classList.toggle('open');
+});
+document.getElementById('helpBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('a11yPanel').classList.remove('open');
+  openModal('modalHelp');
+});
+
+// ===== INIT =====
+function applyA11y() {
+  const a = state.a11y;
+  document.documentElement.classList.toggle('hc', a.hc);
+  document.getElementById('hcToggle').classList.toggle('on', a.hc);
+  document.getElementById('ttsToggle').classList.toggle('on', a.tts);
+  document.getElementById('scanToggle').classList.toggle('on', a.scan);
+  document.getElementById('gazeToggle').classList.toggle('on', a.gaze);
+  if (a.scan) {
+    document.getElementById('scanSpeedRow').style.display = 'flex';
+    document.getElementById('scanSpeedLabel').textContent = (a.scanSpeed/1000).toFixed(1) + '秒';
+    document.getElementById('scanBarContainer').classList.add('visible');
+    startScan();
+  }
+  if (a.gaze) {
+    document.getElementById('gazeSettingsArea').style.display = 'block';
+    document.getElementById('gazeDwellLabel').textContent = ((a.gazeDwell||1000)/1000).toFixed(1) + '秒';
+    document.getElementById('gazeSizeLabel').textContent = (a.gazeSize||60) + 'px';
+    startGazePointer();
+  }
+}
+
+loadState();
+renderChildren();
+applyA11y();
+</script>
+</body>
+</html>
