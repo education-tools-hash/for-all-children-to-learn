@@ -44,6 +44,7 @@ const CATEGORY_TRUTH = {
   'kimochi-board':   '自立活動',
   'schedule-app':    '自立活動',
   'sst-app':         '自立活動',
+  'kyou-no-kiroku':      '自立活動',
   // 創作表現
   'drawing-app':     '創作表現',
   'music-app':       '創作表現',
@@ -90,6 +91,7 @@ const NEW_IDS = new Set([
   'slideshow-sakusei', // 直近追加
   'bosai-app',         // 直近追加
   'suji-manabou',    // 最新追加
+  'kyou-no-kiroku',    // 最新追加
 ]);
 
 // フラグを各appに反映(apps-data.jsonで明示指定された値は維持)
@@ -909,7 +911,7 @@ const PURPOSE_CARDS_TRUTH = {
   // theme クラス名 → そのカードに所属するアプリの id 配列
   'theme-ishi': {
     title: '思いを伝えたい子に',
-    ids: ['kimochi-board', 'drawing-app', 'yomikaki-app']
+    ids: ['kimochi-board', 'drawing-app', 'yomikaki-app', 'kyou-no-kiroku']
   },
   'theme-jikan': {
     title: '時間の見通しを持たせたい',
@@ -929,7 +931,7 @@ const PURPOSE_CARDS_TRUTH = {
   },
   'theme-switch': {
     title: '視線入力やスイッチを使う子に',
-    ids: ['kimochi-board', 'hiragana-learn', 'schedule-app', 'matching-app', 'janken-app', 'tyushi', 'cup_game']
+    ids: ['kimochi-board', 'hiragana-learn', 'schedule-app', 'matching-app', 'janken-app', 'tyushi', 'cup_game', 'kyou-no-kiroku']
   },
   'theme-sousaku': {
     title: '創作・表現活動をしたい',
