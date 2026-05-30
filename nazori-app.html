@@ -476,14 +476,6 @@
   .fader-arrow:active { transform: scale(0.93); }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -946,10 +938,10 @@
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">🔁 1文字あたりのマス数</div>
+        <div class="setting-label" id="wsRepeatLabel">🔁 1文字あたりのマス数</div>
         <div style="display:flex;align-items:center;gap:10px;">
           <input type="range" id="wsRepeat" min="3" max="10" value="6" step="1"
-            oninput="document.getElementById('wsRepeatVal').textContent=this.value+'マス'">
+            oninput="updateRepeatLabel()">
           <span id="wsRepeatVal" style="font-size:0.9rem;font-weight:700;color:var(--peach);min-width:50px;">6マス</span>
         </div>
       </div>
@@ -958,14 +950,14 @@
         <div class="setting-label">↔ 文字の並び順</div>
         <div style="display:flex;gap:10px;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:10px 14px;">
-            <input type="radio" name="wsLayout" id="wsLayoutVert" value="vert" checked style="accent-color:var(--peach);width:18px;height:18px;">
+            <input type="radio" name="wsLayout" id="wsLayoutVert" value="vert" checked style="accent-color:var(--peach);width:18px;height:18px;" onchange="updateRepeatLabel()">
             <div>
               <div style="font-size:0.9rem;font-weight:700;">縦並び</div>
-              <div style="font-size:0.75rem;color:var(--ink-light);">同じ文字をまとめて練習</div>
+              <div style="font-size:0.75rem;color:var(--ink-light);">同じ文字をまとめて繰り返す</div>
             </div>
           </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:10px 14px;">
-            <input type="radio" name="wsLayout" id="wsLayoutHoriz" value="horiz" style="accent-color:var(--peach);width:18px;height:18px;">
+            <input type="radio" name="wsLayout" id="wsLayoutHoriz" value="horiz" style="accent-color:var(--peach);width:18px;height:18px;" onchange="updateRepeatLabel()">
             <div>
               <div style="font-size:0.9rem;font-weight:700;">横並び</div>
               <div style="font-size:0.75rem;color:var(--ink-light);">全文字を1行に並べて繰り返す</div>
@@ -982,7 +974,7 @@
           <option value="34" selected>大（34mm）</option>
           <option value="40">特大（40mm）</option>
           <option value="50">特特大（50mm）</option>
-          <option value="60">超特大（60mm）</option>
+          <option value="60">超特大（用紙いっぱい）</option>
         </select>
       </div>
 
@@ -2233,11 +2225,21 @@ document.getElementById('helpModal').addEventListener('click', function(e) {
 // =============================================
 // 印刷用ワークシート生成
 // =============================================
+function updateRepeatLabel() {
+  const isHoriz = document.getElementById('wsLayoutHoriz')?.checked;
+  const label = document.getElementById('wsRepeatLabel');
+  const val   = document.getElementById('wsRepeatVal');
+  const range = document.getElementById('wsRepeat');
+  if (label) label.textContent = isHoriz ? '🔁 繰り返す行数' : '🔁 1文字あたりのマス数';
+  if (val && range) val.textContent = range.value + (isHoriz ? '行' : 'マス');
+}
+
 function openPrintModal() {
   // 先生モードの設定を同期
   const guideEl = document.getElementById('guideLineSelect');
   const wsGuide = document.getElementById('wsGuide');
   if (guideEl && wsGuide) wsGuide.value = guideEl.value;
+  updateRepeatLabel();
   document.getElementById('printModal').style.display = 'flex';
 }
 function closePrintModal() {
@@ -2324,23 +2326,38 @@ function drawWorksheetPages(doc, chars, opts) {
   const avail_w = pw - ml - mr;
   const avail_h = ph - mt - mb;
 
-  // 1ページに収めるモード：セルサイズを自動縮小
+  // 1ページに収めるモード または 超特大（用紙いっぱい）：セルサイズを自動計算
   let cs = cellSize;
-  if (fitPage) {
-    let lo = 10, hi = cellSize;
-    for (let i = 0; i < 40; i++) {
+
+  // 超特大（60mm）は常に用紙いっぱいに自動フィット
+  const isFullFit = cellSize >= 60 || fitPage;
+
+  if (isFullFit) {
+    // 縦方向：総行数からcsを逆算
+    // 横方向：cols（文字数または列数）からcsを逆算
+    // 両方の制約のうち小さい方を採用
+    let lo = 10, hi = 200;
+    for (let i = 0; i < 50; i++) {
       const mid = (lo + hi) / 2;
+      // 横方向制約
+      const colsNeeded = layout === 'horiz' ? chars.length
+        : Math.max(1, Math.floor((avail_w + gap) / (mid + gap)));
+      const wOk = layout === 'horiz'
+        ? chars.length * (mid + gap) - gap <= avail_w
+        : true; // 縦並びは列数が自動調整されるので常にOK
+
+      // 縦方向制約
       let totalRows;
       if (layout === 'horiz') {
-        // 横並び：1行にchars.length個並べてrepeat行
         totalRows = repeat;
       } else {
-        const c = Math.max(1, Math.floor((avail_w + gap) / (mid + gap)));
-        totalRows = chars.reduce((s, _) => s + Math.ceil(repeat / c), 0);
+        totalRows = chars.reduce((s, _) => s + Math.ceil(repeat / colsNeeded), 0);
       }
       const totalGap = layout === 'horiz' ? 0 : chars.length * 4;
       const h = totalRows * (mid + gap) + totalGap;
-      if (h <= avail_h) lo = mid; else hi = mid;
+      const hOk = h <= avail_h;
+
+      if (wOk && hOk) lo = mid; else hi = mid;
     }
     cs = Math.max(10, Math.floor(lo));
   }
@@ -2350,6 +2367,32 @@ function drawWorksheetPages(doc, chars, opts) {
     : Math.max(1, Math.floor((avail_w + gap) / (cs + gap)));
   const r = 44, g = 62, b = 107;  // インク色
 
+  // 日本語テキストをCanvas経由でPDFに描画（文字化け防止）
+  function addTextImage(text, x, y, fontSize, color, align) {
+    if (!text) return;
+    const scale = 3;
+    const fs = fontSize * scale;
+    const tmp = document.createElement('canvas');
+    tmp.height = Math.ceil(fs * 1.4);
+    // テキスト幅を計測
+    const ctxM = tmp.getContext('2d');
+    ctxM.font = `bold ${fs}px "BIZ UDPMincho", serif`;
+    const tw = ctxM.measureText(text).width;
+    tmp.width = Math.ceil(tw) + 4;
+    const ctx = tmp.getContext('2d');
+    ctx.font = `bold ${fs}px "BIZ UDPMincho", serif`;
+    const [cr, cg, cb] = color || [44, 62, 107];
+    ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(text, 2, 0);
+    const img = tmp.toDataURL('image/png');
+    // mm換算（scale倍で描画してmm単位で縮小）
+    const wMm = tmp.width / scale / 3.78;
+    const hMm = tmp.height / scale / 3.78;
+    const drawX = align === 'center' ? x - wMm/2 : align === 'right' ? x - wMm : x;
+    doc.addImage(img, 'PNG', drawX, y - hMm * 0.8, wMm, hMm);
+  }
+
   let pageNum = 0;
   let curY = mt;
 
@@ -2358,21 +2401,16 @@ function drawWorksheetPages(doc, chars, opts) {
     pageNum++;
     curY = mt;
 
-    // タイトル
-    doc.setFontSize(10);
-    doc.setTextColor(r, g, b);
-    doc.text(title, ml, 13);
+    // タイトル（Canvas経由で日本語描画）
+    addTextImage(title, ml, 14, 10, [r, g, b], 'left');
 
     // 名前欄
-    doc.setFontSize(8);
-    doc.setTextColor(90, 106, 154);
-    const nameLabel = childName || '';
-    doc.text(nameLabel, pw/2 - 5, 13);
-    doc.setDrawColor(r, g, b);
-    doc.setLineWidth(0.4);
-    if (!childName) {
-      // 空白なら記入用の下線を引く
-      doc.line(pw/2 - 5, 13.5, pw - mr, 13.5);
+    if (childName) {
+      addTextImage(childName, pw - mr, 14, 8, [90, 106, 154], 'right');
+    } else {
+      doc.setDrawColor(90, 106, 154);
+      doc.setLineWidth(0.4);
+      doc.line(pw/2, 13.5, pw - mr, 13.5);
     }
 
     // ヘッダー区切り線
@@ -2381,9 +2419,7 @@ function drawWorksheetPages(doc, chars, opts) {
     doc.line(ml, mt - 3, pw - mr, mt - 3);
 
     // フッター
-    doc.setFontSize(7);
-    doc.setTextColor(180, 180, 180);
-    doc.text(`- ${pageNum} -`, pw/2, ph - 8, { align: 'center' });
+    addTextImage(`- ${pageNum} -`, pw/2, ph - 5, 7, [180, 180, 180], 'center');
   }
 
   function ensureSpace() {
@@ -2456,9 +2492,7 @@ function drawWorksheetPages(doc, chars, opts) {
         const n = Math.min(cols, cellsLeft);
 
         if (rowI === 0) {
-          doc.setFontSize(7);
-          doc.setTextColor(r, g, b);
-          doc.text(char, ml - 6, curY + cs/2 + 1.5, { align: 'center' });
+          addTextImage(char, ml - 6, curY + cs/2 + 4, 9, [r, g, b], 'center');
         }
 
         for (let colI = 0; colI < n; colI++) {
