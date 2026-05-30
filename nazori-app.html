@@ -476,14 +476,6 @@
   .fader-arrow:active { transform: scale(0.93); }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -2281,6 +2273,7 @@ async function generateWorksheet() {
   try {
     // jsPDF を CDN から動的ロード
     await loadJsPDF();
+    await loadQRCode();
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
@@ -2289,7 +2282,7 @@ async function generateWorksheet() {
     // ※ jsPDFの標準フォントはラテン文字のみのため、Canvas経由でテキスト描画する
     const title = `なぞり書き練習ワークシート`;
 
-    drawWorksheetPages(doc, chars, {
+    await drawWorksheetPages(doc, chars, {
       repeat, cellSize, guide,
       opacity: opacity / 100,
       fontSize,
@@ -2298,6 +2291,8 @@ async function generateWorksheet() {
       orient,
       fitPage,
       layout,
+      siteName: 'すべての子どもの学びのためのデジタル教材',
+      siteUrl:  'https://education-tools-hash.github.io/for-all-children-to-learn/',
     });
 
     const filename = `nazori_worksheet_${chars.slice(0,4).join('')}.pdf`;
@@ -2324,13 +2319,48 @@ function loadJsPDF() {
   });
 }
 
-function drawWorksheetPages(doc, chars, opts) {
-  const { repeat, cellSize, guide, opacity, fontSize, title, childName, orient, fitPage, layout } = opts;
+function loadQRCode() {
+  return new Promise((resolve, reject) => {
+    if (window.QRCode) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('QRコードライブラリの読み込みに失敗しました'));
+    document.head.appendChild(s);
+  });
+}
+
+// QRコードをCanvas画像として生成してDataURLを返す
+function generateQRDataURL(url, size) {
+  return new Promise((resolve) => {
+    const div = document.createElement('div');
+    div.style.position = 'fixed';
+    div.style.left = '-9999px';
+    document.body.appendChild(div);
+    new QRCode(div, {
+      text: url,
+      width: size, height: size,
+      colorDark: '#2c3e6b',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    // QRCodejsはcanvasを非同期で描画する場合があるので少し待つ
+    setTimeout(() => {
+      const canvas = div.querySelector('canvas');
+      const dataUrl = canvas ? canvas.toDataURL('image/png') : null;
+      document.body.removeChild(div);
+      resolve(dataUrl);
+    }, 100);
+  });
+}
+
+async function drawWorksheetPages(doc, chars, opts) {
+  const { repeat, cellSize, guide, opacity, fontSize, title, childName, orient, fitPage, layout, siteName, siteUrl } = opts;
 
   // 向きに応じてページサイズを切り替え
   const pw = orient === 'l' ? 297 : 210;
   const ph = orient === 'l' ? 210 : 297;
-  const ml = 18, mr = 15, mt = 24, mb = 16, gap = 3;
+  const ml = 18, mr = 15, mt = 24, mb = 22, gap = 3;
   const avail_w = pw - ml - mr;
   const avail_h = ph - mt - mb;
 
@@ -2374,6 +2404,11 @@ function drawWorksheetPages(doc, chars, opts) {
     ? chars.length
     : Math.max(1, Math.floor((avail_w + gap) / (cs + gap)));
   const r = 44, g = 62, b = 107;  // インク色
+
+  // QRコードを事前生成（全ページ共通）
+  const qrPixels = Math.round(mb * 4);
+  const qrDataUrl = await generateQRDataURL(siteUrl, qrPixels);
+  addPage._qrDataUrl = qrDataUrl;
 
   // 日本語テキストをCanvas経由でPDFに描画（文字化け防止）
   function addTextImage(text, x, y, fontSize, color, align) {
@@ -2426,8 +2461,27 @@ function drawWorksheetPages(doc, chars, opts) {
     doc.setLineWidth(0.5);
     doc.line(ml, mt - 3, pw - mr, mt - 3);
 
-    // フッター
-    addTextImage(`- ${pageNum} -`, pw/2, ph - 5, 7, [180, 180, 180], 'center');
+    // フッター：ページ番号 ＋ サイト名＋URL ＋ QRコード
+    const footerY = ph - mb + 3;  // フッターエリアの上端
+
+    // ページ番号（左端）
+    addTextImage(`- ${pageNum} -`, ml, footerY + 5, 7, [160, 160, 160], 'left');
+
+    // サイト名（中央）
+    addTextImage(siteName, pw/2, footerY + 4, 6.5, [90, 106, 154], 'center');
+    // URL（中央・サイト名の下）
+    addTextImage(siteUrl, pw/2, footerY + 10, 5.5, [130, 150, 180], 'center');
+
+    // QRコード（右端）- 事前に生成済みのものを使用
+    if (addPage._qrDataUrl) {
+      const qrSize = mb - 4;
+      doc.addImage(addPage._qrDataUrl, 'PNG', pw - mr - qrSize, footerY + 1, qrSize, qrSize);
+    }
+
+    // フッター上部の区切り線
+    doc.setDrawColor(200, 210, 225);
+    doc.setLineWidth(0.4);
+    doc.line(ml, footerY - 1, pw - mr, footerY - 1);
   }
 
   function ensureSpace() {
