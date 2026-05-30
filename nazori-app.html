@@ -476,14 +476,6 @@
   .fader-arrow:active { transform: scale(0.93); }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -693,6 +685,7 @@
     <div class="divider"></div>
     <div class="btn-row">
       <button class="btn btn-primary" id="startPracticeBtn">✏️ 練習をはじめる</button>
+      <button class="btn btn-secondary" id="printSheetBtn">📄 印刷用ワークシート</button>
     </div>
   </div>
 
@@ -907,6 +900,88 @@
     </div>
     <div style="padding:0 24px 24px;">
       <button onclick="closeHelp()" style="width:100%; padding:13px; background:linear-gradient(135deg,#ff8c69,#ff6b45); color:#fff; border:none; border-radius:12px; font-family:'BIZ UDPGothic',sans-serif; font-size:1rem; font-weight:700; cursor:pointer;">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 印刷ワークシートモーダル -->
+<div id="printModal" style="display:none; position:fixed; inset:0; z-index:600; background:rgba(44,62,107,0.4); align-items:center; justify-content:center; padding:16px; overflow-y:auto;">
+  <div style="background:#fff; border-radius:20px; width:100%; max-width:460px; max-height:calc(100vh - 32px); display:flex; flex-direction:column; box-shadow:0 16px 48px rgba(44,62,107,0.2); overflow:hidden; margin:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 12px; border-bottom:1px solid #e8eef5;">
+      <div style="font-family:'BIZ UDPMincho',serif; font-size:1.1rem; font-weight:700; color:#2c3e6b;">📄 印刷用ワークシート</div>
+      <button onclick="closePrintModal()" style="background:none;border:none;cursor:pointer;font-size:1.3rem;color:#5a6a9a;padding:4px 8px;border-radius:8px;">✕</button>
+    </div>
+    <div style="padding:18px 22px; display:flex; flex-direction:column; gap:14px; overflow-y:auto; flex:1;">
+
+      <div style="background:#e8f4fd; border-radius:12px; padding:12px 16px; font-size:0.85rem; color:#2c3e6b; line-height:1.6;">
+        先生モードの設定（文字・ガイド線・サイズ）をそのままA4ワークシートとしてダウンロードできます。ブラウザで開いて印刷してください。
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">📝 シートのメモ欄（任意）</div>
+        <input type="text" id="wsChildName" placeholder="例：たなか ゆい／2024年6月／れんしゅう1" style="font-size:1rem;">
+        <div style="font-size:0.78rem;color:var(--ink-light);">名前・日付・目標など自由に入力できます。シート右上に印刷されます。</div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">🔁 1文字あたりのマス数</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="range" id="wsRepeat" min="3" max="10" value="6" step="1"
+            oninput="document.getElementById('wsRepeatVal').textContent=this.value+'マス'">
+          <span id="wsRepeatVal" style="font-size:0.9rem;font-weight:700;color:var(--peach);min-width:50px;">6マス</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">📐 マスのサイズ</div>
+        <select id="wsCellSize" style="font-size:1rem;">
+          <option value="22">小（22mm）</option>
+          <option value="28">中（28mm）</option>
+          <option value="34" selected>大（34mm）</option>
+          <option value="40">特大（40mm）</option>
+          <option value="50">特特大（50mm）</option>
+          <option value="60">超特大（60mm）</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">📐 ガイド線</div>
+        <select id="wsGuide" style="font-size:1rem;">
+          <option value="cross">十字線</option>
+          <option value="grid">マス目</option>
+          <option value="box" selected>外枠のみ</option>
+          <option value="none">なし</option>
+        </select>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">📄 用紙の向き</div>
+        <div style="display:flex;gap:10px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:10px 14px;transition:border-color 0.15s;">
+            <input type="radio" name="wsOrientation" id="wsOrientPort" value="p" checked style="accent-color:var(--peach);width:18px;height:18px;">
+            <span style="font-size:0.95rem;font-weight:700;">📄 縦（A4）</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:10px 14px;transition:border-color 0.15s;">
+            <input type="radio" name="wsOrientation" id="wsOrientLand" value="l" style="accent-color:var(--peach);width:18px;height:18px;">
+            <span style="font-size:0.95rem;font-weight:700;">🗒 横（A4）</span>
+          </label>
+        </div>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--sun-light,#fffde7);border:2px solid var(--sun,#ffd166);border-radius:10px;padding:10px 14px;">
+        <input type="checkbox" id="wsFitPage" style="accent-color:var(--peach);width:18px;height:18px;flex-shrink:0;">
+        <div>
+          <div style="font-size:0.95rem;font-weight:700;color:var(--ink);">📐 1ページに収める</div>
+          <div style="font-size:0.78rem;color:var(--ink-light);margin-top:2px;">文字数・マス数が多い場合、マスを自動で縮小して1ページに収めます</div>
+        </div>
+      </label>
+
+      <div id="wsPrintStatus" style="font-size:0.85rem; color:#5a6a9a; min-height:1.4em; text-align:center;"></div>
+
+    </div>
+    <div style="padding:0 22px 20px; display:flex; gap:10px;">
+      <button onclick="closePrintModal()" class="btn btn-secondary" style="flex:1;">キャンセル</button>
+      <button onclick="generateWorksheet()" class="btn btn-primary" id="wsGenerateBtn" style="flex:2;">📥 PDFを生成してダウンロード</button>
     </div>
   </div>
 </div>
@@ -2112,6 +2187,227 @@ function closeHelp() {
 document.getElementById('helpModal').addEventListener('click', function(e) {
   if (e.target === this) closeHelp();
 });
+
+// =============================================
+// 印刷用ワークシート生成
+// =============================================
+function openPrintModal() {
+  // 先生モードの設定を同期
+  const guideEl = document.getElementById('guideLineSelect');
+  const wsGuide = document.getElementById('wsGuide');
+  if (guideEl && wsGuide) wsGuide.value = guideEl.value;
+  document.getElementById('printModal').style.display = 'flex';
+}
+function closePrintModal() {
+  document.getElementById('printModal').style.display = 'none';
+}
+document.getElementById('printModal').addEventListener('click', function(e) {
+  if (e.target === this) closePrintModal();
+});
+document.getElementById('printSheetBtn').addEventListener('click', openPrintModal);
+
+async function generateWorksheet() {
+  const chars = document.getElementById('charInput').value.trim();
+  if (!chars) { showToast('先生モードで文字を入力してください'); closePrintModal(); return; }
+
+  const childName = document.getElementById('wsChildName').value.trim();
+  const repeat    = +document.getElementById('wsRepeat').value;
+  const cellSize  = +document.getElementById('wsCellSize').value;
+  const guide     = document.getElementById('wsGuide').value;
+  const orient    = document.querySelector('input[name="wsOrientation"]:checked').value;
+  const fitPage   = document.getElementById('wsFitPage').checked;
+  const opacity   = S.opacity;           // 先生モードの薄さ設定
+  const fontSize  = S.fontSize / 100;    // 比率に変換
+
+  const btn    = document.getElementById('wsGenerateBtn');
+  const status = document.getElementById('wsPrintStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ 生成中…';
+  status.textContent = 'PDFを生成しています。しばらくお待ちください。';
+
+  try {
+    // jsPDF を CDN から動的ロード
+    await loadJsPDF();
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: orient, unit: 'mm', format: 'a4' });
+
+    // フォント（日本語対応のためNotoフォントBase64を使用）
+    // ※ jsPDFの標準フォントはラテン文字のみのため、Canvas経由でテキスト描画する
+    const title = `なぞり書き練習ワークシート`;
+
+    drawWorksheetPages(doc, chars, {
+      repeat, cellSize, guide,
+      opacity: opacity / 100,
+      fontSize,
+      title,
+      childName,
+      orient,
+      fitPage,
+    });
+
+    const filename = `nazori_worksheet_${chars.substring(0,4)}.pdf`;
+    doc.save(filename);
+
+    status.textContent = '✅ ダウンロードしました！';
+    showToast('📄 PDFをダウンロードしました');
+    setTimeout(() => { btn.disabled=false; btn.textContent='📥 PDFを生成してダウンロード'; }, 1500);
+  } catch(e) {
+    console.error(e);
+    status.textContent = '❌ 生成に失敗しました: ' + e.message;
+    btn.disabled=false; btn.textContent='📥 PDFを生成してダウンロード';
+  }
+}
+
+function loadJsPDF() {
+  return new Promise((resolve, reject) => {
+    if (window.jspdf) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('jsPDFの読み込みに失敗しました'));
+    document.head.appendChild(s);
+  });
+}
+
+function drawWorksheetPages(doc, chars, opts) {
+  const { repeat, cellSize, guide, opacity, fontSize, title, childName, orient, fitPage } = opts;
+
+  // 向きに応じてページサイズを切り替え
+  const pw = orient === 'l' ? 297 : 210;
+  const ph = orient === 'l' ? 210 : 297;
+  const ml = 18, mr = 15, mt = 24, mb = 16, gap = 3;
+  const avail_w = pw - ml - mr;
+  const avail_h = ph - mt - mb;
+
+  // 1ページに収めるモード：セルサイズを自動縮小
+  let cs = cellSize;
+  if (fitPage) {
+    const totalCharGap = chars.length * 4;
+    let lo = 10, hi = cellSize;
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      const c = Math.max(1, Math.floor((avail_w + gap) / (mid + gap)));
+      const rows = chars.reduce((s, _) => s + Math.ceil(repeat / c), 0);
+      const h = rows * (mid + gap) + totalCharGap;
+      if (h <= avail_h) lo = mid; else hi = mid;
+    }
+    cs = Math.max(10, Math.floor(lo));
+  }
+  const cols = Math.max(1, Math.floor((avail_w + gap) / (cs + gap)));
+  const r = 44, g = 62, b = 107;  // インク色
+
+  let pageNum = 0;
+  let curY = mt;
+
+  function addPage() {
+    if (pageNum > 0) doc.addPage();
+    pageNum++;
+    curY = mt;
+
+    // タイトル
+    doc.setFontSize(10);
+    doc.setTextColor(r, g, b);
+    doc.text(title, ml, 13);
+
+    // 名前欄
+    doc.setFontSize(8);
+    doc.setTextColor(90, 106, 154);
+    const nameLabel = childName || '';
+    doc.text(nameLabel, pw/2 - 5, 13);
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(0.4);
+    if (!childName) {
+      // 空白なら記入用の下線を引く
+      doc.line(pw/2 - 5, 13.5, pw - mr, 13.5);
+    }
+
+    // ヘッダー区切り線
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(0.5);
+    doc.line(ml, mt - 3, pw - mr, mt - 3);
+
+    // フッター
+    doc.setFontSize(7);
+    doc.setTextColor(180, 180, 180);
+    doc.text(`- ${pageNum} -`, pw/2, ph - 8, { align: 'center' });
+  }
+
+  function ensureSpace() {
+    if (pageNum === 0 || curY + cs > ph - mb) addPage();
+  }
+
+  // Canvas で文字をレンダリングしてPDFに埋め込む
+  function drawCharCell(x, y, char) {
+    // 解像度を高くしてPDFでもくっきり表示（4倍解像度）
+    const scale = 4;
+    const canvasSize = Math.round(cs * 3.78 * scale);
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = tmpCanvas.height = canvasSize;
+    const ctx = tmpCanvas.getContext('2d');
+
+    // ガイド線
+    ctx.strokeStyle = `rgba(${r},${g},${b},0.15)`;
+    ctx.lineWidth = scale;
+    if (guide === 'cross' || guide === 'grid') {
+      ctx.beginPath();
+      ctx.moveTo(canvasSize/2,0); ctx.lineTo(canvasSize/2,canvasSize);
+      ctx.moveTo(0,canvasSize/2); ctx.lineTo(canvasSize,canvasSize/2);
+      ctx.stroke();
+    }
+    if (guide === 'grid') {
+      ctx.beginPath();
+      [0.25,0.75].forEach(f=>{
+        ctx.moveTo(canvasSize*f,0); ctx.lineTo(canvasSize*f,canvasSize);
+        ctx.moveTo(0,canvasSize*f); ctx.lineTo(canvasSize,canvasSize*f);
+      });
+      ctx.stroke();
+    }
+    if (guide !== 'none') {
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.35)`;
+      ctx.lineWidth = scale * 2;
+      ctx.strokeRect(scale, scale, canvasSize - scale*2, canvasSize - scale*2);
+    }
+
+    // ゴースト文字（canvasSizeに比例したフォントサイズ）
+    const fs = Math.round(canvasSize * fontSize);
+    ctx.font = `bold ${fs}px "BIZ UDPMincho", serif`;
+    ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(char, canvasSize/2, canvasSize/2);
+
+    // PDFに画像として貼り付け（mm単位で正しいサイズに）
+    const imgData = tmpCanvas.toDataURL('image/png');
+    doc.addImage(imgData, 'PNG', x, y, cs, cs);
+  }
+
+  for (const char of chars) {
+    const rowsNeeded = Math.ceil(repeat / cols);
+    let cellsLeft = repeat;
+
+    for (let rowI = 0; rowI < rowsNeeded; rowI++) {
+      ensureSpace();
+      const n = Math.min(cols, cellsLeft);
+
+      // 行ラベル（最初の行のみ）
+      if (rowI === 0) {
+        doc.setFontSize(7);
+        doc.setTextColor(r, g, b);
+        doc.text(char, ml - 6, curY + cs/2 + 1.5, { align: 'center' });
+      }
+
+      for (let colI = 0; colI < n; colI++) {
+        const cx = ml + colI * (cs + gap);
+        drawCharCell(cx, curY, char);
+      }
+
+      cellsLeft -= n;
+      curY += cs + gap;
+    }
+    curY += 4;
+  }
+}
 
 </script>
 </body>
