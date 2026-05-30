@@ -476,14 +476,6 @@
   .fader-arrow:active { transform: scale(0.93); }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -669,6 +661,16 @@
         </div>
 
         <div class="setting-group">
+          <div class="setting-label">✒️ お手本の太さ</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" id="fontWeightBtns">
+            <button class="btn btn-secondary" data-weight="200" style="flex:1;padding:8px;font-size:0.85rem;" onclick="setFontWeight(200,this)"><span style="font-weight:200;">細</span></button>
+            <button class="btn btn-secondary" data-weight="400" style="flex:1;padding:8px;font-size:0.85rem;" onclick="setFontWeight(400,this)"><span style="font-weight:400;">普通</span></button>
+            <button class="btn btn-primary"   data-weight="700" style="flex:1;padding:8px;font-size:0.85rem;" onclick="setFontWeight(700,this)"><span style="font-weight:700;">太</span></button>
+            <button class="btn btn-secondary" data-weight="900" style="flex:1;padding:8px;font-size:0.85rem;" onclick="setFontWeight(900,this)"><span style="font-weight:900;">極太</span></button>
+          </div>
+        </div>
+
+        <div class="setting-group">
           <div class="setting-label">📐 ガイド線</div>
           <select id="guideLineSelect">
             <option value="cross">十字線</option>
@@ -679,8 +681,18 @@
         </div>
 
         <div class="setting-group">
-          <div class="setting-label">🎨 お手本の色</div>
+          <div class="setting-label">🎨 お手本の色・濃淡</div>
           <div class="color-palette" id="guideColorPalette"></div>
+          <div class="range-row" style="margin-top:8px;">
+            <span style="font-size:0.82rem;color:var(--ink-light);">薄</span>
+            <input type="range" id="colorLightnessRange" min="0" max="80" value="0" step="5"
+              oninput="applyColorLightness(this.value)">
+            <span style="font-size:0.82rem;color:var(--ink-light);">濃</span>
+            <span class="range-value" id="colorLightnessVal" style="min-width:32px;">標準</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--ink-light);margin-top:2px;">
+            スライダーで色の濃淡を調整できます
+          </div>
         </div>
 
         <div class="setting-group">
@@ -1018,6 +1030,41 @@
         </div>
       </label>
 
+      <div class="setting-group">
+        <div class="setting-label">✒️ お手本の太さ</div>
+        <div style="display:flex;gap:8px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:8px 10px;">
+            <input type="radio" name="wsFontWeight" value="200" style="accent-color:var(--peach);">
+            <span style="font-weight:200;font-size:0.9rem;">細</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:8px 10px;">
+            <input type="radio" name="wsFontWeight" value="400" style="accent-color:var(--peach);">
+            <span style="font-weight:400;font-size:0.9rem;">普通</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:8px 10px;">
+            <input type="radio" name="wsFontWeight" value="700" checked style="accent-color:var(--peach);">
+            <span style="font-weight:700;font-size:0.9rem;">太</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:8px 10px;">
+            <input type="radio" name="wsFontWeight" value="900" style="accent-color:var(--peach);">
+            <span style="font-weight:900;font-size:0.9rem;">極太</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">🎨 お手本の色・濃淡</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="wsColorPalette"></div>
+        <div class="range-row" style="margin-top:8px;">
+          <span style="font-size:0.82rem;color:var(--ink-light);">薄</span>
+          <input type="range" id="wsColorLightness" min="0" max="80" value="0" step="5"
+            oninput="document.getElementById('wsColorLightnessVal').textContent=
+              this.value==0?'標準':this.value<30?'やや薄':this.value<60?'薄い':'とても薄'">
+          <span style="font-size:0.82rem;color:var(--ink-light);">濃</span>
+          <span class="range-value" id="wsColorLightnessVal" style="min-width:52px;">標準</span>
+        </div>
+      </div>
+
       <div id="wsPrintStatus" style="font-size:0.85rem; color:#5a6a9a; min-height:1.4em; text-align:center;"></div>
 
     </div>
@@ -1070,10 +1117,12 @@ const S = {
   currentPage: 0,
   repeatCount: 3,
   guideColor: '#2c3e6b',
+  colorLightness: 0,   // 0=標準, 正=薄く(白混じり), 負=濃く
   traceColor: '#ff8c69',
   brushColor: '#ff8c69',
   brushSize: 12,
   fontSize: 88,
+  fontWeight: 700,   // 200=細 400=普通 700=太 900=極太
   opacity: 22,
   guideStyle: 'box',
   cellSize: 300,
@@ -1120,8 +1169,10 @@ const KATAKANA = 'アイウエオカキクケコサシスセソタチツテト�
 const NUMS = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 const GUIDE_COLORS = [
-  {v:'#2c3e6b',l:'濃紺'},{v:'#e74c3c',l:'赤'},{v:'#16a085',l:'緑'},
-  {v:'#8e44ad',l:'紫'},{v:'#e67e22',l:'橙'},{v:'#95a5a6',l:'灰'},
+  {v:'#2c3e6b',l:'濃紺'},{v:'#5a7ab5',l:'中紺'},{v:'#a0b4d8',l:'薄紺'},
+  {v:'#c0392b',l:'赤'},{v:'#e88080',l:'薄赤'},{v:'#16a085',l:'緑'},
+  {v:'#7dcea0',l:'薄緑'},{v:'#8e44ad',l:'紫'},{v:'#c39bd3',l:'薄紫'},
+  {v:'#e67e22',l:'橙'},{v:'#f0b27a',l:'薄橙'},{v:'#888888',l:'灰'},
 ];
 const TRACE_COLORS = [
   {v:'#ff8c69',l:'サーモン'},{v:'#5ec2a0',l:'ミント'},{v:'#a78bfa',l:'ラベンダー'},
@@ -1455,6 +1506,18 @@ function updateRange(el) {
 // =============================================
 // 先生モード
 // =============================================
+function setFontWeight(w, btn) {
+  S.fontWeight = w;
+  // ボタンのアクティブ状態を更新
+  document.querySelectorAll('#fontWeightBtns button').forEach(b => {
+    b.className = 'btn btn-secondary';
+    b.style.flex = '1'; b.style.padding = '8px'; b.style.fontSize = '0.85rem';
+  });
+  btn.className = 'btn btn-primary';
+  btn.style.flex = '1'; btn.style.padding = '8px'; btn.style.fontSize = '0.85rem';
+  renderTeacherGuide();
+}
+
 function attachTeacherEvents() {
   const bind = (id, stateKey, display, onChange) => {
     const el = document.getElementById(id);
@@ -1496,7 +1559,7 @@ function drawGuideChar(ctx, s, char, color, fontSize, opacity) {
   ctx.save();
   ctx.globalAlpha = opacity/100;
   ctx.fillStyle = `rgb(${r},${g},${b})`;
-  ctx.font = `bold ${Math.round(s*fontSize/100)}px "BIZ UDPMincho", serif`;
+  ctx.font = `${S.fontWeight} ${Math.round(s*fontSize/100)}px "BIZ UDPMincho", serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(char, s/2, s/2);
   ctx.restore();
@@ -1506,6 +1569,36 @@ function renderOnCanvas(gCanvas, char, style, color, fontSize, opacity) {
   ctx.clearRect(0,0,s,s);
   drawGuideLines(ctx,s,style);
   drawGuideChar(ctx,s,char,color,fontSize,opacity);
+}
+
+
+// ── 色の濃淡調整 ──────────────────────────────────────────────────
+// HEXをRGBに変換
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+// RGBをHEXに変換
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+// 白を混ぜて薄くする（amount: 0〜1）
+function lightenColor(hex, amount) {
+  const [r,g,b] = hexToRgb(hex);
+  return rgbToHex(r + (255-r)*amount, g + (255-g)*amount, b + (255-b)*amount);
+}
+
+// 濃淡スライダー変更時
+function applyColorLightness(val) {
+  const v = parseInt(val);
+  S.colorLightness = v;
+  const label = document.getElementById('colorLightnessVal');
+  if (label) label.textContent = v === 0 ? '標準' : v < 30 ? 'やや薄' : v < 60 ? '薄い' : 'とても薄';
+  // 基準色に濃淡を適用してS.guideColorを更新
+  const base = S.guideColorBase || S.guideColor;
+  S.guideColorBase = base;
+  S.guideColor = v === 0 ? base : lightenColor(base, v / 100);
+  renderTeacherGuide();
 }
 
 // =============================================
@@ -1534,6 +1627,7 @@ function startPractice() {
   S.repeatCount = +document.getElementById('repeatRange').value;
   S.guideStyle  = document.getElementById('guideLineSelect').value;
   S.fontSize    = +document.getElementById('fontSizeRange').value;
+  // fontWeightはボタンで既に設定済みなのでそのまま引き継ぎ
   S.opacity     = +document.getElementById('opacityRange').value;
   S.cellSize    = +document.getElementById('canvasSizeSelect').value;
   S.practiceStyle = document.getElementById('practiceStyleSelect').value;
@@ -2247,6 +2341,53 @@ function openPrintModal() {
   const guideEl = document.getElementById('guideLineSelect');
   const wsGuide = document.getElementById('wsGuide');
   if (guideEl && wsGuide) wsGuide.value = guideEl.value;
+
+  // 太さを先生モードに合わせる
+  const fw = S.fontWeight || 700;
+  const fwRadio = document.querySelector(`input[name="wsFontWeight"][value="${fw}"]`);
+  if (fwRadio) fwRadio.checked = true;
+
+  // 色パレットを初期化（未初期化の場合のみ）
+  const wsPalette = document.getElementById('wsColorPalette');
+  if (wsPalette && wsPalette.children.length === 0) {
+    const WS_COLORS = [
+      {v:'#2c3e6b',l:'濃紺'},{v:'#5a7ab5',l:'中紺'},{v:'#a0b4d8',l:'薄紺'},
+      {v:'#c0392b',l:'赤'},{v:'#e88080',l:'薄赤'},{v:'#16a085',l:'緑'},
+      {v:'#7dcea0',l:'薄緑'},{v:'#8e44ad',l:'紫'},{v:'#c39bd3',l:'薄紫'},
+      {v:'#e67e22',l:'橙'},{v:'#f0b27a',l:'薄橙'},{v:'#888888',l:'灰'},
+    ];
+    WS_COLORS.forEach(c => {
+      const btn = document.createElement('button');
+      btn.style.cssText = `width:28px;height:28px;border-radius:50%;border:3px solid transparent;
+        background:${c.v};cursor:pointer;transition:transform 0.15s;`;
+      btn.title = c.l;
+      if (c.v === '#2c3e6b') btn.style.borderColor = '#fff';
+      btn.addEventListener('click', () => {
+        wsPalette.querySelectorAll('button').forEach(b => b.style.borderColor = 'transparent');
+        btn.style.borderColor = '#fff';
+        btn.style.boxShadow = '0 0 0 2px ' + c.v;
+        btn._wsColor = c.v;
+      });
+      btn._wsColor = c.v;
+      wsPalette.appendChild(btn);
+    });
+    // デフォルト選択（最初のボタン）
+    wsPalette.firstChild._isSelected = true;
+  }
+
+  // 先生モードの色に合わせる
+  const matchBtn = Array.from(wsPalette.querySelectorAll('button'))
+    .find(b => b._wsColor === (S.guideColorBase || S.guideColor));
+  if (matchBtn) matchBtn.click();
+
+  // 濃淡を先生モードに合わせる
+  const lRange = document.getElementById('wsColorLightness');
+  const lVal   = document.getElementById('wsColorLightnessVal');
+  if (lRange) {
+    lRange.value = S.colorLightness || 0;
+    lVal.textContent = lRange.value == 0 ? '標準' : lRange.value < 30 ? 'やや薄' : lRange.value < 60 ? '薄い' : 'とても薄';
+  }
+
   updateRepeatLabel();
   document.getElementById('printModal').style.display = 'flex';
 }
@@ -2267,10 +2408,19 @@ async function generateWorksheet() {
   const cellSize  = +document.getElementById('wsCellSize').value;
   const guide     = document.getElementById('wsGuide').value;
   const orient    = document.querySelector('input[name="wsOrientation"]:checked').value;
-  const fitPage   = document.getElementById('wsFitPage').checked;
-  const layout    = document.querySelector('input[name="wsLayout"]:checked').value; // 'vert' or 'horiz'
+  const fitPage      = document.getElementById('wsFitPage').checked;
+  const layout       = document.querySelector('input[name="wsLayout"]:checked').value;
+  const wsFontWeight = +(document.querySelector('input[name="wsFontWeight"]:checked')?.value || 700);
+  // 色パレットから選択色を取得
+  const wsPalette  = document.getElementById('wsColorPalette');
+  const selBtn     = Array.from(wsPalette?.querySelectorAll('button') || [])
+    .find(b => b.style.borderColor !== 'transparent' && b.style.borderColor !== '');
+  const wsBaseColor  = selBtn?._wsColor || S.guideColorBase || S.guideColor || '#2c3e6b';
+  const wsLightness  = +(document.getElementById('wsColorLightness')?.value || 0);
+  const wsGuideColor = wsLightness === 0 ? wsBaseColor : lightenColor(wsBaseColor, wsLightness / 100);
   const opacity   = S.opacity;           // 先生モードの薄さ設定
-  const fontSize  = S.fontSize / 100;    // 比率に変換
+  const fontSize  = S.fontSize / 100;
+  const fontWeight = S.fontWeight || 700;
 
   const btn    = document.getElementById('wsGenerateBtn');
   const status = document.getElementById('wsPrintStatus');
@@ -2299,6 +2449,8 @@ async function generateWorksheet() {
       orient,
       fitPage,
       layout,
+      fontWeight: wsFontWeight,
+      guideColor: wsGuideColor,
       siteName: 'すべての子どもの学びのためのデジタル教材',
       siteUrl:  'https://education-tools-hash.github.io/for-all-children-to-learn/',
     });
@@ -2363,12 +2515,12 @@ function generateQRDataURL(url, size) {
 }
 
 async function drawWorksheetPages(doc, chars, opts) {
-  const { repeat, cellSize, guide, opacity, fontSize, title, childName, orient, fitPage, layout, siteName, siteUrl } = opts;
+  const { repeat, cellSize, guide, opacity, fontSize, fontWeight, guideColor, title, childName, orient, fitPage, layout, siteName, siteUrl } = opts;
 
   // 向きに応じてページサイズを切り替え
   const pw = orient === 'l' ? 297 : 210;
   const ph = orient === 'l' ? 210 : 297;
-  const ml = 18, mr = 15, mt = 24, mb = 22, gap = 3;
+  const ml = 18, mr = 15, mt = 28, mb = 22, gap = 3;
   const avail_w = pw - ml - mr;
   const avail_h = ph - mt - mb;
 
@@ -2411,7 +2563,12 @@ async function drawWorksheetPages(doc, chars, opts) {
   const cols = layout === 'horiz'
     ? chars.length
     : Math.max(1, Math.floor((avail_w + gap) / (cs + gap)));
-  const r = 44, g = 62, b = 107;  // インク色
+  // インク色（先生設定の色を使用）
+  const _gc = guideColor || '#2c3e6b';
+  const _gr = parseInt(_gc.slice(1,3),16);
+  const _gg = parseInt(_gc.slice(3,5),16);
+  const _gb = parseInt(_gc.slice(5,7),16);
+  const r = _gr, g = _gg, b = _gb;
 
   // QRコードを事前生成（全ページ共通）
   const qrPixels = Math.round(mb * 4);
@@ -2419,7 +2576,7 @@ async function drawWorksheetPages(doc, chars, opts) {
   addPage._qrDataUrl = qrDataUrl;
 
   // 日本語テキストをCanvas経由でPDFに描画（文字化け防止）
-  function addTextImage(text, x, y, fontSize, color, align) {
+  function addTextImage(text, x, y, fontSize, color, align, fw) {
     if (!text) return;
     const scale = 3;
     const fs = fontSize * scale;
@@ -2427,11 +2584,11 @@ async function drawWorksheetPages(doc, chars, opts) {
     tmp.height = Math.ceil(fs * 1.4);
     // テキスト幅を計測
     const ctxM = tmp.getContext('2d');
-    ctxM.font = `bold ${fs}px "BIZ UDPMincho", serif`;
+    ctxM.font = `${fw||700} ${fs}px "BIZ UDPMincho", serif`;
     const tw = ctxM.measureText(text).width;
     tmp.width = Math.ceil(tw) + 4;
     const ctx = tmp.getContext('2d');
-    ctx.font = `bold ${fs}px "BIZ UDPMincho", serif`;
+    ctx.font = `${fw||700} ${fs}px "BIZ UDPMincho", serif`;
     const [cr, cg, cb] = color || [44, 62, 107];
     ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
     ctx.textBaseline = 'top';
@@ -2452,44 +2609,60 @@ async function drawWorksheetPages(doc, chars, opts) {
     pageNum++;
     curY = mt;
 
-    // タイトル（Canvas経由で日本語描画）
-    addTextImage(title, ml, 14, 10, [r, g, b], 'left');
+    // ── ヘッダー ──────────────────────────────────────────
+    // タイトル（大きめ）
+    addTextImage(title, ml, 15, 13, [r, g, b], 'left');
 
-    // 名前欄
+    // 名前欄：「なまえ（       ）」ラベル付き
+    const nameAreaX = pw / 2 + 5;
+    addTextImage('なまえ（', nameAreaX, 10, 9, [90, 106, 154], 'left');
     if (childName) {
-      addTextImage(childName, pw - mr, 14, 8, [90, 106, 154], 'right');
-    } else {
-      doc.setDrawColor(90, 106, 154);
-      doc.setLineWidth(0.4);
-      doc.line(pw/2, 13.5, pw - mr, 13.5);
+      addTextImage(childName, nameAreaX + 22, 10, 9, [r, g, b], 'left');
     }
+    addTextImage('）', pw - mr - 2, 10, 9, [90, 106, 154], 'right');
+    // 名前下線
+    doc.setDrawColor(130, 150, 190);
+    doc.setLineWidth(0.5);
+    doc.line(nameAreaX + 20, 11, pw - mr, 11);
+
+    // 日付欄：「　　月　　日（　）」
+    addTextImage('月', nameAreaX + 8, 18, 8, [90, 106, 154], 'left');
+    addTextImage('日（', nameAreaX + 22, 18, 8, [90, 106, 154], 'left');
+    addTextImage('）', nameAreaX + 44, 18, 8, [90, 106, 154], 'left');
+    // 月の前の下線
+    doc.setLineWidth(0.4);
+    doc.line(nameAreaX, 19, nameAreaX + 7, 19);
+    // 日の前の下線
+    doc.line(nameAreaX + 13, 19, nameAreaX + 21, 19);
+    // 曜日の下線（括弧内）
+    doc.line(nameAreaX + 27, 19, nameAreaX + 42, 19);
 
     // ヘッダー区切り線
     doc.setDrawColor(r, g, b);
-    doc.setLineWidth(0.5);
-    doc.line(ml, mt - 3, pw - mr, mt - 3);
+    doc.setLineWidth(0.6);
+    doc.line(ml, mt - 2, pw - mr, mt - 2);
 
-    // フッター：ページ番号 ＋ サイト名＋URL ＋ QRコード
-    const footerY = ph - mb + 3;  // フッターエリアの上端
-
-    // ページ番号（左端）
-    addTextImage(`- ${pageNum} -`, ml, footerY + 5, 7, [160, 160, 160], 'left');
-
-    // サイト名（中央）
-    addTextImage(siteName, pw/2, footerY + 4, 6.5, [90, 106, 154], 'center');
-    // URL（中央・サイト名の下）
-    addTextImage(siteUrl, pw/2, footerY + 10, 5.5, [130, 150, 180], 'center');
-
-    // QRコード（右端）- 事前に生成済みのものを使用
-    if (addPage._qrDataUrl) {
-      const qrSize = mb - 4;
-      doc.addImage(addPage._qrDataUrl, 'PNG', pw - mr - qrSize, footerY + 1, qrSize, qrSize);
-    }
+    // ── フッター ──────────────────────────────────────────
+    const footerY = ph - mb + 2;
 
     // フッター上部の区切り線
-    doc.setDrawColor(200, 210, 225);
+    doc.setDrawColor(180, 195, 220);
     doc.setLineWidth(0.4);
     doc.line(ml, footerY - 1, pw - mr, footerY - 1);
+
+    // ページ番号（左端）
+    addTextImage(`- ${pageNum} -`, ml, footerY + 6, 8, [160, 160, 160], 'left');
+
+    // QRコード（右端）
+    const qrSize = mb - 3;
+    if (addPage._qrDataUrl) {
+      doc.addImage(addPage._qrDataUrl, 'PNG', pw - mr - qrSize, footerY, qrSize, qrSize);
+    }
+
+    // サイト名＋URL（QRの左隣に）
+    const textRightEdge = pw - mr - qrSize - 3;
+    addTextImage(siteName, textRightEdge, footerY + 5, 8, [70, 90, 140], 'right');
+    addTextImage(siteUrl,  textRightEdge, footerY + 13, 7, [120, 140, 180], 'right');
   }
 
   function ensureSpace() {
@@ -2530,7 +2703,7 @@ async function drawWorksheetPages(doc, chars, opts) {
 
     // ゴースト文字（canvasSizeに比例したフォントサイズ）
     const fs = Math.round(canvasSize * fontSize);
-    ctx.font = `bold ${fs}px "BIZ UDPMincho", serif`;
+    ctx.font = `${fontWeight||700} ${fs}px "BIZ UDPMincho", serif`;
     ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
