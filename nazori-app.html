@@ -476,14 +476,6 @@
   .fader-arrow:active { transform: scale(0.93); }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -866,6 +858,20 @@
           <li>マスのサイズ・お手本の大きさ・薄さ・ガイド線などを調整します</li>
           <li>「練習をはじめる」を押すと練習モードに切り替わります</li>
         </ol>
+
+        <div style="margin-top:14px; background:#fff8f0; border-radius:12px; padding:14px 16px; border-left:4px solid #ff8c69;">
+          <div style="font-weight:700; color:#ff8c69; margin-bottom:8px; font-size:0.9rem;">📄 印刷用ワークシートの使い方</div>
+          <p style="font-size:0.88rem; color:#2c3e6b; line-height:1.75; margin-bottom:8px;">先生モードの「📄 印刷用ワークシート」ボタンを押すと、設定した文字をそのままA4サイズのなぞり書きシートとしてPDF出力できます。タブレットでの練習と紙での書字練習を組み合わせたハイブリッド学習に活用してください。</p>
+          <ol style="padding-left:1.4em; font-size:0.88rem; color:#2c3e6b; line-height:1.75; display:flex; flex-direction:column; gap:4px;">
+            <li><b>シートのメモ欄</b>：名前・日付・めあてなど自由に入力できます。シート右上に印刷されます</li>
+            <li><b>1文字あたりのマス数</b>：スライダーで3〜10マスを選択します</li>
+            <li><b>マスのサイズ</b>：小（22mm）〜超特大（60mm）の6段階から選べます</li>
+            <li><b>ガイド線</b>：十字線・マス目・外枠のみ・なし から選べます</li>
+            <li><b>用紙の向き</b>：縦（A4）または横（A4）を選択できます。文字数が多い場合や大きなマスを使うときは横向きがおすすめです</li>
+            <li><b>1ページに収める</b>：チェックすると文字数・マス数に合わせてマスを自動縮小し1ページにまとめます</li>
+            <li>「PDFを生成してダウンロード」を押すとPDFファイルがダウンロードされます。ブラウザで開いて印刷してください</li>
+          </ol>
+        </div>
       </div>
 
       <div>
@@ -937,6 +943,26 @@
           <input type="range" id="wsRepeat" min="3" max="10" value="6" step="1"
             oninput="document.getElementById('wsRepeatVal').textContent=this.value+'マス'">
           <span id="wsRepeatVal" style="font-size:0.9rem;font-weight:700;color:var(--peach);min-width:50px;">6マス</span>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <div class="setting-label">↔ 文字の並び順</div>
+        <div style="display:flex;gap:10px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:10px 14px;">
+            <input type="radio" name="wsLayout" id="wsLayoutVert" value="vert" checked style="accent-color:var(--peach);width:18px;height:18px;">
+            <div>
+              <div style="font-size:0.9rem;font-weight:700;">縦並び</div>
+              <div style="font-size:0.75rem;color:var(--ink-light);">同じ文字をまとめて練習</div>
+            </div>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;background:var(--sky);border:2px solid #e0e8f0;border-radius:10px;padding:10px 14px;">
+            <input type="radio" name="wsLayout" id="wsLayoutHoriz" value="horiz" style="accent-color:var(--peach);width:18px;height:18px;">
+            <div>
+              <div style="font-size:0.9rem;font-weight:700;">横並び</div>
+              <div style="font-size:0.75rem;color:var(--ink-light);">全文字を1行に並べて繰り返す</div>
+            </div>
+          </label>
         </div>
       </div>
 
@@ -2224,6 +2250,7 @@ async function generateWorksheet() {
   const guide     = document.getElementById('wsGuide').value;
   const orient    = document.querySelector('input[name="wsOrientation"]:checked').value;
   const fitPage   = document.getElementById('wsFitPage').checked;
+  const layout    = document.querySelector('input[name="wsLayout"]:checked').value; // 'vert' or 'horiz'
   const opacity   = S.opacity;           // 先生モードの薄さ設定
   const fontSize  = S.fontSize / 100;    // 比率に変換
 
@@ -2252,6 +2279,7 @@ async function generateWorksheet() {
       childName,
       orient,
       fitPage,
+      layout,
     });
 
     const filename = `nazori_worksheet_${chars.slice(0,4).join('')}.pdf`;
@@ -2279,7 +2307,7 @@ function loadJsPDF() {
 }
 
 function drawWorksheetPages(doc, chars, opts) {
-  const { repeat, cellSize, guide, opacity, fontSize, title, childName, orient, fitPage } = opts;
+  const { repeat, cellSize, guide, opacity, fontSize, title, childName, orient, fitPage, layout } = opts;
 
   // 向きに応じてページサイズを切り替え
   const pw = orient === 'l' ? 297 : 210;
@@ -2291,18 +2319,27 @@ function drawWorksheetPages(doc, chars, opts) {
   // 1ページに収めるモード：セルサイズを自動縮小
   let cs = cellSize;
   if (fitPage) {
-    const totalCharGap = chars.length * 4;
     let lo = 10, hi = cellSize;
     for (let i = 0; i < 40; i++) {
       const mid = (lo + hi) / 2;
-      const c = Math.max(1, Math.floor((avail_w + gap) / (mid + gap)));
-      const rows = chars.reduce((s, _) => s + Math.ceil(repeat / c), 0);
-      const h = rows * (mid + gap) + totalCharGap;
+      let totalRows;
+      if (layout === 'horiz') {
+        // 横並び：1行にchars.length個並べてrepeat行
+        totalRows = repeat;
+      } else {
+        const c = Math.max(1, Math.floor((avail_w + gap) / (mid + gap)));
+        totalRows = chars.reduce((s, _) => s + Math.ceil(repeat / c), 0);
+      }
+      const totalGap = layout === 'horiz' ? 0 : chars.length * 4;
+      const h = totalRows * (mid + gap) + totalGap;
       if (h <= avail_h) lo = mid; else hi = mid;
     }
     cs = Math.max(10, Math.floor(lo));
   }
-  const cols = Math.max(1, Math.floor((avail_w + gap) / (cs + gap)));
+  // 横並びの場合：1行にcharsが全部入るよう列数を文字数に合わせる
+  const cols = layout === 'horiz'
+    ? chars.length
+    : Math.max(1, Math.floor((avail_w + gap) / (cs + gap)));
   const r = 44, g = 62, b = 107;  // インク色
 
   let pageNum = 0;
@@ -2390,30 +2427,42 @@ function drawWorksheetPages(doc, chars, opts) {
     doc.addImage(imgData, 'PNG', x, y, cs, cs);
   }
 
-  for (const char of chars) {
-    const rowsNeeded = Math.ceil(repeat / cols);
-    let cellsLeft = repeat;
-
-    for (let rowI = 0; rowI < rowsNeeded; rowI++) {
+  if (layout === 'horiz') {
+    // ── 横並びモード：全文字を1行に並べてrepeat行 ──
+    for (let rowI = 0; rowI < repeat; rowI++) {
       ensureSpace();
-      const n = Math.min(cols, cellsLeft);
-
-      // 行ラベル（最初の行のみ）
-      if (rowI === 0) {
-        doc.setFontSize(7);
-        doc.setTextColor(r, g, b);
-        doc.text(char, ml - 6, curY + cs/2 + 1.5, { align: 'center' });
-      }
-
-      for (let colI = 0; colI < n; colI++) {
+      for (let colI = 0; colI < chars.length; colI++) {
         const cx = ml + colI * (cs + gap);
-        drawCharCell(cx, curY, char);
+        drawCharCell(cx, curY, chars[colI]);
       }
-
-      cellsLeft -= n;
       curY += cs + gap;
     }
-    curY += 4;
+  } else {
+    // ── 縦並びモード（従来）：同じ文字をまとめて並べる ──
+    for (const char of chars) {
+      const rowsNeeded = Math.ceil(repeat / cols);
+      let cellsLeft = repeat;
+
+      for (let rowI = 0; rowI < rowsNeeded; rowI++) {
+        ensureSpace();
+        const n = Math.min(cols, cellsLeft);
+
+        if (rowI === 0) {
+          doc.setFontSize(7);
+          doc.setTextColor(r, g, b);
+          doc.text(char, ml - 6, curY + cs/2 + 1.5, { align: 'center' });
+        }
+
+        for (let colI = 0; colI < n; colI++) {
+          const cx = ml + colI * (cs + gap);
+          drawCharCell(cx, curY, char);
+        }
+
+        cellsLeft -= n;
+        curY += cs + gap;
+      }
+      curY += 4;
+    }
   }
 }
 
