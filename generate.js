@@ -248,7 +248,7 @@ function generateDetailHTML(app) {
     "isAccessibleForFree": true,
     "author": {
       "@type": "Person",
-      "jobTitle": ["特別支援学校教員", "総合教育センター研究員"],
+      "jobTitle": ["特別支援学校教員", "元総合教育センター研究員"],
       "description": "現役の特別支援学校教員。日々の教育実践と研究をもとに、子どもたちのためのICTデジタル教材を開発・公開しています。"
     },
     "audience": {
@@ -1002,8 +1002,6 @@ function updatePurposeCards(apps) {
 // ============================================================
 const MANUAL_CHANGELOG = [
   { date: "2026-05-30", type: "update", text: "「なぞり書き練習ツール」にワークシートを印刷できる機能を追加しました。" },
-  { date: "2026-05-30", type: "update", text: "「なぞり書き練習ツール」にワークシートを印刷できる機能を追加しました。" },
-  { date: "2026-05-30", type: "update", text: "ワークシートを印刷できる機能を追加しました。" },
   // ここに「アプリ追加以外」の更新履歴を書く(機能追加・改修・お知らせなど)
   // 例: { date: "2026-04-20", type: "update", text: "ホーム画面を更新しました" },
   { date: "2026-04-20", type: "new",  text: "ホーム画面を更新しました" },
