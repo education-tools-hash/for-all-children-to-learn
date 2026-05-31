@@ -476,14 +476,6 @@
   .fader-arrow:active { transform: scale(0.93); }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -692,10 +684,10 @@
           <div class="setting-label">🎨 お手本の色・濃淡</div>
           <div class="color-palette" id="guideColorPalette"></div>
           <div class="range-row" style="margin-top:8px;">
-            <span style="font-size:0.82rem;color:var(--ink-light);">薄</span>
+            <span style="font-size:0.82rem;color:var(--ink-light);">濃</span>
             <input type="range" id="colorLightnessRange" min="0" max="80" value="0" step="5"
               oninput="applyColorLightness(this.value)">
-            <span style="font-size:0.82rem;color:var(--ink-light);">濃</span>
+            <span style="font-size:0.82rem;color:var(--ink-light);">薄</span>
             <span class="range-value" id="colorLightnessVal" style="min-width:32px;">標準</span>
           </div>
           <div style="font-size:0.78rem;color:var(--ink-light);margin-top:2px;">
@@ -960,9 +952,20 @@
       </div>
 
       <div class="setting-group">
-        <div class="setting-label">📝 シートのメモ欄（任意）</div>
-        <input type="text" id="wsChildName" placeholder="例：たなか ゆい／2024年6月／れんしゅう1" style="font-size:1rem;">
-        <div style="font-size:0.78rem;color:var(--ink-light);">名前・日付・目標など自由に入力できます。シート右上に印刷されます。</div>
+        <div class="setting-label">📋 右上のヘッダー欄</div>
+
+        <!-- なまえ欄 -->
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:8px;">
+          <input type="checkbox" id="wsShowName" checked style="accent-color:var(--peach);width:17px;height:17px;flex-shrink:0;">
+          <span style="font-size:0.9rem;font-weight:700;">なまえ欄を表示</span>
+        </label>
+        <input type="text" id="wsChildName" placeholder="あらかじめ名前を入れておく場合は入力（空欄でも下線が入ります）" style="font-size:0.95rem;margin-bottom:10px;">
+
+        <!-- 月日曜日欄 -->
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="wsShowDate" checked style="accent-color:var(--peach);width:17px;height:17px;flex-shrink:0;">
+          <span style="font-size:0.9rem;font-weight:700;">月・日・曜日欄を表示</span>
+        </label>
       </div>
 
       <div class="setting-group">
@@ -1064,11 +1067,11 @@
         <div class="setting-label">🎨 お手本の色・濃淡</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;" id="wsColorPalette"></div>
         <div class="range-row" style="margin-top:8px;">
-          <span style="font-size:0.82rem;color:var(--ink-light);">薄</span>
+          <span style="font-size:0.82rem;color:var(--ink-light);">濃</span>
           <input type="range" id="wsColorLightness" min="0" max="80" value="0" step="5"
             oninput="document.getElementById('wsColorLightnessVal').textContent=
               this.value==0?'標準':this.value<30?'やや薄':this.value<60?'薄い':'とても薄'">
-          <span style="font-size:0.82rem;color:var(--ink-light);">濃</span>
+          <span style="font-size:0.82rem;color:var(--ink-light);">薄</span>
           <span class="range-value" id="wsColorLightnessVal" style="min-width:52px;">標準</span>
         </div>
       </div>
@@ -1567,7 +1570,7 @@ function drawGuideChar(ctx, s, char, color, fontSize, opacity) {
   ctx.save();
   ctx.globalAlpha = opacity/100;
   ctx.fillStyle = `rgb(${r},${g},${b})`;
-  ctx.font = `${S.fontWeight} ${Math.round(s*fontSize/100)}px "BIZ UDPMincho", serif`;
+  ctx.font = `${S.fontWeight} ${Math.round(s*fontSize/100)}px "BIZ UDPGothic", sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(char, s/2, s/2);
   ctx.restore();
@@ -2412,6 +2415,8 @@ async function generateWorksheet() {
   if (!chars.length) { showToast('先生モードで文字を入力してください'); closePrintModal(); return; }
 
   const childName = document.getElementById('wsChildName').value.trim();
+  const showName  = document.getElementById('wsShowName')?.checked ?? true;
+  const showDate  = document.getElementById('wsShowDate')?.checked ?? true;
   const repeat    = +document.getElementById('wsRepeat').value;
   const cellSize  = +document.getElementById('wsCellSize').value;
   const guide     = document.getElementById('wsGuide').value;
@@ -2454,6 +2459,8 @@ async function generateWorksheet() {
       fontSize,
       title,
       childName,
+      showName,
+      showDate,
       orient,
       fitPage,
       layout,
@@ -2523,7 +2530,7 @@ function generateQRDataURL(url, size) {
 }
 
 async function drawWorksheetPages(doc, chars, opts) {
-  const { repeat, cellSize, guide, opacity, fontSize, fontWeight, guideColor, title, childName, orient, fitPage, layout, siteName, siteUrl } = opts;
+  const { repeat, cellSize, guide, opacity, fontSize, fontWeight, guideColor, title, childName, showName, showDate, orient, fitPage, layout, siteName, siteUrl } = opts;
 
   // 向きに応じてページサイズを切り替え
   const pw = orient === 'l' ? 297 : 210;
@@ -2592,11 +2599,11 @@ async function drawWorksheetPages(doc, chars, opts) {
     tmp.height = Math.ceil(fs * 1.4);
     // テキスト幅を計測
     const ctxM = tmp.getContext('2d');
-    ctxM.font = `${fw||700} ${fs}px "BIZ UDPMincho", serif`;
+    ctxM.font = `${fw||700} ${fs}px "BIZ UDPGothic", sans-serif`;
     const tw = ctxM.measureText(text).width;
     tmp.width = Math.ceil(tw) + 4;
     const ctx = tmp.getContext('2d');
-    ctx.font = `${fw||700} ${fs}px "BIZ UDPMincho", serif`;
+    ctx.font = `${fw||700} ${fs}px "BIZ UDPGothic", sans-serif`;
     const [cr, cg, cb] = color || [44, 62, 107];
     ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
     ctx.textBaseline = 'top';
@@ -2618,32 +2625,42 @@ async function drawWorksheetPages(doc, chars, opts) {
     curY = mt;
 
     // ── ヘッダー ──────────────────────────────────────────
-    // タイトル（大きめ）
+    // タイトル（左上・大きめ）
     addTextImage(title, ml, 15, 13, [r, g, b], 'left');
 
-    // 名前欄：「なまえ（       ）」ラベル付き
-    const nameAreaX = pw / 2 + 5;
-    addTextImage('なまえ（', nameAreaX, 10, 9, [90, 106, 154], 'left');
-    if (childName) {
-      addTextImage(childName, nameAreaX + 22, 10, 9, [r, g, b], 'left');
-    }
-    addTextImage('）', pw - mr - 2, 10, 9, [90, 106, 154], 'right');
-    // 名前下線
-    doc.setDrawColor(130, 150, 190);
-    doc.setLineWidth(0.5);
-    doc.line(nameAreaX + 20, 11, pw - mr, 11);
+    // 右上：なまえ欄（1行目）・月日曜日欄（2行目）
+    const nameAreaX = pw / 2 + 10;
 
-    // 日付欄：「　　月　　日（　）」
-    addTextImage('月', nameAreaX + 8, 18, 8, [90, 106, 154], 'left');
-    addTextImage('日（', nameAreaX + 22, 18, 8, [90, 106, 154], 'left');
-    addTextImage('）', nameAreaX + 44, 18, 8, [90, 106, 154], 'left');
-    // 月の前の下線
-    doc.setLineWidth(0.4);
-    doc.line(nameAreaX, 19, nameAreaX + 7, 19);
-    // 日の前の下線
-    doc.line(nameAreaX + 13, 19, nameAreaX + 21, 19);
-    // 曜日の下線（括弧内）
-    doc.line(nameAreaX + 27, 19, nameAreaX + 42, 19);
+    if (showName) {
+      // 「なまえ」ラベル
+      addTextImage('なまえ', nameAreaX, 11, 9, [90, 106, 154], 'left');
+      // 記入済みの場合は名前テキストを挿入
+      if (childName) {
+        addTextImage(childName, nameAreaX + 18, 11, 9, [r, g, b], 'left');
+      }
+      // 名前の下線（「なまえ」の右端〜ページ右端）
+      doc.setDrawColor(100, 120, 170);
+      doc.setLineWidth(0.6);
+      doc.line(nameAreaX + 17, 12.5, pw - mr, 12.5);
+    }
+
+    if (showDate) {
+      const dateY = showName ? 21 : 13;
+      const dateLineY = dateY + 1.5;
+      // 「　　月　　日（　　）」
+      // 月の前の下線
+      doc.setDrawColor(130, 150, 190);
+      doc.setLineWidth(0.5);
+      doc.line(nameAreaX, dateLineY, nameAreaX + 10, dateLineY);
+      addTextImage('月', nameAreaX + 11, dateY, 9, [90, 106, 154], 'left');
+      // 日の前の下線
+      doc.line(nameAreaX + 19, dateLineY, nameAreaX + 29, dateLineY);
+      addTextImage('日', nameAreaX + 30, dateY, 9, [90, 106, 154], 'left');
+      // 曜日の括弧と下線
+      addTextImage('（', nameAreaX + 37, dateY, 9, [90, 106, 154], 'left');
+      doc.line(nameAreaX + 42, dateLineY, nameAreaX + 55, dateLineY);
+      addTextImage('）', nameAreaX + 56, dateY, 9, [90, 106, 154], 'left');
+    }
 
     // ヘッダー区切り線
     doc.setDrawColor(r, g, b);
@@ -2711,7 +2728,7 @@ async function drawWorksheetPages(doc, chars, opts) {
 
     // ゴースト文字（canvasSizeに比例したフォントサイズ）
     const fs = Math.round(canvasSize * fontSize);
-    ctx.font = `${fontWeight||700} ${fs}px "BIZ UDPMincho", serif`;
+    ctx.font = `${fontWeight||700} ${fs}px "BIZ UDPGothic", sans-serif`;
     ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
