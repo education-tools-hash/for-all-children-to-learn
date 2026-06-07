@@ -408,14 +408,6 @@
   .star { position: fixed; pointer-events: none; font-size: 1.5rem; animation: starFly 1s ease-out forwards; z-index: 100; }
   @keyframes starFly { 0%{transform:translateY(0) scale(0.5);opacity:1;}100%{transform:translateY(-120px) scale(1.5);opacity:0;} }
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -444,8 +436,19 @@
       </div>
     </div>
 
+    <!-- 読み上げON/OFF -->
+    <div class="settings-row">
+      <label>🔊 よみあげ</label>
+      <div class="toggle-wrap">
+        <label class="toggle">
+          <input type="checkbox" id="toggleSpeech" checked onchange="applySpeechEnabled()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <!-- 読み上げ速度 -->
-    <div class="settings-row settings-slider-row">
+    <div class="settings-row settings-slider-row" id="speechRateRow">
       <label>🔊 よみあげのはやさ</label>
       <div class="slider-ctrl">
         <input type="range" id="speechRateSlider" min="0.5" max="1.5" step="0.1" value="1" oninput="applySpeechRate()">
@@ -557,7 +560,7 @@ const words = [
   { word: 'ねこ',        emoji: '🐱',  start: 'ね', end: 'こ' },
   { word: 'こあら',      emoji: '🐨',  start: 'こ', end: 'ら' },
   { word: 'うさぎ',      emoji: '🐰',  start: 'う', end: 'ぎ' },
-  { word: 'ぎつね',      emoji: '🦊',  start: 'ぎ', end: 'ね' },
+  { word: 'きつね',      emoji: '🦊',  start: 'き', end: 'ね' },
   { word: 'ぞう',        emoji: '🐘',  start: 'ぞ', end: 'う' },
   { word: 'うし',        emoji: '🐄',  start: 'う', end: 'し' },
   { word: 'しろくま',    emoji: '🐻‍❄️', start: 'し', end: 'ま' },
@@ -571,9 +574,9 @@ const words = [
   { word: 'めがね',      emoji: '👓',  start: 'め', end: 'ね' },
   { word: 'ねずみ',      emoji: '🐭',  start: 'ね', end: 'み' },
   { word: 'みつばち',    emoji: '🐝',  start: 'み', end: 'ち' },
-  { word: 'ちきゅう',    emoji: '🌍',  start: 'ち', end: 'う' },
+  { word: 'ちょうちょ',  emoji: '🦋',  start: 'ち', end: 'ょ' },
   { word: 'うま',        emoji: '🐴',  start: 'う', end: 'ま' },
-  { word: 'まつぼっくり',emoji: '🌰',  start: 'ま', end: 'り' },
+  { word: 'まつり',      emoji: '🎉',  start: 'ま', end: 'り' },
   { word: 'ろば',        emoji: '🫏',  start: 'ろ', end: 'ば' },
   { word: 'ばなな',      emoji: '🍌',  start: 'ば', end: 'な' },
   { word: 'なす',        emoji: '🍆',  start: 'な', end: 'す' },
@@ -581,13 +584,15 @@ const words = [
   { word: 'のこぎり',    emoji: '🪚',  start: 'の', end: 'り' },
   { word: 'にじ',        emoji: '🌈',  start: 'に', end: 'じ' },
   { word: 'じてんしゃ',  emoji: '🚲',  start: 'じ', end: 'ゃ' },
-  { word: 'やきとり',    emoji: '🍗',  start: 'や', end: 'り' },
+  { word: 'やぎ',        emoji: '🐐',  start: 'や', end: 'ぎ' },
   { word: 'りんご',      emoji: '🍎',  start: 'り', end: 'ご' },
   { word: 'ごりら',      emoji: '🦍',  start: 'ご', end: 'ら' },
   { word: 'らっこ',      emoji: '🦦',  start: 'ら', end: 'こ' },
   { word: 'こいぬ',      emoji: '🐕',  start: 'こ', end: 'ぬ' },
   { word: 'ぬりえ',      emoji: '🖍️',  start: 'ぬ', end: 'え' },
-  { word: 'びわこ',      emoji: '🏞️',  start: 'び', end: 'こ' },
+  { word: 'びっくりばこ',emoji: '📦',  start: 'び', end: 'こ' },
+  { word: 'びーだま',    emoji: '🔵',  start: 'び', end: 'ま' },
+  { word: 'びわ',        emoji: '🍐',  start: 'び', end: 'わ' },
   { word: 'わに',        emoji: '🐊',  start: 'わ', end: 'に' },
   { word: 'にく',        emoji: '🥩',  start: 'に', end: 'く' },
   { word: 'じどうしゃ',  emoji: '🚗',  start: 'じ', end: 'ゃ' },
@@ -600,12 +605,12 @@ const words = [
   { word: 'こうもり',    emoji: '🦇',  start: 'こ', end: 'り' },
   { word: 'らっぱ',      emoji: '📯',  start: 'ら', end: 'ぱ' },
   { word: 'うみ',        emoji: '🏖️',  start: 'う', end: 'み' },
-  { word: 'みぞれ',      emoji: '🌨️',  start: 'み', end: 'れ' },
-  { word: 'まりも',      emoji: '🟢',  start: 'ま', end: 'も' },
+  { word: 'みどり',      emoji: '💚',  start: 'み', end: 'り' },
+  { word: 'まほうつかい',emoji: '🧙',  start: 'ま', end: 'い' },
   { word: 'らくだ',      emoji: '🐪',  start: 'ら', end: 'だ' },
   { word: 'だんご',      emoji: '🍡',  start: 'だ', end: 'ご' },
-  { word: 'うぐいす',    emoji: '🐦',  start: 'う', end: 'す' },
-  { word: 'れいぞうこ',  emoji: '🥶',  start: 'れ', end: 'こ' },
+  { word: 'うちわ',      emoji: '🪭',  start: 'う', end: 'わ' },
+  { word: 'れっかー',    emoji: '🚒',  start: 'れ', end: 'か' },
   { word: 'こぶた',      emoji: '🐷',  start: 'こ', end: 'た' },
   { word: 'たこ',        emoji: '🐙',  start: 'た', end: 'こ' },
   { word: 'くじら',      emoji: '🐋',  start: 'く', end: 'ら' },
@@ -617,7 +622,9 @@ const words = [
   { word: 'しか',        emoji: '🦌',  start: 'し', end: 'か' },
   { word: 'かえる',      emoji: '🐸',  start: 'か', end: 'る' },
   { word: 'さる',        emoji: '🐒',  start: 'さ', end: 'る' },
-  { word: 'るびー',      emoji: '💎',  start: 'る', end: 'び' },
+  { word: 'るびー',      emoji: '🔴',  start: 'る', end: 'い' },
+  { word: 'ごましお',    emoji: '🧂',  start: 'ご', end: 'お' },
+  { word: 'ろうか',      emoji: '🚪',  start: 'ろ', end: 'か' },
   { word: 'ばす',        emoji: '🚌',  start: 'ば', end: 'す' },
   { word: 'たぬき',      emoji: '🦝',  start: 'た', end: 'き' },
   { word: 'とら',        emoji: '🐯',  start: 'と', end: 'ら' },
@@ -630,8 +637,8 @@ const words = [
   { word: 'すべりだい',  emoji: '🛝',  start: 'す', end: 'い' },
   { word: 'いのしし',    emoji: '🐗',  start: 'い', end: 'し' },
   { word: 'しまうま',    emoji: '🦓',  start: 'し', end: 'ま' },
-  { word: 'ぷどう',      emoji: '🍇',  start: 'ぷ', end: 'う' },
-  { word: 'りゅっく',    emoji: '🎒',  start: 'り', end: 'く' },
+  { word: 'ぶどう',      emoji: '🍇',  start: 'ぶ', end: 'う' },
+  { word: 'りこーだー',  emoji: '🎵',  start: 'り', end: 'だ' },
   { word: 'うでとけい',  emoji: '⌚',  start: 'う', end: 'い' },
   { word: 'いか',        emoji: '🦑',  start: 'い', end: 'か' },
   { word: 'かぼちゃ',    emoji: '🎃',  start: 'か', end: 'ゃ' },
@@ -640,44 +647,78 @@ const words = [
   { word: 'ぎたー',      emoji: '🎸',  start: 'ぎ', end: 'た' },
   { word: 'がっこう',    emoji: '🏫',  start: 'が', end: 'う' },
   { word: 'えんぴつ',    emoji: '✏️',  start: 'え', end: 'つ' },
-  { word: 'つる',        emoji: '🦢',  start: 'つ', end: 'る' },
+  { word: 'つみき',      emoji: '🧱',  start: 'つ', end: 'き' },
   { word: 'へび',        emoji: '🐍',  start: 'へ', end: 'び' },
   { word: 'あり',        emoji: '🐜',  start: 'あ', end: 'り' },
-  { word: 'あひる',      emoji: '🦆',  start: 'あ', end: 'る' },
+  { word: 'あじさい',    emoji: '💠',  start: 'あ', end: 'い' },
   { word: 'えび',        emoji: '🦐',  start: 'え', end: 'び' },
   { word: 'さかな',      emoji: '🐟',  start: 'さ', end: 'な' },
   { word: 'ながぐつ',    emoji: '🥾',  start: 'な', end: 'つ' },
   { word: 'はさみ',      emoji: '✂️',  start: 'は', end: 'み' },
   { word: 'むし',        emoji: '🐛',  start: 'む', end: 'し' },
-  { word: 'のりもの',    emoji: '🚃',  start: 'の', end: 'の' },
+  { word: 'のはら',      emoji: '🌾',  start: 'の', end: 'ら' },
   { word: 'むらさき',    emoji: '💜',  start: 'む', end: 'き' },
-  { word: 'ずこう',      emoji: '🎨',  start: 'ず', end: 'う' },
+  { word: 'ぜりー',      emoji: '🍮',  start: 'ぜ', end: 'り' },
   { word: 'えき',        emoji: '🚉',  start: 'え', end: 'き' },
   { word: 'くつ',        emoji: '👟',  start: 'く', end: 'つ' },
   { word: 'ふね',        emoji: '🚢',  start: 'ふ', end: 'ね' },
+  { word: 'せんせい',    emoji: '👩‍🏫', start: 'せ', end: 'い' },
+  { word: 'とけい',      emoji: '⏰',  start: 'と', end: 'い' },
+  { word: 'つりざお',    emoji: '🎣',  start: 'つ', end: 'お' },
+  { word: 'おに',        emoji: '👹',  start: 'お', end: 'に' },
+  { word: 'おひさま',    emoji: '☀️',  start: 'お', end: 'ま' },
+  { word: 'おふろ',      emoji: '🛁',  start: 'お', end: 'ろ' },
+  { word: 'あおぞら',    emoji: '🌤️',  start: 'あ', end: 'ら' },
+  { word: 'さくら',      emoji: '🌸',  start: 'さ', end: 'ら' },
+  { word: 'なのはな',    emoji: '🌼',  start: 'な', end: 'な' },
+  { word: 'ねこじゃらし',emoji: '🌿',  start: 'ね', end: 'し' },
+  { word: 'はなび',      emoji: '🎆',  start: 'は', end: 'び' },
+  { word: 'ばけつ',      emoji: '🪣',  start: 'ば', end: 'つ' },
+  { word: 'もみじ',      emoji: '🍁',  start: 'も', end: 'じ' },
+  { word: 'ろうそく',    emoji: '🕯️',  start: 'ろ', end: 'く' },
+  { word: 'いす',        emoji: '🪑',  start: 'い', end: 'す' },
+  { word: 'らじお',      emoji: '📻',  start: 'ら', end: 'お' },
+  { word: 'きゅうしょく',emoji: '🍱',  start: 'き', end: 'く' },
+  { word: 'ぼうさい',    emoji: '🚒',  start: 'ぼ', end: 'い' },
+  { word: 'はみがき',    emoji: '🪥',  start: 'は', end: 'き' },
+  { word: 'たいこ',      emoji: '🥁',  start: 'た', end: 'こ' },
+  { word: 'だちょう',    emoji: '🦤',  start: 'だ', end: 'う' },
+  { word: 'だいち',      emoji: '🌏',  start: 'だ', end: 'ち' },
+  { word: 'がっき',      emoji: '🎵',  start: 'が', end: 'き' },
+  { word: 'ぎゅうにゅう',emoji: '🥛',  start: 'ぎ', end: 'う' },
+  { word: 'てぶくろ',    emoji: '🧤',  start: 'て', end: 'ろ' },
+  { word: 'てんき',      emoji: '⛅',  start: 'て', end: 'き' },
+  { word: 'ぱんけーき',  emoji: '🥞',  start: 'ぱ', end: 'き' },
+  { word: 'ひよこ',      emoji: '🐣',  start: 'ひ', end: 'こ' },
+  { word: 'ひまわり',    emoji: '🌻',  start: 'ひ', end: 'り' },
+  { word: 'へりこぷたー',emoji: '🚁',  start: 'へ', end: 'た' },
+  { word: 'わかめ',      emoji: '🌿',  start: 'わ', end: 'め' },
+  { word: 'せみ',        emoji: '🦗',  start: 'せ', end: 'み' },
+  { word: 'れっさーぱんだ',emoji:'🦝', start: 'れ', end: 'だ' },
+  { word: 'ぶらんこ',    emoji: '🛝',  start: 'ぶ', end: 'こ' },
 ];
 
 const trapWords = [
-  { word: 'みかん',          emoji: '🍊', startN: 'み' },
-  { word: 'すいかん',        emoji: '📚', startN: 'す' },
-  { word: 'くまのこどもさん',emoji: '🐻', startN: 'く' },
-  { word: 'かばん',          emoji: '👜', startN: 'か' },
-  { word: 'にんじん',        emoji: '🥕', startN: 'に' },
-  { word: 'らいおん',        emoji: '🦁', startN: 'ら' },
-  { word: 'しんぶん',        emoji: '📰', startN: 'し' },
-  { word: 'たんぽぽさん',    emoji: '🌼', startN: 'た' },
-  { word: 'えんぴつさん',    emoji: '✏️', startN: 'え' },
-  { word: 'うちゅうじん',    emoji: '👾', startN: 'う' },
-  { word: 'こうえん',        emoji: '🌳', startN: 'こ' },
-  { word: 'もりのおうさん',  emoji: '🦁', startN: 'も' },
-  { word: 'のりもん',        emoji: '🚃', startN: 'の' },
-  { word: 'ふうせん',        emoji: '🎈', startN: 'ふ' },
-  { word: 'はっぱさん',      emoji: '🍃', startN: 'は' },
-  { word: 'ぞうさん',        emoji: '🐘', startN: 'ぞ' },
-  { word: 'りんごうさん',    emoji: '🍎', startN: 'り' },
-  { word: 'まんがさん',      emoji: '📖', startN: 'ま' },
-  { word: 'ながれぼしさん',  emoji: '⭐', startN: 'な' },
-  { word: 'とけいさん',      emoji: '⏰', startN: 'と' },
+  { word: 'みかん',      emoji: '🍊', startN: 'み' },
+  { word: 'すいぞくかん',emoji: '🐠', startN: 'す' },
+  { word: 'くれよん',    emoji: '🖍️', startN: 'く' },
+  { word: 'かばん',      emoji: '👜', startN: 'か' },
+  { word: 'にんじん',    emoji: '🥕', startN: 'に' },
+  { word: 'らいおん',    emoji: '🦁', startN: 'ら' },
+  { word: 'しんかんせん',emoji: '🚄', startN: 'し' },
+  { word: 'たんけん',    emoji: '🔦', startN: 'た' },
+  { word: 'えほん',      emoji: '📖', startN: 'え' },
+  { word: 'うちゅうじん',emoji: '👾', startN: 'う' },
+  { word: 'こうえん',    emoji: '🛝', startN: 'こ' },
+  { word: 'もっきん',    emoji: '🎵', startN: 'も' },
+  { word: 'のうえん',    emoji: '🌾', startN: 'の' },
+  { word: 'ふうせん',    emoji: '🎈', startN: 'ふ' },
+  { word: 'はくぶつかん',emoji: '🏛️', startN: 'は' },
+  { word: 'ぞうきん',    emoji: '🧹', startN: 'ぞ' },
+  { word: 'まんてん',    emoji: '💯', startN: 'ま' },
+  { word: 'なんきん',    emoji: '🔒', startN: 'な' },
+  { word: 'とんでん',    emoji: '🌾', startN: 'と' },
+  { word: 'かめれおん',  emoji: '🦎', startN: 'か' },
 ];
 
 function normalizeChar(c) {
@@ -694,6 +735,7 @@ let isTrapQuestion = false, trapWordShown = null;
 
 // ── アクセシビリティ設定 ──
 let speechRate = 1.0;
+let speechEnabled = true;
 let scanEnabled = false;
 let scanMode = '1';       // '1' or '2'
 let scanInterval = 1500;  // ms
@@ -710,6 +752,7 @@ function getJaVoice() {
       || v.find(x => x.lang==='ja-JP') || null;
 }
 function speak(text, rate, pitch=1.15) {
+  if (!speechEnabled) return;
   if (!window.speechSynthesis) return;
   const r = rate !== undefined ? rate : speechRate;
   speechSynthesis.cancel();
@@ -740,6 +783,14 @@ function applyFontSize() {
   document.documentElement.style.setProperty('--font-scale', val);
   const labels = {0.8:'ちいさい', 0.9:'すこしちいさい', 1.0:'ふつう', 1.1:'すこしおおきい', 1.2:'おおきい', 1.3:'もっとおおきい', 1.4:'とてもおおきい', 1.5:'さいだい', 1.6:'さいだい'};
   document.getElementById('fontSizeVal').textContent = labels[val] || 'ふつう';
+}
+
+function applySpeechEnabled() {
+  speechEnabled = document.getElementById('toggleSpeech').checked;
+  const rateRow = document.getElementById('speechRateRow');
+  rateRow.style.opacity = speechEnabled ? '1' : '0.4';
+  rateRow.style.pointerEvents = speechEnabled ? 'auto' : 'none';
+  if (!speechEnabled) speechSynthesis.cancel();
 }
 
 function applySpeechRate() {
