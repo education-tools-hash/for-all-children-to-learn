@@ -1,0 +1,2063 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>けずりえ｜すべての子どもの学びのためのデジタル教材</title>
+<meta name="description" content="画面をタッチやなぞると下の絵が見えてくるスクラッチ遊びアプリ。重度重複障害のあるお子さんの因果関係学習に。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cp: #4A4270; --cpl: #6B5FA0; --cpd: #332e52;
+  --ca: #FF8C61; --ca2: #FFD166;
+  --cbg: #F5F0FF; --csuf: #FFFFFF;
+  --ct: #2d2a3e; --cts: #6b6880;
+  --cscr: #7B7B9E; --cbr: rgba(74,66,112,0.14);
+  --rad: 18px;
+  --sh: 0 4px 24px rgba(74,66,112,0.13);
+  --shl: 0 8px 40px rgba(74,66,112,0.18);
+  --font: 'Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;
+  --fs: 1;
+}
+body.hc {
+  --cp:#000; --cpl:#111; --cpd:#000; --ca:#FFFF00; --ca2:#FFFF00;
+  --cbg:#000; --csuf:#111; --ct:#fff; --cts:#ccc; --cscr:#333;
+  --cbr:rgba(255,255,255,0.35);
+  --sh:0 4px 20px rgba(0,0,0,.8); --shl:0 8px 40px rgba(0,0,0,.9);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:var(--font);background:var(--cbg);color:var(--ct);touch-action:manipulation;overflow:hidden;font-size:calc(16px * var(--fs))}
+#root{display:flex;flex-direction:column;width:100dvw;height:100dvh;position:relative;background:var(--cbg);transition:background .25s}
+
+/* ===== FULLSCREEN ===== */
+body.fs #hdr{position:absolute;top:0;left:0;right:0;z-index:50;background:rgba(20,15,50,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transform:translateY(-100%);transition:transform .3s}
+body.fs #root:hover #hdr,body.fs #root.sh #hdr{transform:translateY(0)}
+body.fs #bot{position:absolute;bottom:0;left:0;right:0;z-index:50;background:rgba(20,15,50,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transform:translateY(100%);transition:transform .3s}
+body.fs #root:hover #bot,body.fs #root.sh #bot{transform:translateY(0)}
+body.fs #tb{position:absolute;top:58px;right:10px;flex-direction:column;z-index:51;background:rgba(20,15,50,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:16px;padding:8px;gap:6px;transform:translateX(130%);transition:transform .3s}
+body.fs #root:hover #tb,body.fs #root.sh #tb{transform:translateX(0)}
+body.fs .bg{flex-direction:column;background:transparent;box-shadow:none;border:none;padding:0;gap:4px}
+body.fs .blbl{display:none}
+body.fs #cw{position:absolute;inset:0;border-radius:0}
+body.fs #footer{display:none}
+body.fs #hintBar{position:absolute;top:58px;left:10px;right:auto;z-index:52;margin:0;max-width:240px}
+
+/* ===== HEADER ===== */
+#hdr{background:var(--cp);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 2px 10px rgba(74,66,112,.3);flex-shrink:0;min-height:52px;transition:background .25s}
+body.hc #hdr{border-bottom:2px solid #fff}
+.hb{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:calc(1.2rem * var(--fs));width:calc(40px * var(--fs));height:calc(40px * var(--fs));min-width:34px;min-height:34px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.hb:hover,.hb:focus-visible{background:rgba(255,255,255,.3);outline:none}
+body.hc .hb{border:2px solid #fff}
+#htitle{flex:1;overflow:hidden}
+#htitle h1{font-size:calc(clamp(14px,3.8vw,20px) * var(--fs));font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#htitle p{font-size:calc(.7rem * var(--fs));opacity:.8;margin-top:1px}
+#hright{display:flex;gap:6px;align-items:center}
+
+/* ===== TOOLBAR ===== */
+#tb{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 12px;background:var(--csuf);border-bottom:1px solid var(--cbr);flex-shrink:0;transition:background .25s,border-color .25s}
+body.hc #tb{border-bottom:2px solid #fff}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:calc(8px * var(--fs)) calc(13px * var(--fs));border-radius:11px;border:none;font-family:var(--font);font-size:calc(.875rem * var(--fs));font-weight:700;cursor:pointer;transition:transform .12s,background .15s;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.12);-webkit-tap-highlight-color:transparent;min-height:36px}
+.btn:active{transform:scale(.95)}
+.btn:focus-visible{outline:3px solid var(--ca);outline-offset:2px}
+.btp{background:var(--cp);color:#fff}
+.btp:hover{background:var(--cpl)}
+body.hc .btp{border:2px solid #fff}
+.bts{background:var(--csuf);color:var(--cp);border:2px solid var(--cp)}
+.bts:hover{background:var(--cbg)}
+body.hc .bts{color:#fff;border-color:#fff;background:#000}
+.bg{display:flex;gap:5px;align-items:center;background:var(--cbg);padding:5px 9px;border-radius:11px;box-shadow:var(--sh);border:1px solid var(--cbr);transition:background .25s}
+body.hc .bg{border:2px solid #fff}
+.blbl{font-size:calc(.75rem * var(--fs));color:var(--cts);font-weight:700;white-space:nowrap}
+.bb{border:3px solid transparent;background:var(--csuf);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,transform .1s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.bb:active{transform:scale(.9)}
+.bb.on{border-color:var(--ca)}
+body.hc .bb.on{border-color:#FFFF00}
+.bd{background:var(--cp);border-radius:50%}
+body.hc .bd{background:#fff}
+.bb.s{width:29px;height:29px}.bb.s .bd{width:8px;height:8px}
+.bb.m{width:33px;height:33px}.bb.m .bd{width:14px;height:14px}
+.bb.l{width:39px;height:39px}.bb.l .bd{width:20px;height:20px}
+.bb.xl{width:45px;height:45px}.bb.xl .bd{width:27px;height:27px}
+#gbadge{display:none;align-items:center;gap:4px;background:#fff3ee;border:2px solid var(--ca);color:var(--ca);font-size:calc(.75rem * var(--fs));font-weight:700;padding:4px 10px;border-radius:20px}
+#gbadge.on{display:flex}
+body.hc #gbadge{background:#000;border-color:#FFFF00;color:#FFFF00}
+
+/* ===== CANVAS ===== */
+#cw{flex:1;position:relative;overflow:hidden;background:#eee;touch-action:none;cursor:none;transition:border-radius .3s}
+body.hc #cw{background:#000}
+#uc,#sc{position:absolute;top:0;left:0;width:100%;height:100%;display:block}
+#cur{position:absolute;border-radius:50%;border:3px solid rgba(255,255,255,.9);pointer-events:none;transform:translate(-50%,-50%);z-index:10;box-shadow:0 0 8px rgba(0,0,0,.3);display:none;transition:width .08s,height .08s}
+body.hc #cur{border-color:#FFFF00}
+#gr{position:absolute;border-radius:50%;border:4px solid var(--ca);pointer-events:none;transform:translate(-50%,-50%);z-index:15;opacity:0;transition:opacity .2s}
+#gr.on{opacity:1;animation:gaAnim 1s linear infinite}
+@keyframes gaAnim{0%{width:16px;height:16px;opacity:1}100%{width:64px;height:64px;opacity:0}}
+body.hc #gr{border-color:#FFFF00}
+
+/* ===== BOTTOM BAR ===== */
+#bot{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--csuf);border-top:1px solid var(--cbr);flex-shrink:0;transition:background .25s,border-color .25s}
+body.hc #bot{border-top:2px solid #fff}
+.plbl{font-size:calc(.8rem * var(--fs));font-weight:700;color:var(--cp);white-space:nowrap;min-width:70px}
+body.hc .plbl{color:#fff}
+#ptrack{flex:1;height:12px;background:#e0daea;border-radius:8px;overflow:hidden}
+body.hc #ptrack{background:#444;border:1px solid #fff}
+#pfill{height:100%;background:linear-gradient(90deg,var(--cpl),var(--ca));border-radius:8px;width:0%;transition:width .35s ease}
+body.hc #pfill{background:linear-gradient(90deg,#fff,#FFFF00)}
+#ppct{font-size:calc(.8rem * var(--fs));font-weight:800;color:var(--ca);min-width:36px;text-align:right}
+body.hc #ppct{color:#FFFF00}
+
+/* ===== HINT BAR ===== */
+#hintBar{margin:8px 12px 0;background:linear-gradient(135deg,var(--cp),var(--cpl));color:#fff;border-radius:13px;padding:10px 15px;display:flex;align-items:center;gap:10px;font-size:calc(.875rem * var(--fs));font-weight:600;box-shadow:var(--sh);animation:sldn .5s both;flex-shrink:0}
+body.hc #hintBar{border:2px solid #fff;background:#111}
+@keyframes sldn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.hico{font-size:calc(1.4rem * var(--fs));flex-shrink:0}
+.hcls{margin-left:auto;background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s}
+.hcls:hover{background:rgba(255,255,255,.35)}
+
+/* ===== CONFETTI ===== */
+#cfc{position:fixed;inset:0;pointer-events:none;z-index:180}
+
+/* ===== COMPLETE OVERLAY ===== */
+#cov{position:fixed;inset:0;background:rgba(74,66,112,.55);display:flex;align-items:center;justify-content:center;z-index:190;opacity:0;pointer-events:none;transition:opacity .35s}
+body.hc #cov{background:rgba(0,0,0,.8)}
+#cov.on{opacity:1;pointer-events:auto}
+.ccard{background:var(--csuf);border-radius:24px;padding:clamp(20px,5vw,40px) clamp(20px,6vw,48px);text-align:center;box-shadow:0 12px 60px rgba(74,66,112,.3);animation:pIn .5s cubic-bezier(.34,1.56,.64,1) both;max-width:360px;width:90%}
+body.hc .ccard{border:3px solid #fff}
+@keyframes pIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.cemi{font-size:calc(4.5rem * var(--fs));display:block;margin-bottom:8px;animation:ePop .6s .3s both}
+@keyframes ePop{0%{transform:scale(0)}60%{transform:scale(1.3)}100%{transform:scale(1)}}
+.ch{font-size:calc(1.75rem * var(--fs));font-weight:900;color:var(--cp);margin-bottom:5px}
+body.hc .ch{color:#fff}
+.csub{font-size:calc(.9rem * var(--fs));color:var(--cts);margin-bottom:20px}
+body.hc .csub{color:#ccc}
+.cbtns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+/* ===== SETTINGS PANEL ===== */
+.spov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:140;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.spov.on{opacity:1;pointer-events:auto}
+.sppn{background:var(--csuf);border-radius:24px 24px 0 0;padding:18px 18px 26px;width:100%;max-width:600px;transform:translateY(100%);transition:transform .3s cubic-bezier(.34,1.2,.64,1),background .25s;max-height:88dvh;overflow-y:auto}
+body.hc .sppn{border-top:3px solid #fff}
+.spov.on .sppn{transform:translateY(0)}
+.sphd{width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 14px}
+body.hc .sphd{background:#888}
+.sptit{font-size:calc(1.1rem * var(--fs));font-weight:800;color:var(--cp);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+body.hc .sptit{color:#fff}
+.spsc{margin-bottom:16px}
+.spsct{font-size:calc(.7rem * var(--fs));font-weight:700;color:var(--cts);text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px}
+body.hc .spsct{color:#aaa}
+.sprw{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0edf8;gap:12px}
+body.hc .sprw{border-bottom-color:#333}
+.sprw:last-child{border-bottom:none}
+.spri{flex:1;min-width:0}
+.sprl{font-size:calc(.9rem * var(--fs));font-weight:700}
+.sprs{font-size:calc(.7rem * var(--fs));color:var(--cts);margin-top:2px;line-height:1.4}
+body.hc .sprs{color:#aaa}
+
+/* TOGGLE */
+.tog{position:relative;width:52px;height:28px;flex-shrink:0}
+.tog input{display:none}
+.togt{position:absolute;inset:0;background:#ccc;border-radius:14px;cursor:pointer;transition:background .25s}
+.togt::before{content:'';position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .25s;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.tog input:checked + .togt{background:var(--cp)}
+.tog input:checked + .togt::before{transform:translateX(24px)}
+body.hc .tog input:checked + .togt{background:#FFFF00}
+body.hc .tog input:checked + .togt::before{background:#000}
+
+/* COLOR GRID */
+.cgrid{display:flex;flex-wrap:wrap;gap:8px}
+.co{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:border-color .15s,transform .12s;-webkit-tap-highlight-color:transparent}
+.co:active{transform:scale(.88)}
+.co.on{border-color:var(--ca);transform:scale(1.15)}
+body.hc .co.on{border-color:#FFFF00}
+
+/* IMAGE GRID */
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px}
+.ith{aspect-ratio:1;border-radius:12px;border:3px solid transparent;overflow:hidden;cursor:pointer;background:var(--cbg);display:flex;align-items:center;justify-content:center;font-size:calc(2rem * var(--fs));transition:border-color .15s,transform .12s;-webkit-tap-highlight-color:transparent;flex-direction:column;gap:2px}
+.ith:active{transform:scale(.93)}
+.ith.on{border-color:var(--ca)}
+body.hc .ith.on{border-color:#FFFF00}
+body.hc .ith{background:#222;border-color:#555}
+.ith img{width:100%;height:100%;object-fit:cover}
+.ithl{font-size:calc(.55rem * var(--fs));font-weight:700;color:var(--cts);text-align:center;line-height:1.1}
+body.hc .ithl{color:#ccc}
+
+/* FONT SIZE BTNS */
+.fbtns{display:flex;gap:8px;flex-wrap:wrap}
+.fbtn{padding:7px 15px;border-radius:10px;border:2px solid var(--cp);background:var(--csuf);color:var(--cp);font-family:var(--font);font-weight:700;cursor:pointer;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent}
+.fbtn.on{background:var(--cp);color:#fff}
+body.hc .fbtn{border-color:#fff;color:#fff;background:#000}
+body.hc .fbtn.on{background:#fff;color:#000}
+
+/* TTS BUBBLE */
+#ttsBbl{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--cpd);color:#fff;font-size:calc(.85rem * var(--fs));font-weight:700;padding:9px 18px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;z-index:200;white-space:nowrap;max-width:80vw;overflow:hidden;text-overflow:ellipsis}
+#ttsBbl.on{opacity:1;transform:translateX(-50%) translateY(0)}
+body.hc #ttsBbl{background:#fff;color:#000}
+
+/* FOOTER */
+#footer{text-align:center;padding:4px 12px 7px;font-size:calc(.65rem * var(--fs));color:var(--cts);flex-shrink:0;background:var(--cbg);transition:background .25s}
+#footer a{color:var(--cp);text-decoration:none}
+body.hc #footer{color:#aaa} body.hc #footer a{color:#fff}
+#imgInp{display:none}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* textareaのresizeハンドルを非表示 */
+#txtInput{resize:none}
+
+/* ===== HELP PANEL ===== */
+.hlrow{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #f0edf8}
+body.hc .hlrow{border-bottom-color:#333}
+.hlrow:last-child{border-bottom:none}
+.hlico{font-size:calc(1.8rem * var(--fs));flex-shrink:0;width:44px;text-align:center;line-height:1}
+.hlbody{flex:1;min-width:0}
+.hlttl{font-size:calc(.9rem * var(--fs));font-weight:800;color:var(--cp);margin-bottom:4px}
+body.hc .hlttl{color:#fff}
+.hldsc{font-size:calc(.82rem * var(--fs));color:var(--ct);line-height:1.65}
+.hltbl{display:flex;flex-direction:column;gap:0}
+.hltblrow{display:flex;gap:10px;padding:8px 4px;border-bottom:1px solid #f0edf8;align-items:baseline}
+body.hc .hltblrow{border-bottom-color:#333}
+.hltblrow:last-child{border-bottom:none}
+.hltblk{font-size:calc(.82rem * var(--fs));font-weight:700;color:var(--cp);white-space:nowrap;min-width:140px;flex-shrink:0}
+body.hc .hltblk{color:#FFFF00}
+.hltblv{font-size:calc(.82rem * var(--fs));color:var(--ct);line-height:1.5}
+</style>
+</head>
+<body>
+<div id="root">
+  <header id="hdr">
+    <a href="https://education-tools-hash.github.io/for-all-children-to-learn/" class="hb" aria-label="もどる">←</a>
+    <div id="htitle">
+      <h1>🎨 けずりえ</h1>
+      <p>こすると えが でてくる！</p>
+    </div>
+    <div id="hright">
+      <button class="hb" id="helpBtn" aria-label="つかいかた">❓</button>
+      <button class="hb" id="setBtn"  aria-label="せってい">⚙️</button>
+      <button class="hb" id="fsBtn"   aria-label="全画面表示">⛶</button>
+    </div>
+  </header>
+
+  <div id="hintBar" role="status" aria-live="polite">
+    <span class="hico">👆</span>
+    <span>画面を指でこすると絵が出てくるよ！</span>
+    <button class="hcls" id="hintClose" aria-label="ヒントをとじる">✕</button>
+  </div>
+
+  <div id="tb" role="toolbar" aria-label="ブラシツール">
+    <div class="bg" role="group" aria-label="ブラシのおおきさ">
+      <span class="blbl">ブラシ</span>
+      <button class="bb s"  data-sz="22"  aria-label="小さい"><div class="bd"></div></button>
+      <button class="bb m"  data-sz="44"  aria-label="ふつう"><div class="bd"></div></button>
+      <button class="bb l on" data-sz="72" aria-label="大きい"><div class="bd"></div></button>
+      <button class="bb xl" data-sz="112" aria-label="とても大きい"><div class="bd"></div></button>
+    </div>
+    <button class="btn bts" id="rstBtn" aria-label="やりなおす">↺ やりなおす</button>
+    <button class="btn btp" id="chgBtn" aria-label="したえをかえる">🖼️ したえ</button>
+    <div id="gbadge" role="status" aria-live="polite">👁 視線モード</div>
+  </div>
+
+  <div id="cw" role="img" aria-label="スクラッチキャンバス">
+    <canvas id="uc"></canvas>
+    <canvas id="sc"></canvas>
+    <div id="cur" aria-hidden="true"></div>
+    <div id="gr"  aria-hidden="true"></div>
+  </div>
+
+  <div id="bot">
+    <span class="plbl" aria-hidden="true">🎯 けずった！</span>
+    <div id="ptrack" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="削れた割合">
+      <div id="pfill"></div>
+    </div>
+    <span id="ppct" aria-live="polite" aria-atomic="true">0%</span>
+  </div>
+
+  <footer id="footer">
+    <a href="https://education-tools-hash.github.io/for-all-children-to-learn/">すべての子どもの学びのためのデジタル教材</a>
+    · 授業・自立活動でご活用ください · 商用利用禁止
+  </footer>
+</div>
+
+<canvas id="cfc" aria-hidden="true"></canvas>
+
+<!-- 完成 -->
+<div id="cov" role="dialog" aria-modal="true" aria-labelledby="covH">
+  <div class="ccard">
+    <span class="cemi" aria-hidden="true">🎉</span>
+    <div class="ch" id="covH">やったね！</div>
+    <div class="csub" id="covSub">ぜんぶ みえたよ！</div>
+    <div class="cbtns">
+      <button class="btn btp" id="nxtBtn">▶ つぎのえ</button>
+      <button class="btn bts" id="rtyBtn">↺ もういちど</button>
+      <button class="btn bts" id="clsBtn">✕ とじる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 設定パネル -->
+<div id="setOv" class="spov" role="dialog" aria-modal="true" aria-label="せってい">
+  <div class="sppn" id="setP">
+    <div class="sphd" aria-hidden="true"></div>
+    <div class="sptit">⚙️ せってい</div>
+    <div class="spsc">
+      <div class="spsct">🖼️ したえを えらぶ</div>
+      <div class="igrid" id="igrid"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btp" id="addTextBtn" style="flex:1;justify-content:center;min-width:120px">✏️ テキスト下絵をつくる</button>
+        <button class="btn bts"  id="addImgBtn2" style="flex:1;justify-content:center;min-width:120px">📷 しゃしんをつかう</button>
+      </div>
+    </div>
+    <div class="spsc">
+      <div class="spsct">🎨 スクラッチのいろ</div>
+      <div class="cgrid" id="cgrid">
+        <div class="co on" tabindex="0" role="button" data-c="#7B7B9E" style="background:#7B7B9E" aria-label="むらさきグレー"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#3a3a3a" style="background:#3a3a3a" aria-label="くろ"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#8B4513" style="background:#8B4513" aria-label="ちゃいろ"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#1a5276" style="background:#1a5276" aria-label="あお"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#186A3B" style="background:#186A3B" aria-label="みどり"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#922B21" style="background:#922B21" aria-label="あか"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#6c3483" style="background:#6c3483" aria-label="むらさき"></div>
+        <div class="co"    tabindex="0" role="button" data-c="#d4ac0d" style="background:#d4ac0d" aria-label="きいろ"></div>
+      </div>
+    </div>
+    <div class="spsc">
+      <div class="spsct">🔧 そのたのせってい</div>
+      <div class="sprw"><div class="spri"><div class="sprl">👁 視線入力モード</div><div class="sprs">マウス移動で自動的に削れる</div></div><label class="tog" aria-label="視線入力モード"><input type="checkbox" id="tgGz"><span class="togt"></span></label></div>
+      <div class="sprw" style="flex-wrap:wrap;gap:10px;align-items:center">
+        <div class="spri"><div class="sprl">🎯 かんせいのきじゅん</div><div class="sprs">どのくらい削れたら「やったね！」にするか</div></div>
+        <div class="fbtns" id="threshBtns">
+          <button class="fbtn"    data-thresh="0.80" aria-label="80パーセント">80%</button>
+          <button class="fbtn"    data-thresh="0.90" aria-label="90パーセント">90%</button>
+          <button class="fbtn on" data-thresh="0.97" aria-label="100パーセント">100%</button>
+        </div>
+      </div>
+      <div class="sprw"><div class="spri"><div class="sprl">🎉 お祝いエフェクト</div><div class="sprs">完成時に紙吹雪を表示する</div></div><label class="tog" aria-label="お祝いエフェクト"><input type="checkbox" id="tgEf" checked><span class="togt"></span></label></div>
+      <div class="sprw"><div class="spri"><div class="sprl">🔊 完成時の音</div><div class="sprs">完成したときに音を鳴らす</div></div><label class="tog" aria-label="完成時の音"><input type="checkbox" id="tgSnd" checked><span class="togt"></span></label></div>
+      <div class="sprw"><div class="spri"><div class="sprl">⏭ 完成で自動的に次へ</div><div class="sprs">きじゅんに達すると自動で次の絵へ</div></div><label class="tog" aria-label="自動的に次へ"><input type="checkbox" id="tgAn"><span class="togt"></span></label></div>
+    </div>
+    <!-- アクセシビリティ（設定パネル内） -->
+    <div class="spsc">
+      <div class="spsct">♿ アクセシビリティ</div>
+      <div class="sprw"><div class="spri"><div class="sprl">🎨 ハイコントラスト</div><div class="sprs">白黒・高コントラストで見やすくする</div></div><label class="tog" aria-label="ハイコントラスト"><input type="checkbox" id="tgHC"><span class="togt"></span></label></div>
+      <div class="sprw" style="flex-wrap:wrap;gap:10px">
+        <div class="spri"><div class="sprl">🔤 文字のおおきさ</div></div>
+        <div class="fbtns">
+          <button class="fbtn on" data-sc="1"    aria-label="標準サイズ">標準</button>
+          <button class="fbtn"    data-sc="1.2"  aria-label="大きいサイズ">大</button>
+          <button class="fbtn"    data-sc="1.45" aria-label="特大サイズ">特大</button>
+        </div>
+      </div>
+      <div class="sprw"><div class="spri"><div class="sprl">🔊 タップ読み上げ</div><div class="sprs">ボタンをタップしたときにラベルを読み上げる</div></div><label class="tog" aria-label="タップ読み上げ"><input type="checkbox" id="tgTTS"><span class="togt"></span></label></div>
+      <div class="sprw">
+        <div class="spri"><div class="sprl">　　読み上げの速さ</div></div>
+        <select id="ttsRt" style="padding:6px 10px;border-radius:8px;border:2px solid var(--cp);font-family:var(--font);font-size:.9rem;background:var(--csuf);color:var(--ct)" aria-label="読み上げの速さ">
+          <option value="0.6">ゆっくり</option>
+          <option value="0.85">やや遅め</option>
+          <option value="1" selected>ふつう</option>
+          <option value="1.3">はやめ</option>
+        </select>
+      </div>
+      <div class="sprw"><div class="spri"><div class="sprl">　　完成時の読み上げ</div><div class="sprs">完成したとき「やったね！〇〇が見えたよ」と読み上げる</div></div><label class="tog" aria-label="完成時の読み上げ"><input type="checkbox" id="tgTTSC" checked><span class="togt"></span></label></div>
+    </div>
+    <button class="btn btp" id="setCls" style="width:100%;justify-content:center;margin-top:4px">✔ とじる</button>
+  </div>
+</div>
+
+<div id="ttsBbl" role="status" aria-live="assertive" aria-atomic="true"></div>
+<input type="file" id="imgInp" accept="image/*">
+
+<!-- ヘルプパネル -->
+<div id="helpOv" class="spov" role="dialog" aria-modal="true" aria-label="つかいかた">
+  <div class="sppn" id="helpP" style="max-height:92dvh">
+    <div class="sphd" aria-hidden="true"></div>
+    <div class="sptit">❓ けずりえの つかいかた</div>
+
+    <div class="spsc">
+      <div class="spsct">🎮 きほんのあそびかた</div>
+      <div class="hlrow">
+        <div class="hlico">👆</div>
+        <div class="hlbody">
+          <div class="hlttl">ゆびで こする</div>
+          <div class="hldsc">キャンバス（大きい画面のところ）をゆびでこすると、むらさきのまくがけずれて、したの絵が見えてくるよ。</div>
+        </div>
+      </div>
+      <div class="hlrow">
+        <div class="hlico">🖊</div>
+        <div class="hlbody">
+          <div class="hlttl">タッチペンでも OK</div>
+          <div class="hldsc">スタイラスペンやタッチペンでなぞっても同じようにけずれるよ。</div>
+        </div>
+      </div>
+      <div class="hlrow">
+        <div class="hlico">🎉</div>
+        <div class="hlbody">
+          <div class="hlttl">ぜんぶ けずると…</div>
+          <div class="hldsc">きじゅんまで削ると「やったね！」のお祝い画面が出てくるよ。デフォルトは100%。⚙️せっていで80%・90%・100%から選べるよ。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spsc">
+      <div class="spsct">🖌 ブラシのおおきさ</div>
+      <div class="hlrow">
+        <div class="hlico">⚫</div>
+        <div class="hlbody">
+          <div class="hlttl">4つのサイズから えらぼう</div>
+          <div class="hldsc">ツールバーにある●ボタンでブラシの大きさを変えられるよ。大きいほうがけずりやすくて達成感があるよ。タッチしにくい子には「XL（いちばん大きい）」がおすすめ。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spsc">
+      <div class="spsct">🖼️ したえをかえる</div>
+      <div class="hlrow">
+        <div class="hlico">🖼️</div>
+        <div class="hlbody">
+          <div class="hlttl">したえボタン・⚙️せってい から</div>
+          <div class="hldsc">ツールバーの「🖼️ したえ」ボタン、または右上の「⚙️」から下の絵を選べるよ。いぬ・ねこ・はなど16種類のデフォルト絵があるよ。</div>
+        </div>
+      </div>
+      <div class="hlrow">
+        <div class="hlico">📷</div>
+        <div class="hlbody">
+          <div class="hlttl">じぶんの写真を使う</div>
+          <div class="hldsc">「⚙️ → 📷 じぶんのしゃしん」から、端末内の画像（写真・イラストなど）を下絵として使えるよ。お子さんの好きなキャラクターや家族の写真なども使えるよ。画像はサーバーには送らずブラウザ内だけで使うよ。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spsc">
+      <div class="spsct">👁 視線入力モード</div>
+      <div class="hlrow">
+        <div class="hlico">👁</div>
+        <div class="hlbody">
+          <div class="hlttl">視線入力デバイスで けずる</div>
+          <div class="hldsc">「⚙️ → 👁 視線入力モード」をオンにすると、マウスカーソルが動くだけで自動的にけずれるよ。視線入力デバイスをマウスとして使っている場合に対応しているよ。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spsc">
+      <div class="spsct">⛶ 全画面表示</div>
+      <div class="hlrow">
+        <div class="hlico">⛶</div>
+        <div class="hlbody">
+          <div class="hlttl">画面いっぱいに広げる</div>
+          <div class="hldsc">右上の「⛶」ボタンで全画面に切り替えられるよ。全画面中は画面にタッチすると3秒間だけ操作バーが表示されるよ。「⊡」ボタンまたは Esc で元に戻せるよ。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spsc">
+      <div class="spsct">⚙️ その他のせってい</div>
+      <div class="hltbl">
+        <div class="hltblrow"><div class="hltblk">↺ やりなおす</div><div class="hltblv">スクラッチレイヤーをもとに戻すよ</div></div>
+        <div class="hltblrow"><div class="hltblk">🎨 スクラッチのいろ</div><div class="hltblv">けずる前のまくの色を変えられるよ</div></div>
+        <div class="hltblrow"><div class="hltblk">🎉 お祝いエフェクト</div><div class="hltblv">完成時の紙吹雪をON/OFFできるよ</div></div>
+        <div class="hltblrow"><div class="hltblk">🔊 完成時の音</div><div class="hltblv">完成音のON/OFFができるよ</div></div>
+        <div class="hltblrow"><div class="hltblk">⏭ 完成で自動的に次へ</div><div class="hltblv">80%で自動的に次の絵へ進むよ</div></div>
+        <div class="hltblrow"><div class="hltblk">🎨 ハイコントラスト</div><div class="hltblv">白黒高コントラスト表示に切り替えるよ</div></div>
+        <div class="hltblrow"><div class="hltblk">🔤 文字のおおきさ</div><div class="hltblv">標準・大・特大の3段階で変えられるよ</div></div>
+        <div class="hltblrow"><div class="hltblk">🔊 タップ読み上げ</div><div class="hltblv">ボタンをタップしたとき読み上げるよ</div></div>
+      </div>
+    </div>
+
+    <button class="btn btp" id="helpCls" style="width:100%;justify-content:center;margin-top:4px">✔ とじる</button>
+  </div>
+</div>
+
+<!-- 下絵エディタ（テキスト／写真＋テキスト統合） -->
+<div id="txtEdOv" class="spov" role="dialog" aria-modal="true" aria-label="したえをつくる" style="z-index:160">
+  <div class="sppn" id="txtEdP" style="max-height:96dvh">
+    <div class="sphd" aria-hidden="true"></div>
+    <div class="sptit" id="txtEdTitle">✏️ したえをつくる</div>
+
+    <!-- プレビュー -->
+    <div style="margin-bottom:14px">
+      <div class="spsct">👀 プレビュー</div>
+      <div style="position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;border:2px solid var(--cbr);background:#eee">
+        <canvas id="txtPreview" style="width:100%;height:100%;display:block"></canvas>
+      </div>
+    </div>
+
+    <!-- 写真タブと背景色タブ切り替え -->
+    <div class="spsc">
+      <div class="spsct">🖼️ はいけい</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="fbtn"    id="bgTypeColor" aria-label="背景色">🎨 いろ</button>
+        <button class="fbtn on" id="bgTypePhoto" aria-label="写真を使う">📷 しゃしん</button>
+      </div>
+      <div class="spsct" id="bgColorLabel">🟩 テキスト帯のいろ（下の帯の色）</div>
+      <!-- 背景色エリア（色モード時 or テキスト帯の色） -->
+      <div id="bgColorArea" style="display:none;gap:8px;flex-wrap:wrap;align-items:center">
+        <div class="co"    data-type="bg" data-c="#FFFDE7" style="background:#FFFDE7;border:2px solid #ddd" role="button" tabindex="0" aria-label="クリーム"></div>
+        <div class="co"    data-type="bg" data-c="#E3F2FD" style="background:#E3F2FD" role="button" tabindex="0" aria-label="みずいろ"></div>
+        <div class="co"    data-type="bg" data-c="#F3E5F5" style="background:#F3E5F5" role="button" tabindex="0" aria-label="うすむらさき"></div>
+        <div class="co on" data-type="bg" data-c="#388E3C" style="background:#388E3C" role="button" tabindex="0" aria-label="みどり"></div>
+        <div class="co"    data-type="bg" data-c="#1565C0" style="background:#1565C0" role="button" tabindex="0" aria-label="あお"></div>
+        <div class="co"    data-type="bg" data-c="#FFF0F5" style="background:#FFF0F5" role="button" tabindex="0" aria-label="ピンク"></div>
+        <div class="co"    data-type="bg" data-c="#1a1a2e" style="background:#1a1a2e" role="button" tabindex="0" aria-label="こん"></div>
+        <div class="co"    data-type="bg" data-c="#ffffff" style="background:#ffffff;border:2px solid #ccc" role="button" tabindex="0" aria-label="しろ"></div>
+        <label style="position:relative;width:36px;height:36px;border-radius:50%;overflow:hidden;cursor:pointer;border:3px solid var(--cbr);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0" aria-label="カスタム背景色">
+          🎨<input type="color" id="txtBgCustom" value="#388E3C" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+        </label>
+      </div>
+      <!-- 写真エリア -->
+      <div id="bgPhotoArea" style="display:none">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn bts" id="selectPhotoBtn" style="flex:1;justify-content:center;min-width:120px">📷 しゃしんをえらぶ</button>
+          <button class="btn bts" id="clearPhotoBtn"  style="display:none;justify-content:center" aria-label="写真を削除">✕ しゃしんをはずす</button>
+        </div>
+        <div id="photoPreviewThumb" style="display:none;margin-top:8px;height:60px;border-radius:8px;overflow:hidden;border:2px solid var(--cbr)">
+          <img id="photoThumbImg" style="width:100%;height:100%;object-fit:cover" alt="選択中の写真">
+        </div>
+      </div>
+    </div>
+
+    <!-- テキスト入力 -->
+    <div class="spsc">
+      <div class="spsct">📝 テキスト（なくてもOK・複数行可）</div>
+      <textarea id="txtInput" rows="3"
+        placeholder="ここに文字を入力&#10;例）おはよう　たろうくん"
+        style="width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--cp);font-family:var(--font);font-size:calc(1rem * var(--fs));line-height:1.8;resize:vertical;background:var(--csuf);color:var(--ct);outline:none;box-sizing:border-box"
+        aria-label="下絵に表示するテキスト"></textarea>
+    </div>
+
+    <!-- フォントサイズ -->
+    <div class="spsc">
+      <div class="spsct">🔤 もじのおおきさ</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="range" id="txtFontSz" min="18" max="180" value="80" step="2"
+          style="flex:1;accent-color:var(--cp)" aria-label="フォントサイズ">
+        <span id="txtFontSzVal" style="font-size:.9rem;font-weight:700;color:var(--cp);min-width:36px;text-align:right">80</span>
+      </div>
+    </div>
+
+    <!-- フォント -->
+    <div class="spsc">
+      <div class="spsct">🖋 フォント</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="txtFontBtns">
+        <button class="fbtn on" data-font="'Noto Sans JP',sans-serif"               style="font-family:'Noto Sans JP',sans-serif">ゴシック</button>
+        <button class="fbtn"    data-font="Georgia,serif"                            style="font-family:Georgia,serif">明朝体</button>
+        <button class="fbtn"    data-font="'Comic Sans MS',cursive"                 style="font-family:'Comic Sans MS',cursive">丸ゴシック</button>
+      </div>
+    </div>
+
+    <!-- 文字色 -->
+    <div class="spsc">
+      <div class="spsct">🎨 もじのいろ</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center" id="txtColorBtns">
+        <div class="co on" data-type="txt" data-c="#1a1a2e" style="background:#1a1a2e"                    role="button" tabindex="0" aria-label="こん"></div>
+        <div class="co"    data-type="txt" data-c="#C62828" style="background:#C62828"                    role="button" tabindex="0" aria-label="あか"></div>
+        <div class="co"    data-type="txt" data-c="#1565C0" style="background:#1565C0"                    role="button" tabindex="0" aria-label="あお"></div>
+        <div class="co"    data-type="txt" data-c="#2E7D32" style="background:#2E7D32"                    role="button" tabindex="0" aria-label="みどり"></div>
+        <div class="co"    data-type="txt" data-c="#6A1B9A" style="background:#6A1B9A"                    role="button" tabindex="0" aria-label="むらさき"></div>
+        <div class="co"    data-type="txt" data-c="#E65100" style="background:#E65100"                    role="button" tabindex="0" aria-label="オレンジ"></div>
+        <div class="co"    data-type="txt" data-c="#ffffff" style="background:#ffffff;border:2px solid #ccc" role="button" tabindex="0" aria-label="しろ"></div>
+        <label style="position:relative;width:36px;height:36px;border-radius:50%;overflow:hidden;cursor:pointer;border:3px solid var(--cbr);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0" aria-label="カスタム文字色">
+          🎨<input type="color" id="txtColorCustom" value="#1a1a2e" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+        </label>
+      </div>
+    </div>
+
+    <!-- テキスト配置 -->
+    <div class="spsc">
+      <div class="spsct">📐 もじのいち</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="txtAlignBtns">
+        <button class="fbtn on" data-align="center" aria-label="中央">中央</button>
+        <button class="fbtn"    data-align="top"    aria-label="上">上よせ</button>
+        <button class="fbtn"    data-align="bottom" aria-label="下">下よせ</button>
+      </div>
+    </div>
+
+    <!-- アクション -->
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn bts" id="txtEdCancel" style="flex:1;justify-content:center">✕ キャンセル</button>
+      <button class="btn btp" id="txtEdSave"   style="flex:1;justify-content:center">✔ このえをつかう</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const C={brushSz:72,scrCol:'#7B7B9E',gaze:false,effect:true,sound:true,autoNext:false,thresh:0.97,ckEvery:55,sampStep:4,tts:false,ttsRate:1,ttsComp:true,hc:false,fs:1};
+/* ============================================================
+   Canvas イラスト描画関数
+   各関数は drawXxx(ctx, W, H) の形で 0,0 起点で描く
+============================================================ */
+
+/* --- 共通ユーティリティ --- */
+function bg(ctx,W,H,col){ctx.fillStyle=col;ctx.fillRect(0,0,W,H);}
+function circle(ctx,x,y,r,fill,stroke,lw){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||3;ctx.stroke();}}
+function roundRect(ctx,x,y,w,h,r,fill,stroke,lw){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||3;ctx.stroke();}}
+function ellipse(ctx,x,y,rx,ry,fill,stroke,lw){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||3;ctx.stroke();}}
+function shadow(ctx,col,blur){ctx.shadowColor=col;ctx.shadowBlur=blur;}
+function noShadow(ctx){ctx.shadowColor='transparent';ctx.shadowBlur=0;}
+function label(ctx,W,H,text,col){
+  const sz=Math.min(W,H)*0.06;
+  ctx.font=`900 ${sz}px 'Noto Sans JP',sans-serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,255,255,0.92)';
+  ctx.fillText(text,W/2,H*0.91);
+}
+
+/* -----------------------------------------------------------
+   1. いぬ（正面向き・座った柴犬）
+----------------------------------------------------------- */
+function drawInu(ctx,W,H){
+  bg(ctx,W,H,'#FFF8EE');
+  // 地面
+  const gr=ctx.createLinearGradient(0,H*0.82,0,H);
+  gr.addColorStop(0,'#C8E6C9');gr.addColorStop(1,'#A5D6A7');
+  ctx.fillStyle=gr;ctx.fillRect(0,H*0.82,W,H*0.18);
+
+  const S=Math.min(W,H)/2;
+  const cx=W/2, cy=H*0.46;
+  ctx.save();ctx.translate(cx,cy);
+
+  const fur='#C8864A', furD='#A8622A', furL='#F0D0A0', blk='#1a0f00';
+
+  // ===しっぽ（胴体より先に）===
+  ctx.save();ctx.translate(S*0.52, S*0.12);ctx.rotate(-1.1);
+  ctx.beginPath();
+  ctx.moveTo(0,0);ctx.bezierCurveTo(S*0.18,-S*0.05,S*0.2,-S*0.25,S*0.05,-S*0.38);
+  ctx.strokeStyle=fur;ctx.lineWidth=S*0.14;ctx.lineCap='round';ctx.stroke();
+  // しっぽ先端（明るい）
+  circle(ctx,S*0.05,-S*0.38,S*0.07,furL,null);
+  ctx.restore();
+
+  // ===胴体（楕円）===
+  shadow(ctx,'rgba(140,90,30,.22)',S*0.08);
+  ellipse(ctx,0,S*0.12,S*0.48,S*0.42,fur,null);
+  noShadow(ctx);
+
+  // お腹（クリーム色）
+  ellipse(ctx,0,S*0.18,S*0.28,S*0.28,furL,null);
+
+  // ===後ろ脚（座っているので横に出る）===
+  // 左後脚
+  ctx.save();ctx.translate(-S*0.38,S*0.32);ctx.rotate(0.3);
+  ellipse(ctx,0,0,S*0.17,S*0.13,fur,null);ctx.restore();
+  // 右後脚
+  ctx.save();ctx.translate(S*0.38,S*0.32);ctx.rotate(-0.3);
+  ellipse(ctx,0,0,S*0.17,S*0.13,fur,null);ctx.restore();
+
+  // ===前脚（正面に向かって下に）===
+  // 左前脚
+  roundRect(ctx,-S*0.32,S*0.26,S*0.2,S*0.3,S*0.1,fur,furD,S*0.02);
+  // 右前脚
+  roundRect(ctx,S*0.12,S*0.26,S*0.2,S*0.3,S*0.1,fur,furD,S*0.02);
+  // 左前脚先（肉球ぽい丸み）
+  ellipse(ctx,-S*0.22,S*0.56,S*0.13,S*0.08,furL,null);
+  ellipse(ctx,S*0.22,S*0.56,S*0.13,S*0.08,furL,null);
+
+  // ===頭（胴体より大きめ・正面向き）===
+  shadow(ctx,'rgba(140,90,30,.2)',S*0.07);
+  circle(ctx,0,-S*0.42,S*0.42,fur,null);
+  noShadow(ctx);
+
+  // ===耳（三角たれ耳）===
+  // 左耳
+  ctx.fillStyle=furD;
+  ctx.beginPath();ctx.moveTo(-S*0.18,-S*0.72);ctx.lineTo(-S*0.52,-S*0.55);ctx.lineTo(-S*0.38,-S*0.18);ctx.closePath();ctx.fill();
+  // 右耳
+  ctx.beginPath();ctx.moveTo(S*0.18,-S*0.72);ctx.lineTo(S*0.52,-S*0.55);ctx.lineTo(S*0.38,-S*0.18);ctx.closePath();ctx.fill();
+  // 耳の内側
+  ctx.fillStyle='#E8A070';
+  ctx.beginPath();ctx.moveTo(-S*0.22,-S*0.65);ctx.lineTo(-S*0.44,-S*0.52);ctx.lineTo(-S*0.35,-S*0.26);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#E8A070';
+  ctx.beginPath();ctx.moveTo(S*0.22,-S*0.65);ctx.lineTo(S*0.44,-S*0.52);ctx.lineTo(S*0.35,-S*0.26);ctx.closePath();ctx.fill();
+
+  // ===顔のクリーム色マズル===
+  ellipse(ctx,0,-S*0.28,S*0.25,S*0.18,furL,null);
+
+  // ===目===
+  // 白目
+  ellipse(ctx,-S*0.16,-S*0.46,S*0.1,S*0.12,'#fff',null);
+  ellipse(ctx,S*0.16,-S*0.46,S*0.1,S*0.12,'#fff',null);
+  // 黒目
+  circle(ctx,-S*0.16,-S*0.46,S*0.075,blk,null);
+  circle(ctx,S*0.16,-S*0.46,S*0.075,blk,null);
+  // 瞳孔のハイライト
+  circle(ctx,-S*0.13,-S*0.49,S*0.03,'#fff',null);
+  circle(ctx,S*0.19,-S*0.49,S*0.03,'#fff',null);
+
+  // ===鼻（丸みのある三角形）===
+  ctx.fillStyle=blk;
+  ctx.beginPath();
+  ctx.moveTo(0,-S*0.27);
+  ctx.bezierCurveTo(-S*0.1,-S*0.27,-S*0.1,-S*0.21,0,-S*0.20);
+  ctx.bezierCurveTo(S*0.1,-S*0.21,S*0.1,-S*0.27,0,-S*0.27);
+  ctx.fill();
+  // 鼻のハイライト
+  circle(ctx,-S*0.03,-S*0.25,S*0.025,'rgba(255,255,255,.5)',null);
+
+  // ===口===
+  ctx.strokeStyle=blk;ctx.lineWidth=S*0.025;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,-S*0.20);ctx.lineTo(0,-S*0.15);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-S*0.12,-S*0.15);ctx.quadraticCurveTo(-S*0.06,-S*0.1,0,-S*0.13);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(S*0.12,-S*0.15);ctx.quadraticCurveTo(S*0.06,-S*0.1,0,-S*0.13);ctx.stroke();
+
+  ctx.restore();
+  label(ctx,W,H,'いぬ');
+}
+
+/* -----------------------------------------------------------
+   2. ねこ（正面向き・おすわりねこ）
+----------------------------------------------------------- */
+function drawNeko(ctx,W,H){
+  bg(ctx,W,H,'#F5F0FF');
+  // 地面
+  const gr=ctx.createLinearGradient(0,H*0.82,0,H);
+  gr.addColorStop(0,'#E1BEE7');gr.addColorStop(1,'#CE93D8');
+  ctx.fillStyle=gr;ctx.fillRect(0,H*0.82,W,H*0.18);
+
+  const S=Math.min(W,H)/2;
+  const cx=W/2, cy=H*0.46;
+  ctx.save();ctx.translate(cx,cy);
+
+  const fur='#F5F5F5', furS='#E0E0E0', blk='#212121';
+
+  // ===しっぽ（右側に巻く）===
+  ctx.strokeStyle=furS;ctx.lineWidth=S*0.13;ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(S*0.38,S*0.54);
+  ctx.bezierCurveTo(S*0.72,S*0.5,S*0.78,S*0.1,S*0.55,-S*0.05);
+  ctx.stroke();
+  // しっぽ先端の白い丸
+  circle(ctx,S*0.55,-S*0.05,S*0.08,fur,null);
+
+  // ===胴体===
+  shadow(ctx,'rgba(100,80,130,.18)',S*0.08);
+  ellipse(ctx,0,S*0.12,S*0.45,S*0.42,fur,null);
+  noShadow(ctx);
+  // 胸の白いふわふわ
+  ellipse(ctx,0,S*0.0,S*0.22,S*0.26,'#fff',null);
+
+  // ===前脚===
+  roundRect(ctx,-S*0.3,S*0.28,S*0.18,S*0.3,S*0.09,furS,null);
+  roundRect(ctx,S*0.12,S*0.28,S*0.18,S*0.3,S*0.09,furS,null);
+  // 肉球（ピンク）
+  ellipse(ctx,-S*0.21,S*0.57,S*0.11,S*0.06,'#F8BBD0',null);
+  ellipse(ctx,S*0.21,S*0.57,S*0.11,S*0.06,'#F8BBD0',null);
+
+  // ===頭===
+  shadow(ctx,'rgba(100,80,130,.16)',S*0.06);
+  circle(ctx,0,-S*0.4,S*0.41,fur,null);
+  noShadow(ctx);
+
+  // ===耳（三角形・外側）===
+  ctx.fillStyle=furS;
+  ctx.beginPath();ctx.moveTo(-S*0.42,-S*0.6);ctx.lineTo(-S*0.52,-S*0.88);ctx.lineTo(-S*0.16,-S*0.72);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(S*0.42,-S*0.6);ctx.lineTo(S*0.52,-S*0.88);ctx.lineTo(S*0.16,-S*0.72);ctx.closePath();ctx.fill();
+  // 耳の内側（ピンク）
+  ctx.fillStyle='#FFCDD2';
+  ctx.beginPath();ctx.moveTo(-S*0.4,-S*0.63);ctx.lineTo(-S*0.47,-S*0.83);ctx.lineTo(-S*0.2,-S*0.72);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(S*0.4,-S*0.63);ctx.lineTo(S*0.47,-S*0.83);ctx.lineTo(S*0.2,-S*0.72);ctx.closePath();ctx.fill();
+
+  // ===マズル（口元の丸いエリア）===
+  ellipse(ctx,0,-S*0.24,S*0.22,S*0.16,'#fff',null);
+
+  // ===目（大きなアーモンド形）===
+  // 白目
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.ellipse(-S*0.16,-S*0.44,S*0.13,S*0.11,-0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(S*0.16,-S*0.44,S*0.13,S*0.11,0.2,0,Math.PI*2);ctx.fill();
+  // 虹彩（黄緑）
+  ctx.fillStyle='#76FF03';
+  ctx.beginPath();ctx.ellipse(-S*0.16,-S*0.44,S*0.1,S*0.09,-0.2,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(S*0.16,-S*0.44,S*0.1,S*0.09,0.2,0,Math.PI*2);ctx.fill();
+  // 瞳孔（縦長）
+  ctx.fillStyle=blk;
+  ctx.beginPath();ctx.ellipse(-S*0.16,-S*0.44,S*0.04,S*0.09,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(S*0.16,-S*0.44,S*0.04,S*0.09,0,0,Math.PI*2);ctx.fill();
+  // ハイライト
+  circle(ctx,-S*0.12,-S*0.48,S*0.025,'#fff',null);
+  circle(ctx,S*0.2,-S*0.48,S*0.025,'#fff',null);
+  // アイライン
+  ctx.strokeStyle=blk;ctx.lineWidth=S*0.018;
+  ctx.beginPath();ctx.ellipse(-S*0.16,-S*0.44,S*0.13,S*0.11,-0.2,Math.PI,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(S*0.16,-S*0.44,S*0.13,S*0.11,0.2,Math.PI,Math.PI*2);ctx.stroke();
+
+  // ===鼻（小さな三角）===
+  ctx.fillStyle='#F48FB1';
+  ctx.beginPath();ctx.moveTo(0,-S*0.22);ctx.lineTo(-S*0.07,-S*0.27);ctx.lineTo(S*0.07,-S*0.27);ctx.closePath();ctx.fill();
+
+  // ===口===
+  ctx.strokeStyle='#BDBDBD';ctx.lineWidth=S*0.022;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,-S*0.22);ctx.lineTo(0,-S*0.17);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-S*0.1,-S*0.17);ctx.quadraticCurveTo(-S*0.05,-S*0.12,0,-S*0.15);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(S*0.1,-S*0.17);ctx.quadraticCurveTo(S*0.05,-S*0.12,0,-S*0.15);ctx.stroke();
+
+  // ===ひげ===
+  ctx.strokeStyle='rgba(150,150,150,.7)';ctx.lineWidth=S*0.018;ctx.lineCap='round';
+  [[-1,0],[-1,1],[-1,-1],[1,0],[1,1],[1,-1]].forEach(([dx,dy],i)=>{
+    const base=i<3?-1:1;
+    ctx.beginPath();
+    ctx.moveTo(base*S*0.08,-S*0.24+dy*S*0.04);
+    ctx.lineTo(base*S*0.46,-S*0.22+dy*S*0.06);
+    ctx.stroke();
+  });
+
+  ctx.restore();
+  label(ctx,W,H,'ねこ');
+}
+
+/* -----------------------------------------------------------
+   3. りんご（どっしりした赤いりんご）
+----------------------------------------------------------- */
+function drawRingo(ctx,W,H){
+  bg(ctx,W,H,'#F1F8E9');
+  const S=Math.min(W,H)/2;
+  ctx.save();ctx.translate(W/2,H/2);
+
+  // ===茎===
+  ctx.strokeStyle='#5D4037';ctx.lineWidth=S*0.05;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,-S*0.72);ctx.quadraticCurveTo(S*0.1,-S*0.88,S*0.08,-S*0.82);ctx.stroke();
+
+  // ===葉っぱ===
+  ctx.save();ctx.translate(S*0.07,-S*0.8);ctx.rotate(0.5);
+  // 葉の形（ベジェ）
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.bezierCurveTo(S*0.22,-S*0.08,S*0.28,S*0.12,S*0.02,S*0.26);
+  ctx.bezierCurveTo(-S*0.12,S*0.12,-S*0.08,-S*0.04,0,0);
+  ctx.fillStyle='#558B2F';ctx.fill();
+  ctx.strokeStyle='#33691E';ctx.lineWidth=S*0.018;ctx.stroke();
+  // 葉脈
+  ctx.strokeStyle='rgba(50,100,20,.45)';ctx.lineWidth=S*0.012;
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(S*0.02,S*0.24);ctx.stroke();
+  ctx.restore();
+
+  // ===りんご本体===
+  // 影
+  shadow(ctx,'rgba(150,20,20,.3)',S*0.15);
+  // りんごパス（上部くびれ付き）
+  ctx.beginPath();
+  ctx.moveTo(-S*0.05,-S*0.7);
+  // 左上カーブ→くびれ
+  ctx.bezierCurveTo(-S*0.45,-S*0.72,-S*0.82,-S*0.42,-S*0.82,-S*0.05);
+  // 左側〜底
+  ctx.bezierCurveTo(-S*0.82,S*0.38,-S*0.52,S*0.72,0,S*0.74);
+  // 右底〜右側
+  ctx.bezierCurveTo(S*0.52,S*0.72,S*0.82,S*0.38,S*0.82,-S*0.05);
+  // 右上カーブ→くびれ
+  ctx.bezierCurveTo(S*0.82,-S*0.42,S*0.45,-S*0.72,S*0.05,-S*0.7);
+  ctx.closePath();
+  const grd=ctx.createRadialGradient(-S*0.22,-S*0.3,S*0.05,S*0.0,-S*0.1,S*0.9);
+  grd.addColorStop(0,'#FF8A80');
+  grd.addColorStop(0.35,'#F44336');
+  grd.addColorStop(0.7,'#C62828');
+  grd.addColorStop(1,'#8B1A1A');
+  ctx.fillStyle=grd;ctx.fill();
+  noShadow(ctx);
+
+  // ===ハイライト（左上の光沢）===
+  ctx.save();ctx.translate(-S*0.3,-S*0.32);ctx.rotate(-0.4);
+  const hl=ctx.createRadialGradient(0,0,S*0.02,0,0,S*0.28);
+  hl.addColorStop(0,'rgba(255,255,255,.72)');
+  hl.addColorStop(0.6,'rgba(255,255,255,.18)');
+  hl.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.beginPath();ctx.ellipse(0,0,S*0.18,S*0.28,0,0,Math.PI*2);
+  ctx.fillStyle=hl;ctx.fill();
+  ctx.restore();
+
+  // ===小さなハイライト===
+  ctx.save();ctx.translate(S*0.28,-S*0.18);
+  const hl2=ctx.createRadialGradient(0,0,0,0,0,S*0.1);
+  hl2.addColorStop(0,'rgba(255,255,255,.45)');hl2.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.beginPath();ctx.ellipse(0,0,S*0.08,S*0.12,0,0,Math.PI*2);ctx.fillStyle=hl2;ctx.fill();
+  ctx.restore();
+
+  ctx.restore();
+  label(ctx,W,H,'りんご');
+}
+
+/* -----------------------------------------------------------
+   4. ひまわり（大輪のひまわり）
+----------------------------------------------------------- */
+function drawHimawari(ctx,W,H){
+  bg(ctx,W,H,'#FFFDE7');
+  const s=Math.min(W,H)/400;
+  ctx.save();ctx.translate(W/2,H/2);ctx.scale(s,s);
+
+  // 茎
+  ctx.beginPath();ctx.moveTo(0,110);ctx.quadraticCurveTo(-20,180,0,220);ctx.strokeStyle='#388E3C';ctx.lineWidth=16;ctx.lineCap='round';ctx.stroke();
+  // 葉
+  ctx.save();ctx.translate(-30,160);ctx.rotate(0.6);
+  ellipse(ctx,0,0,20,42,'#66BB6A',null);ctx.restore();
+  ctx.save();ctx.translate(30,190);ctx.rotate(-0.5);
+  ellipse(ctx,0,0,18,36,'#66BB6A',null);ctx.restore();
+
+  // 花びら（外側）
+  const pCount=14;
+  for(let i=0;i<pCount;i++){
+    ctx.save();ctx.rotate((Math.PI*2/pCount)*i);
+    ctx.translate(0,-95);
+    shadow(ctx,'rgba(200,150,0,.2)',6);
+    ellipse(ctx,0,0,22,45,'#FDD835',null);
+    noShadow(ctx);
+    ctx.restore();
+  }
+  // 花びら（内側）
+  const p2=14;
+  for(let i=0;i<p2;i++){
+    ctx.save();ctx.rotate((Math.PI*2/p2)*i+Math.PI/p2);
+    ctx.translate(0,-78);
+    ellipse(ctx,0,0,16,36,'#FFEE58',null);
+    ctx.restore();
+  }
+  // 花芯
+  shadow(ctx,'rgba(80,40,0,.3)',14);
+  circle(ctx,0,0,68,'#4E342E',null);
+  noShadow(ctx);
+  circle(ctx,0,0,60,'#5D4037',null);
+  // 種のドット模様
+  ctx.fillStyle='#3E2723';
+  for(let i=0;i<7;i++){for(let j=0;j<7;j++){
+    const dx=(i-3)*14,dy=(j-3)*14;
+    if(dx*dx+dy*dy<54*54)circle(ctx,dx,dy,4,'#3E2723',null);
+  }}
+  // 花芯のハイライト
+  circle(ctx,-18,-18,12,'rgba(255,255,255,.12)',null);
+
+  ctx.restore();
+  label(ctx,W,H,'ひまわり');
+}
+
+/* -----------------------------------------------------------
+   5. くま（正面向き・ぬいぐるみ風）
+----------------------------------------------------------- */
+function drawKuma(ctx,W,H){
+  bg(ctx,W,H,'#FFF8E1');
+  // 地面
+  const gr=ctx.createLinearGradient(0,H*0.82,0,H);
+  gr.addColorStop(0,'#D7CCC8');gr.addColorStop(1,'#BCAAA4');
+  ctx.fillStyle=gr;ctx.fillRect(0,H*0.82,W,H*0.18);
+
+  const S=Math.min(W,H)/2;
+  const cx=W/2, cy=H*0.46;
+  ctx.save();ctx.translate(cx,cy);
+
+  const fur='#8D6E63', furL='#BCAAA4', blk='#1a0a00';
+
+  // ===耳（頭より先に描いて後ろに隠す）===
+  // 左耳
+  shadow(ctx,'rgba(80,50,20,.2)',S*0.06);
+  circle(ctx,-S*0.32,-S*0.72,S*0.22,fur,null);
+  noShadow(ctx);
+  circle(ctx,-S*0.32,-S*0.72,S*0.14,furL,null);
+  // 右耳
+  shadow(ctx,'rgba(80,50,20,.2)',S*0.06);
+  circle(ctx,S*0.32,-S*0.72,S*0.22,fur,null);
+  noShadow(ctx);
+  circle(ctx,S*0.32,-S*0.72,S*0.14,furL,null);
+
+  // ===胴体===
+  shadow(ctx,'rgba(80,50,20,.22)',S*0.1);
+  ellipse(ctx,0,S*0.24,S*0.46,S*0.44,fur,null);
+  noShadow(ctx);
+  // お腹
+  ellipse(ctx,0,S*0.22,S*0.3,S*0.32,furL,null);
+
+  // ===腕（両側）===
+  // 左腕
+  ctx.save();ctx.translate(-S*0.5,S*0.08);ctx.rotate(0.3);
+  ellipse(ctx,0,0,S*0.16,S*0.3,fur,null);
+  ctx.restore();
+  // 右腕
+  ctx.save();ctx.translate(S*0.5,S*0.08);ctx.rotate(-0.3);
+  ellipse(ctx,0,0,S*0.16,S*0.3,fur,null);
+  ctx.restore();
+  // 手先（丸い）
+  circle(ctx,-S*0.56,S*0.32,S*0.13,fur,null);
+  circle(ctx,S*0.56,S*0.32,S*0.13,fur,null);
+  // 肉球
+  circle(ctx,-S*0.56,S*0.32,S*0.07,furL,null);
+  circle(ctx,S*0.56,S*0.32,S*0.07,furL,null);
+
+  // ===足（下に）===
+  ellipse(ctx,-S*0.24,S*0.62,S*0.2,S*0.14,fur,null);
+  ellipse(ctx,S*0.24,S*0.62,S*0.2,S*0.14,fur,null);
+  ellipse(ctx,-S*0.24,S*0.64,S*0.12,S*0.08,furL,null);
+  ellipse(ctx,S*0.24,S*0.64,S*0.12,S*0.08,furL,null);
+
+  // ===頭===
+  shadow(ctx,'rgba(80,50,20,.2)',S*0.08);
+  circle(ctx,0,-S*0.38,S*0.44,fur,null);
+  noShadow(ctx);
+
+  // ===マズル===
+  ellipse(ctx,0,-S*0.22,S*0.26,S*0.2,furL,null);
+
+  // ===目===
+  circle(ctx,-S*0.18,-S*0.44,S*0.1,'#fff',null);
+  circle(ctx,S*0.18,-S*0.44,S*0.1,'#fff',null);
+  circle(ctx,-S*0.18,-S*0.44,S*0.07,blk,null);
+  circle(ctx,S*0.18,-S*0.44,S*0.07,blk,null);
+  // ハイライト
+  circle(ctx,-S*0.14,-S*0.48,S*0.028,'#fff',null);
+  circle(ctx,S*0.22,-S*0.48,S*0.028,'#fff',null);
+
+  // ===鼻（丸みのある逆三角）===
+  ctx.fillStyle=blk;
+  ctx.beginPath();
+  ctx.moveTo(0,-S*0.21);
+  ctx.bezierCurveTo(-S*0.1,-S*0.21,-S*0.1,-S*0.15,0,-S*0.14);
+  ctx.bezierCurveTo(S*0.1,-S*0.15,S*0.1,-S*0.21,0,-S*0.21);
+  ctx.fill();
+  circle(ctx,-S*0.03,-S*0.19,S*0.025,'rgba(255,255,255,.45)',null);
+
+  // ===口===
+  ctx.strokeStyle=blk;ctx.lineWidth=S*0.022;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,-S*0.14);ctx.lineTo(0,-S*0.09);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-S*0.1,-S*0.09);ctx.quadraticCurveTo(-S*0.05,-S*0.04,0,-S*0.07);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(S*0.1,-S*0.09);ctx.quadraticCurveTo(S*0.05,-S*0.04,0,-S*0.07);ctx.stroke();
+
+  ctx.restore();
+  label(ctx,W,H,'くま');
+}
+
+/* -----------------------------------------------------------
+   6. きんぎょ（横向き・シンプルでかわいい金魚）
+----------------------------------------------------------- */
+function drawKingyo(ctx,W,H){
+  // 水槽背景グラデーション
+  const skyG=ctx.createLinearGradient(0,0,0,H);
+  skyG.addColorStop(0,'#E3F2FD');skyG.addColorStop(1,'#BBDEFB');
+  ctx.fillStyle=skyG;ctx.fillRect(0,0,W,H);
+
+  // 水底の砂利
+  const sandG=ctx.createLinearGradient(0,H*0.78,0,H);
+  sandG.addColorStop(0,'#FFF9C4');sandG.addColorStop(1,'#F9A825');
+  ctx.fillStyle=sandG;ctx.fillRect(0,H*0.78,W,H*0.22);
+
+  // 水草
+  ctx.strokeStyle='#388E3C';ctx.lineWidth=H*0.025;ctx.lineCap='round';
+  [[W*0.12,H*0.78],[W*0.18,H*0.78],[W*0.82,H*0.78],[W*0.88,H*0.78]].forEach(([bx,by],i)=>{
+    ctx.beginPath();ctx.moveTo(bx,by);
+    ctx.bezierCurveTo(bx+(i%2?-1:1)*H*0.06,by-H*0.15,bx+(i%2?1:-1)*H*0.04,by-H*0.28,bx,by-H*0.36);
+    ctx.stroke();
+  });
+
+  // 水泡
+  ctx.strokeStyle='rgba(100,181,246,.6)';ctx.lineWidth=2;
+  [[W*0.2,H*0.25],[W*0.75,H*0.18],[W*0.55,H*0.32]].forEach(([bx,by])=>{
+    circle(ctx,bx,by,H*0.025,null,'rgba(180,220,255,.5)',2);
+    circle(ctx,bx+H*0.01,by-H*0.01,H*0.008,'rgba(255,255,255,.5)',null);
+  });
+
+  const S=Math.min(W,H)/2;
+  ctx.save();ctx.translate(W/2,H*0.44);
+
+  // ===尾びれ（左側、ひらひら2枚）===
+  // 上の尾びれ
+  ctx.beginPath();
+  ctx.moveTo(-S*0.55,0);
+  ctx.bezierCurveTo(-S*0.72,-S*0.1,-S*1.05,-S*0.42,-S*0.92,-S*0.55);
+  ctx.bezierCurveTo(-S*0.78,-S*0.62,-S*0.62,-S*0.25,-S*0.55,0);
+  ctx.fillStyle='#EF5350';ctx.fill();
+  // 下の尾びれ
+  ctx.beginPath();
+  ctx.moveTo(-S*0.55,0);
+  ctx.bezierCurveTo(-S*0.72,S*0.1,-S*1.05,S*0.38,-S*0.9,S*0.5);
+  ctx.bezierCurveTo(-S*0.76,S*0.58,-S*0.62,S*0.22,-S*0.55,0);
+  ctx.fillStyle='#EF9A9A';ctx.fill();
+  // 尾びれの模様線
+  ctx.strokeStyle='rgba(220,80,60,.4)';ctx.lineWidth=S*0.02;ctx.lineCap='round';
+  [[-S*0.65,-S*0.18,-S*0.88,-S*0.42],[-S*0.65,S*0.15,-S*0.86,S*0.38]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  });
+
+  // ===胴体（右向き、楕円形）===
+  shadow(ctx,'rgba(180,40,20,.25)',S*0.1);
+  const bodyG=ctx.createRadialGradient(S*0.1,-S*0.1,S*0.05,0,0,S*0.62);
+  bodyG.addColorStop(0,'#FF8A80');
+  bodyG.addColorStop(0.45,'#F44336');
+  bodyG.addColorStop(1,'#B71C1C');
+  ellipse(ctx,0,0,S*0.62,S*0.42,bodyG,null);
+  noShadow(ctx);
+
+  // ===うろこ模様===
+  ctx.save();
+  ctx.beginPath();ctx.ellipse(0,0,S*0.62,S*0.42,0,0,Math.PI*2);ctx.clip();
+  ctx.strokeStyle='rgba(255,200,180,.5)';ctx.lineWidth=S*0.02;
+  for(let col=-1;col<=2;col++){
+    for(let row=-2;row<=2;row++){
+      const sx=col*S*0.28+(row%2)*S*0.14;
+      const sy=row*S*0.2;
+      ctx.beginPath();ctx.arc(sx,sy,S*0.18,Math.PI*0.1,Math.PI*0.9);ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // ===背びれ===
+  ctx.beginPath();
+  ctx.moveTo(-S*0.1,-S*0.42);
+  ctx.bezierCurveTo(-S*0.05,-S*0.66,S*0.18,-S*0.7,S*0.3,-S*0.42);
+  ctx.fillStyle='#EF5350';ctx.fill();
+
+  // ===胸びれ===
+  ctx.save();ctx.translate(S*0.18,S*0.12);ctx.rotate(0.5);
+  ellipse(ctx,0,0,S*0.1,S*0.2,'rgba(255,138,128,.8)',null);
+  ctx.restore();
+
+  // ===目（右を向いている）===
+  const eyeX=S*0.44, eyeY=-S*0.06;
+  circle(ctx,eyeX,eyeY,S*0.13,'#fff',null);
+  circle(ctx,eyeX+S*0.02,eyeY,S*0.09,'#1a1a1a',null);
+  circle(ctx,eyeX+S*0.05,eyeY-S*0.03,S*0.035,'#fff',null);
+
+  // ===口===
+  ctx.strokeStyle='#B71C1C';ctx.lineWidth=S*0.025;ctx.lineCap='round';
+  ctx.beginPath();ctx.arc(S*0.6,S*0.06,S*0.06,Math.PI*1.1,Math.PI*1.9);ctx.stroke();
+
+  // ===腹びれ===
+  ctx.save();ctx.translate(S*0.0,S*0.38);ctx.rotate(-0.3);
+  ellipse(ctx,0,0,S*0.08,S*0.16,'rgba(255,138,128,.7)',null);
+  ctx.restore();
+
+  ctx.restore();
+  label(ctx,W,H,'きんぎょ');
+}
+
+/* -----------------------------------------------------------
+   7. でんしゃ（かわいい電車）
+----------------------------------------------------------- */
+function drawDensha(ctx,W,H){
+  bg(ctx,W,H,'#E8F5E9');
+  const s=Math.min(W,H)/400;
+  ctx.save();ctx.translate(W/2,H/2-10);ctx.scale(s,s);
+
+  // レール
+  ctx.fillStyle='#8D6E63';ctx.fillRect(-180,100,360,12);
+  ctx.fillStyle='#A1887F';
+  for(let x=-160;x<180;x+=28){ctx.fillRect(x,95,12,22);}
+
+  // 車体
+  shadow(ctx,'rgba(20,80,180,.3)',18);
+  roundRect(ctx,-155,-90,310,185,20,'#1565C0',null);
+  noShadow(ctx);
+  // 車体下部
+  roundRect(ctx,-155,50,310,45,8,'#0D47A1',null);
+  // ライン
+  roundRect(ctx,-155,5,310,18,0,'#42A5F5',null);
+  // 屋根
+  roundRect(ctx,-155,-95,310,18,6,'#0D47A1',null);
+  // パンタグラフ
+  ctx.strokeStyle='#90CAF9';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(-20,-95);ctx.lineTo(-40,-130);ctx.lineTo(40,-130);ctx.lineTo(20,-95);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(-40,-130);ctx.lineTo(40,-130);ctx.lineWidth=6;ctx.stroke();
+
+  // 窓（前面）
+  roundRect(ctx,-90,-75,80,65,10,'#B3E5FC','#42A5F5',3);
+  roundRect(ctx,10,-75,80,65,10,'#B3E5FC','#42A5F5',3);
+  // 窓の反射
+  roundRect(ctx,-86,-71,30,20,5,'rgba(255,255,255,.35)',null);
+  roundRect(ctx,14,-71,30,20,5,'rgba(255,255,255,.35)',null);
+  // ドア
+  roundRect(ctx,-18,-70,36,112,6,'#1976D2','#1565C0',2);
+  ctx.beginPath();ctx.moveTo(0,-70);ctx.lineTo(0,42);ctx.strokeStyle='#42A5F5';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.2)';ctx.beginPath();ctx.arc(6,10,5,0,Math.PI*2);ctx.fill();
+  ctx.arc(-6,10,5,0,Math.PI*2);ctx.fill();
+
+  // 車輪
+  [-100,100].forEach(x=>{
+    circle(ctx,x,95,28,'#424242',null);
+    circle(ctx,x,95,20,'#616161',null);
+    circle(ctx,x,95,8,'#9E9E9E',null);
+    // スポーク
+    ctx.strokeStyle='#757575';ctx.lineWidth=3;
+    for(let a=0;a<4;a++){ctx.save();ctx.translate(x,95);ctx.rotate(a*Math.PI/4);ctx.beginPath();ctx.moveTo(0,-20);ctx.lineTo(0,20);ctx.stroke();ctx.restore();}
+  });
+
+  ctx.restore();
+  label(ctx,W,H,'でんしゃ');
+}
+
+/* -----------------------------------------------------------
+   8. ケーキ（いちごのデコレーションケーキ）
+----------------------------------------------------------- */
+function drawCake(ctx,W,H){
+  bg(ctx,W,H,'#FFF0F5');
+  const s=Math.min(W,H)/400;
+  ctx.save();ctx.translate(W/2,H/2+10);ctx.scale(s,s);
+
+  // 土台（下層）
+  shadow(ctx,'rgba(180,100,100,.25)',14);
+  roundRect(ctx,-135,40,270,90,14,'#F48FB1',null);
+  noShadow(ctx);
+  // スポンジ下
+  roundRect(ctx,-130,48,260,32,0,'#FFF9C4',null);
+  roundRect(ctx,-130,48,260,10,0,'#FFCC80',null);
+  // クリーム中間
+  roundRect(ctx,-135,10,270,38,0,'#fff',null);
+
+  // 上層
+  shadow(ctx,'rgba(180,100,100,.2)',10);
+  roundRect(ctx,-110,-80,220,98,12,'#F48FB1',null);
+  noShadow(ctx);
+  roundRect(ctx,-105,-72,210,30,0,'#FFF9C4',null);
+  roundRect(ctx,-105,-72,210,10,0,'#FFCC80',null);
+  roundRect(ctx,-110,-42,220,36,0,'#fff',null);
+
+  // ホイップクリーム上部（波打ちライン）
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.moveTo(-110,-80);
+  for(let x=-110;x<=110;x+=20){ctx.quadraticCurveTo(x-10,-95+Math.cos((x+110)*0.16)*10,x,-80);}
+  ctx.lineTo(110,-80);ctx.closePath();ctx.fill();
+  // クリームのライン
+  ctx.strokeStyle='rgba(244,143,177,.5)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(-108,10);ctx.lineTo(108,10);ctx.stroke();
+
+  // いちご（3個）
+  [-60,0,60].forEach(x=>{
+    ctx.save();ctx.translate(x,-105);
+    // いちご本体
+    ctx.beginPath();ctx.moveTo(0,-28);ctx.bezierCurveTo(24,-28,28,0,14,18);ctx.bezierCurveTo(7,26,0,28,0,28);ctx.bezierCurveTo(0,28,-7,26,-14,18);ctx.bezierCurveTo(-28,0,-24,-28,0,-28);ctx.fillStyle='#E53935';ctx.fill();
+    // ツブツブ
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    for(let i=0;i<7;i++){const a=i*0.9,r=14;ctx.beginPath();ctx.arc(r*Math.sin(a)*0.6,r*Math.cos(a)*0.5-3,2.5,0,Math.PI*2);ctx.fill();}
+    // ヘタ
+    ctx.fillStyle='#4CAF50';
+    ctx.beginPath();ctx.moveTo(0,-28);ctx.bezierCurveTo(-10,-36,-6,-42,0,-38);ctx.bezierCurveTo(6,-42,10,-36,0,-28);ctx.fill();
+    ctx.restore();
+  });
+
+  // ろうそく
+  [-40,40].forEach(x=>{
+    roundRect(ctx,x-5,-110,10,30,4,'#FFD54F',null);
+    // 火
+    const fg=ctx.createRadialGradient(x,-112,1,x,-112,10);
+    fg.addColorStop(0,'#fff');fg.addColorStop(0.4,'#FFF176');fg.addColorStop(1,'rgba(255,152,0,0)');
+    ctx.beginPath();ctx.ellipse(x,-120,8,14,0,0,Math.PI*2);ctx.fillStyle=fg;ctx.fill();
+  });
+
+  ctx.restore();
+  label(ctx,W,H,'けーき');
+}
+
+/* -----------------------------------------------------------
+   9. バス（黄色いスクールバス）
+----------------------------------------------------------- */
+function drawBus(ctx,W,H){
+  bg(ctx,W,H,'#FFFDE7');
+  const s=Math.min(W,H)/400;
+  ctx.save();ctx.translate(W/2,H/2+10);ctx.scale(s,s);
+
+  // 影
+  ellipse(ctx,0,115,155,22,'rgba(0,0,0,.12)',null);
+  // ボディ
+  shadow(ctx,'rgba(180,130,0,.3)',16);
+  ctx.beginPath();
+  ctx.moveTo(-160,-20);ctx.lineTo(-160,80);ctx.lineTo(160,80);ctx.lineTo(160,-20);
+  ctx.lineTo(140,-80);ctx.lineTo(-140,-80);ctx.closePath();
+  ctx.fillStyle='#FDD835';ctx.fill();
+  noShadow(ctx);
+  // 下部ライン
+  ctx.fillStyle='#F9A825';ctx.fillRect(-160,35,320,22);
+  // バンパー
+  roundRect(ctx,-162,65,40,22,5,'#BDBDBD',null);
+  roundRect(ctx,122,65,40,22,5,'#BDBDBD',null);
+  // ヘッドライト
+  roundRect(ctx,-155,-40,35,28,5,'#FFF9C4','#F57F17',3);
+  roundRect(ctx,120,-40,35,28,5,'#FFF9C4','#F57F17',3);
+  // ライト点灯
+  const lg=ctx.createRadialGradient(-137,-26,2,-137,-26,16);
+  lg.addColorStop(0,'rgba(255,255,200,.9)');lg.addColorStop(1,'transparent');
+  ctx.fillStyle=lg;ctx.beginPath();ctx.ellipse(-137,-26,16,12,0,0,Math.PI*2);ctx.fill();
+  // 窓
+  [-90,-20,50].forEach(x=>{
+    roundRect(ctx,x,-70,58,50,8,'#B3E5FC','#29B6F6',3);
+    roundRect(ctx,x+4,-66,22,16,4,'rgba(255,255,255,.4)',null);
+  });
+  // ドア
+  roundRect(ctx,100,-60,50,102,6,'#F9A825','#F57F17',3);
+  ctx.beginPath();ctx.moveTo(125,-60);ctx.lineTo(125,42);ctx.strokeStyle='#F57F17';ctx.lineWidth=2;ctx.stroke();
+  // SCHOOL BUS 文字
+  ctx.fillStyle='#1565C0';ctx.font='bold 18px sans-serif';ctx.textAlign='center';ctx.fillText('SCHOOL BUS',0,20);
+  // ストップサイン
+  ctx.save();ctx.translate(-155,-5);
+  const sg=8,sides=8;
+  ctx.beginPath();
+  for(let i=0;i<sides;i++){const a=i/sides*Math.PI*2-Math.PI/sides;ctx.lineTo(Math.cos(a)*sg,Math.sin(a)*sg);}
+  ctx.closePath();ctx.fillStyle='#E53935';ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 7px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('STOP',0,0);
+  ctx.restore();
+  // 車輪
+  [-90,90].forEach(x=>{
+    circle(ctx,x,95,30,'#212121',null);
+    circle(ctx,x,95,21,'#424242',null);
+    circle(ctx,x,95,9,'#9E9E9E',null);
+    ctx.strokeStyle='#616161';ctx.lineWidth=3;
+    [0,1,2,3].forEach(i=>{ctx.save();ctx.translate(x,95);ctx.rotate(i*Math.PI/4);ctx.beginPath();ctx.moveTo(0,-21);ctx.lineTo(0,21);ctx.stroke();ctx.restore();});
+  });
+
+  ctx.restore();
+  label(ctx,W,H,'ばす');
+}
+
+/* -----------------------------------------------------------
+   10. ちょうちょ（カラフルな蝶）
+----------------------------------------------------------- */
+function drawChocho(ctx,W,H){
+  bg(ctx,W,H,'#F3E5F5');
+  // 花畑背景
+  [[70,H*0.85,'#FFB3C6'],[130,H*0.88,'#FFF59D'],[W-60,H*0.82,'#B2EBF2'],[W-120,H*0.86,'#C8E6C9'],[W/2,H*0.9,'#FFCCBC']].forEach(([fx,fy,fc])=>{
+    ctx.fillStyle=fc;ctx.beginPath();
+    for(let i=0;i<5;i++){const a=i/5*Math.PI*2;ctx.arc(fx+Math.cos(a)*10,fy+Math.sin(a)*10,8,0,Math.PI*2);}
+    ctx.fill();
+    circle(ctx,fx,fy,7,'#FFD54F',null);
+  });
+
+  const s=Math.min(W,H)/400;
+  ctx.save();ctx.translate(W/2,H/2-10);ctx.scale(s,s);
+
+  // 上翅（左）
+  const w1=ctx.createRadialGradient(-60,-60,5,-60,-60,110);
+  w1.addColorStop(0,'#CE93D8');w1.addColorStop(0.5,'#AB47BC');w1.addColorStop(1,'#6A1B9A');
+  shadow(ctx,'rgba(100,30,150,.3)',20);
+  ctx.beginPath();ctx.moveTo(0,0);ctx.bezierCurveTo(-20,-50,-140,-140,-130,-60);ctx.bezierCurveTo(-120,20,-50,50,0,0);
+  ctx.fillStyle=w1;ctx.fill();
+  // 上翅（右）
+  const w2=ctx.createRadialGradient(60,-60,5,60,-60,110);
+  w2.addColorStop(0,'#CE93D8');w2.addColorStop(0.5,'#AB47BC');w2.addColorStop(1,'#6A1B9A');
+  ctx.beginPath();ctx.moveTo(0,0);ctx.bezierCurveTo(20,-50,140,-140,130,-60);ctx.bezierCurveTo(120,20,50,50,0,0);
+  ctx.fillStyle=w2;ctx.fill();
+  noShadow(ctx);
+  // 下翅（左）
+  const w3=ctx.createRadialGradient(-55,55,5,-55,55,90);
+  w3.addColorStop(0,'#F48FB1');w3.addColorStop(1,'#C2185B');
+  ctx.beginPath();ctx.moveTo(0,0);ctx.bezierCurveTo(-20,30,-110,100,-95,50);ctx.bezierCurveTo(-80,10,-30,-20,0,0);
+  ctx.fillStyle=w3;ctx.fill();
+  // 下翅（右）
+  const w4=ctx.createRadialGradient(55,55,5,55,55,90);
+  w4.addColorStop(0,'#F48FB1');w4.addColorStop(1,'#C2185B');
+  ctx.beginPath();ctx.moveTo(0,0);ctx.bezierCurveTo(20,30,110,100,95,50);ctx.bezierCurveTo(80,10,30,-20,0,0);
+  ctx.fillStyle=w4;ctx.fill();
+
+  // 翅の模様
+  ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=2;
+  [[-55,-55],[-30,-80],[55,-55],[30,-80],[-50,45],[50,45]].forEach(([mx,my])=>{
+    ctx.beginPath();ctx.arc(mx,my,18,0,Math.PI*2);ctx.stroke();
+    circle(ctx,mx,my,8,'rgba(255,255,200,.5)',null);
+  });
+
+  // 体
+  shadow(ctx,'rgba(0,0,0,.2)',8);
+  roundRect(ctx,-8,-100,16,160,8,'#1A237E',null);
+  noShadow(ctx);
+  // 目
+  circle(ctx,-6,-105,5,'#fff',null);
+  circle(ctx,-5,-104,3,'#1a1a1a',null);
+  // 触角
+  ctx.strokeStyle='#1A237E';ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(-5,-108);ctx.quadraticCurveTo(-40,-150,-55,-145);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(5,-108);ctx.quadraticCurveTo(40,-150,55,-145);ctx.stroke();
+  circle(ctx,-55,-145,8,'#CE93D8','#1A237E',2);
+  circle(ctx,55,-145,8,'#F48FB1','#1A237E',2);
+
+  ctx.restore();
+  label(ctx,W,H,'ちょうちょ');
+}
+
+/* -----------------------------------------------------------
+   11. にじ（空いっぱいの虹）
+----------------------------------------------------------- */
+function drawNiji(ctx,W,H){
+  // グラデーション空
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#B3E5FC');sky.addColorStop(1,'#E1F5FE');
+  bg(ctx,W,H,'#B3E5FC');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+  // 虹
+  const cx=W/2,cy=H*0.85,rStart=H*0.28;
+  const cols=['#EF5350','#FF7043','#FDD835','#66BB6A','#29B6F6','#5C6BC0','#AB47BC'];
+  cols.forEach((c,i)=>{
+    const r=rStart+i*H*0.045;
+    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0,false);
+    ctx.strokeStyle=c;ctx.lineWidth=H*0.038;ctx.stroke();
+  });
+  // 虹の上をぼかし（白でグラデ）
+  const vg=ctx.createLinearGradient(0,0,0,H*0.42);
+  vg.addColorStop(0,'rgba(225,245,254,1)');vg.addColorStop(1,'rgba(225,245,254,0)');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H*0.42);
+
+  // 雲（左）
+  function cloud(cx2,cy2,sc2){
+    ctx.save();ctx.translate(cx2,cy2);ctx.scale(sc2,sc2);
+    shadow(ctx,'rgba(100,160,200,.2)',12);
+    [[-30,0,35],[0,-15,28],[30,0,35],[0,15,32],[-15,15,28],[15,15,28]].forEach(([dx,dy,r2])=>circle(ctx,dx,dy,r2,'#fff',null));
+    noShadow(ctx);ctx.restore();
+  }
+  cloud(W*0.12,H*0.22,0.9);
+  cloud(W*0.82,H*0.18,1.1);
+  cloud(W*0.5,H*0.08,0.7);
+
+  // 草原
+  const gr2=ctx.createLinearGradient(0,H*0.82,0,H);
+  gr2.addColorStop(0,'#66BB6A');gr2.addColorStop(1,'#388E3C');
+  ctx.fillStyle=gr2;ctx.fillRect(0,H*0.82,W,H*0.18);
+  // 草の波
+  ctx.fillStyle='#4CAF50';
+  ctx.beginPath();ctx.moveTo(0,H*0.82);
+  for(let x=0;x<=W;x+=12)ctx.lineTo(x,H*0.82+Math.sin(x/18)*6);
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fill();
+
+  label(ctx,W,H,'にじ');
+}
+
+/* -----------------------------------------------------------
+   12. たいよう（にっこり太陽）
+----------------------------------------------------------- */
+function drawTaiyou(ctx,W,H){
+  // 空グラデ
+  const sky2=ctx.createLinearGradient(0,0,0,H);
+  sky2.addColorStop(0,'#FF8F00');sky2.addColorStop(1,'#FFF9C4');
+  ctx.fillStyle=sky2;ctx.fillRect(0,0,W,H);
+
+  const s=Math.min(W,H)/400;
+  ctx.save();ctx.translate(W/2,H/2-20);ctx.scale(s,s);
+
+  // 光芒
+  const rayCount=16;
+  for(let i=0;i<rayCount;i++){
+    ctx.save();ctx.rotate(i/rayCount*Math.PI*2);
+    const rg=ctx.createLinearGradient(0,60,0,170);
+    rg.addColorStop(0,'rgba(255,235,59,.9)');rg.addColorStop(1,'rgba(255,235,59,0)');
+    ctx.beginPath();ctx.moveTo(-12,60);ctx.lineTo(0,175);ctx.lineTo(12,60);ctx.closePath();
+    ctx.fillStyle=rg;ctx.fill();ctx.restore();
+  }
+  // 太陽本体
+  const sg2=ctx.createRadialGradient(-30,-30,10,0,0,115);
+  sg2.addColorStop(0,'#FFEE58');sg2.addColorStop(0.5,'#FDD835');sg2.addColorStop(1,'#F9A825');
+  shadow(ctx,'rgba(240,150,0,.4)',30);
+  circle(ctx,0,0,110,sg2,null);
+  noShadow(ctx);
+  // 顔
+  circle(ctx,-35,-25,16,'#E65100',null);
+  circle(ctx,35,-25,16,'#E65100',null);
+  circle(ctx,-32,-22,7,'#fff',null);
+  circle(ctx,38,-22,7,'#fff',null);
+  ctx.beginPath();ctx.arc(0,25,55,0.25,Math.PI-0.25);ctx.strokeStyle='#E65100';ctx.lineWidth=7;ctx.lineCap='round';ctx.stroke();
+  // ほっぺ
+  ellipse(ctx,-55,20,20,14,'rgba(255,120,50,.35)',null);
+  ellipse(ctx,55,20,20,14,'rgba(255,120,50,.35)',null);
+
+  ctx.restore();
+  label(ctx,W,H,'たいよう');
+}
+
+/* ============================================================
+   DEFS：描画関数を紐付けた定義配列
+============================================================ */
+const DEFS=[
+  {id:'inu',    l:'いぬ',       draw:drawInu},
+  {id:'neko',   l:'ねこ',       draw:drawNeko},
+  {id:'ringo',  l:'りんご',     draw:drawRingo},
+  {id:'himawari',l:'ひまわり',  draw:drawHimawari},
+  {id:'kuma',   l:'くま',       draw:drawKuma},
+  {id:'kingyo', l:'きんぎょ',   draw:drawKingyo},
+  {id:'densha', l:'でんしゃ',   draw:drawDensha},
+  {id:'cake',   l:'けーき',     draw:drawCake},
+  {id:'bus',    l:'ばす',       draw:drawBus},
+  {id:'chocho', l:'ちょうちょ', draw:drawChocho},
+  {id:'niji',   l:'にじ',       draw:drawNiji},
+  {id:'taiyou', l:'たいよう',   draw:drawTaiyou},
+];
+let cidx=0,uimgs=[],strks=0,done=false,dwg=false,lx=0,ly=0,gtmr=null;
+
+const cw=document.getElementById('cw'),uc=document.getElementById('uc'),sc=document.getElementById('sc');
+const uctx=uc.getContext('2d'),sctx=sc.getContext('2d');
+const cur=document.getElementById('cur'),gr=document.getElementById('gr');
+const pfill=document.getElementById('pfill'),ppct=document.getElementById('ppct'),ptr=pfill.parentElement;
+const ttsBbl=document.getElementById('ttsBbl');
+
+function resize(){
+  const r=cw.getBoundingClientRect(),W=Math.round(r.width),H=Math.round(r.height);
+  [uc,sc].forEach(c=>{c.width=W;c.height=H});
+  drawUnder();fillScr();
+}
+let rtmr;window.addEventListener('resize',()=>{clearTimeout(rtmr);rtmr=setTimeout(resize,120)});
+
+function items(){
+  return[
+    ...DEFS,
+    ...uimgs.map((u,i)=>({
+      id:'u'+i,
+      l: u.label,
+      src: u.src||null,
+      draw: u.draw||null,
+    }))
+  ];
+}
+function drawUnder(){
+  const W=uc.width,H=uc.height,item=items()[cidx]||DEFS[0];
+  uctx.clearRect(0,0,W,H);
+  // draw関数優先（テキスト合成・Canvasイラストどちらも）
+  if(item.draw){item.draw(uctx,W,H);return;}
+  // 旧仕様：srcのみのアイテム（後方互換）
+  if(item.src){
+    const img=new Image();
+    img.onload=()=>{
+      const r=Math.min(W/img.width,H/img.height),dw=img.width*r,dh=img.height*r,dx=(W-dw)/2,dy=(H-dh)/2;
+      uctx.fillStyle='#fff';uctx.fillRect(0,0,W,H);uctx.drawImage(img,dx,dy,dw,dh);
+    };
+    img.src=item.src;return;
+  }
+  uctx.fillStyle='#f5f0ff';uctx.fillRect(0,0,W,H);
+}
+
+function fillScr(){
+  const W=sc.width,H=sc.height;
+  sctx.globalCompositeOperation='source-over';sctx.globalAlpha=1;
+  sctx.fillStyle=C.scrCol;sctx.fillRect(0,0,W,H);
+  sctx.globalAlpha=.06;
+  for(let i=0;i<16;i++){const gx=Math.random()*W,gy=Math.random()*H,g=sctx.createRadialGradient(gx,gy,0,gx,gy,W*.28);g.addColorStop(0,'#fff');g.addColorStop(1,'transparent');sctx.fillStyle=g;sctx.fillRect(0,0,W,H);}
+  sctx.globalAlpha=1;strks=0;done=false;upProg(0);
+}
+
+function scratch(x,y){
+  sctx.globalCompositeOperation='destination-out';sctx.globalAlpha=1;
+  if(dwg){sctx.beginPath();sctx.lineWidth=C.brushSz;sctx.lineCap='round';sctx.lineJoin='round';sctx.strokeStyle='rgba(0,0,0,1)';sctx.moveTo(lx,ly);sctx.lineTo(x,y);sctx.stroke();}
+  sctx.beginPath();sctx.arc(x,y,C.brushSz/2,0,Math.PI*2);sctx.fillStyle='rgba(0,0,0,1)';sctx.fill();
+  lx=x;ly=y;strks++;if(strks%C.ckEvery===0)chkDone();
+}
+
+function chkDone(){
+  if(done)return;
+  const d=sctx.getImageData(0,0,sc.width,sc.height).data;
+  let t=0,cl=0,step=C.sampStep*4;
+  // alpha<80 を「削れた」とみなす（アンチエイリアス・ブラシ端を考慮）
+  for(let i=3;i<d.length;i+=step){t++;if(d[i]<80)cl++;}
+  const ratio=cl/t;upProg(ratio);
+  if(ratio>=C.thresh&&!done){done=true;onDone();}
+}
+function upProg(r){const p=Math.min(100,Math.round(r*100));pfill.style.width=p+'%';ppct.textContent=p+'%';ptr.setAttribute('aria-valuenow',p);}
+
+function onDone(){
+  const it=items()[cidx]||DEFS[0];const lb=it.l||'';
+  document.getElementById('covSub').textContent='「'+lb+'」ぜんぶ みえたよ！';
+  if(C.ttsComp)speak('やったね！'+lb+'が全部見えたよ！');
+  if(C.effect)launchConfetti();if(C.sound)playSnd();
+  if(C.autoNext){setTimeout(()=>nextImg(),2200);}else{document.getElementById('cov').classList.add('on');document.getElementById('nxtBtn').focus();}
+}
+
+function nextImg(){document.getElementById('cov').classList.remove('on');cidx=(cidx+1)%items().length;drawUnder();fillScr();}
+
+function gpos(e){
+  const r=cw.getBoundingClientRect(),sx=sc.width/r.width,sy=sc.height/r.height;
+  if(e.touches&&e.touches.length>0)return{x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
+  return{x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
+}
+
+cw.addEventListener('pointerdown',e=>{if(done)return;dwg=true;const{x,y}=gpos(e);lx=x;ly=y;scratch(x,y);e.preventDefault();},{passive:false});
+cw.addEventListener('pointermove',e=>{
+  updCur(e);if(done)return;
+  if(C.gaze){dwg=true;const{x,y}=gpos(e);scratch(x,y);showGR(e);}
+  else{if(!dwg)return;const{x,y}=gpos(e);scratch(x,y);}
+  e.preventDefault();},{passive:false});
+cw.addEventListener('pointerup',()=>dwg=false);
+cw.addEventListener('pointerleave',()=>{dwg=false;cur.style.display='none';gr.classList.remove('on');});
+cw.addEventListener('touchmove',e=>{
+  if(done)return;const r=cw.getBoundingClientRect(),sx=sc.width/r.width,sy=sc.height/r.height;
+  sctx.globalCompositeOperation='destination-out';sctx.globalAlpha=1;
+  for(const t of e.touches){const x=(t.clientX-r.left)*sx,y=(t.clientY-r.top)*sy;sctx.beginPath();sctx.arc(x,y,C.brushSz/2,0,Math.PI*2);sctx.fillStyle='rgba(0,0,0,1)';sctx.fill();}
+  strks++;if(strks%C.ckEvery===0)chkDone();e.preventDefault();},{passive:false});
+
+function updCur(e){
+  const r=cw.getBoundingClientRect(),cx=e.clientX-r.left,cy=e.clientY-r.top;
+  if(cx<0||cy<0||cx>r.width||cy>r.height){cur.style.display='none';return;}
+  cur.style.display='block';cur.style.left=cx+'px';cur.style.top=cy+'px';cur.style.width=C.brushSz+'px';cur.style.height=C.brushSz+'px';
+}
+function showGR(e){
+  const r=cw.getBoundingClientRect();gr.style.left=(e.clientX-r.left)+'px';gr.style.top=(e.clientY-r.top)+'px';gr.classList.add('on');clearTimeout(gtmr);gtmr=setTimeout(()=>gr.classList.remove('on'),600);
+}
+
+// ブラシ
+document.querySelectorAll('.bb').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.bb').forEach(x=>x.classList.remove('on'));b.classList.add('on');C.brushSz=parseInt(b.dataset.sz);tts(b.getAttribute('aria-label'));}));
+
+// リセット
+document.getElementById('rstBtn').addEventListener('click',()=>{fillScr();tts('やりなおしたよ');});
+
+// 設定
+function openSet(){buildGrid();document.getElementById('setOv').classList.add('on');document.getElementById('setCls').focus();}
+function closeSet(){document.getElementById('setOv').classList.remove('on');document.getElementById('setBtn').focus();}
+document.getElementById('setBtn').addEventListener('click',()=>{openSet();tts('設定');});
+document.getElementById('setCls').addEventListener('click',closeSet);
+document.getElementById('chgBtn').addEventListener('click',()=>{openSet();tts('したえをえらぶ');});
+document.getElementById('setOv').addEventListener('click',e=>{if(e.target===document.getElementById('setOv'))closeSet();});
+
+// 下絵グリッド
+function buildGrid(){
+  const g=document.getElementById('igrid');g.innerHTML='';
+  items().forEach((it,i)=>{
+    const d=document.createElement('div');d.className='ith'+(i===cidx?' on':'');d.tabIndex=0;d.setAttribute('role','button');d.setAttribute('aria-label',it.l||'');d.setAttribute('aria-pressed',i===cidx?'true':'false');
+    if(it.src){
+      const img=document.createElement('img');img.src=it.src;img.alt=it.l||'';d.appendChild(img);
+    } else if(it.draw){
+      // Canvasサムネイル
+      const cv=document.createElement('canvas');cv.width=80;cv.height=80;cv.style.cssText='width:100%;height:100%;display:block';
+      it.draw(cv.getContext('2d'),80,80);
+      d.appendChild(cv);
+    }
+    const lb=document.createElement('div');lb.className='ithl';lb.textContent=it.l;d.appendChild(lb);
+    d.addEventListener('click',()=>{cidx=i;tts(it.l||'');drawUnder();fillScr();buildGrid();closeSet();});
+    d.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')d.click();});
+    g.appendChild(d);
+  });
+  const up=document.createElement('div');up.className='ith';up.tabIndex=0;up.setAttribute('role','button');up.setAttribute('aria-label','じぶんのしゃしんをつかう');
+  up.innerHTML='<span style="font-size:2em">📷</span><div class="ithl">じぶんの<br>しゃしん</div>';
+  up.addEventListener('click',()=>document.getElementById('imgInp').click());
+  up.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')up.click();});
+  g.appendChild(up);
+}
+document.getElementById('imgInp').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();rd.onload=ev=>{uimgs.push({label:f.name.replace(/\.[^.]+$/,''),src:ev.target.result});cidx=DEFS.length+uimgs.length-1;drawUnder();fillScr();buildGrid();closeSet();};rd.readAsDataURL(f);e.target.value='';
+});
+
+// 写真ボタン（設定パネル内）→エディタを写真モードで開く
+document.getElementById('addImgBtn2').addEventListener('click',()=>{ openTxtEd(true); });
+
+/* ============================================================
+   統合エディタ（テキスト下絵 ＆ 写真＋テキスト合成）
+============================================================ */
+const TXT={
+  text:'', fontSize:80, font:"'Noto Sans JP',sans-serif",
+  color:'#ffffff',    // テキスト色：白
+  bg:'#388E3C',       // 帯の色：緑（いぬのレイアウトに合わせる）
+  align:'center',
+  photoSrc: null,
+  usePhoto: true,     // デフォルトを写真モードに
+};
+let _photoImg=null; // 読み込み済みImageオブジェクト
+
+// hidden file input（写真選択用・既存のimgInpとは別）
+const photoInp=document.createElement('input');
+photoInp.type='file';photoInp.accept='image/*';photoInp.style.display='none';
+document.body.appendChild(photoInp);
+
+// ----プレビューCanvas----
+const prev=document.getElementById('txtPreview');
+
+function syncPreviewSize(){
+  const dpr=Math.min(window.devicePixelRatio||1, 2); // 最大2倍
+  let cssW=0;
+  try {
+    const r=prev.getBoundingClientRect();
+    cssW=r.width;
+  } catch(e){}
+  // getBoundingClientRectが0の場合（パネル非表示時）は親要素から取得
+  if(cssW<10){
+    const panel=document.getElementById('txtEdP');
+    if(panel) cssW=panel.clientWidth-36; // padding分を引く
+  }
+  if(cssW<10) cssW=320; // 最終フォールバック
+  const W=Math.round(cssW*dpr);
+  const H=Math.round(cssW*0.75*dpr);
+  prev.width=Math.max(W,120);
+  prev.height=Math.max(H,90);
+}
+
+function renderPreview(){
+  syncPreviewSize();
+  drawComposite(prev.getContext('2d'),prev.width,prev.height,TXT,_photoImg);
+}
+
+/* ============================================================
+   drawComposite：背景（色 or 写真）＋テキストを合成描画
+   ※ underCanvasへの本番描画にも使う
+============================================================ */
+function drawComposite(ctx,W,H,cfg,photoImgObj){
+  ctx.save();
+  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+  ctx.clearRect(0,0,W,H);
+
+  const txt=(cfg.text||'').trim();
+  const hasPhoto=cfg.usePhoto && photoImgObj;
+
+  // ===== 写真モード：写真(上)＋テキスト帯(下) =====
+  if(hasPhoto){
+    // テキスト帯の高さ（テキストがある場合は下18%、ない場合は0）
+    const bandH = txt ? Math.round(H*0.20) : 0;
+    const photoH = H - bandH;
+
+    // 写真を上エリアにカバーフィット
+    const iw=photoImgObj.naturalWidth||photoImgObj.width||1;
+    const ih=photoImgObj.naturalHeight||photoImgObj.height||1;
+    const scale=Math.max(W/iw, photoH/ih);
+    const dw=iw*scale, dh=ih*scale;
+    const dx=(W-dw)/2, dy=(photoH-dh)/2;
+    ctx.save();
+    ctx.beginPath();ctx.rect(0,0,W,photoH);ctx.clip();
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,W,photoH);
+    ctx.drawImage(photoImgObj,dx,dy,dw,dh);
+    ctx.restore();
+
+    // テキスト帯（背景色）
+    if(txt && bandH>0){
+      ctx.fillStyle=cfg.bg||'#4CAF50';
+      ctx.fillRect(0,photoH,W,bandH);
+
+      // テキスト描画
+      const scale2=bandH/80;
+      const fs=Math.max(10, Math.min(cfg.fontSize*scale2*0.6, bandH*0.65));
+      ctx.font=`900 ${fs}px ${cfg.font||"'Noto Sans JP',sans-serif"}`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillStyle=cfg.color||'#ffffff';
+      ctx.shadowColor='rgba(0,0,0,0.25)';
+      ctx.shadowBlur=fs*0.08;
+      ctx.shadowOffsetX=0;ctx.shadowOffsetY=fs*0.04;
+
+      // 折り返し
+      const maxTW=W*0.9;
+      const wrappedLines=[];
+      txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').forEach(line=>{
+        if(!line){wrappedLines.push('');return;}
+        let row='';
+        for(const ch of [...line]){
+          if(ctx.measureText(row+ch).width>maxTW){if(row)wrappedLines.push(row);row=ch;}
+          else row+=ch;
+        }
+        wrappedLines.push(row);
+      });
+
+      const lineH=fs*1.3;
+      const totalTH=lineH*wrappedLines.length;
+      const textStartY=photoH+(bandH-totalTH)/2+fs*0.5;
+      wrappedLines.forEach((line,i)=>{
+        ctx.fillText(line,W/2,textStartY+i*lineH);
+      });
+      ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+    }
+
+    ctx.restore();
+    return;
+  }
+
+  // ===== 色背景モード =====
+  ctx.fillStyle=cfg.bg||'#FFFDE7';
+  ctx.fillRect(0,0,W,H);
+
+  if(!txt){ctx.restore();return;}
+
+  const lines=txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  const scale2=Math.min(W,H)/400;
+  const fs=Math.max(12, cfg.fontSize*scale2);
+  ctx.font=`900 ${fs}px ${cfg.font||"'Noto Sans JP',sans-serif"}`;
+  ctx.textAlign='center';
+  ctx.textBaseline='alphabetic';
+  ctx.fillStyle=cfg.color||'#1a1a2e';
+
+  const hex=(cfg.bg||'#ffffff').replace('#','');
+  const isLight=hex.length>=6&&(parseInt(hex.slice(0,2),16)*0.299+parseInt(hex.slice(2,4),16)*0.587+parseInt(hex.slice(4,6),16)*0.114)>128;
+  ctx.shadowColor=isLight?'rgba(0,0,0,0.25)':'rgba(255,255,255,0.3)';
+  ctx.shadowBlur=fs*0.1;ctx.shadowOffsetX=fs*0.025;ctx.shadowOffsetY=fs*0.025;
+
+  const maxW=W*0.9;
+  const wrappedLines=[];
+  lines.forEach(line=>{
+    if(line===''){wrappedLines.push('');return;}
+    let row='';
+    for(const ch of [...line]){
+      if(ctx.measureText(row+ch).width>maxW){if(row)wrappedLines.push(row);row=ch;}else row+=ch;
+    }
+    wrappedLines.push(row);
+  });
+
+  const lineH=fs*1.55;
+  const totalH2=lineH*wrappedLines.length;
+  let startY;
+  if(cfg.align==='top')        startY=H*0.07+fs;
+  else if(cfg.align==='bottom')startY=H-totalH2+fs-H*0.05;
+  else                          startY=(H-totalH2)/2+fs;
+
+  wrappedLines.forEach((line,i)=>ctx.fillText(line,W/2,startY+i*lineH));
+  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+  ctx.restore();
+}
+
+// ---- エディタを開く ----
+function openTxtEd(startWithPhoto=false){
+  // 毎回クリーンな状態で開く
+  TXT.text='';
+  TXT.fontSize=80;
+  TXT.font="'Noto Sans JP',sans-serif";
+  TXT.color='#1a1a2e';
+  TXT.bg='#FFFDE7';
+  TXT.align='center';
+  TXT.usePhoto=startWithPhoto;
+  if(!startWithPhoto){ TXT.photoSrc=null; _photoImg=null; }
+
+  // フォームに反映
+  document.getElementById('txtInput').value='';
+  document.getElementById('txtFontSz').value=TXT.fontSize;
+  document.getElementById('txtFontSzVal').textContent=TXT.fontSize;
+
+  // カラーボタン初期選択
+  document.querySelectorAll('#txtColorBtns .co').forEach(o=>o.classList.toggle('on',o.dataset.c===TXT.color));
+  document.querySelectorAll('#bgColorArea .co').forEach(o=>o.classList.toggle('on',o.dataset.c===TXT.bg));
+  // フォントボタン初期選択
+  document.querySelectorAll('#txtFontBtns .fbtn').forEach(b=>b.classList.toggle('on',b.dataset.font===TXT.font));
+  // 配置ボタン初期選択
+  document.querySelectorAll('#txtAlignBtns .fbtn').forEach(b=>b.classList.toggle('on',b.dataset.align==='center'));
+
+  // 背景タブ（写真モードがデフォルト）
+  const isPhoto=startWithPhoto !== false ? true : !startWithPhoto;
+  // startWithPhotoがfalseの場合（テキストのみモード）は色モードで開く
+  const usePhotoMode = startWithPhoto === true || startWithPhoto === undefined;
+  document.getElementById('bgTypeColor').classList.toggle('on',!usePhotoMode);
+  document.getElementById('bgTypePhoto').classList.toggle('on',usePhotoMode);
+  document.getElementById('bgColorArea').style.display='flex'; // 常時表示
+  document.getElementById('bgPhotoArea').style.display=usePhotoMode?'block':'none';
+  TXT.usePhoto=usePhotoMode;
+  const lbl=document.getElementById('bgColorLabel');
+  if(lbl) lbl.textContent=usePhotoMode?'🟩 テキスト帯のいろ（下の帯の色）':'🎨 はいけいのいろ';
+  updatePhotoThumb();
+
+  // パネルを表示してからプレビューを描画
+  document.getElementById('txtEdOv').classList.add('on');
+  // CSSトランジション完了後に描画（パネル展開アニメーション300ms完了を待つ）
+  setTimeout(()=>{
+    syncPreviewSize();
+    drawComposite(prev.getContext('2d'),prev.width,prev.height,TXT,_photoImg);
+    try{ document.getElementById('txtInput').focus(); }catch(e){}
+  }, 350);
+}
+function closeTxtEd(){
+  document.getElementById('txtEdOv').classList.remove('on');
+}
+
+// ---- 背景タブ切り替え ----
+function setBgTab(type){
+  const isPhoto=(type==='photo');
+  TXT.usePhoto=isPhoto;
+  document.getElementById('bgTypeColor').classList.toggle('on',!isPhoto);
+  document.getElementById('bgTypePhoto').classList.toggle('on',isPhoto);
+  // 色エリアは常に表示（写真モードでは「テキスト帯の色」として機能）
+  document.getElementById('bgColorArea').style.display='flex';
+  document.getElementById('bgPhotoArea').style.display=isPhoto?'block':'none';
+  // spsctの説明文を切り替え
+  const lbl=document.getElementById('bgColorLabel');
+  if(lbl) lbl.textContent=isPhoto
+    ? '🟩 テキスト帯のいろ（下の帯の色）'
+    : '🎨 はいけいのいろ';
+  syncPreviewSize();
+  drawComposite(prev.getContext('2d'),prev.width,prev.height,TXT,_photoImg);
+}
+document.getElementById('bgTypeColor').addEventListener('click',()=>setBgTab('color'));
+document.getElementById('bgTypePhoto').addEventListener('click',()=>setBgTab('photo'));
+
+// ---- 写真選択 ----
+function updatePhotoThumb(){
+  const has=!!TXT.photoSrc;
+  document.getElementById('photoPreviewThumb').style.display=has?'block':'none';
+  document.getElementById('clearPhotoBtn').style.display=has?'inline-flex':'none';
+  if(has) document.getElementById('photoThumbImg').src=TXT.photoSrc;
+}
+
+document.getElementById('selectPhotoBtn').addEventListener('click',()=>photoInp.click());
+document.getElementById('clearPhotoBtn').addEventListener('click',()=>{
+  TXT.photoSrc=null;_photoImg=null;updatePhotoThumb();renderPreview();
+});
+
+photoInp.addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    TXT.photoSrc=ev.target.result;
+    _photoImg=new Image();
+    _photoImg.onload=()=>{updatePhotoThumb();renderPreview();};
+    _photoImg.src=TXT.photoSrc;
+  };
+  rd.readAsDataURL(f);
+  e.target.value='';
+});
+
+// ---- テキスト・スタイル変更 → プレビュー更新 ----
+document.getElementById('txtInput').addEventListener('input',e=>{TXT.text=e.target.value;renderPreview();});
+
+document.getElementById('txtFontSz').addEventListener('input',e=>{
+  TXT.fontSize=parseInt(e.target.value);
+  document.getElementById('txtFontSzVal').textContent=TXT.fontSize;
+  renderPreview();
+});
+
+document.querySelectorAll('#txtFontBtns .fbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#txtFontBtns .fbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');TXT.font=b.dataset.font;renderPreview();
+  });
+});
+
+document.querySelectorAll('#txtColorBtns .co').forEach(o=>{
+  o.addEventListener('click',()=>{
+    document.querySelectorAll('#txtColorBtns .co').forEach(x=>x.classList.remove('on'));
+    o.classList.add('on');TXT.color=o.dataset.c;
+    document.getElementById('txtColorCustom').value=TXT.color;
+    renderPreview();
+  });
+});
+document.getElementById('txtColorCustom').addEventListener('input',e=>{
+  TXT.color=e.target.value;
+  document.querySelectorAll('#txtColorBtns .co').forEach(x=>x.classList.remove('on'));
+  renderPreview();
+});
+
+document.querySelectorAll('#bgColorArea .co').forEach(o=>{
+  o.addEventListener('click',()=>{
+    document.querySelectorAll('#bgColorArea .co').forEach(x=>x.classList.remove('on'));
+    o.classList.add('on');TXT.bg=o.dataset.c;
+    document.getElementById('txtBgCustom').value=TXT.bg;
+    renderPreview();
+  });
+});
+document.getElementById('txtBgCustom').addEventListener('input',e=>{
+  TXT.bg=e.target.value;
+  document.querySelectorAll('#bgColorArea .co').forEach(x=>x.classList.remove('on'));
+  renderPreview();
+});
+
+document.querySelectorAll('#txtAlignBtns .fbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#txtAlignBtns .fbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');TXT.align=b.dataset.align;renderPreview();
+  });
+});
+
+// ---- ボタン ----
+document.getElementById('addTextBtn').addEventListener('click',()=>openTxtEd(false));
+document.getElementById('txtEdCancel').addEventListener('click',closeTxtEd);
+document.getElementById('txtEdOv').addEventListener('click',e=>{
+  if(e.target===document.getElementById('txtEdOv'))closeTxtEd();
+});
+
+// ---- 決定：uimgsにdraw関数として登録 ----
+document.getElementById('txtEdSave').addEventListener('click',()=>{
+  const hasText=TXT.text.trim().length>0;
+  const hasPhoto=TXT.usePhoto&&TXT.photoSrc;
+  if(!hasText&&!hasPhoto){alert('テキストか写真のどちらかを設定してください');return;}
+
+  // 設定をスナップショットとして保存
+  const snap={...TXT};
+  // 写真はImageオブジェクトとして保持
+  const snapImg=_photoImg?_photoImg:null;
+
+  const lbl=hasText
+    ? snap.text.split('\n')[0].slice(0,12)
+    : (hasPhoto?'しゃしん':'したえ');
+
+  uimgs.push({
+    label: lbl,
+    draw:(ctx,W,H)=>drawComposite(ctx,W,H,snap,snapImg),
+  });
+
+  cidx=DEFS.length+uimgs.length-1;
+  drawUnder();fillScr();
+  closeTxtEd();
+  buildGrid();closeSet();
+  tts('したえを登録しました');
+});
+
+// スクラッチ色（設定パネルのcgridのみ）
+document.querySelectorAll('#cgrid .co').forEach(o=>{
+  o.addEventListener('click',()=>{
+    document.querySelectorAll('#cgrid .co').forEach(x=>x.classList.remove('on'));
+    o.classList.add('on');C.scrCol=o.dataset.c;fillScr();tts(o.getAttribute('aria-label'));
+  });
+  o.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')o.click();});
+});
+
+// トグル
+document.getElementById('tgGz').addEventListener('change',e=>{C.gaze=e.target.checked;document.getElementById('gbadge').classList.toggle('on',C.gaze);tts(C.gaze?'視線入力モード オン':'視線入力モード オフ');});
+document.getElementById('tgEf').addEventListener('change',e=>C.effect=e.target.checked);
+document.getElementById('tgSnd').addEventListener('change',e=>C.sound=e.target.checked);
+document.getElementById('tgAn').addEventListener('change',e=>C.autoNext=e.target.checked);
+
+// 完成基準（閾値）ボタン
+document.querySelectorAll('#threshBtns .fbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#threshBtns .fbtn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  C.thresh=parseFloat(b.dataset.thresh);
+  tts('かんせいのきじゅん '+b.textContent);
+}));
+
+// 完成ボタン
+document.getElementById('nxtBtn').addEventListener('click',()=>{nextImg();tts('つぎのえ');});
+document.getElementById('rtyBtn').addEventListener('click',()=>{document.getElementById('cov').classList.remove('on');fillScr();tts('もういちど');});
+document.getElementById('clsBtn').addEventListener('click',()=>document.getElementById('cov').classList.remove('on'));
+
+// ヒント
+document.getElementById('hintClose').addEventListener('click',()=>document.getElementById('hintBar').style.display='none');
+setTimeout(()=>{const b=document.getElementById('hintBar');if(b)b.style.display='none';},9000);
+
+// ヘルプパネル
+function openHelp(){document.getElementById('helpOv').classList.add('on');document.getElementById('helpCls').focus();}
+function closeHelp(){document.getElementById('helpOv').classList.remove('on');document.getElementById('helpBtn').focus();}
+document.getElementById('helpBtn').addEventListener('click',()=>{openHelp();tts('つかいかた');});
+document.getElementById('helpCls').addEventListener('click',closeHelp);
+document.getElementById('helpOv').addEventListener('click',e=>{if(e.target===document.getElementById('helpOv'))closeHelp();});
+
+// ハイコントラスト
+document.getElementById('tgHC').addEventListener('change',e=>{C.hc=e.target.checked;document.body.classList.toggle('hc',C.hc);tts(C.hc?'ハイコントラスト オン':'ハイコントラスト オフ');});
+
+// 文字サイズ（data-sc属性を持つfbtnのみ）
+document.querySelectorAll('.fbtn[data-sc]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.fbtn[data-sc]').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  C.fs=parseFloat(b.dataset.sc);
+  document.documentElement.style.setProperty('--fs',C.fs);
+  tts('文字サイズ '+b.textContent);
+}));
+
+// 読み上げ設定
+document.getElementById('tgTTS').addEventListener('change',e=>{C.tts=e.target.checked;document.body.classList.toggle('tts-on',C.tts);if(C.tts)speak('読み上げ機能をオンにしました');});
+document.getElementById('ttsRt').addEventListener('change',e=>{C.ttsRate=parseFloat(e.target.value);tts('速さを変えました');});
+document.getElementById('tgTTSC').addEventListener('change',e=>C.ttsComp=e.target.checked);
+
+// 読み上げ実装
+function speak(txt){
+  if(!('speechSynthesis' in window))return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(txt);u.lang='ja-JP';u.rate=C.ttsRate;u.pitch=1.1;
+  const vs=window.speechSynthesis.getVoices();const jv=vs.find(v=>v.lang==='ja-JP'||v.lang.startsWith('ja'));if(jv)u.voice=jv;
+  showBbl(txt);window.speechSynthesis.speak(u);
+}
+function tts(txt){if(!C.tts)return;speak(txt);}
+let bblT;function showBbl(txt){ttsBbl.textContent='🔊 '+txt;ttsBbl.classList.add('on');clearTimeout(bblT);bblT=setTimeout(()=>ttsBbl.classList.remove('on'),2600);}
+if('speechSynthesis' in window)window.speechSynthesis.onvoiceschanged=()=>{};
+
+// 全画面
+const fsBtn=document.getElementById('fsBtn');
+function inFS(){return!!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);}
+function updFS(){
+  document.body.classList.toggle('fs',inFS());
+  fsBtn.textContent=inFS()?'⊡':'⛶';fsBtn.setAttribute('aria-label',inFS()?'全画面を解除':'全画面表示');
+  if(inFS())showHdr();
+}
+let hdT;function showHdr(){const r=document.getElementById('root');r.classList.add('sh');clearTimeout(hdT);hdT=setTimeout(()=>r.classList.remove('sh'),3200);}
+fsBtn.addEventListener('click',()=>{
+  if(!inFS()){const el=document.documentElement;const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;if(req)req.call(el);}
+  else{const ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen;if(ex)ex.call(document);}
+  tts(inFS()?'全画面を解除します':'全画面表示にします');
+});
+cw.addEventListener('touchstart',()=>{if(inFS())showHdr();},{passive:true});
+['fullscreenchange','webkitfullscreenchange','mozfullscreenchange'].forEach(ev=>document.addEventListener(ev,updFS));
+
+// 紙吹雪
+function launchConfetti(){
+  const cv=document.getElementById('cfc');cv.width=window.innerWidth;cv.height=window.innerHeight;
+  const ctx=cv.getContext('2d'),cols=['#FF8C61','#FFD166','#4A4270','#6BCEFF','#FF6B9D','#A8E6CF'];
+  const ps=Array.from({length:150},()=>({x:Math.random()*cv.width,y:-20,vx:(Math.random()-.5)*3,vy:Math.random()*3+2,r:Math.random()*8+4,d:Math.random()*160+80,c:cols[Math.floor(Math.random()*cols.length)],tl:0,ta:0,tai:Math.random()*.07+.05}));
+  let fr=0;
+  (function draw(){ctx.clearRect(0,0,cv.width,cv.height);ps.forEach(p=>{p.ta+=p.tai;p.tl=Math.sin(p.ta)*15;p.x+=p.vx+Math.sin(p.d);p.y+=p.vy;ctx.beginPath();ctx.lineWidth=p.r;ctx.strokeStyle=p.c;ctx.moveTo(p.x+p.tl+p.r/4,p.y);ctx.lineTo(p.x+p.tl,p.y+p.tl+p.r/3);ctx.stroke();});if(++fr<200)requestAnimationFrame(draw);else ctx.clearRect(0,0,cv.width,cv.height);})();
+}
+
+// 完成音
+function playSnd(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();[523,659,784,1047].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;o.type='sine';const t=ac.currentTime+i*.18;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.28,t+.04);g.gain.linearRampToValueAtTime(0,t+.36);o.start(t);o.stop(t+.36);});}catch(e){}}
+
+// 初期化
+window.addEventListener('load',()=>resize());
+document.fonts.ready.then(()=>{drawUnder();fillScr();});
+</script>
+</body>
+</html>
