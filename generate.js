@@ -45,6 +45,7 @@ const CATEGORY_TRUTH = {
   'schedule-app':    '自立活動',
   'sst-app':         '自立活動',
   'kyou-no-kiroku':      '自立活動',
+  'scratch-app':      '自立活動',
   // 創作表現
   'drawing-app':     '創作表現',
   'music-app':       '創作表現',
@@ -92,6 +93,7 @@ const NEW_IDS = new Set([
   'bosai-app',         // 直近追加
   'suji-manabou',    // 最新追加
   'kyou-no-kiroku',    // 最新追加
+  'scratch-app',    // 最新追加
 ]);
 
 // フラグを各appに反映(apps-data.jsonで明示指定された値は維持)
