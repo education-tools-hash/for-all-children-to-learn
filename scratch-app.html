@@ -43,7 +43,16 @@ body.fs #cw{position:absolute;inset:0;border-radius:0}
 body.fs #footer{display:none}
 body.fs #hintBar{position:absolute;top:58px;left:10px;right:auto;z-index:52;margin:0;max-width:240px}
 
-/* ===== HEADER ===== */
+/* ===== LOCK BUTTON ===== */
+#lockBtn.locked{background:rgba(255,80,80,.85);}
+#lockBtn.locked:hover{background:rgba(255,60,60,.95);}
+body.hc #lockBtn.locked{background:#FF4444;border-color:#fff;}
+/* ロック中は「もどる」リンクを無効化 */
+body.locked #backBtn{opacity:.35;pointer-events:none;cursor:not-allowed;}
+/* ロック中トースト */
+#lockToast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:calc(.85rem * var(--fs));font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:300;white-space:nowrap;}
+#lockToast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+body.hc #lockToast{background:#FF4444;}
 #hdr{background:var(--cp);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 2px 10px rgba(74,66,112,.3);flex-shrink:0;min-height:52px;transition:background .25s}
 body.hc #hdr{border-bottom:2px solid #fff}
 .hb{background:rgba(255,255,255,.15);border:none;color:#fff;font-size:calc(1.2rem * var(--fs));width:calc(40px * var(--fs));height:calc(40px * var(--fs));min-width:34px;min-height:34px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;flex-shrink:0;-webkit-tap-highlight-color:transparent}
@@ -197,7 +206,8 @@ body.hc #ttsBbl{background:#fff;color:#000}
 #footer{text-align:center;padding:4px 12px 7px;font-size:calc(.65rem * var(--fs));color:var(--cts);flex-shrink:0;background:var(--cbg);transition:background .25s}
 #footer a{color:var(--cp);text-decoration:none}
 body.hc #footer{color:#aaa} body.hc #footer a{color:#fff}
-#imgInp{display:none}
+/* imgInpはiOS Safari対応のため画面外に配置 */
+#imgInp{position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;pointer-events:none}
 .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 /* textareaのresizeハンドルを非表示 */
 #txtInput{resize:none}
@@ -219,29 +229,23 @@ body.hc .hltblrow{border-bottom-color:#333}
 body.hc .hltblk{color:#FFFF00}
 .hltblv{font-size:calc(.82rem * var(--fs));color:var(--ct);line-height:1.5}
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 <div id="root">
   <header id="hdr">
-    <a href="https://education-tools-hash.github.io/for-all-children-to-learn/" class="hb" aria-label="もどる">←</a>
+    <a href="https://education-tools-hash.github.io/for-all-children-to-learn/" class="hb" id="backBtn" aria-label="もどる">←</a>
     <div id="htitle">
       <h1>🎨 けずりえ</h1>
       <p>こすると えが でてくる！</p>
     </div>
     <div id="hright">
+      <button class="hb" id="lockBtn"  aria-label="がめんをロック">🔓</button>
       <button class="hb" id="helpBtn" aria-label="つかいかた">❓</button>
       <button class="hb" id="setBtn"  aria-label="せってい">⚙️</button>
       <button class="hb" id="fsBtn"   aria-label="全画面表示">⛶</button>
     </div>
   </header>
+  <div id="lockToast" role="alert" aria-live="assertive">🔒 まえの がめんには もどれないよ</div>
 
   <div id="hintBar" role="status" aria-live="polite">
     <span class="hico">👆</span>
@@ -327,6 +331,7 @@ body.hc .hltblk{color:#FFFF00}
     </div>
     <div class="spsc">
       <div class="spsct">🔧 そのたのせってい</div>
+      <div class="sprw"><div class="spri"><div class="sprl">🔒 がめんロック</div><div class="sprs">ロック中は「もどる」ボタンと「戻る」操作が無効になる</div></div><label class="tog" aria-label="がめんロック"><input type="checkbox" id="tgLock"><span class="togt"></span></label></div>
       <div class="sprw"><div class="spri"><div class="sprl">👁 視線入力モード</div><div class="sprs">マウス移動で自動的に削れる</div></div><label class="tog" aria-label="視線入力モード"><input type="checkbox" id="tgGz"><span class="togt"></span></label></div>
       <div class="sprw" style="flex-wrap:wrap;gap:10px;align-items:center">
         <div class="spri"><div class="sprl">🎯 かんせいのきじゅん</div><div class="sprs">どのくらい削れたら「やったね！」にするか</div></div>
@@ -334,6 +339,13 @@ body.hc .hltblk{color:#FFFF00}
           <button class="fbtn"    data-thresh="0.80" aria-label="80パーセント">80%</button>
           <button class="fbtn"    data-thresh="0.90" aria-label="90パーセント">90%</button>
           <button class="fbtn on" data-thresh="0.97" aria-label="100パーセント">100%</button>
+        </div>
+      </div>
+      <div class="sprw" style="flex-wrap:wrap;gap:10px;align-items:center">
+        <div class="spri"><div class="sprl">🖼️ はんていのはんい</div><div class="sprs">「えのぶぶん」にすると絵が描かれている部分だけで達成率を計算する</div></div>
+        <div class="fbtns" id="rangeBtns">
+          <button class="fbtn on" data-range="full"  aria-label="画面ぜんたい">画面ぜんたい</button>
+          <button class="fbtn"    data-range="image" aria-label="えのぶぶんだけ">えのぶぶん</button>
         </div>
       </div>
       <div class="sprw"><div class="spri"><div class="sprl">🎉 お祝いエフェクト</div><div class="sprs">完成時に紙吹雪を表示する</div></div><label class="tog" aria-label="お祝いエフェクト"><input type="checkbox" id="tgEf" checked><span class="togt"></span></label></div>
@@ -511,8 +523,9 @@ body.hc .hltblk{color:#FFFF00}
       <!-- 写真エリア -->
       <div id="bgPhotoArea" style="display:none">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn bts" id="selectPhotoBtn" style="flex:1;justify-content:center;min-width:120px">📷 しゃしんをえらぶ</button>
-          <button class="btn bts" id="clearPhotoBtn"  style="display:none;justify-content:center" aria-label="写真を削除">✕ しゃしんをはずす</button>
+          <!-- iOS Safariではbutton.click()→input[file].click()が無視されるためlabelのfor属性で直接紐付け -->
+          <label for="photoInp" class="btn bts" id="selectPhotoBtn" style="flex:1;justify-content:center;min-width:120px;cursor:pointer">📷 しゃしんをえらぶ</label>
+          <button class="btn bts" id="clearPhotoBtn" style="display:none;justify-content:center" aria-label="写真を削除">✕ しゃしんをはずす</button>
         </div>
         <div id="photoPreviewThumb" style="display:none;margin-top:8px;height:60px;border-radius:8px;overflow:hidden;border:2px solid var(--cbr)">
           <img id="photoThumbImg" style="width:100%;height:100%;object-fit:cover" alt="選択中の写真">
@@ -586,7 +599,9 @@ body.hc .hltblk{color:#FFFF00}
 
 <script>
 'use strict';
-const C={brushSz:72,scrCol:'#7B7B9E',gaze:false,effect:true,sound:true,autoNext:false,thresh:0.97,ckEvery:55,sampStep:4,tts:false,ttsRate:1,ttsComp:true,hc:false,fs:1};
+const C={brushSz:72,scrCol:'#7B7B9E',gaze:false,effect:true,sound:true,autoNext:false,thresh:0.97,ckEvery:55,sampStep:4,tts:false,ttsRate:1,ttsComp:true,hc:false,fs:1,rangeMode:'full'};
+// 「えのぶぶん」モード用：下絵の絵が存在する矩形領域
+let _imgRect=null; // {x,y,w,h} キャンバス座標
 /* ============================================================
    Canvas イラスト描画関数
    各関数は drawXxx(ctx, W, H) の形で 0,0 起点で描く
@@ -1501,17 +1516,62 @@ function drawUnder(){
   const W=uc.width,H=uc.height,item=items()[cidx]||DEFS[0];
   uctx.clearRect(0,0,W,H);
   // draw関数優先（テキスト合成・Canvasイラストどちらも）
-  if(item.draw){item.draw(uctx,W,H);return;}
+  if(item.draw){
+    item.draw(uctx,W,H);
+    // 非同期描画がない場合は即座に検出
+    setTimeout(()=>detectImgRect(),50);
+    return;
+  }
   // 旧仕様：srcのみのアイテム（後方互換）
   if(item.src){
     const img=new Image();
     img.onload=()=>{
       const r=Math.min(W/img.width,H/img.height),dw=img.width*r,dh=img.height*r,dx=(W-dw)/2,dy=(H-dh)/2;
       uctx.fillStyle='#fff';uctx.fillRect(0,0,W,H);uctx.drawImage(img,dx,dy,dw,dh);
+      setTimeout(()=>detectImgRect(),50);
     };
     img.src=item.src;return;
   }
   uctx.fillStyle='#f5f0ff';uctx.fillRect(0,0,W,H);
+  setTimeout(()=>detectImgRect(),50);
+}
+
+/* 下絵の「絵が描かれている領域」を検出してバウンディングボックスを記録 */
+function detectImgRect(){
+  const W=uc.width,H=uc.height;
+  if(!W||!H){_imgRect=null;return;}
+  try{
+    const d=uctx.getImageData(0,0,W,H).data;
+    // 背景色（左上ピクセル）を基準にして、それと異なるピクセルを「絵」とみなす
+    const bgR=d[0],bgG=d[1],bgB=d[2];
+    const tol=24; // 色差のトレランス
+    let minX=W,maxX=0,minY=H,maxY=0,found=false;
+    const step=3; // サンプリング間隔（速度のため）
+    for(let y=0;y<H;y+=step){
+      for(let x=0;x<W;x+=step){
+        const i=(y*W+x)*4;
+        const dr=Math.abs(d[i]-bgR),dg=Math.abs(d[i+1]-bgG),db=Math.abs(d[i+2]-bgB);
+        if(dr+dg+db>tol){
+          if(x<minX)minX=x;if(x>maxX)maxX=x;
+          if(y<minY)minY=y;if(y>maxY)maxY=y;
+          found=true;
+        }
+      }
+    }
+    if(!found||maxX-minX<20||maxY-minY<20){
+      // 絵の範囲が検出できなければ全体モードにフォールバック
+      _imgRect=null;
+    } else {
+      // マージンを少し加えて安全に
+      const margin=Math.round(Math.min(W,H)*0.02);
+      _imgRect={
+        x:Math.max(0,minX-margin),
+        y:Math.max(0,minY-margin),
+        w:Math.min(W,maxX-minX+margin*2),
+        h:Math.min(H,maxY-minY+margin*2),
+      };
+    }
+  } catch(e){ _imgRect=null; }
 }
 
 function fillScr(){
@@ -1532,11 +1592,25 @@ function scratch(x,y){
 
 function chkDone(){
   if(done)return;
-  const d=sctx.getImageData(0,0,sc.width,sc.height).data;
-  let t=0,cl=0,step=C.sampStep*4;
-  // alpha<80 を「削れた」とみなす（アンチエイリアス・ブラシ端を考慮）
-  for(let i=3;i<d.length;i+=step){t++;if(d[i]<80)cl++;}
-  const ratio=cl/t;upProg(ratio);
+  let t=0,cl=0;
+  const step=C.sampStep*4;
+
+  if(C.rangeMode==='image' && _imgRect){
+    // 「えのぶぶん」モード：検出したバウンディングボックス内だけで判定
+    // → かんせいのきじゅん（80/90/100%）はこの領域内での割合に適用される
+    const{x,y,w,h}=_imgRect;
+    const d=sctx.getImageData(x,y,w,h).data;
+    for(let i=3;i<d.length;i+=step){t++;if(d[i]<80)cl++;}
+  } else {
+    // 「画面ぜんたい」モード（デフォルト）
+    // → かんせいのきじゅん（80/90/100%）はキャンバス全体での割合に適用される
+    const d=sctx.getImageData(0,0,sc.width,sc.height).data;
+    for(let i=3;i<d.length;i+=step){t++;if(d[i]<80)cl++;}
+  }
+
+  if(t===0)return;
+  const ratio=cl/t;
+  upProg(ratio);
   if(ratio>=C.thresh&&!done){done=true;onDone();}
 }
 function upProg(r){const p=Math.min(100,Math.round(r*100));pfill.style.width=p+'%';ppct.textContent=p+'%';ptr.setAttribute('aria-valuenow',p);}
@@ -1632,15 +1706,44 @@ function buildGrid(){
     d.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')d.click();});
     g.appendChild(d);
   });
-  const up=document.createElement('div');up.className='ith';up.tabIndex=0;up.setAttribute('role','button');up.setAttribute('aria-label','じぶんのしゃしんをつかう');
+  // 「じぶんのしゃしん」ボタン：label[for]方式でiPad Safari対応
+  const up=document.createElement('label');
+  up.htmlFor='imgInp';
+  up.className='ith';up.tabIndex=0;
+  up.setAttribute('role','button');up.setAttribute('aria-label','じぶんのしゃしんをつかう');
   up.innerHTML='<span style="font-size:2em">📷</span><div class="ithl">じぶんの<br>しゃしん</div>';
-  up.addEventListener('click',()=>document.getElementById('imgInp').click());
-  up.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')up.click();});
+  up.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')document.getElementById('imgInp').click();});
   g.appendChild(up);
 }
 document.getElementById('imgInp').addEventListener('change',e=>{
-  const f=e.target.files[0];if(!f)return;
-  const rd=new FileReader();rd.onload=ev=>{uimgs.push({label:f.name.replace(/\.[^.]+$/,''),src:ev.target.result});cidx=DEFS.length+uimgs.length-1;drawUnder();fillScr();buildGrid();closeSet();};rd.readAsDataURL(f);e.target.value='';
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const src=ev.target.result;
+    const img=new Image();
+    img.onload=()=>{
+      uimgs.push({
+        label:f.name.replace(/\.[^.]+$/,''),
+        src:src,
+        draw:(ctx,W,H)=>{
+          const r=Math.min(W/img.width,H/img.height);
+          const dw=img.width*r,dh=img.height*r;
+          const dx=(W-dw)/2,dy=(H-dh)/2;
+          ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+          ctx.drawImage(img,dx,dy,dw,dh);
+        }
+      });
+      cidx=DEFS.length+uimgs.length-1;
+      drawUnder();fillScr();buildGrid();closeSet();
+    };
+    img.onerror=()=>alert('写真の読み込みに失敗しました。別の写真を試してください。');
+    img.src=src;
+    if(img.complete&&img.naturalWidth>0)img.onload();
+  };
+  rd.onerror=()=>alert('ファイルの読み込みに失敗しました。');
+  rd.readAsDataURL(f);
+  setTimeout(()=>{ try{ e.target.value=''; }catch(_){} }, 500);
 });
 
 // 写真ボタン（設定パネル内）→エディタを写真モードで開く
@@ -1659,9 +1762,13 @@ const TXT={
 };
 let _photoImg=null; // 読み込み済みImageオブジェクト
 
-// hidden file input（写真選択用・既存のimgInpとは別）
+// hidden file input（写真選択用）
+// iPad Safari対応：label[for]方式で紐付け・画面外に配置
 const photoInp=document.createElement('input');
-photoInp.type='file';photoInp.accept='image/*';photoInp.style.display='none';
+photoInp.type='file';
+photoInp.accept='image/*';
+photoInp.id='photoInp';
+photoInp.setAttribute('style','position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;pointer-events:none');
 document.body.appendChild(photoInp);
 
 // ----プレビューCanvas----
@@ -1884,22 +1991,42 @@ function updatePhotoThumb(){
   if(has) document.getElementById('photoThumbImg').src=TXT.photoSrc;
 }
 
-document.getElementById('selectPhotoBtn').addEventListener('click',()=>photoInp.click());
 document.getElementById('clearPhotoBtn').addEventListener('click',()=>{
   TXT.photoSrc=null;_photoImg=null;updatePhotoThumb();renderPreview();
 });
 
 photoInp.addEventListener('change',e=>{
-  const f=e.target.files[0];if(!f)return;
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
   const rd=new FileReader();
   rd.onload=ev=>{
     TXT.photoSrc=ev.target.result;
-    _photoImg=new Image();
-    _photoImg.onload=()=>{updatePhotoThumb();renderPreview();};
-    _photoImg.src=TXT.photoSrc;
+    const img=new Image();
+    // iOS Safariでonloadが同期完了する場合も考慮してsrc前にonloadを登録
+    img.onload=()=>{
+      _photoImg=img;
+      updatePhotoThumb();
+      renderPreview();
+    };
+    img.onerror=()=>{
+      // 読み込み失敗時のフォールバック
+      _photoImg=null;
+      TXT.photoSrc=null;
+      updatePhotoThumb();
+      alert('写真の読み込みに失敗しました。別の写真を試してください。');
+    };
+    img.src=TXT.photoSrc;
+    // すでにcachedされていてonloadが発火しない場合の保険
+    if(img.complete&&img.naturalWidth>0){
+      _photoImg=img;
+      updatePhotoThumb();
+      renderPreview();
+    }
   };
+  rd.onerror=()=>alert('ファイルの読み込みに失敗しました。');
   rd.readAsDataURL(f);
-  e.target.value='';
+  // iOS Safariで同じファイルを再選択できるようvalue=""はsetTimeoutで遅延実行
+  setTimeout(()=>{ try{ e.target.value=''; }catch(_){} }, 500);
 });
 
 // ---- テキスト・スタイル変更 → プレビュー更新 ----
@@ -2010,6 +2137,14 @@ document.querySelectorAll('#threshBtns .fbtn').forEach(b=>b.addEventListener('cl
   tts('かんせいのきじゅん '+b.textContent);
 }));
 
+// はんていのはんいボタン
+document.querySelectorAll('#rangeBtns .fbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#rangeBtns .fbtn').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  C.rangeMode=b.dataset.range;
+  tts('はんていのはんい '+(C.rangeMode==='image'?'えのぶぶん':'がめんぜんたい'));
+}));
+
 // 完成ボタン
 document.getElementById('nxtBtn').addEventListener('click',()=>{nextImg();tts('つぎのえ');});
 document.getElementById('rtyBtn').addEventListener('click',()=>{document.getElementById('cov').classList.remove('on');fillScr();tts('もういちど');});
@@ -2054,6 +2189,67 @@ function speak(txt){
 function tts(txt){if(!C.tts)return;speak(txt);}
 let bblT;function showBbl(txt){ttsBbl.textContent='🔊 '+txt;ttsBbl.classList.add('on');clearTimeout(bblT);bblT=setTimeout(()=>ttsBbl.classList.remove('on'),2600);}
 if('speechSynthesis' in window)window.speechSynthesis.onvoiceschanged=()=>{};
+
+// ============================================================
+// 画面ロック機能
+// ============================================================
+let _locked=false;
+let _lockToastTimer=null;
+
+function showLockToast(msg){
+  const el=document.getElementById('lockToast');
+  el.textContent=msg;el.classList.add('on');
+  clearTimeout(_lockToastTimer);
+  _lockToastTimer=setTimeout(()=>el.classList.remove('on'),2200);
+}
+
+function setLock(on){
+  _locked=on;
+  document.body.classList.toggle('locked',on);
+  const btn=document.getElementById('lockBtn');
+  btn.textContent=on?'🔒':'🔓';
+  btn.classList.toggle('locked',on);
+  btn.setAttribute('aria-label',on?'ロックちゅう（タップでかいじょ）':'がめんをロック');
+  const tog=document.getElementById('tgLock');
+  if(tog)tog.checked=on;
+  if(on){
+    // historyに2重に積んで「戻る」を確実に横取り
+    history.pushState({locked:true},'');
+    history.pushState({locked:true},'');
+    showLockToast('🔒 がめんをロックしたよ');
+    tts('がめんをロックしました');
+  } else {
+    showLockToast('🔓 ロックをかいじょしたよ');
+    tts('ロックをかいじょしました');
+  }
+}
+
+// 「戻る」操作を横取り
+window.addEventListener('popstate',()=>{
+  if(_locked){
+    history.pushState({locked:true},'');
+    showLockToast('🔒 まえの がめんには もどれないよ');
+  }
+});
+
+// タブを閉じる・URLを変える際に警告
+window.addEventListener('beforeunload',e=>{
+  if(_locked){e.preventDefault();e.returnValue='';}
+});
+
+// 「もどる」リンクのクリックを無効化
+document.getElementById('backBtn').addEventListener('click',e=>{
+  if(_locked){
+    e.preventDefault();
+    showLockToast('🔒 まえの がめんには もどれないよ');
+  }
+});
+
+// ロックボタン（ヘッダー）
+document.getElementById('lockBtn').addEventListener('click',()=>setLock(!_locked));
+
+// 設定パネルのトグル
+document.getElementById('tgLock').addEventListener('change',e=>setLock(e.target.checked));
 
 // 全画面
 const fsBtn=document.getElementById('fsBtn');
