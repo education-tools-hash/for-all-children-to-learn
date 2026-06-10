@@ -526,17 +526,8 @@ html, body {
 
 /* ── SETTINGS BUTTON ── */
 #settings-btn {
-  position:fixed; bottom:22px; right:22px;
-  width:62px; height:62px; border-radius:50%;
-  background:rgba(255,255,255,0.07);
-  border:1px solid rgba(255,255,255,0.16);
-  color:rgba(255,255,255,0.55);
-  font-size:1.7rem; cursor:pointer; z-index:200;
-  display:flex; align-items:center; justify-content:center;
-  transition:all 0.2s;
-  -webkit-tap-highlight-color:transparent;
+  font-size: 1.7rem;
 }
-#settings-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
 
 /* ── SETTINGS PANEL ── */
 #settings-panel {
@@ -672,15 +663,68 @@ html.invert-contrast .htab-icon,
 html.invert-contrast .step-card .step-num {
   filter: invert(1) hue-rotate(180deg);
 }
+
+
+/* shared style for icon buttons in toolbar */
+.tb-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+
+/* ── FULLSCREEN BUTTON ── */
+#fullscreen-btn {
+  position:fixed; bottom:22px; right:96px;
+  width:62px; height:62px; border-radius:50%;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.16);
+  color:rgba(255,255,255,0.55);
+  font-size:1.45rem; cursor:pointer; z-index:200;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s;
+  -webkit-tap-highlight-color:transparent;
+}
+#fullscreen-btn:hover  { background:rgba(255,255,255,0.15); color:#fff; }
+#fullscreen-btn.active { background:rgba(255,255,255,0.13); border-color:rgba(255,255,255,0.35); color:#fff; }
+
+/* ── LOCK BUTTON ── */
+#lock-btn {
+  position:fixed; bottom:22px; right:170px;
+  width:62px; height:62px; border-radius:50%;
+  background:rgba(255,255,255,0.07);
+  border:1px solid rgba(255,255,255,0.16);
+  color:rgba(255,255,255,0.55);
+  font-size:1.45rem; cursor:pointer; z-index:200;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.2s;
+  -webkit-tap-highlight-color:transparent;
+}
+#lock-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
+#lock-btn.locked {
+  background:rgba(255,204,68,0.18);
+  border-color:rgba(255,204,68,0.55);
+  color:#ffcc44;
+  box-shadow:0 0 18px rgba(255,204,68,0.28);
+}
+
+
+#lock-overlay.active { display:block; }
+
+
+#lock-badge.visible { display:block; }
+
+  50%    { opacity:1; }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -924,9 +968,6 @@ html.invert-contrast .step-card .step-num {
 
 <!-- help reopen button -->
 <button id="help-btn" title="使い方を見る"><span class="hb-icon">❓</span>使い方</button>
-
-<!-- settings toggle -->
-<button id="settings-btn" title="設定を開く">⚙</button>
 
 <!-- settings panel -->
 <div id="settings-panel" role="dialog" aria-label="設定">
@@ -1571,47 +1612,131 @@ document.querySelectorAll('.chip').forEach(btn=>{
   });
 });
 
+
 /* ════════════════════════════════════════
    HELP MODAL
 ════════════════════════════════════════ */
-const helpOverlay = document.getElementById('help-overlay');
-const helpBtn     = document.getElementById('help-btn');
+(function() {
+  const overlay   = document.getElementById('help-overlay');
+  const helpBtn   = document.getElementById('help-btn');
+  const closeBtn  = document.getElementById('help-close');
+  const tabBtns   = document.querySelectorAll('.htab');
+  const panes     = document.querySelectorAll('.hpane');
 
-/* ── HELP TABS ── */
-document.querySelectorAll('.htab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.htab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
-    document.querySelectorAll('.hpane').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    tab.setAttribute('aria-selected','true');
-    document.getElementById('pane-' + tab.dataset.tab).classList.add('active');
+  function openHelp()  {
+    overlay.style.display = 'flex';
+    overlay.classList.remove('closing');
+    document.getElementById('help-box').scrollTop = 0;
+  }
+  function closeHelp() {
+    overlay.classList.add('closing');
+    overlay.addEventListener('animationend', () => {
+      overlay.style.display = 'none';
+      overlay.classList.remove('closing');
+    }, { once:true });
+  }
+
+  if (closeBtn)  closeBtn.addEventListener('click', closeHelp);
+  if (helpBtn)   helpBtn.addEventListener('click', e => { e.stopPropagation(); openHelp(); });
+  if (overlay)   overlay.addEventListener('click', e => { if (e.target === overlay) closeHelp(); });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') closeHelp();
   });
-});
 
-function closeHelp() {
-  helpOverlay.classList.add('closing');
-  helpOverlay.addEventListener('animationend', () => {
-    helpOverlay.style.display = 'none';
-    helpOverlay.classList.remove('closing');
-  }, { once: true });
-}
+  tabBtns.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabBtns.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+      panes.forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected','true');
+      const pane = document.getElementById('pane-' + tab.dataset.tab);
+      if (pane) pane.classList.add('active');
+    });
+  });
+})();
 
-function openHelp() {
-  helpOverlay.style.display = 'flex';
-  helpOverlay.classList.remove('closing');
-  document.getElementById('help-box').scrollTop = 0;
-}
+/* ════════════════════════════════════════
+   FULLSCREEN  (safe — no-op inside iframes)
+════════════════════════════════════════ */
+(function() {
+  const fsBtn = document.getElementById('fullscreen-btn');
+  if (!fsBtn) return;
 
-document.getElementById('help-close').addEventListener('click', closeHelp);
-helpBtn.addEventListener('click', e => { e.stopPropagation(); openHelp(); });
+  // Detect if we're inside an iframe (Claude Artifacts viewer)
+  const inIframe = (() => { try { return window.self !== window.top; } catch(e) { return true; } })();
 
-helpOverlay.addEventListener('click', e => {
-  if (e.target === helpOverlay) closeHelp();
-});
+  function isFull() { return !!document.fullscreenElement; }
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && helpOverlay.style.display !== 'none') closeHelp();
-});
+  function updateFsBtn() {
+    fsBtn.classList.toggle('active', isFull());
+    fsBtn.title = isFull() ? '全画面を終了 (Esc)' : '全画面表示';
+  }
+
+  if (inIframe) {
+    // Inside iframe: fullscreen API blocked — hide the button gracefully
+    fsBtn.style.display = 'none';
+  } else {
+    fsBtn.addEventListener('click', async () => {
+      try {
+        if (!isFull()) await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+        else           await document.exitFullscreen();
+      } catch(e) {}
+    });
+    document.addEventListener('fullscreenchange',       updateFsBtn);
+    document.addEventListener('webkitfullscreenchange', updateFsBtn);
+  }
+})();
+
+/* ════════════════════════════════════════
+   SCREEN LOCK
+════════════════════════════════════════ */
+(function() {
+  const lockBtn     = document.getElementById('lock-btn');
+  const lockOverlay = document.getElementById('lock-overlay');
+  const lockBadge   = document.getElementById('lock-badge');
+  const settPanel   = document.getElementById('settings-panel');
+  if (!lockBtn) return;
+
+  const inIframe = (() => { try { return window.self !== window.top; } catch(e) { return true; } })();
+
+  let isLocked = false;
+
+  function doLock() {
+    isLocked = true;
+    lockBtn.textContent = '🔒';
+    lockBtn.title = 'タップしてロック解除';
+    lockBtn.classList.add('locked');
+    if (lockOverlay) lockOverlay.classList.add('active');
+    if (lockBadge)   lockBadge.classList.add('visible');
+    if (settPanel)   settPanel.classList.remove('open');
+    try { history.pushState({ locked:true }, '', location.href); } catch(e) {}
+    if (!inIframe && !document.fullscreenElement) {
+      document.documentElement.requestFullscreen({ navigationUI:'hide' }).catch(()=>{});
+    }
+  }
+
+  function doUnlock() {
+    isLocked = false;
+    lockBtn.textContent = '🔓';
+    lockBtn.title = '画面をロック';
+    lockBtn.classList.remove('locked');
+    if (lockOverlay) lockOverlay.classList.remove('active');
+    if (lockBadge)   lockBadge.classList.remove('visible');
+  }
+
+  lockBtn.addEventListener('click', () => { isLocked ? doUnlock() : doLock(); });
+
+  window.addEventListener('popstate', () => {
+    if (isLocked) { try { history.pushState({ locked:true }, '', location.href); } catch(e) {} }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (!isLocked) return;
+    if (e.key === 'Backspace' || (e.altKey && e.key === 'ArrowLeft') || e.key === 'BrowserBack')
+      e.preventDefault();
+  }, true);
+})();
 
 /* ════════════════════════════════════════
    INIT
@@ -1619,6 +1744,76 @@ document.addEventListener('keydown', e => {
 setPos(0.5, 0.5, true);
 updateDwellGeom(C.btnSize);
 document.body.style.background = C.bgColor;
+/* ════════════════════════════════════════
+   FULLSCREEN
+════════════════════════════════════════ */
+const fsBtn = document.getElementById('fullscreen-btn');
+function isFull() { return !!document.fullscreenElement; }
+function updateFsBtn() {
+  fsBtn.classList.toggle('active', isFull());
+  fsBtn.title = isFull() ? '全画面を終了 (Esc)' : '全画面表示';
+}
+fsBtn.addEventListener('click', async () => {
+  try {
+    if (!isFull()) await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+    else           await document.exitFullscreen();
+  } catch(e) {}
+});
+document.addEventListener('fullscreenchange',       updateFsBtn);
+document.addEventListener('webkitfullscreenchange', updateFsBtn);
+
+/* ════════════════════════════════════════
+   SCREEN LOCK  — tap 🔒 to lock / tap again to unlock
+════════════════════════════════════════ */
+const lockBtn     = document.getElementById('lock-btn');
+const lockOverlay = document.getElementById('lock-overlay');
+const lockBadge   = document.getElementById('lock-badge');
+
+let isLocked = false;
+
+function doLock() {
+  isLocked = true;
+  lockBtn.textContent = '🔒';
+  lockBtn.title = 'タップしてロック解除';
+  lockBtn.classList.add('locked');
+  lockOverlay.classList.add('active');
+  lockBadge.classList.add('visible');
+  settPanel.classList.remove('open');
+  history.pushState({ locked:true }, '', location.href);
+  if (!isFull()) document.documentElement.requestFullscreen({ navigationUI:'hide' }).catch(()=>{});
+}
+
+function doUnlock() {
+  isLocked = false;
+  lockBtn.textContent = '🔓';
+  lockBtn.title = '画面をロック';
+  lockBtn.classList.remove('locked');
+  lockOverlay.classList.remove('active');
+  lockBadge.classList.remove('visible');
+}
+
+lockBtn.addEventListener('click', () => {
+  isLocked ? doUnlock() : doLock();
+});
+
+window.addEventListener('popstate', () => {
+  if (isLocked) history.pushState({ locked:true }, '', location.href);
+});
+
+document.addEventListener('keydown', e => {
+  if (!isLocked) return;
+  if (e.key === 'Backspace' || (e.altKey && e.key === 'ArrowLeft') || e.key === 'BrowserBack')
+    e.preventDefault();
+}, true);
+
 </script>
+
+<!-- ══ FULLSCREEN + LOCK ══ -->
+<button id="settings-btn" title="設定を開く">⚙</button>
+<button id="fullscreen-btn" title="全画面表示">⛶</button>
+<button id="lock-btn" title="画面をロック">🔒</button>
+<div id="lock-overlay"></div>
+<div id="lock-badge">🔒 ロック中</div>
+
 </body>
 </html>
