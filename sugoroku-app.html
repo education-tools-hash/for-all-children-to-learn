@@ -319,6 +319,89 @@ body.hc #sce-ev-preview{background:#333;color:#fff;border-color:#888;}
   flex:1;background:#eee;border:none;border-radius:12px;padding:12px;
   font-family:var(--font);font-size:.9rem;font-weight:800;cursor:pointer;color:#555;
 }
+.sce-del{
+  width:100%;margin-top:10px;
+  background:transparent;border:1.5px solid rgba(200,50,50,.4);
+  border-radius:12px;padding:10px;color:#c83232;
+  font-family:var(--font);font-size:.8rem;font-weight:900;cursor:pointer;
+  transition:all .2s;display:none;
+}
+.sce-del:hover{background:rgba(200,50,50,.1);}
+.sce-del.visible{display:block;}
+
+/* ===== 画面中央サイコロオーバーレイ ===== */
+#dice-overlay{
+  display:none;position:fixed;inset:0;z-index:800;
+  background:rgba(0,0,0,.55);
+  align-items:center;justify-content:center;
+  pointer-events:none;
+}
+#dice-overlay.on{display:flex;}
+#dice-overlay-box{
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+  animation:doPop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes doPop{
+  from{opacity:0;transform:scale(.4) rotate(-15deg);}
+  to{opacity:1;transform:scale(1) rotate(0deg);}
+}
+#dice-overlay.result #dice-overlay-box{
+  animation:doResult .25s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes doResult{
+  from{transform:scale(1.15);}
+  to{transform:scale(1);}
+}
+#dice-overlay-inner{
+  width:clamp(120px,28vw,200px);height:clamp(120px,28vw,200px);
+  background:white;border-radius:22%;
+  box-shadow:0 12px 40px rgba(0,0,0,.5),inset 0 -4px 0 rgba(0,0,0,.12);
+  display:grid;grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(3,1fr);
+  padding:12%;gap:6%;position:relative;
+}
+.doc-dot{
+  border-radius:50%;background:#1a0a02;
+  width:100%;height:100%;
+  visibility:hidden;
+  transition:none;
+}
+.doc-dot.v{visibility:visible;}
+#dice-overlay.spin #dice-overlay-inner{
+  animation:doSpin .12s linear infinite;
+}
+@keyframes doSpin{
+  0%{transform:rotate(0deg);}
+  25%{transform:rotate(8deg);}
+  75%{transform:rotate(-8deg);}
+  100%{transform:rotate(0deg);}
+}
+#dice-overlay-num{
+  font-family:var(--font-d);
+  font-size:clamp(2.8rem,10vw,5rem);
+  font-weight:900;color:var(--gold);
+  text-shadow:0 4px 20px rgba(240,192,64,.6),2px 2px 0 rgba(0,0,0,.4);
+  min-height:1.2em;text-align:center;
+}
+
+/* ===== 画面ロック ===== */
+#lockbtn.locked{
+  background:rgba(240,192,64,.25);
+  border:1.5px solid rgba(240,192,64,.6);
+  color:var(--gold);
+}
+body.screen-locked #homebtn,
+body.screen-locked #setbtn{
+  opacity:.3;pointer-events:none;
+}
+#lock-banner{
+  display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.8);color:var(--gold);
+  font-family:var(--font);font-size:.82rem;font-weight:900;
+  padding:8px 20px;border-radius:50px;border:1.5px solid rgba(240,192,64,.5);
+  z-index:999;pointer-events:none;white-space:nowrap;
+}
+#lock-banner.on{display:block;}
 
 /* ===== GAME ===== */
 #game{display:none;position:fixed;inset:0;flex-direction:column;}
@@ -593,18 +676,29 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 @media(max-width:500px){#side{width:155px;}}
 @media(max-width:360px){#side{width:138px;}}
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
 <div id="scanbadge">🔍 スキャン ON</div>
+<div id="lock-banner">🔒 がめんロック中</div>
+
+<!-- 画面中央サイコロオーバーレイ -->
+<div id="dice-overlay">
+  <div id="dice-overlay-box">
+    <div id="dice-overlay-inner">
+      <div id="doc-d1" class="doc-dot"></div>
+      <div id="doc-d2" class="doc-dot"></div>
+      <div id="doc-d3" class="doc-dot"></div>
+      <div id="doc-d4" class="doc-dot"></div>
+      <div id="doc-d5" class="doc-dot"></div>
+      <div id="doc-d6" class="doc-dot"></div>
+      <div id="doc-d7" class="doc-dot"></div>
+      <div id="doc-d8" class="doc-dot"></div>
+      <div id="doc-d9" class="doc-dot"></div>
+    </div>
+    <div id="dice-overlay-num"></div>
+  </div>
+</div>
 
 <!-- ===== SETUP ===== -->
 <div id="setup">
@@ -639,7 +733,7 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 
   <button class="edit-cells-btn" id="open-cell-editor-btn">✏️ マス目をカスタマイズする</button>
   <button class="edit-cells-btn" id="setup-help-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">❓ マス目のかいせつをみる</button>
-  <button class="edit-cells-btn" id="setup-set-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">⚙️ せってい</button>
+  <button class="edit-cells-btn" id="setup-set-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">⚙️ せってい　<span id="eve-status-badge" style="font-size:.72rem;font-weight:900;background:rgba(93,191,106,.3);color:#5dbf6a;border-radius:8px;padding:2px 8px;margin-left:4px;">🎭 ON</span></button>
   <button class="edit-cells-btn" id="fs-btn" style="border-color:rgba(93,191,106,.4);color:#5dbf6a;">⛶ 全画面で表示する</button>
   <button class="go-btn" id="gobtn">▶ ゲームスタート！</button>
 </div>
@@ -700,6 +794,7 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
       <button class="sce-ok" id="sce-ok">💾 かくてい</button>
       <button class="sce-cancel" id="sce-cancel">もどる</button>
     </div>
+    <button class="sce-del" id="sce-del">🗑 このマスのカスタマイズをけす</button>
   </div>
 </div>
 
@@ -712,6 +807,7 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
       <button class="tb-btn" id="helpbtn" aria-label="マス目のかいせつ">❓</button>
       <button class="tb-btn" id="sndbtn" aria-label="おとのオンオフ">🔊</button>
       <button class="tb-btn" id="game-fs-btn" aria-label="全画面">⛶</button>
+      <button class="tb-btn" id="lockbtn" aria-label="がめんロック" title="がめんロック">🔓</button>
       <button class="tb-btn" id="setbtn" aria-label="せってい">⚙️</button>
       <button class="tb-btn" id="homebtn" aria-label="タイトルへもどる">🏠</button>
     </div>
@@ -887,6 +983,13 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
         <button class="spb" id="sip" aria-label="おそく">＋</button>
       </div>
     </div>
+    <div class="ssrow" style="border:1.5px solid rgba(240,192,64,.3);border-radius:14px;padding:12px 14px;background:rgba(240,192,64,.06);">
+      <div class="ssinfo">
+        <div class="sl">🎭 アクティビティマス</div>
+        <div class="sd" style="line-height:1.6;">「なぞなぞ」「ものまね」「きねんしゃしん」「うたをうたおう」など会話・動作系イベントのON/OFF。<br><strong style="color:var(--gold);">実態に応じてOFFにすると、すすむ・もどる・おやすみだけのシンプルなゲームになります。</strong></div>
+      </div>
+      <button class="tsw on" id="evesw" role="switch" aria-checked="true" aria-label="アクティビティマス"></button>
+    </div>
     <button class="scl" id="setcl">✕ とじる</button>
   </div>
 </div>
@@ -939,7 +1042,7 @@ function buildBoard(n){
   // 各カテゴリの枚数（割合固定）
   const countEVL = Math.round(inner * 0.10); // ラッキー系：約10%
   const countEVU = Math.round(inner * 0.10); // アンラッキー系：約10%
-  const countEVE = Math.round(inner * 0.15); // アクティビティ系：約15%
+  const countEVE = eveOn ? Math.round(inner * 0.15) : 0; // アクティビティ系：OFF時は0
   // 残りはふつうマス
 
   // イベントプールを均等に生成（同じイベントが連続しないようシャッフル）
@@ -1026,7 +1129,8 @@ function buildBoard(n){
     const boardIdx=i+1;
     if(customCells[boardIdx]){
       const cc=customCells[boardIdx];
-      b.push({cl:cc.type||'c-custom',ic:cc.photoDataUrl?'':(cc.icon||'📝'),tx:cc.text||'',ev:cc.event||null,photoUrl:cc.photoDataUrl||null});
+      const evFallbackTx = (cc.event && cc.event.tt) ? cc.event.tt.slice(0,7) : '';
+      b.push({cl:cc.type||'c-custom',ic:cc.photoDataUrl?'':(cc.event&&cc.event.ic?cc.event.ic:cc.icon||'📝'),tx:cc.text||evFallbackTx,ev:cc.event||null,photoUrl:cc.photoDataUrl||null});
     } else {
       b.push(slots[i]);
     }
@@ -1042,6 +1146,7 @@ let rolling=false,gActive=false,finOrd=[],cpuTimer=null;
 let turnCounts=[]; // 各プレイヤーの経過ターン数
 let scanOn=false,ttsOn=true,sndOn=true;
 let fontLv=1,scanSec=2.0,hc=false;
+let eveOn=true; // アクティビティマスON/OFF
 let scanTmr=null,scanTgts=[],sti=0;
 let cpos=[], CW=80, CH=68;
 
@@ -1075,8 +1180,16 @@ for(let i=1;i<=10;i++){
 nP=1;
 
 // 名前編集グリッド
+// 名前を保持するバッファ（最大10人分）
+const playerNames = Array.from({length:10}, (_,i)=>PD[i].name);
+
 function renderNameEditGrid(){
   const grid=document.getElementById('name-edit-grid');
+  // 現在表示中の入力値を保存してからリセット
+  for(let i=0;i<10;i++){
+    const el=document.getElementById('name-input-'+i);
+    if(el && el.value.trim()) playerNames[i]=el.value.trim();
+  }
   grid.innerHTML='';
   for(let i=0;i<nP;i++){
     const row=document.createElement('div');
@@ -1086,7 +1199,7 @@ function renderNameEditGrid(){
       <input class="name-input" id="name-input-${i}"
         type="text" maxlength="12"
         placeholder="${PD[i].name}"
-        value="${PD[i].name}"
+        value="${playerNames[i]}"
         aria-label="プレイヤー${i+1}のなまえ">
     `;
     grid.appendChild(row);
@@ -1182,9 +1295,13 @@ function refreshCellEditorGrid(){
       if(cc.photoDataUrl){
         icHTML=`<img class="ccb-img" src="${cc.photoDataUrl}" alt="photo">`;
       } else {
-        icHTML=`<span class="ccb-ic">${cc.icon||'📝'}</span>`;
+        // イベントのicがあればそちらを優先、なければcc.icon
+        const dispIc = (cc.event && cc.event.ic) ? cc.event.ic : (cc.icon||'📝');
+        icHTML=`<span class="ccb-ic">${dispIc}</span>`;
       }
-      txHTML=`<span class="ccb-tx">${cc.text||''}</span>`;
+      // テキストがあればテキスト、なければイベント名
+      const dispTx = cc.text || (cc.event && cc.event.tt ? cc.event.tt.slice(0,6) : '');
+      txHTML=`<span class="ccb-tx">${dispTx}</span>`;
       btn.innerHTML=`<span class="ccb-num">${i}</span>${icHTML}${txHTML}<span class="edit-badge">編集済</span>`;
     } else if(isStart){
       btn.innerHTML=`<span class="ccb-num">${i}</span><span class="ccb-ic">🌟</span><span class="ccb-tx">スタート</span>`;
@@ -1345,6 +1462,13 @@ function openSingleCellEdit(idx){
   }
 
   document.getElementById('single-cell-edit').classList.add('on');
+  // 削除ボタン：すでにカスタム設定がある場合のみ表示
+  const delBtn=document.getElementById('sce-del');
+  if(customCells[idx]){
+    delBtn.classList.add('visible');
+  } else {
+    delBtn.classList.remove('visible');
+  }
   bip(440,.07,.15);
 }
 
@@ -1457,9 +1581,14 @@ document.getElementById('sce-ok').addEventListener('click',()=>{
   const autoEv = sceSelectedType==='c-custom'
     ? sceSelectedEv
     : TYPE_DEFAULT_EV[sceSelectedType] ?? null;
+
+  // カスタムマスのアイコン：イベントがあればそのic、なければタイプアイコン
+  let cellIcon = tc.ic;
+  if(sceSelectedType==='c-custom' && autoEv && autoEv.ic) cellIcon = autoEv.ic;
+
   customCells[editingCellIdx]={
     text, type:sceSelectedType,
-    icon:tc.ic,
+    icon: cellIcon,
     photoDataUrl:scePhotoDataUrl||null,
     event:autoEv,
   };
@@ -1472,6 +1601,42 @@ document.getElementById('sce-cancel').addEventListener('click',()=>{
   document.getElementById('single-cell-edit').classList.remove('on');
   bip(440,.07,.15);
 });
+
+// 削除ボタン
+document.getElementById('sce-del').addEventListener('click',()=>{
+  delete customCells[editingCellIdx];
+  document.getElementById('single-cell-edit').classList.remove('on');
+  refreshCellEditorGrid();
+  speak('マス'+editingCellIdx+'のカスタマイズをけしました');
+  bip(330,.08,.15);
+});
+
+// EVEトグル
+(()=>{
+  const sw=document.getElementById('evesw');
+  function updateEveBadge(){
+    const badge=document.getElementById('eve-status-badge');
+    if(!badge) return;
+    if(eveOn){
+      badge.textContent='🎭 ON';
+      badge.style.background='rgba(93,191,106,.3)';
+      badge.style.color='#5dbf6a';
+    } else {
+      badge.textContent='🎭 OFF';
+      badge.style.background='rgba(255,100,100,.2)';
+      badge.style.color='#ff8080';
+    }
+  }
+  sw.addEventListener('click',()=>{
+    eveOn=!eveOn;
+    sw.classList.toggle('on',eveOn);
+    sw.setAttribute('aria-checked',String(eveOn));
+    updateEveBadge();
+    speak('アクティビティマス'+(eveOn?'オン':'オフ'));
+    bip(440,.07,.15);
+  });
+  updateEveBadge();
+})();
 
 // ===== BOARD LAYOUT =====
 function computeLayout(){
@@ -1563,8 +1728,10 @@ function renderBoard(){
         const iconPx=Math.max(16,Math.min(26,p.w/3.5));
         inner+=`<div class="cion" style="font-size:${iconPx}px">${cell.ic}</div>`;
       }
-      if(cell.tx){
-        inner+=`<div class="ctxt${isWhite?' w':''}">${cell.tx}</div>`;
+      // テキストが空の場合はイベント名をフォールバック表示
+      const dispTx = cell.tx || (cell.ev && cell.ev.tt ? cell.ev.tt.slice(0,7) : '');
+      if(dispTx){
+        inner+=`<div class="ctxt${isWhite?' w':''}">${dispTx}</div>`;
       }
     }
     el.innerHTML=inner;
@@ -1609,9 +1776,10 @@ function startGame(){
   board=buildBoard(nC);
   players=[];
   for(let i=0;i<nP;i++){
-    // 入力された名前を取得（空の場合はデフォルト名）
-    const nameInput=document.getElementById('name-input-'+i);
-    const customName=nameInput&&nameInput.value.trim()?nameInput.value.trim():PD[i].name;
+    // 入力値を最終確認してバッファに保存
+    const nameEl=document.getElementById('name-input-'+i);
+    if(nameEl && nameEl.value.trim()) playerNames[i]=nameEl.value.trim();
+    const customName=playerNames[i]||PD[i].name;
     players.push({...PD[i], name:customName, pos:0,done:false,skip:false,cpu:false});
   }
   const cpuAvs=['🤖','🦾','💻','🎮','🕹️','⚙️','🔩','🛸','🧠'];
@@ -1679,12 +1847,28 @@ async function roll(){
   rollSnd();
   const db=document.getElementById('dicebox');
   db.classList.add('spin');
-  const anim=setInterval(()=>showDice(Math.floor(Math.random()*6)+1),55);
+
+  // 画面中央オーバーレイを開く
+  openDiceOverlay();
+  const anim=setInterval(()=>{
+    const n=Math.floor(Math.random()*6)+1;
+    showDice(n);
+    showDiceOverlay(n);
+  },55);
+
   await dl(650);
-  clearInterval(anim);db.classList.remove('spin');
+  clearInterval(anim);
+  db.classList.remove('spin');
+
   const res=Math.floor(Math.random()*6)+1;
-  showDice(res);speak(String(res));setMsg(`${res}がでた！`);
-  await dl(550);
+  showDice(res);
+  speak(String(res));
+  setMsg(`${res}がでた！`);
+  resultDiceOverlay(res);
+
+  await dl(900);
+  closeDiceOverlay();
+  await dl(200);
   await moveP(ci,res);
 }
 
@@ -1777,6 +1961,35 @@ function showGoal(){
 function showDice(n){
   for(let i=1;i<=9;i++)document.getElementById('d'+i).classList.toggle('v',DP[n].includes(i));
   document.getElementById('dnum').textContent=n;
+}
+
+// オーバーレイ用サイコロ目更新
+function showDiceOverlay(n){
+  const ov=document.getElementById('dice-overlay');
+  for(let i=1;i<=9;i++){
+    document.getElementById('doc-d'+i).classList.toggle('v', DP[n].includes(i));
+  }
+  document.getElementById('dice-overlay-num').textContent=n==='？'?'？':n;
+}
+
+function openDiceOverlay(){
+  const ov=document.getElementById('dice-overlay');
+  ov.classList.remove('result');
+  ov.classList.add('on','spin');
+  document.getElementById('dice-overlay-num').textContent='';
+  showDiceOverlay(Math.floor(Math.random()*6)+1);
+}
+
+function resultDiceOverlay(n){
+  const ov=document.getElementById('dice-overlay');
+  ov.classList.remove('spin');
+  ov.classList.add('result');
+  showDiceOverlay(n);
+  document.getElementById('dice-overlay-num').textContent=n;
+}
+
+function closeDiceOverlay(){
+  document.getElementById('dice-overlay').classList.remove('on','spin','result');
 }
 function dl(ms){return new Promise(r=>setTimeout(r,ms));}
 function confetti(){
@@ -1873,6 +2086,68 @@ document.getElementById('rbtn').addEventListener('click',()=>{
   if(scanOn) startScan();
 });
 document.getElementById('homebtn').addEventListener('click',()=>{document.getElementById('homemod').classList.add('on');bip(440,.07,.15);if(scanOn)startScan();});
+
+// ===== 画面ロック =====
+let screenLocked = false;
+let lockBannerTimer = null;
+
+function setScreenLock(val){
+  screenLocked = val;
+  const btn = document.getElementById('lockbtn');
+  const banner = document.getElementById('lock-banner');
+  btn.textContent = val ? '🔒' : '🔓';
+  btn.setAttribute('aria-label', val ? 'がめんロック解除' : 'がめんロック');
+  btn.classList.toggle('locked', val);
+  document.body.classList.toggle('screen-locked', val);
+  speak(val ? 'がめんをロックしました' : 'がめんのロックをかいじょしました');
+  bip(val ? 550 : 440, .08, .18);
+
+  // ロック中はバナー表示
+  clearTimeout(lockBannerTimer);
+  if(val){
+    banner.classList.add('on');
+    lockBannerTimer = setTimeout(()=>banner.classList.remove('on'), 2500);
+  } else {
+    banner.classList.remove('on');
+  }
+
+  // History APIで「戻る」を無効化
+  if(val){
+    history.pushState({locked:true}, '');
+  }
+}
+
+document.getElementById('lockbtn').addEventListener('click',()=>{
+  setScreenLock(!screenLocked);
+});
+
+// ロック中にブラウザバック→即座に再pushStateで戻れなくする
+window.addEventListener('popstate', e=>{
+  if(screenLocked){
+    history.pushState({locked:true}, '');
+    // バナーを再表示してロック中であることを伝える
+    const banner = document.getElementById('lock-banner');
+    banner.classList.add('on');
+    clearTimeout(lockBannerTimer);
+    lockBannerTimer = setTimeout(()=>banner.classList.remove('on'), 2000);
+    speak('がめんはロックされています');
+    bip(330, .1, .15);
+  }
+});
+
+// ロック中：スワイプ戻り防止（touchmove で横スワイプを抑制）
+let _touchStartX = 0;
+document.addEventListener('touchstart', e=>{
+  _touchStartX = e.touches[0].clientX;
+}, {passive:true});
+document.addEventListener('touchmove', e=>{
+  if(!screenLocked) return;
+  const dx = e.touches[0].clientX - _touchStartX;
+  // 左端からの右スワイプ（戻るジェスチャー）を防止
+  if(_touchStartX < 40 && dx > 10){
+    e.preventDefault();
+  }
+}, {passive:false});
 
 // ゲーム画面の全画面ボタン
 (function(){
