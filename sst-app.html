@@ -18,20 +18,60 @@
   --bg:#FAFAF7;--card:#FFFFFF;--text:#2C3E50;--sub:#7F8C8D;
   --shadow:0 4px 16px rgba(0,0,0,0.09);--shadow-sm:0 2px 8px rgba(0,0,0,0.07);
   --r:20px;--r-sm:12px;
-  --min-tap:52px;
+  --min-tap:56px;
   --base-font:16px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;font-size:1rem;}
 
 /* HEADER */
-.hdr{background:linear-gradient(135deg,#FF6B35,#E55A2B);color:#fff;padding:18px 20px 22px;text-align:center;position:relative;overflow:hidden;}
-.hdr::before,.hdr::after{content:'';position:absolute;border-radius:50%;background:rgba(255,255,255,.07);}
-.hdr::before{width:180px;height:180px;top:-60px;right:-50px;}
+.hdr{
+  background:linear-gradient(135deg,#FF6B35,#E55A2B);
+  color:#fff;
+  padding:10px 12px;
+  position:relative;
+  z-index:9100;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.hdr::before,.hdr::after{content:'';position:absolute;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none;}
+.hdr::before{width:180px;height:180px;top:-60px;right:60px;}
 .hdr::after{width:120px;height:120px;bottom:-40px;left:-30px;}
-.hdr-ico{font-size:2.25rem;display:block;margin-bottom:4px;position:relative;z-index:1;}
-.hdr-title{font-size:1.75rem;font-weight:700;letter-spacing:3px;position:relative;z-index:1;}
-.hdr-sub{font-size:0.8125rem;opacity:.85;margin-top:4px;position:relative;z-index:1;}
+.hdr-center{
+  flex:1;text-align:center;min-width:0;
+  pointer-events:none;
+}
+.hdr-ico{font-size:1.5rem;display:block;line-height:1;}
+.hdr-title{font-size:1.25rem;font-weight:700;letter-spacing:2px;line-height:1.2;}
+.hdr-sub{font-size:0.6875rem;opacity:.85;margin-top:2px;}
+.hdr-gear{
+  width:42px;height:42px;border-radius:50%;flex-shrink:0;
+  background:rgba(255,255,255,.22);border:none;
+  font-size:1.25rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s,transform .2s;
+  position:relative;z-index:1;
+}
+.hdr-gear:active{transform:scale(.9);}
+.hdr-right{
+  display:flex;gap:4px;flex-shrink:0;
+  position:relative;z-index:1;
+}
+.hdr-btn{
+  width:40px;height:40px;border-radius:50%;border:none;
+  background:rgba(255,255,255,.18);
+  font-size:1.0625rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;flex-shrink:0;
+  position:relative;z-index:1;
+}
+.hdr-btn:active{background:rgba(255,255,255,.35);}
+.hdr-btn.locked{background:rgba(231,76,60,.5);}
+.hdr-btn#hdr-lock-btn{
+  position:relative;
+  z-index:9200;
+}
 
 /* グローバルレベルタブ：ホーム画面のみ表示 */
 .lvtabs{ display:flex;gap:8px;padding:14px 14px 0;overflow-x:auto;scrollbar-width:none; }
@@ -65,7 +105,7 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 .lvtab.on{transform:scale(1.05);}
 
 /* SCREENS */
-.scr{display:none;animation:fadeUp .3s ease;}
+.scr{display:none;animation:fadeUp .3s ease;padding-bottom:80px;}
 .scr.on{display:block;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
@@ -270,7 +310,36 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 .cf{position:absolute;top:-12px;width:10px;height:10px;border-radius:50%;animation:cfFall linear forwards;}
 @keyframes cfFall{to{transform:translateY(110vh) rotate(720deg);opacity:0;}}
 
-/* 3段階フィードバック用スタイル（正解/不正解の二項対立を廃止） */
+/* 声選択・ハイライト */
+.voice-select{
+  width:calc(100% - 70px);padding:8px 10px;
+  border:2px solid #E0E0E0;border-radius:10px;
+  font-family:inherit;font-size:0.875rem;background:#fff;
+  outline:none;cursor:pointer;margin-right:6px;
+  transition:border-color .2s;
+}
+.voice-select:focus{border-color:var(--or);}
+.voice-test-btn{
+  width:56px;min-height:38px;background:var(--or);color:#fff;
+  border:none;border-radius:10px;font-family:inherit;
+  font-size:0.8125rem;font-weight:700;cursor:pointer;
+  vertical-align:middle;
+}
+/* ハイライト */
+.tts-highlight{
+  background:#FFF176;
+  border-radius:4px;
+  padding:1px 2px;
+  transition:background .15s;
+}
+.tts-highlight-word{
+  background:#FFD54F;
+  border-radius:4px;
+  padding:0 2px;
+  font-weight:700;
+}
+body.dark .voice-select{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
+（正解/不正解の二項対立を廃止） */
 .ch-btn.lv-best{background:#FFF9E6;border-color:#F1C40F;color:#7A5200;}
 .ch-btn.lv-good{background:#E8F5E9;border-color:var(--gr);color:#1A7A42;}
 .ch-btn.lv-try{background:#F5F5F5;border-color:#9E9E9E;color:#555;}
@@ -291,6 +360,34 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 /* レベルタブ（各画面内） */
 .scr-lvtabs{padding:10px 14px 0;}
 
+/* 学校版モード切り替えタブ */
+.scene-mode-tabs{
+  display:flex;gap:8px;padding:10px 14px 0;
+}
+.scene-mode-tab{
+  flex:1;min-height:44px;border-radius:12px;
+  font-family:inherit;font-size:0.8125rem;font-weight:700;
+  border:2.5px solid #DDD;background:#fff;
+  cursor:pointer;transition:all .2s;color:var(--sub);
+}
+.scene-mode-tab.on{
+  background:var(--or);border-color:var(--or);color:#fff;
+  box-shadow:0 3px 10px rgba(255,107,53,.3);
+}
+/* 学校版サブレベルタブ */
+.lvtab-school{
+  flex-shrink:0;min-height:var(--min-tap);padding:0 18px;
+  border-radius:30px;font-family:inherit;font-size:0.875rem;
+  font-weight:700;border:2.5px solid #FF6B35;
+  cursor:pointer;transition:all .2s;
+  background:#fff;color:var(--or);
+  box-shadow:var(--shadow-sm);
+}
+.lvtab-school.on{background:var(--or);color:#fff;transform:scale(1.05);}
+
+/* 学校版シーンアイテム */
+.sitem.school{ border-left:4px solid var(--or); }
+
 /* DIVIDER */
 .divider{height:1px;background:#EEE;margin:0 14px 12px;}
 
@@ -308,21 +405,10 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 .spk-row{display:flex;justify-content:flex-end;padding:8px 14px 0;}
 
 /* ===== SETTINGS BUTTON in header ===== */
-.hdr-gear{
-  position:absolute;top:14px;right:14px;z-index:10;
-  width:42px;height:42px;border-radius:50%;
-  background:rgba(255,255,255,.22);border:none;
-  font-size:1.25rem;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  transition:background .2s,transform .2s;
-}
-.hdr-gear:active{transform:scale(.9);}
-.hdr-gear:hover{background:rgba(255,255,255,.32);}
-
 /* ===== SETTINGS MODAL ===== */
 .modal-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.45);
-  z-index:8000;display:flex;align-items:flex-end;
+  z-index:9200;display:flex;align-items:flex-end;
   opacity:0;pointer-events:none;transition:opacity .25s;
 }
 .modal-overlay.on{opacity:1;pointer-events:all;}
@@ -396,6 +482,1148 @@ body.dark .font-btn{background:#1E2D4A;border-color:#2A3A55;color:#CCC;}
 body.dark .font-btn.on{background:var(--or);color:#fff;}
 body.dark .ecard,.dark .story-item,.dark .sitem,.dark .quiz-opt,.dark .wq-btn,.dark .ch-btn,.dark .story-a-btn{background:#1E2D4A;}
 body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
+
+/* ===== AI GENERATION ===== */
+.ai-worker-notice{
+  background:linear-gradient(135deg,#F3E5F5,#EDE7F6);
+  border:2px solid #CE93D8;
+  border-radius:var(--r-sm);padding:16px;
+  display:flex;align-items:flex-start;gap:12px;
+}
+.ai-worker-icon{font-size:2rem;flex-shrink:0;line-height:1;}
+.ai-worker-title{font-size:0.9375rem;font-weight:700;color:#4A235A;margin-bottom:4px;}
+.ai-worker-desc{font-size:0.8125rem;color:#6C3483;line-height:1.6;}
+.ai-remaining-badge{
+  display:inline-block;margin-top:6px;
+  background:#6C3483;color:#fff;
+  font-size:0.75rem;font-weight:700;
+  padding:4px 10px;border-radius:20px;
+}
+.ai-remaining-badge.low{background:#E67E22;}
+.ai-remaining-badge.empty{background:#E74C3C;}
+
+.ai-form-card{
+  background:#fff;border-radius:var(--r);box-shadow:var(--shadow);
+  padding:18px 16px;display:flex;flex-direction:column;gap:14px;
+}
+.ai-form-title{font-size:0.9375rem;font-weight:700;margin-bottom:2px;}
+
+.ai-generate-btn{
+  width:100%;min-height:56px;
+  background:linear-gradient(135deg,#6C3483,#9B59B6);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 16px rgba(108,52,131,.35);
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.ai-generate-btn:disabled{
+  background:#CCC;box-shadow:none;cursor:not-allowed;
+}
+.ai-generate-hint{
+  font-size:0.75rem;color:var(--sub);text-align:center;margin-top:-6px;
+}
+
+/* ローディングアニメーション */
+.ai-loading{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:32px 16px;
+}
+.ai-loading-dots{display:flex;gap:8px;}
+.ai-loading-dot{
+  width:12px;height:12px;border-radius:50%;
+  background:#9B59B6;animation:aiDot 1.2s ease-in-out infinite;
+}
+.ai-loading-dot:nth-child(2){animation-delay:.2s;}
+.ai-loading-dot:nth-child(3){animation-delay:.4s;}
+@keyframes aiDot{
+  0%,80%,100%{transform:scale(0.6);opacity:.4;}
+  40%{transform:scale(1);opacity:1;}
+}
+.ai-loading-text{font-size:0.875rem;font-weight:700;color:var(--sub);}
+
+/* 結果プレビュー */
+.ai-result-title{font-size:1rem;font-weight:700;color:#6C3483;margin-bottom:4px;}
+.ai-preview-card{
+  background:#F8F5FF;border:2px solid #D7BDE2;
+  border-radius:var(--r-sm);padding:16px;
+  margin-bottom:10px;
+}
+.ai-preview-card-title{
+  font-size:0.875rem;font-weight:700;color:#6C3483;
+  margin-bottom:10px;display:flex;align-items:center;gap:6px;
+}
+.ai-preview-page{
+  background:#fff;border-radius:8px;padding:10px 12px;
+  margin-bottom:8px;font-size:0.875rem;line-height:1.7;
+  border-left:3px solid #9B59B6;
+}
+.ai-preview-page-num{
+  font-size:0.75rem;font-weight:700;color:#9B59B6;margin-bottom:4px;
+}
+.ai-preview-choice{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:8px 10px;background:#fff;border-radius:8px;
+  margin-bottom:6px;font-size:0.875rem;line-height:1.6;
+  border:2px solid #E0E0E0;
+}
+.ai-preview-choice-lv{
+  font-size:0.75rem;font-weight:700;flex-shrink:0;margin-top:2px;
+}
+
+.ai-result-actions{display:flex;gap:10px;}
+.ai-add-btn{
+  flex:2;min-height:52px;
+  background:linear-gradient(135deg,#27AE60,#2ECC71);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:0.9375rem;font-weight:700;cursor:pointer;
+  box-shadow:0 4px 14px rgba(39,174,96,.3);
+}
+.ai-regen-btn{
+  flex:1;min-height:52px;
+  background:#EEE;color:var(--sub);border:none;border-radius:30px;
+  font-family:inherit;font-size:0.875rem;font-weight:700;cursor:pointer;
+}
+.ai-add-msg{
+  text-align:center;font-size:0.875rem;font-weight:700;
+  min-height:22px;margin-top:6px;
+}
+.ai-error{
+  background:#FFEBEE;border:2px solid #FFCDD2;border-radius:var(--r-sm);
+  padding:14px;font-size:0.875rem;color:#C62828;line-height:1.6;
+}
+
+/* ダークモード */
+body.dark .ai-form-card{background:#16213E;}
+body.dark .ai-apikey-input{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
+body.dark .ai-preview-card{background:#1A0F3A;border-color:#4A2C8A;}
+body.dark .ai-preview-page{background:#16213E;}
+body.dark .ai-preview-choice{background:#16213E;border-color:#2A3A55;}
+
+/* ===== HELP MODAL ===== */
+.help-sheet{max-height:90vh;overflow-y:auto;padding:0;}
+.help-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;border-bottom:2px solid #F5F5F5;
+  position:sticky;top:0;background:#fff;z-index:1;
+}
+.help-title{font-size:1.125rem;font-weight:900;}
+.help-close-btn{
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:#F5F5F5;font-size:1rem;cursor:pointer;
+}
+.help-body{padding:16px 20px 32px;display:flex;flex-direction:column;gap:14px;}
+
+.help-intro{
+  background:#FFF0EA;border-radius:var(--r-sm);
+  padding:14px;font-size:0.875rem;line-height:1.8;
+  border-left:4px solid var(--or);
+}
+.help-intro strong{color:var(--or);}
+
+.help-level-row{display:flex;gap:8px;flex-wrap:wrap;}
+.help-lv{
+  flex:1;min-width:80px;text-align:center;padding:8px;
+  border-radius:20px;font-size:0.8125rem;font-weight:700;
+  background:#EEE;color:var(--text);
+}
+
+.help-level-desc{font-size:0.8125rem;color:var(--sub);line-height:1.6;}
+
+.help-section-title{
+  font-size:0.9375rem;font-weight:700;color:var(--sub);
+  padding-top:4px;border-top:2px solid #F5F5F5;
+}
+
+.help-item{
+  display:flex;flex-direction:column;gap:4px;
+  background:#fff;border-radius:var(--r-sm);
+  padding:12px 14px;box-shadow:var(--shadow-sm);
+}
+.help-item-head{
+  display:flex;align-items:center;gap:8px;
+  font-size:1rem;
+}
+.help-item-head span{font-size:1.5rem;line-height:1;}
+.help-item-desc{font-size:0.8125rem;color:var(--sub);line-height:1.7;padding-left:4px;}
+
+.help-teacher-box{
+  background:#F3E5F5;border-radius:var(--r-sm);
+  padding:14px;display:flex;flex-direction:column;gap:10px;
+}
+.help-teacher-item{
+  font-size:0.8125rem;line-height:1.7;
+  padding-left:4px;color:#4A235A;
+}
+.help-teacher-item strong{font-weight:700;}
+
+.help-start-btn{
+  width:100%;min-height:56px;
+  background:linear-gradient(135deg,var(--or),var(--or2));
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1.0625rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 16px rgba(255,107,53,.35);
+  margin-top:8px;
+}
+
+/* ===== SCREEN LOCK ===== */
+#screen-lock-overlay{
+  position:fixed;
+  /* ヘッダー（56px）の下から始める */
+  top:56px;left:0;right:0;bottom:0;
+  background:transparent;
+  z-index:8000; /* ヘッダー(z-index:100)より上、ただしhdr-lock-btnはさらに上 */
+  pointer-events:all;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:16px 16px 0;
+}
+.lock-badge{
+  background:rgba(231,76,60,.85);
+  color:#fff;font-size:0.875rem;font-weight:700;
+  padding:6px 14px;border-radius:20px;
+  backdrop-filter:blur(4px);
+}
+.lock-hint{
+  font-size:0.75rem;color:rgba(200,0,0,.8);
+  margin-top:6px;text-align:center;font-weight:700;
+  background:rgba(255,255,255,.85);
+  padding:4px 12px;border-radius:20px;
+}
+/* ロック中はヘッダーのロックボタンだけを最前面に */
+.hdr-btn#hdr-lock-btn{
+  position:relative;
+  z-index:9000;
+}
+
+/* ダークモード */
+body.dark .help-header{background:#16213E;border-color:#2A3A55;}
+body.dark .help-item{background:#16213E;}
+body.dark .help-teacher-box{background:#1A0F3A;}
+body.dark .help-teacher-item{color:#CE93D8;}
+body.dark .hdr-btn{background:rgba(255,255,255,.1);}
+
+/* ===== BOTTOM BACK BUTTON ===== */
+.bottom-back-bar{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background:rgba(var(--bg-rgb, 255,248,240),.92);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border-top:1.5px solid rgba(0,0,0,.06);
+  z-index:500;
+  display:none; /* go()で制御 */
+}
+.bottom-back-bar.show{display:block;}
+.bottom-back-btn{
+  width:100%;min-height:56px;
+  background:#fff;
+  border:2.5px solid #E0E0E0;
+  border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.08);
+  transition:transform .15s;
+}
+.bottom-back-btn:active{transform:scale(.97);}
+/* スクロール領域を下部バー分確保 */
+.scr.has-bottom-bar > *:last-child{
+  padding-bottom:80px;
+}
+body.dark .bottom-back-bar{
+  background:rgba(10,15,30,.92);
+  border-color:rgba(255,255,255,.08);
+}
+body.dark .bottom-back-btn{
+  background:#16213E;border-color:#2A3A55;color:#E8E8E8;
+}
+
+/* 既存の上部.backボタンは小画面向けに非表示にする場合の補助 */
+.back-top-only{display:inline-flex;}
+
+/* ===== REPORT ===== */
+.mc-report::after{background:linear-gradient(90deg,#1ABC9C,#3498DB);}
+
+.report-wrap{padding:12px 14px 32px;display:flex;flex-direction:column;gap:12px;}
+
+.report-name-row{
+  display:flex;align-items:center;gap:8px;
+  background:#fff;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);
+  padding:10px 14px;
+}
+.report-name-input{
+  flex:1;border:none;outline:none;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  background:transparent;color:var(--text);
+}
+.report-name-suffix{font-size:1rem;font-weight:700;color:var(--sub);flex-shrink:0;}
+
+/* カード全体 */
+.report-card{
+  background:#fff;border-radius:var(--r);box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+/* ヘッダー */
+.report-header{
+  background:linear-gradient(135deg,#1ABC9C,#2980B9);
+  padding:18px 18px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.report-header-left{display:flex;align-items:center;gap:12px;}
+.report-title-emoji{font-size:2rem;line-height:1;}
+.report-title{font-size:1.125rem;font-weight:900;color:#fff;}
+.report-period{font-size:0.75rem;color:rgba(255,255,255,.8);margin-top:2px;}
+.report-child-name{
+  font-size:1.125rem;font-weight:900;color:#fff;
+  background:rgba(255,255,255,.2);padding:6px 14px;
+  border-radius:20px;
+}
+
+/* サマリー */
+.report-summary{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-bottom:2px solid #F5F5F5;
+}
+.report-stat{
+  padding:14px 8px;text-align:center;
+  border-right:1px solid #F5F5F5;
+}
+.report-stat:last-child{border-right:none;}
+.report-stat-num{
+  font-size:1.75rem;font-weight:900;
+  color:#1ABC9C;line-height:1;margin-bottom:4px;
+}
+.report-stat-label{font-size:0.625rem;color:var(--sub);font-weight:700;line-height:1.3;}
+
+.report-section-title{
+  font-size:0.875rem;font-weight:700;color:var(--sub);
+  padding:12px 16px 4px;
+  border-top:2px solid #F5F5F5;
+}
+
+/* 曜日グラフ */
+.report-week-chart{
+  display:flex;align-items:flex-end;justify-content:center;
+  gap:8px;padding:8px 16px 14px;
+}
+.report-week-col{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  flex:1;
+}
+.report-week-bar-wrap{
+  width:100%;height:60px;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.report-week-bar{
+  width:80%;border-radius:6px 6px 0 0;
+  background:linear-gradient(0deg,#1ABC9C,#48C9B0);
+  min-height:4px;transition:height .4s cubic-bezier(.34,1.56,.64,1);
+}
+.report-week-bar.today{background:linear-gradient(0deg,#E67E22,#F0B27A);}
+.report-week-bar.empty{background:#F0F0F0;}
+.report-week-count{font-size:0.75rem;font-weight:700;color:var(--text);}
+.report-week-label{font-size:0.75rem;color:var(--sub);font-weight:700;}
+
+/* アクティビティ一覧 */
+.report-activity-list{padding:6px 16px 12px;display:flex;flex-direction:column;gap:8px;}
+.report-act-row{
+  display:flex;align-items:center;gap:10px;
+}
+.report-act-ico{font-size:1.25rem;flex-shrink:0;}
+.report-act-info{flex:1;}
+.report-act-name{font-size:0.875rem;font-weight:700;}
+.report-act-bar-wrap{
+  flex:2;height:14px;background:#F0F0F0;
+  border-radius:7px;overflow:hidden;
+}
+.report-act-bar{
+  height:100%;border-radius:7px;
+  background:linear-gradient(90deg,#1ABC9C,#3498DB);
+  transition:width .5s ease;
+}
+.report-act-count{
+  font-size:0.875rem;font-weight:700;color:var(--sub);
+  min-width:28px;text-align:right;flex-shrink:0;
+}
+.report-no-data{
+  font-size:0.875rem;color:var(--sub);text-align:center;
+  padding:12px 0;line-height:1.7;
+}
+
+/* バッジ */
+.report-badges-row{
+  display:flex;flex-wrap:wrap;gap:10px;
+  padding:6px 16px 14px;
+}
+.report-badge-item{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  width:60px;
+}
+.report-badge-ico{font-size:1.75rem;line-height:1;}
+.report-badge-name{font-size:0.625rem;font-weight:700;text-align:center;color:var(--text);line-height:1.3;}
+
+/* 温度計記録 */
+.report-thermo-chart{
+  display:flex;gap:8px;padding:6px 16px 14px;
+  overflow-x:auto;
+}
+.report-thermo-item{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  flex-shrink:0;min-width:44px;
+}
+.report-thermo-face{font-size:1.5rem;line-height:1;}
+.report-thermo-val{
+  font-size:1rem;font-weight:700;
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:2.5px solid;
+}
+.report-thermo-time{font-size:0.6875rem;color:var(--sub);font-weight:700;}
+
+/* コメント欄 */
+.report-comment-box{
+  margin:0 16px 14px;
+  background:#FFFDE7;border:2px solid #F9E79F;border-radius:12px;
+  padding:12px 14px;
+}
+.report-comment-title{font-size:0.8125rem;font-weight:700;color:#7D6608;margin-bottom:6px;}
+.report-comment-area{
+  font-family:inherit;font-size:0.9375rem;color:var(--text);
+  min-height:60px;outline:none;line-height:1.7;
+}
+.report-comment-area:empty::before{
+  content:attr(data-placeholder);color:#BDC3C7;font-style:italic;
+}
+
+/* フッター */
+.report-footer{
+  display:flex;justify-content:space-between;
+  padding:8px 16px 14px;
+  font-size:0.6875rem;color:var(--sub);font-weight:700;
+}
+
+/* アクション */
+.report-actions{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.report-share-btn{
+  width:100%;min-height:56px;
+  background:linear-gradient(135deg,#1ABC9C,#2980B9);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 16px rgba(26,188,156,.35);
+  transition:transform .15s;
+}
+.report-share-btn:active{transform:scale(.97);}
+.report-share-hint{font-size:0.8125rem;color:var(--sub);text-align:center;}
+
+/* ダークモード */
+body.dark .report-card,
+body.dark .report-name-row{background:#16213E;}
+body.dark .report-summary{border-color:#2A3A55;}
+body.dark .report-stat{border-color:#2A3A55;}
+body.dark .report-section-title{border-color:#2A3A55;}
+body.dark .report-week-bar.empty{background:#2A3A55;}
+body.dark .report-act-bar-wrap{background:#2A3A55;}
+body.dark .report-comment-box{background:#1A1A00;border-color:#3D3000;}
+
+/* ===== SHARE ===== */
+.share-section-title{
+  font-size:0.875rem;font-weight:700;color:var(--sub);
+  padding-left:4px;margin-top:4px;
+}
+.share-card{
+  background:#fff;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);
+  padding:14px 16px;display:flex;flex-direction:column;gap:10px;
+}
+.share-card-title{font-size:0.9375rem;font-weight:700;margin-bottom:2px;}
+.share-check-row{
+  display:flex;align-items:center;gap:10px;
+  font-size:0.875rem;font-weight:700;cursor:pointer;min-height:40px;
+}
+.share-check-row input[type=checkbox]{width:22px;height:22px;accent-color:#6C3483;cursor:pointer;}
+
+.share-generate-btn{
+  width:100%;min-height:52px;
+  background:linear-gradient(135deg,#6C3483,#9B59B6);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 16px rgba(108,52,131,.35);
+  transition:transform .15s;
+}
+.share-generate-btn:active{transform:scale(.97);}
+
+.share-code-card,.share-qr-card{
+  background:#fff;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);padding:16px;
+}
+.share-code-title{font-size:0.9375rem;font-weight:700;margin-bottom:10px;}
+.share-code-box{
+  background:#F8F5FF;border:2px solid #D7BDE2;border-radius:10px;
+  padding:12px;font-family:monospace;font-size:0.7rem;
+  word-break:break-all;line-height:1.6;
+  max-height:80px;overflow-y:auto;
+  color:#4A235A;margin-bottom:10px;
+  user-select:all;-webkit-user-select:all;
+}
+.share-btn-row{display:flex;gap:8px;margin-bottom:6px;}
+.share-copy-btn{
+  flex:1;min-height:48px;background:#6C3483;color:#fff;
+  border:none;border-radius:20px;font-family:inherit;
+  font-size:0.9375rem;font-weight:700;cursor:pointer;
+}
+.share-native-btn{
+  flex:1;min-height:48px;
+  background:linear-gradient(135deg,#27AE60,#2ECC71);
+  color:#fff;border:none;border-radius:20px;font-family:inherit;
+  font-size:0.9375rem;font-weight:700;cursor:pointer;
+  box-shadow:0 3px 10px rgba(39,174,96,.3);
+}
+.share-code-hint{
+  font-size:0.75rem;color:var(--sub);line-height:1.7;margin-top:4px;
+}
+
+.share-qr-wrap{display:flex;justify-content:center;margin:8px 0;}
+#share-qr-canvas{border-radius:12px;max-width:200px;width:100%;}
+.share-qr-hint{font-size:0.8125rem;color:var(--sub);text-align:center;line-height:1.6;margin-top:8px;}
+
+.share-divider{height:1px;background:#EEE;margin:4px 0;}
+
+.share-import-tabs{display:flex;gap:8px;}
+.share-import-tab{
+  flex:1;min-height:44px;border-radius:20px;
+  border:2.5px solid #DDD;background:#fff;
+  font-family:inherit;font-size:0.875rem;font-weight:700;
+  color:var(--sub);cursor:pointer;transition:all .2s;
+}
+.share-import-tab.on{background:#6C3483;border-color:#6C3483;color:#fff;}
+
+.share-import-textarea{
+  width:100%;min-height:100px;padding:12px 14px;
+  border:2.5px solid #E0E0E0;border-radius:var(--r-sm);
+  font-family:monospace;font-size:0.8125rem;background:#fff;
+  resize:vertical;outline:none;transition:border-color .2s;line-height:1.6;
+}
+.share-import-textarea:focus{border-color:#6C3483;}
+.share-import-btn{
+  width:100%;min-height:52px;
+  background:linear-gradient(135deg,#27AE60,#2ECC71);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;margin-top:8px;
+  box-shadow:0 4px 14px rgba(39,174,96,.3);
+}
+.share-import-msg{
+  text-align:center;font-size:0.875rem;font-weight:700;
+  min-height:24px;margin-top:6px;
+}
+
+.share-qr-reader-wrap{
+  position:relative;width:100%;max-width:300px;
+  margin:0 auto 10px;border-radius:16px;overflow:hidden;
+  background:#000;aspect-ratio:1;
+}
+.share-qr-video{width:100%;height:100%;object-fit:cover;display:block;}
+.share-qr-overlay{
+  position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;
+}
+.share-qr-frame{
+  width:60%;height:60%;border:3px solid #fff;border-radius:12px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.45);
+}
+
+/* ダークモード */
+body.dark .share-card,
+body.dark .share-code-card,
+body.dark .share-qr-card{background:#16213E;}
+body.dark .share-code-box{background:#1A0F3A;border-color:#4A2C8A;color:#D7BDE2;}
+body.dark .share-import-textarea{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
+
+/* ===== TEACHER MODE ===== */
+.mc-teacher::after{background:linear-gradient(90deg,#2D1B69,#6C3483);}
+
+/* PINロック */
+.tlock-desc{text-align:center;font-size:0.9375rem;font-weight:700;color:var(--text);margin-bottom:20px;line-height:1.6;}
+.tlock-dots{display:flex;justify-content:center;gap:14px;margin-bottom:10px;}
+.tlock-dot{
+  width:18px;height:18px;border-radius:50%;
+  border:3px solid #DDD;background:#fff;
+  transition:all .15s;
+}
+.tlock-dot.filled{background:#6C3483;border-color:#6C3483;}
+.tlock-dot.error{background:#E74C3C;border-color:#E74C3C;animation:dotShake .3s ease;}
+@keyframes dotShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+.tlock-err{text-align:center;font-size:0.875rem;color:#E74C3C;font-weight:700;min-height:22px;margin-bottom:8px;}
+.tlock-keypad{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  max-width:260px;margin:0 auto;
+}
+.tlock-key{
+  min-height:56px;border-radius:16px;border:2.5px solid #E0E0E0;
+  background:#fff;font-family:inherit;font-size:1.5rem;font-weight:700;
+  color:var(--text);cursor:pointer;transition:all .1s;
+}
+.tlock-key:active{background:#F0E6FA;border-color:#6C3483;transform:scale(.94);}
+.tlock-key-empty{border:none;background:transparent;pointer-events:none;}
+.tlock-key-del{font-size:1.25rem;}
+
+/* 教員メニュー共通 */
+.teacher-wrap{padding:12px 14px 32px;display:flex;flex-direction:column;gap:12px;}
+.teacher-menu-card{
+  background:#fff;border-radius:var(--r);box-shadow:var(--shadow);
+  padding:16px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;
+  transition:transform .15s;
+}
+.teacher-menu-card:active{transform:scale(.98);}
+.teacher-menu-ico{font-size:1.75rem;flex-shrink:0;}
+.teacher-menu-title{font-size:0.9375rem;font-weight:700;margin-bottom:3px;}
+.teacher-menu-desc{font-size:0.75rem;color:var(--sub);line-height:1.5;}
+.teacher-menu-arr{font-size:1.5rem;color:#DDD;flex-shrink:0;}
+.teacher-notice{
+  display:flex;gap:8px;align-items:flex-start;
+  background:#F3E5F5;border-radius:12px;padding:12px 14px;
+  font-size:0.8125rem;color:#6C3483;font-weight:700;line-height:1.6;
+}
+
+/* オリジナル問題 */
+.teacher-custom-header{display:flex;align-items:center;justify-content:space-between;}
+.teacher-custom-count{font-size:0.875rem;font-weight:700;color:var(--sub);}
+.teacher-add-btn{
+  background:#6C3483;color:#fff;border:none;border-radius:20px;
+  padding:8px 16px;font-family:inherit;font-size:0.875rem;font-weight:700;cursor:pointer;
+}
+.teacher-empty{
+  background:#fff;border-radius:var(--r);box-shadow:var(--shadow);
+  padding:32px 16px;text-align:center;color:var(--sub);font-size:0.875rem;line-height:1.8;
+}
+.teacher-custom-item{
+  background:#fff;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);
+  padding:14px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;
+}
+.teacher-custom-ico{font-size:1.75rem;flex-shrink:0;}
+.teacher-custom-info{flex:1;min-width:0;}
+.teacher-custom-name{font-size:0.9375rem;font-weight:700;margin-bottom:2px;}
+.teacher-custom-lv{font-size:0.75rem;color:var(--sub);}
+.teacher-custom-actions{display:flex;gap:6px;flex-shrink:0;}
+.tca-edit{
+  background:#F3E5F5;color:#6C3483;border:none;border-radius:16px;
+  padding:6px 12px;font-family:inherit;font-size:0.8125rem;font-weight:700;cursor:pointer;
+}
+.tca-del{
+  background:#EEE;color:var(--sub);border:none;border-radius:16px;
+  padding:6px 10px;font-family:inherit;font-size:0.8125rem;font-weight:700;cursor:pointer;
+}
+
+/* 既存問題編集 */
+.teacher-edit-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.teacher-edit-tab{
+  flex-shrink:0;padding:8px 14px;border-radius:20px;
+  border:2.5px solid #DDD;background:#fff;
+  font-family:inherit;font-size:0.8125rem;font-weight:700;color:var(--sub);cursor:pointer;
+}
+.teacher-edit-tab.on{background:#6C3483;border-color:#6C3483;color:#fff;}
+.teacher-edit-lv-tabs{display:flex;gap:6px;margin-top:6px;}
+.teacher-edit-lv{
+  flex:1;min-height:40px;border-radius:20px;
+  border:2.5px solid #DDD;background:#fff;
+  font-family:inherit;font-size:0.8125rem;font-weight:700;color:var(--sub);cursor:pointer;
+}
+.teacher-edit-lv.on{background:#EDE7F6;border-color:#6C3483;color:#6C3483;}
+
+.teacher-edit-scene{
+  background:#fff;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);
+  padding:14px;margin-bottom:10px;
+}
+.teacher-edit-scene-title{
+  font-size:0.9375rem;font-weight:700;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.teacher-edit-field{margin-bottom:8px;}
+.teacher-edit-field label{
+  font-size:0.75rem;font-weight:700;color:var(--sub);display:block;margin-bottom:4px;
+}
+.teacher-edit-field input,
+.teacher-edit-field textarea{
+  width:100%;padding:8px 12px;border:2px solid #E0E0E0;border-radius:10px;
+  font-family:inherit;font-size:0.875rem;background:#FAFAFA;outline:none;
+  transition:border-color .2s;
+}
+.teacher-edit-field input:focus,
+.teacher-edit-field textarea:focus{border-color:#6C3483;background:#fff;}
+.teacher-edit-field textarea{min-height:60px;resize:vertical;line-height:1.5;}
+.teacher-edit-save-row{display:flex;gap:8px;margin-top:10px;}
+.te-save-btn{
+  flex:1;min-height:44px;background:#6C3483;color:#fff;
+  border:none;border-radius:20px;font-family:inherit;
+  font-size:0.875rem;font-weight:700;cursor:pointer;
+}
+.te-reset-btn{
+  min-height:44px;padding:0 16px;background:#EEE;color:var(--sub);
+  border:none;border-radius:20px;font-family:inherit;
+  font-size:0.875rem;font-weight:700;cursor:pointer;
+}
+.tce-lv-label{
+  flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;
+  border:2.5px solid #DDD;border-radius:20px;background:#fff;
+  font-family:inherit;font-size:0.8125rem;font-weight:700;cursor:pointer;padding:0 8px;
+}
+.tce-lv-label:has(input:checked){border-color:#6C3483;background:#EDE7F6;color:#6C3483;}
+
+/* ダークモード */
+body.dark .teacher-menu-card,
+body.dark .teacher-edit-scene,
+body.dark .teacher-custom-item,
+body.dark .teacher-empty{background:#16213E;}
+body.dark .tlock-key{background:#16213E;border-color:#2A3A55;color:#E8E8E8;}
+body.dark .teacher-edit-field input,
+body.dark .teacher-edit-field textarea{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
+
+/* ===== PHOTO SST ===== */
+.mc-photo::after{background:linear-gradient(90deg,#3498DB,#2ECC71);}
+
+.photo-wrap{padding:12px 14px 24px;display:flex;flex-direction:column;gap:12px;}
+.photo-edit-wrap{padding:12px 14px 32px;display:flex;flex-direction:column;gap:16px;}
+
+/* 一覧カード */
+.photo-list-card{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;}
+.photo-list-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:2px solid #F5F5F5;
+}
+.photo-list-title{font-size:1rem;font-weight:700;}
+.photo-add-btn{
+  background:var(--or);color:#fff;border:none;border-radius:20px;
+  padding:8px 16px;font-family:inherit;font-size:0.875rem;font-weight:700;
+  cursor:pointer;
+}
+.photo-empty{
+  padding:32px 16px;text-align:center;
+  color:var(--sub);font-size:0.875rem;line-height:1.8;
+}
+.photo-scene-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-bottom:1px solid #F5F5F5;
+  cursor:pointer;transition:background .15s;
+}
+.photo-scene-item:last-child{border-bottom:none;}
+.photo-scene-item:active{background:#FFF0EA;}
+.photo-scene-thumb{
+  width:56px;height:56px;border-radius:10px;
+  object-fit:cover;flex-shrink:0;
+  background:#EEE;display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;overflow:hidden;
+}
+.photo-scene-thumb img{width:100%;height:100%;object-fit:cover;}
+.photo-scene-info{flex:1;min-width:0;}
+.photo-scene-name{font-size:0.9375rem;font-weight:700;margin-bottom:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.photo-scene-sit{font-size:0.75rem;color:var(--sub);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.photo-scene-actions{display:flex;gap:6px;flex-shrink:0;}
+.photo-scene-play{
+  background:var(--or);color:#fff;border:none;border-radius:20px;
+  padding:6px 14px;font-family:inherit;font-size:0.8125rem;font-weight:700;cursor:pointer;
+}
+.photo-scene-del{
+  background:#EEE;color:var(--sub);border:none;border-radius:20px;
+  padding:6px 10px;font-family:inherit;font-size:0.8125rem;font-weight:700;cursor:pointer;
+}
+
+/* 注意書き */
+.photo-notice{
+  display:flex;gap:8px;align-items:flex-start;
+  background:#E3F2FD;border-radius:12px;padding:12px 14px;
+  font-size:0.8125rem;color:#1565C0;font-weight:700;line-height:1.6;
+}
+
+/* 編集フォーム */
+.photo-edit-section{display:flex;flex-direction:column;gap:8px;}
+.photo-edit-label{font-size:0.9375rem;font-weight:700;color:var(--text);}
+.photo-required{
+  font-size:0.75rem;background:#FFEBEE;color:#C62828;
+  border-radius:8px;padding:2px 8px;margin-left:6px;
+}
+
+/* 写真プレビュー */
+.photo-preview-area{
+  width:100%;height:180px;border-radius:var(--r-sm);
+  border:3px dashed #DDD;background:#FAFAFA;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;overflow:hidden;transition:border-color .2s;
+}
+.photo-preview-area:active{border-color:var(--or);}
+.photo-preview-placeholder{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  color:var(--sub);font-size:0.875rem;font-weight:700;
+}
+.photo-preview-img{width:100%;height:100%;object-fit:cover;}
+.photo-change-btn{
+  width:100%;min-height:44px;background:#EEE;color:var(--sub);
+  border:none;border-radius:30px;font-family:inherit;
+  font-size:0.875rem;font-weight:700;cursor:pointer;
+}
+
+.photo-edit-input{
+  width:100%;min-height:52px;padding:12px 14px;
+  border:2.5px solid #E0E0E0;border-radius:var(--r-sm);
+  font-family:inherit;font-size:1rem;background:#fff;
+  transition:border-color .2s;outline:none;
+}
+.photo-edit-input:focus{border-color:var(--or);}
+.photo-edit-textarea{
+  width:100%;min-height:90px;padding:12px 14px;
+  border:2.5px solid #E0E0E0;border-radius:var(--r-sm);
+  font-family:inherit;font-size:0.9375rem;background:#fff;
+  resize:vertical;outline:none;transition:border-color .2s;line-height:1.6;
+}
+.photo-edit-textarea:focus{border-color:var(--or);}
+
+/* 選択肢 */
+.photo-choice-hint{
+  font-size:0.8125rem;color:var(--or);font-weight:700;
+  background:#FFF0EA;border-radius:8px;padding:8px 12px;
+}
+.photo-choices-wrap{display:flex;flex-direction:column;gap:8px;}
+.photo-choice-row{display:flex;align-items:center;gap:10px;}
+.photo-radio{width:24px;height:24px;accent-color:var(--or);flex-shrink:0;cursor:pointer;}
+.photo-choice-input{
+  flex:1;min-height:52px;padding:12px 14px;
+  border:2.5px solid #E0E0E0;border-radius:var(--r-sm);
+  font-family:inherit;font-size:0.9375rem;background:#fff;
+  outline:none;transition:border-color .2s;
+}
+.photo-choice-input:focus{border-color:var(--or);}
+
+.photo-save-btn{
+  width:100%;min-height:56px;
+  background:linear-gradient(135deg,var(--or),var(--or2));
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1.0625rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 16px rgba(255,107,53,.35);
+  transition:transform .15s;
+}
+.photo-save-btn:active{transform:scale(.97);}
+.photo-save-msg{
+  text-align:center;font-size:0.875rem;font-weight:700;
+  min-height:24px;color:var(--gr);
+}
+
+/* プレイ画面 */
+.photo-play-img{
+  width:100%;max-height:240px;object-fit:cover;
+  border-radius:var(--r);margin-bottom:0;display:block;
+}
+.photo-play-scene{
+  background:linear-gradient(135deg,#E3F2FD,#EAF4FD);
+  border-radius:var(--r);padding:18px;margin:12px 14px 0;
+}
+.photo-play-title{font-size:1.125rem;font-weight:700;color:#1565C0;margin-bottom:6px;}
+.photo-play-sit{font-size:0.9375rem;color:var(--text);line-height:1.7;}
+
+/* ダークモード */
+body.dark .photo-list-card,
+body.dark .photo-edit-wrap > *{background:#16213E;}
+body.dark .photo-edit-input,
+body.dark .photo-edit-textarea,
+body.dark .photo-choice-input{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
+body.dark .photo-preview-area{background:#1E2D4A;border-color:#2A3A55;}
+body.dark .photo-notice{background:#1A2744;color:#90CAF9;}
+
+/* ===== BADGE ===== */
+.mc-badge::after{background:linear-gradient(90deg,#F1C40F,#E67E22);}
+.badge-home-count{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--or);color:#fff;
+  font-size:1rem;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+
+.badge-wrap{padding:12px 14px 32px;display:flex;flex-direction:column;gap:14px;}
+
+/* スコアカード */
+.badge-score-card{
+  background:linear-gradient(135deg,#2D1B69,#4A2C8A);
+  border-radius:var(--r);padding:20px 18px 16px;color:#fff;
+}
+.badge-score-inner{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
+.badge-score-star{font-size:2.5rem;line-height:1;}
+.badge-score-num{font-size:2.5rem;font-weight:900;line-height:1;}
+.badge-score-label{font-size:0.75rem;opacity:.75;margin-top:2px;}
+.badge-score-count-wrap{margin-left:auto;text-align:center;}
+.badge-score-count{font-size:1.75rem;font-weight:900;line-height:1;}
+.badge-progress-wrap{
+  background:rgba(255,255,255,.2);border-radius:10px;
+  height:10px;overflow:hidden;margin-bottom:6px;
+}
+.badge-progress-bar{
+  height:100%;border-radius:10px;
+  background:linear-gradient(90deg,#F1C40F,#FF6B35);
+  transition:width .6s cubic-bezier(.34,1.56,.64,1);
+}
+.badge-progress-label{font-size:0.75rem;opacity:.75;text-align:center;}
+
+/* バッジセクション */
+.badge-section-title{
+  font-size:0.875rem;font-weight:700;color:var(--sub);
+  padding-left:4px;
+}
+.badge-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+}
+.badge-item{
+  background:#fff;border-radius:var(--r-sm);
+  padding:14px 8px;text-align:center;
+  box-shadow:var(--shadow-sm);
+  border:2.5px solid transparent;
+  transition:transform .15s;
+  position:relative;
+}
+.badge-item.got{
+  border-color:#F1C40F;
+  background:linear-gradient(135deg,#FFFDE7,#FFF8E1);
+}
+.badge-item.got:active{transform:scale(.96);}
+.badge-item.locked{
+  opacity:.45;filter:grayscale(.8);
+}
+.badge-ico{font-size:2rem;display:block;margin-bottom:6px;line-height:1;}
+.badge-name{font-size:0.6875rem;font-weight:700;color:var(--text);line-height:1.3;}
+.badge-item.locked .badge-name{color:var(--sub);}
+.badge-new-dot{
+  position:absolute;top:6px;right:6px;
+  width:10px;height:10px;border-radius:50%;
+  background:#E74C3C;border:2px solid #fff;
+}
+
+/* バッジ取得モーダル */
+.badge-modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.65);
+  z-index:9300;
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .2s ease;
+}
+.badge-modal-card{
+  background:#fff;border-radius:28px;
+  padding:32px 24px 28px;
+  width:min(320px,88vw);text-align:center;
+  position:relative;overflow:hidden;
+  animation:badgePop .4s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes badgePop{
+  from{opacity:0;transform:scale(.5);}
+  to{opacity:1;transform:scale(1);}
+}
+.badge-modal-shine{
+  position:absolute;inset:0;
+  background:conic-gradient(from 0deg,transparent 0%,rgba(255,215,0,.15) 25%,transparent 50%);
+  animation:shineSpin 3s linear infinite;
+  pointer-events:none;
+}
+@keyframes shineSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.badge-modal-new{
+  font-size:0.875rem;font-weight:900;color:var(--or);
+  letter-spacing:2px;margin-bottom:8px;
+}
+.badge-modal-ico{font-size:4rem;line-height:1;margin-bottom:12px;display:block;}
+.badge-modal-name{font-size:1.25rem;font-weight:900;color:var(--text);margin-bottom:6px;}
+.badge-modal-desc{font-size:0.875rem;color:var(--sub);line-height:1.6;margin-bottom:20px;}
+.badge-modal-btn{
+  width:100%;min-height:52px;
+  background:linear-gradient(135deg,#F1C40F,#E67E22);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:900;
+  cursor:pointer;box-shadow:0 4px 16px rgba(241,196,15,.4);
+}
+.badge-reset-btn{
+  width:100%;min-height:44px;
+  background:#EEE;color:var(--sub);
+  border:none;border-radius:30px;
+  font-family:inherit;font-size:0.875rem;font-weight:700;
+  cursor:pointer;margin-top:8px;
+}
+body.dark .badge-item{background:#16213E;}
+body.dark .badge-item.got{background:linear-gradient(135deg,#2A2010,#2A1A00);}
+body.dark .badge-modal-card{background:#16213E;}
+body.dark .badge-score-card{background:linear-gradient(135deg,#1A0F3A,#2A1A5A);}
+
+/* ===== THERMOMETER ===== */
+.mc-thermo::after{background:linear-gradient(90deg,#FF6B35,#F1C40F);}
+
+.thermo-wrap{padding:12px 14px 24px;display:flex;flex-direction:column;gap:14px;}
+
+.thermo-card{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:20px 16px 18px;}
+.thermo-question{font-size:1.125rem;font-weight:700;text-align:center;margin-bottom:6px;color:var(--text);}
+.thermo-hint{
+  text-align:center;font-size:0.875rem;font-weight:700;
+  color:var(--or);margin-bottom:16px;
+  animation:hintBounce 1.2s ease-in-out infinite;
+}
+@keyframes hintBounce{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-4px);}
+}
+
+/* メーター全体 */
+.thermo-meter-row{
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  gap:0;
+  height:260px;
+  margin-bottom:16px;
+}
+
+/* 左：目盛り */
+.thermo-ticks{
+  display:flex;flex-direction:column;justify-content:space-between;
+  height:240px;
+  font-size:0.75rem;font-weight:700;color:var(--sub);
+  text-align:right;padding-right:4px;
+  align-self:flex-start;
+}
+
+/* 温度計チューブ */
+.thermo-tube-wrap{
+  display:flex;flex-direction:column;align-items:center;
+  gap:0;align-self:flex-start;
+}
+.thermo-tube{
+  width:28px;height:240px;
+  background:#EEE;border-radius:14px 14px 0 0;
+  position:relative;overflow:hidden;
+  border:3px solid #DDD;border-bottom:none;
+}
+.thermo-fill{
+  position:absolute;bottom:0;left:0;right:0;
+  height:0%;
+  transition:height .4s cubic-bezier(.34,1.56,.64,1);
+  border-radius:12px 12px 0 0;
+}
+.thermo-bulb{
+  width:36px;height:36px;border-radius:50%;
+  background:#E74C3C;border:3px solid #DDD;
+  transition:transform .3s, background .3s;
+  flex-shrink:0;
+  margin-top:-2px;
+}
+
+/* 縦スライダー */
+.thermo-vslider-wrap{
+  display:flex;align-items:center;justify-content:center;
+  width:52px;height:240px;
+  align-self:flex-start;
+}
+.thermo-vslider{
+  writing-mode:vertical-lr;
+  direction:rtl;
+  -webkit-appearance:slider-vertical;
+  appearance:auto;
+  width:40px;
+  height:220px;
+  cursor:pointer;
+  accent-color:var(--or);
+}
+/* Firefoxなどのフォールバック */
+input[type=range].thermo-vslider{
+  -webkit-appearance:none;
+  background:transparent;
+  width:40px;height:220px;
+  writing-mode:vertical-lr;
+  direction:rtl;
+}
+input[type=range].thermo-vslider::-webkit-slider-runnable-track{
+  width:8px;border-radius:4px;background:#DDD;
+}
+input[type=range].thermo-vslider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:44px;height:44px;border-radius:50%;
+  background:var(--or);
+  box-shadow:0 2px 10px rgba(255,107,53,.45);
+  cursor:pointer;
+  margin-left:-18px;
+}
+input[type=range].thermo-vslider::-moz-range-thumb{
+  width:44px;height:44px;border-radius:50%;
+  background:var(--or);border:none;
+  box-shadow:0 2px 10px rgba(255,107,53,.45);
+  cursor:pointer;
+}
+
+/* 右：顔・数値・名前 */
+.thermo-right-info{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:6px;padding-left:8px;min-width:80px;
+  align-self:center;
+}
+.thermo-face-big{font-size:3rem;line-height:1;transition:all .3s;text-align:center;}
+.thermo-value-display{
+  font-size:2.25rem;font-weight:900;
+  width:62px;height:62px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  border:4px solid;transition:all .3s;
+}
+.thermo-level-name{
+  font-size:0.8125rem;font-weight:700;text-align:center;
+  transition:color .3s;line-height:1.4;max-width:80px;
+}
+
+.thermo-record-btn{
+  width:100%;min-height:52px;
+  background:var(--or);color:#fff;
+  border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;transition:transform .15s;
+}
+.thermo-record-btn:active{transform:scale(.96);}
+
+/* 対処法カード */
+.thermo-coping-card{
+  background:#fff;border-radius:var(--r);box-shadow:var(--shadow);
+  padding:18px;display:none;animation:fadeUp .3s ease;
+  border-left:5px solid var(--or);
+}
+.thermo-coping-card.show{display:block;}
+.thermo-coping-title{font-size:1rem;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.thermo-coping-item{
+  display:flex;align-items:flex-start;gap:10px;
+  background:#FAFAFA;border-radius:var(--r-sm);
+  padding:12px 14px;margin-bottom:8px;
+  font-size:0.875rem;line-height:1.6;
+}
+.thermo-coping-ico{font-size:1.375rem;flex-shrink:0;}
+.thermo-coping-txt strong{display:block;font-weight:700;margin-bottom:2px;}
+
+/* 今日の記録 */
+.thermo-log-card{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);padding:18px;}
+.thermo-log-title{font-size:1rem;font-weight:700;margin-bottom:12px;}
+.thermo-log-empty{font-size:0.875rem;color:var(--sub);text-align:center;padding:16px 0;line-height:1.7;}
+.thermo-log-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 12px;border-radius:var(--r-sm);
+  margin-bottom:8px;border:2px solid transparent;
+}
+.thermo-log-time{font-size:0.75rem;color:var(--sub);font-weight:700;flex-shrink:0;}
+.thermo-log-face{font-size:1.5rem;flex-shrink:0;}
+.thermo-log-info{flex:1;}
+.thermo-log-val{font-size:1.125rem;font-weight:700;}
+.thermo-log-name{font-size:0.75rem;color:var(--sub);}
+.thermo-clear-btn{
+  width:100%;min-height:44px;
+  background:#EEE;color:var(--sub);
+  border:none;border-radius:30px;
+  font-family:inherit;font-size:0.875rem;font-weight:700;
+  cursor:pointer;margin-top:8px;
+}
+
+/* ダークモード */
+body.dark .thermo-card,
+body.dark .thermo-coping-card,
+body.dark .thermo-log-card{background:#16213E;}
+body.dark .thermo-coping-item,
+body.dark .thermo-log-item{background:#1E2D4A;}
+body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
@@ -409,10 +1637,113 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 <body>
 
 <div class="hdr">
+  <!-- 左：設定ボタン -->
   <button class="hdr-gear" onclick="openSettings()" aria-label="設定">⚙️</button>
-  <span class="hdr-ico">🤝</span>
-  <div class="hdr-title">SST</div>
-  <div class="hdr-sub">ソーシャルスキルトレーニング</div>
+  <!-- 中央：タイトル -->
+  <div class="hdr-center">
+    <span class="hdr-ico">🤝</span>
+    <div class="hdr-title">SST</div>
+    <div class="hdr-sub">ソーシャルスキルトレーニング</div>
+  </div>
+  <!-- 右：ヘルプ・全画面・ロック -->
+  <div class="hdr-right">
+    <button class="hdr-btn" onclick="openHelp()" aria-label="つかいかた">❓</button>
+    <button class="hdr-btn" id="hdr-fs-btn" onclick="toggleFullscreen()" aria-label="全画面">⛶</button>
+    <button class="hdr-btn" id="hdr-lock-btn" onclick="toggleScreenLock()" aria-label="ロック">🔓</button>
+  </div>
+</div>
+
+<!-- 下部固定戻るボタン -->
+<div class="bottom-back-bar" id="bottom-back-bar">
+  <button class="bottom-back-btn" id="bottom-back-btn" onclick="bottomBack()">
+    ← もどる
+  </button>
+</div>
+
+<!-- HELP MODAL（つかいかた） -->
+<div class="modal-overlay" id="help-modal" onclick="closeHelp(event)">
+  <div class="modal-sheet help-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="help-header">
+      <div class="help-title">📖 つかいかた</div>
+      <button class="help-close-btn" onclick="closeHelpModal()">✕</button>
+    </div>
+    <div class="help-body">
+
+      <div class="help-intro">
+        このアプリは<strong>ソーシャルスキルトレーニング（SST）</strong>を楽しく練習できるアプリです。<br>
+        友達との関わり方・気持ちの伝え方・場面に合った言葉を、ゲーム感覚で学べます。
+      </div>
+
+      <div class="help-level-row">
+        <span class="help-lv">🌱 はじめて</span>
+        <span class="help-lv">🌿 なれてきた</span>
+        <span class="help-lv">🌳 もっとできる</span>
+      </div>
+      <div class="help-level-desc">画面上のタブでレベルを切り替えられます。自分に合ったレベルから始めよう。</div>
+
+      <div class="help-section-title">🎮 できること</div>
+
+      <div class="help-item">
+        <div class="help-item-head"><span>😊</span><strong>きもちカード</strong></div>
+        <div class="help-item-desc">18種類の気持ちを絵と言葉で学べます。タップすると「どんなときになるか」の例を見られます。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>🎭</span><strong>ロールプレイ</strong></div>
+        <div class="help-item-desc">場面ごとのシナリオで、どんな行動をするか3択で選びます。どの選択肢を選んでも、やさしいフィードバックが返ってきます。学校版SSTも使えます。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>💬</span><strong>ことばクイズ</strong></div>
+        <div class="help-item-desc">場面に合った言葉の選び方を3択クイズで練習します。全18問・レベル別。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>📖</span><strong>ソーシャルストーリー</strong></div>
+        <div class="help-item-desc">ストーリーを読みながら、途中の問いかけに答えます。全13話収録。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>❓</span><strong>SSTクイズ</strong></div>
+        <div class="help-item-desc">実際の学校場面をもとにした3択クイズ。全24問・レベル別。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>🌈</span><strong>きもちを落ち着ける</strong></div>
+        <div class="help-item-desc">呼吸法アニメーションと6つのリラックス方法を紹介します。むしゃくしゃしたときに使いましょう。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>🌡️</span><strong>きもち温度計</strong></div>
+        <div class="help-item-desc">今の気持ちをスライダーで0〜10で表します。レベルに合わせた対処法が表示されます。記録も残せます。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>🏅</span><strong>きろく・バッジ</strong></div>
+        <div class="help-item-desc">活動をするとバッジがもらえます。集めて成長を確認しましょう。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>📷</span><strong>オリジナル問題（写真対応）</strong></div>
+        <div class="help-item-desc">教員モードから写真付きのオリジナル問題を作れます。学校の写真を使って、より身近な場面で練習できます。</div>
+      </div>
+      <div class="help-item">
+        <div class="help-item-head"><span>📊</span><strong>今週のできたことレポート</strong></div>
+        <div class="help-item-desc">今週の活動をまとめたレポートを表示します。先生やおうちの方に見せましょう。</div>
+      </div>
+
+      <div class="help-section-title">💡 先生・支援者の方へ</div>
+      <div class="help-teacher-box">
+        <div class="help-teacher-item">🔒 <strong>画面ロック</strong>…ヘッダーの🔓ボタンで現在の画面から動けなくなります。子どもが誤操作しないように使えます。</div>
+        <div class="help-teacher-item">⛶ <strong>全画面表示</strong>…ヘッダーの⛶ボタンでブラウザのUIを隠してアプリだけ表示できます。</div>
+        <div class="help-teacher-item">📤 <strong>データ共有</strong>…教員モード → データを共有から、作成した問題をテキストコードに変換してLINE・メール・AirDropで他の端末に送れます。QRコードとしても表示できます。</div>
+        <div class="help-teacher-item">⚙️ <strong>せってい</strong>…ヘッダー左上から文字サイズ・読み上げ・ダークモードを変更できます。</div>
+      </div>
+
+      <button class="help-start-btn" onclick="closeHelpModal()">はじめる！</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN LOCK OVERLAY -->
+<div id="screen-lock-overlay" style="display:none;"
+  onclick="event.stopPropagation()"
+  ontouchstart="event.stopPropagation()">
+  <div class="lock-badge">🔒 がめんロック中</div>
+  <div class="lock-hint">解除は上の 🔒 ボタンを押してね</div>
 </div>
 
 <!-- SETTINGS MODAL -->
@@ -436,6 +1767,23 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
           <div class="toggle-thumb"></div>
         </label>
       </div>
+
+      <!-- 声の選択 -->
+      <div class="sset-row" style="flex-wrap:wrap;gap:6px;">
+        <span class="sset-row-ico">🗣️</span>
+        <div class="sset-row-info">
+          <div class="sset-row-title">声のしゅるい</div>
+          <div class="sset-row-sub">使用する音声を選んでね</div>
+        </div>
+      </div>
+      <div style="padding:0 6px 8px;">
+        <select class="voice-select" id="voice-select" onchange="selectVoice(this.value)">
+          <option value="">（自動）</option>
+        </select>
+        <button class="voice-test-btn" onclick="testVoice()">▶ テスト</button>
+      </div>
+
+      <!-- よみあげスピード -->
       <div class="sset-row">
         <span class="sset-row-ico">🐢</span>
         <div class="sset-row-info">
@@ -448,6 +1796,20 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
         <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:2px;">
           <span>ゆっくり</span><span>はやい</span>
         </div>
+      </div>
+
+      <!-- ハイライト -->
+      <div class="sset-row">
+        <span class="sset-row-ico">🖍️</span>
+        <div class="sset-row-info">
+          <div class="sset-row-title">よみあげハイライト</div>
+          <div class="sset-row-sub">読んでいる文をきいろく強調する</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tgl-highlight" onchange="saveSettings()">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
       </div>
     </div>
 
@@ -515,7 +1877,37 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
     <button class="mcard mc-story" onclick="go('s-story-list')"><span class="mico">📖</span><div class="mtitle">ソーシャルストーリー</div><div class="mdesc">場面を読んで学ぼう</div></button>
     <button class="mcard mc-quiz" onclick="go('s-quiz')"><span class="mico">❓</span><div class="mtitle">SSTクイズ</div><div class="mdesc">どっちが正しい？</div></button>
     <button class="mcard mc-breath" onclick="go('s-breath')"><span class="mico">🌈</span><div class="mtitle">きもちを落ち着ける</div><div class="mdesc">呼吸・リラックス</div></button>
+    <button class="mcard mc-thermo" onclick="go('s-thermo')" style="grid-column:1/-1;flex-direction:row;justify-content:flex-start;text-align:left;padding:18px 20px;gap:16px;">
+      <span class="mico" style="font-size:2rem;margin-bottom:0;">🌡️</span>
+      <div>
+        <div class="mtitle">きもち温度計</div>
+        <div class="mdesc">今の気持ちをはかって、対処法を見つけよう</div>
+      </div>
+    </button>
+    <button class="mcard mc-badge" onclick="go('s-badge')" style="grid-column:1/-1;display:flex;flex-direction:row;justify-content:flex-start;text-align:left;padding:18px 20px;gap:16px;align-items:center;" id="home-badge-btn">
+      <span class="mico" style="font-size:2rem;margin-bottom:0;">🏅</span>
+      <div style="flex:1;min-width:0;">
+        <div class="mtitle">きろく・バッジ</div>
+        <div class="mdesc" id="home-badge-desc">がんばったことをかくにんしよう</div>
+      </div>
+      <div class="badge-home-count" id="badge-home-count">0</div>
+    </button>
+    <button class="mcard mc-report" onclick="go('s-report')" style="grid-column:1/-1;display:flex;flex-direction:row;justify-content:flex-start;text-align:left;padding:18px 20px;gap:16px;align-items:center;">
+      <span class="mico" style="font-size:2rem;margin-bottom:0;">📊</span>
+      <div style="flex:1;min-width:0;">
+        <div class="mtitle">今週のできたことレポート</div>
+        <div class="mdesc">がんばりをまとめて先生・おうちに見せよう</div>
+      </div>
+    </button>
     <button class="mcard mc-settings" onclick="openSettings()" style="grid-column:1/-1;"><span class="mico">⚙️</span><div class="mtitle">せってい</div><div class="mdesc">よみあげ・もじサイズ・ダークモード</div></button>
+    <button class="mcard mc-teacher" onclick="openTeacherLock()" style="grid-column:1/-1;display:flex;flex-direction:row;justify-content:flex-start;text-align:left;padding:18px 20px;gap:16px;align-items:center;">
+      <span class="mico" style="font-size:2rem;margin-bottom:0;">👨‍🏫</span>
+      <div style="flex:1;min-width:0;">
+        <div class="mtitle">教員モード</div>
+        <div class="mdesc">問題の編集・オリジナル問題の作成</div>
+      </div>
+      <span style="font-size:1.25rem;">🔒</span>
+    </button>
   </div>
 </div>
 
@@ -538,10 +1930,22 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 <div id="s-scene-list" class="scr">
   <button class="back" onclick="home()">← もどる</button>
   <div class="stitle">🎭 ロールプレイ</div>
-  <div class="lvtabs scr-lvtabs">
+  <!-- 通常版レベルタブ -->
+  <div class="lvtabs scr-lvtabs" id="scene-lv-tabs">
     <button class="lvtab on" data-lv="1" onclick="setLvAndRefresh(1,'scene-list')">🌱 はじめて</button>
     <button class="lvtab" data-lv="2" onclick="setLvAndRefresh(2,'scene-list')">🌿 なれてきた</button>
     <button class="lvtab" data-lv="3" onclick="setLvAndRefresh(3,'scene-list')">🌳 もっとできる</button>
+  </div>
+  <!-- 学校版タブ切り替え -->
+  <div class="scene-mode-tabs">
+    <button class="scene-mode-tab on" id="tab-normal" onclick="setSceneMode('normal')">📚 ふだんのせいかつ</button>
+    <button class="scene-mode-tab" id="tab-school" onclick="setSceneMode('school')">🏫 学校版SST</button>
+  </div>
+  <!-- 学校版サブレベルタブ（学校版選択時のみ表示） -->
+  <div class="lvtabs scr-lvtabs" id="scene-school-tabs" style="display:none;">
+    <button class="lvtab-school on" data-slv="1s" onclick="setLvAndRefresh('1s','scene-list')">🌱 はじめて</button>
+    <button class="lvtab-school" data-slv="2s" onclick="setLvAndRefresh('2s','scene-list')">🌿 なれてきた</button>
+    <button class="lvtab-school" data-slv="3s" onclick="setLvAndRefresh('3s','scene-list')">🌳 もっとできる</button>
   </div>
   <div class="slist" id="slist"></div>
 </div>
@@ -621,6 +2025,678 @@ body.dark input,.dark textarea{background:#1E2D4A;color:#E8E8E8;}
 
 <div class="celebrate" id="celebrate"></div>
 
+<!-- TEACHER LOCK（PINモーダル） -->
+<div class="modal-overlay" id="teacher-lock-modal" style="display:none;" onclick="closeTeacherLock(event)">
+  <div class="modal-sheet" style="max-height:85vh;" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔒 教員モード</div>
+    <div style="padding:0 20px 24px;">
+      <div class="tlock-desc">PINコードを入力してください<br><small style="color:var(--sub);">（初期PIN：1234 ／ せってい画面で変更できます）</small></div>
+      <div class="tlock-dots" id="tlock-dots">
+        <span class="tlock-dot" id="td0"></span>
+        <span class="tlock-dot" id="td1"></span>
+        <span class="tlock-dot" id="td2"></span>
+        <span class="tlock-dot" id="td3"></span>
+      </div>
+      <div class="tlock-err" id="tlock-err"></div>
+      <div class="tlock-keypad">
+        <button class="tlock-key" onclick="tlockInput(1)">1</button>
+        <button class="tlock-key" onclick="tlockInput(2)">2</button>
+        <button class="tlock-key" onclick="tlockInput(3)">3</button>
+        <button class="tlock-key" onclick="tlockInput(4)">4</button>
+        <button class="tlock-key" onclick="tlockInput(5)">5</button>
+        <button class="tlock-key" onclick="tlockInput(6)">6</button>
+        <button class="tlock-key" onclick="tlockInput(7)">7</button>
+        <button class="tlock-key" onclick="tlockInput(8)">8</button>
+        <button class="tlock-key" onclick="tlockInput(9)">9</button>
+        <button class="tlock-key tlock-key-empty"></button>
+        <button class="tlock-key" onclick="tlockInput(0)">0</button>
+        <button class="tlock-key tlock-key-del" onclick="tlockDel()">⌫</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TEACHER HOME（教員メニュー） -->
+<div id="s-teacher" class="scr">
+  <button class="back" onclick="home()">← もどる</button>
+  <div class="stitle">👨‍🏫 教員モード</div>
+  <div class="teacher-wrap">
+
+    <div class="teacher-menu-card" onclick="go('s-teacher-custom')">
+      <span class="teacher-menu-ico">✏️</span>
+      <div>
+        <div class="teacher-menu-title">オリジナル問題を作る</div>
+        <div class="teacher-menu-desc">ロールプレイ・選択肢・フィードバックを自由に作成</div>
+      </div>
+      <span class="teacher-menu-arr">›</span>
+    </div>
+
+    <div class="teacher-menu-card" onclick="go('s-teacher-edit')">
+      <span class="teacher-menu-ico">🔧</span>
+      <div>
+        <div class="teacher-menu-title">既存の問題を編集する</div>
+        <div class="teacher-menu-desc">ロールプレイ・ことばクイズ・SSTクイズの選択肢・フィードバックを編集</div>
+      </div>
+      <span class="teacher-menu-arr">›</span>
+    </div>
+
+    <div class="teacher-menu-card" onclick="go('s-teacher-share')">
+      <span class="teacher-menu-ico">📤</span>
+      <div>
+        <div class="teacher-menu-title">データを共有・引継ぎ</div>
+        <div class="teacher-menu-desc">QRコードまたはコードで生徒端末に同期</div>
+      </div>
+      <span class="teacher-menu-arr">›</span>
+    </div>
+
+    <div class="teacher-menu-card" onclick="go('s-teacher-pin')">
+      <span class="teacher-menu-ico">🔑</span>
+      <div>
+        <div class="teacher-menu-title">PINコードを変更する</div>
+        <div class="teacher-menu-desc">教員モードのロック解除コードを変更</div>
+      </div>
+      <span class="teacher-menu-arr">›</span>
+    </div>
+
+    <div class="teacher-notice">
+      <span>💡</span>
+      <div>作成・編集した内容はこの端末に保存されます。子どもが使う際は、ホーム画面からロールプレイを選んでください。</div>
+    </div>
+  </div>
+</div>
+
+<!-- TEACHER AI（AIソーシャルストーリー生成） -->
+<div id="s-teacher-ai" class="scr" style="display:none!important;">
+  <button class="back" onclick="go('s-teacher')">← もどる</button>
+  <div class="stitle">🤖 AIストーリー生成</div>
+  <div class="teacher-wrap">
+
+    <!-- Worker設定状態 -->
+    <div class="ai-worker-notice" id="ai-worker-notice">
+      <div class="ai-worker-icon">🤖</div>
+      <div>
+        <div class="ai-worker-title">AIによる自動生成</div>
+        <div class="ai-worker-desc">テーマを入力するだけで、ソーシャルストーリーとロールプレイ場面を自動で作成します。APIキーの入力は不要です。<br>
+        <span class="ai-remaining-badge" id="ai-remaining-badge">本日あと <strong id="ai-remaining-num">3</strong> 回 利用できます</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 生成フォーム -->
+    <div class="ai-form-card">
+      <div class="ai-form-title">📝 ストーリーのテーマを入力する</div>
+
+      <div class="photo-edit-section">
+        <div class="photo-edit-label">① 場面・テーマ <span class="photo-required">必須</span></div>
+        <textarea class="photo-edit-textarea" id="ai-theme-input"
+          placeholder="例：給食で順番を待てない子のストーリー&#10;例：友達とけんかした後に仲直りする場面&#10;例：作業学習で指示が聞けないときの対応"
+          rows="3"></textarea>
+      </div>
+
+      <div class="photo-edit-section">
+        <div class="photo-edit-label">② 主人公の名前（任意）</div>
+        <input type="text" class="photo-edit-input" id="ai-name-input"
+          placeholder="例：けんた、はなこ（省略すると「わたし」になります）" maxlength="10">
+      </div>
+
+      <div class="photo-edit-section">
+        <div class="photo-edit-label">③ レベル</div>
+        <div style="display:flex;gap:8px;">
+          <label class="tce-lv-label"><input type="radio" name="ai-lv" value="1" checked> 🌱 はじめて</label>
+          <label class="tce-lv-label"><input type="radio" name="ai-lv" value="2"> 🌿 なれてきた</label>
+          <label class="tce-lv-label"><input type="radio" name="ai-lv" value="3"> 🌳 もっとできる</label>
+        </div>
+      </div>
+
+      <div class="photo-edit-section">
+        <div class="photo-edit-label">④ 生成するもの</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label class="share-check-row">
+            <input type="checkbox" id="ai-gen-story" checked>
+            <span>📖 ソーシャルストーリー（4〜6ページ）</span>
+          </label>
+          <label class="share-check-row">
+            <input type="checkbox" id="ai-gen-rp">
+            <span>🎭 ロールプレイ場面（選択肢3つ）</span>
+          </label>
+        </div>
+      </div>
+
+      <button class="ai-generate-btn" id="ai-generate-btn" onclick="generateAIStory()">
+        🤖 AIで生成する
+      </button>
+      <div class="ai-generate-hint">生成には10〜20秒かかります</div>
+    </div>
+
+    <!-- 生成結果 -->
+    <div id="ai-result-area" style="display:none;">
+      <div class="ai-result-title">✨ 生成されたコンテンツ</div>
+      <div id="ai-result-preview"></div>
+      <div class="ai-result-actions">
+        <button class="ai-add-btn" id="ai-add-btn" onclick="addGeneratedContent()">
+          ＋ アプリに追加する
+        </button>
+        <button class="ai-regen-btn" onclick="generateAIStory()">🔄 もう一度生成する</button>
+      </div>
+      <div class="ai-add-msg" id="ai-add-msg"></div>
+    </div>
+
+    <div class="teacher-notice">
+      <span>💡</span>
+      <div>生成されたコンテンツは「ソーシャルストーリー」または「ロールプレイ」に追加されます。内容を確認してから追加してください。</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TEACHER SHARE（データ共有・引継ぎ） -->
+<div id="s-teacher-share" class="scr">
+  <button class="back" onclick="go('s-teacher')">← もどる</button>
+  <div class="stitle">📤 データを共有・引継ぎ</div>
+  <div class="teacher-wrap">
+
+    <div class="share-section-title">📱 このタブレットから送る</div>
+
+    <div class="share-card">
+      <div class="share-card-title">📋 共有するデータを選ぶ</div>
+      <label class="share-check-row">
+        <input type="checkbox" id="share-custom" checked>
+        <span>✏️ オリジナル問題（<span id="share-custom-count">0</span>問）</span>
+      </label>
+      <label class="share-check-row">
+        <input type="checkbox" id="share-edits" checked>
+        <span>🔧 既存問題の編集内容</span>
+      </label>
+    </div>
+
+    <button class="share-generate-btn" onclick="generateShareCode()">
+      🔢 共有コードを生成する
+    </button>
+
+    <div id="share-code-area" style="display:none;">
+      <div class="share-code-card">
+        <div class="share-code-title">📋 共有コード</div>
+        <div class="share-code-box" id="share-code-box"></div>
+        <div class="share-btn-row">
+          <button class="share-copy-btn" onclick="copyShareCode()">📋 コピー</button>
+          <button class="share-native-btn" onclick="shareCodeNative()">📤 送る</button>
+        </div>
+        <div class="share-copy-msg" id="share-copy-msg"></div>
+        <div class="share-code-hint">
+          「送る」ボタン → LINE・メール・Google Classroom など好きなアプリで送れます<br>
+          「コピー」→ 自分で貼り付けて送ることもできます
+        </div>
+      </div>
+      <div class="share-qr-card">
+        <div class="share-code-title">📷 QRコード（参考）</div>
+        <div class="share-qr-wrap" id="share-qr-wrap">
+          <div id="share-qr-div"></div>
+        </div>
+        <div class="share-qr-hint">カメラで読み取るとコードが表示されます。コピーして「受け取る」欄に貼り付けてください。</div>
+      </div>
+    </div>
+
+    <div class="share-divider"></div>
+
+    <div class="share-section-title">📲 このタブレットで受け取る</div>
+
+    <div id="import-code-area">
+      <div class="share-import-label">先生からもらったコードを貼り付けてください</div>
+      <textarea class="share-import-textarea" id="import-code-input" placeholder="SST1:から始まるコードを貼り付け"></textarea>
+      <button class="share-import-btn" onclick="importFromCode()">📥 データを取り込む</button>
+      <div class="share-import-msg" id="import-code-msg"></div>
+    </div>
+
+    <div class="teacher-notice">
+      <span>💡</span>
+      <div>
+        <strong>共有の手順</strong><br>
+        ① 送る側：コードを生成 → コピー<br>
+        ② LINEやメール・AirDropなどで生徒端末に送付<br>
+        ③ 受け取る側：コードを上の欄に貼り付け → 取り込む
+      </div>
+    </div>
+
+    <div class="teacher-notice" style="margin-top:0;">
+      <span>🔒</span>
+      <div>データはこの端末内で処理されます。インターネット上のサーバーには送信されません。</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TEACHER CUSTOM（オリジナル問題作成・管理） -->
+<div id="s-teacher-custom" class="scr">
+  <button class="back" onclick="go('s-teacher')">← もどる</button>
+  <div class="stitle">✏️ オリジナル問題</div>
+  <div class="teacher-wrap">
+    <div class="teacher-custom-header">
+      <div class="teacher-custom-count" id="tc-count">0問 作成済み</div>
+      <button class="teacher-add-btn" onclick="openCustomEdit(null)">＋ 新しく作る</button>
+    </div>
+    <div id="tc-list">
+      <div class="teacher-empty">まだオリジナル問題がありません。<br>「＋ 新しく作る」ボタンで作成しましょう。</div>
+    </div>
+    <div class="teacher-notice" style="margin-top:8px;">
+      <span>📌</span>
+      <div>作成した問題はロールプレイの「✏️ オリジナル」タブに追加されます。</div>
+    </div>
+  </div>
+</div>
+
+<!-- TEACHER CUSTOM EDIT（オリジナル問題編集フォーム） -->
+<div id="s-teacher-custom-edit" class="scr">
+  <button class="back" onclick="go('s-teacher-custom')">← もどる</button>
+  <div class="stitle" id="tce-title">✏️ 問題を作る</div>
+  <div class="teacher-wrap">
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">① 写真（任意）</div>
+      <div class="photo-preview-area" id="tce-preview-area" onclick="document.getElementById('tce-file-input').click()">
+        <div class="photo-preview-placeholder" id="tce-preview-placeholder">
+          <span style="font-size:2rem;">📷</span>
+          <div style="font-size:0.875rem;">タップして写真を選ぶ（任意）</div>
+          <div style="font-size:0.75rem;color:var(--sub);margin-top:4px;">教室・廊下・給食室など</div>
+        </div>
+        <img id="tce-preview-img" class="photo-preview-img" style="display:none;" alt="選択した写真">
+      </div>
+      <input type="file" id="tce-file-input" accept="image/*" style="display:none;" onchange="handleTcePhotoSelect(this)">
+      <button class="photo-change-btn" id="tce-change-btn" style="display:none;" onclick="document.getElementById('tce-file-input').click()">📷 写真を変える</button>
+      <button class="photo-change-btn" id="tce-remove-btn" style="display:none;background:#FFEBEE;color:#C62828;" onclick="removeTcePhoto()">🗑 写真を削除する</button>
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">② 場面のタイトル <span class="photo-required">必須</span></div>
+      <input type="text" class="photo-edit-input" id="tce-title-input" placeholder="例：友達に声をかける" maxlength="20">
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">③ アイコン（絵文字1文字）</div>
+      <input type="text" class="photo-edit-input" id="tce-icon-input" placeholder="例：👋" maxlength="2" style="font-size:1.5rem;text-align:center;">
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">④ 場面の説明 <span class="photo-required">必須</span></div>
+      <textarea class="photo-edit-textarea" id="tce-sit-input" placeholder="例：休み時間に一人でいる友達がいます。何て声をかけますか？" maxlength="80"></textarea>
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">⑤ 心の声（任意）</div>
+      <input type="text" class="photo-edit-input" id="tce-thought-input" placeholder="例：なんて言えばいいかな…" maxlength="40">
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">⑥ 選択肢を3つ作る <span class="photo-required">必須</span></div>
+      <div class="photo-choice-hint">⭐ いちばん良い答えの左の丸を選んでね</div>
+      <div id="tce-choices-wrap">
+        <div class="photo-choice-row">
+          <input type="radio" name="tce-best" value="0" checked class="photo-radio">
+          <input type="text" class="photo-choice-input tce-choice" placeholder="選択肢1（いちばん良い答え）" maxlength="40">
+        </div>
+        <div class="photo-choice-row">
+          <input type="radio" name="tce-best" value="1" class="photo-radio">
+          <input type="text" class="photo-choice-input tce-choice" placeholder="選択肢2（まあまあ良い答え）" maxlength="40">
+        </div>
+        <div class="photo-choice-row">
+          <input type="radio" name="tce-best" value="2" class="photo-radio">
+          <input type="text" class="photo-choice-input tce-choice" placeholder="選択肢3（よくある行動）" maxlength="40">
+        </div>
+      </div>
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">⑦ レベル</div>
+      <div style="display:flex;gap:8px;">
+        <label class="tce-lv-label"><input type="radio" name="tce-lv" value="1" checked> 🌱 はじめて</label>
+        <label class="tce-lv-label"><input type="radio" name="tce-lv" value="2"> 🌿 なれてきた</label>
+        <label class="tce-lv-label"><input type="radio" name="tce-lv" value="3"> 🌳 もっとできる</label>
+      </div>
+    </div>
+
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">⑧ フィードバック（任意）</div>
+      <input type="text" class="photo-edit-input" id="tce-fb-good-input" placeholder="例：上手に声をかけられたね！" maxlength="50">
+    </div>
+
+    <button class="photo-save-btn" onclick="saveCustomScene()">💾 保存する</button>
+    <div class="photo-save-msg" id="tce-save-msg"></div>
+  </div>
+</div>
+
+<!-- TEACHER EDIT（既存問題編集） -->
+<div id="s-teacher-edit" class="scr">
+  <button class="back" onclick="go('s-teacher')">← もどる</button>
+  <div class="stitle">🔧 既存の問題を編集</div>
+  <div class="teacher-wrap">
+    <div class="teacher-edit-tabs">
+      <button class="teacher-edit-tab on" onclick="selectEditTab('rp',this)">🎭 ロールプレイ</button>
+      <button class="teacher-edit-tab" onclick="selectEditTab('wq',this)">💬 ことばクイズ</button>
+      <button class="teacher-edit-tab" onclick="selectEditTab('qz',this)">❓ SSTクイズ</button>
+    </div>
+    <div class="teacher-edit-lv-tabs">
+      <button class="teacher-edit-lv on" data-lv="1" onclick="selectEditLv(1,this)">🌱 Lv1</button>
+      <button class="teacher-edit-lv" data-lv="2" onclick="selectEditLv(2,this)">🌿 Lv2</button>
+      <button class="teacher-edit-lv" data-lv="3" onclick="selectEditLv(3,this)">🌳 Lv3</button>
+    </div>
+    <div id="teacher-edit-list"></div>
+    <div class="teacher-notice" style="margin-top:8px;">
+      <span>⚠️</span>
+      <div>編集した内容はこの端末に保存されます。「リセット」ボタンで元の内容に戻せます。</div>
+    </div>
+  </div>
+</div>
+
+<!-- TEACHER PIN CHANGE -->
+<div id="s-teacher-pin" class="scr">
+  <button class="back" onclick="go('s-teacher')">← もどる</button>
+  <div class="stitle">🔑 PINコードを変更する</div>
+  <div class="teacher-wrap">
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">現在のPIN</div>
+      <input type="password" inputmode="numeric" class="photo-edit-input" id="pin-current" placeholder="現在の4桁PIN" maxlength="4">
+    </div>
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">新しいPIN（4桁）</div>
+      <input type="password" inputmode="numeric" class="photo-edit-input" id="pin-new" placeholder="新しい4桁PIN" maxlength="4">
+    </div>
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">新しいPIN（確認）</div>
+      <input type="password" inputmode="numeric" class="photo-edit-input" id="pin-confirm" placeholder="もう一度入力" maxlength="4">
+    </div>
+    <button class="photo-save-btn" onclick="changePin()">🔑 PINを変更する</button>
+    <div class="photo-save-msg" id="pin-save-msg"></div>
+  </div>
+</div>
+<!-- REPORT（今週のできたことレポート） -->
+<div id="s-report" class="scr">
+  <button class="back" onclick="home()">← もどる</button>
+  <div class="stitle">📊 今週のできたことレポート</div>
+  <div class="report-wrap">
+
+    <div class="report-name-row">
+      <input type="text" class="report-name-input" id="report-name-input"
+        placeholder="なまえを入れてね（任意）" maxlength="12"
+        oninput="saveReportName()">
+      <span class="report-name-suffix">さん</span>
+    </div>
+
+    <!-- レポートカード本体 -->
+    <div class="report-card" id="report-card">
+
+      <div class="report-header">
+        <div class="report-header-left">
+          <div class="report-title-emoji">🌈</div>
+          <div>
+            <div class="report-title">今週のできたこと</div>
+            <div class="report-period" id="report-period"></div>
+          </div>
+        </div>
+        <div class="report-child-name" id="report-child-name"></div>
+      </div>
+
+      <div class="report-summary">
+        <div class="report-stat">
+          <div class="report-stat-num" id="rpt-days">0</div>
+          <div class="report-stat-label">かつどうした日</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-num" id="rpt-total">0</div>
+          <div class="report-stat-label">ぜんぶのきろく</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-num" id="rpt-badges">0</div>
+          <div class="report-stat-label">バッジかくとく</div>
+        </div>
+        <div class="report-stat">
+          <div class="report-stat-num" id="rpt-points">0</div>
+          <div class="report-stat-label">ごうけいポイント</div>
+        </div>
+      </div>
+
+      <div class="report-section-title">📅 曜日ごとのかつどう</div>
+      <div class="report-week-chart" id="report-week-chart"></div>
+
+      <div class="report-section-title">🎯 やったこと</div>
+      <div class="report-activity-list" id="report-activity-list"></div>
+
+      <div class="report-section-title" id="report-badges-title">🏅 今週とったバッジ</div>
+      <div class="report-badges-row" id="report-badges-row"></div>
+
+      <div class="report-section-title">🌡️ きもちのきろく</div>
+      <div class="report-thermo-chart" id="report-thermo-chart"></div>
+
+      <div class="report-comment-box">
+        <div class="report-comment-title">✏️ 先生・おうちのかたへ</div>
+        <div class="report-comment-area" id="report-comment"
+          contenteditable="true"
+          data-placeholder="ここにコメントを入力できます"></div>
+      </div>
+
+      <div class="report-footer">
+        <span>SST ソーシャルスキルトレーニング</span>
+        <span id="report-gen-date"></span>
+      </div>
+    </div>
+
+    <div class="report-actions">
+      <button class="report-share-btn" onclick="shareReport()">📤 レポートを共有する</button>
+      <div class="report-share-hint">スクリーンショットを撮って先生・おうちの方に見せよう</div>
+    </div>
+
+    <div class="teacher-notice">
+      <span>📌</span>
+      <div>スクリーンショットを撮って保護者・担任の先生に共有できます。「共有する」ボタンからも送れます（対応ブラウザのみ）。</div>
+    </div>
+  </div>
+</div>
+
+<div id="s-photo" class="scr" style="display:none!important;">
+  <button class="back" onclick="home()">← もどる</button>
+  <div class="stitle">📷 じぶんの写真でSST</div>
+  <div class="photo-wrap">
+
+    <!-- 作成した問題一覧 -->
+    <div class="photo-list-card">
+      <div class="photo-list-header">
+        <div class="photo-list-title">📋 つくった問題</div>
+        <button class="photo-add-btn" onclick="openPhotoEdit(null)">＋ 新しく作る</button>
+      </div>
+      <div id="photo-scene-list">
+        <div class="photo-empty">まだ問題がないよ。<br>「＋ 新しく作る」ボタンで作ってみよう！</div>
+      </div>
+    </div>
+
+    <div class="photo-notice">
+      <span>🔒</span>
+      <div>写真データはこの端末のブラウザ内にのみ保存されます。インターネットには送信されません。</div>
+    </div>
+  </div>
+</div>
+
+<!-- PHOTO EDIT（問題作成・編集） -->
+<div id="s-photo-edit" class="scr" style="display:none!important;">
+  <button class="back" onclick="go('s-photo')">← もどる</button>
+  <div class="stitle" id="photo-edit-title">📷 問題を作る</div>
+  <div class="photo-edit-wrap">
+
+    <!-- 写真選択 -->
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">① 写真を選ぶ <span class="photo-required">必須</span></div>
+      <div class="photo-preview-area" id="photo-preview-area" onclick="document.getElementById('photo-file-input').click()">
+        <div class="photo-preview-placeholder" id="photo-preview-placeholder">
+          <span style="font-size:2.5rem;">📷</span>
+          <div>タップして写真を選ぶ</div>
+          <div style="font-size:0.75rem;color:var(--sub);margin-top:4px;">教室・廊下・給食室など</div>
+        </div>
+        <img id="photo-preview-img" class="photo-preview-img" style="display:none;" alt="選択した写真">
+      </div>
+      <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="handlePhotoSelect(this)">
+      <button class="photo-change-btn" id="photo-change-btn" style="display:none;" onclick="document.getElementById('photo-file-input').click()">📷 写真を変える</button>
+    </div>
+
+    <!-- 場面タイトル -->
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">② 場面のタイトル <span class="photo-required">必須</span></div>
+      <input type="text" class="photo-edit-input" id="photo-title-input" placeholder="例：給食の時間" maxlength="20">
+    </div>
+
+    <!-- 状況説明 -->
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">③ どんな場面か説明する <span class="photo-required">必須</span></div>
+      <textarea class="photo-edit-textarea" id="photo-sit-input" placeholder="例：給食の準備をしています。おかわりがしたいです。何て言いますか？" maxlength="80"></textarea>
+    </div>
+
+    <!-- 選択肢 -->
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">④ 選択肢を3つ作る <span class="photo-required">必須</span></div>
+      <div class="photo-choice-hint">⭐ いちばん良い答えの左の丸を選んでね</div>
+      <div class="photo-choices-wrap" id="photo-choices-wrap">
+        <div class="photo-choice-row">
+          <input type="radio" name="photo-best" value="0" checked class="photo-radio">
+          <input type="text" class="photo-choice-input" placeholder="例：「先生、おかわりしてもいいですか？」" maxlength="40">
+        </div>
+        <div class="photo-choice-row">
+          <input type="radio" name="photo-best" value="1" class="photo-radio">
+          <input type="text" class="photo-choice-input" placeholder="例：先生の様子を見ながら自分でよそう" maxlength="40">
+        </div>
+        <div class="photo-choice-row">
+          <input type="radio" name="photo-best" value="2" class="photo-radio">
+          <input type="text" class="photo-choice-input" placeholder="例：言いかけてやめてしまう" maxlength="40">
+        </div>
+      </div>
+    </div>
+
+    <!-- フィードバック -->
+    <div class="photo-edit-section">
+      <div class="photo-edit-label">⑤ よかったときのメッセージ（任意）</div>
+      <input type="text" class="photo-edit-input" id="photo-fb-input" placeholder="例：上手に伝えられたね！" maxlength="40">
+    </div>
+
+    <button class="photo-save-btn" onclick="savePhotoScene()">💾 保存する</button>
+    <div class="photo-save-msg" id="photo-save-msg"></div>
+  </div>
+</div>
+
+<!-- PHOTO PLAY（写真SSTプレイ画面） -->
+<div id="s-photo-play" class="scr" style="display:none!important;">
+  <button class="back" onclick="go('s-photo')">← リストへ</button>
+  <div id="photo-play-content"></div>
+</div>
+<div id="s-badge" class="scr">
+  <button class="back" onclick="home()">← もどる</button>
+  <div class="stitle">🏅 きろく・バッジ</div>
+  <div class="badge-wrap">
+
+    <!-- 総合スコア -->
+    <div class="badge-score-card">
+      <div class="badge-score-inner">
+        <div class="badge-score-star">⭐</div>
+        <div>
+          <div class="badge-score-num" id="badge-total-score">0</div>
+          <div class="badge-score-label">ごうけいポイント</div>
+        </div>
+        <div class="badge-score-count-wrap">
+          <div class="badge-score-count" id="badge-got-count">0</div>
+          <div class="badge-score-label">バッジ かくとく</div>
+        </div>
+      </div>
+      <div class="badge-progress-wrap">
+        <div class="badge-progress-bar" id="badge-progress-bar" style="width:0%"></div>
+      </div>
+      <div class="badge-progress-label" id="badge-progress-label">つぎのバッジまであと…</div>
+    </div>
+
+    <!-- バッジ一覧 -->
+    <div class="badge-section-title">🎖️ かくとくしたバッジ</div>
+    <div class="badge-grid" id="badge-grid"></div>
+
+    <!-- 未取得 -->
+    <div class="badge-section-title" style="margin-top:8px;">🔒 まだのバッジ</div>
+    <div class="badge-grid" id="badge-locked-grid"></div>
+
+    <!-- リセット -->
+    <button class="badge-reset-btn" onclick="confirmResetBadges()">きろくをリセットする</button>
+  </div>
+</div>
+
+<!-- バッジ取得モーダル -->
+<div class="badge-modal-overlay" id="badge-modal" style="display:none;">
+  <div class="badge-modal-card">
+    <div class="badge-modal-shine" id="badge-modal-shine"></div>
+    <div class="badge-modal-new">🎉 NEW!</div>
+    <div class="badge-modal-ico" id="badge-modal-ico"></div>
+    <div class="badge-modal-name" id="badge-modal-name"></div>
+    <div class="badge-modal-desc" id="badge-modal-desc"></div>
+    <button class="badge-modal-btn" onclick="closeBadgeModal()">やったー！</button>
+  </div>
+</div>
+<div id="s-thermo" class="scr">
+  <button class="back" onclick="home()">← もどる</button>
+  <div class="stitle">🌡️ きもち温度計</div>
+
+  <div class="thermo-wrap">
+
+    <!-- 今の気持ちメーター -->
+    <div class="thermo-card" id="thermo-main">
+      <div class="thermo-question">いま、きもちは どのくらい？</div>
+      <div class="thermo-hint">👆 上にスライドしよう</div>
+
+      <div class="thermo-meter-row">
+
+        <!-- 左：目盛り -->
+        <div class="thermo-ticks">
+          <span>10</span><span>9</span><span>8</span><span>7</span><span>6</span>
+          <span>5</span><span>4</span><span>3</span><span>2</span><span>1</span><span>0</span>
+        </div>
+
+        <!-- 中央：温度計ビジュアル -->
+        <div class="thermo-tube-wrap">
+          <div class="thermo-tube">
+            <div class="thermo-fill" id="thermo-fill"></div>
+          </div>
+          <div class="thermo-bulb" id="thermo-bulb"></div>
+        </div>
+
+        <!-- 縦スライダー -->
+        <div class="thermo-vslider-wrap">
+          <input type="range" class="thermo-vslider" id="thermo-slider"
+            min="0" max="10" value="0"
+            orient="vertical"
+            oninput="updateThermo(this.value)">
+        </div>
+
+        <!-- 右：顔・数値 -->
+        <div class="thermo-right-info">
+          <div class="thermo-face-big" id="thermo-face">😊</div>
+          <div class="thermo-value-display" id="thermo-value-display">0</div>
+          <div class="thermo-level-name" id="thermo-level-name">おだやか</div>
+        </div>
+
+      </div><!-- /.thermo-meter-row -->
+
+      <button class="thermo-record-btn" onclick="recordThermo()">📝 きろくする</button>
+    </div>
+
+    <!-- 対処法カード -->
+    <div class="thermo-coping-card" id="thermo-coping">
+      <div class="thermo-coping-title" id="thermo-coping-title"></div>
+      <div class="thermo-coping-list" id="thermo-coping-list"></div>
+    </div>
+
+    <!-- 今日の記録 -->
+    <div class="thermo-log-card">
+      <div class="thermo-log-title">📅 今日のきろく</div>
+      <div class="thermo-log-list" id="thermo-log-list">
+        <div class="thermo-log-empty">まだきろくがないよ。<br>上のボタンできろくしてみよう！</div>
+      </div>
+      <button class="thermo-clear-btn" onclick="clearThermoLog()">きろくをけす</button>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // ============================================================
 // DATA
@@ -790,6 +2866,93 @@ const SCENES = {
        {txt:'自分の意見が正しいと思い、強く押す',level:'try',fb:'自分の考えを持てているのはすごいよ。でもみんなの意見も聞けると、もっと良いアイデアが生まれるかもしれないよ。'}
      ],
      tip:'どんな形でもまとめようと動いたことが大切。チームのために動けるのはすごいことだよ。'},
+  ],
+  '1s':[
+    {icon:'🚌',title:'スクールバスに乗る',desc:'バスの中でのマナーを練習しよう',tag:'スクールバス',
+     sit:'スクールバスに乗りました。乗り物の中でどう過ごしますか？',
+     dialogs:[{who:'バスの中',txt:'（ほかの子たちが静かに座っている）',pl:false}],
+     choices:[
+       {txt:'窓側の席に座り、静かに外を見ながら過ごす',level:'best',fb:'バスの中でのルールを守れたね！静かに過ごせると、みんなが気持ちよく乗れるよ。'},
+       {txt:'友達の隣に座り、小さな声で話す',level:'good',fb:'友達と話したい気持ちはわかるよ。小声なら大丈夫なことも多いよ。先生に確認してみよう。'},
+       {txt:'大きな声で話したり、席を立って歩き回る',level:'try',fb:'バスの中は動いたり大きな声を出すと危ないよ。到着するまで座っていようね。'}
+     ],
+     tip:'バスの中は「静かに座る」が基本のルール。着いたら思い切り話そう！'},
+    {icon:'🍽',title:'給食当番をする',desc:'給食の準備と片付けを練習しよう',tag:'給食当番',
+     sit:'今日は給食当番の日です。配膳を手伝います。どうしますか？',
+     dialogs:[{who:'先生',txt:'「では給食当番さん、準備をお願いします」',pl:false}],
+     choices:[
+       {txt:'エプロンをつけて、自分の担当を確認してから配膳を始める',level:'best',fb:'準備から確認まで自分でできたね！それが給食当番のポイントだよ。'},
+       {txt:'「何をすればいい？」と先生や友達に聞く',level:'good',fb:'わからないときに聞けるのは大切なことだよ。聞いてから動けたね。'},
+       {txt:'何をすればいいかわからず、その場に立っている',level:'try',fb:'戸惑うことあるよね。「何をすればいいですか？」と聞いてみよう。一言で解決するよ。'}
+     ],
+     tip:'わからないときは「何をすればいいですか？」の一言。聞くことはとても大切だよ。'},
+    {icon:'🧹',title:'清掃活動をする',desc:'掃除の時間のルールを練習しよう',tag:'清掃',
+     sit:'掃除の時間になりました。自分の担当場所を掃除します。',
+     dialogs:[{who:'担当の場所',txt:'（ほうきと雑巾が用意されている）',pl:false}],
+     choices:[
+       {txt:'自分の担当をきちんとやり、終わったら「終わりました」と報告する',level:'best',fb:'自分の仕事をやり遂げて、報告もできたね！それが清掃のゴールだよ。'},
+       {txt:'自分の担当はやるが、報告はせずに終わる',level:'good',fb:'きちんと掃除できたね！終わったら「終わりました」と一言言えるともっと良いよ。'},
+       {txt:'掃除が嫌で、ゆっくりやったりさぼってしまう',level:'try',fb:'やる気が出ないときもあるよね。でも少しだけやってみると、案外終わるよ。まず一分だけ頑張ってみよう。'}
+     ],
+     tip:'「終わりました」の一言が言えると、先生も次の指示がしやすいよ。'},
+  ],
+  '2s':[
+    {icon:'🔨',title:'作業学習に取り組む',desc:'作業の時間のマナーを練習しよう',tag:'作業学習',
+     sit:'作業学習の時間です。決められた手順で作業を進めています。途中でわからなくなりました。',
+     dialogs:[{who:'作業中',txt:'（手順が思い出せなくて止まっている）',pl:false}],
+     choices:[
+       {txt:'「確認してもいいですか？」と言って手順表を見る、または先生に聞く',level:'best',fb:'自分で解決しようとして、わからないときにちゃんと聞けたね！作業学習の大切なスキルだよ。'},
+       {txt:'隣の人がどうやっているか見てから続ける',level:'good',fb:'周りを参考にするのも一つの方法だよ。でも確信が持てないときは先生に確認しよう。'},
+       {txt:'わからないまま、作業を止めたままにしている',level:'try',fb:'迷ってしまうことあるよね。「確認してもいいですか？」の一言で進められるよ。止まるより聞いた方が早いよ。'}
+     ],
+     tip:'作業で迷ったら「確認してもいいですか？」。聞くことも作業のスキルのひとつだよ。'},
+    {icon:'🚶',title:'校外学習に参加する',desc:'外出先でのマナーを練習しよう',tag:'校外学習',
+     sit:'校外学習で公共の場所に来ました。班行動をしています。',
+     dialogs:[{who:'先生',txt:'「班で集まって、時間までに戻ってきてください」',pl:false}],
+     choices:[
+       {txt:'班の友達と一緒に行動し、時間を確認しながら戻る',level:'best',fb:'班行動がしっかりできたね！時間を意識して動けるのは大切なことだよ。'},
+       {txt:'班と少し離れてしまったが、声をかけて合流する',level:'good',fb:'離れてしまっても、声をかけて戻れたね。迷ったときは大声で名前を呼んでOKだよ。'},
+       {txt:'気になるものがあって、班からどんどん離れてしまう',level:'try',fb:'気になるものがあると、ついそっちに行きたくなるよね。でも校外では班と一緒に動くのが大切だよ。'}
+     ],
+     tip:'校外では「班と一緒に動く」「時間を守る」の2つが大切だよ。'},
+    {icon:'🌅',title:'朝の会に参加する',desc:'朝の会でのコミュニケーションを練習しよう',tag:'朝の会',
+     sit:'朝の会で、今日の気持ちを一言ずつ発表する時間になりました。',
+     dialogs:[{who:'先生',txt:'「では一人ずつ、今日の気持ちを教えてください」',pl:false}],
+     choices:[
+       {txt:'「今日は元気です」または「今日は少し眠いです」と自分の気持ちを言う',level:'best',fb:'自分の気持ちを言葉にして伝えられたね！朝の会での大切なスキルだよ。'},
+       {txt:'小さな声でつぶやく程度に言う',level:'good',fb:'小さくても言えたね！少しずつ声を大きくしていこう。'},
+       {txt:'恥ずかしくて何も言えない、または「べつに」と言う',level:'try',fb:'恥ずかしいよね。「元気です」の一言だけでいいよ。ゆっくり練習していこう。'}
+     ],
+     tip:'「元気です」「少し眠いです」どんな言葉でも大丈夫。伝えようとしたことが大切だよ。'},
+  ],
+  '3s':[
+    {icon:'🏭',title:'現場実習に行く',desc:'職場での挨拶と報告を練習しよう',tag:'現場実習',
+     sit:'現場実習の初日です。職場の担当者に挨拶をします。',
+     dialogs:[{who:'担当者',txt:'「今日からよろしくお願いします。まず仕事の説明をしますね」',pl:false}],
+     choices:[
+       {txt:'「よろしくお願いします」とはっきり言い、説明をメモしながら聞く',level:'best',fb:'挨拶と聞く姿勢が完璧だね！職場の人はそういう姿勢を見ているよ。'},
+       {txt:'「よろしくお願いします」と言い、説明を聞く',level:'good',fb:'挨拶できたね！メモを取れるとさらに「しっかりしてるな」と思われるよ。'},
+       {txt:'緊張して小さな声で「…よろしくお願いします」と言う',level:'try',fb:'緊張するのは当然だよ。小さくても「よろしくお願いします」が言えたことがえらい！少しずつ慣れていこう。'}
+     ],
+     tip:'実習先では「挨拶」「返事」「報告」が特に大切。緊張しても声に出してみよう。'},
+    {icon:'🗣️',title:'進路について話し合う',desc:'自分の希望を伝える練習をしよう',tag:'進路学習',
+     sit:'先生と進路面談があります。卒業後にしたいことを聞かれました。',
+     dialogs:[{who:'先生',txt:'「卒業後はどんなことをしたいですか？」',pl:false}],
+     choices:[
+       {txt:'「〇〇の仕事をしてみたいです。でもまだよくわからないところもあります」と正直に話す',level:'best',fb:'自分の希望と不安を両方伝えられたね。正直に話すことが一番大切だよ。'},
+       {txt:'「わかりません」と答える',level:'good',fb:'「わかりません」と言えたのも正直で大切だよ。「どんな仕事があるか知りたい」と付け加えると、先生も助かるよ。'},
+       {txt:'何も言えずに黙ってしまう',level:'try',fb:'話しにくい話題だよね。「まだよくわからないです」の一言から始めていいよ。先生は一緒に考えてくれるよ。'}
+     ],
+     tip:'進路の話は「正解」はないよ。「わからない」も立派な答え。正直に話すことが大切だよ。'},
+    {icon:'🛒',title:'買い物学習をする',desc:'お店でのコミュニケーションを練習しよう',tag:'買い物学習',
+     sit:'スーパーで学習の一環として買い物をしています。レジに並んでいるとき、金額が足りないことに気づきました。',
+     dialogs:[{who:'レジ係の人',txt:'「合計で〇〇円になります」',pl:false}],
+     choices:[
+       {txt:'「すみません、お金が足りませんでした。一つ返品してもいいですか？」と伝える',level:'best',fb:'困った場面で落ち着いて伝えられたね！お店の人はちゃんと対応してくれるよ。'},
+       {txt:'引率の先生を呼びに行く',level:'good',fb:'先生に頼るのも大切な判断だよ。一人で解決しようとしつつ、難しければ頼ることができるといいよ。'},
+       {txt:'パニックになってその場を離れてしまう',level:'try',fb:'焦ってしまうよね。「すみません」の一言でお店の人は助けてくれるよ。事前に練習しておくと安心だよ。'}
+     ],
+     tip:'困ったときは「すみません」の一言。お店の人は助けてくれるよ。練習しておこう。'},
   ]
 };
 
@@ -1215,28 +3378,126 @@ let breathRunning = false;
 // NAVIGATION
 // ============================================================
 function home(){ go('s-home'); }
+// 各画面の「もどる先」マップ
+const BACK_MAP = {
+  's-emotion':             { dest: ()=>home(),             label:'← ホームへ' },
+  's-scene-list':          { dest: ()=>home(),             label:'← ホームへ' },
+  's-rp':                  { dest: ()=>go('s-scene-list'), label:'← リストへ' },
+  's-word':                { dest: ()=>home(),             label:'← ホームへ' },
+  's-story-list':          { dest: ()=>home(),             label:'← ホームへ' },
+  's-story':               { dest: ()=>go('s-story-list'), label:'← リストへ' },
+  's-quiz':                { dest: ()=>home(),             label:'← ホームへ' },
+  's-thermo':              { dest: ()=>home(),             label:'← ホームへ' },
+  's-badge':               { dest: ()=>home(),             label:'← ホームへ' },
+  's-report':              { dest: ()=>home(),             label:'← ホームへ' },
+  's-photo':               { dest: ()=>home(),             label:'← ホームへ' },
+  's-photo-edit':          { dest: ()=>go('s-photo'),      label:'← もどる' },
+  's-photo-play':          { dest: ()=>go('s-photo'),      label:'← リストへ' },
+  's-teacher':             { dest: ()=>home(),             label:'← ホームへ' },
+  's-teacher-custom':      { dest: ()=>go('s-teacher'),    label:'← もどる' },
+  's-teacher-custom-edit': { dest: ()=>go('s-teacher-custom'), label:'← もどる' },
+  's-teacher-edit':        { dest: ()=>go('s-teacher'),    label:'← もどる' },
+  's-teacher-share':       { dest: ()=>go('s-teacher'),    label:'← もどる' },
+};
+
+function updateBottomBack(id){
+  const bar = document.getElementById('bottom-back-bar');
+  const btn = document.getElementById('bottom-back-btn');
+  const info = BACK_MAP[id];
+  if(info && id !== 's-home'){
+    bar.classList.add('show');
+    btn.textContent = info.label;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+function bottomBack(){
+  const active = document.querySelector('.scr.on');
+  if(!active) return home();
+  const info = BACK_MAP[active.id];
+  if(info) info.dest();
+  else home();
+}
+
 function go(id){
+  if(screenLocked && id !== document.querySelector('.scr.on')?.id) return;
   stopSpeak();
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.getElementById(id).classList.add('on');
   window.scrollTo(0,0);
   if(id==='s-emotion') buildEmotions();
-  if(id==='s-scene-list') buildSceneList();
+  if(id==='s-thermo'){
+    // スライダーを0にリセットして初期表示
+    const sl = document.getElementById('thermo-slider');
+    if(sl){ sl.value = 0; updateThermo(0); }
+    renderThermoLog();
+  }
+  if(id==='s-scene-list'){
+    const isSchool = typeof currentLv === 'string';
+    document.getElementById('scene-lv-tabs').style.display    = isSchool ? 'none' : '';
+    document.getElementById('scene-school-tabs').style.display = isSchool ? '' : 'none';
+    document.getElementById('tab-normal').classList.toggle('on', !isSchool);
+    document.getElementById('tab-school').classList.toggle('on',  isSchool);
+    buildSceneList();
+  }
   if(id==='s-word'){ currentWQIdx=0; buildWordQuiz(); }
   if(id==='s-story-list') buildStoryList();
   if(id==='s-quiz'){ currentQuizIdx=0; currentQuizScore=0; buildQuiz(); }
+  if(id==='s-badge') buildBadgeScreen();
+  if(id==='s-breath') setTimeout(()=>{ awardBadge('breath'); recordActivity('breath',0,'done'); }, 1000);
+  if(id==='s-photo'){ loadPhotoScenes(); buildPhotoList(); }
+  if(id==='s-teacher-custom') buildCustomList();
+  if(id==='s-teacher-edit'){ currentEditTab='rp'; currentEditLv=1; buildEditList(); }
+  if(id==='s-teacher-share') buildShareScreen();
+  if(id==='s-report') buildReport();
+  if(id !== 's-teacher-share') { /* QRリーダーは廃止 */ }
+  updateBottomBack(id);
 }
+let sceneMode = 'normal'; // 'normal' or 'school'
+
 function setLv(lv){
   currentLv = lv;
-  // すべてのレベルタブを同期
+  // 通常版タブ（数値キー）
   document.querySelectorAll('.lvtab').forEach(t=>{
     t.classList.toggle('on', +t.dataset.lv === lv);
   });
 }
 
+function setSceneMode(mode){
+  sceneMode = mode;
+  document.getElementById('tab-normal').classList.toggle('on', mode==='normal');
+  document.getElementById('tab-school').classList.toggle('on', mode==='school');
+  document.getElementById('scene-lv-tabs').style.display  = mode==='normal' ? '' : 'none';
+  document.getElementById('scene-school-tabs').style.display = mode==='school' ? '' : 'none';
+  if(mode==='normal'){
+    currentLv = 1;
+    setLv(1);
+  } else {
+    currentLv = '1s';
+    // 学校版タブのon状態を更新
+    document.querySelectorAll('.lvtab-school').forEach(t=>{
+      t.classList.toggle('on', t.dataset.slv === currentLv);
+    });
+  }
+  buildSceneList();
+}
+
 // アクティビティ画面内でレベル変更→内容を即リフレッシュ
 function setLvAndRefresh(lv, screen){
-  setLv(lv);
+  currentLv = lv;
+  // 通常版タブ同期
+  if(typeof lv === 'number'){
+    document.querySelectorAll('.lvtab').forEach(t=>{
+      t.classList.toggle('on', +t.dataset.lv === lv);
+    });
+  }
+  // 学校版タブ同期
+  if(typeof lv === 'string'){
+    document.querySelectorAll('.lvtab-school').forEach(t=>{
+      t.classList.toggle('on', t.dataset.slv === lv);
+    });
+  }
   if(screen === 'scene-list') buildSceneList();
   if(screen === 'word'){ currentWQIdx=0; buildWordQuiz(); }
   if(screen === 'story-list') buildStoryList();
@@ -1271,16 +3532,21 @@ function closeED(){ document.getElementById('edetail').classList.remove('on'); }
 // SCENE LIST
 // ============================================================
 function buildSceneList(){
-  const scenes=SCENES[currentLv]||[];
-  document.getElementById('slist').innerHTML=scenes.map((s,i)=>`
-    <div class="sitem lv${currentLv}" onclick="startRP(${i})">
-      <span class="sico">${s.icon}</span>
-      <div>
-        <div style="font-size:15px;font-weight:700;">${s.title}</div>
-        <div style="font-size:12px;color:var(--sub);">${s.desc}</div>
-      </div>
-      <span class="stag">${s.tag}</span>
-    </div>`).join('');
+  const scenes = SCENES[currentLv] || [];
+  const isSchool = typeof currentLv === 'string';
+  const lvColor = isSchool ? 'var(--or)' :
+    currentLv===1 ? 'var(--lv1)' : currentLv===2 ? 'var(--lv2)' : 'var(--lv3)';
+  document.getElementById('slist').innerHTML = (scenes.length === 0
+    ? '<div style="padding:24px;text-align:center;color:var(--sub);">場面がないよ</div>'
+    : scenes.map((s,i)=>`
+      <div class="sitem ${isSchool?'school':'lv'+currentLv}" onclick="startRP(${i})">
+        <span class="sico">${s.icon}</span>
+        <div>
+          <div style="font-size:15px;font-weight:700;">${s.title}</div>
+          <div style="font-size:12px;color:var(--sub);">${s.desc}</div>
+        </div>
+        <span class="stag" style="${isSchool?'background:#FFF0EA;color:var(--or);':''}">${s.tag}</span>
+      </div>`).join(''));
 }
 
 // ============================================================
@@ -1305,8 +3571,12 @@ function startRP(idx){
   const s=(SCENES[currentLv]||[])[idx];
   if(!s) return;
   rpShuffled = shuffle(s.choices.map((c,i)=>({...c, origIdx:i})));
+  const imgHtml = s.img
+    ? `<img src="${s.img}" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r);display:block;margin-bottom:0;" alt="${s.title}">`
+    : '';
   const html=`
     <div class="spk-row"><button class="spk-btn" onclick="toggleSpeakRP(${idx})">🔊 よみあげ</button></div>
+    ${imgHtml}
     <div class="rp-scene">
       <div class="rp-sico">${s.icon}</div>
       <div class="rp-stitle">${s.title}</div>
@@ -1348,7 +3618,8 @@ function answerRP(ci,sceneIdx){
     <div class="res-desc">${chosen.fb}</div>
     <div class="res-tip"><div class="res-tip-h">💡 ポイント</div>${s.tip}</div>
     <button class="action-btn btn-next" onclick="go('s-scene-list')">ほかのシーンへ</button>`;
-  if(lv==='best') confetti();
+  if(lv==='best') { confetti(); checkRPBadge(); }
+  recordActivity('rp', currentLv, lv);
   rb.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>autoSpeak(()=>speak(title+'　'+chosen.fb)), 300);
 }
@@ -1367,7 +3638,7 @@ function buildWordQuiz(){
         <div style="font-size:15px;color:var(--sub);margin-bottom:20px;">${qs.length}問クリアしたよ！</div>
         <button class="action-btn btn-next" onclick="currentWQIdx=0;buildWordQuiz()">もう一度</button>
       </div>`;
-    confetti(); return;
+    confetti(); checkWQBadge(); recordActivity('wq', currentLv, 'done'); return;
   }
   const q=qs[currentWQIdx];
   currentWQAnswered=false;
@@ -1444,12 +3715,21 @@ function buildStoryReader(){
   const total=pages.length;
   const reader=document.getElementById('story-reader');
   reader.innerHTML=pages.map((p,i)=>{
+    // 選択肢をシャッフルして正解インデックスを追跡
+    let shuffledAns = p.ans ? p.ans.map((a,ai)=>({txt:a, origIdx:ai})) : [];
+    shuffledAns = shuffle(shuffledAns);
+    // シャッフル後の正解位置
+    const shuffledCorrect = shuffledAns.findIndex(a=>a.origIdx===p.correct);
+    // シャッフル結果をページに保存（answerStoryで参照するため）
+    if(p.ans) p._shuffled = shuffledAns;
+    if(p.ans) p._shuffledCorrect = shuffledCorrect;
+
     const qBlock=p.q?`
       <div class="story-q">
         <div class="story-q-h">🤔 考えてみよう</div>
         <div class="story-q-txt">${p.q}</div>
-        ${p.ans.map((a,ai)=>`
-          <button class="story-a-btn" onclick="answerStory(${i},${ai})">${a}</button>`).join('')}
+        ${shuffledAns.map((a,ai)=>`
+          <button class="story-a-btn" onclick="answerStory(${i},${ai})">${a.txt}</button>`).join('')}
       </div>`:'';
     return `
       <div class="story-page ${i===0?'on':''}" id="sp-${i}">
@@ -1468,14 +3748,16 @@ function buildStoryReader(){
 function answerStory(pageIdx,ansIdx){
   const story=(STORIES[currentLv]||[])[currentStoryIdx];
   const p=story.pages[pageIdx];
+  // シャッフル後の正解インデックスを使用
+  const correctIdx = p._shuffledCorrect !== undefined ? p._shuffledCorrect : p.correct;
   const btns=document.querySelectorAll(`#sp-${pageIdx} .story-a-btn`);
   btns.forEach((b,i)=>{
     b.disabled=true;
-    if(i===p.correct) b.classList.add('lv-best');
+    if(i===correctIdx) b.classList.add('lv-best');
     else b.classList.add('lv-try');
   });
   const fb=document.createElement('div');
-  if(ansIdx===p.correct){
+  if(ansIdx===correctIdx){
     fb.style.cssText='margin:10px 14px;padding:12px 14px;background:#FFF9E6;border-radius:var(--r-sm);font-size:0.875rem;border-left:4px solid var(--or);';
     fb.textContent='🌟 '+p.cm;
     confetti();
@@ -1493,6 +3775,8 @@ function storyNav(dir){
   currentStoryPage=Math.max(0,Math.min(total-1,currentStoryPage+dir));
   const next=document.getElementById('sp-'+currentStoryPage);
   if(next){ next.classList.add('on'); next.scrollIntoView({behavior:'smooth',block:'start'}); }
+  // 最終ページに達したらバッジ付与
+  if(currentStoryPage===total-1){ checkStoryBadge(); recordActivity('story', currentLv, 'done'); }
   setTimeout(()=>autoSpeak(()=>speakStoryPage(currentStoryPage)), 300);
 }
 
@@ -1575,12 +3859,13 @@ function showQuizFin(){
   fin.classList.add('on');
   const pct=Math.round((currentQuizScore/qs.length)*100);
   const ico=pct===100?'🏆':pct>=75?'🌟':pct>=50?'😊':'💪';
-  const msg=pct===100?'全問正解！すごい！！':'aisの問題ができたね。間違えた問題も、なぜそうなるか考えてみよう。';
+  const msg=pct===100?'全問正解！すごい！！':'たくさんの問題ができたね。間違えた問題も、なぜそうなるか考えてみよう。';
   document.getElementById('qf-ico').textContent=ico;
   document.getElementById('qf-title').textContent='クイズおわり！';
   document.getElementById('qf-sc').textContent=`${currentQuizScore} / ${qs.length}`;
   document.getElementById('qf-msg').textContent=msg;
-  if(pct===100) confetti(80);
+  if(pct>=75){ confetti(80); checkQuizBadge(); }
+  recordActivity('quiz', currentLv, pct+'%');
 }
 
 // ============================================================
@@ -1693,6 +3978,141 @@ function runBreath(){
 }
 
 // ============================================================
+// TTS ENHANCED（声選択・ハイライト）
+// ============================================================
+let availableVoices = [];
+let selectedVoiceName = '';
+let highlightEl = null;   // 現在ハイライト中の要素
+let hlSpans = [];         // ハイライト用span配列
+let hlOrigHTML = null;    // 元のHTML退避
+
+function loadVoices(){
+  if(!ttsSupported()) return;
+  const fill = ()=>{
+    availableVoices = window.speechSynthesis.getVoices().filter(v=>
+      v.lang.startsWith('ja') || v.lang === ''
+    );
+    // 日本語がなければ全音声
+    if(!availableVoices.length)
+      availableVoices = window.speechSynthesis.getVoices();
+    buildVoiceSelect();
+  };
+  if(window.speechSynthesis.getVoices().length) fill();
+  window.speechSynthesis.onvoiceschanged = fill;
+}
+
+function buildVoiceSelect(){
+  const sel = document.getElementById('voice-select');
+  if(!sel) return;
+  const cur = cfg.voiceName || '';
+  sel.innerHTML = '<option value="">（自動）</option>' +
+    availableVoices.map(v=>`
+      <option value="${v.name}" ${v.name===cur?'selected':''}>${v.name}${v.localService?' 🔵':' ☁️'}</option>
+    `).join('');
+}
+
+function selectVoice(name){
+  cfg.voiceName = name;
+  saveCfg();
+}
+
+function testVoice(){
+  speak('こんにちは！ぼくはSSTアプリです。よろしくね！');
+}
+
+function getSelectedVoice(){
+  if(!cfg.voiceName) return null;
+  return availableVoices.find(v=>v.name===cfg.voiceName) || null;
+}
+
+// ── ハイライト付きspeak ─────────────────────────
+function speakWithHighlight(targetEl, text, onEnd){
+  if(!ttsSupported()) return;
+  stopSpeak();
+  clearHighlight();
+
+  const clean = text
+    .replace(/<[^>]+>/g,'')
+    .replace(/[^\u0020-\u007E\u3000-\u9FFF\uFF00-\uFFEF\u30A0-\u30FF\u3040-\u309F]/g,' ')
+    .replace(/\s+/g,' ').trim();
+  if(!clean) return;
+
+  const useHighlight = cfg.highlight && targetEl;
+
+  ttsUtter = new SpeechSynthesisUtterance(clean);
+  ttsUtter.lang  = 'ja-JP';
+  ttsUtter.rate  = [0.6,0.75,0.88,1.0,1.15][cfg.speed-1] || 0.88;
+  ttsUtter.pitch = 1.05;
+  ttsUtter.volume = 1;
+
+  const voice = getSelectedVoice();
+  if(voice) ttsUtter.voice = voice;
+
+  ttsActive = true;
+  updateSpeakBtns(true);
+
+  if(useHighlight){
+    // テキストをワード単位でspanに分割
+    hlOrigHTML = targetEl.innerHTML;
+    highlightEl = targetEl;
+    const words = clean.split(/(?<=[。、！？\s])/);
+    let charPos = 0;
+    hlSpans = words.map(w=>{
+      const span = document.createElement('span');
+      span.textContent = w;
+      span.dataset.start = charPos;
+      span.dataset.end   = charPos + w.length;
+      charPos += w.length;
+      return span;
+    });
+    targetEl.innerHTML = '';
+    hlSpans.forEach(s=>targetEl.appendChild(s));
+
+    ttsUtter.onboundary = e=>{
+      if(e.name !== 'word') return;
+      const pos = e.charIndex;
+      hlSpans.forEach(s=>{
+        const start = parseInt(s.dataset.start);
+        const end   = parseInt(s.dataset.end);
+        if(pos >= start && pos < end){
+          s.classList.add('tts-highlight-word');
+        } else {
+          s.classList.remove('tts-highlight-word');
+        }
+      });
+    };
+  }
+
+  ttsUtter.onend = ()=>{
+    ttsActive=false;
+    updateSpeakBtns(false);
+    clearHighlight();
+    if(onEnd) onEnd();
+  };
+  ttsUtter.onerror = ()=>{
+    ttsActive=false;
+    updateSpeakBtns(false);
+    clearHighlight();
+  };
+
+  setTimeout(()=>{ window.speechSynthesis.speak(ttsUtter); }, 80);
+}
+
+function clearHighlight(){
+  if(highlightEl && hlOrigHTML !== null){
+    // spanを除いてテキストだけ復元
+    hlSpans.forEach(s=>s.classList.remove('tts-highlight-word'));
+    // 少し遅らせて目に残す
+    const el = highlightEl;
+    const orig = hlOrigHTML;
+    setTimeout(()=>{
+      if(el && orig !== null) el.innerHTML = orig;
+    }, 300);
+  }
+  hlSpans=[]; hlOrigHTML=null; highlightEl=null;
+}
+
+// ============================================================
 // TTS — Web Speech API（日本語）
 // ============================================================
 let ttsActive = false;
@@ -1705,7 +4125,6 @@ function ttsSupported(){
 function speak(text, onEnd){
   if(!ttsSupported()) return;
   stopSpeak();
-  // HTMLタグ・絵文字っぽい文字を除去
   const clean = text
     .replace(/<[^>]+>/g,'')
     .replace(/[^\u0020-\u007E\u3000-\u9FFF\uFF00-\uFFEF\u30A0-\u30FF\u3040-\u309F]/g,' ')
@@ -1713,13 +4132,15 @@ function speak(text, onEnd){
   if(!clean) return;
   ttsUtter = new SpeechSynthesisUtterance(clean);
   ttsUtter.lang = 'ja-JP';
-  ttsUtter.rate = 0.88;
+  ttsUtter.rate = [0.6,0.75,0.88,1.0,1.15][cfg.speed-1] || 0.88;
   ttsUtter.pitch = 1.05;
   ttsUtter.volume = 1;
+  // 選択された声を適用
+  const voice = getSelectedVoice();
+  if(voice) ttsUtter.voice = voice;
   ttsActive = true;
   ttsUtter.onend = ()=>{ ttsActive=false; updateSpeakBtns(false); if(onEnd) onEnd(); };
   ttsUtter.onerror = ()=>{ ttsActive=false; updateSpeakBtns(false); };
-  // iOSは音声リストが非同期なので少し待つ
   setTimeout(()=>{ window.speechSynthesis.speak(ttsUtter); }, 80);
   updateSpeakBtns(true);
 }
@@ -1802,13 +4223,1866 @@ function speakStoryPage(pageIdx){
   if(!story) return;
   const p=story.pages[pageIdx];
   let txt=p.txt.replace(/<[^>]+>/g,'');
-  if(p.q) txt += '　かんがえてみよう。'+p.q+'　'+p.ans.map((a,i)=>`${i+1}ばん。${a}`).join('　');
-  speak(txt);
+  if(p.q){
+    const shuffled = p._shuffled || p.ans.map((a,ai)=>({txt:a,origIdx:ai}));
+    txt += '　かんがえてみよう。'+p.q+'　'+shuffled.map((a,i)=>`${i+1}ばん。${a.txt}`).join('　');
+  }
+  // ハイライト対象：story-txt要素
+  const pageEl = document.getElementById('sp-'+pageIdx);
+  const txtEl  = pageEl ? pageEl.querySelector('.story-txt') : null;
+  if(cfg.highlight && txtEl){
+    speakWithHighlight(txtEl, txt);
+  } else {
+    speak(txt);
+  }
 }
 
 function speakText(text){
   if(ttsActive){ stopSpeak(); return; }
   speak(text);
+}
+
+// ============================================================
+// AI STORY GENERATION（AIソーシャルストーリー生成）
+// ============================================================
+// AI生成残り回数バッジ更新
+function updateRemainingBadge(n){
+  const num    = document.getElementById('ai-remaining-num');
+  const badge  = document.getElementById('ai-remaining-badge');
+  const genBtn = document.getElementById('ai-generate-btn');
+  if(!num || !badge) return;
+  num.textContent = n;
+  badge.className = 'ai-remaining-badge' + (n===0?' empty':n===1?' low':'');
+  if(n <= 0){
+    badge.innerHTML = '本日の利用上限（3回）に達しました';
+    if(genBtn) genBtn.disabled = true;
+  } else {
+    badge.innerHTML = `本日あと <strong>${n}</strong> 回 利用できます`;
+  }
+}
+
+// Worker URL（デプロイ後にここを変更してください）
+const WORKER_URL = 'https://sst-api.YOUR-SUBDOMAIN.workers.dev';
+
+let generatedStory = null;
+let generatedRP    = null;
+
+// APIキー関連UI（Worker方式では不使用・互換のために残す）
+function loadApiKeyUI(){}
+function saveApiKey(){}
+
+async function generateAIStory(){
+
+  const theme   = document.getElementById('ai-theme-input').value.trim();
+  if(!theme){ alert('テーマ・場面を入力してください'); return; }
+
+  const name    = document.getElementById('ai-name-input').value.trim() || 'わたし';
+  const lvRadios = document.querySelectorAll('input[name="ai-lv"]');
+  let lv = 1;
+  lvRadios.forEach(r=>{ if(r.checked) lv = parseInt(r.value); });
+  const lvName  = ['','はじめて（Lv1）','なれてきた（Lv2）','もっとできる（Lv3）'][lv];
+
+  const genStory = document.getElementById('ai-gen-story').checked;
+  const genRP    = document.getElementById('ai-gen-rp').checked;
+
+  if(!genStory && !genRP){ alert('生成するものを1つ以上選んでください'); return; }
+
+  // ローディング表示
+  const btn = document.getElementById('ai-generate-btn');
+  btn.disabled = true;
+  document.getElementById('ai-result-area').style.display = 'none';
+  showAILoading();
+
+  // プロンプト構築
+  const genItems = [];
+  if(genStory) genItems.push('ソーシャルストーリー');
+  if(genRP)    genItems.push('ロールプレイ場面');
+
+  const prompt = `あなたは特別支援教育のソーシャルスキルトレーニング（SST）教材を作成する専門家です。
+
+以下の条件でSST教材を日本語で生成してください。
+
+【テーマ・場面】
+${theme}
+
+【主人公の名前】
+${name}
+
+【対象レベル】
+${lvName}
+
+【生成するもの】
+${genItems.join('、')}
+
+---
+
+${genStory ? `
+## ソーシャルストーリーの生成ルール
+
+- ページ数：4〜6ページ
+- 各ページは「イラスト絵文字（2文字）」「背景色（HEX）」「本文（1〜2文）」で構成
+- 途中の1ページに問いかけ（q）と選択肢3つ（ans配列）を入れる
+- 選択肢の正解インデックス（correct）は0
+- フィードバックコメント（cm）は肯定的に
+
+以下のJSON形式で出力（コードブロック不要、JSONのみ）：
+
+{
+  "story": {
+    "cover": "絵文字1文字",
+    "title": "ストーリーのタイトル",
+    "desc": "一行説明",
+    "bg": "#色コード",
+    "pages": [
+      {"illus": "絵文字2文字", "bg": "#色コード", "txt": "本文"},
+      {"illus": "絵文字2文字", "bg": "#色コード", "txt": "本文", "q": "問いかけ文", "ans": ["選択肢1", "選択肢2", "選択肢3"], "correct": 0, "cm": "フィードバック"},
+      {"illus": "絵文字2文字", "bg": "#色コード", "txt": "本文"}
+    ]
+  }
+}` : ''}
+
+${genRP ? `
+## ロールプレイ場面の生成ルール
+
+- 場面タイトル・説明文・状況説明
+- ダイアログ（1〜2行）
+- 選択肢3つ（level: "best"/"good"/"try"）
+- 各選択肢に個別フィードバック（fb）
+- ポイント・ヒント（tip）
+
+以下のJSON形式で出力（コードブロック不要、JSONのみ）：
+
+{
+  "roleplay": {
+    "icon": "絵文字1文字",
+    "title": "場面タイトル",
+    "desc": "一行説明",
+    "tag": "タグ名",
+    "sit": "状況説明文",
+    "dialogs": [{"who": "誰の発言", "txt": "セリフ", "pl": false}],
+    "choices": [
+      {"txt": "選択肢（best）", "level": "best", "fb": "フィードバック"},
+      {"txt": "選択肢（good）", "level": "good", "fb": "フィードバック"},
+      {"txt": "選択肢（try）",  "level": "try",  "fb": "フィードバック"}
+    ],
+    "tip": "ポイント・ヒント"
+  }
+}` : ''}
+
+重要：
+- 子どもを否定しない、どの選択肢も共感的なフィードバックにする
+- 実際の特別支援学校・支援学級でよくある場面にする
+- 選択肢は「よくある子どもの行動」にする（極端なNGを避ける）
+- JSON以外のテキストは出力しない
+- ${genStory && genRP ? '両方のJSONをひとつの{}に含める' : ''}`;
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+
+    if(!response.ok){
+      throw new Error(data.error || `エラー: ${response.status}`);
+    }
+
+    // 残り回数を更新
+    if(data._remaining !== undefined) updateRemainingBadge(data._remaining);
+
+    const raw = data.content?.find(c=>c.type==='text')?.text || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('JSONの解析に失敗しました。もう一度お試しください。');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    generatedStory = parsed.story    || null;
+    generatedRP    = parsed.roleplay || null;
+
+    hideAILoading();
+    showAIResult(lv);
+
+  } catch(e){
+    hideAILoading();
+    document.getElementById('ai-result-area').style.display = 'block';
+    document.getElementById('ai-result-preview').innerHTML =
+      `<div class="ai-error">⚠️ エラーが発生しました<br><br>${e.message}<br><br>` +
+      `WorkerのURLが正しく設定されているか確認してください。</div>`;
+    document.getElementById('ai-result-actions').style.display = 'none';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showAILoading(){
+  const area = document.getElementById('ai-result-area');
+  area.style.display = 'block';
+  document.getElementById('ai-result-preview').innerHTML = `
+    <div class="ai-loading">
+      <div class="ai-loading-dots">
+        <div class="ai-loading-dot"></div>
+        <div class="ai-loading-dot"></div>
+        <div class="ai-loading-dot"></div>
+      </div>
+      <div class="ai-loading-text">AIが考えています… しばらくお待ちください</div>
+    </div>`;
+  document.getElementById('ai-result-actions').style.display = 'none';
+}
+
+function hideAILoading(){
+  document.getElementById('ai-result-actions') &&
+    (document.getElementById('ai-result-actions').style.display = 'flex');
+}
+
+function showAIResult(lv){
+  let html = '';
+
+  if(generatedStory){
+    const s = generatedStory;
+    html += `<div class="ai-preview-card">
+      <div class="ai-preview-card-title">📖 ソーシャルストーリー：${s.cover||'📖'} ${s.title||'（タイトルなし）'}</div>
+      ${(s.pages||[]).map((p,i)=>`
+        <div class="ai-preview-page">
+          <div class="ai-preview-page-num">ページ ${i+1}</div>
+          <div>${p.illus||''} ${p.txt||''}</div>
+          ${p.q ? `<div style="margin-top:8px;font-size:0.8125rem;color:#6C3483;">🤔 ${p.q}</div>
+            ${(p.ans||[]).map((a,ai)=>`<div style="font-size:0.75rem;color:var(--sub);margin-left:12px;">
+              ${ai===p.correct?'⭐':'　'} ${a}</div>`).join('')}` : ''}
+        </div>`).join('')}
+    </div>`;
+  }
+
+  if(generatedRP){
+    const r = generatedRP;
+    html += `<div class="ai-preview-card">
+      <div class="ai-preview-card-title">🎭 ロールプレイ：${r.icon||'🎭'} ${r.title||'（タイトルなし）'}</div>
+      <div class="ai-preview-page">
+        <div style="font-size:0.8125rem;margin-bottom:8px;">${r.sit||''}</div>
+        ${(r.choices||[]).map(c=>`
+          <div class="ai-preview-choice">
+            <span class="ai-preview-choice-lv">${c.level==='best'?'⭐':c.level==='good'?'😊':'💪'}</span>
+            <span>${c.txt||''}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('ai-result-preview').innerHTML = html;
+  document.getElementById('ai-result-area').style.display = 'block';
+  document.getElementById('ai-result-actions').style.display = 'flex';
+  document.getElementById('ai-add-btn').style.display = '';
+  document.getElementById('ai-add-msg').textContent = '';
+
+  // 生成したコンテンツのlvを保存
+  document.getElementById('ai-add-btn').dataset.lv = lv;
+
+  document.getElementById('ai-result-area').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function addGeneratedContent(){
+  const lv  = parseInt(document.getElementById('ai-add-btn').dataset.lv) || 1;
+  const msg = document.getElementById('ai-add-msg');
+  let added = [];
+
+  if(generatedStory){
+    if(!STORIES[lv]) STORIES[lv] = [];
+    STORIES[lv].push(generatedStory);
+    added.push('ソーシャルストーリー');
+  }
+  if(generatedRP){
+    if(!SCENES[lv]) SCENES[lv] = [];
+    SCENES[lv].push(generatedRP);
+    added.push('ロールプレイ');
+  }
+
+  // カスタムデータとしてlocalStorageにも保存
+  const aiKey = 'sst_ai_generated_v1';
+  try {
+    const saved = JSON.parse(localStorage.getItem(aiKey)||'[]');
+    saved.push({ lv, story: generatedStory, rp: generatedRP, ts: Date.now() });
+    localStorage.setItem(aiKey, JSON.stringify(saved.slice(-20))); // 最大20件
+  } catch(e){}
+
+  msg.style.color = '#2ECC71';
+  msg.textContent = `✅ ${added.join('・')}を追加しました！ロールプレイ・ソーシャルストーリーから使えます。`;
+  document.getElementById('ai-add-btn').style.display = 'none';
+  confetti(30);
+}
+
+// AI生成コンテンツをLocalStorageから復元
+function loadAIGenerated(){
+  try {
+    const saved = JSON.parse(localStorage.getItem('sst_ai_generated_v1')||'[]');
+    saved.forEach(item=>{
+      const lv = item.lv || 1;
+      if(item.story){
+        if(!STORIES[lv]) STORIES[lv] = [];
+        // 重複チェック（titleで）
+        if(!STORIES[lv].find(s=>s.title===item.story.title))
+          STORIES[lv].push(item.story);
+      }
+      if(item.rp){
+        if(!SCENES[lv]) SCENES[lv] = [];
+        if(!SCENES[lv].find(s=>s.title===item.rp.title))
+          SCENES[lv].push(item.rp);
+      }
+    });
+  } catch(e){}
+}
+
+// ============================================================
+// ACTIVITY LOG & REPORT（今週のできたことレポート）
+// ============================================================
+const ACTIVITY_LOG_KEY  = 'sst_activity_log_v1';
+const REPORT_NAME_KEY   = 'sst_report_name_v1';
+const WEEK_BADGE_KEY    = 'sst_week_badges_v1';
+
+let activityLog = [];     // [{ts, type, lv, result}]
+let weekBadges  = [];     // 今週取得したバッジID
+let reportName  = '';
+
+const ACT_LABEL = {
+  rp:     { ico:'🎭', name:'ロールプレイ' },
+  wq:     { ico:'💬', name:'ことばクイズ' },
+  story:  { ico:'📖', name:'ソーシャルストーリー' },
+  quiz:   { ico:'❓', name:'SSTクイズ' },
+  thermo: { ico:'🌡️', name:'きもち温度計' },
+  breath: { ico:'🌈', name:'きもちを落ち着ける' },
+  photo:  { ico:'📷', name:'写真SST' },
+};
+
+function loadActivityLog(){
+  try {
+    const s = localStorage.getItem(ACTIVITY_LOG_KEY);
+    activityLog = s ? JSON.parse(s) : [];
+    const wb = localStorage.getItem(WEEK_BADGE_KEY);
+    weekBadges = wb ? JSON.parse(wb) : [];
+    reportName = localStorage.getItem(REPORT_NAME_KEY) || '';
+  } catch(e){ activityLog=[]; weekBadges=[]; reportName=''; }
+}
+
+function saveActivityLog(){
+  try {
+    // 過去30日分のみ保持
+    const limit = Date.now() - 30*24*60*60*1000;
+    activityLog = activityLog.filter(a=>a.ts > limit);
+    localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(activityLog));
+  } catch(e){}
+}
+
+function saveReportName(){
+  reportName = document.getElementById('report-name-input').value;
+  localStorage.setItem(REPORT_NAME_KEY, reportName);
+}
+
+function recordActivity(type, lv, result){
+  activityLog.push({ ts: Date.now(), type, lv: lv||0, result: result||'done' });
+  saveActivityLog();
+}
+
+// バッジ取得時に今週バッジにも追加
+function recordWeekBadge(id){
+  const now = new Date();
+  // 今週の月曜基準で管理
+  const weekKey = getWeekKey(now);
+  const saved = JSON.parse(localStorage.getItem(WEEK_BADGE_KEY+'_key') || '{"key":"","ids":[]}');
+  if(saved.key !== weekKey){
+    // 新しい週ならリセット
+    weekBadges = [id];
+  } else {
+    if(!saved.ids.includes(id)) saved.ids.push(id);
+    weekBadges = saved.ids;
+  }
+  localStorage.setItem(WEEK_BADGE_KEY+'_key', JSON.stringify({key:weekKey, ids:weekBadges}));
+}
+
+function getWeekKey(d){
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day===0?-6:1); // 月曜に合わせる
+  const mon = new Date(d);
+  mon.setDate(diff);
+  return mon.toISOString().slice(0,10);
+}
+
+function getWeekRange(){
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day===0?6:day-1));
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+  return { mon, sun, label: `${fmt(mon)}（月）〜 ${fmt(sun)}（日）` };
+}
+
+function buildReport(){
+  const { mon, sun, label } = getWeekRange();
+  const startTs = mon.setHours(0,0,0,0);
+  const endTs   = new Date(sun).setHours(23,59,59,999);
+
+  // 今週のログ
+  const weekLog = activityLog.filter(a => a.ts >= startTs && a.ts <= endTs);
+
+  // 名前
+  reportName = localStorage.getItem(REPORT_NAME_KEY) || '';
+  const nameInput = document.getElementById('report-name-input');
+  if(nameInput) nameInput.value = reportName;
+  document.getElementById('report-child-name').textContent = reportName ? reportName + 'さん' : '';
+  document.getElementById('report-period').textContent = label;
+  document.getElementById('report-gen-date').textContent = new Date().toLocaleDateString('ja-JP');
+
+  // サマリー
+  const days = new Set(weekLog.map(a=>new Date(a.ts).toDateString())).size;
+  document.getElementById('rpt-days').textContent   = days;
+  document.getElementById('rpt-total').textContent  = weekLog.length;
+  // 今週のバッジ
+  const saved = JSON.parse(localStorage.getItem(WEEK_BADGE_KEY+'_key') || '{"key":"","ids":[]}');
+  const curWeekKey = getWeekKey(new Date());
+  const thisWeekBadges = saved.key === curWeekKey ? saved.ids : [];
+  document.getElementById('rpt-badges').textContent = thisWeekBadges.length;
+  document.getElementById('rpt-points').textContent = totalScore;
+
+  // 曜日グラフ
+  buildWeekChart(weekLog, mon);
+
+  // アクティビティ別
+  buildActivityList(weekLog);
+
+  // バッジ
+  buildReportBadges(thisWeekBadges);
+
+  // 温度計
+  buildThermoChart();
+}
+
+function buildWeekChart(weekLog, mon){
+  const labels = ['月','火','水','木','金','土','日'];
+  const counts = Array(7).fill(0);
+  const todayIdx = (new Date().getDay()+6)%7; // 月=0
+
+  weekLog.forEach(a=>{
+    const d = new Date(a.ts);
+    const idx = (d.getDay()+6)%7;
+    counts[idx]++;
+  });
+
+  const max = Math.max(...counts, 1);
+  const el  = document.getElementById('report-week-chart');
+  el.innerHTML = labels.map((lbl,i)=>{
+    const h   = Math.round((counts[i]/max)*56);
+    const cls = i===todayIdx ? 'today' : counts[i]===0 ? 'empty' : '';
+    return `<div class="report-week-col">
+      <div class="report-week-count">${counts[i]||''}</div>
+      <div class="report-week-bar-wrap">
+        <div class="report-week-bar ${cls}" style="height:${Math.max(h,counts[i]?8:4)}px"></div>
+      </div>
+      <div class="report-week-label">${lbl}</div>
+    </div>`;
+  }).join('');
+}
+
+function buildActivityList(weekLog){
+  const el = document.getElementById('report-activity-list');
+  if(!weekLog.length){
+    el.innerHTML='<div class="report-no-data">今週のきろくがないよ。<br>いろんな活動をやってみよう！</div>';
+    return;
+  }
+  const counts = {};
+  weekLog.forEach(a=>{ counts[a.type] = (counts[a.type]||0)+1; });
+  const max = Math.max(...Object.values(counts));
+  el.innerHTML = Object.entries(counts)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([type,cnt])=>{
+      const info = ACT_LABEL[type]||{ico:'📌',name:type};
+      const pct  = Math.round((cnt/max)*100);
+      return `<div class="report-act-row">
+        <span class="report-act-ico">${info.ico}</span>
+        <div class="report-act-info">
+          <div class="report-act-name">${info.name}</div>
+        </div>
+        <div class="report-act-bar-wrap">
+          <div class="report-act-bar" style="width:${pct}%"></div>
+        </div>
+        <div class="report-act-count">${cnt}回</div>
+      </div>`;
+    }).join('');
+}
+
+function buildReportBadges(ids){
+  const el = document.getElementById('report-badges-row');
+  const title = document.getElementById('report-badges-title');
+  if(!ids.length){
+    el.innerHTML='<div class="report-no-data" style="padding:0 0 12px;">今週のバッジはまだないよ。<br>がんばってみよう！</div>';
+    return;
+  }
+  title.textContent = `🏅 今週とったバッジ（${ids.length}こ）`;
+  el.innerHTML = ids.map(id=>{
+    const def = BADGE_DEF.find(b=>b.id===id);
+    if(!def) return '';
+    return `<div class="report-badge-item">
+      <span class="report-badge-ico">${def.ico}</span>
+      <div class="report-badge-name">${def.name}</div>
+    </div>`;
+  }).join('');
+}
+
+function buildThermoChart(){
+  const el = document.getElementById('report-thermo-chart');
+  if(!thermoLog.length){
+    el.innerHTML='<div class="report-no-data" style="padding:0 0 12px;">きもち温度計のきろくがないよ。</div>';
+    return;
+  }
+  el.innerHTML = [...thermoLog].reverse().map(r=>`
+    <div class="report-thermo-item">
+      <span class="report-thermo-face">${r.face}</span>
+      <div class="report-thermo-val" style="color:${r.color};border-color:${r.color};background:${r.bg}">${r.val}</div>
+      <span class="report-thermo-time">${r.time}</span>
+    </div>`).join('');
+}
+
+function shareReport(){
+  if(navigator.share){
+    navigator.share({
+      title: (reportName||'') + 'の今週のできたことレポート',
+      text: 'SSTアプリで今週がんばったことのレポートです！',
+    }).catch(()=>{});
+  } else {
+    alert('このブラウザでは共有機能が使えません。\nスクリーンショットを撮って共有してください。');
+  }
+}
+
+// ============================================================
+// HELP MODAL（つかいかた）
+// ============================================================
+function openHelp(){
+  const m = document.getElementById('help-modal');
+  m.style.display = 'flex';
+  requestAnimationFrame(()=> m.classList.add('on'));
+}
+function closeHelp(e){
+  if(e && e.target.id !== 'help-modal') return;
+  closeHelpModal();
+}
+function closeHelpModal(){
+  const m = document.getElementById('help-modal');
+  m.classList.remove('on');
+  setTimeout(()=>{ m.style.display='none'; }, 260);
+}
+
+// ============================================================
+// FULLSCREEN（全画面表示）
+// ============================================================
+function toggleFullscreen(){
+  const btn = document.getElementById('hdr-fs-btn');
+  if(!document.fullscreenElement && !document.webkitFullscreenElement){
+    const el = document.documentElement;
+    if(el.requestFullscreen)       el.requestFullscreen();
+    else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    btn.textContent = '⛶';
+    btn.title = '全画面解除';
+  } else {
+    if(document.exitFullscreen)       document.exitFullscreen();
+    else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+    btn.textContent = '⛶';
+    btn.title = '全画面表示';
+  }
+}
+// 全画面状態の変化を検知してボタンを更新
+document.addEventListener('fullscreenchange',      updateFSBtn);
+document.addEventListener('webkitfullscreenchange',updateFSBtn);
+function updateFSBtn(){
+  const btn = document.getElementById('hdr-fs-btn');
+  if(!btn) return;
+  const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  btn.textContent = isFS ? '⊡' : '⛶';
+}
+
+// ============================================================
+// SCREEN LOCK（画面ロック）
+// ============================================================
+let screenLocked = false;
+
+function toggleScreenLock(){
+  screenLocked = !screenLocked;
+  applyScreenLock();
+}
+
+function applyScreenLock(){
+  const overlay = document.getElementById('screen-lock-overlay');
+  const btn     = document.getElementById('hdr-lock-btn');
+  const backBar = document.getElementById('bottom-back-bar');
+
+  if(screenLocked){
+    overlay.style.display = 'flex';
+    btn.textContent = '🔒';
+    btn.classList.add('locked');
+    btn.title = 'ロック解除';
+    // 下部戻るボタンを非表示
+    if(backBar) backBar.style.pointerEvents = 'none';
+    if(backBar) backBar.style.opacity = '0.3';
+    // ブラウザの戻るを防ぐ
+    history.pushState(null, '', location.href);
+    window.addEventListener('popstate', preventBack);
+  } else {
+    overlay.style.display = 'none';
+    btn.textContent = '🔓';
+    btn.classList.remove('locked');
+    btn.title = '画面ロック';
+    if(backBar) backBar.style.pointerEvents = '';
+    if(backBar) backBar.style.opacity = '';
+    window.removeEventListener('popstate', preventBack);
+  }
+}
+
+function preventBack(){
+  if(screenLocked){
+    history.pushState(null, '', location.href);
+  }
+}
+
+// ============================================================
+// SHARE（データ共有・引継ぎ）
+// ============================================================
+let qrStream = null;
+let qrScanInterval = null;
+let qrCanvasCtx = null;
+
+function buildShareScreen(){
+  document.getElementById('share-custom-count').textContent = teacherCustomScenes.length;
+  document.getElementById('share-code-area').style.display  = 'none';
+  document.getElementById('import-code-msg').textContent    = '';
+  document.getElementById('import-code-input').value        = '';
+}
+
+// ── エクスポート ───────────────────────────────
+function generateShareCode(){
+  const includeCustom = document.getElementById('share-custom').checked;
+  const includeEdits  = document.getElementById('share-edits').checked;
+
+  const payload = { v: 1 };
+  if(includeCustom && teacherCustomScenes.length){
+    payload.c = teacherCustomScenes.map(s=>({...s, img:null}));
+  }
+  if(includeEdits && Object.keys(teacherEdits).length){
+    payload.e = teacherEdits;
+  }
+
+  if(!payload.c && !payload.e){
+    alert('共有できるデータがありません。\nオリジナル問題を作るか、既存問題を編集してから共有してください。');
+    return;
+  }
+
+  const json = JSON.stringify(payload);
+  const b64  = btoa(unescape(encodeURIComponent(json)));
+  const code = 'SST1:' + b64;
+
+  document.getElementById('share-code-box').textContent = code;
+  document.getElementById('share-copy-msg').textContent = '';
+
+  const area = document.getElementById('share-code-area');
+  area.style.display = 'flex';
+  area.style.flexDirection = 'column';
+  area.style.gap = '10px';
+
+  generateQR(code);
+
+  // コード件数を表示
+  const cnt = (payload.c?.length||0) + (payload.e ? 1 : 0);
+  document.getElementById('share-code-box').title = `データ ${cnt} 件を含むコード`;
+
+  setTimeout(()=> area.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+}
+
+function shareCodeNative(){
+  const code = document.getElementById('share-code-box').textContent;
+  if(!code){ alert('先に「共有コードを生成する」を押してください'); return; }
+
+  const text = `SSTアプリ 共有コード\n\n${code}\n\n↑このコードをSSTアプリの「データを受け取る」欄に貼り付けてください。`;
+
+  if(navigator.share){
+    navigator.share({ title:'SST 共有コード', text })
+      .catch(e=>{ if(e.name!=='AbortError') copyShareCode(); });
+  } else {
+    copyShareCode();
+  }
+}
+
+function generateQR(text){
+  const wrap = document.getElementById('share-qr-div');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+
+  if(typeof QRCode !== 'undefined'){
+    try {
+      new QRCode(wrap, {
+        text: text,
+        width: 200, height: 200,
+        colorDark: '#4A235A', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      wrap.querySelector('img')?.style.setProperty('border-radius','12px');
+    } catch(e){
+      wrap.innerHTML = '<div style="color:var(--sub);font-size:0.75rem;text-align:center;">QR生成に失敗しました</div>';
+    }
+  } else {
+    wrap.innerHTML = '<div style="color:var(--sub);font-size:0.75rem;text-align:center;padding:16px;">QRライブラリを読み込み中...<br>テキストコードをご利用ください</div>';
+  }
+}
+
+function copyShareCode(){
+  const code = document.getElementById('share-code-box').textContent.trim();
+  if(!code) return;
+
+  const showMsg = (txt, color='#2ECC71') => {
+    const el = document.getElementById('share-copy-msg');
+    if(!el) return;
+    el.style.color = color;
+    el.textContent = txt;
+    setTimeout(()=>{ el.textContent=''; }, 2500);
+  };
+
+  // 方法1: Clipboard API（HTTPS環境）
+  if(navigator.clipboard && location.protocol === 'https:'){
+    navigator.clipboard.writeText(code)
+      .then(()=> showMsg('✅ コピーしました！'))
+      .catch(()=> fallbackCopy(code, showMsg));
+  } else {
+    fallbackCopy(code, showMsg);
+  }
+}
+
+function fallbackCopy(text, showMsg){
+  // 方法2: textarea + execCommand（ほぼ全環境対応）
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    const ok = document.execCommand('copy');
+    showMsg(ok ? '✅ コピーしました！' : '⚠️ 手動でコピーしてください', ok ? '#2ECC71' : '#E67E22');
+  } catch(e) {
+    showMsg('⚠️ 手動でコピーしてください', '#E67E22');
+  }
+  document.body.removeChild(ta);
+}
+
+// ── インポート ───────────────────────────────
+function switchImportTab(tab, el){
+  document.querySelectorAll('.share-import-tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('import-code-area').style.display = tab==='code' ? 'flex' : 'none';
+  document.getElementById('import-code-area').style.flexDirection = 'column';
+  document.getElementById('import-code-area').style.gap = '8px';
+  document.getElementById('import-qr-area').style.display  = tab==='qr'   ? 'block' : 'none';
+  if(tab === 'qr') startQRReader();
+  else stopQRReader();
+}
+
+function importData(code){
+  code = code.trim();
+  if(!code.startsWith('SST1:')){
+    return { ok:false, msg:'形式が正しくありません。先生からもらったコードを貼り付けてください。' };
+  }
+  try {
+    const b64  = code.slice(5);
+    const json = decodeURIComponent(escape(atob(b64)));
+    const data = JSON.parse(json);
+
+    let imported = [];
+    if(data.c && Array.isArray(data.c)){
+      // オリジナル問題：IDが重複しないようマージ
+      const existIds = new Set(teacherCustomScenes.map(s=>s.id));
+      const newItems = data.c.filter(s=>!existIds.has(s.id));
+      teacherCustomScenes.push(...newItems);
+      imported.push(`オリジナル問題 ${newItems.length}問`);
+    }
+    if(data.e && typeof data.e === 'object'){
+      Object.assign(teacherEdits, data.e);
+      imported.push('既存問題の編集内容');
+    }
+    if(data.p && Array.isArray(data.p)){
+      const existIds = new Set(photoScenes.map(s=>s.id));
+      const newItems = data.p.filter(s=>!existIds.has(s.id));
+      photoScenes.push(...newItems);
+      savePhotoScenes();
+      imported.push(`写真SST問題 ${newItems.length}問（写真なし）`);
+    }
+
+    saveTeacherData();
+    syncCustomToScenes();
+    return { ok:true, msg:'✅ 取り込み完了！\n' + imported.join('、') + 'を追加しました。' };
+  } catch(e){
+    return { ok:false, msg:'データの読み取りに失敗しました。コードが正しいか確認してください。' };
+  }
+}
+
+function importFromCode(){
+  const code = document.getElementById('import-code-input').value;
+  const msg  = document.getElementById('import-code-msg');
+  if(!code.trim()){ msg.style.color='#E74C3C'; msg.textContent='コードを入力してください'; return; }
+  const result = importData(code);
+  msg.style.color = result.ok ? '#2ECC71' : '#E74C3C';
+  msg.textContent = result.msg;
+  if(result.ok){
+    document.getElementById('import-code-input').value = '';
+    setTimeout(()=>{ msg.textContent=''; }, 3000);
+  }
+}
+
+// ── QRリーダー ───────────────────────────────
+function startQRReader(){
+  document.getElementById('qr-status').textContent = 'カメラを起動中...';
+  document.getElementById('import-qr-msg').textContent = '';
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment' } })
+    .then(stream=>{
+      qrStream = stream;
+      const video = document.getElementById('qr-video');
+      video.srcObject = stream;
+      video.play();
+      document.getElementById('qr-status').textContent = 'QRコードをカメラに向けてください';
+
+      // BarcodeDetector APIがある場合（Chrome/Safari）
+      if('BarcodeDetector' in window){
+        const detector = new BarcodeDetector({ formats: ['qr_code'] });
+        qrScanInterval = setInterval(async()=>{
+          try {
+            const barcodes = await detector.detect(video);
+            if(barcodes.length > 0){
+              handleQRResult(barcodes[0].rawValue);
+            }
+          } catch(e){}
+        }, 500);
+      } else {
+        document.getElementById('qr-status').textContent = 'このブラウザはQR読み取りに対応していません。コード入力をお使いください。';
+      }
+    })
+    .catch(err=>{
+      document.getElementById('qr-status').textContent = 'カメラを起動できませんでした。コード入力をお試しください。';
+    });
+}
+
+function stopQRReader(){
+  if(qrScanInterval){ clearInterval(qrScanInterval); qrScanInterval=null; }
+  if(qrStream){ qrStream.getTracks().forEach(t=>t.stop()); qrStream=null; }
+  const video = document.getElementById('qr-video');
+  if(video){ video.srcObject=null; }
+}
+
+function handleQRResult(rawValue){
+  stopQRReader();
+  document.getElementById('qr-status').textContent = '読み取り成功！';
+  const result = importData(rawValue);
+  const msg = document.getElementById('import-qr-msg');
+  msg.style.color = result.ok ? '#2ECC71' : '#E74C3C';
+  msg.textContent = result.msg;
+}
+
+// ============================================================
+// TEACHER MODE（教員モード）
+// ============================================================
+const TEACHER_PIN_KEY   = 'sst_teacher_pin_v1';
+const TEACHER_CUSTOM_KEY = 'sst_teacher_custom_v1';
+const TEACHER_EDITS_KEY  = 'sst_teacher_edits_v1';
+
+let teacherCustomScenes = []; // オリジナル問題
+let teacherEdits = {};        // 既存問題の編集差分 { "rp_1_0_choice0": "新しいテキスト", ... }
+let tlockBuffer = [];
+let currentEditTab = 'rp';
+let currentEditLv  = 1;
+let editingCustomId = null;
+
+function getTeacherPin(){
+  return localStorage.getItem(TEACHER_PIN_KEY) || '1234';
+}
+
+function loadTeacherData(){
+  try {
+    const c = localStorage.getItem(TEACHER_CUSTOM_KEY);
+    teacherCustomScenes = c ? JSON.parse(c) : [];
+    const e = localStorage.getItem(TEACHER_EDITS_KEY);
+    teacherEdits = e ? JSON.parse(e) : {};
+  } catch(e){ teacherCustomScenes=[]; teacherEdits={}; }
+}
+
+function saveTeacherData(){
+  try {
+    localStorage.setItem(TEACHER_CUSTOM_KEY, JSON.stringify(teacherCustomScenes));
+    localStorage.setItem(TEACHER_EDITS_KEY,  JSON.stringify(teacherEdits));
+  } catch(e){}
+}
+
+// 教員オリジナル問題フォームの写真処理
+let tcePhotoData = null;
+
+function handleTcePhotoSelect(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 5*1024*1024){ alert('写真のサイズが大きすぎます（5MB以内）'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    resizeImage(e.target.result, 800, result => {
+      tcePhotoData = result;
+      const img = document.getElementById('tce-preview-img');
+      img.src = result; img.style.display = 'block';
+      document.getElementById('tce-preview-placeholder').style.display = 'none';
+      document.getElementById('tce-change-btn').style.display = 'block';
+      document.getElementById('tce-remove-btn').style.display = 'block';
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeTcePhoto(){
+  tcePhotoData = null;
+  const img = document.getElementById('tce-preview-img');
+  img.src = ''; img.style.display = 'none';
+  document.getElementById('tce-preview-placeholder').style.display = 'flex';
+  document.getElementById('tce-change-btn').style.display = 'none';
+  document.getElementById('tce-remove-btn').style.display = 'none';
+  document.getElementById('tce-file-input').value = '';
+}
+function openTeacherLock(){
+  tlockBuffer = [];
+  updateTlockDots();
+  document.getElementById('tlock-err').textContent = '';
+  const modal = document.getElementById('teacher-lock-modal');
+  modal.style.display = 'flex';
+  // 次フレームでonクラスを付けてアニメーション＋pointer-events有効化
+  requestAnimationFrame(()=> modal.classList.add('on'));
+}
+
+function closeTeacherLock(e){
+  if(e && e.target.id !== 'teacher-lock-modal') return;
+  const modal = document.getElementById('teacher-lock-modal');
+  modal.classList.remove('on');
+  setTimeout(()=>{ modal.style.display = 'none'; }, 260);
+}
+
+function tlockInput(n){
+  if(tlockBuffer.length >= 4) return;
+  tlockBuffer.push(n);
+  updateTlockDots();
+  if(tlockBuffer.length === 4){
+    setTimeout(checkPin, 150);
+  }
+}
+
+function tlockDel(){
+  tlockBuffer.pop();
+  updateTlockDots();
+  document.getElementById('tlock-err').textContent = '';
+}
+
+function updateTlockDots(){
+  for(let i=0;i<4;i++){
+    const d = document.getElementById('td'+i);
+    d.classList.toggle('filled', i < tlockBuffer.length);
+    d.classList.remove('error');
+  }
+}
+
+function checkPin(){
+  const entered = tlockBuffer.join('');
+  if(entered === getTeacherPin()){
+    const modal = document.getElementById('teacher-lock-modal');
+    modal.classList.remove('on');
+    setTimeout(()=>{ modal.style.display='none'; }, 260);
+    loadTeacherData();
+    go('s-teacher');
+  } else {
+    for(let i=0;i<4;i++) document.getElementById('td'+i).classList.add('error');
+    document.getElementById('tlock-err').textContent = 'PINが違います';
+    setTimeout(()=>{
+      tlockBuffer = [];
+      updateTlockDots();
+    }, 800);
+  }
+}
+
+function changePin(){
+  const cur  = document.getElementById('pin-current').value;
+  const nw   = document.getElementById('pin-new').value;
+  const conf = document.getElementById('pin-confirm').value;
+  const msg  = document.getElementById('pin-save-msg');
+  if(cur !== getTeacherPin()){ msg.style.color='#E74C3C'; msg.textContent='現在のPINが違います'; return; }
+  if(!/^\d{4}$/.test(nw)){     msg.style.color='#E74C3C'; msg.textContent='新しいPINは4桁の数字にしてください'; return; }
+  if(nw !== conf){              msg.style.color='#E74C3C'; msg.textContent='新しいPINが一致しません'; return; }
+  localStorage.setItem(TEACHER_PIN_KEY, nw);
+  msg.style.color='#2ECC71'; msg.textContent='✅ PINを変更しました！';
+  ['pin-current','pin-new','pin-confirm'].forEach(id=>document.getElementById(id).value='');
+  setTimeout(()=>{ msg.textContent=''; }, 2000);
+}
+
+// ── オリジナル問題 ──────────────────────────
+function buildCustomList(){
+  const cnt = document.getElementById('tc-count');
+  const lst = document.getElementById('tc-list');
+  cnt.textContent = teacherCustomScenes.length + '問 作成済み';
+  if(!teacherCustomScenes.length){
+    lst.innerHTML = '<div class="teacher-empty">まだオリジナル問題がありません。<br>「＋ 新しく作る」ボタンで作成しましょう。</div>';
+    return;
+  }
+  const lvLabel = {1:'🌱 はじめて',2:'🌿 なれてきた',3:'🌳 もっとできる'};
+  lst.innerHTML = teacherCustomScenes.map(s=>`
+    <div class="teacher-custom-item">
+      <span class="teacher-custom-ico">${s.icon||'❓'}</span>
+      <div class="teacher-custom-info">
+        <div class="teacher-custom-name">${s.title}</div>
+        <div class="teacher-custom-lv">${lvLabel[s.lv]||''} ／ ${s.sit.slice(0,24)}…</div>
+      </div>
+      <div class="teacher-custom-actions">
+        <button class="tca-edit" onclick="openCustomEdit('${s.id}')">編集</button>
+        <button class="tca-del"  onclick="deleteCustomScene('${s.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function openCustomEdit(id){
+  editingCustomId = id;
+  tcePhotoData = null;
+  document.getElementById('tce-title').textContent = id ? '✏️ 問題を編集する' : '✏️ 問題を作る';
+  const inputs = document.querySelectorAll('.tce-choice');
+  const radios = document.querySelectorAll('input[name="tce-best"]');
+  const lvRadios = document.querySelectorAll('input[name="tce-lv"]');
+
+  // 写真UI初期化
+  document.getElementById('tce-preview-img').style.display = 'none';
+  document.getElementById('tce-preview-placeholder').style.display = 'flex';
+  document.getElementById('tce-change-btn').style.display = 'none';
+  document.getElementById('tce-remove-btn').style.display = 'none';
+
+  if(id){
+    const s = teacherCustomScenes.find(s=>s.id===id);
+    document.getElementById('tce-title-input').value   = s.title||'';
+    document.getElementById('tce-icon-input').value    = s.icon||'❓';
+    document.getElementById('tce-sit-input').value     = s.sit||'';
+    document.getElementById('tce-thought-input').value = s.thought||'';
+    document.getElementById('tce-fb-good-input').value = s.fbGood||'';
+    s.choices.forEach((c,i)=>{
+      if(inputs[i]) inputs[i].value = c.txt;
+      if(radios[i]) radios[i].checked = (c.level==='best');
+    });
+    lvRadios.forEach(r=>{ r.checked = (parseInt(r.value)===s.lv); });
+    // 写真があれば表示
+    if(s.img){
+      tcePhotoData = s.img;
+      const img = document.getElementById('tce-preview-img');
+      img.src = s.img; img.style.display = 'block';
+      document.getElementById('tce-preview-placeholder').style.display = 'none';
+      document.getElementById('tce-change-btn').style.display = 'block';
+      document.getElementById('tce-remove-btn').style.display = 'block';
+    }
+  } else {
+    ['tce-title-input','tce-icon-input','tce-sit-input','tce-thought-input','tce-fb-good-input']
+      .forEach(id=>{ document.getElementById(id).value=''; });
+    inputs.forEach(i=>i.value='');
+    radios[0].checked = true;
+    lvRadios[0].checked = true;
+  }
+  document.getElementById('tce-save-msg').textContent='';
+  go('s-teacher-custom-edit');
+}
+
+function saveCustomScene(){
+  const title   = document.getElementById('tce-title-input').value.trim();
+  const icon    = document.getElementById('tce-icon-input').value.trim() || '❓';
+  const sit     = document.getElementById('tce-sit-input').value.trim();
+  const thought = document.getElementById('tce-thought-input').value.trim();
+  const fbGood  = document.getElementById('tce-fb-good-input').value.trim();
+  const inputs  = document.querySelectorAll('.tce-choice');
+  const radios  = document.querySelectorAll('input[name="tce-best"]');
+  const lvRadios= document.querySelectorAll('input[name="tce-lv"]');
+  const msg     = document.getElementById('tce-save-msg');
+
+  if(!title){ alert('タイトルを入力してください'); return; }
+  if(!sit)  { alert('場面の説明を入力してください'); return; }
+
+  let bestIdx = 0;
+  radios.forEach((r,i)=>{ if(r.checked) bestIdx=i; });
+  let lv = 1;
+  lvRadios.forEach(r=>{ if(r.checked) lv=parseInt(r.value); });
+
+  const choices = [];
+  for(let i=0;i<3;i++){
+    const txt = inputs[i]?.value.trim();
+    if(!txt){ alert(`選択肢${i+1}を入力してください`); return; }
+    choices.push({ txt, level: i===bestIdx?'best':'try' });
+  }
+
+  const scene = {
+    id: editingCustomId || 'tc_'+Date.now(),
+    title, icon, sit, thought, fbGood, choices, lv,
+    img: tcePhotoData || null,
+    tip: fbGood || 'よく考えたね！'
+  };
+
+  if(editingCustomId){
+    const idx = teacherCustomScenes.findIndex(s=>s.id===editingCustomId);
+    if(idx>=0) teacherCustomScenes[idx] = scene;
+  } else {
+    teacherCustomScenes.push(scene);
+  }
+  saveTeacherData();
+
+  // SCENES['custom_N'] に統合
+  syncCustomToScenes();
+
+  msg.style.color='#2ECC71';
+  msg.textContent='✅ 保存しました！';
+  setTimeout(()=>{ go('s-teacher-custom'); buildCustomList(); }, 700);
+}
+
+function deleteCustomScene(id){
+  if(!confirm('この問題を削除しますか？')) return;
+  teacherCustomScenes = teacherCustomScenes.filter(s=>s.id!==id);
+  saveTeacherData();
+  syncCustomToScenes();
+  buildCustomList();
+}
+
+// オリジナル問題をSCENESに反映（'custom'キー）
+function syncCustomToScenes(){
+  SCENES['custom'] = teacherCustomScenes.map(s=>({
+    icon: s.icon||'❓',
+    title: s.title,
+    desc: s.sit.slice(0,20)+'…',
+    tag: 'オリジナル',
+    sit: s.sit,
+    img: s.img || null,
+    dialogs: s.thought ? [{who:'（心の声）',txt:s.thought,pl:false}] : [],
+    choices: s.choices,
+    tip: s.tip||''
+  }));
+}
+
+// ── 既存問題編集 ──────────────────────────────
+function selectEditTab(tab, el){
+  currentEditTab = tab;
+  document.querySelectorAll('.teacher-edit-tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  buildEditList();
+}
+
+function selectEditLv(lv, el){
+  currentEditLv = lv;
+  document.querySelectorAll('.teacher-edit-lv').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  buildEditList();
+}
+
+function buildEditList(){
+  const el = document.getElementById('teacher-edit-list');
+  let html = '';
+
+  if(currentEditTab==='rp'){
+    const scenes = SCENES[currentEditLv]||[];
+    html = scenes.map((s,si)=>{
+      const choiceHtml = s.choices.map((c,ci)=>{
+        const key = `rp_${currentEditLv}_${si}_c${ci}`;
+        const val = teacherEdits[key] !== undefined ? teacherEdits[key] : c.txt;
+        return `<div class="teacher-edit-field">
+          <label>${ci===0?'⭐ ':ci===1?'😊 ':'💪 '}選択肢${ci+1}</label>
+          <input type="text" value="${val.replace(/"/g,'&quot;')}" data-key="${key}" oninput="storeEdit(this)">
+        </div>`;
+      }).join('');
+      const fbKey = `rp_${currentEditLv}_${si}_tip`;
+      const fbVal = teacherEdits[fbKey]!==undefined ? teacherEdits[fbKey] : (s.tip||'');
+      return `<div class="teacher-edit-scene">
+        <div class="teacher-edit-scene-title">${s.icon} ${s.title}</div>
+        ${choiceHtml}
+        <div class="teacher-edit-field">
+          <label>💡 ポイント・ヒント</label>
+          <textarea data-key="${fbKey}" oninput="storeEdit(this)">${fbVal}</textarea>
+        </div>
+        <div class="teacher-edit-save-row">
+          <button class="te-save-btn" onclick="saveEditScene('rp',${currentEditLv},${si})">💾 保存</button>
+          <button class="te-reset-btn" onclick="resetEditScene('rp',${currentEditLv},${si})">リセット</button>
+        </div>
+      </div>`;
+    }).join('');
+
+  } else if(currentEditTab==='wq'){
+    const qs = WORD_QUIZ[currentEditLv]||[];
+    html = qs.map((q,qi)=>{
+      const okKey  = `wq_${currentEditLv}_${qi}_ok`;
+      const ngKey  = `wq_${currentEditLv}_${qi}_ng`;
+      const okVal  = teacherEdits[okKey]!==undefined ? teacherEdits[okKey] : (q.ok_msg||'');
+      const ngVal  = teacherEdits[ngKey]!==undefined ? teacherEdits[ngKey] : (q.ng_msg||'');
+      return `<div class="teacher-edit-scene">
+        <div class="teacher-edit-scene-title">💬 ${q.sit}</div>
+        <div class="teacher-edit-field"><label>✅ 正解フィードバック</label>
+          <textarea data-key="${okKey}" oninput="storeEdit(this)">${okVal}</textarea></div>
+        <div class="teacher-edit-field"><label>💪 不正解フィードバック</label>
+          <textarea data-key="${ngKey}" oninput="storeEdit(this)">${ngVal}</textarea></div>
+        <div class="teacher-edit-save-row">
+          <button class="te-save-btn" onclick="saveEditWQ(${currentEditLv},${qi})">💾 保存</button>
+          <button class="te-reset-btn" onclick="resetEditWQ(${currentEditLv},${qi})">リセット</button>
+        </div>
+      </div>`;
+    }).join('');
+
+  } else if(currentEditTab==='qz'){
+    const qs = QUIZZES[currentEditLv]||[];
+    html = qs.map((q,qi)=>{
+      const fbKey = `qz_${currentEditLv}_${qi}_fb`;
+      const fbVal = teacherEdits[fbKey]!==undefined ? teacherEdits[fbKey] : (q.fb||'');
+      return `<div class="teacher-edit-scene">
+        <div class="teacher-edit-scene-title">❓ ${q.q}</div>
+        <div class="teacher-edit-field"><label>💡 解説フィードバック</label>
+          <textarea data-key="${fbKey}" oninput="storeEdit(this)">${fbVal}</textarea></div>
+        <div class="teacher-edit-save-row">
+          <button class="te-save-btn" onclick="saveEditQZ(${currentEditLv},${qi})">💾 保存</button>
+          <button class="te-reset-btn" onclick="resetEditQZ(${currentEditLv},${qi})">リセット</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  el.innerHTML = html || '<div class="teacher-empty">問題がありません</div>';
+}
+
+function storeEdit(input){
+  teacherEdits[input.dataset.key] = input.value;
+}
+
+function saveEditScene(type,lv,si){
+  const s = SCENES[lv][si];
+  s.choices.forEach((c,ci)=>{
+    const key = `${type}_${lv}_${si}_c${ci}`;
+    if(teacherEdits[key]!==undefined) c.txt = teacherEdits[key];
+  });
+  const tipKey = `${type}_${lv}_${si}_tip`;
+  if(teacherEdits[tipKey]!==undefined) s.tip = teacherEdits[tipKey];
+  saveTeacherData();
+  showEditSaved();
+}
+
+function resetEditScene(type,lv,si){
+  if(!confirm('この場面の編集をリセットしますか？')) return;
+  const s = SCENES[lv][si];
+  s.choices.forEach((_,ci)=>{ delete teacherEdits[`${type}_${lv}_${si}_c${ci}`]; });
+  delete teacherEdits[`${type}_${lv}_${si}_tip`];
+  saveTeacherData(); buildEditList();
+}
+
+function saveEditWQ(lv,qi){
+  const q = WORD_QUIZ[lv][qi];
+  const okKey=`wq_${lv}_${qi}_ok`, ngKey=`wq_${lv}_${qi}_ng`;
+  if(teacherEdits[okKey]!==undefined) q.ok_msg = teacherEdits[okKey];
+  if(teacherEdits[ngKey]!==undefined) q.ng_msg = teacherEdits[ngKey];
+  saveTeacherData(); showEditSaved();
+}
+function resetEditWQ(lv,qi){
+  if(!confirm('リセットしますか？')) return;
+  delete teacherEdits[`wq_${lv}_${qi}_ok`];
+  delete teacherEdits[`wq_${lv}_${qi}_ng`];
+  saveTeacherData(); buildEditList();
+}
+
+function saveEditQZ(lv,qi){
+  const q = QUIZZES[lv][qi];
+  const fbKey=`qz_${lv}_${qi}_fb`;
+  if(teacherEdits[fbKey]!==undefined) q.fb = teacherEdits[fbKey];
+  saveTeacherData(); showEditSaved();
+}
+function resetEditQZ(lv,qi){
+  if(!confirm('リセットしますか？')) return;
+  delete teacherEdits[`qz_${lv}_${qi}_fb`];
+  saveTeacherData(); buildEditList();
+}
+
+function showEditSaved(){
+  const el = document.createElement('div');
+  el.textContent = '✅ 保存しました！';
+  el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#2ECC71;color:#fff;padding:10px 24px;border-radius:20px;font-weight:700;font-size:0.875rem;z-index:9999;';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 1800);
+}
+
+// ── オリジナルタブ追加（ロールプレイ画面） ──────────
+function initCustomTab(){
+  const tabs = document.getElementById('scene-lv-tabs');
+  if(!tabs || document.getElementById('tab-custom')) return;
+  const btn = document.createElement('button');
+  btn.className='lvtab';
+  btn.id='tab-custom';
+  btn.textContent='✏️ オリジナル';
+  btn.onclick=()=>setLvAndRefresh('custom','scene-list');
+  tabs.appendChild(btn);
+}
+
+// ============================================================
+// PHOTO SST（じぶんの写真でSST）
+// ============================================================
+const PHOTO_KEY = 'sst_photo_scenes_v1';
+let photoScenes = [];      // [{id,title,sit,img,choices:[{txt,level}],fb}]
+let editingPhotoId = null; // 編集中のID（nullなら新規）
+let photoPlayShuffled = [];
+
+function loadPhotoScenes(){
+  try {
+    const s = localStorage.getItem(PHOTO_KEY);
+    photoScenes = s ? JSON.parse(s) : [];
+  } catch(e){ photoScenes = []; }
+}
+
+function savePhotoScenes(){
+  try { localStorage.setItem(PHOTO_KEY, JSON.stringify(photoScenes)); } catch(e){}
+}
+
+function buildPhotoList(){
+  const el = document.getElementById('photo-scene-list');
+  if(!photoScenes.length){
+    el.innerHTML = '<div class="photo-empty">まだ問題がないよ。<br>「＋ 新しく作る」ボタンで作ってみよう！</div>';
+    return;
+  }
+  el.innerHTML = photoScenes.map(s=>`
+    <div class="photo-scene-item">
+      <div class="photo-scene-thumb">
+        ${s.img ? `<img src="${s.img}" alt="${s.title}">` : '📷'}
+      </div>
+      <div class="photo-scene-info">
+        <div class="photo-scene-name">${s.title}</div>
+        <div class="photo-scene-sit">${s.sit}</div>
+      </div>
+      <div class="photo-scene-actions">
+        <button class="photo-scene-play" onclick="startPhotoPlay('${s.id}')">▶ やる</button>
+        <button class="photo-scene-del"  onclick="event.stopPropagation();deletePhotoScene('${s.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function handlePhotoSelect(input){
+  const file = input.files[0];
+  if(!file) return;
+  // 5MB制限
+  if(file.size > 5 * 1024 * 1024){
+    alert('写真のサイズが大きすぎます（5MB以内にしてください）');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('photo-preview-img');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.getElementById('photo-preview-placeholder').style.display = 'none';
+    document.getElementById('photo-change-btn').style.display = 'block';
+    // 画像をリサイズして保存容量を削減
+    resizeImage(e.target.result, 800, result => {
+      img.src = result;
+      img._resized = result;
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function resizeImage(dataUrl, maxW, callback){
+  const canvas = document.createElement('canvas');
+  const imgEl = new Image();
+  imgEl.onload = () => {
+    const ratio = Math.min(1, maxW / imgEl.width);
+    canvas.width  = Math.round(imgEl.width  * ratio);
+    canvas.height = Math.round(imgEl.height * ratio);
+    canvas.getContext('2d').drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+    callback(canvas.toDataURL('image/jpeg', 0.75));
+  };
+  imgEl.src = dataUrl;
+}
+
+function openPhotoEdit(id = null){
+  editingPhotoId = id;
+  const titleEl = document.getElementById('photo-edit-title');
+
+  if(id){
+    // 編集モード
+    const s = photoScenes.find(s=>s.id===id);
+    if(!s) return;
+    titleEl.textContent = '✏️ 問題を編集する';
+    document.getElementById('photo-title-input').value = s.title;
+    document.getElementById('photo-sit-input').value   = s.sit;
+    document.getElementById('photo-fb-input').value    = s.fb || '';
+    const img = document.getElementById('photo-preview-img');
+    if(s.img){
+      img.src = s.img; img.style.display = 'block';
+      document.getElementById('photo-preview-placeholder').style.display = 'none';
+      document.getElementById('photo-change-btn').style.display = 'block';
+    }
+    const inputs = document.querySelectorAll('.photo-choice-input');
+    const radios  = document.querySelectorAll('input[name="photo-best"]');
+    s.choices.forEach((c,i)=>{
+      if(inputs[i]) inputs[i].value = c.txt;
+      if(radios[i])  radios[i].checked = (c.level === 'best');
+    });
+  } else {
+    // 新規モード
+    titleEl.textContent = '📷 問題を作る';
+    document.getElementById('photo-title-input').value = '';
+    document.getElementById('photo-sit-input').value   = '';
+    document.getElementById('photo-fb-input').value    = '';
+    const img = document.getElementById('photo-preview-img');
+    img.style.display = 'none'; img.src = '';
+    img._resized = null;
+    document.getElementById('photo-preview-placeholder').style.display = 'flex';
+    document.getElementById('photo-change-btn').style.display = 'none';
+    document.querySelectorAll('.photo-choice-input').forEach(i=>i.value='');
+    const radios = document.querySelectorAll('input[name="photo-best"]');
+    if(radios[0]) radios[0].checked = true;
+  }
+  document.getElementById('photo-save-msg').textContent = '';
+  go('s-photo-edit');
+}
+
+function savePhotoScene(){
+  const title = document.getElementById('photo-title-input').value.trim();
+  const sit   = document.getElementById('photo-sit-input').value.trim();
+  const fb    = document.getElementById('photo-fb-input').value.trim();
+  const inputs = document.querySelectorAll('.photo-choice-input');
+  const radios  = document.querySelectorAll('input[name="photo-best"]');
+  const imgEl  = document.getElementById('photo-preview-img');
+
+  // バリデーション
+  if(!title){ alert('場面のタイトルを入力してください'); return; }
+  if(!sit)  { alert('場面の説明を入力してください'); return; }
+
+  const choices = [];
+  let bestIdx = 0;
+  radios.forEach((r,i)=>{ if(r.checked) bestIdx = i; });
+
+  for(let i=0; i<3; i++){
+    const txt = inputs[i] ? inputs[i].value.trim() : '';
+    if(!txt){ alert(`選択肢${i+1}を入力してください`); return; }
+    choices.push({ txt, level: i===bestIdx ? 'best' : 'try' });
+  }
+
+  // 画像取得（リサイズ済み優先）
+  const img = imgEl._resized || (imgEl.style.display!=='none' ? imgEl.src : null);
+
+  if(editingPhotoId){
+    // 更新
+    const idx = photoScenes.findIndex(s=>s.id===editingPhotoId);
+    if(idx>=0) photoScenes[idx] = { id:editingPhotoId, title, sit, img, choices, fb };
+  } else {
+    // 新規（最大10件）
+    if(photoScenes.length >= 10){
+      alert('問題は最大10問まで作れます。古い問題を削除してから追加してください。');
+      return;
+    }
+    photoScenes.push({ id:'ps_'+Date.now(), title, sit, img, choices, fb });
+  }
+
+  savePhotoScenes();
+  const msg = document.getElementById('photo-save-msg');
+  msg.textContent = '✅ 保存しました！';
+  setTimeout(()=>{ go('s-photo'); }, 800);
+}
+
+function deletePhotoScene(id){
+  if(!confirm('この問題を削除しますか？')){ return; }
+  photoScenes = photoScenes.filter(s=>s.id!==id);
+  savePhotoScenes();
+  buildPhotoList();
+}
+
+function startPhotoPlay(id){
+  const s = photoScenes.find(s=>s.id===id);
+  if(!s) return;
+
+  // 選択肢シャッフル
+  photoPlayShuffled = shuffle(s.choices.map((c,i)=>({...c, origIdx:i})));
+
+  const imgHtml = s.img
+    ? `<img src="${s.img}" class="photo-play-img" alt="${s.title}">`
+    : `<div style="height:120px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:3rem;border-radius:var(--r);">📷</div>`;
+
+  document.getElementById('photo-play-content').innerHTML = `
+    <div style="padding:0 0 24px;">
+      ${imgHtml}
+      <div class="spk-row"><button class="spk-btn" id="photo-spk-btn" onclick="toggleSpeakPhoto('${id}')">🔊 よみあげ</button></div>
+      <div class="photo-play-scene">
+        <div class="photo-play-title">📍 ${s.title}</div>
+        <div class="photo-play-sit">${s.sit}</div>
+      </div>
+      <div class="choices" style="margin-top:14px;">
+        <div class="ch-title">どうする？ひとつ選んでね</div>
+        ${photoPlayShuffled.map((c,i)=>`
+          <button class="ch-btn" onclick="answerPhotoPlay(${i},'${id}')">${c.txt}</button>`).join('')}
+      </div>
+      <div class="result-box" id="photo-play-result"></div>
+    </div>`;
+  go('s-photo-play');
+  // 自動読み上げ
+  setTimeout(()=>autoSpeak(()=>speakPhotoScene(id)), 400);
+}
+
+function speakPhotoScene(id){
+  const s = photoScenes.find(s=>s.id===id);
+  if(!s) return;
+  const choiceText = photoPlayShuffled.map((c,i)=>`選択肢${i+1}、${c.txt}`).join('。');
+  speak(`${s.title}。${s.sit}。どうする？ひとつ選んでね。${choiceText}`);
+}
+
+function toggleSpeakPhoto(id){
+  if(ttsActive){ stopSpeak(); return; }
+  speakPhotoScene(id);
+}
+
+function answerPhotoPlay(ci, id){
+  const s = photoScenes.find(s=>s.id===id);
+  const chosen = photoPlayShuffled[ci];
+  const lv = chosen.level || 'try';
+
+  document.querySelectorAll('.ch-btn').forEach((b,i)=>{
+    b.disabled = true;
+    const l = photoPlayShuffled[i].level || 'try';
+    if(l==='best') b.classList.add('lv-best');
+    else b.classList.add('lv-try');
+  });
+
+  const rb = document.getElementById('photo-play-result');
+  const ico   = lv==='best' ? '🌟' : '💪';
+  const title = lv==='best' ? 'すばらしい！' : 'よく考えたね！';
+  const fbMsg = lv==='best' && s.fb ? s.fb : (lv==='best' ? 'とても上手な対応だよ！' : 'いろんな方法があるよ。いちばん良い答えも見てみよう！');
+
+  rb.className = 'result-box lv-result-' + lv + ' on';
+  rb.innerHTML = `
+    <div class="res-ico">${ico}</div>
+    <div class="res-title">${title}</div>
+    <div class="res-desc">${fbMsg}</div>
+    <button class="action-btn btn-next" onclick="go('s-photo')">もどる</button>`;
+
+  if(lv==='best') confetti();
+  rb.scrollIntoView({behavior:'smooth', block:'start'});
+  recordActivity('photo', 0, lv);
+  setTimeout(()=>autoSpeak(()=>speak(title + '　' + fbMsg)), 300);
+}
+
+// ============================================================
+// BADGE（ごほうび・成長記録）
+// ============================================================
+const BADGE_DEF = [
+  // ロールプレイ
+  { id:'rp_lv1',   ico:'👋', name:'あいさつ名人',     desc:'はじめてのロールプレイをクリアしたよ！',    points:10 },
+  { id:'rp_lv2',   ico:'🤝', name:'なかよし名人',     desc:'なれてきたロールプレイをクリアしたよ！',    points:20 },
+  { id:'rp_lv3',   ico:'🌟', name:'コミュニケーション達人', desc:'もっとできるロールプレイをクリアしたよ！', points:30 },
+  { id:'rp_school',ico:'🏫', name:'学校生活エキスパート', desc:'学校版SSTロールプレイをクリアしたよ！',   points:25 },
+  // ことばクイズ
+  { id:'wq_lv1',   ico:'💬', name:'ことば見習い',     desc:'はじめてのことばクイズを全問クリアしたよ！', points:10 },
+  { id:'wq_lv2',   ico:'📢', name:'ことば上手',       desc:'なれてきたことばクイズを全問クリアしたよ！', points:20 },
+  { id:'wq_lv3',   ico:'🗣️', name:'ことばの達人',     desc:'もっとできることばクイズを全問クリアしたよ！',points:30 },
+  // ソーシャルストーリー
+  { id:'st_lv1',   ico:'📖', name:'おはなし大好き',   desc:'はじめてのソーシャルストーリーを読んだよ！', points:10 },
+  { id:'st_lv2',   ico:'📚', name:'おはなし上手',     desc:'なれてきたストーリーを読んだよ！',           points:20 },
+  { id:'st_lv3',   ico:'🎓', name:'ストーリーマスター', desc:'もっとできるストーリーを読んだよ！',        points:30 },
+  // SSTクイズ
+  { id:'q_lv1',    ico:'❓', name:'SST見習い',        desc:'はじめてのSSTクイズを全問クリアしたよ！',   points:10 },
+  { id:'q_lv2',    ico:'🧠', name:'SST上手',          desc:'なれてきたSSTクイズを全問クリアしたよ！',   points:20 },
+  { id:'q_lv3',    ico:'🏆', name:'SSTチャンピオン',  desc:'もっとできるSSTクイズを全問クリアしたよ！', points:30 },
+  // きもち系
+  { id:'emotion',  ico:'😊', name:'きもち博士',       desc:'きもちカードを全部タップしたよ！',           points:15 },
+  { id:'thermo',   ico:'🌡️', name:'きもち温度計マスター', desc:'気持ちを5回きろくしたよ！',              points:15 },
+  // 特別バッジ
+  { id:'breath',   ico:'🌈', name:'リラックス名人',   desc:'きもちを落ち着けるを使ったよ！',             points:10 },
+  { id:'all_lv1',  ico:'🥉', name:'はじめてコンプリート', desc:'Lv1のアクティビティを全部クリアしたよ！', points:50 },
+  { id:'all_lv2',  ico:'🥈', name:'なれてきたコンプリート', desc:'Lv2のアクティビティを全部クリアしたよ！',points:80 },
+  { id:'all_lv3',  ico:'🥇', name:'もっとできるコンプリート', desc:'Lv3のアクティビティを全部クリアしたよ！',points:100 },
+];
+
+// ローカルストレージキー
+const BADGE_KEY = 'sst_badges_v1';
+const BADGE_SCORE_KEY = 'sst_badge_score_v1';
+const BADGE_NEW_KEY = 'sst_badge_new_v1';
+
+let earnedBadges = new Set();
+let badgeNewFlags = new Set(); // 未確認の新バッジ
+let totalScore = 0;
+
+function loadBadges(){
+  try {
+    const saved = localStorage.getItem(BADGE_KEY);
+    earnedBadges = new Set(saved ? JSON.parse(saved) : []);
+    totalScore = parseInt(localStorage.getItem(BADGE_SCORE_KEY)||'0');
+    const newSaved = localStorage.getItem(BADGE_NEW_KEY);
+    badgeNewFlags = new Set(newSaved ? JSON.parse(newSaved) : []);
+  } catch(e){ earnedBadges = new Set(); totalScore=0; badgeNewFlags=new Set(); }
+}
+
+function saveBadges(){
+  try {
+    localStorage.setItem(BADGE_KEY, JSON.stringify([...earnedBadges]));
+    localStorage.setItem(BADGE_SCORE_KEY, totalScore.toString());
+    localStorage.setItem(BADGE_NEW_KEY, JSON.stringify([...badgeNewFlags]));
+  } catch(e){}
+}
+
+function awardBadge(id){
+  if(earnedBadges.has(id)) return;
+  earnedBadges.add(id);
+  badgeNewFlags.add(id);
+  const def = BADGE_DEF.find(b=>b.id===id);
+  if(!def) return;
+  totalScore += def.points;
+  saveBadges();
+  recordWeekBadge(id);
+  showBadgeModal(def);
+  updateBadgeHomeBtn();
+  checkCompleteBadges();
+}
+
+function checkCompleteBadges(){
+  // Lv1コンプリート
+  if(['rp_lv1','wq_lv1','st_lv1','q_lv1'].every(id=>earnedBadges.has(id)))
+    awardBadge('all_lv1');
+  // Lv2コンプリート
+  if(['rp_lv2','wq_lv2','st_lv2','q_lv2'].every(id=>earnedBadges.has(id)))
+    awardBadge('all_lv2');
+  // Lv3コンプリート
+  if(['rp_lv3','wq_lv3','st_lv3','q_lv3'].every(id=>earnedBadges.has(id)))
+    awardBadge('all_lv3');
+}
+
+function showBadgeModal(def){
+  document.getElementById('badge-modal-ico').textContent  = def.ico;
+  document.getElementById('badge-modal-name').textContent = def.name;
+  document.getElementById('badge-modal-desc').textContent = def.desc;
+  document.getElementById('badge-modal').style.display = 'flex';
+  confetti(40);
+}
+
+function closeBadgeModal(){
+  document.getElementById('badge-modal').style.display = 'none';
+  // 新フラグをクリア
+  badgeNewFlags.clear();
+  saveBadges();
+  updateBadgeHomeBtn();
+}
+
+function buildBadgeScreen(){
+  const got    = BADGE_DEF.filter(b=> earnedBadges.has(b.id));
+  const locked = BADGE_DEF.filter(b=>!earnedBadges.has(b.id));
+
+  document.getElementById('badge-total-score').textContent = totalScore;
+  document.getElementById('badge-got-count').textContent   = got.length + ' / ' + BADGE_DEF.length;
+  document.getElementById('badge-home-count').textContent  = got.length;
+
+  const pct = Math.round((got.length / BADGE_DEF.length) * 100);
+  document.getElementById('badge-progress-bar').style.width = pct + '%';
+  document.getElementById('badge-progress-label').textContent =
+    pct === 100 ? '🎉 全バッジかくとく！！' : `のこり ${locked.length} こ`;
+
+  // 取得済みバッジ
+  document.getElementById('badge-grid').innerHTML = got.length === 0
+    ? '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--sub);font-size:0.875rem;">まだバッジがないよ。<br>いろいろやってみよう！</div>'
+    : got.map(b=>`
+      <div class="badge-item got">
+        ${badgeNewFlags.has(b.id) ? '<div class="badge-new-dot"></div>' : ''}
+        <span class="badge-ico">${b.ico}</span>
+        <div class="badge-name">${b.name}</div>
+        <div style="font-size:0.6875rem;color:var(--or);font-weight:700;margin-top:2px;">+${b.points}pt</div>
+      </div>`).join('');
+
+  // 未取得バッジ
+  document.getElementById('badge-locked-grid').innerHTML = locked.map(b=>`
+    <div class="badge-item locked">
+      <span class="badge-ico">🔒</span>
+      <div class="badge-name">${b.name}</div>
+    </div>`).join('');
+}
+
+function updateBadgeHomeBtn(){
+  const count = earnedBadges.size;
+  const el = document.getElementById('badge-home-count');
+  if(el) el.textContent = count;
+  const desc = document.getElementById('home-badge-desc');
+  if(desc && count > 0) desc.textContent = `バッジ ${count}こ かくとく！`;
+}
+
+function confirmResetBadges(){
+  if(confirm('きろくとバッジをすべてリセットしますか？')){
+    earnedBadges.clear(); totalScore=0; badgeNewFlags.clear();
+    saveBadges();
+    buildBadgeScreen();
+    updateBadgeHomeBtn();
+  }
+}
+
+// ロールプレイ完了でバッジ付与
+function checkRPBadge(){
+  const lv = currentLv;
+  if(lv===1) awardBadge('rp_lv1');
+  else if(lv===2) awardBadge('rp_lv2');
+  else if(lv===3) awardBadge('rp_lv3');
+  else if(typeof lv==='string') awardBadge('rp_school');
+}
+// ことばクイズ全問完了でバッジ
+function checkWQBadge(){
+  if(currentLv===1) awardBadge('wq_lv1');
+  else if(currentLv===2) awardBadge('wq_lv2');
+  else if(currentLv===3) awardBadge('wq_lv3');
+}
+// ストーリー読了でバッジ
+function checkStoryBadge(){
+  if(currentLv===1) awardBadge('st_lv1');
+  else if(currentLv===2) awardBadge('st_lv2');
+  else if(currentLv===3) awardBadge('st_lv3');
+}
+// クイズ全問完了でバッジ
+function checkQuizBadge(){
+  if(currentLv===1) awardBadge('q_lv1');
+  else if(currentLv===2) awardBadge('q_lv2');
+  else if(currentLv===3) awardBadge('q_lv3');
+}
+
+// ============================================================
+// THERMOMETER（感情温度計）
+// ============================================================
+const THERMO_LEVELS = [
+  { min:0,  max:1,  face:'😊', name:'おだやか',     color:'#2ECC71', bg:'#E8F8F0',
+    coping_title:'😊 今はおだやかだよ',
+    coping:[
+      { ico:'🌟', title:'このまま楽しもう！',      desc:'今の気持ちを大切にしてね。' },
+      { ico:'📖', title:'好きなことをする',         desc:'好きな本を読んだり、好きなことをして過ごそう。' },
+      { ico:'😊', title:'友達に話しかけてみる',     desc:'気持ちが穏やかなときは、声をかけやすいよ。' },
+    ]},
+  { min:2,  max:3,  face:'😐', name:'ちょっともやもや', color:'#F1C40F', bg:'#FFFBE6',
+    coping_title:'😐 少しもやもやしているね',
+    coping:[
+      { ico:'🌬️', title:'深呼吸してみよう',        desc:'すーっと息を吸って、ゆっくり吐いてみよう。' },
+      { ico:'🚶', title:'少し歩く',                 desc:'その場を少し離れて、歩くと気持ちが変わるよ。' },
+      { ico:'💬', title:'気持ちを誰かに話す',        desc:'「ちょっともやもやしてる」と一言言えると楽になるよ。' },
+    ]},
+  { min:4,  max:5,  face:'😟', name:'イライラしてる',  color:'#E67E22', bg:'#FFF3E0',
+    coping_title:'😟 イライラしてきているね',
+    coping:[
+      { ico:'🧘', title:'6秒待つ',                  desc:'怒りのピークは6秒。深呼吸しながら1〜6まで数えよう。' },
+      { ico:'🧊', title:'冷たい水で手を洗う',        desc:'冷たさに集中すると、気持ちがリセットされやすいよ。' },
+      { ico:'✏️', title:'気持ちを紙に書く',          desc:'今のイライラを紙に書くと、少し頭がすっきりするよ。' },
+      { ico:'👂', title:'信頼できる人に話す',         desc:'先生や友達に「イライラしてる」と伝えてみよう。' },
+    ]},
+  { min:6,  max:7,  face:'😡', name:'かなりイライラ',  color:'#E74C3C', bg:'#FDECEB',
+    coping_title:'😡 かなりイライラしているね',
+    coping:[
+      { ico:'🚶', title:'その場を離れる',             desc:'「少し待って」と言って、安全な場所に移動しよう。' },
+      { ico:'🌬️', title:'ゆっくり深呼吸を3回',       desc:'鼻から4秒吸って、口から8秒かけて吐き出そう。' },
+      { ico:'🎵', title:'落ち着く音楽を聴く',          desc:'ヘッドフォンで好きな音楽を聴いて、体の力を抜こう。' },
+      { ico:'🖐',  title:'5・4・3・2・1法',            desc:'見えるもの5つ、さわれるもの4つ…と数えると落ち着くよ。' },
+    ]},
+  { min:8,  max:9,  face:'🤬', name:'もう限界に近い',  color:'#C0392B', bg:'#FFEBEE',
+    coping_title:'🤬 とても辛い状態だね',
+    coping:[
+      { ico:'🆘', title:'すぐ先生や大人に伝えて！',   desc:'「助けてほしい」と言っていい。一人で抱えないで。' },
+      { ico:'🚶', title:'安全な場所に移動する',        desc:'クールダウンできる静かな場所に行こう。' },
+      { ico:'🌬️', title:'大きく深呼吸を繰り返す',     desc:'呼吸を整えることだけに集中してみよう。' },
+      { ico:'💤', title:'横になって休む',              desc:'体を休めると、少しずつ気持ちが落ち着いてくるよ。' },
+    ]},
+  { min:10, max:10, face:'💥', name:'もう爆発しそう！', color:'#8E0000', bg:'#FFCDD2',
+    coping_title:'💥 今すぐ助けを求めてね',
+    coping:[
+      { ico:'🆘', title:'今すぐ先生を呼ぼう！',       desc:'「助けてください」と大きな声で言っていいよ。' },
+      { ico:'🚶', title:'その場から離れる',             desc:'安全な場所に移動して、一人にしてもらおう。' },
+      { ico:'🌬️', title:'ゆっくり息をするだけでOK',   desc:'難しいことは何もしなくていい。呼吸だけ整えよう。' },
+    ]},
+];
+
+let thermoLog = [];
+
+function getThermoLevel(val){
+  return THERMO_LEVELS.find(l => val >= l.min && val <= l.max) || THERMO_LEVELS[0];
+}
+
+function updateThermo(val){
+  val = parseInt(val);
+  const lv = getThermoLevel(val);
+
+  // 温度計ビジュアル更新
+  const pct = (val / 10) * 100;
+  document.getElementById('thermo-fill').style.height = pct + '%';
+  document.getElementById('thermo-bulb').style.background = lv.color;
+  document.getElementById('thermo-fill').style.background =
+    val <= 3 ? '#2ECC71' :
+    val <= 5 ? '#F1C40F' :
+    val <= 7 ? '#E67E22' : '#E74C3C';
+
+  // 顔・名前・数値
+  const face = document.getElementById('thermo-face');
+  face.textContent = lv.face;
+  face.style.transform = val >= 8 ? 'scale(1.2)' : 'scale(1)';
+
+  document.getElementById('thermo-level-name').textContent = lv.name;
+  document.getElementById('thermo-level-name').style.color = lv.color;
+
+  const vd = document.getElementById('thermo-value-display');
+  vd.textContent = val;
+  vd.style.color = lv.color;
+  vd.style.borderColor = lv.color;
+  vd.style.background = lv.bg;
+
+  // 対処法更新
+  const ccard = document.getElementById('thermo-coping');
+  const ctitle = document.getElementById('thermo-coping-title');
+  const clist  = document.getElementById('thermo-coping-list');
+  ctitle.textContent = lv.coping_title;
+  clist.innerHTML = lv.coping.map(c=>`
+    <div class="thermo-coping-item" style="border-left:4px solid ${lv.color}">
+      <span class="thermo-coping-ico">${c.ico}</span>
+      <div class="thermo-coping-txt"><strong>${c.title}</strong>${c.desc}</div>
+    </div>`).join('');
+  ccard.classList.add('show');
+  ccard.style.borderLeft = `5px solid ${lv.color}`;
+
+  // 音声
+  if(val > 0 && cfg.autoSpeak){
+    speakBreath(lv.name + '。レベル' + val + '。' + lv.coping_title.replace(/[🆘😊😐😟😡🤬💥]/g,''));
+  }
+}
+
+function recordThermo(){
+  const val = parseInt(document.getElementById('thermo-slider').value);
+  const lv  = getThermoLevel(val);
+  const now  = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+  thermoLog.unshift({ val, face: lv.face, name: lv.name, color: lv.color, bg: lv.bg, time });
+  if(thermoLog.length > 6) thermoLog.pop();
+
+  renderThermoLog();
+  recordActivity('thermo', 0, String(val));
+  confetti(20);
+
+  // ボタンを一時的に変化
+  const btn = document.querySelector('.thermo-record-btn');
+  btn.textContent = '✅ きろくしたよ！';
+  btn.style.background = '#2ECC71';
+  setTimeout(()=>{ btn.textContent = '📝 きろくする'; btn.style.background = ''; }, 1500);
+}
+
+function renderThermoLog(){
+  const el = document.getElementById('thermo-log-list');
+  if(!thermoLog.length){
+    el.innerHTML = '<div class="thermo-log-empty">まだきろくがないよ。<br>上のボタンできろくしてみよう！</div>';
+    return;
+  }
+  el.innerHTML = thermoLog.map(r=>`
+    <div class="thermo-log-item" style="background:${r.bg};border-color:${r.color}">
+      <span class="thermo-log-time">${r.time}</span>
+      <span class="thermo-log-face">${r.face}</span>
+      <div class="thermo-log-info">
+        <div class="thermo-log-val" style="color:${r.color}">レベル ${r.val}</div>
+        <div class="thermo-log-name">${r.name}</div>
+      </div>
+    </div>`).join('');
+}
+
+function clearThermoLog(){
+  thermoLog = [];
+  renderThermoLog();
 }
 
 // ============================================================
@@ -1838,6 +6112,8 @@ let cfg = {
   speed: 3,
   fontSize: 'medium',
   dark: false,
+  voiceName: '',
+  highlight: true,
 };
 
 function loadCfg(){
@@ -1866,6 +6142,11 @@ function applyCfg(){
   const ss = document.getElementById('speed-slider');
   if(ss) ss.value = cfg.speed;
   updateSpeedLabel();
+  // ハイライトトグル
+  const th = document.getElementById('tgl-highlight');
+  if(th) th.checked = cfg.highlight !== false;
+  // 声の選択
+  buildVoiceSelect();
   // フォントボタン
   document.querySelectorAll('.font-btn').forEach(b=>{
     b.classList.toggle('on', b.dataset.size === cfg.fontSize);
@@ -1884,6 +6165,8 @@ function closeSettingsOutside(e){
 }
 function saveSettings(){
   cfg.autoSpeak = document.getElementById('tgl-auto-speak').checked;
+  const th = document.getElementById('tgl-highlight');
+  if(th) cfg.highlight = th.checked;
   saveCfg();
 }
 function updateSpeed(v){
@@ -1934,6 +6217,15 @@ function autoSpeak(fn){
 // ============================================================
 loadCfg();
 buildEmotions();
+loadBadges();
+updateBadgeHomeBtn();
+loadPhotoScenes();
+loadTeacherData();
+loadActivityLog();
+loadAIGenerated();
+syncCustomToScenes();
+initCustomTab();
+loadVoices();
 </script>
 </body>
 </html>
