@@ -243,6 +243,12 @@
   .color-btn.active { border-color:#333; transform:scale(1.06); box-shadow:0 4px 0 rgba(0,0,0,0.25); }
   .color-btn span { display:block; font-size:1.4rem; margin-bottom:2px; }
 
+  .doll-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .doll-btn { padding:8px 4px; border-radius:14px; border:3px solid transparent; cursor:pointer; font-family:'Zen Maru Gothic',sans-serif; font-size:0.72rem; font-weight:700; background:#f9f5ee; color:var(--text-dark); transition:all 0.2s; text-align:center; box-shadow:0 3px 0 rgba(0,0,0,0.12); }
+  .doll-btn:hover { transform:translateY(-2px); background:#f0e8d8; }
+  .doll-btn.active { border-color:var(--accent); background:#FFF0ED; box-shadow:0 4px 0 rgba(200,50,50,0.25); transform:scale(1.06); }
+  .doll-btn span { display:block; font-size:1.6rem; margin-bottom:2px; }
+
   .modal-close-btn { width:100%; margin-top:4px; padding:12px; border-radius:50px; border:none; background:#f0e8d8; font-family:'Zen Maru Gothic',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text-dark); cursor:pointer; transition:all 0.2s; box-shadow:0 3px 0 #d4c4a0; position:relative; overflow:hidden; }
   .modal-close-btn:hover { background:#e0d0b0; transform:translateY(-2px); }
 
@@ -275,14 +281,6 @@
   .scan-indicator { display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.75); color:white; border-radius:20px; padding:8px 22px; font-size:0.9rem; font-weight:700; z-index:150; white-space:nowrap; }
   .scan-indicator.show { display:block; }
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -469,6 +467,12 @@
       <div class="color-grid" id="colorGrid"></div>
     </div>
 
+    <!-- かくれるもの -->
+    <div class="setting-section">
+      <div class="section-title">🎯 かくれるもの</div>
+      <div class="doll-grid" id="dollGrid"></div>
+    </div>
+
     <button class="modal-close-btn" id="settingsCloseBtn">✅ とじる<div class="btn-dwell-bar"></div></button>
   </div>
 </div>
@@ -627,6 +631,47 @@ const COLOR_THEMES = [
 let currentThemeId = 'multi';
 function getColors(i) { const t = COLOR_THEMES.find(t=>t.id===currentThemeId)||COLOR_THEMES[0]; return t.colors[i]||t.colors[0]; }
 
+// ========== かくれるもの ==========
+const DOLL_ITEMS = [
+  { id:'bear',     emoji:'🧸', label:'クマ' },
+  { id:'hamster',  emoji:'🐹', label:'ハムスター' },
+  { id:'rabbit',   emoji:'🐰', label:'ウサギ' },
+  { id:'whale',    emoji:'🐳', label:'クジラ' },
+  { id:'ninja',    emoji:'🥷', label:'ニンジャ' },
+  { id:'apple',    emoji:'🍎', label:'リンゴ' },
+  { id:'potato',   emoji:'🍟', label:'フライドポテト' },
+  { id:'donut',    emoji:'🍩', label:'ドーナツ' },
+  { id:'car',      emoji:'🚗', label:'クルマ' },
+  { id:'onigiri',  emoji:'🍙', label:'おにぎり' },
+  { id:'cake',     emoji:'🎂', label:'ケーキ' },
+];
+let currentDollId = 'bear';
+function getCurrentDollEmoji() {
+  const d = DOLL_ITEMS.find(d => d.id === currentDollId);
+  return d ? d.emoji : '🧸';
+}
+
+// ========== かくれるものグリッド ==========
+function buildDollGrid() {
+  const grid = document.getElementById('dollGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  DOLL_ITEMS.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'doll-btn' + (currentDollId === item.id ? ' active' : '');
+    btn.dataset.dwell = '1';
+    btn.innerHTML = `<span>${item.emoji}</span>${item.label}`;
+    btn.onclick = () => {
+      currentDollId = item.id;
+      buildDollGrid();
+      // ゲーム中でなければ表示中カップの人形も更新
+      if (phase === 'idle') renderCups();
+    };
+    registerDwell(btn, () => btn.onclick());
+    grid.appendChild(btn);
+  });
+}
+
 // ========== カラーグリッド ==========
 function buildColorGrid() {
   const grid = document.getElementById('colorGrid');
@@ -678,7 +723,7 @@ function renderCups() {
 
     const dollEl = document.createElement('div');
     dollEl.className = 'doll hidden';
-    dollEl.textContent = '🧸';
+    dollEl.textContent = getCurrentDollEmoji();
 
     const cupBody = document.createElement('div');
     cupBody.className = 'cup-body';
@@ -726,7 +771,7 @@ function setupDwellButtons() {
 }
 
 // ========== 設定モーダル ==========
-function openSettings()  { buildColorGrid(); document.getElementById('settingsOverlay').classList.add('show'); }
+function openSettings()  { buildColorGrid(); buildDollGrid(); document.getElementById('settingsOverlay').classList.add('show'); }
 function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
 
 function applySettings() {
