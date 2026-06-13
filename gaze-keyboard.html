@@ -1307,14 +1307,6 @@ body.hc .tw-bar { background:#FFFF00; }
 body.is-fullscreen .profile-bar { max-width:100%; }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -2793,12 +2785,32 @@ setupActionBtn('btnMic',()=>{
   showToast('🎤 話してください…');
   try{recognition.start();}catch(e){recognition=null;setupVoice();}
 });
-// Word・印刷はdwellをclickに委譲（直接callback登録だと二重発火するため）
+// Word・印刷：完全排他制御
+// dwell完了 → _dwellJustFired フラグをセット → click イベント側でスキップ
 (()=>{
-  const w=document.getElementById('btnWord');
-  const p=document.getElementById('btnPrint');
-  if(w){ w.addEventListener('click', downloadAsWord); addDwell(w, ()=>w.click()); }
-  if(p){ p.addEventListener('click', printRichContent); addDwell(p, ()=>p.click()); }
+  function makeExclusiveBtn(el, fn) {
+    if (!el) return;
+    let dwellFired = false;
+    // dwell完了時のコールバック
+    el.addEventListener('pointerenter', () => { dwellFired = false; });
+    // addDwell のコールバック経由で呼ばれる版
+    const dwellFn = () => {
+      dwellFired = true;
+      fn();
+    };
+    // click イベント：dwell が直前に発火していたらスキップ
+    el.addEventListener('click', () => {
+      if (dwellFired) { dwellFired = false; return; }
+      fn();
+    });
+    addDwell(el, dwellFn);
+  }
+
+  window._safeWord  = downloadAsWord;
+  window._safePrint = printRichContent;
+
+  makeExclusiveBtn(document.getElementById('btnWord'),  downloadAsWord);
+  makeExclusiveBtn(document.getElementById('btnPrint'), printRichContent);
 })();
 setupActionBtn('btnClear',()=>{
   text='';
@@ -4956,20 +4968,39 @@ function buildFsTop() {
   const fsActs = document.createElement('div');
   fsActs.className = 'fs-actions';
   [
-    {id:'btnCopy',  icon:'📋', label:'コピー',      cls:'btn-copy'},
-    {id:'btnSpeak', icon:'🔊', label:'読み上げ',    cls:'btn-speak'},
-    {id:'btnMic',   icon:'🎤', label:'音声入力',    cls:'btn-mic'},
-    {id:'btnWord',  icon:'📄', label:'Word保存',    cls:'btn-word'},
-    {id:'btnClear', icon:'🗑️', label:'全消し',      cls:'btn-clear'},
-  ].forEach(({id, icon, label, cls}) => {
+    {id:'btnCopy',  icon:'📋', label:'コピー',   cls:'btn-copy',  fn:null},
+    {id:'btnSpeak', icon:'🔊', label:'読み上げ', cls:'btn-speak', fn:null},
+    {id:'btnMic',   icon:'🎤', label:'音声入力', cls:'btn-mic',   fn:null},
+    {id:'btnWord',  icon:'📄', label:'Word保存', cls:'btn-word',  fn:'_safeWord', direct:true},
+    {id:'btnClear', icon:'🗑️', label:'全消し',   cls:'btn-clear', fn:null},
+  ].forEach(({id, icon, label, cls, fn}) => {
     const btn = document.createElement('button');
     btn.className = 'fs-action-btn ' + cls;
     btn.innerHTML = `<span class="bi">${icon}</span>${label}`;
-    btn.addEventListener('click', () => {
-      const orig = document.getElementById(id);
-      if (orig) orig.click();
-    });
-    addDwell(btn, () => btn.click());
+    if (fn && direct) {
+      // Word：排他制御（dwell完了時はclickをスキップ）
+      let dwellFired = false;
+      btn.addEventListener('pointerenter', () => { dwellFired = false; });
+      btn.addEventListener('click', () => {
+        if (dwellFired) { dwellFired = false; return; }
+        if (window[fn]) window[fn]();
+      });
+      addDwell(btn, () => { dwellFired = true; if (window[fn]) window[fn](); });
+    } else {
+      // その他：元ボタンへ委譲、同様に排他制御
+      let dwellFired = false;
+      btn.addEventListener('pointerenter', () => { dwellFired = false; });
+      btn.addEventListener('click', () => {
+        if (dwellFired) { dwellFired = false; return; }
+        const orig = document.getElementById(id);
+        if (orig) orig.click();
+      });
+      addDwell(btn, () => {
+        dwellFired = true;
+        const orig = document.getElementById(id);
+        if (orig) orig.click();
+      });
+    }
     btn.appendChild(makeDwellRing());
     fsActs.appendChild(btn);
   });
