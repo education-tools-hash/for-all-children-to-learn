@@ -1307,14 +1307,6 @@ body.hc .tw-bar { background:#FFFF00; }
 body.is-fullscreen .profile-bar { max-width:100%; }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -2168,37 +2160,13 @@ const scanBarFill=document.getElementById('scanBarFill');
 // ==================== DISPLAY ====================
 // updateDisplay は後方で定義（richEditor対応版）
 
-// ==================== KEY INPUT ====================
-function handleKeyInput(val){
-  if(val==='__')return;
-  closeConvPopup();
-  if(val==='DEL'){text=text.slice(0,-1);}
-  else if(val==='ENTER'){text+='\n';}
-  else if(val==='SPACE'){text+='　';}
-  else if(val==='SHIFT'){isShift=!isShift;renderKeyboard();return;}
-  else if(val==='DAKUTEN'){applyDakuten();return;}
-  else if(val==='HANDAKUTEN'){applyHandakuten();return;}
-  else if(val==='CONVERT'){openConvPopup();return;}
-  else if(val.startsWith('PHRASE:')){text+=val.slice(7);}
-  else{
-    let c=val;
-    if(currentMode==='alphabet'&&isShift)c=val.toUpperCase();
-    text+=c;
-    if(currentMode==='alphabet'&&isShift){isShift=false;renderKeyboard();}
-    if(speakOnKey&&window.speechSynthesis){
-      window.speechSynthesis.cancel();
-      const u=new SpeechSynthesisUtterance(c);
-      u.lang='ja-JP';u.rate=speechRate;
-      window.speechSynthesis.speak(u);
-    }
-  }
-  updateDisplay();
-  if(enableAnim)flashEffect();
-}
+// handleKeyInput は後方のリッチエディタ対応版を使用
 
 function flashEffect(){
-  textDisplay.style.background='rgba(58,134,255,.08)';
-  setTimeout(()=>{textDisplay.style.background='';},160);
+  if(richEditor){
+    richEditor.style.background='rgba(58,134,255,.08)';
+    setTimeout(()=>{richEditor.style.background='';},160);
+  }
   // ごほうびカウント
   if(typeof rewardInterval !== 'undefined') {
     window._rewardCharCount = (window._rewardCharCount || 0) + 1;
@@ -2209,48 +2177,7 @@ function flashEffect(){
   }
 }
 
-function applyDakuten(){
-  if(!text)return;
-  const l=text[text.length-1];
-  if(DAKUTEN[l]){text=text.slice(0,-1)+DAKUTEN[l];updateDisplay();}
-}
-function applyHandakuten(){
-  if(!text)return;
-  const l=text[text.length-1];
-  if(HANDAKUTEN[l]){text=text.slice(0,-1)+HANDAKUTEN[l];updateDisplay();}
-}
-
-// ==================== CONVERSION ====================
-function openConvPopup(){
-  let candidates=[];
-  for(let len=8;len>=1;len--){
-    const chunk=text.slice(-len);
-    if(CONV_TABLE[chunk]){candidates=CONV_TABLE[chunk].map(c=>({orig:chunk,conv:c}));break;}
-  }
-  if(!candidates.length){showToast('変換できる文字がありません');return;}
-  convPopup.innerHTML='';
-  const title=document.createElement('div');
-  title.style.cssText='width:100%;font-size:.76rem;color:var(--text-light);font-weight:700;margin-bottom:4px;';
-  title.textContent='変換候補:';
-  convPopup.appendChild(title);
-  candidates.forEach(c=>{
-    const btn=document.createElement('div');
-    btn.className='cc';btn.textContent=c.conv;
-    const action=()=>{text=text.slice(0,-c.orig.length)+c.conv;updateDisplay();closeConvPopup();};
-    btn.addEventListener('click',action);
-    addDwell(btn,action);
-    convPopup.appendChild(btn);
-  });
-  const cl=document.createElement('div');
-  cl.className='cc';cl.style.cssText='background:var(--key-delete-bg);border-color:var(--key-delete-bd);color:#991B1B;';
-  cl.textContent='✕ 閉じる';
-  cl.addEventListener('click',closeConvPopup);
-  addDwell(cl,closeConvPopup);
-  convPopup.appendChild(cl);
-  convPopup.classList.add('visible');
-  convPopup.style.cssText='bottom:120px;left:50%;transform:translateX(-50%);display:flex;';
-}
-function closeConvPopup(){convPopup.classList.remove('visible');}
+// applyDakuten / applyHandakuten / openConvPopup は後方のリッチエディタ対応版を使用
 
 // ==================== DWELL ====================
 function addDwell(el,callback){
