@@ -494,6 +494,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   border-radius:10px;padding:8px 14px;font-size:.82rem;cursor:pointer;
   margin-top:9px;width:100%}
 .clrbtn:hover{border-color:var(--accent);color:var(--accent)}
+/* 速度チップ */
+.speed-chips{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:4px}
+.speed-chip{
+  border:2px solid var(--border);background:var(--surface2);
+  border-radius:12px;padding:8px 2px;cursor:pointer;
+  text-align:center;font-size:1.1rem;color:var(--text);
+  transition:all var(--tr);line-height:1;
+}
+.speed-chip span{display:block;font-size:.62rem;font-weight:700;margin-top:3px;line-height:1.3}
+.speed-chip:hover{border-color:var(--primary)}
+.speed-chip.sel{border-color:var(--primary);background:var(--primary);color:#fff}
+.hc .speed-chip.sel{background:var(--accent2);color:#000;border-color:var(--accent2)}
 
 /* howto panel */
 .howto-step{display:flex;gap:12px;align-items:flex-start;
@@ -614,14 +626,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .confirm-btns{display:flex;gap:8px}
 .confirm-btns .btn{flex:1;margin-top:0;padding:11px}
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -836,6 +840,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <div class="srow">
       <div class="slbl">あなのサイズ<small>大きくして見やすく</small></div>
       <div class="rw"><input type="range" id="sizeR" min="70" max="150" step="10" value="100"><span class="rv2" id="sizeV">100%</span></div>
+    </div>
+
+    <div class="sec">🐾 モグラの速度</div>
+    <div class="srow">
+      <div class="slbl">うごきのはやさ<small>全難易度に適用。ふつうが標準</small></div>
+    </div>
+    <div class="speed-chips" id="speedChips">
+      <button class="speed-chip" data-speed="very-slow">🐢<span>とても<br>ゆっくり</span></button>
+      <button class="speed-chip" data-speed="slow">🚶<span>ゆっくり</span></button>
+      <button class="speed-chip sel" data-speed="normal">🏃<span>ふつう</span></button>
+      <button class="speed-chip" data-speed="fast">💨<span>はやい</span></button>
+      <button class="speed-chip" data-speed="very-fast">⚡<span>とても<br>はやい</span></button>
     </div>
 
     <div class="sec">🔒 ロック暗証番号</div>
@@ -1053,6 +1069,14 @@ const DIFF={
   normal:{appear:1400, stay:1800, maxM:2, pts:20, bonusRate:0,    penaltyRate:0},
   hard:  {appear:850,  stay:1100, maxM:3, pts:30, bonusRate:0.18, penaltyRate:0.18},
 };
+// 速度倍率テーブル (1.0=標準、2.0=2倍速い)
+const SPEED_TABLE={
+  'very-slow':{ label:'とてもゆっくり', mult:0.5  },
+  'slow':      { label:'ゆっくり',       mult:0.75 },
+  'normal':    { label:'ふつう',         mult:1.0  },
+  'fast':      { label:'はやい',         mult:1.35 },
+  'very-fast': { label:'とてもはやい',   mult:1.8  },
+};
 // ダミーキャラ設定（SVG モグラで描画）
 const BONUS_STAY  =600;  // 0.6秒しかいない（素早い！）
 const PENALTY_STAY=1800; // ゆっくり誘惑する
@@ -1072,7 +1096,8 @@ let G={
   elapsed:0, timeLeft:30, gameTime:30,
   mode:'time', countGoal:10,
   diff:'easy', holes:9,
-  moles:[],
+  speedKey:'normal', // 速度設定キー
+  moles:new Map(), // key=穴idx, value={kind,active,t}
 };
 let cfg={
   hc:false, fs:'normal',
@@ -1268,7 +1293,7 @@ function goHome(){
   document.getElementById('confirmHome').classList.remove('on');
   clearInterval(timerID);clearTimeout(spawnID);stopDwell();
   if(G.phase==='playing'||G.phase==='countdown'){
-    G.moles.forEach(m=>clearTimeout(m.t));G.moles=[];
+    G.moles.forEach(entry=>clearTimeout(entry.t));G.moles=new Map();
     for(let i=0;i<G.holes;i++)hideM(i);
     document.getElementById('cdov').classList.remove('on');
   }
@@ -1462,7 +1487,7 @@ function countdown(){
 function startGame(){
   G.phase='playing';
   G.score=0;G.hits=0;G.misses=0;G.fumbles=0;G.combo=0;G.maxCombo=0;G.elapsed=0;
-  G.moles=[];
+  G.moles=new Map();
   if(G.mode==='time')G.timeLeft=G.gameTime;
   resetBoard();updUI();snd('start');
   document.getElementById('timerLbl').textContent=G.mode==='time'?'のこり':'けいか';
@@ -1479,40 +1504,53 @@ function startGame(){
   if(cfg.dwell)startDwell();
 }
 function schedSpawn(){
-  if(G.phase!=='playing')return;
-  const d=DIFF[G.diff];
-  const act=G.moles.filter(m=>m.active).length;
-  if(act<Math.min(d.maxM,G.holes))spawnMole();
-  spawnID=setTimeout(schedSpawn,d.appear+Math.random()*400-200);
+  if(G.phase!=='playing') return;
+  const d    = DIFF[G.diff];
+  const maxM = Math.min(d.maxM, G.holes);
+  // Map.size = 現在アクティブな穴数（Mapは重複なし）
+  if(G.moles.size < maxM) spawnMole();
+  const _mult = SPEED_TABLE[G.speedKey]?.mult || 1.0;
+  spawnID = setTimeout(schedSpawn, Math.round((d.appear+Math.random()*400-200)/_mult));
 }
 function spawnMole(){
-  const d=DIFF[G.diff];
-  const taken=G.moles.filter(m=>m.active).map(m=>m.i);
-  const av=[];for(let i=0;i<G.holes;i++)if(!taken.includes(i))av.push(i);
-  if(!av.length)return;
-  const idx=av[Math.floor(Math.random()*av.length)];
+  const d = DIFF[G.diff];
+  // Map から使用中の穴インデックスを取得（重複スポーン完全防止）
+  const av = [];
+  for(let i=0;i<G.holes;i++){
+    if(!G.moles.has(i)) av.push(i);
+  }
+  if(!av.length) return;
+  const idx = av[Math.floor(Math.random()*av.length)];
 
   // キャラ種別を抽選 (hard のみダミー出現)
-  let kind='normal'; // 'normal' | 'bonus' | 'penalty'
-  const r=Math.random();
-  if(r < d.bonusRate) kind='bonus';
-  else if(r < d.bonusRate + d.penaltyRate) kind='penalty';
+  let kind = 'normal';
+  const r = Math.random();
+  if(r < d.bonusRate)                        kind = 'bonus';
+  else if(r < d.bonusRate + d.penaltyRate)   kind = 'penalty';
 
-  const stay = kind==='bonus' ? BONUS_STAY : kind==='penalty' ? PENALTY_STAY : d.stay;
-  const obj={i:idx, active:true, kind};
-  G.moles.push(obj);
+  // 速度倍率を適用
+  const spMult = SPEED_TABLE[G.speedKey]?.mult || 1.0;
+  const stay = kind==='bonus'
+    ? Math.round(BONUS_STAY   / spMult)
+    : kind==='penalty'
+      ? Math.round(PENALTY_STAY / spMult)
+      : Math.round(d.stay       / spMult);
+
+  // Map に登録（同一穴への二重登録は Map の性質上あり得ない）
+  const entry = { kind, t: null };
+  G.moles.set(idx, entry);
   showM(idx, kind);
-  obj.t=setTimeout(()=>{
-    if(G.phase!=='playing')return;
+
+  entry.t = setTimeout(()=>{
+    if(G.phase!=='playing') return;
+    // Map に自分のエントリがまだ存在し同一オブジェクトか確認
+    if(G.moles.get(idx) !== entry) return;
+    G.moles.delete(idx);
     hideM(idx);
-    obj.active=false;
-    // 古い inactive エントリを定期的に掃除してメモリ肥大を防ぐ
-    G.moles=G.moles.filter(m=>m.active);
-    // 通常モグラだけミス扱い（ボーナス・ペナルティは逃げてもノーカウント）
-    if(kind==='normal'){G.misses++;G.combo=0;updUI();}
-    // ボーナス・ペナルティが逃げたらすぐ次をスポーンして枠を埋める
-    if(kind==='bonus'||kind==='penalty') schedSpawn();
-  },stay);
+    if(kind==='normal'){ G.misses++; G.combo=0; updUI(); }
+    // bonus/penalty が逃げたら既存タイマーチェーンが拾うので直接呼ばない
+    // → schedSpawn が次サイクルで枠を補充する
+  }, stay);
 }
 function showM(i, kind='normal'){
   const h=getH(i);if(!h)return;
@@ -1536,8 +1574,10 @@ function hideM(i){
   const m=h.querySelector('.mole');
   m.classList.remove('up','hit');
   h.classList.remove('bonus-hole','penalty-hole');
-  // キャラHTMLを通常に戻す（次回出現時に正しく描画するため）
+  // 次回出現に備えて通常キャラHTMLに戻す
   m.innerHTML=charHTML();
+  // hit()の遅延setTimeoutが後から書き換えないよう世代カウンタをリセット
+  h.dataset.gen=(parseInt(h.dataset.gen||0)+1).toString();
   h.setAttribute('aria-label','あな'+(i+1));
   const c=h.querySelector('.dwell-ring circle');
   if(c){c.style.transition='none';c.style.strokeDashoffset='283';}
@@ -1546,72 +1586,80 @@ function resetBoard(){for(let i=0;i<G.holes;i++)hideM(i);}
 function getH(i){return document.querySelector('.hole[data-idx="'+i+'"]');}
 
 function activate(i){
-  if(G.phase!=='playing')return;
-  const mi=G.moles.findIndex(m=>m.i===i&&m.active);
-  if(mi!==-1){
-    hit(i,mi);
+  if(G.phase!=='playing') return;
+  // Map から直接取得 → インデックスのズレや重複エントリ問題が構造的に存在しない
+  const entry = G.moles.get(i);
+  if(entry){
+    hit(i, entry);
   } else {
-    // 空打ち: モグラのいない穴をたたいた → fumbles（コンボは切らない）
+    // 空打ち
     G.fumbles++;
     missEff(getH(i));
     snd('miss');
     updUI();
   }
 }
-function hit(i,mi){
-  const d=DIFF[G.diff];
-  const kind=G.moles[mi].kind||'normal';
-  clearTimeout(G.moles[mi].t);G.moles[mi].active=false;
-  G.moles=G.moles.filter(m=>m.active); // inactive を掃除
+function hit(i, entry){
+  const d    = DIFF[G.diff];
+  const kind = entry.kind || 'normal';
 
-  const h=getH(i);
+  // タイマー停止 → Map から即削除（これ以降 entry は参照のみ）
+  clearTimeout(entry.t);
+  G.moles.delete(i);
+
+  // 視覚処理
+  const h = getH(i);
   if(h){
-    const m=h.querySelector('.mole');
-    m.classList.remove('up');m.classList.add('hit');
+    const m = h.querySelector('.mole');
+    m.classList.remove('up');
+    m.classList.add('hit');
     h.classList.remove('bonus-hole','penalty-hole');
-    setTimeout(()=>{m.classList.remove('hit');m.innerHTML=charHTML();},300);
-    const c=h.querySelector('.dwell-ring circle');
-    if(c){c.style.transition='none';c.style.strokeDashoffset='283';}
+    const hitGen = parseInt(h.dataset.gen||0);
+    setTimeout(()=>{
+      if(parseInt(h.dataset.gen||0) !== hitGen) return;
+      m.classList.remove('hit');
+      m.innerHTML = charHTML();
+    }, 300);
+    const c = h.querySelector('.dwell-ring circle');
+    if(c){ c.style.transition='none'; c.style.strokeDashoffset='283'; }
     h.setAttribute('aria-label','あな'+(i+1));
   }
 
+  // スコア処理
   if(kind==='bonus'){
-    // ボーナスキャラ: +50pt、コンボ継続
-    G.score+=BONUS_PTS;
-    G.hits++;G.combo++;if(G.combo>G.maxCombo)G.maxCombo=G.combo;
+    G.score += BONUS_PTS;
+    G.hits++; G.combo++; if(G.combo>G.maxCombo) G.maxCombo=G.combo;
     showScoreFlash('+'+BONUS_PTS+' きんのもぐら！','bonus');
     snd('clear');
-    if(h)hitEff(h,'bonus');
+    if(h) hitEff(h,'bonus');
   } else if(kind==='penalty'){
-    // ペナルティキャラ: -40pt、コンボリセット
-    G.score=Math.max(0,G.score-PENALTY_PTS);
-    G.combo=0;
+    G.score = Math.max(0, G.score-PENALTY_PTS);
+    G.combo = 0;
     showScoreFlash('-'+PENALTY_PTS+' わるもぐら…','penalty');
     snd('penHit');
-    if(h)penaltyEff(h);
+    if(h) penaltyEff(h);
   } else {
-    // 通常モグラ
-    G.hits++;G.combo++;if(G.combo>G.maxCombo)G.maxCombo=G.combo;
-    const bonus=G.combo>=10?3:G.combo>=5?2:1;
-    G.score+=d.pts*bonus;
-    if(h)hitEff(h,bonus);
+    G.hits++; G.combo++; if(G.combo>G.maxCombo) G.maxCombo=G.combo;
+    const bonus = G.combo>=10?3:G.combo>=5?2:1;
+    G.score += d.pts * bonus;
+    if(h) hitEff(h, bonus);
     snd(G.combo>=5?'combo':'hit');
-    if(G.combo>=5&&G.combo%5===0)comboEff(G.combo);
+    if(G.combo>=5 && G.combo%5===0) comboEff(G.combo);
   }
 
   updUI();
-  if(G.mode==='count'&&kind==='normal'){
-    const rem=G.countGoal-G.hits;
+  if(G.mode==='count' && kind==='normal'){
+    const rem = G.countGoal - G.hits;
     document.getElementById('card4lbl').textContent='のこり';
     document.getElementById('dMiss').textContent=Math.max(0,rem);
-    if(G.hits>=G.countGoal){snd('clear');endGame();}
+    if(G.hits>=G.countGoal){ snd('clear'); endGame(); }
   }
 }
 function endGame(){
   G.phase='result';
   clearInterval(timerID);clearTimeout(spawnID);stopDwell();
   for(let i=0;i<G.holes;i++)hideM(i);
-  G.moles.forEach(m=>clearTimeout(m.t));G.moles=[];
+  G.moles.forEach(entry=>clearTimeout(entry.t));G.moles=new Map();
   saveRec();setTimeout(showResult,500);
 }
 function showResult(){
@@ -1926,6 +1974,12 @@ document.getElementById('dwTol').addEventListener('input',function(){
   cfg.dwTol=parseInt(this.value);document.getElementById('dwTolV').textContent=this.value+'px';
 });
 document.getElementById('togSnd').addEventListener('change',function(){cfg.snd=this.checked;});
+// 速度チップ
+document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-speed]').forEach(x=>x.classList.remove('sel'));
+  b.classList.add('sel');
+  G.speedKey=b.dataset.speed;
+}));
 document.getElementById('togRm').addEventListener('change',function(){cfg.rm=this.checked;applySettings();});
 document.getElementById('sizeR').addEventListener('input',function(){
   cfg.holeSize=parseInt(this.value);document.getElementById('sizeV').textContent=this.value+'%';applySettings();
