@@ -1307,14 +1307,6 @@ body.hc .tw-bar { background:#FFFF00; }
 body.is-fullscreen .profile-bar { max-width:100%; }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -1690,6 +1682,17 @@ body.is-fullscreen .profile-bar { max-width:100%; }
       <!-- 読み上げ -->
       <div class="s-section">
         <div class="s-section-title">🔊 音声・読み上げ</div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">よく使う文・絵カードを読み上げ</div>
+            <div class="s-desc">定型文や絵カードを選んだとき自動で読み上げる</div>
+          </div>
+          <label class="sw">
+            <input type="checkbox" id="speakPhraseSw" checked>
+            <div class="sw-track"></div>
+            <div class="sw-thumb"></div>
+          </label>
+        </div>
         <div class="s-row">
           <div>
             <div class="s-label">キー入力時に読み上げ</div>
@@ -2131,6 +2134,7 @@ let enableAnim=true;
 let edgeZone=true;
 let isRecording=false;
 let recognition=null;
+let speakPhrase=true; // よく使う文・絵カード選択時に読み上げ
 let currentTheme='';
 let currentKeySize='normal';
 
@@ -2589,7 +2593,15 @@ function renderPhrases(){
     const btn=document.createElement('div');btn.className='phrase-btn';
     btn.innerHTML=`<span class="pemo">${p.emoji}</span><span>${p.label}</span>`;
     btn.appendChild(makeDwellRing());
-    const act=()=>{text+=p.text;updateDisplay();showToast('💬 '+p.text);};
+    const act=()=>{
+      text+=p.text;updateDisplay();showToast('💬 '+p.text);
+      if(speakPhrase&&window.speechSynthesis){
+        window.speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance(p.text);
+        u.lang='ja-JP';u.rate=speechRate;u.pitch=1.1;
+        window.speechSynthesis.speak(u);
+      }
+    };
     btn.addEventListener('click',act);addDwell(btn,act);
     phraseGrid.appendChild(btn);
   });
@@ -2602,7 +2614,15 @@ function renderAAC(){
     const card=document.createElement('div');card.className='aac-card';
     card.innerHTML=`<span class="ace">${c.emoji}</span><span class="acl">${c.label}</span>`;
     card.appendChild(makeDwellRing());
-    const act=()=>{text+=c.text;updateDisplay();showToast('🖼️ '+c.text);};
+    const act=()=>{
+      text+=c.text;updateDisplay();showToast('🖼️ '+c.text);
+      if(speakPhrase&&window.speechSynthesis){
+        window.speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance(c.text);
+        u.lang='ja-JP';u.rate=speechRate;u.pitch=1.1;
+        window.speechSynthesis.speak(u);
+      }
+    };
     card.addEventListener('click',act);addDwell(card,act);
     aacGrid.appendChild(card);
   });
@@ -2727,6 +2747,7 @@ document.getElementById('switchTypeGrid').addEventListener('click',e=>{
 });
 
 // Speak on key
+document.getElementById('speakPhraseSw').addEventListener('change',e=>{speakPhrase=e.target.checked;});
 document.getElementById('speakOnKeySw').addEventListener('change',e=>{speakOnKey=e.target.checked;});
 
 // Speech rate
@@ -2816,6 +2837,7 @@ setupActionBtn('btnMic',()=>{
 
   window._safeWord  = downloadAsWord;
   window._safePrint = printRichContent;
+  // 全画面ボタンからも使えるようにグローバル公開済み
 
   makeExclusiveBtn(document.getElementById('btnWord'),  downloadAsWord);
   makeExclusiveBtn(document.getElementById('btnPrint'), printRichContent);
@@ -4980,8 +5002,9 @@ function buildFsTop() {
     {id:'btnSpeak', icon:'🔊', label:'読み上げ', cls:'btn-speak', fn:null},
     {id:'btnMic',   icon:'🎤', label:'音声入力', cls:'btn-mic',   fn:null},
     {id:'btnWord',  icon:'📄', label:'Word保存', cls:'btn-word',  fn:'_safeWord', direct:true},
+    {id:'btnPrint', icon:'🖨️', label:'印刷',    cls:'btn-print', fn:'_safePrint', direct:true},
     {id:'btnClear', icon:'🗑️', label:'全消し',   cls:'btn-clear', fn:null},
-  ].forEach(({id, icon, label, cls, fn}) => {
+  ].forEach(({id, icon, label, cls, fn, direct}) => {
     const btn = document.createElement('button');
     btn.className = 'fs-action-btn ' + cls;
     btn.innerHTML = `<span class="bi">${icon}</span>${label}`;

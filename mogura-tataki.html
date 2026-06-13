@@ -273,8 +273,9 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo','BIZ UDPGothic',sans-serif
   width:clamp(40px,10vw,52px);height:clamp(40px,10vw,52px);
   border:3px solid var(--border);border-radius:12px;
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-size:clamp(1.1rem,3.5vw,1.4rem);background:var(--surface2);
+  cursor:pointer;font-size:clamp(1.4rem,4vw,1.8rem);background:var(--surface2);
   transition:all var(--tr);overflow:hidden}
+.ci img{width:100%;height:100%;object-fit:cover;border-radius:9px}
 .ci:hover{border-color:var(--primary)}
 .ci.sel{border-color:var(--primary);background:var(--primary)}
 .hc .ci.sel{background:var(--accent2);border-color:var(--accent2)}
@@ -360,10 +361,25 @@ input[type=file]{display:none}
   100%{transform:translateX(-50%) scale(1)}
 }
 .mole-svg{width:100%;height:100%}
-.char-wrap{width:100%;height:100%;display:flex;align-items:center;
-  justify-content:center;overflow:hidden;border-radius:50%}
-.char-wrap img{width:90%;height:90%;object-fit:cover;border-radius:50%}
-.char-emoji{font-size:2.8rem;line-height:1}
+.char-wrap{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;border-radius:50%;
+}
+/* 写真：穴いっぱいに表示 */
+.char-wrap img{
+  width:100%;height:100%;
+  object-fit:cover;border-radius:50%;
+}
+/* 絵文字：穴の幅に連動させる（vw固定ではなくコンテナ相対） */
+.char-emoji{
+  font-size:min(5rem, 12vw);   /* 穴サイズに比例しつつ上限あり */
+  line-height:1;
+  display:block;
+  text-align:center;
+}
+/* .mole-svg も穴いっぱいに */
+.mole-svg{width:100%;height:100%}
 
 /* ── Special dummy characters ── */
 /* bonus: golden flash border */
@@ -626,14 +642,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .confirm-btns{display:flex;gap:8px}
 .confirm-btns .btn{flex:1;margin-top:0;padding:11px}
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -1322,9 +1330,19 @@ document.getElementById('confirmOk').addEventListener('click',goHome);
 function cols(n){return n<=1?1:n<=2?2:3;}
 function charHTML(){
   const ch=[...CHARS,...userPhotos].find(c=>c.id===selChar);
-  if(!ch||ch.type==='svg')return moleSVG();
-  if(ch.type==='emoji')return `<div class="char-wrap"><div class="char-emoji">${ch.icon}</div></div>`;
-  if(ch.type==='photo')return `<div class="char-wrap"><img src="${ch.url}" alt="${ch.lbl}" draggable="false"></div>`;
+  if(!ch||ch.type==='svg') return moleSVG();
+  if(ch.type==='emoji'){
+    // SVGのforeignObjectで絵文字を穴幅にぴったり追従させる
+    return `<svg class="mole-svg" viewBox="0 0 100 100" aria-hidden="true">
+      <foreignObject x="0" y="0" width="100" height="100">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:62px;line-height:1;user-select:none;">${ch.icon}</div>
+      </foreignObject>
+    </svg>`;
+  }
+  if(ch.type==='photo'){
+    // 写真は穴いっぱいに丸くトリミング
+    return `<div class="char-wrap"><img src="${ch.url}" alt="${ch.lbl}" draggable="false"></div>`;
+  }
   return moleSVG();
 }
 function moleSVG(){
