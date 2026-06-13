@@ -1307,14 +1307,6 @@ body.hc .tw-bar { background:#FFFF00; }
 body.is-fullscreen .profile-bar { max-width:100%; }
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -2643,18 +2635,51 @@ function setupVoice(){
   recognition=new SR();recognition.lang='ja-JP';
   recognition.continuous=false;recognition.interimResults=false;
   recognition.onresult=e=>{
-    const r=e.results[0][0].transcript;text+=r;updateDisplay();showToast('🎤 認識: '+r);
+    const r=e.results[0][0].transcript;
+    // リッチエディタに1文字ずつ追加（スタイルを維持したまま）
+    if(richEditor && typeof rtGetOrCreateBlock==='function'){
+      r.split('').forEach(ch=>{
+        const block=rtGetOrCreateBlock();
+        block.appendChild(rtMakeSpan(ch));
+      });
+      text=getEditorPlainText();
+      updateDisplay();
+    } else {
+      text+=r;
+      updateDisplay();
+    }
+    showToast('🎤 認識: '+r);
+    if(window.speechSynthesis){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(r);
+      u.lang='ja-JP';u.rate=speechRate;
+      window.speechSynthesis.speak(u);
+    }
   };
   recognition.onend=()=>{
     isRecording=false;
-    document.getElementById('btnMic').classList.remove('recording');
-    document.querySelector('#btnMic .bi').textContent='🎤';
+    document.querySelectorAll('.btn-mic, .fs-action-btn.btn-mic').forEach(m=>{
+      m.classList.remove('recording');
+      const bi=m.querySelector('.bi');
+      if(bi)bi.textContent='🎤';
+    });
+    showToast('🎤 音声入力が終わりました');
   };
-  recognition.onerror=()=>{
+  recognition.onerror=e=>{
     isRecording=false;
-    document.getElementById('btnMic').classList.remove('recording');
-    document.querySelector('#btnMic .bi').textContent='🎤';
-    showToast('音声入力に失敗しました');
+    document.querySelectorAll('.btn-mic, .fs-action-btn.btn-mic').forEach(m=>{
+      m.classList.remove('recording');
+      const bi=m.querySelector('.bi');
+      if(bi)bi.textContent='🎤';
+    });
+    const msgs={
+      'not-allowed':'マイクの使用が許可されていません
+ブラウザの設定を確認してください',
+      'no-speech':'音声が検出されませんでした
+もう一度お試しください',
+      'network':'ネットワークエラーが発生しました',
+    };
+    showToast('🎤 '+(msgs[e.error]||'音声入力に失敗しました'));
   };
 }
 
@@ -2784,11 +2809,10 @@ function setupActionBtn(id,fn){
   btn.addEventListener('click',fn);
   addDwell(btn,fn);
 }
-setupActionBtn('btnCopy',async()=>{
+async function _fsCopy(){
   if(!text){showToast('文字を入力してください');return;}
   if(typeof addHistoryEntry==='function') addHistoryEntry(text);
   try{
-    // リッチテキストとプレーンテキスト両方をクリップボードに
     const htmlContent = richEditor ? richEditor.innerHTML : text;
     if (navigator.clipboard && window.ClipboardItem) {
       const item = new ClipboardItem({
@@ -2802,26 +2826,40 @@ setupActionBtn('btnCopy',async()=>{
     showToast('📋 コピーしました！\nWordや他のアプリに Ctrl+V で貼り付けできます\n（書式も一緒にコピーされます）');
   }
   catch{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('📋 コピーしました！');}
-});
-setupActionBtn('btnSpeak',()=>{
+}
+setupActionBtn('btnCopy', _fsCopy);
+function _fsSpeak(){
   if(!text)return;
   if(!window.speechSynthesis){showToast('この環境では読み上げに対応していません');return;}
   window.speechSynthesis.cancel();
   const utt=new SpeechSynthesisUtterance(text);
   utt.lang='ja-JP';utt.rate=speechRate;utt.pitch=1.1;
   window.speechSynthesis.speak(utt);showToast('🔊 読み上げています…');
-});
-setupActionBtn('btnMic',()=>{
+}
+setupActionBtn('btnSpeak', _fsSpeak);
+// btnMic：グローバル関数 + 排他制御
+function _fsMic(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){showToast('このブラウザは音声入力に対応していません\nChromeをお試しください');return;}
   if(!recognition)setupVoice();
   if(isRecording){recognition.stop();return;}
   isRecording=true;
-  document.getElementById('btnMic').classList.add('recording');
-  document.querySelector('#btnMic .bi').textContent='🔴';
-  showToast('🎤 話してください…');
-  try{recognition.start();}catch(e){recognition=null;setupVoice();}
-});
+  document.querySelectorAll('.btn-mic,.fs-action-btn.btn-mic').forEach(m=>{
+    m.classList.add('recording');
+    const bi=m.querySelector('.bi');if(bi)bi.textContent='🔴';
+  });
+  showToast('🎤 話してください…\n（マイクを許可してください）');
+  try{recognition.start();}catch(e){recognition=null;setupVoice();try{recognition.start();}catch(e2){showToast('🎤 音声入力を開始できませんでした');}}
+}
+window._fsMic=_fsMic;
+(()=>{
+  const el=document.getElementById('btnMic');
+  if(!el)return;
+  let dwellFired=false;
+  el.addEventListener('pointerenter',()=>{dwellFired=false;});
+  el.addEventListener('click',()=>{if(dwellFired){dwellFired=false;return;}_fsMic();});
+  addDwell(el,()=>{dwellFired=true;_fsMic();});
+})();
 // Word・印刷：完全排他制御
 // dwell完了 → _dwellJustFired フラグをセット → click イベント側でスキップ
 (()=>{
@@ -2845,16 +2883,16 @@ setupActionBtn('btnMic',()=>{
 
   window._safeWord  = downloadAsWord;
   window._safePrint = printRichContent;
-  // 全画面ボタンからも使えるようにグローバル公開済み
 
   makeExclusiveBtn(document.getElementById('btnWord'),  downloadAsWord);
   makeExclusiveBtn(document.getElementById('btnPrint'), printRichContent);
 })();
-setupActionBtn('btnClear',()=>{
+function _fsClear(){
   text='';
-  if(richEditor){ richEditor.innerHTML=''; richEditor.focus(); }
+  if(richEditor){ richEditor.innerHTML=''; }
   updateDisplay();
-});
+}
+setupActionBtn('btnClear', _fsClear);
 
 // ==================== PHRASE PANEL ====================
 document.getElementById('phraseToggle').addEventListener('click',()=>{
@@ -5005,41 +5043,29 @@ function buildFsTop() {
   // ── アクションボタン ──
   const fsActs = document.createElement('div');
   fsActs.className = 'fs-actions';
+  // 全画面ボタン：全て直接関数呼び出し（orig.click()は display:none で無効なため）
   [
-    {id:'btnCopy',  icon:'📋', label:'コピー',   cls:'btn-copy',  fn:null},
-    {id:'btnSpeak', icon:'🔊', label:'読み上げ', cls:'btn-speak', fn:null},
-    {id:'btnMic',   icon:'🎤', label:'音声入力', cls:'btn-mic',   fn:null},
-    {id:'btnWord',  icon:'📄', label:'Word保存', cls:'btn-word',  fn:'_safeWord', direct:true},
-    {id:'btnPrint', icon:'🖨️', label:'印刷',    cls:'btn-print', fn:'_safePrint', direct:true},
-    {id:'btnClear', icon:'🗑️', label:'全消し',   cls:'btn-clear', fn:null},
-  ].forEach(({id, icon, label, cls, fn, direct}) => {
+    {icon:'📋', label:'コピー',   cls:'btn-copy',  fn:'_fsCopy'},
+    {icon:'🔊', label:'読み上げ', cls:'btn-speak', fn:'_fsSpeak'},
+    {icon:'🎤', label:'音声入力', cls:'btn-mic',   fn:'_fsMic'},
+    {icon:'📄', label:'Word保存', cls:'btn-word',  fn:'_safeWord'},
+    {icon:'🖨️', label:'印刷',    cls:'btn-print', fn:'_safePrint'},
+    {icon:'🗑️', label:'全消し',   cls:'btn-clear', fn:'_fsClear'},
+  ].forEach(({icon, label, cls, fn}) => {
     const btn = document.createElement('button');
     btn.className = 'fs-action-btn ' + cls;
     btn.innerHTML = `<span class="bi">${icon}</span>${label}`;
-    if (fn && direct) {
-      // Word：排他制御（dwell完了時はclickをスキップ）
-      let dwellFired = false;
-      btn.addEventListener('pointerenter', () => { dwellFired = false; });
-      btn.addEventListener('click', () => {
-        if (dwellFired) { dwellFired = false; return; }
-        if (window[fn]) window[fn]();
-      });
-      addDwell(btn, () => { dwellFired = true; if (window[fn]) window[fn](); });
-    } else {
-      // その他：元ボタンへ委譲、同様に排他制御
-      let dwellFired = false;
-      btn.addEventListener('pointerenter', () => { dwellFired = false; });
-      btn.addEventListener('click', () => {
-        if (dwellFired) { dwellFired = false; return; }
-        const orig = document.getElementById(id);
-        if (orig) orig.click();
-      });
-      addDwell(btn, () => {
-        dwellFired = true;
-        const orig = document.getElementById(id);
-        if (orig) orig.click();
-      });
-    }
+    // 全ボタン共通：dwellFired で排他制御
+    let dwellFired = false;
+    btn.addEventListener('pointerenter', () => { dwellFired = false; });
+    btn.addEventListener('click', () => {
+      if (dwellFired) { dwellFired = false; return; }
+      if (window[fn]) window[fn]();
+    });
+    addDwell(btn, () => {
+      dwellFired = true;
+      if (window[fn]) window[fn]();
+    });
     btn.appendChild(makeDwellRing());
     fsActs.appendChild(btn);
   });
