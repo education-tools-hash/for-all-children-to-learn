@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>アプリをさがす | すべての子どもの学びのためのデジタル教材</title>
+<style>
+  :root {
+    --primary: #4A4270;
+    --primary-light: #6B5F9E;
+    --primary-pale: #EEE9FF;
+    --accent: #F4A836;
+    --accent-light: #FFF3DC;
+    --text: #2D2A3E;
+    --text-sub: #6B6680;
+    --bg: #F8F7FC;
+    --white: #FFFFFF;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 4px 20px rgba(74,66,112,0.10);
+    --shadow-hover: 0 8px 28px rgba(74,66,112,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+
+  /* ヘッダー */
+  .site-header {
+    background: var(--primary);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .site-header a {
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .site-header a:hover { color: #fff; }
+
+  /* メインコンテナ */
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+
+  /* ページタイトル */
+  .page-hero {
+    text-align: center;
+    padding: 36px 0 28px;
+  }
+  .page-hero .emoji { font-size: 2.8rem; display: block; margin-bottom: 12px; }
+  .page-hero h1 {
+    font-size: 1.55rem;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+  .page-hero p {
+    font-size: 0.92rem;
+    color: var(--text-sub);
+    line-height: 1.7;
+  }
+
+  /* ステップインジケーター */
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 28px;
+  }
+  .step-dot {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #DDD8F0;
+    color: #9990C0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s;
+    position: relative;
+    z-index: 1;
+  }
+  .step-dot.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 0 4px var(--primary-pale);
+  }
+  .step-dot.done {
+    background: var(--primary-light);
+    color: #fff;
+  }
+  .step-line {
+    width: 48px; height: 3px;
+    background: #DDD8F0;
+    transition: background 0.3s;
+  }
+  .step-line.done { background: var(--primary-light); }
+
+  /* 質問カード */
+  .question-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px 24px 24px;
+    margin-bottom: 20px;
+    display: none;
+    animation: fadeUp 0.35s ease;
+  }
+  .question-card.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .question-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--primary-light);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .question-text {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.45;
+    margin-bottom: 20px;
+  }
+
+  /* 選択肢ボタン */
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .option-btn {
+    background: var(--bg);
+    border: 2.5px solid #DDD8F0;
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: inherit;
+    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .option-btn:hover, .option-btn:focus {
+    border-color: var(--primary);
+    background: var(--primary-pale);
+    outline: none;
+  }
+  .option-btn.selected {
+    border-color: var(--primary);
+    background: var(--primary-pale);
+  }
+  .option-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    width: 36px;
+    text-align: center;
+  }
+  .option-body { flex: 1; }
+  .option-title {
+    font-size: 0.97rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .option-desc {
+    font-size: 0.8rem;
+    color: var(--text-sub);
+    line-height: 1.5;
+  }
+
+  /* 戻るボタン */
+  .back-btn {
+    background: none;
+    border: none;
+    color: var(--text-sub);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 0;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+  .back-btn:hover { color: var(--primary); }
+
+  /* 結果カード */
+  .result-section { display: none; animation: fadeUp 0.4s ease; }
+  .result-section.active { display: block; }
+
+  .result-header {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    border-radius: var(--radius);
+    padding: 24px 22px;
+    margin-bottom: 18px;
+    color: #fff;
+    text-align: center;
+  }
+  .result-header .icon { font-size: 2.2rem; margin-bottom: 8px; }
+  .result-header h2 { font-size: 1.15rem; font-weight: 800; margin-bottom: 4px; }
+  .result-header p { font-size: 0.85rem; opacity: 0.85; line-height: 1.6; }
+
+  .result-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin: 6px 3px 0;
+  }
+
+  /* アプリカード */
+  .app-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 20px 16px;
+    margin-bottom: 14px;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .app-card:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
+  .app-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .app-emoji {
+    font-size: 2.2rem;
+    flex-shrink: 0;
+    width: 48px; height: 48px;
+    background: var(--primary-pale);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .app-info { flex: 1; }
+  .app-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .app-reason {
+    font-size: 0.82rem;
+    color: var(--primary-light);
+    font-weight: 600;
+    margin-bottom: 4px;
+    line-height: 1.5;
+  }
+  .app-desc {
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
+  .app-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .tag {
+    background: var(--primary-pale);
+    color: var(--primary);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .tag.accent {
+    background: var(--accent-light);
+    color: #B07200;
+  }
+  .open-btn {
+    display: block;
+    width: 100%;
+    background: var(--primary);
+    color: #fff;
+    text-align: center;
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    transition: background 0.2s;
+  }
+  .open-btn:hover { background: var(--primary-light); }
+
+  /* もう一度ボタン */
+  .retry-wrap {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 2px dashed #DDD8F0;
+  }
+  .retry-btn {
+    background: none;
+    border: 2.5px solid var(--primary);
+    color: var(--primary);
+    border-radius: 40px;
+    padding: 11px 28px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .retry-btn:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  /* 全部みるリンク */
+  .see-all {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    color: var(--text-sub);
+    font-size: 0.85rem;
+    text-decoration: none;
+  }
+  .see-all:hover { color: var(--primary); text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="https://education-tools-hash.github.io/for-all-children-to-learn/index.html">
+    ← トップページにもどる
+  </a>
+</header>
+
+<div class="container">
+
+  <div class="page-hero">
+    <span class="emoji">🔍</span>
+    <h1>ぴったりのアプリを<br>さがす</h1>
+    <p>3つの質問に答えるだけで、<br>お子さんに合ったアプリがすぐ見つかります。</p>
+  </div>
+
+  <!-- ステップインジケーター -->
+  <div class="step-indicator" id="stepIndicator">
+    <div class="step-dot active" id="dot1">1</div>
+    <div class="step-line" id="line1"></div>
+    <div class="step-dot" id="dot2">2</div>
+    <div class="step-line" id="line2"></div>
+    <div class="step-dot" id="dot3">3</div>
+  </div>
+
+  <!-- Q1: 操作方法 -->
+  <div class="question-card active" id="q1">
+    <div class="question-label">質問 1 / 3</div>
+    <div class="question-text">お子さんはどうやって<br>画面を操作しますか？</div>
+    <div class="options">
+      <button class="option-btn" onclick="answer(1, 'touch')">
+        <span class="option-icon">👆</span>
+        <span class="option-body">
+          <span class="option-title">タッチ・タップで操作する</span>
+          <span class="option-desc">指でタップ、タッチペンなど</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(1, 'switch')">
+        <span class="option-icon">🔘</span>
+        <span class="option-body">
+          <span class="option-title">スイッチ・視線入力を使う</span>
+          <span class="option-desc">外部スイッチ、Tobii視線入力など</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(1, 'any')">
+        <span class="option-icon">✨</span>
+        <span class="option-body">
+          <span class="option-title">どちらでも / まだ決めていない</span>
+          <span class="option-desc">いろいろ試したい</span>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Q2: ねらい -->
+  <div class="question-card" id="q2">
+    <div class="question-label">質問 2 / 3</div>
+    <div class="question-text">今、いちばん育てたい力は<br>何ですか？</div>
+    <div class="options">
+      <button class="option-btn" onclick="answer(2, 'literacy')">
+        <span class="option-icon">✏️</span>
+        <span class="option-body">
+          <span class="option-title">文字・数の読み書き</span>
+          <span class="option-desc">ひらがな・カタカナ・数字・なぞり書きなど</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(2, 'life')">
+        <span class="option-icon">🏪</span>
+        <span class="option-body">
+          <span class="option-title">生活スキル・見通し</span>
+          <span class="option-desc">お金・時計・スケジュール・防災など</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(2, 'communication')">
+        <span class="option-icon">🌟</span>
+        <span class="option-body">
+          <span class="option-title">気持ちを伝える・友達と関わる</span>
+          <span class="option-desc">AAC・コミュニケーション・SSTなど</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(2, 'cognition')">
+        <span class="option-icon">🧠</span>
+        <span class="option-body">
+          <span class="option-title">認知・因果関係・創作</span>
+          <span class="option-desc">注視・追視・記憶・お絵かきなど</span>
+        </span>
+      </button>
+    </div>
+    <button class="back-btn" onclick="goBack(1)">← もどる</button>
+  </div>
+
+  <!-- Q3: 使う場面 -->
+  <div class="question-card" id="q3">
+    <div class="question-label">質問 3 / 3</div>
+    <div class="question-text">どんな場面で使いますか？</div>
+    <div class="options">
+      <button class="option-btn" onclick="answer(3, 'lesson')">
+        <span class="option-icon">🏫</span>
+        <span class="option-body">
+          <span class="option-title">授業・自立活動で使いたい</span>
+          <span class="option-desc">個別学習・小集団・授業の導入など</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(3, 'daily')">
+        <span class="option-icon">🌅</span>
+        <span class="option-body">
+          <span class="option-title">朝・帰りの会など日常的に</span>
+          <span class="option-desc">毎日のルーティンの中で使いたい</span>
+        </span>
+      </button>
+      <button class="option-btn" onclick="answer(3, 'home')">
+        <span class="option-icon">🏠</span>
+        <span class="option-body">
+          <span class="option-title">家庭学習・保護者が使う</span>
+          <span class="option-desc">家でも練習させたい</span>
+        </span>
+      </button>
+    </div>
+    <button class="back-btn" onclick="goBack(2)">← もどる</button>
+  </div>
+
+  <!-- 結果 -->
+  <div class="result-section" id="result">
+    <div class="result-header" id="resultHeader">
+      <div class="icon" id="resultIcon">🎯</div>
+      <h2 id="resultTitle">おすすめのアプリ</h2>
+      <p id="resultDesc"></p>
+      <div id="resultTags"></div>
+    </div>
+    <div id="appCards"></div>
+    <div class="retry-wrap">
+      <button class="retry-btn" onclick="restart()">🔄 もう一度さがす</button>
+      <a class="see-all" href="https://education-tools-hash.github.io/for-all-children-to-learn/app-intro.html">すべてのアプリを見る →</a>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ===== アプリデータベース =====
+const APPS = {
+  hiragana: {
+    emoji: 'あ',
+    name: 'ひらがな まなぼう！',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/hiragana-learn.html',
+    tags: ['文字学習', 'スイッチ対応', '記録つき'],
+    accentTags: [],
+    desc: '読み・筆順・なぞり書き・クイズ・マッチングの5ステップで五十音をまるごと学べます。学習記録もCSVで保存できます。'
+  },
+  katakana: {
+    emoji: 'ア',
+    name: 'カタカナ まなぼう！',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/katakana-app.html',
+    tags: ['文字学習', 'スイッチ対応', '記録つき'],
+    accentTags: [],
+    desc: 'カタカナの読み・筆順・なぞり書き・クイズ。ひらがなが定着した次のステップとして活用できます。'
+  },
+  nazori: {
+    emoji: '✏️',
+    name: 'なぞり書き練習ツール',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/nazori-app.html',
+    tags: ['なぞり書き', '個別設定', 'PDF出力'],
+    accentTags: ['先生が文字を自由設定'],
+    desc: '先生が練習する文字を自由に入力。名前や苦手な漢字など、その子専用のなぞり書き教材がすぐ作れます。'
+  },
+  suji: {
+    emoji: '🔢',
+    name: 'すうじ まなぼう！',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/suji-manabou.html',
+    tags: ['数の学習', 'スイッチ対応', '記録つき'],
+    accentTags: [],
+    desc: '1〜20の数字を筆順アニメ・なぞり書き・数とのマッチングで学びます。量の概念も一緒に育てます。'
+  },
+  shiritori: {
+    emoji: '🐶',
+    name: 'しりとりあそび',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/shiritori2.html',
+    tags: ['語彙', 'スイッチ対応', 'ゲーム形式'],
+    accentTags: [],
+    desc: '140語以上の絵文字イラストから「しりとり」の言葉を選ぶ2択クイズ。ひらがなの力と語彙を楽しく育てます。'
+  },
+  okane: {
+    emoji: '💰',
+    name: 'おかねのおべんきょう',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/okane-app.html',
+    tags: ['生活スキル', '卒業後を見据えて'],
+    accentTags: ['写真で商品を自作できる'],
+    desc: '硬貨・紙幣の種類から始まり、おかいものごっこまで段階的に。オリジナル商品を写真で作ることもできます。'
+  },
+  register: {
+    emoji: '🏪',
+    name: 'はんばいかい レジ',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/register-app.html',
+    tags: ['作業学習', '販売会', '就労スキル'],
+    accentTags: ['おつり自動計算'],
+    desc: '販売会・作業学習で使えるレジアプリ。商品の登録から合計・おつり計算まで。iPad1台で本番に使えます。'
+  },
+  tokei: {
+    emoji: '🕐',
+    name: 'とけい',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/tokei-app.html',
+    tags: ['時計の読み方', '生活スキル'],
+    accentTags: [],
+    desc: 'アナログ・デジタル時計の読み方を段階的に。針をドラッグして動かしながら正時→1分刻みへとステップアップ。'
+  },
+  schedule: {
+    emoji: '📅',
+    name: 'スケジュール',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/schedule-app.html',
+    tags: ['見通し', 'スイッチ対応', '毎日使える'],
+    accentTags: ['写真カード対応'],
+    desc: '一日の予定を絵カード・写真・絵文字で視覚化。活動ごとにチェックして見通しを持って動く力を育てます。'
+  },
+  timer: {
+    emoji: '⏱',
+    name: 'タイムタイマー',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/time-timer.html',
+    tags: ['見通し', '毎日使える', 'スイッチ対応'],
+    accentTags: ['先生の声を録音できる'],
+    desc: '残り時間を扇形の色で直感的に示します。終了音に先生の声を録音して設定でき、切り替えが苦手な子に効果的。'
+  },
+  timetable: {
+    emoji: '🚌',
+    name: 'じこくひょう',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/timetable-app.html',
+    tags: ['時刻表', '移動スキル', '卒業後を見据えて'],
+    accentTags: [],
+    desc: 'バス・電車の時刻表の読み方をバーチャル体験で学びます。卒業後の自立した移動を見据えた指導に。'
+  },
+  bosai: {
+    emoji: '🪖',
+    name: 'ぼうさいたんけんたい',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/bosai-app.html',
+    tags: ['防災', '自分を守る力', 'スイッチ対応'],
+    accentTags: [],
+    desc: '7種類の災害をアニメ・バーチャル体験・クイズで学べます。避難訓練の事前学習として最適です。'
+  },
+  directions: {
+    emoji: '🧭',
+    name: 'ほうこうとばしょ',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/directions-app.html',
+    tags: ['空間認識', '位置・方向', 'スイッチ対応'],
+    accentTags: [],
+    desc: '右・左・前後・方角・順番の概念を、絵と音声と操作ゲームで学べます。配置ゲームで体を使って確認できます。'
+  },
+  sst: {
+    emoji: '🤝',
+    name: 'SST ソーシャルスキルトレーニング',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/sst-app.html',
+    tags: ['コミュニケーション', 'ロールプレイ', '感情理解'],
+    accentTags: ['先生がオリジナル問題を作成可'],
+    desc: 'あいさつ・断り方・仲直りなど7つのアクティビティ。どの選択肢も否定せず共感的に返す設計で、安心して取り組めます。'
+  },
+  kimochiBoard: {
+    emoji: '🌟',
+    name: 'コミュニケーションボード',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/kimochi-board.html',
+    tags: ['AAC', 'スイッチ対応', '視線入力'],
+    accentTags: ['はい・いいえから始められる'],
+    desc: '「はい」「いいえ」「もういちど」「おわり」の4択でスイッチ・タップ操作の意思表示を練習します。カードは写真に変更できます。'
+  },
+  kiroku: {
+    emoji: '📋',
+    name: 'きょうのきろく',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/kyou-no-kiroku.html',
+    tags: ['きもち記録', '視線入力', 'バイタル管理'],
+    accentTags: ['毎日の気持ちを選択'],
+    desc: '気持ちの選択（視線・スイッチ対応）と体調・バイタル記録を一台で管理。CSVで引き継ぎ資料にもなります。'
+  },
+  janken: {
+    emoji: '✊',
+    name: 'じゃんけん まなぼう！',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/janken-app.html',
+    tags: ['ルール理解', 'スイッチ対応', 'ゲーム形式'],
+    accentTags: [],
+    desc: 'グー・チョキ・パーの関係をクイズ→対戦の順で段階的に。集団活動への参加の第一歩として使えます。'
+  },
+  matching: {
+    emoji: '🃏',
+    name: 'マッチング（対戦）',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/matching-app.html',
+    tags: ['記憶・注意', 'スイッチ対応', '対戦モード'],
+    accentTags: ['写真でオリジナルカード'],
+    desc: 'カードめくりゲームで記憶・注意・集中の力を育てます。写真でオリジナルカードを作成でき、1〜4人で対戦できます。'
+  },
+  sugoroku: {
+    emoji: '🎲',
+    name: 'すごろく',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/sugoroku-app.html',
+    tags: ['順番・ルール', 'スイッチ対応', '最大10人'],
+    accentTags: ['マス目を自由カスタマイズ'],
+    desc: '順番を守る・ルールに従う練習に。マス目のカスタマイズで学習内容を組み込め、学級活動にも使えます。'
+  },
+  hikaru: {
+    emoji: '👁',
+    name: 'ひかるボタン',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/tyushi.html',
+    tags: ['因果関係', 'スイッチ導入', '重度重複'],
+    accentTags: ['スイッチ操作の第一歩'],
+    desc: '光ったボタンを押すだけのシンプルな教材。「自分が押すと変化する」因果関係の理解から始めたい子どもに。'
+  },
+  cupGame: {
+    emoji: '🎩',
+    name: 'どこかな？カップゲーム',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/cup_game.html',
+    tags: ['追視・注視', '視線入力', 'スイッチ対応'],
+    accentTags: [],
+    desc: 'カップを目で追って人形を当てるゲームで、追視・短期記憶を育てます。視線入力の練習にも最適です。'
+  },
+  kezuri: {
+    emoji: '🪄',
+    name: 'けずりえ（スクラッチ）',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/scratch-app.html',
+    tags: ['因果関係', '創作', '視線入力'],
+    accentTags: ['重度重複・高等部に'],
+    desc: '画面をこすると絵が現れるスクラッチ遊び。操作と画面変化のつながりを体験する段階の子どもに。写真下絵も作れます。'
+  },
+  drawing: {
+    emoji: '🎨',
+    name: 'おえかきひろば',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/drawing-app.html',
+    tags: ['創作表現', '視線入力', 'タッチペン対応'],
+    accentTags: [],
+    desc: '視線入力・タッチ・タッチペンで自由にお絵かき。運動機能に制限がある子どもも、自分の力で創作活動に参加できます。'
+  },
+  music: {
+    emoji: '🎵',
+    name: 'おんがくあそび',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/music-app.html',
+    tags: ['創作表現', '音楽', 'タッチ操作'],
+    accentTags: [],
+    desc: 'タッチするだけで音が鳴る音楽遊びアプリ。運動機能を問わず参加できる音楽活動として活用できます。'
+  },
+  yomikaki: {
+    emoji: '📝',
+    name: 'よみかき サポートエディタ',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/yomikaki-app.html',
+    tags: ['読み書き支援', '文字入力', '読み上げ'],
+    accentTags: [],
+    desc: '読み書きをサポートするエディタ。入力した文字を読み上げでき、コミュニケーションや表現活動に活用できます。'
+  },
+  gazeKeyboard: {
+    emoji: '⌨️',
+    name: '視線キーボード',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/gaze-keyboard.html',
+    tags: ['視線入力', 'AAC', '文字入力'],
+    accentTags: ['視線だけで文字が打てる'],
+    desc: '視線でひらがなを選んで文章を入力できるAAC向けキーボード。スキャン入力にも対応し、発話が難しい子どもの表現手段になります。'
+  },
+  slideshow: {
+    emoji: '🎞️',
+    name: 'スライドショー作成',
+    url: 'https://education-tools-hash.github.io/for-all-children-to-learn/slideshow-sakusei.html',
+    tags: ['創作表現', '動画・写真', '行事・発表'],
+    accentTags: ['WebM動画で書き出せる'],
+    desc: '写真・テキスト・BGMを組み合わせてスライドショー動画を作れます。卒業式・文化祭・部活動の発表など教育活動の幅広い場面に対応します。'
+  }
+};
+
+// ===== 結果マッピング =====
+// キー: `${q1}_${q2}_${q3}`
+const RESULTS = {
+  // タッチ × 文字 × 授業
+  'touch_literacy_lesson': {
+    title: '文字学習アプリのおすすめ',
+    desc: 'タッチ操作で文字を学ぶ授業向けのアプリです。段階的に取り組めます。',
+    apps: ['hiragana', 'nazori', 'suji', 'shiritori']
+  },
+  // タッチ × 文字 × 毎日
+  'touch_literacy_daily': {
+    title: '毎日使える文字練習アプリ',
+    desc: '短時間でも続けやすい文字練習アプリです。',
+    apps: ['hiragana', 'katakana', 'shiritori', 'yomikaki']
+  },
+  // タッチ × 文字 × 家庭
+  'touch_literacy_home': {
+    title: '家庭でも使える文字学習アプリ',
+    desc: 'インストール不要でブラウザからすぐ使えます。',
+    apps: ['hiragana', 'katakana', 'suji', 'shiritori']
+  },
+  // タッチ × 生活 × 授業
+  'touch_life_lesson': {
+    title: '生活スキルを育てる授業向けアプリ',
+    desc: 'お金・時計・スケジュール管理など卒業後を見据えた教材です。',
+    apps: ['okane', 'register', 'tokei', 'bosai']
+  },
+  // タッチ × 生活 × 毎日
+  'touch_life_daily': {
+    title: '毎日の生活に使えるアプリ',
+    desc: '朝・帰りの会や日常的な場面で活用できます。',
+    apps: ['schedule', 'timer', 'tokei', 'timetable']
+  },
+  // タッチ × 生活 × 家庭
+  'touch_life_home': {
+    title: '家庭でも使える生活スキルアプリ',
+    desc: 'お金の練習や時計の読み方を家でも続けられます。',
+    apps: ['okane', 'tokei', 'schedule', 'bosai']
+  },
+  // タッチ × コミュニケーション × 授業
+  'touch_communication_lesson': {
+    title: 'コミュニケーション・SST向けアプリ',
+    desc: '気持ちの理解から友達との関わり方まで学べます。',
+    apps: ['sst', 'janken', 'matching', 'sugoroku']
+  },
+  // タッチ × コミュニケーション × 毎日
+  'touch_communication_daily': {
+    title: '毎日の気持ち・関わりを育てるアプリ',
+    desc: '朝の会などで継続して使いやすいアプリです。',
+    apps: ['kiroku', 'sst', 'janken', 'kimochiBoard']
+  },
+  // タッチ × コミュニケーション × 家庭
+  'touch_communication_home': {
+    title: '家庭でも取り組めるコミュニケーションアプリ',
+    desc: 'SSTの内容を家でも復習・練習できます。',
+    apps: ['sst', 'kiroku', 'kimochiBoard', 'janken']
+  },
+  // タッチ × 認知 × 授業
+  'touch_cognition_lesson': {
+    title: '認知・創作・因果関係の学習アプリ',
+    desc: '注視・記憶・創作など多様な認知機能を育てます。行事の発表にも活用できます。',
+    apps: ['matching', 'drawing', 'slideshow', 'music']
+  },
+  // タッチ × 認知 × 毎日
+  'touch_cognition_daily': {
+    title: '毎日の活動に使える認知・創作アプリ',
+    desc: '短時間でも楽しみながら続けられます。',
+    apps: ['matching', 'drawing', 'music', 'janken']
+  },
+  // タッチ × 認知 × 家庭
+  'touch_cognition_home': {
+    title: '家庭でも楽しめる認知・創作アプリ',
+    desc: 'ゲームや創作を通して楽しく取り組めます。',
+    apps: ['drawing', 'matching', 'music', 'kezuri']
+  },
+
+  // スイッチ × 文字
+  'switch_literacy_lesson': {
+    title: 'スイッチ対応の文字学習アプリ',
+    desc: 'スイッチスキャンで操作できる文字・語彙学習アプリです。',
+    apps: ['hiragana', 'katakana', 'gazeKeyboard', 'yomikaki']
+  },
+  'switch_literacy_daily': {
+    title: 'スイッチで使える毎日の文字学習',
+    desc: '繰り返し使える文字練習アプリ（スイッチスキャン対応）です。',
+    apps: ['hiragana', 'katakana', 'gazeKeyboard', 'shiritori']
+  },
+  'switch_literacy_home': {
+    title: 'スイッチで家庭でも使える文字学習',
+    desc: 'インストール不要でご家庭でもスイッチ操作が使えます。',
+    apps: ['hiragana', 'katakana', 'gazeKeyboard', 'suji']
+  },
+  // スイッチ × 生活
+  'switch_life_lesson': {
+    title: 'スイッチ対応の生活スキル・見通しアプリ',
+    desc: 'スイッチで操作できる生活スキル系アプリです。',
+    apps: ['schedule', 'timer', 'kiroku', 'directions']
+  },
+  'switch_life_daily': {
+    title: 'スイッチで毎日使える生活管理アプリ',
+    desc: '朝の会や日課の確認にスイッチスキャンで使えます。',
+    apps: ['schedule', 'timer', 'kiroku', 'kimochiBoard']
+  },
+  'switch_life_home': {
+    title: 'スイッチで家庭でも使える見通しアプリ',
+    desc: '家でもスケジュール・気持ち記録に使えます。',
+    apps: ['schedule', 'timer', 'kiroku', 'kimochiBoard']
+  },
+  // スイッチ × コミュニケーション
+  'switch_communication_lesson': {
+    title: 'スイッチで操作できるコミュニケーションアプリ',
+    desc: 'AAC・意思表示・SST をスイッチで練習できます。',
+    apps: ['kimochiBoard', 'gazeKeyboard', 'kiroku', 'sst']
+  },
+  'switch_communication_daily': {
+    title: 'スイッチで毎日の気持ち伝達を練習',
+    desc: '日常的にスイッチで意思表示する習慣づくりに。',
+    apps: ['kimochiBoard', 'gazeKeyboard', 'kiroku', 'sst']
+  },
+  'switch_communication_home': {
+    title: 'スイッチで家庭でも意思表示を練習',
+    desc: '家でもスイッチを使った意思表示・コミュニケーションを続けられます。',
+    apps: ['kimochiBoard', 'gazeKeyboard', 'kiroku', 'sst']
+  },
+  // スイッチ × 認知
+  'switch_cognition_lesson': {
+    title: 'スイッチ・視線入力で使える認知・創作アプリ',
+    desc: '因果関係の理解から創作活動までスイッチで参加できます。',
+    apps: ['hikaru', 'cupGame', 'drawing', 'kezuri']
+  },
+  'switch_cognition_daily': {
+    title: 'スイッチで毎日楽しめる認知・創作アプリ',
+    desc: '短時間でも続けやすい因果関係・創作アプリです。',
+    apps: ['hikaru', 'cupGame', 'kezuri', 'drawing']
+  },
+  'switch_cognition_home': {
+    title: 'スイッチで家庭でも楽しめる創作アプリ',
+    desc: '家でも視線・スイッチで創作活動ができます。',
+    apps: ['drawing', 'kezuri', 'cupGame', 'hikaru']
+  },
+
+  // どちらでも × 文字
+  'any_literacy_lesson': {
+    title: '文字・数の学習アプリ（授業向け）',
+    desc: 'タッチもスイッチも使える文字・数学習アプリです。',
+    apps: ['hiragana', 'nazori', 'suji', 'shiritori']
+  },
+  'any_literacy_daily': {
+    title: '毎日続けられる文字学習アプリ',
+    desc: '短時間で取り組めて記録も残ります。',
+    apps: ['hiragana', 'katakana', 'suji', 'shiritori']
+  },
+  'any_literacy_home': {
+    title: '家庭でも使える文字・数学習',
+    desc: 'インストール不要で今すぐ始められます。',
+    apps: ['hiragana', 'katakana', 'suji', 'shiritori']
+  },
+  // どちらでも × 生活
+  'any_life_lesson': {
+    title: '生活スキルを育てる総合アプリ',
+    desc: 'お金・時計・スケジュール・防災を幅広くカバーしています。',
+    apps: ['okane', 'tokei', 'schedule', 'bosai']
+  },
+  'any_life_daily': {
+    title: '毎日使える生活管理・見通しアプリ',
+    desc: '朝の会から帰りの会まで、日常の流れに組み込めます。',
+    apps: ['schedule', 'timer', 'kiroku', 'tokei']
+  },
+  'any_life_home': {
+    title: '家庭でも使える生活スキルアプリ',
+    desc: 'お金・時計の練習や見通しを家でも続けられます。',
+    apps: ['okane', 'tokei', 'schedule', 'timer']
+  },
+  // どちらでも × コミュニケーション
+  'any_communication_lesson': {
+    title: 'コミュニケーション・SST授業向けアプリ',
+    desc: '感情理解から集団活動まで幅広く対応しています。',
+    apps: ['sst', 'kimochiBoard', 'gazeKeyboard', 'janken']
+  },
+  'any_communication_daily': {
+    title: '毎日の気持ち・関わりを育てるアプリ',
+    desc: '日常のルーティンの中で継続して使えます。',
+    apps: ['kiroku', 'kimochiBoard', 'gazeKeyboard', 'sst']
+  },
+  'any_communication_home': {
+    title: '家庭でも取り組めるコミュニケーションアプリ',
+    desc: '学校と家庭で一緒に取り組めます。',
+    apps: ['kimochiBoard', 'gazeKeyboard', 'sst', 'kiroku']
+  },
+  // どちらでも × 認知
+  'any_cognition_lesson': {
+    title: '認知・創作・因果関係の授業向けアプリ',
+    desc: '多様な認知機能と表現活動を育てます。行事の発表にも活用できます。',
+    apps: ['hikaru', 'matching', 'slideshow', 'drawing']
+  },
+  'any_cognition_daily': {
+    title: '毎日楽しめる認知・創作アプリ',
+    desc: '短時間でも達成感のある活動として使えます。',
+    apps: ['drawing', 'matching', 'music', 'cupGame']
+  },
+  'any_cognition_home': {
+    title: '家庭でも楽しめる創作・認知アプリ',
+    desc: '自由な創作や記憶ゲームで楽しく取り組めます。',
+    apps: ['drawing', 'music', 'matching', 'kezuri']
+  }
+};
+
+// ===== 状態管理 =====
+let answers = { q1: null, q2: null, q3: null };
+let currentStep = 1;
+
+function answer(step, value) {
+  answers['q' + step] = value;
+  if (step < 3) {
+    showStep(step + 1);
+  } else {
+    showResult();
+  }
+}
+
+function goBack(toStep) {
+  answers['q' + (toStep + 1)] = null;
+  showStep(toStep);
+}
+
+function showStep(step) {
+  currentStep = step;
+  // カードの表示切り替え
+  document.querySelectorAll('.question-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('result').classList.remove('active');
+  const card = document.getElementById('q' + step);
+  if (card) card.classList.add('active');
+  updateIndicator(step);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateIndicator(step) {
+  const dots = [1, 2, 3];
+  dots.forEach(i => {
+    const dot = document.getElementById('dot' + i);
+    dot.classList.remove('active', 'done');
+    if (i < step) dot.classList.add('done');
+    else if (i === step) dot.classList.add('active');
+  });
+  [1, 2].forEach(i => {
+    const line = document.getElementById('line' + i);
+    line.classList.toggle('done', i < step);
+  });
+}
+
+function showResult() {
+  document.querySelectorAll('.question-card').forEach(c => c.classList.remove('active'));
+
+  const key = `${answers.q1}_${answers.q2}_${answers.q3}`;
+  const result = RESULTS[key] || RESULTS['any_literacy_lesson'];
+
+  // ヘッダー
+  document.getElementById('resultTitle').textContent = result.title;
+  document.getElementById('resultDesc').textContent = result.desc;
+
+  // タグ表示
+  const tagMap = {
+    q1: { touch: '👆 タッチ操作', switch: '🔘 スイッチ・視線入力', any: '✨ 操作方法を問わない' },
+    q2: { literacy: '✏️ 文字・数', life: '🏪 生活スキル', communication: '🌟 コミュニケーション', cognition: '🧠 認知・創作' },
+    q3: { lesson: '🏫 授業・自立活動', daily: '🌅 日常ルーティン', home: '🏠 家庭学習' }
+  };
+  const tagsHTML = Object.entries(answers)
+    .map(([k, v]) => tagMap[k]?.[v])
+    .filter(Boolean)
+    .map(t => `<span class="result-tag">${t}</span>`)
+    .join('');
+  document.getElementById('resultTags').innerHTML = tagsHTML;
+
+  // アプリカード生成
+  const container = document.getElementById('appCards');
+  container.innerHTML = '';
+  result.apps.forEach(appKey => {
+    const app = APPS[appKey];
+    if (!app) return;
+    const tagsHTML = [
+      ...app.tags.map(t => `<span class="tag">${t}</span>`),
+      ...app.accentTags.map(t => `<span class="tag accent">⭐ ${t}</span>`)
+    ].join('');
+    container.innerHTML += `
+      <div class="app-card">
+        <div class="app-card-top">
+          <div class="app-emoji">${app.emoji}</div>
+          <div class="app-info">
+            <div class="app-name">${app.name}</div>
+            <div class="app-desc">${app.desc}</div>
+          </div>
+        </div>
+        <div class="app-tags">${tagsHTML}</div>
+        <a class="open-btn" href="${app.url}" target="_blank" rel="noopener">
+          ▶ このアプリを開く
+        </a>
+      </div>
+    `;
+  });
+
+  // インジケーター（完了状態）
+  [1,2,3].forEach(i => {
+    const dot = document.getElementById('dot' + i);
+    dot.classList.remove('active');
+    dot.classList.add('done');
+    dot.textContent = '✓';
+  });
+  [1,2].forEach(i => document.getElementById('line' + i).classList.add('done'));
+
+  document.getElementById('result').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function restart() {
+  answers = { q1: null, q2: null, q3: null };
+  document.getElementById('result').classList.remove('active');
+  document.querySelectorAll('.step-dot').forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    dot.textContent = i + 1;
+  });
+  showStep(1);
+}
+</script>
+</body>
+</html>
