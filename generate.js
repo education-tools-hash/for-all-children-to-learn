@@ -47,6 +47,7 @@ const CATEGORY_TRUTH = {
   'kyou-no-kiroku':      '自立活動',
   'scratch-app':      '自立活動',
   'gaze-keyboard':      '自立活動',
+  'mogura-tataki':      '自立活動',
   // 創作表現
   'drawing-app':     '創作表現',
   'music-app':       '創作表現',
@@ -96,6 +97,7 @@ const NEW_IDS = new Set([
   'kyou-no-kiroku',    // 最新追加
   'scratch-app',    // 最新追加
   'gaze-keyboard',    // 最新追加
+  'mogura-tataki',    // 最新追加
 ]);
 
 // フラグを各appに反映(apps-data.jsonで明示指定された値は維持)
@@ -935,7 +937,7 @@ const PURPOSE_CARDS_TRUTH = {
   },
   'theme-switch': {
     title: '視線入力やスイッチを使う子に',
-    ids: ['kimochi-board', 'hiragana-learn', 'schedule-app', 'matching-app', 'janken-app', 'tyushi', 'cup_game', 'kyou-no-kiroku', 'gaze-keyboard']
+    ids: ['kimochi-board', 'hiragana-learn', 'schedule-app', 'matching-app', 'janken-app', 'tyushi', 'cup_game', 'kyou-no-kiroku', 'gaze-keyboard', 'mogura-tataki']
   },
   'theme-sousaku': {
     title: '創作・表現活動をしたい',
