@@ -28,7 +28,10 @@ html, body {
   background: var(--bg);
   touch-action: manipulation;
   user-select:none; -webkit-user-select:none;
-  cursor: none;
+  -webkit-user-select:none;
+  /* cursor:none disabled for iOS touch compat */
+  /* Safari iOS: allow tapping fixed elements */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── STAR BACKGROUND ── */
@@ -48,10 +51,11 @@ html, body {
 }
 
 /* ── STAGE ── */
-#stage { position:fixed; inset:0; z-index:0; overflow:hidden; }
+#stage { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
 
 /* ── BUTTON WRAPPER (moves) ── */
 #btn-wrap {
+  pointer-events:auto;
   position:absolute;
   width: var(--btn-size);
   height: var(--btn-size);
@@ -502,6 +506,8 @@ html, body {
 
 /* ── HELP BUTTON (?) ── */
 #help-btn {
+  touch-action:manipulation;
+  pointer-events:auto;
   position:fixed; bottom:22px; left:22px;
   height:56px;
   padding: 0 24px;
@@ -518,6 +524,8 @@ html, body {
   font-family:'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;
   letter-spacing: 0.04em;
   white-space: nowrap;
+
+  touch-action:manipulation;
 }
 #help-btn:hover {
   background:rgba(255,255,255,0.13);
@@ -528,6 +536,8 @@ html, body {
 
 /* ── SETTINGS BUTTON ── */
 #settings-btn {
+  touch-action:manipulation;
+  pointer-events:auto;
   position:fixed; bottom:22px; right:22px;
   width:62px; height:62px; border-radius:50%;
   background:rgba(255,255,255,0.07);
@@ -537,11 +547,14 @@ html, body {
   display:flex; align-items:center; justify-content:center;
   transition:all 0.2s;
   -webkit-tap-highlight-color:transparent;
+
+  touch-action:manipulation;
 }
 #settings-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
 
 /* ── SETTINGS PANEL ── */
 #settings-panel {
+  pointer-events:auto;
   position:fixed; bottom:96px; right:22px;
   width:292px;
   max-height: calc(100svh - 110px);
@@ -682,6 +695,8 @@ html.invert-contrast .step-card .step-num {
 
 /* ── FULLSCREEN BUTTON ── */
 #fullscreen-btn {
+  touch-action:manipulation;
+  pointer-events:auto;
   position:fixed; bottom:22px; right:96px;
   width:62px; height:62px; border-radius:50%;
   background:rgba(255,255,255,0.07);
@@ -691,12 +706,16 @@ html.invert-contrast .step-card .step-num {
   display:flex; align-items:center; justify-content:center;
   transition:all 0.2s;
   -webkit-tap-highlight-color:transparent;
+
+  touch-action:manipulation;
 }
 #fullscreen-btn:hover  { background:rgba(255,255,255,0.15); color:#fff; }
 #fullscreen-btn.active { background:rgba(255,255,255,0.13); border-color:rgba(255,255,255,0.35); color:#fff; }
 
 /* ── LOCK BUTTON ── */
 #lock-btn {
+  touch-action:manipulation;
+  pointer-events:auto;
   position:fixed; bottom:22px; right:170px;
   width:62px; height:62px; border-radius:50%;
   background:rgba(255,255,255,0.07);
@@ -706,6 +725,8 @@ html.invert-contrast .step-card .step-num {
   display:flex; align-items:center; justify-content:center;
   transition:all 0.2s;
   -webkit-tap-highlight-color:transparent;
+
+  touch-action:manipulation;
 }
 #lock-btn:hover { background:rgba(255,255,255,0.15); color:#fff; }
 #lock-btn.locked {
@@ -736,14 +757,6 @@ html.invert-contrast .step-card .step-num {
 
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -1431,7 +1444,7 @@ function ctx() {
   if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   return audioCtx;
 }
-['pointerdown','keydown'].forEach(ev =>
+['pointerdown','keydown','touchstart'].forEach(ev =>
   document.addEventListener(ev, ()=>{ try{ctx().resume()}catch(e){} }, {once:true}));
 
 function playSfx() {
@@ -1676,31 +1689,53 @@ document.querySelectorAll('.chip').forEach(btn=>{
 })();
 
 /* ════════════════════════════════════════
-   FULLSCREEN  (safe — no-op inside iframes)
+   FULLSCREEN  (Safari / iOS compatible)
 ════════════════════════════════════════ */
 (function() {
   const fsBtn = document.getElementById('fullscreen-btn');
   if (!fsBtn) return;
 
-  // Detect if we're inside an iframe (Claude Artifacts viewer)
+  // Detect iframe
   const inIframe = (() => { try { return window.self !== window.top; } catch(e) { return true; } })();
 
-  function isFull() { return !!document.fullscreenElement; }
+  function isFull() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
 
   function updateFsBtn() {
     fsBtn.classList.toggle('active', isFull());
-    fsBtn.title = isFull() ? '全画面を終了 (Esc)' : '全画面表示';
+    fsBtn.title = isFull() ? '全画面を終了' : '全画面表示';
+  }
+
+  function requestFS(el) {
+    if (el.requestFullscreen)       return el.requestFullscreen({ navigationUI:'hide' });
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+    if (el.mozRequestFullScreen)    return el.mozRequestFullScreen();
+    if (el.msRequestFullscreen)     return el.msRequestFullscreen();
+    return Promise.reject('not supported');
+  }
+
+  function exitFS() {
+    if (document.exitFullscreen)       return document.exitFullscreen();
+    if (document.webkitExitFullscreen) return document.webkitExitFullscreen();
+    if (document.mozCancelFullScreen)  return document.mozCancelFullScreen();
+    if (document.msExitFullscreen)     return document.msExitFullscreen();
+    return Promise.reject('not supported');
   }
 
   if (inIframe) {
-    // Inside iframe: fullscreen API blocked — hide the button gracefully
     fsBtn.style.display = 'none';
   } else {
     fsBtn.addEventListener('click', async () => {
       try {
-        if (!isFull()) await document.documentElement.requestFullscreen({ navigationUI:'hide' });
-        else           await document.exitFullscreen();
-      } catch(e) {}
+        if (!isFull()) await requestFS(document.documentElement);
+        else           await exitFS();
+      } catch(e) {
+        // iPad Safari: show "Add to Home Screen" tip
+        fsBtn.title = 'ホーム画面に追加すると全画面になります';
+        fsBtn.style.opacity = '0.4';
+        setTimeout(() => { fsBtn.style.opacity = ''; fsBtn.title = '全画面表示'; }, 2500);
+      }
     });
     document.addEventListener('fullscreenchange',       updateFsBtn);
     document.addEventListener('webkitfullscreenchange', updateFsBtn);
@@ -1709,7 +1744,7 @@ document.querySelectorAll('.chip').forEach(btn=>{
 
 /* ════════════════════════════════════════
    SCREEN LOCK
-════════════════════════════════════════ */
+ */
 (function() {
   const lockBtn     = document.getElementById('lock-btn');
   const lockOverlay = document.getElementById('lock-overlay');
@@ -1729,7 +1764,7 @@ document.querySelectorAll('.chip').forEach(btn=>{
     if (lockOverlay) lockOverlay.classList.add('active');
     if (lockBadge)   lockBadge.classList.add('visible');
     if (settPanel)   settPanel.classList.remove('open');
-    try { history.pushState({ locked:true }, '', location.href); } catch(e) {}
+    try { history.pushState({ locked:true }, '', location.href); } catch(e) { /* Safari private mode */ }
     if (!inIframe && !document.fullscreenElement) {
       document.documentElement.requestFullscreen({ navigationUI:'hide' }).catch(()=>{});
     }
