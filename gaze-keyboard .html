@@ -1,0 +1,5107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>視線キーボード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kosugi+Maru&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   CSS VARIABLES  — テーマはここだけで切り替わる
+   ============================================================ */
+:root {
+  /* ── Normal theme ── */
+  --bg:#F0F7FF; --surface:#FFFFFF; --border:#C8D8F0;
+  --primary:#3A86FF; --primary-dark:#2563EB;
+  --text:#1A1A2E; --text-light:#5A6A8A;
+  --key-bg:#FFFFFF; --key-hover:#E8F0FF;
+  --key-delete-bg:#FFF0F0; --key-delete-bd:#FCA5A5;
+  --key-space-bg:#F0FFF4;  --key-space-bd:#86EFAC;
+  --key-enter-bg:linear-gradient(135deg,#ECFDF5,#D1FAE5); --key-enter-bd:#6EE7B7;
+  --key-shift-bg:linear-gradient(135deg,#EFF6FF,#DBEAFE); --key-shift-bd:#93C5FD;
+  --key-dk-bg:#FFF7ED; --key-dk-bd:#FCD34D;
+  --key-cv-bg:#F5F3FF; --key-cv-bd:#DDD6FE;
+  --phrase-bg:#FFFBEB; --phrase-bd:#FCD34D; --phrase-text:#78350F;
+  --aac-bg:#F5F3FF; --aac-bd:#DDD6FE; --aac-text:#5B21B6;
+  --scan-lit-bg:#FEF3C7; --scan-lit-bd:#F59E0B;
+  --dwell-color:#3A86FF;
+  --key-bd:#C8D8F0;
+  --shadow:0 4px 16px rgba(58,134,255,.10);
+  --radius:18px; --key-radius:14px;
+  --font:'Kosugi Maru','Noto Sans JP',sans-serif;
+  --key-font-size:1.75rem;
+  --key-min-w:80px; --key-h:88px;
+}
+
+/* ── High Contrast theme ── */
+body.hc {
+  --bg:#000000; --surface:#111111; --border:#FFFF00; --key-bd:#FFFF00;
+  --primary:#FFFF00; --primary-dark:#FFD700;
+  --text:#FFFFFF; --text-light:#CCCCCC;
+  --key-bg:#111111; --key-hover:#333300;
+  --key-delete-bg:#220000; --key-delete-bd:#FF4444;
+  --key-space-bg:#002200;  --key-space-bd:#00FF66;
+  --key-enter-bg:#002200; --key-enter-bd:#00FF66;
+  --key-shift-bg:#001133; --key-shift-bd:#44AAFF;
+  --key-dk-bg:#221100; --key-dk-bd:#FFAA00;
+  --key-cv-bg:#110022; --key-cv-bd:#CC88FF;
+  --phrase-bg:#111100; --phrase-bd:#FFFF00; --phrase-text:#FFFF00;
+  --aac-bg:#110022; --aac-bd:#CC88FF; --aac-text:#CC88FF;
+  --scan-lit-bg:#444400; --scan-lit-bd:#FFFF00;
+  --dwell-color:#FFFF00;
+  --shadow:0 0 0 2px #FFFF00;
+}
+body.hc .app-title { color:#FFFF00; }
+body.hc .app-subtitle { color:#AAAAAA; }
+body.hc .eye-icon { background:#FFFF00; }
+body.hc .cursor { background:#FFFF00; }
+
+/* ── Soft (Low Vision) theme ── */
+body.soft {
+  --bg:#FFF8F0; --surface:#FFFFFF; --border:#E8C8A0; --key-bd:#E8C8A0;
+  --primary:#D97706; --primary-dark:#B45309;
+  --text:#1C0A00; --text-light:#7C5C3A;
+  --key-bg:#FFF8F0; --key-hover:#FDEFD8;
+  --key-delete-bg:#FFF0EC; --key-delete-bd:#FDBA74;
+  --dwell-color:#D97706;
+  --shadow:0 4px 16px rgba(217,119,6,.15);
+}
+
+/* ── Dark theme ── */
+body.dark {
+  --bg:#0F172A; --surface:#1E293B; --border:#334155; --key-bd:#334155;
+  --primary:#60A5FA; --primary-dark:#3B82F6;
+  --text:#F1F5F9; --text-light:#94A3B8;
+  --key-bg:#1E293B; --key-hover:#334155;
+  --key-delete-bg:#2D1515; --key-delete-bd:#EF4444;
+  --key-space-bg:#0F2A1A; --key-space-bd:#34D399;
+  --key-enter-bg:#0F2A1A; --key-enter-bd:#34D399;
+  --key-shift-bg:#0F1E3A; --key-shift-bd:#60A5FA;
+  --key-dk-bg:#2A1A00; --key-dk-bd:#FBBF24;
+  --key-cv-bg:#1A0D2E; --key-cv-bd:#A78BFA;
+  --phrase-bg:#1A1500; --phrase-bd:#FBBF24; --phrase-text:#FDE68A;
+  --aac-bg:#120820; --aac-bd:#A78BFA; --aac-text:#C4B5FD;
+  --scan-lit-bg:#332B00; --scan-lit-bd:#FBBF24;
+  --dwell-color:#60A5FA;
+  --shadow:0 4px 16px rgba(0,0,0,.4);
+}
+body.dark .app-title { color:#93C5FD; }
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:var(--bg);font-family:var(--font);
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;padding:14px 10px 24px;gap:8px;
+  user-select:none;transition:background .3s,color .3s;
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.app-header{display:flex;align-items:center;gap:12px;width:100%;max-width:980px;}
+.eye-icon{
+  width:44px;height:44px;background:var(--primary);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;flex-shrink:0;box-shadow:0 2px 10px rgba(58,134,255,.3);
+}
+.app-title{font-size:1.35rem;font-weight:900;color:var(--primary-dark);}
+.app-subtitle{font-size:.78rem;color:var(--text-light);font-weight:500;}
+.header-right{margin-left:auto;display:flex;gap:8px;align-items:center;}
+.settings-btn{
+  width:42px;height:42px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.25rem;cursor:pointer;transition:all .2s;
+  color:var(--text);position:relative;overflow:hidden;
+}
+.settings-btn:hover{background:var(--key-hover);}
+
+/* ============================================================
+   TEXT PANEL
+   ============================================================ */
+.text-panel{
+  width:100%;max-width:980px;background:var(--surface);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px 16px;border:2.5px solid var(--border);
+  display:flex;flex-direction:column;gap:10px;
+}
+.text-display{
+  min-height:80px;font-size:1.5rem;line-height:1.75;
+  color:var(--text);word-break:break-all;white-space:pre-wrap;
+  font-family:var(--font);transition:font-size .2s;
+}
+.cursor{
+  display:inline-block;width:3px;height:1.4em;background:var(--primary);
+  animation:blink 1s step-end infinite;vertical-align:text-bottom;
+  border-radius:2px;margin-left:1px;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.text-actions{display:flex;gap:7px;flex-wrap:wrap;border-top:1.5px solid var(--border);padding-top:9px;}
+.action-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:8px 14px;border-radius:12px;border:2.5px solid;
+  font-size:.82rem;font-family:var(--font);font-weight:700;
+  cursor:pointer;transition:all .15s;position:relative;overflow:hidden;
+  white-space:nowrap;min-width:78px;color:var(--text);
+}
+.action-btn .bi{font-size:1.2rem;}
+.action-btn:active{transform:scale(.95);}
+.btn-copy  {background:#F0FFF4;border-color:#86EFAC;color:#166534;}
+.btn-speak {background:#FFF7ED;border-color:#FCD34D;color:#92400E;}
+.btn-mic   {background:#FDF4FF;border-color:#D8B4FE;color:#6B21A8;}
+.btn-clear {background:#FFF0F0;border-color:#FCA5A5;color:#991B1B;}
+.btn-mic.recording{background:#F0FFF4;border-color:#34D399;animation:recpulse 1s ease-in-out infinite;}
+@keyframes recpulse{0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,.4)}50%{box-shadow:0 0 0 8px rgba(52,211,153,0)}}
+body.hc .btn-copy,body.hc .btn-speak,body.hc .btn-mic,body.hc .btn-clear{
+  background:#000;border-color:#FFFF00;color:#FFFF00;
+}
+
+/* ============================================================
+   QUICK SETTINGS BAR (collapsed)
+   ============================================================ */
+.qbar{
+  width:100%;max-width:980px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.qchip{
+  display:flex;align-items:center;gap:5px;
+  background:var(--surface);border:2px solid var(--border);
+  border-radius:10px;padding:5px 11px;
+  font-size:.8rem;color:var(--text-light);font-weight:700;cursor:pointer;
+  transition:all .2s;
+}
+.qchip.on{background:var(--primary);border-color:var(--primary-dark);color:#fff;}
+body.hc .qchip.on{background:#FFFF00;color:#000;border-color:#FFFF00;}
+.dwell-dot{
+  width:9px;height:9px;border-radius:50%;background:var(--primary);
+  animation:dpulse 1.5s ease-in-out infinite;flex-shrink:0;
+}
+@keyframes dpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.6}}
+
+/* ============================================================
+   ⚙️ SETTINGS MODAL
+   ============================================================ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  display:flex;align-items:flex-start;justify-content:center;
+  z-index:400;padding:20px 10px;overflow-y:auto;
+}
+.modal-overlay.hidden{display:none;}
+.settings-modal{
+  background:var(--surface);border-radius:22px;
+  width:min(96vw,540px);box-shadow:0 16px 60px rgba(0,0,0,.3);
+  overflow:hidden;
+}
+.smodal-header{
+  display:flex;align-items:center;gap:10px;
+  background:var(--primary);padding:16px 20px;
+}
+.smodal-title{font-size:1.1rem;font-weight:900;color:#fff;flex:1;}
+.smodal-close{
+  width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);
+  border:none;color:#fff;font-size:1.2rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.smodal-body{padding:18px 20px;display:flex;flex-direction:column;gap:20px;}
+
+/* section */
+.s-section{display:flex;flex-direction:column;gap:10px;}
+.s-section-title{
+  font-size:.78rem;font-weight:900;color:var(--text-light);
+  text-transform:uppercase;letter-spacing:.08em;
+  border-bottom:1.5px solid var(--border);padding-bottom:5px;
+}
+
+/* row */
+.s-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.s-label{font-size:.88rem;font-weight:700;color:var(--text);flex:1;min-width:120px;}
+.s-desc{font-size:.75rem;color:var(--text-light);margin-top:2px;}
+
+/* range */
+.s-range{display:flex;align-items:center;gap:8px;flex:2;}
+.s-range input[type=range]{flex:1;accent-color:var(--primary);}
+.s-range .val{min-width:38px;font-weight:800;color:var(--primary-dark);font-size:.88rem;}
+
+/* toggle switch */
+.sw{position:relative;width:52px;height:28px;flex-shrink:0;}
+.sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw-track{
+  position:absolute;inset:0;background:#CBD5E1;border-radius:14px;
+  transition:background .2s;cursor:pointer;
+}
+.sw input:checked+.sw-track{background:var(--primary);}
+body.hc .sw input:checked+.sw-track{background:#FFFF00;}
+.sw-thumb{
+  position:absolute;top:3px;left:3px;width:22px;height:22px;
+  background:#fff;border-radius:50%;transition:left .2s;
+  pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.2);
+}
+.sw input:checked~.sw-thumb{left:27px;}
+
+/* theme grid */
+.theme-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.theme-card{
+  padding:10px 12px;border-radius:12px;border:2.5px solid var(--border);
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px;
+  background:var(--key-bg);
+}
+.theme-card.active{border-color:var(--primary);background:var(--key-hover);}
+body.hc .theme-card.active{border-color:#FFFF00;background:#333300;}
+.theme-swatch{width:24px;height:24px;border-radius:6px;flex-shrink:0;}
+.theme-name{font-size:.82rem;font-weight:700;color:var(--text);}
+
+/* key size grid */
+.keysize-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.keysize-card{
+  padding:10px 6px;border-radius:12px;border:2.5px solid var(--border);
+  cursor:pointer;text-align:center;background:var(--key-bg);transition:all .15s;
+}
+.keysize-card.active{border-color:var(--primary);background:var(--key-hover);}
+body.hc .keysize-card.active{border-color:#FFFF00;background:#333300;}
+.ks-preview{font-size:1.1rem;font-weight:900;color:var(--text);}
+.ks-label{font-size:.7rem;color:var(--text-light);font-weight:700;margin-top:2px;}
+
+/* switch type */
+.switchtype-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+.st-card{
+  padding:10px;border-radius:12px;border:2.5px solid var(--border);
+  cursor:pointer;background:var(--key-bg);transition:all .15s;
+}
+.st-card.active{border-color:var(--primary);background:var(--key-hover);}
+.st-title{font-size:.82rem;font-weight:700;color:var(--text);}
+.st-desc{font-size:.7rem;color:var(--text-light);margin-top:2px;}
+
+/* ============================================================
+   PHRASE PANEL
+   ============================================================ */
+.phrase-panel{
+  width:100%;max-width:980px;background:var(--surface);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:12px 14px;border:2px solid var(--border);
+}
+.panel-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.panel-title{font-size:.9rem;font-weight:900;color:var(--primary-dark);}
+.tiny-btn{
+  padding:4px 11px;border-radius:8px;border:2px solid var(--primary);
+  background:var(--key-hover);color:var(--primary-dark);
+  font-family:var(--font);font-size:.77rem;font-weight:700;cursor:pointer;
+}
+body.hc .tiny-btn{border-color:#FFFF00;background:#000;color:#FFFF00;}
+.phrase-grid{display:flex;gap:7px;flex-wrap:wrap;}
+.phrase-btn{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:9px 11px;border-radius:13px;
+  border:2.5px solid var(--phrase-bd);background:var(--phrase-bg);
+  font-family:var(--font);font-size:.82rem;font-weight:700;
+  color:var(--phrase-text);cursor:pointer;position:relative;overflow:hidden;
+  min-width:82px;transition:all .15s;
+}
+.phrase-btn .pemo{font-size:1.5rem;}
+.phrase-btn.scan-lit{background:var(--scan-lit-bg)!important;border-color:var(--scan-lit-bd)!important;box-shadow:0 0 0 3px var(--scan-lit-bd)!important;}
+
+/* ============================================================
+   AAC PANEL
+   ============================================================ */
+.aac-panel{
+  width:100%;max-width:980px;background:var(--surface);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:12px 14px;border:2px solid var(--border);display:none;
+}
+.aac-panel.visible{display:block;}
+.aac-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;}
+.aac-card{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:4px;padding:10px 6px;border-radius:14px;
+  border:2.5px solid var(--aac-bd);background:var(--aac-bg);
+  cursor:pointer;position:relative;overflow:hidden;
+  transition:all .15s;font-family:var(--font);
+}
+.aac-card .ace{font-size:2rem;}
+.aac-card .acl{font-size:.76rem;font-weight:700;color:var(--aac-text);text-align:center;}
+.aac-card.scan-lit{border-color:var(--scan-lit-bd)!important;box-shadow:0 0 0 3px var(--scan-lit-bd)!important;}
+
+/* ============================================================
+   KEYBOARD
+   ============================================================ */
+.keyboard-panel{
+  width:100%;max-width:980px;background:var(--surface);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:14px;border:2px solid var(--border);
+  display:flex;flex-direction:column;gap:9px;
+}
+.mode-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+.mode-tab{
+  padding:7px 14px;border-radius:10px;border:2px solid var(--key-bd);
+  background:var(--key-bg);font-family:var(--font);
+  font-size:.83rem;font-weight:700;color:var(--text-light);
+  cursor:pointer;transition:all .15s;position:relative;overflow:hidden;
+}
+.mode-tab.active{background:var(--primary);border-color:var(--primary-dark);color:#fff;}
+body.hc .mode-tab.active{background:#FFFF00;border-color:#FFD700;color:#000;}
+.mode-tab.scan-lit{background:var(--scan-lit-bg)!important;border-color:var(--scan-lit-bd)!important;box-shadow:0 0 0 3px var(--scan-lit-bd)!important;color:var(--text)!important;}
+
+.key-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.key{
+  min-width:var(--key-min-w);height:var(--key-h);
+  border-radius:var(--key-radius);border:2.5px solid var(--key-bd);
+  background:var(--key-bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;cursor:pointer;
+  position:relative;overflow:hidden;flex-shrink:0;
+  box-shadow:0 3px 0 var(--key-bd),0 2px 5px rgba(0,0,0,.05);
+  transition:box-shadow .1s,transform .1s,background .15s;
+}
+.key:hover{background:var(--key-hover);}
+.key:active{transform:translateY(2px);box-shadow:0 1px 0 var(--key-bd);}
+.kl{font-size:var(--key-font-size);font-weight:900;color:var(--text);line-height:1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box;}
+.ks{font-size:.58rem;color:var(--text-light);font-weight:600;margin-top:2px;}
+
+.key.kd {background:var(--key-delete-bg);border-color:var(--key-delete-bd);min-width:var(--key-min-w);flex:1;max-width:140px;}
+.key.kd .kl{color:#991B1B;font-size:var(--key-font-size);}
+body.hc .key.kd .kl{color:#FF4444;}
+.key.ksp{background:var(--key-space-bg);border-color:var(--key-space-bd);min-width:160px;flex:2;max-width:none;}
+.key.ksp .kl{font-size:var(--key-font-size);color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 6px;box-sizing:border-box;}
+body.hc .key.ksp .kl{color:#00FF66;}
+.key.kent{background:var(--key-enter-bg);border-color:var(--key-enter-bd);min-width:88px;}
+.key.kent .kl{color:#065F46;font-size:var(--key-font-size);}
+body.hc .key.kent .kl{color:#00FF66;}
+.key.ksh{background:var(--key-shift-bg);border-color:var(--key-shift-bd);min-width:var(--key-min-w);flex:1;max-width:140px;overflow:hidden;}
+.key.ksh.active-shift{background:var(--primary)!important;border-color:var(--primary-dark)!important;}
+.key.ksh.active-shift .kl{color:#fff!important;}
+body.hc .key.ksh.active-shift{background:#FFFF00!important;border-color:#FFD700!important;}
+body.hc .key.ksh.active-shift .kl{color:#000!important;}
+.key.kdak{background:var(--key-dk-bg);border-color:var(--key-dk-bd);min-width:var(--key-min-w);flex:1;max-width:140px;}
+.key.kdak .kl{font-size:var(--key-font-size);color:#92400E;}
+body.hc .key.kdak .kl{color:#FFAA00;}
+.key.kcv{background:var(--key-cv-bg);border-color:var(--key-cv-bd);min-width:var(--key-min-w);flex:1;max-width:160px;}
+.key.kcv .kl{font-size:var(--key-font-size);color:#5B21B6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 4px;box-sizing:border-box;}
+body.hc .key.kcv .kl{color:#CC88FF;}
+.key.scan-lit{background:var(--scan-lit-bg)!important;border-color:var(--scan-lit-bd)!important;box-shadow:0 0 0 4px var(--scan-lit-bd)!important;}
+.key.dwelling{background:var(--key-hover)!important;box-shadow:0 0 0 3px var(--primary),0 3px 0 var(--key-bd)!important;}
+
+/* dwell ring */
+.dwr {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+}
+.dwr svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.dwp {
+  stroke: var(--dwell-color);
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  /* dasharray/offset はJS側でキーサイズに合わせて動的にセット */
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  transition: stroke-dashoffset .05s linear;
+}
+
+/* ============================================================
+   CONVERSION POPUP
+   ============================================================ */
+.conv-popup{
+  position:fixed;z-index:200;background:var(--surface);
+  border:2.5px solid var(--primary);border-radius:14px;
+  box-shadow:0 8px 30px rgba(58,134,255,.25);
+  padding:10px;display:none;gap:7px;flex-wrap:wrap;max-width:340px;
+}
+.conv-popup.visible{display:flex;}
+.cc{
+  padding:8px 14px;border-radius:10px;border:2px solid var(--border);
+  background:var(--key-bg);font-family:var(--font);
+  font-size:1.1rem;font-weight:700;cursor:pointer;
+  position:relative;overflow:hidden;color:var(--text);transition:all .15s;
+}
+.cc:hover{background:var(--key-hover);}
+.cc.scan-lit{background:var(--scan-lit-bg);border-color:var(--scan-lit-bd);}
+
+/* ============================================================
+   MODALS  (phrase add / confirm)
+   ============================================================ */
+.ph-modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;
+  z-index:500;
+}
+.ph-modal-overlay.hidden{display:none;}
+.ph-modal{
+  background:var(--surface);border-radius:20px;padding:22px;
+  width:min(92vw,360px);box-shadow:0 12px 40px rgba(0,0,0,.25);
+  display:flex;flex-direction:column;gap:11px;
+}
+.ph-modal-title{font-size:1.05rem;font-weight:900;color:var(--primary-dark);}
+.ph-modal input{
+  padding:10px 13px;border-radius:10px;border:2px solid var(--border);
+  font-family:var(--font);font-size:.95rem;color:var(--text);
+  background:var(--key-bg);outline:none;width:100%;
+}
+.ph-modal input:focus{border-color:var(--primary);}
+.ph-btns{display:flex;gap:8px;}
+.ph-ok{
+  flex:1;padding:10px;border-radius:10px;background:var(--primary);
+  border:none;color:#fff;font-family:var(--font);font-size:.95rem;font-weight:700;cursor:pointer;
+}
+.ph-cancel{
+  flex:1;padding:10px;border-radius:10px;background:var(--key-bg);
+  border:2px solid var(--border);color:var(--text-light);
+  font-family:var(--font);font-size:.95rem;font-weight:700;cursor:pointer;
+}
+
+/* ============================================================
+   SCAN INDICATOR BAR
+   ============================================================ */
+.scan-bar{
+  position:fixed;top:0;left:0;right:0;height:6px;
+  background:transparent;z-index:300;pointer-events:none;
+}
+.scan-bar-fill{
+  height:100%;background:var(--scan-lit-bd);
+  transition:width .1s linear;width:0%;
+}
+.scan-bar.active .scan-bar-fill{background:var(--scan-lit-bd);}
+
+/* scan status badge */
+.scan-badge{
+  position:fixed;bottom:20px;right:16px;
+  background:var(--primary);color:#fff;
+  padding:7px 14px;border-radius:30px;font-size:.82rem;font-weight:700;
+  box-shadow:0 4px 14px rgba(58,134,255,.35);display:none;z-index:350;
+  font-family:var(--font);
+}
+.scan-badge.visible{display:block;}
+body.hc .scan-badge{background:#FFFF00;color:#000;}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toast{
+  position:fixed;bottom:28px;left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:#1A1A2E;color:#fff;padding:11px 22px;
+  border-radius:12px;font-size:.93rem;font-weight:700;
+  opacity:0;transition:all .3s;pointer-events:none;z-index:600;
+  white-space:pre-line;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+body.hc .toast{background:#FFFF00;color:#000;}
+
+/* ============================================================
+   SECTION SHOW/HIDE toggle
+   ============================================================ */
+.stog{
+  font-size:.76rem;font-weight:700;padding:3px 10px;
+  border-radius:8px;border:2px solid var(--border);
+  background:var(--key-bg);color:var(--text-light);cursor:pointer;
+}
+.stog.on{background:var(--primary);border-color:var(--primary-dark);color:#fff;}
+body.hc .stog.on{background:#FFFF00;border-color:#FFD700;color:#000;}
+
+/* aac show btn */
+.aac-show-btn{
+  align-self:flex-start;
+  font-size:.8rem;font-weight:700;padding:5px 14px;
+  border-radius:10px;border:2px solid var(--aac-bd);
+  background:var(--aac-bg);color:var(--aac-text);cursor:pointer;
+}
+
+@media(max-width:600px){
+  :root{--key-min-w:60px;--key-h:70px;}
+  .kl{font-size:1.05rem!important;}
+  .key.ksp{min-width:110px;}
+}
+
+
+/* ============================================================
+   PREDICTION / SUGGESTION BAR
+   ============================================================ */
+.pred-panel {
+  width:100%; max-width:980px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.pred-row {
+  display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow-x:auto;
+  padding-bottom:2px;
+}
+.pred-row::-webkit-scrollbar{ height:3px; }
+.pred-row::-webkit-scrollbar-thumb{ background:var(--border); border-radius:2px; }
+
+.pred-label {
+  font-size:.72rem; font-weight:800; color:var(--text-light);
+  white-space:nowrap; flex-shrink:0; padding:0 4px;
+}
+
+/* 予測候補ボタン */
+.pred-btn {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px; padding:7px 14px; border-radius:12px;
+  border:2.5px solid var(--primary); background:var(--surface);
+  font-family:var(--font); font-weight:800; cursor:pointer;
+  position:relative; overflow:hidden; flex-shrink:0;
+  transition:all .15s; white-space:nowrap;
+  box-shadow:0 2px 6px rgba(58,134,255,.12);
+}
+.pred-btn .pw { font-size:1.05rem; color:var(--primary-dark); }
+.pred-btn .pr { font-size:.65rem; color:var(--text-light); font-weight:600; }
+.pred-btn:hover { background:var(--key-hover); }
+.pred-btn.scan-lit { background:var(--scan-lit-bg)!important; border-color:var(--scan-lit-bd)!important; box-shadow:0 0 0 3px var(--scan-lit-bd)!important; }
+body.hc .pred-btn { border-color:#FFFF00; background:#000; }
+body.hc .pred-btn .pw { color:#FFFF00; }
+
+/* 次の文字サジェスト */
+.sug-btn {
+  display:flex; align-items:center; justify-content:center;
+  width:52px; height:52px; border-radius:var(--key-radius);
+  border:2.5px solid var(--key-bd); background:var(--key-bg);
+  font-family:var(--font); font-size:1.25rem; font-weight:900;
+  cursor:pointer; position:relative; overflow:hidden; flex-shrink:0;
+  transition:all .15s; color:var(--text);
+  box-shadow:0 3px 0 var(--border), 0 2px 5px rgba(0,0,0,.05);
+}
+.sug-btn:hover { background:var(--key-hover); }
+/* 強調サジェスト（確率高いもの） */
+.sug-btn.hot {
+  border-color:var(--primary); background:linear-gradient(135deg,var(--surface),var(--key-hover));
+  color:var(--primary-dark);
+  box-shadow:0 3px 0 var(--primary), 0 2px 8px rgba(58,134,255,.18);
+  font-size:1.4rem;
+}
+body.hc .sug-btn.hot { border-color:#FFFF00; color:#FFFF00; background:#111100; }
+.sug-btn.scan-lit { background:var(--scan-lit-bg)!important; border-color:var(--scan-lit-bd)!important; box-shadow:0 0 0 3px var(--scan-lit-bd)!important; }
+
+/* fullscreen adjustments */
+body.is-fullscreen .pred-panel { max-width:100%; }
+
+
+/* ============================================================
+   COLOR CUSTOMIZATION
+   ============================================================ */
+.color-presets {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.color-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+}
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+
+
+/* ============================================================
+   RICH EDITOR
+   ============================================================ */
+.rich-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  background: var(--key-bg);
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  margin-bottom: 6px;
+}
+.rt-btn {
+  min-width: 36px; height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-family: var(--font);
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+  position: relative; overflow: hidden;
+  flex-shrink: 0;
+}
+.rt-btn:hover { background: var(--key-hover); }
+.rt-btn.active { background: var(--primary); border-color: var(--primary-dark); color: #fff; }
+body.hc .rt-btn.active { background: #FFFF00; border-color: #FFD700; color: #000; }
+.rt-sep {
+  width: 1.5px; height: 22px;
+  background: var(--border);
+  flex-shrink: 0; margin: 0 2px;
+}
+.rt-color-btn {
+  width: 34px; height: 34px;
+  border-radius: 8px; border: 1.5px solid var(--border);
+  cursor: pointer; padding: 2px;
+  background: var(--surface);
+  position: relative; overflow: hidden;
+}
+.rt-font-size {
+  padding: 0 6px; height: 34px;
+  border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--surface); color: var(--text);
+  font-family: var(--font); font-size: .82rem; font-weight: 700;
+  cursor: pointer; outline: none;
+}
+/* リッチエディタ本体 */
+.rich-editor {
+  min-height: 80px;
+  font-family: var(--font);
+  font-size: 1.5rem;
+  line-height: 1.75;
+  color: var(--text);
+  word-break: break-all;
+  outline: none;
+  cursor: text;
+  white-space: pre-wrap;
+}
+.rich-editor:empty::before {
+  content: 'ここに文字が入ります';
+  color: var(--text-light);
+  opacity: .5;
+  pointer-events: none;
+}
+/* Wordダウンロードボタン */
+.btn-word {
+  background: #EEF6FF; border-color: #2B579A; color: #2B579A;
+}
+.btn-print {
+  background: #F5F3FF; border-color: #7C3AED; color: #7C3AED;
+}
+
+
+/* ============================================================
+   HELP MODAL
+   ============================================================ */
+.help-btn {
+  width:42px; height:42px; border-radius:50%;
+  background:var(--surface); border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; cursor:pointer; transition:all .2s; color:var(--text);
+  font-weight:900;
+}
+.help-btn:hover { background:var(--key-hover); }
+
+.help-modal {
+  background:var(--surface); border-radius:22px; overflow:hidden;
+  width:min(96vw,620px); box-shadow:0 16px 60px rgba(0,0,0,.28);
+  max-height:88vh; display:flex; flex-direction:column;
+}
+.help-modal-header {
+  display:flex; align-items:center; gap:10px;
+  background:var(--primary); padding:16px 20px; flex-shrink:0;
+}
+body.hc .help-modal-header { background:#FFFF00; }
+.help-modal-title { font-size:1.1rem; font-weight:900; color:#fff; flex:1; }
+body.hc .help-modal-title { color:#000; }
+.help-modal-close {
+  width:34px; height:34px; border-radius:50%;
+  background:rgba(255,255,255,.2); border:none; color:#fff;
+  font-size:1.2rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+body.hc .help-modal-close { background:rgba(0,0,0,.2); color:#000; }
+
+.help-tabs {
+  display:flex; background:var(--key-bg); border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.help-tab {
+  flex:1; padding:11px 6px; text-align:center;
+  font-family:var(--font); font-size:.85rem; font-weight:700;
+  color:var(--text-light); cursor:pointer; border:none;
+  background:transparent; transition:all .18s; border-bottom:3px solid transparent;
+}
+.help-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+body.hc .help-tab.active { color:#FFFF00; border-bottom-color:#FFFF00; }
+
+.help-body {
+  flex:1; overflow-y:auto; padding:18px 20px;
+  display:flex; flex-direction:column; gap:14px;
+}
+
+.help-section { display:flex; flex-direction:column; gap:8px; }
+.help-section-title {
+  font-size:.88rem; font-weight:900; color:var(--primary-dark);
+  display:flex; align-items:center; gap:6px;
+  border-bottom:1.5px solid var(--border); padding-bottom:5px;
+}
+body.hc .help-section-title { color:#FFFF00; }
+
+.help-step {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 12px; border-radius:12px;
+  background:var(--key-bg); border:1.5px solid var(--border);
+}
+.help-step-num {
+  width:28px; height:28px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.82rem; font-weight:900; flex-shrink:0;
+}
+body.hc .help-step-num { background:#FFFF00; color:#000; }
+.help-step-text { font-size:.88rem; color:var(--text); line-height:1.6; }
+.help-step-text strong { color:var(--primary-dark); }
+body.hc .help-step-text strong { color:#FFFF00; }
+
+.help-tip {
+  padding:10px 14px; border-radius:12px;
+  background:#FFFBEB; border:1.5px solid #FDE68A;
+  font-size:.85rem; color:#78350F; line-height:1.6;
+  display:flex; gap:8px;
+}
+body.hc .help-tip { background:#111100; border-color:#FFFF00; color:#FFFF00; }
+.help-tip-icon { font-size:1.2rem; flex-shrink:0; }
+
+.help-card-grid {
+  display:grid; grid-template-columns:repeat(2,1fr); gap:8px;
+}
+.help-card {
+  padding:10px 12px; border-radius:12px;
+  background:var(--key-bg); border:1.5px solid var(--border);
+  display:flex; flex-direction:column; gap:4px;
+}
+.help-card-icon { font-size:1.4rem; }
+.help-card-title { font-size:.82rem; font-weight:800; color:var(--text); }
+.help-card-desc  { font-size:.75rem; color:var(--text-light); line-height:1.5; }
+
+/* ============================================================
+   FULLSCREEN MODE
+   ============================================================ */
+.fullscreen-btn{
+  width:42px;height:42px;border-radius:50%;
+  background:var(--surface);border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;cursor:pointer;transition:all .2s;color:var(--text);
+}
+.fullscreen-btn:hover{background:var(--key-hover);}
+
+/* フルスクリーン時：ルート要素を画面に収める */
+:fullscreen, :-webkit-full-screen, :-moz-full-screen {
+  background: var(--bg);
+}
+
+/* ══════════════════════════════════════════════════
+   全画面：body を縦2ペインに分割
+   ペイン1 (fs-top)       : テキスト表示 + アクション
+   ペイン2 (keyboard-panel): キーボード（flex:1）
+   それ以外は display:none
+   ══════════════════════════════════════════════════ */
+body.is-fullscreen {
+  height: 100vh !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+}
+
+/* 全画面時に隠すパネル（個別指定） */
+body.is-fullscreen .app-header     { display: none !important; }
+body.is-fullscreen .profile-bar    { display: none !important; }
+body.is-fullscreen .text-panel     { display: none !important; }
+body.is-fullscreen .qbar           { display: none !important; }
+body.is-fullscreen .phrase-panel   { display: none !important; }
+body.is-fullscreen .aac-panel      { display: none !important; }
+body.is-fullscreen .aac-show-btn   { display: none !important; }
+body.is-fullscreen .stamp-panel    { display: none !important; }
+body.is-fullscreen .pred-panel     { display: none !important; }
+body.is-fullscreen #rewardCanvas   { display: none !important; }
+body.is-fullscreen .scan-badge     { display: none !important; }
+
+/* 上段ラッパー（通常時は非表示） */
+.fs-top { display: none; }
+
+body.is-fullscreen .fs-top {
+  display: flex !important;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 100%;
+  background: var(--surface);
+  border-bottom: 2.5px solid var(--border);
+  padding: 6px 10px 6px;
+  gap: 0;
+}
+
+/* 全画面上段ヘッダーバー */
+body.is-fullscreen .fs-top .fs-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+body.is-fullscreen .fs-top .fs-header .fs-title {
+  font-size: .85rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  flex: 1;
+}
+body.is-fullscreen .fs-top .fs-header-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--key-bg);
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; cursor: pointer;
+  color: var(--text); flex-shrink: 0;
+  position: relative; overflow: hidden;
+}
+body.is-fullscreen .fs-top .fs-header-btn:hover { background: var(--key-hover); }
+
+body.is-fullscreen .fs-top .fs-text {
+  font-family: var(--font);
+  font-size: 1.4rem;
+  line-height: 1.7;
+  color: var(--text);
+  word-break: break-all;
+  white-space: pre-wrap;
+  max-height: 30vh;
+  overflow-y: auto;
+  min-height: 2.5rem;
+  padding: 4px 2px;
+}
+
+body.is-fullscreen .fs-top .fs-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-top: 1.5px solid var(--border);
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+body.is-fullscreen .fs-top .fs-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 2.5px solid;
+  font-family: var(--font);
+  font-size: .8rem;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+body.is-fullscreen .fs-top .fs-action-btn .bi { font-size: 1.1rem; }
+body.is-fullscreen .fs-top .btn-copy  { background:#F0FFF4; border-color:#86EFAC; color:#166534; }
+body.is-fullscreen .fs-top .btn-speak { background:#FFF7ED; border-color:#FCD34D; color:#92400E; }
+body.is-fullscreen .fs-top .btn-mic   { background:#FDF4FF; border-color:#D8B4FE; color:#6B21A8; }
+body.is-fullscreen .fs-top .btn-clear { background:#FFF0F0; border-color:#FCA5A5; color:#991B1B; }
+
+/* ════════════════════════════════════════
+   全画面：キーボードパネル共通
+   ════════════════════════════════════════ */
+body.is-fullscreen .keyboard-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  border-radius: 0 !important;
+  border: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 6px 6px 4px !important;
+  box-shadow: none !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+}
+body.is-fullscreen .keyboard-panel .mode-tabs {
+  flex-shrink: 0 !important;
+}
+
+/* ════════════════════════════════════════
+   全画面：横配列（デフォルト・50on共通）
+   layout-vertical クラスが「ない」とき
+   ════════════════════════════════════════ */
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) #keyboardArea {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+/* 各行の高さをJS計算値で固定 */
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) #keyboardArea .key-row {
+  flex-shrink: 0 !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  height: var(--fs-row-h, 80px) !important;
+  min-height: 0 !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+}
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) #keyboardArea .key {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  width: auto !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) #keyboardArea .key-row > div:not(.key) {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+}
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) .key.ksp {
+  flex: 3 1 0 !important;
+  max-width: none !important;
+}
+/* 文字サイズ */
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) #keyboardArea .key .kl {
+  font-size: clamp(1.2rem, calc(var(--fs-row-h, 80px) * 0.38), 4rem) !important;
+  line-height: 1 !important;
+}
+body.is-fullscreen .keyboard-panel:not(.layout-vertical) #keyboardArea .key .ks {
+  font-size: clamp(.5rem, calc(var(--fs-row-h, 80px) * 0.1), 1rem) !important;
+}
+
+/* ════════════════════════════════════════
+   全画面：縦配列（layout-vertical）
+   key-row = 1列、flex-direction:column
+   ════════════════════════════════════════ */
+body.is-fullscreen .keyboard-panel.layout-vertical #keyboardArea {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  overflow: hidden !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+}
+/* 各列（key-row）が横幅を均等分割 */
+body.is-fullscreen .keyboard-panel.layout-vertical #keyboardArea .key-row {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  box-sizing: border-box !important;
+  /* 高さ固定を完全に上書き */
+  height: 100% !important;
+}
+/* 各キーが列の高さを均等分割 */
+body.is-fullscreen .keyboard-panel.layout-vertical #keyboardArea .key-row .key {
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  box-sizing: border-box !important;
+}
+body.is-fullscreen .keyboard-panel.layout-vertical #keyboardArea .key-row > div:not(.key) {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+}
+/* 縦配列の文字サイズ：列幅基準 */
+body.is-fullscreen .keyboard-panel.layout-vertical #keyboardArea .key .kl {
+  font-size: clamp(1.2rem, calc(var(--fs-row-h, 80px) * 0.38), 4rem) !important;
+  line-height: 1 !important;
+}
+
+/* ============================================================
+   KEYBOARD LAYOUT DIRECTION
+   ============================================================ */
+
+/* ── 縦配列（vertical）: 行と列を入れ替え ── */
+/* ── 横・左から右（デフォルト）── */
+/* key-row は元々 flex row なので何もしない */
+
+/* ── 横・右から左 ── */
+/* JS側でlayoutデータ自体を反転して描画するため CSSは不要 */
+
+/* ── 縦配列 共通 ── */
+.keyboard-panel.layout-vertical #keyboardArea {
+  display: flex;
+  flex-direction: row;      /* 「行」ブロックを横に並べる */
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.keyboard-panel.layout-vertical .key-row {
+  display: flex;
+  flex-direction: column;   /* 各キーを縦に積む */
+  flex-wrap: nowrap;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 5px;
+  width: auto;
+}
+.keyboard-panel.layout-vertical .key {
+  width: var(--key-h) !important;
+  min-width: unset !important;
+  height: var(--key-min-w) !important;
+  flex-shrink: 0;
+}
+/* スペースキー縦配列時 */
+.keyboard-panel.layout-vertical .key.ksp {
+  width: var(--key-h) !important;
+  min-height: 90px !important;
+  height: auto !important;
+  flex: unset !important;
+  max-width: unset !important;
+}
+
+
+/* ============================================================
+   五十音表レイアウト専用スタイル
+   ============================================================ */
+.keyboard-panel.layout-50on #keyboardArea {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.keyboard-panel.layout-50on .key-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+/* 五十音表のキーは正方形に近く、均等幅 */
+.keyboard-panel.layout-50on .key {
+  flex: 1;
+  min-width: 0 !important;
+  max-width: 72px;
+  height: var(--key-h) !important;
+  aspect-ratio: 1;
+}
+/* スペーサー（空マス）も同じサイズ */
+.keyboard-panel.layout-50on .key-spacer-50on {
+  flex: 1;
+  min-width: 0;
+  max-width: 72px;
+  height: var(--key-h);
+  background: transparent;
+}
+/* フルスクリーン時は横幅いっぱい */
+body.is-fullscreen .keyboard-panel.layout-50on .key {
+  max-width: none;
+}
+
+/* ── 配列方向プレビューカード ── */
+.layout-dir-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.layout-dir-card {
+  padding: 10px 8px; border-radius: 12px;
+  border: 2.5px solid var(--border);
+  cursor: pointer; text-align: center;
+  background: var(--key-bg); transition: all .15s;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+.layout-dir-card.active {
+  border-color: var(--primary);
+  background: var(--key-hover);
+}
+body.hc .layout-dir-card.active { border-color:#FFFF00; background:#333300; }
+.ldc-preview {
+  display: flex; gap: 3px; align-items: center; justify-content: center;
+  height: 36px;
+}
+.ldc-row { display: flex; gap: 2px; }
+.ldc-key {
+  background: var(--border); border-radius: 3px;
+}
+.ldc-name { font-size: .72rem; font-weight: 700; color: var(--text); }
+.ldc-desc { font-size: .62rem; color: var(--text-light); }
+
+
+/* ============================================================
+   PROFILE BAR
+   ============================================================ */
+.profile-bar {
+  width:100%; max-width:980px;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.profile-chip {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:12px;
+  border:2.5px solid var(--border); background:var(--surface);
+  font-family:var(--font); font-size:.85rem; font-weight:700;
+  color:var(--text-light); cursor:pointer; transition:all .18s;
+  position:relative; overflow:hidden; flex-shrink:0;
+}
+.profile-chip .p-avatar { font-size:1.3rem; }
+.profile-chip .p-name  { font-size:.82rem; font-weight:800; }
+.profile-chip.active {
+  background:var(--primary); border-color:var(--primary-dark); color:#fff;
+  box-shadow:0 3px 10px rgba(58,134,255,.25);
+}
+body.hc .profile-chip.active { background:#FFFF00; border-color:#FFD700; color:#000; }
+.profile-chip .p-name-active { color:#fff; }
+body.hc .profile-chip .p-name-active { color:#000; }
+
+.profile-add-btn {
+  width:38px; height:38px; border-radius:50%;
+  border:2.5px dashed var(--border); background:var(--surface);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.2rem; cursor:pointer; color:var(--text-light);
+  transition:all .18s; flex-shrink:0;
+}
+.profile-add-btn:hover { border-color:var(--primary); color:var(--primary); background:var(--key-hover); }
+
+/* ============================================================
+   PROFILE MODAL
+   ============================================================ */
+.prof-modal {
+  background:var(--surface); border-radius:22px; padding:24px;
+  width:min(94vw,460px); box-shadow:0 16px 60px rgba(0,0,0,.28);
+  display:flex; flex-direction:column; gap:14px; max-height:85vh; overflow-y:auto;
+}
+.prof-modal-title { font-size:1.1rem; font-weight:900; color:var(--primary-dark); }
+.prof-avatar-grid {
+  display:flex; flex-wrap:wrap; gap:8px;
+}
+.prof-avatar-opt {
+  width:46px; height:46px; border-radius:12px; border:2.5px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.5rem; cursor:pointer; transition:all .15s; background:var(--key-bg);
+}
+.prof-avatar-opt.selected { border-color:var(--primary); background:var(--key-hover); }
+body.hc .prof-avatar-opt.selected { border-color:#FFFF00; background:#333300; }
+.prof-modal input, .prof-modal select {
+  padding:10px 13px; border-radius:10px; border:2px solid var(--border);
+  font-family:var(--font); font-size:.95rem; color:var(--text);
+  background:var(--key-bg); outline:none; width:100%;
+}
+.prof-modal input:focus { border-color:var(--primary); }
+.prof-list { display:flex; flex-direction:column; gap:8px; }
+.prof-list-item {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border-radius:12px; border:2px solid var(--border); background:var(--key-bg);
+}
+.prof-list-item .pli-avatar { font-size:1.5rem; flex-shrink:0; }
+.prof-list-item .pli-info { flex:1; }
+.prof-list-item .pli-name { font-size:.9rem; font-weight:800; color:var(--text); }
+.prof-list-item .pli-stats { font-size:.72rem; color:var(--text-light); margin-top:2px; }
+.prof-list-item .pli-del {
+  padding:4px 10px; border-radius:8px; border:2px solid var(--key-delete-bd);
+  background:var(--key-delete-bg); color:#991B1B; font-family:var(--font);
+  font-size:.75rem; font-weight:700; cursor:pointer;
+}
+
+/* ============================================================
+   HISTORY & REPORT MODAL
+   ============================================================ */
+.hr-modal {
+  background:var(--surface); border-radius:22px; overflow:hidden;
+  width:min(96vw,680px); box-shadow:0 16px 60px rgba(0,0,0,.28);
+  max-height:88vh; display:flex; flex-direction:column;
+}
+.hr-tabs {
+  display:flex; background:var(--primary); gap:0;
+}
+.hr-tab {
+  flex:1; padding:14px 8px; text-align:center;
+  font-family:var(--font); font-size:.88rem; font-weight:700;
+  color:rgba(255,255,255,.65); cursor:pointer; border:none;
+  background:transparent; transition:all .18s;
+}
+.hr-tab.active { color:#fff; border-bottom:3px solid #fff; }
+.hr-body { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+
+/* history list */
+.hist-date-group { display:flex; flex-direction:column; gap:6px; }
+.hist-date-label {
+  font-size:.75rem; font-weight:800; color:var(--text-light);
+  text-transform:uppercase; letter-spacing:.06em;
+  border-bottom:1.5px solid var(--border); padding-bottom:4px;
+}
+.hist-entry {
+  display:flex; align-items:flex-start; gap:10px; padding:10px 12px;
+  border-radius:12px; border:1.5px solid var(--border); background:var(--key-bg);
+  cursor:pointer; transition:background .15s;
+}
+.hist-entry:hover { background:var(--key-hover); }
+.hist-time { font-size:.72rem; color:var(--text-light); font-weight:700; flex-shrink:0; padding-top:2px; }
+.hist-text { font-size:.9rem; color:var(--text); flex:1; word-break:break-all; line-height:1.5; }
+.hist-chars { font-size:.72rem; color:var(--text-light); flex-shrink:0; padding-top:2px; }
+.hist-actions { display:flex; gap:6px; margin-top:2px; }
+.hist-btn {
+  padding:3px 9px; border-radius:7px; border:1.5px solid var(--border);
+  background:var(--surface); font-family:var(--font); font-size:.72rem;
+  font-weight:700; color:var(--text-light); cursor:pointer;
+}
+.hist-btn:hover { background:var(--key-hover); }
+
+/* report */
+.report-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.report-card {
+  padding:14px; border-radius:14px; border:2px solid var(--border);
+  background:var(--key-bg); display:flex; flex-direction:column; gap:4px;
+}
+.rc-icon { font-size:1.5rem; }
+.rc-val { font-size:1.6rem; font-weight:900; color:var(--primary-dark); line-height:1; }
+.rc-label { font-size:.75rem; color:var(--text-light); font-weight:700; }
+body.hc .rc-val { color:#FFFF00; }
+
+.top-words { display:flex; flex-direction:column; gap:5px; }
+.tw-row {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:9px; background:var(--key-bg); border:1.5px solid var(--border);
+}
+.tw-rank { font-size:.72rem; font-weight:800; color:var(--text-light); width:18px; }
+.tw-word { font-size:.88rem; font-weight:700; color:var(--text); flex:1; }
+.tw-count { font-size:.78rem; color:var(--text-light); font-weight:700; }
+.tw-bar-wrap { width:60px; background:var(--border); border-radius:4px; height:6px; overflow:hidden; }
+.tw-bar { height:100%; background:var(--primary); border-radius:4px; transition:width .4s; }
+body.hc .tw-bar { background:#FFFF00; }
+
+.chart-wrap { position:relative; height:140px; margin-top:4px; }
+.chart-canvas { width:100%; height:100%; }
+
+.report-section-title {
+  font-size:.78rem; font-weight:900; color:var(--text-light);
+  text-transform:uppercase; letter-spacing:.07em;
+  border-bottom:1.5px solid var(--border); padding-bottom:5px; margin-top:4px;
+}
+
+/* print */
+@media print {
+  body > *:not(#printArea) { display:none !important; }
+  #printArea { display:block !important; }
+  .no-print { display:none !important; }
+  a { color: #2563EB !important; text-decoration: underline; }
+}
+#printArea {
+  display:none;
+  font-family:'Kosugi Maru','Noto Sans JP',sans-serif;
+  padding:20px; max-width:700px; margin:0 auto;
+}
+.print-header { border-bottom:2px solid #333; padding-bottom:10px; margin-bottom:16px; }
+.print-title  { font-size:1.2rem; font-weight:900; }
+.print-entry  { border-bottom:1px solid #ddd; padding:8px 0; }
+.print-time   { font-size:.75rem; color:#666; }
+.print-text   { font-size:1rem; margin-top:3px; }
+
+/* hr modal overlay uses modal-overlay class already */
+body.is-fullscreen .profile-bar { max-width:100%; }
+
+</style>
+</head>
+<body>
+
+<!-- SCAN INDICATOR -->
+<div class="scan-bar" id="scanBar"><div class="scan-bar-fill" id="scanBarFill"></div></div>
+<div class="scan-badge" id="scanBadge">🔄 スキャン中</div>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div class="eye-icon">👁️</div>
+  <div>
+    <div class="app-title">視線キーボード</div>
+    <div class="app-subtitle">見つめて・止まる・文字が入る</div>
+  </div>
+  <div class="header-right">
+    <button class="help-btn" id="helpBtn" title="使い方">？</button>
+    <button class="fullscreen-btn" id="stampToggleBtn" title="スタンプ">😊</button>
+    <button class="fullscreen-btn" id="hrBtn" title="履歴・レポート">📊</button>
+    <button class="fullscreen-btn" id="fullscreenBtn" title="全画面表示">⛶</button>
+    <button class="settings-btn" id="settingsBtn" title="設定">⚙️</button>
+  </div>
+</div>
+
+<!-- PROFILE BAR -->
+<div class="profile-bar" id="profileBar">
+  <!-- JS で動的生成 -->
+  <button class="profile-add-btn" id="profileAddBtn" title="ユーザーを追加">＋</button>
+</div>
+
+<!-- TEXT PANEL -->
+<div class="text-panel">
+  <!-- 書式ツールバー -->
+  <div class="rich-toolbar" id="richToolbar">
+    <!-- 太字・斜体・下線 -->
+    <button class="rt-btn" id="rtBold"  title="太字"><b>B</b></button>
+    <button class="rt-btn" id="rtItalic" title="斜体"><i>I</i></button>
+    <button class="rt-btn" id="rtUnder" title="下線"><u>U</u></button>
+    <div class="rt-sep"></div>
+    <!-- フォントサイズ -->
+    <select class="rt-font-size" id="rtFontSize" title="文字サイズ">
+      <option value="1">小</option>
+      <option value="2">中</option>
+      <option value="3" selected>標準</option>
+      <option value="4">大</option>
+      <option value="5">特大</option>
+      <option value="6">最大</option>
+    </select>
+    <div class="rt-sep"></div>
+    <!-- 配置 -->
+    <button class="rt-btn" id="rtAlignL" title="左揃え">≡</button>
+    <button class="rt-btn" id="rtAlignC" title="中央揃え">☰</button>
+    <button class="rt-btn" id="rtAlignR" title="右揃え">≣</button>
+    <div class="rt-sep"></div>
+    <!-- リセット -->
+    <button class="rt-btn" id="rtClear" title="書式クリア" style="font-size:.7rem;">書式<br>消去</button>
+  </div>
+
+  <!-- リッチエディタ本体（読み取り専用・JS でスタイル付きspan追加） -->
+  <div class="rich-editor" id="richEditor"></div>
+
+  <!-- 非表示：テキスト同期用（既存JSとの互換） -->
+  <div style="display:none;" id="textDisplay">
+    <span id="textContent"></span>
+  </div>
+
+  <div class="text-actions">
+    <button class="action-btn btn-copy"  id="btnCopy" ><span class="bi">📋</span>コピー</button>
+    <button class="action-btn btn-speak" id="btnSpeak"><span class="bi">🔊</span>読み上げ</button>
+    <button class="action-btn btn-mic"   id="btnMic"  ><span class="bi">🎤</span>音声入力</button>
+    <button class="action-btn btn-word"  id="btnWord" ><span class="bi">📄</span>Wordで保存</button>
+    <button class="action-btn btn-print" id="btnPrint"><span class="bi">🖨️</span>印刷</button>
+    <button class="action-btn btn-clear" id="btnClear"><span class="bi">🗑️</span>全消し</button>
+  </div>
+</div>
+
+<!-- QUICK BAR -->
+<div class="qbar">
+  <button class="qchip" id="scanToggle">🔄 スキャン：OFF</button>
+  <div class="qchip" style="cursor:default;">
+    <div class="dwell-dot"></div>
+    <span style="color:var(--primary-dark);">視線入力 ON</span>
+  </div>
+</div>
+
+<!-- PHRASE PANEL -->
+<div class="phrase-panel" id="phrasePanel">
+  <div class="panel-header">
+    <span class="panel-title">💬 よく使う文</span>
+    <button class="stog on" id="phraseToggle">表示中</button>
+    <button class="tiny-btn" id="phraseAddBtn" style="margin-left:auto;">＋ 追加</button>
+  </div>
+  <div class="phrase-grid" id="phraseGrid"></div>
+</div>
+
+<!-- AAC PANEL -->
+<div class="aac-panel" id="aacPanel">
+  <div class="panel-header">
+    <span class="panel-title" style="color:#7C3AED;">🖼️ 絵カード（AAC）</span>
+    <button class="stog" id="aacToggle" style="margin-left:auto;">非表示</button>
+  </div>
+  <div class="aac-grid" id="aacGrid"></div>
+</div>
+<button class="aac-show-btn" id="aacShowBtn">🖼️ 絵カードを表示する</button>
+
+
+<!-- STAMP PANEL -->
+<div class="stamp-panel" id="stampPanel">
+  <div class="panel-header">
+    <span class="panel-title">😊 スタンプ・リアクション</span>
+    <button class="stog on" id="stampCloseBtn" style="margin-left:auto;">閉じる</button>
+  </div>
+  <div class="stamp-tabs" id="stampTabs">
+    <button class="stamp-tab active" data-cat="reaction">リアクション</button>
+    <button class="stamp-tab" data-cat="emotion">気持ち</button>
+    <button class="stamp-tab" data-cat="daily">日常</button>
+    <button class="stamp-tab" data-cat="nature">自然</button>
+    <button class="stamp-tab" data-cat="food">たべもの</button>
+  </div>
+  <div class="stamp-grid" id="stampGrid"></div>
+</div>
+
+<!-- REWARD CANVAS -->
+<canvas id="rewardCanvas"></canvas>
+
+<!-- PREDICTION & SUGGESTION PANEL -->
+<div class="pred-panel" id="predPanel">
+  <!-- 予測変換候補行 -->
+  <div class="pred-row" id="predRow">
+    <span class="pred-label">💡 予測</span>
+    <!-- JS で動的生成 -->
+  </div>
+  <!-- 次の文字サジェスト行 -->
+  <div class="pred-row" id="sugRow">
+    <span class="pred-label">✨ 次の文字</span>
+    <!-- JS で動的生成 -->
+  </div>
+</div>
+
+<!-- FULLSCREEN TOP PANE (populated by JS on fullscreen enter) -->
+<div class="fs-top" id="fsTop"></div>
+
+<!-- KEYBOARD -->
+<div class="keyboard-panel">
+  <div class="mode-tabs" id="modeTabs">
+    <button class="mode-tab active" data-mode="hiragana">ひらがな</button>
+    <button class="mode-tab" data-mode="hiragana_50on">五十音表</button>
+    <button class="mode-tab" data-mode="katakana">カタカナ</button>
+    <button class="mode-tab" data-mode="katakana_50on">カタカナ表</button>
+    <button class="mode-tab" data-mode="alphabet">英字</button>
+    <button class="mode-tab" data-mode="number">数字・記号</button>
+  </div>
+  <div id="keyboardArea"></div>
+</div>
+
+<!-- CONVERSION POPUP -->
+<div class="conv-popup" id="convPopup"></div>
+
+<!-- ===== ⚙️ SETTINGS MODAL ===== -->
+<div class="modal-overlay hidden" id="settingsModal">
+  <div class="settings-modal">
+    <div class="smodal-header">
+      <span style="font-size:1.3rem;">⚙️</span>
+      <span class="smodal-title">アクセシビリティ設定</span>
+      <button class="smodal-close" id="settingsClose">✕</button>
+    </div>
+    <div class="smodal-body">
+
+      <!-- テーマ -->
+      <div class="s-section">
+        <div class="s-section-title">🎨 画面テーマ</div>
+        <div class="theme-grid" id="themeGrid">
+          <div class="theme-card active" data-theme="">
+            <div class="theme-swatch" style="background:linear-gradient(135deg,#F0F7FF,#3A86FF);"></div>
+            <div><div class="theme-name">ノーマル</div></div>
+          </div>
+          <div class="theme-card" data-theme="hc">
+            <div class="theme-swatch" style="background:#000;border:2px solid #FFFF00;"></div>
+            <div><div class="theme-name">ハイコントラスト</div><div class="s-desc">黒背景・黄文字</div></div>
+          </div>
+          <div class="theme-card" data-theme="soft">
+            <div class="theme-swatch" style="background:linear-gradient(135deg,#FFF8F0,#D97706);"></div>
+            <div><div class="theme-name">やさしい色</div><div class="s-desc">低視覚対応</div></div>
+          </div>
+          <div class="theme-card" data-theme="dark">
+            <div class="theme-swatch" style="background:linear-gradient(135deg,#0F172A,#60A5FA);"></div>
+            <div><div class="theme-name">ダーク</div><div class="s-desc">暗い環境向け</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 文字サイズ -->
+      <div class="s-section">
+        <div class="s-section-title">🔤 テキスト表示サイズ</div>
+        <div class="s-row">
+          <div class="s-label">文字の大きさ</div>
+          <div class="s-range">
+            <input type="range" id="textSizeRange" min="1" max="5" step="1" value="2">
+            <span class="val" id="textSizeLabel">普通</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- キーサイズ -->
+      <div class="s-section">
+        <div class="s-section-title">🎹 キーボードのキーサイズ</div>
+        <div class="keysize-grid" id="keySizeGrid">
+          <div class="keysize-card" data-ks="tiny">
+            <div class="ks-preview" style="font-size:1.1rem;">あ</div>
+            <div class="ks-label">小さい</div>
+          </div>
+          <div class="keysize-card active" data-ks="normal">
+            <div class="ks-preview">あ</div>
+            <div class="ks-label">普通</div>
+          </div>
+          <div class="keysize-card" data-ks="large">
+            <div class="ks-preview" style="font-size:1.5rem;">あ</div>
+            <div class="ks-label">大きい</div>
+          </div>
+          <div class="keysize-card" data-ks="huge">
+            <div class="ks-preview" style="font-size:1.9rem;">あ</div>
+            <div class="ks-label">特大</div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- キー配列方向 -->
+      <div class="s-section">
+        <div class="s-section-title">⌨️ キー配列の方向・スタイル</div>
+        <div class="s-desc" style="margin-bottom:8px;">手の動かし方・視線の動きに合わせて変更できます</div>
+        <div class="layout-dir-grid" id="layoutDirGrid">
+
+          <!-- 横・左から右（標準） -->
+          <div class="layout-dir-card active" data-dir="h-ltr">
+            <div class="ldc-preview">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div class="ldc-row"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div class="ldc-row"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div class="ldc-row"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="font-size:.8rem;margin-top:2px;">→ あ行・か行…</div>
+              </div>
+            </div>
+            <div class="ldc-name">横・左→右</div>
+            <div class="ldc-desc">標準配列</div>
+          </div>
+
+          <!-- 横・右から左 -->
+          <div class="layout-dir-card" data-dir="h-rtl">
+            <div class="ldc-preview">
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div class="ldc-row" style="flex-direction:row-reverse;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div class="ldc-row" style="flex-direction:row-reverse;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div class="ldc-row" style="flex-direction:row-reverse;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="font-size:.8rem;margin-top:2px;">← お→あ行順</div>
+              </div>
+            </div>
+            <div class="ldc-name">横・右→左</div>
+            <div class="ldc-desc">右側から操作</div>
+          </div>
+
+          <!-- 縦・左から右 -->
+          <div class="layout-dir-card" data-dir="v-ltr">
+            <div class="ldc-preview">
+              <div style="display:flex;flex-direction:row;gap:3px;align-items:flex-start;">
+                <div style="display:flex;flex-direction:column;gap:2px;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="font-size:.8rem;align-self:center;">↓</div>
+              </div>
+            </div>
+            <div class="ldc-name">縦・左→右</div>
+            <div class="ldc-desc">縦スクロール</div>
+          </div>
+
+          <!-- 縦・右から左 -->
+          <div class="layout-dir-card" data-dir="v-rtl">
+            <div class="ldc-preview">
+              <div style="display:flex;flex-direction:row-reverse;gap:3px;align-items:flex-start;">
+                <div style="display:flex;flex-direction:column;gap:2px;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="display:flex;flex-direction:column;gap:2px;"><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div><div class="ldc-key" style="width:8px;height:8px;"></div></div>
+                <div style="font-size:.8rem;align-self:center;">↓</div>
+              </div>
+            </div>
+            <div class="ldc-name">縦・右→左</div>
+            <div class="ldc-desc">縦・右端から</div>
+          </div>
+
+        </div>
+
+        <!-- 五十音表レイアウト説明 -->
+        <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--key-hover);border:1.5px solid var(--border);">
+          <div style="font-size:.8rem;font-weight:800;color:var(--primary-dark);margin-bottom:4px;">🗾 五十音表配置について</div>
+          <div style="font-size:.75rem;color:var(--text-light);line-height:1.6;">
+            キーボードタブの <strong>「五十音表」「カタカナ表」</strong> を選ぶと、<br>
+            画像のような表形式（段×行）で表示されます。<br>
+            右から「あ・か・さ・た・な・は・ま・や・ら・わ・ん」列、<br>
+            上から「あ・い・う・え・お」段の配置です。
+          </div>
+        </div>
+      </div>
+
+      <!-- 視線入力 -->
+      <div class="s-section">
+        <div class="s-section-title">👁️ 視線入力（ドウェル）</div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">停止判定時間</div>
+            <div class="s-desc">この時間じっと見ると入力される</div>
+          </div>
+          <div class="s-range">
+            <input type="range" id="dwellRange" min="300" max="3000" step="100" value="1000">
+            <span class="val" id="dwellValLabel">1.0秒</span>
+          </div>
+        </div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">再入力クールダウン</div>
+            <div class="s-desc">入力後に同じキーを無視する時間</div>
+          </div>
+          <div class="s-range">
+            <input type="range" id="cooldownRange" min="0" max="2000" step="100" value="500">
+            <span class="val" id="cooldownLabel">0.5秒</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- スキャン入力 -->
+      <div class="s-section">
+        <div class="s-section-title">🔄 スキャン入力（スイッチ）</div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">スキャン入力</div>
+            <div class="s-desc">キーが順番に光り、スイッチで選ぶ</div>
+          </div>
+          <label class="sw">
+            <input type="checkbox" id="scanSw">
+            <div class="sw-track"></div>
+            <div class="sw-thumb"></div>
+          </label>
+        </div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">スキャン速度</div>
+            <div class="s-desc">光が移動する間隔</div>
+          </div>
+          <div class="s-range">
+            <input type="range" id="scanSpeedRange" min="300" max="3000" step="100" value="1000">
+            <span class="val" id="scanSpeedLabel">1.0秒</span>
+          </div>
+        </div>
+        <div class="s-section-title" style="margin-top:4px;">スイッチの種類</div>
+        <div class="switchtype-grid" id="switchTypeGrid">
+          <div class="st-card active" data-st="space">
+            <div class="st-title">⌨️ スペースキー / Enter</div>
+            <div class="st-desc">キーボードのスペースで選択</div>
+          </div>
+          <div class="st-card" data-st="click">
+            <div class="st-title">🖱️ クリック / タップ</div>
+            <div class="st-desc">画面タップや左クリックで選択</div>
+          </div>
+          <div class="st-card" data-st="any">
+            <div class="st-title">🔑 どのキーでも</div>
+            <div class="st-desc">任意のキーを押して選択</div>
+          </div>
+          <div class="st-card" data-st="gamepad">
+            <div class="st-title">🎮 ゲームパッド</div>
+            <div class="st-desc">Aボタン / ×ボタンで選択</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 読み上げ -->
+      <div class="s-section">
+        <div class="s-section-title">🔊 音声・読み上げ</div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">キー入力時に読み上げ</div>
+            <div class="s-desc">文字を打つたびに音で確認</div>
+          </div>
+          <label class="sw">
+            <input type="checkbox" id="speakOnKeySw">
+            <div class="sw-track"></div>
+            <div class="sw-thumb"></div>
+          </label>
+        </div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">読み上げ速度</div>
+          </div>
+          <div class="s-range">
+            <input type="range" id="speechRateRange" min="5" max="20" step="1" value="9">
+            <span class="val" id="speechRateLabel">0.9×</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- キャラクタースキン -->
+      <div class="s-section">
+        <div class="s-section-title">🎨 キャラクター・テーマスキン</div>
+        <div class="skin-grid" id="skinGrid">
+          <div class="skin-card active" data-skin="">
+            <span class="sk-icon">🌐</span><span class="sk-name">デフォルト</span>
+          </div>
+          <div class="skin-card" data-skin="usagi">
+            <span class="sk-icon">🐰</span><span class="sk-name">うさぎ</span>
+          </div>
+          <div class="skin-card" data-skin="dino">
+            <span class="sk-icon">🦕</span><span class="sk-name">きょうりゅう</span>
+          </div>
+          <div class="skin-card" data-skin="space">
+            <span class="sk-icon">🚀</span><span class="sk-name">うちゅう</span>
+          </div>
+          <div class="skin-card" data-skin="hana">
+            <span class="sk-icon">🌸</span><span class="sk-name">はなばたけ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ごほうびアニメ -->
+      <div class="s-section">
+        <div class="s-section-title">🎉 ごほうびアニメーション</div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">ごほうびを出すタイミング</div>
+            <div class="s-desc">何文字打つごとにごほうびを出すか</div>
+          </div>
+          <div class="s-range">
+            <input type="range" id="rewardIntervalRange" min="5" max="50" step="5" value="10">
+            <span class="val" id="rewardIntervalLabel">10字</span>
+          </div>
+        </div>
+        <div style="font-size:.78rem;font-weight:700;color:var(--text-light);margin-top:4px;">アニメの種類</div>
+        <div class="reward-grid" id="rewardGrid">
+          <div class="reward-card active" data-reward="confetti">
+            <span class="rc2-icon">🎊</span><span class="rc2-name">紙ふぶき</span>
+          </div>
+          <div class="reward-card" data-reward="stars">
+            <span class="rc2-icon">⭐</span><span class="rc2-name">ほし</span>
+          </div>
+          <div class="reward-card" data-reward="hearts">
+            <span class="rc2-icon">❤️</span><span class="rc2-name">ハート</span>
+          </div>
+          <div class="reward-card" data-reward="bubbles">
+            <span class="rc2-icon">🫧</span><span class="rc2-name">あわ</span>
+          </div>
+          <div class="reward-card" data-reward="rainbow">
+            <span class="rc2-icon">🌈</span><span class="rc2-name">にじ</span>
+          </div>
+          <div class="reward-card" data-reward="fireworks">
+            <span class="rc2-icon">🎆</span><span class="rc2-name">はなび</span>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- カラーカスタマイズ -->
+      <div class="s-section">
+        <div class="s-section-title">🎨 カラーカスタマイズ</div>
+        <div class="s-desc" style="margin-bottom:8px;">視線リング・枠線・ハイライトの色を変えられます</div>
+
+        <!-- 視線リング色 -->
+        <div class="s-row">
+          <div>
+            <div class="s-label">👁️ 視線リングの色</div>
+            <div class="s-desc">文字を見つめたときの青い円</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="color-presets" id="dwellColorPresets" data-target="dwell"></div>
+            <input type="color" id="dwellColorPicker" value="#3A86FF"
+              style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border);cursor:pointer;padding:2px;">
+          </div>
+        </div>
+
+        <!-- キー枠線色 -->
+        <div class="s-row">
+          <div>
+            <div class="s-label">🔲 キー枠線の色</div>
+            <div class="s-desc">キーボタンの周りの線</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="color-presets" id="borderColorPresets" data-target="border"></div>
+            <input type="color" id="borderColorPicker" value="#C8D8F0"
+              style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border);cursor:pointer;padding:2px;">
+          </div>
+        </div>
+
+        <!-- スキャンハイライト色 -->
+        <div class="s-row">
+          <div>
+            <div class="s-label">🔄 スキャンハイライトの色</div>
+            <div class="s-desc">スキャン入力で光るときの色</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="color-presets" id="scanColorPresets" data-target="scan"></div>
+            <input type="color" id="scanColorPicker" value="#F59E0B"
+              style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border);cursor:pointer;padding:2px;">
+          </div>
+        </div>
+
+        <!-- キー背景色 -->
+        <div class="s-row">
+          <div>
+            <div class="s-label">🟦 キー背景色</div>
+            <div class="s-desc">キーボタンの背景</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="color-presets" id="keyBgColorPresets" data-target="keyBg"></div>
+            <input type="color" id="keyBgColorPicker" value="#FFFFFF"
+              style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border);cursor:pointer;padding:2px;">
+          </div>
+        </div>
+
+        <!-- リセットボタン -->
+        <div style="margin-top:4px;">
+          <button id="colorResetBtn" style="padding:7px 16px;border-radius:10px;border:2px solid var(--border);background:var(--key-bg);font-family:var(--font);font-size:.82rem;font-weight:700;color:var(--text-light);cursor:pointer;">
+            🔄 すべての色をリセット
+          </button>
+        </div>
+      </div>
+
+      <!-- 休憩ゾーン -->
+      <div class="s-section">
+        <div class="s-section-title">😴 その他</div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">画面端の誤入力防止ゾーン</div>
+            <div class="s-desc">画面の端に視線が行っても無視する</div>
+          </div>
+          <label class="sw">
+            <input type="checkbox" id="edgeZoneSw" checked>
+            <div class="sw-track"></div>
+            <div class="sw-thumb"></div>
+          </label>
+        </div>
+        <div class="s-row">
+          <div>
+            <div class="s-label">入力成功アニメーション</div>
+            <div class="s-desc">文字が入ったときに光るエフェクト</div>
+          </div>
+          <label class="sw">
+            <input type="checkbox" id="animSw" checked>
+            <div class="sw-track"></div>
+            <div class="sw-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+
+      <!-- 表示パネル設定 -->
+      <div class="s-section">
+        <div class="s-section-title">🪟 表示するパネル</div>
+        <div class="s-desc" style="margin-bottom:8px;">不要なパネルを非表示にしてすっきりさせられます</div>
+
+        <div class="s-row">
+          <div><div class="s-label">👤 プロフィールバー</div><div class="s-desc">ユーザー切替ボタン</div></div>
+          <label class="sw"><input type="checkbox" id="showProfileBar" checked><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+        <div class="s-row">
+          <div><div class="s-label">💡 予測変換・サジェスト</div><div class="s-desc">次の文字・単語の候補</div></div>
+          <label class="sw"><input type="checkbox" id="showPredPanel" checked><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+        <div class="s-row">
+          <div><div class="s-label">💬 よく使う文</div><div class="s-desc">定型文ボタン一覧</div></div>
+          <label class="sw"><input type="checkbox" id="showPhrasePanel" checked><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+        <div class="s-row">
+          <div><div class="s-label">🖼️ 絵カード（AAC）</div><div class="s-desc">絵カードパネル</div></div>
+          <label class="sw"><input type="checkbox" id="showAacPanel"><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+        <div class="s-row">
+          <div><div class="s-label">😊 スタンプ</div><div class="s-desc">スタンプパネル</div></div>
+          <label class="sw"><input type="checkbox" id="showStampPanel"><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+        <div class="s-row">
+          <div><div class="s-label">🔄 スキャンバー</div><div class="s-desc">スキャンON/OFFチップ</div></div>
+          <label class="sw"><input type="checkbox" id="showQbar" checked><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+        <div class="s-row">
+          <div><div class="s-label">🎤🗑️ アクションボタン</div><div class="s-desc">コピー・読み上げ・消去ボタン</div></div>
+          <label class="sw"><input type="checkbox" id="showActionBtns" checked><div class="sw-track"></div><div class="sw-thumb"></div></label>
+        </div>
+      </div>
+
+    </div><!-- /smodal-body -->
+  </div>
+</div>
+
+<!-- PHRASE ADD MODAL -->
+<div class="ph-modal-overlay hidden" id="phraseModal">
+  <div class="ph-modal">
+    <div class="ph-modal-title">💬 よく使う文を追加</div>
+    <input id="phraseEmojiIn" placeholder="絵文字（例: 😊）" maxlength="4">
+    <input id="phraseLabelIn" placeholder="ラベル（例: おはよう）" maxlength="12">
+    <input id="phraseTextIn"  placeholder="入力される文（例: おはようございます）" maxlength="60">
+    <div class="ph-btns">
+      <button class="ph-ok" id="phraseOk">追加する</button>
+      <button class="ph-cancel" id="phraseCancel">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay hidden" id="profileModal">
+  <div class="prof-modal">
+    <div class="prof-modal-title" id="profModalTitle">👤 ユーザーを追加</div>
+    <!-- avatar -->
+    <div style="font-size:.8rem;font-weight:700;color:var(--text-light);">アイコンを選ぶ</div>
+    <div class="prof-avatar-grid" id="profAvatarGrid"></div>
+    <input id="profNameIn" placeholder="なまえ（例: Aさん）" maxlength="16">
+    <div style="font-size:.8rem;font-weight:700;color:var(--text-light);">カラー</div>
+    <select id="profColorIn">
+      <option value="#3A86FF">💙 ブルー</option>
+      <option value="#FF6B6B">❤️ レッド</option>
+      <option value="#34D399">💚 グリーン</option>
+      <option value="#F59E0B">🧡 オレンジ</option>
+      <option value="#A78BFA">💜 パープル</option>
+      <option value="#F472B6">🩷 ピンク</option>
+    </select>
+    <div class="ph-btns">
+      <button class="ph-ok" id="profOk">追加する</button>
+      <button class="ph-cancel" id="profCancel">キャンセル</button>
+    </div>
+    <!-- existing users -->
+    <div class="report-section-title" style="margin-top:8px;">📋 ユーザー一覧</div>
+    <div class="prof-list" id="profList"></div>
+  </div>
+</div>
+
+<!-- HISTORY & REPORT MODAL -->
+<div class="modal-overlay hidden" id="hrModal">
+  <div class="hr-modal">
+    <div class="hr-tabs">
+      <button class="hr-tab active" data-tab="history">📝 入力履歴</button>
+      <button class="hr-tab" data-tab="report">📊 使用レポート</button>
+    </div>
+    <div class="hr-body" id="hrBody"></div>
+  </div>
+</div>
+
+<!-- Print area -->
+<div id="printArea"></div>
+
+
+<!-- HELP MODAL -->
+<div class="modal-overlay hidden" id="helpModal">
+  <div class="help-modal">
+    <div class="help-modal-header">
+      <span style="font-size:1.4rem;">❓</span>
+      <span class="help-modal-title">視線キーボード　使い方ガイド</span>
+      <button class="help-modal-close" id="helpClose">✕</button>
+    </div>
+    <div class="help-tabs" id="helpTabs">
+      <button class="help-tab active" data-htab="basic">基本の使い方</button>
+      <button class="help-tab" data-htab="gaze">視線入力</button>
+      <button class="help-tab" data-htab="features">機能一覧</button>
+      <button class="help-tab" data-htab="word">保存・印刷</button>
+    </div>
+    <div class="help-body" id="helpBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     SCRIPT
+     ============================================================ -->
+<script>
+// ==================== LAYOUT DATA ====================
+const LAYOUTS = {
+  // ── 横並び（行ごと：あ行・か行…） ──
+  hiragana:[
+    ['あ','い','う','え','お'],
+    ['か','き','く','け','こ'],
+    ['さ','し','す','せ','そ'],
+    ['た','ち','つ','て','と'],
+    ['な','に','ぬ','ね','の'],
+    ['は','ひ','ふ','へ','ほ'],
+    ['ま','み','む','め','も'],
+    ['や','__','ゆ','__','よ'],
+    ['ら','り','る','れ','ろ'],
+    ['わ','を','ん','っ','ー'],
+    ['、','。','？','！','…'],
+  ],
+  // ── 五十音表（段ごと：あ段・い段…、右から左）──
+  hiragana_50on:[
+    ['ん','わ','ら','や','ま','は','な','た','さ','か','あ'],
+    ['__','を','り','__','み','ひ','に','ち','し','き','い'],
+    ['__','__','る','ゆ','む','ふ','ぬ','つ','す','く','う'],
+    ['__','__','れ','__','め','へ','ね','て','せ','け','え'],
+    ['__','__','ろ','よ','も','ほ','の','と','そ','こ','お'],
+  ],
+  katakana:[
+    ['ア','イ','ウ','エ','オ'],
+    ['カ','キ','ク','ケ','コ'],
+    ['サ','シ','ス','セ','ソ'],
+    ['タ','チ','ツ','テ','ト'],
+    ['ナ','ニ','ヌ','ネ','ノ'],
+    ['ハ','ヒ','フ','ヘ','ホ'],
+    ['マ','ミ','ム','メ','モ'],
+    ['ヤ','__','ユ','__','ヨ'],
+    ['ラ','リ','ル','レ','ロ'],
+    ['ワ','ヲ','ン','ッ','ー'],
+    ['、','。','？','！','…'],
+  ],
+  katakana_50on:[
+    ['ン','ワ','ラ','ヤ','マ','ハ','ナ','タ','サ','カ','ア'],
+    ['__','ヲ','リ','__','ミ','ヒ','ニ','チ','シ','キ','イ'],
+    ['__','__','ル','ユ','ム','フ','ヌ','ツ','ス','ク','ウ'],
+    ['__','__','レ','__','メ','ヘ','ネ','テ','セ','ケ','エ'],
+    ['__','__','ロ','ヨ','モ','ホ','ノ','ト','ソ','コ','オ'],
+  ],
+  alphabet:[
+    ['q','w','e','r','t','y','u','i','o','p'],
+    ['a','s','d','f','g','h','j','k','l'],
+    ['z','x','c','v','b','n','m'],
+  ],
+  number:[
+    ['1','2','3','4','5','6','7','8','9','0'],
+    ['！','？','。','、','…','〜','・','「','」','『'],
+    ['@','#','$','%','&','*','(',')','+','='],
+    ['♡','★','✓','○','△','×','→','←','↑','↓'],
+  ]
+};
+const DAKUTEN={
+  'か':'が','き':'ぎ','く':'ぐ','け':'げ','こ':'ご',
+  'さ':'ざ','し':'じ','す':'ず','せ':'ぜ','そ':'ぞ',
+  'た':'だ','ち':'ぢ','つ':'づ','て':'で','と':'ど',
+  'は':'ば','ひ':'び','ふ':'ぶ','へ':'べ','ほ':'ぼ',
+  'が':'か','ぎ':'き','ぐ':'く','げ':'け','ご':'こ',
+  'ざ':'さ','じ':'し','ず':'す','ぜ':'せ','ぞ':'そ',
+  'だ':'た','ぢ':'ち','づ':'つ','で':'て','ど':'と',
+  'ば':'は','び':'ひ','ぶ':'ふ','べ':'へ','ぼ':'ほ',
+  'カ':'ガ','キ':'ギ','ク':'グ','ケ':'ゲ','コ':'ゴ',
+  'サ':'ザ','シ':'ジ','ス':'ズ','セ':'ゼ','ソ':'ゾ',
+  'タ':'ダ','チ':'ヂ','ツ':'ヅ','テ':'デ','ト':'ド',
+  'ハ':'バ','ヒ':'ビ','フ':'ブ','ヘ':'ベ','ホ':'ボ',
+};
+const HANDAKUTEN={
+  'は':'ぱ','ひ':'ぴ','ふ':'ぷ','へ':'ぺ','ほ':'ぽ',
+  'ば':'ぱ','び':'ぴ','ぶ':'ぷ','べ':'ぺ','ぼ':'ぽ',
+  'ぱ':'は','ぴ':'ひ','ぷ':'ふ','ぺ':'へ','ぽ':'ほ',
+  'ハ':'パ','ヒ':'ピ','フ':'プ','ヘ':'ペ','ホ':'ポ',
+  'バ':'パ','ビ':'ピ','ブ':'プ','ベ':'ペ','ボ':'ポ',
+  'パ':'ハ','ピ':'ヒ','プ':'フ','ペ':'ヘ','ポ':'ホ',
+};
+const CONV_TABLE={
+  'わたし':['私','我'],'ともだち':['友達','友人'],
+  'がっこう':['学校'],'せんせい':['先生'],
+  'おかあさん':['お母さん'],'おとうさん':['お父さん'],
+  'いえ':['家','居'],'きょう':['今日'],
+  'あした':['明日'],'たのしい':['楽しい'],
+  'うれしい':['嬉しい'],'かなしい':['悲しい'],
+  'からだ':['体','身体'],'てがみ':['手紙'],
+  'でんしゃ':['電車'],'くるま':['車'],
+  'みず':['水'],'たべる':['食べる'],
+  'のむ':['飲む'],'みる':['見る','診る'],
+  'きく':['聞く','聴く'],'はなす':['話す'],
+  'やすむ':['休む'],'あそぶ':['遊ぶ'],
+  'べんきょう':['勉強'],'せいかつ':['生活'],
+};
+
+let phrases=[
+  {emoji:'😊',label:'おはよう',text:'おはようございます'},
+  {emoji:'🙏',label:'ありがとう',text:'ありがとうございます'},
+  {emoji:'🤝',label:'よろしく',text:'よろしくお願いします'},
+  {emoji:'✅',label:'はい',text:'はい'},
+  {emoji:'❌',label:'いいえ',text:'いいえ'},
+  {emoji:'😣',label:'つかれた',text:'つかれました'},
+  {emoji:'🍽️',label:'たべたい',text:'たべたいです'},
+  {emoji:'🚻',label:'トイレ',text:'トイレにいきたいです'},
+  {emoji:'💊',label:'くすり',text:'くすりをのみたいです'},
+  {emoji:'😴',label:'ねむい',text:'ねむいです'},
+];
+const AAC_CARDS=[
+  {emoji:'🍎',label:'たべもの',text:'たべたいです'},
+  {emoji:'💧',label:'のみもの',text:'のみたいです'},
+  {emoji:'🚻',label:'トイレ',text:'トイレにいきたいです'},
+  {emoji:'😴',label:'ねる',text:'ねたいです'},
+  {emoji:'🏥',label:'いたい',text:'からだがいたいです'},
+  {emoji:'😊',label:'たのしい',text:'たのしいです'},
+  {emoji:'😢',label:'かなしい',text:'かなしいです'},
+  {emoji:'😡',label:'いやだ',text:'いやです'},
+  {emoji:'📚',label:'べんきょう',text:'べんきょうしたいです'},
+  {emoji:'🎮',label:'あそぶ',text:'あそびたいです'},
+  {emoji:'🏠',label:'うち',text:'うちにかえりたいです'},
+  {emoji:'🌞',label:'そと',text:'そとにでたいです'},
+  {emoji:'🎵',label:'おんがく',text:'おんがくをきかせてください'},
+  {emoji:'📺',label:'テレビ',text:'テレビをみたいです'},
+  {emoji:'✋',label:'まって',text:'すこしまってください'},
+  {emoji:'👨‍👩‍👧',label:'かぞく',text:'かぞくにあいたいです'},
+];
+
+// ==================== STATE ====================
+let text='';
+let currentMode='hiragana';
+let isShift=false;
+let dwellTime=1000;
+let cooldownTime=500;
+let lastDwellEl=null;
+let lastDwellTime=0;
+let dwellingEl=null;
+let dwellStart=null;
+let dwellAF=null;
+let scanMode=false;
+let scanSpeed=1000;
+let scanIndex=0;
+let scanItems=[];
+let scanTimer=null;
+let switchType='space';
+let speakOnKey=false;
+let speechRate=0.9;
+let enableAnim=true;
+let edgeZone=true;
+let isRecording=false;
+let recognition=null;
+let currentTheme='';
+let currentKeySize='normal';
+
+const KEY_SIZES={tiny:{w:'58px',h:'64px',fs:'1.3rem'},normal:{w:'80px',h:'88px',fs:'1.75rem'},large:{w:'100px',h:'108px',fs:'2.1rem'},huge:{w:'120px',h:'128px',fs:'2.5rem'}};
+const TEXT_SIZES=['1.2rem','1.5rem','1.9rem','2.3rem','2.8rem'];
+const TEXT_SIZE_LABELS=['小さい','普通','大きい','特大','最大'];
+
+// ==================== DOM ====================
+const textContent=document.getElementById('textContent');
+const textDisplay=document.getElementById('textDisplay');
+const keyboardArea=document.getElementById('keyboardArea');
+const modeTabs=document.getElementById('modeTabs');
+const toast=document.getElementById('toast');
+const convPopup=document.getElementById('convPopup');
+const phraseGrid=document.getElementById('phraseGrid');
+const aacGrid=document.getElementById('aacGrid');
+const aacPanel=document.getElementById('aacPanel');
+const aacShowBtn=document.getElementById('aacShowBtn');
+const scanBadge=document.getElementById('scanBadge');
+const scanBar=document.getElementById('scanBar');
+const scanBarFill=document.getElementById('scanBarFill');
+
+// ==================== DISPLAY ====================
+// updateDisplay は後方で定義（richEditor対応版）
+
+// ==================== KEY INPUT ====================
+function handleKeyInput(val){
+  if(val==='__')return;
+  closeConvPopup();
+  if(val==='DEL'){text=text.slice(0,-1);}
+  else if(val==='ENTER'){text+='\n';}
+  else if(val==='SPACE'){text+='　';}
+  else if(val==='SHIFT'){isShift=!isShift;renderKeyboard();return;}
+  else if(val==='DAKUTEN'){applyDakuten();return;}
+  else if(val==='HANDAKUTEN'){applyHandakuten();return;}
+  else if(val==='CONVERT'){openConvPopup();return;}
+  else if(val.startsWith('PHRASE:')){text+=val.slice(7);}
+  else{
+    let c=val;
+    if(currentMode==='alphabet'&&isShift)c=val.toUpperCase();
+    text+=c;
+    if(currentMode==='alphabet'&&isShift){isShift=false;renderKeyboard();}
+    if(speakOnKey&&window.speechSynthesis){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(c);
+      u.lang='ja-JP';u.rate=speechRate;
+      window.speechSynthesis.speak(u);
+    }
+  }
+  updateDisplay();
+  if(enableAnim)flashEffect();
+}
+
+function flashEffect(){
+  textDisplay.style.background='rgba(58,134,255,.08)';
+  setTimeout(()=>{textDisplay.style.background='';},160);
+  // ごほうびカウント
+  if(typeof rewardInterval !== 'undefined') {
+    window._rewardCharCount = (window._rewardCharCount || 0) + 1;
+    if(window._rewardCharCount >= rewardInterval) {
+      window._rewardCharCount = 0;
+      triggerReward();
+    }
+  }
+}
+
+function applyDakuten(){
+  if(!text)return;
+  const l=text[text.length-1];
+  if(DAKUTEN[l]){text=text.slice(0,-1)+DAKUTEN[l];updateDisplay();}
+}
+function applyHandakuten(){
+  if(!text)return;
+  const l=text[text.length-1];
+  if(HANDAKUTEN[l]){text=text.slice(0,-1)+HANDAKUTEN[l];updateDisplay();}
+}
+
+// ==================== CONVERSION ====================
+function openConvPopup(){
+  let candidates=[];
+  for(let len=8;len>=1;len--){
+    const chunk=text.slice(-len);
+    if(CONV_TABLE[chunk]){candidates=CONV_TABLE[chunk].map(c=>({orig:chunk,conv:c}));break;}
+  }
+  if(!candidates.length){showToast('変換できる文字がありません');return;}
+  convPopup.innerHTML='';
+  const title=document.createElement('div');
+  title.style.cssText='width:100%;font-size:.76rem;color:var(--text-light);font-weight:700;margin-bottom:4px;';
+  title.textContent='変換候補:';
+  convPopup.appendChild(title);
+  candidates.forEach(c=>{
+    const btn=document.createElement('div');
+    btn.className='cc';btn.textContent=c.conv;
+    const action=()=>{text=text.slice(0,-c.orig.length)+c.conv;updateDisplay();closeConvPopup();};
+    btn.addEventListener('click',action);
+    addDwell(btn,action);
+    convPopup.appendChild(btn);
+  });
+  const cl=document.createElement('div');
+  cl.className='cc';cl.style.cssText='background:var(--key-delete-bg);border-color:var(--key-delete-bd);color:#991B1B;';
+  cl.textContent='✕ 閉じる';
+  cl.addEventListener('click',closeConvPopup);
+  addDwell(cl,closeConvPopup);
+  convPopup.appendChild(cl);
+  convPopup.classList.add('visible');
+  convPopup.style.cssText='bottom:120px;left:50%;transform:translateX(-50%);display:flex;';
+}
+function closeConvPopup(){convPopup.classList.remove('visible');}
+
+// ==================== DWELL ====================
+function addDwell(el,callback){
+  el.addEventListener('pointerenter',()=>startDwell(el,callback));
+  el.addEventListener('pointerleave',cancelDwell);
+  el.addEventListener('pointercancel',cancelDwell);
+  if(edgeZone){
+    el.addEventListener('pointermove',e=>{
+      if(e.clientX<30||e.clientX>window.innerWidth-30||e.clientY<30||e.clientY>window.innerHeight-30)
+        cancelDwell();
+    });
+  }
+}
+function startDwell(el,callback){
+  // cooldown check
+  if(el===lastDwellEl&&(performance.now()-lastDwellTime)<cooldownTime)return;
+  if(dwellingEl===el)return;
+  cancelDwell();
+  dwellingEl=el;dwellStart=performance.now();
+  el.classList.add('dwelling');
+  const circle=el.querySelector('.dwp');
+  function animate(now){
+    const p = Math.min((now - dwellStart) / dwellTime, 1);
+    if (circle) {
+      // stroke-dasharray の値を読んで計算（動的対応）
+      const circ = parseFloat(circle.style.strokeDasharray || circle.getAttribute('style')?.match(/stroke-dasharray:([\d.]+)/)?.[1] || 289);
+      circle.style.strokeDashoffset = circ * (1 - p);
+    }
+    if (p < 1) { dwellAF = requestAnimationFrame(animate); }
+    else { finishDwell(el, callback); }
+  }
+  dwellAF=requestAnimationFrame(animate);
+}
+function cancelDwell(){
+  if(dwellAF)cancelAnimationFrame(dwellAF);
+  if(dwellingEl){
+    dwellingEl.classList.remove('dwelling');
+    const c = dwellingEl.querySelector('.dwp');
+    if(c){
+      const circ = parseFloat(c.style.strokeDasharray || 289);
+      c.style.strokeDashoffset = circ;
+    }
+    dwellingEl=null;
+  }
+  dwellStart=null;
+}
+function finishDwell(el,callback){
+  el.classList.remove('dwelling');
+  const c=el.querySelector('.dwp');
+  if(c){
+    const circ = parseFloat(c.style.strokeDasharray || 289);
+    c.style.strokeDashoffset = circ;
+  }
+  lastDwellEl=el;lastDwellTime=performance.now();
+  dwellingEl=null;dwellStart=null;
+  if(enableAnim){el.style.background='#BBF7D0';setTimeout(()=>{el.style.background='';},180);}
+  callback();
+}
+
+function makeDwellRing(){
+  const d = document.createElement('div');
+  d.className = 'dwr';
+  // viewBox を 0 0 100 100 にして % で扱いやすくする
+  // 円は中心50,50・半径46（strokeが3なので少し内側）
+  const r = 46;
+  const circ = 2 * Math.PI * r; // ≈ 289
+  d.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+    <circle class="dwp" cx="50" cy="50" r="${r}"
+      style="stroke-dasharray:${circ.toFixed(1)};stroke-dashoffset:${circ.toFixed(1)};"/>
+  </svg>`;
+  return d;
+}
+
+// ==================== KEYBOARD ====================
+function applyKeySize(){
+  const s=KEY_SIZES[currentKeySize];
+  document.documentElement.style.setProperty('--key-min-w',s.w);
+  document.documentElement.style.setProperty('--key-h',s.h);
+  document.documentElement.style.setProperty('--key-font-size',s.fs);
+}
+function makeKey(label,val,extraClass,subLabel){
+  const key=document.createElement('div');
+  key.className='key'+(extraClass?' '+extraClass:'');
+  const lbl=document.createElement('div');lbl.className='kl';lbl.textContent=label;key.appendChild(lbl);
+  if(subLabel){const sub=document.createElement('div');sub.className='ks';sub.textContent=subLabel;key.appendChild(sub);}
+  key.appendChild(makeDwellRing());
+  key.addEventListener('click',()=>handleKeyInput(val));
+  addDwell(key,()=>handleKeyInput(val));
+  return key;
+}
+function renderKeyboard(){
+  keyboardArea.innerHTML='';
+  const dir = keyboardLayoutDir || 'h-ltr';
+
+  // ── モード判定 ──
+  const is50on    = currentMode === 'hiragana_50on' || currentMode === 'katakana_50on';
+  const isVertical = dir === 'v-ltr' || dir === 'v-rtl';
+  const isRTL      = dir === 'h-rtl' || dir === 'v-rtl';
+
+  const panel = document.querySelector('.keyboard-panel');
+
+  // ══════════════════════════════════════════════
+  // ケース A: 五十音表タブ（layout-50on CSS）
+  // ── 横表示・画像通りの表形式
+  // ══════════════════════════════════════════════
+  if (is50on) {
+    if (panel) {
+      panel.classList.add('layout-50on');
+      panel.classList.remove('layout-vertical');
+    }
+    const layout = LAYOUTS[currentMode].map(r => [...r]);
+    layout.forEach(row => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'key-row';
+      row.forEach(char => {
+        if (char === '__') {
+          const sp = document.createElement('div');
+          sp.className = 'key-spacer-50on';
+          rowEl.appendChild(sp);
+          return;
+        }
+        rowEl.appendChild(makeKey(char, char));
+      });
+      keyboardArea.appendChild(rowEl);
+    });
+    // スペシャルキー（横一列）
+    const sr = document.createElement('div'); sr.className = 'key-row';
+    [{l:'゛',v:'DAKUTEN',c:'kdak',s:'濁点'},{l:'゜',v:'HANDAKUTEN',c:'kdak',s:'半濁'},
+     {l:'っ',v:'っ',c:''},{l:'ー',v:'ー',c:''},
+     {l:'、',v:'、',c:''},{l:'。',v:'。',c:''},
+     {l:'⌫',v:'DEL',c:'kd',s:'消す'},{l:'空白',v:'SPACE',c:'ksp'},
+     {l:'変換',v:'CONVERT',c:'kcv'},{l:'↵',v:'ENTER',c:'kent',s:'改行'}
+    ].forEach(s => sr.appendChild(makeKey(s.l,s.v,s.c,s.s)));
+    keyboardArea.appendChild(sr);
+    if (scanMode) buildScanItems();
+    return;
+  }
+
+  // ══════════════════════════════════════════════
+  // ケース B: 縦配列（v-ltr / v-rtl）
+  // ── 五十音表データを列として並べる
+  //    列 = あ行・か行…（横方向）
+  //    行の中（縦）= あ・い・う・え・お段
+  // ══════════════════════════════════════════════
+  if (isVertical) {
+    if (panel) {
+      panel.classList.add('layout-vertical');
+      panel.classList.remove('layout-50on');
+    }
+
+    // 縦配列用データ：ひらがな→hiragana_50on、カタカナ→katakana_50on、英字/数字はそのまま
+    const vertModeMap = {
+      hiragana: 'hiragana_50on',
+      katakana: 'katakana_50on',
+    };
+    const vertMode = vertModeMap[currentMode] || currentMode;
+    // 50onデータ: 各rowが「段（あ〜お）」×「行（あ〜ん）」の横スライス
+    // 縦配列では これを「列」にする = 転置してから各列を縦に並べる
+    const src = LAYOUTS[vertMode].map(r => [...r]);
+
+    // 転置: src[段][行] → cols[行][段]
+    const numRows = src.length;       // 5段
+    const numCols = src[0].length;    // 11行（あ〜ん）
+    const cols = [];
+    for (let c = 0; c < numCols; c++) {
+      const col = [];
+      for (let r = 0; r < numRows; r++) {
+        col.push(src[r][c] !== undefined ? src[r][c] : '__');
+      }
+      cols.push(col);
+    }
+
+    // RTL: 列の順を逆にする（右端＝あ行）
+    if (isRTL) cols.reverse();
+
+    // 各列を .key-row として縦に積む
+    cols.forEach(col => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'key-row';
+      col.forEach(char => {
+        if (char === '__') {
+          const sp = document.createElement('div');
+          sp.style.cssText = 'width:var(--key-h);height:var(--key-min-w);flex-shrink:0;';
+          rowEl.appendChild(sp);
+          return;
+        }
+        rowEl.appendChild(makeKey(char, char));
+      });
+      keyboardArea.appendChild(rowEl);
+    });
+
+    // スペシャルキーを縦列として最後に追加
+    let specials = [
+      {l:'⇧',v:'SHIFT',c:'ksh'+(isShift?' active-shift':''),s:'シフト'},
+      {l:'⌫',v:'DEL',c:'kd',s:'消す'},
+      {l:'゛',v:'DAKUTEN',c:'kdak',s:'濁点'},
+      {l:'゜',v:'HANDAKUTEN',c:'kdak',s:'半濁'},
+      {l:'空白',v:'SPACE',c:'ksp'},
+      {l:'変換',v:'CONVERT',c:'kcv'},
+      {l:'↵',v:'ENTER',c:'kent',s:'改行'},
+    ];
+    const srV = document.createElement('div'); srV.className = 'key-row';
+    specials.forEach(s => srV.appendChild(makeKey(s.l,s.v,s.c,s.s)));
+    keyboardArea.appendChild(srV);
+
+    if (scanMode) buildScanItems();
+    return;
+  }
+
+  // ══════════════════════════════════════════════
+  // ケース C: 横配列（h-ltr / h-rtl）- デフォルト
+  // ══════════════════════════════════════════════
+  if (panel) {
+    panel.classList.remove('layout-50on', 'layout-vertical');
+  }
+
+  let layout = LAYOUTS[currentMode].map(row => [...row]);
+  if (isRTL) layout = layout.map(row => [...row].reverse());
+
+  layout.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'key-row';
+    row.forEach(char => {
+      if (char === '__') {
+        const sp = document.createElement('div');
+        sp.style.cssText = 'min-width:var(--key-min-w);height:var(--key-h);flex-shrink:0;';
+        rowEl.appendChild(sp);
+        return;
+      }
+      let display = char;
+      if (currentMode === 'alphabet' && isShift) display = char.toUpperCase();
+      rowEl.appendChild(makeKey(display, char));
+    });
+    keyboardArea.appendChild(rowEl);
+  });
+
+  // スペシャルキー行
+  let specials = [
+    {l:'⇧',v:'SHIFT',c:'ksh'+(isShift?' active-shift':''),s:'シフト'},
+    {l:'⌫',v:'DEL',c:'kd',s:'消す'},
+    {l:'゛',v:'DAKUTEN',c:'kdak',s:'濁点'},
+    {l:'゜',v:'HANDAKUTEN',c:'kdak',s:'半濁'},
+    {l:'空白',v:'SPACE',c:'ksp'},
+    {l:'変換',v:'CONVERT',c:'kcv'},
+    {l:'↵',v:'ENTER',c:'kent',s:'改行'},
+  ];
+  if (isRTL) specials = [...specials].reverse();
+
+  const sr = document.createElement('div');
+  sr.className = 'key-row';
+  specials.forEach(s => sr.appendChild(makeKey(s.l, s.v, s.c, s.s)));
+  keyboardArea.appendChild(sr);
+
+  if (scanMode) buildScanItems();
+  // 全画面中はキーサイズを再計算
+  if (document.body.classList.contains('is-fullscreen')) requestAnimationFrame(applyFsKeySize);
+}
+
+// ==================== SCAN ====================
+function buildScanItems(){
+  const tabs=Array.from(modeTabs.querySelectorAll('.mode-tab'));
+  const keys=Array.from(keyboardArea.querySelectorAll('.key'));
+  const phrBtns=Array.from(phraseGrid.querySelectorAll('.phrase-btn'));
+  scanItems=[...tabs,...keys,...phrBtns];
+}
+function startScan(){
+  stopScan();buildScanItems();
+  scanIndex=0;
+  const interval=scanSpeed;
+  const total=scanItems.length;
+  scanBar.classList.add('active');
+  scanTimer=setInterval(()=>{
+    scanItems.forEach(el=>el.classList.remove('scan-lit'));
+    if(scanIndex>=total)scanIndex=0;
+    scanItems[scanIndex].classList.add('scan-lit');
+    scanBarFill.style.width=((scanIndex+1)/total*100)+'%';
+    scanIndex++;
+  },interval);
+}
+function stopScan(){
+  clearInterval(scanTimer);
+  scanItems.forEach(el=>el.classList.remove('scan-lit'));
+  scanBarFill.style.width='0%';
+  scanBar.classList.remove('active');
+}
+function selectCurrentScan(){
+  if(!scanMode)return;
+  const idx=scanIndex-1;
+  if(idx<0||idx>=scanItems.length)return;
+  const el=scanItems[idx];
+  el.classList.remove('scan-lit');
+  if(el.classList.contains('mode-tab')){
+    currentMode=el.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');isShift=false;
+    renderKeyboard();startScan();return;
+  }
+  if(el.classList.contains('phrase-btn')){el.click();return;}
+  el.click();
+}
+
+// Switch event listeners
+document.addEventListener('keydown',e=>{
+  if(!scanMode)return;
+  if(switchType==='space'&&(e.code==='Space'||e.code==='Enter')){e.preventDefault();selectCurrentScan();}
+  if(switchType==='any'){e.preventDefault();selectCurrentScan();}
+});
+document.addEventListener('click',e=>{
+  if(!scanMode)return;
+  if(switchType==='click'){
+    // only if not on a key itself
+    if(!e.target.closest('.key')&&!e.target.closest('.mode-tab')&&!e.target.closest('.phrase-btn'))
+      selectCurrentScan();
+  }
+});
+// Gamepad polling（iframe内では権限エラーになるためtry-catchで保護）
+let gpTimer=null;
+let gpPressed=false;
+let gpAvailable=true; // 利用不可になったらfalseにしてポーリング停止
+function pollGamepad(){
+  if(!gpAvailable)return;
+  try{
+    const gps=navigator.getGamepads?navigator.getGamepads():[];
+    for(const gp of gps){
+      if(!gp)continue;
+      const pressed=gp.buttons[0]?.pressed||gp.buttons[1]?.pressed;
+      if(pressed&&!gpPressed){gpPressed=true;if(scanMode&&switchType==='gamepad')selectCurrentScan();}
+      if(!pressed)gpPressed=false;
+    }
+  }catch(e){
+    // SecurityError など権限エラーが出たらゲームパッド機能を無効化
+    gpAvailable=false;
+    console.warn('Gamepad API unavailable:', e.message);
+    return;
+  }
+  gpTimer=requestAnimationFrame(pollGamepad);
+}
+// ゲームパッドが接続されたときだけポーリング開始（権限エラー回避）
+window.addEventListener('gamepadconnected', ()=>{
+  gpAvailable=true;
+  pollGamepad();
+});
+
+// ==================== PHRASES ====================
+function renderPhrases(){
+  phraseGrid.innerHTML='';
+  phrases.forEach(p=>{
+    const btn=document.createElement('div');btn.className='phrase-btn';
+    btn.innerHTML=`<span class="pemo">${p.emoji}</span><span>${p.label}</span>`;
+    btn.appendChild(makeDwellRing());
+    const act=()=>{text+=p.text;updateDisplay();showToast('💬 '+p.text);};
+    btn.addEventListener('click',act);addDwell(btn,act);
+    phraseGrid.appendChild(btn);
+  });
+}
+
+// ==================== AAC ====================
+function renderAAC(){
+  aacGrid.innerHTML='';
+  AAC_CARDS.forEach(c=>{
+    const card=document.createElement('div');card.className='aac-card';
+    card.innerHTML=`<span class="ace">${c.emoji}</span><span class="acl">${c.label}</span>`;
+    card.appendChild(makeDwellRing());
+    const act=()=>{text+=c.text;updateDisplay();showToast('🖼️ '+c.text);};
+    card.addEventListener('click',act);addDwell(card,act);
+    aacGrid.appendChild(card);
+  });
+}
+
+// ==================== VOICE ====================
+function setupVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  recognition=new SR();recognition.lang='ja-JP';
+  recognition.continuous=false;recognition.interimResults=false;
+  recognition.onresult=e=>{
+    const r=e.results[0][0].transcript;text+=r;updateDisplay();showToast('🎤 認識: '+r);
+  };
+  recognition.onend=()=>{
+    isRecording=false;
+    document.getElementById('btnMic').classList.remove('recording');
+    document.querySelector('#btnMic .bi').textContent='🎤';
+  };
+  recognition.onerror=()=>{
+    isRecording=false;
+    document.getElementById('btnMic').classList.remove('recording');
+    document.querySelector('#btnMic .bi').textContent='🎤';
+    showToast('音声入力に失敗しました');
+  };
+}
+
+// ==================== TOAST ====================
+let toastT=null;
+function showToast(msg){
+  toast.textContent=msg;toast.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>toast.classList.remove('show'),3000);
+}
+
+// ==================== SETTINGS MODAL ====================
+document.getElementById('settingsBtn').addEventListener('click',()=>{
+  document.getElementById('settingsModal').classList.remove('hidden');
+});
+document.getElementById('settingsClose').addEventListener('click',()=>{
+  document.getElementById('settingsModal').classList.add('hidden');
+});
+document.getElementById('settingsModal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('settingsModal'))
+    document.getElementById('settingsModal').classList.add('hidden');
+});
+
+// Theme
+document.getElementById('themeGrid').addEventListener('click',e=>{
+  const card=e.target.closest('.theme-card');
+  if(!card)return;
+  currentTheme=card.dataset.theme;
+  document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('active'));
+  card.classList.add('active');
+  document.body.className=currentTheme;
+  // テーマ切替でCSS変数がリセットされるので、カスタム色を再適用
+  reapplyCustomColors();
+});
+
+// Text size
+const textSizeRange=document.getElementById('textSizeRange');
+const textSizeLabel=document.getElementById('textSizeLabel');
+textSizeRange.addEventListener('input',()=>{
+  const v=parseInt(textSizeRange.value)-1;
+  textDisplay.style.fontSize=TEXT_SIZES[v];
+  textSizeLabel.textContent=TEXT_SIZE_LABELS[v];
+});
+
+// Key size
+document.getElementById('keySizeGrid').addEventListener('click',e=>{
+  const card=e.target.closest('.keysize-card');
+  if(!card)return;
+  currentKeySize=card.dataset.ks;
+  document.querySelectorAll('.keysize-card').forEach(c=>c.classList.remove('active'));
+  card.classList.add('active');
+  applyKeySize();renderKeyboard();
+});
+
+// Dwell time
+const dwellRange=document.getElementById('dwellRange');
+const dwellValLabel=document.getElementById('dwellValLabel');
+dwellRange.addEventListener('input',()=>{
+  dwellTime=parseInt(dwellRange.value);
+  dwellValLabel.textContent=(dwellTime/1000).toFixed(1)+'秒';
+  if(scanMode)startScan();
+});
+
+// Cooldown
+const cooldownRange=document.getElementById('cooldownRange');
+const cooldownLabel=document.getElementById('cooldownLabel');
+cooldownRange.addEventListener('input',()=>{
+  cooldownTime=parseInt(cooldownRange.value);
+  cooldownLabel.textContent=(cooldownTime/1000).toFixed(1)+'秒';
+});
+
+// Scan switch (toggle)
+document.getElementById('scanSw').addEventListener('change',e=>{
+  scanMode=e.target.checked;
+  document.getElementById('scanToggle').textContent='🔄 スキャン：'+(scanMode?'ON':'OFF');
+  document.getElementById('scanToggle').classList.toggle('on',scanMode);
+  scanBadge.classList.toggle('visible',scanMode);
+  if(scanMode){startScan();showToast('スキャン入力ON\n'+(switchType==='space'?'スペース/Enter':'タップ')+'で選択');}
+  else stopScan();
+});
+
+// Scan speed
+const scanSpeedRange=document.getElementById('scanSpeedRange');
+const scanSpeedLabel=document.getElementById('scanSpeedLabel');
+scanSpeedRange.addEventListener('input',()=>{
+  scanSpeed=parseInt(scanSpeedRange.value);
+  scanSpeedLabel.textContent=(scanSpeed/1000).toFixed(1)+'秒';
+  if(scanMode)startScan();
+});
+
+// Switch type
+document.getElementById('switchTypeGrid').addEventListener('click',e=>{
+  const card=e.target.closest('.st-card');
+  if(!card)return;
+  switchType=card.dataset.st;
+  document.querySelectorAll('.st-card').forEach(c=>c.classList.remove('active'));
+  card.classList.add('active');
+  showToast('スイッチ: '+card.querySelector('.st-title').textContent);
+});
+
+// Speak on key
+document.getElementById('speakOnKeySw').addEventListener('change',e=>{speakOnKey=e.target.checked;});
+
+// Speech rate
+const speechRateRange=document.getElementById('speechRateRange');
+const speechRateLabel=document.getElementById('speechRateLabel');
+speechRateRange.addEventListener('input',()=>{
+  speechRate=parseInt(speechRateRange.value)/10;
+  speechRateLabel.textContent=speechRate.toFixed(1)+'×';
+});
+
+// Edge zone
+document.getElementById('edgeZoneSw').addEventListener('change',e=>{edgeZone=e.target.checked;});
+
+// Anim
+document.getElementById('animSw').addEventListener('change',e=>{enableAnim=e.target.checked;});
+
+// ==================== QUICK BAR SCAN TOGGLE ====================
+document.getElementById('scanToggle').addEventListener('click',()=>{
+  const sw=document.getElementById('scanSw');
+  sw.checked=!sw.checked;sw.dispatchEvent(new Event('change'));
+});
+
+// ==================== ACTION BUTTONS ====================
+function setupActionBtn(id,fn){
+  const btn=document.getElementById(id);
+  btn.addEventListener('click',fn);
+  addDwell(btn,fn);
+}
+setupActionBtn('btnCopy',async()=>{
+  if(!text){showToast('文字を入力してください');return;}
+  if(typeof addHistoryEntry==='function') addHistoryEntry(text);
+  try{
+    // リッチテキストとプレーンテキスト両方をクリップボードに
+    const htmlContent = richEditor ? richEditor.innerHTML : text;
+    if (navigator.clipboard && window.ClipboardItem) {
+      const item = new ClipboardItem({
+        'text/html': new Blob([htmlContent], {type:'text/html'}),
+        'text/plain': new Blob([text], {type:'text/plain'}),
+      });
+      await navigator.clipboard.write([item]);
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
+    showToast('📋 コピーしました！\nWordや他のアプリに Ctrl+V で貼り付けできます\n（書式も一緒にコピーされます）');
+  }
+  catch{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('📋 コピーしました！');}
+});
+setupActionBtn('btnSpeak',()=>{
+  if(!text)return;
+  if(!window.speechSynthesis){showToast('この環境では読み上げに対応していません');return;}
+  window.speechSynthesis.cancel();
+  const utt=new SpeechSynthesisUtterance(text);
+  utt.lang='ja-JP';utt.rate=speechRate;utt.pitch=1.1;
+  window.speechSynthesis.speak(utt);showToast('🔊 読み上げています…');
+});
+setupActionBtn('btnMic',()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){showToast('このブラウザは音声入力に対応していません\nChromeをお試しください');return;}
+  if(!recognition)setupVoice();
+  if(isRecording){recognition.stop();return;}
+  isRecording=true;
+  document.getElementById('btnMic').classList.add('recording');
+  document.querySelector('#btnMic .bi').textContent='🔴';
+  showToast('🎤 話してください…');
+  try{recognition.start();}catch(e){recognition=null;setupVoice();}
+});
+// Word・印刷はdwellをclickに委譲（直接callback登録だと二重発火するため）
+(()=>{
+  const w=document.getElementById('btnWord');
+  const p=document.getElementById('btnPrint');
+  if(w){ w.addEventListener('click', downloadAsWord); addDwell(w, ()=>w.click()); }
+  if(p){ p.addEventListener('click', printRichContent); addDwell(p, ()=>p.click()); }
+})();
+setupActionBtn('btnClear',()=>{
+  text='';
+  if(richEditor){ richEditor.innerHTML=''; richEditor.focus(); }
+  updateDisplay();
+});
+
+// ==================== PHRASE PANEL ====================
+document.getElementById('phraseToggle').addEventListener('click',()=>{
+  const btn=document.getElementById('phraseToggle');
+  const vis=phraseGrid.style.display!=='none';
+  phraseGrid.style.display=vis?'none':'flex';
+  btn.textContent=vis?'非表示':'表示中';btn.classList.toggle('on',!vis);
+  document.getElementById('phrasePanel').classList.toggle('grid-hidden', vis);
+});
+document.getElementById('phraseAddBtn').addEventListener('click',()=>{
+  document.getElementById('phraseEmojiIn').value='';
+  document.getElementById('phraseLabelIn').value='';
+  document.getElementById('phraseTextIn').value='';
+  document.getElementById('phraseModal').classList.remove('hidden');
+});
+document.getElementById('phraseOk').addEventListener('click',()=>{
+  const emoji=document.getElementById('phraseEmojiIn').value||'💬';
+  const label=document.getElementById('phraseLabelIn').value.trim();
+  const ptext=document.getElementById('phraseTextIn').value.trim();
+  if(!label||!ptext){showToast('ラベルと文を入力してください');return;}
+  phrases.push({emoji,label,text:ptext});renderPhrases();
+  document.getElementById('phraseModal').classList.add('hidden');
+  showToast('💬 よく使う文を追加しました');
+});
+document.getElementById('phraseCancel').addEventListener('click',()=>document.getElementById('phraseModal').classList.add('hidden'));
+
+// ==================== AAC ====================
+aacShowBtn.addEventListener('click',()=>{aacPanel.classList.add('visible');aacShowBtn.style.display='none';});
+document.getElementById('aacToggle').addEventListener('click',()=>{aacPanel.classList.remove('visible');aacShowBtn.style.display='block';});
+
+// ==================== MODE TABS ====================
+modeTabs.addEventListener('click',e=>{
+  const tab=e.target.closest('.mode-tab');if(!tab)return;
+  currentMode=tab.dataset.mode;
+  document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');isShift=false;
+  renderKeyboard();if(scanMode)startScan();
+});
+
+
+
+// ==================== PREDICTION ENGINE ====================
+// 単語予測辞書（入力途中 or 直前の語から次の語を予測）
+const PRED_DICT = {
+  // 単語補完：入力中の文字列から単語を補完
+  completions: {
+    'あ':['ありがとうございます','あした','あそぶ','あなた','あおい'],
+    'あり':['ありがとうございます','ありがとう'],
+    'おは':['おはようございます','おはよう'],
+    'おは':['おはようございます'],
+    'よろ':['よろしくお願いします','よろしく'],
+    'たべ':['たべたいです','たべました','たべます'],
+    'のみ':['のみたいです','のみました'],
+    'いき':['いきたいです','いきます','いきました'],
+    'みて':['みてください','みています'],
+    'して':['してください','しています','してみます'],
+    'おし':['おしえてください','おしえて'],
+    'てつ':['てつだってください'],
+    'ねむ':['ねむいです','ねむります'],
+    'つか':['つかれました','つかれました'],
+    'いた':['いたいです','いたい'],
+    'うれ':['うれしいです','うれしい'],
+    'たの':['たのしいです','たのしい','たのしかった'],
+    'かな':['かなしいです','かなしい'],
+    'こわ':['こわいです','こわい'],
+    'はら':['はらがすいた','はらがいたい'],
+    'のど':['のどがかわいた'],
+    'トイ':['トイレにいきたいです','トイレ'],
+    'くす':['くすりをのみたいです','くすり'],
+    'い':['いきたいです','います','いたいです','いやです'],
+    'お':['おはようございます','おねがいします','おもしろい'],
+    'は':['はい','はなしたい','はやくしてください'],
+    'ま':['まってください','まだです','またね'],
+    'も':['もっとゆっくり','もういちどいってください','もうすこし'],
+    'わ':['わかりました','わかりません','わかった'],
+    'き':['きいてください','きもちわるい'],
+    'な':['なにかたべたい','なきたい'],
+    'す':['すきです','すごいです','すみません'],
+    'よ':['よろしくお願いします','よかった'],
+    'あそ':['あそびたいです','あそぼう'],
+    'うた':['うたいたいです'],
+    'てれ':['テレビをみたいです'],
+    'おん':['おんがくをきかせてください'],
+    'そと':['そとにでたいです'],
+    'かえ':['かえりたいです','かえりました'],
+    'ね':['ねたいです','ねむいです'],
+    'さむ':['さむいです'],
+    'あつ':['あついです'],
+    'くら':['くらいです'],
+    'かゆ':['かゆいです'],
+    'は':['はいです','はなしたい'],
+  },
+
+  // 後続語予測：直前の単語/文から次の文を予測
+  next: {
+    'おはようございます':['きょうもよろしくおねがいします','いいてんきですね'],
+    'ありがとうございます':['たすかりました','うれしいです'],
+    'たべたいです':['おなかがすきました','なにかください'],
+    'いたいです':['くすりをください','やすみたいです'],
+    'つかれました':['すこしやすみたいです','ねたいです'],
+    'はい':['わかりました','もうすこしまってください'],
+    'いいえ':['ちがいます','べつのがいいです'],
+    'ありがとう':['うれしいです','たすかりました'],
+    'よろしく':['おねがいします'],
+    'まって':['ください','います'],
+    'わかり':['ました','ません'],
+    'みて':['ください','います'],
+  },
+};
+
+// 次の文字の遷移確率マップ（ひらがな）
+const NEXT_CHAR_MAP = {
+  // 助詞・語尾としてよく続くもの
+  'あ':['り','い','そ','る','な','げ','な'],
+  'い':['た','ま','き','な','う','や','て','で'],
+  'う':['れ','た','え','ま','な','て','し'],
+  'え':['た','ら','て','ん','る','ば'],
+  'お':['は','に','も','で','を','な','り'],
+  'か':['ら','な','り','ん','い','え','わ','け'],
+  'き':['た','て','ま','な','ょ','も','ら'],
+  'く':['だ','れ','な','る','ら','す','て'],
+  'け':['ど','で','れ','た','ん','い'],
+  'こ':['と','ん','ろ','れ','の','う','た','ら'],
+  'さ':['い','れ','ん','む','せ','く','ら'],
+  'し':['て','た','ま','た','な','ば','で','ょ'],
+  'す':['き','る','ご','こ','ぐ','ま','て'],
+  'せ':['ん','て','い','ら','ず'],
+  'そ':['れ','う','こ','と','の','ん','し'],
+  'た':['い','の','ら','べ','い','し','ち'],
+  'ち':['ょ','が','ら','り'],
+  'つ':['か','い','て','れ','き','め'],
+  'て':['い','く','き','も','い','し','く'],
+  'と':['て','の','き','う','も','り','こ','ろ'],
+  'な':['い','に','り','に','ん','の'],
+  'に':['な','は','い','し','で','も','な'],
+  'ぬ':['て'],
+  'ね':['て','ん','が','む'],
+  'の':['で','に','は','が','を','も','と'],
+  'は':['い','な','じ','や','し','ず','な'],
+  'ひ':['と','と','ど','ょ'],
+  'ふ':['る','に','た'],
+  'へ':['い','ん'],
+  'ほ':['し','ん','う'],
+  'ま':['す','い','た','し','せ','だ','で'],
+  'み':['た','て','え','ん','せ','ず'],
+  'む':['ず'],
+  'め':['て','い'],
+  'も':['う','っ','し','の','ら','で'],
+  'や':['す','ら','り','め'],
+  'ゆ':['っ','く','い','き'],
+  'よ':['く','い','う','り','か'],
+  'ら':['い','れ','な','し'],
+  'り':['ま','た','で','が','な'],
+  'る':['と','の','で','か','こ','ひ'],
+  'れ':['ば','て','ん','た','は'],
+  'ろ':['ん','う'],
+  'わ':['か','た','す'],
+  'ん':['で','だ','が','と','な','は'],
+  // 特定パターン
+  'たい':['で','で','す'],
+  'です':['。','ね','よ','か','！'],
+  'ます':['。','ね','よ','か','！'],
+  'した':['。','ね','よ','が','ら'],
+};
+
+// 使用頻度学習（ローカル）
+let learnedFreq = JSON.parse(localStorage.getItem('gaze_pred_freq') || '{}');
+
+function saveLearnedFreq() {
+  try { localStorage.setItem('gaze_pred_freq', JSON.stringify(learnedFreq)); } catch(e){}
+}
+
+function learnWord(word) {
+  learnedFreq[word] = (learnedFreq[word] || 0) + 1;
+  saveLearnedFreq();
+}
+
+// ── 予測候補を生成 ──
+function getPredictions(currentText) {
+  const results = [];
+  const seen = new Set();
+
+  const addResult = (word, score, type) => {
+    if (!seen.has(word) && word.length > 0) {
+      seen.add(word);
+      results.push({ word, score: score + (learnedFreq[word] || 0) * 2, type });
+    }
+  };
+
+  // 1) 入力途中の単語補完
+  const lastWord = getLastWord(currentText);
+  if (lastWord.length >= 1) {
+    Object.entries(PRED_DICT.completions).forEach(([prefix, words]) => {
+      if (lastWord.endsWith(prefix) || lastWord === prefix) {
+        words.forEach((w, i) => addResult(w, 20 - i, 'complete'));
+      }
+    });
+    // 前方一致補完
+    Object.entries(PRED_DICT.completions).forEach(([prefix, words]) => {
+      if (prefix.startsWith(lastWord) && prefix !== lastWord) {
+        words.forEach((w, i) => addResult(w, 10 - i, 'complete'));
+      }
+    });
+  }
+
+  // 2) 直前の入力から後続語予測
+  const lastSentence = getLastSentence(currentText);
+  Object.entries(PRED_DICT.next).forEach(([trigger, nexts]) => {
+    if (lastSentence.includes(trigger)) {
+      nexts.forEach((w, i) => addResult(w, 15 - i, 'next'));
+    }
+  });
+
+  // 3) よく使う文からも候補を出す
+  phrases.forEach(p => {
+    if (lastWord.length >= 1 && p.text.includes(lastWord)) {
+      addResult(p.text, 8, 'phrase');
+    }
+    if (currentText.length === 0) {
+      addResult(p.text, 5 + (learnedFreq[p.text] || 0), 'phrase');
+    }
+  });
+
+  // 4) 入力がまだ何もない場合のデフォルト候補
+  if (currentText.length === 0) {
+    ['おはようございます','ありがとうございます','よろしくお願いします','はい','たべたいです'].forEach((w, i) => {
+      addResult(w, 5 - i, 'default');
+    });
+  }
+
+  return results.sort((a,b) => b.score - a.score).slice(0, 6);
+}
+
+// ── 次の文字サジェストを生成 ──
+function getNextCharSuggestions(currentText) {
+  if (currentText.length === 0) {
+    return ['あ','は','よ','お','わ','か','た','な','も','い'];
+  }
+  const last1 = currentText.slice(-1);
+  const last2 = currentText.slice(-2);
+
+  let chars = [];
+  // 2文字パターン優先
+  if (NEXT_CHAR_MAP[last2]) chars = [...NEXT_CHAR_MAP[last2]];
+  else if (NEXT_CHAR_MAP[last1]) chars = [...NEXT_CHAR_MAP[last1]];
+
+  // 補完単語から次の文字を抽出
+  const lastWord = getLastWord(currentText);
+  if (lastWord.length >= 1) {
+    Object.entries(PRED_DICT.completions).forEach(([prefix, words]) => {
+      if (lastWord.endsWith(prefix) || prefix.startsWith(lastWord)) {
+        words.forEach(w => {
+          if (w.length > lastWord.length) {
+            const nextChar = w[lastWord.length];
+            if (nextChar && !chars.includes(nextChar)) chars.unshift(nextChar);
+          }
+        });
+      }
+    });
+  }
+
+  // 重複除去・スコア化
+  const unique = [...new Set(chars)];
+  if (unique.length < 5) {
+    // パディング
+    ['て','に','は','が','を','も','で','と','な','の'].forEach(c => {
+      if (!unique.includes(c)) unique.push(c);
+    });
+  }
+  return unique.slice(0, 8);
+}
+
+function getLastWord(text) {
+  // 句読点・スペースで区切られた最後の単語を取得
+  const delimiters = /[。、！？\n　 ]/;
+  const parts = text.split(delimiters);
+  return parts[parts.length - 1] || '';
+}
+
+function getLastSentence(text) {
+  const parts = text.split(/[。！？\n]/);
+  return parts[parts.length - 1] || '';
+}
+
+// ── 予測パネル描画 ──
+const predRow = document.getElementById('predRow');
+const sugRow  = document.getElementById('sugRow');
+
+function renderPredictions() {
+  // 予測候補
+  const preds = getPredictions(text);
+  // 既存の候補ボタンを削除（ラベルは残す）
+  Array.from(predRow.querySelectorAll('.pred-btn')).forEach(el => el.remove());
+
+  if (preds.length === 0) {
+    const empty = document.createElement('span');
+    empty.className = 'pred-label';
+    empty.style.opacity = '.45';
+    empty.textContent = '（候補なし）';
+    predRow.appendChild(empty);
+  } else {
+    preds.forEach(p => {
+      const btn = document.createElement('div');
+      btn.className = 'pred-btn';
+      const typeIcon = p.type === 'phrase' ? '💬' : p.type === 'next' ? '→' : '';
+      btn.innerHTML = `<span class="pw">${p.word}</span>${typeIcon ? `<span class="pr">${typeIcon}</span>` : ''}`;
+      btn.appendChild(makeDwellRing());
+
+      const act = () => {
+        // 入力途中の語を補完して置換
+        const lastWord = getLastWord(text);
+        if (lastWord.length > 0 && p.word.includes(lastWord)) {
+          text = text.slice(0, -lastWord.length) + p.word;
+        } else {
+          text += p.word;
+        }
+        learnWord(p.word);
+        updateDisplay();
+        renderPredictions();
+        if(enableAnim) flashEffect();
+      };
+      btn.addEventListener('click', act);
+      addDwell(btn, act);
+      predRow.appendChild(btn);
+    });
+  }
+
+  // 次の文字サジェスト
+  const sugs = getNextCharSuggestions(text);
+  Array.from(sugRow.querySelectorAll('.sug-btn')).forEach(el => el.remove());
+
+  sugs.forEach((ch, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'sug-btn' + (i < 3 ? ' hot' : '');
+    btn.textContent = ch;
+    btn.appendChild(makeDwellRing());
+    const act = () => { handleKeyInput(ch); };
+    btn.addEventListener('click', act);
+    addDwell(btn, act);
+    sugRow.appendChild(btn);
+  });
+
+  // 予測パネル全体：パネルVIS設定がONのときだけ表示、かつ中身がある場合のみ高さを確保
+  const predPanel = document.getElementById('predPanel');
+  if (predPanel) {
+    const vis = loadPanelVis();
+    const defaultOn = true;
+    const panelOn = vis['showPredPanel'] !== undefined ? vis['showPredPanel'] : defaultOn;
+    predPanel.style.display = panelOn ? 'flex' : 'none';
+  }
+}
+
+
+
+// ==================== PROFILES ====================
+const AVATARS = ['👦','👧','👨','👩','🧒','👴','👵','🧑','👮','👩‍🏫','🧑‍⚕️','👩‍🦽','🐻','🐼','🐰','🐸','🦊','🐯','🦁','⭐','🌈','🚀','🎈','🌸'];
+
+function loadProfiles() {
+  try { return JSON.parse(localStorage.getItem('gaze_profiles') || 'null'); } catch(e){ return null; }
+}
+function saveProfiles(profs) {
+  try { localStorage.setItem('gaze_profiles', JSON.stringify(profs)); } catch(e){}
+}
+function loadCurrentProfileId() {
+  return localStorage.getItem('gaze_current_profile') || null;
+}
+function saveCurrentProfileId(id) {
+  localStorage.setItem('gaze_current_profile', id);
+}
+
+let profiles = loadProfiles() || [
+  { id:'default', name:'みんな', avatar:'👥', color:'#3A86FF', createdAt: Date.now() }
+];
+let currentProfileId = loadCurrentProfileId() || 'default';
+
+function getCurrentProfile() {
+  return profiles.find(p => p.id === currentProfileId) || profiles[0];
+}
+
+function renderProfileBar() {
+  const bar = document.getElementById('profileBar');
+  const addBtn = document.getElementById('profileAddBtn');
+  // remove existing chips
+  Array.from(bar.querySelectorAll('.profile-chip')).forEach(el => el.remove());
+
+  profiles.forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'profile-chip' + (p.id === currentProfileId ? ' active' : '');
+    chip.style.borderColor = p.id === currentProfileId ? p.color : '';
+    chip.style.background  = p.id === currentProfileId ? p.color + '22' : '';
+    chip.innerHTML = `<span class="p-avatar">${p.avatar}</span><span class="p-name" style="color:${p.id===currentProfileId?p.color:''}">${p.name}</span>`;
+    chip.appendChild(makeDwellRing());
+    const act = () => switchProfile(p.id);
+    chip.addEventListener('click', act);
+    addDwell(chip, act);
+    bar.insertBefore(chip, addBtn);
+  });
+}
+
+function switchProfile(id) {
+  currentProfileId = id;
+  saveCurrentProfileId(id);
+  renderProfileBar();
+  // プロフィール固有の設定を読み込む
+  loadProfileSettings(id);
+  showToast('👤 ' + getCurrentProfile().name + ' に切り替えました');
+}
+
+function loadProfileSettings(id) {
+  try {
+    const saved = JSON.parse(localStorage.getItem('gaze_prof_settings_' + id) || 'null');
+    if (!saved) return;
+    // テーマ・キーサイズなど復元
+    if (saved.theme !== undefined) {
+      currentTheme = saved.theme;
+      document.body.className = saved.theme || '';
+      document.querySelectorAll('.theme-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.theme === saved.theme);
+      });
+    }
+    if (saved.keySize) {
+      currentKeySize = saved.keySize;
+      applyKeySize();
+      renderKeyboard();
+      document.querySelectorAll('.keysize-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.ks === saved.keySize);
+      });
+    }
+    if (saved.dwellTime) {
+      dwellTime = saved.dwellTime;
+      document.getElementById('dwellRange').value = dwellTime;
+      document.getElementById('dwellValLabel').textContent = (dwellTime/1000).toFixed(1)+'秒';
+    }
+    if (saved.skin !== undefined) {
+      applySkin(saved.skin || '');
+    }
+    if (saved.layoutDir) {
+      applyLayoutDir(saved.layoutDir);
+      document.querySelectorAll('.layout-dir-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.dir === saved.layoutDir);
+      });
+    }
+    if (saved.customColors) {
+      try { localStorage.setItem('gaze_custom_colors', JSON.stringify(saved.customColors)); } catch(e){}
+      Object.keys(saved.customColors).forEach(target => applyColor(target, saved.customColors[target]));
+    }
+  } catch(e){}
+}
+
+function saveProfileSettings() {
+  const id = currentProfileId;
+  const settings = { theme: currentTheme, keySize: currentKeySize, dwellTime, skin: currentSkin, layoutDir: keyboardLayoutDir, customColors: loadCustomColors() };
+  try { localStorage.setItem('gaze_prof_settings_' + id, JSON.stringify(settings)); } catch(e){}
+}
+
+// Profile modal
+let selectedAvatar = '👦';
+function openProfileModal() {
+  selectedAvatar = '👦';
+  document.getElementById('profNameIn').value = '';
+  document.getElementById('profModalTitle').textContent = '👤 ユーザーを追加';
+  // avatar grid
+  const grid = document.getElementById('profAvatarGrid');
+  grid.innerHTML = '';
+  AVATARS.forEach(av => {
+    const opt = document.createElement('div');
+    opt.className = 'prof-avatar-opt' + (av === selectedAvatar ? ' selected' : '');
+    opt.textContent = av;
+    opt.addEventListener('click', () => {
+      selectedAvatar = av;
+      grid.querySelectorAll('.prof-avatar-opt').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+    });
+    grid.appendChild(opt);
+  });
+  // user list
+  renderProfList();
+  document.getElementById('profileModal').classList.remove('hidden');
+}
+
+function renderProfList() {
+  const list = document.getElementById('profList');
+  list.innerHTML = '';
+  profiles.forEach(p => {
+    const stats = getProfileStats(p.id);
+    const item = document.createElement('div');
+    item.className = 'prof-list-item';
+    item.innerHTML = `
+      <span class="pli-avatar">${p.avatar}</span>
+      <div class="pli-info">
+        <div class="pli-name">${p.name}</div>
+        <div class="pli-stats">入力文字: ${stats.totalChars}字 / 使用日数: ${stats.days}日</div>
+      </div>
+      ${p.id !== 'default' ? `<button class="pli-del" data-id="${p.id}">削除</button>` : ''}
+    `;
+    list.appendChild(item);
+  });
+  list.querySelectorAll('.pli-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (confirm(profiles.find(p=>p.id===btn.dataset.id)?.name + ' を削除しますか？')) {
+        profiles = profiles.filter(p => p.id !== btn.dataset.id);
+        saveProfiles(profiles);
+        if (currentProfileId === btn.dataset.id) switchProfile('default');
+        renderProfList();
+        renderProfileBar();
+      }
+    });
+  });
+}
+
+document.getElementById('profileAddBtn').addEventListener('click', openProfileModal);
+addDwell(document.getElementById('profileAddBtn'), openProfileModal);
+
+document.getElementById('profOk').addEventListener('click', () => {
+  const name = document.getElementById('profNameIn').value.trim();
+  if (!name) { showToast('なまえを入力してください'); return; }
+  const color = document.getElementById('profColorIn').value;
+  const id = 'prof_' + Date.now();
+  profiles.push({ id, name, avatar: selectedAvatar, color, createdAt: Date.now() });
+  saveProfiles(profiles);
+  renderProfileBar();
+  renderProfList();
+  document.getElementById('profNameIn').value = '';
+  showToast('👤 ' + name + ' を追加しました');
+});
+document.getElementById('profCancel').addEventListener('click', () => {
+  document.getElementById('profileModal').classList.add('hidden');
+});
+document.getElementById('profileModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('profileModal'))
+    document.getElementById('profileModal').classList.add('hidden');
+});
+
+// ==================== HISTORY ====================
+function getHistoryKey() { return 'gaze_history_' + currentProfileId; }
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(getHistoryKey()) || '[]'); } catch(e){ return []; }
+}
+function saveHistory(hist) {
+  try { localStorage.setItem(getHistoryKey(), JSON.stringify(hist.slice(-500))); } catch(e){} // 最大500件
+}
+
+function addHistoryEntry(txt) {
+  if (!txt.trim()) return;
+  const hist = loadHistory();
+  hist.push({ text: txt, ts: Date.now(), chars: txt.length, profile: currentProfileId });
+  saveHistory(hist);
+  updateUsageStats(txt);
+}
+
+// テキストパネルの「コピー」や「読み上げ」のタイミングで保存
+// また入力が途切れたタイミングで自動保存
+let autoSaveTimer = null;
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  if (!text.trim()) return;
+  autoSaveTimer = setTimeout(() => {
+    addHistoryEntry(text);
+  }, 8000); // 8秒間入力がなければ自動保存
+}
+
+// ==================== USAGE STATS ====================
+function getStatsKey() { return 'gaze_stats_' + currentProfileId; }
+
+function loadStats() {
+  try { return JSON.parse(localStorage.getItem(getStatsKey()) || 'null') || initStats(); } catch(e){ return initStats(); }
+}
+function initStats() {
+  return { totalChars:0, totalWords:0, totalSessions:0, dailyChars:{}, wordFreq:{}, lastUsed: Date.now() };
+}
+function saveStats(st) {
+  try { localStorage.setItem(getStatsKey(), JSON.stringify(st)); } catch(e){}
+}
+
+function updateUsageStats(txt) {
+  const st = loadStats();
+  const today = new Date().toISOString().slice(0,10);
+  st.totalChars += txt.length;
+  st.dailyChars[today] = (st.dailyChars[today] || 0) + txt.length;
+  // 単語頻度（スペース・句読点で分割）
+  const words = txt.split(/[　 。、！？\n]+/).filter(w => w.length >= 2);
+  words.forEach(w => { st.wordFreq[w] = (st.wordFreq[w] || 0) + 1; });
+  st.totalWords += words.length;
+  st.totalSessions++;
+  st.lastUsed = Date.now();
+  saveStats(st);
+}
+
+function getProfileStats(id) {
+  try {
+    const st = JSON.parse(localStorage.getItem('gaze_stats_' + id) || 'null') || initStats();
+    const days = Object.keys(st.dailyChars).length;
+    return { totalChars: st.totalChars, days };
+  } catch(e){ return { totalChars:0, days:0 }; }
+}
+
+// ==================== HISTORY & REPORT MODAL ====================
+let hrCurrentTab = 'history';
+
+document.getElementById('hrBtn').addEventListener('click', () => {
+  renderHrModal(hrCurrentTab);
+  document.getElementById('hrModal').classList.remove('hidden');
+});
+addDwell(document.getElementById('hrBtn'), () => document.getElementById('hrBtn').click());
+
+document.getElementById('hrModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('hrModal'))
+    document.getElementById('hrModal').classList.add('hidden');
+});
+
+document.querySelectorAll('.hr-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    hrCurrentTab = tab.dataset.tab;
+    document.querySelectorAll('.hr-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    renderHrModal(hrCurrentTab);
+  });
+});
+
+function renderHrModal(tab) {
+  const body = document.getElementById('hrBody');
+  body.innerHTML = '';
+  if (tab === 'history') renderHistoryTab(body);
+  else renderReportTab(body);
+}
+
+// ── 履歴タブ ──
+function renderHistoryTab(body) {
+  const hist = loadHistory().reverse(); // 新しい順
+
+  // ツールバー
+  const toolbar = document.createElement('div');
+  toolbar.className = 'no-print';
+  toolbar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;';
+  toolbar.innerHTML = `
+    <span style="font-size:.82rem;font-weight:700;color:var(--text-light);">📝 入力履歴 — ${getCurrentProfile().avatar} ${getCurrentProfile().name}（${hist.length}件）</span>
+    <button class="hist-btn no-print" id="histPrintBtn" style="margin-left:auto;">🖨️ 印刷</button>
+    <button class="hist-btn no-print" id="histClearBtn">🗑️ 全削除</button>
+  `;
+  body.appendChild(toolbar);
+
+  document.getElementById('histPrintBtn').addEventListener('click', printHistory);
+  document.getElementById('histClearBtn').addEventListener('click', () => {
+    if (confirm('入力履歴をすべて削除しますか？')) {
+      saveHistory([]);
+      renderHrModal('history');
+      showToast('履歴を削除しました');
+    }
+  });
+
+  if (hist.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center;color:var(--text-light);padding:30px;font-size:.9rem;';
+    empty.textContent = '📭 履歴がまだありません';
+    body.appendChild(empty);
+    return;
+  }
+
+  // 日付ごとにグループ化
+  const groups = {};
+  hist.forEach(h => {
+    const d = new Date(h.ts).toLocaleDateString('ja-JP', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    if (!groups[d]) groups[d] = [];
+    groups[d].push(h);
+  });
+
+  Object.entries(groups).forEach(([date, entries]) => {
+    const grp = document.createElement('div');
+    grp.className = 'hist-date-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'hist-date-label';
+    lbl.textContent = date;
+    grp.appendChild(lbl);
+
+    entries.forEach(h => {
+      const entry = document.createElement('div');
+      entry.className = 'hist-entry';
+      const time = new Date(h.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      entry.innerHTML = `
+        <span class="hist-time">${time}</span>
+        <span class="hist-text">${h.text.replace(/\n/g,'↵')}</span>
+        <span class="hist-chars">${h.chars}字</span>
+      `;
+      // クリックで再利用
+      const actions = document.createElement('div');
+      actions.className = 'hist-actions no-print';
+      const reuseBtn = document.createElement('button');
+      reuseBtn.className = 'hist-btn';
+      reuseBtn.textContent = '📋 再利用';
+      reuseBtn.addEventListener('click', () => {
+        text = h.text; updateDisplay();
+        document.getElementById('hrModal').classList.add('hidden');
+        showToast('📋 履歴から読み込みました');
+      });
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'hist-btn';
+      copyBtn.textContent = '⎘ コピー';
+      copyBtn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(h.text); showToast('コピーしました'); }
+        catch(e){}
+      });
+      actions.appendChild(reuseBtn);
+      actions.appendChild(copyBtn);
+      entry.appendChild(actions);
+      grp.appendChild(entry);
+    });
+    body.appendChild(grp);
+  });
+}
+
+// ── 印刷 ──
+function printHistory() {
+  const hist = loadHistory().reverse();
+  const prof = getCurrentProfile();
+  const printArea = document.getElementById('printArea');
+  let html_inner = `
+    <div class="print-header">
+      <div class="print-title">${prof.avatar} ${prof.name} の入力履歴</div>
+      <div style="font-size:.8rem;color:#666;margin-top:4px;">印刷日: ${new Date().toLocaleString('ja-JP')}</div>
+    </div>
+  `;
+  const groups = {};
+  hist.forEach(h => {
+    const d = new Date(h.ts).toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    if (!groups[d]) groups[d] = [];
+    groups[d].push(h);
+  });
+  Object.entries(groups).forEach(([date, entries]) => {
+    html_inner += `<div style="font-weight:700;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px;">${date}</div>`;
+    entries.forEach(h => {
+      const time = new Date(h.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      html_inner += `<div class="print-entry"><div class="print-time">${time}（${h.chars}字）</div><div class="print-text">${h.text}</div></div>`;
+    });
+  });
+  html_inner += `<div style="margin-top:24px;padding-top:10px;border-top:1.5px solid #ccc;font-size:.78rem;color:#666;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+  <span>すべての子どもの学びのためのデジタル教材</span>
+  <a href="https://education-tools-hash.github.io/for-all-children-to-learn/" style="color:#2563EB;word-break:break-all;">https://education-tools-hash.github.io/for-all-children-to-learn/</a>
+</div>`;
+  printArea.innerHTML = html_inner;
+  printArea.style.display = 'block';
+  window.print();
+  setTimeout(() => { printArea.style.display = 'none'; }, 1000);
+}
+
+// ── レポートタブ ──
+function renderReportTab(body) {
+  const st = loadStats();
+  const prof = getCurrentProfile();
+  const hist = loadHistory();
+
+  // プロフィール表示
+  const profRow = document.createElement('div');
+  profRow.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:2px solid var(--border);background:var(--key-bg);';
+  profRow.innerHTML = `<span style="font-size:2rem;">${prof.avatar}</span><div><div style="font-size:1rem;font-weight:800;color:var(--text);">${prof.name}</div><div style="font-size:.75rem;color:var(--text-light);">利用開始: ${new Date(prof.createdAt).toLocaleDateString('ja-JP')}</div></div>`;
+  body.appendChild(profRow);
+
+  // サマリーカード
+  const today = new Date().toISOString().slice(0,10);
+  const todayChars = st.dailyChars[today] || 0;
+  const days = Object.keys(st.dailyChars).length;
+  const avgChars = days > 0 ? Math.round(st.totalChars / days) : 0;
+
+  const grid = document.createElement('div');
+  grid.className = 'report-grid';
+  [
+    { icon:'📝', val: st.totalChars.toLocaleString(), label:'総入力文字数' },
+    { icon:'📅', val: todayChars.toLocaleString(), label:'今日の入力文字数' },
+    { icon:'🗓️', val: days, label:'使用日数' },
+    { icon:'📈', val: avgChars.toLocaleString(), label:'1日平均文字数' },
+    { icon:'💬', val: hist.length, label:'保存された履歴数' },
+    { icon:'🔤', val: st.totalWords.toLocaleString(), label:'入力した単語数' },
+  ].forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'report-card';
+    card.innerHTML = `<div class="rc-icon">${c.icon}</div><div class="rc-val">${c.val}</div><div class="rc-label">${c.label}</div>`;
+    grid.appendChild(card);
+  });
+  body.appendChild(grid);
+
+  // 直近7日の棒グラフ
+  const chartTitle = document.createElement('div');
+  chartTitle.className = 'report-section-title';
+  chartTitle.textContent = '📊 直近7日間の入力文字数';
+  body.appendChild(chartTitle);
+
+  const chartWrap = document.createElement('div');
+  chartWrap.className = 'chart-wrap';
+  const canvas = document.createElement('canvas');
+  canvas.className = 'chart-canvas';
+  canvas.id = 'reportChart';
+  chartWrap.appendChild(canvas);
+  body.appendChild(chartWrap);
+
+  // 7日分のデータ
+  const days7 = [];
+  const vals7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    days7.push((d.getMonth()+1)+'/'+(d.getDate()));
+    vals7.push(st.dailyChars[key] || 0);
+  }
+  // シンプルなcanvas棒グラフ
+  requestAnimationFrame(() => drawBarChart(canvas, days7, vals7));
+
+  // よく使った言葉 TOP10
+  const topTitle = document.createElement('div');
+  topTitle.className = 'report-section-title';
+  topTitle.textContent = '🏆 よく使った言葉 TOP10';
+  body.appendChild(topTitle);
+
+  const sorted = Object.entries(st.wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const maxCount = sorted[0]?.[1] || 1;
+  const topWords = document.createElement('div');
+  topWords.className = 'top-words';
+
+  if (sorted.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'color:var(--text-light);font-size:.85rem;padding:8px;';
+    empty.textContent = 'まだデータがありません';
+    topWords.appendChild(empty);
+  } else {
+    sorted.forEach(([word, count], i) => {
+      const row = document.createElement('div');
+      row.className = 'tw-row';
+      row.innerHTML = `
+        <span class="tw-rank">${i+1}</span>
+        <span class="tw-word">${word}</span>
+        <div class="tw-bar-wrap"><div class="tw-bar" style="width:${(count/maxCount*100).toFixed(0)}%"></div></div>
+        <span class="tw-count">${count}回</span>
+      `;
+      topWords.appendChild(row);
+    });
+  }
+  body.appendChild(topWords);
+
+  // 印刷ボタン
+  const printBtn = document.createElement('button');
+  printBtn.className = 'hist-btn no-print';
+  printBtn.style.cssText = 'align-self:flex-start;';
+  printBtn.textContent = '🖨️ レポートを印刷';
+  printBtn.addEventListener('click', printReport);
+  body.appendChild(printBtn);
+}
+
+function drawBarChart(canvas, labels, values) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 400;
+  const H = canvas.offsetHeight || 140;
+  canvas.width = W; canvas.height = H;
+  const max = Math.max(...values, 1);
+  const barW = Math.floor((W - 40) / labels.length) - 4;
+  const isDark = document.body.classList.contains('dark') || document.body.classList.contains('hc');
+  const barColor = document.body.classList.contains('hc') ? '#FFFF00' : '#3A86FF';
+  const textColor = isDark ? '#94A3B8' : '#5A6A8A';
+
+  ctx.clearRect(0, 0, W, H);
+  labels.forEach((lbl, i) => {
+    const x = 20 + i * (barW + 4);
+    const barH = Math.floor((values[i] / max) * (H - 30));
+    const y = H - 20 - barH;
+    // bar
+    ctx.fillStyle = barColor;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, barW, barH, 4) : ctx.rect(x, y, barW, barH);
+    ctx.fill();
+    // label
+    ctx.fillStyle = textColor;
+    ctx.font = `${Math.min(10, barW)}px 'Kosugi Maru',sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, x + barW/2, H - 4);
+    // value
+    if (values[i] > 0) {
+      ctx.fillStyle = barColor;
+      ctx.font = `bold ${Math.min(9, barW)}px 'Kosugi Maru',sans-serif`;
+      ctx.fillText(values[i], x + barW/2, y - 2);
+    }
+  });
+}
+
+function printReport() {
+  const st = loadStats();
+  const prof = getCurrentProfile();
+  const printArea = document.getElementById('printArea');
+  const today = new Date().toISOString().slice(0,10);
+  const days = Object.keys(st.dailyChars).length;
+  const sorted = Object.entries(st.wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  let inner = `
+    <div class="print-header">
+      <div class="print-title">${prof.avatar} ${prof.name} の使用レポート</div>
+      <div style="font-size:.8rem;color:#666;margin-top:4px;">印刷日: ${new Date().toLocaleString('ja-JP')}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr><td style="padding:6px 8px;border:1px solid #ddd;">総入力文字数</td><td style="padding:6px 8px;border:1px solid #ddd;font-weight:700;">${st.totalChars.toLocaleString()}字</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid #ddd;">今日の入力</td><td style="padding:6px 8px;border:1px solid #ddd;font-weight:700;">${(st.dailyChars[today]||0).toLocaleString()}字</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid #ddd;">使用日数</td><td style="padding:6px 8px;border:1px solid #ddd;font-weight:700;">${days}日</td></tr>
+      <tr><td style="padding:6px 8px;border:1px solid #ddd;">入力単語数</td><td style="padding:6px 8px;border:1px solid #ddd;font-weight:700;">${st.totalWords.toLocaleString()}語</td></tr>
+    </table>
+    <div style="font-weight:900;margin-bottom:8px;">よく使った言葉 TOP10</div>
+    <table style="width:100%;border-collapse:collapse;">
+      ${sorted.map(([w,c],i)=>`<tr><td style="padding:5px 8px;border:1px solid #ddd;">${i+1}位</td><td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">${w}</td><td style="padding:5px 8px;border:1px solid #ddd;">${c}回</td></tr>`).join('')}
+    </table>
+  `;
+  inner += `<div style="margin-top:24px;padding-top:10px;border-top:1.5px solid #ccc;font-size:.78rem;color:#666;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+  <span>すべての子どもの学びのためのデジタル教材</span>
+  <a href="https://education-tools-hash.github.io/for-all-children-to-learn/" style="color:#2563EB;word-break:break-all;">https://education-tools-hash.github.io/for-all-children-to-learn/</a>
+</div>`;
+  printArea.innerHTML = inner;
+  printArea.style.display = 'block';
+  window.print();
+  setTimeout(() => { printArea.style.display = 'none'; }, 1000);
+}
+
+// 設定変更時にプロフィール設定を自動保存
+['dwellRange','textSizeRange'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', saveProfileSettings);
+});
+document.getElementById('themeGrid').addEventListener('click', () => setTimeout(saveProfileSettings, 100));
+document.getElementById('keySizeGrid').addEventListener('click', () => setTimeout(saveProfileSettings, 100));
+
+
+
+// ==================== STAMP / REACTION ====================
+const STAMP_DATA = {
+  reaction:[
+    {e:'👍',l:'いいね'},  {e:'👏',l:'すごい'},  {e:'🙌',l:'やった'},
+    {e:'🎉',l:'やったー'},{e:'✨',l:'キラキラ'},{e:'💯',l:'まんてん'},
+    {e:'❤️',l:'すき'},    {e:'😆',l:'たのしい'},{e:'🥰',l:'だいすき'},
+    {e:'🤩',l:'すごすぎ'},{e:'👋',l:'こんにちは'},{e:'🙏',l:'ありがとう'},
+  ],
+  emotion:[
+    {e:'😊',l:'うれしい'},{e:'😄',l:'たのしい'},{e:'😢',l:'かなしい'},
+    {e:'😡',l:'おこった'},{e:'😴',l:'ねむい'},  {e:'😣',l:'つかれた'},
+    {e:'🥺',l:'おねがい'},{e:'😨',l:'こわい'},  {e:'🤔',l:'かんがえる'},
+    {e:'😮',l:'びっくり'},{e:'😂',l:'わらう'},  {e:'🤗',l:'ぎゅっと'},
+  ],
+  daily:[
+    {e:'🍽️',l:'ごはん'},  {e:'💊',l:'くすり'},  {e:'🚻',l:'トイレ'},
+    {e:'🛏️',l:'ねる'},    {e:'🏥',l:'びょうき'},{e:'📺',l:'テレビ'},
+    {e:'🎮',l:'ゲーム'},  {e:'📚',l:'べんきょう'},{e:'🚗',l:'くるま'},
+    {e:'🏠',l:'おうち'},  {e:'🌞',l:'そと'},    {e:'🎵',l:'おんがく'},
+  ],
+  nature:[
+    {e:'🌸',l:'はな'},    {e:'🌈',l:'にじ'},    {e:'☀️',l:'はれ'},
+    {e:'🌙',l:'つき'},    {e:'⭐',l:'ほし'},    {e:'🌊',l:'うみ'},
+    {e:'🐶',l:'いぬ'},    {e:'🐱',l:'ねこ'},    {e:'🐰',l:'うさぎ'},
+    {e:'🦕',l:'きょうりゅう'},{e:'🐸',l:'かえる'},{e:'🦋',l:'ちょうちょ'},
+  ],
+  food:[
+    {e:'🍎',l:'りんご'},  {e:'🍰',l:'ケーキ'},  {e:'🍦',l:'アイス'},
+    {e:'🍩',l:'ドーナツ'},{e:'🍜',l:'ラーメン'},{e:'🍙',l:'おにぎり'},
+    {e:'🍞',l:'パン'},    {e:'🥛',l:'ミルク'},  {e:'🧃',l:'ジュース'},
+    {e:'🍓',l:'いちご'},  {e:'🍌',l:'バナナ'},  {e:'🍕',l:'ピザ'},
+  ],
+};
+
+let stampCurrentCat = 'reaction';
+
+function renderStampGrid() {
+  const grid = document.getElementById('stampGrid');
+  grid.innerHTML = '';
+  STAMP_DATA[stampCurrentCat].forEach(s => {
+    const btn = document.createElement('div');
+    btn.className = 'stamp-btn';
+    btn.innerHTML = `<span class="se">${s.e}</span><span class="sl">${s.l}</span>`;
+    btn.appendChild(makeDwellRing());
+    const act = () => {
+      text += s.e;
+      updateDisplay();
+      launchFloatStamp(s.e);
+    };
+    btn.addEventListener('click', act);
+    addDwell(btn, act);
+    grid.appendChild(btn);
+  });
+}
+
+document.getElementById('stampTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.stamp-tab');
+  if (!tab) return;
+  stampCurrentCat = tab.dataset.cat;
+  document.querySelectorAll('.stamp-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  renderStampGrid();
+});
+
+document.getElementById('stampToggleBtn').addEventListener('click', () => {
+  const panel = document.getElementById('stampPanel');
+  panel.classList.toggle('visible');
+});
+addDwell(document.getElementById('stampToggleBtn'), () => document.getElementById('stampToggleBtn').click());
+
+document.getElementById('stampCloseBtn').addEventListener('click', () => {
+  document.getElementById('stampPanel').classList.remove('visible');
+});
+
+// スタンプがふわっと浮き上がるアニメ
+function launchFloatStamp(emoji) {
+  const el = document.createElement('div');
+  el.className = 'float-stamp';
+  el.textContent = emoji;
+  // テキスト表示エリアの近くからスタート
+  const rect = textDisplay.getBoundingClientRect();
+  el.style.left = (rect.left + rect.width / 2 - 28) + 'px';
+  el.style.top  = (rect.top + rect.height / 2 - 28) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// ==================== CHARACTER SKINS ====================
+let currentSkin = '';
+
+function applySkin(skin) {
+  currentSkin = skin;
+  document.body.dataset.skin = skin;
+  document.querySelectorAll('.skin-card').forEach(c => c.classList.toggle('active', c.dataset.skin === skin));
+  // スキン切替でCSS変数がリセットされるので、カスタム色を再適用
+  reapplyCustomColors();
+}
+
+document.getElementById('skinGrid').addEventListener('click', e => {
+  const card = e.target.closest('.skin-card');
+  if (!card) return;
+  applySkin(card.dataset.skin);
+  setTimeout(saveProfileSettings, 100);
+});
+
+// ==================== REWARD ANIMATION ====================
+let rewardInterval = 10;
+let rewardType = 'confetti';
+let charsSinceReward = 0;
+
+const rewardCanvas = document.getElementById('rewardCanvas');
+const rctx = rewardCanvas.getContext('2d');
+let rewardParticles = [];
+let rewardAF = null;
+
+const REWARD_MESSAGES = [
+  {icon:'🌟', msg:'すごい！', sub:'もっとがんばれ！'},
+  {icon:'🎉', msg:'やったね！', sub:'じょうずだよ！'},
+  {icon:'💫', msg:'かっこいい！', sub:'どんどんいこう！'},
+  {icon:'🏆', msg:'さいこう！', sub:'すばらしい！'},
+  {icon:'✨', msg:'きらきら！', sub:'うまくなってるよ！'},
+];
+
+function triggerReward() {
+  const msg = REWARD_MESSAGES[Math.floor(Math.random() * REWARD_MESSAGES.length)];
+  // バッジ表示
+  const badge = document.createElement('div');
+  badge.className = 'reward-badge';
+  badge.innerHTML = `<div class="rb-icon">${msg.icon}</div><div class="rb-msg">${msg.msg}</div><div class="rb-sub">${msg.sub}</div>`;
+  document.body.appendChild(badge);
+  setTimeout(() => badge.remove(), 2200);
+
+  // パーティクルアニメ
+  launchRewardParticles();
+
+  // 音（AudioContext がある場合）
+  playRewardSound();
+}
+
+function launchRewardParticles() {
+  rewardCanvas.width  = window.innerWidth;
+  rewardCanvas.height = window.innerHeight;
+  rewardCanvas.classList.add('active');
+  rewardParticles = [];
+
+  const count = 80;
+  const colors_confetti = ['#FF6B6B','#FFD166','#06D6A0','#118AB2','#EF476F','#FFC8DD','#BDE0FE'];
+  const colors_stars    = ['#FFD700','#FFA500','#FFEC70','#FFF4A3','#FFE44D'];
+  const colors_hearts   = ['#FF6B9D','#FF8FAB','#FFB3C6','#FFCCD5','#FF4081'];
+  const colors_bubbles  = ['rgba(135,206,250,.7)','rgba(100,149,237,.6)','rgba(173,216,230,.8)'];
+  const colors_rainbow  = ['#FF0000','#FF7700','#FFFF00','#00AA00','#0000FF','#8B00FF'];
+  const colors_fireworks= ['#FFD700','#FF4500','#FF69B4','#00CED1','#9400D3','#7FFF00'];
+
+  const palettes = {confetti:colors_confetti,stars:colors_stars,hearts:colors_hearts,
+    bubbles:colors_bubbles,rainbow:colors_rainbow,fireworks:colors_fireworks};
+  const pal = palettes[rewardType] || colors_confetti;
+
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 7;
+    rewardParticles.push({
+      x: window.innerWidth  * (.3 + Math.random() * .4),
+      y: window.innerHeight * (.3 + Math.random() * .3),
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - (Math.random() * 4),
+      rot: Math.random() * 360,
+      rotV: (Math.random() - .5) * 10,
+      size: rewardType === 'bubbles' ? 8 + Math.random() * 14 : 6 + Math.random() * 10,
+      color: pal[Math.floor(Math.random() * pal.length)],
+      alpha: 1,
+      shape: rewardType,
+    });
+  }
+
+  if (rewardAF) cancelAnimationFrame(rewardAF);
+  animateReward();
+}
+
+function animateReward() {
+  rctx.clearRect(0, 0, rewardCanvas.width, rewardCanvas.height);
+  let alive = false;
+  rewardParticles.forEach(p => {
+    p.x  += p.vx; p.y += p.vy;
+    p.vy += 0.18;  // gravity
+    p.vx *= 0.98;
+    p.rot += p.rotV;
+    p.alpha -= 0.013;
+    if (p.alpha > 0) alive = true;
+
+    rctx.save();
+    rctx.globalAlpha = Math.max(0, p.alpha);
+    rctx.translate(p.x, p.y);
+    rctx.rotate(p.rot * Math.PI / 180);
+
+    if (p.shape === 'bubbles') {
+      rctx.strokeStyle = p.color;
+      rctx.lineWidth = 2;
+      rctx.beginPath();
+      rctx.arc(0, 0, p.size, 0, Math.PI * 2);
+      rctx.stroke();
+    } else if (p.shape === 'stars') {
+      drawStar(rctx, 0, 0, 5, p.size, p.size / 2);
+      rctx.fillStyle = p.color; rctx.fill();
+    } else if (p.shape === 'hearts') {
+      drawHeart(rctx, p.size);
+      rctx.fillStyle = p.color; rctx.fill();
+    } else if (p.shape === 'rainbow') {
+      rctx.fillStyle = p.color;
+      rctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+    } else if (p.shape === 'fireworks') {
+      rctx.fillStyle = p.color;
+      rctx.beginPath();
+      rctx.arc(0, 0, p.size/2, 0, Math.PI*2);
+      rctx.fill();
+      // 尾
+      rctx.strokeStyle = p.color;
+      rctx.lineWidth = 2;
+      rctx.beginPath();
+      rctx.moveTo(0, 0);
+      rctx.lineTo(-p.vx*3, -p.vy*3);
+      rctx.stroke();
+    } else {
+      // confetti rectangle
+      rctx.fillStyle = p.color;
+      rctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+    }
+    rctx.restore();
+  });
+
+  if (alive) rewardAF = requestAnimationFrame(animateReward);
+  else {
+    rewardCanvas.classList.remove('active');
+    rctx.clearRect(0, 0, rewardCanvas.width, rewardCanvas.height);
+  }
+}
+
+function drawStar(ctx, cx, cy, spikes, outerR, innerR) {
+  let rot = (Math.PI / 2) * 3;
+  const step = Math.PI / spikes;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - outerR);
+  for (let i = 0; i < spikes; i++) {
+    ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR); rot += step;
+    ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR); rot += step;
+  }
+  ctx.closePath();
+}
+
+function drawHeart(ctx, size) {
+  const s = size * 0.9;
+  ctx.beginPath();
+  ctx.moveTo(0, -s*0.2);
+  ctx.bezierCurveTo( s*.5, -s*.8,  s,    -s*.2,  0,   s*.6);
+  ctx.bezierCurveTo(-s,   -s*.2, -s*.5, -s*.8,  0, -s*0.2);
+  ctx.closePath();
+}
+
+function playRewardSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ac = new AudioContext();
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    notes.forEach((freq, i) => {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      const t = ac.currentTime + i * 0.1;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.18, t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.start(t); osc.stop(t + 0.4);
+    });
+  } catch(e) {}
+}
+
+// 設定モーダル — リワードインターバル
+document.getElementById('rewardIntervalRange').addEventListener('input', () => {
+  rewardInterval = parseInt(document.getElementById('rewardIntervalRange').value);
+  document.getElementById('rewardIntervalLabel').textContent = rewardInterval + '字';
+});
+
+// 設定モーダル — リワードタイプ
+document.getElementById('rewardGrid').addEventListener('click', e => {
+  const card = e.target.closest('.reward-card');
+  if (!card) return;
+  rewardType = card.dataset.reward;
+  document.querySelectorAll('.reward-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+});
+
+// ==================== HOOK REWARD INTO KEY INPUT ====================
+// handleKeyInput の flashEffect 後に呼び出す
+const _origFlash = flashEffect;
+window._rewardCharCount = 0;
+
+
+
+// ==================== PANEL VISIBILITY ====================
+const PANEL_VIS_MAP = [
+  { swId:'showProfileBar',  el:()=>document.getElementById('profileBar'),  aacSpecial:false },
+  { swId:'showPredPanel',   el:()=>document.getElementById('predPanel'),   aacSpecial:false },
+  { swId:'showPhrasePanel', el:()=>document.getElementById('phrasePanel'), aacSpecial:false },
+  { swId:'showAacPanel',    el:()=>null, aacSpecial:true },  // AAC is toggle-show separately
+  { swId:'showStampPanel',  el:()=>document.getElementById('stampPanel'),  aacSpecial:false, hideOnly:true },
+  { swId:'showQbar',        el:()=>document.querySelector('.qbar'),        aacSpecial:false },
+  { swId:'showActionBtns',  el:()=>document.querySelector('.text-actions'),aacSpecial:false },
+];
+
+// パネル表示状態をlocalStorageから読み込む
+function loadPanelVis() {
+  try { return JSON.parse(localStorage.getItem('gaze_panel_vis') || 'null') || {}; } catch(e){ return {}; }
+}
+function savePanelVis(vis) {
+  try { localStorage.setItem('gaze_panel_vis', JSON.stringify(vis)); } catch(e){}
+}
+
+function applyPanelVisibility() {
+  const vis = loadPanelVis();
+  PANEL_VIS_MAP.forEach(item => {
+    // デフォルト: showAacPanel/showStampPanel はデフォルトfalse、他はtrue
+    const defaultOn = !(item.swId === 'showAacPanel' || item.swId === 'showStampPanel');
+    const isOn = vis[item.swId] !== undefined ? vis[item.swId] : defaultOn;
+
+    // チェックボックスに反映
+    const sw = document.getElementById(item.swId);
+    if (sw) sw.checked = isOn;
+
+    // predPanel はrenderPredictions側でも制御するが、OFF時は確実に隠す
+    if (item.swId === 'showPredPanel') {
+      const el = item.el();
+      if (el && !isOn) el.style.display = 'none';
+      return;
+    }
+
+    if (item.aacSpecial) {
+      // AAC: showBtnとpanelを両方制御
+      const panel = document.getElementById('aacPanel');
+      const showBtn = document.getElementById('aacShowBtn');
+      if (isOn) {
+        panel.classList.add('visible');
+        if (showBtn) showBtn.style.display = 'none';
+      } else {
+        panel.classList.remove('visible');
+        if (showBtn) showBtn.style.display = 'block';
+      }
+      return;
+    }
+    if (item.hideOnly) {
+      // スタンプパネルはOFFのとき完全に隠す（ボタンも）
+      const panel = item.el();
+      const btn = document.getElementById('stampToggleBtn');
+      if (panel) panel.style.display = isOn ? '' : 'none';
+      if (btn)   btn.style.display   = isOn ? '' : 'none';
+      return;
+    }
+    const el = item.el();
+    if (el) el.style.display = isOn ? '' : 'none';
+  });
+}
+
+// 各スイッチのchangeイベントを登録
+function setupPanelVisEvents() {
+  PANEL_VIS_MAP.forEach(item => {
+    const sw = document.getElementById(item.swId);
+    if (!sw) return;
+    sw.addEventListener('change', () => {
+      const vis = loadPanelVis();
+      vis[item.swId] = sw.checked;
+      savePanelVis(vis);
+      applyPanelVisibility();
+    });
+  });
+}
+
+
+// ==================== KEYBOARD LAYOUT DIRECTION ====================
+// dir: 'h-ltr' | 'h-rtl' | 'v-ltr' | 'v-rtl'
+let keyboardLayoutDir = 'h-ltr';
+
+function applyLayoutDir(dir) {
+  keyboardLayoutDir = dir;
+  const panel = document.querySelector('.keyboard-panel');
+  if (!panel) return;
+
+  // CSS クラス切替（縦配列のみ CSS で制御）
+  panel.classList.toggle('layout-vertical', dir === 'v-ltr' || dir === 'v-rtl');
+
+  // 選択カードのactive更新
+  document.querySelectorAll('.layout-dir-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.dir === dir);
+  });
+
+  // キーボード再描画（RTL反転・縦配列はJS側でデータを操作）
+  renderKeyboard();
+
+  // プロフィール設定に保存
+  setTimeout(saveProfileSettings, 100);
+}
+
+document.getElementById('layoutDirGrid').addEventListener('click', e => {
+  const card = e.target.closest('.layout-dir-card');
+  if (!card) return;
+  applyLayoutDir(card.dataset.dir);
+});
+
+
+// ==================== COLOR CUSTOMIZATION ====================
+const COLOR_PRESETS = {
+  dwell:  ['#3A86FF','#FF6B6B','#34D399','#F59E0B','#A78BFA','#F472B6','#000000','#FFFFFF'],
+  border: ['#C8D8F0','#86EFAC','#FCA5A5','#FDE68A','#DDD6FE','#000000','#999999','#DDDDDD'],
+  scan:   ['#F59E0B','#3A86FF','#FF6B6B','#34D399','#A78BFA','#F472B6','#FFD700','#00CED1'],
+  keyBg:  ['#FFFFFF','#F0F7FF','#F0FFF4','#FFF7ED','#F5F3FF','#1E293B','#111111','#FFFFF0'],
+};
+
+const COLOR_CSS_VARS = {
+  dwell:  '--dwell-color',
+  border: '--key-bd',
+  scan:   '--scan-lit-bd',
+  keyBg:  '--key-bg',
+};
+
+const COLOR_PICKER_IDS = {
+  dwell:  'dwellColorPicker',
+  border: 'borderColorPicker',
+  scan:   'scanColorPicker',
+  keyBg:  'keyBgColorPicker',
+};
+
+const COLOR_DEFAULT = {
+  dwell:  '#3A86FF',
+  border: '#C8D8F0',
+  scan:   '#F59E0B',
+  keyBg:  '#FFFFFF',
+};
+// 初期値をCSS変数から読む
+
+function loadCustomColors() {
+  try { return JSON.parse(localStorage.getItem('gaze_custom_colors') || '{}'); } catch(e){ return {}; }
+}
+function saveCustomColors(colors) {
+  try { localStorage.setItem('gaze_custom_colors', JSON.stringify(colors)); } catch(e){}
+}
+
+function applyColor(target, value) {
+  const cssVar = COLOR_CSS_VARS[target];
+  if (!cssVar || !value) return;
+
+  // documentElement のインラインスタイルにセット（最優先）
+  document.documentElement.style.setProperty(cssVar, value);
+
+  // 連動変数
+  if (target === 'scan') {
+    // scan-lit-bg を半透明版で連動
+    const hex = value.replace('#','');
+    const r = parseInt(hex.substr(0,2),16);
+    const g = parseInt(hex.substr(2,2),16);
+    const b = parseInt(hex.substr(4,2),16);
+    document.documentElement.style.setProperty('--scan-lit-bg', `rgba(${r},${g},${b},0.15)`);
+  }
+  if (target === 'keyBg') {
+    document.documentElement.style.setProperty('--key-hover', shadeColor(value, -12));
+  }
+
+  // ピッカーの値を更新
+  const picker = document.getElementById(COLOR_PICKER_IDS[target]);
+  if (picker) picker.value = value;
+
+  // プリセットのactive更新
+  const presetsEl = document.getElementById(target + 'ColorPresets');
+  if (presetsEl) {
+    presetsEl.querySelectorAll('.color-dot').forEach(dot => {
+      dot.classList.toggle('active', dot.dataset.color.toLowerCase() === value.toLowerCase());
+    });
+  }
+}
+
+// テーマ・スキン切替後にカスタム色を再適用する
+function reapplyCustomColors() {
+  // 少し待ってCSSクラスが確定してから上書き
+  requestAnimationFrame(() => {
+    const saved = loadCustomColors();
+    Object.keys(COLOR_CSS_VARS).forEach(target => {
+      const val = saved[target];
+      if (val) {
+        document.documentElement.style.setProperty(COLOR_CSS_VARS[target], val);
+        // 連動変数も再セット
+        if (target === 'scan') {
+          const hex = val.replace('#','');
+          const r = parseInt(hex.substr(0,2),16);
+          const g = parseInt(hex.substr(2,2),16);
+          const b = parseInt(hex.substr(4,2),16);
+          document.documentElement.style.setProperty('--scan-lit-bg', `rgba(${r},${g},${b},0.15)`);
+        }
+        if (target === 'keyBg') {
+          document.documentElement.style.setProperty('--key-hover', shadeColor(val, -12));
+        }
+      }
+    });
+  });
+}
+
+function shadeColor(hex, percent) {
+  // hex を少し明るく/暗くする
+  try {
+    const num = parseInt(hex.replace('#',''), 16);
+    const r = Math.min(255, Math.max(0, (num >> 16) + percent));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 0xFF) + percent));
+    const b = Math.min(255, Math.max(0, (num & 0xFF) + percent));
+    return '#' + ((r<<16)|(g<<8)|b).toString(16).padStart(6,'0');
+  } catch(e){ return hex; }
+}
+
+function renderColorPresets() {
+  const saved = loadCustomColors();
+  Object.keys(COLOR_PRESETS).forEach(target => {
+    const el = document.getElementById(target + 'ColorPresets');
+    if (!el) return;
+    el.innerHTML = '';
+    // 現在値：保存済み > デフォルト
+    const currentVal = (saved[target] || COLOR_DEFAULT[target]).toLowerCase();
+
+    COLOR_PRESETS[target].forEach(color => {
+      const dot = document.createElement('div');
+      dot.className = 'color-dot';
+      dot.dataset.color = color;
+      dot.style.background = color;
+      const isLight = color.toLowerCase() === '#ffffff' || color.toLowerCase() === '#fffff0' || color.toLowerCase() === '#f0f7ff';
+      dot.style.border = isLight ? '2.5px solid #ccc' : '2.5px solid transparent';
+      if (currentVal === color.toLowerCase()) dot.classList.add('active');
+      dot.title = color;
+      dot.addEventListener('click', () => {
+        const c = loadCustomColors();
+        c[target] = color;
+        saveCustomColors(c);
+        applyColor(target, color);
+      });
+      addDwell(dot, () => dot.click());
+      el.appendChild(dot);
+    });
+  });
+}
+
+function initCustomColors() {
+  const saved = loadCustomColors();
+  // 保存済みの色を適用（なければデフォルト）
+  Object.keys(COLOR_CSS_VARS).forEach(target => {
+    applyColor(target, saved[target] || COLOR_DEFAULT[target]);
+  });
+
+  // ピッカーの input イベント
+  Object.keys(COLOR_PICKER_IDS).forEach(target => {
+    const picker = document.getElementById(COLOR_PICKER_IDS[target]);
+    if (!picker) return;
+    // 初期値をセット
+    picker.value = saved[target] || COLOR_DEFAULT[target];
+    picker.addEventListener('input', () => {
+      const c = loadCustomColors();
+      c[target] = picker.value;
+      saveCustomColors(c);
+      applyColor(target, picker.value);
+    });
+  });
+
+  // リセットボタン
+  const resetBtn = document.getElementById('colorResetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      saveCustomColors({});
+      Object.keys(COLOR_DEFAULT).forEach(target => applyColor(target, COLOR_DEFAULT[target]));
+      renderColorPresets();
+      showToast('🎨 色をリセットしました');
+    });
+  }
+
+  // 設定モーダルを開くたびにプリセット描画
+  renderColorPresets();
+}
+
+// 設定モーダルを開くたびにプリセットのactive状態を更新（initCustomColors内で処理）
+
+
+
+// ==================== RICH EDITOR ====================
+// 方式：キー入力ごとにスタイル付き <span> を richEditor に追加
+// contenteditable は使わず、状態管理で確実に動作させる
+
+const richEditor = document.getElementById('richEditor');
+
+// ── 現在の書式状態 ──
+let rtStyle = {
+  bold:      false,
+  italic:    false,
+  underline: false,
+  fontSize:  '1.4rem',
+};
+
+// ── 現在のブロック（段落）要素 ──
+let currentBlock = null;
+
+function rtGetOrCreateBlock() {
+  if (!currentBlock || !richEditor.contains(currentBlock)) {
+    currentBlock = document.createElement('div');
+    currentBlock.style.textAlign = rtAlign;
+    richEditor.appendChild(currentBlock);
+  }
+  return currentBlock;
+}
+
+let rtAlign = 'left';
+
+// ── スタイル付きspanを生成 ──
+function rtMakeSpan(content) {
+  const span = document.createElement('span');
+  span.textContent = content;
+  if (rtStyle.bold)      span.style.fontWeight     = 'bold';
+  if (rtStyle.italic)    span.style.fontStyle      = 'italic';
+  if (rtStyle.underline) span.style.textDecoration = 'underline';
+  if (rtStyle.fontSize)  span.style.fontSize       = rtStyle.fontSize;
+  return span;
+}
+
+// ── updateDisplay：text変数 → richEditor に反映 ──
+function updateDisplay() {
+  // richEditor は独自管理なので text 変数との同期は
+  // handleKeyInput 側で直接操作する
+  if (typeof renderPredictions === 'function') renderPredictions();
+  if (typeof scheduleAutoSave === 'function') scheduleAutoSave();
+  if (document.body.classList.contains('is-fullscreen') && typeof syncFsText === 'function') syncFsText();
+}
+
+// ── getEditorPlainText ──
+function getEditorPlainText() {
+  return richEditor.innerText || '';
+}
+
+// ── moveCursorToEnd（互換用・実際には未使用） ──
+function moveCursorToEnd(el) {}
+
+// ── handleKeyInput のオーバーライド ──
+// 元の handleKeyInput の代わりに richEditor に直接書き込む
+const _origHandleKeyInput = window._origHandleKeyInput || null;
+
+function handleRichInput(val) {
+  if (val === '__') return;
+
+  if (val === 'DEL') {
+    // 最後のspanの最後の文字を削除
+    const blocks = richEditor.querySelectorAll('div');
+    const lastBlock = blocks[blocks.length - 1] || richEditor;
+    const spans = lastBlock.querySelectorAll('span');
+    if (spans.length > 0) {
+      const lastSpan = spans[spans.length - 1];
+      if (lastSpan.textContent.length > 1) {
+        lastSpan.textContent = lastSpan.textContent.slice(0, -1);
+      } else {
+        lastSpan.remove();
+        if (lastBlock.innerHTML === '' && lastBlock !== richEditor) {
+          // 空ブロックなら前のブロックに戻る
+          const allBlocks = Array.from(richEditor.querySelectorAll('div'));
+          const idx = allBlocks.indexOf(lastBlock);
+          lastBlock.remove();
+          currentBlock = allBlocks[idx - 1] || null;
+        }
+      }
+    } else if (lastBlock !== richEditor && lastBlock.textContent === '') {
+      lastBlock.remove();
+      currentBlock = null;
+    }
+    text = getEditorPlainText();
+    updateDisplay();
+    return;
+  }
+
+  if (val === 'ENTER') {
+    // 新しい段落ブロックを作成
+    currentBlock = document.createElement('div');
+    currentBlock.style.textAlign = rtAlign;
+    richEditor.appendChild(currentBlock);
+    text = getEditorPlainText();
+    updateDisplay();
+    if (enableAnim) flashEffect();
+    return;
+  }
+
+  if (val === 'SPACE') {
+    const block = rtGetOrCreateBlock();
+    const span = rtMakeSpan('\u3000'); // 全角スペース
+    block.appendChild(span);
+    text = getEditorPlainText();
+    updateDisplay();
+    if (enableAnim) flashEffect();
+    return;
+  }
+
+  if (val === 'SHIFT') { isShift = !isShift; renderKeyboard(); return; }
+  if (val === 'DAKUTEN') { applyDakuten(); return; }
+  if (val === 'HANDAKUTEN') { applyHandakuten(); return; }
+  if (val === 'CONVERT') { openConvPopup(); return; }
+
+  if (val.startsWith('PHRASE:')) {
+    const phraseText = val.slice(7);
+    phraseText.split('').forEach(ch => {
+      const block = rtGetOrCreateBlock();
+      block.appendChild(rtMakeSpan(ch));
+    });
+    text = getEditorPlainText();
+    updateDisplay();
+    if (enableAnim) flashEffect();
+    return;
+  }
+
+  // 通常の文字
+  let c = val;
+  if (currentMode === 'alphabet' && isShift) c = val.toUpperCase();
+
+  const block = rtGetOrCreateBlock();
+  block.appendChild(rtMakeSpan(c));
+
+  if (currentMode === 'alphabet' && isShift) { isShift = false; renderKeyboard(); }
+
+  if (speakOnKey && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(c);
+    u.lang = 'ja-JP'; u.rate = speechRate;
+    window.speechSynthesis.speak(u);
+  }
+
+  text = getEditorPlainText();
+  updateDisplay();
+  if (enableAnim) flashEffect();
+}
+
+// handleKeyInput を handleRichInput に差し替え
+function handleKeyInput(val) { handleRichInput(val); }
+
+// applyDakuten / applyHandakuten のオーバーライド
+function applyDakuten() {
+  const spans = richEditor.querySelectorAll('div span, span');
+  const allSpans = Array.from(spans);
+  for (let i = allSpans.length - 1; i >= 0; i--) {
+    const s = allSpans[i];
+    if (s.textContent.length > 0) {
+      const last = s.textContent.slice(-1);
+      if (DAKUTEN[last]) {
+        s.textContent = s.textContent.slice(0, -1) + DAKUTEN[last];
+        text = getEditorPlainText();
+        updateDisplay();
+      }
+      return;
+    }
+  }
+}
+
+function applyHandakuten() {
+  const allSpans = Array.from(richEditor.querySelectorAll('div span, span'));
+  for (let i = allSpans.length - 1; i >= 0; i--) {
+    const s = allSpans[i];
+    if (s.textContent.length > 0) {
+      const last = s.textContent.slice(-1);
+      if (HANDAKUTEN[last]) {
+        s.textContent = s.textContent.slice(0, -1) + HANDAKUTEN[last];
+        text = getEditorPlainText();
+        updateDisplay();
+      }
+      return;
+    }
+  }
+}
+
+// 変換ポップアップの適用もオーバーライド
+function openConvPopup() {
+  let candidates = [];
+  for (let len = 8; len >= 1; len--) {
+    const chunk = text.slice(-len);
+    if (CONV_TABLE[chunk]) { candidates = CONV_TABLE[chunk].map(c => ({orig:chunk,conv:c})); break; }
+  }
+  if (!candidates.length) { showToast('変換できる文字がありません'); return; }
+  convPopup.innerHTML = '';
+  const title = document.createElement('div');
+  title.style.cssText = 'width:100%;font-size:.76rem;color:var(--text-light);font-weight:700;margin-bottom:4px;';
+  title.textContent = '変換候補:';
+  convPopup.appendChild(title);
+  candidates.forEach(c => {
+    const btn = document.createElement('div');
+    btn.className = 'cc'; btn.textContent = c.conv;
+    const action = () => {
+      // richEditorから末尾のテキストを置換
+      const allSpans = Array.from(richEditor.querySelectorAll('div span, span'));
+      let remaining = c.orig.length;
+      for (let i = allSpans.length - 1; i >= 0 && remaining > 0; i--) {
+        const s = allSpans[i];
+        const len = s.textContent.length;
+        if (len <= remaining) {
+          remaining -= len;
+          s.textContent = '';
+        } else {
+          s.textContent = s.textContent.slice(0, len - remaining);
+          remaining = 0;
+        }
+      }
+      const block = rtGetOrCreateBlock();
+      block.appendChild(rtMakeSpan(c.conv));
+      text = getEditorPlainText();
+      updateDisplay();
+      closeConvPopup();
+    };
+    btn.addEventListener('click', action);
+    addDwell(btn, action);
+    convPopup.appendChild(btn);
+  });
+  const cl = document.createElement('div');
+  cl.className = 'cc';
+  cl.style.cssText = 'background:var(--key-delete-bg);border-color:var(--key-delete-bd);color:#991B1B;';
+  cl.textContent = '✕ 閉じる';
+  cl.addEventListener('click', closeConvPopup);
+  addDwell(cl, closeConvPopup);
+  convPopup.appendChild(cl);
+  convPopup.classList.add('visible');
+  convPopup.style.cssText = 'bottom:120px;left:50%;transform:translateX(-50%);display:flex;';
+}
+
+function closeConvPopup() { convPopup.classList.remove('visible'); }
+
+// ==================== 書式ツールバー ====================
+const RT_FONT_SIZES = {
+  '1':'0.9rem','2':'1.1rem','3':'1.4rem','4':'1.8rem','5':'2.2rem','6':'2.8rem'
+};
+
+function setupRichToolbar() {
+
+  function setRtBtn(id, prop, onCls) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      rtStyle[prop] = !rtStyle[prop];
+      btn.classList.toggle('active', rtStyle[prop]);
+    });
+    addDwell(btn, () => btn.click());
+  }
+
+  setRtBtn('rtBold',   'bold',      'active');
+  setRtBtn('rtItalic', 'italic',    'active');
+  setRtBtn('rtUnder',  'underline', 'active');
+
+  // フォントサイズ
+  const sizeSelect = document.getElementById('rtFontSize');
+  if (sizeSelect) {
+    sizeSelect.addEventListener('change', e => {
+      rtStyle.fontSize = RT_FONT_SIZES[e.target.value] || '1.4rem';
+    });
+  }
+
+  // 配置
+  ['rtAlignL','rtAlignC','rtAlignR'].forEach((id,i) => {
+    const aligns = ['left','center','right'];
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      rtAlign = aligns[i];
+      // 現在のブロックに適用
+      if (currentBlock) currentBlock.style.textAlign = rtAlign;
+    });
+    addDwell(btn, () => btn.click());
+  });
+
+  // 書式クリア
+  const clrBtn = document.getElementById('rtClear');
+  if (clrBtn) {
+    clrBtn.addEventListener('click', () => {
+      rtStyle = { bold:false, italic:false, underline:false, fontSize:'1.4rem' };
+      rtAlign = 'left';
+      document.getElementById('rtBold').classList.remove('active');
+      document.getElementById('rtItalic').classList.remove('active');
+      document.getElementById('rtUnder').classList.remove('active');
+      if (sizeSelect) sizeSelect.value = '3';
+    });
+    addDwell(clrBtn, () => clrBtn.click());
+  }
+}
+
+function updateToolbarState() {}
+
+// ==================== WORD ダウンロード ====================
+function downloadAsWord() {
+  const editorHtml = richEditor.innerHTML || '';
+  const plainText = getEditorPlainText();
+  if (!plainText.trim()) { showToast('文字を入力してください'); return; }
+
+  // WordのMHT形式（.doc）で出力
+  // Office Open XML形式に近いHTMLをWordが認識できる形式で生成
+  const wordHtml = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta name=ProgId content=Word.Document>
+<meta name=Generator content="視線キーボード">
+<!--[if gte mso 9]>
+<xml>
+  <w:WordDocument>
+    <w:View>Print</w:View>
+    <w:Zoom>100</w:Zoom>
+    <w:DoNotOptimizeForBrowser/>
+  </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+  @page { size: A4; margin: 25mm; }
+  body {
+    font-family: "MS Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+    font-size: 14pt;
+    line-height: 1.8;
+    color: #1A1A2E;
+  }
+  p { margin: 0 0 8pt; }
+</style>
+</head>
+<body>
+<div style="font-family:'MS Gothic','Hiragino Kaku Gothic ProN',sans-serif;font-size:14pt;line-height:1.8;">
+${editorHtml || '<p>' + plainText.replace(/\n/g, '</p><p>') + '</p>'}
+</div>
+<div style="margin-top:32pt;padding-top:8pt;border-top:1px solid #ccc;font-size:9pt;color:#666;">
+  <p>すべての子どもの学びのためのデジタル教材</p>
+  <p>https://education-tools-hash.github.io/for-all-children-to-learn/</p>
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([wordHtml], {
+    type: 'application/msword;charset=utf-8'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const now = new Date();
+  const ts = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+  a.download = '視線キーボード_' + ts + '.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📄 Wordファイルをダウンロードしました\nWordで開いてください');
+}
+
+// ==================== 印刷 ====================
+function printRichContent() {
+  const content = richEditor.innerHTML || '';
+  if (!content.trim()) { showToast('文字を入力してください'); return; }
+  const pa = document.getElementById('printArea');
+  pa.innerHTML = `
+    <div class="print-header">
+      <div class="print-title">視線キーボード 入力内容</div>
+      <div style="font-size:.8rem;color:#666;margin-top:4px;">${new Date().toLocaleString('ja-JP')}</div>
+    </div>
+    <div style="font-size:14pt;line-height:1.8;font-family:'MS Gothic','Hiragino Kaku Gothic ProN',sans-serif;">
+      ${content}
+    </div>
+    <div style="margin-top:24px;padding-top:10px;border-top:1.5px solid #ccc;font-size:.78rem;color:#666;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+  <span>すべての子どもの学びのためのデジタル教材</span>
+  <a href="https://education-tools-hash.github.io/for-all-children-to-learn/" style="color:#2563EB;word-break:break-all;">https://education-tools-hash.github.io/for-all-children-to-learn/</a>
+</div>`;
+  pa.style.display = 'block';
+  window.print();
+  setTimeout(() => { pa.style.display = 'none'; }, 1000);
+}
+
+
+
+// ==================== HELP MODAL ====================
+const HELP_CONTENT = {
+  basic: [
+    {
+      type: 'section', title: '🎹 文字の入力方法',
+      items: [
+        { type:'step', num:1, text:'画面下の<strong>キーボード</strong>から文字を選びます' },
+        { type:'step', num:2, text:'文字を<strong>見つめる</strong>か<strong>タップ</strong>すると入力されます' },
+        { type:'step', num:3, text:'入力した文字は<strong>上のテキスト欄</strong>に表示されます' },
+        { type:'tip',  text:'👁️ 視線入力の場合、一定時間じっと見つめると自動で入力されます。時間は⚙️設定で変えられます。' },
+      ]
+    },
+    {
+      type: 'section', title: '🔤 キーボードの切り替え',
+      items: [
+        { type:'step', num:1, text:'キーボード上部のタブで<strong>ひらがな・カタカナ・英字・数字</strong>を切り替えます' },
+        { type:'step', num:2, text:'<strong>五十音表</strong>タブを選ぶと表形式で表示されます' },
+        { type:'tip',  text:'⌨️ ⚙️設定の「キー配列の方向」で横・縦・右から左など向きを変えられます。' },
+      ]
+    },
+    {
+      type: 'section', title: '✏️ 文字の修正',
+      items: [
+        { type:'step', num:1, text:'<strong>⌫（消す）</strong>キーで直前の1文字を削除します' },
+        { type:'step', num:2, text:'<strong>゛（濁点）</strong>キーで直前の文字を濁音に変換します（か→が）' },
+        { type:'step', num:3, text:'<strong>゜（半濁点）</strong>キーではさ行→ぱ行に変換します（は→ぱ）' },
+        { type:'step', num:4, text:'<strong>変換</strong>キーでひらがなを漢字に変換できます' },
+      ]
+    },
+  ],
+  gaze: [
+    {
+      type: 'section', title: '👁️ 視線入力の仕組み',
+      items: [
+        { type:'step', num:1, text:'キーを<strong>じっと見つめる</strong>と、青い円が回り始めます' },
+        { type:'step', num:2, text:'円が一周すると<strong>文字が入力</strong>されます' },
+        { type:'step', num:3, text:'他のキーに視線を動かすと<strong>キャンセル</strong>されます' },
+        { type:'tip',  text:'⏱ ⚙️設定の「視線停止時間」で円が完成するまでの秒数を調整できます（0.3秒〜3秒）。' },
+      ]
+    },
+    {
+      type: 'section', title: '🔄 スキャン入力（スイッチ操作）',
+      items: [
+        { type:'step', num:1, text:'⚙️設定の<strong>スキャン入力をON</strong>にします' },
+        { type:'step', num:2, text:'キーが順番に<strong>黄色く光ります</strong>' },
+        { type:'step', num:3, text:'入力したいキーが光っているときに<strong>スペースキーを押す</strong>と選択できます' },
+        { type:'tip',  text:'🎮 ゲームパッド・タップ・どのキーでも選択できるよう⚙️設定で変えられます。' },
+      ]
+    },
+    {
+      type: 'section', title: '⚙️ 視線入力の調整',
+      items: [
+        { type:'card', title:'停止時間', icon:'⏱', desc:'じっと見つめる必要がある時間。長くすると誤入力が減ります' },
+        { type:'card', title:'クールダウン', icon:'🔁', desc:'入力後、同じキーを無視する時間。連続入力を防ぎます' },
+        { type:'card', title:'端ゾーン', icon:'🛡️', desc:'画面の端に視線が行っても入力されない安全ゾーン' },
+        { type:'card', title:'リングの色', icon:'🎨', desc:'視線リングの色を変えて見やすくできます' },
+      ]
+    },
+  ],
+  features: [
+    {
+      type: 'section', title: '💬 よく使う文',
+      items: [
+        { type:'step', num:1, text:'「おはようございます」「ありがとう」などの<strong>定型文</strong>をワンタップで入力できます' },
+        { type:'step', num:2, text:'<strong>＋追加ボタン</strong>で自分だけの定型文を登録できます' },
+      ]
+    },
+    {
+      type: 'section', title: '🖼️ 絵カード（AAC）',
+      items: [
+        { type:'step', num:1, text:'絵カードパネルから絵を選ぶと<strong>関連する文章</strong>が入力されます' },
+        { type:'step', num:2, text:'「絵カードを表示する」ボタンで表示できます' },
+        { type:'tip',  text:'🏷️ ⚙️設定の「表示するパネル」でいつも表示しておくこともできます。' },
+      ]
+    },
+    {
+      type: 'section', title: '😊 スタンプ・リアクション',
+      items: [
+        { type:'step', num:1, text:'ヘッダーの😊ボタンでスタンプパネルを開きます' },
+        { type:'step', num:2, text:'絵文字スタンプをタップするとテキストに追加されます' },
+      ]
+    },
+    {
+      type: 'section', title: '👤 プロフィール（複数ユーザー）',
+      items: [
+        { type:'step', num:1, text:'ヘッダー下のプロフィールバーで<strong>ユーザーを切り替え</strong>られます' },
+        { type:'step', num:2, text:'ユーザーごとにテーマ・キーサイズ・定型文・履歴が<strong>別々に保存</strong>されます' },
+        { type:'step', num:3, text:'＋ボタンで新しいユーザーを追加できます' },
+      ]
+    },
+  ],
+  word: [
+    {
+      type: 'section', title: '📋 コピーして貼り付け',
+      items: [
+        { type:'step', num:1, text:'<strong>コピーボタン</strong>を押してテキストをコピーします' },
+        { type:'step', num:2, text:'WordやLINEなど<strong>貼り付けたいアプリを開きます</strong>' },
+        { type:'step', num:3, text:'<strong>Ctrl+V（またはペースト）</strong>で貼り付けます' },
+        { type:'tip',  text:'📋 コピーボタンは書式情報も一緒にコピーします。Wordに貼ると太字・斜体なども反映されます。' },
+      ]
+    },
+    {
+      type: 'section', title: '📄 Wordファイルとして保存',
+      items: [
+        { type:'step', num:1, text:'<strong>Wordで保存ボタン</strong>を押します' },
+        { type:'step', num:2, text:'<strong>.docファイル</strong>がダウンロードされます' },
+        { type:'step', num:3, text:'ダウンロードしたファイルを<strong>Wordで開きます</strong>' },
+        { type:'tip',  text:'✏️ 太字・斜体・下線・フォントサイズ・文字の配置などの書式もWordに反映されます。' },
+      ]
+    },
+    {
+      type: 'section', title: '🖨️ 印刷',
+      items: [
+        { type:'step', num:1, text:'<strong>印刷ボタン</strong>を押します' },
+        { type:'step', num:2, text:'ブラウザの印刷ダイアログが開きます' },
+        { type:'step', num:3, text:'プリンターを選んで<strong>印刷します</strong>' },
+        { type:'tip',  text:'📝 印刷にはサイト名とURLが自動で記載されます。' },
+      ]
+    },
+    {
+      type: 'section', title: '🔊 読み上げ',
+      items: [
+        { type:'step', num:1, text:'<strong>読み上げボタン</strong>を押すと入力した文章を音声で読み上げます' },
+        { type:'tip',  text:'🎵 ⚙️設定で読み上げ速度を調整できます。キー入力ごとに読み上げる設定もあります。' },
+      ]
+    },
+  ],
+};
+
+function renderHelpContent(tab) {
+  const body = document.getElementById('helpBody');
+  body.innerHTML = '';
+  const sections = HELP_CONTENT[tab] || [];
+  sections.forEach(sec => {
+    const secEl = document.createElement('div');
+    secEl.className = 'help-section';
+    const titleEl = document.createElement('div');
+    titleEl.className = 'help-section-title';
+    titleEl.textContent = sec.title;
+    secEl.appendChild(titleEl);
+
+    const cardGrid = document.createElement('div');
+    cardGrid.className = 'help-card-grid';
+    let hasCards = false;
+
+    sec.items.forEach(item => {
+      if (item.type === 'step') {
+        const step = document.createElement('div');
+        step.className = 'help-step';
+        step.innerHTML = `<div class="help-step-num">${item.num}</div><div class="help-step-text">${item.text}</div>`;
+        secEl.appendChild(step);
+      } else if (item.type === 'tip') {
+        const tip = document.createElement('div');
+        tip.className = 'help-tip';
+        tip.innerHTML = `<span class="help-tip-icon">💡</span><span>${item.text}</span>`;
+        secEl.appendChild(tip);
+      } else if (item.type === 'card') {
+        hasCards = true;
+        const card = document.createElement('div');
+        card.className = 'help-card';
+        card.innerHTML = `<div class="help-card-icon">${item.icon}</div><div class="help-card-title">${item.title}</div><div class="help-card-desc">${item.desc}</div>`;
+        cardGrid.appendChild(card);
+      }
+    });
+    if (hasCards) secEl.appendChild(cardGrid);
+    body.appendChild(secEl);
+  });
+}
+
+// Help modal open/close
+document.getElementById('helpBtn').addEventListener('click', () => {
+  document.getElementById('helpModal').classList.remove('hidden');
+  renderHelpContent('basic');
+  document.querySelectorAll('.help-tab').forEach(t => t.classList.toggle('active', t.dataset.htab === 'basic'));
+});
+addDwell(document.getElementById('helpBtn'), () => document.getElementById('helpBtn').click());
+
+document.getElementById('helpClose').addEventListener('click', () => {
+  document.getElementById('helpModal').classList.add('hidden');
+});
+addDwell(document.getElementById('helpClose'), () => document.getElementById('helpClose').click());
+
+document.getElementById('helpModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('helpModal'))
+    document.getElementById('helpModal').classList.add('hidden');
+});
+
+document.getElementById('helpTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.help-tab');
+  if (!tab) return;
+  document.querySelectorAll('.help-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  renderHelpContent(tab.dataset.htab);
+});
+
+
+// ==================== FULLSCREEN ====================
+const fsBtn = document.getElementById('fullscreenBtn');
+
+function buildFsTop() {
+  const fsTop = document.getElementById('fsTop');
+  if (!fsTop) return;
+  fsTop.innerHTML = '';
+
+  // ── ヘッダーバー（タイトル・⚙️・終了） ──
+  const fsHeader = document.createElement('div');
+  fsHeader.className = 'fs-header';
+
+  const fsTitle = document.createElement('span');
+  fsTitle.className = 'fs-title';
+  fsTitle.textContent = '👁️ 視線キーボード';
+  fsHeader.appendChild(fsTitle);
+
+  // ⚙️ 設定ボタン
+  const fsSettBtn = document.createElement('button');
+  fsSettBtn.className = 'fs-header-btn';
+  fsSettBtn.title = '設定';
+  fsSettBtn.textContent = '⚙️';
+  fsSettBtn.addEventListener('click', () => {
+    document.getElementById('settingsModal').classList.remove('hidden');
+  });
+  addDwell(fsSettBtn, () => fsSettBtn.click());
+  fsSettBtn.appendChild(makeDwellRing());
+  fsHeader.appendChild(fsSettBtn);
+
+  // ⛶ 全画面終了ボタン
+  const fsExitBtn = document.createElement('button');
+  fsExitBtn.className = 'fs-header-btn';
+  fsExitBtn.title = '全画面を終了';
+  fsExitBtn.textContent = '✕';
+  fsExitBtn.style.cssText = 'background:var(--key-delete-bg);border-color:var(--key-delete-bd);color:#991B1B;';
+  fsExitBtn.addEventListener('click', exitFullscreen);
+  addDwell(fsExitBtn, exitFullscreen);
+  fsExitBtn.appendChild(makeDwellRing());
+  fsHeader.appendChild(fsExitBtn);
+
+  fsTop.appendChild(fsHeader);
+
+  // ── richEditor を fs-top に移動（DOMごと移動でフォーカス・編集可能を維持） ──
+  const editorWrap = document.createElement('div');
+  editorWrap.id = 'fsEditorWrap';
+  editorWrap.style.cssText = 'flex:1;min-height:2.5rem;max-height:30vh;overflow-y:auto;padding:4px 2px;';
+  if (richEditor) {
+    editorWrap.appendChild(richEditor);  // DOMごと移動
+    richEditor.style.fontSize = '1.4rem';
+    richEditor.style.minHeight = '2rem';
+    setTimeout(() => { richEditor.focus(); moveCursorToEnd(richEditor); }, 100);
+  }
+  fsTop.appendChild(editorWrap);
+
+  // ── アクションボタン ──
+  const fsActs = document.createElement('div');
+  fsActs.className = 'fs-actions';
+  [
+    {id:'btnCopy',  icon:'📋', label:'コピー',      cls:'btn-copy'},
+    {id:'btnSpeak', icon:'🔊', label:'読み上げ',    cls:'btn-speak'},
+    {id:'btnMic',   icon:'🎤', label:'音声入力',    cls:'btn-mic'},
+    {id:'btnWord',  icon:'📄', label:'Word保存',    cls:'btn-word'},
+    {id:'btnClear', icon:'🗑️', label:'全消し',      cls:'btn-clear'},
+  ].forEach(({id, icon, label, cls}) => {
+    const btn = document.createElement('button');
+    btn.className = 'fs-action-btn ' + cls;
+    btn.innerHTML = `<span class="bi">${icon}</span>${label}`;
+    btn.addEventListener('click', () => {
+      const orig = document.getElementById(id);
+      if (orig) orig.click();
+    });
+    addDwell(btn, () => btn.click());
+    btn.appendChild(makeDwellRing());
+    fsActs.appendChild(btn);
+  });
+  fsTop.appendChild(fsActs);
+
+  requestAnimationFrame(() => requestAnimationFrame(applyFsKeySize));
+}
+
+function syncFsText() {
+  // richEditor は fs-top に直接移動しているため同期不要
+}
+
+// 全画面時にキー行の高さをJS計算してCSS変数に反映
+function applyFsKeySize() {
+  if (!document.body.classList.contains('is-fullscreen')) return;
+  const panel = document.querySelector('.keyboard-panel');
+  if (!panel) return;
+
+  const isVert = panel.classList.contains('layout-vertical');
+  const area = document.getElementById('keyboardArea');
+  if (!area) return;
+  const rows = area.querySelectorAll('.key-row');
+  const rowCount = rows.length;
+  if (rowCount === 0) return;
+
+  const GAP = 4;
+
+  if (isVert) {
+    // 縦配列：flex:1 で列幅は自動均等分割
+    // 文字サイズだけ列幅から計算
+    const panelW = panel.clientWidth - 12; // padding
+    const colW = Math.floor((panelW - GAP * (rowCount - 1)) / rowCount);
+    const safeColW = Math.max(colW, 40);
+    document.documentElement.style.setProperty('--fs-row-h', safeColW + 'px');
+    return;
+  }
+
+  // 横配列：行の高さを計算
+  const panelH = panel.clientHeight;
+  const tabs = panel.querySelector('.mode-tabs');
+  const tabsH = tabs ? tabs.offsetHeight + GAP : 44;
+  const availH = panelH - tabsH - 10;
+  const rowH = Math.floor((availH - GAP * (rowCount - 1)) / rowCount);
+  const safeRowH = Math.max(rowH, 44);
+  document.documentElement.style.setProperty('--fs-row-h', safeRowH + 'px');
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (req) req.call(el);
+  document.body.classList.add('is-fullscreen');
+  fsBtn.textContent = '⛶';
+  fsBtn.title = '全画面を終了';
+  buildFsTop();
+}
+function exitFullscreen() {
+  const ex = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (ex) ex.call(document);
+  document.body.classList.remove('is-fullscreen');
+  fsBtn.textContent = '⛶';
+  fsBtn.title = '全画面表示';
+  // richEditor を text-panel に戻す
+  restoreRichEditor();
+}
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+}
+
+fsBtn.addEventListener('click', () => {
+  if (isFullscreen()) exitFullscreen();
+  else enterFullscreen();
+});
+
+// ブラウザのEscキーや他の手段で全画面終了したときも同期
+document.addEventListener('fullscreenchange', () => {
+  if (!isFullscreen()) {
+    document.body.classList.remove('is-fullscreen');
+    fsBtn.textContent = '⛶';
+    fsBtn.title = '全画面表示';
+    restoreRichEditor();
+  } else {
+    document.body.classList.add('is-fullscreen');
+    buildFsTop();
+  }
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  if (!isFullscreen()) {
+    document.body.classList.remove('is-fullscreen');
+  } else {
+    document.body.classList.add('is-fullscreen');
+  }
+});
+
+// dwell対応
+addDwell(fsBtn, () => fsBtn.click());
+
+// richEditor を通常時の text-panel に戻す
+function restoreRichEditor() {
+  if (!richEditor) return;
+  // text-panel 内の richEditor の直前の位置（toolbarの後）に戻す
+  const textPanel = document.querySelector('.text-panel');
+  if (!textPanel) return;
+  // すでに text-panel 内にあればスキップ
+  if (textPanel.contains(richEditor)) return;
+  // richToolbar の直後に挿入
+  const toolbar = document.getElementById('richToolbar');
+  const hiddenDisplay = document.getElementById('textDisplay');
+  if (toolbar && toolbar.nextSibling) {
+    textPanel.insertBefore(richEditor, toolbar.nextSibling);
+  } else if (hiddenDisplay) {
+    textPanel.insertBefore(richEditor, hiddenDisplay);
+  } else {
+    textPanel.appendChild(richEditor);
+  }
+  richEditor.style.fontSize = '';
+  richEditor.style.minHeight = '';
+  richEditor.focus();
+}
+
+// 全画面中にウィンドウリサイズされたらキーサイズ再計算
+window.addEventListener('resize', () => {
+  if (document.body.classList.contains('is-fullscreen')) requestAnimationFrame(applyFsKeySize);
+});
+
+// ==================== INIT ====================
+applyKeySize();
+applyLayoutDir(keyboardLayoutDir);
+initCustomColors();
+setupRichToolbar();
+renderPhrases();
+renderAAC();
+updateDisplay();
+renderPredictions();
+renderProfileBar();
+loadProfileSettings(currentProfileId);
+renderStampGrid();
+setupPanelVisEvents();
+applyPanelVisibility();
+setupVoice();
+</script>
+</body>
+</html>
