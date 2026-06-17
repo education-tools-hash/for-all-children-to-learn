@@ -385,8 +385,16 @@ body.dark .voice-select{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
 }
 .lvtab-school.on{background:var(--or);color:#fff;transform:scale(1.05);}
 
-/* 学校版シーンアイテム */
-.sitem.school{ border-left:4px solid var(--or); }
+/* 学部・地域タブ */
+.lvtab-extra{
+  flex-shrink:0;min-height:var(--min-tap);padding:0 14px;
+  border-radius:30px;font-family:inherit;font-size:0.8125rem;
+  font-weight:700;border:2.5px solid #1ABC9C;
+  cursor:pointer;transition:all .2s;
+  background:#fff;color:#1ABC9C;
+  box-shadow:var(--shadow-sm);
+}
+.lvtab-extra.on{background:#1ABC9C;color:#fff;transform:scale(1.05);}
 
 /* DIVIDER */
 .divider{height:1px;background:#EEE;margin:0 14px 12px;}
@@ -1936,16 +1944,24 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     <button class="lvtab" data-lv="2" onclick="setLvAndRefresh(2,'scene-list')">🌿 なれてきた</button>
     <button class="lvtab" data-lv="3" onclick="setLvAndRefresh(3,'scene-list')">🌳 もっとできる</button>
   </div>
-  <!-- 学校版タブ切り替え -->
+  <!-- モード切り替え -->
   <div class="scene-mode-tabs">
     <button class="scene-mode-tab on" id="tab-normal" onclick="setSceneMode('normal')">📚 ふだんのせいかつ</button>
     <button class="scene-mode-tab" id="tab-school" onclick="setSceneMode('school')">🏫 学校版SST</button>
+    <button class="scene-mode-tab" id="tab-extra" onclick="setSceneMode('extra')">🌍 学部・地域</button>
   </div>
-  <!-- 学校版サブレベルタブ（学校版選択時のみ表示） -->
+  <!-- 学校版サブレベルタブ -->
   <div class="lvtabs scr-lvtabs" id="scene-school-tabs" style="display:none;">
     <button class="lvtab-school on" data-slv="1s" onclick="setLvAndRefresh('1s','scene-list')">🌱 はじめて</button>
     <button class="lvtab-school" data-slv="2s" onclick="setLvAndRefresh('2s','scene-list')">🌿 なれてきた</button>
     <button class="lvtab-school" data-slv="3s" onclick="setLvAndRefresh('3s','scene-list')">🌳 もっとできる</button>
+  </div>
+  <!-- 学部・地域タブ -->
+  <div class="lvtabs scr-lvtabs" id="scene-extra-tabs" style="display:none;">
+    <button class="lvtab-extra on" data-elv="el" onclick="setLvAndRefresh('el','scene-list')">🏫 小学部</button>
+    <button class="lvtab-extra" data-elv="jh" onclick="setLvAndRefresh('jh','scene-list')">📚 中学部</button>
+    <button class="lvtab-extra" data-elv="hs" onclick="setLvAndRefresh('hs','scene-list')">🎓 高等部</button>
+    <button class="lvtab-extra" data-elv="com" onclick="setLvAndRefresh('com','scene-list')">🌍 地域生活</button>
   </div>
   <div class="slist" id="slist"></div>
 </div>
@@ -2956,6 +2972,359 @@ const SCENES = {
   ]
 };
 
+// ============================================================
+// 追加学校場面データ（小学部・中学部・高等部・地域生活）
+// ============================================================
+const SCENES_EXTRA = {
+
+  // ── 小学部 ───────────────────────────────────────────
+  'el':[
+    // 教室
+    {icon:'🎨',title:'友達の作品を触りたい',desc:'友達のものへの接し方を練習しよう',tag:'教室・マナー',
+     sit:'友達が作った粘土の作品が気になって、触ってみたくなりました。',
+     dialogs:[{who:'（心の声）',txt:'きれいだな…触ってみたいな。',pl:false}],
+     choices:[
+       {txt:'「それ、すごいね！触ってもいい？」と聞く',level:'best',fb:'聞いてから触れたね！それが一番大切なことだよ。'},
+       {txt:'「いいなあ」と言いながら、ちょっとだけ触る',level:'try',fb:'気持ちはわかるよ。でも一言「触ってもいい？」と聞くだけでOKだよ。'},
+       {txt:'先生がいないすきに、こっそり触る',level:'try',fb:'こっそり触ると友達が悲しむよ。「触ってもいい？」の一言を練習しよう。'}
+     ],
+     tip:'友達のものを触るときは必ず「触ってもいい？」と一言聞こう。'},
+    {icon:'🚶',title:'列に並ぶ',desc:'順番を守る練習をしよう',tag:'教室・マナー',
+     sit:'給食の配膳で列に並んでいます。早く食べたくて、前に割り込みたくなりました。',
+     dialogs:[{who:'友達',txt:'（きちんと並んで待っている）',pl:false}],
+     choices:[
+       {txt:'我慢して、列の後ろに並んで待つ',level:'best',fb:'順番を守れたね！みんなが気持ちよく過ごせるよ。'},
+       {txt:'「ちょっとだけ」と言って前に入る',level:'try',fb:'早く食べたい気持ちはわかるよ。でも順番を守るとみんな公平だよ。'},
+       {txt:'気づかれないように、そっと前に入る',level:'try',fb:'それに気づいた人は悲しい気持ちになるよ。列の後ろから待てると素敵だよ。'}
+     ],
+     tip:'順番を守ることはみんなへの思いやり。待てたことをほめよう。'},
+    {icon:'🙋',title:'発表中に話したくなった',desc:'場の雰囲気を読む練習をしよう',tag:'教室・マナー',
+     sit:'友達が前に出て発表しています。自分も言いたいことが浮かんできました。',
+     dialogs:[{who:'友達',txt:'「ぼくが作ったのは…」（発表中）',pl:false}],
+     choices:[
+       {txt:'友達の発表が終わるまで静かに待つ',level:'best',fb:'最後まで聞けたね！それが発表している人への一番の応援だよ。'},
+       {txt:'小さな声で「ちょっと言いたい」とつぶやく',level:'try',fb:'気持ちを抑えようとしたんだね。発表が終わってから言おう。'},
+       {txt:'「あ！ぼくも！」と声に出してしまう',level:'try',fb:'言いたい気持ちはよくわかるよ。次は発表が終わるまで待つ練習をしよう。'}
+     ],
+     tip:'人が話しているときは「最後まで聞く」。それが一番の優しさだよ。'},
+    {icon:'😤',title:'気持ちが爆発しそうなとき',desc:'気持ちのコントロールを練習しよう',tag:'感情調整',
+     sit:'うまくいかなくて、教材を投げたくなってしまいました。',
+     dialogs:[{who:'（心の声）',txt:'もう！うまくいかない！',pl:false}],
+     choices:[
+       {txt:'「ちょっと休んでいいですか？」と先生に言う',level:'best',fb:'気持ちが高ぶったとき、言葉で伝えられたね。それがとても大切だよ。'},
+       {txt:'深呼吸して、机に伏せる',level:'good',fb:'自分で落ち着こうとしたんだね。落ち着いたら先生に話してみよう。'},
+       {txt:'思わず教材を投げてしまう',level:'try',fb:'怒りが溢れてしまったね。次は「休んでいい？」と言う練習をしよう。怒りは自然な気持ちだよ。'}
+     ],
+     tip:'物を投げたくなったら「休んでいい？」の一言。それが言えたら大成功！'},
+    {icon:'🆘',title:'困ったとき先生を呼ぶ',desc:'助けを求める練習をしよう',tag:'ヘルプ',
+     sit:'作業中に困ってしまいました。先生は少し離れたところにいます。',
+     dialogs:[{who:'（心の声）',txt:'わからない…でも呼んでいいのかな。',pl:false}],
+     choices:[
+       {txt:'「先生、ちょっといいですか？」と声をかける',level:'best',fb:'自分から助けを求められたね！それがとても大切なことだよ。'},
+       {txt:'先生が来るまでじっと待つ',level:'good',fb:'待てたのは偉いけど、困ったときは声をかけていいんだよ。'},
+       {txt:'「もういや！」と言ってやめてしまう',level:'try',fb:'辛くなってしまったね。「先生、ちょっといい？」の一言を練習しよう。'}
+     ],
+     tip:'困ったときは「先生、ちょっといい？」。遠慮しなくていいよ。'},
+    // 給食
+    {icon:'🥦',title:'苦手な食べ物が出た',desc:'苦手なものとの付き合い方を練習しよう',tag:'給食',
+     sit:'今日の給食に苦手な野菜が入っていました。',
+     dialogs:[{who:'給食の時間',txt:'（苦手な野菜を見てどきっとした）',pl:false}],
+     choices:[
+       {txt:'「少しだけ食べてみる」と心の中で決める',level:'best',fb:'挑戦しようとしたね！一口だけでもすごいことだよ。'},
+       {txt:'「苦手です」と先生に伝える',level:'good',fb:'気持ちを言葉で伝えられたね。先生に伝えるのは大切なことだよ。'},
+       {txt:'気づかれないように、こっそり残す',level:'try',fb:'残したいときは先生に一言伝えよう。こっそりより気持ちを伝える方が気楽だよ。'}
+     ],
+     tip:'苦手なものは無理しなくていい。「苦手です」と言えることも大切だよ。'},
+    {icon:'🍚',title:'おかわりの順番',desc:'おかわりのマナーを練習しよう',tag:'給食',
+     sit:'給食のおかわりの時間になりました。みんなが並んでいます。',
+     dialogs:[{who:'先生',txt:'「おかわりしたい人は並んでね」',pl:false}],
+     choices:[
+       {txt:'列の後ろに並んで、自分の番を待つ',level:'best',fb:'順番を守れたね！みんなが公平に食べられるよ。'},
+       {txt:'早く食べ終わったから、並ばずに先に行く',level:'try',fb:'早く食べたのは偉いけど、おかわりも順番があるよ。列に並ぼう。'},
+       {txt:'「ぼくまだ食べてた！」と騒ぐ',level:'try',fb:'悔しい気持ちはわかるよ。次は早めに食べ終わって並ぼう。'}
+     ],
+     tip:'おかわりも順番が大切。列に並んで待てたら花丸だよ。'},
+    {icon:'🍽',title:'食器を片付ける',desc:'後片付けの仕方を練習しよう',tag:'給食',
+     sit:'給食が終わりました。食器を片付けます。',
+     dialogs:[{who:'先生',txt:'「食べ終わった人は食器を返しましょう」',pl:false}],
+     choices:[
+       {txt:'食器についているものをよそって、静かに返却場所に持っていく',level:'best',fb:'丁寧に片付けられたね！食器を大切にできてすごいよ。'},
+       {txt:'急いで持っていって、ガチャンと置く',level:'try',fb:'早く片付けようとしたんだね。食器は壊れやすいので、ゆっくり置こう。'},
+       {txt:'先生が片付けてくれるだろうと、そのまま席を立つ',level:'try',fb:'自分の食器は自分で片付けるのがルールだよ。一緒に練習しよう。'}
+     ],
+     tip:'食器は両手で丁寧に。「ありがとうございました」も言えると素敵だよ。'},
+    // 休み時間
+    {icon:'🏃',title:'鬼ごっこに入りたい',desc:'遊びへの参加の仕方を練習しよう',tag:'休み時間',
+     sit:'友達が鬼ごっこをしています。自分も入りたいです。',
+     dialogs:[{who:'友達たち',txt:'（楽しそうに鬼ごっこをしている）',pl:false}],
+     choices:[
+       {txt:'「入れて！」と声をかける',level:'best',fb:'自分から声をかけられたね！それが友達を作る第一歩だよ。'},
+       {txt:'近くでじっと見ていて、声をかけてもらうのを待つ',level:'good',fb:'見ていたんだね。「入れて」の一言、少しずつ練習しよう。'},
+       {txt:'声をかけずに、いきなり走り始める',level:'try',fb:'入りたい気持ちはよくわかるよ。でも「入れて」と聞いてから入ろう。'}
+     ],
+     tip:'遊びに入るときは「入れて！」の一言。断られてもまた違う場所で試せるよ。'},
+    {icon:'🧸',title:'おもちゃを貸してほしい',desc:'借りるときの言い方を練習しよう',tag:'休み時間',
+     sit:'友達が持っているボールを借りて遊びたいです。',
+     dialogs:[{who:'友達',txt:'（ボールで一人で遊んでいる）',pl:false}],
+     choices:[
+       {txt:'「そのボール、貸してくれる？」と聞く',level:'best',fb:'ちゃんと聞いてから借りられたね！それが大切だよ。'},
+       {txt:'「ちょっとだけ」と言って、そのまま取る',level:'try',fb:'使いたい気持ちはわかるよ。でも「貸してくれる？」と先に聞こう。'},
+       {txt:'近くに行って、じっとボールを見る',level:'good',fb:'借りたい気持ちを伝えようとしたんだね。「貸してくれる？」の一言を言えるといいよ。'}
+     ],
+     tip:'借りるときは「貸してくれる？」。返すときは「ありがとう」を忘れずに。'},
+    {icon:'😢',title:'遊びを断られた',desc:'断られたときの気持ちの立て直し方を学ぼう',tag:'休み時間',
+     sit:'友達に「一緒に遊ぼう」と言ったら「今は無理」と断られました。',
+     dialogs:[{who:'友達',txt:'「ごめん、今は別の遊びしてるから」',pl:false}],
+     choices:[
+       {txt:'「そうか、また今度ね」と言って、別の友達を探す',level:'best',fb:'断られても気持ちを立て直せたね！それが大切なことだよ。'},
+       {txt:'「なんで！」と怒る',level:'try',fb:'悲しい気持ちはわかるよ。断られることは誰にでもあるよ。別の友達に声をかけてみよう。'},
+       {txt:'そのまま一人でうつむく',level:'try',fb:'悲しいよね。でも他にも一人でいる子がいるかもしれない。別の子に声をかけてみよう。'}
+     ],
+     tip:'断られることは誰にでもある。「また今度ね」と言えたらとても立派だよ。'},
+  ],
+
+  // ── 中学部 ───────────────────────────────────────────
+  'jh':[
+    // 友達関係
+    {icon:'😅',title:'友達が失敗したとき',desc:'共感の言葉かけを練習しよう',tag:'友達関係',
+     sit:'友達が授業中に問題を間違えて、クラスのみんなの前で恥ずかしそうにしています。',
+     dialogs:[{who:'友達',txt:'（うつむいて恥ずかしそうにしている）',pl:false}],
+     choices:[
+       {txt:'休み時間に「さっきは大変だったね」と声をかける',level:'best',fb:'タイミングも言葉も最高だよ！友達はきっと嬉しかったはずだよ。'},
+       {txt:'笑ってしまって、あとで「ごめん」と謝る',level:'try',fb:'笑ってしまうことあるよね。気づいたら謝れたのは大切なことだよ。次は我慢できるといいね。'},
+       {txt:'気まずくて何も言わずにいる',level:'good',fb:'笑わなかったのは優しさだよ。「大変だったね」の一言が言えると、もっと友達が救われるよ。'}
+     ],
+     tip:'人が失敗したとき、笑わないことが第一歩。声をかけられると最高だよ。'},
+    {icon:'👥',title:'仲間外れにしそうになったとき',desc:'公平な行動を練習しよう',tag:'友達関係',
+     sit:'グループで話していたら、一人だけ話に入れていない子がいることに気づきました。',
+     dialogs:[{who:'（気づいた）',txt:'「あの子、入れてなかった…」',pl:false}],
+     choices:[
+       {txt:'「ねえ、〇〇さんも一緒に話そうよ」と声をかける',level:'best',fb:'気づいて行動できたね！それが本当の優しさだよ。'},
+       {txt:'「入れてあげたほうがいいかな…」と思いながら様子を見る',level:'good',fb:'気づけたのはすごい。一歩踏み出して声をかけてみよう。'},
+       {txt:'自分には関係ないと思って続ける',level:'try',fb:'気づいたとき、一声かけるだけで変わることがあるよ。少しずつ練習しよう。'}
+     ],
+     tip:'「気づいて声をかける」。それだけで誰かがとても救われるよ。'},
+    {icon:'😡',title:'注意されて怒りそうなとき',desc:'注意を受け入れる練習をしよう',tag:'友達関係',
+     sit:'先生から「さっきの行動はよくなかったよ」と注意を受けました。',
+     dialogs:[{who:'先生',txt:'「さっきのはちょっとよくなかったよ」',pl:false}],
+     choices:[
+       {txt:'「はい、わかりました」と受け止める',level:'best',fb:'注意を受け入れられたね！それがとても大切なことだよ。'},
+       {txt:'「でも…」と言い返したくなるのを我慢する',level:'good',fb:'我慢できたのはすごいよ。「はい」の一言が言えるともっといいね。'},
+       {txt:'「別にいいじゃないですか！」と言い返す',level:'try',fb:'腹が立つことあるよね。でもまず「はい」と受け止めて、落ち着いてから話そう。'}
+     ],
+     tip:'注意されたとき「はい」と言える子は、みんなから信頼されるよ。'},
+    {icon:'🤝',title:'グループ活動を断りたい',desc:'気持ちの伝え方を練習しよう',tag:'友達関係',
+     sit:'グループ活動をやりたくない気持ちがあります。でも参加しなければなりません。',
+     dialogs:[{who:'先生',txt:'「では班ごとに作業を始めてください」',pl:false}],
+     choices:[
+       {txt:'「今日はちょっと気持ちが乗らないけど、やってみます」と先生に言う',level:'best',fb:'正直に気持ちを伝えて、それでも参加しようとしたね。とても立派だよ。'},
+       {txt:'黙って参加するふりをして、あまりやらない',level:'try',fb:'参加したことは大切だよ。でも気持ちを先生に伝えると、助けてもらえるよ。'},
+       {txt:'「やりたくない」と言って、席を離れる',level:'try',fb:'正直な気持ちだよ。でも「気持ちが乗らないけどやってみる」と言えたら、ぐっと大人だよ。'}
+     ],
+     tip:'やりたくないときも「やってみます」が言えると、自分の力が伸びるよ。'},
+    // SNS・タブレット
+    {icon:'📱',title:'勝手に写真を撮る',desc:'プライバシーの大切さを学ぼう',tag:'SNS・タブレット',
+     sit:'友達がおもしろい格好をしていました。スマートフォンで撮りたくなりました。',
+     dialogs:[{who:'（心の声）',txt:'面白い！写真撮りたい！',pl:false}],
+     choices:[
+       {txt:'「写真撮ってもいい？」と聞いてから撮る',level:'best',fb:'許可を取れたね！写真を撮るときは必ず聞くことが大切だよ。'},
+       {txt:'「おもしろい」と言いながら、さっと撮る',level:'try',fb:'一言聞くことが大切だよ。勝手に撮ると相手が嫌な気持ちになることがあるよ。'},
+       {txt:'バレないように、こっそり撮る',level:'try',fb:'それは相手の気持ちを大切にしていないよ。写真はいつでも「いい？」から始めよう。'}
+     ],
+     tip:'写真を撮るときは必ず「撮ってもいい？」。これが大原則だよ。'},
+    {icon:'💬',title:'SNSに悪口を書きたくなった',desc:'ネットのルールを学ぼう',tag:'SNS・タブレット',
+     sit:'腹が立つことがあって、SNSに書きたくなりました。',
+     dialogs:[{who:'（心の声）',txt:'むかつく！書いてやろうかな。',pl:false}],
+     choices:[
+       {txt:'一旦スマホを置いて、深呼吸する',level:'best',fb:'書く前に立ち止まれたね！それがとても大切だよ。怒りは時間とともに落ち着くよ。'},
+       {txt:'書きかけて、やっぱり消す',level:'good',fb:'書きかけてやめられたね。一歩踏みとどまれた自分を褒めよう。'},
+       {txt:'「ちょっとだけなら」と思って書く',level:'try',fb:'ネットに書いた言葉は消えないことがあるよ。怒りを感じたら先にスマホを置こう。'}
+     ],
+     tip:'怒りを感じたらまずスマホを置く。それだけで後悔を防げるよ。'},
+    {icon:'🔐',title:'個人情報を送りそうになった',desc:'個人情報の守り方を学ぼう',tag:'SNS・タブレット',
+     sit:'SNSで知り合った人から「住所や電話番号を教えて」と言われました。',
+     dialogs:[{who:'SNSの相手',txt:'「どこに住んでるの？電話番号教えて」',pl:false}],
+     choices:[
+       {txt:'「教えられません」と断って、大人に相談する',level:'best',fb:'自分を守れたね！個人情報は絶対に教えなくていいよ。大人に相談したのも正解だよ。'},
+       {txt:'「少しくらいなら」と思って答えてしまう',level:'try',fb:'知らない人に個人情報を教えるのは危険だよ。「教えられません」と断っていいよ。'},
+       {txt:'無視してそのまま使い続ける',level:'good',fb:'教えなかったのは正解だよ。次は大人に相談しよう。'}
+     ],
+     tip:'住所・電話番号・学校名は誰にも教えなくていい。怖いと思ったら必ず大人へ。'},
+    {icon:'🌙',title:'深夜のメッセージ',desc:'ネットの時間管理を学ぼう',tag:'SNS・タブレット',
+     sit:'夜11時に友達からメッセージが来ました。返信したくなりました。',
+     dialogs:[{who:'友達からのメッセージ',txt:'「ねえ起きてる？」（夜11時）',pl:false}],
+     choices:[
+       {txt:'「今日はもう寝るね。明日話そう」と返して寝る',level:'best',fb:'自分の生活リズムを守れたね！夜は休むことが体と心のためになるよ。'},
+       {txt:'「少しだけなら」と思って返事を続ける',level:'try',fb:'友達を大切にしたい気持ちはわかるよ。でも深夜のやり取りは翌日に影響するよ。'},
+       {txt:'無視してスマホを置く',level:'good',fb:'眠れた分は正解だよ。「明日話そう」と一言送れるともっといいよ。'}
+     ],
+     tip:'夜のスマホは「明日にしよう」。自分の睡眠を守ることも大切なスキルだよ。'},
+  ],
+
+  // ── 高等部 ───────────────────────────────────────────
+  'hs':[
+    // 現場実習
+    {icon:'🏭',title:'実習先でのあいさつ',desc:'職場のあいさつを練習しよう',tag:'現場実習',
+     sit:'現場実習の朝、職場の担当者さんが来ました。',
+     dialogs:[{who:'担当者',txt:'（こちらに向かって歩いてきた）',pl:false}],
+     choices:[
+       {txt:'目を見て「おはようございます！よろしくお願いします」と言う',level:'best',fb:'完璧なあいさつだね！それだけで職場の人はとても好印象を持つよ。'},
+       {txt:'会釈だけする',level:'good',fb:'会釈できたのは大切だよ。「おはようございます」の一言も出るといいね。'},
+       {txt:'うつむいたまま通り過ぎる',level:'try',fb:'緊張するよね。でもあいさつは職場で一番大切なスキルだよ。一言だけ言えるように練習しよう。'}
+     ],
+     tip:'あいさつは職場での信頼の第一歩。目を見て「おはようございます」が言えると最高だよ。'},
+    {icon:'📋',title:'作業を変えたいとき',desc:'報告・連絡の練習をしよう',tag:'現場実習',
+     sit:'指示された作業が終わりました。次に何をすればいいか、自分で判断して別の作業を始めようとしています。',
+     dialogs:[{who:'（心の声）',txt:'終わったし、次はあれをやればいいかな。',pl:false}],
+     choices:[
+       {txt:'「〇〇が終わりました。次は何をすればいいですか？」と報告する',level:'best',fb:'報告してから動けたね！職場ではこれが基本だよ。自分で動く前に一言確認することが大切だよ。'},
+       {txt:'終わったことを伝えずに、次の作業を始める',level:'try',fb:'主体的に動こうとしたのはいいね。でも職場では「終わりました」と報告してから次の指示を待つのが基本だよ。'},
+       {txt:'終わったのに、なんとなく同じ作業を続ける',level:'try',fb:'迷ってしまったんだね。迷ったら「終わりましたが、次は何をしますか？」と聞けばOKだよ。'}
+     ],
+     tip:'「終わりました」「次は何をしますか？」が言えると、職場で頼られる人になれるよ。'},
+    {icon:'❓',title:'わからないまま進めてしまいそう',desc:'確認する力を練習しよう',tag:'現場実習',
+     sit:'作業の途中で、やり方がわからなくなってしまいました。',
+     dialogs:[{who:'（心の声）',txt:'あれ、どうやるんだっけ？でも聞くのが恥ずかしいな。',pl:false}],
+     choices:[
+       {txt:'「すみません、ここの確認をしてもいいですか？」と聞く',level:'best',fb:'聞けたね！わからないまま進めるより、確認してから進む方が絶対に正解だよ。'},
+       {txt:'たぶんこうだろうと思ってそのまま進める',level:'try',fb:'間違えたとき後の修正が大変になるよ。「ちょっと確認していいですか？」の一言で解決するよ。'},
+       {txt:'止まったまま、誰かが気づいてくれるのを待つ',level:'try',fb:'困っているのに言えないのはつらいよね。「確認していいですか？」だけで大丈夫だよ。'}
+     ],
+     tip:'わからないときは「確認していいですか？」。それが一番仕事が速く正確に進む方法だよ。'},
+    {icon:'⏰',title:'遅刻してしまった',desc:'遅刻したときの対応を練習しよう',tag:'現場実習',
+     sit:'実習先に遅刻してしまいました。担当者が入口で待っています。',
+     dialogs:[{who:'担当者',txt:'（心配そうに入口で待っている）',pl:false}],
+     choices:[
+       {txt:'「遅くなってしまい、申し訳ありませんでした」とすぐに謝る',level:'best',fb:'すぐに謝れたね！遅刻したとき大切なのは、言い訳より先に謝ることだよ。'},
+       {txt:'「電車が遅れて…」と理由から先に言う',level:'try',fb:'理由を伝えることも大切だよ。でも「申し訳ありません」を先に言ってから理由を説明しよう。'},
+       {txt:'何も言わずに、そのまま作業場に向かう',level:'try',fb:'早く仕事を始めようとしたんだね。でもまず「申し訳ありませんでした」と一言伝えよう。'}
+     ],
+     tip:'遅刻したらまず「申し訳ありません」。理由はその後。この順番がとても大切だよ。'},
+    // 就労準備
+    {icon:'📞',title:'電話応対の練習',desc:'電話での話し方を練習しよう',tag:'就労準備',
+     sit:'職場の電話が鳴りました。担当者から「出てみて」と言われました。',
+     dialogs:[{who:'担当者',txt:'「電話出てみようか」',pl:false}],
+     choices:[
+       {txt:'「はい、〇〇です。どのようなご用件でしょうか」と答える',level:'best',fb:'丁寧に答えられたね！名前を言ってから用件を聞くのが基本だよ。'},
+       {txt:'「もしもし？」と答える',level:'try',fb:'電話に出られたのは大切だよ。職場では「はい、〇〇です」と会社名や名前を言ってから始めよう。'},
+       {txt:'ドキドキして出られない',level:'try',fb:'緊張するよね。「はい」だけでも出れれば第一歩だよ。練習を繰り返していこう。'}
+     ],
+     tip:'電話は「はい、〇〇です」から始める。練習すれば必ずできるようになるよ。'},
+    {icon:'📝',title:'メモを取る練習',desc:'大切なことを記録する練習をしよう',tag:'就労準備',
+     sit:'担当者から作業の手順を説明されています。',
+     dialogs:[{who:'担当者',txt:'「まず①→②→③の順にやってください。わかりましたか？」',pl:false}],
+     choices:[
+       {txt:'メモを取りながら聞いて「はい、メモしました」と答える',level:'best',fb:'メモを取りながら聞けたね！それが仕事の基本だよ。後で見返せるしね。'},
+       {txt:'「はい」と言って覚えようとする',level:'good',fb:'覚えようとしたのは立派だよ。でもメモを取れるともっと確実だよ。'},
+       {txt:'「わかりました」と言ったが、何番か忘れてしまう',level:'try',fb:'難しいよね。「メモしていいですか？」と言ってからメモする習慣をつけよう。'}
+     ],
+     tip:'「メモしていいですか？」は賢い一言。メモを取れる人は職場で信頼されるよ。'},
+    {icon:'👔',title:'身だしなみを整える',desc:'出勤前の準備を練習しよう',tag:'就労準備',
+     sit:'実習先に行く前の朝、鏡を見たら寝ぐせがありました。',
+     dialogs:[{who:'（鏡を見ている）',txt:'寝ぐせがある…まあいいか。',pl:false}],
+     choices:[
+       {txt:'水で直して、服のシワも確認してから出かける',level:'best',fb:'身だしなみを整えられたね！第一印象が全然違うよ。'},
+       {txt:'帽子をかぶって隠す',level:'good',fb:'工夫したね。でも直接直せるともっと清潔感が出るよ。'},
+       {txt:'そのまま出かける',level:'try',fb:'気にしなくなるよね。でも職場では身だしなみが信頼につながるよ。出かける前に鏡を見る習慣をつけよう。'}
+     ],
+     tip:'出かける前の3点チェック：服・髪・爪。これで印象が大きく変わるよ。'},
+    {icon:'☕',title:'休憩時間の過ごし方',desc:'休憩のマナーを練習しよう',tag:'就労準備',
+     sit:'昼休憩になりました。職場の休憩室に入ります。',
+     dialogs:[{who:'同僚',txt:'（休憩室で静かに食事をしている）',pl:false}],
+     choices:[
+       {txt:'静かに入って、自分の場所で過ごす',level:'best',fb:'場の雰囲気を読めたね！休憩室では落ち着いた行動が大切だよ。'},
+       {txt:'大きな声で音楽をかけて食べる',level:'try',fb:'自分の休憩を楽しみたいのはわかるよ。でも他の人への配慮が必要だよ。イヤホンを使おう。'},
+       {txt:'緊張して、入るのをためらう',level:'good',fb:'緊張するよね。静かに入るだけで大丈夫だよ。少しずつ慣れていこう。'}
+     ],
+     tip:'休憩室は「みんなの場所」。静かに過ごすことが職場のマナーだよ。'},
+  ],
+
+  // ── 地域生活 ─────────────────────────────────────────
+  'com':[
+    // コンビニ
+    {icon:'🏪',title:'コンビニのレジに並ぶ',desc:'お店でのマナーを練習しよう',tag:'地域生活・コンビニ',
+     sit:'コンビニのレジに2人並んでいます。急いでいます。',
+     dialogs:[{who:'（状況）',txt:'レジに列ができている。',pl:false}],
+     choices:[
+       {txt:'列の後ろに並んで、自分の番を待つ',level:'best',fb:'順番を守れたね！急いでいても並ぶのがマナーだよ。'},
+       {txt:'「急いでるんで」と言って前に入る',level:'try',fb:'急いでいる気持ちはわかるよ。でもお店では順番を守ることが大切だよ。'},
+       {txt:'店員さんに「空いてるレジないですか？」と聞く',level:'good',fb:'工夫したね！空きレジがあるか聞くのはOKだよ。'}
+     ],
+     tip:'急いでいても順番を守るのがお店のルール。「急いでいます」と声をかけるのはOKだよ。'},
+    {icon:'📦',title:'商品を戻す',desc:'商品の扱い方を練習しよう',tag:'地域生活・コンビニ',
+     sit:'棚から取った商品をやっぱり買わないことにしました。',
+     dialogs:[{who:'（商品を手に持っている）',txt:'やっぱりいらないな。',pl:false}],
+     choices:[
+       {txt:'元の場所に、丁寧に戻す',level:'best',fb:'元の場所に戻せたね！それがお店への思いやりだよ。'},
+       {txt:'近くの棚に適当に置く',level:'try',fb:'戻せたのはいいんだけど、元の場所に戻すのがマナーだよ。商品の場所を覚えておこう。'},
+       {txt:'持ったままレジに向かい、レジで「いらない」と言う',level:'try',fb:'レジで戻すのは店員さんが困るよ。気づいた時点で元の場所に戻そう。'}
+     ],
+     tip:'商品は元の場所に戻す。これがお店への基本的なマナーだよ。'},
+    {icon:'🤔',title:'店員さんへ質問する',desc:'お店での聞き方を練習しよう',tag:'地域生活・コンビニ',
+     sit:'探している商品が見つかりません。店員さんに聞きたいです。',
+     dialogs:[{who:'店員',txt:'（近くで棚を整理している）',pl:false}],
+     choices:[
+       {txt:'「すみません、〇〇はどこにありますか？」と聞く',level:'best',fb:'丁寧に聞けたね！「すみません」の一言が大切だよ。'},
+       {txt:'店員さんの袖を引っ張って呼ぶ',level:'try',fb:'呼ぼうとしたのはいいよ。でも「すみません」と声をかける方が丁寧だよ。'},
+       {txt:'諦めてそのまま出る',level:'try',fb:'恥ずかしくなったのかな。「すみません」の一言で解決するよ。練習しよう。'}
+     ],
+     tip:'「すみません」はお店での魔法の言葉。これだけで店員さんが来てくれるよ。'},
+    // 公共交通機関
+    {icon:'🚃',title:'電車の中での過ごし方',desc:'電車のマナーを練習しよう',tag:'地域生活・交通',
+     sit:'混雑した電車の中で、楽しい気持ちになって大声で話したくなりました。',
+     dialogs:[{who:'（電車の中）',txt:'（みんな静かに乗っている）',pl:false}],
+     choices:[
+       {txt:'小さな声か、ジェスチャーで伝える',level:'best',fb:'電車の中でも声を抑えられたね！それが周りへの思いやりだよ。'},
+       {txt:'「少しくらいいいか」と思って普通の声で話す',level:'try',fb:'楽しい気持ちはわかるよ。電車の中は「静かな場所」というルールを思い出そう。'},
+       {txt:'気づかず大きな声で話す',level:'try',fb:'楽しくなるよね。でも電車の中は小さな声が基本だよ。「ここは静かにする場所」と意識しよう。'}
+     ],
+     tip:'電車の中は「静かにする場所」。楽しい話は降りてから！'},
+    {icon:'💺',title:'優先席の利用',desc:'優先席のルールを学ぼう',tag:'地域生活・交通',
+     sit:'疲れていて、電車の優先席に座りたくなりました。',
+     dialogs:[{who:'（優先席が空いている）',txt:'疲れた…あそこに座ろうかな。',pl:false}],
+     choices:[
+       {txt:'周りに優先席を必要としている人がいないか確認してから座る',level:'best',fb:'確認してから座れたね！優先席は「必要な人が使う席」だよ。'},
+       {txt:'空いているので、そのまま座る',level:'try',fb:'体が辛いときは使っていいよ。でも「必要な人が来たら譲る」気持ちを忘れずにね。'},
+       {txt:'座りたいけど「優先席だから」と我慢して立つ',level:'good',fb:'ルールを守ろうとしたんだね。体が辛いときや周りに必要な人がいなければ座っていいよ。'}
+     ],
+     tip:'優先席は「必要な人が優先」。気づいたら譲ろう。それだけでいいよ。'},
+    {icon:'🚉',title:'困ったとき駅員さんに相談',desc:'公共の場での助けの求め方を練習しよう',tag:'地域生活・交通',
+     sit:'電車を乗り間違えて、どこにいるかわからなくなってしまいました。',
+     dialogs:[{who:'（知らない駅にいる）',txt:'あれ、ここどこだろう…どうしよう。',pl:false}],
+     choices:[
+       {txt:'駅員さんのいる窓口に行って「道に迷いました」と伝える',level:'best',fb:'助けを求められたね！困ったとき駅員さんに頼るのはとても正しい行動だよ。'},
+       {txt:'スマホで地図を調べる',level:'good',fb:'自分で解決しようとしたんだね。でも不安なときは駅員さんに聞くのも安心だよ。'},
+       {txt:'どうしていいかわからず、その場で立ち尽くす',level:'try',fb:'パニックになるよね。「困ったときは駅員さんへ」を覚えておこう。インターホンでも呼べるよ。'}
+     ],
+     tip:'迷ったら駅員さんへ。それが一番安全で確実な方法だよ。'},
+    // 病院
+    {icon:'🏥',title:'病院で順番を待つ',desc:'病院での待ち方を練習しよう',tag:'地域生活・病院',
+     sit:'病院の待合室で待っています。なかなか呼ばれません。',
+     dialogs:[{who:'（待合室）',txt:'（長く待っている）',pl:false}],
+     choices:[
+       {txt:'静かに座って、本を読んだり待つ',level:'best',fb:'上手に待てたね！病院では静かに順番を待つことが大切だよ。'},
+       {txt:'受付に「まだですか？」と何度も聞く',level:'try',fb:'不安になるよね。でも順番は変わらないよ。静かに待っていると先生も安心するよ。'},
+       {txt:'「待てない！」と大きな声を出す',level:'try',fb:'辛くなったんだね。待てない時は「どのくらい待ちますか？」と一度だけ聞くのはOKだよ。'}
+     ],
+     tip:'病院の待合室は「静かにする場所」。音楽や本で時間をつぶそう。'},
+    {icon:'🤒',title:'体調を先生に説明する',desc:'体の状態を伝える練習をしよう',tag:'地域生活・病院',
+     sit:'病院で先生が「どうしましたか？」と聞きました。',
+     dialogs:[{who:'先生',txt:'「今日はどうしましたか？」',pl:false}],
+     choices:[
+       {txt:'「〇日前から頭が痛くて、熱もあります」と伝える',level:'best',fb:'いつから・どこが・どんなふうにが言えたね！先生がとても診やすくなるよ。'},
+       {txt:'「なんかしんどい」とだけ言う',level:'try',fb:'伝えられたのは大切だよ。「いつから」「どこが」「どんなふうに」を加えると先生がもっと助けやすくなるよ。'},
+       {txt:'緊張して「大丈夫です」と言ってしまう',level:'try',fb:'緊張するよね。でも「大丈夫じゃない」から来ているよ。「頭が痛いです」だけでも言えるといいよ。'}
+     ],
+     tip:'体調を伝えるポイント：①いつから ②どこが ③どんなふうに。この3つを練習しよう。'},
+  ],
+};
+
+// 追加場面をSCENESに統合
+Object.assign(SCENES, SCENES_EXTRA);
+
+// ============================================================
+// WORD QUIZ DATA
+// ============================================================
 const WORD_QUIZ = {
   1:[
     {emoji:'🍰',sit:'誕生日に友達からプレゼントをもらいました。',q:'何て言う？',
@@ -3398,6 +3767,8 @@ const BACK_MAP = {
   's-teacher-custom-edit': { dest: ()=>go('s-teacher-custom'), label:'← もどる' },
   's-teacher-edit':        { dest: ()=>go('s-teacher'),    label:'← もどる' },
   's-teacher-share':       { dest: ()=>go('s-teacher'),    label:'← もどる' },
+  's-teacher-pin':         { dest: ()=>go('s-teacher'),    label:'← もどる' },
+  's-breath':              { dest: ()=>home(),             label:'← ホームへ' },
 };
 
 function updateBottomBack(id){
@@ -3434,11 +3805,14 @@ function go(id){
     renderThermoLog();
   }
   if(id==='s-scene-list'){
-    const isSchool = typeof currentLv === 'string';
-    document.getElementById('scene-lv-tabs').style.display    = isSchool ? 'none' : '';
+    const isSchool = typeof currentLv === 'string' && currentLv.endsWith('s');
+    const isExtra  = typeof currentLv === 'string' && ['el','jh','hs','com'].includes(currentLv);
+    document.getElementById('scene-lv-tabs').style.display    = (!isSchool && !isExtra) ? '' : 'none';
     document.getElementById('scene-school-tabs').style.display = isSchool ? '' : 'none';
-    document.getElementById('tab-normal').classList.toggle('on', !isSchool);
-    document.getElementById('tab-school').classList.toggle('on',  isSchool);
+    document.getElementById('scene-extra-tabs').style.display  = isExtra  ? '' : 'none';
+    document.getElementById('tab-normal').classList.toggle('on', !isSchool && !isExtra);
+    document.getElementById('tab-school').classList.toggle('on', isSchool);
+    document.getElementById('tab-extra').classList.toggle('on',  isExtra);
     buildSceneList();
   }
   if(id==='s-word'){ currentWQIdx=0; buildWordQuiz(); }
@@ -3468,16 +3842,21 @@ function setSceneMode(mode){
   sceneMode = mode;
   document.getElementById('tab-normal').classList.toggle('on', mode==='normal');
   document.getElementById('tab-school').classList.toggle('on', mode==='school');
-  document.getElementById('scene-lv-tabs').style.display  = mode==='normal' ? '' : 'none';
+  document.getElementById('tab-extra').classList.toggle('on',  mode==='extra');
+  document.getElementById('scene-lv-tabs').style.display    = mode==='normal' ? '' : 'none';
   document.getElementById('scene-school-tabs').style.display = mode==='school' ? '' : 'none';
+  document.getElementById('scene-extra-tabs').style.display  = mode==='extra'  ? '' : 'none';
   if(mode==='normal'){
-    currentLv = 1;
-    setLv(1);
-  } else {
+    currentLv = 1; setLv(1);
+  } else if(mode==='school'){
     currentLv = '1s';
-    // 学校版タブのon状態を更新
     document.querySelectorAll('.lvtab-school').forEach(t=>{
       t.classList.toggle('on', t.dataset.slv === currentLv);
+    });
+  } else {
+    currentLv = 'el';
+    document.querySelectorAll('.lvtab-extra').forEach(t=>{
+      t.classList.toggle('on', t.dataset.elv === currentLv);
     });
   }
   buildSceneList();
@@ -3493,9 +3872,15 @@ function setLvAndRefresh(lv, screen){
     });
   }
   // 学校版タブ同期
-  if(typeof lv === 'string'){
+  if(typeof lv === 'string' && lv.endsWith('s')){
     document.querySelectorAll('.lvtab-school').forEach(t=>{
       t.classList.toggle('on', t.dataset.slv === lv);
+    });
+  }
+  // 学部・地域タブ同期
+  if(typeof lv === 'string' && ['el','jh','hs','com'].includes(lv)){
+    document.querySelectorAll('.lvtab-extra').forEach(t=>{
+      t.classList.toggle('on', t.dataset.elv === lv);
     });
   }
   if(screen === 'scene-list') buildSceneList();
@@ -3533,9 +3918,8 @@ function closeED(){ document.getElementById('edetail').classList.remove('on'); }
 // ============================================================
 function buildSceneList(){
   const scenes = SCENES[currentLv] || [];
-  const isSchool = typeof currentLv === 'string';
-  const lvColor = isSchool ? 'var(--or)' :
-    currentLv===1 ? 'var(--lv1)' : currentLv===2 ? 'var(--lv2)' : 'var(--lv3)';
+  const isSchool = typeof currentLv === 'string' &&
+    (currentLv.endsWith('s') || ['el','jh','hs','com'].includes(currentLv));
   document.getElementById('slist').innerHTML = (scenes.length === 0
     ? '<div style="padding:24px;text-align:center;color:var(--sub);">場面がないよ</div>'
     : scenes.map((s,i)=>`
