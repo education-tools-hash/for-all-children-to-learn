@@ -1007,6 +1007,7 @@ function updatePurposeCards(apps) {
 //  ・全エントリーを日付の新しい順にソート
 // ============================================================
 const MANUAL_CHANGELOG = [
+  { date: "2026-06-17", type: "update", text: "「SST ソーシャルスキルトレーニング」の内容を更新しました。" },
   { date: "2026-06-13", type: "update", text: "「ひかるボタン」のバグを修正しました。" },
   { date: "2026-06-11", type: "update", text: "「SST ソーシャルスキルトレーニング」の内容を大幅に修正しました。" },
   { date: "2026-06-09", type: "update", text: "「すごろく」を修正しました。" },
