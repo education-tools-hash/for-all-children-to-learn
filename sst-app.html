@@ -676,10 +676,10 @@ body.dark .ai-preview-choice{background:#16213E;border-color:#2A3A55;}
 /* ===== SCREEN LOCK ===== */
 #screen-lock-overlay{
   position:fixed;
-  /* ヘッダー（56px）の下から始める */
+  /* ヘッダー（56px）の下から始める → 🔒ボタンは操作可能 */
   top:56px;left:0;right:0;bottom:0;
   background:transparent;
-  z-index:8000; /* ヘッダー(z-index:100)より上、ただしhdr-lock-btnはさらに上 */
+  z-index:8000; /* ヘッダー(9100)の下・コンテンツより上 */
   pointer-events:all;
   display:flex;flex-direction:column;
   align-items:center;justify-content:flex-start;
@@ -2390,7 +2390,21 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
       <button class="teacher-edit-tab" onclick="selectEditTab('wq',this)">💬 ことばクイズ</button>
       <button class="teacher-edit-tab" onclick="selectEditTab('qz',this)">❓ SSTクイズ</button>
     </div>
-    <div class="teacher-edit-lv-tabs">
+    <!-- ロールプレイ用カテゴリタブ（rp選択時のみ表示） -->
+    <div class="teacher-edit-lv-tabs" id="te-rp-cat-tabs">
+      <button class="teacher-edit-lv on" data-lv="1"   onclick="selectEditLv(1,this)">🌱 Lv1</button>
+      <button class="teacher-edit-lv" data-lv="2"   onclick="selectEditLv(2,this)">🌿 Lv2</button>
+      <button class="teacher-edit-lv" data-lv="3"   onclick="selectEditLv(3,this)">🌳 Lv3</button>
+      <button class="teacher-edit-lv" data-lv="1s"  onclick="selectEditLv('1s',this)">🚌 学校Lv1</button>
+      <button class="teacher-edit-lv" data-lv="2s"  onclick="selectEditLv('2s',this)">🔨 学校Lv2</button>
+      <button class="teacher-edit-lv" data-lv="3s"  onclick="selectEditLv('3s',this)">🏭 学校Lv3</button>
+      <button class="teacher-edit-lv" data-lv="el"  onclick="selectEditLv('el',this)">🏫 小学部</button>
+      <button class="teacher-edit-lv" data-lv="jh"  onclick="selectEditLv('jh',this)">📚 中学部</button>
+      <button class="teacher-edit-lv" data-lv="hs"  onclick="selectEditLv('hs',this)">🎓 高等部</button>
+      <button class="teacher-edit-lv" data-lv="com" onclick="selectEditLv('com',this)">🌍 地域生活</button>
+    </div>
+    <!-- ことばクイズ・SSTクイズ用レベルタブ -->
+    <div class="teacher-edit-lv-tabs" id="te-lv-tabs" style="display:none;">
       <button class="teacher-edit-lv on" data-lv="1" onclick="selectEditLv(1,this)">🌱 Lv1</button>
       <button class="teacher-edit-lv" data-lv="2" onclick="selectEditLv(2,this)">🌿 Lv2</button>
       <button class="teacher-edit-lv" data-lv="3" onclick="selectEditLv(3,this)">🌳 Lv3</button>
@@ -3822,7 +3836,15 @@ function go(id){
   if(id==='s-breath') setTimeout(()=>{ awardBadge('breath'); recordActivity('breath',0,'done'); }, 1000);
   if(id==='s-photo'){ loadPhotoScenes(); buildPhotoList(); }
   if(id==='s-teacher-custom') buildCustomList();
-  if(id==='s-teacher-edit'){ currentEditTab='rp'; currentEditLv=1; buildEditList(); }
+  if(id==='s-teacher-edit'){
+    currentEditTab='rp'; currentEditLv=1;
+    document.getElementById('te-rp-cat-tabs').style.display = '';
+    document.getElementById('te-lv-tabs').style.display     = 'none';
+    document.querySelectorAll('#te-rp-cat-tabs .teacher-edit-lv').forEach(b=>{
+      b.classList.toggle('on', b.dataset.lv === '1');
+    });
+    buildEditList();
+  }
   if(id==='s-teacher-share') buildShareScreen();
   if(id==='s-report') buildReport();
   if(id !== 's-teacher-share') { /* QRリーダーは廃止 */ }
@@ -5752,13 +5774,32 @@ function selectEditTab(tab, el){
   currentEditTab = tab;
   document.querySelectorAll('.teacher-edit-tab').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
+  // ロールプレイは全カテゴリタブ、ほか(wq/qz)はLv1-3のみ
+  const isRP = tab === 'rp';
+  document.getElementById('te-rp-cat-tabs').style.display = isRP ? '' : 'none';
+  document.getElementById('te-lv-tabs').style.display     = isRP ? 'none' : '';
+  // レベルを初期化
+  if(isRP){
+    currentEditLv = 1;
+    document.querySelectorAll('#te-rp-cat-tabs .teacher-edit-lv').forEach(b=>{
+      b.classList.toggle('on', String(b.dataset.lv) === '1');
+    });
+  } else {
+    currentEditLv = 1;
+    document.querySelectorAll('#te-lv-tabs .teacher-edit-lv').forEach(b=>{
+      b.classList.toggle('on', b.dataset.lv === '1');
+    });
+  }
   buildEditList();
 }
 
 function selectEditLv(lv, el){
   currentEditLv = lv;
-  document.querySelectorAll('.teacher-edit-lv').forEach(b=>b.classList.remove('on'));
-  el.classList.add('on');
+  // 所属するタブグループ内だけ更新
+  const parent = el.closest('.teacher-edit-lv-tabs');
+  if(parent) parent.querySelectorAll('.teacher-edit-lv').forEach(b=>{
+    b.classList.toggle('on', String(b.dataset.lv) === String(lv));
+  });
   buildEditList();
 }
 
@@ -5787,8 +5828,8 @@ function buildEditList(){
           <textarea data-key="${fbKey}" oninput="storeEdit(this)">${fbVal}</textarea>
         </div>
         <div class="teacher-edit-save-row">
-          <button class="te-save-btn" onclick="saveEditScene('rp',${currentEditLv},${si})">💾 保存</button>
-          <button class="te-reset-btn" onclick="resetEditScene('rp',${currentEditLv},${si})">リセット</button>
+          <button class="te-save-btn" onclick="saveEditScene('rp','${currentEditLv}',${si})">💾 保存</button>
+          <button class="te-reset-btn" onclick="resetEditScene('rp','${currentEditLv}',${si})">リセット</button>
         </div>
       </div>`;
     }).join('');
@@ -5838,7 +5879,9 @@ function storeEdit(input){
 }
 
 function saveEditScene(type,lv,si){
-  const s = SCENES[lv][si];
+  // lv が文字列で渡される場合（'1s','el'など）に対応
+  const lvKey = isNaN(lv) ? lv : parseInt(lv);
+  const s = SCENES[lvKey][si];
   s.choices.forEach((c,ci)=>{
     const key = `${type}_${lv}_${si}_c${ci}`;
     if(teacherEdits[key]!==undefined) c.txt = teacherEdits[key];
@@ -5851,7 +5894,8 @@ function saveEditScene(type,lv,si){
 
 function resetEditScene(type,lv,si){
   if(!confirm('この場面の編集をリセットしますか？')) return;
-  const s = SCENES[lv][si];
+  const lvKey = isNaN(lv) ? lv : parseInt(lv);
+  const s = SCENES[lvKey][si];
   s.choices.forEach((_,ci)=>{ delete teacherEdits[`${type}_${lv}_${si}_c${ci}`]; });
   delete teacherEdits[`${type}_${lv}_${si}_tip`];
   saveTeacherData(); buildEditList();
