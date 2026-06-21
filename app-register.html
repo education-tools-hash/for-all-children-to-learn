@@ -70,6 +70,7 @@
   .log-line.ok{color:#4ade80;}
   .log-line.err{color:#f87171;}
   .log-line.info{color:#93c5fd;}
+  .log-line.warn{color:#fbbf24;}
   .progress-bar{height:6px;background:var(--border);border-radius:999px;overflow:hidden;margin-top:12px;display:none;}
   .progress-bar.visible{display:block;}
   .progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));border-radius:999px;transition:width .4s ease;width:0%;}
@@ -96,6 +97,25 @@
   .flow-steps{display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
   .flow-step{font-size:13px;font-weight:700;padding:8px 14px;border-radius:8px;background:var(--primary-light);border:1px solid var(--primary);color:var(--primary-dark);}
   .flow-arrow{color:var(--muted);font-size:18px;}
+
+  /* 新規／更新 モード切替 */
+  --pink:#ec4899; --pink-dark:#be185d; --pink-light:#fdf2f8;
+  .mode-switch{display:flex;gap:0;border-radius:12px;overflow:hidden;border:2px solid var(--border);width:fit-content;}
+  .mode-btn{padding:12px 32px;font-size:15px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;cursor:pointer;border:none;background:var(--surface2);color:var(--muted);transition:all .2s;display:flex;align-items:center;gap:8px;}
+  .mode-btn.new.active{background:#3b82f6;color:white;box-shadow:inset 0 0 0 2px #2563eb;}
+  .mode-btn.update.active{background:#ec4899;color:white;box-shadow:inset 0 0 0 2px #be185d;}
+  .mode-btn:not(.active):hover{background:var(--border);}
+
+  /* 更新モード専用 */
+  .update-section{border:2px solid #ec4899;border-radius:var(--radius);padding:20px;background:#fdf2f8;display:flex;flex-direction:column;gap:16px;}
+  .update-badge{background:#fce7f3;color:#be185d;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid #f9a8d4;}
+  .card.update-mode{border-color:#f9a8d4;background:linear-gradient(135deg,#fff 0%,#fdf2f8 100%);}
+  .card.update-mode .card-title{color:#be185d;}
+  .btn-pink{background:#ec4899;color:white;border:none;border-radius:10px;padding:14px 32px;font-size:16px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s,transform .1s;box-shadow:0 4px 16px rgba(236,72,153,.3);}
+  .btn-pink:hover{background:#be185d;transform:translateY(-1px);}
+  .btn-pink:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
+  .mode-indicator-new{background:#eff6ff;border:1px solid #93c3fd;border-radius:8px;padding:10px 14px;font-size:13px;color:#1e40af;font-weight:700;}
+  .mode-indicator-update{background:#fdf2f8;border:1px solid #f9a8d4;border-radius:8px;padding:10px 14px;font-size:13px;color:#be185d;font-weight:700;}
 </style>
 </head>
 <body>
@@ -110,10 +130,27 @@
 
 <div class="container">
 
+  <!-- モード切替 -->
+  <div class="card" id="modeCard">
+    <div class="card-title">🔀 モードを選択</div>
+    <div class="mode-switch">
+      <button class="mode-btn new active" id="btnNew" onclick="setMode('new')">
+        <span>🆕</span><span>新規登録</span>
+      </button>
+      <button class="mode-btn update" id="btnUpdate" onclick="setMode('update')">
+        <span>🔄</span><span>既存アプリを更新</span>
+      </button>
+    </div>
+    <div id="modeIndicator" class="mode-indicator-new" style="margin-top:12px;">
+      📘 新規モード：新しいアプリを追加します
+    </div>
+  </div>
+
   <!-- 操作フロー -->
-  <div class="card">
+  <div class="card" id="flowCard">
     <div class="card-title">📌 操作の流れ</div>
-    <div class="flow-steps">
+    <!-- 新規モード -->
+    <div class="flow-steps" id="flowNew">
       <div class="flow-step">① HTMLをClaudeで作成</div>
       <div class="flow-arrow">→</div>
       <div class="flow-step">② Claude.aiでJSON生成</div>
@@ -123,6 +160,18 @@
       <div class="flow-step">④ 確認・修正</div>
       <div class="flow-arrow">→</div>
       <div class="flow-step">⑤ アップロード</div>
+    </div>
+    <!-- 更新モード -->
+    <div class="flow-steps" id="flowUpdate" style="display:none;">
+      <div class="flow-step" style="background:#fdf2f8;border-color:#f9a8d4;color:#be185d;">① HTMLをClaudeで更新</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="background:#fdf2f8;border-color:#f9a8d4;color:#be185d;">② Claude.aiでJSON再生成</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="background:#fdf2f8;border-color:#f9a8d4;color:#be185d;">③ JSON貼り付け→自動入力</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="background:#fdf2f8;border-color:#f9a8d4;color:#be185d;">④ 更新内容・日付を入力</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" style="background:#fdf2f8;border-color:#f9a8d4;color:#be185d;">⑤ アップロード</div>
     </div>
   </div>
 
@@ -150,7 +199,7 @@
   </div>
 
   <!-- STEP 2: Claude.aiでJSON生成 -->
-  <div class="card">
+  <div class="card" id="step2Card">
     <div class="card-title">
       <div class="step-num" style="background:var(--purple);">2</div>
       Claude.ai でJSONを生成する
@@ -190,18 +239,8 @@
   "a11y": ["アクセシビリティ機能（絵文字+説明）"],
   "caution": "使用上の注意事項",
   "badges": ["バッジ（絵文字+説明）"],
-  "seoKeywords": ["検索で狙うキーワード（5〜10個、後述の指針を参照）"],
   "releaseDate": "今日の日付（YYYY-MM-DD形式）"
 }
-
-【seoKeywords の作り方】
-このアプリを必要としている人が、Google でどう検索するかを想像してキーワードを5〜10個挙げてください。
-・具体的で検索されやすい複合語にする（例:「とけい」だけでなく「時計 読み方 練習 アプリ」）
-・「特別支援」「療育」「自立活動」など利用シーンの語を1〜2個含める
-・アプリの機能・対象・目的を表す語を入れる
-・1キーワードは2〜4語程度。単語の羅列ではなく、実際に検索窓に打ち込まれそうな形にする
-良い例:「ソーシャルスキル トレーニング アプリ」「sst 教材 無料」「気持ち 伝える 練習」
-（共通キーワードの「特別支援教育」「無料」「ブラウザ」等はシステム側で自動付与されるので、ここでは重複して入れなくて構いません）
 
 【HTMLはこちら】
 ↓ここにHTMLを貼り付けてください↓</div>
@@ -213,7 +252,7 @@
   </div>
 
   <!-- STEP 3: JSON貼り付け -->
-  <div class="card">
+  <div class="card" id="step3Card">
     <div class="card-title">
       <div class="step-num" style="background:var(--purple);">3</div>
       生成されたJSONを貼り付けて自動入力
@@ -233,8 +272,40 @@
     <div id="jsonAlert" class="alert" style="margin-top:12px;"></div>
   </div>
 
+  <!-- 更新モード専用セクション -->
+  <div class="card update-mode" id="updateSection" style="display:none;">
+    <div class="card-title">
+      <div class="step-num" style="background:#ec4899;">🔄</div>
+      更新履歴の設定
+      <span class="update-badge">更新モードのみ</span>
+    </div>
+    <div class="update-section">
+      <div class="field">
+        <label>更新内容の説明 <span class="req">必須</span></label>
+        <input type="text" id="updateText" placeholder="例: 難易度選択機能を追加しました">
+        <span style="font-size:11px;color:#be185d;">→ 更新履歴に表示されます（例：「〇〇機能を追加しました」）</span>
+      </div>
+      <div class="field">
+        <label>更新日 <span class="req">必須</span></label>
+        <input type="date" id="updateDate">
+      </div>
+      <div style="background:#fce7f3;border-radius:8px;padding:12px;font-size:13px;color:#be185d;line-height:1.8;">
+        🌸 <strong>更新モードでやること：</strong><br>
+        ① 下のSTEP2〜4でHTMLからJSONを生成 → フォームに自動入力<br>
+        ② 内容を確認・修正<br>
+        ③ 更新済みHTMLをドラッグ＆ドロップ（STEP5）<br>
+        ④ アップロード → 以下が自動更新されます<br>
+        　・apps-data.json（アプリ情報を上書き）<br>
+        　・app-details/xxx-detail.html（再生成）<br>
+        　・app-intro.html（再生成）<br>
+        　・generate.js の MANUAL_CHANGELOG（更新履歴追記）<br>
+        　・sitemap.xml（lastmod更新）
+      </div>
+    </div>
+  </div>
+
   <!-- STEP 4: 確認・修正 -->
-  <div class="card">
+  <div class="card" id="step4Card">
     <div class="card-title">
       <div class="step-num">4</div>
       内容を確認・修正
@@ -242,7 +313,7 @@
     </div>
     <div class="form-grid">
       <div class="field">
-        <label>アプリID <span class="req">必須</span> <span class="hint">（ファイル名、拡張子なし／同じIDなら上書き更新）</span></label>
+        <label>アプリID <span class="req">必須</span> <span class="hint">（ファイル名、拡張子なし）</span></label>
         <input type="text" id="appId" placeholder="例: janken-app">
       </div>
       <div class="field">
@@ -253,15 +324,9 @@
         <label>アイコン絵文字 <span class="req">必須</span></label>
         <input type="text" id="icon" placeholder="✊" maxlength="2">
       </div>
-      <div class="field span2">
-        <label>アイコン背景色 <span class="req">必須</span> <span class="hint">（カードと「アプリをひらく」ボタンの色になります）</span></label>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px;">
-          <div id="iconColorPreview" style="width:54px;height:54px;border-radius:14px;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:28px;color:white;font-weight:900;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);" aria-hidden="true">A</div>
-          <input type="color" id="iconColorPicker" value="#3b82f6" style="width:54px;height:54px;border:2px solid var(--border);border-radius:10px;cursor:pointer;padding:2px;background:white;flex-shrink:0;" aria-label="カラーピッカー">
-          <input type="text" id="iconColor" value="#3b82f6" style="width:130px;font-family:monospace;flex-shrink:0;" placeholder="#3b82f6">
-        </div>
-        <div id="colorPalette" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
-        <div class="hint" style="margin-top:6px;">💡 パレットの色をクリック / カラーピッカーで選択 / 直接コード入力 のいずれでもOK</div>
+      <div class="field">
+        <label>アイコン背景色 <span class="req">必須</span></label>
+        <input type="text" id="iconColor" value="#3b82f6">
       </div>
       <div class="field span2">
         <label>タグ表示 <span class="hint">（「・」区切り）</span></label>
@@ -275,14 +340,6 @@
         <label>公開日</label>
         <input type="date" id="releaseDate">
       </div>
-      <div class="field">
-        <label>カテゴリ内の表示順 <span class="hint">（1=先頭、2=2番目... 空欄=末尾）</span></label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="number" id="appOrder" min="1" step="1" placeholder="例: 3 (3番目に表示)" style="flex:1;">
-          <button type="button" class="btn-secondary" onclick="loadOrderPreview()" style="white-space:nowrap;padding:8px 14px;">📋 現在の順番を見る</button>
-        </div>
-        <div id="orderPreview" style="display:none;margin-top:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:12px;line-height:1.7;max-height:240px;overflow-y:auto;"></div>
-      </div>
     </div>
     <hr class="divider">
     <div style="font-size:13px;font-weight:700;margin-bottom:10px;">カテゴリ <span class="req">必須</span></div>
@@ -295,21 +352,21 @@
   </div>
 
   <!-- 機能一覧 -->
-  <div class="card">
+  <div class="card" id="step4bCard">
     <div class="card-title"><div class="step-num">4-b</div>機能一覧</div>
     <div id="featuresList"></div>
     <button class="btn-add" onclick="addFeature()">＋ 機能を追加</button>
   </div>
 
   <!-- 使い方ステップ -->
-  <div class="card">
+  <div class="card" id="step4cCard">
     <div class="card-title"><div class="step-num">4-c</div>使い方ステップ</div>
     <div id="stepsList"></div>
     <button class="btn-add" onclick="addStep()">＋ ステップを追加</button>
   </div>
 
   <!-- 指導情報 -->
-  <div class="card">
+  <div class="card" id="step4dCard">
     <div class="card-title"><div class="step-num">4-d</div>指導情報</div>
     <div class="form-grid full">
       <div class="field"><label>対象</label><textarea id="lessonTarget" rows="2"></textarea></div>
@@ -320,7 +377,7 @@
   </div>
 
   <!-- アクセシビリティ等 -->
-  <div class="card">
+  <div class="card" id="step4eCard">
     <div class="card-title"><div class="step-num">4-e</div>アクセシビリティ・バッジ・注意事項</div>
     <div class="form-grid full">
       <div class="field">
@@ -335,15 +392,38 @@
         <label>注意事項</label>
         <textarea id="caution" rows="3"></textarea>
       </div>
+    </div>
+  </div>
+
+  <!-- SEO設定（検索対策） -->
+  <div class="card" id="step4gCard">
+    <div class="card-title">
+      <div class="step-num">4-g</div>
+      SEO設定（検索対策）
+      <span class="badge">省略可・未入力時は自動生成</span>
+    </div>
+    <div class="info-box" style="margin-bottom:16px;">
+      Google Search Consoleなどで「検索されているが順位が低いキーワード」が見つかったら、ここに入力してください。<br>
+      空欄のままなら、アプリ概要・カテゴリ・バッジから自動でtitle/descriptionが生成されます（従来通り）。
+    </div>
+    <div class="form-grid full">
       <div class="field">
-        <label>🔍 SEOキーワード <span class="hint">（1行1項目 / 検索で狙う語。空欄でも自動生成されます）</span></label>
-        <textarea id="seoKeywords" rows="4" placeholder="例:&#10;ソーシャルスキル トレーニング アプリ&#10;sst 教材 無料&#10;気持ち 伝える 練習&#10;特別支援 コミュニケーション"></textarea>
+        <label>SEOタイトル <span class="hint">（&lt;title&gt;タグ・未入力なら自動生成）</span></label>
+        <input type="text" id="seoTitle" placeholder="例: すごろく作成アプリ｜ブラウザで遊べる無料すごろくメーカー(マス目カスタマイズ・特別支援教育) - すべての子どもの学びのためのデジタル教材">
+      </div>
+      <div class="field">
+        <label>SEOディスクリプション <span class="hint">（meta description・120〜160字目安・未入力なら自動生成）</span></label>
+        <textarea id="seoDescription" rows="3" placeholder="例: すごろくをブラウザでそのまま作成・プレイできる無料アプリです。インストール不要、マス目の文字・写真・イベントを自由にカスタマイズしてオリジナルすごろくを作成できます。"></textarea>
+      </div>
+      <div class="field">
+        <label>追加検索キーワード <span class="hint">（カンマ区切り・検索で狙いたいフレーズを先頭に追加）</span></label>
+        <textarea id="seoKeywords" rows="2" placeholder="例: すごろく ブラウザ, すごろく 作成 アプリ, すごろくメーカー, すごろく テンプレート"></textarea>
       </div>
     </div>
   </div>
 
   <!-- generate.js設定 -->
-  <div class="card">
+  <div class="card" id="step4fCard">
     <div class="card-title">
       <div class="step-num">4-f</div>
       generate.js 設定
@@ -371,6 +451,8 @@
     </div>
   </div>
 
+
+
   <!-- HTMLファイル -->
   <div class="card">
     <div class="card-title"><div class="step-num">5</div>アプリHTMLファイル</div>
@@ -386,7 +468,6 @@
       <span>✅</span><span id="fileName"></span>
       <button class="btn-secondary" onclick="clearFile()" style="margin-left:auto;padding:4px 10px;font-size:12px;">削除</button>
     </div>
-    <div id="filenameCheck" style="display:none;margin-top:10px;"></div>
   </div>
 
   <!-- アップロード -->
@@ -395,9 +476,9 @@
     <div id="alertArea" class="alert"></div>
     <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="uploadBtn" onclick="startUpload()">
-        <span>🚀</span><span>GitHubにアップロード</span>
+        <span>🚀</span><span id="uploadBtnLabel">GitHubにアップロード</span>
       </button>
-      <button class="btn-secondary" onclick="previewJson()">📋 JSONプレビュー</button>
+      <button class="btn-secondary" id="previewBtn" onclick="previewJson()">📋 JSONプレビュー</button>
     </div>
     <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="log-area" id="logArea"></div>
@@ -408,6 +489,49 @@
     <pre id="jsonPreview" style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:8px;font-size:12px;overflow:auto;max-height:400px;line-height:1.6;"></pre>
   </div>
 
+  <!-- インデックス登録パネル -->
+  <div class="card" id="indexPanel" style="display:none;border:2px solid var(--accent);">
+    <div class="card-title">
+      <div class="step-num" style="background:var(--accent);">🔍</div>
+      Search Console インデックス登録リクエスト
+      <span class="badge green">最後にやること</span>
+    </div>
+    <div class="info-box green" style="margin-bottom:16px;">
+      <strong id="indexAppTitle"></strong> のアップロードが完了しました。<br>
+      下の2つのURLをSearch Consoleに登録して、早期インデックスをリクエストしてください。
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <!-- アプリ本体URL -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;">① アプリ本体ページ</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <code id="indexAppUrl" style="font-size:12px;color:var(--primary-dark);background:var(--primary-light);padding:6px 10px;border-radius:6px;flex:1;word-break:break-all;"></code>
+          <button class="btn-secondary" data-copy="indexAppUrl" onclick="copyIndexUrl('indexAppUrl')" style="flex-shrink:0;padding:8px 14px;font-size:13px;">📋 コピー</button>
+        </div>
+      </div>
+
+      <!-- 詳細ページURL -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;">② アプリ詳細ページ（検索流入の主要入口）</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <code id="indexDetailUrl" style="font-size:12px;color:var(--primary-dark);background:var(--primary-light);padding:6px 10px;border-radius:6px;flex:1;word-break:break-all;"></code>
+          <button class="btn-secondary" data-copy="indexDetailUrl" onclick="copyIndexUrl('indexDetailUrl')" style="flex-shrink:0;padding:8px 14px;font-size:13px;">📋 コピー</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <a href="https://search.google.com/search-console" target="_blank"
+        style="background:var(--accent);color:white;border:none;border-radius:10px;padding:12px 24px;font-size:14px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+        🔍 Search Console を開く
+      </a>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+        Search Console → URL検査 → URLを貼り付け<br>→「インデックス登録をリクエスト」を押す
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -415,46 +539,53 @@ let featureCount=0, stepCount=0;
 let htmlFileContent=null, htmlFileName=null;
 let selectedCategory='';
 let selectedPurposes=new Set();
+let currentMode='new'; // 'new' or 'update'
 
-// ============================================================
-// ファビコン注入(クライアント側 / アップロード前のHTMLに対して)
-// ・サイトルート絶対パス指定 (/for-all-children-to-learn/) で
-//   どの階層からも同じファビコンを参照
-// ・既存の「<!-- favicon: 自動挿入 (generate.js) -->」ブロックがあれば置換、なければ挿入
-// ・</head>がなければ no-head (警告のみ)
-// ============================================================
-const FAVICON_BASE_PATH = '/for-all-children-to-learn';
-function buildFaviconTags(){
-  return [
-    '<!-- favicon: 自動挿入 (generate.js) -->',
-    `<link rel="icon" type="image/svg+xml" href="${FAVICON_BASE_PATH}/favicon.svg">`,
-    `<link rel="icon" type="image/png" sizes="32x32" href="${FAVICON_BASE_PATH}/favicon-32.png">`,
-    `<link rel="icon" type="image/png" sizes="16x16" href="${FAVICON_BASE_PATH}/favicon-16.png">`,
-    `<link rel="apple-touch-icon" sizes="180x180" href="${FAVICON_BASE_PATH}/apple-touch-icon.png">`,
-    `<link rel="manifest" href="${FAVICON_BASE_PATH}/site.webmanifest">`,
-    `<meta name="theme-color" content="#4A4270">`,
-    '<!-- /favicon -->'
-  ].join('\n  ');
-}
-function injectFaviconClient(html){
-  if(typeof html !== 'string') return { html, action: 'skipped' };
-  const startMark = '<!-- favicon: 自動挿入 (generate.js) -->';
-  const endMark   = '<!-- /favicon -->';
-  const tags = buildFaviconTags();
-  const startIdx = html.indexOf(startMark);
-  if(startIdx !== -1){
-    const endIdx = html.indexOf(endMark, startIdx);
-    if(endIdx !== -1){
-      const tail = endIdx + endMark.length;
-      return { html: html.slice(0,startIdx) + tags + html.slice(tail), action: 'replaced' };
-    }
+// 今日の日付をupdateDateにセット
+window.addEventListener('DOMContentLoaded',()=>{
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('updateDate').value=today;
+  document.getElementById('releaseDate').value=today;
+});
+
+// =====================
+// モード切替
+// =====================
+function setMode(mode){
+  currentMode=mode;
+  const isNew=mode==='new';
+  // ボタン
+  document.getElementById('btnNew').classList.toggle('active',isNew);
+  document.getElementById('btnUpdate').classList.toggle('active',!isNew);
+  // インジケーター
+  const ind=document.getElementById('modeIndicator');
+  if(isNew){
+    ind.className='mode-indicator-new';
+    ind.textContent='📘 新規モード：新しいアプリを追加します';
+  }else{
+    ind.className='mode-indicator-update';
+    ind.textContent='🌸 更新モード：既存アプリを更新し、app-detail・app-introも自動再生成します';
   }
-  const headEnd = html.indexOf('</head>');
-  if(headEnd === -1) return { html, action: 'no-head' };
-  const lineStart = html.lastIndexOf('\n', headEnd) + 1;
-  const indent = (html.slice(lineStart, headEnd).match(/^\s*/)||[''])[0];
-  const insertion = indent + tags + '\n' + indent;
-  return { html: html.slice(0, headEnd) + insertion + html.slice(headEnd), action: 'inserted' };
+  // 操作フロー表示切替
+  const flowNew=document.getElementById('flowNew');
+  const flowUpdate=document.getElementById('flowUpdate');
+  if(flowNew)flowNew.style.display=isNew?'flex':'none';
+  if(flowUpdate)flowUpdate.style.display=isNew?'none':'flex';
+  // 更新モード専用セクション（更新日・更新テキスト）
+  document.getElementById('updateSection').style.display=isNew?'none':'block';
+  // STEP2〜4は両モードで表示（更新時もJSON→フォーム入力でapps-data.jsonを更新）
+  // STEP4fのgenerate.js設定は新規のみ
+  const step4f=document.getElementById('step4fCard');
+  if(step4f)step4f.style.display=isNew?'':'none';
+  // アップロードボタン色
+  const btn=document.getElementById('uploadBtn');
+  if(isNew){
+    btn.className='btn-primary';
+    document.getElementById('uploadBtnLabel').textContent='GitHubにアップロード（新規登録）';
+  }else{
+    btn.className='btn-pink';
+    document.getElementById('uploadBtnLabel').textContent='GitHubにアップロード（アプリ更新）';
+  }
 }
 
 function copyPrompt(){
@@ -480,11 +611,9 @@ function applyJson(){
   setValue('title',data.title||'');
   setValue('icon',data.icon||'');
   setValue('iconColor',data.iconColor||'#3b82f6');
-  if(typeof setIconColor==='function')setIconColor(data.iconColor||'#3b82f6');
   setValue('tagsDisplay',data.tags_display||'');
   setValue('summary',data.summary||'');
   if(data.releaseDate)setValue('releaseDate',data.releaseDate);
-  if(typeof data.order==='number')setValue('appOrder',data.order);
   if(data.category){
     selectedCategory=data.category;
     document.querySelectorAll('#categoryChips .chip').forEach(c=>c.classList.toggle('selected',c.dataset.value===data.category));
@@ -501,14 +630,14 @@ function applyJson(){
   }
   if(Array.isArray(data.a11y))setValue('a11y',data.a11y.join('\n'));
   if(Array.isArray(data.badges))setValue('badges',data.badges.join('\n'));
-  // seoKeywords: 配列でも文字列でも受け付ける
-  if(Array.isArray(data.seoKeywords)){
-    setValue('seoKeywords',data.seoKeywords.join('\n'));
-  }else if(typeof data.seoKeywords==='string'){
-    setValue('seoKeywords',data.seoKeywords.split(/[,、]/).map(s=>s.trim()).filter(Boolean).join('\n'));
-  }
   setValue('caution',data.caution||'');
-  checkFilenameMatch();
+  setValue('seoTitle',data.seoTitle||'');
+  setValue('seoDescription',data.seoDescription||'');
+  if(data.seoKeywords){
+    setValue('seoKeywords', Array.isArray(data.seoKeywords) ? data.seoKeywords.join(', ') : data.seoKeywords);
+  } else {
+    setValue('seoKeywords','');
+  }
   showJsonAlert('success','✅ フォームに自動入力しました！内容を確認・修正してください。');
   setTimeout(()=>document.querySelectorAll('.container .card')[4].scrollIntoView({behavior:'smooth'}),300);
 }
@@ -573,12 +702,10 @@ function loadFile(file){
   const reader=new FileReader();
   reader.onload=e=>{
     htmlFileContent=e.target.result;
-    htmlFileName=file.name;
     document.getElementById('fileDropArea').style.display='none';
     document.getElementById('fileSelected').style.display='flex';
     document.getElementById('fileName').textContent=file.name;
     if(!document.getElementById('appId').value)document.getElementById('appId').value=file.name.replace('.html','');
-    checkFilenameMatch();
   };
   reader.readAsText(file);
 }
@@ -587,29 +714,6 @@ function clearFile(){
   document.getElementById('fileDropArea').style.display='block';
   document.getElementById('fileSelected').style.display='none';
   document.getElementById('htmlFile').value='';
-  const checkEl=document.getElementById('filenameCheck');
-  if(checkEl){checkEl.style.display='none';checkEl.className='';}
-}
-
-// ID と HTML ファイル名の一致をチェックして表示
-function checkFilenameMatch(){
-  const checkEl=document.getElementById('filenameCheck');
-  if(!checkEl)return;
-  const appId=document.getElementById('appId').value.trim();
-  if(!htmlFileName||!appId){checkEl.style.display='none';checkEl.className='';return;}
-  const expected=appId+'.html';
-  if(htmlFileName===expected){
-    checkEl.className='alert success visible';
-    checkEl.innerHTML=`✅ <strong>ファイル名OK</strong>：アプリIDと一致しています（${expected}）`;
-  }else{
-    const baseName=htmlFileName.replace(/\.html$/i,'');
-    checkEl.className='alert error visible';
-    checkEl.innerHTML=`⚠️ <strong>ファイル名不一致</strong>：このままアップすると 404 エラーになります。<br>`
-      +`　アプリID：<code>${appId}</code> → 期待されるファイル名：<code>${expected}</code><br>`
-      +`　現在のファイル名：<code>${htmlFileName}</code><br>`
-      +`<small>📌 アップロード時に「<strong>${expected}</strong> にリネームしてアップ」する確認ダイアログが出ます。<br>`
-      +`または、アプリIDを「<code>${baseName}</code>」に変えると一致します。</small>`;
-  }
 }
 function toggleToken(){
   const input=document.getElementById('token');
@@ -634,14 +738,12 @@ function collectFormData(){
   });
   const a11y=(document.getElementById('a11y').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const badges=(document.getElementById('badges').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  const seoKeywords=(document.getElementById('seoKeywords').value.trim()||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const releaseDate=document.getElementById('releaseDate').value;
-  const orderVal=document.getElementById('appOrder').value.trim();
   const appData={
     id:document.getElementById('appId').value.trim(),
     filename:document.getElementById('appId').value.trim(),
     icon:document.getElementById('icon').value.trim(),
-    iconColor:(normalizeHex(document.getElementById('iconColor').value)||document.getElementById('iconColor').value.trim()),
+    iconColor:document.getElementById('iconColor').value.trim(),
     title:document.getElementById('title').value.trim(),
     category:selectedCategory,
     tags_display:document.getElementById('tagsDisplay').value.trim(),
@@ -656,23 +758,32 @@ function collectFormData(){
     a11y,caution:document.getElementById('caution').value.trim(),badges,
   };
   if(releaseDate)appData.releaseDate=releaseDate;
-  if(seoKeywords.length>0)appData.seoKeywords=seoKeywords;
-  if(orderVal!=='' && !isNaN(parseInt(orderVal,10)))appData.order=parseInt(orderVal,10);
   if(document.getElementById('isRecommend').checked)appData.isRecommend=true;
   if(document.getElementById('isNew').checked)appData.isNew=true;
+  // SEO設定（空欄なら出力しない＝generate.js側の自動生成にフォールバック）
+  const seoTitle=document.getElementById('seoTitle')?.value.trim()||'';
+  const seoDescription=document.getElementById('seoDescription')?.value.trim()||'';
+  const seoKeywords=document.getElementById('seoKeywords')?.value.trim()||'';
+  if(seoTitle)appData.seoTitle=seoTitle;
+  if(seoDescription)appData.seoDescription=seoDescription;
+  if(seoKeywords)appData.seoKeywords=seoKeywords;
   return appData;
 }
 
 function validateForm(){
   const errors=[];
   if(!document.getElementById('token').value.trim())errors.push('Personal Access Tokenを入力してください');
+  // 共通（新規・更新ともJSON入力が必要）
   if(!document.getElementById('appId').value.trim())errors.push('アプリIDを入力してください');
   if(!document.getElementById('title').value.trim())errors.push('アプリタイトルを入力してください');
   if(!selectedCategory)errors.push('カテゴリを選択してください');
   if(!document.getElementById('summary').value.trim())errors.push('アプリ概要を入力してください');
   if(!htmlFileContent)errors.push('HTMLファイルをアップロードしてください');
-  const colorVal=document.getElementById('iconColor').value.trim();
-  if(colorVal && !normalizeHex(colorVal))errors.push('アイコン背景色は #RRGGBB 形式で入力してください（例: #5BA4D4）');
+  // 更新モード追加チェック
+  if(currentMode==='update'){
+    if(!document.getElementById('updateText').value.trim())errors.push('更新内容の説明を入力してください');
+    if(!document.getElementById('updateDate').value)errors.push('更新日を入力してください');
+  }
   return errors;
 }
 
@@ -688,7 +799,7 @@ function log(msg,type='info'){
   area.classList.add('visible');
   const line=document.createElement('div');
   line.className=`log-line ${type}`;
-  const icons={ok:'✅',err:'❌',info:'→'};
+  const icons={ok:'✅',err:'❌',info:'→',warn:'⚠️'};
   line.innerHTML=`<span>${icons[type]||'→'}</span><span>${msg}</span>`;
   area.appendChild(line);
   area.scrollTop=area.scrollHeight;
@@ -726,113 +837,21 @@ async function getFileContent(owner,repo,path,token){
   return{content:decodeURIComponent(escape(atob(data.content.replace(/\n/g,'')))),sha:data.sha};
 }
 
-// ============================================================
-// sitemap.xml 更新（冪等）
-// ・アプリ追加時: 本体ページ {id}.html と 詳細ページ app-details/{id}-detail.html の
-//   2つのURLを、まだ無ければ </urlset> の直前に追記する。
-// ・既に存在するURLは重複追加しない。
-// ・サイトのベースURLは sitemap 内の既存 <loc> から自動推定する。
-// 戻り値: { xml, added: [追加したURLの配列] }
-// ============================================================
-function updateSitemapXml(sitemapXml, appData){
-  let xml = sitemapXml;
-  const id = appData.id;
-
-  // ベースURLを既存の <loc> から推定（末尾スラッシュまで）
-  // 例: https://education-tools-hash.github.io/for-all-children-to-learn/
-  let baseUrl = '';
-  const firstLoc = xml.match(/<loc>\s*(https?:\/\/[^<]+?for-all-children-to-learn\/)/i);
-  if (firstLoc) {
-    baseUrl = firstLoc[1];
-  } else {
-    // 推定できない場合は既知の値をフォールバックに使用
-    baseUrl = 'https://education-tools-hash.github.io/for-all-children-to-learn/';
-  }
-
-  // 追記したい2つのURL（本体ページ + 詳細ページ）
-  const targets = [
-    { loc: `${baseUrl}${id}.html`,                       priority: '0.8' },
-    { loc: `${baseUrl}app-details/${id}-detail.html`,    priority: '0.9' }
-  ];
-
-  const added = [];
-  for (const t of targets) {
-    // 既に同じ <loc> があればスキップ（冪等）
-    if (xml.includes(`<loc>${t.loc}</loc>`)) continue;
-    const block =
-`  <url>
-    <loc>${t.loc}</loc>
-    <changefreq>monthly</changefreq>
-    <priority>${t.priority}</priority>
-  </url>
-`;
-    // </urlset> の直前に挿入
-    const closeIdx = xml.lastIndexOf('</urlset>');
-    if (closeIdx === -1) {
-      // 閉じタグが無い異常系: 末尾に足す（最低限の保険）
-      xml = xml + '\n' + block;
-    } else {
-      xml = xml.slice(0, closeIdx) + block + xml.slice(closeIdx);
-    }
-    added.push(t.loc);
-  }
-  return { xml, added };
-}
-
 function updateGenerateJs(generateJs,appData,purposes){
   let js=generateJs;
   const id=appData.id,cat=appData.category;
   const catMarkers={'学習アプリ':'// 学習アプリ','認知支援':'// 認知支援','自立活動':'// 自立活動','創作表現':'// 創作表現'};
-
-  // ── CATEGORY_TRUTH の既存エントリを検索 ──
-  // 例: "  'janken-app':      '学習アプリ',"
-  // インデント・空白・カテゴリ値が異なる場合に対応する正規表現
-  const existingRegex = new RegExp(`(^|\\n)([ \\t]*)'${id}'\\s*:\\s*'([^']+)'\\s*,?`, 'm');
-  const existingMatch = js.match(existingRegex);
-
-  if (existingMatch) {
-    // 既存エントリ発見: カテゴリが違う場合は適切な位置に移動
-    const existingCat = existingMatch[3];
-    if (existingCat !== cat) {
-      // 1) 既存行を削除
-      js = js.replace(existingRegex, (m, lead) => lead);
-      // 2) 新しいカテゴリのセクションに挿入(新規追加と同じロジック)
-      const insertBefore = catMarkers[cat];
-      if (insertBefore && js.includes(insertBefore)) {
-        const catIdx = js.indexOf(insertBefore);
-        let nextCat = js.length;
-        for (const oc of Object.values(catMarkers).filter(c => c !== insertBefore)) {
-          const idx = js.indexOf(oc, catIdx + 1);
-          if (idx !== -1 && idx < nextCat) nextCat = idx;
-        }
-        const block = js.slice(catIdx, nextCat);
-        const lastComma = block.lastIndexOf(',');
-        if (lastComma !== -1) {
-          const insertPos = catIdx + lastComma + 1;
-          js = js.slice(0, insertPos) + `\n  '${id}':      '${cat}',` + js.slice(insertPos);
-        }
-      }
-    }
-    // カテゴリが一致するなら何もしない
-  } else {
-    // 既存エントリ無し: 新規追加(従来通り)
-    const insertBefore = catMarkers[cat];
-    if (insertBefore && js.includes(insertBefore)) {
-      const catIdx = js.indexOf(insertBefore);
-      let nextCat = js.length;
-      for (const oc of Object.values(catMarkers).filter(c => c !== insertBefore)) {
-        const idx = js.indexOf(oc, catIdx + 1);
-        if (idx !== -1 && idx < nextCat) nextCat = idx;
-      }
-      const block = js.slice(catIdx, nextCat);
-      const lastComma = block.lastIndexOf(',');
-      if (lastComma !== -1) {
-        const insertPos = catIdx + lastComma + 1;
-        js = js.slice(0, insertPos) + `\n  '${id}':      '${cat}',` + js.slice(insertPos);
-      }
+  if(!js.includes(`'${id}':`)){
+    const insertBefore=catMarkers[cat];
+    if(insertBefore&&js.includes(insertBefore)){
+      const catIdx=js.indexOf(insertBefore);
+      let nextCat=js.length;
+      for(const oc of Object.values(catMarkers).filter(c=>c!==insertBefore)){const idx=js.indexOf(oc,catIdx+1);if(idx!==-1&&idx<nextCat)nextCat=idx;}
+      const block=js.slice(catIdx,nextCat);
+      const lastComma=block.lastIndexOf(',');
+      if(lastComma!==-1){const insertPos=catIdx+lastComma+1;js=js.slice(0,insertPos)+`\n  '${id}':      '${cat}',`+js.slice(insertPos);}
     }
   }
-
   if(appData.isRecommend){
     const marker='const RECOMMEND_IDS = new Set([';
     const idx=js.indexOf(marker);
@@ -854,27 +873,132 @@ function updateGenerateJs(generateJs,appData,purposes){
   return js;
 }
 
-// ============================================================
-// カテゴリ整合性チェック: フォーム選択カテゴリと JSON 入力欄の category を比較
-// ============================================================
-function checkCategoryConsistency(appData) {
-  const result = { conflict: false, jsonCategory: null, formCategory: appData.category || '' };
-  const rawJson = (document.getElementById('jsonInput') || {}).value;
-  if (!rawJson || !rawJson.trim()) return result;
-  let parsed;
-  try {
-    parsed = JSON.parse(rawJson.trim());
-  } catch (e) {
-    // JSON が無効なら、警告対象外 (JSONプレビュー入力中など)
-    return result;
+// =====================
+// カテゴリ→サイトマップコメント対応
+// =====================
+const CAT_COMMENT = {
+  '学習アプリ':     '<!-- 学習アプリ -->',
+  '認知支援':       '<!-- 認知支援・自立活動アプリ -->',
+  '自立活動':       '<!-- 認知支援・自立活動アプリ -->',
+  '創作表現':       '<!-- 創作表現アプリ -->',
+};
+const CAT_COMMENT_DETAIL = {
+  '学習アプリ':     '<!-- 学習アプリ 詳細ページ -->',
+  '認知支援':       '<!-- 認知支援・自立活動アプリ 詳細ページ -->',
+  '自立活動':       '<!-- 認知支援・自立活動アプリ 詳細ページ -->',
+  '創作表現':       '<!-- 創作表現アプリ 詳細ページ -->',
+};
+const BASE = 'https://education-tools-hash.github.io/for-all-children-to-learn';
+
+function buildSitemapEntries(appId, category) {
+  const appUrl  = `${BASE}/${appId}.html`;
+  const detailUrl = `${BASE}/app-details/${appId}-detail.html`;
+  const appEntry = `  <url>\n    <loc>${appUrl}</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.8</priority>\n  </url>`;
+  const detailEntry = `  <url>\n    <loc>${detailUrl}</loc>\n    <changefreq>monthly</changefreq>\n    <priority>0.9</priority>\n  </url>`;
+  return { appEntry, detailEntry, appUrl, detailUrl };
+}
+
+function updateSitemap(sitemapXml, appId, category) {
+  let xml = sitemapXml;
+  const { appEntry, detailEntry } = buildSitemapEntries(appId, category);
+
+  // 既に登録済みならスキップ
+  if (xml.includes(`/${appId}.html`)) return xml;
+
+  // アプリ本体: カテゴリコメントブロックの末尾に挿入
+  const appComment = CAT_COMMENT[category];
+  if (appComment && xml.includes(appComment)) {
+    // そのコメントから次のコメント or 詳細ページセクションまでのブロック末尾を探す
+    const startIdx = xml.indexOf(appComment);
+    // 次の <!-- で始まる行を探す
+    const afterComment = xml.indexOf('\n  <!--', startIdx + appComment.length);
+    const insertPos = afterComment !== -1 ? afterComment : xml.indexOf('  <!-- ===== アプリ詳細');
+    if (insertPos !== -1) {
+      xml = xml.slice(0, insertPos) + '\n' + appEntry + '\n' + xml.slice(insertPos);
+    }
   }
-  const jsonCat = parsed && typeof parsed.category === 'string' ? parsed.category.trim() : '';
-  if (!jsonCat) return result;
-  result.jsonCategory = jsonCat;
-  if (jsonCat !== result.formCategory) {
-    result.conflict = true;
+
+  // 詳細ページ: 詳細カテゴリコメントブロックの末尾に挿入
+  const detailComment = CAT_COMMENT_DETAIL[category];
+  if (detailComment && xml.includes(detailComment)) {
+    const startIdx = xml.indexOf(detailComment);
+    const afterComment = xml.indexOf('\n  <!--', startIdx + detailComment.length);
+    const insertPos = afterComment !== -1 ? afterComment : xml.indexOf('</urlset>');
+    if (insertPos !== -1) {
+      xml = xml.slice(0, insertPos) + '\n' + detailEntry + '\n' + xml.slice(insertPos);
+    }
   }
-  return result;
+
+  return xml;
+}
+
+// =====================
+// 完了後: インデックス登録UIを表示
+// =====================
+function showIndexPanel(appId, appTitle) {
+  const { appUrl, detailUrl } = buildSitemapEntries(appId, '');
+  const panel = document.getElementById('indexPanel');
+  panel.style.display = 'block';
+  document.getElementById('indexAppUrl').textContent    = appUrl;
+  document.getElementById('indexDetailUrl').textContent = detailUrl;
+  document.getElementById('indexAppTitle').textContent  = appTitle;
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyIndexUrl(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector(`[data-copy="${id}"]`);
+    const orig = btn.textContent;
+    btn.textContent = '✅ コピー完了';
+    setTimeout(() => btn.textContent = orig, 2000);
+  });
+}
+
+// =====================
+// generate.js の MANUAL_CHANGELOG に更新エントリー追記
+// =====================
+function addChangelogEntry(generateJs, date, text) {
+  const marker = 'const MANUAL_CHANGELOG = [';
+  const idx = generateJs.indexOf(marker);
+  if (idx === -1) return { html: generateJs, skipped: false, notFound: true };
+
+  // 重複チェック：同じ date + text の組み合わせが既にあればスキップ
+  const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const dupPattern = new RegExp(
+    `\\{\\s*date:\\s*"${date}"\\s*,\\s*type:\\s*"[^"]*"\\s*,\\s*text:\\s*"${escapedText}"\\s*\\}`
+  );
+  if (dupPattern.test(generateJs)) {
+    return { html: generateJs, skipped: true };
+  }
+
+  const insertPos = idx + marker.length;
+  const newEntry = `\n  { date: "${date}", type: "update", text: "${text}" },`;
+  return { html: generateJs.slice(0, insertPos) + newEntry + generateJs.slice(insertPos), skipped: false };
+}
+
+// =====================
+// sitemap の lastmod 更新（更新モード用）
+// =====================
+function updateSitemapLastmod(sitemapXml, appId, date) {
+  // 既存エントリーに <lastmod> を追加または更新
+  const appUrl = `${BASE}/${appId}.html`;
+  const detailUrl = `${BASE}/app-details/${appId}-detail.html`;
+  let xml = sitemapXml;
+  [appUrl, detailUrl].forEach(url => {
+    const locTag = `<loc>${url}</loc>`;
+    if (!xml.includes(locTag)) return;
+    const urlStart = xml.lastIndexOf('<url>', xml.indexOf(locTag));
+    const urlEnd = xml.indexOf('</url>', urlStart) + 6;
+    let entry = xml.slice(urlStart, urlEnd);
+    if (entry.includes('<lastmod>')) {
+      entry = entry.replace(/<lastmod>[^<]*<\/lastmod>/, `<lastmod>${date}</lastmod>`);
+    } else {
+      entry = entry.replace(locTag, `${locTag}\n    <lastmod>${date}</lastmod>`);
+    }
+    xml = xml.slice(0, urlStart) + entry + xml.slice(urlEnd);
+  });
+  return xml;
 }
 
 async function startUpload(){
@@ -886,358 +1010,109 @@ async function startUpload(){
   const owner=document.getElementById('owner').value.trim();
   const repo=document.getElementById('repo').value.trim();
   const token=document.getElementById('token').value.trim();
-  const appData=collectFormData();
-
-  // ===== ID と HTML ファイル名の一致チェック =====
-  const expectedFileName=appData.id+'.html';
-  let uploadFileName=htmlFileName||expectedFileName;
-  if(uploadFileName!==expectedFileName){
-    const baseName=uploadFileName.replace(/\.html$/i,'');
-    const confirmMsg=`⚠️ アプリIDとHTMLファイル名が一致しません。\n\n`
-      +`アプリID:     ${appData.id}\n`
-      +`HTMLファイル: ${uploadFileName}\n\n`
-      +`このままだと、サイトからリンクできず 404 エラーになります。\n\n`
-      +`【OK】 ファイル名を「${expectedFileName}」に変更してアップロード（推奨）\n`
-      +`【キャンセル】 アップロードを中止し、IDかファイル名を修正してから再実行\n\n`
-      +`「${expectedFileName}」としてアップロードしますか？`;
-    if(!confirm(confirmMsg)){
-      btn.disabled=false; btn.innerHTML='<span>🚀</span><span>GitHubにアップロード</span>';
-      showAlert('error',`⏹ アップロードを中止しました。アプリID「${appData.id}」とファイル名「${uploadFileName}」を一致させてから再度お試しください。<br>※ ローカルのHTMLファイル名を「${expectedFileName}」にリネームするか、アプリIDを「${baseName}」に変更してください。`);
-      return;
-    }
-    uploadFileName=expectedFileName;
-    log(`HTMLファイル名を「${expectedFileName}」に変更してアップロードします`,'info');
-  }
-
-  // ===== カテゴリ整合性チェック (フォーム選択 vs JSON入力欄) =====
-  const jsonCategoryCheck = checkCategoryConsistency(appData);
-  if (jsonCategoryCheck.conflict) {
-    const { jsonCategory, formCategory } = jsonCategoryCheck;
-    const confirmMsg = `⚠️ カテゴリの不一致を検出しました。\n\n`
-      +`フォームで選択中:   ${formCategory}\n`
-      +`貼り付けたJSON内:   ${jsonCategory}\n\n`
-      +`apps-data.json には「${formCategory}」(フォーム選択)が保存されます。\n\n`
-      +`【OK】 このまま「${formCategory}」でアップロード続行\n`
-      +`【キャンセル】 中止して、フォームのカテゴリチップかJSONを修正\n\n`
-      +`このまま続行しますか？`;
-    if (!confirm(confirmMsg)) {
-      btn.disabled = false;
-      btn.innerHTML = '<span>🚀</span><span>GitHubにアップロード</span>';
-      showAlert('error', `⏹ アップロードを中止しました。カテゴリの不一致を修正してください。<br>`
-        +`・フォーム選択中: <strong>${formCategory}</strong><br>`
-        +`・JSON内のcategory: <strong>${jsonCategory}</strong><br>`
-        +`どちらか正しい方に揃えてから再度お試しください。`);
-      return;
-    }
-    log(`カテゴリ「${formCategory}」(フォーム選択)で続行します。JSON内の「${jsonCategory}」は無視されます`, 'info');
-  }
 
   try{
-    log('apps-data.json を取得中...','info'); setProgress(10);
-    const{content:appsJsonStr,sha:appsJsonSha}=await getFileContent(owner,repo,'apps-data.json',token);
-    let appsArray=JSON.parse(appsJsonStr);
-    log('apps-data.json 取得完了','ok');
-    const existingIdx=appsArray.findIndex(a=>a.id===appData.id);
-    let isUpdate=false;
-    if(existingIdx!==-1){
-      const existing=appsArray[existingIdx];
-      const confirmMsg=`⚠️ ID "${appData.id}" は既に登録されています。\n\n`
-        +`既存: ${existing.title}\n`
-        +`新規: ${appData.title}\n\n`
-        +`【OK】 既存データを今回の内容で上書き更新します\n`
-        +`【キャンセル】 アップロードを中止します\n\n`
-        +`上書きしますか？`;
-      if(!confirm(confirmMsg)){
-        log(`ユーザーによりキャンセルされました（ID重複: ${appData.id}）`,'err');
-        showAlert('error',`⏹ アップロードを中止しました（ID "${appData.id}" は既に登録されています）`);
-        return;
-      }
-      isUpdate=true;
-      log(`ID "${appData.id}" を上書き更新します`,'info');
-    }
-    const actionLabel=isUpdate?'更新':'追記';
-    const commitEmoji=isUpdate?'♻️':'✨';
-    const commitVerb=isUpdate?'更新':'追加';
-    log(`apps-data.json に "${appData.title}" を${actionLabel}中...`,'info'); setProgress(25);
-    if(isUpdate){
-      appsArray[existingIdx]=appData;
-    }else{
-      appsArray.push(appData);
-    }
-    await putFile(owner,repo,'apps-data.json',JSON.stringify(appsArray,null,2),`${commitEmoji} アプリ${commitVerb}: ${appData.title}`,token,appsJsonSha);
-    log('apps-data.json 更新完了','ok');
-    log('generate.js を更新中...','info'); setProgress(45);
-    const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
-    const updatedGenerateJs=updateGenerateJs(generateJs,appData,[...selectedPurposes]);
-    await putFile(owner,repo,'generate.js',updatedGenerateJs,`🔧 generate.js 更新: ${appData.id}`,token,generateJsSha);
-    log('generate.js 更新完了','ok');
-    log(`${uploadFileName} をアップロード中...`,'info'); setProgress(70);
-    const htmlSha=await getFileSHA(owner,repo,uploadFileName,token);
-    const htmlEmoji=htmlSha?'♻️':'📱';
-    const htmlVerb=htmlSha?'更新':'追加';
-    // ── ファビコン注入 ──
-    const faviconRes = injectFaviconClient(htmlFileContent);
-    const finalHtmlContent = faviconRes.html;
-    if (faviconRes.action === 'inserted') {
-      log(`HTMLにファビコンタグを挿入しました`, 'ok');
-    } else if (faviconRes.action === 'replaced') {
-      log(`HTML内の既存ファビコンタグを更新しました`, 'ok');
-    } else if (faviconRes.action === 'no-head') {
-      log(`⚠️ HTMLに</head>が見つかりません。ファビコンは挿入されませんでした`, 'err');
-    }
-    await putFile(owner,repo,uploadFileName,finalHtmlContent,`${htmlEmoji} アプリHTML${htmlVerb}: ${appData.title}`,token,htmlSha);
-    log(`${uploadFileName} アップロード完了`,'ok');
+    // ========== 更新モード ==========
+    if(currentMode==='update'){
+      const appData=collectFormData();
+      const updateText=document.getElementById('updateText').value.trim();
+      const updateDate=document.getElementById('updateDate').value;
 
-    // ── sitemap.xml を更新（本体ページ + 詳細ページのURLを追記、冪等）──
-    log('sitemap.xml を確認中...','info'); setProgress(90);
-    try{
-      const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
-      const{xml:newSitemap,added}=updateSitemapXml(sitemapXml,appData);
-      if(added.length>0){
-        await putFile(owner,repo,'sitemap.xml',newSitemap,`🗺️ sitemap更新: ${appData.title}`,token,sitemapSha);
-        log(`sitemap.xml に ${added.length}件のURLを追記しました`,'ok');
-        added.forEach(u=>log(`  + ${u}`,'info'));
+      // apps-data.json の該当アプリを上書き
+      log('apps-data.json を取得中...','info'); setProgress(10);
+      const{content:appsJsonStr,sha:appsJsonSha}=await getFileContent(owner,repo,'apps-data.json',token);
+      let appsArray=JSON.parse(appsJsonStr);
+      const idx=appsArray.findIndex(a=>a.id===appData.id);
+      if(idx===-1) throw new Error(`ID "${appData.id}" は apps-data.json に見つかりません。アプリIDを確認してください。`);
+      // releaseDate・SEO設定は元の値を保持（フォームが空欄の場合に既存設定を消さない）
+      const origReleaseDate=appsArray[idx].releaseDate;
+      const orig=appsArray[idx];
+      const merged={...appData, releaseDate: origReleaseDate};
+      if(!appData.seoTitle && orig.seoTitle) merged.seoTitle=orig.seoTitle;
+      if(!appData.seoDescription && orig.seoDescription) merged.seoDescription=orig.seoDescription;
+      if(!appData.seoKeywords && orig.seoKeywords) merged.seoKeywords=orig.seoKeywords;
+      appsArray[idx]=merged;
+      log(`apps-data.json の "${appData.title}" を更新中...`,'info'); setProgress(25);
+      await putFile(owner,repo,'apps-data.json',JSON.stringify(appsArray,null,2),`🔄 アプリ情報更新: ${appData.title}`,token,appsJsonSha);
+      log('apps-data.json 更新完了 → app-detail・app-intro も再生成されます','ok');
+
+      // HTMLファイル上書き
+      log(`${htmlFileName} を上書きアップロード中...`,'info'); setProgress(45);
+      const htmlSha=await getFileSHA(owner,repo,htmlFileName,token);
+      if(!htmlSha) throw new Error(`${htmlFileName} がリポジトリに見つかりません。`);
+      await putFile(owner,repo,htmlFileName,htmlFileContent,`🔄 アプリHTML更新: ${appData.title}`,token,htmlSha);
+      log(`${htmlFileName} 上書き完了`,'ok');
+
+      // generate.js の MANUAL_CHANGELOG に追記
+      log('generate.js に更新履歴を追記中...','info'); setProgress(65);
+      const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
+      const changelogResult=addChangelogEntry(generateJs,updateDate,updateText);
+      if(changelogResult.skipped){
+        log('⚠️ 同じ日付・同じ内容の履歴が既に存在するため、追記をスキップしました（重複防止）','warn');
       }else{
-        log('sitemap.xml は既に最新です（追記なし）','ok');
+        await putFile(owner,repo,'generate.js',changelogResult.html,`📝 更新履歴追加: ${appData.id}`,token,generateJsSha);
+        log('generate.js 更新完了','ok');
       }
-    }catch(smErr){
-      // sitemap更新の失敗は致命的ではないので、警告のみで処理を続行
-      log(`⚠️ sitemap.xmlの更新をスキップしました: ${smErr.message}`,'err');
-    }
 
-    setProgress(100);
-    log('🎉 全ファイルのアップロード完了！','ok');
-    log('GitHub Actionsが自動でサイトを更新します（約1〜2分）','info');
-    const successVerb=isUpdate?'更新':'登録';
-    const successEmoji=isUpdate?'♻️':'✅';
-    showAlert('success',`${successEmoji} <strong>${appData.title}</strong> の${successVerb}完了！<br>GitHub Actionsが自動でサイトを更新します（約1〜2分後に反映）`);
+      // sitemap.xml の lastmod 更新
+      log('sitemap.xml を更新中...','info'); setProgress(82);
+      const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
+      const updatedSitemap=updateSitemapLastmod(sitemapXml,appData.id,updateDate);
+      await putFile(owner,repo,'sitemap.xml',updatedSitemap,`🗺️ sitemap lastmod更新: ${appData.id}`,token,sitemapSha);
+      log('sitemap.xml 更新完了','ok');
+
+      setProgress(100);
+      log('🎉 アプリの更新が完了しました！','ok');
+      log('GitHub Actionsが generate.js を実行し、app-detail・app-introを自動再生成します（約1〜2分）','info');
+      showAlert('success',`✅ <strong>${appData.title}</strong> の更新完了！<br>更新履歴：「${updateText}」<br>app-details・app-intro も自動で再生成されます`);
+      showIndexPanel(appData.id, appData.title);
+
+    // ========== 新規モード ==========
+    }else{
+      const appData=collectFormData();
+      log('apps-data.json を取得中...','info'); setProgress(10);
+      const{content:appsJsonStr,sha:appsJsonSha}=await getFileContent(owner,repo,'apps-data.json',token);
+      let appsArray=JSON.parse(appsJsonStr);
+      log('apps-data.json 取得完了','ok');
+      if(appsArray.some(a=>a.id===appData.id))throw new Error(`ID "${appData.id}" は既に登録されています`);
+      log(`apps-data.json に "${appData.title}" を追記中...`,'info'); setProgress(25);
+      appsArray.push(appData);
+      await putFile(owner,repo,'apps-data.json',JSON.stringify(appsArray,null,2),`✨ アプリ追加: ${appData.title}`,token,appsJsonSha);
+      log('apps-data.json 更新完了','ok');
+      log('generate.js を更新中...','info'); setProgress(45);
+      const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
+      const updatedGenerateJs=updateGenerateJs(generateJs,appData,[...selectedPurposes]);
+      await putFile(owner,repo,'generate.js',updatedGenerateJs,`🔧 generate.js 更新: ${appData.id}`,token,generateJsSha);
+      log('generate.js 更新完了','ok');
+      log(`${htmlFileName} をアップロード中...`,'info'); setProgress(65);
+      const htmlSha=await getFileSHA(owner,repo,htmlFileName,token);
+      await putFile(owner,repo,htmlFileName,htmlFileContent,`📱 アプリHTML追加: ${appData.title}`,token,htmlSha);
+      log(`${htmlFileName} アップロード完了`,'ok');
+      log('sitemap.xml を更新中...','info'); setProgress(82);
+      const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
+      const updatedSitemap=updateSitemap(sitemapXml,appData.id,appData.category);
+      await putFile(owner,repo,'sitemap.xml',updatedSitemap,`🗺️ sitemap更新: ${appData.id}`,token,sitemapSha);
+      log('sitemap.xml 更新完了','ok');
+      setProgress(100);
+      log('🎉 全ファイルのアップロード完了！','ok');
+      log('GitHub Actionsが自動でサイトを更新します（約1〜2分）','info');
+      showAlert('success',`✅ <strong>${appData.title}</strong> の登録完了！<br>GitHub Actionsが自動でサイトを更新します（約1〜2分後に反映）`);
+      showIndexPanel(appData.id, appData.title);
+    }
   }catch(err){
     log(`エラー: ${err.message}`,'err');
     showAlert('error',`❌ エラー: ${err.message}`);
   }finally{
-    btn.disabled=false; btn.innerHTML='<span>🚀</span><span>GitHubにアップロード</span>';
-  }
-}
-
-// ============================================================
-// カラーパレット & 色プレビュー連携
-// ============================================================
-const COLOR_PALETTE = [
-  // 暖色系
-  '#FF6B6B', '#FF8C42', '#FFB347', '#FFD700', '#F4A200',
-  // 黄〜緑
-  '#F59E0B', '#FBBF24', '#84CC16', '#10B981', '#4ECDC4',
-  // 青系
-  '#06B6D4', '#0EA5E9', '#3B82F6', '#5BA4D4', '#5B3FD4',
-  // 紫〜ピンク
-  '#8B5CF6', '#A78BFA', '#C3A6E8', '#EC4899', '#FF69B4',
-  // モノトーン/アクセント
-  '#2C3E50', '#64748B', '#92400E', '#065F46'
-];
-
-function initColorPalette(){
-  const wrap = document.getElementById('colorPalette');
-  if(!wrap) return;
-  wrap.innerHTML = '';
-  COLOR_PALETTE.forEach(c => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.style.cssText = `width:34px;height:34px;border-radius:10px;background:${c};border:2px solid white;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:transform .1s,box-shadow .1s;padding:0;`;
-    btn.title = c;
-    btn.setAttribute('aria-label','色 '+c);
-    btn.addEventListener('click', () => setIconColor(c));
-    btn.addEventListener('mouseenter', () => btn.style.transform = 'scale(1.15)');
-    btn.addEventListener('mouseleave', () => btn.style.transform = '');
-    wrap.appendChild(btn);
-  });
-}
-
-function setIconColor(hex){
-  const norm = normalizeHex(hex);
-  if(!norm) return;
-  const input = document.getElementById('iconColor');
-  const picker = document.getElementById('iconColorPicker');
-  const preview = document.getElementById('iconColorPreview');
-  if(input) input.value = norm;
-  if(picker) picker.value = norm;
-  if(preview){
-    preview.style.background = norm;
-    // アイコン絵文字も反映
-    const iconEl = document.getElementById('icon');
-    preview.textContent = (iconEl && iconEl.value.trim()) || 'A';
-    // 文字色を背景の明度で自動調整
-    preview.style.color = isLightColor(norm) ? '#222' : '#fff';
-  }
-}
-
-function normalizeHex(s){
-  if(!s) return null;
-  s = String(s).trim();
-  if(!s.startsWith('#')) s = '#' + s;
-  const m = s.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
-  if(!m) return null;
-  let h = m[1];
-  if(h.length === 3) h = h.split('').map(c=>c+c).join('');
-  return '#' + h.toLowerCase();
-}
-
-function isLightColor(hex){
-  const h = hex.replace('#','');
-  const r = parseInt(h.slice(0,2),16);
-  const g = parseInt(h.slice(2,4),16);
-  const b = parseInt(h.slice(4,6),16);
-  // 輝度の簡易計算 (sRGB)
-  const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
-  return lum > 0.7;
-}
-
-// ============================================================
-// カテゴリ内の表示順プレビュー
-// ============================================================
-let _appsDataCache = null;
-let _appsDataCacheKey = null;
-async function loadOrderPreview(forceRefresh=true){
-  const previewEl = document.getElementById('orderPreview');
-  if(!previewEl) return;
-  const owner = document.getElementById('owner').value.trim();
-  const repo  = document.getElementById('repo').value.trim();
-  const token = document.getElementById('token').value.trim();
-  const cat   = selectedCategory;
-  const newId = document.getElementById('appId').value.trim();
-  const newOrderRaw = document.getElementById('appOrder').value.trim();
-  const newOrder = newOrderRaw !== '' ? parseInt(newOrderRaw,10) : null;
-
-  if(!owner || !repo || !token){
-    previewEl.style.display='block';
-    previewEl.innerHTML='<span style="color:#dc2626;">⚠️ オーナー・リポジトリ名・トークンを入力してから「現在の順番を見る」を押してください</span>';
-    return;
-  }
-  if(!cat){
-    previewEl.style.display='block';
-    previewEl.innerHTML='<span style="color:#dc2626;">⚠️ 先にカテゴリを選択してください</span>';
-    return;
-  }
-  previewEl.style.display='block';
-  const cacheKey = `${owner}/${repo}`;
-  let apps = null;
-  // キャッシュ利用
-  if(!forceRefresh && _appsDataCache && _appsDataCacheKey === cacheKey){
-    apps = _appsDataCache;
-  }else{
-    previewEl.innerHTML='<span style="color:#666;">⏳ apps-data.json を取得中...</span>';
-    try{
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/apps-data.json`,{
-        headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json'}
-      });
-      if(!res.ok)throw new Error('取得に失敗しました ('+res.status+')');
-      const data = await res.json();
-      const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g,''))));
-      apps = JSON.parse(content);
-      _appsDataCache = apps;
-      _appsDataCacheKey = cacheKey;
-    }catch(e){
-      previewEl.innerHTML = '<span style="color:#dc2626;">❌ エラー: '+e.message+'</span>';
-      return;
-    }
-  }
-
-  // 同じカテゴリのアプリだけ抽出
-  const sameCat = apps.filter(a => a.category === cat);
-  if(sameCat.length === 0){
-    previewEl.innerHTML='<span style="color:#666;">このカテゴリにはまだアプリがありません。表示順は空欄でOK(または 1 から)</span>';
-    return;
-  }
-  // order を「真の順位」として並べる: order なしは元の順、order ありを希望位置に挿入
-  function sortByOrderTrue(list){
-    const withOrder = list
-      .map((a, idx) => ({ a, idx }))
-      .filter(x => typeof x.a.order === 'number')
-      .sort((x, y) => x.a.order - y.a.order || x.idx - y.idx);
-    const withoutOrder = list.filter(a => typeof a.order !== 'number');
-    const out = withoutOrder.slice();
-    for (const { a } of withOrder) {
-      const pos = Math.max(0, Math.min(out.length, a.order - 1));
-      out.splice(pos, 0, a);
-    }
-    return out;
-  }
-  // 編集中アプリを除いた現状を計算
-  const others = sameCat.filter(a => a.id !== newId);
-  const currentSorted = sortByOrderTrue(others);
-  // プレビュー用に、編集中アプリを希望位置に挿入した配列も作る
-  let withSelfSorted;
-  const selfApp = sameCat.find(a => a.id === newId) || {
-    id: newId, title: document.getElementById('title').value.trim()||'(新規アプリ)',
-    icon: document.getElementById('icon').value.trim()||'📱',
-    order: newOrder
-  };
-  if(newOrder !== null){
-    withSelfSorted = sortByOrderTrue([...others, { ...selfApp, order: newOrder }]);
-  } else {
-    withSelfSorted = [...currentSorted, selfApp];
-  }
-  let html = `<div style="font-weight:700;margin-bottom:8px;color:var(--text);">📂 ${cat} の表示順プレビュー（${withSelfSorted.length}件）<button type="button" onclick="loadOrderPreview(true)" style="float:right;background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;text-decoration:underline;">🔄 再取得</button></div>`;
-  html += '<div style="display:flex;flex-direction:column;gap:4px;">';
-  withSelfSorted.forEach((a, i) => {
-    const isSelf = a.id === newId;
-    const orderLabel = (typeof a.order === 'number') ? `希望=${a.order}` : '順位指定なし';
-    html += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;${isSelf?'background:#fef3c7;font-weight:700;':''}">`
-      +`<span style="display:inline-block;width:24px;text-align:right;color:#888;">${i+1}.</span>`
-      +`<span style="font-size:16px;">${a.icon||'📱'}</span>`
-      +`<span>${a.title}${isSelf?' ← 編集中':''}</span>`
-      +`<span style="margin-left:auto;color:#888;font-size:11px;">${orderLabel}</span>`
-      +`</div>`;
-  });
-  html += '</div>';
-
-  // 自分の最終位置
-  const finalIdx = withSelfSorted.findIndex(a => a.id === newId);
-  if(finalIdx >= 0){
-    if(newOrder !== null){
-      html += `<div style="margin-top:10px;padding:8px 12px;background:#d1fae5;border-radius:6px;color:#065f46;font-weight:700;">`
-        +`✅ あなたのアプリは「<span style="font-size:14px;">${finalIdx+1}番目</span>」に表示されます（順位指定=${newOrder}）`
-        +`</div>`;
+    btn.disabled=false;
+    if(currentMode==='update'){
+      btn.className='btn-pink';
+      btn.innerHTML='<span>🔄</span><span>GitHubにアップロード（アプリ更新）</span>';
     }else{
-      html += `<div style="margin-top:10px;padding:8px 12px;background:#fef3c7;border-radius:6px;color:#92400e;font-size:11px;">`
-        +`💡 順位を指定しないと末尾（${finalIdx+1}番目）に追加されます。先頭にしたい場合は「1」、3番目なら「3」と入力してください`
-        +`</div>`;
+      btn.className='btn-primary';
+      btn.innerHTML='<span>🚀</span><span>GitHubにアップロード（新規登録）</span>';
     }
   }
-  previewEl.innerHTML = html;
 }
-
-// アプリIDが変わったらファイル名チェックを更新
-document.addEventListener('DOMContentLoaded',()=>{
-  const idInput=document.getElementById('appId');
-  if(idInput){
-    idInput.addEventListener('input',checkFilenameMatch);
-    idInput.addEventListener('change',checkFilenameMatch);
-  }
-  // カラーパレット初期化
-  initColorPalette();
-  const colorInput = document.getElementById('iconColor');
-  const colorPicker = document.getElementById('iconColorPicker');
-  const iconInput = document.getElementById('icon');
-  if(colorInput) colorInput.addEventListener('input', () => setIconColor(colorInput.value));
-  if(colorPicker) colorPicker.addEventListener('input', () => setIconColor(colorPicker.value));
-  if(iconInput) iconInput.addEventListener('input', () => {
-    const preview = document.getElementById('iconColorPreview');
-    if(preview) preview.textContent = iconInput.value.trim() || 'A';
-  });
-  // 初期表示
-  setIconColor(colorInput ? colorInput.value : '#3b82f6');
-  // 表示順プレビューの再計算(キャッシュ済みのapps-data.jsonがあれば即時計算)
-  const orderInput = document.getElementById('appOrder');
-  if(orderInput){
-    orderInput.addEventListener('input', () => {
-      const previewEl = document.getElementById('orderPreview');
-      // プレビューが既に表示されていて、キャッシュがあるなら即時再計算(fetchなし)
-      if(previewEl && previewEl.style.display !== 'none' && _appsDataCache){
-        loadOrderPreview(false);
-      }
-    });
-  }
-});
 </script>
 </body>
 </html>
