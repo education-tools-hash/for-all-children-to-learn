@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>すごろく</title>
-<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700;800;900&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
 <style>
 /* ===== CSS変数 ===== */
 :root {
@@ -97,12 +97,8 @@ body{font-family:var(--font);font-size:var(--fs);background:#120a02;color:var(--
   position:fixed;inset:0;z-index:500;
   background:linear-gradient(150deg,#2a1504,#0d1a05);
   display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-  padding:20px 16px 32px;overflow-y:auto;gap:12px;
+  padding:24px 16px 60px;overflow-y:auto;gap:12px;
   -webkit-overflow-scrolling:touch;
-}
-/* PCなど縦に余裕があるときはセンタリング */
-@media(min-height:700px){
-  #setup{justify-content:center;}
 }
 .s-title{font-family:var(--font-d);font-size:clamp(1.8rem,8vw,3.5rem);color:var(--gold);text-align:center;text-shadow:0 0 28px rgba(240,192,64,.5),3px 3px 0 rgba(0,0,0,.4);}
 .s-sub{color:rgba(255,255,255,.5);font-size:.8rem;font-weight:700;text-align:center;}
@@ -377,9 +373,9 @@ body.hc #sce-ev-preview{background:#333;color:#fff;border-color:#888;}
   100%{transform:rotate(0deg);}
 }
 #dice-overlay-num{
-  font-family:var(--font-d);
+  font-family:'BIZ UDPGothic','M PLUS Rounded 1c',sans-serif;
   font-size:clamp(2.8rem,10vw,5rem);
-  font-weight:900;color:var(--gold);
+  font-weight:700;color:var(--gold);
   text-shadow:0 4px 20px rgba(240,192,64,.6),2px 2px 0 rgba(0,0,0,.4);
   min-height:1.2em;text-align:center;
 }
@@ -503,8 +499,9 @@ body.screen-locked #setbtn{
 #dnum{font-size:1.9rem;font-weight:900;color:var(--gold);min-width:38px;text-align:center;}
 #rollbtn{
   width:100%;background:linear-gradient(135deg,#e8507a,#b02040);
-  color:#fff;border:none;border-radius:14px;padding:12px;
-  font-family:var(--font);font-size:calc(var(--fs)*0.92);font-weight:900;
+  color:#fff;border:none;border-radius:14px;
+  padding:var(--rollbtn-pad,12px);
+  font-family:var(--font);font-size:calc(var(--fs)*var(--rollbtn-fs,0.92));font-weight:900;
   cursor:pointer;box-shadow:0 4px 14px rgba(232,80,122,.35);
   transition:all .2s;-webkit-tap-highlight-color:transparent;
 }
@@ -602,6 +599,17 @@ body.screen-locked #setbtn{
 }
 .scl:hover{background:rgba(255,255,255,.13);}
 
+/* さいころボタンサイズ選択 */
+.rbs-chip{
+  flex:1;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.2);
+  border-radius:10px;padding:9px 6px;color:rgba(255,255,255,.75);
+  font-family:var(--font);font-size:calc(var(--fs)*0.78);font-weight:800;
+  cursor:pointer;transition:all .18s;-webkit-tap-highlight-color:transparent;
+}
+.rbs-chip:hover{border-color:var(--gold);}
+.rbs-chip.sel{background:var(--gold);border-color:var(--gold);color:#000;}
+.rbs-chip:focus{outline:3px solid var(--gold);outline-offset:2px;}
+
 /* SCAN */
 #scanbadge{
   display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);
@@ -676,14 +684,6 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 @media(max-width:500px){#side{width:155px;}}
 @media(max-width:360px){#side{width:138px;}}
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -998,6 +998,20 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
       </div>
       <button class="tsw on" id="evesw" role="switch" aria-checked="true" aria-label="アクティビティマス"></button>
     </div>
+    <div class="ssrow" style="border:1.5px solid rgba(240,192,64,.3);border-radius:14px;padding:12px 14px;background:rgba(240,192,64,.06);">
+      <div class="ssinfo">
+        <div class="sl">🎲 さいころボタンのサイズ</div>
+        <div class="sd" style="line-height:1.6;">タップしやすいようにボタンの大きさを調整できます。</div>
+      </div>
+    </div>
+    <div class="ssrow" style="padding-top:0;">
+      <div class="chip-group" id="rollbtn-size-chips" style="display:flex;gap:8px;width:100%;">
+        <button class="rbs-chip" data-size="s" onclick="setRollBtnSize('s',this)">小</button>
+        <button class="rbs-chip sel" data-size="m" onclick="setRollBtnSize('m',this)">中</button>
+        <button class="rbs-chip" data-size="l" onclick="setRollBtnSize('l',this)">大</button>
+        <button class="rbs-chip" data-size="xl" onclick="setRollBtnSize('xl',this)">特大</button>
+      </div>
+    </div>
     <button class="scl" id="setcl">✕ とじる</button>
   </div>
 </div>
@@ -1155,6 +1169,26 @@ let turnCounts=[]; // 各プレイヤーの経過ターン数
 let scanOn=false,ttsOn=true,sndOn=true;
 let fontLv=1,scanSec=2.0,hc=false;
 let eveOn=true; // アクティビティマスON/OFF
+let rollBtnSize='m'; // さいころボタンのサイズ: s/m/l/xl
+
+const ROLL_BTN_SIZES={
+  s:  {pad:'8px',  fs:0.78},
+  m:  {pad:'12px', fs:0.92},
+  l:  {pad:'18px', fs:1.15},
+  xl: {pad:'26px', fs:1.4},
+};
+
+function setRollBtnSize(size, btnEl){
+  rollBtnSize=size;
+  const cfg=ROLL_BTN_SIZES[size]||ROLL_BTN_SIZES.m;
+  document.documentElement.style.setProperty('--rollbtn-pad', cfg.pad);
+  document.documentElement.style.setProperty('--rollbtn-fs', cfg.fs);
+  // チップの選択状態を更新
+  document.querySelectorAll('.rbs-chip').forEach(c=>c.classList.toggle('sel', c.dataset.size===size));
+  const label={s:'小',m:'中',l:'大',xl:'特大'}[size]||'中';
+  speak('さいころボタンのサイズを'+label+'にしました');
+  bip(440,.07,.15);
+}
 let scanTmr=null,scanTgts=[],sti=0;
 let cpos=[], CW=80, CH=68;
 
