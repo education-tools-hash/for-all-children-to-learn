@@ -519,8 +519,7 @@ const CARD_CLASS_MAP = {
   'sst-app':         'card-sst',
   'kimochi-board':   'card-board',
   'drawing-app':     'card-oekaki',
-  :       'card-music',
-  'yomikaki-app':    'card-yomikaki',
+   'yomikaki-app':    'card-yomikaki',
   'slideshow-sakusei': 'card-oekaki', // 創作系の色を流用
   'directions-app':  'card-directions', // 専用色(ティール系)
 };
