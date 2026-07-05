@@ -1157,7 +1157,7 @@ function injectFaviconToAppHtmls(apps) {
   } else if (log.length > 0) {
     // 件数が多いので最初の5件のみ表示
     log.slice(0,
-  'ongaku-app':      '創作表現', 5).forEach(l => console.log(l));
+  'ongaku-app':      '創作表現', 
     if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
   }
 }
