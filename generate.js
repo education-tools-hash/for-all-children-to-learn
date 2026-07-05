@@ -917,7 +917,7 @@ const PURPOSE_CARDS_TRUTH = {
   // theme クラス名 → そのカードに所属するアプリの id 配列
   'theme-ishi': {
     title: '思いを伝えたい子に',
-    ids: ['kimochi-board', 'drawing-app', 'yomikaki-app', 'kyou-no-kiroku', 'gaze-keyboard']
+    ids: ['kimochi-board', 'drawing-app', 'yomikaki-app', 'kyou-no-kiroku', 'gaze-keyboard', 'ongaku-app']
   },
   'theme-jikan': {
     title: '時間の見通しを持たせたい',
@@ -941,7 +941,7 @@ const PURPOSE_CARDS_TRUTH = {
   },
   'theme-sousaku': {
     title: '創作・表現活動をしたい',
-    ids: ['drawing-app', 'music-app', 'slideshow-sakusei']
+    ids: ['drawing-app', 'music-app', 'slideshow-sakusei', 'ongaku-app']
   },
 };
 
@@ -1158,7 +1158,8 @@ function injectFaviconToAppHtmls(apps) {
     log.forEach(l => console.log(l));
   } else if (log.length > 0) {
     // 件数が多いので最初の5件のみ表示
-    log.slice(0, 5).forEach(l => console.log(l));
+    log.slice(0,
+  'ongaku-app':      '創作表現', 5).forEach(l => console.log(l));
     if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
   }
 }
