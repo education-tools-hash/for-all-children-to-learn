@@ -50,7 +50,6 @@ const CATEGORY_TRUTH = {
   'mogura-tataki':      '自立活動',
   // 創作表現
   'drawing-app':     '創作表現',
-  :       '創作表現',
   'slideshow-sakusei':'創作表現',
 };
 
