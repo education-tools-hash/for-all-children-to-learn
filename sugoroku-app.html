@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>すごろく</title>
+<title>すごろく オンライン</title>
 <link href="https://fonts.googleapis.com/css2?family=Kaisei+Decol:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700;800;900&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <style>
 /* ===== CSS変数 ===== */
 :root {
@@ -683,6 +684,74 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 
 @media(max-width:500px){#side{width:155px;}}
 @media(max-width:360px){#side{width:138px;}}
+
+/* ===== オンラインモード ===== */
+#online-lobby{
+  position:fixed;inset:0;z-index:600;
+  background:linear-gradient(150deg,#0d0a20,#1a0e30);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;gap:16px;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+#online-lobby.on{display:flex;}
+.ol-title{font-family:var(--font-d);font-size:clamp(1.8rem,7vw,3rem);color:var(--gold);text-align:center;text-shadow:0 0 24px rgba(240,192,64,.4);}
+.ol-sub{color:rgba(255,255,255,.5);font-size:.82rem;font-weight:700;text-align:center;}
+.ol-card{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.15);border-radius:20px;padding:20px;width:100%;max-width:420px;}
+.ol-card-title{color:var(--gold);font-size:.85rem;font-weight:900;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.ol-btn{
+  width:100%;background:linear-gradient(135deg,var(--pink),#b02040);color:#fff;
+  border:none;border-radius:16px;padding:14px;font-family:var(--font);
+  font-size:1rem;font-weight:900;cursor:pointer;transition:all .2s;
+  -webkit-tap-highlight-color:transparent;margin-bottom:8px;
+}
+.ol-btn:hover{transform:scale(1.02);}
+.ol-btn:focus{outline:4px solid var(--gold);outline-offset:2px;}
+.ol-btn.secondary{background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);}
+.ol-btn.green{background:linear-gradient(135deg,var(--green),#2a7a3a);}
+.ol-input{
+  width:100%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);
+  border-radius:12px;padding:12px 16px;color:#fff;font-family:var(--font);
+  font-size:1.1rem;font-weight:800;outline:none;text-align:center;
+  letter-spacing:.3em;margin-bottom:10px;
+  -webkit-tap-highlight-color:transparent;
+}
+.ol-input::placeholder{color:rgba(255,255,255,.3);letter-spacing:0;}
+.ol-input:focus{border-color:var(--gold);}
+.room-code-display{
+  background:rgba(240,192,64,.15);border:2px solid var(--gold);
+  border-radius:14px;padding:14px 20px;text-align:center;margin-bottom:10px;
+}
+.room-code-display .rcd-label{font-size:.72rem;font-weight:800;color:rgba(255,255,255,.5);margin-bottom:4px;}
+.room-code-display .rcd-code{font-size:2.5rem;font-weight:900;color:var(--gold);letter-spacing:.25em;font-family:var(--font-d);}
+.ol-member-list{display:flex;flex-direction:column;gap:6px;min-height:40px;}
+.ol-member{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.06);border-radius:10px;padding:8px 12px;
+  font-size:.82rem;font-weight:800;color:rgba(255,255,255,.85);
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.ol-member .om-av{font-size:1.3rem;}
+.ol-member .om-host{font-size:.6rem;background:var(--gold);color:#000;border-radius:6px;padding:1px 5px;font-weight:900;margin-left:auto;}
+.ol-status{
+  background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:10px 14px;font-size:.78rem;font-weight:800;
+  color:rgba(255,255,255,.65);text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.ol-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;animation:adot 1.2s infinite;}
+.ol-dot.red{background:#ff6b6b;}
+.ol-dot.yellow{background:var(--gold);}
+/* 接続バー（ゲーム中） */
+#conn-bar{
+  display:none;padding:4px 12px;background:rgba(0,0,0,.45);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  font-size:.68rem;font-weight:800;color:rgba(255,255,255,.5);
+  text-align:center;flex-shrink:0;gap:6px;align-items:center;justify-content:center;
+}
+#conn-bar.on{display:flex;}
+#conn-bar .cb-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:adot 1.2s infinite;}
+#conn-bar .cb-dot.red{background:#ff6b6b;}
+.online-hide{display:none!important;}
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
@@ -697,6 +766,52 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 
 <div id="scanbadge">🔍 スキャン ON</div>
 <div id="lock-banner">🔒 がめんロック中</div>
+
+<!-- ===== ONLINE LOBBY ===== -->
+<div id="online-lobby">
+  <div class="ol-title">🌐 オンライン すごろく</div>
+  <div class="ol-sub">ともだちといっしょにあそぼう！</div>
+  <div class="ol-card" id="ol-mode-select">
+    <div class="ol-card-title">🎮 あそびかたをえらんでね</div>
+    <button class="ol-btn green" id="ol-host-btn">🏠 ルームをつくる（ホスト）</button>
+    <button class="ol-btn" id="ol-join-btn">🚪 ルームにはいる（ゲスト）</button>
+    <button class="ol-btn secondary" id="ol-offline-btn">📴 オフラインでかわりばんこにあそぶ</button>
+    <button class="ol-btn secondary" id="ol-home-btn" style="margin-top:4px;border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.5);">🏠 ホームにもどる</button>
+  </div>
+  <div class="ol-card" id="ol-join-card" style="display:none">
+    <div class="ol-card-title">🔑 ルームコードをにゅうりょく</div>
+    <input class="ol-input" id="ol-code-input" type="text" maxlength="4" placeholder="0000" inputmode="numeric">
+    <div class="ol-status" id="ol-join-status"><span class="ol-dot yellow"></span>コードをにゅうりょくしてね</div>
+    <br>
+    <button class="ol-btn green" id="ol-do-join-btn">🚪 はいる！</button>
+    <button class="ol-btn secondary" id="ol-join-back-btn">← もどる</button>
+    <button class="ol-btn secondary" id="ol-join-home-btn" style="border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.5);">🏠 ホームにもどる</button>
+  </div>
+  <div class="ol-card" id="ol-host-card" style="display:none">
+    <div class="ol-card-title">🏠 ルームをじゅんびしています</div>
+    <div class="room-code-display">
+      <div class="rcd-label">このコードをみんなにおしえてね！</div>
+      <div class="rcd-code" id="ol-room-code">----</div>
+    </div>
+    <div class="ol-card-title" style="margin-top:10px">👥 さんかしているひと</div>
+    <div class="ol-member-list" id="ol-member-list"></div>
+    <br>
+    <div class="ol-status" id="ol-host-status"><span class="ol-dot yellow"></span>ともだちがはいるのをまっています…</div>
+    <br>
+    <button class="ol-btn green" id="ol-start-online-btn" disabled style="opacity:.4">▶ ゲームスタート！</button>
+    <button class="ol-btn secondary" id="ol-host-back-btn" style="margin-top:6px">← ルームをとじる</button>
+    <button class="ol-btn secondary" id="ol-host-home-btn" style="border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.5);">🏠 ホームにもどる</button>
+  </div>
+  <div class="ol-card" id="ol-guest-card" style="display:none">
+    <div class="ol-card-title">🚪 ルームにさんかしました</div>
+    <div class="ol-member-list" id="ol-guest-member-list"></div>
+    <br>
+    <div class="ol-status" id="ol-guest-status"><span class="ol-dot yellow"></span>ホストがゲームをはじめるのをまっています…</div>
+    <br>
+    <button class="ol-btn secondary" id="ol-guest-back-btn">← ルームをでる</button>
+    <button class="ol-btn secondary" id="ol-guest-home-btn" style="border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.5);">🏠 ホームにもどる</button>
+  </div>
+</div>
 
 <!-- 画面中央サイコロオーバーレイ -->
 <div id="dice-overlay">
@@ -750,8 +865,9 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
   <button class="edit-cells-btn" id="open-cell-editor-btn">✏️ マス目をカスタマイズする</button>
   <button class="edit-cells-btn" id="setup-help-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">❓ マス目のかいせつをみる</button>
   <button class="edit-cells-btn" id="setup-set-btn" style="border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.7);">⚙️ せってい　<span id="eve-status-badge" style="font-size:.72rem;font-weight:900;background:rgba(93,191,106,.3);color:#5dbf6a;border-radius:8px;padding:2px 8px;margin-left:4px;">🎭 ON</span></button>
+  <button class="edit-cells-btn" id="online-mode-btn" style="border-color:rgba(93,191,106,.5);color:#5dbf6a;">🌐 オンラインであそぶ</button>
   <button class="edit-cells-btn" id="fs-btn" style="border-color:rgba(93,191,106,.4);color:#5dbf6a;">⛶ 全画面で表示する</button>
-  <button class="go-btn" id="gobtn">▶ ゲームスタート！</button>
+  <button class="go-btn" id="gobtn">▶ かわりばんこであそぶ（オフライン）</button>
 </div>
 
 <!-- ===== CELL EDITOR ===== -->
@@ -818,7 +934,7 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 <div id="game">
   <div id="topbar">
     <span style="font-size:1.2rem">🎲</span>
-    <div><div class="tb-title">すごろく</div><div class="tb-info" id="tbinfo">-</div></div>
+    <div><div class="tb-title" id="tb-title-txt">すごろく</div><div class="tb-info" id="tbinfo">-</div></div>
     <div class="tb-btns">
       <button class="tb-btn" id="helpbtn" aria-label="マス目のかいせつ">❓</button>
       <button class="tb-btn" id="sndbtn" aria-label="おとのオンオフ">🔊</button>
@@ -828,6 +944,7 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
       <button class="tb-btn" id="homebtn" aria-label="タイトルへもどる">🏠</button>
     </div>
   </div>
+  <div id="conn-bar"><span class="cb-dot" id="conn-dot"></span><span id="conn-txt">オンライン接続中</span></div>
   <div id="arena">
     <div id="bwrap">
       <div id="bcanvas">
@@ -944,14 +1061,14 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 
     <div class="help-section-title" style="margin-top:18px">🎴 イベントのれい</div>
     <div class="help-ev-list">
-      <div class="help-ev"><span class="hev-ic">🎁</span><div><div class="hev-tt">プレゼント！</div><div class="hev-ds">3マスすすむ</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🍀</span><div><div class="hev-tt">よつばのクローバー！</div><div class="hev-ds">もう1かいさいころをふれる</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🚀</span><div><div class="hev-tt">ロケット発射！</div><div class="hev-ds">4マスすすむ</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🌈</span><div><div class="hev-tt">にじをみつけた！</div><div class="hev-ds">3マスすすむ</div></div></div>
-      <div class="help-ev"><span class="hev-ic">💤</span><div><div class="hev-tt">ねむってしまった…</div><div class="hev-ds">2マスもどる</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🧊</span><div><div class="hev-tt">こおりですべった！</div><div class="hev-ds">3マスもどる</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🎁</span><div><div class="hev-tt">プレゼント！</div><div class="hev-ds">さんますすすむ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🍀</span><div><div class="hev-tt">よつばのクローバー！</div><div class="hev-ds">もういっかいさいころをふれる</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🚀</span><div><div class="hev-tt">ロケット発射！</div><div class="hev-ds">よんますすすむ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🌈</span><div><div class="hev-tt">にじをみつけた！</div><div class="hev-ds">さんますすすむ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">💤</span><div><div class="hev-tt">ねむってしまった…</div><div class="hev-ds">ふたますもどる</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🧊</span><div><div class="hev-tt">こおりですべった！</div><div class="hev-ds">さんますもどる</div></div></div>
       <div class="help-ev"><span class="hev-ic">🌀</span><div><div class="hev-tt">たつまきにとばされた！</div><div class="hev-ds">スタートにもどる</div></div></div>
-      <div class="help-ev"><span class="hev-ic">😴</span><div><div class="hev-tt">おひるねしちゃった</div><div class="hev-ds">1かいおやすみ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">😴</span><div><div class="hev-tt">おひるねしちゃった</div><div class="hev-ds">いっかいおやすみ</div></div></div>
       <div class="help-ev"><span class="hev-ic">🎤</span><div><div class="hev-tt">じこしょうかい！</div><div class="hev-ds">すきなものを1つはなそう</div></div></div>
       <div class="help-ev"><span class="hev-ic">🤸</span><div><div class="hev-tt">からだをうごかそう！</div><div class="hev-ds">えらんだうごきをしよう</div></div></div>
       <div class="help-ev"><span class="hev-ic">🧩</span><div><div class="hev-tt">なぞなぞタイム！</div><div class="hev-ds">みんなになぞなぞをだそう</div></div></div>
@@ -1037,16 +1154,16 @@ const DP={1:[5],2:[3,7],3:[3,5,7],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 
 // ===== 豊富なイベント定義 =====
 const EVL=[
-  {ic:'🎁',tt:'プレゼント！',ds:'3マスすすむ！',mv:3,cl:'c-adv'},
-  {ic:'🍀',tt:'よつばのクローバー！',ds:'もう1かいさいころをふれる！',ex:'again',cl:'c-lucky'},
-  {ic:'🚀',tt:'ロケット発射！',ds:'4マスすすむ！',mv:4,cl:'c-adv'},
-  {ic:'🌈',tt:'にじをみつけた！',ds:'3マスすすむ！',mv:3,cl:'c-adv'},
+  {ic:'🎁',tt:'プレゼント！',ds:'さんますすすむ！',mv:3,cl:'c-adv'},
+  {ic:'🍀',tt:'よつばのクローバー！',ds:'もういっかいさいころをふれる！',ex:'again',cl:'c-lucky'},
+  {ic:'🚀',tt:'ロケット発射！',ds:'よんますすすむ！',mv:4,cl:'c-adv'},
+  {ic:'🌈',tt:'にじをみつけた！',ds:'さんますすすむ！',mv:3,cl:'c-adv'},
 ];
 const EVU=[
-  {ic:'💤',tt:'ねむってしまった…',ds:'2マスもどる',mv:-2,cl:'c-back'},
-  {ic:'🧊',tt:'こおりですべった！',ds:'3マスもどる',mv:-3,cl:'c-back'},
+  {ic:'💤',tt:'ねむってしまった…',ds:'ふたますもどる',mv:-2,cl:'c-back'},
+  {ic:'🧊',tt:'こおりですべった！',ds:'さんますもどる',mv:-3,cl:'c-back'},
   {ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',cl:'c-unlucky'},
-  {ic:'😴',tt:'おひるねしちゃった',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'},
+  {ic:'😴',tt:'おひるねしちゃった',ds:'いっかいおやすみ',ex:'skip',cl:'c-skip'},
 ];
 const EVE=[
   {ic:'🎤',tt:'じこしょうかい！',ds:'すきなものを1つはなそう！ （はなしたら次のターンへ）',cl:'c-lucky'},
@@ -1298,15 +1415,15 @@ const EV_TYPES_FOR_CUSTOM=[
   // ── なし ──
   {group:'なし',      label:'なし（イベントなし）', ev:null},
   // ── ラッキー系 ──
-  {group:'ラッキー系', label:'🎁 プレゼント！（3マスすすむ）',   ev:{ic:'🎁',tt:'プレゼント！',ds:'3マスすすむ！',mv:3,cl:'c-adv'}},
-  {group:'ラッキー系', label:'🍀 よつばのクローバー！（もう1かい）',ev:{ic:'🍀',tt:'よつばのクローバー！',ds:'もう1かいさいころをふれる！',ex:'again',cl:'c-lucky'}},
-  {group:'ラッキー系', label:'🚀 ロケット発射！（4マスすすむ）',  ev:{ic:'🚀',tt:'ロケット発射！',ds:'4マスすすむ！',mv:4,cl:'c-adv'}},
-  {group:'ラッキー系', label:'🌈 にじをみつけた！（3マスすすむ）',ev:{ic:'🌈',tt:'にじをみつけた！',ds:'3マスすすむ！',mv:3,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🎁 プレゼント！（3マスすすむ）',   ev:{ic:'🎁',tt:'プレゼント！',ds:'さんますすすむ！',mv:3,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🍀 よつばのクローバー！（もう1かい）',ev:{ic:'🍀',tt:'よつばのクローバー！',ds:'もういっかいさいころをふれる！',ex:'again',cl:'c-lucky'}},
+  {group:'ラッキー系', label:'🚀 ロケット発射！（4マスすすむ）',  ev:{ic:'🚀',tt:'ロケット発射！',ds:'よんますすすむ！',mv:4,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🌈 にじをみつけた！（3マスすすむ）',ev:{ic:'🌈',tt:'にじをみつけた！',ds:'さんますすすむ！',mv:3,cl:'c-adv'}},
   // ── アンラッキー系 ──
-  {group:'アンラッキー系', label:'💤 ねむってしまった…（2マスもどる）', ev:{ic:'💤',tt:'ねむってしまった…',ds:'2マスもどる',mv:-2,cl:'c-back'}},
-  {group:'アンラッキー系', label:'🧊 こおりですべった！（3マスもどる）',ev:{ic:'🧊',tt:'こおりですべった！',ds:'3マスもどる',mv:-3,cl:'c-back'}},
+  {group:'アンラッキー系', label:'💤 ねむってしまった…（2マスもどる）', ev:{ic:'💤',tt:'ねむってしまった…',ds:'ふたますもどる',mv:-2,cl:'c-back'}},
+  {group:'アンラッキー系', label:'🧊 こおりですべった！（3マスもどる）',ev:{ic:'🧊',tt:'こおりですべった！',ds:'さんますもどる',mv:-3,cl:'c-back'}},
   {group:'アンラッキー系', label:'🌀 たつまきにとばされた！（スタートにもどる）',ev:{ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',cl:'c-unlucky'}},
-  {group:'アンラッキー系', label:'😴 おひるねしちゃった（1かいおやすみ）',ev:{ic:'😴',tt:'おひるねしちゃった',ds:'1かいおやすみ',ex:'skip',cl:'c-skip'}},
+  {group:'アンラッキー系', label:'😴 おひるねしちゃった（1かいおやすみ）',ev:{ic:'😴',tt:'おひるねしちゃった',ds:'いっかいおやすみ',ex:'skip',cl:'c-skip'}},
   // ── アクティビティ系 ──
   {group:'アクティビティ系', label:'🎤 じこしょうかい！',  ev:{ic:'🎤',tt:'じこしょうかい！',ds:'すきなものを1つはなそう！ （はなしたら次のターンへ）',cl:'c-lucky'}},
   {group:'アクティビティ系', label:'🤸 からだをうごかそう！',ev:{ic:'🤸',tt:'からだをうごかそう！',ds:'えらんだうごきをしよう！ （できたら次のターンへ）',cl:'c-lucky'}},
@@ -1318,13 +1435,13 @@ const EV_TYPES_FOR_CUSTOM=[
   {group:'アクティビティ系', label:'🤝 てをつなごう！',    ev:{ic:'🤝',tt:'てをつなごう！',ds:'となりのひととあくしゅしよう！ （できたら次のターンへ）',cl:'c-lucky'}},
   {group:'アクティビティ系', label:'🎨 えをかいて！',      ev:{ic:'🎨',tt:'えをかいて！',ds:'すきなものをえにかいてみよう！ （かけたら次のターンへ）',cl:'c-lucky'}},
   // ── 移動数カスタム ──
-  {group:'移動（カスタム）', label:'⭐ 1マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'1マスすすむ！',mv:1,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'⭐ 2マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'2マスすすむ！',mv:2,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'⭐ 3マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'3マスすすむ！',mv:3,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'⭐ 4マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'4マスすすむ！',mv:4,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'💨 1マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'1マスもどる',mv:-1,cl:'c-back'}},
-  {group:'移動（カスタム）', label:'💨 2マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'2マスもどる',mv:-2,cl:'c-back'}},
-  {group:'移動（カスタム）', label:'💨 3マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'3マスもどる',mv:-3,cl:'c-back'}},
+  {group:'移動（カスタム）', label:'⭐ 1マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'ひとますすすむ！',mv:1,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'⭐ 2マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'ふたますすすむ！',mv:2,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'⭐ 3マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'さんますすすむ！',mv:3,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'⭐ 4マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'よんますすすむ！',mv:4,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'💨 1マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'ひとますもどる',mv:-1,cl:'c-back'}},
+  {group:'移動（カスタム）', label:'💨 2マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'ふたますもどる',mv:-2,cl:'c-back'}},
+  {group:'移動（カスタム）', label:'💨 3マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'さんますもどる',mv:-3,cl:'c-back'}},
 ];
 
 let editingCellIdx=-1;
@@ -1616,11 +1733,11 @@ document.getElementById('sce-text').addEventListener('input',function(){
 // しゅるいごとの標準イベントマッピング
 const TYPE_DEFAULT_EV={
   'c-normal': null,
-  'c-lucky':  {ic:'🍀',tt:'ラッキー！',ds:'もう1かいさいころをふれる！',ex:'again'},
+  'c-lucky':  {ic:'🍀',tt:'ラッキー！',ds:'もういっかいさいころをふれる！',ex:'again'},
   'c-unlucky':{ic:'💨',tt:'アンラッキー…',ds:'スタートにもどる',ex:'tostart'},
-  'c-adv':    {ic:'⭐',tt:'すすむ！',ds:'3マスすすむ！',mv:3},
-  'c-back':   {ic:'💤',tt:'もどる…',ds:'2マスもどる',mv:-2},
-  'c-skip':   {ic:'😴',tt:'おやすみ…',ds:'1かいおやすみ',ex:'skip'},
+  'c-adv':    {ic:'⭐',tt:'すすむ！',ds:'さんますすすむ！',mv:3},
+  'c-back':   {ic:'💤',tt:'もどる…',ds:'ふたますもどる',mv:-2},
+  'c-skip':   {ic:'😴',tt:'おやすみ…',ds:'いっかいおやすみ',ex:'skip'},
   'c-custom': null, // カスタムはsceSelectedEvをそのまま使う
 };
 
@@ -1915,7 +2032,10 @@ async function roll(){
   speak(String(res));
   setMsg(`${res}がでた！`);
   resultDiceOverlay(res);
-
+  // オンライン：さいころの目を全員に配信
+  if(typeof isOnline!=='undefined' && isOnline && isHost){
+    broadcastToGuests({type:'dice_result', value:res, player:ci});
+  }
   await dl(900);
   closeDiceOverlay();
   await dl(200);
@@ -1924,13 +2044,17 @@ async function roll(){
 
 async function moveP(idx,steps){
   const p=players[idx];
-  movSnd();setMsg(`${p.av} ${steps}マスすすむ！`);
+  const stepsRead=['','ひと','ふた','さん','よん','ご','ろく'][steps]||(steps+'');
+  movSnd();setMsg(`${p.av} ${steps}マスすすむ！`);speak(`${stepsRead}ますすすむ！`);
   for(let s=0;s<steps&&p.pos<nC-1;s++){
-    p.pos++;renderPieces();renderList();await dl(200);
+    p.pos++;renderPieces();renderList();
+    if(typeof broadcastSyncState!=='undefined') broadcastSyncState();
+    await dl(200);
   }
   if(p.pos===nC-1){
     p.done=true;finOrd.push(idx);goalSnd();confetti();renderList();
     speak(`${p.name}がゴールしました！`);
+    if(typeof broadcastSyncState!=='undefined') broadcastSyncState();
     if(players.every(x=>x.done)){await dl(400);showGoal();rolling=false;return;}
     setMsg(`${p.name}がゴール！🎉`);rolling=false;await dl(1200);nextTurn();return;
   }
@@ -1947,12 +2071,20 @@ function showEv(cell){
     document.getElementById('evds').textContent=ev.ds;
     document.getElementById('evmod').classList.add('on');
     speak(ev.tt+'。'+ev.ds);
+    // オンライン：イベントをゲストに配信
+    if(typeof broadcastToGuests!=='undefined' && isOnline && isHost){
+      broadcastToGuests({type:'show_event', ev:{ic:ev.ic,tt:ev.tt,ds:ev.ds}});
+    }
     if((ev.mv||0)>0||ev.ex==='again')luckySnd();
     else if((ev.mv||0)<0||ev.ex==='skip'||ev.ex==='tostart')unlkSnd();
     document.getElementById('evok').onclick=async()=>{
       document.getElementById('evmod').classList.remove('on');
+      // オンライン：イベントモーダルを閉じる
+      if(typeof broadcastToGuests!=='undefined' && isOnline && isHost){
+        broadcastToGuests({type:'close_event'});
+      }
       const p=players[ci];
-      if(ev.ex==='tostart'){p.pos=0;renderPieces();renderList();speak('スタートにもどった！');}
+      if(ev.ex==='tostart'){p.pos=0;renderPieces();renderList();speak('スタートにもどった！');if(typeof broadcastSyncState!=='undefined')broadcastSyncState();}
       else if((ev.mv||0)!==0){
         const s=Math.abs(ev.mv);
         for(let i=0;i<s;i++){
@@ -1965,7 +2097,7 @@ function showEv(cell){
           if(players.every(x=>x.done)){showGoal();rolling=false;res();return;}
         }
       } else if(ev.ex==='skip') p.skip=true;
-      if(ev.ex==='again'){setMsg('もう1かいふれる！');speak('もう1かいふれる！');rolling=false;document.getElementById('rollbtn').disabled=false;}
+      if(ev.ex==='again'){setMsg('もういっかいふれる！');speak('もういっかいふれる！');rolling=false;document.getElementById('rollbtn').disabled=false;}
       else{rolling=false;await dl(600);nextTurn();}
       res();
     };
@@ -1984,13 +2116,19 @@ function nextTurn(){
     setMsg(`${players[ci].name}はおやすみ… 😴`);
     speak(`${players[ci].name}はおやすみです`);
     unlkSnd();
+    if(typeof broadcastSyncState!=='undefined') broadcastSyncState();
     setTimeout(()=>nextTurn(), 2000);
     return;
   }
 
+  // オンライン同期
+  if(typeof broadcastSyncState!=='undefined') broadcastSyncState();
+
   if(players[ci].cpu){scheduleCpu();}
   else{
-    document.getElementById('rollbtn').disabled=false;
+    // オンライン時は自分のターンのみボタン有効
+    const myTurn = typeof isMyTurn!=='undefined' ? isMyTurn() : true;
+    document.getElementById('rollbtn').disabled = typeof isOnline!=='undefined' && isOnline ? !myTurn : false;
     setMsg(`${players[next].name}のばんです！`);
     speak(`${players[next].name}のばんです`);
   }
@@ -2306,6 +2444,341 @@ let rtmr;
 window.addEventListener('resize',()=>{clearTimeout(rtmr);rtmr=setTimeout(()=>{if(gActive)renderBoard();},200);});
 
 speak('すごろくへようこそ！');
+
+// =============================================
+// ===== オンラインモード (PeerJS) =====
+// =============================================
+let isOnline=false, isHost=false;
+let myPeer=null, myPeerId=null;
+let hostConn=null;
+let guestConns=[];
+let onlineRoom=null;
+let myPlayerIdx=-1;
+let onlineMembers=[];
+
+function roomToPeerId(code){ return 'sugoroku-room-'+code; }
+function generateRoomCode(){ return String(Math.floor(1000+Math.random()*9000)); }
+
+// ===== ロビーUI制御 =====
+function showLobby(){
+  document.getElementById('setup').style.display='none';
+  document.getElementById('online-lobby').classList.add('on');
+  showLobbyPanel('mode-select');
+}
+function hideLobby(){
+  document.getElementById('online-lobby').classList.remove('on');
+  document.getElementById('setup').style.display='flex';
+}
+function showLobbyPanel(id){
+  const panels=['ol-mode-select','ol-join-card','ol-host-card','ol-guest-card'];
+  panels.forEach(p=>{
+    const el=document.getElementById(p);
+    if(el) el.style.display = (p==='ol-'+id) ? 'block':'none';
+  });
+}
+
+document.getElementById('online-mode-btn').addEventListener('click',()=>{ showLobby(); bip(440,.07,.15); });
+document.getElementById('ol-offline-btn').addEventListener('click',()=>{ hideLobby(); bip(440,.07,.15); });
+
+// ホームにもどるボタン（各パネル共通）
+function goLobbyHome(){
+  cleanupPeer();
+  hideLobby();
+  bip(440,.07,.15);
+}
+document.getElementById('ol-home-btn').addEventListener('click', goLobbyHome);
+document.getElementById('ol-join-home-btn').addEventListener('click', goLobbyHome);
+document.getElementById('ol-host-home-btn').addEventListener('click', goLobbyHome);
+document.getElementById('ol-guest-home-btn').addEventListener('click', goLobbyHome);
+
+// ===== ホスト =====
+document.getElementById('ol-host-btn').addEventListener('click',()=>{ showLobbyPanel('host-card'); startAsHost(); bip(550,.1,.2); });
+document.getElementById('ol-host-back-btn').addEventListener('click',()=>{ cleanupPeer(); showLobbyPanel('mode-select'); bip(440,.07,.15); });
+
+// ICEサーバー設定（STUN + TURN）
+// Open Relay（Metered）の無料TURNサーバーを使用
+// NAT越え・学校間など遠隔地での接続を安定させる
+const ICE_SERVERS = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      }
+    ]
+  }
+};
+
+function startAsHost(){
+  onlineRoom = generateRoomCode();
+  const peerId = roomToPeerId(onlineRoom);
+  document.getElementById('ol-room-code').textContent = onlineRoom;
+  updateHostStatus('yellow','PeerJSに接続中…');
+  myPeer = new Peer(peerId, {debug:0, ...ICE_SERVERS});
+  myPeer.on('open', id=>{
+    myPeerId = id; isHost = true; isOnline = true;
+    onlineMembers = [{peerId:id, name:'ホスト', av:PD[0].av, idx:0}];
+    renderMemberList();
+    updateHostStatus('green','ともだちがはいるのをまっています…');
+  });
+  myPeer.on('connection', conn=>{ guestConns.push(conn); setupGuestConn(conn); });
+  myPeer.on('error', e=>{ updateHostStatus('red','エラー：'+e.type); console.error('PeerJS error',e); });
+}
+
+function setupGuestConn(conn){
+  conn.on('open',()=>{ conn.send({type:'member_list', members:onlineMembers}); });
+  conn.on('data', data=>{ handleOnlineMsg(data, conn); });
+  conn.on('close',()=>{
+    guestConns = guestConns.filter(c=>c!==conn);
+    onlineMembers = onlineMembers.filter(m=>m.peerId!==conn.peer);
+    renderMemberList();
+    broadcastToGuests({type:'member_list', members:onlineMembers});
+    updateStartBtn();
+  });
+}
+
+function renderMemberList(){
+  const list = document.getElementById('ol-member-list');
+  if(!list) return;
+  list.innerHTML = onlineMembers.map((m,i)=>`
+    <div class="ol-member"><span class="om-av">${m.av}</span><span>${m.name}</span>${i===0?'<span class="om-host">ホスト</span>':''}</div>
+  `).join('');
+  updateStartBtn();
+}
+
+function updateStartBtn(){
+  const btn = document.getElementById('ol-start-online-btn');
+  const n = onlineMembers.length;
+  if(n>=2){ btn.disabled=false; btn.style.opacity='1'; btn.textContent=`▶ ゲームスタート！(${n}にん)`; }
+  else { btn.disabled=true; btn.style.opacity='.4'; btn.textContent='▶ ゲームスタート！'; }
+}
+function updateHostStatus(color, msg){
+  const el=document.getElementById('ol-host-status');
+  if(el) el.innerHTML=`<span class="ol-dot ${color}"></span>${msg}`;
+}
+
+// ===== ゲスト =====
+document.getElementById('ol-join-btn').addEventListener('click',()=>{ showLobbyPanel('join-card'); document.getElementById('ol-code-input').value=''; bip(440,.07,.15); });
+document.getElementById('ol-join-back-btn').addEventListener('click',()=>{ cleanupPeer(); showLobbyPanel('mode-select'); bip(440,.07,.15); });
+document.getElementById('ol-guest-back-btn').addEventListener('click',()=>{ cleanupPeer(); showLobbyPanel('mode-select'); bip(440,.07,.15); });
+document.getElementById('ol-code-input').addEventListener('input',function(){ this.value=this.value.replace(/\D/g,'').slice(0,4); });
+document.getElementById('ol-do-join-btn').addEventListener('click',()=>{
+  const code = document.getElementById('ol-code-input').value.trim();
+  if(code.length!==4){ speak('4けたのコードをにゅうりょくしてね'); return; }
+  joinAsGuest(code); bip(550,.1,.2);
+});
+
+function joinAsGuest(code){
+  onlineRoom = code;
+  const hostPeerId = roomToPeerId(code);
+  const joinStatus = document.getElementById('ol-join-status');
+  joinStatus.innerHTML=`<span class="ol-dot yellow"></span>つないでいます…`;
+  myPeer = new Peer({debug:0, ...ICE_SERVERS});
+  myPeer.on('open', id=>{
+    myPeerId = id; isHost = false; isOnline = true;
+    hostConn = myPeer.connect(hostPeerId, {reliable:true});
+    hostConn.on('open',()=>{
+      joinStatus.innerHTML=`<span class="ol-dot yellow"></span>さんかしました！ホストをまっています…`;
+      hostConn.send({type:'join', peerId:myPeerId, name:'ゲスト', av:PD[1].av});
+      showLobbyPanel('guest-card');
+    });
+    hostConn.on('data', data=>{ handleOnlineMsg(data, hostConn); });
+    hostConn.on('close',()=>{ updateGuestStatus('red','ホストとのせつぞくがきれました'); });
+    hostConn.on('error', e=>{ joinStatus.innerHTML=`<span class="ol-dot red"></span>せつぞくできませんでした`; });
+  });
+  myPeer.on('error', e=>{ joinStatus.innerHTML=`<span class="ol-dot red"></span>エラー：ルームがみつかりません (${e.type})`; });
+}
+
+function updateGuestStatus(color, msg){
+  const el=document.getElementById('ol-guest-status');
+  if(el) el.innerHTML=`<span class="ol-dot ${color}"></span>${msg}`;
+}
+function renderGuestMemberList(members){
+  const list=document.getElementById('ol-guest-member-list');
+  if(!list) return;
+  list.innerHTML = members.map((m,i)=>`
+    <div class="ol-member"><span class="om-av">${m.av}</span><span>${m.name}</span>${i===0?'<span class="om-host">ホスト</span>':''}</div>
+  `).join('');
+}
+
+// ===== メッセージ処理 =====
+function handleOnlineMsg(data, fromConn){
+  switch(data.type){
+    case 'join':
+      if(isHost){
+        const newIdx = onlineMembers.length;
+        const avIdx = Math.min(newIdx, PD.length-1);
+        const member = {peerId:data.peerId, name:'プレイヤー'+(newIdx+1), av:PD[avIdx].av, idx:newIdx};
+        onlineMembers.push(member);
+        renderMemberList();
+        broadcastToGuests({type:'member_list', members:onlineMembers});
+        fromConn.send({type:'your_idx', idx:newIdx});
+      }
+      break;
+    case 'your_idx':
+      myPlayerIdx = data.idx;
+      updateGuestStatus('green','ゲームのかいしをまっています… あなたは プレイヤー'+(data.idx+1));
+      break;
+    case 'member_list':
+      onlineMembers = data.members;
+      renderGuestMemberList(data.members);
+      { const myEntry = data.members.find(m=>m.peerId===myPeerId);
+        if(myEntry) myPlayerIdx=myEntry.idx; }
+      break;
+    case 'game_start':
+      startOnlineGame(data.gameState);
+      break;
+    case 'roll_request':
+      if(isHost && !rolling && gActive){ roll(); }
+      break;
+    case 'dice_result':
+      if(!isHost){
+        const db2=document.getElementById('dicebox');
+        db2.classList.add('spin'); rollSnd();
+        setTimeout(()=>{
+          db2.classList.remove('spin');
+          showDice(data.value);
+          openDiceOverlay();
+          resultDiceOverlay(data.value);
+          setMsg(`${data.value}がでた！`);
+          speak(String(data.value));
+          setTimeout(()=>closeDiceOverlay(), 900);
+        }, 600);
+      }
+      break;
+    case 'show_event':
+      if(!isHost){
+        document.getElementById('evic').textContent=data.ev.ic||'📋';
+        document.getElementById('evtt').textContent=data.ev.tt;
+        document.getElementById('evds').textContent=data.ev.ds;
+        document.getElementById('evmod').classList.add('on');
+        speak(data.ev.tt+'。'+data.ev.ds);
+      }
+      break;
+    case 'close_event':
+      if(!isHost){ document.getElementById('evmod').classList.remove('on'); }
+      break;
+    case 'show_goal':
+      if(!isHost){ showGoal(); }
+      break;
+    case 'sync_state':
+      syncGameState(data.state);
+      break;
+  }
+}
+
+function broadcastToGuests(data){ guestConns.forEach(c=>{ try{ c.send(data); }catch(e){} }); }
+function sendToHost(data){ if(hostConn) try{ hostConn.send(data); }catch(e){} }
+
+// ===== ゲーム開始（オンライン） =====
+document.getElementById('ol-start-online-btn').addEventListener('click',()=>{
+  if(!isHost) return;
+  nP = onlineMembers.length; nCpu = 0;
+  const hostNameInput=document.getElementById('name-input-0');
+  if(hostNameInput&&hostNameInput.value.trim()){
+    onlineMembers[0]={...onlineMembers[0], name:hostNameInput.value.trim()};
+  }
+  board = buildBoard(nC);
+  const serBoard = board.map(c=>({cl:c.cl,ic:c.ic,tx:c.tx,ev:c.ev}));
+  const gameState = { board: serBoard, members: onlineMembers, nC, customCells };
+  broadcastToGuests({type:'game_start', gameState});
+  startOnlineGame(gameState);
+  bip(660,.15,.25);
+});
+
+function startOnlineGame(gameState){
+  isOnline=true;
+  onlineMembers = gameState.members;
+  nC = gameState.nC;
+  nP = onlineMembers.length; nCpu = 0;
+  board = gameState.board.map(c=>({...c, photoUrl:null}));
+  players = onlineMembers.map((m,i)=>({ name:m.name, av:m.av, pos:0, done:false, skip:false, cpu:false }));
+  ci=0; finOrd=[]; gActive=true; rolling=false;
+  turnCounts=players.map(()=>0);
+  if(isHost) myPlayerIdx=0;
+
+  document.getElementById('online-lobby').classList.remove('on');
+  document.getElementById('setup').style.display='none';
+  document.getElementById('game').classList.add('on');
+  document.getElementById('conn-bar').classList.add('on');
+  document.getElementById('tb-title-txt').textContent='すごろく 🌐';
+  document.getElementById('tbinfo').textContent=`オンライン ${nP}にん・${nC}マス・ルーム${onlineRoom}`;
+  updateConnBar(true);
+
+  setTimeout(()=>{
+    renderBoard(); renderList(); updateCur();
+    setMsg(isMyTurn()?'さいころをふってね！':'ほかのひとのばんです…');
+    showDice(1);
+    document.getElementById('rollbtn').disabled=!isMyTurn();
+    speak(`ゲームスタート！${players[0].name}からはじめます`);
+    if(scanOn)startScan();
+  },50);
+}
+
+function isMyTurn(){ return myPlayerIdx===ci || myPlayerIdx===-1; }
+
+function updateConnBar(connected){
+  const dot=document.getElementById('conn-dot');
+  const txt=document.getElementById('conn-txt');
+  if(connected){ dot.classList.remove('red'); txt.textContent=`オンライン接続中 ルーム:${onlineRoom} (${onlineMembers.length}にん)`; }
+  else { dot.classList.add('red'); txt.textContent='せつぞくがきれました'; }
+}
+
+// ===== オンライン用 rollボタン制御 =====
+async function rollOnline(){
+  if(!isMyTurn()){ speak('あなたのばんではありません'); bip(330,.08,.15); return; }
+  if(isHost){ await roll(); }
+  else { document.getElementById('rollbtn').disabled=true; setMsg('さいころをふっています…'); sendToHost({type:'roll_request'}); }
+}
+document.getElementById('rollbtn').removeEventListener('click', roll);
+document.getElementById('rollbtn').addEventListener('click', ()=>{ if(isOnline) rollOnline(); else roll(); });
+
+// ===== 同期 =====
+function broadcastSyncState(){
+  if(!isHost || !isOnline) return;
+  const state = {
+    players: players.map(p=>({pos:p.pos,done:p.done,skip:p.skip,name:p.name,av:p.av})),
+    ci, finOrd, gActive,
+    msg: document.getElementById('msgbox').textContent,
+  };
+  broadcastToGuests({type:'sync_state', state});
+}
+
+function syncGameState(state){
+  if(isHost) return;
+  state.players.forEach((sp,i)=>{ if(players[i]){ players[i].pos=sp.pos; players[i].done=sp.done; players[i].skip=sp.skip; } });
+  ci=state.ci; finOrd=state.finOrd; gActive=state.gActive;
+  renderPieces(); renderList(); updateCur();
+  const myTurn = isMyTurn();
+  document.getElementById('rollbtn').disabled = !myTurn;
+  if(myTurn){ setMsg('さいころをふってね！'); speak('あなたのばんです！'); bip(550,.1,.2); }
+  else { setMsg(state.msg || `${players[ci]?.name||''}のばんです…`); }
+  if(!gActive && finOrd.length>0 && !document.getElementById('goalmod').classList.contains('on')){ showGoal(); }
+}
+
+// ===== クリーンアップ =====
+function cleanupPeer(){
+  if(myPeer){ try{myPeer.destroy();}catch(e){} myPeer=null; }
+  hostConn=null; guestConns=[];
+  isOnline=false; isHost=false;
+  myPlayerIdx=-1; onlineMembers=[];
+  document.getElementById('conn-bar').classList.remove('on');
+  document.getElementById('tb-title-txt').textContent='すごろく';
+}
+document.getElementById('homeyes').addEventListener('click',()=>{ if(isOnline) cleanupPeer(); });
 </script>
 </body>
 </html>
