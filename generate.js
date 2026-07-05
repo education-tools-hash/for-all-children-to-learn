@@ -50,7 +50,7 @@ const CATEGORY_TRUTH = {
   'mogura-tataki':      '自立活動',
   // 創作表現
   'drawing-app':     '創作表現',
-  'music-app':       '創作表現',
+  :       '創作表現',
   'slideshow-sakusei':'創作表現',
 };
 
@@ -520,7 +520,7 @@ const CARD_CLASS_MAP = {
   'sst-app':         'card-sst',
   'kimochi-board':   'card-board',
   'drawing-app':     'card-oekaki',
-  'music-app':       'card-music',
+  :       'card-music',
   'yomikaki-app':    'card-yomikaki',
   'slideshow-sakusei': 'card-oekaki', // 創作系の色を流用
   'directions-app':  'card-directions', // 専用色(ティール系)
@@ -744,7 +744,7 @@ const THEME_CLASS_MAP = {
   'sst-app':          'theme-sst',
   'kimochi-board':    'theme-board',
   'drawing-app':      'theme-oekaki',
-  'music-app':        'theme-music',
+  :        'theme-music',
   'yomikaki-app':     'theme-yomikaki',
   'slideshow-sakusei':'theme-oekaki',
   'directions-app':   'theme-directions',
@@ -941,7 +941,7 @@ const PURPOSE_CARDS_TRUTH = {
   },
   'theme-sousaku': {
     title: '創作・表現活動をしたい',
-    ids: ['drawing-app', 'music-app', 'slideshow-sakusei', 'ongaku-app']
+    ids: ['drawing-app', , 'slideshow-sakusei', 'ongaku-app']
   },
 };
 
