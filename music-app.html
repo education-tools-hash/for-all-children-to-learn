@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0e17">
 <title>おんがくあそび</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Noto+Sans+JP:wght@400;700;900&display=swap');
@@ -370,7 +374,101 @@
   .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); color:var(--text); padding:14px 24px; border-radius:50px; font-weight:700; font-size:1rem; opacity:0; transition:all 0.3s; z-index:200; white-space:nowrap; }
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-  /* ===== EXPORT ===== */
+  #template-sheet { pointer-events: none; }
+  #template-sheet.active { pointer-events: all; }
+  /* ===== RECORD MODE TABS ===== */
+  .record-mode-tabs {
+    display: flex; gap: 8px; padding: 12px 16px;
+    background: var(--surface); border-bottom: 1px solid var(--surface2);
+  }
+  .record-mode-tab {
+    flex: 1; border: 2px solid transparent; border-radius: 50px;
+    background: var(--surface2); color: var(--text-dim);
+    font-family: inherit; font-size: .95rem; font-weight: 900;
+    padding: 10px 8px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .record-mode-tab.active {
+    border-color: var(--rec-red); color: var(--rec-red);
+    background: rgba(255,59,59,.1);
+  }
+  .perf-rec-wrap {
+    flex: 1; display: flex; flex-direction: column; gap: 16px;
+    padding: 16px; overflow-y: auto; padding-bottom: 40px;
+  }
+  .perf-rec-status {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 14px 18px; display: flex; align-items: center; gap: 14px;
+  }
+  .perf-rec-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text-dim); flex-shrink: 0; transition: background .3s;
+  }
+  .perf-rec-dot.recording { background: var(--rec-red); animation: blink 1s infinite; }
+  .perf-rec-info { flex: 1; }
+  .perf-rec-label { font-weight: 900; font-size: .95rem; }
+  .perf-rec-time-disp { font-size: .82rem; color: var(--text-dim); margin-top: 2px; }
+  .btn-perf-rec {
+    border: none; border-radius: 50px; font-family: inherit;
+    font-size: 1rem; font-weight: 900; padding: 12px 22px;
+    cursor: pointer; transition: all .15s; flex-shrink: 0;
+  }
+  .btn-perf-rec.start { background: var(--rec-red); color: white; box-shadow: 0 4px 16px rgba(255,59,59,.4); }
+  .btn-perf-rec.stop  { background: var(--surface2); color: var(--text); }
+  .perf-piano-mini {
+    background: var(--surface); border-radius: var(--radius); padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .perf-piano-mini h4 { font-size: .88rem; color: var(--text-dim); font-weight: 700; }
+  .perf-piano-wrap {
+    position: relative; display: flex; justify-content: center;
+    height: clamp(120px, 30vw, 200px); user-select: none;
+  }
+  .perf-key-white {
+    position: relative; flex: 1; height: 100%;
+    background: #f5f5f0; border: 1.5px solid #bbb;
+    border-radius: 0 0 8px 8px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding-bottom: 7px; transition: background .07s; z-index: 1;
+  }
+  .perf-key-white:active, .perf-key-white.pressed { background: #d0eaff; }
+  .perf-key-white .pk-badge {
+    width: clamp(22px,5vw,32px); height: clamp(22px,5vw,32px); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(.65rem,1.8vw,.88rem); font-weight: 900; color: white;
+    margin-bottom: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  }
+  .perf-key-white .pk-label { font-size: clamp(.6rem,1.6vw,.78rem); font-weight: 900; color: #555; }
+  .perf-key-black {
+    position: absolute; height: 60%; z-index: 2; top: 0;
+    background: #1a1a2e; border-radius: 0 0 6px 6px; border: 1px solid #000;
+    cursor: pointer; display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 5px; transition: background .07s;
+  }
+  .perf-key-black:active, .perf-key-black.pressed { background: #3a3a5e; }
+  .perf-key-black span { font-size: .55rem; color: #999; font-weight: 700; }
+  .perf-btn-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .perf-sound-btn {
+    border: none; border-radius: 14px; cursor: pointer; aspect-ratio: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; font-family: inherit; transition: transform .08s, filter .08s;
+    min-height: 72px;
+  }
+  .perf-sound-btn:active { transform: scale(.91); filter: brightness(1.3); }
+  .perf-sound-btn .psb-note  { font-size: clamp(1.1rem,4vw,1.5rem); font-weight: 900; color: rgba(0,0,0,.75); line-height:1; }
+  .perf-sound-btn .psb-yomi  { font-size: clamp(.55rem,1.8vw,.72rem); font-weight: 700; color: rgba(0,0,0,.6); }
+  .perf-sound-btn .psb-icon  { font-size: clamp(1.1rem,4vw,1.4rem); }
+  .perf-sound-btn .psb-label { font-size: clamp(.55rem,1.8vw,.72rem); font-weight: 700; color: rgba(0,0,0,.7); }
+  .perf-instr-tabs { display: flex; gap: 8px; }
+  .perf-instr-tab {
+    background: var(--surface2); border: 2px solid transparent; color: var(--text-dim);
+    font-family: inherit; font-size: .82rem; font-weight: 900; padding: 7px 14px;
+    border-radius: 50px; cursor: pointer; transition: all .15s;
+  }
+  .perf-instr-tab.active { border-color: var(--accent4); color: var(--accent4); background: rgba(77,150,255,.1); }
+
   .rec-time-btn {
     background: var(--surface2); border: 2px solid transparent; color: var(--text-dim);
     font-family: inherit; font-size: .88rem; font-weight: 900; padding: 7px 14px;
@@ -389,6 +487,104 @@
     .sound-grid.cols-2 { max-width: 500px; margin: 0 auto; }
     .sound-grid.cols-3 { max-width: 600px; margin: 0 auto; }
     .sound-grid.cols-4 { max-width: 700px; margin: 0 auto; }
+  }
+
+  /* ===== PLAY MODE TABS ===== */
+  .play-mode-tabs {
+    display: flex; gap: 8px; padding: 12px 16px;
+    background: var(--surface); border-bottom: 1px solid var(--surface2);
+  }
+  .play-mode-tab {
+    flex: 1; border: 2px solid transparent; border-radius: 50px;
+    background: var(--surface2); color: var(--text-dim);
+    font-family: inherit; font-size: 1rem; font-weight: 900;
+    padding: 10px 8px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .play-mode-tab.active {
+    border-color: var(--accent3); color: var(--accent3);
+    background: rgba(107,203,119,.12);
+  }
+
+  /* ===== PIANO KEYBOARD ===== */
+  #piano-area {
+    flex: 1; display: flex; flex-direction: column;
+    overflow: hidden; padding: 16px 12px 20px;
+    justify-content: flex-end;
+  }
+  .piano-label {
+    text-align: center; font-size: .82rem; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 10px; letter-spacing: .5px;
+  }
+  .piano-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    height: clamp(160px, 38vw, 260px);
+    user-select: none;
+  }
+  /* 白鍵 */
+  .key-white {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    background: #f5f5f0;
+    border: 1.5px solid #bbb;
+    border-radius: 0 0 10px 10px;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    padding-bottom: 10px;
+    transition: background .08s, transform .08s;
+    z-index: 1;
+  }
+  .key-white:active, .key-white.pressed {
+    background: #d0eaff;
+    transform: scaleY(.97);
+    transform-origin: top center;
+  }
+  .key-white .key-note {
+    font-size: clamp(.85rem, 2.5vw, 1.15rem);
+    font-weight: 900; color: #333; line-height: 1;
+  }
+  .key-white .key-yomi {
+    font-size: clamp(.6rem, 1.8vw, .82rem);
+    font-weight: 700; color: #888; margin-top: 2px;
+  }
+  /* 黒鍵 */
+  .key-black {
+    position: absolute;
+    width: clamp(28px, 7vw, 46px);
+    height: 60%;
+    background: #1a1a2e;
+    border-radius: 0 0 7px 7px;
+    cursor: pointer;
+    z-index: 2;
+    top: 0;
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 7px;
+    transition: background .08s;
+    border: 1px solid #000;
+  }
+  .key-black:active, .key-black.pressed { background: #3a3a5e; }
+  .key-black .key-note-b {
+    font-size: clamp(.55rem, 1.5vw, .72rem);
+    font-weight: 900; color: #aaa; line-height: 1; text-align: center;
+  }
+  /* 音名バッジ（色付き） */
+  .key-white .note-badge {
+    width: clamp(28px, 7vw, 40px); height: clamp(28px, 7vw, 40px);
+    border-radius: 50%; margin-bottom: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(.8rem, 2.2vw, 1.05rem); font-weight: 900; color: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  /* 押したときのリップル（鍵盤用） */
+  .key-ripple {
+    position: absolute; border-radius: 50%;
+    background: rgba(77,150,255,.35);
+    transform: scale(0); animation: rippleAnim .5s linear;
+    pointer-events: none;
   }
 
   /* ===== COMPOSE SCREEN ===== */
@@ -576,14 +772,6 @@
   .seq-row-label.row-playing .row-emoji { animation: rowBounce 0.2s ease; }
   @keyframes rowBounce { 0%{transform:scale(1)} 50%{transform:scale(1.4)} 100%{transform:scale(1)} }
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -608,6 +796,12 @@
     </button>
     <button class="btn-home btn-teacher" onclick="showPinModal()">
       <span class="icon">⚙️</span> せんせいせってい
+    </button>
+    <button class="btn-home" id="btn-fullscreen"
+      style="background:var(--surface2);color:var(--text-dim);font-size:1rem;padding:14px 20px;box-shadow:none;"
+      onclick="toggleFullscreen()">
+      <span class="icon" id="fs-icon">⛶</span>
+      <span id="fs-label">ぜんがめんにする</span>
     </button>
   </div>
 </div>
@@ -771,6 +965,18 @@
       </div>
     </div>
 
+    <div class="settings-section">
+      <h3>🔒 ページもどりぼうし</h3>
+      <div class="setting-row">
+        <label>もどるボタンをロック<span class="hint">せいとがまちがえてもどれないようにする</span></label>
+        <label class="toggle"><input type="checkbox" id="nav-lock" checked><span class="toggle-slider"></span></label>
+      </div>
+      <p style="font-size:.75rem;color:var(--text-dim);line-height:1.5;">
+        ONのとき：スワイプやブラウザの「もどる」ボタンでページがもどりません。<br>
+        先生がとじるときはOFFにしてから閉じてください。
+      </p>
+    </div>
+
     <button class="btn-save" onclick="saveSettings()">💾 せっていをほぞんする</button>
   </div>
 </div>
@@ -781,15 +987,23 @@
     <button class="btn-back" onclick="showScreen('home')">← もどる</button>
     <h2>🎤 ろくおんする</h2>
   </div>
-  <div class="record-content">
 
-    <!-- Mic permission state -->
+  <!-- タブ切り替え -->
+  <div class="record-mode-tabs">
+    <button class="record-mode-tab active" id="rtab-voice" onclick="switchRecordMode('voice')">
+      🎤 こえ・おと
+    </button>
+    <button class="record-mode-tab" id="rtab-perf" onclick="switchRecordMode('perf')">
+      🎹 えんそう
+    </button>
+  </div>
+
+  <!-- ── こえ録音エリア ── -->
+  <div id="record-voice-area" class="record-content">
     <div class="mic-permission" id="mic-permission">
       <div class="mic-icon">🎤</div>
       <h3>マイクをつかいます</h3>
       <p>じぶんのこえや<br>がっきのおとをろくおんできます。<br>はじめにマイクのきょかをしてください。</p>
-
-      <!-- 録音時間の設定（マイク許可前） -->
       <div style="background:var(--surface2);border-radius:var(--radius);padding:14px 18px;display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;">
         <span style="font-size:.88rem;font-weight:700;color:var(--text-dim);text-align:center;">⏱ さいだいろくおんじかん</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
@@ -801,29 +1015,18 @@
         </div>
         <span id="rec-maxtime-label" style="font-size:.82rem;color:var(--accent4);font-weight:900;text-align:center;">30秒</span>
       </div>
-
       <button class="btn-allow-mic" onclick="requestMic()">🎤 マイクをつかう</button>
     </div>
-
-    <!-- Recording studio (shown after permission granted) -->
     <div class="record-studio" id="record-studio" style="display:none;">
-
-      <!-- Waveform -->
       <div class="waveform-wrap">
         <div class="waveform-title">おとのなみ</div>
         <canvas id="waveform" width="600" height="80"></canvas>
         <div class="rec-time" id="rec-time">0:00</div>
       </div>
-
-      <!-- Big record button -->
       <div class="record-btn-wrap">
-        <button class="btn-rec-main" id="btn-rec-main" onclick="toggleRecording()">
-          🎤
-        </button>
+        <button class="btn-rec-main" id="btn-rec-main" onclick="toggleRecording()">🎤</button>
       </div>
       <div class="rec-hint" id="rec-hint">ボタンをおしてろくおんかいし</div>
-
-      <!-- Playback bar (after recording) -->
       <div class="playback-bar" id="playback-bar">
         <button class="btn-play-rec" id="btn-play-rec" onclick="playRecording()">▶</button>
         <div class="playback-info">
@@ -832,13 +1035,9 @@
         </div>
         <button class="btn-discard" onclick="discardRecording()">✕ すてる</button>
       </div>
-
-      <!-- Name & emoji & color picker -->
       <div class="sound-namer" id="sound-namer">
         <h3>📝 おとになまえをつけよう</h3>
-        <div class="namer-row">
-          <input type="text" class="name-input" id="rec-name" placeholder="なまえをかいてね" maxlength="10">
-        </div>
+        <div class="namer-row"><input type="text" class="name-input" id="rec-name" placeholder="なまえをかいてね" maxlength="10"></div>
         <div>
           <div style="font-size:0.85rem;color:var(--text-dim);font-weight:700;margin-bottom:8px;">えもじをえらぼう</div>
           <div class="emoji-picker" id="emoji-picker"></div>
@@ -850,15 +1049,70 @@
         <button class="btn-save-rec" onclick="saveRecording()">💾 このおとをほぞんする</button>
       </div>
     </div>
-
-    <!-- Saved recordings -->
     <div class="recordings-section">
       <h3>🎵 ほぞんしたおと</h3>
-      <div id="recordings-list">
-        <div class="recordings-empty">まだおとがほぞんされていません</div>
+      <div id="recordings-list"><div class="recordings-empty">まだおとがほぞんされていません</div></div>
+    </div>
+  </div>
+
+  <!-- ── えんそう録音エリア ── -->
+  <div id="record-perf-area" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+
+    <!-- 録音ステータスバー -->
+    <div class="perf-rec-status">
+      <div class="perf-rec-dot" id="perf-rec-dot"></div>
+      <div class="perf-rec-info">
+        <div class="perf-rec-label" id="perf-rec-label">えんそうしながらろくおんできます</div>
+        <div class="perf-rec-time-disp" id="perf-rec-time">0:00</div>
+      </div>
+      <button class="btn-perf-rec start" id="btn-perf-rec" onclick="togglePerfRecording()">🔴 ろくおん開始</button>
+    </div>
+
+    <!-- 楽器切り替え -->
+    <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:10px;">
+      <div class="perf-instr-tabs">
+        <button class="perf-instr-tab active" id="pitab-piano" onclick="switchPerfInstr('piano')">🎹 けんばん</button>
+        <button class="perf-instr-tab" id="pitab-buttons" onclick="switchPerfInstr('buttons')">🎵 ボタン</button>
       </div>
     </div>
 
+    <div class="perf-rec-wrap">
+      <!-- けんばん -->
+      <div class="perf-piano-mini" id="perf-piano-section">
+        <h4>🎹 けんばんをたたいてえんそうしよう</h4>
+        <div class="perf-piano-wrap" id="perf-piano-wrap"></div>
+      </div>
+
+      <!-- ボタン -->
+      <div class="perf-piano-mini" id="perf-buttons-section" style="display:none;">
+        <h4>🎵 ボタンをおしてえんそうしよう</h4>
+        <div class="perf-btn-grid" id="perf-btn-grid"></div>
+      </div>
+
+      <!-- 保存フォーム（録音後に表示） -->
+      <div class="sound-namer" id="perf-sound-namer">
+        <h3>📝 えんそうにまなえをつけよう</h3>
+        <div class="namer-row"><input type="text" class="name-input" id="perf-rec-name" placeholder="なまえをかいてね" maxlength="10"></div>
+        <div>
+          <div style="font-size:.85rem;color:var(--text-dim);font-weight:700;margin-bottom:8px;">えもじをえらぼう</div>
+          <div class="emoji-picker" id="perf-emoji-picker"></div>
+        </div>
+        <div>
+          <div style="font-size:.85rem;color:var(--text-dim);font-weight:700;margin-bottom:8px;">いろをえらぼう</div>
+          <div class="color-palette-small" id="perf-color-palette"></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn-save-rec" onclick="savePerfRecording()" style="flex:1;">💾 ほぞんする</button>
+          <button class="btn-discard" onclick="discardPerfRecording()">✕ すてる</button>
+        </div>
+      </div>
+
+      <!-- 保存済み一覧 -->
+      <div class="recordings-section">
+        <h3>🎵 ほぞんしたえんそう</h3>
+        <div id="perf-recordings-list"><div class="recordings-empty">まだえんそうがほぞんされていません</div></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -877,7 +1131,19 @@
       <button class="btn-back" onclick="showScreen('home')">🏠</button>
     </div>
   </div>
-  <div class="play-area">
+
+  <!-- モード切り替えタブ -->
+  <div class="play-mode-tabs">
+    <button class="play-mode-tab active" id="tab-buttons" onclick="switchPlayMode('buttons')">
+      🎵 おとボタン
+    </button>
+    <button class="play-mode-tab" id="tab-piano" onclick="switchPlayMode('piano')">
+      🎹 けんばん
+    </button>
+  </div>
+
+  <!-- ボタンモード -->
+  <div id="buttons-area" class="play-area">
     <div class="sound-grid cols-2" id="sound-grid"></div>
     <div class="bgm-bar" id="bgm-bar">
       <div class="bgm-icon">🎶</div>
@@ -886,6 +1152,20 @@
         <div class="bgm-status" id="bgm-status">ていし中</div>
       </div>
       <button class="btn-bgm" id="bgm-btn" onclick="toggleBGM()">▶</button>
+    </div>
+  </div>
+
+  <!-- けんばんモード -->
+  <div id="piano-area" style="display:none;">
+    <div class="piano-label">🎹 しろけんと くろけんをおしてみよう</div>
+    <div class="piano-wrap" id="piano-wrap"></div>
+    <div class="bgm-bar" id="bgm-bar-piano" style="margin-top:14px;">
+      <div class="bgm-icon">🎶</div>
+      <div>
+        <div class="bgm-title" id="bgm-title-piano">ポップビート</div>
+        <div class="bgm-status" id="bgm-status-piano">ていし中</div>
+      </div>
+      <button class="btn-bgm" id="bgm-btn-piano" onclick="toggleBGM()">▶</button>
     </div>
   </div>
 </div>
@@ -903,7 +1183,8 @@
       <div class="transport-btns">
         <button class="btn-transport play-btn" id="compose-play-btn" onclick="toggleCompose()">▶ さいせい</button>
         <button class="btn-transport stop-btn" onclick="stopCompose()">⏹ ていし</button>
-        <button class="btn-transport clear-btn" onclick="clearCompose()">🗑 クリア</button>
+        <button class="btn-transport" style="background:var(--surface2);color:var(--accent2);" onclick="openTemplateSheet()">📂 テンプレート</button>
+        <button class="btn-transport clear-btn" onclick="clearSteps()">✕ クリア</button>
       </div>
       <div class="tempo-wrap">
         <span class="tempo-label">テンポ</span>
@@ -947,7 +1228,18 @@
   </div>
 </div>
 
-<!-- ===== COMPOSITIONS SCREEN ===== -->
+<!-- ===== TEMPLATE SHEET ===== -->
+<div class="track-picker" id="template-sheet" onclick="if(event.target===this)closeTemplateSheet()">
+  <div class="track-picker-sheet">
+    <h3>📂 テンプレートをえらぼう</h3>
+    <p style="font-size:.82rem;color:var(--text-dim);margin-top:-8px;">よみこんだあと、トラックをじゆうに追加・へんしゅうできます</p>
+    <div id="template-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div style="border-top:1px solid var(--surface2);padding-top:12px;margin-top:4px;">
+      <button class="track-picker-close" onclick="clearAllCompose()">🗑 すべてクリア（まっさらにする）</button>
+    </div>
+    <button class="track-picker-close" onclick="closeTemplateSheet()">✕ とじる</button>
+  </div>
+</div>
 <div id="screen-compositions" class="screen compositions-screen">
   <div class="screen-header">
     <button class="btn-back" onclick="showScreen('compose')">← もどる</button>
@@ -1021,7 +1313,7 @@ let settings = {
   modeTouch: true, modeSwitch: false, switchCount: 1, scanSpeed: 2,
   btnCount: 8, bgmEnabled: true, bgmType: 'beat1', bgmVolume: 60,
   preventRepeat: true, cooldown: 0.5, visualFeedback: true, emojiFeedback: true,
-  buttons: []
+  buttons: [], navLock: true
 };
 
 const SOUNDS = {
@@ -1467,16 +1759,16 @@ function toggleBGM() {
   getAudioCtx();
   if(bgmPlaying) {
     clearInterval(bgmInterval); bgmPlaying=false;
-    document.getElementById('bgm-btn').textContent='▶';
-    document.getElementById('bgm-btn').classList.remove('playing');
-    document.getElementById('bgm-status').textContent='ていし中';
   } else {
     const tempo = settings.bgmType==='calm' ? 600 : 300;
-    bgmInterval = setInterval(playBGMStep, tempo); bgmPlaying=true;
-    document.getElementById('bgm-btn').textContent='⏸';
-    document.getElementById('bgm-btn').classList.add('playing');
-    document.getElementById('bgm-status').textContent='さいせい中 🎵';
+    bgmInterval=setInterval(playBGMStep, tempo); bgmPlaying=true;
   }
+  syncBgmBar();
+  // ボタンモード側の旧ステータスも更新
+  const st = document.getElementById('bgm-status');
+  if (st) st.textContent = bgmPlaying ? 'さいせい中 🎵' : 'ていし中';
+  const btn = document.getElementById('bgm-btn');
+  if (btn) { btn.textContent = bgmPlaying ? '⏸' : '▶'; btn.classList.toggle('playing', bgmPlaying); }
 }
 
 // ===== RECORDING ENGINE =====
@@ -1814,9 +2106,28 @@ async function updateTeacherSoundOptions() {
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
-  if(name==='play') buildPlayScreen();
-  if(name==='record') { loadRecordingsList(); }
-  if(name==='teacher') { buildBtnConfig(); updateTeacherSoundOptions(); }
+  if(name==='play') {
+    buildPlayScreen();
+    // タブをボタンモードに初期化
+    currentPlayMode = 'buttons';
+    document.getElementById('tab-buttons').classList.add('active');
+    document.getElementById('tab-piano').classList.remove('active');
+    document.getElementById('buttons-area').style.display = 'flex';
+    document.getElementById('piano-area').style.display   = 'none';
+    syncBgmBar();
+  }
+  if(name==='record') {
+    loadRecordingsList();
+    // タブをこえ録音に初期化
+    switchRecordMode('voice');
+  }
+  if(name==='teacher') {
+    buildBtnConfig();
+    updateTeacherSoundOptions();
+    // UIをsettingsの値に同期
+    const navLockEl = document.getElementById('nav-lock');
+    if (navLockEl) navLockEl.checked = settings.navLock !== false;
+  }
   if(name==='compose') {
     initComposeTracks();
     buildSequencerGrid();
@@ -1912,6 +2223,9 @@ function saveSettings() {
   settings.cooldown = parseFloat(document.getElementById('cooldown').value);
   settings.visualFeedback = document.getElementById('visual-feedback').checked;
   settings.emojiFeedback = document.getElementById('emoji-feedback').checked;
+  settings.navLock = document.getElementById('nav-lock').checked;
+  // ナビゲーションロックを即時反映
+  if (settings.navLock) enableNavLock(); else disableNavLock();
   // Save buttons (exclude audioData for localStorage)
   const saveButtons = settings.buttons.slice(0, count).map(b => ({sound:b.sound, color:b.color, label:b.label||''}));
   try { localStorage.setItem('ongaku-settings', JSON.stringify({...settings, buttons: saveButtons})); } catch(e) {}
@@ -1975,6 +2289,7 @@ function buildPlayScreen() {
   document.getElementById('bgm-bar').style.display=settings.bgmEnabled?'flex':'none';
   if(settings.modeSwitch) { setupScan(); document.getElementById('scan-indicator').classList.add('visible'); }
   else { stopScan(); document.getElementById('scan-indicator').classList.remove('visible'); }
+  syncBgmBar();
 }
 
 function onSoundBtnClick(e, index, sound, emoji) {
@@ -2261,8 +2576,13 @@ function previewTrackSound(ti) {
 function setStepCount(n) {
   composeStepCount = n;
   composeTracks.forEach(t => {
-    if(t.steps.length < n) {
-      while(t.steps.length < n) t.steps.push(false);
+    const orig = t.steps.slice(); // 元のパターンを保持
+    if (t.steps.length < n) {
+      // 元のパターンをループして繰り返す
+      while (t.steps.length < n) {
+        const pos = t.steps.length % orig.length;
+        t.steps.push(orig[pos]);
+      }
     } else {
       t.steps = t.steps.slice(0, n);
     }
@@ -2607,11 +2927,147 @@ function stopCompose() {
   document.querySelectorAll('.seq-pos-dot').forEach(d=>d.classList.remove('active'));
 }
 
-function clearCompose() {
-  if(!confirm('すべてのおとをけしますか？')) return;
+// ===== デフォルトテンプレート（5種類） =====
+const DEFAULT_TEMPLATES = [
+  {
+    name: 'ポップビート',
+    emoji: '🎵',
+    color: '#4d96ff',
+    desc: 'かんたんなドラムパターン',
+    tempo: 120, stepCount: 16,
+    tracks: [
+      { soundId:'kick',  vol:1.0, steps:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0] },
+      { soundId:'snare', vol:0.8, steps:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0] },
+      { soundId:'hihat', vol:0.6, steps:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0] },
+    ]
+  },
+  {
+    name: 'ロックビート',
+    emoji: '🎸',
+    color: '#ff4d4d',
+    desc: 'つよいドラムとベース',
+    tempo: 140, stepCount: 16,
+    tracks: [
+      { soundId:'kick',  vol:1.0, steps:[1,0,0,1,0,0,1,0,1,0,0,0,1,0,0,0] },
+      { soundId:'snare', vol:0.9, steps:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1] },
+      { soundId:'hihat', vol:0.5, steps:[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1] },
+      { soundId:'bass',  vol:0.8, steps:[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0] },
+    ]
+  },
+  {
+    name: 'ドレミメロディ',
+    emoji: '🎹',
+    color: '#6bcb77',
+    desc: 'ドレミファソラシドのメロディ',
+    tempo: 90, stepCount: 16,
+    tracks: [
+      { soundId:'piano_c', vol:0.9, steps:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] },
+      { soundId:'piano_d', vol:0.9, steps:[0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0] },
+      { soundId:'piano_e', vol:0.9, steps:[0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0] },
+      { soundId:'piano_f', vol:0.9, steps:[0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0] },
+      { soundId:'piano_g', vol:0.9, steps:[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0] },
+      { soundId:'piano_a', vol:0.9, steps:[0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0] },
+      { soundId:'piano_b', vol:0.9, steps:[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0] },
+      { soundId:'piano_c2',vol:0.9, steps:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0] },
+      { soundId:'hihat',   vol:0.4, steps:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0] },
+    ]
+  },
+  {
+    name: 'ボサノバ',
+    emoji: '🌴',
+    color: '#ff9f1c',
+    desc: 'のんびりリズム',
+    tempo: 100, stepCount: 16,
+    tracks: [
+      { soundId:'kick',   vol:0.8, steps:[1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0] },
+      { soundId:'clap',   vol:0.7, steps:[0,0,1,0,1,0,0,0,0,0,1,0,1,0,0,0] },
+      { soundId:'hihat',  vol:0.5, steps:[1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0] },
+      { soundId:'guitar', vol:0.7, steps:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0] },
+      { soundId:'piano_e',vol:0.6, steps:[0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0] },
+    ]
+  },
+  {
+    name: 'しずかなバラード',
+    emoji: '🌙',
+    color: '#9c27b0',
+    desc: 'やわらかいピアノとベル',
+    tempo: 70, stepCount: 16,
+    tracks: [
+      { soundId:'piano_c', vol:0.7, steps:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0] },
+      { soundId:'piano_g', vol:0.7, steps:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0] },
+      { soundId:'piano_e', vol:0.6, steps:[0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0] },
+      { soundId:'bell',    vol:0.5, steps:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] },
+      { soundId:'hihat',   vol:0.3, steps:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0] },
+    ]
+  },
+];
+
+function openTemplateSheet() {
+  const list = document.getElementById('template-list');
+  list.innerHTML = '';
+  DEFAULT_TEMPLATES.forEach((tmpl, i) => {
+    const card = document.createElement('div');
+    card.style.cssText = `background:var(--surface2);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;border:2px solid transparent;transition:all .15s;`;
+    card.innerHTML = `
+      <div style="width:48px;height:48px;border-radius:50%;background:${tmpl.color}33;display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;">${tmpl.emoji}</div>
+      <div style="flex:1;">
+        <div style="font-weight:900;font-size:1rem;">${tmpl.name}</div>
+        <div style="font-size:.78rem;color:var(--text-dim);margin-top:2px;">${tmpl.desc} &nbsp;·&nbsp; ${tmpl.tempo}BPM &nbsp;·&nbsp; ${tmpl.tracks.length}トラック</div>
+      </div>
+      <button style="background:${tmpl.color};border:none;color:white;font-family:inherit;font-size:.85rem;font-weight:900;padding:9px 16px;border-radius:50px;cursor:pointer;white-space:nowrap;">よみこむ</button>
+    `;
+    card.onmouseenter = () => card.style.borderColor = tmpl.color;
+    card.onmouseleave = () => card.style.borderColor = 'transparent';
+    card.querySelector('button').onclick = (e) => {
+      e.stopPropagation();
+      loadTemplate(i);
+      closeTemplateSheet();
+    };
+    list.appendChild(card);
+  });
+  document.getElementById('template-sheet').classList.add('active');
+}
+
+function closeTemplateSheet() {
+  document.getElementById('template-sheet').classList.remove('active');
+}
+
+function loadTemplate(index) {
+  const tmpl = DEFAULT_TEMPLATES[index];
+  stopCompose();
+  composeTempo = tmpl.tempo;
+  // 現在のステップ数を維持（テンプレートの16ステップをベースに拡張）
+  const targetStepCount = composeStepCount; // ユーザーが選んでいたステップ数
+  composeTracks = tmpl.tracks.map(t => ({
+    soundId: t.soundId,
+    steps: t.steps.map(v => v === 1),
+    vol: t.vol,
+  }));
+  document.getElementById('compose-name').value = tmpl.name;
+  document.getElementById('tempo-slider').value = composeTempo;
+  document.getElementById('tempo-val').textContent = composeTempo + ' BPM';
+  // setStepCount内でパターンをループ拡張する
+  setStepCount(targetStepCount);
+  showToast(`📂「${tmpl.name}」をよみこみました！トラックを追加・編集できます`);
+}
+
+function clearSteps() {
+  if(!confirm('すべてのステップをクリアしますか？\n（トラックは残ります）')) return;
   composeTracks.forEach(t => t.steps.fill(false));
   buildSequencerGrid();
+  showToast('✅ ステップをクリアしました');
 }
+
+function clearAllCompose() {
+  if(!confirm('すべてのトラックとステップを削除して\nまっさらにしますか？')) return;
+  composeTracks = [];
+  document.getElementById('compose-name').value = '';
+  closeTemplateSheet();
+  buildSequencerGrid();
+  showToast('🗑 まっさらにしました');
+}
+
+function clearCompose() { clearAllCompose(); } // 後方互換
 
 // Track picker
 function openTrackPicker() {
@@ -3174,6 +3630,476 @@ function writeStr(view, offset, str) {
   for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
 }
 
+// ===== PIANO KEYBOARD MODE =====
+let currentPlayMode = 'buttons';
+
+// 白鍵のデータ（ドレミファソラシド）
+const WHITE_KEYS = [
+  { sound:'piano_c',  label:'ド', yomi:'ど',   color:'#ff4d4d' },
+  { sound:'piano_d',  label:'レ', yomi:'れ',   color:'#ff8c00' },
+  { sound:'piano_e',  label:'ミ', yomi:'み',   color:'#ffd700' },
+  { sound:'piano_f',  label:'ファ',yomi:'ふぁ', color:'#4caf50' },
+  { sound:'piano_g',  label:'ソ', yomi:'そ',   color:'#00bcd4' },
+  { sound:'piano_a',  label:'ラ', yomi:'ら',   color:'#3b82f6' },
+  { sound:'piano_b',  label:'シ', yomi:'し',   color:'#9c27b0' },
+  { sound:'piano_c2', label:'ド', yomi:'ど↑', color:'#ff80ab', sub:'たかい' },
+];
+
+// 黒鍵のデータ（白鍵のどの位置に挟まるか：leftIndex = 左の白鍵インデックス）
+const BLACK_KEYS = [
+  { sound:'piano_cs', label:'ド♯', freq:277.18, leftIndex:0 },
+  { sound:'piano_ds', label:'レ♯', freq:311.13, leftIndex:1 },
+  // ミとファの間には黒鍵なし
+  { sound:'piano_fs', label:'ファ♯', freq:369.99, leftIndex:3 },
+  { sound:'piano_gs', label:'ソ♯', freq:415.30, leftIndex:4 },
+  { sound:'piano_as', label:'ラ♯', freq:466.16, leftIndex:5 },
+];
+
+function switchPlayMode(mode) {
+  currentPlayMode = mode;
+  document.getElementById('tab-buttons').classList.toggle('active', mode === 'buttons');
+  document.getElementById('tab-piano').classList.toggle('active', mode === 'piano');
+  document.getElementById('buttons-area').style.display = mode === 'buttons' ? 'flex' : 'none';
+  document.getElementById('piano-area').style.display  = mode === 'piano'   ? 'flex' : 'none';
+  if (mode === 'piano') requestAnimationFrame(buildPianoKeyboard);
+  syncBgmBar();
+}
+
+function syncBgmBar() {
+  // BGMバーの表示状態を両方に反映
+  const bgmNames = {beat1:'ポップビート', beat2:'ロックビート', calm:'しずかなおんがく'};
+  const name = bgmNames[settings.bgmType] || 'BGM';
+  ['bgm-bar','bgm-bar-piano'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = settings.bgmEnabled ? 'flex' : 'none';
+  });
+  const tp = document.getElementById('bgm-title-piano');
+  if (tp) tp.textContent = name;
+  // BGMボタンの状態
+  const playing = bgmPlaying;
+  ['bgm-btn','bgm-btn-piano'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.textContent = playing ? '⏸' : '▶';
+    b.classList.toggle('playing', playing);
+  });
+  const sp = document.getElementById('bgm-status-piano');
+  if (sp) sp.textContent = bgmPlaying ? 'さいせい中 🎵' : 'ていし中';
+}
+
+function buildPianoKeyboard() {
+  const wrap = document.getElementById('piano-wrap');
+  wrap.innerHTML = '';
+
+  // 白鍵を生成
+  WHITE_KEYS.forEach((k, i) => {
+    const key = document.createElement('div');
+    key.className = 'key-white';
+    key.dataset.sound = k.sound;
+    key.dataset.index = i;
+    const subHtml = k.sub ? `<span class="key-yomi" style="font-size:.6em;color:#999;">${k.sub}</span>` : '';
+    key.innerHTML = `
+      <div class="note-badge" style="background:${k.color}">${k.label}</div>
+      <span class="key-note">${k.label}</span>
+      ${subHtml}
+      <span class="key-yomi">${k.yomi}</span>
+    `;
+    key.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      key.classList.add('pressed');
+      playSound(k.sound);
+      triggerKeyFeedback(k.sound, k.color);
+    });
+    key.addEventListener('pointerup',   () => key.classList.remove('pressed'));
+    key.addEventListener('pointerleave',() => key.classList.remove('pressed'));
+    wrap.appendChild(key);
+  });
+
+  // 黒鍵は白鍵の実際のDOM位置から計算（向き変更に対応）
+  requestAnimationFrame(() => _placeBlackKeys(wrap, 'piano'));
+
+  // 向き変更・リサイズ時に再計算
+  if (wrap._resizeObserver) wrap._resizeObserver.disconnect();
+  wrap._resizeObserver = new ResizeObserver(() => {
+    wrap.querySelectorAll('.key-black').forEach(k => k.remove());
+    _placeBlackKeys(wrap, 'piano');
+  });
+  wrap._resizeObserver.observe(wrap);
+}
+
+function _placeBlackKeys(wrap, mode) {
+  const whiteKeys = wrap.querySelectorAll(mode === 'piano' ? '.key-white' : '.perf-key-white');
+  if (!whiteKeys.length) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const blackClass  = mode === 'piano' ? 'key-black'      : 'perf-key-black';
+  const noteClass   = mode === 'piano' ? 'key-note-b'     : null;
+  const playFn      = mode === 'piano'
+    ? (k) => { playSynthFreq(k.freq); triggerKeyFeedback(k.sound, '#6644cc'); }
+    : (k) => playSynthFreqThroughPerf(k.freq);
+
+  BLACK_KEYS.forEach(k => {
+    const leftKey  = whiteKeys[k.leftIndex];
+    const rightKey = whiteKeys[k.leftIndex + 1];
+    if (!leftKey || !rightKey) return;
+
+    const leftRect  = leftKey.getBoundingClientRect();
+    const rightRect = rightKey.getBoundingClientRect();
+    // 黒鍵の中心 = 左白鍵右端と右白鍵左端の中間
+    const centerX = (leftRect.right + rightRect.left) / 2 - wrapRect.left;
+    const blackW  = Math.round((rightRect.left - leftRect.right) * 1.8 + (leftRect.width * 0.55));
+    const clampedW = Math.min(Math.max(blackW, 20), leftRect.width * 0.7);
+    const leftPx  = centerX - clampedW / 2;
+
+    const key = document.createElement('div');
+    key.className = blackClass;
+    key.style.left  = leftPx + 'px';
+    key.style.width = clampedW + 'px';
+    key.innerHTML = noteClass
+      ? `<span class="${noteClass}">${k.label}</span>`
+      : `<span>${k.label}</span>`;
+    key.addEventListener('pointerdown', e => {
+      e.preventDefault(); key.classList.add('pressed');
+      playFn(k);
+    });
+    key.addEventListener('pointerup',   () => key.classList.remove('pressed'));
+    key.addEventListener('pointerleave',() => key.classList.remove('pressed'));
+    wrap.appendChild(key);
+  });
+}
+
+// 黒鍵用：周波数を直接指定してピアノ音を鳴らす
+function playSynthFreq(freq) {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  const g = ctx.createGain();
+  g.connect(ctx.destination);
+  playPiano(freq, now, g);
+  if (settings.emojiFeedback) {
+    const el = document.getElementById('feedback-emoji');
+    el.textContent = '🎹';
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 700);
+  }
+}
+
+function triggerKeyFeedback(sound, color) {
+  if (settings.emojiFeedback) {
+    const s = SOUNDS[sound];
+    const el = document.getElementById('feedback-emoji');
+    el.textContent = s ? (s.label || '🎵') : '🎵';
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 700);
+  }
+}
+
+// ===== えんそう録音 =====
+let perfRecording = false;
+let perfAudioDest = null;      // MediaStreamDestination
+let perfMediaRecorder = null;
+let perfChunks = [];
+let perfArrayBuffer = null;
+let perfTimerInterval = null;
+let perfSeconds = 0;
+let perfSelectedEmoji = '🎹';
+let perfSelectedColor = '#c084fc';
+let perfPerfInstr = 'piano';   // 'piano' or 'buttons'
+
+function switchRecordMode(mode) {
+  document.getElementById('rtab-voice').classList.toggle('active', mode === 'voice');
+  document.getElementById('rtab-perf').classList.toggle('active', mode === 'perf');
+  document.getElementById('record-voice-area').style.display = mode === 'voice' ? 'flex' : 'none';
+  document.getElementById('record-perf-area').style.display  = mode === 'perf'  ? 'flex' : 'none';
+  if (mode === 'perf') {
+    buildPerfPiano();
+    buildPerfButtons();
+    loadPerfRecordingsList();
+  }
+}
+
+function switchPerfInstr(instr) {
+  perfPerfInstr = instr;
+  document.getElementById('pitab-piano').classList.toggle('active', instr === 'piano');
+  document.getElementById('pitab-buttons').classList.toggle('active', instr === 'buttons');
+  document.getElementById('perf-piano-section').style.display   = instr === 'piano'   ? 'flex' : 'none';
+  document.getElementById('perf-buttons-section').style.display = instr === 'buttons' ? 'flex' : 'none';
+}
+
+// Web Audio の出力を MediaStream としてキャプチャして録音する
+function togglePerfRecording() {
+  if (perfRecording) stopPerfRecording();
+  else startPerfRecording();
+}
+
+function startPerfRecording() {
+  const ctx = getAudioCtx();
+  // AudioContextの出力をMediaStreamに接続
+  if (!perfAudioDest || perfAudioDest.context !== ctx) {
+    perfAudioDest = ctx.createMediaStreamDestination();
+    // masterGain → perfAudioDest にルーティング
+    // ※ 全ての音はctx.destinationに流れるので、同じノードから分岐
+    ctx.destination.connect && (() => {})(); // no-op
+    // 既存の全Gainノードから接続するのは難しいため、
+    // ルートGainノードを差し替える戦略を取る
+  }
+
+  // 専用のルートGainを作ってdestinationとperfAudioDestの両方に繋ぐ
+  if (!window._perfRootGain) {
+    window._perfRootGain = ctx.createGain();
+    window._perfRootGain.connect(ctx.destination);
+    window._perfRootGain.connect(perfAudioDest);
+  }
+
+  perfChunks = [];
+  perfArrayBuffer = null;
+  document.getElementById('perf-sound-namer').classList.remove('visible');
+
+  try {
+    perfMediaRecorder = new MediaRecorder(perfAudioDest.stream);
+  } catch(e) {
+    showToast('❌ ろくおんできませんでした'); return;
+  }
+  perfMediaRecorder.ondataavailable = e => { if(e.data.size>0) perfChunks.push(e.data); };
+  perfMediaRecorder.onstop = onPerfRecordingStop;
+  perfMediaRecorder.start(100);
+  perfRecording = true;
+  perfSeconds = 0;
+  updatePerfTime();
+  perfTimerInterval = setInterval(() => { perfSeconds++; updatePerfTime(); }, 1000);
+
+  const dot = document.getElementById('perf-rec-dot');
+  const label = document.getElementById('perf-rec-label');
+  const btn = document.getElementById('btn-perf-rec');
+  dot.classList.add('recording');
+  label.textContent = '🔴 ろくおん中！えんそうしてください';
+  btn.textContent = '⏹ ていし';
+  btn.classList.remove('start'); btn.classList.add('stop');
+  showToast('🔴 ろくおん開始！えんそうしよう');
+}
+
+function stopPerfRecording() {
+  if (!perfMediaRecorder || perfMediaRecorder.state === 'inactive') return;
+  perfMediaRecorder.stop();
+  perfRecording = false;
+  clearInterval(perfTimerInterval);
+
+  const dot = document.getElementById('perf-rec-dot');
+  const label = document.getElementById('perf-rec-label');
+  const btn = document.getElementById('btn-perf-rec');
+  dot.classList.remove('recording');
+  label.textContent = 'ろくおんかんりょう！ほぞんしよう';
+  btn.textContent = '🔴 ろくおん開始';
+  btn.classList.add('start'); btn.classList.remove('stop');
+}
+
+function updatePerfTime() {
+  const m = Math.floor(perfSeconds/60);
+  const s = perfSeconds % 60;
+  document.getElementById('perf-rec-time').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function onPerfRecordingStop() {
+  const blob = new Blob(perfChunks, { type: 'audio/webm' });
+  const reader = new FileReader();
+  reader.onload = e => {
+    perfArrayBuffer = e.target.result;
+    buildPerfNamer();
+    document.getElementById('perf-sound-namer').classList.add('visible');
+  };
+  reader.readAsArrayBuffer(blob);
+}
+
+function buildPerfNamer() {
+  perfSelectedEmoji = '🎹'; perfSelectedColor = '#c084fc';
+  document.getElementById('perf-rec-name').value = '';
+  // emoji
+  const ep = document.getElementById('perf-emoji-picker');
+  ep.innerHTML = '';
+  EMOJIS.forEach((em, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-choice' + (i===0?' active':'');
+    btn.textContent = em;
+    btn.onclick = () => {
+      document.querySelectorAll('#perf-emoji-picker .emoji-choice').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); perfSelectedEmoji = em;
+    };
+    ep.appendChild(btn);
+  });
+  // color
+  const cp = document.getElementById('perf-color-palette');
+  cp.innerHTML = '';
+  COLORS.forEach((c,i) => {
+    const d = document.createElement('div');
+    d.className = 'color-dot-sm'+(i===0?' active':'');
+    d.style.background = c;
+    d.onclick = () => {
+      document.querySelectorAll('#perf-color-palette .color-dot-sm').forEach(b=>b.classList.remove('active'));
+      d.classList.add('active'); perfSelectedColor = c;
+    };
+    cp.appendChild(d);
+  });
+}
+
+async function savePerfRecording() {
+  if (!perfArrayBuffer) { showToast('❗ まずろくおんしてください'); return; }
+  const name = document.getElementById('perf-rec-name').value.trim() || 'わたしのえんそう';
+  const m = Math.floor(perfSeconds/60), s = perfSeconds%60;
+  const dur = `${m}:${s.toString().padStart(2,'0')}`;
+  const rec = {
+    name, emoji: perfSelectedEmoji, color: perfSelectedColor,
+    duration: dur, createdAt: Date.now(), audioData: perfArrayBuffer
+  };
+  try {
+    await saveRecordingToDB(rec);
+    showToast(`✅「${name}」をほぞんしました！`);
+    discardPerfRecording();
+    loadPerfRecordingsList();
+    loadRecordingsList(); // こえ録音リストも更新
+    updateTeacherSoundOptions();
+  } catch(e) { showToast('❌ ほぞんにしっぱいしました'); }
+}
+
+function discardPerfRecording() {
+  perfArrayBuffer = null; perfChunks = [];
+  document.getElementById('perf-sound-namer').classList.remove('visible');
+  document.getElementById('perf-rec-label').textContent = 'えんそうしながらろくおんできます';
+  document.getElementById('perf-rec-time').textContent = '0:00';
+  perfSeconds = 0;
+}
+
+async function loadPerfRecordingsList() {
+  const list = document.getElementById('perf-recordings-list');
+  try {
+    const recs = await getAllRecordings();
+    if (!recs.length) {
+      list.innerHTML = '<div class="recordings-empty">まだえんそうがほぞんされていません</div>';
+      return;
+    }
+    list.innerHTML = '';
+    recs.slice().reverse().forEach(rec => {
+      const item = document.createElement('div');
+      item.className = 'recording-item';
+      item.innerHTML = `
+        <div class="rec-item-icon" style="background:${rec.color}22">${rec.emoji}</div>
+        <div class="rec-item-info">
+          <div class="rec-item-name">${rec.name}</div>
+          <div class="rec-item-meta">⏱ ${rec.duration} · ${new Date(rec.createdAt).toLocaleDateString('ja-JP')}</div>
+        </div>
+        <div class="rec-item-actions">
+          <button class="btn-rec-play" onclick="playRecordingById(${rec.id})">▶</button>
+          <button class="btn-rec-delete" onclick="deletePerfRec(${rec.id})">🗑</button>
+        </div>`;
+      list.appendChild(item);
+    });
+  } catch(e) { list.innerHTML = '<div class="recordings-empty">よみこみエラー</div>'; }
+}
+
+async function deletePerfRec(id) {
+  try {
+    await deleteRecordingFromDB(id);
+    delete recAudioBuffers[id];
+    showToast('🗑 さくじょしました');
+    loadPerfRecordingsList();
+    loadRecordingsList();
+  } catch(e) {}
+}
+
+// えんそう録音用のルートGainを経由して音を鳴らす
+function getPerfGain() {
+  const ctx = getAudioCtx();
+  if (perfRecording && window._perfRootGain && window._perfRootGain.context === ctx) {
+    return window._perfRootGain;
+  }
+  return null; // 通常のdestinationへ
+}
+
+// ── けんばん（えんそう録音用） ──
+function buildPerfPiano() {
+  const wrap = document.getElementById('perf-piano-wrap');
+  wrap.innerHTML = '';
+
+  WHITE_KEYS.forEach((k, i) => {
+    const key = document.createElement('div');
+    key.className = 'perf-key-white';
+    key.dataset.index = i;
+    const subHtml = k.sub ? `<div style="font-size:.55em;color:#aaa;">${k.sub}</div>`:'';
+    key.innerHTML = `
+      <div class="pk-badge" style="background:${k.color}">${k.label}</div>
+      ${subHtml}
+      <div class="pk-label">${k.yomi}</div>`;
+    key.addEventListener('pointerdown', e => {
+      e.preventDefault(); key.classList.add('pressed');
+      playSoundThroughPerf(k.sound);
+    });
+    key.addEventListener('pointerup',    () => key.classList.remove('pressed'));
+    key.addEventListener('pointerleave', () => key.classList.remove('pressed'));
+    wrap.appendChild(key);
+  });
+
+  // 黒鍵は白鍵の実際のDOM位置から計算
+  requestAnimationFrame(() => _placeBlackKeys(wrap, 'perf'));
+
+  if (wrap._resizeObserver) wrap._resizeObserver.disconnect();
+  wrap._resizeObserver = new ResizeObserver(() => {
+    wrap.querySelectorAll('.perf-key-black').forEach(k => k.remove());
+    _placeBlackKeys(wrap, 'perf');
+  });
+  wrap._resizeObserver.observe(wrap);
+}
+
+// ── ボタン（えんそう録音用） ──
+function buildPerfButtons() {
+  const grid = document.getElementById('perf-btn-grid');
+  grid.innerHTML = '';
+  settings.buttons.slice(0, settings.btnCount).forEach((btn, i) => {
+    const isPiano = btn.sound && btn.sound.startsWith('piano_');
+    const soundDef = SOUNDS[btn.sound] || {};
+    const el = document.createElement('button');
+    el.className = 'perf-sound-btn';
+    el.style.background = btn.color || '#4d96ff';
+    if (isPiano) {
+      const subHtml = soundDef.sub ? `<span class="psb-yomi">${soundDef.sub}</span>`:'';
+      el.innerHTML = `<span class="psb-note">${soundDef.label||''}</span>${subHtml}<span class="psb-yomi">${soundDef.yomi||''}</span>`;
+    } else {
+      el.innerHTML = `<span class="psb-icon">${soundDef.emoji||'🎵'}</span><span class="psb-label">${soundDef.label||''}</span>`;
+    }
+    el.addEventListener('pointerdown', e => { e.preventDefault(); playSoundThroughPerf(btn.sound); });
+    grid.appendChild(el);
+  });
+}
+
+function playSoundThroughPerf(soundId) {
+  // 録音中はルートGainを経由して音を鳴らす
+  if (perfRecording && window._perfRootGain) {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    const g = ctx.createGain();
+    g.connect(window._perfRootGain);
+    playSoundCore && playSoundCore(soundId, ctx, now, g);
+  } else {
+    playSound(soundId);
+  }
+  // 視覚フィードバック
+  if (settings.emojiFeedback) {
+    const s = SOUNDS[soundId];
+    const el = document.getElementById('feedback-emoji');
+    if (el) { el.textContent = s?.label||'🎵'; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),700); }
+  }
+}
+
+function playSynthFreqThroughPerf(freq) {
+  const ctx = getAudioCtx();
+  const now = ctx.currentTime;
+  if (perfRecording && window._perfRootGain) {
+    const g = ctx.createGain();
+    g.connect(window._perfRootGain);
+    playPiano(freq, now, g);
+  } else {
+    const g = ctx.createGain();
+    g.connect(ctx.destination);
+    playPiano(freq, now, g);
+  }
+}
+
 // ===== URL SHARING =====
 function shareComposition() {
   const name = document.getElementById('compose-name').value.trim() || 'わたしのさくひん';
@@ -3255,6 +4181,129 @@ function loadSharedUrl() {
   } catch(e) {
     return false;
   }
+}
+
+// ===== 全画面・画面ロック・スリープ防止 =====
+let wakeLock = null;
+
+// ── 全画面 ──
+function toggleFullscreen() {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    enterFullscreen();
+  } else {
+    exitFullscreen();
+  }
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (fn) {
+    fn.call(el).catch(() => {});
+  }
+}
+
+function exitFullscreen() {
+  const fn = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+  if (fn) fn.call(document);
+}
+
+// 全画面の状態変化を監視してボタン表示を更新
+function onFullscreenChange() {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const icon  = document.getElementById('fs-icon');
+  const label = document.getElementById('fs-label');
+  if (icon)  icon.textContent  = isFs ? '✕' : '⛶';
+  if (label) label.textContent = isFs ? 'ぜんがめんをとじる' : 'ぜんがめんにする';
+}
+document.addEventListener('fullscreenchange',       onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+document.addEventListener('mozfullscreenchange',    onFullscreenChange);
+
+// ── 画面の向きをロック（縦向き固定） ──
+function lockOrientation() {
+  try {
+    const orientation = screen.orientation || screen.mozOrientation || screen.msOrientation;
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(() => {});
+    } else if (screen.mozLockOrientation) {
+      screen.mozLockOrientation('portrait');
+    } else if (screen.msLockOrientation) {
+      screen.msLockOrientation('portrait');
+    }
+  } catch(e) {}
+}
+
+function unlockOrientation() {
+  try {
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    } else if (screen.mozUnlockOrientation) {
+      screen.mozUnlockOrientation();
+    } else if (screen.msUnlockOrientation) {
+      screen.msUnlockOrientation();
+    }
+  } catch(e) {}
+}
+
+// ── スリープ防止（Wake Lock API） ──
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch(e) {}
+}
+
+async function releaseWakeLock() {
+  try {
+    if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch(e) {}
+}
+
+// タブが非表示→表示に戻ったときWakeLockを再取得
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && !wakeLock) {
+    await requestWakeLock();
+  }
+});
+
+// ── 初回タッチで全画面＋各種ロックを一括起動 ──
+let screenLockInitialized = false;
+function initScreenLock() {
+  if (screenLockInitialized) return;
+  screenLockInitialized = true;
+  requestWakeLock();
+  lockOrientation();
+  if (settings.navLock !== false) enableNavLock();
+}
+
+// 最初のユーザー操作で起動（iOSはユーザー操作が必要）
+document.addEventListener('pointerdown', initScreenLock, { once: true });
+document.addEventListener('click',       initScreenLock, { once: true });
+
+// ===== 誤操作ページバック防止（ナビゲーションロック）=====
+let navLockEnabled = false;
+
+function enableNavLock() {
+  if (navLockEnabled) return;
+  navLockEnabled = true;
+  // ダミー履歴を積んで「戻る」をブロック
+  history.pushState({ navLock: true }, '');
+  window.addEventListener('popstate', onPopState);
+}
+
+function disableNavLock() {
+  navLockEnabled = false;
+  window.removeEventListener('popstate', onPopState);
+}
+
+function onPopState(e) {
+  if (!navLockEnabled) return;
+  // 戻るジェスチャーをキャンセル：再度ダミーを積む
+  history.pushState({ navLock: true }, '');
+  showToast('🔒 もどるボタンはロックされています');
 }
 
 // ===== INIT =====
