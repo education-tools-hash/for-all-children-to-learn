@@ -742,7 +742,6 @@ const THEME_CLASS_MAP = {
   'sst-app':          'theme-sst',
   'kimochi-board':    'theme-board',
   'drawing-app':      'theme-oekaki',
-  :        'theme-music',
   'yomikaki-app':     'theme-yomikaki',
   'slideshow-sakusei':'theme-oekaki',
   'directions-app':   'theme-directions',
