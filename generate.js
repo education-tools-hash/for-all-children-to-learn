@@ -233,13 +233,34 @@ function generateDetailHTML(app) {
     <span class="guide-banner-arrow">→</span>
   </a>` : '';
 
+  // OGP画像(og:image / twitter:image)
+  //  ・apps-data.json に ogImage(相対パス or フルURL)が指定されていれば優先
+  //  ・無ければサイト共通のデフォルト画像を使う(要: /assets/og-default.png を用意)
+  const DEFAULT_OG_IMAGE = `${SITE_BASE_URL}/assets/og-default.png`;
+  const ogImageUrl = app.ogImage
+    ? (app.ogImage.startsWith('http') ? app.ogImage : `${SITE_BASE_URL}/${app.ogImage.replace(/^\/+/, '')}`)
+    : DEFAULT_OG_IMAGE;
+
+  // 教材の学習分野(教育メタデータ用)。tags_display / category から簡易生成
+  const learningResourceTypeMap = {
+    '学習アプリ': '練習・ドリル型学習アプリ',
+    '認知支援': '認知トレーニングアプリ',
+    '自立活動': '自立活動支援アプリ',
+    '創作表現': '創作・表現活動アプリ',
+  };
+  const learningResourceType = learningResourceTypeMap[app.category] || '教育用ICTアプリ';
+  const teachesText = (app.tags_display || app.category || '').split(/[・,、\/]/).map(s => s.trim()).filter(Boolean).slice(0, 5).join('、');
+
   // JSON-LD 構造化データ
+  // ・@type を配列にして SoftwareApplication と LearningResource の両方の
+  //   プロパティを1つのエンティティとして表現(schema.orgはマルチタイプ表現をサポート)
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
+    "@type": ["SoftwareApplication", "LearningResource"],
     "name": app.title,
     "description": cleanSummary,
     "url": canonicalUrl,
+    "image": ogImageUrl,
     "applicationCategory": "EducationalApplication",
     "applicationSubCategory": app.category,
     "operatingSystem": "Web Browser",
@@ -251,15 +272,20 @@ function generateDetailHTML(app) {
     },
     "inLanguage": "ja",
     "isAccessibleForFree": true,
+    // ── LearningResource としてのメタデータ ──
+    "learningResourceType": learningResourceType,
+    "educationalUse": "instruction",
+    "educationalLevel": "初等教育・特別支援教育",
+    "teaches": teachesText,
     "author": {
       "@type": "Person",
       "jobTitle": ["特別支援学校教員", "元総合教育センター研究員"],
       "description": "現役の特別支援学校教員。日々の教育実践と研究をもとに、子どもたちのためのICTデジタル教材を開発・公開しています。"
     },
-    "audience": {
-      "@type": "EducationalAudience",
-      "educationalRole": "teacher"
-    },
+    "audience": [
+      { "@type": "EducationalAudience", "educationalRole": "teacher" },
+      { "@type": "EducationalAudience", "educationalRole": "student" }
+    ],
     "isPartOf": {
       "@type": "WebSite",
       "name": SITE_NAME,
@@ -296,11 +322,15 @@ function generateDetailHTML(app) {
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:site_name" content="${SITE_NAME}">
+<meta property="og:image" content="${ogImageUrl}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${app.title}｜${seoSuffix}">
 <meta name="twitter:description" content="${seoDescription.slice(0, 120)}">
+<meta name="twitter:image" content="${ogImageUrl}">
 
 <!-- 構造化データ(JSON-LD) -->
 ${jsonLdHTML}
@@ -794,6 +824,96 @@ ${featuresHTML}
     </div>`;
 }
 
+// ============================================================
+//  ItemList(LearningResource)構造化データの共通生成
+//  ・index.html / app-intro.html など複数ページで再利用
+// ============================================================
+function buildMaterialsItemListJsonLd(apps, listName) {
+  const itemListElement = apps.map((app, i) => ({
+    "@type": "ListItem",
+    "position": i + 1,
+    "item": {
+      "@type": ["CreativeWork", "LearningResource"],
+      "name": app.title,
+      "url": `${BASE_URL}/app-details/${app.filename}-detail.html`,
+      "description": (app.summary || '').replace(/\s+/g, '').slice(0, 100),
+      "learningResourceType": "教育用ICTアプリ",
+      "isAccessibleForFree": true,
+      "inLanguage": "ja",
+      "audience": { "@type": "EducationalAudience", "educationalRole": "teacher" }
+    }
+  }));
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": listName,
+    "numberOfItems": apps.length,
+    "itemListElement": itemListElement
+  };
+}
+
+function injectStructuredDataBlock(html, jsonLd, markerKey) {
+  const startMarker = `<!-- STRUCTURED_DATA_${markerKey}_START -->`;
+  const endMarker    = `<!-- STRUCTURED_DATA_${markerKey}_END -->`;
+  const block = `${startMarker}\n<script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 2)}\n</script>\n${endMarker}`;
+  const existStart = html.indexOf(startMarker);
+  if (existStart !== -1) {
+    const existEnd = html.indexOf(endMarker) + endMarker.length;
+    return html.slice(0, existStart) + block + html.slice(existEnd);
+  }
+  const headEnd = html.indexOf('</head>');
+  if (headEnd !== -1) return html.slice(0, headEnd) + block + '\n' + html.slice(headEnd);
+  return html;
+}
+
+// ============================================================
+//  app-intro.html: canonical / OGP / Twitter Card / 構造化データを
+//  丸ごと整備する(元ファイルにOGPが一切無かったため新規追加)
+//  ・冪等: マーカーで既存ブロックを検出して置き換える
+// ============================================================
+function ensureAppIntroSEOTags(html) {
+  const pageUrl   = `${BASE_URL}/app-intro.html`;
+  const pageTitle = 'アプリ紹介 | すべての子どもの学びのためのデジタル教材';
+  const pageDesc  = 'すべての子どもの学びのためのデジタル教材の全アプリ紹介ページ。各アプリの概要・ねらい・機能・使い方・アクセシビリティ情報を掲載しています。';
+  const siteName  = 'すべての子どもの学びのためのデジタル教材';
+
+  const startMarker = '<!-- SEO_TAGS_APPINTRO_START -->';
+  const endMarker    = '<!-- SEO_TAGS_APPINTRO_END -->';
+  const block = `${startMarker}
+<link rel="canonical" href="${pageUrl}">
+<meta property="og:title" content="${pageTitle}">
+<meta property="og:description" content="${pageDesc}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${pageUrl}">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:site_name" content="${siteName}">
+<meta property="og:image" content="${HOME_OG_IMAGE}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${pageTitle}">
+<meta name="twitter:description" content="${pageDesc}">
+<meta name="twitter:image" content="${HOME_OG_IMAGE}">
+${endMarker}`;
+
+  const existStart = html.indexOf(startMarker);
+  if (existStart !== -1) {
+    const existEnd = html.indexOf(endMarker) + endMarker.length;
+    html = html.slice(0, existStart) + block + html.slice(existEnd);
+  } else {
+    // meta description の直後に挿入(無ければ </head> の直前)
+    const descRe = /(<meta[^>]*name="description"[^>]*\/?>)/;
+    if (descRe.test(html)) {
+      html = html.replace(descRe, `$1\n${block}`);
+    } else {
+      const headEnd = html.indexOf('</head>');
+      html = html.slice(0, headEnd) + block + '\n' + html.slice(headEnd);
+    }
+  }
+
+  return html;
+}
+
 function updateAppIntroHTML(apps) {
   const introPath = './app-intro.html';
   if (!fs.existsSync(introPath)) {
@@ -801,6 +921,10 @@ function updateAppIntroHTML(apps) {
     return;
   }
   let html = fs.readFileSync(introPath, 'utf-8');
+
+  // ── SEOタグを丸ごと整備(canonical/OGP/Twitter Card が未設定だったため追加) ──
+  html = ensureAppIntroSEOTags(html);
+
 
   // カテゴリラベル
   const catLabels = { gakushu: '✏️ 学習アプリ', ninchi: '🧠 認知支援', jiritsu: '🎯 自立活動', sousaku: '🎨 創作表現' };
@@ -898,6 +1022,8 @@ function updateAppIntroHTML(apps) {
   // ── ファビコン注入 ──
   const favRes2 = injectFavicon(html);
   html = favRes2.html;
+  // ── 教材一覧の構造化データ(ItemList/LearningResource)を注入 ──
+  html = injectStructuredDataBlock(html, buildMaterialsItemListJsonLd(apps, 'アプリ紹介 教材一覧'), 'APPINTRO');
   fs.writeFileSync(introPath, html, 'utf-8');
   console.log('✅ app-intro.html の panel-all を更新しました');
   console.log(`✅ app-intro.html のタブカウントを更新: all=${counts.all}, 学習=${counts.gakushu}, 認知=${counts.ninchi}, 自立=${counts.jiritsu}, 創作=${counts.sousaku}`);
@@ -1076,6 +1202,57 @@ function updateChangelog(apps) {
 }
 
 // ============================================================
+//  6. index.html(ホームページ) の OGP画像 と 教材一覧構造化データを更新
+//  ・og:image / twitter:image が無ければ追加(あれば冪等に維持)
+//  ・全教材を LearningResource の ItemList として構造化データに追加
+//    → 「教材ごとにCreativeWork/LearningResourceでマークアップ」の対応
+// ============================================================
+const HOME_OG_IMAGE = `${BASE_URL}/assets/og-default.png`; // ★要: このパスに1200x630のOGP画像を配置してください
+
+function updateHomepageOgImage(html) {
+  let changed = false;
+  if (!html.includes('property="og:image"')) {
+    const before = html;
+    html = html.replace(
+      /(<meta[^>]*property="og:locale"[^>]*\/?>)/,
+      `$1\n<meta property="og:image" content="${HOME_OG_IMAGE}">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">`
+    );
+    if (html !== before) changed = true;
+  }
+  if (!html.includes('name="twitter:image"')) {
+    const before = html;
+    html = html.replace(
+      /(<meta[^>]*name="twitter:description"[^>]*\/?>)/,
+      `$1\n<meta name="twitter:image" content="${HOME_OG_IMAGE}">`
+    );
+    if (html !== before) changed = true;
+  }
+  return { html, changed };
+}
+
+function updateHomepageStructuredData(html, apps) {
+  const jsonLd = buildMaterialsItemListJsonLd(apps, 'すべての子どもの学びのためのデジタル教材 一覧');
+  return injectStructuredDataBlock(html, jsonLd, 'MATERIALS');
+}
+
+function updateHomepageSEO(apps) {
+  const indexPath = './index.html';
+  if (!fs.existsSync(indexPath)) {
+    console.log('⚠️  index.html が見つかりません。スキップします(ホームページSEO更新)。');
+    return;
+  }
+  let html = fs.readFileSync(indexPath, 'utf-8');
+
+  const ogRes = updateHomepageOgImage(html);
+  html = ogRes.html;
+
+  html = updateHomepageStructuredData(html, apps);
+
+  fs.writeFileSync(indexPath, html, 'utf-8');
+  console.log(`✅ index.html のホームページSEOを更新しました(og:image${ogRes.changed ? '追加' : '維持'} / 教材${apps.length}件のLearningResource構造化データ)`);
+}
+
+// ============================================================
 //  実行
 // ============================================================
 
@@ -1104,7 +1281,10 @@ updatePurposeCards(apps);
 // 5. index.html の 更新履歴を更新
 updateChangelog(apps);
 
-// 6. 個別アプリHTML(ルート直下の*.html)にファビコンを一括挿入
+// 6. index.html のOGP画像・教材一覧構造化データ(ItemList/LearningResource)を更新
+updateHomepageSEO(apps);
+
+// 7. 個別アプリHTML(ルート直下の*.html)にファビコンを一括挿入
 //    対象: apps-data.json に filename が登録されているアプリの本体HTML
 //    対象外: index.html, app-intro.html, app-register.html(ツール本体)
 injectFaviconToAppHtmls(apps);
