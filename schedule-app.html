@@ -356,14 +356,6 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 .pf-list-check{width:28px;height:28px;border:2.5px solid #ccc;border-radius:5px;flex-shrink:0;}
 
 </style>
-<!-- favicon: 自動挿入 (generate.js) -->
-  <link rel="icon" type="image/svg+xml" href="/for-all-children-to-learn/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" href="/for-all-children-to-learn/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/for-all-children-to-learn/favicon-16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/for-all-children-to-learn/apple-touch-icon.png">
-  <link rel="manifest" href="/for-all-children-to-learn/site.webmanifest">
-  <meta name="theme-color" content="#4A4270">
-  <!-- /favicon -->
 </head>
 <body>
 
@@ -810,6 +802,10 @@ async function init(){
   await loadLocalCurrent();
   renderEditor();
   renderViewer();
+  // 起動直後から時計を動かす
+  updateClock();
+  if(clockTimer) clearInterval(clockTimer);
+  clockTimer=setInterval(updateClock,10000);
 }
 
 async function loadLocalCurrent(){
@@ -898,8 +894,12 @@ function updateClock(){
   const d=new Date();
   const h=String(d.getHours()).padStart(2,'0');
   const m=String(d.getMinutes()).padStart(2,'0');
+  const timeStr=h+':'+m;
+  // v-clockが存在すれば更新
   const el=document.getElementById('v-clock');
-  if(el) el.textContent=h+':'+m;
+  if(el) el.textContent=timeStr;
+  // data属性にも保存しておき、renderViewer時に使えるようにする
+  document.body.dataset.currentTime=timeStr;
 }
 // ===== 時刻パース（9:00〜9:45 または 9:00 対応） =====
 function parseTimeStr(str){
@@ -1613,7 +1613,7 @@ function switchTab(tab){
     document.getElementById('content-'+t).style.display=t===tab?'block':'none';
     document.getElementById('tab-'+t).className='tab'+(t===tab?' active':'');
   });
-  if(tab==='viewer'){renderViewer();updateAutoTimeInfo();startClock();if(prefs.switchMode!=='off')startScan();else stopScan();}
+  if(tab==='viewer'){renderViewer();updateClock();updateAutoTimeInfo();startClock();if(prefs.switchMode!=='off')startScan();else stopScan();}
   else{stopClock();stopScan();}
   if(tab==='saved')renderSaved();
   updateDateDisplay();
