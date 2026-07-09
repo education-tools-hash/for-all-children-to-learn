@@ -83,6 +83,65 @@
   .site-title .subtitle { font-size: clamp(12px, 2.5vw, 15px); color: #aaa; font-weight: 700; margin-top: 6px; letter-spacing: 2px; }
 
   /* ===================================================
+     📢 サイト移行のお知らせバナー
+     =================================================== */
+  .migration-notice {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #FFD766 0%, #FFA94D 100%);
+    box-shadow: 0 2px 12px rgba(244,162,0,0.25);
+    position: relative;
+    z-index: 300;
+    animation: fadeDown 0.5s ease both;
+  }
+  .migration-notice-icon { font-size: 22px; flex-shrink: 0; }
+  .migration-notice-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #2D2A4A;
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+  }
+  .migration-notice-sub {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(45,42,74,0.72);
+    letter-spacing: 0.5px;
+  }
+  .migration-notice-close {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.45);
+    color: #2D2A4A;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .migration-notice-close:hover { background: rgba(255,255,255,0.75); }
+  body.hc-mode .migration-notice { background: #000 !important; border-bottom: 2px solid #fff; }
+  body.hc-mode .migration-notice-text, body.hc-mode .migration-notice-sub { color: #fff !important; }
+  body.hc-mode .migration-notice-close { background: #fff !important; color: #000 !important; }
+  @media (max-width: 480px) {
+    .migration-notice { padding: 10px 14px; gap: 10px; }
+    .migration-notice-text { font-size: 12px; }
+    .migration-notice-sub { font-size: 10px; }
+  }
+
+  /* ===================================================
      ★改善1: 検索エリア — 上部固定＆視認性強化
      =================================================== */
   .search-area {
@@ -1714,6 +1773,16 @@
 <!-- STRUCTURED_DATA_MATERIALS_END -->
 </head>
 <body>
+
+<!-- 📢 サイト移行のお知らせバナー -->
+<div class="migration-notice" id="migrationNotice">
+  <span class="migration-notice-icon" aria-hidden="true">📢</span>
+  <span class="migration-notice-text">
+    いつも本サイトをご利用いただきありがとうございます。近日、サイト名を「どのまな」に、URLを donomana.jp に変更します
+    <span class="migration-notice-sub">今まで通りの内容でご利用いただけます。ブックマークは変更後に更新をお願いします</span>
+  </span>
+  <button class="migration-notice-close" onclick="closeMigrationNotice()" aria-label="お知らせを閉じる">✕</button>
+</div>
 
 <!-- ⚙ アクセシビリティ設定ボタン -->
 <button class="a11y-btn" onclick="toggleA11yPanel()" aria-label="アクセシビリティ設定" aria-expanded="false" id="a11yBtn">
@@ -3465,6 +3534,21 @@ function resetA11y() {
   if (c) setContrast(c);
   if (f) setFont(f);
   if (s === '1') setScreenReader(true);
+})();
+
+// ── 📢 移行お知らせバナー：閉じる／状態復元 ──
+// バナーの文言を変更した際は末尾の数字（v1）を上げると、一度閉じた人にも再表示されます
+const MIGRATION_NOTICE_KEY = 'migration-notice-dismissed-v1';
+function closeMigrationNotice() {
+  const el = document.getElementById('migrationNotice');
+  if (el) el.style.display = 'none';
+  localStorage.setItem(MIGRATION_NOTICE_KEY, '1');
+}
+(function() {
+  if (localStorage.getItem(MIGRATION_NOTICE_KEY) === '1') {
+    const el = document.getElementById('migrationNotice');
+    if (el) el.style.display = 'none';
+  }
 })();
 
 // ── SNS共有：URLコピー ──
