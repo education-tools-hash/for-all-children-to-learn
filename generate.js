@@ -162,7 +162,7 @@ function generateDetailHTML(app) {
   //  SEO情報を自動生成
   // ============================================================
   const SITE_BASE_URL = 'https://donomana.jp';
-  const SITE_NAME = 'すべての子どもの学びのためのデジタル教材';
+  const SITE_NAME = 'どのまな';
 
   // 共通のSEOキーワード(全アプリ共通)
   const commonKeywords = ['特別支援教育', 'ICT教材', '無料教材', '特別支援学校', '特別支援学級', 'デジタル教材', 'ブラウザ教材', 'インストール不要'];
@@ -874,9 +874,9 @@ function injectStructuredDataBlock(html, jsonLd, markerKey) {
 // ============================================================
 function ensureAppIntroSEOTags(html) {
   const pageUrl   = `${BASE_URL}/app-intro.html`;
-  const pageTitle = 'アプリ紹介 | すべての子どもの学びのためのデジタル教材';
-  const pageDesc  = 'すべての子どもの学びのためのデジタル教材の全アプリ紹介ページ。各アプリの概要・ねらい・機能・使い方・アクセシビリティ情報を掲載しています。';
-  const siteName  = 'すべての子どもの学びのためのデジタル教材';
+  const pageTitle = 'アプリ紹介 | どのまな';
+  const pageDesc  = 'どのまなの全アプリ紹介ページ。各アプリの概要・ねらい・機能・使い方・アクセシビリティ情報を掲載しています。';
+  const siteName  = 'どのまな';
 
   const startMarker = '<!-- SEO_TAGS_APPINTRO_START -->';
   const endMarker    = '<!-- SEO_TAGS_APPINTRO_END -->';
@@ -1232,7 +1232,7 @@ function updateHomepageOgImage(html) {
 }
 
 function updateHomepageStructuredData(html, apps) {
-  const jsonLd = buildMaterialsItemListJsonLd(apps, 'すべての子どもの学びのためのデジタル教材 一覧');
+  const jsonLd = buildMaterialsItemListJsonLd(apps, 'どのまな 一覧');
   return injectStructuredDataBlock(html, jsonLd, 'MATERIALS');
 }
 
