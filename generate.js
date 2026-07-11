@@ -161,7 +161,7 @@ function generateDetailHTML(app) {
   // ============================================================
   //  SEO情報を自動生成
   // ============================================================
-  const SITE_BASE_URL = 'https://education-tools-hash.github.io/for-all-children-to-learn';
+  const SITE_BASE_URL = 'https://donomana.jp';
   const SITE_NAME = 'すべての子どもの学びのためのデジタル教材';
 
   // 共通のSEOキーワード(全アプリ共通)
@@ -235,8 +235,8 @@ function generateDetailHTML(app) {
 
   // OGP画像(og:image / twitter:image)
   //  ・apps-data.json に ogImage(相対パス or フルURL)が指定されていれば優先
-  //  ・無ければサイト共通のデフォルト画像を使う(要: /assets/og-default.png を用意)
-  const DEFAULT_OG_IMAGE = `${SITE_BASE_URL}/assets/og-default.png`;
+  //  ・無ければサイト共通のデフォルト画像を使う(要: /ogp.png を用意)
+  const DEFAULT_OG_IMAGE = `${SITE_BASE_URL}/ogp.png`;
   const ogImageUrl = app.ogImage
     ? (app.ogImage.startsWith('http') ? app.ogImage : `${SITE_BASE_URL}/${app.ogImage.replace(/^\/+/, '')}`)
     : DEFAULT_OG_IMAGE;
@@ -703,22 +703,23 @@ function fixIndexJsBugs(html) {
 // ============================================================
 //  3. app-intro.html の panel-all カードを自動生成して上書き
 // ============================================================
-const BASE_URL = 'https://education-tools-hash.github.io/for-all-children-to-learn';
-const BASE_PATH = '/for-all-children-to-learn'; // GitHub Pages のリポジトリパス
+const BASE_URL = 'https://donomana.jp';
+const BASE_PATH = ''; // カスタムドメイン(donomana.jp)はサイトルートから配信されるため空文字
 
 // ============================================================
 //  ファビコン関連: 全ページの <head> に統一して挿入する
-//  ・サイトルート絶対パス指定 (/for-all-children-to-learn/) なので
+//  ・サイトルート絶対パス指定 (/) なので
 //    どの階層のページからも同じファビコンが参照される
 // ============================================================
 const FAVICON_TAGS = [
   '<!-- favicon: 自動挿入 (generate.js) -->',
+  `<link rel="icon" href="${BASE_PATH}/favicon.ico" sizes="48x48">`,
   `<link rel="icon" type="image/svg+xml" href="${BASE_PATH}/favicon.svg">`,
   `<link rel="icon" type="image/png" sizes="32x32" href="${BASE_PATH}/favicon-32.png">`,
   `<link rel="icon" type="image/png" sizes="16x16" href="${BASE_PATH}/favicon-16.png">`,
   `<link rel="apple-touch-icon" sizes="180x180" href="${BASE_PATH}/apple-touch-icon.png">`,
   `<link rel="manifest" href="${BASE_PATH}/site.webmanifest">`,
-  `<meta name="theme-color" content="#4A4270">`,
+  `<meta name="theme-color" content="#00A99D">`,
   '<!-- /favicon -->'
 ].join('\n  ');
 
@@ -1207,7 +1208,7 @@ function updateChangelog(apps) {
 //  ・全教材を LearningResource の ItemList として構造化データに追加
 //    → 「教材ごとにCreativeWork/LearningResourceでマークアップ」の対応
 // ============================================================
-const HOME_OG_IMAGE = `${BASE_URL}/assets/og-default.png`; // ★要: このパスに1200x630のOGP画像を配置してください
+const HOME_OG_IMAGE = `${BASE_URL}/ogp.png`;
 
 function updateHomepageOgImage(html) {
   let changed = false;
