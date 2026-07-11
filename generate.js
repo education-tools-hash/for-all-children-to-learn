@@ -403,7 +403,7 @@ ${jsonLdHTML}
 </head>
 <body>
 <nav class="site-nav">
-  <a href="../index.html">トップ</a>
+  <a href="${SITE_BASE_URL}/">トップ</a>
   <span class="sep">›</span>
   <a href="../app-intro.html">アプリ一覧</a>
   <span class="sep">›</span>
@@ -802,7 +802,7 @@ function generateIntroCard(app) {
         </div>
         <div class="intro-header-side">
           <div class="header-qr-block"><div class="header-qr-label">QR</div><div class="header-qr-img" data-url="${BASE_URL}/${app.filename}.html"></div></div>
-          <a href="${BASE_URL}/index.html#contactSection" class="header-report-btn" target="_blank"><span class="header-report-icon">✏️</span><span class="header-report-text"><span class="header-report-title">実践報告を送る</span></span></a>
+          <a href="${BASE_URL}/#contactSection" class="header-report-btn" target="_blank"><span class="header-report-icon">✏️</span><span class="header-report-text"><span class="header-report-title">実践報告を送る</span></span></a>
         </div>
       </div>
       <div class="intro-body">
