@@ -116,6 +116,43 @@
   .btn-pink:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
   .mode-indicator-new{background:#eff6ff;border:1px solid #93c3fd;border-radius:8px;padding:10px 14px;font-size:13px;color:#1e40af;font-weight:700;}
   .mode-indicator-update{background:#fdf2f8;border:1px solid #f9a8d4;border-radius:8px;padding:10px 14px;font-size:13px;color:#be185d;font-weight:700;}
+  .mode-indicator-delete{background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:13px;color:#991b1b;font-weight:700;}
+  .mode-btn.delete.active{background:#ef4444;color:white;box-shadow:inset 0 0 0 2px #dc2626;}
+  .btn-danger{background:#ef4444;color:white;border:none;border-radius:10px;padding:14px 32px;font-size:16px;font-family:'Zen Maru Gothic',sans-serif;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s,transform .1s;box-shadow:0 4px 16px rgba(239,68,68,.3);}
+  .btn-danger:hover{background:#dc2626;transform:translateY(-1px);}
+  .btn-danger:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
+  .delete-section{border:2px solid #ef4444;border-radius:var(--radius);padding:20px;background:#fef2f2;display:flex;flex-direction:column;gap:16px;}
+  .delete-badge{background:#fee2e2;color:#991b1b;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid #fca5a5;}
+  .flow-step.delete-step{background:#fef2f2;border-color:#fca5a5;color:#991b1b;}
+  /* 確認ダイアログ */
+  .dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .dialog-box{background:white;border-radius:16px;padding:32px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+  .dialog-title{font-family:'Zen Maru Gothic',sans-serif;font-size:20px;font-weight:900;color:#991b1b;margin-bottom:12px;display:flex;align-items:center;gap:10px;}
+  .dialog-body{font-size:14px;color:var(--text);line-height:1.8;margin-bottom:20px;}
+  .dialog-input-label{font-size:13px;font-weight:700;color:#991b1b;margin-bottom:6px;display:block;}
+  .dialog-input{border:2px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:15px;font-family:'Noto Sans JP',sans-serif;width:100%;color:var(--text);}
+  .dialog-input:focus{outline:none;border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.15);}
+  .dialog-actions{display:flex;gap:12px;margin-top:20px;justify-content:flex-end;}
+  /* 完了モーダル */
+  .result-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .result-modal-box{background:white;border-radius:16px;padding:32px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center;}
+  .result-modal-icon{font-size:56px;margin-bottom:12px;}
+  .result-modal-title{font-family:'Zen Maru Gothic',sans-serif;font-size:22px;font-weight:900;margin-bottom:10px;}
+  .result-modal-body{font-size:14px;color:var(--muted);line-height:1.8;margin-bottom:24px;}
+  .result-modal-box.success .result-modal-title{color:#065f46;}
+  .result-modal-box.error .result-modal-title{color:#991b1b;}
+  /* カラーピッカー */
+  .color-picker-wrap{display:flex;align-items:center;gap:10px;}
+  .color-picker-wrap input[type="text"]{flex:1;}
+  .color-swatch{width:42px;height:42px;border-radius:10px;border:2px solid var(--border);cursor:pointer;flex-shrink:0;transition:transform .1s;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+  .color-swatch:hover{transform:scale(1.08);}
+  input[type="color"]{width:0;height:0;padding:0;border:none;opacity:0;position:absolute;}
+  .color-preview-label{font-size:11px;color:var(--muted);margin-top:4px;}
+  /* 並び順 */
+  .order-field{display:none;margin-top:14px;padding:14px;background:var(--primary-light);border:1px solid #bfdbfe;border-radius:10px;}
+  .order-field.visible{display:block;}
+  .order-field label{color:var(--primary-dark);}
+  .order-hint{font-size:12px;color:var(--primary-dark);margin-top:6px;line-height:1.6;}
 </style>
 </head>
 <body>
@@ -124,7 +161,7 @@
   <div class="step-num" style="background:var(--accent);">📋</div>
   <div>
     <div class="logo">アプリ登録ダッシュボード</div>
-    <div class="subtitle">for-all-children-to-learn</div>
+    <div class="subtitle">どのまな (donomana.jp)</div>
   </div>
 </header>
 
@@ -139,6 +176,9 @@
       </button>
       <button class="mode-btn update" id="btnUpdate" onclick="setMode('update')">
         <span>🔄</span><span>既存アプリを更新</span>
+      </button>
+      <button class="mode-btn delete" id="btnDelete" onclick="setMode('delete')">
+        <span>🗑️</span><span>アプリを削除</span>
       </button>
     </div>
     <div id="modeIndicator" class="mode-indicator-new" style="margin-top:12px;">
@@ -160,6 +200,18 @@
       <div class="flow-step">④ 確認・修正</div>
       <div class="flow-arrow">→</div>
       <div class="flow-step">⑤ アップロード</div>
+    </div>
+    <!-- 削除モード -->
+    <div class="flow-steps" id="flowDelete" style="display:none;">
+      <div class="flow-step delete-step">① アプリIDを入力</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step delete-step">② 削除を実行</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step delete-step">③ IDを再入力して確認</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step delete-step">④ 全ファイル自動削除</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step delete-step">⑤ サイト自動再生成</div>
     </div>
     <!-- 更新モード -->
     <div class="flow-steps" id="flowUpdate" style="display:none;">
@@ -196,6 +248,63 @@
       </div>
     </div>
     <div class="info-box" style="margin-top:12px;">🔒 トークンはこのページ内のみで使用され、外部には送信されません。ページを閉じると消えます。</div>
+
+  <!-- 削除モード専用セクション -->
+  <div class="card" id="deleteSection" style="display:none;border-color:#fca5a5;background:linear-gradient(135deg,#fff 0%,#fef2f2 100%);">
+    <div class="card-title" style="color:#991b1b;">
+      <div class="step-num" style="background:#ef4444;">🗑️</div>
+      削除するアプリを指定
+      <span class="delete-badge">削除モード</span>
+    </div>
+    <div class="delete-section">
+      <div class="field">
+        <label style="color:#991b1b;">アプリID <span class="req">必須</span> <span class="hint">（ファイル名、拡張子なし）</span></label>
+        <input type="text" id="deleteAppId" placeholder="例: janken-app">
+      </div>
+      <div style="background:#fee2e2;border-radius:8px;padding:14px;font-size:13px;color:#991b1b;line-height:1.9;">
+        🗑️ <strong>削除モードで行われる処理：</strong><br>
+        ① <code>apps-data.json</code> から該当アプリのエントリーを削除<br>
+        ② <code>generate.js</code> から該当IDを全箇所削除<br>
+        ③ <code>sitemap.xml</code> から該当URLを2つ削除（本体＋詳細ページ）<br>
+        ④ アプリ本体HTML・<code>app-details/xxx-detail.html</code> をリポジトリから削除<br>
+        ⑤ GitHub Actionsが <code>index.html</code>・<code>app-intro.html</code> を自動再生成 ✅<br>
+        <br>
+        ⚠️ <strong>この操作は元に戻せません。実行前にご確認ください。</strong>
+      </div>
+      <button class="btn-danger" onclick="confirmDelete()" style="width:fit-content;">
+        <span>🗑️</span><span>削除を実行する</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 削除確認ダイアログ -->
+  <div class="dialog-overlay" id="deleteDialog" style="display:none;">
+    <div class="dialog-box">
+      <div class="dialog-title">⚠️ 削除の確認</div>
+      <div class="dialog-body">
+        <strong id="dialogAppId" style="color:#ef4444;font-size:16px;"></strong> を完全に削除します。<br><br>
+        この操作は<strong>元に戻せません。</strong><br>
+        本当に削除する場合は、下の欄にアプリIDを入力してください。
+      </div>
+      <label class="dialog-input-label">アプリIDを入力して確認：</label>
+      <input type="text" class="dialog-input" id="deleteConfirmInput" placeholder="アプリIDを入力">
+      <div class="dialog-actions">
+        <button class="btn-secondary" onclick="closeDeleteDialog()">キャンセル</button>
+        <button class="btn-danger" id="dialogExecuteBtn" onclick="executeDelete()" disabled style="padding:10px 24px;font-size:14px;">
+          🗑️ 削除する
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 完了モーダル -->
+  <div class="result-modal-overlay" id="resultModal" style="display:none;" onclick="closeResultModal()">
+    <div class="result-modal-box" id="resultModalBox">
+      <div class="result-modal-icon" id="resultModalIcon"></div>
+      <div class="result-modal-title" id="resultModalTitle"></div>
+      <div class="result-modal-body" id="resultModalBody"></div>
+      <button class="btn-secondary" onclick="closeResultModal()" style="margin:0 auto;">閉じる</button>
+    </div>
   </div>
 
   <!-- STEP 2: Claude.aiでJSON生成 -->
@@ -280,16 +389,34 @@
       <span class="update-badge">更新モードのみ</span>
     </div>
     <div class="update-section">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:#eef2ff;border-radius:8px;padding:12px 14px;margin-bottom:10px;">
+        <input type="checkbox" id="updateSitemap" checked style="width:18px;height:18px;cursor:pointer;accent-color:#6366f1;flex-shrink:0;" onchange="toggleSitemapNote()">
+        <span style="font-size:14px;font-weight:700;color:#4338ca;">sitemap.xml の更新日(lastmod)を更新する</span>
+        <span style="font-size:11px;color:#6366f1;margin-left:auto;">検索エンジンへの再クロール通知用</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:#fce7f3;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+        <input type="checkbox" id="recordChangelog" checked style="width:18px;height:18px;cursor:pointer;accent-color:#ec4899;flex-shrink:0;" onchange="toggleChangelogFields()">
+        <span style="font-size:14px;font-weight:700;color:#be185d;">サイト内の更新履歴に表示する</span>
+        <span style="font-size:11px;color:#ec4899;margin-left:auto;">「お知らせ」欄への掲載用</span>
+      </label>
       <div class="field">
-        <label>更新内容の説明 <span class="req">必須</span></label>
-        <input type="text" id="updateText" placeholder="例: 難易度選択機能を追加しました">
-        <span style="font-size:11px;color:#be185d;">→ 更新履歴に表示されます（例：「〇〇機能を追加しました」）</span>
-      </div>
-      <div class="field">
-        <label>更新日 <span class="req">必須</span></label>
+        <label>更新日 <span class="req">必須</span> <span style="font-size:11px;color:#94a3b8;font-weight:400;">（更新履歴・sitemapの両方で使用）</span></label>
         <input type="date" id="updateDate">
       </div>
-      <div style="background:#fce7f3;border-radius:8px;padding:12px;font-size:13px;color:#be185d;line-height:1.8;">
+      <div id="changelogFields">
+        <div class="field">
+          <label>更新内容の説明 <span class="req">必須</span></label>
+          <input type="text" id="updateText" placeholder="例: 難易度選択機能を追加しました">
+          <span style="font-size:11px;color:#be185d;">→ 更新履歴に表示されます（例：「〇〇機能を追加しました」）</span>
+        </div>
+      </div>
+      <div id="changelogSkippedNote" style="display:none;background:#f1f5f9;border-radius:8px;padding:12px;font-size:13px;color:#64748b;line-height:1.7;margin-bottom:10px;">
+        ℹ️ 「サイト内の更新履歴に表示する」のチェックを外したため、<strong>generate.js の更新履歴（お知らせ表示）</strong>は変更されません。
+      </div>
+      <div id="sitemapSkippedNote" style="display:none;background:#f1f5f9;border-radius:8px;padding:12px;font-size:13px;color:#64748b;line-height:1.7;margin-bottom:10px;">
+        ℹ️ 「sitemap.xml の更新日」のチェックを外したため、<strong>検索エンジンへの再クロール通知</strong>は行われません。
+      </div>
+      <div style="background:#fce7f3;border-radius:8px;padding:12px;font-size:13px;color:#be185d;line-height:1.8;margin-top:12px;">
         🌸 <strong>更新モードでやること：</strong><br>
         ① 下のSTEP2〜4でHTMLからJSONを生成 → フォームに自動入力<br>
         ② 内容を確認・修正<br>
@@ -298,8 +425,8 @@
         　・apps-data.json（アプリ情報を上書き）<br>
         　・app-details/xxx-detail.html（再生成）<br>
         　・app-intro.html（再生成）<br>
-        　・generate.js の MANUAL_CHANGELOG（更新履歴追記）<br>
-        　・sitemap.xml（lastmod更新）
+        　・generate.js の MANUAL_CHANGELOG（更新履歴追記）<span id="changelogStepNote" style="color:#94a3b8;"></span><br>
+        　・sitemap.xml（lastmod更新）<span id="sitemapStepNote" style="color:#94a3b8;"></span>
       </div>
     </div>
   </div>
@@ -326,7 +453,16 @@
       </div>
       <div class="field">
         <label>アイコン背景色 <span class="req">必須</span></label>
-        <input type="text" id="iconColor" value="#3b82f6">
+        <div class="color-picker-wrap">
+          <input type="text" id="iconColor" value="#3b82f6" placeholder="#3b82f6" maxlength="7"
+            oninput="syncColorFromText(this.value)">
+          <div class="color-swatch" id="colorSwatch" style="background:#3b82f6;"
+            onclick="document.getElementById('colorPickerNative').click()"
+            title="クリックしてカラーピッカーを開く"></div>
+          <input type="color" id="colorPickerNative" value="#3b82f6"
+            oninput="syncColorFromPicker(this.value)">
+        </div>
+        <div class="color-preview-label" id="colorPreviewLabel">現在の色：#3b82f6 ／ クリックして色を選択</div>
       </div>
       <div class="field span2">
         <label>タグ表示 <span class="hint">（「・」区切り）</span></label>
@@ -348,6 +484,20 @@
       <div class="chip" data-value="認知支援" onclick="selectCategory(this)">🧩 認知支援</div>
       <div class="chip" data-value="自立活動" onclick="selectCategory(this)">🌱 自立活動</div>
       <div class="chip" data-value="創作表現" onclick="selectCategory(this)">🎨 創作表現</div>
+    </div>
+
+    <!-- 並び順フィールド（カテゴリ選択後に表示） -->
+    <div class="order-field" id="orderField">
+      <div class="field">
+        <label>📌 カテゴリ内の表示順 <span class="hint">（任意）</span></label>
+        <input type="number" id="appOrder" min="1" step="1" placeholder="例: 3（3番目に表示）"
+          style="max-width:220px;">
+        <div class="order-hint">
+          空欄のまま → カテゴリの末尾に追加（デフォルト）<br>
+          数字を入力 → そのカテゴリ内で指定した位置に表示<br>
+          例）「2」と入力 → そのカテゴリの2番目に表示
+        </div>
+      </div>
     </div>
   </div>
 
@@ -454,7 +604,7 @@
 
 
   <!-- HTMLファイル -->
-  <div class="card">
+  <div class="card" id="fileCard">
     <div class="card-title"><div class="step-num">5</div>アプリHTMLファイル</div>
     <div id="fileDropArea" class="file-drop"
       ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
@@ -471,7 +621,7 @@
   </div>
 
   <!-- アップロード -->
-  <div class="card">
+  <div class="card" id="uploadCard">
     <div class="card-title"><div class="step-num" style="background:var(--accent);">6</div>GitHubへアップロード</div>
     <div id="alertArea" class="alert"></div>
     <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap;">
@@ -549,42 +699,72 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 // =====================
+// 更新履歴を記録するかどうかの切替
+// =====================
+function toggleChangelogFields(){
+  const checked=document.getElementById('recordChangelog').checked;
+  document.getElementById('changelogFields').style.display=checked?'':'none';
+  document.getElementById('changelogSkippedNote').style.display=checked?'none':'block';
+  document.getElementById('changelogStepNote').textContent=checked?'':'（スキップ）';
+}
+
+// =====================
+// sitemap更新の切替
+// =====================
+function toggleSitemapNote(){
+  const checked=document.getElementById('updateSitemap').checked;
+  document.getElementById('sitemapSkippedNote').style.display=checked?'none':'block';
+  document.getElementById('sitemapStepNote').textContent=checked?'':'（スキップ）';
+}
+
+// =====================
 // モード切替
 // =====================
 function setMode(mode){
   currentMode=mode;
-  const isNew=mode==='new';
-  // ボタン
-  document.getElementById('btnNew').classList.toggle('active',isNew);
-  document.getElementById('btnUpdate').classList.toggle('active',!isNew);
+  // ボタン3つのactive制御
+  document.getElementById('btnNew').classList.toggle('active',mode==='new');
+  document.getElementById('btnUpdate').classList.toggle('active',mode==='update');
+  document.getElementById('btnDelete').classList.toggle('active',mode==='delete');
   // インジケーター
   const ind=document.getElementById('modeIndicator');
-  if(isNew){
+  if(mode==='new'){
     ind.className='mode-indicator-new';
     ind.textContent='📘 新規モード：新しいアプリを追加します';
-  }else{
+  }else if(mode==='update'){
     ind.className='mode-indicator-update';
     ind.textContent='🌸 更新モード：既存アプリを更新し、app-detail・app-introも自動再生成します';
+  }else{
+    ind.className='mode-indicator-delete';
+    ind.textContent='🗑️ 削除モード：アプリを完全に削除します（元に戻せません）';
   }
-  // 操作フロー表示切替
+  // 操作フロー
   const flowNew=document.getElementById('flowNew');
   const flowUpdate=document.getElementById('flowUpdate');
-  if(flowNew)flowNew.style.display=isNew?'flex':'none';
-  if(flowUpdate)flowUpdate.style.display=isNew?'none':'flex';
-  // 更新モード専用セクション（更新日・更新テキスト）
-  document.getElementById('updateSection').style.display=isNew?'none':'block';
-  // STEP2〜4は両モードで表示（更新時もJSON→フォーム入力でapps-data.jsonを更新）
-  // STEP4fのgenerate.js設定は新規のみ
+  const flowDelete=document.getElementById('flowDelete');
+  if(flowNew)flowNew.style.display=mode==='new'?'flex':'none';
+  if(flowUpdate)flowUpdate.style.display=mode==='update'?'flex':'none';
+  if(flowDelete)flowDelete.style.display=mode==='delete'?'flex':'none';
+  // 削除専用セクション
+  document.getElementById('deleteSection').style.display=mode==='delete'?'block':'none';
+  // モード切替時は並び順フィールドをリセット
+  document.getElementById('orderField').classList.remove('visible');
+  if(document.getElementById('appOrder'))document.getElementById('appOrder').value='';
+  // 更新専用セクション
+  document.getElementById('updateSection').style.display=mode==='update'?'block':'none';
+  // STEP2〜4・ファイル・アップロードは新規・更新のみ表示
+  const showForm=mode!=='delete';
+  ['step2Card','step3Card','step4Card','step4bCard','step4cCard','step4dCard','step4eCard','step4fCard','fileCard','uploadCard'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=showForm?'':'none';
+  });
   const step4f=document.getElementById('step4fCard');
-  if(step4f)step4f.style.display=isNew?'':'none';
+  if(step4f)step4f.style.display=mode==='new'?'':'none';
   // アップロードボタン色
   const btn=document.getElementById('uploadBtn');
-  if(isNew){
-    btn.className='btn-primary';
-    document.getElementById('uploadBtnLabel').textContent='GitHubにアップロード（新規登録）';
-  }else{
-    btn.className='btn-pink';
-    document.getElementById('uploadBtnLabel').textContent='GitHubにアップロード（アプリ更新）';
+  if(btn){
+    if(mode==='new'){btn.className='btn-primary';document.getElementById('uploadBtnLabel').textContent='GitHubにアップロード（新規登録）';}
+    else{btn.className='btn-pink';document.getElementById('uploadBtnLabel').textContent='GitHubにアップロード（アプリ更新）';}
   }
 }
 
@@ -610,7 +790,14 @@ function applyJson(){
   setValue('appId',data.id||'');
   setValue('title',data.title||'');
   setValue('icon',data.icon||'');
-  setValue('iconColor',data.iconColor||'#3b82f6');
+  const iconColorVal=data.iconColor||'#3b82f6';
+  setValue('iconColor',iconColorVal);
+  syncColorFromPicker(iconColorVal);
+  // 並び順
+  if(data.order){
+    setValue('appOrder', data.order);
+    document.getElementById('orderField').classList.add('visible');
+  }
   setValue('tagsDisplay',data.tags_display||'');
   setValue('summary',data.summary||'');
   if(data.releaseDate)setValue('releaseDate',data.releaseDate);
@@ -682,9 +869,28 @@ function addStep(label='',desc=''){
   document.getElementById('stepsList').appendChild(div);
 }
 
+// =====================
+// カラーピッカー同期
+// =====================
+function syncColorFromText(val){
+  // #xxxxxx 形式のときだけ同期
+  if(/^#[0-9a-fA-F]{6}$/.test(val)){
+    document.getElementById('colorSwatch').style.background=val;
+    document.getElementById('colorPickerNative').value=val;
+    document.getElementById('colorPreviewLabel').textContent='現在の色：'+val+' ／ クリックして色を選択';
+  }
+}
+function syncColorFromPicker(val){
+  document.getElementById('iconColor').value=val;
+  document.getElementById('colorSwatch').style.background=val;
+  document.getElementById('colorPreviewLabel').textContent='現在の色：'+val+' ／ クリックして色を選択';
+}
+
 function selectCategory(el){
   document.querySelectorAll('#categoryChips .chip').forEach(c=>c.classList.remove('selected'));
   el.classList.add('selected'); selectedCategory=el.dataset.value;
+  // 並び順フィールドを表示
+  document.getElementById('orderField').classList.add('visible');
 }
 function togglePurpose(el){
   const val=el.dataset.value;
@@ -766,6 +972,11 @@ function collectFormData(){
   const seoKeywords=document.getElementById('seoKeywords')?.value.trim()||'';
   if(seoTitle)appData.seoTitle=seoTitle;
   if(seoDescription)appData.seoDescription=seoDescription;
+  // 並び順
+  const orderVal=document.getElementById('appOrder')?.value.trim();
+  if(orderVal && !isNaN(parseInt(orderVal,10)) && parseInt(orderVal,10)>=1){
+    appData.order=parseInt(orderVal,10);
+  }
   if(seoKeywords)appData.seoKeywords=seoKeywords;
   return appData;
 }
@@ -781,8 +992,14 @@ function validateForm(){
   if(!htmlFileContent)errors.push('HTMLファイルをアップロードしてください');
   // 更新モード追加チェック
   if(currentMode==='update'){
-    if(!document.getElementById('updateText').value.trim())errors.push('更新内容の説明を入力してください');
-    if(!document.getElementById('updateDate').value)errors.push('更新日を入力してください');
+    const recordChangelog=document.getElementById('recordChangelog').checked;
+    const updateSitemap=document.getElementById('updateSitemap').checked;
+    if(recordChangelog){
+      if(!document.getElementById('updateText').value.trim())errors.push('更新内容の説明を入力してください');
+    }
+    if((recordChangelog||updateSitemap) && !document.getElementById('updateDate').value){
+      errors.push('更新日を入力してください');
+    }
   }
   return errors;
 }
@@ -1001,6 +1218,211 @@ function updateSitemapLastmod(sitemapXml, appId, date) {
   return xml;
 }
 
+
+// =====================
+// 完了モーダル
+// =====================
+function showResultModal(type, icon, title, body){
+  const overlay=document.getElementById('resultModal');
+  const box=document.getElementById('resultModalBox');
+  document.getElementById('resultModalIcon').textContent=icon;
+  document.getElementById('resultModalTitle').textContent=title;
+  document.getElementById('resultModalBody').innerHTML=body;
+  box.className=`result-modal-box ${type}`;
+  overlay.style.display='flex';
+}
+function closeResultModal(){
+  document.getElementById('resultModal').style.display='none';
+}
+
+// =====================
+// 削除確認ダイアログ
+// =====================
+function confirmDelete(){
+  const appId=document.getElementById('deleteAppId').value.trim();
+  if(!appId){alert('アプリIDを入力してください');return;}
+  if(!document.getElementById('token').value.trim()){alert('Personal Access Tokenを入力してください');return;}
+  document.getElementById('dialogAppId').textContent=appId;
+  document.getElementById('deleteConfirmInput').value='';
+  document.getElementById('dialogExecuteBtn').disabled=true;
+  document.getElementById('deleteDialog').style.display='flex';
+  const input=document.getElementById('deleteConfirmInput');
+  input.focus();
+  input.oninput=function(){
+    document.getElementById('dialogExecuteBtn').disabled=(this.value.trim()!==appId);
+  };
+}
+function closeDeleteDialog(){
+  document.getElementById('deleteDialog').style.display='none';
+}
+
+// =====================
+// GitHub API: ファイル削除
+// =====================
+async function deleteFile(owner,repo,path,token){
+  const sha=await getFileSHA(owner,repo,path,token);
+  if(!sha)return{skipped:true};
+  const res=await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`,{
+    method:'DELETE',
+    headers:{Authorization:`token ${token}`,Accept:'application/vnd.github.v3+json','Content-Type':'application/json'},
+    body:JSON.stringify({message:`\uD83D\uDDD1\uFE0F 削除: ${path}`,sha,branch:'main'})
+  });
+  if(!res.ok){const err=await res.json();throw new Error(`${path} の削除失敗: ${err.message}`);}
+  return{skipped:false};
+}
+
+// =====================
+// generate.js から該当IDを安全に削除
+// =====================
+function removeIdFromGenerateJs(js, id){
+  // 行単位で安全に処理する（正規表現で複数行をまたぐ処理は行わない）
+  const lines = js.split('\n');
+  const result = [];
+
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // ① CATEGORY_TRUTH: 'id': 'カテゴリ', の行を削除
+    if(new RegExp("^'" + id + "'\\s*:").test(trimmed)){
+      continue;
+    }
+
+    // ② RECOMMEND_IDS / NEW_IDS: 'id',  // コメント の行を削除
+    if(new RegExp("^'" + id + "',\\s*//").test(trimmed)){
+      continue;
+    }
+
+    // ③ RECOMMEND_IDS / NEW_IDS: 'id', だけの行を削除
+    if(new RegExp("^'" + id + "',?$").test(trimmed)){
+      continue;
+    }
+
+    // ④ MANUAL_CHANGELOG の1行エントリーを削除（idがtext内に含まれる場合）
+    if(trimmed.startsWith('{') && trimmed.includes('"update"') && trimmed.includes(id)){
+      continue;
+    }
+
+    // ⑤ PURPOSE_CARDS の ids配列内から 'id' だけを取り除く（行は残す）
+    if(line.includes("'" + id + "'")){
+      let fixed = line
+        .replace(new RegExp(",\\s*'" + id + "'\\s*", 'g'), '')
+        .replace(new RegExp("'" + id + "'\\s*,\\s*", 'g'), '')
+        .replace(new RegExp("'" + id + "'", 'g'), '');
+      result.push(fixed);
+      continue;
+    }
+
+    // 通常の行はそのまま残す
+    result.push(line);
+  }
+
+  // 空行の連続を最大2行に整理
+  return result.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+// sitemap.xml から該当アプリの<url>ブロックを削除
+function removeFromSitemap(sitemapXml, appId){
+  const BASE_URL='https://donomana.jp';
+  let xml=sitemapXml;
+  const targets=[`${BASE_URL}/${appId}.html`,`${BASE_URL}/app-details/${appId}-detail.html`];
+  for(const url of targets){
+    const locTag=`<loc>${url}</loc>`;
+    if(!xml.includes(locTag))continue;
+    const locIdx=xml.indexOf(locTag);
+    const urlStart=xml.lastIndexOf('<url>',locIdx);
+    const urlEnd=xml.indexOf('</url>',locIdx)+6;
+    const before=xml.slice(0,urlStart).trimEnd();
+    const after=xml.slice(urlEnd).replace(/^\s*\n/,'');
+    xml=before+'\n'+after;
+  }
+  return xml;
+}
+
+// =====================
+// 削除実行
+// =====================
+async function executeDelete(){
+  closeDeleteDialog();
+  const appId=document.getElementById('deleteAppId').value.trim();
+  const owner=document.getElementById('owner').value.trim();
+  const repo=document.getElementById('repo').value.trim();
+  const token=document.getElementById('token').value.trim();
+  const deleteBtn=document.querySelector('#deleteSection .btn-danger');
+
+  clearLog();
+  if(deleteBtn){deleteBtn.disabled=true;deleteBtn.innerHTML='<span>⏳</span><span>削除中...</span>';}
+
+  const results=[];
+
+  try{
+    // 1. apps-data.json から削除
+    log(`apps-data.json から "${appId}" を削除中...`,'info'); setProgress(10);
+    const{content:appsJsonStr,sha:appsJsonSha}=await getFileContent(owner,repo,'apps-data.json',token);
+    let appsArray=JSON.parse(appsJsonStr);
+    const target=appsArray.find(a=>a.id===appId);
+    if(!target)throw new Error(`ID "${appId}" は apps-data.json に見つかりません。アプリIDを確認してください。`);
+    const appTitle=target.title||appId;
+    const newAppsArray=appsArray.filter(a=>a.id!==appId);
+    await putFile(owner,repo,'apps-data.json',JSON.stringify(newAppsArray,null,2),`\uD83D\uDDD1\uFE0F アプリ削除: ${appTitle}`,token,appsJsonSha);
+    log(`apps-data.json から "${appTitle}" を削除しました`,'ok');
+    results.push(`✅ apps-data.json から削除`);
+    setProgress(20);
+
+    // 2. generate.js 更新
+    log('generate.js から該当IDを削除中...','info');
+    const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
+    const updatedGenerateJs=removeIdFromGenerateJs(generateJs,appId);
+    await putFile(owner,repo,'generate.js',updatedGenerateJs,`\uD83D\uDDD1\uFE0F generate.js からID削除: ${appId}`,token,generateJsSha);
+    log('generate.js 更新完了','ok');
+    results.push(`✅ generate.js から削除`);
+    setProgress(40);
+
+    // 3. sitemap.xml 更新
+    log('sitemap.xml から該当URLを削除中...','info');
+    const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
+    const updatedSitemap=removeFromSitemap(sitemapXml,appId);
+    await putFile(owner,repo,'sitemap.xml',updatedSitemap,`\uD83D\uDDD1\uFE0F sitemap削除: ${appId}`,token,sitemapSha);
+    log('sitemap.xml 更新完了','ok');
+    results.push(`✅ sitemap.xml から2件削除`);
+    setProgress(60);
+
+    // 4. アプリ本体HTML削除
+    log(`${appId}.html を削除中...`,'info');
+    const r1=await deleteFile(owner,repo,`${appId}.html`,token);
+    if(r1.skipped){log(`⚠️ ${appId}.html はリポジトリに見つかりませんでした（スキップ）`,'warn');results.push(`⚠️ ${appId}.html は見つかりませんでした`);}
+    else{log(`${appId}.html を削除しました`,'ok');results.push(`✅ ${appId}.html を削除`);}
+    setProgress(78);
+
+    // 5. app-details/xxx-detail.html 削除
+    log(`app-details/${appId}-detail.html を削除中...`,'info');
+    const r2=await deleteFile(owner,repo,`app-details/${appId}-detail.html`,token);
+    if(r2.skipped){log(`⚠️ app-details/${appId}-detail.html は見つかりませんでした（スキップ）`,'warn');results.push(`⚠️ ${appId}-detail.html は見つかりませんでした`);}
+    else{log(`app-details/${appId}-detail.html を削除しました`,'ok');results.push(`✅ app-details/${appId}-detail.html を削除`);}
+    setProgress(100);
+
+    log('','info');
+    log(`\uD83C\uDF89 "${appTitle}" の削除が完了しました！`,'ok');
+    log('GitHub Actionsが index.html・app-intro.html を自動再生成します（約1〜2分）','info');
+
+    // 完了モーダル表示
+    showResultModal('success','🗑️',`「${appTitle}」を削除しました`,
+      results.map(r=>`<div style="text-align:left;padding:2px 0;">${r}</div>`).join('')+
+      '<div style="margin-top:12px;padding:10px;background:#d1fae5;border-radius:8px;color:#065f46;">'+
+      '🔄 GitHub Actionsが index.html・app-intro.html を<br>自動再生成します（約1〜2分後に反映）</div>'
+    );
+    document.getElementById('deleteAppId').value='';
+
+  }catch(err){
+    log(`エラー: ${err.message}`,'err');
+    showResultModal('error','❌','削除中にエラーが発生しました',
+      `<div style="color:#991b1b;">${err.message}</div>`+
+      '<div style="margin-top:12px;font-size:12px;color:var(--muted);">上のログエリアで詳細を確認してください。</div>'
+    );
+  }finally{
+    if(deleteBtn){deleteBtn.disabled=false;deleteBtn.innerHTML='<span>\uD83D\uDDD1\uFE0F</span><span>削除を実行する</span>';}
+  }
+}
 async function startUpload(){
   clearLog();
   const errors=validateForm();
@@ -1015,8 +1437,10 @@ async function startUpload(){
     // ========== 更新モード ==========
     if(currentMode==='update'){
       const appData=collectFormData();
-      const updateText=document.getElementById('updateText').value.trim();
-      const updateDate=document.getElementById('updateDate').value;
+      const recordChangelog=document.getElementById('recordChangelog').checked;
+      const updateSitemap=document.getElementById('updateSitemap').checked;
+      const updateText=recordChangelog?document.getElementById('updateText').value.trim():'';
+      const updateDate=document.getElementById('updateDate').value; // 両方の処理で共通使用
 
       // apps-data.json の該当アプリを上書き
       log('apps-data.json を取得中...','info'); setProgress(10);
@@ -1043,28 +1467,38 @@ async function startUpload(){
       await putFile(owner,repo,htmlFileName,htmlFileContent,`🔄 アプリHTML更新: ${appData.title}`,token,htmlSha);
       log(`${htmlFileName} 上書き完了`,'ok');
 
-      // generate.js の MANUAL_CHANGELOG に追記
-      log('generate.js に更新履歴を追記中...','info'); setProgress(65);
-      const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
-      const changelogResult=addChangelogEntry(generateJs,updateDate,updateText);
-      if(changelogResult.skipped){
-        log('⚠️ 同じ日付・同じ内容の履歴が既に存在するため、追記をスキップしました（重複防止）','warn');
+      // generate.js の MANUAL_CHANGELOG に追記（「サイト内の更新履歴に表示する」がON時のみ）
+      if(recordChangelog){
+        log('generate.js に更新履歴を追記中...','info'); setProgress(60);
+        const{content:generateJs,sha:generateJsSha}=await getFileContent(owner,repo,'generate.js',token);
+        const changelogResult=addChangelogEntry(generateJs,updateDate,updateText);
+        if(changelogResult.skipped){
+          log('⚠️ 同じ日付・同じ内容の履歴が既に存在するため、追記をスキップしました（重複防止）','warn');
+        }else{
+          await putFile(owner,repo,'generate.js',changelogResult.html,`📝 更新履歴追加: ${appData.id}`,token,generateJsSha);
+          log('generate.js 更新完了','ok');
+        }
       }else{
-        await putFile(owner,repo,'generate.js',changelogResult.html,`📝 更新履歴追加: ${appData.id}`,token,generateJsSha);
-        log('generate.js 更新完了','ok');
+        log('ℹ️ サイト内の更新履歴（お知らせ表示）はスキップしました（チェックが外れていたため）','info');
       }
 
-      // sitemap.xml の lastmod 更新
-      log('sitemap.xml を更新中...','info'); setProgress(82);
-      const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
-      const updatedSitemap=updateSitemapLastmod(sitemapXml,appData.id,updateDate);
-      await putFile(owner,repo,'sitemap.xml',updatedSitemap,`🗺️ sitemap lastmod更新: ${appData.id}`,token,sitemapSha);
-      log('sitemap.xml 更新完了','ok');
+      // sitemap.xml の lastmod 更新（「sitemap.xmlの更新日」がON時のみ）
+      if(updateSitemap){
+        log('sitemap.xml を更新中...','info'); setProgress(82);
+        const{content:sitemapXml,sha:sitemapSha}=await getFileContent(owner,repo,'sitemap.xml',token);
+        const updatedSitemap=updateSitemapLastmod(sitemapXml,appData.id,updateDate);
+        await putFile(owner,repo,'sitemap.xml',updatedSitemap,`🗺️ sitemap lastmod更新: ${appData.id}`,token,sitemapSha);
+        log('sitemap.xml 更新完了 → 検索エンジンに再クロールを通知します','ok');
+      }else{
+        log('ℹ️ sitemap.xml(lastmod)の更新はスキップしました（チェックが外れていたため）','info');
+      }
 
       setProgress(100);
       log('🎉 アプリの更新が完了しました！','ok');
       log('GitHub Actionsが generate.js を実行し、app-detail・app-introを自動再生成します（約1〜2分）','info');
-      showAlert('success',`✅ <strong>${appData.title}</strong> の更新完了！<br>更新履歴：「${updateText}」<br>app-details・app-intro も自動で再生成されます`);
+      const changelogMsg=recordChangelog?`<br>更新履歴：「${updateText}」`:'<br>（サイト内の更新履歴には表示していません）';
+      const sitemapMsg=updateSitemap?'<br>sitemap.xmlのlastmodを更新しました（検索エンジンへ通知済み）':'';
+      showAlert('success',`✅ <strong>${appData.title}</strong> の更新完了！${changelogMsg}${sitemapMsg}<br>app-details・app-intro も自動で再生成されます`);
       showIndexPanel(appData.id, appData.title);
 
     // ========== 新規モード ==========
