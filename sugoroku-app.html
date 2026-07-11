@@ -765,6 +765,136 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 </head>
 <body>
 
+
+
+
+
+
+<!-- a11y-panel: 自動挿入 (generate.js) -->
+<style>#setbtn{opacity:0 !important;pointer-events:none !important;}</style>
+<button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
+<div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
+  <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>
+  <button id="donomanaSettingsProxy" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">🔧 このアプリの詳細設定を開く</button>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🎨 表示モード</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-contrast="normal" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
+    <button data-a11y-contrast="hc" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔤 文字の大きさ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-font="normal" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
+    <button data-a11y-font="large" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
+    <button data-a11y-font="xlarge" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔊 選択・タップの読み上げ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-sr="off" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オフ</button>
+    <button data-a11y-sr="on" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オン</button>
+  </div>
+  <button id="donomanaA11yReset" style="width:100%;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
+</div>
+<script>
+(function(){
+  var P = 'donomana-a11y-';
+  function all(sel){return document.querySelectorAll(sel);}
+  function mark(sel, dataAttr, value){
+    all(sel).forEach(function(b){
+      var on = b.dataset[dataAttr] === value;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
+  }
+  function applyContrast(mode){
+    // 背景を黒・文字を白に反転する方式(弱視・色覚特性のある方向けに、
+    // 単純なコントラスト強調より確実に見やすくなるため)
+    document.documentElement.style.filter = (mode === 'hc') ? 'invert(1) hue-rotate(180deg)' : '';
+    mark('[data-a11y-contrast]', 'a11yContrast', mode);
+    localStorage.setItem(P + 'contrast', mode);
+  }
+  function applyFont(size){
+    var zoomMap = { normal: '', large: '125%', xlarge: '150%' };
+    document.body.style.zoom = zoomMap[size] || '';
+    mark('[data-a11y-font]', 'a11yFont', size);
+    localStorage.setItem(P + 'font', size);
+  }
+  
+  var srEnabled = false;
+  function speak(text){
+    if (!srEnabled || !window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text.trim());
+    u.lang = 'ja-JP'; u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }
+  function onGlobalSpeakClick(e){
+    if (!srEnabled) return;
+    if (e.target.closest('#donomanaA11yPanel, #donomanaA11yBtn')) return;
+    var el = e.target.closest('button, a, [role="button"]');
+    if (!el) return;
+    var text = (el.getAttribute('aria-label') || el.textContent || '').trim();
+    if (text) speak(text);
+  }
+  function applyScreenReader(enabled){
+    srEnabled = enabled;
+    mark('[data-a11y-sr]', 'a11ySr', enabled ? 'on' : 'off');
+    localStorage.setItem(P + 'sr', enabled ? '1' : '0');
+    if (enabled) {
+      speak('読み上げ機能をオンにしました');
+      document.addEventListener('click', onGlobalSpeakClick, true);
+    } else {
+      window.speechSynthesis && window.speechSynthesis.cancel();
+      document.removeEventListener('click', onGlobalSpeakClick, true);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('donomanaA11yBtn');
+    var panel = document.getElementById('donomanaA11yPanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var open = panel.style.display === 'block';
+      panel.style.display = open ? 'none' : 'block';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+    document.addEventListener('click', function(e){
+      if (!panel.contains(e.target) && e.target !== btn) {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){ applyContrast(b.dataset.a11yContrast); }); });
+    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){ applyFont(b.dataset.a11yFont); }); });
+    all('[data-a11y-sr]').forEach(function(b){ b.addEventListener('click', function(){ applyScreenReader(b.dataset.a11ySr === 'on'); }); });
+    
+  var proxyBtn = document.getElementById('donomanaSettingsProxy');
+  if (proxyBtn) {
+    proxyBtn.addEventListener('click', function(){
+      var candidates = Array.from(document.querySelectorAll("#setbtn"));
+      // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
+      var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
+      panel.style.display = 'none';
+      btn.setAttribute('aria-expanded', 'false');
+      if (original) original.click();
+    });
+  }
+    var resetBtn = document.getElementById('donomanaA11yReset');
+    if (resetBtn) resetBtn.addEventListener('click', function(){
+      applyContrast('normal'); applyFont('normal'); applyScreenReader(false);
+      localStorage.removeItem(P + 'contrast'); localStorage.removeItem(P + 'font'); localStorage.removeItem(P + 'sr');
+    });
+    applyContrast(localStorage.getItem(P + 'contrast') || 'normal');
+    applyFont(localStorage.getItem(P + 'font') || 'normal');
+    applyScreenReader(localStorage.getItem(P + 'sr') === '1');
+  });
+})();
+</script>
+<!-- /a11y-panel -->
+<!-- home-btn: 自動挿入 (generate.js) -->
+<a href="https://donomana.jp/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
+<!-- /home-btn -->
+
 <div id="scanbadge">🔍 スキャン ON</div>
 <div id="lock-banner">🔒 がめんロック中</div>
 

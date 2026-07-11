@@ -706,6 +706,286 @@ function fixIndexJsBugs(html) {
 const BASE_URL = 'https://donomana.jp';
 const BASE_PATH = ''; // カスタムドメイン(donomana.jp)はサイトルートから配信されるため空文字
 
+// 🏠 ホームボタン: 全ページ共通のフローティングボタン設定
+const HOME_BTN_SKIP_APPS = new Set(['scratch-app']); // 既に独自のヘッダー内リンクを実装済み
+const HOME_BTN_HTML = [
+  '<!-- home-btn: 自動挿入 (generate.js) -->',
+  `<a href="${BASE_URL}/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>`,
+  '<!-- /home-btn -->'
+].join('\n');
+
+// ⛶🔒 全画面表示・画面ロック: 既に独自実装済みのアプリはスキップする
+const FS_SKIP_APPS = new Set([
+  'hiragana-learn','katakana-app','register-app','schedule-app',
+  'timetable-app','matching-app','sugoroku-app','tyushi','cup_game','sst-app',
+  'drawing-app','directions-app','suji-manabou','gaze-keyboard','mogura-tataki',
+  'ongaku-app','scratch-app'
+]);
+const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','mogura-tataki','tyushi','sst-app']);
+
+// SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
+// 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ
+// → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
+const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou']);
+
+// 🔧 既存の独自設定ボタンを持つアプリ: セレクタを指定すると、
+// ・元のボタンは非表示にする
+// ・統一パネルに「このアプリの詳細設定を開く」ボタンを追加し、
+//   クリック時に元のボタンと同じ動作を呼び出す(元の機能はそのまま活かす)
+const SETTINGS_PROXY = {
+  'hiragana-learn':     { selector: '.tab-btn[data-tab="settings"]', label: '🔧 このアプリの詳細設定を開く' },
+  'katakana-app':       { selector: '.tab-btn[data-tab="settings"]', label: '🔧 このアプリの詳細設定を開く' },
+  'suji-manabou':       { selector: '.tab-btn[data-tab="settings"]', label: '🔧 このアプリの詳細設定を開く' },
+  'nazori-app':         { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'janken-app':         { selector: '.btn-settings', label: '🔧 このアプリの詳細設定を開く' },
+  'shiritori2':         { selector: '.settings-btn', label: '🔧 このアプリの詳細設定を開く' },
+  'okane-app':          { selector: '[onclick="openSettingsModal()"]', label: '🔧 このアプリの詳細設定を開く' },
+  'register-app':       { selector: '#settings-btn', label: '🔧 このアプリの詳細設定を開く' },
+  'schedule-app':       { selector: '#tab-settings', label: '🔧 このアプリの詳細設定を開く' },
+  'yomikaki-app':       { selector: '#tab-settings', label: '🔧 このアプリの詳細設定を開く' },
+  'bosai-app':          { selector: '#settings-open-btn', label: '🔧 このアプリの詳細設定を開く' },
+  'matching-app':       { selector: '#btn-settings', label: '🔧 このアプリの詳細設定を開く' },
+  'sugoroku-app':       { selector: '#setbtn', label: '🔧 このアプリの詳細設定を開く' },
+  'tyushi':             { selector: '#settings-btn', label: '🔧 このアプリの詳細設定を開く' },
+  'cup_game':           { selector: '#gearBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'sst-app':            { selector: '.hdr-gear', label: '🔧 このアプリの詳細設定を開く' },
+  'kimochi-board':      { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'drawing-app':        { selector: '#gaze-toggle-btn', label: '👁 視線入力の設定を開く' },
+  'slideshow-sakusei':  { selector: '[onclick="openA11y()"]', label: '🔧 スイッチスキャン等の詳細設定を開く' },
+  'directions-app':     { selector: '[onclick="nav(\'settings\')"]', label: '🔧 このアプリの詳細設定を開く' },
+  'time-timer':         { selector: '#settingsToggle', label: '🔧 このアプリの詳細設定を開く' },
+  'kyou-no-kiroku':     { selector: '#a11yBtn', label: '🔧 スイッチスキャン等の詳細設定を開く' },
+  'gaze-keyboard':      { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'mogura-tataki':      { selector: '#btnSet, #homeSetBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'scratch-app':        { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
+};
+
+// アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
+function buildA11yPanelHTML(includeSR, appFilename) {
+  const proxy = SETTINGS_PROXY[appFilename] || null;
+
+  const srSectionHTML = includeSR ? `
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔊 選択・タップの読み上げ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-sr="off" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オフ</button>
+    <button data-a11y-sr="on" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オン</button>
+  </div>` : '';
+
+  const srScriptHTML = includeSR ? `
+  var srEnabled = false;
+  function speak(text){
+    if (!srEnabled || !window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text.trim());
+    u.lang = 'ja-JP'; u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }
+  function onGlobalSpeakClick(e){
+    if (!srEnabled) return;
+    if (e.target.closest('#donomanaA11yPanel, #donomanaA11yBtn')) return;
+    var el = e.target.closest('button, a, [role="button"]');
+    if (!el) return;
+    var text = (el.getAttribute('aria-label') || el.textContent || '').trim();
+    if (text) speak(text);
+  }
+  function applyScreenReader(enabled){
+    srEnabled = enabled;
+    mark('[data-a11y-sr]', 'a11ySr', enabled ? 'on' : 'off');
+    localStorage.setItem(P + 'sr', enabled ? '1' : '0');
+    if (enabled) {
+      speak('読み上げ機能をオンにしました');
+      document.addEventListener('click', onGlobalSpeakClick, true);
+    } else {
+      window.speechSynthesis && window.speechSynthesis.cancel();
+      document.removeEventListener('click', onGlobalSpeakClick, true);
+    }
+  }` : '';
+
+  const srWireHTML = includeSR
+    ? `all('[data-a11y-sr]').forEach(function(b){ b.addEventListener('click', function(){ applyScreenReader(b.dataset.a11ySr === 'on'); }); });`
+    : '';
+  const srResetHTML = includeSR ? `applyScreenReader(false);` : '';
+  const srRemoveHTML = includeSR ? `localStorage.removeItem(P + 'sr');` : '';
+  const srRestoreHTML = includeSR ? `applyScreenReader(localStorage.getItem(P + 'sr') === '1');` : '';
+
+  // 既存の独自設定ボタンへの橋渡し行(あるアプリのみ)
+  const proxyRowHTML = proxy ? `
+  <button id="donomanaSettingsProxy" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">${proxy.label}</button>` : '';
+  const proxyHideCSS = proxy ? `<style>${proxy.selector}{opacity:0 !important;pointer-events:none !important;}</style>` : '';
+  const proxyScriptHTML = proxy ? `
+  var proxyBtn = document.getElementById('donomanaSettingsProxy');
+  if (proxyBtn) {
+    proxyBtn.addEventListener('click', function(){
+      var candidates = Array.from(document.querySelectorAll(${JSON.stringify(proxy.selector)}));
+      // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
+      var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
+      panel.style.display = 'none';
+      btn.setAttribute('aria-expanded', 'false');
+      if (original) original.click();
+    });
+  }` : '';
+
+  return `
+<!-- a11y-panel: 自動挿入 (generate.js) -->
+${proxyHideCSS}
+<button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
+<div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
+  <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>${proxyRowHTML}
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🎨 表示モード</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-contrast="normal" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
+    <button data-a11y-contrast="hc" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔤 文字の大きさ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-font="normal" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
+    <button data-a11y-font="large" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
+    <button data-a11y-font="xlarge" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
+  </div>${srSectionHTML}
+  <button id="donomanaA11yReset" style="width:100%;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
+</div>
+<script>
+(function(){
+  var P = 'donomana-a11y-';
+  function all(sel){return document.querySelectorAll(sel);}
+  function mark(sel, dataAttr, value){
+    all(sel).forEach(function(b){
+      var on = b.dataset[dataAttr] === value;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
+  }
+  function applyContrast(mode){
+    // 背景を黒・文字を白に反転する方式(弱視・色覚特性のある方向けに、
+    // 単純なコントラスト強調より確実に見やすくなるため)
+    document.documentElement.style.filter = (mode === 'hc') ? 'invert(1) hue-rotate(180deg)' : '';
+    mark('[data-a11y-contrast]', 'a11yContrast', mode);
+    localStorage.setItem(P + 'contrast', mode);
+  }
+  function applyFont(size){
+    var zoomMap = { normal: '', large: '125%', xlarge: '150%' };
+    document.body.style.zoom = zoomMap[size] || '';
+    mark('[data-a11y-font]', 'a11yFont', size);
+    localStorage.setItem(P + 'font', size);
+  }
+  ${srScriptHTML}
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('donomanaA11yBtn');
+    var panel = document.getElementById('donomanaA11yPanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var open = panel.style.display === 'block';
+      panel.style.display = open ? 'none' : 'block';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+    document.addEventListener('click', function(e){
+      if (!panel.contains(e.target) && e.target !== btn) {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){ applyContrast(b.dataset.a11yContrast); }); });
+    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){ applyFont(b.dataset.a11yFont); }); });
+    ${srWireHTML}
+    ${proxyScriptHTML}
+    var resetBtn = document.getElementById('donomanaA11yReset');
+    if (resetBtn) resetBtn.addEventListener('click', function(){
+      applyContrast('normal'); applyFont('normal'); ${srResetHTML}
+      localStorage.removeItem(P + 'contrast'); localStorage.removeItem(P + 'font'); ${srRemoveHTML}
+    });
+    applyContrast(localStorage.getItem(P + 'contrast') || 'normal');
+    applyFont(localStorage.getItem(P + 'font') || 'normal');
+    ${srRestoreHTML}
+  });
+})();
+</script>
+<!-- /a11y-panel -->`;
+}
+
+// アプリごとに必要なボタンだけを含んだHTML/JSブロックを生成する
+function buildLockFsHTML(needFs, needLock) {
+  if (!needFs && !needLock) return null;
+  const buttons = [];
+  if (needLock) {
+    buttons.push('<button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>');
+  }
+  if (needFs) {
+    buttons.push('<button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>');
+  }
+  const toastHTML = needLock
+    ? '<div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>'
+    : '';
+  return [
+    '<!-- lock-fs-btn: 自動挿入 (generate.js) -->',
+    `<div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">`,
+    `  ${buttons.join('\n  ')}`,
+    `</div>`,
+    toastHTML,
+    `<script>
+(function(){
+  var locked=false, toastTimer=null;
+  function toast(msg){
+    var el=document.getElementById('donomanaLockToast');
+    if(!el)return;
+    el.textContent=msg;
+    el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)';
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(-10px)';},2200);
+  }
+  function setLock(on){
+    locked=on;
+    var btn=document.getElementById('donomanaLockBtn');
+    if(btn){
+      btn.textContent=on?'🔒':'🔓';
+      btn.style.background=on?'rgba(255,80,80,0.92)':'rgba(255,255,255,0.92)';
+      btn.setAttribute('aria-label',on?'ロックちゅう（タップでかいじょ）':'がめんをロック');
+    }
+    if(on){
+      history.pushState({donomanaLocked:true},'');
+      history.pushState({donomanaLocked:true},'');
+      toast('🔒 がめんをロックしたよ');
+    } else {
+      toast('🔓 ロックをかいじょしたよ');
+    }
+  }
+  window.addEventListener('popstate',function(){
+    if(locked){history.pushState({donomanaLocked:true},'');toast('🔒 まえの がめんには もどれないよ');}
+  });
+  window.addEventListener('beforeunload',function(e){
+    if(locked){e.preventDefault();e.returnValue='';}
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var lockBtn=document.getElementById('donomanaLockBtn');
+    if(lockBtn)lockBtn.addEventListener('click',function(){setLock(!locked);});
+    var homeBtn=document.getElementById('donomanaHomeBtn');
+    if(homeBtn){
+      homeBtn.addEventListener('click',function(e){
+        if(locked){e.preventDefault();toast('🔒 まえの がめんには もどれないよ');}
+      });
+    }
+    var fsBtn=document.getElementById('donomanaFsBtn');
+    function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);}
+    function updateFsBtn(){if(fsBtn){fsBtn.textContent=inFS()?'⊡':'⛶';fsBtn.setAttribute('aria-label',inFS()?'全画面を解除':'全画面表示');}}
+    ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange'].forEach(function(ev){document.addEventListener(ev,updateFsBtn);});
+    if(fsBtn)fsBtn.addEventListener('click',function(){
+      if(!inFS()){
+        var el=document.documentElement;
+        var req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;
+        if(req)req.call(el);
+      } else {
+        var ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen;
+        if(ex)ex.call(document);
+      }
+    });
+  });
+})();
+</script>`,
+    '<!-- /lock-fs-btn -->'
+  ].join('\n');
+}
+
 // ============================================================
 //  ファビコン関連: 全ページの <head> に統一して挿入する
 //  ・サイトルート絶対パス指定 (/) なので
@@ -1290,7 +1570,213 @@ updateHomepageSEO(apps);
 //    対象外: index.html, app-intro.html, app-register.html(ツール本体)
 injectFaviconToAppHtmls(apps);
 
+// 8. 個別アプリHTML(ルート直下の*.html)にホームボタンを一括挿入
+//    対象: apps-data.json に filename が登録されているアプリの本体HTML
+//    対象外: index.html, app-intro.html, app-register.html(ツール本体)、
+//           および既に独自のトップリンクを実装済みのアプリ(HOME_BTN_SKIP_APPS)
+injectHomeButtonToAppHtmls(apps);
+
+// 9. 個別アプリHTML(ルート直下の*.html)に全画面表示・画面ロックボタンを一括挿入
+//    対象外: 既に独自実装済みのアプリ(FS_SKIP_APPS / LOCK_SKIP_APPS)
+injectLockFsButtonToAppHtmls(apps);
+
+// 10. 個別アプリHTML(ルート直下の*.html)に統一アクセシビリティパネルを一括挿入
+//     既存のスイッチスキャン・視線入力等はそのまま残し、並行して動作させる
+injectA11yPanelToAppHtmls(apps);
+
 console.log('\n🎉 完了！');
+
+// ============================================================
+//  個別アプリHTMLに対する統一アクセシビリティパネル一括注入
+// ============================================================
+function injectA11yPanelToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  const startMark = '<!-- a11y-panel: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /a11y-panel -->';
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      const includeSR = !SR_SKIP_APPS.has(app.filename);
+      const panelHTML = buildA11yPanelHTML(includeSR, app.filename);
+      let html = original;
+      const startIdx = html.indexOf(startMark);
+      if (startIdx !== -1) {
+        const endIdx = html.indexOf(endMark, startIdx);
+        if (endIdx !== -1) html = html.slice(0, startIdx) + panelHTML + html.slice(endIdx + endMark.length);
+      } else {
+        const bodyMatch = html.match(/<body[^>]*>/);
+        if (bodyMatch) {
+          const insertAt = bodyMatch.index + bodyMatch[0].length;
+          html = html.slice(0, insertAt) + '\n' + panelHTML + html.slice(insertAt);
+        }
+      }
+      if (html !== original) {
+        fs.writeFileSync(filePath, html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname}`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n⚙ 個別アプリHTML への統一アクセシビリティパネル挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
+
+// ============================================================
+//  個別アプリHTMLに対する全画面表示・画面ロックボタン一括注入
+// ============================================================
+function injectLockFsButtonToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  const startMark = '<!-- lock-fs-btn: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /lock-fs-btn -->';
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    const needFs   = !FS_SKIP_APPS.has(app.filename);
+    const needLock = !LOCK_SKIP_APPS.has(app.filename);
+    const block = buildLockFsHTML(needFs, needLock);
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      let html = original;
+      const startIdx = html.indexOf(startMark);
+      if (!block) {
+        // 両方とも既存実装がある場合、以前挿入したブロックが残っていれば除去
+        if (startIdx !== -1) {
+          const endIdx = html.indexOf(endMark, startIdx);
+          if (endIdx !== -1) html = html.slice(0, startIdx) + html.slice(endIdx + endMark.length);
+        }
+      } else if (startIdx !== -1) {
+        const endIdx = html.indexOf(endMark, startIdx);
+        if (endIdx !== -1) html = html.slice(0, startIdx) + block + html.slice(endIdx + endMark.length);
+      } else {
+        const bodyMatch = html.match(/<body[^>]*>/);
+        if (bodyMatch) {
+          const insertAt = bodyMatch.index + bodyMatch[0].length;
+          html = html.slice(0, insertAt) + '\n' + block + html.slice(insertAt);
+        }
+      }
+      if (html !== original) {
+        fs.writeFileSync(filePath, html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname} (fs=${needFs?'追加':'既存'}, lock=${needLock?'追加':'既存'})`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新 または対象外)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n⛶🔒 個別アプリHTML への全画面/ロックボタン挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
+
+// ============================================================
+//  🏠 ホームボタン: 全ページ共通のフローティングボタンを注入する
+//  ・サイトルート(https://donomana.jp/)へ戻れるよう、
+//    各アプリ画面の左上に固定表示する
+//  ・既に自前のトップリンクを実装しているアプリはスキップする
+// ============================================================
+// HTML文字列に対してホームボタンを冪等に注入する(favicon注入と同じマーカー方式)
+function injectHomeButton(html) {
+  if (typeof html !== 'string') return { html, action: 'skipped' };
+  const startMark = '<!-- home-btn: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /home-btn -->';
+  const startIdx = html.indexOf(startMark);
+  if (startIdx !== -1) {
+    const endIdx = html.indexOf(endMark, startIdx);
+    if (endIdx !== -1) {
+      const tail = endIdx + endMark.length;
+      const newHtml = html.slice(0, startIdx) + HOME_BTN_HTML + html.slice(tail);
+      return { html: newHtml, action: 'replaced' };
+    }
+  }
+  // 新規挿入: <body ...> の直後
+  const bodyMatch = html.match(/<body[^>]*>/);
+  if (!bodyMatch) return { html, action: 'no-body' };
+  const insertAt = bodyMatch.index + bodyMatch[0].length;
+  const newHtml = html.slice(0, insertAt) + '\n' + HOME_BTN_HTML + html.slice(insertAt);
+  return { html: newHtml, action: 'inserted' };
+}
+
+// ============================================================
+//  個別アプリHTMLに対するホームボタン一括注入
+// ============================================================
+function injectHomeButtonToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  let updated = 0;
+  let skipped = 0;
+  let notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    if (HOME_BTN_SKIP_APPS.has(app.filename)) {
+      skipped++;
+      log.push(`  ⏭️  ${fname} (既に独自実装のためスキップ)`);
+      continue;
+    }
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) {
+      notFound++;
+      log.push(`  ⏭️  ${fname} (ファイルなし)`);
+      continue;
+    }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      const result = injectHomeButton(original);
+      if (result.action === 'skipped' || result.action === 'no-body') {
+        skipped++;
+        log.push(`  ⚠️  ${fname} (${result.action})`);
+        continue;
+      }
+      if (result.html !== original) {
+        fs.writeFileSync(filePath, result.html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname} (${result.action})`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n🏠 個別アプリHTML へのホームボタン挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
 
 // ============================================================
 //  個別アプリHTMLに対するファビコン一括注入
