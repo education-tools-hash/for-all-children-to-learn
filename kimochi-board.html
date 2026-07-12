@@ -696,6 +696,40 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#settingsBtn{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -796,7 +830,12 @@
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#settingsBtn"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -1383,6 +1422,7 @@ let isPanelOpen = false;
 
 /* ── DOM ── */
 const cards        = Array.from(document.querySelectorAll('.card, .scannable'));
+const cardEls       = Array.from(document.querySelectorAll('.card')); // 実際の4枚のカードのみ（スキャン対象のツールバーボタンを含まない）
 const scanBarFill  = document.getElementById('scanBarFill');
 const flashOverlay = document.getElementById('flashOverlay');
 const resultIcon   = document.getElementById('resultIcon');
@@ -1536,10 +1576,17 @@ function animateBar(ms) {
 /* ── 選択 ── */
 function selectCard(index) {
   if (isShowingResult || isPanelOpen) return;
+  const card = cards[index];
+  if (!card) return;
+  if (!card.classList.contains('card')) {
+    // スキャン位置がツールバーのボタン（設定・ホームなど）を指しているときは、
+    // そのボタン本来の動作を呼び出す（空のけっかポップアップを出さないため）
+    card.click();
+    return;
+  }
   isShowingResult = true;
   stopScan();
   clearDwellVisual();
-  const card = cards[index];
   playBeep();
   if (state.tts) speak(card.dataset.label);
   resultIcon.textContent  = card.dataset.icon;
@@ -1571,17 +1618,17 @@ document.addEventListener('keydown', e => {
 });
 
 // ② カード直接クリック／タッチ（タッチ操作・Tobiiクリック送出モード）
-cards.forEach(card => {
+cardEls.forEach(card => {
   card.addEventListener('click', e => {
     e.stopPropagation();
     if (isShowingResult || isPanelOpen) return;
-    currentIndex = parseInt(card.dataset.index, 10);
+    currentIndex = cards.indexOf(card);
     selectCard(currentIndex);
   });
   card.addEventListener('touchstart', e => {
     e.preventDefault();
     if (isShowingResult || isPanelOpen) return;
-    currentIndex = parseInt(card.dataset.index, 10);
+    currentIndex = cards.indexOf(card);
     selectCard(currentIndex);
   }, { passive:false });
 
@@ -1589,7 +1636,7 @@ cards.forEach(card => {
   //    視線でフォーカスが移動したとき、スキャン位置をそのカードに同期する
   card.addEventListener('focus', () => {
     if (isShowingResult || isPanelOpen || state.gazeEnabled) return;
-    const idx = parseInt(card.dataset.index, 10);
+    const idx = cards.indexOf(card);
     currentIndex = idx;
     // スキャンを一時停止し、そのカードをハイライト
     stopScan();
@@ -1910,7 +1957,7 @@ if (!state.cardCustom) {
 /* カード表示を更新 */
 function applyCardCustom() {
   state.cardCustom.forEach((cfg, i) => {
-    const card       = cards[i];
+    const card       = cardEls[i];
     const iconEl     = card.querySelector('.card-icon');
     const labelEl    = card.querySelector('.card-label');
     const prev       = document.getElementById('prev' + i);

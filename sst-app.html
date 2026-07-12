@@ -1981,6 +1981,40 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>.hdr-gear{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -2081,7 +2115,12 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll(".hdr-gear"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -5140,29 +5179,6 @@ function ttsSupported(){
   return 'speechSynthesis' in window;
 }
 
-function speak(text, onEnd){
-  if(!ttsSupported()) return;
-  stopSpeak();
-  const clean = text
-    .replace(/<[^>]+>/g,'')
-    .replace(/[^\u0020-\u007E\u3000-\u9FFF\uFF00-\uFFEF\u30A0-\u30FF\u3040-\u309F]/g,' ')
-    .replace(/\s+/g,' ').trim();
-  if(!clean) return;
-  ttsUtter = new SpeechSynthesisUtterance(clean);
-  ttsUtter.lang = 'ja-JP';
-  ttsUtter.rate = [0.6,0.75,0.88,1.0,1.15][cfg.speed-1] || 0.88;
-  ttsUtter.pitch = 1.05;
-  ttsUtter.volume = 1;
-  // 選択された声を適用
-  const voice = getSelectedVoice();
-  if(voice) ttsUtter.voice = voice;
-  ttsActive = true;
-  ttsUtter.onend = ()=>{ ttsActive=false; updateSpeakBtns(false); if(onEnd) onEnd(); };
-  ttsUtter.onerror = ()=>{ ttsActive=false; updateSpeakBtns(false); };
-  setTimeout(()=>{ window.speechSynthesis.speak(ttsUtter); }, 80);
-  updateSpeakBtns(true);
-}
-
 function stopSpeak(){
   ttsActive = false;
   ttsUtter = null;
@@ -8148,6 +8164,9 @@ function speak(text, onEnd){
   ttsUtter.rate = SPEED_RATES[(cfg.speed||3)-1];
   ttsUtter.pitch = 1.05;
   ttsUtter.volume = 1;
+  // 選択された声を適用（この行が無かったため、設定で声を変えても常に既定の声で読み上げられていた）
+  const voice = getSelectedVoice();
+  if(voice) ttsUtter.voice = voice;
   ttsActive = true;
   ttsUtter.onend = ()=>{ ttsActive=false; updateSpeakBtns(false); if(onEnd) onEnd(); };
   ttsUtter.onerror = ()=>{ ttsActive=false; updateSpeakBtns(false); };

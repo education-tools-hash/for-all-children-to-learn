@@ -672,6 +672,40 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#btnSet, #homeSetBtn{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -772,7 +806,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#btnSet, #homeSetBtn"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -1022,12 +1061,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <button class="speed-chip" data-speed="very-fast">⚡<span>とても<br>はやい</span></button>
     </div>
 
-    <div class="sec">🔒 ロック暗証番号</div>
-    <div class="srow">
-      <div class="slbl">ロック PIN<small>4けたの数字（デフォルト: 1234）</small></div>
-      <button class="chip" id="changePinBtn" style="padding:6px 12px">変更する</button>
-    </div>
-
     <button class="btn btn-s" id="clsSet2" style="margin-top:12px">とじる</button>
   </div>
 </div>
@@ -1100,7 +1133,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       <div class="hs-num">6</div>
       <div class="hs-body">
         <div class="hs-title">🔒 ロック機能</div>
-        <div class="hs-desc">ヘッダーの🔒ボタンを押すと画面がロックされ、<br>ほかのボタンがさわれなくなるよ。<br>PINコード（4けた）でロック解除できるよ。デフォルトは <b>1234</b>。</div>
+        <div class="hs-desc">ヘッダーの🔒ボタンを押すと画面がロックされ、<br>ほかのボタンがさわれなくなるよ。<br>「🔓 ロックをかいじょする」ボタンでいつでも解除できるよ。</div>
       </div>
     </div>
     <div class="howto-step">
@@ -1141,60 +1174,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   <div class="lock-box">
     <div class="lock-icon">🔒</div>
     <div class="lock-title">ロック中</div>
-    <div class="lock-sub">PINコードを入力してロックを解除してね</div>
-    <div class="lock-dots" id="lockDots">
-      <div class="lock-dot" id="dot0"></div>
-      <div class="lock-dot" id="dot1"></div>
-      <div class="lock-dot" id="dot2"></div>
-      <div class="lock-dot" id="dot3"></div>
-    </div>
-    <div class="lock-numpad" id="lockNumpad">
-      <button class="lock-num" data-n="1">1</button>
-      <button class="lock-num" data-n="2">2</button>
-      <button class="lock-num" data-n="3">3</button>
-      <button class="lock-num" data-n="4">4</button>
-      <button class="lock-num" data-n="5">5</button>
-      <button class="lock-num" data-n="6">6</button>
-      <button class="lock-num" data-n="7">7</button>
-      <button class="lock-num" data-n="8">8</button>
-      <button class="lock-num" data-n="9">9</button>
-      <button class="lock-num" data-n="del" style="font-size:1rem">⌫</button>
-      <button class="lock-num" data-n="0">0</button>
-      <button class="lock-num" data-n="ok" style="font-size:.95rem;background:var(--primary);color:#fff">OK</button>
-    </div>
-    <div class="lock-err" id="lockErr"></div>
+    <div class="lock-sub">ボタンを押すとロックを解除するよ</div>
+    <button class="btn btn-s" id="unlockBtn" style="margin-top:14px;font-size:1.1rem;padding:14px 28px">🔓 ロックをかいじょする</button>
   </div>
 </div>
 
-<!-- ══════════════ PIN CHANGE OVERLAY ══════════════ -->
-<div class="lock-overlay" id="pinChangeOverlay" aria-modal="true" role="dialog" aria-label="PIN変更">
-  <div class="lock-box">
-    <div class="lock-icon">🔑</div>
-    <div class="lock-title" id="pinChangeTitle">いまのPINを入力</div>
-    <div class="lock-sub" id="pinChangeSub">現在のPINコード（4けた）を入力してね</div>
-    <div class="lock-dots" id="pinDots">
-      <div class="lock-dot" id="pdot0"></div>
-      <div class="lock-dot" id="pdot1"></div>
-      <div class="lock-dot" id="pdot2"></div>
-      <div class="lock-dot" id="pdot3"></div>
-    </div>
-    <div class="lock-numpad">
-      <button class="lock-num" data-pn="1">1</button>
-      <button class="lock-num" data-pn="2">2</button>
-      <button class="lock-num" data-pn="3">3</button>
-      <button class="lock-num" data-pn="4">4</button>
-      <button class="lock-num" data-pn="5">5</button>
-      <button class="lock-num" data-pn="6">6</button>
-      <button class="lock-num" data-pn="7">7</button>
-      <button class="lock-num" data-pn="8">8</button>
-      <button class="lock-num" data-pn="9">9</button>
-      <button class="lock-num" data-pn="del" style="font-size:1rem">⌫</button>
-      <button class="lock-num" data-pn="0">0</button>
-      <button class="lock-num" data-pn="cancel" style="font-size:.85rem">キャンセル</button>
-    </div>
-    <div class="lock-err" id="pinErr"></div>
-  </div>
-</div>
 
 <!-- ══════════════ HOME CONFIRM ══════════════ -->
 <div class="confirm-overlay" id="confirmHome">
@@ -1272,7 +1256,6 @@ let cfg={
   dwell:false, dwT:1.0, showCur:true, dwTol:30,
   snd:true, rm:false, holeSize:100,
 };
-let PIN = '1234';   // ロック用PIN
 let locked = false; // 現在ロック中か
 
 let timerID=null, spawnID=null, afID=null;
@@ -1301,15 +1284,10 @@ function snd(t){
 }
 
 // ════════════════════════════════════
-//  LOCK  🔒
+//  LOCK  🔒（PINなし・タップで解除）
 // ════════════════════════════════════
-let lockInput='';
-
 function activateLock(){
   locked=true;
-  lockInput='';
-  document.getElementById('lockErr').textContent='';
-  updateLockDots('lockDots','dot',lockInput);
   document.getElementById('lockOverlay').classList.add('on');
   document.getElementById('btnLock').classList.add('active-lock');
   snd('lock');
@@ -1318,110 +1296,13 @@ function deactivateLock(){
   locked=false;
   document.getElementById('lockOverlay').classList.remove('on');
   document.getElementById('btnLock').classList.remove('active-lock');
-  lockInput='';
   snd('unlock');
 }
-function updateLockDots(wrId, prefix, input){
-  for(let i=0;i<4;i++){
-    const d=document.getElementById(prefix+i);
-    if(d) d.classList.toggle('filled', i<input.length);
-  }
-}
-// numpad input for lock
-document.querySelectorAll('[data-n]').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const n=btn.dataset.n;
-    if(n==='del'){lockInput=lockInput.slice(0,-1);}
-    else if(n==='ok'){
-      if(lockInput===PIN){deactivateLock();}
-      else{
-        document.getElementById('lockErr').textContent='ちがうよ！もういちど';
-        lockInput='';
-        setTimeout(()=>document.getElementById('lockErr').textContent='',1500);
-      }
-    }
-    else if(lockInput.length<4){lockInput+=n;}
-    updateLockDots('lockDots','dot',lockInput);
-  });
-});
+document.getElementById('unlockBtn').addEventListener('click',deactivateLock);
 document.getElementById('btnLock').addEventListener('click',()=>{
-  if(locked) activateLock(); // すでにロック中 → 解除ダイアログ（ロック画面が出ている）
-  else activateLock();
+  if(!locked) activateLock();
 });
 // ロック中はページ内の他のボタン操作を無効化（ロックオーバーレイ外のクリック防止は z-index で実現）
-
-// ════════════════════════════════════
-//  PIN CHANGE
-// ════════════════════════════════════
-let pinStep='verify'; // 'verify' | 'new1' | 'new2'
-let pinVerifyInput='', pinNew1='', pinNew2Input='';
-
-function openPinChange(){
-  pinStep='verify';
-  pinVerifyInput='';pinNew1='';pinNew2Input='';
-  document.getElementById('pinChangeTitle').textContent='いまのPINを入力';
-  document.getElementById('pinChangeSub').textContent='現在のPINコード（4けた）を入力してね';
-  document.getElementById('pinErr').textContent='';
-  updateLockDots('pinDots','pdot','');
-  document.getElementById('pinChangeOverlay').classList.add('on');
-}
-document.getElementById('changePinBtn').addEventListener('click',openPinChange);
-document.querySelectorAll('[data-pn]').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const n=btn.dataset.pn;
-    if(n==='cancel'){document.getElementById('pinChangeOverlay').classList.remove('on');return;}
-    if(n==='del'){
-      if(pinStep==='verify')pinVerifyInput=pinVerifyInput.slice(0,-1);
-      else if(pinStep==='new1')pinNew1=pinNew1.slice(0,-1);
-      else pinNew2Input=pinNew2Input.slice(0,-1);
-    } else {
-      if(pinStep==='verify'&&pinVerifyInput.length<4) pinVerifyInput+=n;
-      else if(pinStep==='new1'&&pinNew1.length<4) pinNew1+=n;
-      else if(pinStep==='new2'&&pinNew2Input.length<4) pinNew2Input+=n;
-    }
-    const cur=pinStep==='verify'?pinVerifyInput:pinStep==='new1'?pinNew1:pinNew2Input;
-    updateLockDots('pinDots','pdot',cur);
-    // auto-advance
-    if(cur.length===4){
-      setTimeout(()=>{
-        if(pinStep==='verify'){
-          if(cur===PIN){
-            pinStep='new1';pinNew1='';
-            document.getElementById('pinChangeTitle').textContent='あたらしいPINを入力';
-            document.getElementById('pinChangeSub').textContent='新しいPINコード（4けた）を入力してね';
-            document.getElementById('pinErr').textContent='';
-            updateLockDots('pinDots','pdot','');
-          } else {
-            document.getElementById('pinErr').textContent='ちがうよ！もういちど';
-            pinVerifyInput='';updateLockDots('pinDots','pdot','');
-            setTimeout(()=>document.getElementById('pinErr').textContent='',1500);
-          }
-        } else if(pinStep==='new1'){
-          pinStep='new2';pinNew2Input='';
-          document.getElementById('pinChangeTitle').textContent='もう一かいPINを入力';
-          document.getElementById('pinChangeSub').textContent='かくにんのためもう一かいね';
-          document.getElementById('pinErr').textContent='';
-          updateLockDots('pinDots','pdot','');
-        } else {
-          if(pinNew1===pinNew2Input){
-            PIN=pinNew1;
-            try{localStorage.setItem('mogura_pin',PIN);}catch(e){}
-            document.getElementById('pinChangeOverlay').classList.remove('on');
-            snd('unlock');
-            alert('PINを「'+PIN+'」に変更しました！');
-          } else {
-            document.getElementById('pinErr').textContent='あわなかったよ！もういちど';
-            pinStep='new1';pinNew1='';pinNew2Input='';
-            document.getElementById('pinChangeTitle').textContent='あたらしいPINを入力';
-            document.getElementById('pinChangeSub').textContent='新しいPINコード（4けた）を入力してね';
-            updateLockDots('pinDots','pdot','');
-            setTimeout(()=>document.getElementById('pinErr').textContent='',1500);
-          }
-        }
-      },120);
-    }
-  });
-});
 
 // ════════════════════════════════════
 //  FULLSCREEN  ⛶
@@ -2166,8 +2047,6 @@ document.getElementById('sizeR').addEventListener('input',function(){
 // ════════════════════════════════════
 //  INIT
 // ════════════════════════════════════
-// PINをlocalStorageから復元
-try{const p=localStorage.getItem('mogura_pin');if(p&&p.length===4)PIN=p;}catch(e){}
 
 renderPicker();
 buildBoard();

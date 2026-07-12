@@ -286,6 +286,40 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#settingsToggle{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -386,7 +420,12 @@
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#settingsToggle"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -620,6 +659,16 @@
 
     <div class="settings-adult-area">
 
+    <!-- いまやること表示 -->
+    <div>
+      <div class="sec-title">🖼 いまやること</div>
+      <div class="setting-row" style="margin-bottom:10px">
+        <span class="setting-label">タイマーのうえに ひょうじする</span>
+        <label class="toggle"><input type="checkbox" id="showTaskCard" class="scannable" tabindex="0" checked onchange="applyTaskCardVisibility(this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="divider"></div>
+
     <!-- 終了音 -->
     <div>
       <div class="sec-title">🔔 おわりのおと</div>
@@ -804,6 +853,9 @@ function init() {
   updateSpinDisplay();
   loadRecordingsFromStorage();
   if (savedPin) document.getElementById('removePinBtn').style.display = 'flex';
+  const showTask = localStorage.getItem('tt_showTaskCard') !== '0';
+  document.getElementById('showTaskCard').checked = showTask;
+  applyTaskCardVisibility(showTask);
 }
 
 // ===============================================================
@@ -1509,6 +1561,13 @@ function toggleSettings() {
   updateScanItems();
 }
 
+function applyTaskCardVisibility(show) {
+  const area = document.querySelector('.card-area');
+  if (area) area.style.display = show ? '' : 'none';
+  localStorage.setItem('tt_showTaskCard', show ? '1' : '0');
+  updateScanItems();
+}
+
 function setColor(main,light) {
   document.documentElement.style.setProperty('--timer-color',main);
   document.documentElement.style.setProperty('--timer-bg',light||lightenColor(main));
@@ -1526,8 +1585,11 @@ function lightenColor(hex) {
 // ===============================================================
 function updateScanItems() {
   const panel=document.getElementById('settingsPanel');
+  const cardArea=document.querySelector('.card-area');
+  const cardAreaHidden = cardArea && cardArea.style.display==='none';
   scanItems=Array.from(document.querySelectorAll('.scannable'))
-    .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'));
+    .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
+    .filter(el=>!cardAreaHidden || !el.closest('.card-area'));
 }
 
 function toggleScanMode(en) {

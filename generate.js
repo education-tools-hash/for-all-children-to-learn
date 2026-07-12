@@ -581,13 +581,13 @@ const CARD_CLASS_MAP = {
   'bosai-app':       'card-bosai',
   'matching-app':    'card-matching',
   'sugoroku-app':    'card-sugoroku',
-  'tyushi':          'card-sst',
-  'cup_game':        'card-matching',
+  'tyushi':          'card-hikaru',
+  'cup_game':        'card-cupgame',
   'sst-app':         'card-sst',
   'kimochi-board':   'card-board',
   'drawing-app':     'card-oekaki',
    'yomikaki-app':    'card-yomikaki',
-  'slideshow-sakusei': 'card-oekaki', // 創作系の色を流用
+  // 'slideshow-sakusei' はマッピングせず動的生成(新iconColor黄緑で全ページ統一。oekaki=緑系との重複を回避)
   'directions-app':  'card-directions', // 専用色(ティール系)
 };
 
@@ -660,11 +660,11 @@ function generateDynamicCardCSS(mappedApps) {
     if (!app._dynamicCard) continue;
     const base = app.iconColor || '#5B3FD4';
     const h = hexToHue(base);
-    const light  = hslToHex(h, 0.62, 0.86); // 背景グラデ（明るいパステル）
-    const dark   = hslToHex(h, 0.55, 0.74); // 背景グラデ（やや濃いパステル）
-    const border = hslToHex(h, 0.50, 0.62); // ホバー時のボーダー
-    const tagBg  = hslToHex(h, 0.65, 0.94); // タグ背景（ごく薄く）
-    const tagFg  = hslToHex(h, 0.45, 0.32); // タグ文字（読みやすい濃さ）
+    const light  = hslToHex(h, 0.48, 0.905); // 背景グラデ（明るいパステル）
+    const dark   = hslToHex(h, 0.42, 0.825); // 背景グラデ（やや濃いパステル）
+    const border = hslToHex(h, 0.40, 0.68); // ホバー時のボーダー
+    const tagBg  = hslToHex(h, 0.50, 0.955); // タグ背景（ごく薄く）
+    const tagFg  = hslToHex(h, 0.40, 0.36); // タグ文字（読みやすい濃さ）
     const cls = app._cardClass;
     rules.push(`  .${cls} .card-preview { background: linear-gradient(135deg, ${light} 0%, ${dark} 100%); }`);
     rules.push(`  .${cls}:hover { border-color: ${border}; }`);
@@ -852,11 +852,24 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // 既存の独自設定ボタンへの橋渡し行(あるアプリのみ)
   const proxyRowHTML = proxy ? `
   <button id="donomanaSettingsProxy" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">${proxy.label}</button>` : '';
-  const proxyHideCSS = proxy ? `<style>${proxy.selector}{opacity:0 !important;pointer-events:none !important;}</style>` : '';
+  // opacity:0だと非表示のままレイアウト上の幅・高さだけ残り、隣接要素との間に
+  // 不自然な空白/白い帯ができるアプリはこちらでdisplay:noneにして詰める。
+  // (hiragana-learn/katakana-app/suji-manabou: 横並びnav-tabsの1要素として存在
+  //  shiritori2: 独自の上部バー.top-barの1要素として存在)
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2']);
+  const proxyHideDecl = hideWithDisplayNone.has(appFilename)
+    ? 'display:none !important;pointer-events:none !important;'
+    : 'opacity:0 !important;pointer-events:none !important;';
+  const proxyHideCSS = proxy ? `<style>${proxy.selector}{${proxyHideDecl}}</style>` : '';
   const proxyScriptHTML = proxy ? `
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll(${JSON.stringify(proxy.selector)}));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -1089,13 +1102,13 @@ const THEME_CLASS_MAP = {
   'bosai-app':        'theme-bousai',
   'matching-app':     'theme-matching',
   'sugoroku-app':     'theme-sugoroku',
-  'tyushi':           'theme-sst',
+  // 'tyushi' はマッピングせず動的生成(iconColorのオレンジ系。theme-sst=シアン系との重複を回避)
   'cup_game':         'theme-cupgame',
   'sst-app':          'theme-sst',
   'kimochi-board':    'theme-board',
   'drawing-app':      'theme-oekaki',
   'yomikaki-app':     'theme-yomikaki',
-  'slideshow-sakusei':'theme-oekaki',
+  // 'slideshow-sakusei' はマッピングせず動的生成(theme-oekaki=緑系との重複を回避)
   'directions-app':   'theme-directions',
 };
 
@@ -1454,7 +1467,29 @@ function updatePurposeCards(apps) {
 //  ・MANUAL_CHANGELOG に手動エントリーを書けば、それも一緒に表示
 //  ・全エントリーを日付の新しい順にソート
 // ============================================================
+// details（任意）: 「バグを修正しました」だけでは何が直ったか分からないため、
+//   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
+//   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-07-12", type: "update", text: "各アプリの不具合をまとめて修正しました。", details: [
+    "「カタカナ まなぼう！」マッチングときろくのボタンの間に不自然な空白ができていた問題を修正",
+    "「すうじ まなぼう！」マッチングで数字の横にイラストを表示できるようにしました（表示のON/OFFも選べます）",
+    "「なぞり書き練習ツール」練習スタイル等の選択欄で文字が見切れる問題を修正",
+    "「なぞり書き練習ツール」続けて書くモードで、スライダーを動かしても途中から画面が動かなくなる問題を修正",
+    "「なぞり書き練習ツール」「全部けす」の近くに触れただけで消えてしまう問題を修正（2回押して確定する方式に変更）",
+    "「しりとりあそび」トップ画面の上に不要な白い帯が表示される問題を修正",
+    "「読み書きサポートエディタ」ふりがなが一部の漢字にしか振られない問題を修正（常用漢字に対応）",
+    "「ぼうさいたんけんたい」回答後の解説を、項目ごとに読み上げられるようにしました",
+    "「マッチング」スイッチスキャンが動作しない問題と、パソコンでスクロールできない問題を修正",
+    "「きょうのきろく」ボタンが重なって気持ちを選べない問題を修正",
+    "「ひかるボタン」「おえかきひろば」設定から詳細設定が開けない問題を修正",
+    "「SST」声の種類を変えても反映されない問題を修正",
+    "「コミュニケーションボード」ボタンを押しても何も表示されない問題を修正",
+    "「けずりえ」全画面の切り替えで削った内容が消える問題を修正（完成の基準も1%単位で調整できるようにしました）",
+    "「もぐらたたき」画面ロックの解除に暗証番号を不要にしました",
+    "「おんがくあそび」鍵盤を押すと音名の色付き丸が浮き出るようにしました",
+  ] },
+  { date: "2026-07-11", type: "update", text: "サイト名を「どのまな」に変更し、ロゴやデザインを一新しました。" },
   { date: "2026-07-05", type: "update", text: "「おんがくあそび」のバグを修正しました。" },
   { date: "2026-07-05", type: "update", text: "「ひかるボタン」のバグを修正しました。" },
   { date: "2026-07-05", type: "update", text: "「すごろく」にオンラインモードを追加しました。" },
@@ -1507,7 +1542,21 @@ function updateChangelog(apps) {
   const entries = generateChangelog(apps);
   const lines = ['const CHANGELOG = ['];
   for (const e of entries) {
-    lines.push(`  { date: ${JSON.stringify(formatDateJP(e.date))}, type: ${JSON.stringify(e.type)}, text: ${JSON.stringify(e.text)} },`);
+    const parts = [
+      `date: ${JSON.stringify(formatDateJP(e.date))}`,
+      `type: ${JSON.stringify(e.type)}`,
+      `text: ${JSON.stringify(e.text)}`,
+    ];
+    // details(修正箇所の内訳)がある場合のみ出力。
+    // 「バグを修正しました」だけでは利用者に何が直ったか伝わらないため、
+    // クリックで開く内訳をここに持たせる。
+    const details = Array.isArray(e.details)
+      ? e.details.map(d => String(d).trim()).filter(Boolean)
+      : [];
+    if (details.length > 0) {
+      parts.push(`details: ${JSON.stringify(details)}`);
+    }
+    lines.push(`  { ${parts.join(', ')} },`);
   }
   lines.push('];');
   const newArray = lines.join('\n');
@@ -1633,6 +1682,156 @@ injectA11yPanelToAppHtmls(apps);
 //     本体ページのcanonicalは詳細ページに向ける(検索評価を詳細ページへ統合する)
 injectSeoTagsToAppHtmls(apps);
 
+// 12. sitemap.xml を自動生成
+//     手動管理だとアプリ追加時に載せ忘れる(実際 ongaku-app / wizard が漏れていた)ため、
+//     apps-data.json + 固定ページ一覧から毎回生成し直す。
+//     ※ 呼び出しはファイル末尾(定数定義のあと)。他のHTML書き換えが全て終わってから実行する
+//        ことで、lastmodに今回の更新日が正しく反映される。
+
+// ============================================================
+//  sitemap.xml 自動生成
+// ============================================================
+// 各アプリの優先度は apps-data.json の sitemapPriority で管理(未指定なら0.7)。
+// 詳細ページはアプリ本体より0.1高い(検索評価を詳細ページに寄せる方針のため)。
+const SITEMAP_STATIC_PAGES = [
+  { url: '',                       priority: 1.0, changefreq: 'weekly'  }, // トップ
+  { url: 'app-intro.html',         priority: 0.9, changefreq: 'weekly'  },
+  { url: 'switch-gaze-guide.html', priority: 0.9, changefreq: 'monthly' },
+  { url: 'about.html',             priority: 0.8, changefreq: 'monthly' },
+  { url: 'philosophy.html',        priority: 0.8, changefreq: 'monthly' },
+  { url: 'wizard.html',            priority: 0.8, changefreq: 'monthly' },
+  { url: 'home-screen-guide.html', priority: 0.6, changefreq: 'monthly' },
+  { url: 'terms.html',             priority: 0.5, changefreq: 'monthly' },
+];
+
+// 意図的にsitemapへ載せないページ(未完成・非公開・検証用など)
+const SITEMAP_EXCLUDE = new Set([
+  'sugoroku-online.html',
+  'switch-training-app.html',
+  'app-register.html',
+  '404.html',
+]);
+
+// lastmod は「そのファイルが最後にコミットされた日」を使う。
+// 注意: fs.statSync().mtime を使ってはいけない。GitHub Actions の actions/checkout は
+// 全ファイルのmtimeをチェックアウト時刻にリセットするため、CIで実行するたびに全URLの
+// lastmodが「今日」になり、毎回sitemap全体が書き換わってしまう(検索エンジンに対して
+// 「全ページが毎日更新された」と誤った信号を送ることになる)。
+// git が使えない環境(zip配布の手元実行など)ではmtimeにフォールバックする。
+const { execFileSync } = require('child_process');
+let _gitAvailable = null;
+
+function gitLastCommitDate(filePath) {
+  if (_gitAvailable === false) return null;
+  try {
+    const out = execFileSync(
+      'git', ['log', '-1', '--format=%cs', '--', filePath],
+      { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim();
+    _gitAvailable = true;
+    return /^\d{4}-\d{2}-\d{2}$/.test(out) ? out : null;
+  } catch (e) {
+    _gitAvailable = false;
+    return null;
+  }
+}
+
+function sitemapLastmod(filePath) {
+  const fromGit = gitLastCommitDate(filePath);
+  if (fromGit) return fromGit;
+  try {
+    return fs.statSync(filePath).mtime.toISOString().slice(0, 10);
+  } catch (e) {
+    return null;
+  }
+}
+
+function generateSitemap(apps) {
+  const entries = [];
+
+  // 固定ページ
+  for (const p of SITEMAP_STATIC_PAGES) {
+    if (SITEMAP_EXCLUDE.has(p.url)) continue;
+    const file = p.url === '' ? './index.html' : `./${p.url}`;
+    if (!fs.existsSync(file)) {
+      console.log(`  ⚠️  sitemap: ${p.url || 'index.html'} が見つかりません(スキップ)`);
+      continue;
+    }
+    entries.push({
+      loc: `${BASE_URL}/${p.url}`,
+      lastmod: sitemapLastmod(file),
+      changefreq: p.changefreq,
+      priority: p.priority.toFixed(1),
+    });
+  }
+
+  // アプリ本体ページ + 詳細ページ
+  for (const app of apps) {
+    const appFile    = `./${app.filename}.html`;
+    const detailFile = `./app-details/${app.filename}-detail.html`;
+    const appPri     = typeof app.sitemapPriority === 'number' ? app.sitemapPriority : 0.7;
+    const detailPri  = Math.min(appPri + 0.1, 1.0);
+
+    if (SITEMAP_EXCLUDE.has(`${app.filename}.html`)) continue;
+
+    if (fs.existsSync(appFile)) {
+      entries.push({
+        loc: `${BASE_URL}/${app.filename}.html`,
+        lastmod: sitemapLastmod(appFile),
+        changefreq: 'monthly',
+        priority: appPri.toFixed(1),
+      });
+    } else {
+      console.log(`  ⚠️  sitemap: ${app.filename}.html が見つかりません(スキップ)`);
+    }
+
+    if (fs.existsSync(detailFile)) {
+      entries.push({
+        loc: `${BASE_URL}/app-details/${app.filename}-detail.html`,
+        lastmod: sitemapLastmod(detailFile),
+        changefreq: 'monthly',
+        priority: detailPri.toFixed(1),
+      });
+    } else {
+      console.log(`  ⚠️  sitemap: ${app.filename}-detail.html が見つかりません(スキップ)`);
+    }
+  }
+
+  // 優先度の高い順 → 同順位はURL順(生成結果を安定させ、無駄なdiffを防ぐ)
+  entries.sort((a, b) =>
+    (parseFloat(b.priority) - parseFloat(a.priority)) || a.loc.localeCompare(b.loc)
+  );
+
+  const body = entries.map(e => {
+    const lines = [
+      '  <url>',
+      `    <loc>${e.loc}</loc>`,
+    ];
+    if (e.lastmod) lines.push(`    <lastmod>${e.lastmod}</lastmod>`);
+    lines.push(`    <changefreq>${e.changefreq}</changefreq>`);
+    lines.push(`    <priority>${e.priority}</priority>`);
+    lines.push('  </url>');
+    return lines.join('\n');
+  }).join('\n');
+
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!-- このファイルは generate.js が自動生成しています。直接編集しないでください。 -->',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    body,
+    '</urlset>',
+    ''
+  ].join('\n');
+
+  const prev = fs.existsSync('./sitemap.xml') ? fs.readFileSync('./sitemap.xml', 'utf-8') : '';
+  if (prev !== xml) {
+    fs.writeFileSync('./sitemap.xml', xml, 'utf-8');
+    console.log(`\n🗺  sitemap.xml を生成しました (${entries.length}件のURL)`);
+  } else {
+    console.log(`\n🗺  sitemap.xml は既に最新です (${entries.length}件のURL)`);
+  }
+}
+
 // ============================================================
 //  個別アプリHTMLに対するcanonical/meta description一括注入
 // ============================================================
@@ -1692,6 +1891,9 @@ function injectSeoTagsToAppHtmls(apps) {
     if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
   }
 }
+
+// 12. sitemap.xml を自動生成(全HTML書き換え完了後に実行)
+generateSitemap(apps);
 
 console.log('\n🎉 完了！');
 

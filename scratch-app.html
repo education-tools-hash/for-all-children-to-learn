@@ -259,6 +259,40 @@ body.hc .hltblk{color:#FFFF00}
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#setBtn{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -359,7 +393,12 @@ body.hc .hltblk{color:#FFFF00}
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#setBtn"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -483,18 +522,23 @@ body.hc .hltblk{color:#FFFF00}
       <div class="sprw"><div class="spri"><div class="sprl">🔒 がめんロック</div><div class="sprs">ロック中は「もどる」ボタンと「戻る」操作が無効になる</div></div><label class="tog" aria-label="がめんロック"><input type="checkbox" id="tgLock"><span class="togt"></span></label></div>
       <div class="sprw"><div class="spri"><div class="sprl">👁 視線入力モード</div><div class="sprs">マウス移動で自動的に削れる</div></div><label class="tog" aria-label="視線入力モード"><input type="checkbox" id="tgGz"><span class="togt"></span></label></div>
       <div class="sprw" style="flex-wrap:wrap;gap:10px;align-items:center">
-        <div class="spri"><div class="sprl">🎯 かんせいのきじゅん</div><div class="sprs">どのくらい削れたら「やったね！」にするか</div></div>
+        <div class="spri"><div class="sprl">🎯 かんせいのきじゅん</div><div class="sprs">どのくらい削れたら「やったね！」にするか（スライダーで1%きざみに調整できます）</div></div>
         <div class="fbtns" id="threshBtns">
           <button class="fbtn"    data-thresh="0.80" aria-label="80パーセント">80%</button>
           <button class="fbtn"    data-thresh="0.90" aria-label="90パーセント">90%</button>
           <button class="fbtn on" data-thresh="0.97" aria-label="100パーセント">100%</button>
         </div>
+        <div style="display:flex;align-items:center;gap:10px;width:100%">
+          <input type="range" id="threshSlider" min="50" max="100" step="1" value="97"
+            style="flex:1;accent-color:var(--cp)" aria-label="かんせいのきじゅん さいび調整">
+          <span id="threshSliderVal" style="font-size:.9rem;font-weight:700;color:var(--cp);min-width:40px;text-align:right">97%</span>
+        </div>
       </div>
       <div class="sprw" style="flex-wrap:wrap;gap:10px;align-items:center">
         <div class="spri"><div class="sprl">🖼️ はんていのはんい</div><div class="sprs">「えのぶぶん」にすると絵が描かれている部分だけで達成率を計算する</div></div>
         <div class="fbtns" id="rangeBtns">
-          <button class="fbtn on" data-range="full"  aria-label="画面ぜんたい">画面ぜんたい</button>
-          <button class="fbtn"    data-range="image" aria-label="えのぶぶんだけ">えのぶぶん</button>
+          <button class="fbtn"    data-range="full"  aria-label="画面ぜんたい">画面ぜんたい</button>
+          <button class="fbtn on" data-range="image" aria-label="えのぶぶんだけ">えのぶぶん</button>
         </div>
       </div>
       <div class="sprw"><div class="spri"><div class="sprl">🎉 お祝いエフェクト</div><div class="sprs">完成時に紙吹雪を表示する</div></div><label class="tog" aria-label="お祝いエフェクト"><input type="checkbox" id="tgEf" checked><span class="togt"></span></label></div>
@@ -751,7 +795,7 @@ body.hc .hltblk{color:#FFFF00}
 
 <script>
 'use strict';
-const C={brushSz:72,scrCol:'#7B7B9E',gaze:false,effect:true,sound:true,autoNext:false,thresh:0.97,ckEvery:55,sampStep:4,tts:false,ttsRate:1,ttsComp:true,hc:false,fs:1,rangeMode:'full'};
+const C={brushSz:72,scrCol:'#7B7B9E',gaze:false,effect:true,sound:true,autoNext:false,thresh:0.97,ckEvery:55,sampStep:4,tts:false,ttsRate:1,ttsComp:true,hc:false,fs:1,rangeMode:'image'};
 // 「えのぶぶん」モード用：下絵の絵が存在する矩形領域
 let _imgRect=null; // {x,y,w,h} キャンバス座標
 /* ============================================================
@@ -1648,8 +1692,31 @@ const ttsBbl=document.getElementById('ttsBbl');
 
 function resize(){
   const r=cw.getBoundingClientRect(),W=Math.round(r.width),H=Math.round(r.height);
+  if(W<=0||H<=0)return; // レイアウト確定前の一瞬の呼び出しは無視（進捗消失防止。全画面解除の途中で幅/高さが0になる瞬間がある）
+  if(uc.width===W&&uc.height===H)return; // サイズが実質変わっていなければ何もしない（進捗の再描画を避ける）
+
+  // 削り進捗（スクラッチ層）を一時キャンバスに退避してから、
+  // 新しいサイズへ引き伸ばして復元する（全画面切替などでのクリア消失を防ぐ）
+  let savedScratch=null,oldW=sc.width,oldH=sc.height;
+  if(oldW>0&&oldH>0){
+    try{
+      const tmp=document.createElement('canvas');
+      tmp.width=oldW;tmp.height=oldH;
+      tmp.getContext('2d').drawImage(sc,0,0);
+      savedScratch=tmp;
+    }catch(e){savedScratch=null;}
+  }
+
   [uc,sc].forEach(c=>{c.width=W;c.height=H});
-  drawUnder();fillScr();
+  drawUnder();
+
+  if(savedScratch){
+    sctx.clearRect(0,0,W,H);
+    sctx.drawImage(savedScratch,0,0,oldW,oldH,0,0,W,H);
+    chkDone();
+  } else {
+    fillScr();
+  }
 }
 let rtmr;window.addEventListener('resize',()=>{clearTimeout(rtmr);rtmr=setTimeout(resize,120)});
 
@@ -2279,19 +2346,32 @@ document.getElementById('tgEf').addEventListener('change',e=>C.effect=e.target.c
 document.getElementById('tgSnd').addEventListener('change',e=>C.sound=e.target.checked);
 document.getElementById('tgAn').addEventListener('change',e=>C.autoNext=e.target.checked);
 
-// 完成基準（閾値）ボタン
+// 完成基準（閾値）ボタン・スライダー
+const threshSlider=document.getElementById('threshSlider'),threshSliderVal=document.getElementById('threshSliderVal');
 document.querySelectorAll('#threshBtns .fbtn').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#threshBtns .fbtn').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');
   C.thresh=parseFloat(b.dataset.thresh);
+  threshSlider.value=Math.round(C.thresh*100);
+  threshSliderVal.textContent=threshSlider.value+'%';
+  try{localStorage.setItem('scr_thresh',String(C.thresh));}catch(e){}
   tts('かんせいのきじゅん '+b.textContent);
 }));
+threshSlider.addEventListener('input',()=>{
+  const pct=parseInt(threshSlider.value,10);
+  threshSliderVal.textContent=pct+'%';
+  C.thresh=pct/100;
+  document.querySelectorAll('#threshBtns .fbtn').forEach(x=>x.classList.toggle('on',parseFloat(x.dataset.thresh)===C.thresh));
+  try{localStorage.setItem('scr_thresh',String(C.thresh));}catch(e){}
+});
+threshSlider.addEventListener('change',()=>{tts('かんせいのきじゅん '+threshSlider.value+'パーセント');});
 
 // はんていのはんいボタン
 document.querySelectorAll('#rangeBtns .fbtn').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#rangeBtns .fbtn').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');
   C.rangeMode=b.dataset.range;
+  try{localStorage.setItem('scr_rangeMode',C.rangeMode);}catch(e){}
   tts('はんていのはんい '+(C.rangeMode==='image'?'えのぶぶん':'がめんぜんたい'));
 }));
 
@@ -2436,6 +2516,28 @@ function launchConfetti(){
 
 // 完成音
 function playSnd(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();[523,659,784,1047].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;o.type='sine';const t=ac.currentTime+i*.18;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.28,t+.04);g.gain.linearRampToValueAtTime(0,t+.36);o.start(t);o.stop(t+.36);});}catch(e){}}
+
+// 保存済みの「かんせいのきじゅん」「はんていのはんい」を復元
+(function restoreSavedConfig(){
+  try{
+    const savedThresh=localStorage.getItem('scr_thresh');
+    if(savedThresh){
+      C.thresh=parseFloat(savedThresh);
+      document.querySelectorAll('#threshBtns .fbtn').forEach(b=>{
+        b.classList.toggle('on',parseFloat(b.dataset.thresh)===C.thresh);
+      });
+      threshSlider.value=Math.round(C.thresh*100);
+      threshSliderVal.textContent=threshSlider.value+'%';
+    }
+    const savedRange=localStorage.getItem('scr_rangeMode');
+    if(savedRange){
+      C.rangeMode=savedRange;
+      document.querySelectorAll('#rangeBtns .fbtn').forEach(b=>{
+        b.classList.toggle('on',b.dataset.range===C.rangeMode);
+      });
+    }
+  }catch(e){}
+})();
 
 // 初期化
 window.addEventListener('load',()=>resize());

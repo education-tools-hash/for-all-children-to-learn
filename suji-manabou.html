@@ -348,6 +348,15 @@
     flex-wrap: wrap;
     padding: 10px 12px;
   }
+  /* 数字カード: 数字の横に小さいイラストを添える */
+  .match-item.has-illust { flex-direction: row; gap: 10px; }
+  .match-num-text { font-size: 1.7rem; font-weight: 900; line-height: 1; }
+  .match-mini-illust { display: flex; flex-direction: column; gap: 2px; }
+  .match-mini-row { display: flex; gap: 2px; height: 9px; align-items: center; }
+  .match-mini-row-empty { visibility: hidden; }
+  .match-mini-icon { font-size: 8px; line-height: 1; }
+  body.font-lg .match-mini-icon, body.font-xl .match-mini-icon { font-size: 10px; }
+  body.font-lg .match-mini-row, body.font-xl .match-mini-row { height: 11px; }
   .match-item:active { transform: translateY(2px); }
   .match-item.selected { border-color: var(--coral); background: linear-gradient(135deg, #FFE0E0, #FFCDD2); color: var(--coral); }
   .match-item.matched { border-color: #4CAF50; background: linear-gradient(135deg, #C8F7C5, #A9E6A5); color: #1B5E20; cursor: default; animation: popIn 0.3s ease; }
@@ -404,6 +413,25 @@
     background: #5BA4D4;
     border-color: #5BA4D4;
     color: white;
+  }
+  .match-illust-toggle {
+    display: block;
+    margin: 0 auto 14px;
+    background: #FFF9E5;
+    border: 3px solid #FFD966;
+    border-radius: 50px;
+    padding: 7px 18px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    color: #8A6D00;
+    transition: all 0.15s;
+  }
+  .match-illust-toggle[aria-pressed="false"] {
+    background: #F1F1F1;
+    border-color: #DDD;
+    color: #999;
   }
 
   /* ===== SETTINGS ===== */
@@ -535,8 +563,42 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
-<style>.tab-btn[data-tab="settings"]{opacity:0 !important;pointer-events:none !important;}</style>
+<style>.tab-btn[data-tab="settings"]{display:none !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
 <div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
   <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>
@@ -602,7 +664,12 @@
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll(".tab-btn[data-tab=\"settings\"]"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -798,6 +865,9 @@
       <button class="match-diff-btn" onclick="setMatchDiff(2,this)" tabindex="0">１〜１０</button>
       <button class="match-diff-btn" onclick="setMatchDiff(3,this)" tabindex="0">１１〜２０</button>
     </div>
+    <button class="match-illust-toggle" id="matchIllustToggle" onclick="toggleMiniIllust()" tabindex="0" aria-pressed="true">
+      <span id="matchIllustToggleIcon">⭐</span> イラストを表示
+    </button>
     <div class="match-area" id="matchArea"></div>
     <div class="match-complete" id="matchComplete">🎉 ぜんぶ せいかい！ すごい！ 🎉</div>
     <button class="match-reset-btn" onclick="resetMatch()" tabindex="0">🔄 もういちど</button>
@@ -1559,6 +1629,18 @@ setTraceNum(1);
 let matchDifficulty = 1; // 1: 1-5, 2: 1-10, 3: 11-20
 let matchSelected = null;
 let matchSelectedType = null;
+let showMiniIllust = (localStorage.getItem('suji_matchIllust') !== '0'); // 既定はON
+
+function toggleMiniIllust() {
+  showMiniIllust = !showMiniIllust;
+  localStorage.setItem('suji_matchIllust', showMiniIllust ? '1' : '0');
+  const btn = document.getElementById('matchIllustToggle');
+  if (btn) {
+    btn.setAttribute('aria-pressed', showMiniIllust ? 'true' : 'false');
+    document.getElementById('matchIllustToggleIcon').textContent = showMiniIllust ? '⭐' : '☆';
+  }
+  buildMatch();
+}
 
 function setMatchDiff(d, btn) {
   matchDifficulty = d;
@@ -1610,6 +1692,24 @@ function makeVisual(n) {
   }
 }
 
+// 数字カードに添える小さいイラスト（星）。maxRowsに合わせて空行でパディングし、
+// カード同士の高さがバラバラにならない（段差ができない）ようにする
+function makeMiniIllust(n, maxRows) {
+  let html = '';
+  let i = 0;
+  let rowsUsed = 0;
+  while (i < n) {
+    const segLen = Math.min(5, n - i);
+    html += `<div class="match-mini-row">${'<span class="match-mini-icon">⭐</span>'.repeat(segLen)}</div>`;
+    i += segLen;
+    rowsUsed++;
+  }
+  for (let r = rowsUsed; r < maxRows; r++) {
+    html += `<div class="match-mini-row match-mini-row-empty"></div>`;
+  }
+  return html;
+}
+
 function buildMatch() {
   const matchArea = document.getElementById('matchArea');
   matchArea.innerHTML = '';
@@ -1635,14 +1735,23 @@ function buildMatch() {
   const rightCol = document.createElement('div');
   rightCol.className = 'match-col';
 
+  // 今回出題する数の中で最大値に合わせて、イラストの行数を揃える(段差防止)
+  const maxRows = Math.max(1, Math.ceil(Math.max(...set) / 5));
+
   // 左：数字
   numbers.forEach(n => {
     const el = document.createElement('div');
-    el.className = 'match-item';
     el.setAttribute('tabindex', '0');
     el.setAttribute('role', 'button');
-    el.textContent = n;
-    el.style.fontSize = '2rem';
+    el.setAttribute('aria-label', String(n));
+    if (showMiniIllust) {
+      el.className = 'match-item has-illust';
+      el.innerHTML = `<span class="match-num-text">${n}</span><span class="match-mini-illust">${makeMiniIllust(n, maxRows)}</span>`;
+    } else {
+      el.className = 'match-item';
+      el.style.fontSize = '2rem';
+      el.textContent = n;
+    }
     el.dataset.key = String(n);
     el.dataset.type = 'number';
     el.addEventListener('click', () => matchClick(el, String(n), 'number'));
@@ -1724,6 +1833,13 @@ function resetMatch() {
 }
 
 buildMatch();
+(function initMatchIllustToggle() {
+  const btn = document.getElementById('matchIllustToggle');
+  if (!btn) return;
+  btn.setAttribute('aria-pressed', showMiniIllust ? 'true' : 'false');
+  const icon = document.getElementById('matchIllustToggleIcon');
+  if (icon) icon.textContent = showMiniIllust ? '⭐' : '☆';
+})();
 
 // =====================================================================
 // CONFETTI

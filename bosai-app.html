@@ -1077,6 +1077,30 @@
     margin-bottom: 5px;
     opacity: 0.7;
   }
+  .result-card .rc-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .result-card .rc-label-row .rc-label { margin-bottom: 0; }
+  .rc-speak-btn {
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.14);
+    color: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .rc-speak-btn:hover { background: rgba(255,255,255,0.26); }
+  .rc-speak-btn:active { transform: scale(0.9); }
+  .rc-speak-btn.speaking { background: #FFD600; color: #222; animation: rcPulse 0.9s ease-in-out infinite; }
+  @keyframes rcPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
   .result-card .rc-body {
     font-size: 14px;
     line-height: 1.65;
@@ -1150,6 +1174,40 @@
   <!-- /favicon -->
 </head>
 <body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1265,7 +1323,12 @@
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#settings-open-btn"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -1847,6 +1910,34 @@ function toggleTTS() {
   updateSettingsUI();
 }
 function speakSituation(text) { speak(text); }
+
+// 結果カードの🔊ボタン：タップした説明だけを読み上げる。
+// 自動読み上げ(ttsEnabled)がオフの時でも、これは明示的な操作なので読み上げる。
+function speakCard(text, btn) {
+  if (!window.speechSynthesis || !text) return;
+  window.speechSynthesis.cancel();
+  document.querySelectorAll('.rc-speak-btn.speaking').forEach(b => b.classList.remove('speaking'));
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP';
+  u.rate = activeModes.has('slow') ? 0.65 : 0.88;
+  u.pitch = 1.05;
+  const voices = window.speechSynthesis.getVoices();
+  const jaVoice = voices.find(v => v.lang.startsWith('ja'));
+  if (jaVoice) u.voice = jaVoice;
+  if (btn) {
+    btn.classList.add('speaking');
+    u.onend = () => btn.classList.remove('speaking');
+    u.onerror = () => btn.classList.remove('speaking');
+  }
+  window.speechSynthesis.speak(u);
+}
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.rc-speak-btn');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.speakIdx, 10) - 1;
+  const text = lastResultCardTexts[idx];
+  if (text) speakCard(text, btn);
+});
 
 // ==================== ④ 支援モード ====================
 const activeModes = new Set();
@@ -2540,6 +2631,7 @@ function lockTeacher() {
 // ==================== RECORDS ====================
 let allRecords = [];
 let sessionLog = [];
+let lastResultCardTexts = [];
 
 function saveRecords() {
   // records kept in memory during this session
@@ -5847,34 +5939,29 @@ function handleChoice(choice, btn, scene) {
     // Build rich result HTML
     function buildResultCards(ch, sc) {
       let html = '';
+      let cardIdx = 0;
+      function card(cls, label, text) {
+        if (!text) return;
+        cardIdx++;
+        const cardId = 'rcSpeak' + cardIdx + '_' + Date.now();
+        html += `<div class="result-card ${cls}">
+          <div class="rc-label-row">
+            <div class="rc-label">${label}</div>
+            <button type="button" class="rc-speak-btn" id="${cardId}" data-speak-idx="${cardIdx}" aria-label="この せつめいを よみあげる" title="よみあげる">🔊</button>
+          </div>
+          <div class="rc-body">${text}</div></div>`;
+        cardTexts.push(text);
+      }
+      const cardTexts = [];
       // Why correct / what consequence
-      if (ch.correct && ch.reason) {
-        html += `<div class="result-card rc-why">
-          <div class="rc-label">✅ なぜ正しいの？</div>
-          <div class="rc-body">${ch.reason}</div></div>`;
-      }
-      if (!ch.correct && ch.consequence) {
-        html += `<div class="result-card rc-what">
-          <div class="rc-label">⚠️ まちがえるとどうなる？</div>
-          <div class="rc-body">${ch.consequence}</div></div>`;
-      }
-      if (ch.howTo) {
-        html += `<div class="result-card rc-how">
-          <div class="rc-label">💡 じっさいはどうする？</div>
-          <div class="rc-body">${ch.howTo}</div></div>`;
-      }
+      card('rc-why',  '✅ なぜ正しいの？',          ch.correct && ch.reason      ? ch.reason      : null);
+      card('rc-what', '⚠️ まちがえるとどうなる？',   !ch.correct && ch.consequence ? ch.consequence : null);
+      card('rc-how',  '💡 じっさいはどうする？',     ch.howTo ? ch.howTo : null);
       // Trivia on correct
-      if (ch.correct && sc.trivia) {
-        html += `<div class="result-card rc-trivia">
-          <div class="rc-label">🔮 おまけちしき</div>
-          <div class="rc-body">${sc.trivia}</div></div>`;
-      }
+      card('rc-trivia', '🔮 おまけちしき',          ch.correct && sc.trivia ? sc.trivia : null);
       // My action prompt
-      if (sc.myAction) {
-        html += `<div class="result-card rc-you">
-          <div class="rc-label">🤔 あなたならどうする？</div>
-          <div class="rc-body">${sc.myAction}</div></div>`;
-      }
+      card('rc-you', '🤔 あなたならどうする？',      sc.myAction ? sc.myAction : null);
+      lastResultCardTexts = cardTexts;
       return html;
     }
 

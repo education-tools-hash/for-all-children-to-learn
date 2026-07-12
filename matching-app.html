@@ -57,7 +57,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);
 .stat-v{font-size:1.2em;font-weight:800;color:var(--primary);line-height:1;}
 
 /* セレクト画面 */
-#sel-screen{flex:1;display:flex;flex-direction:column;overflow-y:auto;gap:0;padding-bottom:6px;}
+#sel-screen{flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0;gap:0;padding-bottom:6px;}
 #sel-screen::-webkit-scrollbar{display:none;}
 .sec-ttl{font-size:.73em;font-weight:700;color:var(--text-muted);letter-spacing:.07em;
   text-transform:uppercase;margin:12px 0 7px;}
@@ -450,6 +450,40 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#btn-settings{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -550,7 +584,12 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#btn-settings"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -1309,7 +1348,7 @@ function spawnPar(el){
 /* ── スキャン ── */
 function startScan(){stopScan();const its=scanItems();if(!its.length)return;its[scanIdx%its.length].classList.add('scan-hl');scanIv=setInterval(()=>{const i2=scanItems();i2.forEach(x=>x.classList.remove('scan-hl'));scanIdx=(scanIdx+1)%Math.max(i2.length,1);if(i2[scanIdx])i2[scanIdx].classList.add('scan-hl');},scanMs);}
 function stopScan(){clearInterval(scanIv);document.querySelectorAll('.scan-hl').forEach(e=>e.classList.remove('scan-hl'));}
-function scanItems(){if($('game-screen').style.display!=='none')return[...document.querySelectorAll('.card:not(.matched)')];return[...document.querySelectorAll('.set-item,.lvl-btn,#start-btn')];}
+function scanItems(){if(getComputedStyle($('game-screen')).display!=='none')return[...document.querySelectorAll('.card:not(.matched)')];return[...document.querySelectorAll('.set-item,.lvl-btn,#start-btn')];}
 function scanAct(){const its=scanItems(),cur=its[scanIdx%Math.max(its.length,1)];if(cur)cur.click();}
 
 /* ── セット編集 ── */

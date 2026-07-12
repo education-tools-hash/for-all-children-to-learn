@@ -83,7 +83,13 @@
     padding: 10px 14px; border: 2px solid #e0e8f0; border-radius: 10px;
     outline: none; width: 100%; transition: border-color 0.2s; color: var(--ink); background: var(--sky);
   }
-  input[type="text"]:focus, select:focus { border-color: var(--peach); background: #fff; }
+  select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    padding-right: 34px; font-size: clamp(0.82rem, 3.6vw, 1rem);
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235a6a9a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+  }
+  input[type="text"]:focus, select:focus { border-color: var(--peach); background-color: #fff; }
   .char-input-large { font-family: 'BIZ UDPMincho', serif; font-size: 2.2rem; text-align: center; letter-spacing: 0.15em; padding: 12px; }
 
   input[type="range"] {
@@ -408,7 +414,11 @@
   body.high-contrast .btn-mint { background: #0f0 !important; color: #000 !important; }
   body.high-contrast .btn-secondary { background: #333 !important; color: #fff !important; border-color: #666 !important; }
   body.high-contrast input[type="text"], body.high-contrast select {
-    background: #222 !important; color: #fff !important; border-color: #666 !important;
+    background-color: #222 !important; color: #fff !important; border-color: #666 !important;
+  }
+  body.high-contrast select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important; background-position: right 10px center !important; background-size: 16px !important;
   }
   body.high-contrast .control-card { background: #222 !important; }
   body.high-contrast .setting-label { color: #aaa !important; }
@@ -491,6 +501,40 @@
   <!-- /favicon -->
 </head>
 <body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -606,7 +650,12 @@
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
-    proxyBtn.addEventListener('click', function(){
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
       var candidates = Array.from(document.querySelectorAll("#settingsBtn"));
       // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
       var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
@@ -996,8 +1045,8 @@
           <div class="color-palette" id="brushColorPaletteWide" style="gap:5px;"></div>
         </div>
         <button class="btn btn-secondary" id="undoBtnWide" style="font-size:0.9rem;">↩ 1画もどす</button>
-        <button class="btn btn-secondary" id="clearBtnWide" style="font-size:0.9rem;">🗑 全部けす</button>
-        <button class="btn btn-mint" id="doneBtnWide" style="font-size:1.4rem; padding:18px 32px; letter-spacing:0.05em;">✅ できた！</button>
+        <button class="btn btn-secondary" id="clearBtnWide" style="font-size:0.9rem;margin-left:14px;">🗑 全部けす</button>
+        <button class="btn btn-mint" id="doneBtnWide" style="font-size:1.4rem; padding:18px 32px; letter-spacing:0.05em;margin-left:14px;">✅ できた！</button>
 
       </div>
 
@@ -1604,23 +1653,27 @@ function initWideFader() {
 
   const outer = _faderOuter;
 
-  function syncFader() {
-    const scrollable = outer.scrollWidth - outer.clientWidth;
-    if (scrollable <= 0) {
-      fader.value = 0;
-      fader.style.background = '#e0e8f0';
-      return;
-    }
-    fader.max = Math.ceil(scrollable);
-    fader.value = Math.round(outer.scrollLeft);
-    const pct = (outer.scrollLeft / scrollable * 100).toFixed(1);
-    fader.style.background =
-      `linear-gradient(to right,var(--peach) ${pct}%,#e0e8f0 ${pct}%)`;
-  }
-
   // フェーダー操作 → スクロール（cloneで旧リスナーをリセット）
   const newFader = fader.cloneNode(true);
   fader.parentNode.replaceChild(newFader, fader);
+
+  // syncFaderは常に現在DOM上にあるnewFaderを更新する
+  // （cloneで置き換える前のfaderを参照すると、スクロール量に応じてmax/valueが
+  //   一切更新されず、フェーダーを動かしても途中から画面が動かなくなるバグになる）
+  function syncFader() {
+    const scrollable = outer.scrollWidth - outer.clientWidth;
+    if (scrollable <= 0) {
+      newFader.value = 0;
+      newFader.style.background = '#e0e8f0';
+      return;
+    }
+    newFader.max = Math.ceil(scrollable);
+    newFader.value = Math.round(outer.scrollLeft);
+    const pct = (outer.scrollLeft / scrollable * 100).toFixed(1);
+    newFader.style.background =
+      `linear-gradient(to right,var(--peach) ${pct}%,#e0e8f0 ${pct}%)`;
+  }
+
   newFader.addEventListener('input', function() {
     outer.scrollLeft = +this.value;
   });
@@ -2069,7 +2122,29 @@ function attachControlEvents() {
   document.getElementById('nextBtn').addEventListener('click', advanceSinglePage);
 
 
-  document.getElementById('clearBtnWide').addEventListener('click', () => {
+  document.getElementById('clearBtnWide').addEventListener('click', function() {
+    // 誤タップで全部消えてしまわないよう、1回目のタップは確認状態にするだけ。
+    // 3秒以内にもう一度押したときだけ実際に消去する。
+    if (!this.dataset.confirming) {
+      this.dataset.confirming = '1';
+      this._origLabel = this.innerHTML;
+      this.innerHTML = '⚠️ もう一度おすと消えます';
+      this.style.background = '#FFCDD2';
+      this.style.borderColor = '#F44336';
+      clearTimeout(this._confirmTimer);
+      this._confirmTimer = setTimeout(() => {
+        delete this.dataset.confirming;
+        this.innerHTML = this._origLabel;
+        this.style.background = '';
+        this.style.borderColor = '';
+      }, 3000);
+      return;
+    }
+    clearTimeout(this._confirmTimer);
+    delete this.dataset.confirming;
+    this.innerHTML = this._origLabel;
+    this.style.background = '';
+    this.style.borderColor = '';
     document.querySelectorAll('.cell-draw').forEach(c => clearCanvas(c));
     hideStamp('stampWide');
     speakIfEnabled('全部けした');
