@@ -552,6 +552,10 @@
 
 
 
+
+
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#settingsBtn{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -1690,16 +1694,22 @@ function initWideFader() {
     const cell = document.querySelector('.cell-wrapper');
     return cell ? cell.offsetWidth : 80;
   }
+  // 「いま画面中央にあるセル」の番号を返す。
+  // snapToCell()は指定セルを画面中央に持ってくる方式なので、こちらも中央基準で
+  // 数える必要がある。左端基準(scrollLeft/cs)で数えると両者がズレ、左端にいるとき
+  // ▶の移動先がマイナスになって0に切り詰められ、押しても動かなくなる。
   function currentCellIdx() {
     const cs = getCellSize();
-    return Math.round(outer.scrollLeft / cs);
+    return Math.round((outer.scrollLeft + outer.clientWidth / 2 - cs / 2) / cs);
   }
   function snapToCell(idx) {
     const cs = getCellSize();
     const total = S.chars.length;
     const clamped = Math.max(0, Math.min(total - 1, idx));
-    const target = clamped * cs - (outer.clientWidth / 2 - cs / 2);
-    outer.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    const maxScroll = Math.max(0, outer.scrollWidth - outer.clientWidth);
+    let target = clamped * cs - (outer.clientWidth / 2 - cs / 2);
+    target = Math.max(0, Math.min(maxScroll, target));
+    outer.scrollTo({ left: target, behavior: 'smooth' });
   }
 
   // 矢印ボタン：cloneで旧リスナーをリセットしてから登録
@@ -2127,26 +2137,34 @@ function attachControlEvents() {
   document.getElementById('clearBtnWide').addEventListener('click', function() {
     // 誤タップで全部消えてしまわないよう、1回目のタップは確認状態にするだけ。
     // 3秒以内にもう一度押したときだけ実際に消去する。
+    const restore = () => {
+      delete this.dataset.confirming;
+      this.innerHTML = this._origLabel;
+      this.style.background = '';
+      this.style.borderColor = '';
+      this.style.width = '';
+      this.style.fontSize = '';
+      this.style.whiteSpace = '';
+      this.style.padding = '';
+    };
     if (!this.dataset.confirming) {
       this.dataset.confirming = '1';
       this._origLabel = this.innerHTML;
-      this.innerHTML = '⚠️ もう一度おすと消えます';
+      // 文言を差し替えるとボタンが横に伸びて位置がずれてしまうため、
+      // 先に今の幅を固定してから中身を入れ替える(ボタンは「全部けす」の位置のまま)
+      this.style.width = this.offsetWidth + 'px';
+      this.style.padding = getComputedStyle(this).padding;
+      this.innerHTML = '⚠️ もう一度おす';
       this.style.background = '#FFCDD2';
       this.style.borderColor = '#F44336';
+      this.style.fontSize = '0.72rem';
+      this.style.whiteSpace = 'nowrap';
       clearTimeout(this._confirmTimer);
-      this._confirmTimer = setTimeout(() => {
-        delete this.dataset.confirming;
-        this.innerHTML = this._origLabel;
-        this.style.background = '';
-        this.style.borderColor = '';
-      }, 3000);
+      this._confirmTimer = setTimeout(restore, 3000);
       return;
     }
     clearTimeout(this._confirmTimer);
-    delete this.dataset.confirming;
-    this.innerHTML = this._origLabel;
-    this.style.background = '';
-    this.style.borderColor = '';
+    restore();
     document.querySelectorAll('.cell-draw').forEach(c => clearCanvas(c));
     hideStamp('stampWide');
     speakIfEnabled('全部けした');

@@ -58,51 +58,8 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo','BIZ UDPGothic',sans-serif
 }
 .hc .ib{background:rgba(0,0,0,.15)}
 .ib:hover,.ib:focus{background:rgba(255,255,255,.38);outline:3px solid white}
-.ib.active-lock{background:rgba(255,100,100,.5)!important;animation:lockPulse 1.5s infinite}
-@keyframes lockPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,100,100,.6)}50%{box-shadow:0 0 0 6px rgba(255,100,100,0)}}
 .ib.fs-active{background:rgba(100,255,180,.4)!important}
 
-/* ══════════════════════════════
-   LOCK OVERLAY  (ゲーム中・ホーム共通)
-══════════════════════════════ */
-.lock-overlay{
-  display:none;position:fixed;inset:0;z-index:9000;
-  background:rgba(0,0,0,.55);
-  align-items:center;justify-content:center;
-  flex-direction:column;gap:16px;
-  backdrop-filter:blur(6px);
-}
-.hc .lock-overlay{background:rgba(0,0,0,.85)}
-.lock-overlay.on{display:flex}
-.lock-box{
-  background:var(--surface);border-radius:24px;
-  padding:28px 32px;text-align:center;
-  border:3px solid var(--border);
-  box-shadow:0 8px 40px rgba(0,0,0,.4);
-  max-width:320px;width:90%;
-}
-.lock-icon{font-size:3.5rem;margin-bottom:8px}
-.lock-title{font-size:1.2rem;font-weight:800;color:var(--primary);margin-bottom:6px}
-.hc .lock-title{color:var(--accent2)}
-.lock-sub{font-size:.85rem;color:var(--text-sub);margin-bottom:18px;line-height:1.5}
-.lock-dots{display:flex;justify-content:center;gap:12px;margin-bottom:18px}
-.lock-dot{
-  width:18px;height:18px;border-radius:50%;
-  border:3px solid var(--border);background:var(--surface2);
-  transition:background var(--tr),border-color var(--tr);
-}
-.lock-dot.filled{background:var(--primary);border-color:var(--primary)}
-.hc .lock-dot.filled{background:var(--accent2);border-color:var(--accent2)}
-.lock-numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:220px;margin:0 auto}
-.lock-num{
-  background:var(--surface2);border:2px solid var(--border);
-  border-radius:14px;padding:14px 0;font-size:1.4rem;font-weight:800;
-  color:var(--text);cursor:pointer;transition:all var(--tr);
-}
-.lock-num:hover,.lock-num:focus{background:var(--primary);color:#fff;border-color:var(--primary)}
-.hc .lock-num:hover,.hc .lock-num:focus{background:var(--accent2);color:#000;border-color:var(--accent2)}
-.lock-num:active{transform:scale(.93)}
-.lock-err{color:var(--accent);font-size:.82rem;font-weight:700;min-height:1.2em;text-align:center;margin-top:4px}
 
 /* ══════════════════════════════
    HOME SCREEN  (スタート画面)
@@ -657,6 +614,75 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   <!-- /favicon -->
 </head>
 <body>
+<!-- lock-fs-btn: 自動挿入 (generate.js) -->
+<div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
+  <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
+</div>
+<div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
+<script>
+(function(){
+  var locked=false, toastTimer=null;
+  function toast(msg){
+    var el=document.getElementById('donomanaLockToast');
+    if(!el)return;
+    el.textContent=msg;
+    el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)';
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(-10px)';},2200);
+  }
+  function setLock(on){
+    locked=on;
+    var btn=document.getElementById('donomanaLockBtn');
+    if(btn){
+      btn.textContent=on?'🔒':'🔓';
+      btn.style.background=on?'rgba(255,80,80,0.92)':'rgba(255,255,255,0.92)';
+      btn.setAttribute('aria-label',on?'ロックちゅう（タップでかいじょ）':'がめんをロック');
+    }
+    if(on){
+      history.pushState({donomanaLocked:true},'');
+      history.pushState({donomanaLocked:true},'');
+      toast('🔒 がめんをロックしたよ');
+    } else {
+      toast('🔓 ロックをかいじょしたよ');
+    }
+  }
+  window.addEventListener('popstate',function(){
+    if(locked){history.pushState({donomanaLocked:true},'');toast('🔒 まえの がめんには もどれないよ');}
+  });
+  window.addEventListener('beforeunload',function(e){
+    if(locked){e.preventDefault();e.returnValue='';}
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var lockBtn=document.getElementById('donomanaLockBtn');
+    if(lockBtn)lockBtn.addEventListener('click',function(){setLock(!locked);});
+    var homeBtn=document.getElementById('donomanaHomeBtn');
+    if(homeBtn){
+      homeBtn.addEventListener('click',function(e){
+        if(locked){e.preventDefault();toast('🔒 まえの がめんには もどれないよ');}
+      });
+    }
+    var fsBtn=document.getElementById('donomanaFsBtn');
+    function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);}
+    function updateFsBtn(){if(fsBtn){fsBtn.textContent=inFS()?'⊡':'⛶';fsBtn.setAttribute('aria-label',inFS()?'全画面を解除':'全画面表示');}}
+    ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange'].forEach(function(ev){document.addEventListener(ev,updateFsBtn);});
+    if(fsBtn)fsBtn.addEventListener('click',function(){
+      if(!inFS()){
+        var el=document.documentElement;
+        var req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;
+        if(req)req.call(el);
+      } else {
+        var ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen;
+        if(ex)ex.call(document);
+      }
+    });
+  });
+})();
+</script>
+<!-- /lock-fs-btn -->
+
+
+
+
 
 
 
@@ -850,7 +876,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <button class="ib" id="btnRec"  aria-label="学習記録" title="学習記録">📊</button>
     <button class="ib" id="btnSet"  aria-label="設定" title="設定">⚙️</button>
     <button class="ib" id="btnFS"   aria-label="全画面" title="全画面">⛶</button>
-    <button class="ib" id="btnLock" aria-label="ロック" title="画面をロック">🔒</button>
   </div>
 </header>
 
@@ -1171,17 +1196,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
   </div>
 </div>
 
-<!-- ══════════════ LOCK OVERLAY ══════════════ -->
-<div class="lock-overlay" id="lockOverlay" aria-modal="true" role="dialog" aria-label="ロック解除">
-  <div class="lock-box">
-    <div class="lock-icon">🔒</div>
-    <div class="lock-title">ロック中</div>
-    <div class="lock-sub">ボタンを押すとロックを解除するよ</div>
-    <button class="btn btn-s" id="unlockBtn" style="margin-top:14px;font-size:1.1rem;padding:14px 28px">🔓 ロックをかいじょする</button>
-  </div>
-</div>
-
-
 <!-- ══════════════ HOME CONFIRM ══════════════ -->
 <div class="confirm-overlay" id="confirmHome">
   <div class="confirm-box">
@@ -1258,7 +1272,6 @@ let cfg={
   dwell:false, dwT:1.0, showCur:true, dwTol:30,
   snd:true, rm:false, holeSize:100,
 };
-let locked = false; // 現在ロック中か
 
 let timerID=null, spawnID=null, afID=null;
 let gx=0, gy=0;
@@ -1285,26 +1298,8 @@ function snd(t){
   }catch(e){}
 }
 
-// ════════════════════════════════════
-//  LOCK  🔒（PINなし・タップで解除）
-// ════════════════════════════════════
-function activateLock(){
-  locked=true;
-  document.getElementById('lockOverlay').classList.add('on');
-  document.getElementById('btnLock').classList.add('active-lock');
-  snd('lock');
-}
-function deactivateLock(){
-  locked=false;
-  document.getElementById('lockOverlay').classList.remove('on');
-  document.getElementById('btnLock').classList.remove('active-lock');
-  snd('unlock');
-}
-document.getElementById('unlockBtn').addEventListener('click',deactivateLock);
-document.getElementById('btnLock').addEventListener('click',()=>{
-  if(!locked) activateLock();
-});
-// ロック中はページ内の他のボタン操作を無効化（ロックオーバーレイ外のクリック防止は z-index で実現）
+// ロック機能は generate.js が全アプリ共通で注入する🔓ボタンに統一。
+// (誤操作で前のページに戻るのを防ぐだけで、ゲームは中断しない)
 
 // ════════════════════════════════════
 //  FULLSCREEN  ⛶

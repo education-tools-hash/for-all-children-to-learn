@@ -762,7 +762,7 @@ const FS_SKIP_APPS = new Set([
   'drawing-app','directions-app','suji-manabou','gaze-keyboard','mogura-tataki',
   'ongaku-app','scratch-app'
 ]);
-const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','mogura-tataki','tyushi','sst-app']);
+const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app']);
 
 // SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
 // 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ

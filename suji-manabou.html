@@ -346,7 +346,7 @@
     line-height: 1.1;
     letter-spacing: 1px;
     flex-wrap: wrap;
-    padding: 10px 12px;
+    padding: 14px 16px;
   }
   /* 数字カード: 数字の横に小さいイラストを添える */
   .match-item.has-illust { flex-direction: row; gap: 10px; }
@@ -548,6 +548,10 @@
   <!-- /favicon -->
 </head>
 <body>
+
+
+
+
 
 
 
@@ -1775,7 +1779,29 @@ function buildMatch() {
 
   matchArea.appendChild(leftCol);
   matchArea.appendChild(rightCol);
+
+  equalizeMatchHeights();
 }
+
+// 左右のカードの高さを揃える。
+// 数字カードと●カードは中身が違う(イラストのON/OFF、11〜20では●が2段に折り返す等)ため、
+// そのままだと左右で高さがズレて行が対応しなくなる。描画後に一番高いカードに合わせる。
+function equalizeMatchHeights() {
+  const items = document.querySelectorAll('#matchArea .match-item');
+  if (!items.length) return;
+  // 一旦autoに戻してから測り直す(前回の固定値を引きずらないように)
+  items.forEach(el => { el.style.height = 'auto'; });
+  requestAnimationFrame(() => {
+    let max = 0;
+    items.forEach(el => { max = Math.max(max, el.offsetHeight); });
+    if (max > 0) items.forEach(el => { el.style.height = max + 'px'; });
+  });
+}
+
+// 画面幅の変化・文字サイズ/ハイコントラストの切替でも測り直す
+window.addEventListener('resize', equalizeMatchHeights);
+new MutationObserver(equalizeMatchHeights)
+  .observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 function matchClick(el, key, type) {
   if (el.classList.contains('matched')) return;
