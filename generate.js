@@ -1484,6 +1484,10 @@ function updatePurposeCards(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-07-18", type: "update", text: "各アプリを更新しました。", details: [
+    "「とけい」に「とけいタイマー」機能を追加：時間・分・秒を設定すると、アナログ時計の時針・分針・秒針が実際の時計と同じ速さで動きながらカウントダウンします。知的障害のある児童生徒にも分かりやすいよう、針を色・太さ・長さではっきり区別しています。",
+    "「しりとりあそび」の単語データを一部見直し：しりとりがつながりにくかった単語を、より遊びやすい単語に入れ替えました。",
+  ] },
   { date: "2026-07-12", type: "update", text: "各アプリの不具合をまとめて修正しました。", details: [
     "「カタカナ まなぼう！」マッチングときろくのボタンの間に不自然な空白ができていた問題を修正",
     "「すうじ まなぼう！」マッチングで数字の横にイラストを表示できるようにしました（表示のON/OFFも選べます）",
@@ -1537,7 +1541,8 @@ function generateChangelog(apps) {
     .map(a => ({
       date: a.releaseDate,
       type: 'new',
-      text: `「${a.releaseDisplayName || a.title}」を公開しました`
+      text: `「${a.releaseDisplayName || a.title}」を公開しました`,
+      ...(a.releaseDetails ? { details: a.releaseDetails } : {})
     }));
 
   // 手動エントリーと結合し、日付の新しい順にソート
