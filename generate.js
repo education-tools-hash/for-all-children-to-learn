@@ -249,9 +249,14 @@ function generateDetailHTML(app) {
   //  ・apps-data.json に ogImage(相対パス or フルURL)が指定されていれば優先
   //  ・無ければサイト共通のデフォルト画像を使う(要: /ogp.png を用意)
   const DEFAULT_OG_IMAGE = `${SITE_BASE_URL}/ogp.png`;
+  // tools/make-mockups.py で生成した実画面モックアップ(存在すればOGPと詳細ページに自動採用)
+  const mockupPath = `assets/mockups/${app.id}.png`;
+  const hasMockup = fs.existsSync(`./${mockupPath}`);
   const ogImageUrl = app.ogImage
     ? (app.ogImage.startsWith('http') ? app.ogImage : `${SITE_BASE_URL}/${app.ogImage.replace(/^\/+/, '')}`)
-    : DEFAULT_OG_IMAGE;
+    : (hasMockup ? `${SITE_BASE_URL}/${mockupPath}` : DEFAULT_OG_IMAGE);
+  const mockupHTML = hasMockup ? `
+  <img class="hero-mockup" src="../${mockupPath}" alt="${app.title}の画面イメージ(パソコンとスマートフォンでの表示)" width="1200" height="630" loading="lazy">` : '';
 
   // 教材の学習分野(教育メタデータ用)。tags_display / category から簡易生成
   const learningResourceTypeMap = {
@@ -358,7 +363,7 @@ ${jsonLdHTML}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Noto Sans JP',sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.7;}
   .site-nav{background:var(--c-surface);border-bottom:1px solid var(--c-border);padding:12px 24px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--c-muted);flex-wrap:wrap;}
-  .site-nav a{color:var(--c-primary);text-decoration:none;font-weight:500;}
+  .site-nav a{color:var(--c-primary);text-decoration:none;font-weight:500;white-space:nowrap;}
   .site-nav a:hover{text-decoration:underline;}
   .site-nav .sep{color:var(--c-border);}
   .hero{background:linear-gradient(135deg,#FBFBF8,var(--c-primary-light),#FBFBF8);border-bottom:1px solid var(--c-border);padding:48px 24px 40px;text-align:center;}
@@ -370,6 +375,8 @@ ${jsonLdHTML}
   .tag.green{background:var(--c-accent-light);border-color:var(--c-accent);color:#00857B;}
   .launch-btn{display:inline-flex;align-items:center;gap:10px;background:var(--c-primary);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:20px;font-weight:700;padding:18px 40px;border-radius:999px;text-decoration:none;box-shadow:0 6px 24px ${pastelLight}88;transition:transform 0.15s,box-shadow 0.15s;}
   .launch-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px ${pastelLight}aa;}
+  .hero-mockup{display:block;width:min(780px,94%);height:auto;margin:32px auto 0;border-radius:20px;box-shadow:0 16px 48px ${pastelLight}bb;}
+  .app-icon-img{width:88px;height:88px;display:inline-block;margin-bottom:20px;filter:drop-shadow(0 8px 24px ${pastelLight});}
   .launch-note{margin-top:12px;font-size:12px;color:var(--c-muted);}
   .content{max-width:800px;margin:0 auto;padding:40px 20px 80px;display:flex;flex-direction:column;gap:28px;}
   .card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);}
@@ -422,7 +429,9 @@ ${jsonLdHTML}
   <span>${app.title}</span>
 </nav>
 <section class="hero">
-  <div class="app-icon">${app.icon}</div>
+  ${fs.existsSync(`./assets/icons/${app.id}.png`)
+    ? `<img class="app-icon-img" src="../assets/icons/${app.id}.png" alt="" width="88" height="88">`
+    : `<div class="app-icon">${app.icon}</div>`}
   <h1>${app.title}</h1>
   <p class="hero-sub">${app.category} / ${app.tags_display}</p>
   <div class="tag-row">
@@ -431,7 +440,7 @@ ${jsonLdHTML}
     <span class="tag">インストール不要</span>
   </div>
   <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
-  <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>
+  <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>${mockupHTML}
 </section>
 <main class="content">
   ${softwareHTML}
@@ -641,7 +650,8 @@ function generateAppsArray(apps) {
       app.isComing    ? 'isComing: true'    : '',
     ].filter(Boolean).join(', ');
     lines.push('  {');
-    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
+    const iconImgPath = fs.existsSync('./assets/icons/' + app.id + '.png') ? 'assets/icons/' + app.id + '.png' : '';
+    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', iconImg: ' + JSON.stringify(iconImgPath) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
     lines.push('    category: "' + app._cat + '", cardClass: "' + app._cardClass + '"' + (extras ? ', ' + extras : '') + ',');
     lines.push('    need:' + need + ', scene:' + scene + ', input:' + input + ',');
     lines.push('    feature:' + feature);
@@ -760,14 +770,15 @@ const FS_SKIP_APPS = new Set([
   'hiragana-learn','katakana-app','register-app','schedule-app',
   'timetable-app','matching-app','sugoroku-app','tyushi','cup_game','sst-app',
   'drawing-app','directions-app','suji-manabou','gaze-keyboard','mogura-tataki',
-  'ongaku-app','scratch-app'
+  'ongaku-app','scratch-app',
+  'nazorin-print' // 印刷専用ツールのため全画面表示は不要
 ]);
-const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app']);
+const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app','nazorin-print']);
 
 // SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
 // 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ
 // → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
-const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou']);
+const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print']); // nazorin-print: 印刷専用ツールのため読み上げ不要
 
 // 🔧 既存の独自設定ボタンを持つアプリ: セレクタを指定すると、
 // ・元のボタンは非表示にする
@@ -1128,7 +1139,9 @@ function generateIntroCard(app) {
     <!-- ${app.title} -->
     <div class="intro-card ${themeClass}" data-cat="${catKey}">
       <div class="intro-card-header">
-        <div class="intro-icon" style="font-size:40px;background:${app.iconColor};width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${app.icon}</div>
+        ${fs.existsSync(`./assets/icons/${app.id}.png`)
+          ? `<img class="intro-icon-img" src="assets/icons/${app.id}.png" alt="" width="64" height="64" loading="lazy" style="width:64px;height:64px;flex-shrink:0;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.12));">`
+          : `<div class="intro-icon" style="font-size:40px;background:${app.iconColor};width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${app.icon}</div>`}
         <div class="intro-header-text">
           <div class="intro-app-name">${app.title}</div>
           <span class="intro-tag">${app.tags_display}</span><br>

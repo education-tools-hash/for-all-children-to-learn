@@ -81,7 +81,6 @@
 
   /* SEC2 */
   .matching-area { display:flex; flex-direction:column; gap:16px; align-items:center; }
-  .matching-layout { display:grid; grid-template-columns:1fr 40px 1fr; gap:0; width:100%; align-items:start; }
   .matching-col { display:flex; flex-direction:column; gap:10px; }
   .match-col-title { text-align:center; font-size:1rem; font-weight:900; padding:8px 12px; border-radius:50px; color:white; margin-bottom:4px; }
   .match-col-title.analog  { background:linear-gradient(135deg,#FF6B6B,#ee5a24); }
@@ -240,6 +239,34 @@
   @keyframes fall { from{transform:translateY(-20px) rotate(0deg);opacity:1} to{transform:translateY(100vh) rotate(720deg);opacity:0} }
 
   canvas { display:block; }
+
+  /* サウンドON/OFF */
+  .sound-btn { border:3px solid #dfe6e9; border-radius:50%; width:42px; height:42px; font-size:1.1rem; cursor:pointer; background:white; transition:all 0.2s; display:flex; align-items:center; justify-content:center; padding:0; }
+  .sound-btn:hover { transform:translateY(-2px); }
+  .sound-btn.off { opacity:0.55; border-style:dashed; }
+
+  /* 時刻読み上げボタン(SEC1) */
+  .speak-time-btn { background:linear-gradient(135deg,#a29bfe,#74b9ff); color:white; border:none; border-radius:50px; padding:12px 28px; font-family:inherit; font-size:1.05rem; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(116,185,255,0.35); transition:all 0.2s; }
+  .speak-time-btn:hover { transform:translateY(-2px); }
+
+  /* やり直して正解したドット */
+  .progress-dot.retry { background:#f39c12; }
+
+  /* 先生パネルのみ印刷 */
+  @media print {
+    body * { visibility:hidden; }
+    #teacherPanel, #teacherPanel * { visibility:visible; }
+    #teacherPanel { display:block !important; position:absolute; top:0; left:0; width:100%; margin:0; border-radius:0; background:#fff !important; color:#000 !important; }
+    #teacherPanel h3, #teacherPanel h4 { color:#000 !important; }
+    #teacherPanel .stat-box, #teacherPanel .teacher-breakdown, #teacherPanel .teacher-detail { background:#f2f2f2 !important; color:#000 !important; }
+    #teacherPanel .teacher-insight { background:#fdf6dd !important; color:#000 !important; }
+    #teacherPanel .breakdown-bar { background:#ddd !important; }
+    #teacherPanel .teacher-detail th { background:#e0e0e0 !important; color:#000 !important; }
+    #teacherPanel .teacher-detail td { border-bottom:1px solid #ccc !important; }
+    #teacherPanel .result-o { color:#00875f !important; }
+    #teacherPanel .result-x { color:#c0392b !important; }
+    #teacherPanel .export-btns { display:none !important; }
+  }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -252,6 +279,13 @@
   <!-- /favicon -->
 </head>
 <body>
+
+
+
+
+
+
+
 
 
 
@@ -498,6 +532,7 @@
   <button class="diff-btn active" data-diff="easy"   onclick="setDifficulty('easy')">⭐ やさしい</button>
   <button class="diff-btn"        data-diff="normal" onclick="setDifficulty('normal')">⭐⭐ ふつう</button>
   <button class="diff-btn"        data-diff="hard"   onclick="setDifficulty('hard')">⭐⭐⭐ むずかしい</button>
+  <button class="sound-btn" id="soundToggle" onclick="toggleSound()" aria-label="効果音のオン・オフ" title="効果音のオン・オフ">🔊</button>
 </div>
 <div class="scan-indicator">🔲 スイッチスキャン ON ／ スペース・Enter で決定</div>
 
@@ -514,6 +549,7 @@
     <div class="touch-area">
       <canvas id="touchClock" width="320" height="320"></canvas>
       <div class="time-display-big" id="touchTimeText">12：00</div>
+      <button class="speak-time-btn" id="sec1SpeakBtn" aria-label="いまの じこくを こえで きく">🔊 じこくを きく</button>
       <div class="hand-info">
         <span class="hand-badge hour">🔴 みじかいはり → じ</span>
         <span class="hand-badge min">🔵 ながいはり → ふん</span>
@@ -683,6 +719,21 @@ function getDiffMins() { return DIFF_MINS[difficulty]; }
 // ============================================================
 // SOUND (Web Audio API)
 // ============================================================
+let soundOn = localStorage.getItem('tokei-sound') !== 'off';
+function toggleSound() {
+  soundOn = !soundOn;
+  localStorage.setItem('tokei-sound', soundOn ? 'on' : 'off');
+  updateSoundBtn();
+}
+function updateSoundBtn() {
+  const b = document.getElementById('soundToggle');
+  if (!b) return;
+  b.textContent = soundOn ? '🔊' : '🔇';
+  b.classList.toggle('off', !soundOn);
+  b.setAttribute('aria-label', soundOn ? '効果音をオフにする' : '効果音をオンにする');
+}
+updateSoundBtn();
+
 let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -690,6 +741,7 @@ function getAudioCtx() {
 }
 
 function playSound(type) {
+  if (!soundOn) return;
   try {
     const ctx = getAudioCtx();
     if (type === 'correct') {
@@ -770,6 +822,17 @@ function drawClock(ctx, size, hourDeg, minDeg, options = {}) {
   ctx.fillStyle='#2C3E50'; ctx.fill();
 }
 
+// Retina等の高解像度画面でも時計がぼやけないようにする共通ヘルパー
+function hiDPICtx(cvs, display, setStyle = true) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cvs.width = display * dpr;
+  cvs.height = display * dpr;
+  if (setStyle) { cvs.style.width = display + 'px'; cvs.style.height = display + 'px'; }
+  const c = cvs.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return c;
+}
+
 function timeToAngles(h, m) {
   return {
     minDeg:  m/60*360 - 90,
@@ -782,8 +845,9 @@ function timeToAngles(h, m) {
 // ============================================================
 (function() {
   const canvas = document.getElementById('touchClock');
-  const ctx = canvas.getContext('2d');
   const size = 320;
+  // CSS側で width:min(320px,80vw) と可変表示するため、style上書きはしない
+  const ctx = hiDPICtx(canvas, size, false);
   let totalMinutes = 0, dragging = false, lastRawAngle = null;
 
   function wrap720(n) { return ((n%720)+720)%720; }
@@ -824,6 +888,20 @@ function timeToAngles(h, m) {
   canvas.addEventListener('touchstart', onStart, {passive:false});
   canvas.addEventListener('touchmove',  onMove,  {passive:false});
   canvas.addEventListener('touchend',   onEnd);
+
+  // いまの じこくを 音声で読み上げ(TTSが正しく読めるよう漢字表記で渡す)
+  const speakBtn = document.getElementById('sec1SpeakBtn');
+  if (speakBtn) speakBtn.addEventListener('click', function() {
+    if (!window.speechSynthesis) { speakBtn.textContent = '🔇 よみあげできません'; return; }
+    const t = wrap720(totalMinutes);
+    const h = Math.floor(t/60)%12||12, m = t%60;
+    const text = m === 0 ? h + '時ちょうど' : h + '時' + m + '分';
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+  });
+
   render(); updateText();
 })();
 
@@ -874,19 +952,10 @@ function makeCard(card) {
   if (card.type === 'analog') {
     const cvs = document.createElement('canvas');
     cvs.className = 'match-clock';
-    cvs.width = 160; cvs.height = 160;
     div.appendChild(cvs);
     const {hourDeg,minDeg} = timeToAngles(card.h,card.m);
     setTimeout(()=>{
-      const dpr = window.devicePixelRatio || 2;
-      const display = 96;
-      cvs.width  = display * dpr;
-      cvs.height = display * dpr;
-      cvs.style.width  = display + 'px';
-      cvs.style.height = display + 'px';
-      const ctx2 = cvs.getContext('2d');
-      ctx2.scale(dpr, dpr);
-      drawClock(ctx2, display, hourDeg, minDeg);
+      drawClock(hiDPICtx(cvs, 96), 96, hourDeg, minDeg);
     }, 50);
   } else {
     const mm = String(card.m).padStart(2,'0');
@@ -949,6 +1018,13 @@ function drawConnectors() {
     svg.appendChild(line);
   });
 }
+
+// 画面サイズが変わるとカード位置がずれるため、線を引き直す
+let connectorResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(connectorResizeTimer);
+  connectorResizeTimer = setTimeout(drawConnectors, 150);
+});
 
 function onMatchClick(card) {
   if (matchState.matched.has(card.id)) return;
@@ -1071,7 +1147,8 @@ function loadQuizQuestion() {
   document.getElementById('quizQuestion').style.display='block';
 
   const canvas=document.getElementById('quizClock');
-  const ctx=canvas.getContext('2d');
+  // CSS側の width:min(260px,70vw) を活かすため style は上書きしない
+  const ctx=hiDPICtx(canvas,260,false);
   const {hourDeg,minDeg}=timeToAngles(q.h,q.m);
   const mins = getDiffMins();
 
@@ -1079,33 +1156,58 @@ function loadQuizQuestion() {
     document.getElementById('quizQuestion').textContent='⏰ とけいのよみかたは？';
     drawClock(ctx,260,hourDeg,minDeg,{borderColor:'#FFD700',borderWidth:7});
     const correct=fmtTime(q.h,q.m);
-    const choices=[correct];
-    while (choices.length<4) {
-      const dh=Math.floor(Math.random()*12)+1;
-      const dm=mins[Math.floor(Math.random()*mins.length)];
-      const f=fmtTime(dh,dm);
-      if (!choices.includes(f)) choices.push(f);
-    }
-    shuffle(choices); renderChoiceButtons(choices,correct,'text');
+    const choices=buildChoiceTimes(q,mins).map(t=>fmtTime(t.h,t.m));
+    renderChoiceButtons(choices,correct,'text');
   } else {
-    const mm=String(q.m).padStart(2,'0');
-    const label=q.m===0?`${q.h}じちょうど`:`${q.h}じ${mm}ふん`;
+    const label=q.m===0?`${q.h}じちょうど`:`${q.h}じ${q.m}ふん`;
     document.getElementById('quizQuestion').textContent=`🕐 「${label}」の とけいを えらびましょう！`;
     document.getElementById('quizClock').style.display='none';
     const correctKey=`${q.h}:${q.m}`;
-    const choices=[{h:q.h,m:q.m}];
-    while (choices.length<4) {
-      const dh=Math.floor(Math.random()*12)+1;
-      const dm=mins[Math.floor(Math.random()*mins.length)];
-      if (!choices.find(c=>c.h===dh&&c.m===dm)) choices.push({h:dh,m:dm});
-    }
-    shuffle(choices); renderChoiceButtons(choices,correctKey,'clock');
+    const choices=buildChoiceTimes(q,mins);
+    renderChoiceButtons(choices,correctKey,'clock');
   }
   renderQuizProgress();
 }
 
+// 誤答選択肢を「実際に子どもが間違えやすいパターン」から優先的に作る:
+//  ・短針の読み間違い(±1時間)
+//  ・長針と短針の混同(例: 2:30 を 6:10 と読む)
+//  ・同じ「時」で「分」だけ違う時刻
+function genTimeDistractors(q, mins) {
+  const cands = [];
+  cands.push({ h: q.h % 12 + 1, m: q.m });          // +1時間
+  cands.push({ h: ((q.h + 10) % 12) + 1, m: q.m }); // -1時間
+  if (q.m !== 0 && q.m % 5 === 0) {                  // 長針・短針の混同
+    cands.push({ h: q.m / 5, m: (q.h % 12) * 5 });
+  }
+  if (mins.length > 1) {                             // 同じ時の別の分
+    const others = mins.filter(m => m !== q.m);
+    if (others.length) cands.push({ h: q.h, m: others[Math.floor(Math.random() * others.length)] });
+  }
+  shuffle(cands);
+  return cands;
+}
+
+// 正解1つ+ひっかけ優先の誤答3つ(足りなければランダムで補完)
+function buildChoiceTimes(q, mins) {
+  const seen = new Set([`${q.h}:${q.m}`]);
+  const out = [{ h: q.h, m: q.m }];
+  genTimeDistractors(q, mins).forEach(c => {
+    const k = `${c.h}:${c.m}`;
+    if (out.length < 4 && !seen.has(k)) { seen.add(k); out.push(c); }
+  });
+  while (out.length < 4) {
+    const dh = Math.floor(Math.random() * 12) + 1;
+    const dm = mins[Math.floor(Math.random() * mins.length)];
+    const k = `${dh}:${dm}`;
+    if (!seen.has(k)) { seen.add(k); out.push({ h: dh, m: dm }); }
+  }
+  shuffle(out);
+  return out;
+}
+
 function fmtTime(h,m) {
-  return m===0 ? `${h}じちょうど` : `${h}じ${String(m).padStart(2,'0')}ふん`;
+  return m===0 ? `${h}じちょうど` : `${h}じ${m}ふん`;
 }
 
 function renderChoiceButtons(choices, correctAnswer, mode) {
@@ -1116,14 +1218,14 @@ function renderChoiceButtons(choices, correctAnswer, mode) {
     choices.forEach(c=>{
       const btn=document.createElement('button');
       btn.className='choice-btn'; btn.style.padding='10px';
-      const cvs=document.createElement('canvas'); cvs.width=110; cvs.height=110;
+      const cvs=document.createElement('canvas');
       btn.appendChild(cvs);
       const key=`${c.h}:${c.m}`;
       btn.onclick=()=>{ if(!quizState.answered) handleQuizAnswer(btn,key===correctAnswer,area); };
       btn.addEventListener('keydown',e=>{ if((e.key===' '||e.key==='Enter')&&!quizState.answered){e.preventDefault();handleQuizAnswer(btn,key===correctAnswer,area);} });
       area.appendChild(btn);
       const {hourDeg,minDeg}=timeToAngles(c.h,c.m);
-      setTimeout(()=>drawClock(cvs.getContext('2d'),110,hourDeg,minDeg),0);
+      setTimeout(()=>drawClock(hiDPICtx(cvs,110),110,hourDeg,minDeg),0);
     });
   } else {
     choices.forEach(c=>{
@@ -1189,17 +1291,19 @@ function renderQuizProgress() {
   const area=document.getElementById('quizProgress'); area.innerHTML='';
   for (let i=0;i<QUIZ_COUNT;i++) {
     const dot=document.createElement('div');
-    const r=quizState.results[i];
+    const r=quizState.results[i], att=quizState.attempts[i];
     if (i===quizState.current&&r===null) dot.className='progress-dot current';
-    else if (r===true)  dot.className='progress-dot done';
-    else if (r===false) dot.className='progress-dot wrong';
+    else if (r===true && att===1) dot.className='progress-dot done';
+    else if (r===true)            dot.className='progress-dot retry';
     else dot.className='progress-dot';
     area.appendChild(dot);
   }
 }
 
 function showQuizFinal() {
-  const correct=quizState.results.filter(Boolean).length;
+  // 1回で正解できた問題数をスコアとする(やり直しでの正解は含めない)
+  const correct=quizState.results.filter((r,i)=>r===true&&quizState.attempts[i]===1).length;
+  const retried=quizState.attempts.filter(a=>a>1).length;
   document.getElementById('quizChoices').style.display='none';
   document.getElementById('quizClock').style.display='none';
   document.getElementById('quizFeedback').textContent='';
@@ -1210,7 +1314,8 @@ function showQuizFinal() {
   if (correct===QUIZ_COUNT) msg='🎉 かんぺき！すごすぎる！！';
   else if (correct>=6)      msg='😊 よくできました！';
   else if (correct>=4)      msg='😃 がんばったね！';
-  else                      msg='💪 またちょうせんしよう！';
+  else                      msg='💪 さいごまで よくがんばりました！';
+  if (retried>0 && correct<QUIZ_COUNT) msg+=' ぜんぶのもんだいを といたね！';
   document.getElementById('finalMsg').textContent=msg;
   document.getElementById('quizFinal').style.display='block';
   if (correct>=6) { playSound('clear'); launchConfetti(60); }
@@ -1220,6 +1325,7 @@ function showQuizFinal() {
 }
 
 function buildTeacherPanel(correct) {
+  const retriedCount = quizState.attempts.filter(a => a > 1).length;
   const modeNames = { read:'よむもんだい', set:'みつけるもんだい', both:'まぜまぜ' };
   const diffNames  = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
   const now = new Date();
@@ -1234,7 +1340,7 @@ function buildTeacherPanel(correct) {
   // Stats boxes
   document.getElementById('teacherStats').innerHTML = `
     <div class="stat-box"><div class="stat-num" style="color:#FFD700">${correct}</div><div class="stat-lbl">せいかい</div></div>
-    <div class="stat-box"><div class="stat-num" style="color:#ff7675">${QUIZ_COUNT-correct}</div><div class="stat-lbl">まちがい</div></div>
+    <div class="stat-box"><div class="stat-num" style="color:#ff7675">${retriedCount}</div><div class="stat-lbl">やりなおし</div></div>
     <div class="stat-box"><div class="stat-num" style="color:#74b9ff">${Math.round(correct/QUIZ_COUNT*100)}%</div><div class="stat-lbl">せいかいりつ</div></div>
     <div class="stat-box"><div class="stat-num" style="color:#55efc4">${avgTime}<span style="font-size:0.9rem">秒</span></div><div class="stat-lbl">へいきんじかん</div></div>
     <div class="stat-box"><div class="stat-num" style="font-size:1rem">${diffNames[difficulty]}</div><div class="stat-lbl">むずかしさ</div></div>
@@ -1313,7 +1419,9 @@ function buildTeacherPanel(correct) {
     const res = quizState.results[i];
     const att = quizState.attempts[i]||0;
     const sec = quizState.times[i] > 0 ? `${quizState.times[i]}秒` : '—';
-    const mark = res===true ? '<span class="result-o">⭕</span>' : '<span class="result-x">❌</span>';
+    const mark = (res===true&&att===1) ? '<span class="result-o">⭕</span>'
+               : res===true            ? '<span class="result-x" style="color:#f39c12">🔺</span>'
+               :                         '<span class="result-x">❌</span>';
     return `<tr><td>${i+1}</td><td>${timeStr}</td><td style="font-size:0.8rem">${modeNames[quizState.types[i]]}</td><td>${mark}</td><td>${att}</td><td>${sec}</td></tr>`;
   }).join('');
 
@@ -1323,6 +1431,7 @@ function buildTeacherPanel(correct) {
       <thead><tr><th>No.</th><th>じこく</th><th>しゅるい</th><th>けっか</th><th>こころみ</th><th>じかん</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    <div style="font-size:0.75rem;opacity:0.7;margin-top:8px">⭕=1回で正解　🔺=やり直して正解</div>
   `;
 
   // 子ども向けリザルト:とくい/もうすこしの時計を描画
@@ -1351,7 +1460,6 @@ function buildKidsResult(categories) {
       const item = document.createElement('div');
       item.className = 'kids-clock-item';
       const cvs = document.createElement('canvas');
-      cvs.width = 64; cvs.height = 64;
       item.appendChild(cvs);
       const lbl = document.createElement('div');
       lbl.className = 'lbl';
@@ -1360,7 +1468,7 @@ function buildKidsResult(categories) {
       item.appendChild(lbl);
       container.appendChild(item);
       const {hourDeg, minDeg} = timeToAngles(q.h, q.m);
-      setTimeout(() => drawClock(cvs.getContext('2d'), 64, hourDeg, minDeg), 0);
+      setTimeout(() => drawClock(hiDPICtx(cvs, 64), 64, hourDeg, minDeg), 0);
     });
   };
   renderMini(goodEl, goodPick);
@@ -1404,7 +1512,7 @@ function exportResultCSV() {
   const diffNames  = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
   const now = new Date();
   const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const correct = quizState.results.filter(Boolean).length;
+  const correct = quizState.results.filter((r,i) => r===true && quizState.attempts[i]===1).length;
 
   // BOM付きでExcel対応
   let csv = '\uFEFF';
@@ -1412,13 +1520,15 @@ function exportResultCSV() {
   csv += `日時,${dateStr}\n`;
   csv += `モード,${modeNames[quizMode]}\n`;
   csv += `難易度,${diffNames[difficulty]}\n`;
-  csv += `正解数,${correct}/${QUIZ_COUNT}\n`;
-  csv += `正答率,${Math.round(correct/QUIZ_COUNT*100)}%\n`;
+  csv += `正解数(1回目),${correct}/${QUIZ_COUNT}\n`;
+  csv += `正答率(1回目),${Math.round(correct/QUIZ_COUNT*100)}%\n`;
   csv += `\n`;
-  csv += `No.,出題時刻,種類,結果,試行回数,回答秒数\n`;
+  csv += `No.,出題時刻,種類,結果(◯=1回目/△=やり直し),試行回数,回答秒数\n`;
   quizState.questions.forEach((q,i) => {
     const mm = String(q.m).padStart(2,'0');
-    const res = quizState.results[i] === true ? '◯' : '×';
+    const res = (quizState.results[i]===true && quizState.attempts[i]===1) ? '◯'
+              : quizState.results[i]===true ? '△'
+              : '×';
     const sec = quizState.times[i] > 0 ? quizState.times[i] : '';
     csv += `${i+1},${q.h}:${mm},${modeNames[quizState.types[i]]},${res},${quizState.attempts[i]},${sec}\n`;
   });
