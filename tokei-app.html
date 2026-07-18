@@ -267,6 +267,68 @@
     #teacherPanel .result-x { color:#c0392b !important; }
     #teacherPanel .export-btns { display:none !important; }
   }
+
+  /* ============ SEC4: とけいタイマー ============ */
+  .timer-area { display:flex; flex-direction:column; align-items:center; gap:18px; padding-bottom:20px; }
+
+  .timer-setup {
+    background:#fff; border-radius:24px; padding:22px 26px; box-shadow:0 6px 24px rgba(0,0,0,0.08);
+    display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; max-width:440px;
+  }
+  .timer-setup-label { font-size:1.15rem; font-weight:900; color:#2C3E50; }
+  .timer-input-row { display:flex; gap:18px; justify-content:center; flex-wrap:wrap; }
+  .timer-input-col { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .timer-input-unit { font-size:0.95rem; font-weight:800; color:#636e72; }
+  .timer-stepper-btn {
+    width:52px; height:52px; border-radius:14px; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#dfe6e9,#b2bec3); color:#2C3E50; font-size:1.6rem; font-weight:900;
+    box-shadow:0 3px 0 #95a5a6; transition:transform .08s;
+  }
+  .timer-stepper-btn:active { transform:translateY(2px); box-shadow:0 1px 0 #95a5a6; }
+  .timer-input-value {
+    width:80px; text-align:center; font-size:2.2rem; font-weight:900; color:#e17055;
+    background:#fff5f0; border:3px solid #ffd9c7; border-radius:14px; padding:6px 0;
+  }
+  .timer-check-row { display:flex; align-items:center; gap:8px; font-size:1rem; font-weight:700; color:#2C3E50; cursor:pointer; }
+  .timer-check-row input[type="checkbox"] { width:22px; height:22px; cursor:pointer; accent-color:#4ECDC4; }
+
+  .timer-clock-wrap { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .timer-clock-canvas { width:min(320px,80vw); height:min(320px,80vw); display:block; }
+  .timer-legend { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; font-size:0.85rem; font-weight:700; color:#2C3E50; }
+  .timer-legend-item { display:flex; align-items:center; gap:5px; }
+  .timer-legend-dot { width:14px; height:14px; border-radius:50%; display:inline-block; }
+
+  .timer-remain {
+    font-size:1.6rem; font-weight:900; color:#2C3E50; background:#fff; border:3px solid #ffd9c7;
+    border-radius:20px; padding:14px 30px; text-align:center; min-width:260px;
+  }
+  .timer-remain.urgent { color:#fff; background:#e74c3c; border-color:#c0392b; animation: pulseUrgent 1s infinite; }
+  @keyframes pulseUrgent { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+
+  .timer-btn-row { display:flex; gap:14px; }
+  .timer-main-btn {
+    border:none; border-radius:50px; padding:16px 32px; font-family:inherit; font-size:1.15rem; font-weight:900;
+    color:#fff; cursor:pointer; box-shadow:0 5px 0 rgba(0,0,0,0.15); transition:transform .08s;
+  }
+  .timer-main-btn:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,0.15); }
+  .timer-main-btn:disabled { opacity:0.45; cursor:not-allowed; box-shadow:none; }
+  .timer-btn-start { background:linear-gradient(135deg,#4ECDC4,#00b894); }
+  .timer-btn-stop  { background:linear-gradient(135deg,#74b9ff,#4A8FD9); }
+  .timer-btn-reset { background:linear-gradient(135deg,#e17055,#d35400); }
+
+  .timer-finished {
+    display:none; font-size:1.5rem; font-weight:900; color:#e17055; text-align:center;
+    background:#fff5f0; border:3px dashed #ffab91; border-radius:20px; padding:16px 24px;
+  }
+  .timer-finished.show { display:block; animation: popIn 0.4s ease; }
+  @keyframes popIn { 0%{transform:scale(0.7);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+
+  @media (max-width:480px) {
+    .timer-input-value { width:64px; font-size:1.8rem; }
+    .timer-stepper-btn { width:44px; height:44px; font-size:1.3rem; }
+    .timer-remain { font-size:1.3rem; padding:12px 20px; min-width:0; }
+    .timer-main-btn { padding:14px 22px; font-size:1rem; }
+  }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -542,6 +604,7 @@
   <button class="tab-btn active" onclick="showSection(1)">🕐 はりをうごかそう</button>
   <button class="tab-btn" onclick="showSection(2)">🔗 むすびつけよう</button>
   <button class="tab-btn" onclick="showSection(3)">❓ もんだいにちょうせん</button>
+  <button class="tab-btn" onclick="showSection(4)">⏰ とけいタイマー</button>
 </nav>
 
 <!-- SEC1 -->
@@ -679,6 +742,66 @@
         <br>
         <button class="new-game-btn" style="background:linear-gradient(135deg,#FFD700,#e67e22)" onclick="initQuiz()">🔁 もういちど！</button>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- SEC4 -->
+<section id="sec4" class="section">
+  <div class="section-title">⏰ とけいタイマー</div>
+  <div class="timer-area">
+
+    <div class="timer-setup" id="timerSetup">
+      <div class="timer-setup-label">🕐 なんぷんはかる？</div>
+      <div class="timer-input-row">
+        <div class="timer-input-col">
+          <div class="timer-input-unit">じかん</div>
+          <button class="timer-stepper-btn" onclick="timerStep('h',1)" aria-label="じかんをふやす">＋</button>
+          <div class="timer-input-value" id="timerValH">0</div>
+          <button class="timer-stepper-btn" onclick="timerStep('h',-1)" aria-label="じかんをへらす">－</button>
+        </div>
+        <div class="timer-input-col">
+          <div class="timer-input-unit">ふん</div>
+          <button class="timer-stepper-btn" onclick="timerStep('m',1)" aria-label="ふんをふやす">＋</button>
+          <div class="timer-input-value" id="timerValM">2</div>
+          <button class="timer-stepper-btn" onclick="timerStep('m',-1)" aria-label="ふんをへらす">－</button>
+        </div>
+        <div class="timer-input-col">
+          <div class="timer-input-unit">びょう</div>
+          <button class="timer-stepper-btn" onclick="timerStep('s',1)" aria-label="びょうをふやす">＋</button>
+          <div class="timer-input-value" id="timerValS">0</div>
+          <button class="timer-stepper-btn" onclick="timerStep('s',-1)" aria-label="びょうをへらす">－</button>
+        </div>
+      </div>
+      <label class="timer-check-row">
+        <input type="checkbox" id="timerFastCheck">
+        <span>⚡ はやくためす（かくにんよう）</span>
+      </label>
+      <label class="timer-check-row">
+        <input type="checkbox" id="timerSoundCheck" checked>
+        <span>🔔 おとを だす</span>
+      </label>
+    </div>
+
+    <div class="timer-clock-wrap">
+      <canvas id="timerClock" class="timer-clock-canvas"></canvas>
+      <div class="timer-legend">
+        <span class="timer-legend-item"><span class="timer-legend-dot" style="background:#2C3E50"></span>じかん（みじかいはり）</span>
+        <span class="timer-legend-item"><span class="timer-legend-dot" style="background:#FF6B6B"></span>ふん（ながいはり）</span>
+        <span class="timer-legend-item"><span class="timer-legend-dot" style="background:#00b894"></span>びょう（ほそいはり）</span>
+      </div>
+    </div>
+
+    <div class="timer-remain" id="timerRemainDisplay">のこり 2ふん 00びょう</div>
+
+    <div class="timer-btn-row">
+      <button class="timer-main-btn timer-btn-start" id="timerStartBtn" onclick="timerStart()">▶ はじめる</button>
+      <button class="timer-main-btn timer-btn-stop" id="timerStopBtn" onclick="timerPause()" disabled>⏸ とめる</button>
+    </div>
+    <button class="timer-main-btn timer-btn-reset" onclick="timerReset()">↺ もどす</button>
+
+    <div class="timer-finished" id="timerFinishedMsg">
+      🎉 じかんに なりました！ 🎉
     </div>
   </div>
 </section>
@@ -840,6 +963,72 @@ function timeToAngles(h, m) {
     minDeg:  m/60*360 - 90,
     hourDeg: ((h%12) + m/60)/12*360 - 90
   };
+}
+
+// ============================================================
+// とけいタイマー専用：時針・分針・秒針を描き分ける時計
+//  はっきり区別できるよう、色・太さ・長さを大きく変える
+//  （知的障害を有する発達年齢3〜4歳の児童生徒を想定）
+// ============================================================
+function drawTimerClock(ctx, size, hourDeg, minDeg, secDeg) {
+  if (!size || size <= 0) return;
+  const cx = size/2, cy = size/2, r = size/2 - 4;
+  ctx.clearRect(0, 0, size, size);
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='#fff'; ctx.fill();
+  ctx.strokeStyle = '#dfe6e9'; ctx.lineWidth = 5; ctx.stroke();
+
+  for (let i=0; i<60; i++) {
+    const angle = (i/60)*Math.PI*2 - Math.PI/2;
+    const isHour = i%5===0;
+    const len = isHour ? r*0.14 : r*0.07;
+    const outer = r-3, inner = outer-len;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(angle)*outer, cy+Math.sin(angle)*outer);
+    ctx.lineTo(cx+Math.cos(angle)*inner, cy+Math.sin(angle)*inner);
+    ctx.strokeStyle = isHour?'#2C3E50':'#b2bec3';
+    ctx.lineWidth = isHour?3:1.5; ctx.stroke();
+  }
+  ctx.fillStyle='#2C3E50'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const fs = Math.max(10, r*0.17);
+  ctx.font = `bold ${fs}px 'Kosugi Maru',sans-serif`;
+  for (let n=1; n<=12; n++) {
+    const angle = (n/12)*Math.PI*2 - Math.PI/2;
+    ctx.fillText(n, cx+Math.cos(angle)*r*0.72, cy+Math.sin(angle)*r*0.72);
+  }
+
+  // 秒針：いちばん細く、いちばん長い（みどり）
+  const sRad = secDeg*Math.PI/180;
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(sRad)*r*0.80, cy+Math.sin(sRad)*r*0.80);
+  ctx.strokeStyle='#00b894'; ctx.lineWidth=Math.max(2,r*0.022); ctx.lineCap='round'; ctx.stroke();
+
+  // 分針（長針）：中くらいの太さ・長さ（あか）
+  const mRad = minDeg*Math.PI/180;
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(mRad)*r*0.68, cy+Math.sin(mRad)*r*0.68);
+  ctx.strokeStyle='#FF6B6B'; ctx.lineWidth=Math.max(6,r*0.075); ctx.lineCap='round'; ctx.stroke();
+
+  // 時針（短針）：いちばん太く、いちばん短い（くろ）
+  const hRad = hourDeg*Math.PI/180;
+  ctx.beginPath(); ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(hRad)*r*0.44, cy+Math.sin(hRad)*r*0.44);
+  ctx.strokeStyle='#2C3E50'; ctx.lineWidth=Math.max(8,r*0.10); ctx.lineCap='round'; ctx.stroke();
+
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.055,0,Math.PI*2);
+  ctx.fillStyle='#e17055'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r*0.055,0,Math.PI*2);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+}
+
+// 経過秒数(0〜) から 時針・分針・秒針の角度を計算
+//  12:00:00 を起点に、ふつうの時計とおなじ速さで針がすすむ
+//  例）2ふん(120びょう) → 秒針は2しゅう、分針は2めもり(12ど)すすむ
+function elapsedToAngles(elapsedSec) {
+  const secDeg  = (elapsedSec % 60) / 60 * 360 - 90;
+  const minDeg  = ((elapsedSec / 60) % 60) / 60 * 360 - 90;
+  const hourDeg = ((elapsedSec / 3600) % 12) / 12 * 360 - 90;
+  return { hourDeg, minDeg, secDeg };
 }
 
 // ============================================================
@@ -1609,6 +1798,184 @@ function showSection(n) {
   document.querySelectorAll('.section').forEach((s,i)=>s.classList.toggle('active',i+1===n));
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',i+1===n));
 }
+
+// ============================================================
+// SEC4: とけいタイマー
+// ============================================================
+(function() {
+  const canvas = document.getElementById('timerClock');
+  if (!canvas) return;
+  const SIZE = 320;
+  let ctx = null;
+
+  const valH = document.getElementById('timerValH');
+  const valM = document.getElementById('timerValM');
+  const valS = document.getElementById('timerValS');
+  const setupBox   = document.getElementById('timerSetup');
+  const remainBox  = document.getElementById('timerRemainDisplay');
+  const startBtn   = document.getElementById('timerStartBtn');
+  const stopBtn    = document.getElementById('timerStopBtn');
+  const finishedMsg = document.getElementById('timerFinishedMsg');
+  const fastCheck  = document.getElementById('timerFastCheck');
+  const soundCheck = document.getElementById('timerSoundCheck');
+
+  let totalSec = 2*60;      // 設定された合計秒数
+  let elapsedSec = 0;       // 経過秒数
+  let running = false;
+  let rafId = null;
+  let lastTick = 0;
+
+  function getInputs() {
+    return {
+      h: parseInt(valH.textContent, 10) || 0,
+      m: parseInt(valM.textContent, 10) || 0,
+      s: parseInt(valS.textContent, 10) || 0,
+    };
+  }
+
+  window.timerStep = function(unit, dir) {
+    if (running) return;
+    const max = { h: 9, m: 59, s: 59 };
+    const el  = { h: valH, m: valM, s: valS };
+    let v = parseInt(el[unit].textContent, 10) || 0;
+    v = Math.max(0, Math.min(max[unit], v + dir));
+    el[unit].textContent = unit === 's' ? String(v).padStart(2,'0') : v;
+    const { h, m, s } = getInputs();
+    totalSec = h*3600 + m*60 + s;
+    if (totalSec < 1) { totalSec = 1; } // 0秒は不可
+    renderClockAt(0);
+    updateRemainDisplay(totalSec);
+  };
+
+  function fmtRemain(sec) {
+    sec = Math.max(0, Math.ceil(sec));
+    const h = Math.floor(sec/3600);
+    const m = Math.floor((sec%3600)/60);
+    const s = sec % 60;
+    let str = 'のこり ';
+    if (h > 0) str += `${h}じかん `;
+    str += `${m}ふん ${String(s).padStart(2,'0')}びょう`;
+    return str;
+  }
+
+  function updateRemainDisplay(remainSec) {
+    remainBox.textContent = fmtRemain(remainSec);
+    remainBox.classList.toggle('urgent', remainSec <= 10 && remainSec > 0 && running);
+  }
+
+  function renderClockAt(elapsed) {
+    if (!ctx) ctx = hiDPICtx(canvas, SIZE, false);
+    const { hourDeg, minDeg, secDeg } = elapsedToAngles(elapsed);
+    drawTimerClock(ctx, SIZE, hourDeg, minDeg, secDeg);
+  }
+
+  function playTimerTick() {
+    if (!soundCheck.checked) return;
+    try {
+      const ac = getAudioCtx();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.18, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.08);
+      o.start(); o.stop(ac.currentTime + 0.08);
+    } catch(e) {}
+  }
+
+  function playTimerFinish() {
+    if (!soundCheck.checked) return;
+    try {
+      const ac = getAudioCtx();
+      [[523.25,0],[659.25,0.15],[783.99,0.3],[1046.5,0.5]].forEach(([freq, delay]) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.connect(g); g.connect(ac.destination);
+        o.frequency.value = freq; o.type = 'sine';
+        g.gain.setValueAtTime(0.32, ac.currentTime + delay);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + delay + 0.5);
+        o.start(ac.currentTime + delay); o.stop(ac.currentTime + delay + 0.5);
+      });
+    } catch(e) {}
+  }
+
+  function tick(now) {
+    if (!running) return;
+    if (!lastTick) lastTick = now;
+    const dtSec = (now - lastTick) / 1000;
+    lastTick = now;
+    const speed = fastCheck.checked ? 20 : 1; // はやくためす：20倍速
+    elapsedSec += dtSec * speed;
+
+    if (elapsedSec >= totalSec) {
+      elapsedSec = totalSec;
+      renderClockAt(elapsedSec);
+      updateRemainDisplay(0);
+      finishTimer();
+      return;
+    }
+    // 秒が切り替わるタイミングでカチカチ音（はやくためす中は音を省略して聞き取りやすく）
+    const prevWhole = Math.floor(elapsedSec - dtSec*speed);
+    const curWhole  = Math.floor(elapsedSec);
+    if (curWhole !== prevWhole && !fastCheck.checked) playTimerTick();
+
+    renderClockAt(elapsedSec);
+    updateRemainDisplay(totalSec - elapsedSec);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function finishTimer() {
+    running = false;
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ はじめる';
+    stopBtn.disabled = true;
+    finishedMsg.classList.add('show');
+    playTimerFinish();
+    if (typeof spawnConfetti === 'function') { try { spawnConfetti(); } catch(e) {} }
+  }
+
+  window.timerStart = function() {
+    const { h, m, s } = getInputs();
+    if (elapsedSec === 0) {
+      totalSec = h*3600 + m*60 + s;
+      if (totalSec < 1) totalSec = 1;
+    }
+    running = true;
+    lastTick = 0;
+    setupBox.querySelectorAll('.timer-stepper-btn').forEach(b => b.disabled = true);
+    startBtn.disabled = true;
+    startBtn.textContent = '▶ はじめる';
+    stopBtn.disabled = false;
+    finishedMsg.classList.remove('show');
+    rafId = requestAnimationFrame(tick);
+  };
+
+  window.timerPause = function() {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ つづける';
+    stopBtn.disabled = true;
+  };
+
+  window.timerReset = function() {
+    running = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    elapsedSec = 0;
+    lastTick = 0;
+    const { h, m, s } = getInputs();
+    totalSec = h*3600 + m*60 + s || 1;
+    setupBox.querySelectorAll('.timer-stepper-btn').forEach(b => b.disabled = false);
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ はじめる';
+    stopBtn.disabled = true;
+    finishedMsg.classList.remove('show');
+    renderClockAt(0);
+    updateRemainDisplay(totalSec);
+  };
+
+  // 初期表示
+  renderClockAt(0);
+  updateRemainDisplay(totalSec);
+})();
 
 // ============================================================
 // INIT
