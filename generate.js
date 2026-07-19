@@ -651,7 +651,8 @@ function generateAppsArray(apps) {
     ].filter(Boolean).join(', ');
     lines.push('  {');
     const iconImgPath = fs.existsSync('./assets/icons/' + app.id + '.png') ? 'assets/icons/' + app.id + '.png' : '';
-    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', iconImg: ' + JSON.stringify(iconImgPath) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
+    const mockupImgPath = fs.existsSync('./assets/mockups/' + app.id + '.png') ? 'assets/mockups/' + app.id + '.png' : '';
+    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', iconImg: ' + JSON.stringify(iconImgPath) + ', mockupImg: ' + JSON.stringify(mockupImgPath) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
     lines.push('    category: "' + app._cat + '", cardClass: "' + app._cardClass + '"' + (extras ? ', ' + extras : '') + ',');
     lines.push('    need:' + need + ', scene:' + scene + ', input:' + input + ',');
     lines.push('    feature:' + feature);
@@ -1487,6 +1488,9 @@ const MANUAL_CHANGELOG = [
   { date: "2026-07-18", type: "update", text: "各アプリを更新しました。", details: [
     "「とけい」に「とけいタイマー」機能を追加：時間・分・秒を設定すると、アナログ時計の時針・分針・秒針が実際の時計と同じ速さで動きながらカウントダウンします。知的障害のある児童生徒にも分かりやすいよう、針を色・太さ・長さではっきり区別しています。",
     "「しりとりあそび」の単語データを一部見直し：しりとりがつながりにくかった単語を、より遊びやすい単語に入れ替えました。",
+    "「けずりえ」のバグを修正：何も削っていないのに、開いた瞬間に「やったね！」の完成画面が表示されてしまう不具合を修正しました。",
+    "「とけい」の「とけいタイマー」タブが白背景に白文字で読めなくなっていた不具合を修正しました。",
+    "「とけい」の「とけいタイマー」で、時間になった後「もどす」ボタンを押さなくても続けて次の時間を設定できるようにしました。",
   ] },
   { date: "2026-07-12", type: "update", text: "各アプリの不具合をまとめて修正しました。", details: [
     "「カタカナ まなぼう！」マッチングときろくのボタンの間に不自然な空白ができていた問題を修正",

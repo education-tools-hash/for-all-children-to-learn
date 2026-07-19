@@ -317,6 +317,8 @@ body.hc .hltblk{color:#FFFF00}
 
 
 
+
+
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#setBtn{opacity:0 !important;pointer-events:none !important;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -1714,6 +1716,7 @@ const cur=document.getElementById('cur'),gr=document.getElementById('gr');
 const pfill=document.getElementById('pfill'),ppct=document.getElementById('ppct'),ptr=pfill.parentElement;
 const ttsBbl=document.getElementById('ttsBbl');
 
+let cvFilled=false; // 一度でも fillScr() で黒塗り初期化されたかどうか
 function resize(){
   const r=cw.getBoundingClientRect(),W=Math.round(r.width),H=Math.round(r.height);
   if(W<=0||H<=0)return; // レイアウト確定前の一瞬の呼び出しは無視（進捗消失防止。全画面解除の途中で幅/高さが0になる瞬間がある）
@@ -1721,8 +1724,11 @@ function resize(){
 
   // 削り進捗（スクラッチ層）を一時キャンバスに退避してから、
   // 新しいサイズへ引き伸ばして復元する（全画面切替などでのクリア消失を防ぐ）
+  // ※ cvFilled が false（＝まだ一度も黒塗り初期化されていない）段階では、
+  //   sc はただの透明キャンバスなので、これを「削り済み」として保存・復元してしまうと
+  //   chkDone() が「全部削れた」と誤判定し、開いた瞬間に完成画面が出てしまう。
   let savedScratch=null,oldW=sc.width,oldH=sc.height;
-  if(oldW>0&&oldH>0){
+  if(cvFilled&&oldW>0&&oldH>0){
     try{
       const tmp=document.createElement('canvas');
       tmp.width=oldW;tmp.height=oldH;
@@ -1740,6 +1746,7 @@ function resize(){
     chkDone();
   } else {
     fillScr();
+    cvFilled=true;
   }
 }
 let rtmr;window.addEventListener('resize',()=>{clearTimeout(rtmr);rtmr=setTimeout(resize,120)});
