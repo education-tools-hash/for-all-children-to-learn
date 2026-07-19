@@ -101,6 +101,58 @@ ICON_HTML = """<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 </style></head><body><div class="icon"><span class="glyph">{icon}</span></div></body></html>"""
 
 
+def _scratch_the_scratch_app(pg):
+    """けずりえ：実際に何度かなぞって、絵が半分ほど見えている状態にする"""
+    cw = pg.query_selector("#cw")
+    if not cw:
+        return
+    box = cw.bounding_box()
+    if not box:
+        return
+    cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    pg.mouse.move(cx - box["width"] * 0.28, cy - box["height"] * 0.25)
+    pg.mouse.down()
+    step = 7
+    for row in range(int(-box["height"] * 0.25), int(box["height"] * 0.15), step):
+        for xoff in range(int(-box["width"] * 0.28), int(box["width"] * 0.28), step - 1):
+            pg.mouse.move(cx + xoff, cy + row, steps=1)
+    pg.mouse.up()
+    pg.wait_for_timeout(400)
+
+
+def _start_mogura_tataki(pg):
+    """もぐらたたき：はじめる！→カウントダウン終了を待ち→実際にモグラを叩いた瞬間にする"""
+    btn = pg.query_selector("#btnStart")
+    if not btn:
+        return
+    btn.click()
+    # カウントダウン(3→2→1→スタート！)が終わり、実際にゲームが始まるまで待つ
+    # (3・2・1で各800ms + 「スタート！」表示550ms ≒ 2950ms のため、余裕を持って待機)
+    pg.wait_for_timeout(3400)
+    # 複数のモグラが出ているタイミングを少し待ってから、1匹だけ叩く
+    # （.hit クラスは300msで消えるため、クリック直後にスクリーンショットへ渡す）
+    try:
+        for _ in range(6):
+            moles = pg.query_selector_all(".hole .mole.up")
+            if len(moles) >= 2:
+                break
+            pg.wait_for_timeout(150)
+        moles = pg.query_selector_all(".hole .mole.up")
+        if moles:
+            moles[0].click(timeout=1000)
+    except Exception:
+        pass
+    pg.wait_for_timeout(80)  # .hit クラス(300msで消える)がまだ見えているうちに撮る
+
+
+# アプリごとに「実際に遊んでいる最中」の見た目を作るためのカスタム操作。
+# ここに無いアプリは、今まで通り「開いた直後の画面」をそのまま撮影する。
+PLAY_ACTIONS = {
+    "scratch-app": _scratch_the_scratch_app,
+    "mogura-tataki": _start_mogura_tataki,
+}
+
+
 def main():
     only = set(sys.argv[1:])
     data = json.loads((ROOT / "apps-data.json").read_text(encoding="utf-8"))
@@ -138,6 +190,11 @@ def main():
                                           device_scale_factor=1.5)
                 pg = ctx.new_page(); block_external(pg)
                 pg.goto(url, wait_until="load"); pg.wait_for_timeout(1200)
+                if aid in PLAY_ACTIONS:
+                    try:
+                        PLAY_ACTIONS[aid](pg)
+                    except Exception as ex:
+                        print(f"(プレイ中状態の再現に失敗: {ex}) ", end="")
                 pg.screenshot(path=str(TMP / f"{aid}-desktop.png"))
                 ctx.close()
 
@@ -147,6 +204,11 @@ def main():
                                           has_touch=True)
                 pg = ctx.new_page(); block_external(pg)
                 pg.goto(url, wait_until="load"); pg.wait_for_timeout(1200)
+                if aid in PLAY_ACTIONS:
+                    try:
+                        PLAY_ACTIONS[aid](pg)
+                    except Exception as ex:
+                        print(f"(プレイ中状態の再現に失敗: {ex}) ", end="")
                 pg.screenshot(path=str(TMP / f"{aid}-mobile.png"))
                 ctx.close()
 
