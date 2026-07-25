@@ -954,6 +954,9 @@ ${proxyHideCSS}
         btn.setAttribute('aria-expanded', 'false');
       }
     });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && panel.style.display === 'block') btn.click();
+    });
     all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){ applyContrast(b.dataset.a11yContrast); }); });
     all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){ applyFont(b.dataset.a11yFont); }); });
     ${srWireHTML}
