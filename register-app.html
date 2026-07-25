@@ -832,9 +832,10 @@ function showToast(msg,duration=2700){
   t.className='toast'; t.textContent=msg; t.setAttribute('role','status');
   w.appendChild(t); setTimeout(()=>t.remove(),duration);
 }
-function openModal(id){ const el=document.getElementById(id); el.classList.add('active'); const f=el.querySelector('button,input,[tabindex]'); if(f) setTimeout(()=>f.focus(),50); }
-function closeModal(id){ document.getElementById(id).classList.remove('active'); }
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) closeModal(o.id); }));
+function setModalInert(el,on){ el.inert=on; if(on) el.setAttribute('aria-hidden','true'); else el.removeAttribute('aria-hidden'); }
+function openModal(id){ const el=document.getElementById(id); setModalInert(el,false); el.classList.add('active'); const f=el.querySelector('button,input,[tabindex]'); if(f) setTimeout(()=>f.focus(),50); }
+function closeModal(id){ const el=document.getElementById(id); if(document.activeElement && el.contains(document.activeElement)) document.activeElement.blur(); el.classList.remove('active'); setModalInert(el,true); }
+document.querySelectorAll('.modal-overlay').forEach(o=>{ if(!o.classList.contains('active')) setModalInert(o,true); o.addEventListener('click',e=>{ if(e.target===o) closeModal(o.id); }); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.querySelectorAll('.modal-overlay.active').forEach(m=>closeModal(m.id)); });
 
 // ============================================================
@@ -1033,6 +1034,40 @@ document.getElementById('product-modal-save').addEventListener('click',()=>{
   saveProducts(); renderProducts(); closeModal('product-modal'); showToast('✅ 保存しました');
 });
 document.getElementById('product-modal-cancel').addEventListener('click',()=>closeModal('product-modal'));
+
+// 商品編集モーダル専用のフォーカス管理（他のモーダルには影響しない）
+// ・開く直前にフォーカスしていた要素を覚えておき、閉じたら（保存/キャンセル/Escape/背景クリックいずれでも）そこへ戻す
+// ・モーダル内でTabキーが外へ漏れないよう、最初と最後の要素で循環させる
+(function(){
+  const pmModal=document.getElementById('product-modal');
+  if(!pmModal) return;
+  let pmOpenerEl=null;
+  function pmFocusables(){
+    return Array.from(pmModal.querySelectorAll('button,input,[tabindex]'))
+      .filter(el=>el.offsetParent!==null && !el.disabled);
+  }
+  pmModal.addEventListener('keydown',e=>{
+    if(e.key!=='Tab') return;
+    if(!pmModal.classList.contains('active')) return;
+    const items=pmFocusables();
+    if(!items.length) return;
+    const first=items[0], last=items[items.length-1];
+    if(e.shiftKey){
+      if(document.activeElement===first || !pmModal.contains(document.activeElement)){ e.preventDefault(); last.focus(); }
+    } else {
+      if(document.activeElement===last || !pmModal.contains(document.activeElement)){ e.preventDefault(); first.focus(); }
+    }
+  });
+  new MutationObserver(()=>{
+    const isActive=pmModal.classList.contains('active');
+    if(isActive && !pmOpenerEl){
+      pmOpenerEl=document.activeElement;
+    } else if(!isActive && pmOpenerEl){
+      const el=pmOpenerEl; pmOpenerEl=null;
+      setTimeout(()=>{ if(el && document.body.contains(el)) el.focus(); },0);
+    }
+  }).observe(pmModal,{attributes:true,attributeFilter:['class']});
+})();
 document.querySelectorAll('.emoji-option').forEach(btn=>btn.addEventListener('click',()=>{ selectedEmoji=btn.dataset.emoji; document.querySelectorAll('.emoji-option').forEach(b=>b.classList.remove('selected')); btn.classList.add('selected'); }));
 const imgWrap=document.getElementById('img-preview-wrap'), imgInput=document.getElementById('product-img-input');
 imgWrap.addEventListener('click',()=>imgInput.click());

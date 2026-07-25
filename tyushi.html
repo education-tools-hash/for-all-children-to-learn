@@ -885,8 +885,18 @@ document.addEventListener('touchmove', e => {
 document.addEventListener('touchend', cancelDwell, { passive:true });
 
 /* Keyboard switch */
+function isFocusedUiControl(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return true;
+  if (tag === 'A' && el.hasAttribute('href')) return true;
+  if (el.closest && el.closest('#donomanaA11yBtn, #donomanaA11yPanel, #donomanaHomeBtn, #donomanaLockBtn, #donomanaFsBtn, #settings-panel, #settings-btn')) return true;
+  return false;
+}
 document.addEventListener('keydown', e => {
   if (e.repeat) return;
+  if (isFocusedUiControl(document.activeElement)) return;
   if (e.key===' ' || e.key==='Enter') { e.preventDefault(); trigger(); }
 });
 
