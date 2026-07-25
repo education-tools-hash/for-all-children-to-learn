@@ -762,7 +762,8 @@ const BASE_PATH = ''; // カスタムドメイン(donomana.jp)はサイトルー
 const HOME_BTN_SKIP_APPS = new Set(['scratch-app']); // 既に独自のヘッダー内リンクを実装済み
 const HOME_BTN_HTML = [
   '<!-- home-btn: 自動挿入 (generate.js) -->',
-  `<a href="${BASE_URL}/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>`,
+  '<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
+  `<a href="${BASE_URL}/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>`,
   '<!-- /home-btn -->'
 ].join('\n');
 
@@ -820,8 +821,8 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   const srSectionHTML = includeSR ? `
   <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔊 選択・タップの読み上げ</div>
   <div style="display:flex;gap:6px;margin-bottom:14px;">
-    <button data-a11y-sr="off" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オフ</button>
-    <button data-a11y-sr="on" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オン</button>
+    <button data-a11y-sr="off" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オフ</button>
+    <button data-a11y-sr="on" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オン</button>
   </div>` : '';
 
   const srScriptHTML = includeSR ? `
@@ -863,7 +864,7 @@ function buildA11yPanelHTML(includeSR, appFilename) {
 
   // 既存の独自設定ボタンへの橋渡し行(あるアプリのみ)
   const proxyRowHTML = proxy ? `
-  <button id="donomanaSettingsProxy" style="width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">${proxy.label}</button>` : '';
+  <button id="donomanaSettingsProxy" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">${proxy.label}</button>` : '';
   // opacity:0だと非表示のままレイアウト上の幅・高さだけ残り、隣接要素との間に
   // 不自然な空白/白い帯ができるアプリはこちらでdisplay:noneにして詰める。
   // (hiragana-learn/katakana-app/suji-manabou: 横並びnav-tabsの1要素として存在
@@ -894,21 +895,22 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   return `
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 ${proxyHideCSS}
+<style>#donomanaA11yBtn:focus-visible,#donomanaA11yPanel button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
 <div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
   <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>${proxyRowHTML}
   <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🎨 表示モード</div>
   <div style="display:flex;gap:6px;margin-bottom:14px;">
-    <button data-a11y-contrast="normal" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
-    <button data-a11y-contrast="hc" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
+    <button data-a11y-contrast="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
+    <button data-a11y-contrast="hc" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
   </div>
   <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔤 文字の大きさ</div>
   <div style="display:flex;gap:6px;margin-bottom:14px;">
-    <button data-a11y-font="normal" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
-    <button data-a11y-font="large" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
-    <button data-a11y-font="xlarge" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
+    <button data-a11y-font="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
+    <button data-a11y-font="large" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
+    <button data-a11y-font="xlarge" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
   </div>${srSectionHTML}
-  <button id="donomanaA11yReset" style="width:100%;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
+  <button id="donomanaA11yReset" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
 </div>
 <script>
 (function(){
@@ -975,16 +977,17 @@ function buildLockFsHTML(needFs, needLock) {
   if (!needFs && !needLock) return null;
   const buttons = [];
   if (needLock) {
-    buttons.push('<button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>');
+    buttons.push('<button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>');
   }
   if (needFs) {
-    buttons.push('<button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>');
+    buttons.push('<button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>');
   }
   const toastHTML = needLock
     ? '<div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>'
     : '';
   return [
     '<!-- lock-fs-btn: 自動挿入 (generate.js) -->',
+    '<style>#donomanaLockBtn:focus-visible,#donomanaFsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
     `<div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">`,
     `  ${buttons.join('\n  ')}`,
     `</div>`,
