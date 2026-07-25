@@ -40,6 +40,10 @@ Each app entry defines: `id`, `filename`, `icon`, `iconColor`, `title`, `categor
 
 Adding a new app requires: adding an entry to `apps-data.json`, creating the interactive app HTML file, then running `node generate.js` to produce its detail page.
 
+### Changelog (index.html "更新履歴")
+
+The `const CHANGELOG = [...]` array embedded in `index.html` is a **generated artifact, not the source of truth**. It is overwritten on every `node generate.js` run from `generate.js`'s `MANUAL_CHANGELOG` array (combined with auto-generated entries derived from each app's `releaseDate` in `apps-data.json`). **Never edit the `CHANGELOG` array in `index.html` directly** — those edits will be silently discarded the next time `generate.js` runs (e.g. via the CI workflow on every push to `main`). To add or change a changelog entry, edit `MANUAL_CHANGELOG` in `generate.js` (dates use `"YYYY-MM-DD"` format) and run `node generate.js` to regenerate `index.html`.
+
 ### Category System
 
 `generate.js` enforces a canonical category mapping (`CATEGORY_TRUTH` object). The four valid categories are:
