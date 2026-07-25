@@ -412,6 +412,7 @@
   </div>
   <button id="donomanaA11yReset" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
 </div>
+<div id="donomanaA11yStatus" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
 <script>
 (function(){
   var P = 'donomana-a11y-';
@@ -423,6 +424,14 @@
       b.style.color = on ? '#fff' : '#333';
       b.style.borderColor = on ? '#00A99D' : '#ddd';
     });
+  }
+  var donomanaAnnounceA11yTimer = null;
+  function donomanaAnnounceA11y(msg){
+    var live = document.getElementById('donomanaA11yStatus');
+    if (!live) return;
+    clearTimeout(donomanaAnnounceA11yTimer);
+    live.textContent = '';
+    donomanaAnnounceA11yTimer = setTimeout(function(){ live.textContent = msg; }, 50);
   }
   function applyContrast(mode){
     // 背景を黒・文字を白に反転する方式(弱視・色覚特性のある方向けに、
@@ -459,8 +468,14 @@
     document.addEventListener('keydown', function(e){
       if (e.key === 'Escape' && panel.style.display === 'block') btn.click();
     });
-    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){ applyContrast(b.dataset.a11yContrast); }); });
-    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){ applyFont(b.dataset.a11yFont); }); });
+    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){
+      applyContrast(b.dataset.a11yContrast);
+      donomanaAnnounceA11y(b.dataset.a11yContrast === 'hc' ? 'ハイコントラストをオンにしました' : 'ハイコントラストをオフにしました');
+    }); });
+    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){
+      applyFont(b.dataset.a11yFont);
+      donomanaAnnounceA11y('文字の大きさを' + ({normal:'標準',large:'大',xlarge:'特大'}[b.dataset.a11yFont] || '標準') + 'にしました');
+    }); });
     
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
@@ -484,6 +499,7 @@
     if (resetBtn) resetBtn.addEventListener('click', function(){
       applyContrast('normal'); applyFont('normal'); 
       localStorage.removeItem(P + 'contrast'); localStorage.removeItem(P + 'font'); 
+      donomanaAnnounceA11y('設定をリセットしました');
     });
     applyContrast(localStorage.getItem(P + 'contrast') || 'normal');
     applyFont(localStorage.getItem(P + 'font') || 'normal');

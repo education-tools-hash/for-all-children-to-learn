@@ -1873,30 +1873,31 @@
       <div class="a11y-row">
         <div class="a11y-label">🎨 表示モード</div>
         <div class="a11y-btn-group">
-          <button class="a11y-opt active" id="opt-normal" onclick="setContrast('normal');event.stopPropagation()">通常</button>
-          <button class="a11y-opt" id="opt-hc" onclick="setContrast('hc');event.stopPropagation()">ハイコントラスト</button>
+          <button class="a11y-opt active" id="opt-normal" onclick="setContrast('normal');donomanaAnnounceA11y('ハイコントラストをオフにしました');event.stopPropagation()">通常</button>
+          <button class="a11y-opt" id="opt-hc" onclick="setContrast('hc');donomanaAnnounceA11y('ハイコントラストをオンにしました');event.stopPropagation()">ハイコントラスト</button>
         </div>
       </div>
 
       <div class="a11y-row">
         <div class="a11y-label">🔤 文字の大きさ</div>
         <div class="a11y-btn-group">
-          <button class="a11y-opt active" id="opt-fn" onclick="setFont('normal');event.stopPropagation()">標準</button>
-          <button class="a11y-opt" id="opt-fl" onclick="setFont('large');event.stopPropagation()">大</button>
-          <button class="a11y-opt" id="opt-fxl" onclick="setFont('xlarge');event.stopPropagation()">特大</button>
+          <button class="a11y-opt active" id="opt-fn" onclick="setFont('normal');donomanaAnnounceA11y('文字の大きさを標準にしました');event.stopPropagation()">標準</button>
+          <button class="a11y-opt" id="opt-fl" onclick="setFont('large');donomanaAnnounceA11y('文字の大きさを大にしました');event.stopPropagation()">大</button>
+          <button class="a11y-opt" id="opt-fxl" onclick="setFont('xlarge');donomanaAnnounceA11y('文字の大きさを特大にしました');event.stopPropagation()">特大</button>
         </div>
       </div>
 
       <div class="a11y-row">
         <div class="a11y-label">🔊 選択・タップの読み上げ</div>
         <div class="a11y-btn-group">
-          <button class="a11y-opt active" id="opt-sr-off" onclick="setScreenReader(false);event.stopPropagation()">オフ</button>
-          <button class="a11y-opt" id="opt-sr-on" onclick="setScreenReader(true);event.stopPropagation()">オン</button>
+          <button class="a11y-opt active" id="opt-sr-off" onclick="setScreenReader(false);donomanaAnnounceA11y('読み上げ機能をオフにしました');event.stopPropagation()">オフ</button>
+          <button class="a11y-opt" id="opt-sr-on" onclick="setScreenReader(true);donomanaAnnounceA11y('読み上げ機能をオンにしました');event.stopPropagation()">オン</button>
         </div>
       </div>
 
       <button class="a11y-reset" onclick="resetA11y()">↺ すべてリセット</button>
     </div>
+    <div id="a11yStatus" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
   </div>
 </header>
 <div class="container">
@@ -4359,6 +4360,15 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+let donomanaAnnounceA11yTimer = null;
+function donomanaAnnounceA11y(msg) {
+  const live = document.getElementById('a11yStatus');
+  if (!live) return;
+  clearTimeout(donomanaAnnounceA11yTimer);
+  live.textContent = '';
+  donomanaAnnounceA11yTimer = setTimeout(() => { live.textContent = msg; }, 50);
+}
+
 function setContrast(mode) {
   document.body.classList.toggle('hc-mode', mode === 'hc');
   document.getElementById('opt-normal').classList.toggle('active', mode === 'normal');
@@ -4435,6 +4445,7 @@ function resetA11y() {
   localStorage.removeItem('a11y-contrast');
   localStorage.removeItem('a11y-font');
   localStorage.removeItem('a11y-sr');
+  donomanaAnnounceA11y('設定をリセットしました');
 }
 
 // ページ読み込み時に設定を復元
