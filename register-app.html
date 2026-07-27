@@ -35,6 +35,12 @@
   .icon-btn{background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.5);color:#fff;border-radius:12px;padding:8px 12px;font-size:calc(var(--font-size-base)*1.1);cursor:pointer;transition:all .2s;font-family:var(--font-family);font-weight:700;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;}
   .icon-btn:hover,.icon-btn:focus{background:rgba(255,255,255,.35);outline:none;box-shadow:var(--focus-ring);}
 
+  @media (max-width:480px){
+    header{flex-wrap:wrap;row-gap:8px;}
+    .header-title{flex:1 1 100%;}
+    .header-actions{flex:1 1 100%;justify-content:flex-end;flex-wrap:wrap;}
+  }
+
   main{display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;max-width:1400px;margin:0 auto;}
   @media(max-width:900px){main{grid-template-columns:1fr;}}
 
@@ -977,7 +983,7 @@ function renderProducts(){
   products.forEach((p,i)=>{
     const card=document.createElement('div');
     card.className='product-card'; card.setAttribute('role','listitem');
-    card.setAttribute('tabindex','0'); card.setAttribute('aria-label',`${p.name} ${p.price}円を追加`);
+    card.setAttribute('tabindex','0'); card.setAttribute('aria-label', editMode ? `${p.name} ${p.price}円` : `${p.name} ${p.price}円を追加`);
     card.style.animationDelay=(i*.04)+'s'; card.dataset.id=p.id;
     const img=p.image?`<img class="product-img" src="${p.image}" alt="${esc(p.name)}">`:`<div class="product-img-placeholder" aria-hidden="true">${p.emoji||'🎁'}</div>`;
     const eo=editMode?`<div class="edit-overlay"><button class="edit-btn-small" data-action="edit" data-id="${p.id}">✏️</button><button class="edit-btn-small" data-action="delete" data-id="${p.id}">🗑️</button></div>`:'';
@@ -1326,8 +1332,9 @@ document.getElementById('fullscreen-btn').addEventListener('click',()=>{
 // ============================================================
 //  SWITCH SCAN
 // ============================================================
-function updateSwitchScanItems(){ if(!settings.switchScan) return; switchScanItems=Array.from(document.querySelectorAll('.product-card,.cart-btn:not(:disabled),.icon-btn,.scannable')); switchScanIndex=0; highlightScanItem(); }
-function startSwitchScan(){ stopSwitchScan(); switchScanItems=Array.from(document.querySelectorAll('.product-card,.cart-btn:not(:disabled),.icon-btn')); switchScanIndex=0; highlightScanItem(); switchScanTimer=setInterval(()=>{ switchScanItems.forEach(e=>e.classList.remove('scan-focus')); switchScanIndex=(switchScanIndex+1)%switchScanItems.length; highlightScanItem(); },settings.scanSpeed); document.addEventListener('keydown',handleScanKey); }
+const SWITCH_SCAN_SELECTOR='.product-card,.cart-btn:not(:disabled),.icon-btn,.edit-btn-small,.scannable';
+function updateSwitchScanItems(){ if(!settings.switchScan) return; switchScanItems=Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR)); switchScanIndex=0; highlightScanItem(); }
+function startSwitchScan(){ stopSwitchScan(); switchScanItems=Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR)); switchScanIndex=0; highlightScanItem(); switchScanTimer=setInterval(()=>{ switchScanItems.forEach(e=>e.classList.remove('scan-focus')); switchScanIndex=(switchScanIndex+1)%switchScanItems.length; highlightScanItem(); },settings.scanSpeed); document.addEventListener('keydown',handleScanKey); }
 function stopSwitchScan(){ if(switchScanTimer){ clearInterval(switchScanTimer); switchScanTimer=null; } document.removeEventListener('keydown',handleScanKey); document.querySelectorAll('.scan-focus').forEach(e=>e.classList.remove('scan-focus')); }
 function highlightScanItem(){ const el=switchScanItems[switchScanIndex]; if(el) el.classList.add('scan-focus'); }
 function handleScanKey(e){ if(e.code==='Space'){ e.preventDefault(); const el=switchScanItems[switchScanIndex]; if(el) el.click(); } }
