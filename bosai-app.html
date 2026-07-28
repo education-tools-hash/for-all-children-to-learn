@@ -2715,6 +2715,14 @@ function switchTab(tab) {
 const CORRECT_PIN = '1234';
 let teacherUnlocked = false;
 
+// PINエラーの視覚表示(display切替)は変更せず、既存の文言をそのままスクリーンリーダーへも伝える
+function announcePinError() {
+  const el = document.getElementById('pin-error');
+  if (el && el.textContent && typeof window.donomanaAnnounce === 'function') {
+    window.donomanaAnnounce(el.textContent, { priority: 'assertive' });
+  }
+}
+
 function checkPin() {
   const val = document.getElementById('pin-input').value;
   if (val === CORRECT_PIN) {
@@ -2725,6 +2733,7 @@ function checkPin() {
     renderTeacherDash();
   } else if (val.length === 4) {
     document.getElementById('pin-error').style.display = 'block';
+    announcePinError();
     document.getElementById('pin-input').value = '';
     setTimeout(() => { document.getElementById('pin-error').style.display = 'none'; }, 2000);
   }
