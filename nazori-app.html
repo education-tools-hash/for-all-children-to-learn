@@ -139,6 +139,29 @@
   .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
   .divider { height: 1px; background: #e8eef5; margin: 16px 0; }
 
+  /* インライン確認（Design System Ver.2.1 §7.6.2準拠：非モーダル） */
+  .btn-danger { background: #FFCDD2; color: #B71C1C; border: 2px solid #F44336; }
+  body.high-contrast .btn-danger { background: #ff0 !important; color: #000 !important; border-color: #fff !important; }
+  .inline-confirm {
+    width: 100%;
+    background: #FFF5F5;
+    border: 2px solid #F44336;
+    border-radius: var(--dm-radius-sm);
+    padding: 10px 14px;
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .inline-confirm[hidden] { display: none; }
+  .inline-confirm-msg { font-weight: 800; color: var(--ink); font-size: 0.95rem; }
+  .inline-confirm-actions { display: flex; gap: 8px; }
+  .inline-confirm-actions .btn { flex: 1; font-size: 0.9rem; padding: 10px 16px; }
+  .inline-confirm :focus-visible {
+    outline: var(--dm-focus-width) solid var(--dm-focus-color);
+    outline-offset: var(--dm-focus-offset);
+  }
+
   .preset-chars { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .preset-btn {
     font-family: 'BIZ UDPMincho', serif; font-size: 1.1rem;
@@ -1146,7 +1169,14 @@
           <div class="stamp-area"><div class="stamp" id="stamp">⭐</div></div>
           <div style="display:flex;gap:8px;width:100%;">
             <button class="btn btn-secondary" id="undoBtn" style="flex:1;font-size:0.9rem;">↩ 1画もどす</button>
-            <button class="btn btn-secondary" id="clearBtn" style="flex:1;font-size:0.9rem;">🗑 全部けす</button>
+            <button class="btn btn-secondary" id="clearBtn" style="flex:1;font-size:0.9rem;" aria-expanded="false" aria-controls="clearConfirm">🗑 全部けす</button>
+          </div>
+          <div class="inline-confirm" id="clearConfirm" hidden role="group" aria-label="全部けすかくにん">
+            <p class="inline-confirm-msg">ほんとうに ぜんぶ けしますか？</p>
+            <div class="inline-confirm-actions">
+              <button type="button" class="btn btn-secondary" id="clearConfirmNo">↩ やめる</button>
+              <button type="button" class="btn btn-danger" id="clearConfirmYes">🗑 けす</button>
+            </div>
           </div>
           <button class="btn btn-mint" id="doneBtn" style="width:100%; font-size:1.4rem; padding:20px; letter-spacing:0.05em;">✅ できた！</button>
 
@@ -1168,9 +1198,16 @@
           <div class="color-palette" id="brushColorPaletteWide" style="gap:5px;"></div>
         </div>
         <button class="btn btn-secondary" id="undoBtnWide" style="font-size:0.9rem;">↩ 1画もどす</button>
-        <button class="btn btn-secondary" id="clearBtnWide" style="font-size:0.9rem;margin-left:14px;">🗑 全部けす</button>
+        <button class="btn btn-secondary" id="clearBtnWide" style="font-size:0.9rem;margin-left:14px;" aria-expanded="false" aria-controls="clearConfirmWide">🗑 全部けす</button>
         <button class="btn btn-mint" id="doneBtnWide" style="font-size:1.4rem; padding:18px 32px; letter-spacing:0.05em;margin-left:14px;">✅ できた！</button>
 
+      </div>
+      <div class="inline-confirm" id="clearConfirmWide" hidden role="group" aria-label="全部けすかくにん">
+        <p class="inline-confirm-msg">ほんとうに ぜんぶ けしますか？</p>
+        <div class="inline-confirm-actions" style="max-width:360px;">
+          <button type="button" class="btn btn-secondary" id="clearConfirmNoWide">↩ やめる</button>
+          <button type="button" class="btn btn-danger" id="clearConfirmYesWide">🗑 けす</button>
+        </div>
       </div>
 
       <!-- 連続マス：パネルのpaddingをネガティブマージンで打ち消して全幅に -->
@@ -2198,15 +2235,65 @@ function endDraw() {
 }
 
 // =============================================
+// インライン確認（Design System Ver.2.1 §7.6.2準拠）
+// モーダル・confirm()・タイマーによる自動確定/自動失効を使わず、
+// 対象ボタンの近くに確認UIを展開する。1回目のクリックでは実行しない。
+// =============================================
+function setupInlineConfirm(btn, box, yesBtn, noBtn, onConfirm) {
+  function isOpen() { return !box.hidden; }
+  function open() {
+    box.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    noBtn.focus();
+    if (window.donomanaAnnounce) {
+      const msg = box.querySelector('.inline-confirm-msg');
+      if (msg) window.donomanaAnnounce(msg.textContent, { priority: 'polite' });
+    }
+  }
+  function close(returnFocusToTrigger) {
+    box.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    if (returnFocusToTrigger) btn.focus();
+  }
+  btn.addEventListener('click', () => {
+    if (isOpen()) return; // 二重生成防止
+    open();
+  });
+  yesBtn.addEventListener('click', () => {
+    if (!isOpen()) return; // 連打による二重実行防止
+    close(false);
+    onConfirm();
+    btn.focus(); // 実行後は元のボタンへフォーカスを維持する
+  });
+  noBtn.addEventListener('click', () => {
+    close(true);
+  });
+  // Escapeキーで確認を取り消す
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen()) close(true);
+  });
+  // 確認UI外クリックで確認状態を解除する（Tab/Shift+Tabによる移動だけでは閉じない）
+  document.addEventListener('click', (e) => {
+    if (isOpen() && e.target !== btn && !box.contains(e.target)) close(false);
+  });
+}
+
+// =============================================
 // コントロールイベント
 // =============================================
 function attachControlEvents() {
-  document.getElementById('clearBtn').addEventListener('click', () => {
-    const dc=document.getElementById('drawCanvas');
-    clearCanvas(dc);
-    hideStamp('stamp');
-    speakIfEnabled('全部けした');
-  });
+  setupInlineConfirm(
+    document.getElementById('clearBtn'),
+    document.getElementById('clearConfirm'),
+    document.getElementById('clearConfirmYes'),
+    document.getElementById('clearConfirmNo'),
+    () => {
+      const dc=document.getElementById('drawCanvas');
+      clearCanvas(dc);
+      hideStamp('stamp');
+      speakIfEnabled('全部けした');
+    }
+  );
   document.getElementById('undoBtn').addEventListener('click', () => {
     const dc=document.getElementById('drawCanvas');
     undoStroke(dc);
@@ -2251,41 +2338,17 @@ function attachControlEvents() {
   document.getElementById('nextBtn').addEventListener('click', advanceSinglePage);
 
 
-  document.getElementById('clearBtnWide').addEventListener('click', function() {
-    // 誤タップで全部消えてしまわないよう、1回目のタップは確認状態にするだけ。
-    // 3秒以内にもう一度押したときだけ実際に消去する。
-    const restore = () => {
-      delete this.dataset.confirming;
-      this.innerHTML = this._origLabel;
-      this.style.background = '';
-      this.style.borderColor = '';
-      this.style.width = '';
-      this.style.fontSize = '';
-      this.style.whiteSpace = '';
-      this.style.padding = '';
-    };
-    if (!this.dataset.confirming) {
-      this.dataset.confirming = '1';
-      this._origLabel = this.innerHTML;
-      // 文言を差し替えるとボタンが横に伸びて位置がずれてしまうため、
-      // 先に今の幅を固定してから中身を入れ替える(ボタンは「全部けす」の位置のまま)
-      this.style.width = this.offsetWidth + 'px';
-      this.style.padding = getComputedStyle(this).padding;
-      this.innerHTML = '⚠️ もう一度おす';
-      this.style.background = '#FFCDD2';
-      this.style.borderColor = '#F44336';
-      this.style.fontSize = '0.72rem';
-      this.style.whiteSpace = 'nowrap';
-      clearTimeout(this._confirmTimer);
-      this._confirmTimer = setTimeout(restore, 3000);
-      return;
+  setupInlineConfirm(
+    document.getElementById('clearBtnWide'),
+    document.getElementById('clearConfirmWide'),
+    document.getElementById('clearConfirmYesWide'),
+    document.getElementById('clearConfirmNoWide'),
+    () => {
+      document.querySelectorAll('.cell-draw').forEach(c => clearCanvas(c));
+      hideStamp('stampWide');
+      speakIfEnabled('全部けした');
     }
-    clearTimeout(this._confirmTimer);
-    restore();
-    document.querySelectorAll('.cell-draw').forEach(c => clearCanvas(c));
-    hideStamp('stampWide');
-    speakIfEnabled('全部けした');
-  });
+  );
   document.getElementById('undoBtnWide').addEventListener('click', () => {
     // 最後に描画されたセルに対してundo
     const draws = Array.from(document.querySelectorAll('.cell-draw'));
