@@ -1735,6 +1735,13 @@ document.addEventListener('keydown',e=>{
 // ===============================================================
 // PINロック
 // ===============================================================
+// PINエラーの視覚表示(textContent)は変更せず、その内容をスクリーンリーダーへも伝える
+function announcePinError(elId){
+  var el=document.getElementById(elId);
+  if(el && el.textContent && typeof window.donomanaAnnounce==='function'){
+    window.donomanaAnnounce(el.textContent, {priority:'assertive'});
+  }
+}
 function buildKeypad(cid,did,onComplete,eid) {
   const c=document.getElementById(cid); c.innerHTML=''; let buf='';
   const upd=()=>{document.getElementById(did).textContent='●'.repeat(buf.length)+'・'.repeat(4-buf.length);};
@@ -1753,17 +1760,17 @@ function buildKeypad(cid,did,onComplete,eid) {
 
 function buildAllKeypads() {
   buildKeypad('unlockKeypad','unlockDots',
-    (pin,reset)=>{if(pin===savedPin){isLocked=false;updateLockUI();closeModal('unlockModal');}else{document.getElementById('unlockError').textContent='PINがちがいます';reset();}},
+    (pin,reset)=>{if(pin===savedPin){isLocked=false;updateLockUI();closeModal('unlockModal');}else{document.getElementById('unlockError').textContent='PINがちがいます';announcePinError('unlockError');reset();}},
     'unlockError');
   let s1='';
   buildKeypad('setPinKeypad','setPinDots',
     (pin,reset)=>{
       if(!s1){s1=pin;document.getElementById('setPinDesc').textContent='もういちど おなじPINをにゅうりょくしてください。';reset();}
       else if(pin===s1){savedPin=pin;localStorage.setItem('tt_pin',pin);s1='';document.getElementById('removePinBtn').style.display='flex';closeModal('setPinModal');if(!isLocked){isLocked=true;updateLockUI();}}
-      else{s1='';document.getElementById('setPinError').textContent='PINがいっちしません';document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';reset();}
+      else{s1='';document.getElementById('setPinError').textContent='PINがいっちしません';announcePinError('setPinError');document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';reset();}
     },'setPinError');
   buildKeypad('removePinKeypad','removePinDots',
-    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');}else{document.getElementById('removePinError').textContent='PINがちがいます';reset();}},
+    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');}else{document.getElementById('removePinError').textContent='PINがちがいます';announcePinError('removePinError');reset();}},
     'removePinError');
 }
 
