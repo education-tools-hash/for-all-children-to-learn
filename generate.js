@@ -896,8 +896,7 @@ function buildA11yPanelHTML(includeSR, appFilename) {
     });
   }` : '';
 
-  return `
-<!-- a11y-panel: 自動挿入 (generate.js) -->
+  return `<!-- a11y-panel: 自動挿入 (generate.js) -->
 ${proxyHideCSS}
 <style>#donomanaA11yBtn:focus-visible,#donomanaA11yPanel button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" aria-controls="donomanaA11yPanel" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
@@ -1523,7 +1522,9 @@ function updatePurposeCards(apps) {
     const newOnclick = `[${titlesArg}]`;
     const before = html;
     html = html.replace(cardRegex, (m, p1, p2, p3, p4, p5) => {
-      return p1 + newOnclick + p3 + '\n' + tagsHTML + '\n        ' + p5;
+      // p5(既存の空白+閉じタグ)は実行のたびに空白が蓄積し得るため使わず、
+      // 閉じタグ部分を固定書式で再構築する(この領域は完全自動生成のため情報損失なし)
+      return p1 + newOnclick + p3 + '\n' + tagsHTML + '\n        </div>\n      </div>';
     });
     if (html !== before) updated++;
   }
