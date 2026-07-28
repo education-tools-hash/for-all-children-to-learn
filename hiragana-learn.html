@@ -744,6 +744,32 @@
   <!-- /favicon -->
 </head>
 <body>
+<!-- announce-helper: 自動挿入 (generate.js) -->
+<div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  if (window.donomanaAnnounce) return;
+  var politeTimer = null, assertiveTimer = null;
+  function donomanaAnnounce(message, options){
+    if (typeof message !== 'string') return;
+    if (message.trim() === '') return;
+    var opts = options || {};
+    var priority = (opts.priority === 'assertive') ? 'assertive' : 'polite';
+    var clearDelay = (typeof opts.clearDelay === 'number' && Number.isFinite(opts.clearDelay) && opts.clearDelay >= 0) ? opts.clearDelay : 50;
+    var elId = (priority === 'assertive') ? 'donomanaAnnounceAssertive' : 'donomanaAnnouncePolite';
+    var live = document.getElementById(elId);
+    if (!live) return;
+    if (priority === 'assertive') { clearTimeout(assertiveTimer); } else { clearTimeout(politeTimer); }
+    live.textContent = '';
+    var timer = setTimeout(function(){ live.textContent = message; }, clearDelay);
+    if (priority === 'assertive') { assertiveTimer = timer; } else { politeTimer = timer; }
+  }
+  window.donomanaAnnounce = donomanaAnnounce;
+})();
+</script>
+<!-- /announce-helper -->
+
 
 
 

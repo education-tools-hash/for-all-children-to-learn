@@ -1080,6 +1080,40 @@ function buildLockFsHTML(needFs, needLock) {
   ].join('\n');
 }
 
+// Announcement共通ヘルパー: アプリ固有の状態通知(操作結果・スコア更新等)を
+// 汎用的にスクリーンリーダーへ伝えるための window.donomanaAnnounce() を提供する。
+// donomanaAnnounceA11y() (a11yパネル専用・非公開) とは別に、polite/assertive
+// それぞれ独立したlive regionとタイマーを持つ。除外リストは設けず全アプリへ配布する。
+function buildAnnounceHelperHTML() {
+  return [
+    '<!-- announce-helper: 自動挿入 (generate.js) -->',
+    '<div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>',
+    '<div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>',
+    `<script>
+(function(){
+  if (window.donomanaAnnounce) return;
+  var politeTimer = null, assertiveTimer = null;
+  function donomanaAnnounce(message, options){
+    if (typeof message !== 'string') return;
+    if (message.trim() === '') return;
+    var opts = options || {};
+    var priority = (opts.priority === 'assertive') ? 'assertive' : 'polite';
+    var clearDelay = (typeof opts.clearDelay === 'number' && Number.isFinite(opts.clearDelay) && opts.clearDelay >= 0) ? opts.clearDelay : 50;
+    var elId = (priority === 'assertive') ? 'donomanaAnnounceAssertive' : 'donomanaAnnouncePolite';
+    var live = document.getElementById(elId);
+    if (!live) return;
+    if (priority === 'assertive') { clearTimeout(assertiveTimer); } else { clearTimeout(politeTimer); }
+    live.textContent = '';
+    var timer = setTimeout(function(){ live.textContent = message; }, clearDelay);
+    if (priority === 'assertive') { assertiveTimer = timer; } else { politeTimer = timer; }
+  }
+  window.donomanaAnnounce = donomanaAnnounce;
+})();
+</script>`,
+    '<!-- /announce-helper -->'
+  ].join('\n');
+}
+
 // ============================================================
 //  ファビコン関連: 全ページの <head> に統一して挿入する
 //  ・サイトルート絶対パス指定 (/) なので
@@ -1737,6 +1771,10 @@ injectLockFsButtonToAppHtmls(apps);
 //     既存のスイッチスキャン・視線入力等はそのまま残し、並行して動作させる
 injectA11yPanelToAppHtmls(apps);
 
+// 個別アプリHTML(ルート直下の*.html)にAnnouncement共通ヘルパー(donomanaAnnounce)を一括挿入
+//     除外リストなし。全アプリへ配布する(既存 donomanaAnnounceA11y / donomanaLockToast はそのまま維持)
+injectAnnounceHelperToAppHtmls(apps);
+
 // 11. 個別アプリHTML(ルート直下の*.html)にcanonical/meta descriptionを一括挿入
 //     アプリ本体ページと詳細ページが同じ検索語で評価を分け合う(カニバリゼーション)のを防ぐため、
 //     本体ページのcanonicalは詳細ページに向ける(検索評価を詳細ページへ統合する)
@@ -2001,6 +2039,59 @@ function injectA11yPanelToAppHtmls(apps) {
     }
   }
   console.log(`\n⚙ 個別アプリHTML への統一アクセシビリティパネル挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
+
+// ============================================================
+//  個別アプリHTMLに対するAnnouncement共通ヘルパー(donomanaAnnounce)一括注入
+//  ・対象: apps-data.json に登録された全アプリ(除外リストなし)
+//  ・対象外: index.html, app-intro.html, app-register.html
+// ============================================================
+function injectAnnounceHelperToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  const startMark = '<!-- announce-helper: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /announce-helper -->';
+  const block = buildAnnounceHelperHTML();
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      let html = original;
+      const startIdx = html.indexOf(startMark);
+      if (startIdx !== -1) {
+        const endIdx = html.indexOf(endMark, startIdx);
+        if (endIdx !== -1) html = html.slice(0, startIdx) + block + html.slice(endIdx + endMark.length);
+      } else {
+        const bodyMatch = html.match(/<body[^>]*>/);
+        if (bodyMatch) {
+          const insertAt = bodyMatch.index + bodyMatch[0].length;
+          html = html.slice(0, insertAt) + '\n' + block + html.slice(insertAt);
+        }
+      }
+      if (html !== original) {
+        fs.writeFileSync(filePath, html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname}`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n📢 個別アプリHTML への Announcement共通ヘルパー挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
   if (log.length > 0 && process.env.VERBOSE === '1') {
     log.forEach(l => console.log(l));
   } else if (log.length > 0) {
