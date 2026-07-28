@@ -1113,6 +1113,27 @@ function buildAnnounceHelperHTML() {
   ].join('\n');
 }
 
+// Design Token専用ブロック: 角丸・フォーカスの共通CSS変数定義のみを配布する。
+// :root の変数定義だけであり、汎用セレクタは含めない(既存表示に影響を与えない)。
+// 影(--dm-shadow-*)はDesign System 9.9.1ログ#5により今回は対象外とする。
+function buildDesignTokensHTML() {
+  return [
+    '<!-- design-tokens: 自動挿入 (generate.js) -->',
+    '<style>',
+    ':root{',
+    '  --dm-radius-sm:5px;',
+    '  --dm-radius-md:9px;',
+    '  --dm-radius-pill:999px;',
+    '  --dm-radius-circle:50%;',
+    '  --dm-focus-width:3px;',
+    '  --dm-focus-color:#00A99D;',
+    '  --dm-focus-offset:2px;',
+    '}',
+    '</style>',
+    '<!-- /design-tokens -->'
+  ].join('\n');
+}
+
 // ============================================================
 //  ファビコン関連: 全ページの <head> に統一して挿入する
 //  ・サイトルート絶対パス指定 (/) なので
@@ -1776,6 +1797,10 @@ injectA11yPanelToAppHtmls(apps);
 //     除外リストなし。全アプリへ配布する(既存 donomanaAnnounceA11y / donomanaLockToast はそのまま維持)
 injectAnnounceHelperToAppHtmls(apps);
 
+// 個別アプリHTML(ルート直下の*.html)にDesign Token(角丸・フォーカス共通CSS変数)を一括挿入
+//     除外リストなし。:root の変数定義のみのため既存表示には影響しない
+injectDesignTokensToAppHtmls(apps);
+
 // 11. 個別アプリHTML(ルート直下の*.html)にcanonical/meta descriptionを一括挿入
 //     アプリ本体ページと詳細ページが同じ検索語で評価を分け合う(カニバリゼーション)のを防ぐため、
 //     本体ページのcanonicalは詳細ページに向ける(検索評価を詳細ページへ統合する)
@@ -2093,6 +2118,62 @@ function injectAnnounceHelperToAppHtmls(apps) {
     }
   }
   console.log(`\n📢 個別アプリHTML への Announcement共通ヘルパー挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
+
+// ============================================================
+//  個別アプリHTMLに対するDesign Token(角丸・フォーカス共通CSS変数)一括注入
+//  ・対象: apps-data.json に登録された全アプリ(除外リストなし)
+//  ・対象外: index.html, app-intro.html, app-register.html
+//  ・:root の変数定義のみを配布し、既存CSSへの影響はない(表示は変わらない)
+// ============================================================
+function injectDesignTokensToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  const startMark = '<!-- design-tokens: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /design-tokens -->';
+  const block = buildDesignTokensHTML();
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      let html = original;
+      const startIdx = html.indexOf(startMark);
+      if (startIdx !== -1) {
+        const endIdx = html.indexOf(endMark, startIdx);
+        if (endIdx !== -1) html = html.slice(0, startIdx) + block + html.slice(endIdx + endMark.length);
+      } else {
+        // </title> の直後、なければ<head>直後に挿入(既存スタイルより前に置く)
+        const titleEnd = html.indexOf('</title>');
+        const headMatch = html.match(/<head[^>]*>/);
+        const insertAt = titleEnd !== -1 ? titleEnd + '</title>'.length
+                       : headMatch ? headMatch.index + headMatch[0].length : -1;
+        if (insertAt === -1) { skipped++; log.push(`  ⚠️  ${fname} (head/title未検出)`); continue; }
+        html = html.slice(0, insertAt) + '\n' + block + html.slice(insertAt);
+      }
+      if (html !== original) {
+        fs.writeFileSync(filePath, html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname}`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n🎛 個別アプリHTML への Design Token挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
   if (log.length > 0 && process.env.VERBOSE === '1') {
     log.forEach(l => console.log(l));
   } else if (log.length > 0) {
