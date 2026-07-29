@@ -1850,18 +1850,37 @@ function restorePinModalFocus(fallback){
 // モーダルを閉じてもbufは破棄されないため、呼び出し側が戻り値のresetAll()を
 // 明示的に呼ばない限り、次回このキーパッドを使うときも前回の入力が残る。
 function buildKeypad(cid,did,onComplete,eid) {
-  const c=document.getElementById(cid); c.innerHTML=''; let buf='';
+  const c=document.getElementById(cid); c.innerHTML=''; let buf=''; let pendingTimer=null;
+  // 背景クリックによる終了はcloseModal()のみを呼び、resetAll()系を経由しないため、
+  // 保留中の120msタイマーが解除されないまま残る。closest()で自身が属するモーダルを
+  // 一度だけ特定しておき、タイマー発火時に.openクラス（openModal()/closeModal()が
+  // 一元的に管理する既存の表示状態）を確認することで、閉じた後のonComplete()実行を防ぐ。
+  const modal=c.closest('.modal-backdrop');
   const upd=()=>{document.getElementById(did).textContent='●'.repeat(buf.length)+'・'.repeat(4-buf.length);};
-  const clearBuf=()=>{buf='';upd();};
+  // clearBuf()呼び出し時点で保留中の4桁自動確定タイマーがあれば必ず解除する。
+  // これをしないと、Escape・キャンセル・⌫による再入力等でbufが空に戻った後も
+  // 古いタイマーが生き残り、120ms後に空文字や巻き戻ったbufでonComplete()が
+  // 二重実行されてしまう（誤ったエラー表示・誤った読み上げ通知の原因）。
+  const clearBuf=()=>{clearTimeout(pendingTimer);pendingTimer=null;buf='';upd();};
   const resetAll=()=>{clearBuf();if(document.getElementById(eid))document.getElementById(eid).textContent='';};
   [1,2,3,4,5,6,7,8,9,'⌫',0,'✓'].forEach(k=>{
     const b=document.createElement('button');
     b.className='key-btn'; b.textContent=k; b.tabIndex=0;
     b.onclick=()=>{
       if(document.getElementById(eid))document.getElementById(eid).textContent='';
-      if(k==='⌫'){buf=buf.slice(0,-1);upd();}
-      else if(k==='✓'){if(buf.length===4)onComplete(buf,clearBuf);}
-      else if(typeof k==='number'&&buf.length<4){buf+=k;upd();if(buf.length===4)setTimeout(()=>onComplete(buf,clearBuf),120);}
+      if(k==='⌫'){clearTimeout(pendingTimer);pendingTimer=null;buf=buf.slice(0,-1);upd();}
+      else if(k==='✓'){if(buf.length===4){clearTimeout(pendingTimer);pendingTimer=null;onComplete(buf,clearBuf);}}
+      else if(typeof k==='number'&&buf.length<4){
+        buf+=k;upd();
+        if(buf.length===4){
+          clearTimeout(pendingTimer);
+          pendingTimer=setTimeout(()=>{
+            pendingTimer=null;
+            if(modal&&!modal.classList.contains('open')){clearBuf();return;}
+            onComplete(buf,clearBuf);
+          },120);
+        }
+      }
     };
     c.appendChild(b);
   });
