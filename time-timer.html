@@ -869,37 +869,37 @@
 </div>
 
 <!-- モーダル群（PIN） -->
-<div class="modal-backdrop" id="unlockModal" role="dialog" aria-modal="true">
+<div class="modal-backdrop" id="unlockModal" role="dialog" aria-modal="true" aria-labelledby="unlockModalTitle" aria-describedby="unlockModalDesc">
   <div class="modal">
-    <div class="modal-title">🔓 ロックを解除する</div>
-    <div class="modal-desc">4けたのPINをにゅうりょくしてください。</div>
+    <div class="modal-title" id="unlockModalTitle">🔓 ロックを解除する</div>
+    <div class="modal-desc" id="unlockModalDesc">4けたのPINをにゅうりょくしてください。</div>
     <div class="keypad" id="unlockKeypad"></div>
     <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="unlockDots">・・・・</div>
     <div class="pin-error" id="unlockError"></div>
     <div class="modal-actions"><button class="btn-modal scannable" onclick="closeModal('unlockModal');unlockKeypadReset();document.getElementById('lockToggleBtn').focus();">キャンセル</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="setPinModal" role="dialog" aria-modal="true">
+<div class="modal-backdrop" id="setPinModal" role="dialog" aria-modal="true" aria-labelledby="setPinModalTitle" aria-describedby="setPinDesc">
   <div class="modal">
-    <div class="modal-title">🔑 PINを設定する</div>
+    <div class="modal-title" id="setPinModalTitle">🔑 PINを設定する</div>
     <div class="modal-desc" id="setPinDesc">あたらしい4けたのPINをにゅうりょくしてください。</div>
     <div class="keypad" id="setPinKeypad"></div>
     <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="setPinDots">・・・・</div>
     <div class="pin-error" id="setPinError"></div>
-    <div class="modal-actions"><button class="btn-modal scannable" onclick="setPinKeypadReset();closeModal('setPinModal');">キャンセル</button></div>
+    <div class="modal-actions"><button class="btn-modal scannable" onclick="setPinKeypadReset();closeModal('setPinModal');restorePinModalFocus();">キャンセル</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="removePinModal" role="dialog" aria-modal="true">
+<div class="modal-backdrop" id="removePinModal" role="dialog" aria-modal="true" aria-labelledby="removePinModalTitle" aria-describedby="removePinModalDesc">
   <div class="modal">
-    <div class="modal-title">🗑 PINをけす</div>
-    <div class="modal-desc">現在のPINをにゅうりょくしてください。</div>
+    <div class="modal-title" id="removePinModalTitle">🗑 PINをけす</div>
+    <div class="modal-desc" id="removePinModalDesc">現在のPINをにゅうりょくしてください。</div>
     <div class="keypad" id="removePinKeypad"></div>
     <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="removePinDots">・・・・</div>
     <div class="pin-error" id="removePinError"></div>
-    <div class="modal-actions"><button class="btn-modal scannable" onclick="removePinKeypadReset();closeModal('removePinModal');">キャンセル</button></div>
+    <div class="modal-actions"><button class="btn-modal scannable" onclick="removePinKeypadReset();closeModal('removePinModal');restorePinModalFocus();">キャンセル</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="lockActionModal" role="dialog" aria-modal="true">
+<div class="modal-backdrop" id="lockActionModal" role="dialog" aria-modal="true" aria-labelledby="lockActionTitle" aria-describedby="lockActionDesc">
   <div class="modal">
     <div class="modal-title" id="lockActionTitle">🔒 せってい ロック</div>
     <div class="modal-desc" id="lockActionDesc"></div>
@@ -927,6 +927,7 @@ let isLocked    = false;
 let unlockKeypadReset = null; // unlockModal専用：入力バッファ・表示・エラーを初期化する（buildKeypad()が返す関数を保持）
 let removePinKeypadReset = null; // removePinModal専用：同上（buildKeypad()が返す関数を保持）
 let setPinKeypadReset = null; // setPinModal専用：buf・表示・エラーに加え、段階状態s1と説明文も初期化する統合reset
+let pinModalReturnFocus = null; // removePinModal・setPinModal・lockActionModal共通：モーダルを開く直前のフォーカス先を保持し、終了時に返す（unlockModalは呼び出し元が#lockToggleBtn固定のため既存の直書きのまま）
 
 let totalSeconds     = 5 * 60;
 let remainingSeconds = 5 * 60;
@@ -1766,6 +1767,29 @@ function announcePinError(elId){
     window.donomanaAnnounce(el.textContent, {priority:'assertive'});
   }
 }
+// announcePinErrorのpolite版：エラーではない案内（段階遷移・完了通知）に使う
+function announcePinInfo(message){
+  if(message && typeof window.donomanaAnnounce==='function'){
+    window.donomanaAnnounce(message, {priority:'polite'});
+  }
+}
+// removePinModal・setPinModal・lockActionModal共通：モーダルを開く直前のdocument.activeElementを
+// 呼び出し元として記録する。body／documentElement／DOM上に存在しない／非表示／disabledな要素は
+// 戻り先として無効とし、記録しない（後でrestorePinModalFocus()がフォーカスを迷子にしないため）。
+function recordPinModalCaller(){
+  const el=document.activeElement;
+  pinModalReturnFocus=(el && el!==document.body && el!==document.documentElement
+    && el.isConnected && el.offsetParent!==null && !el.disabled) ? el : null;
+}
+// 記録された呼び出し元へフォーカスを返す。開いていた間にその要素が非表示・削除されていた場合は
+// 何もしない（例：PIN削除成功で#removePinBtn自身がdisplay:noneになるケース）。
+function restorePinModalFocus(){
+  const el=pinModalReturnFocus;
+  pinModalReturnFocus=null;
+  if(el && el.isConnected && el.offsetParent!==null && !el.disabled){
+    el.focus();
+  }
+}
 // buildKeypad()は入力バッファ(buf)をこの関数のクロージャ内に保持する。
 // モーダルを閉じてもbufは破棄されないため、呼び出し側が戻り値のresetAll()を
 // 明示的に呼ばない限り、次回このキーパッドを使うときも前回の入力が残る。
@@ -1790,15 +1814,15 @@ function buildKeypad(cid,did,onComplete,eid) {
 
 function buildAllKeypads() {
   unlockKeypadReset = buildKeypad('unlockKeypad','unlockDots',
-    (pin,reset)=>{if(pin===savedPin){isLocked=false;updateLockUI();closeModal('unlockModal');document.getElementById('lockToggleBtn').focus();unlockKeypadReset();}else{document.getElementById('unlockError').textContent='PINがちがいます';announcePinError('unlockError');reset();}},
+    (pin,reset)=>{if(pin===savedPin){isLocked=false;updateLockUI();closeModal('unlockModal');document.getElementById('lockToggleBtn').focus();unlockKeypadReset();announcePinInfo('ロックをかいじょしました');}else{document.getElementById('unlockError').textContent='PINがちがいます';announcePinError('unlockError');reset();}},
     'unlockError');
   // unlockModal・removePinModal・setPinModalのキーパッドをスキャン対象に含める
   document.querySelectorAll('#unlockKeypad button').forEach(b=>b.classList.add('scannable'));
   let s1='';
   const setPinResetAll = buildKeypad('setPinKeypad','setPinDots',
     (pin,reset)=>{
-      if(!s1){s1=pin;document.getElementById('setPinDesc').textContent='もういちど おなじPINをにゅうりょくしてください。';reset();}
-      else if(pin===s1){savedPin=pin;localStorage.setItem('tt_pin',pin);s1='';document.getElementById('removePinBtn').style.display='flex';closeModal('setPinModal');if(!isLocked){isLocked=true;updateLockUI();}setPinKeypadReset();}
+      if(!s1){s1=pin;const msg='もういちど おなじPINをにゅうりょくしてください。';document.getElementById('setPinDesc').textContent=msg;announcePinInfo(msg);reset();}
+      else if(pin===s1){savedPin=pin;localStorage.setItem('tt_pin',pin);s1='';document.getElementById('removePinBtn').style.display='flex';closeModal('setPinModal');if(!isLocked){isLocked=true;updateLockUI();}setPinKeypadReset();restorePinModalFocus();announcePinInfo('PINをせっていしました');}
       else{s1='';document.getElementById('setPinError').textContent='PINがいっちしません';announcePinError('setPinError');document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';reset();}
     },'setPinError');
   // setPinKeypadReset：buf・ドット・エラーに加え、段階状態s1と説明文（1回目/2回目どちらの案内か）も
@@ -1807,7 +1831,7 @@ function buildAllKeypads() {
   setPinKeypadReset = ()=>{s1='';setPinResetAll();document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';};
   document.querySelectorAll('#setPinKeypad button').forEach(b=>b.classList.add('scannable'));
   removePinKeypadReset = buildKeypad('removePinKeypad','removePinDots',
-    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');removePinKeypadReset();}else{document.getElementById('removePinError').textContent='PINがちがいます';announcePinError('removePinError');reset();}},
+    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');removePinKeypadReset();restorePinModalFocus();announcePinInfo('PINをけしました');}else{document.getElementById('removePinError').textContent='PINがちがいます';announcePinError('removePinError');reset();}},
     'removePinError');
   document.querySelectorAll('#removePinKeypad button').forEach(b=>b.classList.add('scannable'));
 }
@@ -1824,18 +1848,25 @@ function openLockModal() {
   // どの経路で前回のモーダルが閉じられていたとしても、ここで確実に0桁の状態から開始する。
   if(isLocked){if(savedPin){unlockKeypadReset();openModal('unlockModal');}}
   else{
+    recordPinModalCaller();
     document.getElementById('lockActionTitle').textContent=savedPin?'🔒 ロックする':'🔒 せってい ロック';
     document.getElementById('lockActionDesc').textContent=savedPin?'せっていをロックします。':'まずPINを設定してください。';
     document.getElementById('lockActionBtns').innerHTML=savedPin
-      ?`<button class="btn-modal scannable" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary scannable" onclick="activateLock()">ロックする</button>`
-      :`<button class="btn-modal scannable" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary scannable" onclick="closeModal('lockActionModal');openSetPinModal()">PINをせっていする</button>`;
+      ?`<button class="btn-modal scannable" onclick="closeModal('lockActionModal');restorePinModalFocus();">キャンセル</button><button class="btn-modal primary scannable" onclick="activateLock()">ロックする</button>`
+      :`<button class="btn-modal scannable" onclick="closeModal('lockActionModal');restorePinModalFocus();">キャンセル</button><button class="btn-modal primary scannable" onclick="closeModal('lockActionModal');openSetPinModal(true)">PINをせっていする</button>`;
     openModal('lockActionModal');
   }
 }
 
-function activateLock(){isLocked=true;updateLockUI();closeModal('lockActionModal');}
-function openSetPinModal(){setPinKeypadReset();openModal('setPinModal');}
-function openRemovePinModal(){removePinKeypadReset();openModal('removePinModal');}
+// activateLock()・openSetPinModal()・openRemovePinModal()の呼び出し元記録／フォーカス返却について：
+// lockActionModalからsetPinModalへ「PINをせっていする」で遷移する経路だけは、
+// openSetPinModal(true)でrecordPinModalCaller()の再記録をスキップする。
+// こうしないと、遷移ボタン自身（lockActionModal内の、閉じた直後で見えなくなる要素）が
+// 誤って呼び出し元として記録されてしまう。keepCaller=trueにより、
+// openLockModal()時点で記録済みの本来の起点（#lockToggleBtn）がsetPinModalの終了時まで保持される。
+function activateLock(){isLocked=true;updateLockUI();closeModal('lockActionModal');restorePinModalFocus();announcePinInfo('ロックしました');}
+function openSetPinModal(keepCaller){if(!keepCaller)recordPinModalCaller();setPinKeypadReset();openModal('setPinModal');}
+function openRemovePinModal(){recordPinModalCaller();removePinKeypadReset();openModal('removePinModal');}
 function openModal(id){document.getElementById(id).classList.add('open');document.getElementById(id).querySelector('button')?.focus();}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
@@ -1844,17 +1875,19 @@ document.querySelectorAll('.modal-backdrop').forEach(el=>{
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
-  // unlockModalが対象に含まれていた場合のみ、閉じた後にlockToggleBtnへフォーカスを返す。
-  // removePinModal・setPinModalは入力状態のリセットのみ行い、フォーカス返却は行わない（今回のPhaseの対象外）。
-  // lockActionModalのEscape挙動（閉じるだけ・リセットなし・フォーカス返却なし）は変更しない。
+  // unlockModalは呼び出し元が#lockToggleBtn固定のため、既存どおり直接focus()で返す。
+  // removePinModal・setPinModal・lockActionModalは、開いた際にrecordPinModalCaller()で
+  // 記録した呼び出し元へrestorePinModalFocus()で返す。
   // PIN照合やロック状態には一切触れないため、Escapeによる認証成功扱いは発生しない。
   const unlockWasOpen=document.getElementById('unlockModal').classList.contains('open');
   const removePinWasOpen=document.getElementById('removePinModal').classList.contains('open');
   const setPinWasOpen=document.getElementById('setPinModal').classList.contains('open');
+  const lockActionWasOpen=document.getElementById('lockActionModal').classList.contains('open');
   document.querySelectorAll('.modal-backdrop.open').forEach(el=>closeModal(el.id));
   if(unlockWasOpen){unlockKeypadReset();document.getElementById('lockToggleBtn')?.focus();}
-  if(removePinWasOpen)removePinKeypadReset();
-  if(setPinWasOpen)setPinKeypadReset();
+  if(removePinWasOpen){removePinKeypadReset();restorePinModalFocus();}
+  if(setPinWasOpen){setPinKeypadReset();restorePinModalFocus();}
+  if(lockActionWasOpen)restorePinModalFocus();
 });
 
 // unlockModal・removePinModal・setPinModal・lockActionModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
