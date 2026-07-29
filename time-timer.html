@@ -860,7 +860,7 @@
 </div>
 
 <!-- 終了オーバーレイ -->
-<div class="finish-overlay" id="finishOverlay" role="alert" aria-live="assertive">
+<div class="finish-overlay" id="finishOverlay" role="alert" aria-live="assertive" inert aria-hidden="true">
   <div class="finish-emoji" id="finishEmoji">🎉</div>
   <div class="finish-text">おわり！</div>
   <div class="finish-sub">よくできました！</div>
@@ -1337,11 +1337,16 @@ function finishTimer() {
     nameEl.style.display='none';
   }
   overlay.classList.add('show');
+  overlay.removeAttribute('inert');
+  overlay.setAttribute('aria-hidden','false');
   playFinishSound();
 }
 
 function closeFinish() {
-  document.getElementById('finishOverlay').classList.remove('show');
+  const overlay=document.getElementById('finishOverlay');
+  overlay.classList.remove('show');
+  overlay.setAttribute('inert','');
+  overlay.setAttribute('aria-hidden','true');
   resetTimer();
   clearCardSelection();
 }
@@ -1718,13 +1723,22 @@ function updateScanItems() {
   const removePinOpen = document.getElementById('removePinModal').classList.contains('open');
   const setPinOpen = document.getElementById('setPinModal').classList.contains('open');
   const lockActionOpen = document.getElementById('lockActionModal').classList.contains('open');
+  const finishOpen = document.getElementById('finishOverlay').classList.contains('show');
+  // helpModalはこのscript内でinit()が実行される時点ではまだDOM上に存在しない
+  // （HTML内でこの<script>より後ろに定義されているため）。存在しない間はfalse扱いにする。
+  const helpModalEl = document.getElementById('helpModal');
+  const helpOpen = !!helpModalEl && helpModalEl.classList.contains('open');
   scanItems=Array.from(document.querySelectorAll('.scannable'))
     .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
     .filter(el=>!cardAreaHidden || !el.closest('.card-area'))
     .filter(el=>!unlockOpen || el.closest('#unlockModal'))
     .filter(el=>!removePinOpen || el.closest('#removePinModal'))
     .filter(el=>!setPinOpen || el.closest('#setPinModal'))
-    .filter(el=>!lockActionOpen || el.closest('#lockActionModal'));
+    .filter(el=>!lockActionOpen || el.closest('#lockActionModal'))
+    // finishOverlay・helpModalは常時DOM上に存在するため、非表示中はinertで到達を防いでいても
+    // querySelectorAll('.scannable')自体には拾われる。表示中でない限りスキャン対象からも除外する。
+    .filter(el=>finishOpen || !el.closest('#finishOverlay'))
+    .filter(el=>helpOpen || !el.closest('#helpModal'));
 }
 
 function toggleScanMode(en) {
@@ -1875,6 +1889,8 @@ function openModal(id){document.getElementById(id).classList.add('open');documen
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 document.querySelectorAll('.modal-backdrop').forEach(el=>{
+  // この時点ではhelpModalはまだDOM上に存在しない（HTML内でこの<script>より後ろにあるため）。
+  // helpModal分は下のopenHelp/closeHelp定義のそばで別途リスナーを付ける。
   el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);});
 });
 document.addEventListener('keydown',e=>{
@@ -1887,11 +1903,15 @@ document.addEventListener('keydown',e=>{
   const removePinWasOpen=document.getElementById('removePinModal').classList.contains('open');
   const setPinWasOpen=document.getElementById('setPinModal').classList.contains('open');
   const lockActionWasOpen=document.getElementById('lockActionModal').classList.contains('open');
+  const helpWasOpen=document.getElementById('helpModal').classList.contains('open');
   document.querySelectorAll('.modal-backdrop.open').forEach(el=>closeModal(el.id));
   if(unlockWasOpen){unlockKeypadReset();document.getElementById('lockToggleBtn')?.focus();}
   if(removePinWasOpen){removePinKeypadReset();restorePinModalFocus();}
   if(setPinWasOpen){setPinKeypadReset();restorePinModalFocus();}
   if(lockActionWasOpen)restorePinModalFocus();
+  // helpModalはPIN系と異なりreset対象の状態を持たないため、inert/aria-hiddenの再同期のみ行う
+  // （上のforEachで'open'クラスは既に外れているため、closeHelp()は呼ばず属性だけ揃える）。
+  if(helpWasOpen){const m=document.getElementById('helpModal');m.setAttribute('inert','');m.setAttribute('aria-hidden','true');}
 });
 
 // unlockModal・removePinModal・setPinModal・lockActionModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
@@ -1947,7 +1967,7 @@ init();
 </button>
 
 <!-- 「?使い方」モーダル -->
-<div class="modal-backdrop" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+<div class="modal-backdrop" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" inert aria-hidden="true">
   <div class="help-modal">
     <h2 id="helpModalTitle">⏱ タイムタイマーの つかいかた</h2>
     <p class="help-subtitle">のこりじかんを いろで みえる タイマーです。<br>かつどうの 「あとどのくらい？」が ひとめで わかります。</p>
@@ -2018,8 +2038,11 @@ init();
 </div>
 
 <script>
-function openHelp(){document.getElementById('helpModal').classList.add('open');}
-function closeHelp(){document.getElementById('helpModal').classList.remove('open');}
+function openHelp(){const m=document.getElementById('helpModal');m.classList.add('open');m.removeAttribute('inert');m.setAttribute('aria-hidden','false');}
+function closeHelp(){const m=document.getElementById('helpModal');m.classList.remove('open');m.setAttribute('inert','');m.setAttribute('aria-hidden','true');}
+// helpModalは先行する<script>内の.modal-backdrop一括リスナー登録より後ろでDOMに追加されるため、
+// 背景クリックで閉じる分だけここで個別に登録する（inert/aria-hiddenの同期をcloseHelp()経由で保つため）。
+document.getElementById('helpModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeHelp();});
 </script>
 
 </body>
