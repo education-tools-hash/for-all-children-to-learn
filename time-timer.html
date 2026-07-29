@@ -1012,7 +1012,8 @@ function selectCard(card) {
   const iconHtml = card.photoUrl
     ? `<img src="${card.photoUrl}" alt="${card.name}" style="width:calc(var(--card-size)*.7);height:calc(var(--card-size)*.7);object-fit:cover;border-radius:20px;border:3px solid var(--border);flex-shrink:0;">`
     : `<div class="active-card-icon">${card.emoji}</div>`;
-  document.getElementById('activeCardDisplay').innerHTML = iconHtml + `
+  const activeCardDisplay = document.getElementById('activeCardDisplay');
+  activeCardDisplay.innerHTML = iconHtml + `
     <div class="active-card-info">
       <div class="active-card-label">いまやること</div>
       <div class="active-card-name">${card.name}</div>
@@ -1027,6 +1028,11 @@ function selectCard(card) {
       🔄 えらびなおす
     </button>`;
   updateScanItems();
+  // クリックしたカード自身がcardGrid非表示化に伴って消えるため、何もしないと
+  // activeElementがBODYへ落ちてしまう（Phase16.19調査で確認）。選択直後に
+  // 唯一存在する操作対象である「えらびなおす」ボタンへ明示的にフォーカスする。
+  const reselectBtn = activeCardDisplay.querySelector('button');
+  if(reselectBtn) reselectBtn.focus();
 }
 
 function clearCardSelection() {
