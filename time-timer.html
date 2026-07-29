@@ -1353,6 +1353,23 @@ function closeFinish() {
   document.getElementById('resetBtn').focus();
 }
 
+// finishOverlay専用：フォーカストラップ（Tab/Shift+TabでfinishOverlay外へ出さない）。
+// PINモーダル用トラップと同じ理由で、スイッチスキャン有効時はTabの意味が
+// 「スキャン対象を1つ進める」に変わる既存仕様のため、scanEnabled中は何もしない。
+// 対象は現状「もういちど」ボタン1件のみだが、PINモーダルと同じくoffsetParentで
+// 絞り込んだfocusables配列のfirst/lastで判定するため、将来ボタンが増えても壊れない。
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;
+  if(scanEnabled)return;
+  const overlay=document.getElementById('finishOverlay');
+  if(!overlay.classList.contains('show'))return;
+  const focusables=Array.from(overlay.querySelectorAll('button')).filter(el=>el.offsetParent!==null);
+  if(focusables.length===0)return;
+  const first=focusables[0], last=focusables[focusables.length-1];
+  if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
+});
+
 // ===============================================================
 // 終了音 プリセット
 // ===============================================================
