@@ -1716,12 +1716,14 @@ function updateScanItems() {
   const unlockOpen = document.getElementById('unlockModal').classList.contains('open');
   const removePinOpen = document.getElementById('removePinModal').classList.contains('open');
   const setPinOpen = document.getElementById('setPinModal').classList.contains('open');
+  const lockActionOpen = document.getElementById('lockActionModal').classList.contains('open');
   scanItems=Array.from(document.querySelectorAll('.scannable'))
     .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
     .filter(el=>!cardAreaHidden || !el.closest('.card-area'))
     .filter(el=>!unlockOpen || el.closest('#unlockModal'))
     .filter(el=>!removePinOpen || el.closest('#removePinModal'))
-    .filter(el=>!setPinOpen || el.closest('#setPinModal'));
+    .filter(el=>!setPinOpen || el.closest('#setPinModal'))
+    .filter(el=>!lockActionOpen || el.closest('#lockActionModal'));
 }
 
 function toggleScanMode(en) {
@@ -1825,8 +1827,8 @@ function openLockModal() {
     document.getElementById('lockActionTitle').textContent=savedPin?'🔒 ロックする':'🔒 せってい ロック';
     document.getElementById('lockActionDesc').textContent=savedPin?'せっていをロックします。':'まずPINを設定してください。';
     document.getElementById('lockActionBtns').innerHTML=savedPin
-      ?`<button class="btn-modal" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary" onclick="activateLock()">ロックする</button>`
-      :`<button class="btn-modal" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary" onclick="closeModal('lockActionModal');openSetPinModal()">PINをせっていする</button>`;
+      ?`<button class="btn-modal scannable" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary scannable" onclick="activateLock()">ロックする</button>`
+      :`<button class="btn-modal scannable" onclick="closeModal('lockActionModal')">キャンセル</button><button class="btn-modal primary scannable" onclick="closeModal('lockActionModal');openSetPinModal()">PINをせっていする</button>`;
     openModal('lockActionModal');
   }
 }
@@ -1855,7 +1857,7 @@ document.addEventListener('keydown',e=>{
   if(setPinWasOpen)setPinKeypadReset();
 });
 
-// unlockModal・removePinModal・setPinModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
+// unlockModal・removePinModal・setPinModal・lockActionModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
 // スイッチスキャン有効時はTabの意味が「スキャン対象を1つ進める」に変わる既存仕様のため、
 // scanEnabled中はこのトラップを動作させず、既存のスキャン用keydownリスナーに委ねる。
 document.addEventListener('keydown',e=>{
@@ -1863,7 +1865,8 @@ document.addEventListener('keydown',e=>{
   if(scanEnabled)return;
   const modal=document.getElementById('unlockModal').classList.contains('open')?document.getElementById('unlockModal')
     :document.getElementById('removePinModal').classList.contains('open')?document.getElementById('removePinModal')
-    :document.getElementById('setPinModal');
+    :document.getElementById('setPinModal').classList.contains('open')?document.getElementById('setPinModal')
+    :document.getElementById('lockActionModal');
   if(!modal.classList.contains('open'))return;
   const focusables=Array.from(modal.querySelectorAll('button')).filter(el=>el.offsetParent!==null);
   if(focusables.length===0)return;
