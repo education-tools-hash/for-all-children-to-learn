@@ -850,7 +850,7 @@
       <div class="sec-title">🔒 せってい ロック</div>
       <p style="font-size:.88em;color:var(--text-sub);line-height:1.6;margin-bottom:12px">4けたのPINでせっていをロックできます。</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn scannable" onclick="openSetPinModal()" tabindex="0" style="font-size:.9em">🔑 PINを設定する</button>
+        <button class="btn scannable" id="setPinBtn" onclick="openSetPinModal()" tabindex="0" style="font-size:.9em">🔑 PINを設定する</button>
         <button class="btn scannable" id="removePinBtn" onclick="openRemovePinModal()" tabindex="0" style="font-size:.9em;display:none">🗑 PINをけす</button>
       </div>
     </div>
@@ -1781,13 +1781,17 @@ function recordPinModalCaller(){
   pinModalReturnFocus=(el && el!==document.body && el!==document.documentElement
     && el.isConnected && el.offsetParent!==null && !el.disabled) ? el : null;
 }
-// 記録された呼び出し元へフォーカスを返す。開いていた間にその要素が非表示・削除されていた場合は
-// 何もしない（例：PIN削除成功で#removePinBtn自身がdisplay:noneになるケース）。
-function restorePinModalFocus(){
+// 記録された呼び出し元へフォーカスを返す。開いていた間にその要素が非表示・削除されていた場合は、
+// 呼び出し側が渡したfallback（例：PIN削除成功時の#removePinBtn→#setPinBtn）へ移す。
+// fallbackも無効なら何もしない（他モーダルの既存呼び出しはfallback省略のため挙動は変わらない）。
+function restorePinModalFocus(fallback){
   const el=pinModalReturnFocus;
   pinModalReturnFocus=null;
-  if(el && el.isConnected && el.offsetParent!==null && !el.disabled){
+  const isUsable=t=>t && t.isConnected && t.offsetParent!==null && !t.disabled;
+  if(isUsable(el)){
     el.focus();
+  }else if(isUsable(fallback)){
+    fallback.focus();
   }
 }
 // buildKeypad()は入力バッファ(buf)をこの関数のクロージャ内に保持する。
@@ -1831,7 +1835,7 @@ function buildAllKeypads() {
   setPinKeypadReset = ()=>{s1='';setPinResetAll();document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';};
   document.querySelectorAll('#setPinKeypad button').forEach(b=>b.classList.add('scannable'));
   removePinKeypadReset = buildKeypad('removePinKeypad','removePinDots',
-    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');removePinKeypadReset();restorePinModalFocus();announcePinInfo('PINをけしました');}else{document.getElementById('removePinError').textContent='PINがちがいます';announcePinError('removePinError');reset();}},
+    (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');removePinKeypadReset();restorePinModalFocus(document.getElementById('setPinBtn'));announcePinInfo('PINをけしました');}else{document.getElementById('removePinError').textContent='PINがちがいます';announcePinError('removePinError');reset();}},
     'removePinError');
   document.querySelectorAll('#removePinKeypad button').forEach(b=>b.classList.add('scannable'));
 }
