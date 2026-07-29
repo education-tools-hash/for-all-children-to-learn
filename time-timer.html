@@ -1931,9 +1931,9 @@ document.addEventListener('keydown',e=>{
   if(removePinWasOpen){removePinKeypadReset();restorePinModalFocus();}
   if(setPinWasOpen){setPinKeypadReset();restorePinModalFocus();}
   if(lockActionWasOpen)restorePinModalFocus();
-  // helpModalはPIN系と異なりreset対象の状態を持たないため、inert/aria-hiddenの再同期のみ行う
-  // （上のforEachで'open'クラスは既に外れているため、closeHelp()は呼ばず属性だけ揃える）。
-  if(helpWasOpen){const m=document.getElementById('helpModal');m.setAttribute('inert','');m.setAttribute('aria-hidden','true');}
+  // helpModalはPIN系と異なりreset対象の状態を持たないため、inert/aria-hiddenの再同期と
+  // フォーカス返却のみ行う（上のforEachで'open'クラスは既に外れているため、closeHelp()は呼ばず属性だけ揃える）。
+  if(helpWasOpen){const m=document.getElementById('helpModal');m.setAttribute('inert','');m.setAttribute('aria-hidden','true');document.getElementById('helpFab').focus();}
 });
 
 // unlockModal・removePinModal・setPinModal・lockActionModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
@@ -1991,7 +1991,7 @@ init();
 <!-- 「?使い方」モーダル -->
 <div class="modal-backdrop" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle" inert aria-hidden="true">
   <div class="help-modal">
-    <h2 id="helpModalTitle">⏱ タイムタイマーの つかいかた</h2>
+    <h2 id="helpModalTitle" tabindex="-1">⏱ タイムタイマーの つかいかた</h2>
     <p class="help-subtitle">のこりじかんを いろで みえる タイマーです。<br>かつどうの 「あとどのくらい？」が ひとめで わかります。</p>
 
     <div class="help-section-title">きほんの つかいかた</div>
@@ -2060,8 +2060,8 @@ init();
 </div>
 
 <script>
-function openHelp(){const m=document.getElementById('helpModal');m.classList.add('open');m.removeAttribute('inert');m.setAttribute('aria-hidden','false');}
-function closeHelp(){const m=document.getElementById('helpModal');m.classList.remove('open');m.setAttribute('inert','');m.setAttribute('aria-hidden','true');}
+function openHelp(){const m=document.getElementById('helpModal');m.classList.add('open');m.removeAttribute('inert');m.setAttribute('aria-hidden','false');document.getElementById('helpModalTitle').focus();}
+function closeHelp(){const m=document.getElementById('helpModal');m.classList.remove('open');m.setAttribute('inert','');m.setAttribute('aria-hidden','true');document.getElementById('helpFab').focus();}
 // helpModalは先行する<script>内の.modal-backdrop一括リスナー登録より後ろでDOMに追加されるため、
 // 背景クリックで閉じる分だけここで個別に登録する（inert/aria-hiddenの同期をcloseHelp()経由で保つため）。
 document.getElementById('helpModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeHelp();});
