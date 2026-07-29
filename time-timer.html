@@ -1775,7 +1775,19 @@ function updateScanSpeed(v) { scanSpeedVal=parseFloat(v); if(scanEnabled)startSc
 
 document.addEventListener('keydown',e=>{
   if(!scanEnabled)return;
-  if(e.key===' '||e.key==='Enter'){e.preventDefault();if(scanItems[scanIndex]){scanItems[scanIndex].click();scanItems[scanIndex].focus();}}
+  if(e.key===' '||e.key==='Enter'){
+    e.preventDefault();
+    const item=scanItems[scanIndex];
+    if(item){
+      const before=document.activeElement;
+      item.click();
+      const after=document.activeElement;
+      const focusMoved=after&&after!==before&&after!==document.body;
+      if(!focusMoved&&item.isConnected&&!item.closest('[inert]')&&!item.closest('[hidden]')&&item.getClientRects().length>0&&!item.disabled){
+        item.focus();
+      }
+    }
+  }
   if(e.key==='Tab'){e.preventDefault();scanIndex=(scanIndex+(e.shiftKey?-1:1)+scanItems.length)%scanItems.length;highlightScan();clearInterval(scanInterval);scanInterval=setInterval(()=>{scanIndex=(scanIndex+1)%scanItems.length;highlightScan();},scanSpeedVal*1000);}
 });
 
