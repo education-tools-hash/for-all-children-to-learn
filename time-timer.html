@@ -886,7 +886,7 @@
     <div class="keypad" id="setPinKeypad"></div>
     <div style="text-align:center;font-size:2em;letter-spacing:.4em;font-weight:900" id="setPinDots">・・・・</div>
     <div class="pin-error" id="setPinError"></div>
-    <div class="modal-actions"><button class="btn-modal" onclick="closeModal('setPinModal')">キャンセル</button></div>
+    <div class="modal-actions"><button class="btn-modal scannable" onclick="setPinKeypadReset();closeModal('setPinModal');">キャンセル</button></div>
   </div>
 </div>
 <div class="modal-backdrop" id="removePinModal" role="dialog" aria-modal="true">
@@ -926,6 +926,7 @@ let savedPin    = localStorage.getItem('tt_pin') || '';
 let isLocked    = false;
 let unlockKeypadReset = null; // unlockModal専用：入力バッファ・表示・エラーを初期化する（buildKeypad()が返す関数を保持）
 let removePinKeypadReset = null; // removePinModal専用：同上（buildKeypad()が返す関数を保持）
+let setPinKeypadReset = null; // setPinModal専用：buf・表示・エラーに加え、段階状態s1と説明文も初期化する統合reset
 
 let totalSeconds     = 5 * 60;
 let remainingSeconds = 5 * 60;
@@ -1714,11 +1715,13 @@ function updateScanItems() {
   const cardAreaHidden = cardArea && cardArea.style.display==='none';
   const unlockOpen = document.getElementById('unlockModal').classList.contains('open');
   const removePinOpen = document.getElementById('removePinModal').classList.contains('open');
+  const setPinOpen = document.getElementById('setPinModal').classList.contains('open');
   scanItems=Array.from(document.querySelectorAll('.scannable'))
     .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
     .filter(el=>!cardAreaHidden || !el.closest('.card-area'))
     .filter(el=>!unlockOpen || el.closest('#unlockModal'))
-    .filter(el=>!removePinOpen || el.closest('#removePinModal'));
+    .filter(el=>!removePinOpen || el.closest('#removePinModal'))
+    .filter(el=>!setPinOpen || el.closest('#setPinModal'));
 }
 
 function toggleScanMode(en) {
@@ -1787,15 +1790,20 @@ function buildAllKeypads() {
   unlockKeypadReset = buildKeypad('unlockKeypad','unlockDots',
     (pin,reset)=>{if(pin===savedPin){isLocked=false;updateLockUI();closeModal('unlockModal');document.getElementById('lockToggleBtn').focus();unlockKeypadReset();}else{document.getElementById('unlockError').textContent='PINがちがいます';announcePinError('unlockError');reset();}},
     'unlockError');
-  // unlockModal・removePinModalのキーパッドのみスキャン対象に含める（setPinは対象外・今回は変更しない）
+  // unlockModal・removePinModal・setPinModalのキーパッドをスキャン対象に含める
   document.querySelectorAll('#unlockKeypad button').forEach(b=>b.classList.add('scannable'));
   let s1='';
-  buildKeypad('setPinKeypad','setPinDots',
+  const setPinResetAll = buildKeypad('setPinKeypad','setPinDots',
     (pin,reset)=>{
       if(!s1){s1=pin;document.getElementById('setPinDesc').textContent='もういちど おなじPINをにゅうりょくしてください。';reset();}
-      else if(pin===s1){savedPin=pin;localStorage.setItem('tt_pin',pin);s1='';document.getElementById('removePinBtn').style.display='flex';closeModal('setPinModal');if(!isLocked){isLocked=true;updateLockUI();}}
+      else if(pin===s1){savedPin=pin;localStorage.setItem('tt_pin',pin);s1='';document.getElementById('removePinBtn').style.display='flex';closeModal('setPinModal');if(!isLocked){isLocked=true;updateLockUI();}setPinKeypadReset();}
       else{s1='';document.getElementById('setPinError').textContent='PINがいっちしません';announcePinError('setPinError');document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';reset();}
     },'setPinError');
+  // setPinKeypadReset：buf・ドット・エラーに加え、段階状態s1と説明文（1回目/2回目どちらの案内か）も
+  // まとめて初期化する。s1だけbufと別リセットになると「表示は1回目なのに内部は2回目」という
+  // 不一致が起きるため、必ずこの1関数を通して両方同時に戻す。
+  setPinKeypadReset = ()=>{s1='';setPinResetAll();document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';};
+  document.querySelectorAll('#setPinKeypad button').forEach(b=>b.classList.add('scannable'));
   removePinKeypadReset = buildKeypad('removePinKeypad','removePinDots',
     (pin,reset)=>{if(pin===savedPin){savedPin='';localStorage.removeItem('tt_pin');isLocked=false;updateLockUI();document.getElementById('removePinBtn').style.display='none';closeModal('removePinModal');removePinKeypadReset();}else{document.getElementById('removePinError').textContent='PINがちがいます';announcePinError('removePinError');reset();}},
     'removePinError');
@@ -1824,7 +1832,7 @@ function openLockModal() {
 }
 
 function activateLock(){isLocked=true;updateLockUI();closeModal('lockActionModal');}
-function openSetPinModal(){document.getElementById('setPinDesc').textContent='あたらしい4けたのPINをにゅうりょくしてください。';document.getElementById('setPinError').textContent='';document.getElementById('setPinDots').textContent='・・・・';openModal('setPinModal');}
+function openSetPinModal(){setPinKeypadReset();openModal('setPinModal');}
 function openRemovePinModal(){removePinKeypadReset();openModal('removePinModal');}
 function openModal(id){document.getElementById(id).classList.add('open');document.getElementById(id).querySelector('button')?.focus();}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -1835,23 +1843,27 @@ document.querySelectorAll('.modal-backdrop').forEach(el=>{
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
   // unlockModalが対象に含まれていた場合のみ、閉じた後にlockToggleBtnへフォーカスを返す。
-  // removePinModalは入力状態のリセットのみ行い、フォーカス返却は行わない（今回のPhaseの対象外）。
-  // setPinModal／lockActionModalのEscape挙動（閉じるだけ・リセットなし・フォーカス返却なし）は変更しない。
+  // removePinModal・setPinModalは入力状態のリセットのみ行い、フォーカス返却は行わない（今回のPhaseの対象外）。
+  // lockActionModalのEscape挙動（閉じるだけ・リセットなし・フォーカス返却なし）は変更しない。
   // PIN照合やロック状態には一切触れないため、Escapeによる認証成功扱いは発生しない。
   const unlockWasOpen=document.getElementById('unlockModal').classList.contains('open');
   const removePinWasOpen=document.getElementById('removePinModal').classList.contains('open');
+  const setPinWasOpen=document.getElementById('setPinModal').classList.contains('open');
   document.querySelectorAll('.modal-backdrop.open').forEach(el=>closeModal(el.id));
   if(unlockWasOpen){unlockKeypadReset();document.getElementById('lockToggleBtn')?.focus();}
   if(removePinWasOpen)removePinKeypadReset();
+  if(setPinWasOpen)setPinKeypadReset();
 });
 
-// unlockModal・removePinModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
+// unlockModal・removePinModal・setPinModal専用：フォーカストラップ（Tab/Shift+Tabでモーダル外へ出さない）
 // スイッチスキャン有効時はTabの意味が「スキャン対象を1つ進める」に変わる既存仕様のため、
 // scanEnabled中はこのトラップを動作させず、既存のスキャン用keydownリスナーに委ねる。
 document.addEventListener('keydown',e=>{
   if(e.key!=='Tab')return;
   if(scanEnabled)return;
-  const modal=document.getElementById('unlockModal').classList.contains('open')?document.getElementById('unlockModal'):document.getElementById('removePinModal');
+  const modal=document.getElementById('unlockModal').classList.contains('open')?document.getElementById('unlockModal')
+    :document.getElementById('removePinModal').classList.contains('open')?document.getElementById('removePinModal')
+    :document.getElementById('setPinModal');
   if(!modal.classList.contains('open'))return;
   const focusables=Array.from(modal.querySelectorAll('button')).filter(el=>el.offsetParent!==null);
   if(focusables.length===0)return;
@@ -1860,7 +1872,7 @@ document.addEventListener('keydown',e=>{
   else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}
 });
 
-// unlockModal・removePinModal専用：物理キーボードでの数字入力・削除
+// unlockModal・removePinModal・setPinModal専用：物理キーボードでの数字入力・削除
 // オンスクリーンキーパッドと同じボタンのclick()を呼ぶだけで、処理自体は二重実装しない。
 // Enterキーはあえてここで処理しない：フォーカス中のbuttonをEnterで実行するのは
 // ブラウザ標準の挙動であり、フォーカストラップによりTabで巡回した先のボタン
@@ -1874,13 +1886,15 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keydown',e=>{
   if(scanEnabled)return;
   if(e.repeat)return; // キー長押しによる連続発火で複数桁が一気に入力されるのを防ぐ
-  const modal=document.getElementById('unlockModal').classList.contains('open')?document.getElementById('unlockModal'):document.getElementById('removePinModal');
+  const modal=document.getElementById('unlockModal').classList.contains('open')?document.getElementById('unlockModal')
+    :document.getElementById('removePinModal').classList.contains('open')?document.getElementById('removePinModal')
+    :document.getElementById('setPinModal');
   if(!modal.classList.contains('open'))return;
   let label=null;
   if(e.key>='0'&&e.key<='9')label=e.key;
   else if(e.key==='Backspace')label='⌫';
   if(label===null)return;
-  const keypad=document.getElementById(modal.id==='unlockModal'?'unlockKeypad':'removePinKeypad');
+  const keypad=document.getElementById(modal.id==='unlockModal'?'unlockKeypad':modal.id==='removePinModal'?'removePinKeypad':'setPinKeypad');
   const btn=Array.from(keypad.children).find(b=>b.textContent===label);
   if(btn){e.preventDefault();btn.click();}
 });
