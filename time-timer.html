@@ -1018,7 +1018,7 @@ function selectCard(card) {
       <div class="active-card-label">いまやること</div>
       <div class="active-card-name">${card.name}</div>
     </div>
-    <button onclick="clearCardSelection()" class="scannable"
+    <button onclick="reselectCard()" class="scannable"
       style="background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;
              padding:8px 12px;font-family:inherit;font-weight:700;font-size:calc(.8em * var(--font-scale));
              color:var(--text-sub);cursor:pointer;flex-shrink:0;transition:all .15s;"
@@ -1041,6 +1041,17 @@ function clearCardSelection() {
   document.getElementById('activeCardDisplay').innerHTML =
     '<div class="active-card-empty">↓ したから かつどうを えらんでね</div>';
   updateScanItems();
+}
+
+// 「えらびなおす」ボタン専用：clearCardSelection()自体はremoveCard()・closeFinish()
+// からも呼ばれており、無条件に最初のカードへfocus()すると、それらの経路で
+// 不自然なフォーカス移動（設定パネルからの飛び先変更／#resetBtn返却の上書き）を
+// 引き起こしてしまう（Phase16.21調査）。そのため「えらびなおす」ボタンだけが
+// 呼ぶ専用関数として分離する。
+function reselectCard(){
+  clearCardSelection();
+  const firstCard=document.getElementById('cardGrid').querySelector('button.card-item');
+  if(firstCard) firstCard.focus();
 }
 
 function renderCardManager() {
