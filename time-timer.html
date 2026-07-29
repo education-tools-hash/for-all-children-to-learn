@@ -869,7 +869,7 @@
 </div>
 
 <!-- モーダル群（PIN） -->
-<div class="modal-backdrop" id="unlockModal" role="dialog" aria-modal="true" aria-labelledby="unlockModalTitle" aria-describedby="unlockModalDesc">
+<div class="modal-backdrop" id="unlockModal" role="dialog" aria-modal="true" aria-labelledby="unlockModalTitle" aria-describedby="unlockModalDesc" inert aria-hidden="true">
   <div class="modal">
     <div class="modal-title" id="unlockModalTitle">🔓 ロックを解除する</div>
     <div class="modal-desc" id="unlockModalDesc">4けたのPINをにゅうりょくしてください。</div>
@@ -879,7 +879,7 @@
     <div class="modal-actions"><button class="btn-modal scannable" onclick="closeModal('unlockModal');unlockKeypadReset();document.getElementById('lockToggleBtn').focus();">キャンセル</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="setPinModal" role="dialog" aria-modal="true" aria-labelledby="setPinModalTitle" aria-describedby="setPinDesc">
+<div class="modal-backdrop" id="setPinModal" role="dialog" aria-modal="true" aria-labelledby="setPinModalTitle" aria-describedby="setPinDesc" inert aria-hidden="true">
   <div class="modal">
     <div class="modal-title" id="setPinModalTitle">🔑 PINを設定する</div>
     <div class="modal-desc" id="setPinDesc">あたらしい4けたのPINをにゅうりょくしてください。</div>
@@ -889,7 +889,7 @@
     <div class="modal-actions"><button class="btn-modal scannable" onclick="setPinKeypadReset();closeModal('setPinModal');restorePinModalFocus();">キャンセル</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="removePinModal" role="dialog" aria-modal="true" aria-labelledby="removePinModalTitle" aria-describedby="removePinModalDesc">
+<div class="modal-backdrop" id="removePinModal" role="dialog" aria-modal="true" aria-labelledby="removePinModalTitle" aria-describedby="removePinModalDesc" inert aria-hidden="true">
   <div class="modal">
     <div class="modal-title" id="removePinModalTitle">🗑 PINをけす</div>
     <div class="modal-desc" id="removePinModalDesc">現在のPINをにゅうりょくしてください。</div>
@@ -899,7 +899,7 @@
     <div class="modal-actions"><button class="btn-modal scannable" onclick="removePinKeypadReset();closeModal('removePinModal');restorePinModalFocus();">キャンセル</button></div>
   </div>
 </div>
-<div class="modal-backdrop" id="lockActionModal" role="dialog" aria-modal="true" aria-labelledby="lockActionTitle" aria-describedby="lockActionDesc">
+<div class="modal-backdrop" id="lockActionModal" role="dialog" aria-modal="true" aria-labelledby="lockActionTitle" aria-describedby="lockActionDesc" inert aria-hidden="true">
   <div class="modal">
     <div class="modal-title" id="lockActionTitle">🔒 せってい ロック</div>
     <div class="modal-desc" id="lockActionDesc"></div>
@@ -1738,7 +1738,14 @@ function updateScanItems() {
     // finishOverlay・helpModalは常時DOM上に存在するため、非表示中はinertで到達を防いでいても
     // querySelectorAll('.scannable')自体には拾われる。表示中でない限りスキャン対象からも除外する。
     .filter(el=>finishOpen || !el.closest('#finishOverlay'))
-    .filter(el=>helpOpen || !el.closest('#helpModal'));
+    .filter(el=>helpOpen || !el.closest('#helpModal'))
+    // PIN関連4モーダルも同様に常時DOM上に存在する（buildAllKeypads()でキーパッドが事前生成されるため）。
+    // 上の4つの既存フィルタは「開いているモーダルへ対象を絞る」役目のみで、閉じている間の
+    // 自分自身の除外はしていなかったため、ここで対称の除外を追加する（既存4行は変更しない）。
+    .filter(el=>unlockOpen || !el.closest('#unlockModal'))
+    .filter(el=>removePinOpen || !el.closest('#removePinModal'))
+    .filter(el=>setPinOpen || !el.closest('#setPinModal'))
+    .filter(el=>lockActionOpen || !el.closest('#lockActionModal'));
 }
 
 function toggleScanMode(en) {
@@ -1885,8 +1892,23 @@ function openLockModal() {
 function activateLock(){isLocked=true;updateLockUI();closeModal('lockActionModal');restorePinModalFocus();announcePinInfo('ロックしました');}
 function openSetPinModal(keepCaller){if(!keepCaller)recordPinModalCaller();setPinKeypadReset();openModal('setPinModal');}
 function openRemovePinModal(){recordPinModalCaller();removePinKeypadReset();openModal('removePinModal');}
-function openModal(id){document.getElementById(id).classList.add('open');document.getElementById(id).querySelector('button')?.focus();}
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+// openModal()/closeModal()はunlockModal・setPinModal・removePinModal・lockActionModalの
+// 4モーダル全ての唯一の開閉経路（キャンセル・Escape・背景クリック・成功時のcloseはいずれもcloseModal()を
+// 通る）。ここでinert／aria-hiddenを一元的に同期させることで、個別の呼び出し箇所を変更せずに済む。
+// inertの解除は.focus()より先に行う必要がある（inert中の要素へはfocus()できないため）。
+function openModal(id){
+  const m=document.getElementById(id);
+  m.classList.add('open');
+  m.removeAttribute('inert');
+  m.setAttribute('aria-hidden','false');
+  m.querySelector('button')?.focus();
+}
+function closeModal(id){
+  const m=document.getElementById(id);
+  m.classList.remove('open');
+  m.setAttribute('inert','');
+  m.setAttribute('aria-hidden','true');
+}
 
 document.querySelectorAll('.modal-backdrop').forEach(el=>{
   // この時点ではhelpModalはまだDOM上に存在しない（HTML内でこの<script>より後ろにあるため）。
