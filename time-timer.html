@@ -1172,6 +1172,20 @@ function addPhotoCard() {
   cards.push({ id:'custom_'+Date.now(), emoji:'🖼', name, photoUrl: pendingPhotoDataUrl });
   pendingPhotoDataUrl = null;
   saveCards(); renderCardGrid(); renderCardManager();
+
+  // renderCardManager()は#cardManagerのinnerHTMLを丸ごと再構築するため、実行元の
+  // 追加ボタンがDOMから消え、フォーカスが失われる（Phase16.29調査で確認）。cards.push()は
+  // 常に配列末尾へ追加され、renderCardManager()はcards配列順に削除ボタンを描画するため、
+  // 削除ボタン一覧の末尾は必ず今追加したカードに対応する（同名カードがあっても安全）。
+  // フォールバックは#photoModeRow内の追加ボタンではなく#modePhotoBtnを使う。
+  // renderCardManager()はaddModeを再適用しないため#photoModeRowはdisplay:noneへ戻ってしまい、
+  // その中の要素へfocus()しても実効を持たない（Phase16.30.1調査で確認）。
+  // #modePhotoBtn自体はモード状態に関わらず常に表示されているボタンのため安全。
+  const deleteButtons = document.querySelectorAll('#cardManager button[aria-label$="さくじょ"]');
+  const focusTarget =
+    deleteButtons[deleteButtons.length - 1] ||
+    document.getElementById('modePhotoBtn');
+  if (focusTarget) focusTarget.focus();
 }
 
 function addCard() {
@@ -1180,6 +1194,13 @@ function addCard() {
   if (!name) return;
   cards.push({ id:'custom_'+Date.now(), emoji, name });
   saveCards(); renderCardGrid(); renderCardManager();
+
+  // addPhotoCard()と同じ理由・同じ方針（Phase16.29調査）。
+  const deleteButtons = document.querySelectorAll('#cardManager button[aria-label$="さくじょ"]');
+  const focusTarget =
+    deleteButtons[deleteButtons.length - 1] ||
+    document.querySelector('#emojiModeRow button[onclick="addCard()"]');
+  if (focusTarget) focusTarget.focus();
 }
 
 function removeCard(id) {
