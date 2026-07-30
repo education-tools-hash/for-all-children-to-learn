@@ -1164,11 +1164,26 @@ function addCard() {
 }
 
 function removeCard(id) {
+  const deletedIndex = cards.findIndex(c => c.id === id);
   cards = cards.filter(c => c.id !== id);
   if (selectedCard?.id === id) {
     clearCardSelection();
   }
   saveCards(); renderCardGrid(); renderCardManager();
+
+  // renderCardManager()は#cardManagerのinnerHTMLを丸ごと再構築するため、削除操作を
+  // 行ったボタン自体がDOMから消え、フォーカスが失われる（Phase16.24調査で確認）。
+  // 同じインデックス位置（末尾削除時は繰り上がった新しい末尾）の削除ボタンへ、
+  // カードが0件になった場合は「＋ついか」ボタンへ、フォーカスを明示的に戻す。
+  const deleteButtons = document.querySelectorAll('#cardManager button[aria-label$="さくじょ"]');
+  let focusTarget = null;
+  if (deleteButtons.length > 0 && deletedIndex >= 0) {
+    focusTarget = deleteButtons[Math.min(deletedIndex, deleteButtons.length - 1)];
+  }
+  if (!focusTarget) {
+    focusTarget = document.querySelector('#emojiModeRow button[onclick="addCard()"]');
+  }
+  if (focusTarget) focusTarget.focus();
 }
 
 function saveCards() {
