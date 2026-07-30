@@ -1823,6 +1823,12 @@ function updateScanItems() {
   const panel=document.getElementById('settingsPanel');
   const cardArea=document.querySelector('.card-area');
   const cardAreaHidden = cardArea && cardArea.style.display==='none';
+  // .card-area自体は表示状態のままでも、カード選択中はselectCard()が#cardGridだけを
+  // display:noneにする（Phase16.19）。既存のcardAreaHidden判定は.card-area自身の
+  // インラインstyleしか見ないため、この場合は非表示になった#cardGrid配下の.card-itemが
+  // scanItemsへ残留してしまっていた（Phase16.33調査で確認）。個別に判定し除外する。
+  const cardGridEl=document.getElementById('cardGrid');
+  const cardGridHidden = cardGridEl && cardGridEl.style.display==='none';
   const unlockOpen = document.getElementById('unlockModal').classList.contains('open');
   const removePinOpen = document.getElementById('removePinModal').classList.contains('open');
   const setPinOpen = document.getElementById('setPinModal').classList.contains('open');
@@ -1835,6 +1841,7 @@ function updateScanItems() {
   scanItems=Array.from(document.querySelectorAll('.scannable'))
     .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
     .filter(el=>!cardAreaHidden || !el.closest('.card-area'))
+    .filter(el=>!cardGridHidden || !el.closest('#cardGrid'))
     .filter(el=>!unlockOpen || el.closest('#unlockModal'))
     .filter(el=>!removePinOpen || el.closest('#removePinModal'))
     .filter(el=>!setPinOpen || el.closest('#setPinModal'))
