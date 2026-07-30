@@ -1131,7 +1131,7 @@ function renderCardManager() {
         <div style="display:flex;gap:8px;align-items:center">
           <input type="text" id="newCardNamePhoto" placeholder="かつどうめい" maxlength="10"
             style="flex:1;height:44px;border:2px solid var(--border);border-radius:12px;padding:0 12px;font-size:1em;background:var(--surface);color:var(--text);font-family:inherit;font-weight:700">
-          <button class="btn" onclick="addPhotoCard()" style="height:44px;font-size:.9em;white-space:nowrap">＋ ついか</button>
+          <button class="btn scannable" onclick="addPhotoCard()" style="height:44px;font-size:.9em;white-space:nowrap">＋ ついか</button>
         </div>
       </div>
     </div>`;
@@ -1829,6 +1829,14 @@ function updateScanItems() {
   // scanItemsへ残留してしまっていた（Phase16.33調査で確認）。個別に判定し除外する。
   const cardGridEl=document.getElementById('cardGrid');
   const cardGridHidden = cardGridEl && cardGridEl.style.display==='none';
+  // 追加モード（絵文字／写真）はsetAddMode()により#emojiModeRow・#photoModeRowが
+  // 排他的にdisplay:none/flexへ切り替わる。子要素はDOMに残り続けるため、非表示側の
+  // scannable要素（Phase16.36の絵文字追加ボタン、Phase16.38の写真追加ボタン）が
+  // scanItemsへ残留してしまっていた（Phase16.37調査で確認）。個別に判定し除外する。
+  const emojiModeRowEl = document.getElementById('emojiModeRow');
+  const emojiModeRowHidden = emojiModeRowEl && emojiModeRowEl.style.display === 'none';
+  const photoModeRowEl = document.getElementById('photoModeRow');
+  const photoModeRowHidden = photoModeRowEl && photoModeRowEl.style.display === 'none';
   const unlockOpen = document.getElementById('unlockModal').classList.contains('open');
   const removePinOpen = document.getElementById('removePinModal').classList.contains('open');
   const setPinOpen = document.getElementById('setPinModal').classList.contains('open');
@@ -1842,6 +1850,8 @@ function updateScanItems() {
     .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
     .filter(el=>!cardAreaHidden || !el.closest('.card-area'))
     .filter(el=>!cardGridHidden || !el.closest('#cardGrid'))
+    .filter(el=>!emojiModeRowHidden || !el.closest('#emojiModeRow'))
+    .filter(el=>!photoModeRowHidden || !el.closest('#photoModeRow'))
     .filter(el=>!unlockOpen || el.closest('#unlockModal'))
     .filter(el=>!removePinOpen || el.closest('#removePinModal'))
     .filter(el=>!setPinOpen || el.closest('#setPinModal'))
