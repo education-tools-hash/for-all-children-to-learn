@@ -1033,6 +1033,11 @@ function selectCard(card) {
   // 唯一存在する操作対象である「えらびなおす」ボタンへ明示的にフォーカスする。
   const reselectBtn = activeCardDisplay.querySelector('button');
   if(reselectBtn) reselectBtn.focus();
+  // 「えらびなおす」のaccessible nameにはカード名が含まれないため（Phase16.23調査）、
+  // 選択したカード名をpolite通知で補う。
+  if (typeof window.donomanaAnnounce === 'function') {
+    window.donomanaAnnounce(`${card.name}を選びました`, {priority:'polite'});
+  }
 }
 
 function clearCardSelection() {
@@ -1052,6 +1057,11 @@ function reselectCard(){
   clearCardSelection();
   const firstCard=document.getElementById('cardGrid').querySelector('button.card-item');
   if(firstCard) firstCard.focus();
+  // 選択解除は「えらびなおす」実行時のみ通知する（clearCardSelection()自体はremoveCard()・
+  // closeFinish()からも呼ばれるため、そちらでは発生させない、Phase16.23/16.26の方針）。
+  if (typeof window.donomanaAnnounce === 'function') {
+    window.donomanaAnnounce('カードの選択を解除しました', {priority:'polite'});
+  }
 }
 
 function renderCardManager() {
