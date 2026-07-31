@@ -1172,9 +1172,12 @@ function buildAnnounceHelperHTML() {
   ].join('\n');
 }
 
-// Design Token専用ブロック: 角丸・フォーカスの共通CSS変数定義のみを配布する。
-// :root の変数定義だけであり、汎用セレクタは含めない(既存表示に影響を与えない)。
-// 影(--dm-shadow-*)はDesign System 9.9.1ログ#5により今回は対象外とする。
+// Design Token専用ブロック: Design System 3.0(Phase17.2-A)で確定したToken定義を配布する。
+// :root の変数定義と、OS設定に連動するprefers-reduced-motionのみであり、
+// 通常表示に影響する汎用セレクタは含めない(既存29アプリの見た目・動作は変更しない)。
+// 各アプリのCSSが これらの変数を参照するよう書き換える作業はPhase17.3-Aの対象外(Token配布のみ)。
+// 影(--dm-shadow-*)はDesign System 9.9.1ログ#5により引き続き対象外とする。
+// フォントファミリーTokenはPhase17.3-Aでは追加しない(サイズ・行間Tokenのみ)。
 function buildDesignTokensHTML() {
   return [
     '<!-- design-tokens: 自動挿入 (generate.js) -->',
@@ -1187,6 +1190,48 @@ function buildDesignTokensHTML() {
     '  --dm-focus-width:3px;',
     '  --dm-focus-color:#00A99D;',
     '  --dm-focus-offset:2px;',
+    '  --dm-color-primary:#00A99D;',
+    '  --dm-color-primary-dark:#00857B;',
+    '  --dm-color-accent:#F5A623;',
+    '  --dm-color-info:#4A8FD9;',
+    '  --dm-color-danger:#EE6C7C;',
+    '  --dm-color-danger-text:#BA5461;',
+    '  --dm-color-surface:#FFFFFF;',
+    '  --dm-color-soft:#F6F9FA;',
+    '  --dm-color-border:#EDF1F0;',
+    '  --dm-color-ink:#3B4A54;',
+    '  --dm-color-sub:#5E6D78;',
+    '  --dm-color-bg:#FFFFFF;',
+    '  --dm-space-1:4px;',
+    '  --dm-space-2:8px;',
+    '  --dm-space-3:12px;',
+    '  --dm-space-4:16px;',
+    '  --dm-space-5:20px;',
+    '  --dm-space-6:24px;',
+    '  --dm-space-7:32px;',
+    '  --dm-space-8:48px;',
+    '  --dm-space-9:64px;',
+    '  --dm-duration-fast:150ms;',
+    '  --dm-duration-base:250ms;',
+    '  --dm-easing-standard:ease;',
+    '  --dm-font-size-display:32px;',
+    '  --dm-font-size-heading:24px;',
+    '  --dm-font-size-subheading:20px;',
+    '  --dm-font-size-body:17px;',
+    '  --dm-font-size-body-kid:24px;',
+    '  --dm-font-size-caption:13px;',
+    '  --dm-line-height-heading:1.4;',
+    '  --dm-line-height-body:1.7;',
+    '  --dm-line-height-body-kid:1.8;',
+    '  --dm-line-height-caption:1.6;',
+    '}',
+    '@media (prefers-reduced-motion: reduce){',
+    '  *,*::before,*::after{',
+    '    animation-duration:0.01ms !important;',
+    '    animation-iteration-count:1 !important;',
+    '    transition-duration:0.01ms !important;',
+    '    scroll-behavior:auto !important;',
+    '  }',
     '}',
     '</style>',
     '<!-- /design-tokens -->'
