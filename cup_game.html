@@ -564,6 +564,25 @@
     
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
+    // フォーカス可能条件の最小十分セット(Phase16.44-C横断調査で導出、Phase16.45-Bでdisplay/opacity判定を追加):
+    // 接続済み・disabledでない・tabIndex!==-1・hidden属性/祖先なし・inert配下でない・
+    // クライアント矩形を持つ・display:noneでない・visibility:hidden/collapseでない・opacity:0でない。
+    // pointer-events:noneはキーボードフォーカス可否と一致しないため判定条件に含めない。
+    function donomanaIsFocusable(el){
+      if (!el || !el.isConnected || el.disabled || el.tabIndex === -1) return false;
+      if (el.hasAttribute('hidden') || el.closest('[hidden]') || el.closest('[inert]')) return false;
+      if (el.getClientRects().length === 0) return false;
+      var cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+      if (Number.parseFloat(cs.opacity) === 0) return false;
+      return true;
+    }
+    function donomanaFirstFocusable(root){
+      if (!root) return null;
+      var cands = root.querySelectorAll('button, input, select, textarea, a[href], [tabindex]');
+      for (var i = 0; i < cands.length; i++) { if (donomanaIsFocusable(cands[i])) return cands[i]; }
+      return null;
+    }
     proxyBtn.addEventListener('click', function(e){
       // 実際のクリックイベントがこのままdocumentまでバブリングすると、
       // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
@@ -576,7 +595,47 @@
       panel.style.display = 'none';
       btn.setAttribute('aria-expanded', 'false');
       panel.setAttribute('aria-hidden', 'true');
-      if (original) original.click();
+      if (!original) return;
+      // Phase16.45-A: 上のpanel非表示により、フォーカス中だった#donomanaSettingsProxyの祖先が
+      // display:noneになる。ブラウザは非同期にfocusout(relatedTarget=null)を発生させdocument.body
+      // へフォーカスを落とす(Phase16.43調査で確認した既存の構造的バグ)。originalへ明示的にfocusして
+      // からclickすることで大半のアプリではこれを未然に防げるが、original自身がdisplay:none等で
+      // フォーカス不能なアプリも存在するため(Phase16.44-C調査)、その場合に備えたfallbackも用意する。
+      var controlsId = original.getAttribute('aria-controls');
+      var beforeVisible = null;
+      if (!controlsId) {
+        // aria-controlsが無いアプリ向け: クリック前の可視要素集合を保存し、
+        // fallback時にクリック後との差分(新たに可視化された要素)を求める。
+        beforeVisible = new Set();
+        document.querySelectorAll('body *').forEach(function(el){
+          if (el.getClientRects().length > 0) beforeVisible.add(el);
+        });
+      }
+      original.focus();
+      original.click();
+      // BODYへ落ちた場合に加え、original.focus()自体は成功しているがoriginalがgenerate.jsにより
+      // 恒常的にopacity:0/display:noneで隠されているため、キーボード操作者から見て不可視なフォーカス
+      // (例: time-timerの#settingsToggle)が残るケースも救済する(Phase16.45-B)。アプリ独自のfocus処理が
+      // 既にoriginal以外の要素へ移動させている場合はここで何もしない(既存の独自focus処理を壊さないため)。
+      // janken-app/register-app等、自前で約50ms後にfocusを移すアプリより十分後の100msで判定する。
+      setTimeout(function(){
+        var active = document.activeElement;
+        var needsFallback = (active === document.body) || (active === original && !donomanaIsFocusable(original));
+        if (!needsFallback) return;
+        var target = null;
+        if (controlsId) {
+          target = donomanaFirstFocusable(document.getElementById(controlsId));
+        } else {
+          var newly = [];
+          document.querySelectorAll('body *').forEach(function(el){
+            if (el.getClientRects().length > 0 && !beforeVisible.has(el)) newly.push(el);
+          });
+          for (var i = 0; i < newly.length; i++) {
+            if (/^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(newly[i].tagName) && donomanaIsFocusable(newly[i])) { target = newly[i]; break; }
+          }
+        }
+        if (target) target.focus();
+      }, 100);
     });
   }
     var resetBtn = document.getElementById('donomanaA11yReset');
