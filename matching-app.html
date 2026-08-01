@@ -1728,7 +1728,7 @@ $('btn-retry').addEventListener('click',()=>{
 $('btn-back').addEventListener('click',backToSel);
 $('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');startGame();});
 $('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');backToSel();});
-document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
+document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
 // how-ov・settings-ov・edit-ov共通：背景（#hdr・#main）のinert切り替え。
 // 3モーダルのうちいずれか1件でも表示中であれば背景をinertのまま維持し、
 // 全て閉じたときだけ解除する（同時表示・多重の開閉経路があっても解除漏れ／誤解除を防ぐため）。
@@ -1767,11 +1767,20 @@ document.addEventListener('keydown',e=>{
     .filter(el=>el.offsetParent!==null && !el.disabled);
   if(!focusables.length)return;
   const first=focusables[0],last=focusables[focusables.length-1];
-  if(e.shiftKey){
-    if(document.activeElement===first || !modal.contains(document.activeElement)){e.preventDefault();last.focus();}
-  }else{
-    if(document.activeElement===last || !modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+  const active=document.activeElement;
+  if(modal.contains(active)){
+    if(e.shiftKey){
+      if(active===first){e.preventDefault();last.focus();}
+    }else{
+      if(active===last){e.preventDefault();first.focus();}
+    }
+    return;
   }
+  const a11yBtn=document.getElementById('donomanaA11yBtn');
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel&&a11yPanel.style.display==='block'&&(active===a11yBtn||a11yPanel.contains(active)))return;
+  e.preventDefault();
+  if(e.shiftKey){last.focus();}else{first.focus();}
 });
 let tStart=0;
 document.addEventListener('touchstart',e=>{if(!scanMode)return;tStart=Date.now();},{passive:true});
