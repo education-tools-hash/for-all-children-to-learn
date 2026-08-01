@@ -1133,21 +1133,21 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 </div>
 
 <!-- NEW MODAL -->
-<div id="new-modal" class="overlay" style="display:none" onclick="bgClose(event,'new-modal')">
+<div id="new-modal" class="overlay" style="display:none" onclick="bgClose(event,'new-modal')" role="dialog" aria-modal="true" aria-labelledby="new-modal-title">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title">📋 あたらしいスケジュール</div>
+    <div class="modal-title" id="new-modal-title">📋 あたらしいスケジュール</div>
     <p style="font-size:0.85rem;color:var(--text2);margin-bottom:13px;">いまのスケジュールは「📂 ほぞん」タブに残ります。あたらしくはじめますか？</p>
     <div class="modal-acts">
-      <button class="btn btn-ghost" onclick="document.getElementById('new-modal').style.display='none'">キャンセル</button>
+      <button class="btn btn-ghost" id="new-modal-cancel-btn" onclick="document.getElementById('new-modal').style.display='none'">キャンセル</button>
       <button class="btn btn-sky" onclick="createNew()">あたらしくつくる</button>
     </div>
   </div>
 </div>
 
 <!-- PRINT MODAL -->
-<div id="print-modal" class="overlay" style="display:none" onclick="bgClose(event,'print-modal')">
+<div id="print-modal" class="overlay" style="display:none" onclick="bgClose(event,'print-modal')" role="dialog" aria-modal="true" aria-labelledby="print-modal-title">
   <div class="print-modal-inner" onclick="event.stopPropagation()">
-    <div class="modal-title">🖨️ 印刷・ラミネート用シート</div>
+    <div class="modal-title" id="print-modal-title" tabindex="-1">🖨️ 印刷・ラミネート用シート</div>
 
     <div style="font-size:0.82rem;color:var(--text2);margin-bottom:8px;">レイアウトをえらんでください</div>
     <div class="print-layout-btns">
@@ -1181,9 +1181,9 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 <div id="print-frame"></div>
 
 <!-- IMG MODAL -->
-<div id="img-modal" class="overlay" style="display:none" onclick="bgClose(event,'img-modal')">
+<div id="img-modal" class="overlay" style="display:none" onclick="bgClose(event,'img-modal')" role="dialog" aria-modal="true" aria-labelledby="img-modal-title">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title">🖼 画像をえらぶ</div>
+    <div class="modal-title" id="img-modal-title" tabindex="-1">🖼 画像をえらぶ</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px;">
       <button class="btn btn-ghost" style="padding:15px;flex-direction:column;gap:5px;height:auto;border-radius:var(--r);" onclick="document.getElementById('file-in').click()">
         <span style="font-size:27px">📁</span><span>ファイル</span>
@@ -1964,7 +1964,7 @@ async function deleteSaved(id){
 }
 
 // ===== NEW / EXPORT / IMPORT =====
-function showNewModal(){document.getElementById('new-modal').style.display='flex';}
+function showNewModal(){document.getElementById('new-modal').style.display='flex';document.getElementById('new-modal-cancel-btn').focus();}
 async function createNew(){
   items=[];checks={};scheduleId=genId();scheduleName='きょうのよてい';
   document.getElementById('schedule-name').value=scheduleName;
@@ -2005,6 +2005,7 @@ function importJSON(e){
 function openImgModal(id){
   currentImgItemId=id;
   document.getElementById('img-modal').style.display='flex';
+  document.getElementById('img-modal-title').focus();
 }
 function clearItemImg(){
   if(currentImgItemId!=null){
@@ -2113,6 +2114,7 @@ var printLayout='card';
 function showPrintModal(){
   setPrintLayout('card');
   document.getElementById('print-modal').style.display='flex';
+  document.getElementById('print-modal-title').focus();
 }
 
 function setPrintLayout(layout){
@@ -2225,6 +2227,37 @@ function doPrint(){
 }
 
 function bgClose(e,id){if(e.target.id===id)document.getElementById(id).style.display='none';}
+// new-modal・print-modal・img-modal共通：表示中の対象モーダルを1件だけ返す。
+// 3モーダルは互いに排他的に開かれる想定だが、念のため配列の先頭から見つかった1件のみを対象とする。
+function activeScheduleModal(){
+  return ['new-modal','print-modal','img-modal'].map(function(id){return document.getElementById(id);}).find(function(m){return m.style.display==='flex';});
+}
+// new-modal・print-modal・img-modal共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
+// img-modalの絵文字グリッドのような動的要素にも追随できるよう、keydownのたびにDOMから候補を再取得する。
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Tab')return;
+  const modal=activeScheduleModal();
+  if(!modal)return;
+  const focusables=Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(function(el){return el.offsetParent!==null && !el.disabled;});
+  if(!focusables.length)return;
+  const first=focusables[0],last=focusables[focusables.length-1];
+  if(e.shiftKey){
+    if(document.activeElement===first || !modal.contains(document.activeElement)){e.preventDefault();last.focus();}
+  }else{
+    if(document.activeElement===last || !modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+  }
+});
+// new-modal・print-modal・img-modal共通：Escapeで対象モーダルを閉じる。
+// 共通A11yパネルが開いている場合は既存のEscape処理（パネルを閉じる）を優先し、ここでは何もしない。
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel && a11yPanel.style.display==='block')return;
+  const modal=activeScheduleModal();
+  if(!modal)return;
+  modal.style.display='none';
+});
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(function(){t.classList.remove('show');},2700);
