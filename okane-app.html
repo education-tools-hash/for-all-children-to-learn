@@ -920,9 +920,9 @@
 </div>
 
 <!-- カスタム商品追加モーダル -->
-<div class="custom-modal-overlay" id="customModalOverlay">
+<div class="custom-modal-overlay" id="customModalOverlay" role="dialog" aria-modal="true" aria-labelledby="custom-modal-title">
   <div class="custom-modal">
-    <div class="custom-modal-title">✏️ しょうひんをつくろう！</div>
+    <div class="custom-modal-title" id="custom-modal-title" tabindex="-1">✏️ しょうひんをつくろう！</div>
     <div>
       <label>📷 しゃしん</label>
       <div class="img-upload-area" id="imgUploadArea">
@@ -949,9 +949,9 @@
 </div>
 
 <!-- つかいかたモーダル -->
-<div class="app-modal-overlay" id="helpModalOverlay">
+<div class="app-modal-overlay" id="helpModalOverlay" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
   <div class="app-modal">
-    <div class="app-modal-title">❔ つかいかた</div>
+    <div class="app-modal-title" id="help-modal-title" tabindex="-1">❔ つかいかた</div>
 
     <div class="help-block" style="border-left-color:var(--gold)">
       <h3>📋 このアプリでできること</h3>
@@ -1027,9 +1027,9 @@
 </div>
 
 <!-- せっていモーダル -->
-<div class="app-modal-overlay" id="settingsModalOverlay">
+<div class="app-modal-overlay" id="settingsModalOverlay" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
   <div class="app-modal">
-    <div class="app-modal-title">⚙️ せってい</div>
+    <div class="app-modal-title" id="settings-modal-title" tabindex="-1">⚙️ せってい</div>
 
     <div class="setting-row">
       <div>
@@ -1130,9 +1130,9 @@
 </div>
 
 <!-- きろくモーダル -->
-<div class="app-modal-overlay" id="recordsModalOverlay">
+<div class="app-modal-overlay" id="recordsModalOverlay" role="dialog" aria-modal="true" aria-labelledby="records-modal-title">
   <div class="app-modal">
-    <div class="app-modal-title">📊 がくしゅうのきろく</div>
+    <div class="app-modal-title" id="records-modal-title" tabindex="-1">📊 がくしゅうのきろく</div>
 
     <div>
       <div class="records-section-title">サマリー</div>
@@ -1565,7 +1565,7 @@ function speakMoney(text) {
 function readMoney(name) { recordStat('learnReads'); speakMoney(name); }
 
 // ---- ヘルプモーダル ----
-function openHelpModal() { document.getElementById('helpModalOverlay').classList.add('active'); }
+function openHelpModal() { document.getElementById('helpModalOverlay').classList.add('active'); document.getElementById('help-modal-title').focus(); }
 function closeHelpModal() { document.getElementById('helpModalOverlay').classList.remove('active'); }
 
 // ---- せっていモーダル ----
@@ -1582,6 +1582,7 @@ function openSettingsModal() {
   updateSizeBtnUI();
   updateGazeColorUI();
   document.getElementById('settingsModalOverlay').classList.add('active');
+  document.getElementById('settings-modal-title').focus();
 }
 function closeSettingsModal() { document.getElementById('settingsModalOverlay').classList.remove('active'); }
 
@@ -1666,6 +1667,7 @@ function resetRecords() {
 function openRecordsModal() {
   renderRecords();
   document.getElementById('recordsModalOverlay').classList.add('active');
+  document.getElementById('records-modal-title').focus();
 }
 function closeRecordsModal() { document.getElementById('recordsModalOverlay').classList.remove('active'); }
 
@@ -2027,10 +2029,44 @@ function openCustomModal() {
   document.getElementById('customImgInput').value='';
   document.getElementById('imgPreviewWrap').innerHTML=`<div style="font-size:36px">📷</div><div class="img-upload-hint">タップして写真をえらぶ</div>`;
   document.getElementById('customModalOverlay').classList.add('active');
+  document.getElementById('custom-modal-title').focus();
 }
 function closeCustomModal() {
   document.getElementById('customModalOverlay').classList.remove('active');
 }
+// help/settings/records/custom共通：表示中の対象モーダルを1件だけ返す
+function activeOkaneModal(){
+  return ['helpModalOverlay','settingsModalOverlay','recordsModalOverlay','customModalOverlay'].map(function(id){return document.getElementById(id);}).find(function(m){return m.classList.contains('active');});
+}
+// help/settings/records/custom共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
+// records/customの動的内容にも追随できるよう、keydownのたびにDOMから候補を再取得する。
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Tab')return;
+  const modal=activeOkaneModal();
+  if(!modal)return;
+  const focusables=Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(function(el){return el.offsetParent!==null && !el.disabled;});
+  if(!focusables.length)return;
+  const first=focusables[0],last=focusables[focusables.length-1];
+  if(e.shiftKey){
+    if(document.activeElement===first || !modal.contains(document.activeElement)){e.preventDefault();last.focus();}
+  }else{
+    if(document.activeElement===last || !modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+  }
+});
+// help/settings/records/custom共通：Escapeで対象モーダルを閉じる。
+// 共通A11yパネルが開いている場合は既存のEscape処理（パネルを閉じる）を優先し、ここでは何もしない。
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel && a11yPanel.style.display==='block')return;
+  const modal=activeOkaneModal();
+  if(!modal)return;
+  if(modal.id==='helpModalOverlay')closeHelpModal();
+  else if(modal.id==='settingsModalOverlay')closeSettingsModal();
+  else if(modal.id==='recordsModalOverlay')closeRecordsModal();
+  else if(modal.id==='customModalOverlay')closeCustomModal();
+});
 function previewImage(e) {
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
