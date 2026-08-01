@@ -113,7 +113,7 @@
 
   header { background: linear-gradient(135deg,#FFD700,#F4A200); padding: 14px 24px; box-shadow: 0 4px 16px rgba(244,162,0,.3); position: sticky; top: 0; z-index: 100; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   header h1 { flex: 1; text-align: center; font-size: clamp(18px,4vw,30px); font-weight: 900; color: white; text-shadow: 0 3px 0 rgba(0,0,0,.15); letter-spacing: 2px; min-width: 180px; }
-  .header-tools { display: flex; gap: 8px; flex-shrink: 0; }
+  .header-tools { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: center; max-width: 100%; }
   .tool-btn { background: rgba(255,255,255,.25); border: 2px solid rgba(255,255,255,.55); color: white; font-family: inherit; font-weight: 800; font-size: clamp(11px,2vw,13px); padding: 8px 14px; border-radius: 50px; cursor: pointer; transition: all .2s; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
   .tool-btn:hover { background: rgba(255,255,255,.42); transform: translateY(-2px); }
 
@@ -1587,6 +1587,9 @@ function openSettingsModal() {
 function closeSettingsModal() { document.getElementById('settingsModalOverlay').classList.remove('active'); }
 
 // ---- 文字サイズ ----
+// 独自の--ui-scale拡大は廃止し、共通A11yパネルのbody.style.zoom(標準100%/大125%/特大150%)へ一本化する。
+// このボタンは共通A11yパネルの同じボタンをクリックするだけの入口（プロキシ）とし、
+// 実際の状態同期・保存はdata-a11y-fontクリックの委譲リスナー（下記）だけで一元的に行う。
 function updateSizeBtnUI() {
   document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('active'));
   const map = { normal:'sizeBtnNormal', large:'sizeBtnLarge', xlarge:'sizeBtnXlarge' };
@@ -1594,13 +1597,20 @@ function updateSizeBtnUI() {
   if (id) document.getElementById(id).classList.add('active');
 }
 function setFontSize(size) {
+  const a11yBtn = document.querySelector('[data-a11y-font="'+size+'"]');
+  if (a11yBtn) a11yBtn.click();
+}
+// 共通A11yパネル側（フローティングボタンからの直接操作を含む）でdata-a11y-fontが押されたときも、
+// この設定モーダル内のボタン表示・保存値を同じ状態へ同期する（二重の拡大源を作らないための唯一の同期点）。
+document.addEventListener('click', function(e){
+  const b = e.target.closest('[data-a11y-font]');
+  if (!b) return;
+  const size = b.dataset.a11yFont;
+  if (appSettings.fontSize === size) return;
   appSettings.fontSize = size;
   saveSettings();
-  document.body.classList.remove('font-large','font-xlarge');
-  if (size==='large') document.body.classList.add('font-large');
-  if (size==='xlarge') document.body.classList.add('font-xlarge');
   updateSizeBtnUI();
-}
+});
 
 // ---- ハイコントラスト ----
 function toggleHighContrast(e) {
@@ -1876,8 +1886,12 @@ function clearGazeRing() {
 
 // ---- 起動時に保存済みせっていを反映 ----
 (function applySavedSettings() {
-  if (appSettings.fontSize==='large') document.body.classList.add('font-large');
-  if (appSettings.fontSize==='xlarge') document.body.classList.add('font-xlarge');
+  // 独自--ui-scale拡大（旧font-large/font-xlarge）は廃止。文字サイズは共通A11yパネルの
+  // 実際の保存状態（donomana-a11y-font）を正本として読み取り、旧保存値は上書き・正規化する。
+  // 共通A11yパネル側のキー・状態は変更しない（読み取りのみ）。
+  const savedCommonFont = localStorage.getItem('donomana-a11y-font');
+  appSettings.fontSize = (savedCommonFont==='large' || savedCommonFont==='xlarge') ? savedCommonFont : 'normal';
+  saveSettings();
   if (appSettings.highContrast) document.body.classList.add('hc');
   if (appSettings.switchControl) startSwitchScan();
   if (appSettings.gaze) startGazePointer();
