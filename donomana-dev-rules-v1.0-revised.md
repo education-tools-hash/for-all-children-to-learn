@@ -898,7 +898,7 @@ Claude Codeへの依頼は、次の形式を推奨します。
 - どのまな イラスト仕様書
 - どのまな キャラクターガイド
 - どのまな アクセシビリティチェックリスト
-- [どのまな モーダルアクセシビリティ仕様書 v1.0](donomana-modal-accessibility-spec-v1_0.md)（未承認ドラフト・レビュー待ち。既存モーダルおよびDesign Systemが正式例外と認めたダイアログのARIA・初期フォーカス・Focus Trap・Escape・背景操作抑制・Switch Scan・検証手順・横展開ルールを扱う専門文書。新規モーダル採用の可否は引き続きDesign Systemを正本とし、本仕様書単独では新規採用を許可しない）
+- [どのまな モーダルアクセシビリティ仕様書 v1.0](donomana-modal-accessibility-spec-v1_0.md)（v1.1承認済み・レビュー完了・main統合済み。既存モーダルおよびDesign Systemが正式例外と認めたダイアログのARIA・初期フォーカス・Focus Trap・Escape・背景操作抑制・Switch Scan・検証手順・横展開ルールを扱う専門文書。新規モーダル採用の可否は引き続きDesign Systemを正本とし、本仕様書単独では新規採用を許可しない）
 - どのまな Claude Code運用ガイド
 - 各アプリの個別仕様書
 
