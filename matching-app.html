@@ -1570,7 +1570,15 @@ function spawnPar(el){
 /* ── スキャン ── */
 function startScan(){stopScan();const its=scanItems();if(!its.length)return;its[scanIdx%its.length].classList.add('scan-hl');scanIv=setInterval(()=>{const i2=scanItems();i2.forEach(x=>x.classList.remove('scan-hl'));scanIdx=(scanIdx+1)%Math.max(i2.length,1);if(i2[scanIdx])i2[scanIdx].classList.add('scan-hl');},scanMs);}
 function stopScan(){clearInterval(scanIv);document.querySelectorAll('.scan-hl').forEach(e=>e.classList.remove('scan-hl'));}
-function scanItems(){if(getComputedStyle($('game-screen')).display!=='none')return[...document.querySelectorAll('.card:not(.matched)')];return[...document.querySelectorAll('.set-item,.lvl-btn,#start-btn')];}
+function scanItems(){
+  const activeModal=['how-ov','settings-ov','edit-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
+  if(activeModal){
+    return Array.from(activeModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+      .filter(el=>el.offsetParent!==null && !el.disabled);
+  }
+  if(getComputedStyle($('game-screen')).display!=='none')return[...document.querySelectorAll('.card:not(.matched)')];
+  return[...document.querySelectorAll('.set-item,.lvl-btn,#start-btn')];
+}
 function scanAct(){const its=scanItems(),cur=its[scanIdx%Math.max(its.length,1)];if(cur)cur.click();}
 
 /* ── セット編集 ── */
@@ -1580,7 +1588,7 @@ function openEdit(id){
   $('edit-name').value=set?.name||'';
   editMode=set?.displayMode||'img-text';
   editItems=set?set.cards.map(c=>({...c})):[{label:'',label2:'',imgDataUrl:null,emoji:''}];
-  applyMode(editMode);$('edit-ov').classList.add('show');setModalBackgroundInert(true);$('edit-name').focus();
+  applyMode(editMode);$('edit-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('edit-name').focus();
 }
 
 function applyMode(mode){
@@ -1645,7 +1653,7 @@ $('btn-save-set').addEventListener('click',async()=>{
   const valid=editItems.filter(c=>c.imgDataUrl||c.label||c.emoji);
   if(valid.length<2){alert('カードを2まい以上ついかしてください');return;}
   const set={id:editId||('set_'+Date.now()),name,displayMode:editMode,cards:valid};
-  await dbPut(set);selSetId=set.id;$('edit-ov').classList.remove('show');setModalBackgroundInert(false);await loadSets();
+  await dbPut(set);selSetId=set.id;$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();await loadSets();
 });
 
 /* ── 設定 ── */
@@ -1657,12 +1665,12 @@ function setScanSpd(v){scanMs=2500-v*400;if(scanMode)startScan();}
 
 /* ── イベント ── */
 
-$('btn-how').addEventListener('click',()=>{$('how-ov').classList.add('show');setModalBackgroundInert(true);$('how-title').focus();});
-$('btn-close-how').addEventListener('click',()=>{$('how-ov').classList.remove('show');setModalBackgroundInert(false);});
-$('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov')){$('how-ov').classList.remove('show');setModalBackgroundInert(false);}});
-$('btn-settings').addEventListener('click',()=>{$('settings-ov').classList.add('show');setModalBackgroundInert(true);$('settings-title').focus();});
-$('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);});
-$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);}});
+$('btn-how').addEventListener('click',()=>{$('how-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('how-title').focus();});
+$('btn-close-how').addEventListener('click',()=>{$('how-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();});
+$('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov')){$('how-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
+$('btn-settings').addEventListener('click',()=>{$('settings-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('settings-title').focus();});
+$('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();});
+$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
 $('t-large').addEventListener('change',e=>{document.body.classList.toggle('large-text',e.target.checked);savePrefs();});
 $('t-hc').addEventListener('change',e=>{document.body.classList.toggle('high-contrast',e.target.checked);savePrefs();});
 $('t-rm').addEventListener('change',e=>{document.body.classList.toggle('reduce-motion',e.target.checked);savePrefs();});
@@ -1670,7 +1678,7 @@ $('t-scan').addEventListener('change',e=>{if(e.target.checked)enableScan();else 
 $('t-sound').addEventListener('change',e=>{soundOn=e.target.checked;savePrefs();});
 $('scan-spd').addEventListener('input',e=>{setScanSpd(e.target.value);savePrefs();});
 $('btn-add-set').addEventListener('click',()=>openEdit(null));
-$('edit-ov').addEventListener('click',e=>{if(e.target===$('edit-ov')){$('edit-ov').classList.remove('show');setModalBackgroundInert(false);}});
+$('edit-ov').addEventListener('click',e=>{if(e.target===$('edit-ov')){$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
 document.querySelectorAll('.lvl-btn').forEach(b=>{b.addEventListener('click',()=>{selLevel=b.dataset.lv;document.querySelectorAll('.lvl-btn').forEach(x=>{x.style.opacity='.55';x.style.boxShadow='';});b.style.opacity='1';b.style.boxShadow='0 0 0 3px var(--primary)';updateStartBtn();});});
 
 /* ── 対戦モードイベント ── */
@@ -1720,7 +1728,7 @@ $('btn-retry').addEventListener('click',()=>{
 $('btn-back').addEventListener('click',backToSel);
 $('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');startGame();});
 $('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');backToSel();});
-document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);}});
+document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
 // how-ov・settings-ov・edit-ov共通：背景（#hdr・#main）のinert切り替え。
 // 3モーダルのうちいずれか1件でも表示中であれば背景をinertのまま維持し、
 // 全て閉じたときだけ解除する（同時表示・多重の開閉経路があっても解除漏れ／誤解除を防ぐため）。
@@ -1736,6 +1744,15 @@ function setModalBackgroundInert(isInert){
   if(stillOpen)return;
   if(header)header.inert=false;
   if(main)main.inert=false;
+}
+// how-ov・settings-ov・edit-ov共通：モーダル開閉時のSwitch Scan状態リセット。
+// scanItems()は表示中モーダルの有無で候補集合が切り替わるため、開閉のたびにscanIdxを0へ戻し、
+// scanMode中（scanModeがtrueの場合）だけstopScan()/startScan()を呼び直して
+// ハイライト表示とタイマーを新しい候補集合に合わせて張り直す。
+// startScan()自体はscanModeを見ないため、scanMode=false時に無条件で呼ぶとスキャンが誤って始まってしまう。
+function resetModalScan(){
+  scanIdx=0;
+  if(scanMode){stopScan();startScan();}
 }
 // how-ov・settings-ov・edit-ov共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
 // スイッチスキャン中（scanMode）は自動タイマーによる対象移動とSpaceキーでの決定が既存の操作方式であり、
