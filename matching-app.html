@@ -1036,10 +1036,10 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
 
 
 <!-- 使い方 -->
-<div class="ov" id="how-ov" role="dialog" aria-modal="true" aria-label="つかいかた">
+<div class="ov" id="how-ov" role="dialog" aria-modal="true" aria-label="つかいかた" aria-labelledby="how-title">
   <div class="sheet">
     <div class="sh-handle"></div>
-    <div class="sh-title">📖 つかいかた</div>
+    <div class="sh-title" id="how-title" tabindex="-1">📖 つかいかた</div>
 
     <div class="sec-ttl" style="margin-top:0">🎮 あそびかた</div>
     <div class="how-steps">
@@ -1202,10 +1202,10 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
 </div>
 
 <!-- 設定 -->
-<div class="ov" id="settings-ov" role="dialog" aria-modal="true">
+<div class="ov" id="settings-ov" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div class="sheet">
     <div class="sh-handle"></div>
-    <div class="sh-title">⚙️ せってい</div>
+    <div class="sh-title" id="settings-title" tabindex="-1">⚙️ せってい</div>
     <div class="set-row">
       <div class="set-lbl"><div class="set-nm">🔤 もじを大きく</div><div class="set-ds">文字やカードを大きく表示</div></div>
       <label class="tog"><input type="checkbox" id="t-large"><span class="tog-sl"></span></label>
@@ -1235,7 +1235,7 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
 </div>
 
 <!-- セット編集 -->
-<div class="ov" id="edit-ov" role="dialog" aria-modal="true">
+<div class="ov" id="edit-ov" role="dialog" aria-modal="true" aria-labelledby="edit-title">
   <div class="sheet">
     <div class="sh-handle"></div>
     <div class="sh-title" id="edit-title">📦 セットをつくる</div>
@@ -1657,10 +1657,10 @@ function setScanSpd(v){scanMs=2500-v*400;if(scanMode)startScan();}
 
 /* ── イベント ── */
 
-$('btn-how').addEventListener('click',()=>$('how-ov').classList.add('show'));
+$('btn-how').addEventListener('click',()=>{$('how-ov').classList.add('show');$('how-title').focus();});
 $('btn-close-how').addEventListener('click',()=>$('how-ov').classList.remove('show'));
 $('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov'))$('how-ov').classList.remove('show');});
-$('btn-settings').addEventListener('click',()=>$('settings-ov').classList.add('show'));
+$('btn-settings').addEventListener('click',()=>{$('settings-ov').classList.add('show');$('settings-title').focus();});
 $('btn-close-settings').addEventListener('click',()=>$('settings-ov').classList.remove('show'));
 $('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov'))$('settings-ov').classList.remove('show');});
 $('t-large').addEventListener('change',e=>{document.body.classList.toggle('large-text',e.target.checked);savePrefs();});
@@ -1721,6 +1721,25 @@ $('btn-back').addEventListener('click',backToSel);
 $('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');startGame();});
 $('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');backToSel();});
 document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');}});
+// how-ov・settings-ov・edit-ov共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
+// スイッチスキャン中（scanMode）は自動タイマーによる対象移動とSpaceキーでの決定が既存の操作方式であり、
+// Tabキー自体をスキャン操作として専有してはいないが、キーボード用のFocus Trapとスキャン制御が
+// 同時に働くと挙動が読みにくくなるため、scanMode中はこのTrapを無効化する。
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Tab')return;
+  if(scanMode)return;
+  const modal=['how-ov','settings-ov','edit-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
+  if(!modal)return;
+  const focusables=Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(el=>el.offsetParent!==null && !el.disabled);
+  if(!focusables.length)return;
+  const first=focusables[0],last=focusables[focusables.length-1];
+  if(e.shiftKey){
+    if(document.activeElement===first || !modal.contains(document.activeElement)){e.preventDefault();last.focus();}
+  }else{
+    if(document.activeElement===last || !modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+  }
+});
 let tStart=0;
 document.addEventListener('touchstart',e=>{if(!scanMode)return;tStart=Date.now();},{passive:true});
 document.addEventListener('touchend',e=>{if(!scanMode)return;if(Date.now()-tStart<500)scanAct();});
