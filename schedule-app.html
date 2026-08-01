@@ -2242,11 +2242,30 @@ document.addEventListener('keydown',function(e){
     .filter(function(el){return el.offsetParent!==null && !el.disabled;});
   if(!focusables.length)return;
   const first=focusables[0],last=focusables[focusables.length-1];
-  if(e.shiftKey){
-    if(document.activeElement===first || !modal.contains(document.activeElement)){e.preventDefault();last.focus();}
-  }else{
-    if(document.activeElement===last || !modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+  const active=document.activeElement;
+  if(modal.contains(active)){
+    if(e.shiftKey){
+      if(active===first){e.preventDefault();last.focus();}
+    }else{
+      if(active===last){e.preventDefault();first.focus();}
+    }
+    return;
   }
+  const a11yBtn=document.getElementById('donomanaA11yBtn');
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel&&a11yPanel.style.display==='block'&&(active===a11yBtn||a11yPanel.contains(active))){
+    const a11yFocusables=[a11yBtn].concat(Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+      .filter(function(el){return el.offsetParent!==null && !el.disabled;}));
+    const a11yFirst=a11yFocusables[0],a11yLast=a11yFocusables[a11yFocusables.length-1];
+    if(e.shiftKey){
+      if(active===a11yFirst){e.preventDefault();a11yLast.focus();}
+    }else{
+      if(active===a11yLast){e.preventDefault();a11yFirst.focus();}
+    }
+    return;
+  }
+  e.preventDefault();
+  if(e.shiftKey){last.focus();}else{first.focus();}
 });
 // new-modal・print-modal・img-modal共通：Escapeで対象モーダルを閉じる。
 // 共通A11yパネルが開いている場合は既存のEscape処理（パネルを閉じる）を優先し、ここでは何もしない。
