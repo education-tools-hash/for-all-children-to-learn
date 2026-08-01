@@ -1,10 +1,10 @@
 # どのまな Typography Token運用仕様 v3.0
 
-- 版: v3.0（改訂1・レビュー待ち・未承認・未統合）
-- 発行: 2026年7月（初版）／改訂: 2026年7月（Phase17.5-D）
+- 版: v3.0（改訂2・レビュー待ち・未承認・未統合）
+- 発行: 2026年7月（初版）／改訂1: 2026年7月（Phase17.5-D）／改訂2: 2026年7月（Phase17.10-B）
 - 位置づけ: `donomana-design-system-v2_0.html`（共通デザインシステム Ver.2.1）**1.3節「タイポグラフィ」を正本とする補足・実装ブリッジ文書**。1.3節の内容を置き換えるものではない（詳細は0節）。
 - 根拠調査: Phase17.5-A「Typography Design Investigation」（全29アプリ・generate.js・既存文書の読み取り調査、コード変更なし）
-- 初版起草: Phase17.5-B／レビュー: Phase17.5-C／本改訂: Phase17.5-D（いずれも文書化・レビューのみ、コード変更なし）
+- 初版起草: Phase17.5-B／レビュー: Phase17.5-C／改訂1: Phase17.5-D／横展開実証: Phase17.7-C〜17.9-C／総括レビュー: Phase17.10-A／改訂2（本節群の追記）: Phase17.10-B（いずれも文書化・レビューのみ、コード変更なし）
 - 参照元: `donomana-design-system-v2_0.html` 9.9.1 稼働中コードとの衝突ログ #7
 
 > **本文書はドラフトである。** ここに記載する数値・方針は次Phase以降の承認を経るまで正式仕様として確定しない。generate.js・アプリHTML・既存Token値/Token名は本文書のみを理由に変更してはならない。
@@ -303,17 +303,17 @@ Typography Tokenを実際に適用する際は、以下をすべて確認する�
 
 一括置換は行わない。以下の7段階で進める。
 
-| 段階 | 内容 | 状態（Phase17.5-D時点） |
+| 段階 | 内容 | 状態（Phase17.10-B時点） |
 |---|---|---|
-| 第1段階 | Typography正式仕様の確定（本文書のレビュー・承認） | レビュー中（Phase17.5-C・17.5-D）。body値は17px維持で確定方針、font-family三系統不一致等は未確定のまま次段階へ進める判断が必要 |
-| 第2段階 | generate.js内Token値をremへ変更するパイロット（値の変更のみ、参照箇所はまだ存在しないため表示への影響なし） | **別worktree（Phase17.6-A、branch `feature/typography-token-rem-pilot`）でパイロット実施済み・未統合**（14節参照） |
-| 第3段階 | Tokenをまだ参照していない状態で、全29アプリへの配布と表示影響ゼロを確認（Phase17.3-Bと同型の配布・検証フロー） | 未着手 |
-| 第4段階 | `nazori-app.html`でTypography Tokenのパイロット適用（Phase17.4-A/Bと同型の1アプリ限定パイロット） | 未着手 |
-| 第5段階 | ルートfont-sizeが標準的な（`html`のfont-sizeを上書きしていない）アプリへ限定して展開 | 未着手 |
-| 第6段階 | `schedule-app.html`など独自の文字拡大機能を持つアプリを個別対応 | 未着手 |
+| 第1段階 | Typography正式仕様の確定（本文書のレビュー・承認） | レビュー実施済み（Phase17.5-C・17.5-D）。body値は17px維持で確定方針。font-family三系統不一致等の未決事項を残したまま実装段階へ進める判断が下された |
+| 第2段階 | generate.js内Token値をremへ変更するパイロット（値の変更のみ、参照箇所はまだ存在しないため表示への影響なし） | **完了。** Phase17.6-Aでパイロット実施、Phase17.6-Bでmainへ正式統合・全29アプリへ配布済み |
+| 第3段階 | Tokenをまだ参照していない状態で、全29アプリへの配布と表示影響ゼロを確認（Phase17.3-Bと同型の配布・検証フロー） | **完了。** Phase17.6-Bで配布・表示影響ゼロを確認 |
+| 第4段階 | `nazori-app.html`でTypography Tokenのパイロット適用（Phase17.4-A/Bと同型の1アプリ限定パイロット） | **完了。** Phase17.7-A/B/Cでnazori-app.htmlへ8箇所（セレクタ単位。CSSルール単位では7ルール）適用（詳細16.13節） |
+| 第5段階 | ルートfont-sizeが標準的な（`html`のfont-sizeを上書きしていない）アプリへ限定して展開 | **一部実施。** Phase17.9-A/B/Cで6アプリ・9箇所（セレクタ単位。CSSルール単位では8ルール）へ横展開（詳細16.13節）。29アプリ全体からみれば一部にとどまり、多数の候補が個別確認待ちのまま残っている |
+| 第6段階 | `schedule-app.html`など独自の文字拡大機能を持つアプリを個別対応 | 部分着手。schedule-app.htmlの`.hdr-title`・`.saved-meta`は`--font-scale`機構と独立した箇所として適用済み（16.6節・16.7節）。他の独自拡大アプリは未着手 |
 | 第7段階 | `slideshow-sakusei.html`など非標準ルート基準（13px基準）を持つアプリを個別対応 | 未着手 |
 
-各段階は前段階の完了・確認を経てから着手し、複数段階を同時に進めない。
+各段階は前段階の完了・確認を経てから着手し、複数段階を同時に進めない。第4・5段階の実証結果とそこから確立した運用ルールは16節に記録する。
 
 ---
 
@@ -360,9 +360,270 @@ Phase17.6-Aにて、別worktree（`for-all-children-to-learn-phase17-6-a`、bran
 
 ---
 
+## 16. Typography Token横展開ルール（Phase17.7-C〜17.10-A実証、Phase17.10-Bにて正式記録）
+
+### 16.0 本節の位置づけ
+
+10節「Token置換の判定基準」・11節「検証要件」は、実際にTokenを適用する前（Phase17.5-D時点）に定めた原則である。Phase17.7-C（nazori-appパイロット）からPhase17.9-C（高確度パターン横展開）にかけて、これらの原則を実データへ適用した結果、10節・11節だけでは足りない具体的な運用手順（非標準ルートの検出方法、レスポンシブ上書きの扱い、動的生成要素の確認方法など）が判明した。本節はその実証結果を恒久的な運用ルールとして記録するものであり、10節・11節を置き換えるものではなく、その実務手順を補強するものである。
+
+本節に記載する数値・成功例・除外例は、いずれもPhase17.7-CからPhase17.9-Cで実際にmainへcommit・pushし、GitHub Pages公開版で確認済みの事実に基づく。推測・未検証の内容は含まない。
+
+**現時点の適用範囲（過大評価防止のための明記）**: 本節時点で実際にTypography Tokenを適用済みなのは **7アプリ・17セレクタ（1ルールに複数セレクタを含む2箇所を1行として数えるdiff行数ベースでは15行）** にとどまる。29アプリ全体で3,000件を超えるfont-size宣言が存在する中の一部にすぎず、「全29アプリへのTypography Token適用完了」を意味するものではない。詳細な内訳は16.13節に記載する。
+
+### 16.1 意味優先の原則（実務手順）
+
+Typography Tokenは、現在の数値が近いかどうかではなく、**HTML上の意味・役割**に基づいて適用する。セレクタ名だけで意味を決定してはならない。適用前に必ず次を確認する。
+
+1. HTML要素（タグ名、`h1`〜`h6`等の見出しレベルを含む）
+2. 親要素
+3. 周辺文言
+4. 画面内での役割（画面全体の主タイトルか、パネル内の一部か等）
+5. JavaScriptによる動的生成内容（`textContent`・テンプレートリテラル等）
+6. `aria-live` / `role="status"` / `role="alert"`との関係
+7. 子ども向け主要表示か、補助表示か
+
+代表例:
+
+- `.header-title`でも、アプリ全体のヘッダーに表示される主タイトルであればheading候補となる（nazori-app、schedule-app、sst-app）。
+- `.help-header-title`（kimochi-board.html）は名前に「header」を含むが、実際はヘルプダイアログ内の見出しであり、アプリ全体の主タイトルとは役割が異なるため除外した。
+- `.header-sub`（nazori-app.html）は小さい文字（0.75rem）であっても、内容を確認するとアプリ名直下のタグライン・ブランドsubtitleであり、caption（注釈・補足）の意味とは完全には一致しない境界事例だった。Phase17.7-Bのレビューでcaption適用を取り消し、`0.75rem`へ復元した（Phase17.7-C）。
+
+### 16.2 高確度パターン（実証済み3種）
+
+Phase17.8-Bで抽出した候補のうち、Phase17.9-A〜Cで実際に横断適用まで進めた3パターンを記録する。
+
+#### 16.2.1 アプリ全体ヘッダータイトル
+
+- 対象: アプリ全体の主タイトル。1画面1箇所。ヘッダー内に表示されるアプリ名。
+- 推奨Token: `var(--dm-font-size-heading)`
+- 期待computed value: `24px`（標準16pxルート時）
+- 成功例: nazori-app.html `.header-title`、schedule-app.html `.hdr-title`、sst-app.html `.hdr-title`
+- 除外例: register-app.html `.header-title`（`calc(var(--font-size-base)*1.3)`使用）、kimochi-board.html `.help-header-title`（意味不一致、16.1節参照）
+
+#### 16.2.2 標準フォームコントロール
+
+- 対象: 通常の文字入力、通常のselect、通常のtextarea。入力値・選択値・placeholderの表示文字。
+- 推奨Token: `var(--dm-font-size-body)`
+- 期待computed value: `17px`（標準16pxルート時）
+- 成功例: nazori-app.html `input[type="text"]` / `select`、yomikaki-app.html `textarea`、okane-app.html `.custom-modal input[type="text"]` / `.custom-modal input[type="number"]`、shiritori2.html `.scan-sub select`
+- **標準フォームコントロールであっても、特殊入力・特大数値・ゲーム操作用・独自スケール依存のものは対象外とする**（例: tokei-app.htmlの`.timer-input-value`のような特大数値表示、nazori-app.htmlの`.char-input-large`のような1文字表示的入力）。
+
+#### 16.2.3 補助メタ情報
+
+- 対象: 日付、時刻、所要時間、件数、トラック数、記録番号など、主情報に付随する補足情報。
+- 推奨Token: `var(--dm-font-size-caption)`
+- 期待computed value: `13px`（標準16pxルート時）
+- 成功例: nazori-app.html `.rec-meta`、schedule-app.html `.saved-meta`、ongaku-app.html `.rec-item-meta` / `.comp-item-meta`
+- 除外例: matching-app.html `.set-meta`（`em`指定）
+- **スコア・結果・警告・主要状態・`aria-live`通知は、セレクタ名に`meta`が含まれていても自動適用しない。**
+
+### 16.3 自動置換禁止条件
+
+以下の指定は、意味が一致していても自動的にTokenへ置換してはならない。
+
+```text
+calc()
+clamp()
+em
+%
+独自CSS変数
+--font-scale
+--ui-scale
+--font-size-base
+```
+
+これらはレスポンシブ調整・独自文字拡大機能・親要素との相対関係・アクセシビリティ設定・印刷レイアウト・子ども向け特殊表示のいずれかと関連している可能性があるため、機械的な置換対象から除外する。**固定pxまたは固定remであっても、16.1節の意味確認は省略できない。** 固定値であることは適用の必要条件であって十分条件ではない。
+
+### 16.4 ルートfont-sizeの事前確認
+
+Token適用前に、対象アプリのCSSで必ず次の両方の記法を確認する。`:root`のみ、または`html`のみを検索するだけでは見逃す場合がある。
+
+```css
+:root {
+  font-size: ...;
+}
+```
+
+```css
+html {
+  font-size: ...;
+}
+```
+
+代表例:
+
+- `nazorin-print.html`: `:root { font-size: 15px; }`。`.92rem`の実測値が`13.8px`となり、一般的な16px基準の想定（`14.72px`）と一致しなかった。この差異が非標準ルートの発見につながった（Phase17.9-B）。`:root`記法での指定であり、`html{font-size:...}`だけを検索する手順では見逃していた。
+- `slideshow-sakusei.html`: `html { font-size: calc(13px * var(--ui-scale, 1)); }`
+- `schedule-app.html`: `html { font-size: calc(var(--font-scale) * 16px); }`（既定値`1`のため実質標準16px相当）
+
+**remの記述値だけで16px基準のpx換算を行い、それを根拠に適用可否を判断してはならない。必ずブラウザでcomputed valueを実測する（16.5節）。**
+
+### 16.5 computed value確認
+
+Tokenを記述しただけでは適用完了としない。通常幅と狭幅（375×667）の両方で、ブラウザのcomputed styleを実測する。
+
+標準16pxルート時の期待値:
+
+```text
+heading:     24px
+subheading:  20px
+body-kid:    24px
+body:        17px
+caption:     13px
+```
+
+ルートfont-size・メディアクエリ・アクセシビリティ拡大上書きの影響でこの値と異なる場合は、それが意図した既存挙動（16.6節・16.7節）か、誤適用かを個別に判断する。数値の見かけの換算だけで完了とみなさない。
+
+### 16.6 レスポンシブ上書きの扱い
+
+基本ルールとメディアクエリ内の上書きは分けて扱う。
+
+- 基本ルールのみをTokenへ変更する。
+- 既存の狭幅上書き（メディアクエリ内の同一セレクタへの別のfont-size指定）は変更しない。
+- 狭幅で既存の上書き値が維持されることをcomputed styleで確認する。
+- 基本ルールと上書きルールの一括置換は禁止する。
+
+代表例（schedule-app.html）:
+
+```css
+.hdr-title {
+  font-size: var(--dm-font-size-heading);
+}
+
+@media (max-width: 560px) {
+  .hdr-title {
+    font-size: 1rem;
+  }
+}
+```
+
+この方法により、通常幅では`24px`、狭幅（375px等、`560px`未満）では既存の`16px`という挙動をそのまま維持できることをPhase17.9-Aで確認した。**レスポンシブ上書きが存在すること自体を、即座の除外理由にしない。** 上書きを維持したまま基本値のみを変更できるかを個別に検討する。
+
+### 16.7 アクセシビリティ文字拡大との関係
+
+以下のような既存の上書きが対象セレクタに存在する場合、自動適用しない。
+
+```text
+body.large-text
+body.font-large
+body.font-xlarge
+[data-font]
+--font-scale
+--ui-scale
+```
+
+これらの機構を持つ要素は、通常状態だけでなく拡大状態も含めた個別調査が必要である。以下のアプリで同種の機構を確認済みである。
+
+```text
+timetable-app.html
+schedule-app.html
+slideshow-sakusei.html
+janken-app.html
+shiritori2.html
+register-app.html
+okane-app.html
+```
+
+**アプリに独自文字拡大機構が存在していても、対象セレクタがその機構と独立していることを確認できた場合に限り適用可能とする**（例: schedule-app.htmlの`.hdr-title`・`.saved-meta`は`--font-scale`と無関係な単純ルールであることを確認したうえで適用した）。
+
+### 16.8 line-heightの扱い
+
+Typography Token適用時は、**原則としてfont-sizeのみを変更し、line-heightは同時に変更しない**。
+
+代表例（nazori-app.html）:
+
+- `.modal-body`: `line-height: 1.6`を変更せず維持した。
+- `.stg-desc`: `line-height: 1.4`を変更せず維持した。
+
+unitless line-heightは、font-size変更後もその比率のまま自動的に追随することを実測確認済みである（例: `.modal-body`はfont-size 16px→17pxの変更に伴いcomputed line-heightが25.6px→27.2pxへ、比率1.6を保ったまま追随した）。**line-height自体をTypography Tokenへ置換する判断は、本節の対象外とし、別の調査・別Phaseとして扱う**（5節・5.1節参照）。
+
+### 16.9 動的生成要素の確認方法
+
+JavaScriptで生成される要素は、静的HTMLの読解だけでは用途や実際の表示を確認できない場合がある。次の手順で確認する。
+
+1. JavaScriptの`textContent`・`innerHTML`・テンプレートリテラルを読み、表示される文言の性質を確認する。
+2. 可能であれば実データを投入し、実際に画面へ表示させて確認する。
+3. 実データ投入が困難な場合（IndexedDB等の複雑なデータ層を持つ場合等）は、同一クラス名を持つ一時的なprobe要素を生成し、computed styleのみを確認する代替手段を用いる。
+4. probe要素による確認にとどめた場合は、**実際の画面表示までは確認していないという限界を報告に明記する。**
+5. `aria-live`等の主要状態通知との関係を確認する（16.1節）。
+
+代表例: schedule-app.html `.saved-meta`、ongaku-app.html `.rec-item-meta` / `.comp-item-meta`。いずれもJavaScriptによる動的生成であり、テンプレートリテラルの読解と（可能な範囲での）実データ投入により用途を確認した。
+
+### 16.10 CSSルール分割の扱い
+
+同一のCSSルールに、意味の異なる複数セレクタがカンマ区切りでまとめられている場合、そのうち一部だけを機械的に変更してはならない。全セレクタが同一Tokenの意味条件を満たすか確認する。
+
+一部のセレクタだけが対象で、意味の異なるセレクタを分離するためにCSSルールの分割が必要になる場合は、次の原則に従う。
+
+- そのPhase・作業では変更しない。
+- ルール分割（セレクタの再構成）は別Phaseの構造変更作業として扱う。
+- font-sizeのToken置換と、セレクタ構造の再構成を同時に行わない。
+
+### 16.11 変更後の必須確認
+
+Typography Token適用後は、最低限次の項目を確認する。
+
+**表示確認**: 通常幅／375×667／文字切れ／折り返し／横スクロール／入力欄の高さ／アイコンとの重なり／主情報との視覚階層／placeholder／select選択値／動的生成情報の表示。
+
+**操作確認**: Keyboard／Tab移動／Focus／Switch Scan／High Contrast／独自文字拡大機能／Console Error（0件）／pageerror（0件）。
+
+**git確認**:
+
+```bash
+git status --short
+git diff --stat
+git diff
+git diff --check
+```
+
+font-size以外の変更が含まれていないことを確認する。
+
+### 16.12 適用しない判断
+
+以下のいずれかに該当する場合、**「変更しない」が正式な成功判断である。** Typography Tokenの適用数を増やすこと自体を目的にしてはならない。
+
+- 意味がToken名と一致しない。
+- 独自スケールに依存している。
+- computed valueを確定できない。
+- 非標準root font-sizeの影響が未解決である。
+- CSSルール分割が必要である。
+- 主要表示と補助表示が同一ルールに混在している。
+- 既存のレスポンシブ挙動を維持できない。
+- アクセシビリティ機能への影響を否定できない。
+- 実際の画面表示を確認できない（probe確認のみで実表示未確認の場合を含む）。
+- 候補数が少なすぎて共通ルール化の根拠にならない。
+- 調査コストが大きく、別Phaseとして扱うべき規模である。
+
+### 16.13 現在の適用範囲（Phase17.10-A時点の実績）
+
+過大評価を避けるため、実際にTypography Tokenを適用済みの箇所を明記する。
+
+| Token | 適用件数 | 適用アプリ・セレクタ |
+|---|---|---|
+| `--dm-font-size-heading` | 4件 | nazori-app.html `.header-title` / `.modal-title`、schedule-app.html `.hdr-title`、sst-app.html `.hdr-title` |
+| `--dm-font-size-body` | 7件（うちnazori-appの`input[type="text"], select`とokane-appの`input[type="text"], input[type="number"]`はそれぞれ1ルール2セレクタのため、diff行数では2件と数える） | nazori-app.html `input[type="text"], select` / `.modal-body`、okane-app.html `.custom-modal input[type="text"], .custom-modal input[type="number"]`（1ルールで2セレクタ）、shiritori2.html `.scan-sub select`、yomikaki-app.html `textarea` |
+| `--dm-font-size-caption` | 6件 | nazori-app.html `.rec-meta` / `.rec-img-label` / `.stg-desc`、schedule-app.html `.saved-meta`、ongaku-app.html `.rec-item-meta` / `.comp-item-meta` |
+
+適用アプリは合計7アプリ（nazori-app、schedule-app、sst-app、okane-app、shiritori2、yomikaki-app、ongaku-app）。**`--dm-font-size-subheading`・`--dm-font-size-body-kid`・`--dm-font-size-display`は、本節時点でいずれも実アプリへの適用例が0件である。**
+
+**未適用・保留の候補が多数残っている。** Phase17.10-A時点でmainの実コードを機械的に再走査した結果、Token未適用（`var(--dm-font-size-*)`未使用）のfont-size宣言のうち、`header-title`/`hdr-title`を含むセレクタが5件、`input`/`select`/`textarea`を含むセレクタが50件、`-meta`を含むセレクタが1件、いずれも現在mainに残っている。header-title系5件は、いずれもnazori-app.htmlの`body.large-text .header-title`（文字拡大時上書き）、register-app.htmlの`.header-title`（`calc(var(--font-size-base)*1.3)`）・`.print-header-title`（印刷用途で意味が異なる）、schedule-app.htmlの`.hdr-title`狭幅上書き（16.6節で意図的に維持）、kimochi-board.htmlの`.help-header-title`（16.1節で意味不一致と判定済み）であり、いずれも本節の除外条件に該当することを個別確認済みである。form系50件・meta系1件は、`calc()`/`clamp()`/`em`/独自CSS変数等による技術的除外に該当するものと、意味・用途の個別確認が済んでいないものが混在しており、件数の内訳を一括りに集計していない。詳細はPhase17.10-Aの調査6を参照する。
+
+### 16.14 subheading・body-kid・modal-titleの扱い（未確立）
+
+以下は、本節で「高確度パターン」として一般ルール化するには至っていない。
+
+- **subheading**: bosai-app.html `.mechanism-box h3`（20px、`<h3>`タグ、値・意味とも`--dm-font-size-subheading`と一致）という個別の確定候補が1件見つかっているが、パターンとしての横断実証は行っていない。1件のみの実装可否は、今後の個別パイロットとして別途判断する。
+- **body-kid**: 子ども向け主要文言（問題文等）とTokenの値（24px）が一致する固定値の実例は、Phase17.8-A〜17.9-Cの調査を通じて確認できていない。timetable-app.htmlの`.quiz-q`のように役割は一致しても値が一致しない（20px、subheadingの値と数値上一致するにすぎない）事例が見つかっているが、これは「値が一致するが意味が異なる」の逆パターン（意味は近いが値が異なる）であり、機械的な適用根拠にはならない。
+- **modal-title**: アプリ全体ヘッダータイトルとは別に、モーダル・ダイアログの見出しとして厳密に`.modal-title`という名前のセレクタを持つアプリが7件（cup_game・kyou-no-kiroku・nazori-app［適用済］・register-app・schedule-app・sst-app・time-timer）確認されているが、値は24px（cup_game）、`1.2em`相対値（kyou-no-kiroku）、`calc(var(--font-size-base)*1.2)`（register-app、独自スケール依存）、約17.6px（schedule-app）、18px（sst-app）、`calc(1.2em * var(--font-scale))`（time-timer、独自スケール依存）とばらばらであり、共通ルールとして一般化できていない。加えて`.custom-modal-title`（okane-app）・`.app-modal-title`（okane-app、独自スケール依存）・`.result-modal-title`（app-register）・`.smodal-title`/`.ph-modal-title`/`.help-modal-title`/`.prof-modal-title`（gaze-keyboard）のように、名前が異なる類似セレクタも複数存在し、これらを同一パターンとして扱えるかどうかも未確認である。
+
+これら3件は、いずれもPhase17.10-Aの「調査7」で次フェーズ候補として比較検討されたものであり、本節の時点では正式な高確度パターンに昇格していない。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v3.0（初版・ドラフト） | 2026-07-31 | Phase17.5-Bにて新規作成。Phase17.5-A（全29アプリ調査）を根拠に、Typography正式仕様案として起草。未承認・未統合。 |
 | v3.0（改訂1・レビュー待ち） | 2026-07-31 | Phase17.5-Cのレビュー結果を反映しPhase17.5-Dにて改訂。主な変更: (1)Design System 1.3節に既存のTypography仕様があることを訂正・明記し「Design System全体のVer.3.0文書が存在しない」ことと区別、(2)body Tokenを1remへ変更する案を撤回し17px(1.0625rem)維持を正式方針化、(3)1.3節との対応表（4.0節）を新設、(4)dev-rules 5.4節との関係を整理、(5)heading/body-kidの値重複の理由を9.8.2節の設計思想と関連付けて整理、(6)caption 13px下限リスクを明記（4.5節）、(7)line-heightの根拠の強さを区分（5.1節）、(8)schedule-app.htmlの個別要素calc()使用を追記、(9)font-family三系統不一致を明記（9節)、(10)1.3節の周辺規定（1行の長さ・ふりがな）および1.6節コントラスト基準との交差を追記（13節）、(11)Phase17.6-Aのrem化パイロットとの整合確認を追記（14節）。未承認・未統合。 |
+| v3.0（改訂2・レビュー待ち） | 2026-07-31 | Phase17.7-C〜Phase17.9-CでのTypography Token横展開実証（7アプリ・17セレクタ）とPhase17.10-Aの総括レビューを踏まえ、Phase17.10-Bにて改訂。主な変更: (1)12節の移行順序ステータス表を実際の進捗（第2〜4段階完了、第5・6段階一部実施）に更新、(2)新設16節にて実証済みの運用ルールを正式記録。内容は意味優先の原則の実務手順（16.1）、高確度パターン3種の成功例・除外例（16.2）、自動置換禁止条件（16.3）、ルートfont-size事前確認（16.4）、computed value確認（16.5）、レスポンシブ上書きの扱い（16.6）、アクセシビリティ文字拡大との関係（16.7）、line-heightの扱い（16.8）、動的生成要素の確認方法（16.9）、CSSルール分割の扱い（16.10）、変更後の必須確認（16.11）、適用しない判断（16.12）、(3)現時点の適用範囲（7アプリ・17セレクタにとどまり全29アプリ完了ではないこと）を数値で明記（16.13）、(4)subheading・body-kid・modal-titleは未確立のまま次Phase候補として記録（16.14）。コード変更なし、文書化のみ。未承認・未統合。 |
