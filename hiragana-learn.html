@@ -343,6 +343,11 @@
   .stroke-display {
     text-align: center;
   }
+  /* #strokeDisplayのインラインwidth:min(300px,90vw)は入れ子のcard/paddingを
+     考慮しないため、狭幅で親幅を超える。親幅(100%)を上限として追加する。 */
+  #strokeDisplay {
+    max-width: 100%;
+  }
   .stroke-canvas-wrap {
     position: relative;
     display: inline-block;
@@ -443,6 +448,15 @@
     text-align: center;
     position: relative;
   }
+  /* 前後ボタン＋canvasの横並び行は、固定320pxのcanvasが縮小できず狭幅で
+     親幅を超える。行の折り返しを許可し、canvas側にも上限を追加する。 */
+  .trace-area > div {
+    flex-wrap: wrap;
+  }
+  #traceCanvas, #traceGuide {
+    max-width: 100%;
+    height: auto;
+  }
   .trace-canvas-wrap {
     position: relative;
     display: inline-block;
@@ -468,6 +482,11 @@
     margin-top: 14px;
     flex-wrap: wrap;
     align-items: center;
+  }
+  /* いろ／ふとさの各操作群自体がnowrapのため、toolbar本体の折り返しだけでは
+     群単独の必要幅がまだ親幅を超える場合がある。群の内部も折り返し可能にする。 */
+  .trace-toolbar > div {
+    flex-wrap: wrap;
   }
   .color-pick {
     width: 36px; height: 36px;
@@ -733,7 +752,8 @@
   .toggle input:checked + .toggle-slider { background: var(--coral); }
   .toggle input:checked + .toggle-slider::before { transform: translateX(23px); }
   .font-control { display: flex; align-items: center; gap: 8px; }
-  .font-btn { width: 34px; height: 34px; border-radius: 10px; border: 2px solid #FFE0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--coral); transition: all .15s; }
+  /* 最長ラベル表示時、.font-controlの幅不足分をボタン自身の横幅圧縮で吸収しないよう固定する */
+  .font-btn { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; border: 2px solid #FFE0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--coral); transition: all .15s; }
   .font-btn:hover { background: #FFE0E0; }
   .font-size-label { min-width: 52px; text-align: center; font-weight: 700; font-size: .88rem; color: var(--coral); }
   /* ハイコントラスト */
@@ -1581,12 +1601,54 @@ function toggleScan(cb) {
   if (scanMode) { setTimeout(updateScanTargets, 200); startAutoScan(); }
   else stopAutoScan();
 }
-function changeFontSize(d) {
-  fontSizeLevel = Math.max(0, Math.min(3, fontSizeLevel + d));
+// fontSizeLevelに応じて#font-size-displayのラベルだけを一致させる。
+// 共通A11yパネル側には一切触れない(共通ボタンへの委譲は呼び出し側の責務)。
+// 常にbody.large-textを除去し、新たに付与はしない(拡大は共通パネルへ委譲する)。
+function applyFontDisplay() {
   const lbs = ['ちいさい','ふつう','おおきい','とても おおきい'];
   document.getElementById('font-size-display').textContent = lbs[fontSizeLevel];
-  document.body.classList.toggle('large-text', fontSizeLevel >= 2);
+  document.body.classList.remove('large-text');
 }
+
+// 独自ステッパー(－/＋)クリック時の入口。level0/1は共通「標準」へ、level2は「大」へ、
+// level3は「特大」へ委譲する(janken-app/suji-manabou方式)。委譲クリック中はonCommonFontSync側の
+// リスナーを一時的に外し、直後に戻すことで再帰・二重処理を防ぐ。
+function changeFontSize(d) {
+  const next = Math.max(0, Math.min(3, fontSizeLevel + d));
+  if (next === fontSizeLevel) return;
+  fontSizeLevel = next;
+  applyFontDisplay();
+  const commonTarget = (fontSizeLevel === 2) ? 'large' : (fontSizeLevel === 3) ? 'xlarge' : 'normal';
+  const commonBtn = document.querySelector('[data-a11y-font="' + commonTarget + '"]');
+  if (commonBtn) {
+    const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+    if (curCommon !== commonTarget) {
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
+}
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+function onCommonFontSync(e) {
+  const btn = e.target.closest('[data-a11y-font]');
+  if (!btn) return;
+  const size = btn.dataset.a11yFont;
+  const newLevel = (size === 'large') ? 2 : (size === 'xlarge') ? 3 : 1;
+  if (fontSizeLevel === newLevel) return;
+  fontSizeLevel = newLevel;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：hiragana-learn独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてfontSizeLevelとラベル表示を初期化する。共通キー自体は書き換えない。
+(function initHiraganaFontSync() {
+  const commonFont = localStorage.getItem('donomana-a11y-font');
+  fontSizeLevel = (commonFont === 'large') ? 2 : (commonFont === 'xlarge') ? 3 : 1;
+  applyFontDisplay();
+})();
 function changeScanSpeed(d) {
   scanSpeed = Math.max(500, Math.min(5000, scanSpeed + d * 1000));
   document.getElementById('scan-speed-display').textContent = (scanSpeed/1000).toFixed(1) + '秒';
