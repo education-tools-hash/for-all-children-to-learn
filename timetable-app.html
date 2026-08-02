@@ -463,6 +463,11 @@
     border-radius: 20px;
     margin-bottom: 16px;
   }
+  /* 3つの時計(まえ/いま/あと、固定px幅のSVG)が、共通A11yパネルの拡大と合わさると
+     横1列に収まりきらない幅が生じるため、狭幅では自然に折り返す。 */
+  .concept-clocks-row {
+    flex-wrap: wrap;
+  }
   .concept-clock-wrap {
     position: relative;
     display: inline-block;
@@ -976,6 +981,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    /* 共通A11yパネルの拡大と合わさると、ラベルと操作群(flex-shrink:0)が
+       横1列に収まりきらない幅が生じるため、狭幅では自然に縦積みする。 */
+    flex-wrap: wrap;
     padding: 16px 0;
     border-bottom: 1px solid #eee;
     gap: 12px;
@@ -985,7 +993,15 @@
   .a11y-icon { font-size: 26px; flex-shrink: 0; }
   .a11y-label { font-size: 16px; font-weight: 800; color: var(--text); }
   .a11y-desc  { font-size: 13px; color: #888; margin-top: 2px; }
-  .a11y-ctrl  { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .a11y-ctrl  {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    /* .a11y-rowが折り返した際、.a11y-ctrl自身がラベル文字列の分だけ幅を
+       持ちきれない場合があるため、行幅を超えないようにしたうえで
+       ボタン/ラベルを縦積みに折り返せるようにする。 */
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
   .a11y-step-btn {
     width: 44px; height: 44px;
     border-radius: 12px; border: 2px solid #90CAF9;
@@ -2013,7 +2029,7 @@
     <div class="time-concept-display">
       <div id="concept-tip" class="tip-balloon">まず ○ふんを えらんでね！</div>
 
-      <div style="display:flex;justify-content:center;gap:30px;align-items:flex-end;margin:14px 0;">
+      <div class="concept-clocks-row" style="display:flex;justify-content:center;gap:30px;align-items:flex-end;margin:14px 0;">
         <div style="text-align:center;">
           <svg id="before-clock" width="120" height="120" viewBox="0 0 120 120"></svg>
           <div style="font-size:12px;font-weight:700;color:#888;margin-top:4px;" id="before-label">まえ</div>
@@ -2408,12 +2424,51 @@ let ttsEnabled = false;
 let switchScanEnabled = false;
 let seEnabled = true; // 効果音
 
-function changeFontSize(delta) {
-  fontSizeLevel = Math.max(1, Math.min(3, fontSizeLevel + delta));
+// fontSizeLevelに応じて#font-size-labelとbody classだけを一致させる。
+// 共通A11yパネル側には一切触れない(共通ボタンへの委譲は呼び出し側の責務)。
+// 常にfont-large/font-xlargeを除去し、新たに付与はしない(拡大は共通パネルへ委譲する)。
+function applyFontDisplay() {
   document.getElementById('font-size-label').textContent = fontLabels[fontSizeLevel];
   document.body.classList.remove('font-large','font-xlarge');
-  if(fontClasses[fontSizeLevel]) document.body.classList.add(fontClasses[fontSizeLevel]);
 }
+
+// 独自ステッパー(－/＋)クリック時の入口。level1は共通「標準」へ、level2は「大」へ、
+// level3は「特大」へ委譲する(okane-app方式)。委譲クリック中はonCommonFontSync側の
+// リスナーを一時的に外し、直後に戻すことで再帰・二重処理を防ぐ。
+function changeFontSize(delta) {
+  fontSizeLevel = Math.max(1, Math.min(3, fontSizeLevel + delta));
+  applyFontDisplay();
+  const commonTarget = (fontSizeLevel === 2) ? 'large' : (fontSizeLevel === 3) ? 'xlarge' : 'normal';
+  const commonBtn = document.querySelector('[data-a11y-font="' + commonTarget + '"]');
+  if (commonBtn) {
+    const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+    if (curCommon !== commonTarget) {
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
+}
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+function onCommonFontSync(e) {
+  const btn = e.target.closest('[data-a11y-font]');
+  if (!btn) return;
+  const size = btn.dataset.a11yFont;
+  const newLevel = (size === 'large') ? 2 : (size === 'xlarge') ? 3 : 1;
+  if (fontSizeLevel === newLevel) return;
+  fontSizeLevel = newLevel;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：timetable独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてfontSizeLevelとラベル表示を初期化する。共通キー自体は書き換えない。
+(function initTimetableFontSync() {
+  const commonFont = localStorage.getItem('donomana-a11y-font');
+  fontSizeLevel = (commonFont === 'large') ? 2 : (commonFont === 'xlarge') ? 3 : 1;
+  applyFontDisplay();
+})();
 
 function applyHighContrast(on) {
   document.body.classList.toggle('high-contrast', on);
