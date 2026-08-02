@@ -2624,13 +2624,53 @@ document.getElementById('helpOv').addEventListener('click',e=>{if(e.target===doc
 document.getElementById('tgHC').addEventListener('change',e=>{C.hc=e.target.checked;document.body.classList.toggle('hc',C.hc);tts(C.hc?'ハイコントラスト オン':'ハイコントラスト オフ');});
 
 // 文字サイズ（data-sc属性を持つfbtnのみ）
-document.querySelectorAll('.fbtn[data-sc]').forEach(b=>b.addEventListener('click',()=>{
+// 独自UIの表示だけを同期する。C.fs/--fsは常に1に固定し、拡大は共通パネルへ委譲する。
+function applyFontDisplay(size){
+  C.fs=1;
+  document.documentElement.style.setProperty('--fs','1');
   document.querySelectorAll('.fbtn[data-sc]').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on');
-  C.fs=parseFloat(b.dataset.sc);
-  document.documentElement.style.setProperty('--fs',C.fs);
+  const scMap={normal:'1',large:'1.2',xlarge:'1.45'};
+  const target=document.querySelector(`.fbtn[data-sc="${scMap[size]}"]`);
+  if(target)target.classList.add('on');
+}
+
+// 独自ボタンクリック時の入口。data-scを共通状態へ変換し委譲する。
+// 委譲クリック中はonCommonFontSync側のリスナーを一時的に外し、直後に戻すことで再帰・二重処理を防ぐ。
+document.querySelectorAll('.fbtn[data-sc]').forEach(b=>b.addEventListener('click',()=>{
+  const scToSize={'1':'normal','1.2':'large','1.45':'xlarge'};
+  const size=scToSize[b.dataset.sc];
+  const curCommon=localStorage.getItem('donomana-a11y-font')||'normal';
+  if(curCommon===size && b.classList.contains('on'))return;
+  applyFontDisplay(size);
   tts('文字サイズ '+b.textContent);
+  const commonBtn=document.querySelector(`[data-a11y-font="${size}"]`);
+  if(commonBtn && curCommon!==size){
+    document.removeEventListener('click', onCommonFontSync);
+    commonBtn.click();
+    document.addEventListener('click', onCommonFontSync);
+  }
 }));
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+function onCommonFontSync(e){
+  const btn=e.target.closest('[data-a11y-font]');
+  if(!btn)return;
+  const size=btn.dataset.a11yFont;
+  if(!['normal','large','xlarge'].includes(size))return;
+  const scMap={normal:'1',large:'1.2',xlarge:'1.45'};
+  const already=document.querySelector(`.fbtn[data-sc="${scMap[size]}"]`)?.classList.contains('on');
+  if(already)return;
+  applyFontDisplay(size);
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：scratch-app独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてUI表示を初期化する。共通キー自体は書き換えない。
+(function initScratchFontSync(){
+  const saved=localStorage.getItem('donomana-a11y-font');
+  const size=(saved==='large'||saved==='xlarge')?saved:'normal';
+  applyFontDisplay(size);
+})();
 
 // 読み上げ設定
 document.getElementById('tgTTS').addEventListener('change',e=>{C.tts=e.target.checked;document.body.classList.toggle('tts-on',C.tts);if(C.tts)speak('読み上げ機能をオンにしました');});
