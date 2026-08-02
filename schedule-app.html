@@ -354,6 +354,12 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
   .hdr-title{font-size:1rem;}
   .viewer-name{font-size:1.3rem;}
   .viewer-clock-time{font-size:1.9rem;}
+  /* みるタブ：共通A11yパネルの大/特大と合わさると、番号バッジ・画像・チェックの
+     固定幅要素とラベル文字列が横1列に収まりきらなくなるため、狭幅では
+     ラベル部分だけ自然に次の行へ回す(文字サイズは変えない)。 */
+  #content-viewer .v-item{flex-wrap:wrap;}
+  #content-viewer .v-body{flex-basis:100%;}
+  .viewer-clock-big{flex-wrap:wrap;}
 }
 
 /* ===== 印刷プレビュー ===== */
@@ -1318,24 +1324,89 @@ function genId(){return Math.random().toString(36).slice(2,10)+Date.now().toStri
 // ===== PREFS =====
 async function loadPrefs(){
   const p=await dbGet('prefs','a11y');
-  if(!p)return;
-  if(p.fontScale!=null) setFontScale(p.fontScale,true);
-  if(p.hc) toggleHC(true,true);
-  if(p.clockStyle) setClockStyle(p.clockStyle,true);
-  if(p.showPlace!=null) applyPref('showPlace',p.showPlace,true);
-  if(p.showNote!=null)  applyPref('showNote',p.showNote,true);
-  if(p.switchMode) setSwitchMode(p.switchMode,true);
-  if(p.scanSpeed)  setScanSpeed(p.scanSpeed,true);
-  if(p.speech) toggleSpeech(true,true);
+  if(p){
+    if(p.hc) toggleHC(true,true);
+    if(p.clockStyle) setClockStyle(p.clockStyle,true);
+    if(p.showPlace!=null) applyPref('showPlace',p.showPlace,true);
+    if(p.showNote!=null)  applyPref('showNote',p.showNote,true);
+    if(p.switchMode) setSwitchMode(p.switchMode,true);
+    if(p.scanSpeed)  setScanSpeed(p.scanSpeed,true);
+    if(p.speech) toggleSpeech(true,true);
+  }
+  // 文字サイズは共通A11yパネルとの二重適用解消のため、旧IndexedDB値と
+  // 共通キー(donomana-a11y-font、読み取りのみ)を照合して正本を決める(Phase18.14-E)。
+  applyFontScaleMigration(p);
 }
 async function savePrefs(){await dbPut('prefs',{k:'a11y',...prefs});}
 
-function setFontScale(s,silent){
-  prefs.fontScale=s;
-  document.documentElement.style.setProperty('--font-scale',s);
-  document.querySelectorAll('.font-btn').forEach(b=>b.classList.toggle('active',parseFloat(b.dataset.scale)===s));
-  if(!silent){savePrefs();showToast('🔤 もじサイズをかえました');}
+// 独自UI(小/中/大/特大)の表示・--font-scale・prefs.fontScaleだけを更新する。
+// 共通A11yパネル側には一切触れない(共通ボタンへの委譲やIndexedDB保存は呼び出し側の責務)。
+function applyScheduleFontState(scaleId,actualScale){
+  prefs.fontScale=scaleId;
+  document.documentElement.style.setProperty('--font-scale',actualScale);
+  document.querySelectorAll('.font-btn').forEach(b=>b.classList.toggle('active',parseFloat(b.dataset.scale)===scaleId));
 }
+
+// IndexedDB旧値×共通A11yキーの組み合わせから、初期表示の正本を1つに決める(Phase18.14-E移行方針)。
+// 共通が大/特大ならそちらを正本とし、小は解除する。共通が標準/未設定なら旧小はそのまま維持し、
+// 旧大/特大や無効値は中へ正規化する。共通キー自体は読み取りのみで一切書き換えない。
+function applyFontScaleMigration(p){
+  const commonFont=localStorage.getItem('donomana-a11y-font');
+  const oldScale=p?p.fontScale:undefined;
+  let scaleId,actualScale,needSave;
+  if(commonFont==='large'||commonFont==='xlarge'){
+    scaleId=(commonFont==='large')?1.18:1.38;
+    actualScale=1;
+    needSave=(oldScale!==scaleId);
+  }else if(oldScale===0.88){
+    scaleId=0.88;actualScale=0.88;needSave=false;
+  }else if(oldScale===1){
+    scaleId=1;actualScale=1;needSave=false;
+  }else if(oldScale===1.18||oldScale===1.38){
+    scaleId=1;actualScale=1;needSave=true;
+  }else{
+    scaleId=1;actualScale=1;needSave=!!p;
+  }
+  applyScheduleFontState(scaleId,actualScale);
+  if(needSave)savePrefs();
+}
+
+// 独自UI(小/中/大/特大)クリック時の入口。「小」以外は共通A11yパネルの対応ボタンへ委譲し、
+// --font-scaleは常に1に固定する(小のときだけ0.88)。共通ボタンの委譲クリック中は
+// onCommonFontSync側のリスナーを一時的に外し、直後に戻すことで再帰・二重保存を防ぐ(Phase18.14-E)。
+function setFontScale(s,silent){
+  const changed=prefs.fontScale!==s;
+  const actualScale=(s===0.88)?0.88:1;
+  applyScheduleFontState(s,actualScale);
+  const commonTarget=(s===1.18)?'large':(s===1.38)?'xlarge':'normal';
+  const commonBtn=document.querySelector('[data-a11y-font="'+commonTarget+'"]');
+  if(commonBtn){
+    const curCommon=localStorage.getItem('donomana-a11y-font')||'normal';
+    if(curCommon!==commonTarget){
+      document.removeEventListener('click',onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click',onCommonFontSync);
+    }
+  }
+  if(!silent){
+    if(changed)savePrefs();
+    showToast('🔤 もじサイズをかえました');
+  }
+}
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(Phase18.14-E、トップレベルへ1件だけ登録)。
+// 共通「標準」は常に独自側「中」へ対応させる(「小」は独自UI経由でのみ選べる状態のため、
+// 共通操作からは復元しない)。既に同じ状態ならsavePrefsを呼ばない。
+function onCommonFontSync(e){
+  const btn=e.target.closest('[data-a11y-font]');
+  if(!btn)return;
+  const size=btn.dataset.a11yFont;
+  const scaleId=(size==='large')?1.18:(size==='xlarge')?1.38:1;
+  if(prefs.fontScale===scaleId)return;
+  applyScheduleFontState(scaleId,1);
+  savePrefs();
+}
+document.addEventListener('click',onCommonFontSync);
 
 function toggleHC(forceVal,silent){
   const on = forceVal!==undefined ? forceVal : !prefs.hc;
