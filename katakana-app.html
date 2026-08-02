@@ -197,6 +197,8 @@
   }
   .stroke-kana-btn:active, .stroke-kana-btn.selected { background: var(--teal); color: white; box-shadow: 0 1px 0 #00897B; transform: translateY(2px); }
   .stroke-display { text-align: center; display: flex; flex-direction: column; align-items: center; }
+  /* #strokeDisplayのインラインwidth:min(300px,90vw)が入れ子padding分を考慮せず親幅を超えるため上限を課す */
+  #strokeDisplay { max-width: 100%; }
   .stroke-controls { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
   .ctrl-btn { border: none; border-radius: 50px; padding: 12px 22px; font-size: 0.98rem; font-weight: 700; font-family: inherit; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: all 0.15s; color: white; }
   .ctrl-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
@@ -221,7 +223,12 @@
   .trace-canvas-wrap { position: relative; display: inline-block; border-radius: 20px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,0.1); touch-action: none; }
   #traceGuide { position: absolute; top: 0; left: 0; pointer-events: none; }
   #traceCanvas { display: block; cursor: crosshair; touch-action: none; }
+  /* canvasは固定width/height属性(320)のみでCSS制約がなく、前後ボタンと同じnowrap行で幅超過するため折返しと縮小上限を課す */
+  .trace-canvas-row { flex-wrap: wrap; }
+  #traceCanvas, #traceGuide { max-width: 100%; height: auto; }
   .trace-toolbar { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+  /* toolbar本体はwrap済みだが直下の色/太さ選択群がnowrapのため、canvas修正後に顕在化する残存overflowを解消 */
+  .trace-toolbar > div { flex-wrap: wrap; }
   .color-pick { width: 34px; height: 34px; border-radius: 50%; border: 3px solid white; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform 0.15s; }
   .color-pick:active, .color-pick.active { transform: scale(1.22); box-shadow: 0 0 0 3px #333; }
   .size-btn { background: white; border: 3px solid #DDD; border-radius: 50px; padding: 5px 12px; font-size: 0.88rem; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.15s; color: var(--dark); }
@@ -276,7 +283,7 @@
   .toggle input:checked + .toggle-slider::before { transform: translateX(24px); }
   .toggle input:focus + .toggle-slider { outline: 3px solid var(--peach); outline-offset: 2px; }
   .font-ctrl { display: flex; align-items: center; gap: 8px; }
-  .font-btn { width: 34px; height: 34px; border-radius: 10px; border: 2px solid #E0E0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; transition: all 0.15s; }
+  .font-btn { width: 34px; height: 34px; border-radius: 10px; border: 2px solid #E0E0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; transition: all 0.15s; flex-shrink: 0; }
   .font-btn:hover { background: #E0F7FA; }
   .font-size-label { min-width: 38px; text-align: center; font-weight: 700; font-size: 0.85rem; color: var(--teal); }
   .scan-speed-label { min-width: 42px; text-align: center; font-weight: 700; font-size: 0.85rem; color: var(--teal); }
@@ -800,7 +807,7 @@
     <p style="text-align:center;color:#666;margin-bottom:12px;font-size:0.93rem">もじをえらんで なぞってみよう</p>
     <div class="trace-kana-row" id="traceKanaRow"></div>
     <div class="trace-area">
-      <div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+      <div class="trace-canvas-row" style="display:flex;align-items:center;justify-content:center;gap:12px;">
         <button onclick="traceMove(-1)" style="background:linear-gradient(135deg,#F3E5FF,#E1BEE7);border:3px solid #C3A6E8;border-radius:50%;width:50px;height:50px;font-size:1.4rem;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #B39DDB;display:flex;align-items:center;justify-content:center;color:#7B5EA7;flex-shrink:0;">◀</button>
         <div>
           <div class="trace-canvas-wrap" id="traceWrap">
@@ -1834,14 +1841,55 @@ buildMatch();
 let fontSizeLevel=1, scanMode=false, scanInterval=null, scanSpeed=2000, scanFocusIdx=0, scanTargets=[];
 const fontLabels=['ちいさい','ふつう','おおきい','とても おおきい'];
 
-function changeFontSize(d){
-  fontSizeLevel=Math.max(0,Math.min(3,fontSizeLevel+d));
+// fontSizeLevelに応じて#fontSizeLabelとbody.large-text/--font-scaleを一致させる。
+// level0のみ独自倍率(0.82)を残し、level1〜3は共通zoomへ委譲するため1.0に固定する。
+// body.large-textは常に除去し、再付与しない(拡大は共通パネルへ委譲する)。
+function applyFontDisplay(){
   document.getElementById('fontSizeLabel').textContent=fontLabels[fontSizeLevel];
-  // CSS変数で全体のボタンサイズを制御
-  var scales=['0.82','1.0','1.22','1.48'];
-  document.documentElement.style.setProperty('--font-scale', scales[fontSizeLevel]);
-  document.body.classList.toggle('large-text',fontSizeLevel>=2);
+  document.body.classList.remove('large-text');
+  document.documentElement.style.setProperty('--font-scale', fontSizeLevel===0 ? '0.82' : '1.0');
 }
+
+// 独自ステッパー(－/＋)クリック時の入口。level0/1は共通「標準」へ、level2は「大」へ、
+// level3は「特大」へ委譲する。委譲クリック中はonCommonFontSync側のリスナーを一時的に
+// 外し、直後に戻すことで再帰・二重処理を防ぐ。
+function changeFontSize(d){
+  const next=Math.max(0,Math.min(3,fontSizeLevel+d));
+  if(next===fontSizeLevel) return;
+  fontSizeLevel=next;
+  applyFontDisplay();
+  const commonTarget=(fontSizeLevel===2)?'large':(fontSizeLevel===3)?'xlarge':'normal';
+  const commonBtn=document.querySelector(`[data-a11y-font="${commonTarget}"]`);
+  if(commonBtn){
+    const curCommon=localStorage.getItem('donomana-a11y-font')||'normal';
+    if(curCommon!==commonTarget){
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
+}
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 共通「標準」操作からlevel0への復元は行わない(level0は独自ステッパー専用)。
+function onCommonFontSync(e){
+  const btn=e.target.closest('[data-a11y-font]');
+  if(!btn) return;
+  const size=btn.dataset.a11yFont;
+  const newLevel=(size==='large')?2:(size==='xlarge')?3:1;
+  if(fontSizeLevel===newLevel) return;
+  fontSizeLevel=newLevel;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：katakana-app独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてfontSizeLevelとラベル表示を初期化する。共通キー自体は書き換えない。
+(function initKatakanaFontSync(){
+  const commonFont=localStorage.getItem('donomana-a11y-font');
+  fontSizeLevel=(commonFont==='large')?2:(commonFont==='xlarge')?3:1;
+  applyFontDisplay();
+})();
 
 function changeScanSpeed(d){
   scanSpeed=Math.max(500,Math.min(6000,scanSpeed+d*1000));
