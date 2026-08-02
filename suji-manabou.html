@@ -514,7 +514,8 @@
   .toggle input:checked + .toggle-slider { background: var(--coral); }
   .toggle input:checked + .toggle-slider::before { transform: translateX(23px); }
   .font-control { display: flex; align-items: center; gap: 8px; }
-  .font-btn { width: 34px; height: 34px; border-radius: 10px; border: 2px solid #FFE0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--coral); transition: all .15s; font-family: inherit; }
+  /* 最長ラベル表示時、.font-controlの幅不足分をボタン自身の横幅圧縮で吸収しないよう固定する */
+  .font-btn { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; border: 2px solid #FFE0E0; background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--coral); transition: all .15s; font-family: inherit; }
   .font-btn:hover { background: #FFE0E0; }
   .font-size-label { min-width: 52px; text-align: center; font-weight: 700; font-size: .88rem; color: var(--coral); }
   /* ハイコントラスト */
@@ -1365,17 +1366,57 @@ function toggleScan(cb) {
   if (scanMode) { setTimeout(updateScanTargets, 200); startAutoScan(); }
   else stopAutoScan();
 }
-function changeFontSize(d) {
-  fontSizeLevel = Math.max(0, Math.min(3, fontSizeLevel + d));
+// fontSizeLevelに応じてbody classと#font-size-displayラベルだけを一致させる。
+// 共通A11yパネル側には一切触れない(共通ボタンへの委譲は呼び出し側の責務)。
+// level0(ちいさい)のときだけfont-xsを付与し、font-lg/font-xlは付与しない
+// (level2/3の拡大は共通パネルのzoomへ委譲するため)。
+function applyFontDisplay() {
   const lbs = ['ちいさい','ふつう','おおきい','とても おおきい'];
   document.getElementById('font-size-display').textContent = lbs[fontSizeLevel];
-  // すべてのフォントサイズクラスを一旦外して、必要なものだけ付ける
   document.body.classList.remove('font-xs', 'font-lg', 'font-xl');
   if (fontSizeLevel === 0) document.body.classList.add('font-xs');
-  else if (fontSizeLevel === 2) document.body.classList.add('font-lg');
-  else if (fontSizeLevel === 3) document.body.classList.add('font-xl');
-  // fontSizeLevel === 1 (ふつう) はデフォルト（クラスなし）
 }
+
+// 独自ステッパー(－/＋)クリック時の入口。level0は独自専用「ちいさい」のまま維持し、
+// level1は共通「標準」へ、level2は「大」へ、level3は「特大」へ委譲する(janken-app方式)。
+// 委譲クリック中はonCommonFontSync側のリスナーを一時的に外し、直後に戻すことで
+// 再帰・二重処理を防ぐ。
+function changeFontSize(d) {
+  fontSizeLevel = Math.max(0, Math.min(3, fontSizeLevel + d));
+  applyFontDisplay();
+  const commonTarget = (fontSizeLevel === 2) ? 'large' : (fontSizeLevel === 3) ? 'xlarge' : 'normal';
+  const commonBtn = document.querySelector('[data-a11y-font="' + commonTarget + '"]');
+  if (commonBtn) {
+    const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+    if (curCommon !== commonTarget) {
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
+}
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 共通normal操作ではlevel0「ちいさい」へは戻さない(level0は独自ステッパー専用の非対称状態)。
+function onCommonFontSync(e) {
+  const btn = e.target.closest('[data-a11y-font]');
+  if (!btn) return;
+  const size = btn.dataset.a11yFont;
+  const newLevel = (size === 'large') ? 2 : (size === 'xlarge') ? 3 : 1;
+  if (fontSizeLevel === newLevel) return;
+  fontSizeLevel = newLevel;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：suji-manabou独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてfontSizeLevelとラベル表示を初期化する。共通キー自体は書き換えない。
+// 起動時にlevel0「ちいさい」へはしない。
+(function initSujiFontSync() {
+  const commonFont = localStorage.getItem('donomana-a11y-font');
+  fontSizeLevel = (commonFont === 'large') ? 2 : (commonFont === 'xlarge') ? 3 : 1;
+  applyFontDisplay();
+})();
 function changeScanSpeed(d) {
   scanSpeed = Math.max(500, Math.min(5000, scanSpeed + d * 1000));
   document.getElementById('scan-speed-display').textContent = (scanSpeed/1000).toFixed(1) + '秒';
