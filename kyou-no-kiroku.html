@@ -318,6 +318,9 @@
   .vital-row {
     display: flex;
     align-items: center;
+    /* 共通A11yパネルの拡大(大/特大)と組み合わさると、ラベル固定幅＋数値入力欄＋単位が
+       横1列に収まりきらない幅が生じるため、狭幅では自然に折り返す。 */
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 10px;
   }
@@ -2730,14 +2733,59 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
 });
 
 // ===== ACCESSIBILITY =====
-function setFontSize(size, btn) {
-  document.body.classList.remove('font-large','font-xlarge');
-  if (size === 'large') document.body.classList.add('font-large');
-  if (size === 'xlarge') document.body.classList.add('font-xlarge');
+// 標準/大/特大の表示だけを一致させる。共通A11yパネル側には一切触れず、保存も行わない
+// (共通ボタンへの委譲・保存は呼び出し側の責務)。bodyからは常にfont-large/font-xlargeを
+// 除去し(拡大は共通パネルのzoomへ委譲するため)、対応する独自ボタンだけをactiveにする。
+function applyFontDisplay(size, btn) {
+  const norm = (size === 'large' || size === 'xlarge') ? size : 'normal';
+  document.body.classList.remove('font-large', 'font-xlarge');
   document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.a11y.fontsize = size;
+  const targetBtn = btn || Array.from(document.querySelectorAll('.size-btn')).find(b => (b.getAttribute('onclick') || '').indexOf("'" + norm + "'") !== -1);
+  if (targetBtn) targetBtn.classList.add('active');
+  state.a11y.fontsize = norm;
+}
+
+// 独自ボタンクリック時の入口。既存の保存挙動(state.a11y.fontsize書き込み＋saveState)は
+// そのまま維持する。normal→共通標準、large→共通大、xlarge→共通特大へ委譲する(okane-app方式)。
+// 委譲クリック中はonCommonFontSync側のリスナーを一時的に外し、直後に戻すことで
+// 再帰・二重処理を防ぐ。
+function setFontSize(size, btn) {
+  const norm = (size === 'large' || size === 'xlarge') ? size : 'normal';
+  state.a11y.fontsize = norm;
   saveState();
+  applyFontDisplay(norm, btn);
+  const commonBtn = document.querySelector('[data-a11y-font="' + norm + '"]');
+  if (commonBtn) {
+    const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+    if (curCommon !== norm) {
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
+}
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 保存回数を増やさないため、ここではsaveState()を呼ばない
+// (state.a11y.fontsizeの同期はメモリ上のみで行う)。
+function onCommonFontSync(e) {
+  const btn = e.target.closest('[data-a11y-font]');
+  if (!btn) return;
+  const size = btn.dataset.a11yFont;
+  const norm = (size === 'large' || size === 'xlarge') ? size : 'normal';
+  if (state.a11y.fontsize === norm) return;
+  applyFontDisplay(norm);
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：共通A11yパネルのキー(読み取りのみ)を正本として独自UIの表示とfontsizeを
+// 初期化する。共通キー自体は書き換えず、saveState()も呼ばない。
+// loadState()の後に呼ぶ必要がある(loadState()のa11yマージが先に走ると、
+// ここで同期した表示・fontsizeが独自旧保存値で上書きされてしまうため)。
+function initKyouFontSync() {
+  const commonFont = localStorage.getItem('donomana-a11y-font');
+  const norm = (commonFont === 'large' || commonFont === 'xlarge') ? commonFont : 'normal';
+  applyFontDisplay(norm);
 }
 
 function toggleHC() {
@@ -3029,6 +3077,7 @@ function applyA11y() {
 loadState();
 renderChildren();
 applyA11y();
+initKyouFontSync();
 </script>
 </body>
 </html>
