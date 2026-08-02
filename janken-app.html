@@ -301,6 +301,10 @@
   .rule-vs-row {
     display: flex;
     align-items: center;
+    /* 共通A11yパネルの拡大と合わさると「かつ →」ピル(flex-shrink:0)と左右の.vs-itemが
+       横1列に収まりきらない幅が生じる(400px超でも発生)。利用可能幅が十分な場合は
+       元々1行のまま収まるため、幅を問わず常時wrapにしても通常表示に影響しない。 */
+    flex-wrap: wrap;
     gap: 10px;
     background: white;
     border-radius: 20px;
@@ -2117,15 +2121,35 @@ let scanTargets  = [];
 let scanIdx      = 0;
 
 // ---- フォントサイズ ----
-// body の font-size を直接変え、rem ベースの要素全体に反映する
-function applyFontScale() {
-  const scale = FONT_SCALES[fontStep];
-  // body に --fs-scale 変数を設定し、CSSの全fontSize指定を上書き
-  document.body.style.fontSize = (scale * 16) + 'px';
-  // clamp() を使っている要素はそのままでは変わらないので、
-  // 専用クラスで font-size を em 単位で上書きする
-  document.body.setAttribute('data-font', fontStep);
+// fontStepに応じてbody.style.fontSize・body[data-font]・ラベル表示だけを一致させる。
+// 共通A11yパネル側には一切触れない(共通ボタンへの委譲は呼び出し側の責務)。
+function applyFontDisplay() {
+  if (fontStep === 0) {
+    document.body.style.fontSize = (FONT_SCALES[0] * 16) + 'px';
+    document.body.setAttribute('data-font', '0');
+  } else {
+    // ふつう/おおきい/とても おおきいは中立値に固定し、拡大は共通A11yパネルへ委譲する
+    document.body.style.fontSize = '16px';
+    document.body.setAttribute('data-font', '1');
+  }
   document.getElementById('font-size-label').textContent = FONT_STEPS[fontStep];
+}
+
+// 独自ステッパー(－/＋)クリック時の入口。ちいさい/ふつうは共通「標準」へ、おおきいは「大」へ、
+// とても おおきいは「特大」へ委譲する(schedule-app方式)。委譲クリック中はonCommonFontSync側の
+// リスナーを一時的に外し、直後に戻すことで再帰・二重処理を防ぐ。
+function applyFontScale() {
+  applyFontDisplay();
+  const commonTarget = (fontStep === 2) ? 'large' : (fontStep === 3) ? 'xlarge' : 'normal';
+  const commonBtn = document.querySelector('[data-a11y-font="' + commonTarget + '"]');
+  if (commonBtn) {
+    const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+    if (curCommon !== commonTarget) {
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
 }
 
 function changeFontSize(delta) {
@@ -2133,6 +2157,27 @@ function changeFontSize(delta) {
   applyFontScale();
   speakDirect(FONT_STEPS[fontStep]);
 }
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 共通「標準」は常に独自側「ふつう」へ対応させる(「ちいさい」は独自ステッパー経由でのみ選べる)。
+function onCommonFontSync(e) {
+  const btn = e.target.closest('[data-a11y-font]');
+  if (!btn) return;
+  const size = btn.dataset.a11yFont;
+  const newStep = (size === 'large') ? 2 : (size === 'xlarge') ? 3 : 1;
+  if (fontStep === newStep) return;
+  fontStep = newStep;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：janken独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてfontStepとラベル表示を初期化する。共通キー自体は書き換えない。
+(function initJankenFontSync() {
+  const commonFont = localStorage.getItem('donomana-a11y-font');
+  fontStep = (commonFont === 'large') ? 2 : (commonFont === 'xlarge') ? 3 : 1;
+  applyFontDisplay();
+})();
 
 function toggleSetting(key) {
   if (key === 'contrast') {
