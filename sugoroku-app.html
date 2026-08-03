@@ -1727,12 +1727,17 @@ let cpos=[], CW=80, CH=68;
 const FSZ_BASE=['0.8rem','1rem','1.2rem','1.45rem'];
 const FSZ_CELL=['0.54rem','0.62rem','0.74rem','0.88rem'];
 const FLS=['ちいさい','ふつう','おおきい','とくだい'];
-function applyF(){
+
+// fontLvに応じた表示だけを同期する。読み上げ・保存は行わない。
+function applyFontDisplay(){
   document.documentElement.style.setProperty('--fs', FSZ_BASE[fontLv]);
   document.documentElement.style.setProperty('--cell-fs', FSZ_CELL[fontLv]);
   document.getElementById('fsv').textContent=FLS[fontLv];
-  speak('もじ '+FLS[fontLv]);
   if(gActive) renderBoard(); // ボードも再描画
+}
+// 独自ボタン操作時のみ読み上げる(初期化・共通パネル同期時は発火しない)。
+function announceFontLevel(){
+  speak('もじ '+FLS[fontLv]);
 }
 
 // ===== SETUP UI =====
@@ -2820,8 +2825,56 @@ document.getElementById('hcsw').addEventListener('click',function(){hc=!hc;this.
 document.getElementById('scansw').addEventListener('click',function(){scanOn=!scanOn;this.classList.toggle('on',scanOn);this.setAttribute('aria-checked',scanOn);document.getElementById('scanbadge').classList.toggle('on',scanOn);speak(scanOn?'スイッチスキャンオン':'スイッチスキャンオフ');bip(scanOn?660:330,.1,.2);if(scanOn)startScan();else stopScan();});
 document.getElementById('ttssw').addEventListener('click',function(){ttsOn=!ttsOn;this.classList.toggle('on',ttsOn);this.setAttribute('aria-checked',ttsOn);if(ttsOn)speak('よみあげオン');bip(440,.08,.15);});
 
-document.getElementById('fsm').addEventListener('click',()=>{if(fontLv>0){fontLv--;applyF();bip(440,.07,.15);}});
-document.getElementById('fsp').addEventListener('click',()=>{if(fontLv<3){fontLv++;applyF();bip(440,.07,.15);}});
+// 独自－／＋ボタン。fontLv0/1はどちらも共通normalのため委譲せず独自表示のみ切り替える。
+// fontLv2/3への到達・離脱時のみ共通large/xlargeへ条件付きで委譲する。
+// 委譲クリック中はonCommonFontSync側のリスナーを一時的に外し、再帰・二重処理を防ぐ。
+function delegateToCommon(target){
+  if(!target) return;
+  const commonBtn=document.querySelector(`[data-a11y-font="${target}"]`);
+  if(!commonBtn) return;
+  const curCommon=localStorage.getItem('donomana-a11y-font')||'normal';
+  if(curCommon===target) return;
+  document.removeEventListener('click', onCommonFontSync);
+  commonBtn.click();
+  document.addEventListener('click', onCommonFontSync);
+}
+document.getElementById('fsm').addEventListener('click',()=>{
+  if(fontLv<=0) return;
+  fontLv--;
+  applyFontDisplay();
+  announceFontLevel();
+  bip(440,.07,.15);
+  delegateToCommon(fontLv===2 ? 'large' : fontLv===1 ? 'normal' : null);
+});
+document.getElementById('fsp').addEventListener('click',()=>{
+  if(fontLv>=3) return;
+  fontLv++;
+  applyFontDisplay();
+  announceFontLevel();
+  bip(440,.07,.15);
+  delegateToCommon(fontLv===2 ? 'large' : fontLv===3 ? 'xlarge' : null);
+});
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 対象は共通文字サイズボタンのみ。共通「標準」操作からfontLv0へは戻さない。読み上げ・保存は行わない。
+function onCommonFontSync(e){
+  const btn=e.target.closest('[data-a11y-font]');
+  if(!btn) return;
+  const size=btn.dataset.a11yFont;
+  const newLv=(size==='large')?2:(size==='xlarge')?3:1;
+  if(fontLv===newLv) return;
+  fontLv=newLv;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：sugoroku-app独自の保存値は存在しないため、共通A11yパネルのキー(読み取りのみ)を
+// 正本としてfontLvと表示を初期化する。共通キー自体は書き換えず、読み上げ・保存も行わない。
+function initSugorokuFontSync(){
+  const common=localStorage.getItem('donomana-a11y-font');
+  fontLv=(common==='large')?2:(common==='xlarge')?3:1;
+  applyFontDisplay();
+}
 
 function applyS(){document.getElementById('siv').textContent=scanSec.toFixed(1)+'びょう';speak(scanSec.toFixed(1)+'びょう');if(scanOn)startScan();}
 document.getElementById('sim').addEventListener('click',()=>{if(scanSec>0.5){scanSec=Math.round((scanSec-.5)*10)/10;applyS();bip(440,.07,.15);}});
@@ -3185,6 +3238,7 @@ function cleanupPeer(){
   document.getElementById('tb-title-txt').textContent='すごろく';
 }
 document.getElementById('homeyes').addEventListener('click',()=>{ if(isOnline) cleanupPeer(); });
+initSugorokuFontSync();
 </script>
 </body>
 </html>
