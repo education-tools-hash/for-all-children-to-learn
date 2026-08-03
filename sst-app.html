@@ -336,13 +336,16 @@ body{font-family:'Zen Maru Gothic',sans-serif;background:var(--bg);color:var(--t
 .bc-wrap{
   position:relative;
   width:200px;
-  height:200px;
+  /* 固定200pxが共通A11yパネルの特大(150%)適用時に親幅を超えるため、正円を保ったまま縮小可能にする */
+  height:auto;
+  aspect-ratio:1;
+  max-width:100%;
   margin:0 auto;
   /* scale(1.4)で280pxになるので、上下に余白を確保 */
   padding:44px 0;
   box-sizing:content-box;
 }
-.bc{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,#F48FB1,#E91E8C);display:flex;align-items:center;justify-content:center;font-size:3.625rem;transition:transform .1s;}
+.bc{width:200px;height:auto;aspect-ratio:1;max-width:100%;border-radius:50%;background:radial-gradient(circle,#F48FB1,#E91E8C);display:flex;align-items:center;justify-content:center;font-size:3.625rem;transition:transform .1s;}
 @keyframes bIn{from{transform:scale(1);}to{transform:scale(1.4);}}
 @keyframes bOut{from{transform:scale(1.4);}to{transform:scale(1);}}
 .bc.inhale{animation:bIn 4s ease-in-out forwards;}
@@ -8317,9 +8320,6 @@ function saveCfg(){
 function applyCfg(){
   // ダークモード
   document.body.classList.toggle('dark', cfg.dark);
-  // フォントサイズ — html要素のfont-sizeを直接変更（em基準点）
-  const sizes = {small:'12px', medium:'16px', large:'21px'};
-  document.documentElement.style.fontSize = sizes[cfg.fontSize] || '16px';
   // トグル
   const tas = document.getElementById('tgl-auto-speak');
   if(tas) tas.checked = cfg.autoSpeak;
@@ -8334,15 +8334,23 @@ function applyCfg(){
   if(th) th.checked = cfg.highlight !== false;
   // 声の選択
   buildVoiceSelect();
-  // フォントボタン
+}
+
+// fontSizeの表示状態だけを一致させる。small以外は共通zoomへ委譲するためroot font-sizeを16pxに統一する。
+// 保存・共通ボタンのクリック・focus・他cfg項目の変更は行わない。
+function applyFontDisplay(size){
+  const s = (size==='small'||size==='large') ? size : 'medium';
+  cfg.fontSize = s;
+  document.documentElement.style.fontSize = (s==='small') ? '12px' : '16px';
   document.querySelectorAll('.font-btn').forEach(b=>{
-    b.classList.toggle('on', b.dataset.size === cfg.fontSize);
+    b.classList.toggle('on', b.dataset.size === s);
   });
 }
 
 function openSettings(){
   document.getElementById('settings-modal').classList.add('on');
   applyCfg();
+  applyFontDisplay(cfg.fontSize);
 }
 function closeSettings(){
   document.getElementById('settings-modal').classList.remove('on');
@@ -8364,10 +8372,37 @@ function updateSpeedLabel(){
   const lbl = document.getElementById('speed-label');
   if(lbl) lbl.textContent = SPEED_LABELS[(cfg.speed||3)-1] || 'ふつう';
 }
+// 独自ボタンクリック時の入口。small/medium/largeを正規化し、保存・表示同期の後、
+// 対応する共通ボタンへ委譲する。委譲クリック中はonCommonFontSync側のリスナーを
+// 一時的に外し、直後に戻すことで再帰・二重処理を防ぐ。
 function setFontSize(s){
-  cfg.fontSize = s;
-  saveCfg(); applyCfg();
+  const norm = (s==='small'||s==='large') ? s : 'medium';
+  cfg.fontSize = norm;
+  saveCfg();
+  applyFontDisplay(norm);
+  const commonTarget = (norm==='large') ? 'large' : 'normal';
+  const commonBtn = document.querySelector(`[data-a11y-font="${commonTarget}"]`);
+  if(commonBtn){
+    const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+    if(curCommon !== commonTarget){
+      document.removeEventListener('click', onCommonFontSync);
+      commonBtn.click();
+      document.addEventListener('click', onCommonFontSync);
+    }
+  }
 }
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 保存は行わない。共通「標準」操作からsmallへは戻らない(smallは独自「小」専用)。
+function onCommonFontSync(e){
+  const btn = e.target.closest('[data-a11y-font]');
+  if(!btn) return;
+  const size = btn.dataset.a11yFont;
+  const newFontSize = (size==='large'||size==='xlarge') ? 'large' : 'medium';
+  if(cfg.fontSize === newFontSize) return;
+  applyFontDisplay(newFontSize);
+}
+document.addEventListener('click', onCommonFontSync);
 function toggleDark(){
   cfg.dark = document.getElementById('tgl-dark').checked;
   saveCfg(); applyCfg();
@@ -8402,6 +8437,22 @@ function autoSpeak(fn){
   if(cfg.autoSpeak) fn();
 }
 
+// 起動時：共通A11yパネルのキー(読み取りのみ)を正本として文字サイズ表示を初期化する。
+// 共通キーがnormalまたは未保存/無効値のときのみ、独自保存(cfg.fontSize)のsmall/mediumを尊重する。
+// 共通キーがlarge/xlargeの場合はcfg.fontSizeに関係なくlarge表示とする。共通キー・sst_cfgとも書き換えない。
+function initSstFontSync(){
+  const common = localStorage.getItem('donomana-a11y-font');
+  let size;
+  if(common === 'large' || common === 'xlarge'){
+    size = 'large';
+  } else if(common === 'normal'){
+    size = (cfg.fontSize === 'small' || cfg.fontSize === 'medium') ? cfg.fontSize : 'medium';
+  } else {
+    size = (cfg.fontSize === 'small' || cfg.fontSize === 'medium' || cfg.fontSize === 'large') ? cfg.fontSize : 'medium';
+  }
+  applyFontDisplay(size);
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -8417,6 +8468,7 @@ loadAIGenerated();
 syncCustomToScenes();
 initCustomTab();
 loadVoices();
+initSstFontSync();
 </script>
 </body>
 </html>
