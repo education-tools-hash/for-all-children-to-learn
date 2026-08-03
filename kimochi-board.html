@@ -335,9 +335,15 @@
     position:fixed; inset:0;
     background:rgba(0,0,0,.55); backdrop-filter:blur(4px);
     z-index:300;
-    display:flex; align-items:flex-end; justify-content:center;
+    display:flex; align-items:flex-start; justify-content:center;
     opacity:0; pointer-events:none;
     transition:opacity .25s;
+    /* 共通zoom適用時、.settings-panelの実高がviewportを超えても上端・下端の両方へ
+       到達できるよう、overlay自身をスクロールコンテナにする(パネル自身の
+       max-height:92vh方式は「92vhの計算後にzoomが乗算される」ため実高が
+       viewportを超え、align-items:flex-endだと上端が恒久的に到達不能になっていた)。 */
+    overflow-y:auto;
+    padding-top:24px;
   }
   .settings-overlay.open { opacity:1; pointer-events:auto; }
 
@@ -347,7 +353,10 @@
     padding:0 0 40px 0;
     transform:translateY(60px);
     transition:transform .3s cubic-bezier(.22,1,.36,1);
-    max-height:92vh; overflow-y:auto;
+    /* 内容がoverlay高に収まる場合は従来どおり下端に張り付く(bottom-sheet風見た目を維持)。
+       収まらない場合はmargin-top:autoが0に収束し、overlay側のスクロールで
+       上端から下端まで到達できる。 */
+    margin-top:auto;
   }
   .settings-overlay.open .settings-panel { transform:translateY(0); }
 
@@ -637,8 +646,10 @@
     overflow:hidden; touch-action:none;
     background:#fff;
     align-self:center;
+    max-width:100%;
   }
-  #drawCanvas { display:block; touch-action:none; cursor:crosshair; }
+  /* 描画解像度(width/height属性280x280)は維持し、表示サイズのみ共通zoom時にモーダル幅へ収める */
+  #drawCanvas { display:block; touch-action:none; cursor:crosshair; max-width:100%; height:auto; aspect-ratio:1; }
 
   .draw-colors {
     display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
@@ -1691,10 +1702,19 @@ function loadState() {
   } catch(e) {}
 }
 
+/* ── 文字サイズ表示専用(保存・スキャン再開・他設定には触れない) ──
+   fontIndex1-3(共通ふつう/おおきい/とても おおきい)は共通zoomのみで拡大し、
+   独自--font-scaleは1(無効)にする。ここでzoomとの二重適用を防ぐ。
+   fontIndex0(独自専用「ちいさい」)のみ独自スケール(0.78)を適用する。 */
+function applyFontDisplay() {
+  const scale = (state.fontIndex === 0) ? FONT_SCALES[0] : 1;
+  document.documentElement.style.setProperty('--font-scale', scale);
+  fontValEl.textContent = FONT_LEVELS[state.fontIndex];
+}
+
 /* ── 設定反映 ── */
 function applySettings() {
-  document.documentElement.style.setProperty('--font-scale', FONT_SCALES[state.fontIndex]);
-  fontValEl.textContent = FONT_LEVELS[state.fontIndex];
+  applyFontDisplay();
   document.body.classList.toggle('high-contrast', state.highContrast);
   document.documentElement.classList.toggle('high-contrast', state.highContrast);
   toggleHC.checked     = state.highContrast;
@@ -1734,12 +1754,53 @@ settingsOverlay.addEventListener('click',e => { if (e.target === settingsOverlay
   el.addEventListener('touchstart', e => e.stopPropagation());
 });
 
+// 共通文字サイズボタンへ安全に委譲する。共通キーは直接書き換えず、再帰・二重発火を防ぐ。
+function delegateToCommonFont(level) {
+  if (!level) return;
+  const commonBtn = document.querySelector(`[data-a11y-font="${level}"]`);
+  if (!commonBtn) return;
+  const curCommon = localStorage.getItem('donomana-a11y-font') || 'normal';
+  if (curCommon === level) return;
+  document.removeEventListener('click', onCommonFontSync);
+  try {
+    commonBtn.click();
+  } finally {
+    document.addEventListener('click', onCommonFontSync);
+  }
+}
 fontMinusBtn.addEventListener('click', () => {
-  if (state.fontIndex > 0) { state.fontIndex--; applySettings(); }
+  if (state.fontIndex <= 0) return;
+  state.fontIndex--;
+  applySettings();
+  delegateToCommonFont(state.fontIndex===2 ? 'large' : state.fontIndex===1 ? 'normal' : null);
 });
 fontPlusBtn.addEventListener('click', () => {
-  if (state.fontIndex < FONT_LEVELS.length-1) { state.fontIndex++; applySettings(); }
+  if (state.fontIndex >= FONT_LEVELS.length-1) return;
+  state.fontIndex++;
+  applySettings();
+  delegateToCommonFont(state.fontIndex===2 ? 'large' : state.fontIndex===3 ? 'xlarge' : null);
 });
+
+// 共通A11yパネル側で文字サイズボタンが操作されたときの同期(トップレベルへ1件だけ登録)。
+// 表示のみ更新し、保存・スキャン再開・他設定への影響は発生させない。
+function onCommonFontSync(e) {
+  const btn = e.target.closest('[data-a11y-font]');
+  if (!btn) return;
+  const size = btn.dataset.a11yFont;
+  const newIdx = (size==='large') ? 2 : (size==='xlarge') ? 3 : 1;
+  if (state.fontIndex === newIdx) return;
+  state.fontIndex = newIdx;
+  applyFontDisplay();
+}
+document.addEventListener('click', onCommonFontSync);
+
+// 起動時：共通A11yパネルのキー(読み取りのみ)を正本としてfontIndexと表示を最終確定する。
+// 独自保存(kimochi_v2)は書き換えず、保存・スキャン再開・他設定への影響も発生させない。
+function initKimochiFontSync() {
+  const common = localStorage.getItem('donomana-a11y-font');
+  state.fontIndex = (common==='large') ? 2 : (common==='xlarge') ? 3 : 1;
+  applyFontDisplay();
+}
 toggleHC.addEventListener('change',     () => { state.highContrast = toggleHC.checked;     applySettings(); });
 toggleSwitch.addEventListener('change', () => { state.switchScan   = toggleSwitch.checked;  applySettings(); });
 toggleTTS.addEventListener('change',    () => { state.tts          = toggleTTS.checked;     applySettings(); });
@@ -2612,6 +2673,7 @@ if (!state.cardCustom) {
   state.cardCustom = DEFAULT_CARDS.map(c => ({ ...c }));
 }
 applySettings();
+initKimochiFontSync();
 applyCardCustom();
 initCardEditors();
 
