@@ -2177,12 +2177,25 @@
   }
 
   // ==== Switch Scanning ====
+  // 仕様書donomana-switch-scan-spec-v1_0.md 4.1節R1: 候補順は単一querySelectorAllが返す
+  // 実際のDOM出現順とする。activeScreen内の[data-scan]と共通chrome(.scannable)を
+  // 1回のクエリで取得し、可視性・操作可能性で絞り込む(3.1節R2〜R5)。
+  function getScanCandidates(activeScreen) {
+    return Array.from(document.querySelectorAll('[data-scan],.scannable')).filter(el => {
+      if (!(el.classList.contains('scannable') || activeScreen.contains(el))) return false;
+      if (el.disabled || el.hasAttribute('hidden')) return false;
+      if (el.getAttribute('aria-hidden') === 'true') return false;
+      if (el.getClientRects().length === 0) return false;
+      if (getComputedStyle(el).visibility === 'hidden') return false;
+      return true;
+    });
+  }
   function startScan() {
     stopScan();
     if (!state.settings.switchScan) return;
     const activeScreen = document.querySelector('.screen.active');
     if (!activeScreen) return;
-    const items = Array.from(activeScreen.querySelectorAll('[data-scan]')).concat(Array.from(document.querySelectorAll('.scannable')));
+    const items = getScanCandidates(activeScreen);
     if (items.length === 0) return;
     state.scanIndex = 0;
     const highlight = () => {
