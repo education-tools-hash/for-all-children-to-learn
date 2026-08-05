@@ -1780,8 +1780,10 @@ function applySettings() {
   toggleGaze.checked     = state.gazeEnabled;
   dwellValEl.textContent = GAZE_DWELL_STEPS[state.gazeDwellIndex].toFixed(1) + '秒';
   saveState();
-  if (!isShowingResult && !isPanelOpen) {
+  if (state.switchScan && !state.gazeEnabled && !isShowingResult && !isPanelOpen) {
     startScan();
+  } else {
+    stopScan();
   }
 }
 
@@ -1794,7 +1796,10 @@ function openPanel() {
 function closePanel() {
   isPanelOpen = false;
   settingsOverlay.classList.remove('open');
-  if (!isShowingResult) startScan();
+  if (state.switchScan && !state.gazeEnabled && !isShowingResult) {
+    currentIndex = 0;
+    startScan();
+  }
 }
 
 settingsBtn.addEventListener('click',    e => { e.stopPropagation(); openPanel(); });
@@ -1935,7 +1940,7 @@ function selectCard(index) {
   setTimeout(() => {
     flashOverlay.classList.remove('active');
     isShowingResult = false;
-    if (!isPanelOpen) startScan();
+    if (state.switchScan && !state.gazeEnabled && !isPanelOpen) startScan();
   }, 1600);
 }
 
@@ -2011,6 +2016,7 @@ cardEls.forEach(card => {
   // ④ Tobii フォーカス離脱でスキャン再開
   card.addEventListener('blur', () => {
     if (isShowingResult || isPanelOpen || state.gazeEnabled) return;
+    if (!state.switchScan) return;
     startScan();
   });
 });
@@ -2126,7 +2132,7 @@ function disablePointerSelect() {
   document.removeEventListener('mousemove', onPointerMove);
   clearDwellVisual();
   dwellIndex = -1;
-  if (!isShowingResult && !isPanelOpen) startScan();
+  if (state.switchScan && !isShowingResult && !isPanelOpen) startScan();
 }
 
 /* トグル・ステッパー */
@@ -2176,7 +2182,10 @@ function closeHelp() {
   helpOverlay.classList.remove('open');
   stopHelpDemo();
   isPanelOpen = false;
-  if (!isShowingResult) startScan();
+  if (state.switchScan && !state.gazeEnabled && !isShowingResult && !isPanelOpen) {
+    currentIndex = 0;
+    startScan();
+  }
 }
 
 function startHelpDemo() {
