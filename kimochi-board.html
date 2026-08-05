@@ -155,9 +155,17 @@
     position:fixed; inset:0;
     background:rgba(0,0,0,.55); backdrop-filter:blur(4px);
     z-index:300;
-    display:flex; align-items:flex-end; justify-content:center;
+    display:flex; align-items:flex-start; justify-content:center;
     opacity:0; pointer-events:none;
     transition:opacity .25s;
+    /* panelの内容が共通zoom適用時に実viewport高を超えても上端・下端の両方へ
+       到達できるよう、overlay自身を唯一の縦スクロールコンテナにする
+       (.settings-overlay/.draw-overlayと同じ方式、Phase18.25-B2/Phase18.26-B参照)。
+       常時最前面(z-index:99999)の共通ロック/全画面ツールバー(top:64px,高さ44px)を
+       確実に下回るよう、余裕を持たせてpadding-topを設定する(同値の116px)。 */
+    overflow-y:auto;
+    padding-top:116px;
+    padding-bottom:24px;
   }
   .help-overlay.open { opacity:1; pointer-events:auto; }
 
@@ -167,7 +175,11 @@
     padding:0 0 40px 0;
     transform:translateY(60px);
     transition:transform .3s cubic-bezier(.22,1,.36,1);
-    max-height:92vh; overflow-y:auto;
+    /* 内容がoverlay高に収まる場合は下端に寄る(bottom-anchor、.settings-panel/
+       .draw-modalと同じmargin-top:autoのみの方式)。収まらない場合はmargin-topが
+       0に収束し、overlay側のスクロールで上端から下端まで到達できる。panel自身は
+       スクロールコンテナにしない。 */
+    margin-top:auto;
   }
   .help-overlay.open .help-panel { transform:translateY(0); }
 
