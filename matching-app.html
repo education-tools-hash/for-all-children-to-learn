@@ -214,7 +214,7 @@ body.high-contrast .card.matched .cf-front{background:#003300;border-color:#00cc
 #scan-bar{display:none;background:#f5c400;color:#222;padding:9px 14px;
   text-align:center;font-size:.85em;font-weight:700;flex-shrink:0;}
 body.scan-mode #scan-bar{display:flex;align-items:center;justify-content:center;gap:10px;}
-.scan-hl{outline:var(--scan-outline)!important;outline-offset:3px!important;}
+.scan-focus{outline:var(--scan-outline)!important;outline-offset:3px!important;}
 
 /* クリア */
 #clear-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;
@@ -1576,16 +1576,29 @@ function spawnPar(el){
 }
 
 /* ── スキャン ── */
-function startScan(){stopScan();const its=scanItems();if(!its.length)return;its[scanIdx%its.length].classList.add('scan-hl');scanIv=setInterval(()=>{const i2=scanItems();i2.forEach(x=>x.classList.remove('scan-hl'));scanIdx=(scanIdx+1)%Math.max(i2.length,1);if(i2[scanIdx])i2[scanIdx].classList.add('scan-hl');},scanMs);}
-function stopScan(){clearInterval(scanIv);document.querySelectorAll('.scan-hl').forEach(e=>e.classList.remove('scan-hl'));}
+function startScan(){stopScan();const its=scanItems();if(!its.length)return;its[scanIdx%its.length].classList.add('scan-focus');scanIv=setInterval(()=>{const i2=scanItems();i2.forEach(x=>x.classList.remove('scan-focus'));scanIdx=(scanIdx+1)%Math.max(i2.length,1);if(i2[scanIdx])i2[scanIdx].classList.add('scan-focus');},scanMs);}
+function stopScan(){clearInterval(scanIv);scanIv=null;document.querySelectorAll('.scan-focus').forEach(e=>e.classList.remove('scan-focus'));}
+// Switch Scan候補の可視性・操作可能性フィルタ（仕様書3.1節R2〜R5・21章記載条件に基づく共通判定）。
+// getClientRects().length===0はdisplay:none／非接続要素を検出できるが、visibility:hiddenは
+// レイアウト上のrectを保持したままになるため別途computedStyleで判定する必要がある。
+function scanCandOk(el){
+  return !el.disabled && !el.hasAttribute('hidden') && el.getAttribute('aria-hidden')!=='true'
+    && el.getClientRects().length>0 && getComputedStyle(el).visibility!=='hidden';
+}
 function scanItems(){
   const activeModal=['how-ov','settings-ov','edit-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
   if(activeModal){
+    // 仕様書9.1節C1: モーダル表示中は候補をモーダル内の要素へ限定する（共通chromeを含めない）。
     return Array.from(activeModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
-      .filter(el=>el.offsetParent!==null && !el.disabled);
+      .filter(scanCandOk);
   }
-  if(getComputedStyle($('game-screen')).display!=='none')return[...document.querySelectorAll('.card:not(.matched)')];
-  return[...document.querySelectorAll('.set-item,.lvl-btn,#start-btn')];
+  // 仕様書4.1節R1: 候補順はDOM出現順（document.querySelectorAll等が返す順序）とする。
+  // 画面固有候補と共通chromeを1回のquerySelectorAllへまとめることで、ページ全体の真のDOM順を
+  // そのまま得られ、かつ同一要素が重複して含まれることもない（NodeListの性質上、重複を持たない）。
+  const sel=getComputedStyle($('game-screen')).display!=='none'
+    ? '.card:not(.matched),.scannable'
+    : '.set-item,.lvl-btn,#start-btn,.scannable';
+  return Array.from(document.querySelectorAll(sel)).filter(scanCandOk);
 }
 function scanAct(){const its=scanItems(),cur=its[scanIdx%Math.max(its.length,1)];if(cur)cur.click();}
 
@@ -1784,7 +1797,7 @@ $('btn-retry').addEventListener('click',()=>{
 $('btn-back').addEventListener('click',backToSel);
 $('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');startGame();});
 $('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');backToSel();});
-document.addEventListener('keydown',e=>{if(e.key===' '&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
+document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;$('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
 // how-ov・settings-ov・edit-ov共通：背景（#hdr・#main）のinert切り替え。
 // 3モーダルのうちいずれか1件でも表示中であれば背景をinertのまま維持し、
 // 全て閉じたときだけ解除する（同時表示・多重の開閉経路があっても解除漏れ／誤解除を防ぐため）。
