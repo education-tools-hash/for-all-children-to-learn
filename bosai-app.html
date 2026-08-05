@@ -2644,13 +2644,16 @@ const scan = {
       '#sim-result.show button',
       '#panel-learn.active .disaster-card',
       '.tab-btn',
+      '.scannable',
     ];
     const seen = new Set();
     const items = [];
     selectors.forEach(sel => {
       try {
         document.querySelectorAll(sel).forEach(el => {
-          if (!seen.has(el) && el.offsetParent !== null && !el.disabled) {
+          // position:fixedの共通chrome要素はoffsetParentが常にnullになるため、
+          // getClientRects().lengthで可視判定する(matching-app Phase18.31-Cと同型の修正)。
+          if (!seen.has(el) && el.getClientRects().length > 0 && !el.disabled) {
             seen.add(el); items.push(el);
           }
         });
@@ -2677,6 +2680,7 @@ const scan = {
     document.body.classList.remove('scan-active');
     document.getElementById('scan-bar').classList.remove('active');
     clearTimeout(this.timer);
+    this.timer = null;
     this.clearHighlight();
     document.removeEventListener('keydown', scan._onKey, true);
     document.removeEventListener('touchstart', scan._onTouchStart, true);
