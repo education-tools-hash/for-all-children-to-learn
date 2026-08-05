@@ -636,10 +636,20 @@
     position:fixed; inset:0;
     background:rgba(0,0,0,.55); backdrop-filter:blur(4px);
     z-index:500;
-    display:flex; align-items:center; justify-content:center;
+    display:flex; align-items:flex-start; justify-content:center;
     opacity:0; pointer-events:none;
     transition:opacity .2s;
     padding:16px;
+    /* modalの内容が共通zoom適用時に実viewport高を超えても上端・下端の両方へ
+       到達できるよう、overlay自身を唯一の縦スクロールコンテナにする
+       (.settings-overlayと同じ方式、Phase18.25-B2参照)。
+       常時最前面(z-index:99999)の共通ロック/全画面ツールバー(top:64px,高さ44px)を
+       確実に下回るよう、余裕を持たせてpadding-topを設定する(.settings-overlayと
+       同値。margin-top:auto単独によるbottom anchorでも、この値を下限とすることで
+       ツールバーの描画範囲(y:64〜108px、zoom非依存の素の値)へ到達しない)。 */
+    overflow-y:auto;
+    padding-top:116px;
+    padding-bottom:24px;
   }
   .draw-overlay.open { opacity:1; pointer-events:auto; }
 
@@ -649,7 +659,13 @@
     display:flex; flex-direction:column; gap:12px;
     transform:scale(.94); transition:transform .2s;
     box-shadow:0 8px 40px rgba(0,0,0,.2);
-    max-height:92vh; overflow-y:auto;
+    /* 内容がoverlay高に収まる場合は下端に寄る(bottom-anchor、.settings-panelと
+       同じmargin-top:autoのみの方式)。収まらない場合はmargin-topが0に収束し、
+       overlay側のスクロールで上端から下端まで到達できる。modal自身はスクロール
+       コンテナにしない。margin-bottom:autoは付けない(付けると中央寄せとなり、
+       viewport高によってはheaderが常時最前面ツールバーの領域と重なる条件が
+       生じるため)。 */
+    margin-top:auto;
   }
   .draw-overlay.open .draw-modal { transform:scale(1); }
 
@@ -668,6 +684,12 @@
     background:#fff;
     align-self:center;
     max-width:100%;
+    /* .draw-modalがflex-columnで高さ不足の際、overflow:hiddenを持つ本要素は
+       flexboxのautomatic minimum sizeが0になり、他の兄弟(header/colors/
+       size-row/actions)より優先的に(ほぼ単独で)縮小されてCanvasの大部分が
+       クリップされていた(Phase18.26-A調査で特定)。flex-shrink:0で縮小自体を
+       禁止し、Canvas本体を常に完全に内包させる。 */
+    flex-shrink:0;
   }
   /* 描画解像度(width/height属性280x280)は維持し、表示サイズのみ共通zoom時にモーダル幅へ収める */
   #drawCanvas { display:block; touch-action:none; cursor:crosshair; max-width:100%; height:auto; aspect-ratio:1; }
