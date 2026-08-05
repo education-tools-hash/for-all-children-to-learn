@@ -375,6 +375,7 @@
   /* セッティング */
   .setting-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
@@ -417,7 +418,9 @@
   }
   .size-group {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
+    max-width: 100%;
   }
   .size-btn {
     padding: 8px 12px;
@@ -557,11 +560,12 @@
     font-size: 0.9em;
   }
 
-  /* フォントサイズの動的切替 */
+  /* フォントサイズの動的切替: Phase18.29-B 共通A11y統合(P2派生)
+     small のみ独自補助倍率を維持。medium/large/xlarge は共通zoomのみで拡大する。 */
   body.fs-small { --font-base: 15px; }
-  body.fs-medium { --font-base: 18px; }
-  body.fs-large { --font-base: 22px; }
-  body.fs-xlarge { --font-base: 28px; }
+  body.fs-medium,
+  body.fs-large,
+  body.fs-xlarge { --font-base: 18px; }
 
   @media (max-width: 480px) {
     .grid-2 { gap: 10px; }
@@ -1841,6 +1845,9 @@
 
 <script>
   // ==== State ====
+  // Phase18.29-B: 共通A11yパネルのDOMContentLoaded初期化(a11y-panelブロック)が
+  // 未保存時に既定値'normal'を書き込む前に、生値を同期的に一度だけ捕捉する。
+  const __directionsFontRawInitial = localStorage.getItem('donomana-a11y-font');
   const state = {
     screen: 'home',
     settings: loadSettings(),
@@ -2018,18 +2025,26 @@
   document.addEventListener('webkitfullscreenchange', updateFsIcons);
 
   // ==== Settings apply ====
-  function applySettings() {
-    document.body.classList.toggle('hc', state.settings.highContrast);
+  // Phase18.29-B: 文字サイズの「表示反映」だけを行う(保存・共通キー更新・他設定変更は行わない)。
+  function applyDirectionsFontDisplay() {
     ['small','medium','large','xlarge'].forEach(s => document.body.classList.remove('fs-'+s));
     document.body.classList.add('fs-' + state.settings.fontSize);
 
-    // UI反映
     const fsLabels = { small:'ちいさい', medium:'ふつう', large:'おおきい', xlarge:'とても おおきい'};
     const fsl = document.getElementById('fontsize-label');
     if (fsl) fsl.textContent = 'いまは：' + fsLabels[state.settings.fontSize];
     document.querySelectorAll('.size-btn[data-size]').forEach(b => {
-      b.classList.toggle('active', b.dataset.size === state.settings.fontSize);
+      const active = b.dataset.size === state.settings.fontSize;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
+  }
+
+  function applySettings() {
+    document.body.classList.toggle('hc', state.settings.highContrast);
+    applyDirectionsFontDisplay();
+
+    // UI反映
     const tgHc = document.getElementById('toggle-hc');
     if (tgHc) { tgHc.textContent = state.settings.highContrast ? 'ON' : 'OFF'; tgHc.classList.toggle('on', state.settings.highContrast); }
     const tgTts = document.getElementById('toggle-tts');
@@ -2053,10 +2068,70 @@
       else stopScan();
     }
   }
+
+  // Phase18.29-B: 共通A11y文字サイズへの委譲。[data-a11y-font]へクリック委譲するのみで、
+  // 共通キー(donomana-a11y-font)をlocalStorageへ直接書き込むことはしない。
+  let __directionsFontSyncGuard = false;
+  function delegateToCommonFont(level) {
+    if (level !== 'normal' && level !== 'large' && level !== 'xlarge') return;
+    const btn = document.querySelector('[data-a11y-font="' + level + '"]');
+    if (!btn) return;
+    __directionsFontSyncGuard = true;
+    try {
+      btn.click();
+    } finally {
+      __directionsFontSyncGuard = false;
+    }
+  }
+
+  // 独自サイズボタン操作: 状態→保存→表示→(必要なら)共通へ委譲、の順で二重発火を防ぐ。
   function setFont(size) {
     state.settings.fontSize = size;
     saveSettings();
-    applySettings();
+    applyDirectionsFontDisplay();
+    const targetCommon = (size === 'small') ? 'normal' : size;
+    if (localStorage.getItem('donomana-a11y-font') !== targetCommon) {
+      delegateToCommonFont(targetCommon);
+    }
+  }
+
+  // 共通A11yパネルの[data-a11y-font]が(委譲経由でなく)直接操作された場合の同期。
+  // appSettingsへは保存しない(次回初期化時に共通キーから再導出されるため)。
+  function onCommonFontSync(e) {
+    if (__directionsFontSyncGuard) return;
+    const btn = e.target && e.target.closest && e.target.closest('[data-a11y-font]');
+    if (!btn) return;
+    const commonMap = { normal: 'medium', large: 'large', xlarge: 'xlarge' };
+    const next = commonMap[btn.dataset.a11yFont];
+    if (!next || next === state.settings.fontSize) return;
+    state.settings.fontSize = next;
+    applyDirectionsFontDisplay();
+  }
+  document.addEventListener('click', onCommonFontSync);
+
+  // 初期化時: 共通キーの生値(__directionsFontRawInitial)を優先して最終fontSizeを確定する。
+  // 共通キー未保存(旧appSettings.fontSizeしかない)場合のみ、共通ボタンへ委譲して移行する。
+  function initDirectionsFontSync() {
+    let needsDelegate = null;
+    if (__directionsFontRawInitial !== null) {
+      const map = { normal: 'medium', large: 'large', xlarge: 'xlarge' };
+      state.settings.fontSize = map[__directionsFontRawInitial] || 'medium';
+    } else {
+      switch (state.settings.fontSize) {
+        case 'small':  needsDelegate = 'normal'; break;
+        case 'large':  needsDelegate = 'large';  break;
+        case 'xlarge': needsDelegate = 'xlarge'; break;
+        default:       state.settings.fontSize = 'medium'; needsDelegate = 'normal'; break;
+      }
+    }
+    applyDirectionsFontDisplay();
+    if (needsDelegate) {
+      document.addEventListener('DOMContentLoaded', function(){
+        if (localStorage.getItem('donomana-a11y-font') !== needsDelegate) {
+          delegateToCommonFont(needsDelegate);
+        }
+      });
+    }
   }
   function setScanSpeed(ms) {
     state.settings.scanSpeed = ms;
@@ -2616,6 +2691,7 @@
   }
 
   // ==== Init ====
+  initDirectionsFontSync();
   applySettings();
   if (state.settings.switchScan) setTimeout(startScan, 100);
 
