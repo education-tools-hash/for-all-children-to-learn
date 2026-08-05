@@ -73,7 +73,9 @@
   --font:'Hiragino Maru Gothic ProN','BIZ UDPGothic',sans-serif;
   --scan-outline:4px solid #f5c400;--fs:17px;
 }
-body.large-text{--fs:21px;}
+/* 共通A11y文字サイズへ統合(Phase18.28-B、P2方式)。拡大は共通zoomのみが担い、
+   独自--fsの上乗せを基準値のまま据え置くことで二重適用を防ぐ。 */
+body.large-text{--fs:17px;}
 body.high-contrast{
   --bg:#000;--surface:#111;--surface2:#1a1a1a;
   --text:#fff;--text-muted:#bbb;--primary:#ffaa00;
@@ -234,11 +236,17 @@ body.scan-mode #scan-bar{display:flex;align-items:center;justify-content:center;
 .clear-btn.sec{background:var(--surface2);color:var(--text);}
 
 /* オーバーレイ共通 */
+/* how-ov/settings-ov/edit-ovが共有。共通zoom適用時に.sheetの実高がviewportを
+   超えても上端・下端の両方へ到達できるよう、.ovを唯一の縦スクロールコンテナに
+   する(kimochi-boardのPhase18.25-B2/Phase18.26-B/Phase18.27-Bで確立した方式)。
+   常時最前面(z-index:99999)の共通ロック/全画面ツールバー(top:64px、高さ44px)を
+   確実に下回るよう、padding-topへ同値の116pxを設定する(実測により確認済み)。 */
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.52);z-index:200;
-  align-items:flex-end;justify-content:center;}
+  align-items:flex-start;justify-content:center;overflow-y:auto;
+  padding-top:116px;padding-bottom:24px;}
 .ov.show{display:flex;}
 .sheet{background:var(--surface);border-radius:22px 22px 0 0;padding:22px 18px 32px;
-  width:100%;max-width:520px;max-height:93vh;overflow-y:auto;}
+  width:100%;max-width:520px;margin-top:auto;}
 .sheet::-webkit-scrollbar{display:none;}
 .sh-handle{width:36px;height:4px;background:var(--surface2);border-radius:2px;margin:0 auto 16px;}
 .sh-title{font-size:1.15em;font-weight:800;margin-bottom:14px;}
@@ -1657,8 +1665,56 @@ $('btn-save-set').addEventListener('click',async()=>{
 });
 
 /* ── 設定 ── */
-function loadPrefs(){const p=JSON.parse(localStorage.getItem('match-prefs3')||'{}');if(p.large){$('t-large').checked=true;document.body.classList.add('large-text');}if(p.hc){$('t-hc').checked=true;document.body.classList.add('high-contrast');}if(p.rm){$('t-rm').checked=true;document.body.classList.add('reduce-motion');}if(p.scan){$('t-scan').checked=true;enableScan();}if(p.sound===false){$('t-sound').checked=false;soundOn=false;}if(p.spd){$('scan-spd').value=p.spd;setScanSpd(p.spd);}}
-function savePrefs(){localStorage.setItem('match-prefs3',JSON.stringify({large:$('t-large').checked,hc:$('t-hc').checked,rm:$('t-rm').checked,scan:$('t-scan').checked,sound:$('t-sound').checked,spd:$('scan-spd').value}));}
+function loadPrefs(){const p=JSON.parse(localStorage.getItem('match-prefs3')||'{}');if(p.hc){$('t-hc').checked=true;document.body.classList.add('high-contrast');}if(p.rm){$('t-rm').checked=true;document.body.classList.add('reduce-motion');}if(p.scan){$('t-scan').checked=true;enableScan();}if(p.sound===false){$('t-sound').checked=false;soundOn=false;}if(p.spd){$('scan-spd').value=p.spd;setScanSpd(p.spd);}}
+function savePrefs(){localStorage.setItem('match-prefs3',JSON.stringify({hc:$('t-hc').checked,rm:$('t-rm').checked,scan:$('t-scan').checked,sound:$('t-sound').checked,spd:$('scan-spd').value}));}
+
+/* ── 文字サイズ：共通A11yへ統合(P2方式、Phase18.28-B) ──
+   #t-largeは独自ON/OFFを保持せず、共通donomana-a11y-fontの表示専用ミラーにする。
+   拡大量は共通zoomのみが担当し、--fsは基準値のままにして二重適用を防ぐ。
+   共通キーへは直接書き込まず、常に共通ボタンへクリック委譲する(表示専用関数と
+   委譲関数を分離し、savePrefs()や他設定・Switch Scan・モーダル開閉には触れない)。
+   共通A11yパネル自身のDOMContentLoadedハンドラが、未保存時に既定値'normal'で
+   donomana-a11y-fontへ即書き込むため(表示モード/読み上げも同様の自己初期化を行う
+   既存仕様)、後から読むと「本当に未保存だったか」を区別できなくなる。そのため
+   このスクリプトの同期実行時点(どのDOMContentLoadedリスナーよりも前)で一度だけ
+   元の値を捕捉しておき、移行要否の判定にはこの捕捉値を使う。 */
+const __matchingFontRawInitial=localStorage.getItem('donomana-a11y-font');
+function applyMatchingFontDisplay(){
+  const common=localStorage.getItem('donomana-a11y-font')||'normal';
+  const checked=common!=='normal';
+  $('t-large').checked=checked;
+  document.body.classList.toggle('large-text',checked);
+}
+function delegateToCommonFont(level){
+  if(level!=='normal'&&level!=='large')return; // xlargeは独自トグルから直接選ばない
+  const btn=document.querySelector(`[data-a11y-font="${level}"]`);
+  if(!btn)return;
+  const cur=localStorage.getItem('donomana-a11y-font')||'normal';
+  if(cur===level){applyMatchingFontDisplay();return;}
+  document.removeEventListener('click',onCommonFontSync);
+  try{btn.click();}finally{document.addEventListener('click',onCommonFontSync);}
+}
+// 共通A11yパネル側で文字サイズボタンが操作されたときの表示同期。表示のみ更新し、
+// 保存・共通ボタンの再クリック・Switch Scan再構築・モーダル開閉には触れない。
+function onCommonFontSync(e){
+  const btn=e.target.closest('[data-a11y-font]');
+  if(!btn)return;
+  applyMatchingFontDisplay();
+}
+document.addEventListener('click',onCommonFontSync);
+// 起動時：共通キーが未保存なら旧match-prefs3.large=trueを一度だけ共通largeへ移行する
+// (共通ボタンへの委譲のみ使用、共通キーを直接setItemしない)。共通A11yパネル自身の
+// [data-a11y-font]リスナーがDOMContentLoaded内で登録されるため、同じイベントへ
+// 登録順で後から加わるこのリスナーも同タイミングで実行し、委譲が空振りしないようにする。
+function initMatchingFontSync(){
+  if(!__matchingFontRawInitial){
+    let legacyLarge=false;
+    try{legacyLarge=!!JSON.parse(localStorage.getItem('match-prefs3')||'{}').large;}catch(e){}
+    if(legacyLarge)delegateToCommonFont('large');
+  }
+  applyMatchingFontDisplay();
+}
+document.addEventListener('DOMContentLoaded',initMatchingFontSync);
 function enableScan(){scanMode=true;document.body.classList.add('scan-mode');scanIdx=0;startScan();}
 function disableScan(){scanMode=false;document.body.classList.remove('scan-mode');stopScan();}
 function setScanSpd(v){scanMs=2500-v*400;if(scanMode)startScan();}
@@ -1671,7 +1727,7 @@ $('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov')){$('how-ov').
 $('btn-settings').addEventListener('click',()=>{$('settings-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('settings-title').focus();});
 $('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();});
 $('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
-$('t-large').addEventListener('change',e=>{document.body.classList.toggle('large-text',e.target.checked);savePrefs();});
+$('t-large').addEventListener('change',e=>{delegateToCommonFont(e.target.checked?'large':'normal');});
 $('t-hc').addEventListener('change',e=>{document.body.classList.toggle('high-contrast',e.target.checked);savePrefs();});
 $('t-rm').addEventListener('change',e=>{document.body.classList.toggle('reduce-motion',e.target.checked);savePrefs();});
 $('t-scan').addEventListener('change',e=>{if(e.target.checked)enableScan();else disableScan();savePrefs();});
