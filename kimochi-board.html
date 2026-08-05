@@ -343,7 +343,14 @@
        max-height:92vh方式は「92vhの計算後にzoomが乗算される」ため実高が
        viewportを超え、align-items:flex-endだと上端が恒久的に到達不能になっていた)。 */
     overflow-y:auto;
-    padding-top:24px;
+    /* 常時最前面(z-index:99999)の共通ロック/全画面ツールバー(top:64px,高さ44px、
+       generate.js挿入・変更不可)は、共通zoom下でもこのoverlayと同じ倍率で拡大される。
+       そのためpaddingを24pxのままにすると、幅・zoomの組み合わせによっては
+       .sp-close(閉じるボタン)がツールバーの描画範囲(常に最前面)と重なり、
+       実クリック/タップがツールバー側に奪われる(z-index 99999 > 300のため)。
+       ツールバー下端(64+44=108px、zoom非依存の素の値)を確実に下回るよう、
+       余裕を持たせてpanel開始位置を下げる。 */
+    padding-top:116px;
   }
   .settings-overlay.open { opacity:1; pointer-events:auto; }
 
@@ -378,6 +385,11 @@
   .sp-row {
     display:flex; align-items:center; justify-content:space-between;
     padding:18px 24px; border-bottom:1px solid #f0f0f0; gap:16px;
+    /* .stepper/.toggleはflex-shrink:0の固定幅のため、狭幅×共通zoom大では
+       ラベル(.sp-row-info、min-width:0で縮小可)を圧縮しきっても行全体が
+       viewport幅を超えて内部横overflowを起こす(#fontPlus等が到達不能になる)。
+       折り返しを許可し、収まらない場合は操作部を次の行へ縦積みする。 */
+    flex-wrap:wrap;
   }
   .sp-row-info { flex:1; min-width:0; }
   .sp-row-label {
@@ -405,7 +417,11 @@
   .toggle input:checked ~ .toggle-thumb { left:27px; }
 
   /* ステッパー */
-  .stepper { display:flex; align-items:center; gap:4px; flex-shrink:0; }
+  /* max-width:100%: 狭幅×共通zoom大では.stepper-valの長いラベル("とても おおきい"等)を
+     含めた自然幅が親.sp-row(折り返し後の1行分の幅)を超えることがある。flex-shrink:0は
+     維持したまま(通常時のレイアウトは変えない)、必要時だけ.stepper自身を折り返し行の
+     幅に収め、内部の.stepper-val側で折り返させ、内部横overflowを防ぐ。 */
+  .stepper { display:flex; align-items:center; gap:4px; flex-shrink:0; max-width:100%; }
   .stepper-btn {
     font-family:'Kosugi Maru',sans-serif;
     font-size:20px; width:38px; height:38px;
@@ -455,8 +471,13 @@
     font-size:28px; flex-shrink:0;
     box-shadow:0 2px 8px rgba(0,0,0,.12);
   }
-  .card-edit-fields { flex:1; display:flex; flex-direction:column; gap:6px; }
-  .field-row { display:flex; align-items:center; gap:8px; }
+  .card-edit-fields { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+  /* 幅の狭い状態×共通zoom大では、アイコン欄のボタン列(えらぶ/写真/かく/削除)が
+     flex-shrink:0のnowrap幅のまま並ぶとsettings-panel全体を横方向に押し広げ、
+     内部で横overflowが発生する(#fontPlus等が到達不能になる原因)。折り返しを
+     許可することで、行の最小幅をボタン1つ分まで下げ、overflowなしで全ボタンを
+     縦に折り返し表示できるようにする。 */
+  .field-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .field-label { font-size:11px; color:#aaa; width:36px; flex-shrink:0; }
   .edit-input {
     font-family:'Kosugi Maru',sans-serif;
