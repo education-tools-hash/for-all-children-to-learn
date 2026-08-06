@@ -2919,7 +2919,25 @@ function renderKeyboard(){
 }
 
 // ==================== SCAN ====================
+function isScanCandidateVisible(el){
+  if(el.disabled)return false;
+  if(el.hasAttribute('hidden'))return false;
+  if(el.getAttribute('aria-hidden')==='true')return false;
+  if(el.closest('[inert]'))return false;
+  if(el.tabIndex===-1)return false;
+  if(el.getClientRects().length===0)return false;
+  const cs=getComputedStyle(el);
+  if(cs.display==='none'||cs.visibility==='hidden')return false;
+  return true;
+}
 function buildScanItems(){
+  scanItems.forEach(el=>el.classList.remove('scan-lit'));
+  const settingsModalEl=document.getElementById('settingsModal');
+  if(settingsModalEl&&!settingsModalEl.classList.contains('hidden')){
+    scanItems=Array.from(settingsModalEl.querySelectorAll('button, input, select, textarea, [role="button"], [tabindex]'))
+      .filter(isScanCandidateVisible);
+    return;
+  }
   const tabs=Array.from(modeTabs.querySelectorAll('.mode-tab'));
   const keys=Array.from(keyboardArea.querySelectorAll('.key'));
   const phrBtns=Array.from(phraseGrid.querySelectorAll('.phrase-btn'));
@@ -2930,10 +2948,11 @@ function startScan(){
   stopScan();buildScanItems();
   scanIndex=0;
   const interval=scanSpeed;
-  const total=scanItems.length;
   scanBar.classList.add('active');
   scanTimer=setInterval(()=>{
     scanItems.forEach(el=>el.classList.remove('scan-lit'));
+    const total=scanItems.length;
+    if(total===0){scanIndex=0;return;}
     if(scanIndex>=total)scanIndex=0;
     scanItems[scanIndex].classList.add('scan-lit');
     scanBarFill.style.width=((scanIndex+1)/total*100)+'%';
@@ -3109,13 +3128,17 @@ function showToast(msg){
 // ==================== SETTINGS MODAL ====================
 document.getElementById('settingsBtn').addEventListener('click',()=>{
   document.getElementById('settingsModal').classList.remove('hidden');
+  if(scanMode){buildScanItems();}
 });
 document.getElementById('settingsClose').addEventListener('click',()=>{
   document.getElementById('settingsModal').classList.add('hidden');
+  if(scanMode){buildScanItems();}
 });
 document.getElementById('settingsModal').addEventListener('click',e=>{
-  if(e.target===document.getElementById('settingsModal'))
+  if(e.target===document.getElementById('settingsModal')){
     document.getElementById('settingsModal').classList.add('hidden');
+    if(scanMode){buildScanItems();}
+  }
 });
 
 // Theme
