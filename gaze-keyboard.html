@@ -3126,18 +3126,49 @@ function showToast(msg){
 }
 
 // ==================== SETTINGS MODAL ====================
+// settingsModal focus復帰用：開く直前のactiveElementを保存し、閉鎖後に安全な復帰先へfocusする
+let settingsModalOpener=null;
+function isSettingsFocusReturnTarget(el){
+  if(!(el instanceof Element))return false;
+  if(!el.isConnected)return false;
+  if(el.id==='settingsBtn')return false;
+  if(el.disabled)return false;
+  if(el.hasAttribute('hidden'))return false;
+  if(el.getAttribute('aria-hidden')==='true')return false;
+  if(el.closest('[inert]'))return false;
+  if(el.tabIndex===-1)return false;
+  if(el.getClientRects().length===0)return false;
+  const cs=getComputedStyle(el);
+  if(cs.display==='none'||cs.visibility==='hidden')return false;
+  return typeof el.focus==='function';
+}
+function restoreSettingsModalFocus(){
+  let target=settingsModalOpener;
+  if(!isSettingsFocusReturnTarget(target)){
+    target=document.getElementById('donomanaA11yBtn');
+  }
+  settingsModalOpener=null;
+  if(isSettingsFocusReturnTarget(target)){
+    target.focus();
+  }
+}
 document.getElementById('settingsBtn').addEventListener('click',()=>{
+  if(document.getElementById('settingsModal').classList.contains('hidden')){
+    settingsModalOpener=document.activeElement;
+  }
   document.getElementById('settingsModal').classList.remove('hidden');
   if(scanMode){buildScanItems();}
 });
 document.getElementById('settingsClose').addEventListener('click',()=>{
   document.getElementById('settingsModal').classList.add('hidden');
   if(scanMode){buildScanItems();}
+  restoreSettingsModalFocus();
 });
 document.getElementById('settingsModal').addEventListener('click',e=>{
   if(e.target===document.getElementById('settingsModal')){
     document.getElementById('settingsModal').classList.add('hidden');
     if(scanMode){buildScanItems();}
+    restoreSettingsModalFocus();
   }
 });
 
