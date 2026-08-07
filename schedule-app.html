@@ -1259,6 +1259,17 @@ let prefs = {
   speech:false
 };
 
+// ===== STORAGE ARCHITECTURE v2.0 (Phase20-C1 pilot) =====
+// donomana-storage-architecture-v2_0.md 4章に基づく、schedule-app限定の最小導入。
+// SCHEMA_VERSION: このアプリのdata内部構造の版。既存データ(暗黙のv1)と互換。
+const SCHEDULE_SCHEMA_VERSION = 1;
+// Layer2世代バックアップの間引き間隔。updateField()がinputのたびにsaveLocal()を
+// デバウンスなしで呼ぶ高頻度設計のため、毎回スナップショットを取ると3世代が
+// ほぼ同一化し無意味になる。5分間隔で「編集セッション内で複数回、かつ過密にならない」
+// バランスを取る。
+const SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000;
+let lastSnapshotAt = 0;
+
 // ===== DB =====
 function initDB(){
   return new Promise((res,rej)=>{
@@ -1278,6 +1289,48 @@ const dbPut=(s,v)=>new Promise(r=>{const tx=db.transaction(s,'readwrite');tx.obj
 const dbGet=(s,k)=>new Promise(r=>{const tx=db.transaction(s,'readonly');const q=tx.objectStore(s).get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);});
 const dbGetAll=s=>new Promise(r=>{const tx=db.transaction(s,'readonly');const q=tx.objectStore(s).getAll();q.onsuccess=()=>r(q.result);q.onerror=()=>r([]);});
 const dbDel=(s,k)=>new Promise(r=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).delete(k);tx.oncomplete=r;});
+
+// Layer2スナップショット専用のput。既存objectStore('cur')を再利用し、version up・
+// objectStore新設を行わない。失敗しても必ずresolveし、Layer1(通常保存)を絶対に
+// ブロックしない(タイムアウト保険つき、例外もここで握りつぶす)。
+function dbPutSnapshotSafe(k,value){
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=()=>{ if(!settled){ settled=true; resolve(); } };
+    try{
+      const tx=db.transaction('cur','readwrite');
+      tx.objectStore('cur').put(Object.assign({},value,{k}));
+      tx.oncomplete=done; tx.onerror=done; tx.onabort=done;
+    }catch(e){ done(); }
+    setTimeout(done,1000);
+  });
+}
+function dbGetSnapshotSafe(k){
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=(v)=>{ if(!settled){ settled=true; resolve(v||null); } };
+    try{
+      const tx=db.transaction('cur','readonly');
+      const q=tx.objectStore('cur').get(k);
+      q.onsuccess=()=>done(q.result); q.onerror=()=>done(null);
+    }catch(e){ done(null); }
+    setTimeout(()=>done(null),1000);
+  });
+}
+// Layer2世代ローテーション。直前の完全な状態(prevState)を受け取り、
+// 5分間隔で間引きながら gen1→gen2、prevState→gen1 とシフトする。
+// 失敗は内部で握りつぶし、呼び出し元(saveLocal)には一切影響させない。
+async function maybeRotateSnapshot(prevState){
+  try{
+    const now=Date.now();
+    if(now-lastSnapshotAt<SNAPSHOT_INTERVAL_MS) return;
+    if(!prevState) return; // 初回保存(前状態なし)はスナップショット不要
+    const gen1=await dbGetSnapshotSafe('snapshot_gen1');
+    if(gen1) await dbPutSnapshotSafe('snapshot_gen2',gen1);
+    await dbPutSnapshotSafe('snapshot_gen1',{schemaVersion:SCHEDULE_SCHEMA_VERSION,createdAt:now,data:prevState});
+    lastSnapshotAt=now;
+  }catch(e){ /* Layer2失敗はLayer1に影響させない */ }
+}
 
 // ===== INIT =====
 async function init(){
@@ -1665,7 +1718,7 @@ function setSwitchMode(mode,silent){
 function setScanSpeed(sec,silent){prefs.scanSpeed=sec;document.getElementById('scan-speed-range').value=sec;document.getElementById('scan-speed-val').textContent=sec+'秒';if(!silent)savePrefs();}
 
 // ===== ITEM CRUD =====
-function makeItem(label=''){return{id:Date.now()+Math.random(),label,yomi:'',time:'',place:'',note:'',img:''};}
+function makeItem(label=''){return{id:Date.now()+Math.random(),uuid:crypto.randomUUID(),label,yomi:'',time:'',place:'',note:'',img:''};}
 function addItem(){
   items.push(makeItem());
   saveLocal();
@@ -1698,6 +1751,9 @@ async function saveLocal(){
   const now=new Date();
   const dateStr=now.getFullYear()+'年'+(now.getMonth()+1)+'月'+now.getDate()+'日';
   const timeStr=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  items.forEach(it=>{ if(!it.uuid) it.uuid=crypto.randomUUID(); }); // 既存idは維持、uuidのみ遅延付与
+  const prevState=await dbGet('cur','state').catch(()=>null);
+  await maybeRotateSnapshot(prevState); // Layer2。失敗しても以下のLayer1保存は継続する
   await dbPut('cur',{k:'state',id:scheduleId,name,items,checks,ts:Date.now()});
   await dbPut('schedules',{id:scheduleId,name,items,checks,ts:Date.now(),date:dateStr,time:timeStr});
   setSaveStatus('saved','このデバイスに自動保存済み ✓');
@@ -2047,8 +2103,15 @@ async function createNew(){
 
 function exportJSON(){
   const name=document.getElementById('schedule-name').value||'スケジュール';
-  const data={version:1,name,items,checks,exportedAt:new Date().toISOString()};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  items.forEach(it=>{ if(!it.uuid) it.uuid=crypto.randomUUID(); }); // 既存idは維持、uuidのみ遅延付与
+  // donomana-storage-architecture-v2_0.md 4.2 envelope形式。
+  // 旧形式{version:1,name,items,checks,exportedAt}はimportJSON側で引き続き読める(後方互換)。
+  const envelope={
+    formatVersion:'1.0', schemaVersion:SCHEDULE_SCHEMA_VERSION, migrationVersion:0,
+    app:'schedule-app', exportedAt:new Date().toISOString(),
+    data:{name,items,checks}
+  };
+  const blob=new Blob([JSON.stringify(envelope,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='schedule_'+name+'_'+new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')+'.json';
   a.click();URL.revokeObjectURL(a.href);showToast('📤 ファイルに書き出しました');
@@ -2058,10 +2121,19 @@ function importJSON(e){
   const reader=new FileReader();
   reader.onload=function(ev){
     try{
-      const data=JSON.parse(ev.target.result);
-      if(!data.items)throw new Error();
-      items=data.items;checks=data.checks||{};
-      const name=data.name||'よみこみデータ';
+      const raw=JSON.parse(ev.target.result);
+      // 新形式(envelope、formatVersion+data)か旧形式(フラット)かを判定。
+      // 旧形式は暗黙のschemaVersion 1として扱う(後方互換、donomana-storage-architecture-v2_0.md 4.3)。
+      const isEnveloped=raw&&typeof raw==='object'&&'formatVersion'in raw&&'data'in raw;
+      const payload=isEnveloped?raw.data:raw;
+      const schemaVersion=isEnveloped?raw.schemaVersion:1;
+      if(schemaVersion>SCHEDULE_SCHEMA_VERSION){
+        showToast('⚠️ 新しい形式のファイルです。アプリを更新してから読み込んでください');
+        return;
+      }
+      if(!payload||!payload.items)throw new Error();
+      items=payload.items;checks=payload.checks||{};
+      const name=payload.name||'よみこみデータ';
       scheduleName=name;scheduleId=genId();
       document.getElementById('schedule-name').value=name;
       document.getElementById('hdr-title').textContent=name;
