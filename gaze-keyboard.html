@@ -4916,6 +4916,20 @@ function shadeColor(hex, percent) {
 
 function renderColorPresets() {
   const saved = loadCustomColors();
+  // 再生成前にcolor-dotへフォーカスがあれば、復旧に必要な情報だけ保存する
+  let focusRestore = null;
+  const activeEl = document.activeElement;
+  if (activeEl && activeEl.classList && activeEl.classList.contains('color-dot')) {
+    const container = activeEl.closest('.color-presets');
+    if (container) {
+      const siblings = Array.from(container.children);
+      focusRestore = {
+        containerId: container.id,
+        color: activeEl.dataset.color,
+        index: siblings.indexOf(activeEl),
+      };
+    }
+  }
   Object.keys(COLOR_PRESETS).forEach(target => {
     const el = document.getElementById(target + 'ColorPresets');
     if (!el) return;
@@ -4944,6 +4958,18 @@ function renderColorPresets() {
     });
   });
   if (scanMode) buildScanItems();
+  // 再生成前にcolor-dotへフォーカスがあった場合のみ、対応する新color-dotへフォーカスを復旧する
+  if (focusRestore) {
+    const container = document.getElementById(focusRestore.containerId);
+    if (container) {
+      const dots = Array.from(container.querySelectorAll('.color-dot'));
+      let target = dots.find(d => d.dataset.color === focusRestore.color);
+      if (!target) target = dots.find(d => d.classList.contains('active'));
+      if (!target) target = dots[focusRestore.index];
+      if (!target) target = dots[0];
+      if (target && target.isConnected) target.focus({ preventScroll: true });
+    }
+  }
 }
 
 function initCustomColors() {
