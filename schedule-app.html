@@ -101,6 +101,16 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 .btn-ghost{background:transparent;color:var(--text2);border:2px solid var(--border);}.btn-ghost:hover{background:var(--sky-light);border-color:var(--sky);color:var(--sky);}
 .btn-sm{padding:6px 10px;font-size:0.78rem;}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
+/* Phase20-C3で新規追加するボタンのみ44px操作領域を確保する(既存.btn-smは対象外・別課題) */
+.btn-44{min-height:44px;}
+
+/* RESTORE PANEL (Phase20-C3, 非モーダルの折りたたみパネル) */
+.restore-panel{background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;}
+.restore-item{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border);}
+.restore-item:last-child{border-bottom:none;}
+.restore-item-label{font-size:0.85rem;color:var(--text);line-height:1.5;}
+.restore-item-date{font-size:0.78rem;color:var(--text2);}
+.restore-empty{font-size:0.85rem;color:var(--text2);margin:0;}
 
 /* MAIN */
 .main{padding:14px;max-width:860px;margin:0 auto;}
@@ -871,7 +881,13 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
     <button class="btn btn-sky btn-sm" onclick="exportJSON()">📤 書き出し</button>
     <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">📥 読み込み</button>
     <button class="btn btn-ghost btn-sm" onclick="showPrintModal()">🖨️ 印刷</button>
+    <button class="btn btn-ghost btn-sm btn-44" id="restore-toggle-btn" aria-expanded="false" aria-controls="restore-panel" onclick="toggleRestorePanel()">🔄 バックアップから復元</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)">
+  </div>
+
+  <!-- RESTORE PANEL (Phase20-C3, 非モーダル) -->
+  <div id="restore-panel" class="restore-panel" style="display:none;" role="region" aria-label="バックアップから復元">
+    <div id="restore-list"></div>
   </div>
 
   <!-- EDITOR -->
@@ -1351,6 +1367,120 @@ async function maybeRotateSnapshot(prevState){
     await dbPutSnapshotSafe('snapshot_gen1',{schemaVersion:SCHEDULE_SCHEMA_VERSION,createdAt:now,data:prevState});
     lastSnapshotAt=now;
   }catch(e){ /* Layer2失敗はLayer1に影響させない */ }
+}
+
+// ===== Layer2復元 (Phase20-C3) =====
+// snapshotが復元に足る形をしているかを確認する。無効ならcurrentには一切触れない。
+function validateSnapshot(snap){
+  if(!snap) return {ok:false,reason:'not-found'};
+  if(typeof snap.schemaVersion!=='number') return {ok:false,reason:'schema-missing'};
+  if(snap.schemaVersion>SCHEDULE_SCHEMA_VERSION) return {ok:false,reason:'schema-future'}; // 未来schemaは読み込まない
+  const d=snap.data;
+  if(!d||typeof d!=='object') return {ok:false,reason:'data-missing'};
+  if(!Array.isArray(d.items)) return {ok:false,reason:'items-invalid'};
+  if(!d.checks||typeof d.checks!=='object') return {ok:false,reason:'checks-invalid'};
+  if(typeof d.name!=='string') return {ok:false,reason:'name-invalid'};
+  if(d.id===undefined||d.id===null||d.id==='') return {ok:false,reason:'id-invalid'};
+  return {ok:true};
+}
+
+// 復元本体。「復元前current退避 → gen1→gen2シフト → snapshotをcurrentへ書き込み」を
+// 単一のIndexedDB transaction内で行い、原子的に(全部成功 or 全部失敗)コミットする。
+// validation失敗時やtransaction失敗時は、その場でtx.abort()し、current/gen1/gen2の
+// いずれも一切変更しない(部分復元を作らない)。
+function restoreFromSnapshot(genKey){
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=(result)=>{ if(!settled){ settled=true; resolve(result); } };
+    try{
+      const tx=db.transaction('cur','readwrite');
+      const store=tx.objectStore('cur');
+      const getSnapshot=store.get(genKey);
+      getSnapshot.onsuccess=()=>{
+        const snap=getSnapshot.result;
+        const v=validateSnapshot(snap);
+        if(!v.ok){ try{tx.abort();}catch(e){} done({ok:false,reason:v.reason}); return; }
+        const getCurrent=store.get('state');
+        getCurrent.onsuccess=()=>{
+          const currentState=getCurrent.result; // 復元直前のcurrent(退避対象)
+          // Phase20-C3a: 復元対象より「新しい」世代だけを1段ずつ繰り下げ、
+          // 復元対象より「古い」世代には一切触れない(不必要な重複・消失を防ぐ)。
+          // gen1復元: current→gen1 の交換のみ。gen2(より古い世代)は無変更。
+          // gen2復元: current→gen1、旧gen1→gen2 の2段シフト(従来どおり)。
+          if(genKey==='snapshot_gen1'){
+            if(currentState) store.put({k:'snapshot_gen1',schemaVersion:SCHEDULE_SCHEMA_VERSION,createdAt:Date.now(),data:currentState});
+            store.put(Object.assign({},snap.data,{k:'state'}));
+          }else{
+            const getGen1=store.get('snapshot_gen1');
+            getGen1.onsuccess=()=>{
+              const oldGen1=getGen1.result;
+              if(oldGen1) store.put(Object.assign({},oldGen1,{k:'snapshot_gen2'})); // 旧gen1→gen2
+              if(currentState) store.put({k:'snapshot_gen1',schemaVersion:SCHEDULE_SCHEMA_VERSION,createdAt:Date.now(),data:currentState}); // 旧current→gen1(失わない)
+              store.put(Object.assign({},snap.data,{k:'state'})); // 選択snapshot→current
+            };
+            getGen1.onerror=()=>{ try{tx.abort();}catch(e){} done({ok:false,reason:'read-error'}); };
+          }
+        };
+        getCurrent.onerror=()=>{ try{tx.abort();}catch(e){} done({ok:false,reason:'read-error'}); };
+      };
+      getSnapshot.onerror=()=>{ try{tx.abort();}catch(e){} done({ok:false,reason:'read-error'}); };
+      tx.oncomplete=()=>done({ok:true});
+      tx.onerror=()=>done({ok:false,reason:'tx-error'});
+      tx.onabort=()=>done({ok:false,reason:'tx-abort'});
+    }catch(e){ done({ok:false,reason:'exception'}); }
+  });
+}
+
+function formatBackupDate(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+async function renderRestorePanel(){
+  const list=document.getElementById('restore-list');
+  const gen1=await dbGetSnapshotSafe('snapshot_gen1');
+  const gen2=await dbGetSnapshotSafe('snapshot_gen2');
+  const entries=[];
+  if(gen1&&validateSnapshot(gen1).ok) entries.push({key:'snapshot_gen1',label:'さいしんのバックアップ',snap:gen1});
+  if(gen2&&validateSnapshot(gen2).ok) entries.push({key:'snapshot_gen2',label:'そのひとつまえのバックアップ',snap:gen2});
+  if(entries.length===0){
+    list.innerHTML='<p class="restore-empty">まだバックアップがありません。すこし使ってから、もう一度ひらいてみてください。</p>';
+    return;
+  }
+  list.innerHTML=entries.map(en=>`
+    <div class="restore-item">
+      <span class="restore-item-label">${en.label}<br><span class="restore-item-date">${formatBackupDate(en.snap.createdAt)}</span></span>
+      <button type="button" class="btn btn-sky btn-sm btn-44" onclick="confirmRestore('${en.key}')">この状態にもどす</button>
+    </div>
+  `).join('');
+}
+
+async function toggleRestorePanel(){
+  const panel=document.getElementById('restore-panel');
+  const btn=document.getElementById('restore-toggle-btn');
+  const opening=panel.style.display==='none';
+  if(opening) await renderRestorePanel();
+  panel.style.display=opening?'flex':'none';
+  btn.setAttribute('aria-expanded',opening?'true':'false');
+}
+
+async function confirmRestore(genKey){
+  if(!confirm('このバックアップの状態にもどしますか？\n（今の内容も新しいバックアップとして残ります）')) return;
+  const result=await restoreFromSnapshot(genKey);
+  if(!result.ok){ showToast('⚠️ 復元できませんでした'); return; }
+  const cur=await dbGet('cur','state');
+  if(cur){
+    items=cur.items||[];
+    checks=cur.checks||{};
+    scheduleName=cur.name||'きょうのよてい';
+    scheduleId=cur.id||genId();
+    document.getElementById('schedule-name').value=scheduleName;
+    document.getElementById('hdr-title').textContent=scheduleName;
+  }
+  lastSnapshotAt=Date.now(); // 復元直後の連続保存で即座に再ローテーションしないようにする
+  renderEditor();renderViewer();
+  await toggleRestorePanel();
+  showToast('🔄 バックアップから復元しました');
 }
 
 // ===== INIT =====
