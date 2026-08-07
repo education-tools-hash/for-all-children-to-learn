@@ -145,6 +145,11 @@ body.high-contrast .set-item.selected{border-color:#ffaa00;}
   border:2.5px dashed var(--primary);cursor:pointer;color:var(--primary);
   font-weight:700;font-size:.92em;min-height:50px;width:100%;font-family:var(--font);}
 .add-set-btn:active{transform:scale(.98);}
+/* EXPORT/IMPORT (Phase20-C5) */
+.io-btn-row{display:flex;gap:8px;margin-top:8px;}
+.io-btn{flex:1;min-height:44px;padding:8px 10px;border-radius:11px;border:2px solid var(--primary);
+  background:#fff;color:var(--primary);font-family:var(--font);font-size:.82em;font-weight:700;cursor:pointer;}
+.io-btn:active{background:rgba(232,149,109,.08);}
 
 /* 難易度 */
 #lvl-list{display:flex;flex-direction:column;gap:7px;}
@@ -323,6 +328,15 @@ body.high-contrast .mode-btn.active{border-color:#ffaa00;background:#331a00;colo
   color:#fff;font-family:var(--font);font-size:.97em;font-weight:800;cursor:pointer;
   box-shadow:0 3px 10px rgba(232,149,109,.36);}
 .save-btn:active{transform:scale(.98);}
+
+/* RESTORE (Phase20-C5, このセットのバックアップから復元。新規モーダルは作らず既存edit-ov内へ) */
+.restore-section{margin:2px 0 10px;padding:9px 10px;border-radius:11px;background:var(--surface2);}
+.restore-section-title{font-size:.75em;font-weight:700;color:var(--text-muted);margin-bottom:6px;}
+.restore-item{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:5px 0;}
+.restore-item-label{font-size:.76em;line-height:1.5;color:var(--text-muted);}
+.restore-btn{min-height:44px;padding:8px 14px;border-radius:10px;border:2px solid var(--primary);
+  background:#fff;color:var(--primary);font-family:var(--font);font-size:.78em;font-weight:700;cursor:pointer;}
+.restore-btn:active{background:rgba(232,149,109,.08);}
 
 #file-input{display:none;}
 @keyframes sBurst{0%{opacity:1;transform:translate(-50%,-50%) scale(0)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(2)}}
@@ -948,6 +962,11 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
     <div class="sec-ttl">📦 カードセット</div>
     <div id="set-list"></div>
     <button class="add-set-btn" id="btn-add-set">＋ あたらしいセットをつくる</button>
+    <div class="io-btn-row">
+      <button type="button" class="io-btn" id="btn-export-sets">📤 書き出し</button>
+      <button type="button" class="io-btn" id="btn-import-sets">📥 読み込み</button>
+      <input type="file" id="import-sets-file" accept=".json" style="display:none">
+    </div>
     <div class="sec-ttl">🎮 ゲームモード</div>
     <div class="mode-select-row">
       <button class="game-mode-btn active" id="gm-solo" aria-pressed="true">
@@ -1260,6 +1279,7 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
     <div class="mode-hint" id="mode-hint"></div>
     <div id="edit-list"></div>
     <button class="add-ec-btn" id="btn-add-card">＋ カードをついか（さいだい8まい）</button>
+    <div id="restore-section" class="restore-section" style="display:none;" role="region" aria-label="このセットのバックアップから復元"></div>
     <button class="save-btn" id="btn-save-set">💾 ほぞんする</button>
   </div>
 </div>
@@ -1270,8 +1290,172 @@ const DB='matching3',VER=1,ST='sets';
 let db=null;
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,VER);r.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains(ST))e.target.result.createObjectStore(ST,{keyPath:'id'});};r.onsuccess=e=>{db=e.target.result;res();};r.onerror=rej;});}
 function dbAll(){return new Promise((res,rej)=>{const r=db.transaction(ST,'readonly').objectStore(ST).getAll();r.onsuccess=()=>res(r.result);r.onerror=rej;});}
-function dbPut(o){return new Promise((res,rej)=>{const tx=db.transaction(ST,'readwrite');tx.objectStore(ST).put(o);tx.oncomplete=res;tx.onerror=rej;});}
-function dbDel(id){return new Promise((res,rej)=>{const tx=db.transaction(ST,'readwrite');tx.objectStore(ST).delete(id);tx.oncomplete=res;tx.onerror=rej;});}
+function dbGet(id){return new Promise(res=>{
+  try{
+    const tx=db.transaction(ST,'readonly');
+    const q=tx.objectStore(ST).get(id);
+    q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null);
+  }catch(e){ res(null); }
+});}
+// Phase20-C5: schedule-app Phase20-C2標準に合わせ、tx.oncomplete/onerror/onabortを
+// すべて監視して必ずresolveする(永久pending防止)。transaction生成の同期例外もtry/catchで吸収。
+function dbPut(o){return new Promise(r=>{
+  let settled=false; const done=()=>{ if(!settled){ settled=true; r(); } };
+  try{
+    const tx=db.transaction(ST,'readwrite');
+    tx.objectStore(ST).put(o);
+    tx.oncomplete=done; tx.onerror=done; tx.onabort=done;
+  }catch(e){ done(); }
+});}
+function dbDel(id){return new Promise(r=>{
+  let settled=false; const done=()=>{ if(!settled){ settled=true; r(); } };
+  try{
+    const tx=db.transaction(ST,'readwrite');
+    tx.objectStore(ST).delete(id);
+    tx.oncomplete=done; tx.onerror=done; tx.onabort=done;
+  }catch(e){ done(); }
+});}
+
+/* ── STORAGE ARCHITECTURE v2.0 (Phase20-C5, schedule-app実装の横展開) ── */
+// data内部構造の版。export envelope・Layer2 snapshotのみに適用。IndexedDB本体record構造は変更しない。
+const MATCHING_SCHEMA_VERSION=1;
+// snapshotは新規objectStoreを作らず、既存'sets'ストアへ特殊prefixのidで格納する。
+// __snapshot:trueで通常セットと区別し、loadSets()側で除外する。
+function snapKey(setId,gen){return '__snap_'+gen+'_'+setId;}
+
+function dbPutSnapshotSafe(id,value){
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=()=>{ if(!settled){ settled=true; resolve(); } };
+    try{
+      const tx=db.transaction(ST,'readwrite');
+      tx.objectStore(ST).put(Object.assign({},value,{id,__snapshot:true}));
+      tx.oncomplete=done; tx.onerror=done; tx.onabort=done;
+    }catch(e){ done(); }
+    setTimeout(done,1000);
+  });
+}
+function dbGetSnapshotSafe(id){
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=(v)=>{ if(!settled){ settled=true; resolve(v||null); } };
+    try{
+      const tx=db.transaction(ST,'readonly');
+      const q=tx.objectStore(ST).get(id);
+      q.onsuccess=()=>done(q.result); q.onerror=()=>done(null);
+    }catch(e){ done(null); }
+    setTimeout(()=>done(null),1000);
+  });
+}
+// 保存成功のたびに(=保存ボタン起点、時間間隔による間引きなし)、保存直前のセット状態を
+// そのセット専用のgen1/gen2へ退避する。新規作成(prevSet無し)は退避不要。
+// 失敗はLayer1(通常保存)に一切影響させない。
+async function maybeRotateSetSnapshot(setId,prevSet){
+  try{
+    if(!prevSet) return;
+    const gen1id=snapKey(setId,'gen1'),gen2id=snapKey(setId,'gen2');
+    const gen1=await dbGetSnapshotSafe(gen1id);
+    if(gen1) await dbPutSnapshotSafe(gen2id,gen1);
+    await dbPutSnapshotSafe(gen1id,{schemaVersion:MATCHING_SCHEMA_VERSION,createdAt:Date.now(),data:prevSet});
+  }catch(e){ /* Layer2失敗はLayer1に影響させない */ }
+}
+
+function validateSetSnapshot(snap){
+  if(!snap) return {ok:false,reason:'not-found'};
+  if(typeof snap.schemaVersion!=='number') return {ok:false,reason:'schema-missing'};
+  if(snap.schemaVersion>MATCHING_SCHEMA_VERSION) return {ok:false,reason:'schema-future'};
+  const d=snap.data;
+  if(!d||typeof d!=='object') return {ok:false,reason:'data-missing'};
+  if(!Array.isArray(d.cards)) return {ok:false,reason:'cards-invalid'};
+  if(typeof d.name!=='string'||!d.name) return {ok:false,reason:'name-invalid'};
+  if(!d.id) return {ok:false,reason:'id-invalid'};
+  if(typeof d.displayMode!=='string') return {ok:false,reason:'displayMode-invalid'};
+  return {ok:true};
+}
+
+// 復元本体。「復元前このセットの状態を退避 → gen1→gen2シフト(gen2復元時のみ) →
+// snapshotをこのセットへ書き込み」を単一transaction内で原子的に行う。
+// schedule-app Phase20-C3aと同じ「復元対象より新しい世代だけ繰り下げ」規則を採用。
+function restoreSetFromSnapshot(setId,gen){ // gen: 'gen1' or 'gen2'
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=(result)=>{ if(!settled){ settled=true; resolve(result); } };
+    try{
+      const tx=db.transaction(ST,'readwrite');
+      const store=tx.objectStore(ST);
+      const snapId=snapKey(setId,gen);
+      const getSnapshot=store.get(snapId);
+      getSnapshot.onsuccess=()=>{
+        const snap=getSnapshot.result;
+        const v=validateSetSnapshot(snap);
+        if(!v.ok){ try{tx.abort();}catch(e){} done({ok:false,reason:v.reason}); return; }
+        const getCurrent=store.get(setId);
+        getCurrent.onsuccess=()=>{
+          const currentState=getCurrent.result; // 復元直前のこのセットの状態(退避対象)
+          const gen1id=snapKey(setId,'gen1');
+          if(gen==='gen1'){
+            if(currentState) store.put({id:gen1id,__snapshot:true,schemaVersion:MATCHING_SCHEMA_VERSION,createdAt:Date.now(),data:currentState});
+            store.put(Object.assign({},snap.data,{id:setId}));
+          }else{
+            const getGen1=store.get(gen1id);
+            getGen1.onsuccess=()=>{
+              const oldGen1=getGen1.result;
+              if(oldGen1) store.put(Object.assign({},oldGen1,{id:snapKey(setId,'gen2')}));
+              if(currentState) store.put({id:gen1id,__snapshot:true,schemaVersion:MATCHING_SCHEMA_VERSION,createdAt:Date.now(),data:currentState});
+              store.put(Object.assign({},snap.data,{id:setId}));
+            };
+            getGen1.onerror=()=>{ try{tx.abort();}catch(e){} done({ok:false,reason:'read-error'}); };
+          }
+        };
+        getCurrent.onerror=()=>{ try{tx.abort();}catch(e){} done({ok:false,reason:'read-error'}); };
+      };
+      getSnapshot.onerror=()=>{ try{tx.abort();}catch(e){} done({ok:false,reason:'read-error'}); };
+      tx.oncomplete=()=>done({ok:true});
+      tx.onerror=()=>done({ok:false,reason:'tx-error'});
+      tx.onabort=()=>done({ok:false,reason:'tx-abort'});
+    }catch(e){ done({ok:false,reason:'exception'}); }
+  });
+}
+
+function formatBackupDate(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+async function renderRestoreSection(setId){
+  const section=$('restore-section');
+  if(!setId){ section.style.display='none'; section.innerHTML=''; return; }
+  const gen1=await dbGetSnapshotSafe(snapKey(setId,'gen1'));
+  const gen2=await dbGetSnapshotSafe(snapKey(setId,'gen2'));
+  const entries=[];
+  if(gen1&&validateSetSnapshot(gen1).ok) entries.push({gen:'gen1',label:'さいしんのバックアップ',snap:gen1});
+  if(gen2&&validateSetSnapshot(gen2).ok) entries.push({gen:'gen2',label:'そのひとつまえのバックアップ',snap:gen2});
+  if(entries.length===0){ section.style.display='none'; section.innerHTML=''; return; }
+  section.style.display='block';
+  section.innerHTML='<div class="restore-section-title">🔄 このセットのバックアップ</div>'+entries.map(en=>`
+    <div class="restore-item">
+      <span class="restore-item-label">${en.label}<br>${formatBackupDate(en.snap.createdAt)}</span>
+      <button type="button" class="restore-btn" onclick="confirmRestoreSet('${setId}','${en.gen}')">この状態にもどす</button>
+    </div>
+  `).join('');
+}
+
+async function confirmRestoreSet(setId,gen){
+  if(!confirm('このバックアップの状態にもどしますか？\n（今の内容も新しいバックアップとして残ります）')) return;
+  const result=await restoreSetFromSnapshot(setId,gen);
+  if(!result.ok){ ann('⚠️ 復元できませんでした'); return; }
+  const restored=await dbGet(setId);
+  if(restored){
+    editId=setId;
+    $('edit-name').value=restored.name||'';
+    editMode=restored.displayMode||'img-text';
+    editItems=(restored.cards||[]).map(c=>({...c}));
+    applyMode(editMode);
+  }
+  await loadSets();
+  await renderRestoreSection(setId);
+  ann('🔄 バックアップから復元しました');
+}
 
 /* ── 定数 ── */
 const MODE_HINTS={
@@ -1324,7 +1508,7 @@ function drawTimer(){$('s-time').textContent=`${~~(secs/60)}:${String(secs%60).p
 function fmtTime(s){return `${~~(s/60)}分${s%60}秒`;}
 
 /* ── セット読み込み ── */
-async function loadSets(){const stored=await dbAll();allSets=[DEFAULT_SET,...stored];renderSets();updateStartBtn();}
+async function loadSets(){const stored=await dbAll();allSets=[DEFAULT_SET,...stored.filter(s=>!s.__snapshot)];renderSets();updateStartBtn();}
 function getSet(id){return allSets.find(s=>s.id===id)||null;}
 
 function renderSets(){
@@ -1610,6 +1794,7 @@ function openEdit(id){
   editMode=set?.displayMode||'img-text';
   editItems=set?set.cards.map(c=>({...c})):[{label:'',label2:'',imgDataUrl:null,emoji:''}];
   applyMode(editMode);$('edit-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('edit-name').focus();
+  renderRestoreSection(id||null); // Phase20-C5: 既存セット編集時のみこのセットのバックアップを表示
 }
 
 function applyMode(mode){
@@ -1673,7 +1858,10 @@ $('btn-save-set').addEventListener('click',async()=>{
   if(!name){alert('セットのなまえをにゅうりょくしてください');return;}
   const valid=editItems.filter(c=>c.imgDataUrl||c.label||c.emoji);
   if(valid.length<2){alert('カードを2まい以上ついかしてください');return;}
-  const set={id:editId||('set_'+Date.now()),name,displayMode:editMode,cards:valid};
+  const prevSet=editId?await dbGet(editId):null; // 保存直前のDB上の状態(Layer2退避対象・uuid遅延付与の判定に使用)
+  const uuid=(prevSet&&prevSet.uuid)||crypto.randomUUID(); // 既存idは維持、uuidのみ遅延付与
+  const set={id:editId||('set_'+Date.now()),uuid,name,displayMode:editMode,cards:valid};
+  await maybeRotateSetSnapshot(set.id,prevSet); // Layer2。失敗しても以下のLayer1保存は継続する
   await dbPut(set);selSetId=set.id;$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();await loadSets();
 });
 
@@ -1747,6 +1935,92 @@ $('t-scan').addEventListener('change',e=>{if(e.target.checked)enableScan();else 
 $('t-sound').addEventListener('change',e=>{soundOn=e.target.checked;savePrefs();});
 $('scan-spd').addEventListener('input',e=>{setScanSpd(e.target.value);savePrefs();});
 $('btn-add-set').addEventListener('click',()=>openEdit(null));
+// Phase20-C5: export/import(共通envelope、旧形式なし=新設のため後方互換は不要)
+function exportSets(){
+  const customSets=allSets.filter(s=>s.id!=='__default__');
+  const envelope={
+    formatVersion:'1.0', schemaVersion:MATCHING_SCHEMA_VERSION, migrationVersion:0,
+    app:'matching-app', exportedAt:new Date().toISOString(),
+    data:{sets:customSets}
+  };
+  const blob=new Blob([JSON.stringify(envelope,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='matching_sets_'+new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+  ann('📤 ファイルに書き出しました');
+}
+// Phase20-C5a: importセットの内容が実質同一かを判定する(id/uuidは比較対象に含めない)。
+function isSetContentEqual(a,b){
+  if((a.name||'')!==(b.name||'')) return false;
+  if((a.displayMode||'img-text')!==(b.displayMode||'img-text')) return false;
+  const ca=a.cards||[],cb=b.cards||[];
+  if(ca.length!==cb.length) return false;
+  for(let i=0;i<ca.length;i++){
+    const x=ca[i]||{},y=cb[i]||{};
+    if((x.label||'')!==(y.label||'')) return false;
+    if((x.label2||'')!==(y.label2||'')) return false;
+    if((x.emoji||'')!==(y.emoji||'')) return false;
+    if((x.imgDataUrl||null)!==(y.imgDataUrl||null)) return false;
+  }
+  return true;
+}
+function importSetsFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async function(ev){
+    try{
+      const raw=JSON.parse(ev.target.result);
+      const isEnveloped=raw&&typeof raw==='object'&&'formatVersion'in raw&&'data'in raw;
+      const payload=isEnveloped?raw.data:raw;
+      const schemaVersion=isEnveloped?raw.schemaVersion:1; // envelope無しは暗黙のv1として扱う
+      if(schemaVersion>MATCHING_SCHEMA_VERSION){
+        ann('⚠️ 新しい形式のファイルです。アプリを更新してから読み込んでください');
+        return;
+      }
+      const sets=payload&&Array.isArray(payload.sets)?payload.sets:(Array.isArray(payload)?payload:null);
+      if(!sets) throw new Error('invalid');
+      // データ保護原則: 同一id/同一uuidという理由だけで既存setを無条件上書きしない。
+      // A:idもuuidも既存に無い→新規追加(idそのまま)
+      // B:一致する既存setがあり内容も実質同一→重複追加しない(既存を保持、何もしない)
+      // C:一致する既存setがあり内容が異なる→既存setは変更せず、import側を新しい別idのsetとして追加
+      // 個々のセットのvalidationに失敗した要素はスキップし、正常なセットは失わない。
+      let addedCount=0, skippedSameCount=0, addedAsNewCount=0;
+      for(const s of sets){
+        if(!s||typeof s!=='object') continue;
+        if(s.id==='__default__') continue;
+        if(!s.id||typeof s.name!=='string'||!s.name||!Array.isArray(s.cards)) continue;
+
+        const existing=allSets.find(x=>x.id!=='__default__'&&(x.id===s.id||(s.uuid&&x.uuid&&x.uuid===s.uuid)));
+
+        if(!existing){
+          await dbPut(s);
+          addedCount++;
+        }else if(isSetContentEqual(existing,s)){
+          skippedSameCount++;
+        }else{
+          const newSet=Object.assign({},s,{
+            id:'set_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+            uuid:crypto.randomUUID(),
+            name:s.name+'（読み込み）'
+          });
+          await dbPut(newSet);
+          addedAsNewCount++;
+        }
+      }
+      if(addedCount===0&&skippedSameCount===0&&addedAsNewCount===0) throw new Error('no-valid-sets');
+      await loadSets();
+      const total=addedCount+addedAsNewCount;
+      let msg='📥 '+total+'けんのセットをよみこみました';
+      if(skippedSameCount>0) msg+='（'+skippedSameCount+'けんはすでにあるためスキップ）';
+      if(addedAsNewCount>0) msg+='（'+addedAsNewCount+'けんはべつのセットとしてついか）';
+      ann(msg);
+    }catch(err){ ann('⚠️ よみこみに失敗しました'); }
+  };
+  reader.readAsText(file); e.target.value='';
+}
+$('btn-export-sets').addEventListener('click',exportSets);
+$('btn-import-sets').addEventListener('click',()=>$('import-sets-file').click());
+$('import-sets-file').addEventListener('change',importSetsFile);
 $('edit-ov').addEventListener('click',e=>{if(e.target===$('edit-ov')){$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
 document.querySelectorAll('.lvl-btn').forEach(b=>{b.addEventListener('click',()=>{selLevel=b.dataset.lv;document.querySelectorAll('.lvl-btn').forEach(x=>{x.style.opacity='.55';x.style.boxShadow='';});b.style.opacity='1';b.style.boxShadow='0 0 0 3px var(--primary)';updateStartBtn();});});
 
