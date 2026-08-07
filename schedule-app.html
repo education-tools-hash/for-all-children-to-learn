@@ -1285,10 +1285,31 @@ function initDB(){
     req.onerror=()=>rej();
   });
 }
-const dbPut=(s,v)=>new Promise(r=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).put(v);tx.oncomplete=r;});
+// Promise契約(schedule-app全helper共通): 成功・失敗いずれの経路でも必ずresolveし、
+// 永久pendingを残さない。失敗時は安全な既定値(put/delは引数なし、getはnull、getAllは[])
+// でresolveする(reject化はしない。既存の呼び出し箇所に.catch()がなく、reject契約へ
+// 変えると正常系のawait後続処理が未処理例外で止まってしまうため)。
+// dbPut/dbDelは元々tx.oncompleteのみを監視しており、tx.onerror/tx.onabortの経路で
+// Promiseが永久pendingになり得た(Phase20-C1で発見)。tx.onerror/tx.onabortも
+// 同一のdone()で解決するよう修正し、これを解消する(Phase20-C2)。
+const dbPut=(s,v)=>new Promise(r=>{
+  let settled=false; const done=()=>{ if(!settled){ settled=true; r(); } };
+  try{
+    const tx=db.transaction(s,'readwrite');
+    tx.objectStore(s).put(v);
+    tx.oncomplete=done; tx.onerror=done; tx.onabort=done;
+  }catch(e){ done(); }
+});
 const dbGet=(s,k)=>new Promise(r=>{const tx=db.transaction(s,'readonly');const q=tx.objectStore(s).get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null);});
 const dbGetAll=s=>new Promise(r=>{const tx=db.transaction(s,'readonly');const q=tx.objectStore(s).getAll();q.onsuccess=()=>r(q.result);q.onerror=()=>r([]);});
-const dbDel=(s,k)=>new Promise(r=>{const tx=db.transaction(s,'readwrite');tx.objectStore(s).delete(k);tx.oncomplete=r;});
+const dbDel=(s,k)=>new Promise(r=>{
+  let settled=false; const done=()=>{ if(!settled){ settled=true; r(); } };
+  try{
+    const tx=db.transaction(s,'readwrite');
+    tx.objectStore(s).delete(k);
+    tx.oncomplete=done; tx.onerror=done; tx.onabort=done;
+  }catch(e){ done(); }
+});
 
 // Layer2スナップショット専用のput。既存objectStore('cur')を再利用し、version up・
 // objectStore新設を行わない。失敗しても必ずresolveし、Layer1(通常保存)を絶対に
