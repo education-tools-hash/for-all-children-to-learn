@@ -439,9 +439,28 @@
   .btn-rec-delete { background: transparent; border: 2px solid var(--accent1); color: var(--accent1); width: 36px; height: 36px; border-radius: 50%; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
   .btn-rec-delete:hover { background: var(--accent1); color: white; }
 
+  /* ===== 最近削除した録音 (Phase20-C7a) ===== */
+  .recently-deleted-wrap { padding: 10px 16px 0; }
+  .recently-deleted-toggle { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--surface2); color: var(--text); border: none; border-radius: var(--radius); font-weight: 700; font-size: 0.92rem; cursor: pointer; padding: 10px 14px; }
+  .recently-deleted-panel { background: var(--surface); border-radius: var(--radius); padding: 14px; margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .recently-deleted-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--surface2); }
+  .recently-deleted-item:last-child { border-bottom: none; }
+  .recently-deleted-info { flex: 1; min-width: 0; }
+  .recently-deleted-name { font-weight: 900; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recently-deleted-meta { font-size: var(--dm-font-size-caption); color: var(--text-dim); margin-top: 2px; }
+  .btn-restore-item { min-width: 44px; min-height: 44px; padding: 8px 16px; border-radius: 50px; border: none; background: var(--accent4); color: #fff; font-weight: 900; font-size: 0.85rem; cursor: pointer; flex-shrink: 0; white-space: nowrap; }
+  .btn-restore-item:hover { filter: brightness(1.08); }
+
   /* ===== TOAST ===== */
   .toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); color:var(--text); padding:14px 24px; border-radius:50px; font-weight:700; font-size:1rem; opacity:0; transition:all 0.3s; z-index:200; white-space:nowrap; }
   .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ===== UNDO BAR (Phase20-C7) ===== */
+  .undo-bar { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface2); color:var(--text); padding:10px 12px 10px 20px; border-radius:50px; font-weight:700; font-size:0.95rem; opacity:0; pointer-events:none; transition:all 0.3s; z-index:201; display:flex; align-items:center; gap:10px; max-width:90vw; box-shadow:0 4px 16px rgba(0,0,0,0.2); }
+  .undo-bar.show { opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  .undo-bar span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .undo-btn { min-width:44px; min-height:44px; padding:8px 18px; border-radius:50px; border:none; background:var(--accent4); color:#fff; font-weight:900; font-size:0.95rem; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  .undo-btn:hover { filter:brightness(1.08); }
 
   #template-sheet { pointer-events: none; }
   #template-sheet.active { pointer-events: all; }
@@ -1423,6 +1442,18 @@
     </button>
   </div>
 
+  <!-- Phase20-C7a: 最近削除した録音（非モーダル折りたたみ）。こえ・えんそう共通の一覧。 -->
+  <div class="recently-deleted-wrap">
+    <button type="button" id="recently-deleted-toggle" class="recently-deleted-toggle"
+            aria-expanded="false" aria-controls="recently-deleted-panel"
+            onclick="toggleRecentlyDeletedPanel()">
+      🗑 さいきんさくじょしたろくおん
+    </button>
+    <div id="recently-deleted-panel" class="recently-deleted-panel" role="region" aria-label="さいきんさくじょしたろくおん" hidden>
+      <div id="recently-deleted-list" aria-live="polite"></div>
+    </div>
+  </div>
+
   <!-- ── こえ録音エリア ── -->
   <div id="record-voice-area" class="record-content">
     <div class="mic-permission" id="mic-permission">
@@ -1736,6 +1767,14 @@
   <div class="feedback-emoji" id="feedback-emoji">⭐</div>
 </div>
 <div class="toast" id="toast"></div>
+<!-- Phase20-C7: soft delete後の一時的な取り消しUI。新規モーダルではなく非モーダルのバー。 -->
+<style>#rec-undo-btn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<!-- Phase20-C7a: 削除直後8秒を過ぎたsoft deleted recordへの復元アクセス。新規モーダルではなく非モーダル折りたたみ。 -->
+<style>#recently-deleted-toggle:focus-visible,.btn-restore-item:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<div class="undo-bar" id="rec-undo-bar" role="status" aria-live="polite">
+  <span id="rec-undo-text"></span>
+  <button type="button" id="rec-undo-btn" class="undo-btn" aria-label="さくじょを元にもどす" onclick="undoDeleteRecording()">元にもどす</button>
+</div>
 
 <script>
 // ===== STATE =====
@@ -1808,6 +1847,9 @@ const DB_VER = 1;
 // Phase20-C6: data内部構造の版。今回は録音本体(audioData)の3世代複製は容量リスクが
 // 高いため見送り、export envelope等の将来利用に備えた土台としてのみ定義する。
 const ONGAKU_SCHEMA_VERSION = 1;
+// Phase20-C7: soft delete後、録音を物理削除せず保持する期間。24時間。
+// 理由：誤削除に気づく猶予を確保しつつ、ブラウザを閉じてもUndo可能な範囲に留める。
+const SOFT_DELETE_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 function initDB() {
   return new Promise((resolve, reject) => {
@@ -1846,14 +1888,101 @@ function saveRecordingToDB(rec) {
   });
 }
 
+// Phase20-C7: soft deleteされたrecord(deletedAtあり)は一覧・選択候補から除外する。
+// IndexedDB上には保持したまま返さないだけなので、物理削除は行わない。
 function getAllRecordings() {
   return new Promise((resolve, reject) => {
     const tx = db.transaction('recordings', 'readonly');
     const store = tx.objectStore('recordings');
     const req = store.getAll();
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => resolve((req.result || []).filter(r => !r.deletedAt));
     req.onerror = () => reject(req.error);
   });
+}
+
+// Phase20-C7: soft delete。audioDataは複製せず、既存recordにdeletedAtを追加するのみ。
+// id/uuid/audioData/createdAtは一切変更しない。get→put を単一transactionで行い原子性を確保する。
+function softDeleteRecordingInDB(id) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn) => { if(!settled){ settled = true; fn(); } };
+    try {
+      const tx = db.transaction('recordings', 'readwrite');
+      const store = tx.objectStore('recordings');
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const rec = getReq.result;
+        if(!rec) { done(() => reject(new Error('record not found'))); try{ tx.abort(); }catch(e){} return; }
+        rec.deletedAt = Date.now();
+        store.put(rec);
+      };
+      getReq.onerror = () => done(() => reject(getReq.error));
+      tx.oncomplete = () => done(() => resolve());
+      tx.onerror = () => done(() => reject(tx.error));
+      tx.onabort = () => done(() => reject(tx.error || new Error('transaction aborted')));
+    } catch(e) { done(() => reject(e)); }
+  });
+}
+
+// Phase20-C7a: 24時間保持期間内のsoft deleted recordのみを「最近削除した録音」の
+// 復元候補として返す。期限切れrecordは対象外(purgeExpiredRecordingsが物理削除するまで
+// 表示もしない)。
+function getRecentlyDeletedRecordings() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('recordings', 'readonly');
+    const store = tx.objectStore('recordings');
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const now = Date.now();
+      resolve((req.result || []).filter(r => r.deletedAt && (now - r.deletedAt <= SOFT_DELETE_RETENTION_MS)));
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Phase20-C7: Undo。deletedAtを解除して同一record(同一id/uuid/audioData)をactiveへ戻す。
+// 新しいid/uuidは発行しない。
+function restoreRecordingInDB(id) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn) => { if(!settled){ settled = true; fn(); } };
+    try {
+      const tx = db.transaction('recordings', 'readwrite');
+      const store = tx.objectStore('recordings');
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const rec = getReq.result;
+        if(!rec) { done(() => reject(new Error('record not found'))); try{ tx.abort(); }catch(e){} return; }
+        delete rec.deletedAt;
+        store.put(rec);
+      };
+      getReq.onerror = () => done(() => reject(getReq.error));
+      tx.oncomplete = () => done(() => resolve());
+      tx.onerror = () => done(() => reject(tx.error));
+      tx.onabort = () => done(() => reject(tx.error || new Error('transaction aborted')));
+    } catch(e) { done(() => reject(e)); }
+  });
+}
+
+// Phase20-C7: 保持期限を超えたsoft deleted recordのみを物理削除する。best-effort。
+// 失敗しても呼び出し元(アプリ起動)を妨げないよう、常にresolveしreject/throwしない。
+// active recordはdeletedAtを持たないため、フィルタ条件上誤って削除されることはない。
+// 物理削除自体は既存のdeleteRecordingFromDB()(transaction監視済み)を再利用する。
+async function purgeExpiredRecordings() {
+  try {
+    const all = await new Promise((resolve, reject) => {
+      const tx = db.transaction('recordings', 'readonly');
+      const store = tx.objectStore('recordings');
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+    const now = Date.now();
+    const expired = all.filter(r => r.deletedAt && (now - r.deletedAt > SOFT_DELETE_RETENTION_MS));
+    for (const r of expired) {
+      await deleteRecordingFromDB(r.id).catch(() => {});
+    }
+  } catch(e) { /* best-effort: purge失敗はactive録音の利用を妨げない */ }
 }
 
 function deleteRecordingFromDB(id) {
@@ -2523,15 +2652,17 @@ async function playRecordingById(id) {
 }
 
 async function deleteRecording(id) {
-  // Phase20-C6: 録音データは一度削除すると復元手段がないため、他の削除操作
-  // (さくひんのさくじょ等)と同様にconfirmを追加する。
-  if(!confirm('このろくおんをさくじょしますか？\n（もとにはもどせません）')) return;
+  // Phase20-C6: 削除前に必ず確認する。
+  // Phase20-C7: 実際の削除はsoft delete(deletedAt付与)のみで、audioDataは即時には失われない。
+  if(!confirm('このろくおんをさくじょしますか？')) return;
   try {
-    await deleteRecordingFromDB(id);
+    await softDeleteRecordingInDB(id);
     delete recAudioBuffers[id];
-    showToast('🗑 さくじょしました');
+    const rec = await getRecordingById(id).catch(() => null);
+    showUndoBar(id, rec && rec.name);
     loadRecordingsList();
     updateTeacherSoundOptions();
+    loadRecentlyDeletedList();
   } catch(e) { showToast('❌ さくじょにしっぱいしました'); }
 }
 
@@ -2810,6 +2941,99 @@ function stopScan() {
 function showToast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ===== Phase20-C7: 削除Undo =====
+// 「直近に削除した1件」のみをUndo対象とする単一バー方式。
+// それより前にsoft deleteしたrecordはUndoバーの対象外になるが、
+// SOFT_DELETE_RETENTION_MSが切れるまではIndexedDB上に残り続ける。
+let lastDeletedRecId = null;
+let undoBarTimer = null;
+
+function showUndoBar(id, name) {
+  lastDeletedRecId = id;
+  const bar = document.getElementById('rec-undo-bar');
+  const text = document.getElementById('rec-undo-text');
+  text.textContent = (name ? `「${name}」を` : '') + 'さくじょしました';
+  bar.classList.add('show');
+  if(undoBarTimer) clearTimeout(undoBarTimer);
+  undoBarTimer = setTimeout(hideUndoBar, 8000);
+}
+
+function hideUndoBar() {
+  document.getElementById('rec-undo-bar').classList.remove('show');
+  if(undoBarTimer) { clearTimeout(undoBarTimer); undoBarTimer = null; }
+}
+
+async function undoDeleteRecording() {
+  if(lastDeletedRecId == null) return;
+  const id = lastDeletedRecId;
+  lastDeletedRecId = null;
+  hideUndoBar();
+  try {
+    await restoreRecordingInDB(id);
+    showToast('↩️ もとにもどしました');
+    loadRecordingsList();
+    loadPerfRecordingsList();
+    updateTeacherSoundOptions();
+    loadRecentlyDeletedList();
+  } catch(e) { showToast('❌ もとにもどせませんでした'); }
+}
+
+// ===== Phase20-C7a: 最近削除した録音（8秒Undoバーの後でも24時間以内なら復元可能） =====
+function toggleRecentlyDeletedPanel() {
+  const panel = document.getElementById('recently-deleted-panel');
+  const toggle = document.getElementById('recently-deleted-toggle');
+  const willOpen = panel.hasAttribute('hidden');
+  if (willOpen) {
+    panel.removeAttribute('hidden');
+    toggle.setAttribute('aria-expanded', 'true');
+    loadRecentlyDeletedList();
+  } else {
+    panel.setAttribute('hidden', '');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+async function loadRecentlyDeletedList() {
+  const list = document.getElementById('recently-deleted-list');
+  if (!list) return;
+  try {
+    const recs = await getRecentlyDeletedRecordings();
+    recs.sort((a, b) => b.deletedAt - a.deletedAt);
+    if (!recs.length) {
+      list.innerHTML = '<div class="recordings-empty">さいきんさくじょしたろくおんはありません</div>';
+      return;
+    }
+    list.innerHTML = '';
+    recs.forEach(rec => {
+      const item = document.createElement('div');
+      item.className = 'recently-deleted-item';
+      const dateStr = new Date(rec.deletedAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      item.innerHTML = `
+        <div class="recently-deleted-info">
+          <div class="recently-deleted-name">${rec.name}</div>
+          <div class="recently-deleted-meta">さくじょ: ${dateStr}</div>
+        </div>
+        <button type="button" class="btn-restore-item" onclick="restoreDeletedRecording(${rec.id})">元にもどす</button>
+      `;
+      list.appendChild(item);
+    });
+  } catch(e) {
+    list.innerHTML = '<div class="recordings-empty">よみこみエラー</div>';
+  }
+}
+
+async function restoreDeletedRecording(id) {
+  try {
+    await restoreRecordingInDB(id);
+    if (lastDeletedRecId === id) { lastDeletedRecId = null; hideUndoBar(); }
+    showToast('↩️ もとにもどしました');
+    loadRecordingsList();
+    loadPerfRecordingsList();
+    updateTeacherSoundOptions();
+    loadRecentlyDeletedList();
+  } catch(e) { showToast('❌ もとにもどせませんでした'); }
 }
 
 // ===== COMPOSE MODE =====
@@ -4485,15 +4709,18 @@ async function loadPerfRecordingsList() {
 }
 
 async function deletePerfRec(id) {
-  // Phase20-C6: deleteRecording()と同様、復元手段がないためconfirmを追加する。
-  if(!confirm('このろくおんをさくじょしますか？\n（もとにはもどせません）')) return;
+  // Phase20-C6: deleteRecording()と同様、削除前に必ず確認する。
+  // Phase20-C7: soft delete化。deleteRecording()と同じ保護をperformance録音にも適用する。
+  if(!confirm('このろくおんをさくじょしますか？')) return;
   try {
-    await deleteRecordingFromDB(id);
+    await softDeleteRecordingInDB(id);
     delete recAudioBuffers[id];
-    showToast('🗑 さくじょしました');
+    const rec = await getRecordingById(id).catch(() => null);
+    showUndoBar(id, rec && rec.name);
     loadPerfRecordingsList();
     loadRecordingsList();
-  } catch(e) {}
+    loadRecentlyDeletedList();
+  } catch(e) { showToast('❌ さくじょにしっぱいしました'); }
 }
 
 // えんそう録音用のルートGainを経由して音を鳴らす
@@ -5041,6 +5268,7 @@ function onPopState(e) {
 
 // ===== INIT =====
 initDB().then(()=>{
+  purgeExpiredRecordings(); // Phase20-C7: best-effort。失敗しても以降の初期化処理は継続する。
   loadSettings();
   buildBtnConfig();
   // Check for shared URL
