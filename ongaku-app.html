@@ -1805,6 +1805,9 @@ const DEFAULT_BUTTONS = [
 let db = null;
 const DB_NAME = 'ongakuDB';
 const DB_VER = 1;
+// Phase20-C6: data内部構造の版。今回は録音本体(audioData)の3世代複製は容量リスクが
+// 高いため見送り、export envelope等の将来利用に備えた土台としてのみ定義する。
+const ONGAKU_SCHEMA_VERSION = 1;
 
 function initDB() {
   return new Promise((resolve, reject) => {
@@ -1821,13 +1824,25 @@ function initDB() {
   });
 }
 
+// Phase20-C6: request-levelのonsuccess/onerrorに加え、tx.oncomplete/onerror/onabortも
+// 監視するよう改善(Phase20-C2で発見した「requestは成功したがtransaction全体が後で
+// 失敗する」エッジケースへの対処)。呼び出し箇所は既にtry/catchでreject契約を前提とした
+// 設計のため、resolve/reject契約自体は変更しない(schedule-app/matching-appとは異なる判断)。
 function saveRecordingToDB(rec) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('recordings', 'readwrite');
-    const store = tx.objectStore('recordings');
-    const req = store.add(rec);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    let settled = false;
+    const done = (fn) => { if(!settled){ settled = true; fn(); } };
+    try {
+      const tx = db.transaction('recordings', 'readwrite');
+      const store = tx.objectStore('recordings');
+      const req = store.add(rec);
+      let resultId;
+      req.onsuccess = () => { resultId = req.result; };
+      req.onerror = () => done(() => reject(req.error));
+      tx.oncomplete = () => done(() => resolve(resultId));
+      tx.onerror = () => done(() => reject(tx.error));
+      tx.onabort = () => done(() => reject(tx.error || new Error('transaction aborted')));
+    } catch(e) { done(() => reject(e)); }
   });
 }
 
@@ -1843,11 +1858,17 @@ function getAllRecordings() {
 
 function deleteRecordingFromDB(id) {
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('recordings', 'readwrite');
-    const store = tx.objectStore('recordings');
-    const req = store.delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    let settled = false;
+    const done = (fn) => { if(!settled){ settled = true; fn(); } };
+    try {
+      const tx = db.transaction('recordings', 'readwrite');
+      const store = tx.objectStore('recordings');
+      const req = store.delete(id);
+      req.onerror = () => done(() => reject(req.error));
+      tx.oncomplete = () => done(() => resolve());
+      tx.onerror = () => done(() => reject(tx.error));
+      tx.onabort = () => done(() => reject(tx.error || new Error('transaction aborted')));
+    } catch(e) { done(() => reject(e)); }
   });
 }
 
@@ -2439,7 +2460,7 @@ async function saveRecording() {
 
   const rec = {
     name, emoji: selectedEmoji, color: selectedRecColor,
-    duration: dur, createdAt: Date.now(),
+    duration: dur, createdAt: Date.now(), uuid: crypto.randomUUID(),
     audioData: recordedArrayBuffer
   };
 
@@ -2502,6 +2523,9 @@ async function playRecordingById(id) {
 }
 
 async function deleteRecording(id) {
+  // Phase20-C6: 録音データは一度削除すると復元手段がないため、他の削除操作
+  // (さくひんのさくじょ等)と同様にconfirmを追加する。
+  if(!confirm('このろくおんをさくじょしますか？\n（もとにはもどせません）')) return;
   try {
     await deleteRecordingFromDB(id);
     delete recAudioBuffers[id];
@@ -4412,7 +4436,7 @@ async function savePerfRecording() {
   const dur = `${m}:${s.toString().padStart(2,'0')}`;
   const rec = {
     name, emoji: perfSelectedEmoji, color: perfSelectedColor,
-    duration: dur, createdAt: Date.now(), audioData: perfArrayBuffer
+    duration: dur, createdAt: Date.now(), uuid: crypto.randomUUID(), audioData: perfArrayBuffer
   };
   try {
     await saveRecordingToDB(rec);
@@ -4461,6 +4485,8 @@ async function loadPerfRecordingsList() {
 }
 
 async function deletePerfRec(id) {
+  // Phase20-C6: deleteRecording()と同様、復元手段がないためconfirmを追加する。
+  if(!confirm('このろくおんをさくじょしますか？\n（もとにはもどせません）')) return;
   try {
     await deleteRecordingFromDB(id);
     delete recAudioBuffers[id];
