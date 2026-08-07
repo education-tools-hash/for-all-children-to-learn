@@ -1983,9 +1983,9 @@ body.is-fullscreen .profile-bar { max-width:100%; }
       <div class="s-section">
         <div class="s-section-title">🔤 テキスト表示サイズ</div>
         <div class="s-row">
-          <div class="s-label">文字の大きさ</div>
+          <div class="s-label" id="textSizeRangeLabel">文字の大きさ</div>
           <div class="s-range">
-            <input type="range" id="textSizeRange" min="1" max="5" step="1" value="2">
+            <input type="range" id="textSizeRange" min="1" max="5" step="1" value="2" aria-labelledby="textSizeRangeLabel">
             <span class="val" id="textSizeLabel">普通</span>
           </div>
         </div>
@@ -2096,21 +2096,21 @@ body.is-fullscreen .profile-bar { max-width:100%; }
         <div class="s-section-title">👁️ 視線入力（ドウェル）</div>
         <div class="s-row">
           <div>
-            <div class="s-label">停止判定時間</div>
+            <div class="s-label" id="dwellRangeLabel">停止判定時間</div>
             <div class="s-desc">この時間じっと見ると入力される</div>
           </div>
           <div class="s-range">
-            <input type="range" id="dwellRange" min="300" max="3000" step="100" value="1000">
+            <input type="range" id="dwellRange" min="300" max="3000" step="100" value="1000" aria-labelledby="dwellRangeLabel">
             <span class="val" id="dwellValLabel">1.0秒</span>
           </div>
         </div>
         <div class="s-row">
           <div>
-            <div class="s-label">再入力クールダウン</div>
+            <div class="s-label" id="cooldownRangeLabel">再入力クールダウン</div>
             <div class="s-desc">入力後に同じキーを無視する時間</div>
           </div>
           <div class="s-range">
-            <input type="range" id="cooldownRange" min="0" max="2000" step="100" value="500">
+            <input type="range" id="cooldownRange" min="0" max="2000" step="100" value="500" aria-labelledby="cooldownRangeLabel">
             <span class="val" id="cooldownLabel">0.5秒</span>
           </div>
         </div>
@@ -2132,11 +2132,11 @@ body.is-fullscreen .profile-bar { max-width:100%; }
         </div>
         <div class="s-row">
           <div>
-            <div class="s-label">スキャン速度</div>
+            <div class="s-label" id="scanSpeedRangeLabel">スキャン速度</div>
             <div class="s-desc">光が移動する間隔</div>
           </div>
           <div class="s-range">
-            <input type="range" id="scanSpeedRange" min="300" max="3000" step="100" value="1000">
+            <input type="range" id="scanSpeedRange" min="300" max="3000" step="100" value="1000" aria-labelledby="scanSpeedRangeLabel">
             <span class="val" id="scanSpeedLabel">1.0秒</span>
           </div>
         </div>
@@ -2188,10 +2188,10 @@ body.is-fullscreen .profile-bar { max-width:100%; }
         </div>
         <div class="s-row">
           <div>
-            <div class="s-label">読み上げ速度</div>
+            <div class="s-label" id="speechRateRangeLabel">読み上げ速度</div>
           </div>
           <div class="s-range">
-            <input type="range" id="speechRateRange" min="5" max="20" step="1" value="9">
+            <input type="range" id="speechRateRange" min="5" max="20" step="1" value="9" aria-labelledby="speechRateRangeLabel">
             <span class="val" id="speechRateLabel">0.9×</span>
           </div>
         </div>
@@ -2224,11 +2224,11 @@ body.is-fullscreen .profile-bar { max-width:100%; }
         <div class="s-section-title">🎉 ごほうびアニメーション</div>
         <div class="s-row">
           <div>
-            <div class="s-label">ごほうびを出すタイミング</div>
+            <div class="s-label" id="rewardIntervalRangeLabel">ごほうびを出すタイミング</div>
             <div class="s-desc">何文字打つごとにごほうびを出すか</div>
           </div>
           <div class="s-range">
-            <input type="range" id="rewardIntervalRange" min="5" max="50" step="5" value="10">
+            <input type="range" id="rewardIntervalRange" min="5" max="50" step="5" value="10" aria-labelledby="rewardIntervalRangeLabel">
             <span class="val" id="rewardIntervalLabel">10字</span>
           </div>
         </div>
@@ -2978,6 +2978,15 @@ function selectCurrentScan(){
     renderKeyboard();startScan();return;
   }
   if(el.classList.contains('phrase-btn')){el.click();return;}
+  if(el.tagName==='INPUT'&&el.type==='range'){
+    const step=parseFloat(el.step)||1;
+    const max=parseFloat(el.max);
+    const current=parseFloat(el.value);
+    el.value=Math.min(current+step,max);
+    el.dispatchEvent(new Event('input',{bubbles:true}));
+    el.dispatchEvent(new Event('change',{bubbles:true}));
+    return;
+  }
   el.click();
 }
 
