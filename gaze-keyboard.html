@@ -3152,22 +3152,52 @@ function restoreSettingsModalFocus(){
     target.focus();
   }
 }
+// settingsModal背景inert制御：表示中にbody直下の背景要素をinert化し、閉鎖時に自分が付けた分だけ解除する
+const settingsModalInertExclusions=new Set([
+  'settingsModal',
+  'donomanaA11yBtn',
+  'donomanaA11yPanel',
+  'donomanaAnnouncePolite',
+  'donomanaAnnounceAssertive',
+  'donomanaA11yStatus',
+  'donomanaLockToast'
+]);
+let settingsModalInertTargets=[];
+function setSettingsModalBackgroundInert(on){
+  if(on){
+    settingsModalInertTargets=[];
+    Array.from(document.body.children).forEach(el=>{
+      if(settingsModalInertExclusions.has(el.id))return;
+      if(el.hasAttribute('inert'))return;
+      el.setAttribute('inert','');
+      settingsModalInertTargets.push(el);
+    });
+    return;
+  }
+  settingsModalInertTargets.forEach(el=>{
+    if(el&&el.isConnected)el.removeAttribute('inert');
+  });
+  settingsModalInertTargets=[];
+}
 document.getElementById('settingsBtn').addEventListener('click',()=>{
   if(document.getElementById('settingsModal').classList.contains('hidden')){
     settingsModalOpener=document.activeElement;
   }
   document.getElementById('settingsModal').classList.remove('hidden');
+  setSettingsModalBackgroundInert(true);
   if(scanMode){buildScanItems();}
 });
 document.getElementById('settingsClose').addEventListener('click',()=>{
   document.getElementById('settingsModal').classList.add('hidden');
   if(scanMode){buildScanItems();}
+  setSettingsModalBackgroundInert(false);
   restoreSettingsModalFocus();
 });
 document.getElementById('settingsModal').addEventListener('click',e=>{
   if(e.target===document.getElementById('settingsModal')){
     document.getElementById('settingsModal').classList.add('hidden');
     if(scanMode){buildScanItems();}
+    setSettingsModalBackgroundInert(false);
     restoreSettingsModalFocus();
   }
 });
