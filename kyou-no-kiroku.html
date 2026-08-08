@@ -2830,21 +2830,32 @@ function changeScanSpeed(delta) {
   if (state.a11y.scan) { stopScan(); startScan(); }
 }
 
-function getScanTargets() {
+// buildScanItems: 候補取得（旧getScanTargetsから抽出。screen内候補＋common chrome常時含有は無変更）
+function buildScanItems() {
   const screen = document.querySelector('.screen.active');
   const globalCtrls = Array.from(document.querySelectorAll('.scannable'));
   if (!screen) return globalCtrls;
   return Array.from(screen.querySelectorAll('.kimochi-btn, .child-card, .btn, .condition-btn')).concat(globalCtrls);
 }
+function getScanTargets() { return buildScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function startScan() {
-  stopScan();
-  scanElements = getScanTargets();
-  if (scanElements.length === 0) return;
+// refreshSwitchScanItems: 旧startScan・旧activateScanの400ms遅延コールバックに共通する
+// 「候補再取得＋idx=-1リセット」のみを抽出（既存の重複パターンからの純粋抽出）
+function refreshSwitchScanItems() {
+  scanElements = buildScanItems();
   scanIndex = -1;
-  advanceScan();
 }
 
+function startSwitchScan() {
+  stopSwitchScan();
+  refreshSwitchScanItems();
+  if (scanElements.length === 0) return;
+  advanceScan();
+}
+function startScan() { startSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+// advanceScan: highlight・TTS・progress bar・setTimeout自己再スケジュールを一体で担う
+// 内部helper。6関数の外に残し、内部処理は無変更で維持する。
 function advanceScan() {
   if (!state.a11y.scan) return;
   scanElements.forEach(el => el.classList.remove('scan-focus'));
@@ -2864,17 +2875,32 @@ function advanceScan() {
   scanTimer = setTimeout(advanceScan, state.a11y.scanSpeed);
 }
 
-function stopScan() {
+function stopSwitchScan() {
   clearTimeout(scanTimer);
+  clearScanHighlight();
+}
+function stopScan() { stopSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+// clearScanHighlight: 旧stopScan内の.scan-focus除去処理のみ抽出
+function clearScanHighlight() {
   document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
 }
 
-function activateScan() {
+// activateCurrentScanItem: 既存どおりstopSwitchScan()は呼ばない。clearTimeout(scanTimer)の
+// みを実行し、現在の.scan-focusを400ms後の再走査まで残すという既存の非対称性を維持する。
+function activateCurrentScanItem() {
   if (!state.a11y.scan) return;
   clearTimeout(scanTimer);
   const el = scanElements[scanIndex];
-  if (el) { el.click(); setTimeout(() => { scanElements = getScanTargets(); scanIndex = -1; advanceScan(); }, 400); }
+  if (el) {
+    el.click();
+    setTimeout(() => {
+      refreshSwitchScanItems();
+      advanceScan();
+    }, 400);
+  }
 }
+function activateScan() { activateCurrentScanItem(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'Enter') activateScan();
