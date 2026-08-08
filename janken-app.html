@@ -2207,31 +2207,46 @@ function changeScanInterval(delta) {
 }
 
 // ===== SWITCH SCAN ENGINE =====
-function getScanTargets() {
+// buildScanItems: 候補取得（旧getScanTargetsから抽出。スコープ・セレクタは無変更）
+function buildScanItems() {
   const screen = document.querySelector('.screen.active');
   return Array.from(screen.querySelectorAll('button:not([disabled])'));
 }
+function getScanTargets() { return buildScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function startScan() {
-  stopScan();
-  scanTargets = getScanTargets();
+// refreshSwitchScanItems: 旧startScan冒頭の「候補取得→idx初期化→highlight」をそのまま抽出
+function refreshSwitchScanItems() {
+  scanTargets = buildScanItems();
   scanIdx = 0;
   highlightScan();
+}
+
+function startSwitchScan() {
+  stopSwitchScan();
+  refreshSwitchScanItems();
   scanTimer = setInterval(() => {
-    scanTargets = getScanTargets();
+    scanTargets = buildScanItems();
     scanIdx = (scanIdx + 1) % Math.max(scanTargets.length, 1);
     highlightScan();
   }, scanInterval * 1000);
 }
+function startScan() { startSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function stopScan() {
+function stopSwitchScan() {
   clearInterval(scanTimer);
+  clearScanHighlight();
+}
+function stopScan() { stopSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+// clearScanHighlight: 旧stopScan・旧highlightScan冒頭で重複していたクリア処理を抽出
+function clearScanHighlight() {
   document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
 }
 
+// highlightScan: 現在候補へのハイライト付与。scan-focus付与→focus()→scrollIntoView()という
+// 既存の実行順序・対象を完全に保持する（内部helper、6関数の外に残す）。
 function highlightScan() {
-  document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
-  scanTargets = getScanTargets();
+  clearScanHighlight();
   if (scanTargets[scanIdx]) {
     const el = scanTargets[scanIdx];
     el.classList.add('scan-focus');
@@ -2241,11 +2256,12 @@ function highlightScan() {
   }
 }
 
-function activateScan() {
+function activateCurrentScanItem() {
   if (!scanOn) return;
-  scanTargets = getScanTargets();
+  scanTargets = buildScanItems();
   if (scanTargets[scanIdx]) scanTargets[scanIdx].click();
 }
+function activateScan() { activateCurrentScanItem(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
 // ===== TTS on tap (じどうよみあげ) =====
 // battle ボタンはじゃんけん掛け声があるので除外
