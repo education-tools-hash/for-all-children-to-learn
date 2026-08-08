@@ -1419,25 +1419,53 @@ async function swapCups(a,b,spd=1) {
 }
 
 // ========== スイッチスキャン ==========
-function startScan() {
+// buildScanItems: 候補取得。DOM queryは使わずcupsDataの意味論をそのまま維持する。
+function buildScanItems() {
+  return cupsData.map(c => c.wrapper);
+}
+
+// refreshSwitchScanItems: API完備目的のみ。既存に対応する自然な呼び出し箇所がないため
+// 新規配線は追加しない（Phase25-J okane-appの前例と同様）。
+function refreshSwitchScanItems() {
+  return buildScanItems();
+}
+
+function startSwitchScan() {
   scanFocusIdx=0; highlightScan(0);
   if (autoScan) scanTimer=setInterval(()=>{scanFocusIdx=(scanFocusIdx+1)%cupCount;highlightScan(scanFocusIdx);},scanInterval);
 }
-function stopScan() {
+function startScan() { startSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+function stopSwitchScan() {
   clearInterval(scanTimer); scanTimer=null;
-  cupsData.forEach(c=>c.wrapper.classList.remove('scan-focus'));
+  clearScanHighlight();
   document.getElementById('scanIndicator').classList.remove('show');
 }
+function stopScan() { stopSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+// clearScanHighlight: 旧stopScan内の.scan-focus除去処理のみを抽出
+function clearScanHighlight() {
+  cupsData.forEach(c=>c.wrapper.classList.remove('scan-focus'));
+}
+
+// highlightScan: classList.toggleによる単一パスのadd/remove。6関数の外に残す内部helper。
 function highlightScan(idx){ cupsData.forEach((c,i)=>c.wrapper.classList.toggle('scan-focus',i===idx)); }
+
+// activateCurrentScanItem: 既存のguess()直接呼び出しをadapterとして維持する。
+// .click()へは統一しない（Phase25-U判定：完全等価だが既存が直接呼び出しを選んでいるため）。
+function activateCurrentScanItem() {
+  stopSwitchScan();
+  guess(scanFocusIdx);
+}
 
 document.addEventListener('keydown', e => {
   if (phase!=='guess'||!useScan) return;
   if (e.code==='Space') {
     e.preventDefault();
-    if (autoScan){stopScan();guess(scanFocusIdx);}
+    if (autoScan){activateCurrentScanItem();}
     else{scanFocusIdx=(scanFocusIdx+1)%cupCount;highlightScan(scanFocusIdx);}
   }
-  if (e.code==='Enter'&&!autoScan){e.preventDefault();stopScan();guess(scanFocusIdx);}
+  if (e.code==='Enter'&&!autoScan){e.preventDefault();activateCurrentScanItem();}
 });
 
 // ========== 答え合わせ ==========
