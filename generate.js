@@ -600,6 +600,29 @@ const CARD_CLASS_MAP = {
   'directions-app':  'card-directions', // 専用色(ティール系)
 };
 
+// need/input は apps-data.json 側では canonical slug のまま保持し(日本語ラベルの二重管理を避ける)、
+// 利用者向けの日本語検索語はここで最小限のmappingから生成する(APPS配列生成時のみ展開)。
+// 語彙は既存6目的入口の文言・apps-data記述と整合する範囲に限定し、同義語を増やしすぎない。
+const NEED_SEARCH_LABELS = {
+  communicate: ['気持ち', '伝える', '気持ちを伝えたい'],
+  time:        ['時間', '見通し', '時間の見通しを持たせたい'],
+  literacy:    ['文字', '読み書き', '文字・読み書きを学びたい'],
+  life:        ['生活', '生活スキル', '生活スキルを育てたい'],
+  social:      ['友達', '関わり', '友達との関わりを育てたい'],
+};
+const INPUT_SEARCH_LABELS = {
+  touch:    ['タッチ'],
+  switch:   ['スイッチ', 'スイッチ入力'],
+  gaze:     ['視線', '視線入力'],
+  keyboard: ['キーボード'],
+  gamepad:  ['ゲームパッド'],
+};
+function expandSearchLabels(slugs, table) {
+  return (slugs || [])
+    .map(slug => [slug, ...(table[slug] || [])].join(' '))
+    .join(' ');
+}
+
 function generateAppsArray(apps) {
   const catOrder = ['gakushu', 'ninchi', 'jiritsu', 'sousaku'];
   const catLabels = { gakushu: '学習アプリ', ninchi: '認知支援', jiritsu: '自立活動', sousaku: '創作表現' };
@@ -640,10 +663,14 @@ function generateAppsArray(apps) {
       currentCat = app._cat;
       lines.push('  // ' + (catLabels[currentCat] || currentCat));
     }
-    const need    = JSON.stringify(app.need    || []);
-    const scene   = JSON.stringify(app.scene   || []);
-    const input   = JSON.stringify(app.input   || []);
-    const feature = JSON.stringify(app.feature || []);
+    const need    = JSON.stringify(app.need || []);
+    const input   = JSON.stringify(app.input || []);
+    // 検索用: canonical slugを日本語検索語へ展開(apps-data.json側には日本語ラベルを保存しない)
+    const needText  = JSON.stringify(expandSearchLabels(app.need, NEED_SEARCH_LABELS));
+    const inputText = JSON.stringify(expandSearchLabels(app.input, INPUT_SEARCH_LABELS));
+    // feature相当の検索語は新規フィールドを設けず、既存の a11y[] / features[].title を平坦化して流用する
+    const a11yText     = JSON.stringify((app.a11y || []).join(' '));
+    const featuresText = JSON.stringify((app.features || []).map(f => f.title).join(' '));
     const extras = [
       app.isNew       ? 'isNew: true'      : '',
       app.isRecommend ? 'isRecommend: true' : '',
@@ -654,8 +681,9 @@ function generateAppsArray(apps) {
     const mockupImgPath = fs.existsSync('./assets/mockups/' + app.id + '.png') ? 'assets/mockups/' + app.id + '.png' : '';
     lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', iconImg: ' + JSON.stringify(iconImgPath) + ', mockupImg: ' + JSON.stringify(mockupImgPath) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
     lines.push('    category: "' + app._cat + '", cardClass: "' + app._cardClass + '"' + (extras ? ', ' + extras : '') + ',');
-    lines.push('    need:' + need + ', scene:' + scene + ', input:' + input + ',');
-    lines.push('    feature:' + feature);
+    lines.push('    need:' + need + ', input:' + input + ',');
+    lines.push('    needText:' + needText + ', inputText:' + inputText + ',');
+    lines.push('    a11yText:' + a11yText + ', featuresText:' + featuresText);
     lines.push('  },');
   }
   lines.push('];');
