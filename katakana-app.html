@@ -1899,20 +1899,54 @@ function changeScanSpeed(d){
 
 function toggleScanMode(on){
   scanMode=on;
-  document.body.classList.toggle('scan-mode',on);
-  if(on){ updateScanTargets(); startAutoScan(); } else stopAutoScan();
+  if(on){ startSwitchScan(); } else { stopSwitchScan(); }
 }
 
-function updateScanTargets(){
+// buildScanItems: 候補取得ロジック（旧updateScanTargetsから抽出。判定条件・セレクタ・順序は無変更）
+function buildScanItems(){
+  if(typeof currentTab !== 'undefined' && (currentTab === 'trace' || currentTab === 'stroke' || currentTab === 'record')){
+    return [];
+  }
+  const active=document.querySelector('.section.active');
+  if(!active) return [];
+  return Array.from(active.querySelectorAll('button,[tabindex="0"]'));
+}
+
+// refreshSwitchScanItems: 旧updateScanTargetsの分岐・副作用（scanFocusIdxリセット・先頭focus）をそのまま保持
+function refreshSwitchScanItems(){
   if(typeof currentTab !== 'undefined' && (currentTab === 'trace' || currentTab === 'stroke' || currentTab === 'record')){
     scanTargets=[];
     return;
   }
   const active=document.querySelector('.section.active');
   if(!active) return;
-  scanTargets=Array.from(active.querySelectorAll('button,[tabindex="0"]'));
+  scanTargets=buildScanItems();
   scanFocusIdx=0;
   if(scanTargets.length) scanTargets[0].focus();
+}
+function updateScanTargets(){ refreshSwitchScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+function startSwitchScan(){
+  document.body.classList.add('scan-mode');
+  refreshSwitchScanItems();
+  startAutoScan();
+}
+
+function stopSwitchScan(){
+  clearScanHighlight();
+  stopAutoScan();
+}
+
+// clearScanHighlight: 本アプリのハイライトはネイティブfocus()+ body.scan-mode経由のCSS(:focus)で
+// 実現されており、要素側にハイライト用classは付与されない。既存stop処理の「ハイライト解除」に
+// 相当する唯一の実処理（body.scan-modeの除去）をそのまま抽出する。
+function clearScanHighlight(){
+  document.body.classList.remove('scan-mode');
+}
+
+function activateCurrentScanItem(){
+  const f=document.activeElement;
+  if(f&&f!==document.body) f.click();
 }
 
 function startAutoScan(){
@@ -1929,7 +1963,7 @@ function stopAutoScan(){ clearInterval(scanInterval); scanInterval=null; }
 document.addEventListener('keydown',e=>{
   if(scanMode&&(e.key===' '||e.key==='Enter')){
     const f=document.activeElement;
-    if(f&&f!==document.body){ e.preventDefault(); f.click(); }
+    if(f&&f!==document.body){ e.preventDefault(); activateCurrentScanItem(); }
   }
 });
 
