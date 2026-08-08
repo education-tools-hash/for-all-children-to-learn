@@ -80,12 +80,10 @@ if (__corrected > 0) {
 const RECOMMEND_IDS = new Set([
   'hiragana-learn',    // ひらがな
   'tokei-app',         // とけい
-  'okane-app',         // おかね
   'schedule-app',      // スケジュール
   'matching-app',      // マッチング
   'sst-app',           // SST
   'kimochi-board',     // コミュニケーションボード
-  'directions-app',    // ほうこうとばしょ
 ]);
 
 const NEW_IDS = new Set([
