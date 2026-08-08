@@ -2192,10 +2192,16 @@
   }
 
   // ==== Switch Scanning ====
-  // 仕様書donomana-switch-scan-spec-v1_0.md 4.1節R1: 候補順は単一querySelectorAllが返す
-  // 実際のDOM出現順とする。activeScreen内の[data-scan]と共通chrome(.scannable)を
-  // 1回のクエリで取得し、可視性・操作可能性で絞り込む(3.1節R2〜R5)。
-  function getScanCandidates(activeScreen) {
+  // Pilot: donomana-switch-scan-spec-v1_0.md v1.1 16章「共通helper設計原則」に沿って、
+  // 責務ごとにbuildScanItems/startSwitchScan/stopSwitchScan/refreshSwitchScanItems/
+  // activateCurrentScanItem/clearScanHighlightへ整理する（Phase25-C、directions-app単独のPilot）。
+  // 候補取得（Strategy A: 明示marker方式、[data-scan]と共通chromeの.scannableを1回のクエリで取得し
+  // 3.1節R2〜R5の可視性・操作可能性条件で絞り込む。4.1節R1: 候補順は単一querySelectorAllが返す
+  // 実際のDOM出現順）・候補順・利用者から見た挙動は本Pilotで一切変更しない。
+  // 既存呼び出し箇所（toggle/nav/各loadXxx）との互換のため、従来名startScan/stopScanは維持する。
+
+  // buildScanItems(): 候補取得（3.1節R2〜R5）。Strategy Aのまま、本Pilotでは変更しない。
+  function buildScanItems(activeScreen) {
     return Array.from(document.querySelectorAll('[data-scan],.scannable')).filter(el => {
       if (!(el.classList.contains('scannable') || activeScreen.contains(el))) return false;
       if (el.disabled || el.hasAttribute('hidden')) return false;
@@ -2205,32 +2211,56 @@
       return true;
     });
   }
-  function startScan() {
-    stopScan();
-    if (!state.settings.switchScan) return;
+
+  // refreshSwitchScanItems(): 現在の画面(activeScreen)から候補配列を再取得する（4.2節C2・9.1節M3相当）。
+  function refreshSwitchScanItems() {
     const activeScreen = document.querySelector('.screen.active');
-    if (!activeScreen) return;
-    const items = getScanCandidates(activeScreen);
+    if (!activeScreen) return [];
+    return buildScanItems(activeScreen);
+  }
+
+  // clearScanHighlight(): 走査ハイライトclassを全対象から解除する（6.3節M・8.1節M2）。
+  function clearScanHighlight() {
+    document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+  }
+
+  // activateCurrentScanItem(): 走査中の対象へclick()を発火する（7.2節M2）。
+  function activateCurrentScanItem() {
+    const focused = document.querySelector('.scan-focus');
+    if (focused) focused.click();
+  }
+
+  // stopSwitchScan(): タイマー解除・タイマー参照null化・ハイライト解除（8.1節M1〜M4）。
+  function stopSwitchScan() {
+    if (state.scanTimer) { clearInterval(state.scanTimer); state.scanTimer = null; }
+    clearScanHighlight();
+  }
+
+  // startSwitchScan(): 開始前に必ず停止してから開始する（8.1節M5、二重起動防止）。
+  function startSwitchScan() {
+    stopSwitchScan();
+    if (!state.settings.switchScan) return;
+    const items = refreshSwitchScanItems();
     if (items.length === 0) return;
     state.scanIndex = 0;
     const highlight = () => {
-      document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+      clearScanHighlight();
       if (items[state.scanIndex]) items[state.scanIndex].classList.add('scan-focus');
       state.scanIndex = (state.scanIndex + 1) % items.length;
     };
     highlight();
     state.scanTimer = setInterval(highlight, state.settings.scanSpeed);
   }
-  function stopScan() {
-    if (state.scanTimer) { clearInterval(state.scanTimer); state.scanTimer = null; }
-    document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
-  }
+
+  // 互換エイリアス: 既存の呼び出し箇所（toggle/nav/各loadXxx、計8箇所）は無変更のまま新構造へ委譲する。
+  function startScan() { startSwitchScan(); }
+  function stopScan() { stopSwitchScan(); }
+
   document.addEventListener('keydown', (e) => {
     if (!state.settings.switchScan) return;
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-      const focused = document.querySelector('.scan-focus');
-      if (focused) focused.click();
+      activateCurrentScanItem();
     }
   });
 
