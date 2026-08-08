@@ -1831,39 +1831,86 @@ document.addEventListener('fullscreenchange',updateFsBtn);
 document.addEventListener('webkitfullscreenchange',updateFsBtn);
 
 // ===== SWITCH SCAN =====
+// Pilot: donomana-switch-scan-spec-v1_0.md v1.2 16章「共通helper設計原則」に沿って、
+// directions-app（Phase25-C）・matching-app（Phase25-D）と同じ6責務へ整理する
+// （Phase25-G、schedule-app単独の第3Pilot）。Tabスコープ・1スイッチ/2スイッチモードという
+// 既存2Pilotにないパターンを持つが、候補取得（.v-item、common chrome非対象）・候補順・
+// switchMode分岐・scan速度・データ層は一切変更しない。既存呼び出し箇所（行2190付近の
+// tab切替ハンドラ等）との互換のため、従来名startScan/stopScanは維持する。
 let scanIdx=-1, scanTimer=null;
-function getVItems(){return document.querySelectorAll('.v-item');}
-function startScan(){
+
+// buildScanItems(): 候補取得。ロジックは変更しない（common chromeは対象外のまま）。
+function buildScanItems(){return document.querySelectorAll('.v-item');}
+
+// clearScanHighlight(): ハイライトclassを全対象から解除する（6.3節M・8.1節M2）。
+function clearScanHighlight(){buildScanItems().forEach(e=>e.classList.remove('scan-focus'));}
+
+function highlightScan(){const els=buildScanItems();els.forEach((e,i)=>e.classList.toggle('scan-focus',i===scanIdx));if(els[scanIdx])els[scanIdx].scrollIntoView({behavior:'smooth',block:'center'});}
+function scanAction(){const els=buildScanItems();if(!els.length)return;if(prefs.switchMode==='1switch'){const t=items[scanIdx];if(t)toggleCheck(t.id);scanIdx=(scanIdx+1)%els.length;}else{scanIdx=(scanIdx+1)%els.length;}highlightScan();}
+function scanSelect(){const t=items[scanIdx];if(t)toggleCheck(t.id);}
+
+// activateCurrentScanItem(): 決定操作。既存のモード別分岐（1スイッチ＝decision+advance+timer
+// 再起動／2スイッチ＝select専用）をそのまま踏襲し、keydownハンドラとscan-touch-btnで
+// 重複していた1スイッチ時の処理をこの関数へ統合する（挙動は変更しない）。
+function activateCurrentScanItem(){
+  if(prefs.switchMode==='1switch'){
+    clearInterval(scanTimer);
+    scanAction();
+    scanTimer=setInterval(scanAction,prefs.scanSpeed*1000);
+  } else if(prefs.switchMode==='2switch'){
+    scanSelect();
+  }
+}
+
+// stopSwitchScan(): タイマー解除・参照null化・index初期化・ハイライト解除・overlay非表示。
+function stopSwitchScan(){
+  clearInterval(scanTimer);
+  scanTimer=null;
+  scanIdx=-1;
+  clearScanHighlight();
+  document.getElementById('scan-overlay').classList.remove('active');
+}
+
+// startSwitchScan(): 既存の処理順序（stop→候補取得→0件return→highlight→timer開始）を維持。
+function startSwitchScan(){
   if(prefs.switchMode==='off')return;
-  stopScan();
-  const els=getVItems();if(!els.length)return;
+  stopSwitchScan();
+  const els=buildScanItems();if(!els.length)return;
   document.getElementById('scan-overlay').classList.add('active');
   scanIdx=0;highlightScan();
   if(prefs.switchMode==='1switch'){
     scanTimer=setInterval(scanAction,prefs.scanSpeed*1000);
     document.getElementById('scan-info').textContent='1スイッチ：スイッチをおすとチェック（自動 '+prefs.scanSpeed+'秒）';
     document.getElementById('scan-touch-btn').textContent='スイッチ / タップ';
-    document.getElementById('scan-touch-btn').onclick=()=>{clearInterval(scanTimer);scanAction();scanTimer=setInterval(scanAction,prefs.scanSpeed*1000);};
+    document.getElementById('scan-touch-btn').onclick=activateCurrentScanItem;
   } else {
     document.getElementById('scan-info').textContent='2スイッチ：→でいどう　スペース/タップでチェック';
     document.getElementById('scan-touch-btn').textContent='→ いどう';
     document.getElementById('scan-touch-btn').onclick=scanAction;
   }
 }
-function stopScan(){clearInterval(scanTimer);scanTimer=null;scanIdx=-1;getVItems().forEach(e=>e.classList.remove('scan-focus'));document.getElementById('scan-overlay').classList.remove('active');}
-function highlightScan(){const els=getVItems();els.forEach((e,i)=>e.classList.toggle('scan-focus',i===scanIdx));if(els[scanIdx])els[scanIdx].scrollIntoView({behavior:'smooth',block:'center'});}
-function scanAction(){const els=getVItems();if(!els.length)return;if(prefs.switchMode==='1switch'){const t=items[scanIdx];if(t)toggleCheck(t.id);scanIdx=(scanIdx+1)%els.length;}else{scanIdx=(scanIdx+1)%els.length;}highlightScan();}
-function scanSelect(){const t=items[scanIdx];if(t)toggleCheck(t.id);}
+
+// refreshSwitchScanItems(): モード切替時の候補再構築（setSwitchModeの既存パターン
+// 「常にstop→viewerタブかつON時のみstart」を抽出）。9.1節M3・4.2節C2相当。
+function refreshSwitchScanItems(){
+  stopSwitchScan();
+  if(activeTab==='viewer'&&prefs.switchMode!=='off') startSwitchScan();
+}
+
+// 互換エイリアス: 既存の呼び出し箇所（行2190付近・tab切替ハンドラ等）は無変更のまま新構造へ委譲する。
+function startScan(){startSwitchScan();}
+function stopScan(){stopSwitchScan();}
+
 document.addEventListener('keydown',e=>{
   if(prefs.switchMode==='off'||activeTab!=='viewer')return;
-  if(prefs.switchMode==='1switch'&&(e.key===' '||e.key==='Enter')){e.preventDefault();clearInterval(scanTimer);scanAction();scanTimer=setInterval(scanAction,prefs.scanSpeed*1000);}
-  if(prefs.switchMode==='2switch'){if(e.key==='ArrowRight'||e.key==='Tab'){e.preventDefault();scanAction();}if(e.key===' '||e.key==='Enter'){e.preventDefault();scanSelect();}}
+  if(prefs.switchMode==='1switch'&&(e.key===' '||e.key==='Enter')){e.preventDefault();activateCurrentScanItem();}
+  if(prefs.switchMode==='2switch'){if(e.key==='ArrowRight'||e.key==='Tab'){e.preventDefault();scanAction();}if(e.key===' '||e.key==='Enter'){e.preventDefault();activateCurrentScanItem();}}
 });
 function setSwitchMode(mode,silent){
   prefs.switchMode=mode;
   document.querySelectorAll('.sw-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
   document.getElementById('scan-speed-row').style.display=mode==='1switch'?'':'none';
-  stopScan();if(activeTab==='viewer'&&mode!=='off')startScan();
+  refreshSwitchScanItems();
   if(!silent){savePrefs();showToast(mode==='off'?'🔘 スイッチOFF':mode==='1switch'?'🔘 1スイッチモード':'🔘 2スイッチモード');}
 }
 function setScanSpeed(sec,silent){prefs.scanSpeed=sec;document.getElementById('scan-speed-range').value=sec;document.getElementById('scan-speed-val').textContent=sec+'秒';if(!silent)savePrefs();}
