@@ -1297,7 +1297,8 @@ function updateScanSpeed() {
 }
 
 // ── スイッチスキャン ──
-function getScanTargets() {
+// buildScanItems: 候補取得（旧getScanTargetsから抽出。設定パネル分岐・ゲーム状態分岐は無変更）
+function buildScanItems() {
   // 設定パネル表示中は、パネル内の操作要素をスキャン対象にする
   // （Phase16.1で発見：以前はここでスキャンが完全に停止し、パネルを閉じる手段すら
   //   スイッチで到達できなかった。ゲーム側とパネル側、常にどちらかを対象にする）
@@ -1316,15 +1317,25 @@ function getScanTargets() {
   }
   return targets.filter(Boolean);
 }
+function getScanTargets() { return buildScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function clearScanFocus() {
+// clearScanHighlight: 旧clearScanFocusから抽出
+function clearScanHighlight() {
   document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
 }
+function clearScanFocus() { clearScanHighlight(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function startScan() {
-  stopScan();
+// refreshSwitchScanItems: 候補再取得＋範囲外時のみidxを0へclamp（無条件リセットはしない）。
+// 旧highlightScan・旧activateScanTargetに共通する「再取得＋clamp」部分をそのまま抽出。
+function refreshSwitchScanItems() {
+  scanTargets = buildScanItems();
+  if (scanIndex >= scanTargets.length) scanIndex = 0;
+}
+
+function startSwitchScan() {
+  stopSwitchScan();
   if (!scanEnabled) return;
-  scanTargets = getScanTargets();
+  scanTargets = buildScanItems();
   if (scanTargets.length === 0) return;
   scanIndex = 0;
 
@@ -1340,23 +1351,28 @@ function startScan() {
     highlightScan();
   }
 }
+function startScan() { startSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function stopScan() {
+function stopSwitchScan() {
+  // 既存どおりhighlightはここでは消さない（別途clearScanHighlight()の呼び出しに委ねる）
   if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
 }
+function stopScan() { stopSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
+// highlightScan: 現在候補へのハイライト付与。6関数の外に残す内部helper。
 function highlightScan() {
-  clearScanFocus();
-  scanTargets = getScanTargets();
+  clearScanHighlight();
+  refreshSwitchScanItems();
   if (scanTargets.length === 0) return;
-  if (scanIndex >= scanTargets.length) scanIndex = 0;
   const el = scanTargets[scanIndex];
   if (el) el.classList.add('scan-focus');
 }
 
 // キーボードイベント（スイッチ操作）
-// 設定パネル表示中もスキャンは止めない。対象は getScanTargets() が
+// 設定パネル表示中もスキャンは止めない。対象は buildScanItems() が
 // パネル内の操作要素に自動的に切り替える（Phase16.1で発見した凍結バグの修正）。
+// Space advance（2スイッチ時の「次へ進む」）はadapter側の責務としてここに残し、
+// 6関数のいずれへも抽出しない（helper7等の新規抽象化は導入しない）。
 document.addEventListener('keydown', e => {
   if (!scanEnabled) return;
 
@@ -1364,30 +1380,32 @@ document.addEventListener('keydown', e => {
     // 1スイッチ: スペース・Enter・任意キーで選択
     if (e.code === 'Space' || e.code === 'Enter') {
       e.preventDefault();
-      activateScanTarget();
+      activateCurrentScanItem();
     }
   } else {
     // 2スイッチ: スペースで次へ進む、Enterで選択
     if (e.code === 'Space') {
       e.preventDefault();
-      scanTargets = getScanTargets();
+      scanTargets = buildScanItems();
       if (scanTargets.length === 0) return;
       scanIndex = (scanIndex + 1) % scanTargets.length;
       highlightScan();
     } else if (e.code === 'Enter') {
       e.preventDefault();
-      activateScanTarget();
+      activateCurrentScanItem();
     }
   }
 });
 
-function activateScanTarget() {
-  scanTargets = getScanTargets();
+// activateCurrentScanItem: 旧activateScanTargetから抽出。refreshSwitchScanItems()と
+// 同一の「再取得＋範囲外時のみclamp」処理を再利用する（元のロジックと完全一致）。
+function activateCurrentScanItem() {
+  refreshSwitchScanItems();
   if (scanTargets.length === 0) return;
-  if (scanIndex >= scanTargets.length) scanIndex = 0;
   const el = scanTargets[scanIndex];
   if (el) el.click();
 }
+function activateScanTarget() { activateCurrentScanItem(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
 // ── ゲームロジック ──
 function getCorrectWords(char) { return wordData.filter(w => w.startN === char && !usedWords.has(w.word)); }
