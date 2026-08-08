@@ -1726,25 +1726,52 @@ function exportRecordsCSV() {
 }
 
 // ---- スイッチコントロール（1スイッチ走査） ----
+// Pilot: donomana-switch-scan-spec-v1_0.md v1.3 16章/18章に沿って、directions-app（Phase25-C）・
+// matching-app（Phase25-D）・schedule-app（Phase25-G）と同じ6責務へ整理する（Phase25-J、第4Pilot）。
+// 本Pilotの検証対象はStrategy C（SCAN_SELECTORの巨大明示列挙）とM3要件（動的listener着脱）の2点。
+// SCAN_SELECTOR・候補判定ロジック・listenerの追加/解除タイミング・決定処理・停止処理は一切変更しない。
+// okane-appの既存関数名はstartSwitchScan/stopSwitchScan/clearScanHighlightが既にPilot命名と
+// 一致していたため、そのまま維持する。collectScanEls→buildScanItems、switchKeyHandler内の
+// 決定ロジック→activateCurrentScanItemへ、それぞれ責務を分離する。
 const SCAN_SELECTOR = '.nav-btn, .tool-btn, .diff-btn, .money-card, .speak-btn, .shop-item, .add-item-card, .item-delete-btn, .match-item, .pay-coin-btn, .cart-remove-btn, .cart-clear-btn, .pay-confirm-btn, .pay-clear-btn, .otsuuri-close-btn, .custom-modal-btns button, .app-modal-close, .toggle-switch, .size-btn, .speed-btn, .color-dot, .records-reset-btn, .csv-export-btn, .mondai-choice-btn, .mondai-speak-btn, .mondai-hint-btn, .mondai-next-btn, .mondai-retry-btn, .scannable';
 let scanTimer = null, scanIndex = -1, scanEls = [];
 
-function collectScanEls() {
+// buildScanItems(): 候補取得（Strategy C、SCAN_SELECTORの巨大明示列挙）。ロジックは変更しない。
+function buildScanItems() {
   return Array.from(document.querySelectorAll(SCAN_SELECTOR)).filter(el => {
     if (el.offsetParent === null && el.tagName !== 'LABEL') return false;
     const rect = el.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
   });
 }
+// clearScanHighlight(): ハイライトclassを全対象から解除する（6.3節M・8.1節M2）。
 function clearScanHighlight() {
   document.querySelectorAll('.scan-highlight').forEach(el => el.classList.remove('scan-highlight'));
 }
+// refreshSwitchScanItems(): 候補再構築＋走査位置リセット。okane-appはperTick方式
+// （startSwitchScanのtickごとにbuildScanItems()を再実行）のため、モーダル開閉等の明示的な
+// refresh呼び出し箇所は既存コードに存在しない。API整合のための単体関数として提供するにとどめ、
+// 新規の呼び出しは追加しない（既存挙動を変更しないため）。
+function refreshSwitchScanItems() {
+  scanEls = buildScanItems();
+  scanIndex = -1;
+}
+// activateCurrentScanItem(): 決定操作。既存のLABEL特殊処理（inputのchecked切替+change発火）と
+// 通常要素のclick()発火という分岐をそのまま踏襲する。
+function activateCurrentScanItem() {
+  if (scanIndex >= 0 && scanEls[scanIndex]) {
+    const el = scanEls[scanIndex];
+    if (el.tagName === 'LABEL') { const input = el.querySelector('input'); if (input) { input.checked = !input.checked; input.dispatchEvent(new Event('change')); } }
+    else el.click();
+  }
+}
+// startSwitchScan(): 既存の処理順序（stop→index初期化→timer開始→listener追加）を維持。
 function startSwitchScan() {
   stopSwitchScan();
   scanIndex = -1;
   scanTimer = setInterval(() => {
     clearScanHighlight();
-    scanEls = collectScanEls();
+    scanEls = buildScanItems();
     if (scanEls.length === 0) return;
     scanIndex = (scanIndex + 1) % scanEls.length;
     scanEls[scanIndex].classList.add('scan-highlight');
@@ -1752,20 +1779,20 @@ function startSwitchScan() {
   }, appSettings.scanSpeed);
   document.addEventListener('keydown', switchKeyHandler);
 }
+// stopSwitchScan(): タイマー解除・参照null化・ハイライト解除・専用listener解除（8.1節M1〜M3）。
+// 動的listener着脱（M3要件の実例）はここで検証対象——既存のremoveEventListenerタイミングを維持。
 function stopSwitchScan() {
   if (scanTimer) clearInterval(scanTimer);
   scanTimer = null;
   clearScanHighlight();
   document.removeEventListener('keydown', switchKeyHandler);
 }
+// switchKeyHandler(e): addEventListener/removeEventListenerの参照同一性を保つため、
+// リスナー関数自体はrenameせず維持する。決定ロジックのみactivateCurrentScanItem()へ委譲する。
 function switchKeyHandler(e) {
   if (e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
-    if (scanIndex >= 0 && scanEls[scanIndex]) {
-      const el = scanEls[scanIndex];
-      if (el.tagName === 'LABEL') { const input = el.querySelector('input'); if (input) { input.checked = !input.checked; input.dispatchEvent(new Event('change')); } }
-      else el.click();
-    }
+    activateCurrentScanItem();
   }
 }
 
