@@ -1759,9 +1759,14 @@ function spawnPar(el){
   ['⭐','✨','🌟'].forEach((s,i)=>{const p=document.createElement('div');p.className='spar';p.textContent=s;p.style.left=(cx+(i-1)*26)+'px';p.style.top=cy+'px';p.style.animationDelay=(i*.09)+'s';document.body.appendChild(p);setTimeout(()=>p.remove(),750);});
 }
 
-/* ── スキャン ── */
-function startScan(){stopScan();const its=scanItems();if(!its.length)return;its[scanIdx%its.length].classList.add('scan-focus');scanIv=setInterval(()=>{const i2=scanItems();i2.forEach(x=>x.classList.remove('scan-focus'));scanIdx=(scanIdx+1)%Math.max(i2.length,1);if(i2[scanIdx])i2[scanIdx].classList.add('scan-focus');},scanMs);}
-function stopScan(){clearInterval(scanIv);scanIv=null;document.querySelectorAll('.scan-focus').forEach(e=>e.classList.remove('scan-focus'));}
+/* ── スキャン ──
+   Pilot: donomana-switch-scan-spec-v1_0.md v1.1 16章「共通helper設計原則」に沿って、
+   directions-app Pilot（Phase25-C）と同じ6責務へ整理する（Phase25-D、matching-app単独のPilot）。
+   候補取得（Strategy A: .scannable等の明示marker方式）・モーダル内候補限定・候補順・
+   利用者から見た挙動は本Pilotで一切変更しない。既存呼び出し箇所（enableScan/disableScan/
+   setScanSpd/backToSel/keydown/touchendハンドラ・モーダル開閉ハンドラ計7箇所等）との互換のため、
+   従来名startScan/stopScan/scanItems/scanAct/resetModalScanは維持する。 */
+
 // Switch Scan候補の可視性・操作可能性フィルタ（仕様書3.1節R2〜R5・21章記載条件に基づく共通判定）。
 // getClientRects().length===0はdisplay:none／非接続要素を検出できるが、visibility:hiddenは
 // レイアウト上のrectを保持したままになるため別途computedStyleで判定する必要がある。
@@ -1769,10 +1774,12 @@ function scanCandOk(el){
   return !el.disabled && !el.hasAttribute('hidden') && el.getAttribute('aria-hidden')!=='true'
     && el.getClientRects().length>0 && getComputedStyle(el).visibility!=='hidden';
 }
-function scanItems(){
+
+// buildScanItems(): 候補取得。モーダル表示中はモーダル内へ限定（9.1節C1、共通chromeを含めない）。
+// ロジックは変更しない。
+function buildScanItems(){
   const activeModal=['how-ov','settings-ov','edit-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
   if(activeModal){
-    // 仕様書9.1節C1: モーダル表示中は候補をモーダル内の要素へ限定する（共通chromeを含めない）。
     return Array.from(activeModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
       .filter(scanCandOk);
   }
@@ -1784,7 +1791,54 @@ function scanItems(){
     : '.set-item,.lvl-btn,#start-btn,.scannable';
   return Array.from(document.querySelectorAll(sel)).filter(scanCandOk);
 }
-function scanAct(){const its=scanItems(),cur=its[scanIdx%Math.max(its.length,1)];if(cur)cur.click();}
+
+// clearScanHighlight(): 走査ハイライトclassを全対象から解除する（6.3節M・8.1節M2）。
+function clearScanHighlight(){
+  document.querySelectorAll('.scan-focus').forEach(e=>e.classList.remove('scan-focus'));
+}
+
+// activateCurrentScanItem(): 走査中の対象へclick()を発火する（7.2節M2）。
+function activateCurrentScanItem(){
+  const its=buildScanItems(),cur=its[scanIdx%Math.max(its.length,1)];
+  if(cur)cur.click();
+}
+
+// stopSwitchScan(): タイマー解除・タイマー参照null化・ハイライト解除（8.1節M1・M2・M4）。
+function stopSwitchScan(){
+  clearInterval(scanIv);
+  scanIv=null;
+  clearScanHighlight();
+}
+
+// startSwitchScan(): 開始前に必ず停止してから開始する（8.1節M5、二重起動防止）。
+// 候補は毎tickごとに再取得する既存の完全動的方式を維持する（モーダル開閉等への追従）。
+function startSwitchScan(){
+  stopSwitchScan();
+  const its=buildScanItems();
+  if(!its.length)return;
+  its[scanIdx%its.length].classList.add('scan-focus');
+  scanIv=setInterval(()=>{
+    const i2=buildScanItems();
+    i2.forEach(x=>x.classList.remove('scan-focus'));
+    scanIdx=(scanIdx+1)%Math.max(i2.length,1);
+    if(i2[scanIdx])i2[scanIdx].classList.add('scan-focus');
+  },scanMs);
+}
+
+// refreshSwitchScanItems(): モーダル開閉時に走査位置を先頭へ戻し、scanMode中のみ候補を
+// 再構築する（9.1節M3・4.2節C2相当）。startSwitchScan自体はscanModeを見ないため、
+// scanMode=false時に無条件で呼ぶとスキャンが誤って始まってしまう（既存の制約を維持）。
+function refreshSwitchScanItems(){
+  scanIdx=0;
+  if(scanMode){stopSwitchScan();startSwitchScan();}
+}
+
+// 互換エイリアス: 既存の呼び出し箇所は無変更のまま新構造へ委譲する。
+function startScan(){startSwitchScan();}
+function stopScan(){stopSwitchScan();}
+function scanItems(){return buildScanItems();}
+function scanAct(){activateCurrentScanItem();}
+function resetModalScan(){refreshSwitchScanItems();}
 
 /* ── セット編集 ── */
 function openEdit(id){
@@ -2087,15 +2141,6 @@ function setModalBackgroundInert(isInert){
   if(stillOpen)return;
   if(header)header.inert=false;
   if(main)main.inert=false;
-}
-// how-ov・settings-ov・edit-ov共通：モーダル開閉時のSwitch Scan状態リセット。
-// scanItems()は表示中モーダルの有無で候補集合が切り替わるため、開閉のたびにscanIdxを0へ戻し、
-// scanMode中（scanModeがtrueの場合）だけstopScan()/startScan()を呼び直して
-// ハイライト表示とタイマーを新しい候補集合に合わせて張り直す。
-// startScan()自体はscanModeを見ないため、scanMode=false時に無条件で呼ぶとスキャンが誤って始まってしまう。
-function resetModalScan(){
-  scanIdx=0;
-  if(scanMode){stopScan();startScan();}
 }
 // how-ov・settings-ov・edit-ov共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
 // スイッチスキャン中（scanMode）は自動タイマーによる対象移動とSpaceキーでの決定が既存の操作方式であり、
