@@ -1,15 +1,15 @@
-# どのまな 共通Switch Scan仕様書 v1.1
+# どのまな 共通Switch Scan仕様書 v1.2
 
-- 版: v1.1（**承認済み**）
-- 発行: 2026年8月（v1.0初版）／承認: 2026年8月8日（v1.1）
-- 作成日: 2026-08-05（v1.0起草）／改訂日: 2026-08-08（v1.1）
+- 版: v1.2（**承認済み**）
+- 発行: 2026年8月（v1.0初版）／承認: 2026年8月8日（v1.1）／API確定: 2026年8月8日（v1.2）
+- 作成日: 2026-08-05（v1.0起草）／改訂日: 2026-08-08（v1.1・v1.2）
 - 位置づけ: `donomana-design-system-v2_0.html`（共通デザインシステム Ver.2.1）を**上位方針とする実装詳細の補足文書**。Design Systemの内容を置き換えるものではない。`donomana-modal-accessibility-spec-v1_0.md`（モーダルアクセシビリティ仕様書 v1.1）13章「Switch Scan」・21章未決定事項12番「全アプリ共通のSwitch Scan候補抽出方式の統一」を引き継ぎ、Switch Scan単独の共通仕様として分離・詳細化する文書である。
-- 根拠調査: Phase18.31-A「Switch Scan方式統一 調査」（kimochi-board.html・matching-app.html・directions-app.html・bosai-app.html の4アプリ・コードレビューのみ、コード変更なし）／v1.1改訂にあたり15アプリ規模の追加サンプリング監査を実施（1.4節・3.3節・6.1節参照）
+- 根拠調査: Phase18.31-A「Switch Scan方式統一 調査」（kimochi-board.html・matching-app.html・directions-app.html・bosai-app.html の4アプリ・コードレビューのみ、コード変更なし）／v1.1改訂にあたり15アプリ規模の追加サンプリング監査を実施（1.4節・3.3節・6.1節参照）／v1.2は2つのPilot実装（directions-app・matching-app）の比較結果を根拠とする（16章）
 - 起草: Phase18.31-B
-- 承認: v1.1として2026-08-08承認済み。共通Switch Scan実装の基準として運用を開始する。
+- 承認: v1.1として2026-08-08承認済み。v1.2はPilot実装結果を反映したAPI確定版として同日承認。
 - 参照元: Phase18.31-A調査報告（本文書と同一セッション内で作成、4アプリの実装比較表を含む）
 
-> **本文書v1.1は2026-08-08に承認済みである。** 共通Switch Scan実装の基準として運用を開始する。ただし本文書が定めるのは主に「lifecycle・timer・highlight・activation・stop・cleanup・refresh」等の共通契約（16章参照）であり、候補取得方式（3.3節）や既存アプリのハイライトclass名（6.1節）を単一方式へ強制するものではない。**本文書の承認のみを理由に、既存の稼働中コード（`generate.js`・各アプリのHTML/JS）を一括改修することは求めない。** 段階的展開はPilot（17章）から開始する。
+> **本文書v1.2は2026-08-08に承認済みである。** 共通Switch Scan実装の基準として運用を開始する。ただし本文書が定めるのは主に「lifecycle・timer・highlight・activation・stop・cleanup・refresh」等の共通契約（16章参照）であり、候補取得方式（3.3節）や既存アプリのハイライトclass名（6.1節）を単一方式へ強制するものではない。**本文書の承認のみを理由に、既存の稼働中コード（`generate.js`・各アプリのHTML/JS）を一括改修することは求めない。** 16章のhelper API・adapter設計は、既に完了したdirections-app・matching-appの2 Pilot実装（17章）の**事実に基づく**設計であり、両Pilotのコードへ変更を要求しない。段階的展開は第3Pilot以降で継続する。
 
 ---
 
@@ -361,11 +361,11 @@ Version2以降で検討する拡張候補を列挙する。優先順位・実装
 
 ---
 
-## 16. 共通helper設計原則（v1.1で追加）
+## 16. 共通helper設計原則（v1.1で追加、v1.2でAPI確定）
 
 ### 16.1 目的
 
-本章は、将来のPilot（17章）およびRollout（14章）で実装する共通helperが担うべき責務の範囲を、v1.1承認時点で明確にする。**本章はコードを規定するものではなく、責務の切り分け方針を示すものである。**
+本章は、共通helperが担うべき責務の範囲を定める。v1.1時点では概念のみだったが、**v1.2はdirections-app（第1Pilot）・matching-app（第2Pilot）の2つの実装を比較した事実に基づき、helper APIの形・adapterとの境界・命名規則を確定する**（17章参照）。
 
 ### 16.2 共通化する責務
 
@@ -380,53 +380,103 @@ Version2以降で検討する拡張候補を列挙する。優先順位・実装
 7. **cleanup** — 専用イベントリスナーの解除
 8. **refresh** — 画面遷移・モーダル開閉時の候補再構築・走査位置リセット（4.2節C2・9.1節M3）
 
-### 16.3 共通化しない・app側へ委ねる責務
+### 16.3 共通化しない・app側へ委ねる責務（adapter）
 
-**候補取得（candidate生成）そのものは、共通helperが単一方式へ強制しない。** 3.3節で認めるStrategy A（明示marker方式）・Strategy B（ネイティブ包括取得方式）のいずれも、共通helperへ「候補の配列」または「候補を返すcallback関数」として渡せる設計とする。
+**候補取得（candidate生成）そのものは、共通helperが単一方式へ強制しない。** 3.3節で認めるStrategy A（明示marker方式）・Strategy B（ネイティブ包括取得方式）のいずれも、共通helperへ「候補を返すcallback関数（adapter）」として渡せる設計とする。
 
-想定するインターフェースの方向性（コードは書かない、概念のみ）:
+adapter側（アプリ固有）に残る責務は、以下の通り確定する（v1.2）。
 
-- 候補取得は`adapter`または`callback`としてapp側が渡す（例: `getCandidates()`関数をapp側で定義し、共通helperはそれを走査のたびに呼び出す）
-- モーダル対応が必要なapp（9章）は、`options`でモーダル検出条件を渡せるようにする
-- 決定操作の例外（7.3節、bosai-appのEnter＝次へ送り等）は、共通helperのデフォルト挙動を上書きできる`options`として許容する
+1. **候補取得ロジック本体** — `.scannable`等の明示marker方式か、ネイティブ操作可能要素の包括取得か（3.3節）
+2. **モーダル判定** — 表示中モーダルの検出、モーダル内候補への限定（9章）。matching-app Pilotでは候補取得関数がモーダル判定を内包する設計だった（16.6節2番）
+3. **screen判定** — 複数画面（`.screen`等）構成アプリでの現在画面の特定。directions-app Pilotでは候補取得関数が`activeScreen`引数を要求する設計だった（16.6節1番）
+4. **候補フィルタの細部** — 可視性・操作可能性の基本条件（`disabled`・`hidden`・`aria-hidden`・`visibility:hidden`等）は両Pilotでほぼ同一の実装だったため共通化候補だが（16.9節）、app固有の除外条件（例: 既にマッチ済みのカードを除外する`:not(.matched)`等）が混在する場合はadapter側に残す
+5. **特殊入力** — タッチ短押し決定（matching-appにあり、directions-appにはない）、長押し「次へ送り」（bosai-app、10章）等
+6. **視線入力** — 11章、本仕様書の対象外のまま
 
 ### 16.4 generate.jsとの関係
 
-共通chromeへの`.scannable`／`data-scan="1"`付与は、既にgenerate.js側の共通処理として存在する（5章）。共通helper自体をどこに配置するか（generate.jsが各アプリへ注入するJSブロックとするか、独立した共通スクリプトとするか）は、Pilot実装（17章）の結果を踏まえてPhase単位で判断する。**本章は方針のみを定め、配置方式を本v1.1では確定しない。**
+共通chromeへの`.scannable`／`data-scan="1"`付与は、既にgenerate.js側の共通処理として存在する（5章）。共通helper自体の配置（generate.jsが各アプリへ注入するJSブロックとするか、独立した共通スクリプトとするか）は、**第3Pilot以降の結果を踏まえて判断する。v1.2でも配置方式は確定しない（U、17.5節参照）**。
+
+### 16.5 helper API（v1.2で確定）
+
+directions-app・matching-appの2 Pilotとも、以下6関数を**同一の関数名**で実装できることを実証した（17章）。v1.2はこれを共通helperの正式なAPI名として確定する。
+
+| 関数 | 引数 | 戻り値 | 役割 |
+|---|---|---|---|
+| `buildScanItems` | adapter依存（0〜1個。directions-appは`activeScreen`必須、matching-appは無引数） | `Element[]` | 候補取得（adapter責務、16.3節） |
+| `startSwitchScan` | なし | なし | 開始（停止→候補取得→初期ハイライト→timer開始） |
+| `stopSwitchScan` | なし | なし | 停止（timer解除・参照null化・ハイライト解除） |
+| `refreshSwitchScanItems` | なし | 実装依存（directions-appは`Element[]`を返す、matching-appは返さずindexリセットのみ行う） | 画面/モーダル切替時の再構築 |
+| `activateCurrentScanItem` | なし | なし | 決定操作（`click()`発火） |
+| `clearScanHighlight` | なし | なし | ハイライト全解除 |
+
+**v1.2時点でこれらは「両Pilotで実証済みの命名」であり、まだ「1つの共通関数を全アプリで使い回す」段階ではない。** 各アプリが自身のHTML内にこの6関数を実装し、既存の呼び出し箇所（app固有のUIハンドラ）は変更しない、という Pilotのパターンを正式な命名規則として採用する（16.7節）。
+
+### 16.6 Pilot比較で判明した実装フォーク（v1.2で新規記録）
+
+2つのPilotを比較した結果、挙動としては両立するが実装方針が異なる3つの分岐点が判明した。**いずれも既存Pilotのコード変更を要求しない。** 将来、真に1つの共通関数（例えば`generate.js`が注入する単一実装）へ統合する場合の設計判断として記録する。
+
+1. **候補取得のシグネチャ** — directions-appの`buildScanItems(activeScreen)`は画面要素を引数に取る「screenベース」設計。matching-appの`buildScanItems()`は無引数で、関数内部でモーダル表示中かどうかを自己判定する「自己完結型」設計。**U（未決定）**——どちらを共通helperの標準シグネチャとするかは、第3Pilotでモーダル・画面切替の両方を持つアプリ（例: kimochi-board）を検証してから判断する。
+2. **候補再取得のタイミング** — directions-appは`startSwitchScan`実行時に候補配列を1回だけ取得し、`setInterval`のクロージャで使い回す「snapshot方式」。matching-appは`setInterval`のtickごとに`buildScanItems()`を再実行する「perTick方式」。**両方とも仕様のM/R要件（3.1節R1「毎回動的に再取得」）を満たす**——snapshot方式は`startSwitchScan`が呼ばれるたび（screen遷移等のフックで）再取得するため実質的に動的であり、perTick方式はより高頻度に動的である。**共通helperはこの2方式を`refreshMode`のようなoption（16.7節）で選択可能にすることを推奨する（R）。単一方式へ強制しない。**
+3. **activateの実装方式** — directions-appの`activateCurrentScanItem`は`document.querySelector(ハイライトclass)`でDOM上の現在ハイライト要素を直接取得してclickする。matching-appの`activateCurrentScanItem`は`buildScanItems()`で候補配列を再取得し、`candidates[scanIdx]`で現在位置の要素を導出してclickする。両者は正常時は同じ要素を指すが、依存関係が異なる（前者はハイライトclassとの同期に依存、後者は候補配列とindexの同期に依存）。**共通helperの標準実装はStrategy 1（ハイライトclassをDOMクエリで直接取得）を採用することを推奨する（R）**——adapterの`buildScanItems`を追加で呼び出す必要がなく、呼び出しコストが低く、候補配列の再計算中に生じうる意図しないindexズレのリスクを避けられるため。**directions-app・matching-appとも、それぞれの既存実装のままで良い（Mではなく将来のRollout時の標準に留める）。**
+4. **開始時のenabled自己チェック** — directions-appの`startSwitchScan`は自身で有効/無効設定を確認し、無効なら早期returnする「自己防御型」。matching-appの`startSwitchScan`は有効/無効判定を持たず、呼び出し元（`enableScan`等）が判定してから呼ぶ「呼び出し元責任型」。**共通helperは自己防御型（directions-app方式）を標準とすることを推奨する（R）**——呼び出し元の実装漏れによる誤動作のリスクを減らせるため。既存2 Pilotのコード変更は要求しない。
+
+### 16.7 命名規則（v1.2で確定）
+
+- **helper関数名**: 16.5節の6関数名をそのまま正式名称とする（`build`/`start`/`stop`/`refresh`/`activate`/`clear`の動詞＋対象語のcamelCase）
+- **adapter**: `getCandidates`・`isEnabled`・`intervalMs`等、`get`/`is`等の接頭辞＋名詞のcamelCase。app固有ロジックを外から差し込むための関数として位置づける
+- **option**: `refreshMode`・`highlightClass`等、名詞のcamelCase。挙動を選択的に切り替えるための設定値（16.6節のフォークはoptionとして表現する）
+- **callback**: `onActivate`等、`on`接頭辞＋動詞のcamelCase。app固有の副作用（効果音・アニメーション等）をhelperの標準処理の前後に差し込む用途を想定する（v1.2時点では概念のみ、実装は次Pilot以降）
+- **state**: 走査タイマー・現在indexは、将来的にhelper内部（クロージャまたはhelperが返すオブジェクト）へカプセル化することを目標とする。**ただしPilotの互換エイリアス方式（旧関数名を維持しつつ新関数へ委譲）は、既存のapp側グローバル変数（directions-appの`state.scanTimer`/`state.scanIndex`、matching-appの`scanIv`/`scanIdx`）を保持したままでも機能することを2 Pilotで実証済み。**stateのカプセル化はRollout以降の課題とし、v1.2では必須要件化しない（U）
+
+### 16.8 昇格評価（共通helperへの昇格可否、v1.2で確定）
+
+| 責務 | 昇格可否 | 根拠 |
+|---|---|---|
+| `stopSwitchScan` | **昇格可能** | 2 Pilotの実装がほぼ同一（`clearInterval`+`null`化+ハイライト解除）。ガード条件（`if(timer)`）の有無のみ差異があるが、`clearInterval(null)`は安全なため実害なし |
+| `clearScanHighlight` | **昇格可能** | 2 Pilotとも「ハイライトclassを全要素から`querySelectorAll`+`classList.remove`」で完全同一 |
+| `activateCurrentScanItem` | **昇格可能（ただし実装方式の統一が必要）** | 16.6節3番の通り、DOM query方式（推奨）とcandidates配列方式の2種が存在。将来の昇格時はDOM query方式を標準とする |
+| timer管理（`setInterval`/`clearInterval`のラップ） | **昇格可能** | `stopSwitchScan`/`startSwitchScan`の一部として昇格可能 |
+| index管理（`scanIndex`/`scanIdx`相当） | **昇格可能（ただし呼称の統一が必要）** | 将来的にhelper内部state化する際に、両アプリのvar名の違いを吸収する薄いラッパーが必要 |
+| `buildScanItems`（候補取得） | **昇格不可** | 16.3節の通りadapter必須。screenベース設計と自己完結型設計の2つが存在し、単一実装への統合は時期尚早（16.6節1番） |
 
 ---
 
-## 17. Pilot方針（v1.1で追加）
+## 17. Pilot方針・実施結果（v1.1で追加、v1.2で結果反映）
 
-### 17.1 Pilot順序
+### 17.1 Pilot順序と実施結果
 
-v1.1承認後の最初のPilotとして、以下の順序を**推奨**する。ただし本節は固定的な実施順序を強制するものではなく、Pilot開始時点の現行コード状態によって変更しうる推奨順である。
+1. **第1Pilot: `directions-app.html`** — **実施済み・完了**（Phase25-C実装、Phase25-C2で公開統合済み）
+2. **第2Pilot: `matching-app.html`** — **実施済み・完了**（Phase25-D実装、mainへは未統合〔本v1.2改訂時点〕）
 
-1. **第1候補: `directions-app.html`**
-2. **第2候補: `matching-app.html`**
+両Pilotとも、16.5節の6関数（`buildScanItems`/`startSwitchScan`/`stopSwitchScan`/`refreshSwitchScanItems`/`activateCurrentScanItem`/`clearScanHighlight`）への責務分離、既存呼び出し箇所を変更しない互換エイリアス方式、候補配列の実ブラウザ比較によるリファクタリング前後の完全一致確認、という同一の手法で実装できることを確認した。
 
-### 17.2 directions-appを第1候補とする理由
+### 17.2 directions-appを第1候補とした理由（実績）
 
-- 既に仕様推奨のハイライトclass`.scan-focus`を採用済みであり、命名変更のコストが不要
-- フローティングモーダルを持たない（9.2節）ため、9章のモーダル要件を考慮せずに共通helperのコア機能（候補取得・走査・ハイライト・決定・停止・refresh）の検証に集中できる
-- Phase18.31-Aの調査対象4アプリの1つであり、本仕様書との対応関係が明確
+- 既に仕様推奨のハイライトclass`.scan-focus`を採用済みであり、命名変更のコストが不要だった
+- フローティングモーダルを持たない（9.2節）ため、9章のモーダル要件を考慮せずに共通helperのコア機能（候補取得・走査・ハイライト・決定・停止・refresh）の検証に集中できた
+- 実施の結果、候補取得はStrategy A（明示marker方式）であることが判明——Pilot開始前の分類（Strategy Bと想定）に誤りがあったが、候補取得ロジック自体を変更しない方針だったため実装への影響はなかった（Phase25-C報告参照）
 
-### 17.3 matching-appを第2候補とする理由
+### 17.3 matching-appを第2候補とした理由（実績）
 
 - Space／Enter両方の決定操作に対応済み（7.2節R3準拠）
-- `.scannable`（Strategy A）の実利用実績があり、共通chrome統合の検証に適する
-- モーダル表示中の候補制御（9章）の実装例として本仕様書内で参照されており、モーダル関連要件の検証に適する
+- `.scannable`（Strategy A）の実利用実績があり、共通chrome統合の検証に適していた
+- モーダル表示中の候補制御（9章）の実装例として、候補取得関数がモーダル判定を内包する高度な設計であることを確認した（16.3節2番）
 
-### 17.4 Pilotで検証する内容
+### 17.4 Pilotで検証した内容（実績）
 
-- **第1Pilot（directions-app）**: candidate取得・timer・highlight・Space/Enter決定・`click()`発火・refresh・stop処理という、共通helperのコア機能
-- **第2Pilot（matching-app）**: モーダル対応・common chrome統合・`.scannable`（Strategy A）・候補のモーダル内限定
+- **第1Pilot（directions-app）**: candidate取得・timer・highlight・Space/Enter決定・`click()`発火・refresh・stop処理という、共通helperのコア機能を検証した
+- **第2Pilot（matching-app）**: モーダル対応・common chrome統合・`.scannable`（Strategy A）・候補のモーダル内限定・背景走査停止・モーダルclose後のrefreshを検証した
+
+### 17.5 第3Pilot方針（v1.2で追加）
+
+2 Pilotの比較により、16.6節の3つの実装フォーク（候補取得シグネチャ・候補再取得タイミング・activate実装方式）が判明した。**第3Pilotは、これらの未決定事項（U）を検証する材料となるアプリを選ぶことが望ましい。** 具体的な対象アプリの選定は、本v1.2では確定しない（設計Phaseの範囲外、コード変更を伴う実装Phaseで判断する）。候補として、モーダルと画面遷移の両方を持つアプリ（例: kimochi-board、ただし視線入力連動があり11章の対象外部分と混在するため慎重な検討を要する）や、`.scan-highlight`／`.scanning`等`.scan-focus`以外のclass名を持つアプリ（6.1節）が、今後の横展開範囲を広げる観点で有力である。
 
 ---
 
-## Version1.0採用事項（v1.1時点）
+## Version1.0採用事項（v1.2時点）
 
-以下は、本仕様書で共通方針として採用する（**M**または**R**として本文中に明記した事項の一覧）。1〜17番はv1.0時点の採用事項、18番以降はv1.1で追加した事項である。
+以下は、本仕様書で共通方針として採用する（**M**または**R**として本文中に明記した事項の一覧）。1〜17番はv1.0時点の採用事項、18〜22番はv1.1で追加した事項、23番以降はv1.2で追加した事項である。
 
 1. Switch Scan対応済みアプリは、Spaceキーによる決定操作を実装する（2.1節M1・7.2節M1）。
 2. Switch Scanのタイマーと通常のTab操作を競合させない（2.1節M2）。
@@ -450,6 +500,11 @@ v1.1承認後の最初のPilotとして、以下の順序を**推奨**する。�
 20. 候補取得は、明示marker方式（Strategy A）とネイティブ操作要素包括取得方式（Strategy B）のいずれも正式に認め、単一方式へ強制しない（3.3節）。
 21. 共通helperの責務をlifecycle・timer・current index・highlight・activation・stop・cleanup・refreshに限定し、候補取得自体はapp側のadapter／callback／optionsで調整可能とする（16章）。
 22. 横展開Pilotの推奨順序として、第1候補directions-app・第2候補matching-appを記録する。ただし固定的な実施順序ではなく推奨順とする（17章）。
+23. 共通helper APIを`buildScanItems`/`startSwitchScan`/`stopSwitchScan`/`refreshSwitchScanItems`/`activateCurrentScanItem`/`clearScanHighlight`の6関数名で正式に確定する（16.5節、2 Pilot実装の実証に基づく）。
+24. `stopSwitchScan`・`clearScanHighlight`・timer管理・index管理は共通helperへ昇格可能、`buildScanItems`（候補取得）は昇格不可でapp側adapterとして残すことを確定する（16.8節）。
+25. `activateCurrentScanItem`の標準実装はDOM上のハイライトclassを直接クエリする方式（directions-app方式）を推奨する（16.6節3番、R）。
+26. 共通helperの開始処理は自身で有効/無効を確認する自己防御型を推奨する（16.6節4番、R）。
+27. helper／adapter／option／callback／stateの命名規則を確定する（16.7節）。
 
 ## Version2検討事項
 
@@ -465,6 +520,10 @@ v1.1承認後の最初のPilotとして、以下の順序を**推奨**する。�
 8. Scanning Group（グループ走査）、Auto/Manual Scan切り替え、Switch Interface／Bluetooth Switch固有対応（15章）
 9. kimochi-boardの「switchScan設定OFFでも自動走査アニメーション自体は動作し続ける」という他3アプリと異なる仕様を、統一するか維持するか（3.2節・本節はPhase18.31-A調査報告8番でも指摘済みの論点）
 10. apps-data.json上「スイッチ」関連表記を持つ21アプリ全件について、1.4節の区分（自動走査型／Keyboard Activation対応／対象外）に基づく詳細inventoryを確定する（1.5節）。mogura-tataki等、区分が未確認のアプリを含む。
+11. `buildScanItems`の標準シグネチャ（screenベース／自己完結型のいずれか）を、第3Pilotの検証結果を踏まえて確定する（16.6節1番）
+12. 候補再取得タイミング（snapshot方式／perTick方式）の既定値を、第3Pilotの検証結果を踏まえて確定する（16.6節2番）
+13. 共通helperの配置方式（generate.js注入／独立共通スクリプト）を、第3Pilot以降の結果を踏まえて確定する（16.4節）
+14. 第3Pilotの具体的な対象アプリの選定（17.5節）
 
 ---
 
@@ -476,7 +535,8 @@ v1.1承認後の最初のPilotとして、以下の順序を**推奨**する。�
 | v1.0 | 2026-08-05 | 追記（Phase18.31-D）。**引き続き未承認ドラフト**。Version番号は変更していない。8.1節へ最低要件（M）2件を追加: タイマー参照を`clearInterval`後に`null`へ戻すこと、Switch Scan再開時に既存タイマーを確実に停止してから新規タイマーを作成し二重起動を防ぐこと。Version1.0採用事項13番の参照節番号（8.1節M1〜M3→M1〜M5）を更新した。他章は変更していない。 |
 | v1.0 | 2026-08-05 | 追記（Phase18.31-E）。**引き続き未承認ドラフト**。Version番号は変更していない。7.3節「未決定（U）」を「アプリ固有の例外（A／C）」へ改め、Enterキーの位置付けを確定した: Space＝必須要件（M、7.2節M1）、Enter＝推奨要件（R、7.2節R3新設）、アプリ固有の理由がある場合はEnterへ別機能を割り当てる例外を認めるが理由・検証結果の文書化と無条件横展開の禁止を条件とする（7.3節）。matching-appのSpace／Enter両対応は7.2節R3準拠と確認した。bosai-appの既存例外（Enter＝次の候補へ送り）は本Phaseでは変更せず、正式な文書化を後続Phaseの検討事項とした（Version2検討事項1番）。7.1節の比較表・Version1.0採用事項（17番追加）・Version2検討事項（1番差し替え）を整合させた。他章は変更していない。 |
 | v1.1 | 2026-08-08 | **承認済みへ移行**（Phase25-Bで確定。根拠: Phase25-Aによる15アプリ規模の追加サンプリング監査）。1.4節「Switch Scanの区分」を新設し、自動走査型・Keyboard Activation対応・対象外（scanという名称を使うが複数候補を走査しない実装）を区別。tyushiは対象外に該当すると明記。1.5節を新設し、apps-data.json上の「スイッチ」関連表記21/29件が広義の集計であり自動走査型の確定件数ではないことを明記（mogura-tataki等、区分未確認のアプリの存在を記録）。3.2節へ4アプリの実証範囲を超える推測をしない旨を追記。3.3節を新設し、候補取得の2戦略（Strategy A：明示marker方式／Strategy B：ネイティブ操作要素包括取得方式）を正式に容認。6.1節へ追加サンプリングで確認した実装差異（time-timerの`.scannable`+`.scan-focused`併用、sugoroku-appの`.shi`独自体系、hiragana-learn等のネイティブfocus依存）を追記し、確定数値を推測で断定しない方針を明記（なお「8方式」という記述は本文書ではなく`docs/donomana-site-renewal-roadmap-v2.md`側の表現であり、本文書は元々4アプリの実証範囲に限定した記述だった）。10章・11章へv1.1確認の短い追記（長押し機能は引き続きM化しない、視線入力の共通仕様化は本v1.1の範囲外）。16章「共通helper設計原則」を新設し、共通化する責務（lifecycle/timer/current index/highlight/activation/stop/cleanup/refresh）と、候補取得はapp側のadapter/callback/optionsに委ねる方針を明記。17章「Pilot方針」を新設し、第1候補directions-app・第2候補matching-appとその選定理由を記録。Version1.0採用事項へ18〜22番を追加。Version2検討事項へ10番（21アプリ全件inventoryの確定）を追加。既存のM/R/C/U/A分類・Version1.0時点の1〜17番・7章のEnter例外方針は変更していない。 |
+| v1.2 | 2026-08-08 | **API確定版**（Phase25-Eで確定。根拠: Phase25-C〔directions-app Pilot〕・Phase25-D〔matching-app Pilot〕の2実装比較。コード変更は伴わない設計Phase）。16.3節を拡充し、adapter側（アプリ固有）に残る責務を6項目で確定。16.5節を新設し、共通helper APIを`buildScanItems`/`startSwitchScan`/`stopSwitchScan`/`refreshSwitchScanItems`/`activateCurrentScanItem`/`clearScanHighlight`の6関数名で正式に確定（2 Pilotとも同一関数名で実装できることを実証済み）。16.6節を新設し、2 Pilot比較で判明した3つの実装フォーク（候補取得シグネチャ・候補再取得タイミング snapshot／perTick・activate実装方式）を記録し、いずれも既存Pilotのコード変更を要求しないことを明記。16.7節を新設し、helper/adapter/option/callback/stateの命名規則を確定。16.8節を新設し、stop/clear/activate/timer管理/index管理は昇格可能、候補取得は昇格不可という評価を確定。17章を「Pilot方針・実施結果」へ改題し、第1・第2Pilotの実施結果（完了）を反映、17.5節「第3Pilot方針」を新設。Version1.0採用事項へ23〜27番を追加。Version2検討事項へ11〜14番（候補取得シグネチャ確定・refreshMode既定値確定・helper配置方式確定・第3Pilot対象選定）を追加。既存のM/R/C/U/A分類・Version1.0時点の1〜22番・directions-app/matching-appの実装コードは変更していない。 |
 
 ---
 
-*本文書v1.1は2026-08-08に承認済みである。共通Switch Scan実装の基準として運用を開始する。M/R/C/U分類・Version1.0採用事項（v1.1時点）・Version2検討事項は、今後のPilot・Review結果を踏まえた改訂の中で更新されうる。*
+*本文書v1.2は2026-08-08に承認済みである。共通Switch Scan実装の基準として運用を開始する。M/R/C/U分類・Version1.0採用事項（v1.2時点）・Version2検討事項は、今後のPilot・Review結果を踏まえた改訂の中で更新されうる。*
