@@ -1475,11 +1475,24 @@ document.getElementById('fullscreen-btn').addEventListener('click',()=>{
 //  SWITCH SCAN
 // ============================================================
 const SWITCH_SCAN_SELECTOR='.product-card,.cart-btn:not(:disabled),.icon-btn,.edit-btn-small,.scannable';
-function updateSwitchScanItems(){ if(!settings.switchScan) return; switchScanItems=Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR)); switchScanIndex=0; highlightScanItem(); }
-function startSwitchScan(){ stopSwitchScan(); switchScanItems=Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR)); switchScanIndex=0; highlightScanItem(); switchScanTimer=setInterval(()=>{ switchScanItems.forEach(e=>e.classList.remove('scan-focus')); switchScanIndex=(switchScanIndex+1)%switchScanItems.length; highlightScanItem(); },settings.scanSpeed); document.addEventListener('keydown',handleScanKey); }
-function stopSwitchScan(){ if(switchScanTimer){ clearInterval(switchScanTimer); switchScanTimer=null; } document.removeEventListener('keydown',handleScanKey); document.querySelectorAll('.scan-focus').forEach(e=>e.classList.remove('scan-focus')); }
+
+// buildScanItems: 候補取得（既存のSWITCH_SCAN_SELECTOR・スコープ無しqueryを無変更で抽出）
+function buildScanItems(){ return Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR)); }
+
+// refreshSwitchScanItems: 旧updateSwitchScanItemsの分岐・副作用（switchScan未有効時は何もしない）をそのまま保持
+function refreshSwitchScanItems(){ if(!settings.switchScan) return; switchScanItems=buildScanItems(); switchScanIndex=0; highlightScanItem(); }
+function updateSwitchScanItems(){ refreshSwitchScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+function startSwitchScan(){ stopSwitchScan(); switchScanItems=buildScanItems(); switchScanIndex=0; highlightScanItem(); switchScanTimer=setInterval(()=>{ switchScanItems.forEach(e=>e.classList.remove('scan-focus')); switchScanIndex=(switchScanIndex+1)%switchScanItems.length; highlightScanItem(); },settings.scanSpeed); document.addEventListener('keydown',handleScanKey); }
+function stopSwitchScan(){ if(switchScanTimer){ clearInterval(switchScanTimer); switchScanTimer=null; } document.removeEventListener('keydown',handleScanKey); clearScanHighlight(); }
 function highlightScanItem(){ const el=switchScanItems[switchScanIndex]; if(el) el.classList.add('scan-focus'); }
-function handleScanKey(e){ if(e.code==='Space'){ e.preventDefault(); const el=switchScanItems[switchScanIndex]; if(el) el.click(); } }
+
+// clearScanHighlight: 旧stopSwitchScan内のハイライト解除処理をそのまま抽出
+function clearScanHighlight(){ document.querySelectorAll('.scan-focus').forEach(e=>e.classList.remove('scan-focus')); }
+
+// activateCurrentScanItem: 旧handleScanKey内のclick()発火処理をそのまま抽出
+function activateCurrentScanItem(){ const el=switchScanItems[switchScanIndex]; if(el) el.click(); }
+function handleScanKey(e){ if(e.code==='Space'){ e.preventDefault(); activateCurrentScanItem(); } }
 
 // ============================================================
 //  HELP
