@@ -2587,7 +2587,8 @@ function changeScanInterval(delta) {
   if(switchScanEnabled) { stopScan(); startScan(); }
 }
 
-function getScanTargets() {
+// buildScanItems: 候補取得（旧getScanTargetsから抽出。tab-btn全体＋section内フィルタリングは無変更）
+function buildScanItems() {
   const section = document.querySelector('.section.active');
   if(!section) return [];
   const tabBtns = Array.from(document.querySelectorAll('.tab-btn'));
@@ -2606,28 +2607,44 @@ function getScanTargets() {
   });
   return [...tabBtns, ...sectionEls];
 }
+function getScanTargets() { return buildScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function startScan() {
-  stopScan();
-  scanElements = getScanTargets();
-  if(scanElements.length === 0) { setTimeout(startScan, 300); return; }
+// refreshSwitchScanItems: 候補配列の再取得のみ行う（idxリセット・highlightは呼び出し元の
+// 責務のまま残す。startSwitchScanの「0件時リトライ」判定をidxリセットより前に保つため）
+function refreshSwitchScanItems() {
+  scanElements = buildScanItems();
+}
+
+function startSwitchScan() {
+  stopSwitchScan();
+  refreshSwitchScanItems();
+  if(scanElements.length === 0) { setTimeout(startSwitchScan, 300); return; }
   scanIdx = 0;
   highlightScan();
   scanTimer = setInterval(() => {
-    scanElements = getScanTargets();
+    refreshSwitchScanItems();
     if(scanElements.length === 0) return;
     scanIdx = (scanIdx + 1) % scanElements.length;
     highlightScan();
   }, scanInterval * 1000);
 }
+function startScan() { startSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
 
-function stopScan() {
+function stopSwitchScan() {
   if(scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+  clearScanHighlight();
+}
+function stopScan() { stopSwitchScan(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+// clearScanHighlight: 旧stopScan・旧highlightScan冒頭で重複していたクリア処理を抽出
+function clearScanHighlight() {
   document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
 }
 
+// highlightScan: 現在候補へのハイライト付与（.scan-focus付与→scrollIntoView()、focus()は
+// 使用しないという既存仕様を保持）。内部helperとして6関数の外に残す。
 function highlightScan() {
-  document.querySelectorAll('.scan-focus').forEach(el => el.classList.remove('scan-focus'));
+  clearScanHighlight();
   const el = scanElements[scanIdx];
   if(el) {
     el.classList.add('scan-focus');
@@ -2635,18 +2652,24 @@ function highlightScan() {
   }
 }
 
+// activateCurrentScanItem: 旧handleScanKey内のclick()＋150ms後の候補再取得・再highlightを
+// そのまま抽出（150ms・Math.minによるidxクランプという既存タイミング仕様を完全維持）
+function activateCurrentScanItem() {
+  const el = scanElements[scanIdx];
+  if(el) el.click();
+  setTimeout(() => {
+    refreshSwitchScanItems();
+    if(scanElements.length > 0) {
+      scanIdx = Math.min(scanIdx, scanElements.length - 1);
+      highlightScan();
+    }
+  }, 150);
+}
+
 function handleScanKey(e) {
   if(e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
-    const el = scanElements[scanIdx];
-    if(el) el.click();
-    setTimeout(() => {
-      scanElements = getScanTargets();
-      if(scanElements.length > 0) {
-        scanIdx = Math.min(scanIdx, scanElements.length - 1);
-        highlightScan();
-      }
-    }, 150);
+    activateCurrentScanItem();
   }
 }
 
