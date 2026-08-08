@@ -1,15 +1,15 @@
-# どのまな 共通Switch Scan仕様書 v1.4
+# どのまな 共通Switch Scan仕様書 v1.5
 
-- 版: v1.4（**承認済み**）
-- 発行: 2026年8月（v1.0初版）／承認: 2026年8月8日（v1.1）／API確定: 2026年8月8日（v1.2）／3 Pilot Review確定: 2026年8月8日（v1.3）／配置方式正式決定: 2026年8月8日（v1.4）
-- 作成日: 2026-08-05（v1.0起草）／改訂日: 2026-08-08（v1.1・v1.2・v1.3・v1.4）
+- 版: v1.5（**承認済み**）
+- 発行: 2026年8月（v1.0初版）／承認: 2026年8月8日（v1.1）／API確定: 2026年8月8日（v1.2）／3 Pilot Review確定: 2026年8月8日（v1.3）／配置方式正式決定: 2026年8月8日（v1.4）／Rollout実装事実反映: 2026年8月8日（v1.5）
+- 作成日: 2026-08-05（v1.0起草）／改訂日: 2026-08-08（v1.1・v1.2・v1.3・v1.4・v1.5）
 - 位置づけ: `donomana-design-system-v2_0.html`（共通デザインシステム Ver.2.1）を**上位方針とする実装詳細の補足文書**。Design Systemの内容を置き換えるものではない。`donomana-modal-accessibility-spec-v1_0.md`（モーダルアクセシビリティ仕様書 v1.1）13章「Switch Scan」・21章未決定事項12番「全アプリ共通のSwitch Scan候補抽出方式の統一」を引き継ぎ、Switch Scan単独の共通仕様として分離・詳細化する文書である。
-- 根拠調査: Phase18.31-A「Switch Scan方式統一 調査」（kimochi-board.html・matching-app.html・directions-app.html・bosai-app.html の4アプリ・コードレビューのみ、コード変更なし）／v1.1改訂にあたり15アプリ規模の追加サンプリング監査を実施（1.4節・3.3節・6.1節参照）／v1.2は2つのPilot実装（directions-app・matching-app）の比較結果を根拠とする（16章）／v1.3は3つ目のPilot実装（schedule-app）を加えた3 Pilot比較の結果を根拠とする（18章）／v1.4は4つ目のPilot実装（okane-app）と21アプリ全対象の軽量inventory（Phase25-I）を加えた配置方式の正式決定を根拠とする（19章）
+- 根拠調査: Phase18.31-A「Switch Scan方式統一 調査」（kimochi-board.html・matching-app.html・directions-app.html・bosai-app.html の4アプリ・コードレビューのみ、コード変更なし）／v1.1改訂にあたり15アプリ規模の追加サンプリング監査を実施（1.4節・3.3節・6.1節参照）／v1.2は2つのPilot実装（directions-app・matching-app）の比較結果を根拠とする（16章）／v1.3は3つ目のPilot実装（schedule-app）を加えた3 Pilot比較の結果を根拠とする（18章）／v1.4は4つ目のPilot実装（okane-app）と21アプリ全対象の軽量inventory（Phase25-I）を加えた配置方式の正式決定を根拠とする（19章）／v1.5はGroup A Rollout第1波（katakana-app、Phase25-M／Phase25-M2）の実装・実ブラウザ検証・公開確認から得られた実装事実に基づく訂正を根拠とする（19.17節）
 - 起草: Phase18.31-B
-- 承認: v1.1として2026-08-08承認済み。v1.2はPilot実装結果を反映したAPI確定版として同日承認。v1.3は3 Pilot（directions-app・matching-app・schedule-app）の実装事実に基づくReviewとして同日承認。v1.4は4 Pilot＋21アプリinventoryに基づく配置方式の正式決定として同日承認。
+- 承認: v1.1として2026-08-08承認済み。v1.2はPilot実装結果を反映したAPI確定版として同日承認。v1.3は3 Pilot（directions-app・matching-app・schedule-app）の実装事実に基づくReviewとして同日承認。v1.4は4 Pilot＋21アプリinventoryに基づく配置方式の正式決定として同日承認。v1.5はkatakana-app Rollout実装事実に基づく訂正として同日承認。
 - 参照元: Phase18.31-A調査報告（本文書と同一セッション内で作成、4アプリの実装比較表を含む）
 
-> **本文書v1.4は2026-08-08に承認済みである。** 共通Switch Scan実装の基準として運用を開始する。ただし本文書が定めるのは主に「lifecycle・timer・highlight・activation・stop・cleanup・refresh」等の共通契約（16章参照）であり、候補取得方式（3.3節）や既存アプリのハイライトclass名（6.1節）を単一方式へ強制するものではない。**本文書の承認のみを理由に、既存の稼働中コード（`generate.js`・各アプリのHTML/JS）を一括改修することは求めない。** 16章のhelper API・adapter設計、18章の3 Pilot Review、19章の配置方式正式決定は、既に完了したdirections-app・matching-app・schedule-app・okane-appの4 Pilot実装（17章）の**事実に基づく**設計であり、いずれのPilotのコードへも変更を要求しない。**19章で正式採用した「方式C：各アプリ内保持」に基づき、残り17アプリへの段階的Rolloutを今後のPhaseで進める。**
+> **本文書v1.5は2026-08-08に承認済みである。** 共通Switch Scan実装の基準として運用を開始する。ただし本文書が定めるのは主に「lifecycle・timer・highlight・activation・stop・cleanup・refresh」等の共通契約（16章参照）であり、候補取得方式（3.3節）や既存アプリのハイライトclass名（6.1節）を単一方式へ強制するものではない。**本文書の承認のみを理由に、既存の稼働中コード（`generate.js`・各アプリのHTML/JS）を一括改修することは求めない。** 16章のhelper API・adapter設計、18章の3 Pilot Review、19章の配置方式正式決定は、既に完了したdirections-app・matching-app・schedule-app・okane-appの4 Pilot実装（17章）の**事実に基づく**設計であり、いずれのPilotのコードへも変更を要求しない。**19章で正式採用した「方式C：各アプリ内保持」に基づき、残り17アプリへの段階的Rolloutを今後のPhaseで進める。** **19.17節（v1.5で追加）は、Group A Rollout第1波（katakana-app）の実装事実に基づき、Strategy B実例・highlight方式・Group A分類・21アプリinventoryの位置づけに関する訂正を記録する。新たな仕様の追加ではない。**
 
 ---
 
@@ -127,7 +127,7 @@ v1.1改訂にあたり15アプリ規模の追加サンプリングを行った�
 
 - 長所: HTMLのsemanticsと自然に整合する。新規要素を追加しても、それが標準的な操作可能要素であれば個別にmarkerを付与しなくても自動的に候補へ含まれる。共通chromeも、`generate.js`側で`.scannable`クラスの付与有無に関わらず、実体が`<button>`／`<a href>`であれば自然に候補へ入る。
 - 留意点: 意図せず操作対象に含めたくない要素（装飾目的の`<a>`等）まで候補になる可能性があり、除外条件を別途用意する必要がある。
-- 実例: schedule-app.htmlの**モーダルFocus Trap**（Switch Scanとは別機能）が`querySelectorAll('button, input, select, textarea, a[href], [tabindex]')`という包括セレクタを用いている。**（v1.3訂正）** v1.1時点の本節はこのFocus Trap用セレクタをschedule-appのSwitch Scan候補取得方式として誤って記載していた。schedule-app Pilot（Phase25-G）でのコード確認の結果、Switch Scanの実際の候補取得（`buildScanItems()`）は`document.querySelectorAll('.v-item')`という単純なclassセレクタであり、Strategy Bの実例ではないことが判明した。正しい分類は18.4節を参照。
+- 実例: schedule-app.htmlの**モーダルFocus Trap**（Switch Scanとは別機能）が`querySelectorAll('button, input, select, textarea, a[href], [tabindex]')`という包括セレクタを用いている。**（v1.3訂正）** v1.1時点の本節はこのFocus Trap用セレクタをschedule-appのSwitch Scan候補取得方式として誤って記載していた。schedule-app Pilot（Phase25-G）でのコード確認の結果、Switch Scanの実際の候補取得（`buildScanItems()`）は`document.querySelectorAll('.v-item')`という単純なclassセレクタであり、Strategy Bの実例ではないことが判明した。正しい分類は18.4節を参照。**（v1.5追記）** katakana-app（Group A Rollout第1波、Phase25-M）のSwitch Scan候補取得（`buildScanItems()`）は`active.querySelectorAll('button,[tabindex="0"]')`（`.section.active`スコープ）という包括queryであり、**Strategy Bの正式な実例**であることをRollout実装のコード確認で確認した。19.2節「Strategy B実例0件」はこの実装事実により訂正する（19.17.1節参照）。
 
 **Strategy C：巨大な明示的CSSセレクタ列挙方式（v1.3で追加）**
 
@@ -632,7 +632,7 @@ matching-appのタッチ短押し、schedule-appのscan-touch-btn／ArrowRight�
 ### 19.2 判断材料の要約
 
 - **4 Pilot（directions-app・matching-app・schedule-app・okane-app）** — Strategy A・C、scope screen/modal/tab/global、refreshMode snapshot/perTick/restartOnActivate、activation click()/内部関数直接呼び出し/advance-select分離、common chrome含有/除外、state object/bare global、常時listener/動的listenerを実証
-- **21アプリinventory（Phase25-I）** — 自動走査型21件（apps-data.json上の旧21件表記とは3件構成が異なる、1.5節・18章参照）、common chrome含有11件:除外10件、highlightClass 9パターン（`.scan-focus`10件／`.scan-highlight`3件／`.scanning`2件／`.scan-focused`・`.shi`・`.scfoc`・`.scan-lit`各1件／native focus 2件）、Strategy B実例0件、Strategy C 1件（okane-app、Pilot済み）、視線入力密結合1件（kimochi-board）、setTimeoutチェーン1件（bosai-app）
+- **21アプリinventory（Phase25-I）** — 自動走査型21件（apps-data.json上の旧21件表記とは3件構成が異なる、1.5節・18章参照）、common chrome含有11件:除外10件、highlightClass 9パターン（`.scan-focus`10件／`.scan-highlight`3件／`.scanning`2件／`.scan-focused`・`.shi`・`.scfoc`・`.scan-lit`各1件／native focus 2件）、Strategy B実例0件（**v1.5訂正**: Group A Rollout第1波〔katakana-app、Phase25-M〕の直接コード確認により誤りと判明。katakana-appはStrategy Bの実例である。19.17.1節参照）、Strategy C 1件（okane-app、Pilot済み）、視線入力密結合1件（kimochi-board）、setTimeoutチェーン1件（bosai-app）
 
 ### 19.3 正式採用方式
 
@@ -694,12 +694,14 @@ C方式の採用は、**コードファイルを物理的に共有しないこ�
 
 Pilot済み4アプリ（directions-app・matching-app・schedule-app・okane-app）を除く、残り17アプリを以下へ分類する。
 
-- **Group A（低リスク、`.scan-focus`使用でPilotに構造が近い、7件）**: katakana-app・janken-app・shiritori2・register-app・timetable-app・cup_game・kyou-no-kiroku
+- **Group A（低リスク、`.scan-focus`使用でPilotに構造が近い、7件）**: katakana-app（**v1.5注記**: Group A Rollout第1波〔Phase25-M〕の実装確認により、実際のhighlightは`.scan-focus`ではなくnative focus方式であることが判明した。19.17.2節参照）・janken-app・shiritori2・register-app・timetable-app・cup_game・kyou-no-kiroku
 - **Group B（highlightClass違い、6件）**: nazori-app・bosai-app（`.scan-highlight`）、ongaku-app（`.scanning`）、time-timer（`.scan-focused`）、sugoroku-app（`.shi`）、yomikaki-app（`.scfoc`）
 - **Group C（scope/特殊事情、2件）**: kimochi-board（視線入力密結合）、gaze-keyboard（複数グループ結合+modal内包）
 - **Group D（native focus・timer方式が異なる、2件）**: hiragana-learn・suji-manabou
 
 Group B中、bosai-appはsetTimeoutチェーン・advance/select分離という追加の固有事情を持つため、Rollout時はGroup Bの他アプリより慎重な個別検証を要する（19.12節）。
+
+**（v1.5追記）** 本節の分類はPhase25-I軽量inventoryに基づく**一次スクリーニング**であり、個々のアプリの実装詳細（Strategy・highlightClass等）を保証するものではない。katakana-appの事例が示す通り、Rollout Pilot実装の着手前には必ず直接コード確認を行うこと（19.17.4節参照）。
 
 ### 19.10 最初のRollout候補
 
@@ -730,11 +732,35 @@ hiragana-learn・suji-manabouは`setInterval`ベースの自動走査を持つ�
 
 21アプリinventory（Phase25-I）により、apps-data.json上の「スイッチ」表記21件と、実装確認済みの自動走査型21件は、**総数は一致するが具体的な構成が3件異なる**ことが判明した（tokei-app・mogura-tataki・tyushiを除外し、timetable-app・yomikaki-app・gaze-keyboardを追加、1.5節参照）。この訂正をapps-data.json自体へ反映するかどうかは、利用者向けA11y表記としての正確性（実装上の分類と、利用者にとっての実際の操作可能性は必ずしも1対1で対応しない）を踏まえ、別Phaseで判断する。**本v1.4ではapps-data.jsonを変更しない。**
 
+### 19.17 Rollout実装事実による訂正（v1.5で追加）
+
+Group A Rollout第1波（katakana-app、Phase25-M／Phase25-M2）の実装・実ブラウザ検証・公開確認により、以下の訂正を記録する。**本節はRolloutから得られた実装事実に基づく訂正であり、新たな仕様の追加ではない。**
+
+#### 19.17.1 Strategy B実例の訂正
+
+19.2節「Strategy B実例0件」は誤りであった。katakana-appの候補取得（`buildScanItems()`、Phase25-Mで既存ロジックから抽出）は`active.querySelectorAll('button,[tabindex="0"]')`（`.section.active`スコープ）という包括query方式であり、3.3節Strategy Bの正式な実例である。3.3節のStrategy B「実例」欄へkatakana-appを追加した。
+
+#### 19.17.2 katakana-appのhighlight方式の訂正
+
+19.9節はkatakana-appを「`.scan-focus`使用」としてGroup Aへ分類していたが、実装事実としては`.scan-focus`クラスは一切付与されておらず（既存コード中に削除処理のみ存在する、実際には機能していないコード）、実際のハイライトはネイティブ`element.focus()`と`body.scan-mode`スコープのCSS `:focus`ルールにより実現されている。この方式は19.13節が記録するnative focus系（hiragana-learn・suji-manabou、Group D）と構造的に同種である。
+
+#### 19.17.3 Group A定義の再評価
+
+19.9節のGroup A定義（「`.scan-focus`使用でPilotに構造が近い」）は、katakana-appについては実装事実と一致しない。Group Aの他アプリ（janken-app・shiritori2・register-app・timetable-app・cup_game・kyou-no-kiroku）についても、Phase25-I軽量inventoryの分類のみに基づく推定であり、個別コード確認による裏付けを経ていない。**Group Aという分類名・グルーピング自体は維持するが、「`.scan-focus`使用」という前提は個々のアプリごとに再確認が必要な仮説として扱う。** katakana-appはGroup Aへ留め置く（Rollout単位としての区分は妥当であるため）が、highlightClass optionの適用にあたってはGroup D同様のnative focus対応が必要になりうることを注記する。
+
+#### 19.17.4 21アプリinventory（Phase25-I）の位置づけの明確化
+
+19.2節・19.9節が根拠とする21アプリinventory（Phase25-I）は、**一次スクリーニング（lightweight inventory）であり、個々のアプリの実装詳細を保証するものではない。** katakana-appの事例が示す通り、highlightClassやStrategy分類はコードの直接確認なしには確定できない場合がある。**今後のRollout実施にあたっては、Phase25-M（katakana-app）で確立した事前調査手順（候補取得関数・Strategy分類・scope・refreshMode・timer・state・highlight class・start/stop/activation・common chrome等の直接コード確認）を、各アプリのPilot実装着手前に必須のステップとする。** Phase25-I inventoryの結果のみを根拠に実装へ着手してはならない。
+
+#### 19.17.5 訂正の位置づけ
+
+本節の訂正はいずれも、Group A Rollout第1波（katakana-app、Phase25-M／Phase25-M2）という**実際のRollout実装・実ブラウザ検証・公開確認から得られた事実**に基づく。19.3節（方式C正式採用）・19.4節（採用理由）・19.14節（第5Pilot不要判定）等、配置方式そのものの決定には影響しない。本節は既存記述の訂正・明確化であり、新たな仕様・helper API・Strategy・配置方式・Rollout手順の追加ではない。
+
 ---
 
-## Version1.0採用事項（v1.4時点）
+## Version1.0採用事項（v1.5時点）
 
-以下は、本仕様書で共通方針として採用する（**M**または**R**として本文中に明記した事項の一覧）。1〜17番はv1.0時点の採用事項、18〜22番はv1.1で追加した事項、23〜27番はv1.2で追加した事項、28〜38番はv1.3で追加した事項、39番以降はv1.4で追加した事項である。
+以下は、本仕様書で共通方針として採用する（**M**または**R**として本文中に明記した事項の一覧）。1〜17番はv1.0時点の採用事項、18〜22番はv1.1で追加した事項、23〜27番はv1.2で追加した事項、28〜38番はv1.3で追加した事項、39〜48番はv1.4で追加した事項、49番以降はv1.5で追加した事項である。
 
 1. Switch Scan対応済みアプリは、Spaceキーによる決定操作を実装する（2.1節M1・7.2節M1）。
 2. Switch Scanのタイマーと通常のTab操作を競合させない（2.1節M2）。
@@ -784,6 +810,11 @@ hiragana-learn・suji-manabouは`setInterval`ベースの自動走査を持つ�
 46. bosai-app・native focus系（hiragana-learn・suji-manabou）をRollout時に個別の軽量検証が必要な対象として記録する（19.12節・19.13節）。
 47. 第5Pilotは本v1.4時点では不要と判定する（19.14節）。
 48. 将来の方式A/Bへの移行条件を明記する（19.7節）。
+49. katakana-appのSwitch Scan候補取得（`buildScanItems`）はStrategy B（ネイティブ操作要素包括取得方式）の実例であることを、Group A Rollout第1波の実装事実により確定する。19.2節「Strategy B実例0件」の記述を訂正する（19.17.1節）。
+50. katakana-appのhighlight方式はネイティブ`element.focus()`＋`body.scan-mode`スコープのCSS `:focus`であり、`.scan-focus`クラスは使用しないことを、Rollout実装事実により確定する。19.9節のGroup A分類における「`.scan-focus`使用」という前提はkatakana-appに関して誤りであったことを記録する（19.17.2節）。
+51. Group Aの分類（19.9節）は個々のアプリの実装詳細を保証しないPhase25-I軽量inventoryに基づく一次スクリーニングであることを明確化する。katakana-appはGroup Aへ留め置くが、highlightClass optionの適用にはGroup D相当のnative focus対応が必要になりうる旨を注記する（19.17.3節）。
+52. 21アプリinventory（Phase25-I）は一次スクリーニングであり、Rollout Pilot実装の着手前には各アプリの直接コード確認（候補取得関数・Strategy分類・scope・refreshMode・timer・state・highlight class等）を必須のステップとすることを明記する（19.17.4節）。
+53. 本節（19.17節）の訂正はGroup A Rollout第1波（katakana-app、Phase25-M／M2）という実際のRollout実装から得られた事実に基づくものであり、配置方式そのもの（19.3節・19.4節・19.14節）の決定には影響しないことを明記する（19.17.5節）。
 
 ## Version2検討事項
 
@@ -801,6 +832,7 @@ hiragana-learn・suji-manabouは`setInterval`ベースの自動走査を持つ�
 10. apps-data.json上の「スイッチ」関連表記21件と、実装確認済みの自動走査型21件は総数が一致するが具体的な構成が3件異なることが判明した（1.5節・19.16節）。この訂正をapps-data.json自体へ反映するかどうかは、利用者向けA11y表記としての正確性を踏まえ別Phaseで判断する
 11. 将来の方式A/B移行条件（19.7節）が満たされた際の、具体的な注入・配信設計そのもの（本v1.4は移行「条件」のみを定義し、条件充足後の実装設計は対象外）
 12. Group C（kimochi-board・gaze-keyboard）・bosai-app・Group D（native focus系）のRollout時の個別検証項目の具体化（19.11節〜19.13節）
+13. Group Aの残り6アプリ（janken-app・shiritori2・register-app・timetable-app・cup_game・kyou-no-kiroku）の個別コード確認結果を踏まえた、Group A定義（「`.scan-focus`使用」）自体の見直しの要否（19.17.3節、katakana-appの事例を踏まえた検討事項）
 
 ---
 
@@ -815,7 +847,8 @@ hiragana-learn・suji-manabouは`setInterval`ベースの自動走査を持つ�
 | v1.2 | 2026-08-08 | **API確定版**（Phase25-Eで確定。根拠: Phase25-C〔directions-app Pilot〕・Phase25-D〔matching-app Pilot〕の2実装比較。コード変更は伴わない設計Phase）。16.3節を拡充し、adapter側（アプリ固有）に残る責務を6項目で確定。16.5節を新設し、共通helper APIを`buildScanItems`/`startSwitchScan`/`stopSwitchScan`/`refreshSwitchScanItems`/`activateCurrentScanItem`/`clearScanHighlight`の6関数名で正式に確定（2 Pilotとも同一関数名で実装できることを実証済み）。16.6節を新設し、2 Pilot比較で判明した3つの実装フォーク（候補取得シグネチャ・候補再取得タイミング snapshot／perTick・activate実装方式）を記録し、いずれも既存Pilotのコード変更を要求しないことを明記。16.7節を新設し、helper/adapter/option/callback/stateの命名規則を確定。16.8節を新設し、stop/clear/activate/timer管理/index管理は昇格可能、候補取得は昇格不可という評価を確定。17章を「Pilot方針・実施結果」へ改題し、第1・第2Pilotの実施結果（完了）を反映、17.5節「第3Pilot方針」を新設。Version1.0採用事項へ23〜27番を追加。Version2検討事項へ11〜14番（候補取得シグネチャ確定・refreshMode既定値確定・helper配置方式確定・第3Pilot対象選定）を追加。既存のM/R/C/U/A分類・Version1.0時点の1〜22番・directions-app/matching-appの実装コードは変更していない。 |
 | v1.3 | 2026-08-08 | **3 Pilot Review確定版**（Phase25-Hで確定。根拠: Phase25-C/C2〔directions-app〕・Phase25-D/E2〔matching-app〕・Phase25-F/G/G2〔schedule-app〕の3 Pilot実装比較。コード変更は伴わない設計Phase）。3.3節を訂正し、schedule-appの候補取得方式をv1.1時点の誤記載（Strategy Bの実例として記載）から正しい内容（`.v-item`単純classセレクタ、Strategy Bの実例ではなかった）へ修正。同節へStrategy C（巨大な明示的CSSセレクタ列挙方式、okane-app実例、Phase25-F確認）を新規追加。7.2節M2へschedule-appのclick()要件に関する確認済み事実（`toggleCheck()`直接呼び出し、候補要素自身のclickリスナーと等価であることをコード確認済み）を追記。7.3節へ7番目の例外として正式記録。17.1節を更新し3 Pilotとも実施済み・完了・公開統合済みへ更新。17.5節を更新し第3Pilotの実施結果を反映。18章「3 Pilot総括Review」を新設し、3 Pilot比較表（18.2節）、6関数構造の維持確認（18.3節）、`buildScanItems`契約の確定（18.4節）、candidate Strategy再整理（18.5節）、`refreshMode`の3値化（18.6節、`restartOnActivate`を新規命名）、`switchMode`のadapter option化（18.7節）、`activateCurrentScanItem`の結果ベース定義への抽象化（18.8節）、click()要件との整合確認（18.9節、コード確認に基づく）、callback設計（`onActivate`/`onAdvance`/`onSelect`、18.10節）、advance/select設計（18.11節）、state方針の維持（18.12節）、`highlightClass`のoption正式化（18.13節）、common chromeの両パターン容認（18.14節）、scopeモデル（screen/modal/tab）の明記（18.15節）、特殊入力の扱い（18.16節）、視線入力との分離維持（18.17節）、generate.js配置方式の評価（18.18節、未確定のまま）、第4Pilot必要性の評価（18.19節、対象未確定）、21アプリinventoryの実施時期（18.20節、配置方式決定直前の軽量調査と位置づけ）を新設。Version1.0採用事項へ28〜38番を追加。Version2検討事項を整理し、解決済み項目（旧11番buildScanItemsシグネチャ・旧14番第3Pilot選定）を削除、残存項目を1〜13番へ整理（新規12・13番として動的listener着脱・Strategy C実証を追加）。既存のM/R/C/U/A分類・Version1.0〜v1.2時点の1〜27番・3 Pilotの実装コードは変更していない。 |
 | v1.4 | 2026-08-08 | **配置方式正式決定版**（Phase25-Lで確定。根拠: Phase25-J〔okane-app 第4Pilot、Strategy C・動的listener着脱の実証〕とPhase25-I〔21アプリ全対象軽量inventory〕。コード変更は伴わない設計Phase）。19章「配置方式正式決定」を新設し、4 PilotとinventoryのSummary（19.2節）、正式採用方式（方式C：各アプリHTML内保持、19.3節）とその理由（19.4節）、「共通化しない」という意味ではないことの明確化（コードは共有しないが6関数名称・責務・API契約・M/R要件・option/callback概念・Pilot手順という契約レベルは共通化する、19.5節）、適用期間（当面、19.6節）、将来の方式A/B移行条件（19.7節）、Rollout単位（19.8節）、残17アプリのGroup A〜D分類（19.9節）、最初のRollout候補`katakana-app`の提案（19.10節）、kimochi-board・gaze-keyboardの個別扱い（19.11節）、bosai-appの個別扱い（19.12節）、native focus系（hiragana-learn・suji-manabou）の個別扱い（19.13節）、第5Pilot不要の判定（19.14節）、判断確度「高」（19.15節）、apps-data.json整合の記録（19.16節、変更は別Phase）を新設。Version1.0採用事項へ39〜48番を追加。Version2検討事項を整理し、解決済み項目（旧11番配置方式確定・旧12番動的listener組み込み・旧13番Strategy C実証）を削除、残存項目を1〜12番へ整理（新規10〜12番としてapps-data.json構成差・移行条件充足後の実装設計・Group C/D個別検証の具体化を追加）。既存のM/R/C/U/A分類・Version1.0〜v1.3時点の1〜38番・4 Pilotの実装コードは変更していない。 |
+| v1.5 | 2026-08-08 | **Rollout実装事実反映版**（Phase25-Nで確定。根拠: Group A Rollout第1波〔katakana-app〕の実装〔Phase25-M〕・統合公開確定〔Phase25-M2〕から得られた実装事実。コード変更は伴わない訂正Phase）。19.16節の直後へ19.17節「Rollout実装事実による訂正」を新設し、以下を記録した：katakana-appのSwitch Scan候補取得はStrategy Bの正式な実例であり19.2節「Strategy B実例0件」は誤りだったこと（19.17.1節）、katakana-appの実際のhighlight方式は`.scan-focus`ではなくネイティブ`element.focus()`＋`body.scan-mode`スコープのCSS `:focus`であり19.9節のGroup A分類の前提はkatakana-appに関して誤りだったこと（19.17.2節）、Group Aという分類名・グルーピング自体は維持しつつ「`.scan-focus`使用」という前提は個々のアプリごとの再確認が必要な仮説として扱うこと（19.17.3節）、21アプリinventory（Phase25-I）は一次スクリーニングでありRollout Pilot着手前の直接コード確認を必須ステップとすること（19.17.4節）、本節の訂正が配置方式そのもの（19.3節・19.4節・19.14節）の決定には影響しない実装事実に基づく訂正であること（19.17.5節）。あわせて3.3節のStrategy B「実例」欄へkatakana-appを追記、19.2節・19.9節へ該当箇所の訂正注記を追加。Version1.0採用事項へ49〜53番を追加。Version2検討事項へ13番（Group A残り6アプリのコード確認結果を踏まえたGroup A定義見直しの要否）を追加。**本改訂は新仕様の追加ではなく、既存の記述を実装事実へ合わせる訂正である。** helper API・Strategy種別・配置方式（19.3節）・Rollout手順（14章・19.8節）はいずれも変更していない。既存のM/R/C/U/A分類・Version1.0〜v1.4時点の1〜48番・5 Pilotおよびkatakana-app Rolloutの実装コードは変更していない。 |
 
 ---
 
-*本文書v1.4は2026-08-08に承認済みである。共通Switch Scan実装の基準として運用を開始する。M/R/C/U分類・Version1.0採用事項（v1.4時点）・Version2検討事項は、今後のRollout・Review結果を踏まえた改訂の中で更新されうる。*
+*本文書v1.5は2026-08-08に承認済みである。共通Switch Scan実装の基準として運用を開始する。M/R/C/U分類・Version1.0採用事項（v1.5時点）・Version2検討事項は、今後のRollout・Review結果を踏まえた改訂の中で更新されうる。*
