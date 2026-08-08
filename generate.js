@@ -1570,99 +1570,6 @@ function updateAppIntroHTML(apps) {
 }
 
 // ============================================================
-//  4. index.html の「場面・目的から探す」セクションを自動更新
-//  ・PURPOSE_CARDS_TRUTH に各目的カードの所属アプリを登録
-//  ・新規アプリ追加時はここに id を追加するだけで自動反映される
-// ============================================================
-const PURPOSE_CARDS_TRUTH = {
-  // theme クラス名 → そのカードに所属するアプリの id 配列
-  'theme-ishi': {
-    title: '思いを伝えたい子に',
-    ids: ['kimochi-board', 'drawing-app', 'yomikaki-app', 'kyou-no-kiroku', 'gaze-keyboard', 'ongaku-app']
-  },
-  'theme-jikan': {
-    title: '時間の見通しを持たせたい',
-    ids: ['schedule-app', 'tokei-app', 'timetable-app']
-  },
-  'theme-moji': {
-    title: '文字に興味を持ち出した子に',
-    ids: ['hiragana-learn', 'katakana-app', 'nazori-app', 'yomikaki-app', 'shiritori2', 'suji-manabou']
-  },
-  'theme-seikatsu': {
-    title: '生活スキルを育てたい',
-    ids: ['okane-app', 'register-app', 'schedule-app', 'timetable-app', 'bosai-app', 'directions-app']
-  },
-  'theme-sst': {
-    title: '友達との関わりを育てたい',
-    ids: ['sst-app', 'janken-app', 'sugoroku-app', 'matching-app']
-  },
-  'theme-switch': {
-    title: '視線入力やスイッチを使う子に',
-    ids: ['kimochi-board', 'hiragana-learn', 'schedule-app', 'matching-app', 'janken-app', 'tyushi', 'cup_game', 'kyou-no-kiroku', 'gaze-keyboard', 'mogura-tataki']
-  },
-  'theme-sousaku': {
-    title: '創作・表現活動をしたい',
-    ids: ['drawing-app', 'slideshow-sakusei', 'ongaku-app']
-  },
-};
-
-function updatePurposeCards(apps) {
-  const indexPath = './index.html';
-  if (!fs.existsSync(indexPath)) return;
-  let html = fs.readFileSync(indexPath, 'utf-8');
-
-  // id → app マップ
-  const byId = Object.fromEntries(apps.map(a => [a.id, a]));
-
-  let updated = 0;
-  for (const [themeClass, def] of Object.entries(PURPOSE_CARDS_TRUTH)) {
-    const targetApps = def.ids.map(id => byId[id]).filter(Boolean);
-    if (targetApps.length === 0) continue;
-
-    // applyPurposeFilter の引数(タイトル配列) と、 purpose-apps の中身(リンクタグ群) を生成
-    const titlesArg = targetApps.map(a => `'${a.title.replace(/'/g, "\\'")}'`).join(',');
-    const tagsHTML  = targetApps.map(a => {
-      // タグの表示名は短縮版を使う(タイトル→短縮表記)
-      const display = (a.title || '')
-        .replace(' まなぼう！', '')
-        .replace(' サポートエディタ', '')
-        .replace('はんばいかい レジ', 'レジマスター')
-        .replace('SST ソーシャルスキルトレーニング', 'SST')
-        .replace('ぼうさいたんけんたい', 'ぼうさい')
-        .replace('ほうこうとばしょをまなぼう', 'ほうこうとばしょ')
-        .replace('スライドショー作成', 'スライドショー')
-        .replace('どこかな?カップゲーム', 'どこかな?')
-        .replace('どこかな？カップゲーム', 'どこかな？')
-        .replace('マッチング', 'マッチング(対戦)');
-      return `          <a class="purpose-app-tag" href="${a.filename}.html">${display}</a>`;
-    }).join('\n');
-
-    // index.html 内の該当 purpose-card を正規表現で置換
-    // パターン: <div class="purpose-card themeClass" onclick="applyPurposeFilter([...])"> ... </div>
-    // 中身の onclick の引数と、purpose-apps の中身を更新
-    const cardRegex = new RegExp(
-      `(<div class="purpose-card ${themeClass}" onclick="applyPurposeFilter\\()(\\[[^\\]]*\\])(\\)">[\\s\\S]*?<div class="purpose-apps">)([\\s\\S]*?)(\\s*</div>\\s*</div>)`,
-      'g'
-    );
-    const newOnclick = `[${titlesArg}]`;
-    const before = html;
-    html = html.replace(cardRegex, (m, p1, p2, p3, p4, p5) => {
-      // p5(既存の空白+閉じタグ)は実行のたびに空白が蓄積し得るため使わず、
-      // 閉じタグ部分を固定書式で再構築する(この領域は完全自動生成のため情報損失なし)
-      return p1 + newOnclick + p3 + '\n' + tagsHTML + '\n        </div>\n      </div>';
-    });
-    if (html !== before) updated++;
-  }
-
-  if (updated > 0) {
-    // VS除去は廃止(絵文字を壊すため)
-    html = injectFavicon(html).html; // 冪等(既存があれば置換)
-    fs.writeFileSync(indexPath, html, 'utf-8');
-    console.log(`✅ index.html の「場面・目的から探す」を更新しました (${updated}/${Object.keys(PURPOSE_CARDS_TRUTH).length}カード)`);
-  }
-}
-
-// ============================================================
 //  5. index.html の 更新履歴(CHANGELOG)を自動更新
 //  ・apps-data.json の各アプリに releaseDate (YYYY-MM-DD) があれば
 //    「YYYY年M月D日 「タイトル」を公開しました」を自動追加
@@ -1876,9 +1783,6 @@ updateIndexHTML(appsResult);
 
 // 3. app-intro.html の panel-all を更新
 updateAppIntroHTML(apps);
-
-// 4. index.html の「場面・目的から探す」を更新
-updatePurposeCards(apps);
 
 // 5. index.html の 更新履歴を更新
 updateChangelog(apps);
