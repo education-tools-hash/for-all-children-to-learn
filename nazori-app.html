@@ -1767,8 +1767,12 @@ function applySettings() {
 let scanTimer = null;
 let scanIdx = 0;
 
-// スキャン対象：現在アクティブな表示エリア内の可視ボタンのみ
-function getScanTargets() {
+// buildScanItems: 候補生成ロジック(旧getScanTargetsから抽出)。.scannable common chrome取得・
+// .panel.active scope・tab-practice時のsingle/wide 2段scope・button:not([disabled])・
+// offsetParent===null除外・getBoundingClientRect().width/height>0除外・globalCtrlsを末尾へ
+// concat、という既存意味論を完全維持する純関数。inert/aria-hidden除外・重複排除・
+// getClientRects方式への置換は新規追加しない。
+function buildScanItems() {
   const globalCtrls = Array.from(document.querySelectorAll('.scannable'));
   // アクティブパネルを取得
   const activePanel = document.querySelector('.panel.active');
@@ -1795,16 +1799,27 @@ function getScanTargets() {
     })
     .concat(globalCtrls);
 }
+function getScanTargets() { return buildScanItems(); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
-function startScan() {
-  stopScan();
+// refreshSwitchScanItems: tickScan()冒頭の候補再取得責務のみを最小限抽出する。
+// scanIdxの進行・wrap・highlight・listener付与・TTS・timer再予約はtickScan()側に
+// そのまま残し、無理にrefresh側へ集約しない(既存のperTick意味論を維持)。
+function refreshSwitchScanItems() {
+  return buildScanItems();
+}
+
+function startSwitchScan() {
+  stopSwitchScan();
   scanIdx = 0;
   document.body.classList.add('scan-active');
   tickScan();
 }
+function startScan() { startSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
-function stopScan() {
-  if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+// clearScanHighlight: 旧stopScan()に存在した「.scan-highlight全解除+動的_scanClickHandler
+// 解除」処理のみを抽出する。tickScan()冒頭の同処理には影響しない(tickScan()は内部helperと
+// して無変更のまま維持する)。
+function clearScanHighlight() {
   document.querySelectorAll('.scan-highlight').forEach(el => {
     el.classList.remove('scan-highlight');
     if (el._scanClickHandler) {
@@ -1812,8 +1827,14 @@ function stopScan() {
       delete el._scanClickHandler;
     }
   });
+}
+
+function stopSwitchScan() {
+  if (scanTimer) { clearTimeout(scanTimer); scanTimer = null; }
+  clearScanHighlight();
   document.body.classList.remove('scan-active');
 }
+function stopScan() { stopSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
 function tickScan() {
   // 前のハイライトをクリア
@@ -1859,25 +1880,27 @@ function tickScan() {
   scanTimer = setTimeout(tickScan, settings.scanInterval * 1000);
 }
 
-// スキャン決定：ハイライト中ボタンを決定する。
-// 旧実装はhighlight解除とtimer再スケジュールのみを行い、対象のclick()自体を発火させて
-// いなかったため、Space/Enterキー（外付けスイッチ含む）では実際に候補を決定できない
-// 既存不具合があった（Phase25-AMで発見）。tickScan()が各対象へ動的に付与する
-// _scanClickHandler（highlight解除・timer停止・400ms後再開を担う、direct clickと共通の
-// 決定後処理）へそのまま委譲することで、direct clickと同一の決定処理経路に統合する。
-function selectScanTarget() {
+// activateCurrentScanItem: スキャン決定。ハイライト中ボタンを決定する。
+// 旧実装(selectScanTarget、Phase25-AN修正版)はhighlight解除とtimer再スケジュールのみを
+// 行い、対象のclick()自体を発火させていなかったため、Space/Enterキー（外付けスイッチ含む）
+// では実際に候補を決定できない既存不具合があった（Phase25-AMで発見、Phase25-ANで修正）。
+// tickScan()が各対象へ動的に付与する_scanClickHandler（highlight解除・timer停止・
+// 400ms後再開を担う、direct clickと共通の決定後処理）へそのまま委譲することで、
+// direct clickと同一の決定処理経路に統合する。400ms restart処理をここで重複実装しない。
+function activateCurrentScanItem() {
   if (!settings.switchScan) return;
   const highlighted = document.querySelector('.scan-highlight');
   if (highlighted) {
     highlighted.click();
   }
 }
+function selectScanTarget() { activateCurrentScanItem(); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
 document.addEventListener('keydown', e => {
   if (!settings.switchScan) return;
   if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault();
-    selectScanTarget();
+    activateCurrentScanItem();
   }
 });
 
