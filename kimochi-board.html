@@ -1889,7 +1889,28 @@ resetBtn.addEventListener('click', async () => {
 });
 
 /* ── スキャン ── */
-function startScan() {
+// buildScanItems: 候補生成ロジック。既存のconst cards(querySelectorAll('.card, .scannable')、
+// 初回1回のみ計算される静的配列)をそのまま返す。Phase25-ARで実カード4枚・common chrome 4枚
+// いずれもDOM要素自体は恒久的に追加/削除されないことを確認済みのため、helper6化を理由に
+// 動的な再取得へ変更しない。既存の静的candidate意味論を完全維持する。
+function buildScanItems() {
+  return cards;
+}
+
+// refreshSwitchScanItems: helper6の共通APIとして用意する。kimochi-boardは既存DOMが固定で
+// あり頻繁な再取得を必要としないため、buildScanItems()を呼ぶだけの最小構造とし、既存の
+// どの呼び出し元にも新たに組み込まない(「helper6だから必ず呼ぶ」という新しい挙動を導入しない)。
+function refreshSwitchScanItems() {
+  return buildScanItems();
+}
+
+// clearScanHighlight: 旧stopScan()に含まれていた「.scanning全解除」処理のみを抽出する。
+// 進捗バーのreset処理はhighlight責務と別のため、ここには含めない。
+function clearScanHighlight() {
+  cards.forEach(c => c.classList.remove('scanning'));
+}
+
+function startSwitchScan() {
   if (state.gazeEnabled) return; // 視線入力中は通常のオートスキャンを使わない
   if (scanInterval) clearInterval(scanInterval);
   const ms = Math.round(INTERVAL_STEPS[state.intervalIndex] * 1000);
@@ -1901,12 +1922,19 @@ function startScan() {
     animateBar(ms);
   }, ms);
 }
-function stopScan() {
+function startScan() { startSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
+function stopSwitchScan() {
   clearInterval(scanInterval); scanInterval = null;
   scanBarFill.style.transition = 'none';
   scanBarFill.style.width = '0%';
-  cards.forEach(c => c.classList.remove('scanning'));
+  clearScanHighlight();
 }
+function stopScan() { stopSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
+// highlightCard: 「指定candidateをhighlightする」という既存の別責務として維持する。
+// switchScanだけでなくgaze/dwellポインター選択(onPointerMove)からも共有で呼ばれるため、
+// helper6へは統合せず内部helperとして無変更のまま残す。
 function highlightCard(i) {
   cards.forEach((c,j) => c.classList.toggle('scanning', j === i));
 }
@@ -1919,7 +1947,12 @@ function animateBar(ms) {
 }
 
 /* ── 選択 ── */
-function selectCard(index) {
+// activateCurrentScanItem: 既存selectCard(index)のactivation意味論(candidate type別分岐)を
+// そのまま維持する。common chrome(.cardクラスを持たない候補)はclick()委譲、実カードは
+// stop→beep→TTS→result表示→overlay表示→1600ms→guard付きrestartという既存アプリ固有の
+// 決定フローを完全維持する。全candidateを単純click()へ統一しない。gaze/dwell選択
+// (onPointerMove)からも共有で呼ばれるため、既存のindex引数付きシグネチャを維持する。
+function activateCurrentScanItem(index) {
   if (isShowingResult || isPanelOpen) return;
   const card = cards[index];
   if (!card) return;
@@ -1930,7 +1963,7 @@ function selectCard(index) {
     return;
   }
   isShowingResult = true;
-  stopScan();
+  stopSwitchScan();
   clearDwellVisual();
   playBeep();
   if (state.tts) speak(card.dataset.label);
@@ -1940,13 +1973,14 @@ function selectCard(index) {
   setTimeout(() => {
     flashOverlay.classList.remove('active');
     isShowingResult = false;
-    if (state.switchScan && !state.gazeEnabled && !isPanelOpen) startScan();
+    if (state.switchScan && !state.gazeEnabled && !isPanelOpen) startSwitchScan();
   }, 1600);
 }
+function selectCard(index) { activateCurrentScanItem(index); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
 function handleDecide() {
   if (isShowingResult || isPanelOpen) return;
-  selectCard(currentIndex);
+  activateCurrentScanItem(currentIndex);
 }
 
 /* ── 入力 ── */
@@ -1991,13 +2025,13 @@ cardEls.forEach(card => {
     e.stopPropagation();
     if (isShowingResult || isPanelOpen) return;
     currentIndex = cards.indexOf(card);
-    selectCard(currentIndex);
+    activateCurrentScanItem(currentIndex);
   });
   card.addEventListener('touchstart', e => {
     e.preventDefault();
     if (isShowingResult || isPanelOpen) return;
     currentIndex = cards.indexOf(card);
-    selectCard(currentIndex);
+    activateCurrentScanItem(currentIndex);
   }, { passive:false });
 
   // ③ Tobii フォーカス連動
@@ -2091,7 +2125,7 @@ function onPointerMove(e) {
   updateDwellVisual(idx, Math.min(elapsed / dwellMs, 1));
   if (elapsed >= dwellMs) {
     dwellIndex = -1;
-    selectCard(idx);
+    activateCurrentScanItem(idx);
   }
 }
 
