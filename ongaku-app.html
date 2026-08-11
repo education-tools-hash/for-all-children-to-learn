@@ -2923,7 +2923,23 @@ function handleScanKey(e) { if(e.code==='Space'||e.code==='Enter') activateScanB
 function handleScanActivate(e) { e.stopPropagation(); activateScanBtn(); }
 function activateScanBtn() {
   const btns=document.querySelectorAll('.sound-button, .scannable'); if(!btns[scanIndex]) return;
-  const btn=btns[scanIndex]; const sound=btn.dataset.sound;
+  const btn=btns[scanIndex];
+  // common chrome等の.sound-button以外の候補にはdataset.soundが存在しないため、
+  // 以下のfake event合成ロジックを通さず、通常のclick()で本来のハンドラを発火させる
+  // （Phase25-AFで発見: これらの候補が選択された状態で決定するとTypeErrorになっていた既存不具合の修正）。
+  // 1スイッチモードでは全候補(common chrome含む)へhandleScanActivateがcaptureリスナーとして
+  // 装着されているため(setupScan())、click()をそのまま呼ぶとこの対象自身のリスナーが
+  // stopPropagation()で本来のハンドラを握りつぶしてしまう。ここで発火させるclick()は
+  // 既にactivateScanBtn()による決定操作そのものであり再度の横取りは不要なため、
+  // この1回のclick()の間だけ対象自身のhandleScanActivateを一時的に外す
+  // （1スイッチのclick横取り設計自体は変更しない。2スイッチではそもそも未登録のため無害）。
+  if(!btn.classList.contains('sound-button')) {
+    btn.removeEventListener('click',handleScanActivate,true);
+    btn.click();
+    btn.addEventListener('click',handleScanActivate,true);
+    return;
+  }
+  const sound=btn.dataset.sound;
   const isRec = sound.startsWith('rec_');
   const s = isRec ? {emoji:'🎤'} : SOUNDS[sound];
   const fakeE={currentTarget:btn, clientX:btn.getBoundingClientRect().left+btn.offsetWidth/2, clientY:btn.getBoundingClientRect().top+btn.offsetHeight/2};
