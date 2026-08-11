@@ -2631,7 +2631,9 @@ const scan = {
   touchStartTime: 0,
   selectThreshold: 600,
 
-  collectItems() {
+  // buildScanItems: 候補取得ロジック(旧collectItemsから抽出。12個のselector・Set重複排除・
+  // getClientRects()可視判定・.scannable/common chrome含有は無変更、offsetParent方式へは変更しない)
+  buildScanItems() {
     const selectors = [
       '#sim-menu:not([style*="none"]) .sim-btn',
       '#scene-select:not([style*="display: none"]) [role="button"]',
@@ -2661,35 +2663,47 @@ const scan = {
     });
     return items;
   },
+  collectItems() { return this.buildScanItems(); }, // 互換エイリアス(既存呼び出し箇所は無変更)
 
-  start() {
+  // refreshSwitchScanItems: 複数呼び出し元(activateCurrentScanItem後400ms/closeSettings後300ms/
+  // scanRefresh)が共有しうる最小限の責務(候補再取得+idx補正)のみを抽出する。300ms/400msの遅延・
+  // activeガード有無・highlight・scheduleNext・TTS等の呼び出し元固有の意味論は統合せず、
+  // 各呼び出し元に既存のまま残す(Phase25-AB調査結果に基づく方針)。
+  refreshSwitchScanItems() {
+    this.idx = 0;
+    this.items = this.buildScanItems();
+  },
+
+  startSwitchScan() {
     this.active = true;
     document.body.classList.add('scan-active');
     document.getElementById('scan-bar').classList.add('active');
-    this.idx = 0;
-    this.items = this.collectItems();
+    this.refreshSwitchScanItems();
     this.highlight();
     this.scheduleNext();
     document.addEventListener('keydown', scan._onKey, true);
     document.addEventListener('touchstart', scan._onTouchStart, { passive: true, capture: true });
     document.addEventListener('touchend', scan._onTouchEnd, { passive: false, capture: true });
   },
+  start() { this.startSwitchScan(); }, // 互換エイリアス(既存呼び出し箇所は無変更)
 
-  stop() {
+  stopSwitchScan() {
     this.active = false;
     document.body.classList.remove('scan-active');
     document.getElementById('scan-bar').classList.remove('active');
     clearTimeout(this.timer);
     this.timer = null;
-    this.clearHighlight();
+    this.clearScanHighlight();
     document.removeEventListener('keydown', scan._onKey, true);
     document.removeEventListener('touchstart', scan._onTouchStart, true);
     document.removeEventListener('touchend', scan._onTouchEnd, true);
   },
+  stop() { this.stopSwitchScan(); }, // 互換エイリアス(既存呼び出し箇所は無変更)
 
-  clearHighlight() {
+  clearScanHighlight() {
     document.querySelectorAll('.scan-highlight').forEach(el => el.classList.remove('scan-highlight'));
   },
+  clearHighlight() { this.clearScanHighlight(); }, // 互換エイリアス(既存呼び出し箇所は無変更)
 
   highlight() {
     this.items = this.collectItems();
@@ -2724,19 +2738,19 @@ const scan = {
     this.highlight();
   },
 
-  select() {
+  activateCurrentScanItem() {
     const el = this.items[this.idx];
     if (!el) return;
     el.classList.remove('scan-highlight');
     el.click();
     setTimeout(() => {
       if (!this.active) return;
-      this.idx = 0;
-      this.items = this.collectItems();
+      this.refreshSwitchScanItems();
       this.highlight();
       this.scheduleNext();
     }, 400);
   },
+  select() { this.activateCurrentScanItem(); }, // 互換エイリアス(既存呼び出し箇所は無変更)
 
   scheduleNext() {
     clearTimeout(this.timer);
@@ -2751,7 +2765,7 @@ const scan = {
     if (!scan.active) return;
     if (e.key === ' ' || e.key === 'Spacebar') {
       e.preventDefault(); e.stopPropagation();
-      clearTimeout(scan.timer); scan.select(); scan.scheduleNext();
+      clearTimeout(scan.timer); scan.activateCurrentScanItem(); scan.scheduleNext();
     } else if (e.key === 'Enter') {
       e.preventDefault(); e.stopPropagation();
       clearTimeout(scan.timer); scan.next(); scan.scheduleNext();
@@ -2771,7 +2785,7 @@ const scan = {
     e.preventDefault(); e.stopPropagation();
     clearTimeout(scan.timer);
     if (held >= scan.selectThreshold) { scan.next(); }
-    else { scan.select(); }
+    else { scan.activateCurrentScanItem(); }
     scan.scheduleNext();
   },
 };
