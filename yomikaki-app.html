@@ -1344,29 +1344,58 @@ let scanOn = false, scanIv = 2000, scanTimer = null, scanTgts = [], scanIdx = -1
 function setScan(on) {
   scanOn = on;
   id('scov').className = 'scov' + (on ? ' on' : '');
-  if (on) { setupScanTgts(); restartScan(); document.addEventListener('keydown', onScanKey); }
-  else    { clearScanTimer(); clearScanHL(); document.removeEventListener('keydown', onScanKey); }
+  if (on) { startSwitchScan(); }
+  else    { stopSwitchScan(); }
 }
-function setupScanTgts() {
-  scanTgts = Array.from(document.querySelectorAll('.btn,.tab'))
+
+// buildScanItems: 候補取得ロジック（旧setupScanTgtsから抽出。判定条件・セレクタ・順序は無変更）
+function buildScanItems() {
+  return Array.from(document.querySelectorAll('.btn,.tab'))
     .filter(e => !e.disabled && e.offsetParent !== null);
+}
+
+// refreshSwitchScanItems: 旧setupScanTgtsの状態更新（scanTgts代入・scanIdxリセット）をそのまま保持
+function refreshSwitchScanItems() {
+  scanTgts = buildScanItems();
   scanIdx = -1;
 }
+function setupScanTgts() { refreshSwitchScanItems(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+function startSwitchScan() {
+  refreshSwitchScanItems();
+  restartScan();
+  document.addEventListener('keydown', onScanKey);
+}
+
+function stopSwitchScan() {
+  clearScanTimer();
+  clearScanHighlight();
+  document.removeEventListener('keydown', onScanKey);
+}
+
 function restartScan() { clearScanTimer(); if (scanOn) scanTimer = setInterval(advScan, scanIv); }
 function clearScanTimer() { if (scanTimer) { clearInterval(scanTimer); scanTimer = null; } }
 function advScan() {
   if (!scanOn) return;
-  if (!scanTgts.length) setupScanTgts();
-  clearScanHL();
+  if (!scanTgts.length) refreshSwitchScanItems();
+  clearScanHighlight();
   scanIdx = (scanIdx + 1) % Math.max(scanTgts.length, 1);
   const t = scanTgts[scanIdx]; if (t) t.classList.add('scfoc');
 }
-function clearScanHL() { document.querySelectorAll('.scfoc').forEach(e => e.classList.remove('scfoc')); }
+
+// clearScanHighlight: ハイライトclass(.scfoc)を全対象から解除する
+function clearScanHighlight() { document.querySelectorAll('.scfoc').forEach(e => e.classList.remove('scfoc')); }
+function clearScanHL() { clearScanHighlight(); } // 互換エイリアス（既存呼び出し箇所は無変更）
+
+// activateCurrentScanItem: 決定操作（click()発火）。既存のtimer再起動処理をそのまま踏襲
+function activateCurrentScanItem() {
+  const t = scanTgts[scanIdx];
+  if (t) { t.click(); clearScanTimer(); setTimeout(restartScan, 600); }
+}
 function onScanKey(e) {
   if (!scanOn || !(e.code === 'Space' || e.code === 'Enter')) return;
   e.preventDefault();
-  const t = scanTgts[scanIdx];
-  if (t) { t.click(); clearScanTimer(); setTimeout(restartScan, 600); }
+  activateCurrentScanItem();
 }
 </script>
 </body>
