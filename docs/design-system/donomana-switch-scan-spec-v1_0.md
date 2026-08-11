@@ -1,15 +1,15 @@
-# どのまな 共通Switch Scan仕様書 v1.6
+# どのまな 共通Switch Scan仕様書 v1.7
 
-- 版: v1.6（**承認済み**）
-- 発行: 2026年8月（v1.0初版）／承認: 2026年8月8日（v1.1）／API確定: 2026年8月8日（v1.2）／3 Pilot Review確定: 2026年8月8日（v1.3）／配置方式正式決定: 2026年8月8日（v1.4）／Rollout実装事実反映: 2026年8月8日（v1.5）／Group A Rollout完了実績反映: 2026年8月8日（v1.6）
-- 作成日: 2026-08-05（v1.0起草）／改訂日: 2026-08-08（v1.1・v1.2・v1.3・v1.4・v1.5・v1.6）
+- 版: v1.7（**承認済み**）
+- 発行: 2026年8月（v1.0初版）／承認: 2026年8月8日（v1.1）／API確定: 2026年8月8日（v1.2）／3 Pilot Review確定: 2026年8月8日（v1.3）／配置方式正式決定: 2026年8月8日（v1.4）／Rollout実装事実反映: 2026年8月8日（v1.5）／Group A Rollout完了実績反映: 2026年8月8日（v1.6）／Group B Rollout完了実績反映: 2026年8月12日（v1.7）
+- 作成日: 2026-08-05（v1.0起草）／改訂日: 2026-08-08（v1.1・v1.2・v1.3・v1.4・v1.5・v1.6）・2026-08-12（v1.7）
 - 位置づけ: `donomana-design-system-v2_0.html`（共通デザインシステム Ver.2.1）を**上位方針とする実装詳細の補足文書**。Design Systemの内容を置き換えるものではない。`donomana-modal-accessibility-spec-v1_0.md`（モーダルアクセシビリティ仕様書 v1.1）13章「Switch Scan」・21章未決定事項12番「全アプリ共通のSwitch Scan候補抽出方式の統一」を引き継ぎ、Switch Scan単独の共通仕様として分離・詳細化する文書である。
-- 根拠調査: Phase18.31-A「Switch Scan方式統一 調査」（kimochi-board.html・matching-app.html・directions-app.html・bosai-app.html の4アプリ・コードレビューのみ、コード変更なし）／v1.1改訂にあたり15アプリ規模の追加サンプリング監査を実施（1.4節・3.3節・6.1節参照）／v1.2は2つのPilot実装（directions-app・matching-app）の比較結果を根拠とする（16章）／v1.3は3つ目のPilot実装（schedule-app）を加えた3 Pilot比較の結果を根拠とする（18章）／v1.4は4つ目のPilot実装（okane-app）と21アプリ全対象の軽量inventory（Phase25-I）を加えた配置方式の正式決定を根拠とする（19章）／v1.5はGroup A Rollout第1波（katakana-app、Phase25-M／Phase25-M2）の実装・実ブラウザ検証・公開確認から得られた実装事実に基づく訂正を根拠とする（19.17節）／v1.6はGroup A Rollout全7アプリ完了（Phase25-M〜X）の実装事実を根拠とする（19.18節）
+- 根拠調査: Phase18.31-A「Switch Scan方式統一 調査」（kimochi-board.html・matching-app.html・directions-app.html・bosai-app.html の4アプリ・コードレビューのみ、コード変更なし）／v1.1改訂にあたり15アプリ規模の追加サンプリング監査を実施（1.4節・3.3節・6.1節参照）／v1.2は2つのPilot実装（directions-app・matching-app）の比較結果を根拠とする（16章）／v1.3は3つ目のPilot実装（schedule-app）を加えた3 Pilot比較の結果を根拠とする（18章）／v1.4は4つ目のPilot実装（okane-app）と21アプリ全対象の軽量inventory（Phase25-I）を加えた配置方式の正式決定を根拠とする（19章）／v1.5はGroup A Rollout第1波（katakana-app、Phase25-M／Phase25-M2）の実装・実ブラウザ検証・公開確認から得られた実装事実に基づく訂正を根拠とする（19.17節）／v1.6はGroup A Rollout全7アプリ完了（Phase25-M〜X）の実装事実を根拠とする（19.18節）／v1.7はGroup B Rollout全6アプリ完了（yomikaki-app・bosai-app・ongaku-app・time-timer・sugoroku-app・nazori-app、Phase25-AA〜AOのうち該当分）の実装事実、および同Rollout過程で発見・修正した利用者向け既存不具合3件（ongaku-app・sugoroku-app・nazori-app）の実績を根拠とする（19.19節）
 - 起草: Phase18.31-B
-- 承認: v1.1として2026-08-08承認済み。v1.2はPilot実装結果を反映したAPI確定版として同日承認。v1.3は3 Pilot（directions-app・matching-app・schedule-app）の実装事実に基づくReviewとして同日承認。v1.4は4 Pilot＋21アプリinventoryに基づく配置方式の正式決定として同日承認。v1.5はkatakana-app Rollout実装事実に基づく訂正として同日承認。v1.6はGroup A Rollout全件完了の実装実績記録として同日承認。
+- 承認: v1.1として2026-08-08承認済み。v1.2はPilot実装結果を反映したAPI確定版として同日承認。v1.3は3 Pilot（directions-app・matching-app・schedule-app）の実装事実に基づくReviewとして同日承認。v1.4は4 Pilot＋21アプリinventoryに基づく配置方式の正式決定として同日承認。v1.5はkatakana-app Rollout実装事実に基づく訂正として同日承認。v1.6はGroup A Rollout全件完了の実装実績記録として同日承認。v1.7はGroup B Rollout全件完了の実装実績記録として承認。
 - 参照元: Phase18.31-A調査報告（本文書と同一セッション内で作成、4アプリの実装比較表を含む）
 
-> **本文書v1.6は2026-08-08に承認済みである。** 共通Switch Scan実装の基準として運用を開始する。ただし本文書が定めるのは主に「lifecycle・timer・highlight・activation・stop・cleanup・refresh」等の共通契約（16章参照）であり、候補取得方式（3.3節）や既存アプリのハイライトclass名（6.1節）を単一方式へ強制するものではない。**本文書の承認のみを理由に、既存の稼働中コード（`generate.js`・各アプリのHTML/JS）を一括改修することは求めない。** 16章のhelper API・adapter設計、18章の3 Pilot Review、19章の配置方式正式決定は、既に完了したdirections-app・matching-app・schedule-app・okane-appの4 Pilot実装（17章）の**事実に基づく**設計であり、いずれのPilotのコードへも変更を要求しない。**19章で正式採用した「方式C：各アプリ内保持」に基づき、残り17アプリへの段階的Rolloutを今後のPhaseで進める。** **19.17節（v1.5で追加）は、Group A Rollout第1波（katakana-app）の実装事実に基づき、Strategy B実例・highlight方式・Group A分類・21アプリinventoryの位置づけに関する訂正を記録する。** **19.18節（v1.6で追加）は、Group A Rollout全7アプリ完了（katakana-app・register-app・janken-app・timetable-app・shiritori2・cup_game・kyou-no-kiroku）の実装実績を記録する。19.17節・19.18節のいずれも新たな仕様の追加ではない。**
+> **本文書v1.7は2026-08-12に承認済みである。** 共通Switch Scan実装の基準として運用を継続する。ただし本文書が定めるのは主に「lifecycle・timer・highlight・activation・stop・cleanup・refresh」等の共通契約（16章参照）であり、候補取得方式（3.3節）や既存アプリのハイライトclass名（6.1節）を単一方式へ強制するものではない。**本文書の承認のみを理由に、既存の稼働中コード（`generate.js`・各アプリのHTML/JS）を一括改修することは求めない。** 16章のhelper API・adapter設計、18章の3 Pilot Review、19章の配置方式正式決定は、既に完了したdirections-app・matching-app・schedule-app・okane-appの4 Pilot実装（17章）の**事実に基づく**設計であり、いずれのPilotのコードへも変更を要求しない。**19章で正式採用した「方式C：各アプリ内保持」に基づき、残りアプリへの段階的Rolloutを今後のPhaseで進める。** **19.17節（v1.5で追加）は、Group A Rollout第1波（katakana-app）の実装事実に基づき、Strategy B実例・highlight方式・Group A分類・21アプリinventoryの位置づけに関する訂正を記録する。** **19.18節（v1.6で追加）は、Group A Rollout全7アプリ完了（katakana-app・register-app・janken-app・timetable-app・shiritori2・cup_game・kyou-no-kiroku）の実装実績を記録する。** **19.19節（v1.7で追加）は、Group B Rollout全6アプリ完了（yomikaki-app・bosai-app・ongaku-app・time-timer・sugoroku-app・nazori-app）の実装実績、および同過程で発見・修正した利用者向け既存不具合3件の運用上の教訓を記録する。19.17節・19.18節・19.19節のいずれも新たな仕様の追加ではない。**
 
 ---
 
@@ -181,9 +181,11 @@ v1.1改訂にあたり15アプリ規模の追加サンプリングを行った�
 2. Home・全画面表示・画面ロックも、Switch Scan利用者が他の手段（マウス・タッチ）を持たない場合に、これらへ到達できないと機能的に詰む（ロック解除不能、全画面から抜けられない等）。
 3. Phase18.31-Aの調査時点で、4アプリ中2アプリ（kimochi-board・directions-app）が共通chromeを含める方式、2アプリ（matching-app・bosai-app）が除外する方式であり、拮抗している。除外する2アプリでも、共通A11yボタン自体は通常のTabキー操作や実タッチ操作では到達可能であり、Switch Scan経路が塞がれるのみである。
 
+**（v1.7訂正）** 上記3番の「bosai-appは共通chrome除外」という記述は、Phase18.31-A時点（v1.0初版根拠調査）のスナップショットである。Group B Rollout前調査（Phase25-AB）による直接コード確認および実際のRollout実装（Phase25-AC）により、**bosai-appの現行実装は`.scannable`セレクタ経由で共通chromeを候補へ含んでいる**ことが判明した。これはPhase18.31-A以降（推定: 共通A11yパネル整備の各Phase）に加えられた実装進化であり、仕様書の誤記ではなく古いスナップショットが更新されていなかったことによる差異である。19.19.4節を参照。
+
 ### 5.3 未決定（U）
 
-- 除外方式の2アプリ（matching-app・bosai-app）を含める方式へ変更した場合の候補数増加が、既存の走査体験（1周にかかる時間等）へ与える影響
+- 共通chromeを含める場合の候補数増加が、既存の走査体験（1周にかかる時間等）へ与える影響。**（v1.7注記）** bosai-app・ongaku-app・nazori-appのGroup B Rollout実績により、共通chromeを含む実装の実例がさらに3件確認されたが（19.19節）、走査体験そのものへの定量的な影響は引き続き未検証のまま残る。
 - 共通chromeのうち、どの要素を優先順位の先頭／末尾に配置すべきかの統一基準
 
 ---
@@ -709,6 +711,8 @@ Group B中、bosai-appはsetTimeoutチェーン・advance/select分離という�
 
 **（v1.6追記）** Group A（7アプリ）のRolloutが全件完了した（Phase25-M〜X）。完了実績・Strategy分類実績・common chrome実績等は19.18節に記録する。
 
+**（v1.7追記）** Group B（6アプリ）のRolloutも全件完了した。「highlightClass違い」という分類名はGroup B内部の実装多様性（object state・1/2スイッチ・Tab第3入力経路・fake event・優先度付き状態機械・動的once clickリスナー等）を十分に表していなかったことが判明したが、Rollout単位としての区分自体は妥当だったため、Group名・グルーピングそのものは変更しない（19.17.3節と同じ扱い）。完了実績・分類再評価・利用者向け既存不具合の修正実績等は19.19節に記録する。
+
 ### 19.10 最初のRollout候補
 
 **Group Aから、`katakana-app`を第1候補として提案する。** 選定基準: `.scan-focus`使用でdirections-app/matching-appに構造が近い、リスクが低い、共通helper構造（6関数）の「5件目」としての再現性確認に適する。第2候補は`register-app`または`cup_game`。**本v1.4は候補の提案に留め、具体的な実施は別Phaseで判断する。**
@@ -851,11 +855,162 @@ Group A完了実績（7アプリ）から、以下を実践手順として整理
 
 本節（19.18節）はGroup A Rollout完了（7アプリ）という**実際の実装実績から得られた事実の記録**である。19.3節（方式C正式採用）・16章（helper6 API）・19.5節（契約レベルの共通化）等、既存の設計方針を変更するものではない。Strategy分類・buildScanItemsの入力源・1/2スイッチ・setTimeoutチェーン・restartOnActivate・副作用保持・common chromeのいずれについても、新しい共通基盤やAPIの追加は行っていない。
 
+### 19.19 Group B Rollout完了実績（v1.7で追加）
+
+#### 19.19.1 目的
+
+本節は、Group B（6アプリ）のSwitch Scan Rolloutが全件完了したことを受け、Rollout過程で得られた実装事実・分類の再評価・利用者向け既存不具合の発見と修正実績を正式に記録する。**本節は実装実績の記録・補足・訂正であり、新しい共通基盤・helper API・Strategy種別・配置方式の追加ではない。**
+
+#### 19.19.2 Group B Rollout完了実績一覧
+
+Group B対象6アプリすべてのRolloutが完了し、main統合・production公開済みであることを確認する。
+
+| アプリ | 実施Phase | 主要特徴 |
+|---|---|---|
+| yomikaki-app | Phase25-AA | `.scfoc`、setupScanTgts()／clearScanHL()を互換エイリアス化した最小整理 |
+| bosai-app | Phase25-AB（設計）／AC（実装）、Phase25-AG（不具合修正） | `const scan`オブジェクト内method方式、Space=決定／Enter=進む、touch tap<600ms=決定／hold>=600ms=進む、setTimeout自己再帰、common chrome含有（旧仕様書記載は古いスナップショット、5.2節参照） |
+| ongaku-app | Phase25-AF（設計）／AH（実装）、Phase25-AG（不具合修正） | 1/2スイッチadapter、fake event activation（`currentTarget`/`clientX`/`clientY`合成）、候補タイプ別activation分岐（sound-buttonはfake event、common chromeはnative click）、capture:true click横取り（1スイッチのみ） |
+| time-timer | Phase25-AD（設計）／AE（実装） | Tab/Shift+Tabという独立した第3入力経路、click後`activeElement`比較による条件付き`focus()`フォールバック |
+| sugoroku-app | Phase25-AI（設計）／AL（実装）、Phase25-AK（不具合修正） | 優先度付き9分岐の状態機械（最初に一致した分岐のみ採用）、touchstart/touchend経路＋pointerdown経路の二重入力、`.shi`、bip、refreshOnActivate 350ms |
+| nazori-app | Phase25-AM（設計）／AO（実装）、Phase25-AN（不具合修正） | Strategy B、panel/subview 2段scope、動的once clickリスナーによるdirect click決定方式、common chrome含有 |
+
+いずれも既存挙動100%維持・main版との候補配列完全一致・Console Error 0・pageerror 0・SHA256一致を確認した上でproduction公開している。bosai-app・ongaku-app・sugoroku-app・nazori-appの4アプリでは、helper6 Rollout着手前の個別調査Phaseにより利用者向けの既存不具合が発見され（19.19.9節）、Rolloutとは独立した修正Phaseを先行させた上でRolloutを実施した。
+
+#### 19.19.3 Group B分類の再評価
+
+19.9節が定める「Group B（highlightClass違い、6件）」という分類名は、highlightClassの違い（`.scan-highlight`／`.scanning`／`.scan-focused`／`.shi`／`.scfoc`）という表面的な差異のみに基づく一次スクリーニングであり、**内部実装の多様性を十分に表していなかった**ことが、6アプリ全件のRollout実績により判明した。
+
+- **object state方式**：bosai-appは`const scan = {...}`という単一オブジェクトがstate・timer・helper6すべてを内包する（他のGroup A/B実装は主にbare globalまたはmodule内`let`）。
+- **1/2スイッチadapter**：ongaku-appは1スイッチ（timerあり、Space/Enter=決定）／2スイッチ（timerなし、Space=進む、Enter=決定）という構造の大きく異なる2モードを1つのapp内で切り替える（shiritori2・cup_game〔19.18.5節〕と同種のパターンだが、activation方式自体もモードごとに異なる点がGroup Bでの新規実例）。
+- **Tab第3入力経路**：time-timerはSpace/Enter/Tabの3種の入力を持ち、Tabは「進む」という独立した意味を持つ（他のGroup A/B実装にはない構造）。
+- **fake event activation**：ongaku-appはDOM標準の`click()`ではなく、`{currentTarget, clientX, clientY}`を合成したfake eventをapp固有関数へ直接渡す方式を採る。
+- **優先度付き状態機械**：sugoroku-appの候補生成は、9個のif文が優先順位順に候補を確定し最初に一致した時点で即returnするという、他のStrategy A/B/Cのいずれとも異なる構造を持つ。
+- **動的once clickリスナーによるdirect click決定方式**：nazori-appは、走査中の対象へ`{once:true}`のclickリスナーを都度動的に付与し、実際のクリック/タップをもって決定操作とする（Phase25-AN修正後はSpace/Enterもこの経路へ`element.click()`経由で合流する）。
+
+**本節の追加により、Group A/B/C/D（19.9節）という分類は「Rollout実施の作業単位（グルーピング）」として引き続き妥当だが、Group名自体（例:「highlightClass違い」）が実装の構造的差異を正確に説明するとは限らないことを明確化する。** 19.17.3節（Group A定義の再評価）と同じ扱いとし、**Group名・グルーピング自体は変更しない**。個々のアプリの実装詳細は、Rollout Pilot着手前の直接コード確認（19.17.4節の方針）によってのみ確定できるという既存方針が、Group Bでも改めて裏付けられた。
+
+#### 19.19.4 bosai-app実績
+
+- Switch Scanのstate・timer・helper6をすべて`const scan = {...}`オブジェクトのmethodとして実装する既存構造を維持したまま、helper6（`buildScanItems`等）を`scan.buildScanItems`のようなobject内methodとして整理した（Phase25-AC）。
+- Space＝決定、Enter＝進む、という他のGroup A/B実装とは逆の役割分担を持つ（7.3節の既存例外方針どおり維持）。
+- touch入力はtap（600ms未満）＝決定、hold（600ms以上）＝進む、という長押し機能の実例である（10.2節U2の未決定事項に対する具体的な実装例）。
+- timerは`setTimeout`自己再帰方式（`scan.scheduleNext()`）である。
+- **common chromeは現行実装で候補に含まれる。** 5.2節3番が記録する「bosai-appは共通chrome除外」という記述はPhase18.31-A時点（v1.0初版根拠調査）の古いスナップショットであり、Phase18.31-A以降の実装進化（推定: 共通A11yパネル整備）により`.scannable`セレクタ経由で含まれるようになっていたことが、Phase25-AB（直接コード確認）で判明した。5.2節・5.3節へ訂正注記を追加した（本節参照）。
+
+#### 19.19.5 time-timer実績
+
+- Tab＝前進、Shift+Tab＝後退という、Space/Enterとは独立した**第3の入力経路**を持つ。Tab押下時にはtimerも明示的に再起動される。この経路はhelper6へ吸収せず、既存のkeydownハンドラ内にapp固有のadapterとして維持した（Phase25-AE）。
+- 決定操作（`click()`実行）の後、**click実行前後の`document.activeElement`を比較し、フォーカスが移動していなければ対象へ`.focus()`を発火する条件付きフォールバック**を持つ。フォールバック発火条件は以下の5点すべてを満たす場合である。
+  1. `isConnected`
+  2. `!closest('[inert]')`
+  3. `!closest('[hidden]')`
+  4. `getClientRects().length > 0`
+  5. `!disabled`
+- **本実例は、`activateCurrentScanItem()`の実装が単純な`click()`発火だけとは限らないことを示す新しい実装パターンである。** 18.8節が定める「現在候補の決定処理を開始する」という結果ベースの定義の範囲内で、click()実行に加えてapp固有のfocus補正を付随させる設計が許容されることを実例として記録する。
+- `stopSwitchScan()`が`scanInterval`をnull化しない、という8.1節M4への軽微な非準拠が確認されたが、実害は確認されておらず、仕様書本文を複雑化させない範囲の補足に留める。
+
+#### 19.19.6 ongaku-app実績
+
+- 1スイッチ（timerあり、Space/Enter＝決定）と2スイッチ（timerなし、Space＝進む、Enter＝決定）という、構造が大きく異なる2モードのadapter実装を持つ。
+- 決定操作は、DOM標準の`click()`ではなく、`{currentTarget, clientX, clientY}`を合成したfake eventをapp固有関数（`onSoundBtnClick()`）へ直接渡す方式（sound-button候補のみ）。`clientX`/`clientY`は対象要素の中心座標を用いて、実クリック位置がない場合の視覚効果（ripple）の起点を代替する。
+- **候補タイプ別のactivation分岐**が実例として確認された：sound-button候補はfake event経路、common chrome等のsound-button以外の候補は通常の`element.click()`経路、という2方式が1つの`activateCurrentScanItem()`内で判定・分岐する。18.8節の「結果ベースの定義」の範囲内で、候補の種類に応じてactivation手段を切り替える設計が許容されることを実例として記録する。
+- 1スイッチモードでは、走査中の全候補へcapture:trueのclickリスナーを動的付与し、実際のタップ/クリック対象に関わらず現在の走査対象を決定する「click横取り」方式を持つ（意図的な単一スイッチ設計）。
+- common chromeは3件（`donomanaA11yBtn`／`donomanaLockBtn`／`donomanaHomeBtn`）で、`donomanaFsBtn`は存在しない。
+- **Phase25-AGにおいて、common chromeがscanIndexで選択された状態で決定すると`TypeError`が発生し操作不能になる既存不具合を、helper6 Rolloutに先行して独立に修正した**（19.19.9節）。
+
+#### 19.19.7 sugoroku-app実績
+
+- 候補生成は、Rollout前調査（Phase25-AI）で実コードを直接確認した結果、**優先度付き9分岐の状態機械**であることが確定した。各分岐はモーダル/パネル/画面の表示状態を上から順に判定し、最初に一致した時点で候補配列を確定し即returnする（複数分岐のconcatではない）。
+- touchstart/touchend経路（横移動40px未満で決定）と、pointerdown経路（外部スイッチ対応、touch直後300ms dedup、`BUTTON`/`INPUT`/`SELECT`/`TEXTAREA`/`A`タグを除外）という、2つの独立した入力経路が並存する。
+- 決定操作後、350ms後に候補再取得・ハイライト再開を行う`refreshOnActivate`相当の設計を持つ（timer自体は停止せず継続する点が他の実例と異なる）。
+- ハイライトclassは`.shi`、決定音（`bip()`）、`scrollIntoView`、TTS（`speak()`）を伴う。
+- 候補生成のclass判定（`classList.contains('on')`）とinline style判定（`style.display`）が混在するという既存実装の不統一が確認されたが、既存挙動として維持し変更しない。
+- common chromeは候補から除外される（`.scannable`は候補生成ロジックに一切登場しない）。
+- **Phase25-AKにおいて、決定操作後の350ms delayed refreshにSwitch Scan OFF状態のガードがなく、OFF直後に決定するとOFF後にハイライトが再出現し消せなくなる既存不具合を、helper6 Rolloutに先行して独立に修正した**（19.19.9節）。
+
+#### 19.19.8 nazori-app実績
+
+- 候補生成はStrategy B（`button:not([disabled])`包括query）であり、`.panel.active`スコープ、`tab-practice`パネルでは表示中のsingle/wideビューへさらに絞り込むという2段scopeを持つ。
+- common chromeは候補に含まれる（4件: `donomanaA11yBtn`／`donomanaLockBtn`／`donomanaFsBtn`／`donomanaHomeBtn`）。
+- 決定方式は、走査中の対象へ`{once:true}`の動的clickリスナーを都度付与し、実際のクリック/タップを受けたときにhighlight解除・timer停止・400ms後の再開処理を行う、という**direct click決定方式**を持つ。timerはsetTimeout自己再帰。
+- highlight移動時に`scrollIntoView`・TTSを伴う。
+- **Phase25-ANにおいて、Space/Enterキー押下時にhighlight解除とtimer再スケジュールのみを行い、対象要素へ`click()`を一切発火させていなかったため、キーボード操作（外部スイッチ含む）では決定操作を完遂できない既存不具合を、helper6 Rolloutに先行して独立に修正した**（19.19.9節）。修正方式は、Space/Enter時に「現在ハイライト中要素へ`element.click()`を発火させ、既存のdirect click決定経路へそのまま委譲する」という統合であり、決定後処理（highlight解除・timer停止・400ms後再開）を新たに重複実装しなかった。
+
+#### 19.19.9 利用者向け不具合修正実績からの教訓
+
+Group B Rollout前調査により、helper6整理そのものとは別に、以下3件の利用者向け既存不具合が発見・修正された。
+
+- **ongaku-app**：Switch Scan中にcommon chrome候補を決定すると`TypeError`が発生し操作できない（Phase25-AF調査・Phase25-AG修正）。
+- **sugoroku-app**：決定操作後、350ms以内にSwitch ScanをOFFにすると、OFF後にハイライトが再出現し消せなくなる（Phase25-AJ Part A調査・Phase25-AK修正）。
+- **nazori-app**：Space/Enterキーで現在ハイライト中の候補を決定できず、利用者向けヘルプ文言（「外付けスイッチはスペースキーに対応させてください」）と実装が矛盾していた（Phase25-AM調査・Phase25-AN修正）。
+
+**運用上の教訓として、「Rollout前の直接コード確認・実ブラウザ確認は、Strategy／highlightClass等の分類確認だけでなく、既存アクセシビリティ不具合の発見にも有効である」ことを記録する。** 3件はいずれも、Phase25-I軽量inventoryやPhase25-Zのような外部調査記録を鵜呑みにせず、実コード・実ブラウザを直接確認するというRollout前調査の過程で発見された。詳細な不具合の症状・再現手順は各Phase報告（Phase25-AF〜AN）に譲り、本節では運用上の教訓のみを記録する。
+
+#### 19.19.10 activation adapterの整理
+
+Group A・B双方の実績により、`activateCurrentScanItem()`の実装が**単純な`element.click()`発火だけとは限らない**ことが、以下の実例で確認された。
+
+- **native `.click()`**：多くのGroup A/B実装（4 Pilot・Group A全7アプリ・yomikaki-app等）における標準実装。
+- **app固有関数の直接呼び出し**：schedule-appの`toggleCheck()`直接呼び出し（18.9節、7.3節7番）。
+- **fake eventの合成**：ongaku-appの`{currentTarget, clientX, clientY}`合成（19.19.6節）。
+- **候補タイプ別の分岐**：ongaku-appのsound-button／common chrome分岐（19.19.6節）。
+- **click後のfocus補正**：time-timerの条件付き`focus()`フォールバック（19.19.5節）。
+- **既存direct click経路への委譲**：nazori-appのSpace/Enter→`element.click()`→動的clickリスナー（19.19.8節）。
+
+**重要なのは、activationの実装手段そのものを統一することではなく、「既存の利用者向けactivation意味論を保持する」ことである。** 18.8節が定める「現在候補の決定処理を開始する」という結果ベースの定義は、Group Bの多様な実例によっても引き続き成立することを確認した。新しいactivation方式の正式区分（例: 「Strategy click／fake-event／delegate」等）は追加しない。
+
+#### 19.19.11 input adapterの整理
+
+Group Bの実績により、helper6の外に残すべきapp固有入力経路の実例が以下のとおり蓄積された。いずれもhelper7等の新規共通関数を追加せず、既存のadapter責務（16.3節）として維持する既存方針を再確認する。
+
+- Space＝進む（ongaku-app 2スイッチモード、bosai-app）
+- Enter＝進む（bosai-app）
+- Tab／Shift+Tab（time-timer、19.19.5節）
+- touch tap／hold（bosai-app、10.2節U2の実装例）
+- pointerdown（sugoroku-app、外部スイッチ対応・タグ除外・300ms dedup）
+- capture:trueによるclick横取り（ongaku-app 1スイッチモード）
+- 画面任意位置タップによる決定（sugoroku-app、候補要素を直接タップする方式ではなく画面の任意位置から現在候補を決定する方式）
+
+#### 19.19.12 副作用（side effect）保持の実例集約
+
+Group B完了実績により、以下の副作用パターンが追加で確認された。19.18.8節（Group A実績）と同様、いずれもhelper6整理時に実行順・タイミング・対象を変更してはならない。
+
+- 条件付き`focus()`：time-timer（19.19.5節）
+- fake eventの座標合成：ongaku-app（`clientX`/`clientY`、19.19.6節）
+- ripple／playing animation：ongaku-app（fake eventのclientX/clientYを用いた視覚効果）
+- 決定音（bip）：sugoroku-app（`bip()`、決定操作の都度再生）
+- TTS：bosai-app・sugoroku-app・nazori-app（highlight更新の度に読み上げ）
+- scrollIntoView：bosai-app・sugoroku-app・nazori-app
+- 動的once clickリスナーの付与／解除：nazori-app（19.19.8節）
+
+#### 19.19.13 Rollout標準手順の補強
+
+Group B実績（特に3件の不具合修正、19.19.9節）から、19.18.11節が定めるRollout標準手順を以下のとおり補強する。
+
+1. Inventory（一次スクリーニング）
+2. 直接コード確認（Strategy／scope／timer／state／副作用・入力経路の実コード確認）
+3. **main版実ブラウザ確認**（Playwright等による実際の挙動計測。分類の裏付けだけでなく、既存不具合の発見を目的に含める）
+4. **既存不具合判定**（利用者向け説明との整合、実機スイッチ想定の入力経路網羅、実害の有無を判定）
+5. **（実害のある既存不具合が確認された場合のみ）独立した不具合修正Phase**を先行させ、修正版をmain/publicへ統合してから次工程へ進む
+6. helper6対応設計（既存関数との対応表作成、adapter要否判断）
+7. 候補配列比較計画（main版とのRollout前後比較項目定義）
+8. Playwright検証計画
+9. 実装（helper6整理、互換エイリアス維持）
+10. main版との既存挙動比較（候補配列・機能・タイミング）
+11. 統合（commit→Fast-Forward→push）
+12. production確認（generate／Actions／Pages確認、production版検証、SHA256比較）
+
+**「利用者へ実害のある既存不具合は、helper6 Rolloutと混在させず、独立したPhaseで先に修正する」ことを正式な推奨事項（R）として記録する。** Group Bでは、ongaku-app・sugoroku-app・nazori-appの3件でこの手順（3〜5番）が有効に機能し、いずれも不具合修正版をbaselineとして確定させた上でhelper6 Rolloutを実施した。bosai-appのcommon chrome記述の訂正（19.19.4節）のように、コード変更を伴わない仕様書側の訂正で足りるケースと、実際のコード修正Phaseを要するケースを、既存不具合判定（4番）の結果に応じて区別する。
+
+#### 19.19.14 位置づけ
+
+本節（19.19節）はGroup B Rollout完了（6アプリ）という**実際の実装実績、および同過程で発見・修正した利用者向け既存不具合3件から得られた事実の記録**である。19.3節（方式C正式採用）・16章（helper6 API）・19.5節（契約レベルの共通化）・18.8節（activateCurrentScanItemの結果ベース定義）等、既存の設計方針を変更するものではない。Group分類の再評価・activation adapter・input adapter・副作用保持のいずれについても、新しい共通基盤やAPI・Strategy区分の追加は行っていない。
+
 ---
 
-## Version1.0採用事項（v1.6時点）
+## Version1.0採用事項（v1.7時点）
 
-以下は、本仕様書で共通方針として採用する（**M**または**R**として本文中に明記した事項の一覧）。1〜17番はv1.0時点の採用事項、18〜22番はv1.1で追加した事項、23〜27番はv1.2で追加した事項、28〜38番はv1.3で追加した事項、39〜48番はv1.4で追加した事項、49〜53番はv1.5で追加した事項、54番以降はv1.6で追加した事項である。
+以下は、本仕様書で共通方針として採用する（**M**または**R**として本文中に明記した事項の一覧）。1〜17番はv1.0時点の採用事項、18〜22番はv1.1で追加した事項、23〜27番はv1.2で追加した事項、28〜38番はv1.3で追加した事項、39〜48番はv1.4で追加した事項、49〜53番はv1.5で追加した事項、54〜62番はv1.6で追加した事項、63番以降はv1.7で追加した事項である。
 
 1. Switch Scan対応済みアプリは、Spaceキーによる決定操作を実装する（2.1節M1・7.2節M1）。
 2. Switch Scanのタイマーと通常のTab操作を競合させない（2.1節M2）。
@@ -919,6 +1074,16 @@ Group A完了実績（7アプリ）から、以下を実践手順として整理
 60. `focus()`・`scrollIntoView()`・TTS・progress bar・highlight保持・設定パネルscope切替という副作用パターンの実例を集約する（19.18.8節）。
 61. common chromeを含むアプリ・含まないアプリの両方が実在することをGroup A完了実績により再確認する（19.18.9節）。
 62. Rollout標準手順（Inventory→直接コード確認→helper6設計→比較計画→実装→比較→統合→production確認）を正式化し、高難度対象では調査・設計Phaseと実装Phaseの分離が有効であったことを記録する（19.18.11節）。
+63. Group B（yomikaki-app・bosai-app・ongaku-app・time-timer・sugoroku-app・nazori-app）のSwitch Scan Rolloutが全件完了したことを記録する（19.19.2節）。
+64. 「highlightClass違い」というGroup Bの分類名は実装の構造的差異（object state方式・1/2スイッチadapter・Tab第3入力経路・fake event activation・優先度付き状態機械・動的once clickリスナー）を十分に表していなかったことを明確化する。Group名・グルーピング自体は変更しない（19.19.3節）。
+65. bosai-appの共通chrome除外という5.2節3番の記述はPhase18.31-A時点の古いスナップショットであり、現行実装は共通chromeを含むことを実装事実により確定する（19.19.4節・5.2節/5.3節）。
+66. time-timerのclick後条件付き`focus()`フォールバック実例により、`activateCurrentScanItem()`の実装が単純な`click()`発火だけとは限らないことを確定する（19.19.5節・19.19.10節）。
+67. ongaku-appのfake event activation・候補タイプ別activation分岐（sound-buttonとcommon chromeで異なるactivation手段）の実例を記録する（19.19.6節・19.19.10節）。
+68. sugoroku-appの候補生成は「8分岐」ではなく優先度付き9分岐（最初に一致した分岐のみ採用）であることを、実コード直接確認により確定する（19.19.7節）。
+69. Group B Rollout前調査により、利用者向けの実害がある既存不具合3件（ongaku-app・sugoroku-app・nazori-app）が発見・修正されたことを記録する。「利用者へ実害のある既存不具合は、helper6 Rolloutと混在させず、独立したPhaseで先に修正する」ことを正式な推奨事項（R）とする（19.19.9節・19.19.13節）。
+70. `activateCurrentScanItem()`の実装手段はnative click・app固有関数直接呼び出し・fake event・候補タイプ別分岐・click後focus補正・既存direct click経路への委譲のいずれも許容し、重要なのは既存の利用者向けactivation意味論の保持であることを整理する（19.19.10節）。
+71. helper6外に残すapp固有input adapterの実例（Space/Enter advance、Tab/Shift+Tab、touch tap/hold、pointerdown、capture click横取り、画面任意位置タップ）を集約し、helper7等の新規共通関数を追加しない既存方針を再確認する（19.19.11節）。
+72. Rollout標準手順へ「main版実ブラウザ確認」「既存不具合判定」「（該当時のみ）独立した不具合修正Phase」の3工程を明示的に追加し、12工程の手順として正式化する（19.19.13節）。
 
 ## Version2検討事項
 
@@ -952,6 +1117,7 @@ Group A完了実績（7アプリ）から、以下を実践手順として整理
 | v1.4 | 2026-08-08 | **配置方式正式決定版**（Phase25-Lで確定。根拠: Phase25-J〔okane-app 第4Pilot、Strategy C・動的listener着脱の実証〕とPhase25-I〔21アプリ全対象軽量inventory〕。コード変更は伴わない設計Phase）。19章「配置方式正式決定」を新設し、4 PilotとinventoryのSummary（19.2節）、正式採用方式（方式C：各アプリHTML内保持、19.3節）とその理由（19.4節）、「共通化しない」という意味ではないことの明確化（コードは共有しないが6関数名称・責務・API契約・M/R要件・option/callback概念・Pilot手順という契約レベルは共通化する、19.5節）、適用期間（当面、19.6節）、将来の方式A/B移行条件（19.7節）、Rollout単位（19.8節）、残17アプリのGroup A〜D分類（19.9節）、最初のRollout候補`katakana-app`の提案（19.10節）、kimochi-board・gaze-keyboardの個別扱い（19.11節）、bosai-appの個別扱い（19.12節）、native focus系（hiragana-learn・suji-manabou）の個別扱い（19.13節）、第5Pilot不要の判定（19.14節）、判断確度「高」（19.15節）、apps-data.json整合の記録（19.16節、変更は別Phase）を新設。Version1.0採用事項へ39〜48番を追加。Version2検討事項を整理し、解決済み項目（旧11番配置方式確定・旧12番動的listener組み込み・旧13番Strategy C実証）を削除、残存項目を1〜12番へ整理（新規10〜12番としてapps-data.json構成差・移行条件充足後の実装設計・Group C/D個別検証の具体化を追加）。既存のM/R/C/U/A分類・Version1.0〜v1.3時点の1〜38番・4 Pilotの実装コードは変更していない。 |
 | v1.5 | 2026-08-08 | **Rollout実装事実反映版**（Phase25-Nで確定。根拠: Group A Rollout第1波〔katakana-app〕の実装〔Phase25-M〕・統合公開確定〔Phase25-M2〕から得られた実装事実。コード変更は伴わない訂正Phase）。19.16節の直後へ19.17節「Rollout実装事実による訂正」を新設し、以下を記録した：katakana-appのSwitch Scan候補取得はStrategy Bの正式な実例であり19.2節「Strategy B実例0件」は誤りだったこと（19.17.1節）、katakana-appの実際のhighlight方式は`.scan-focus`ではなくネイティブ`element.focus()`＋`body.scan-mode`スコープのCSS `:focus`であり19.9節のGroup A分類の前提はkatakana-appに関して誤りだったこと（19.17.2節）、Group Aという分類名・グルーピング自体は維持しつつ「`.scan-focus`使用」という前提は個々のアプリごとの再確認が必要な仮説として扱うこと（19.17.3節）、21アプリinventory（Phase25-I）は一次スクリーニングでありRollout Pilot着手前の直接コード確認を必須ステップとすること（19.17.4節）、本節の訂正が配置方式そのもの（19.3節・19.4節・19.14節）の決定には影響しない実装事実に基づく訂正であること（19.17.5節）。あわせて3.3節のStrategy B「実例」欄へkatakana-appを追記、19.2節・19.9節へ該当箇所の訂正注記を追加。Version1.0採用事項へ49〜53番を追加。Version2検討事項へ13番（Group A残り6アプリのコード確認結果を踏まえたGroup A定義見直しの要否）を追加。**本改訂は新仕様の追加ではなく、既存の記述を実装事実へ合わせる訂正である。** helper API・Strategy種別・配置方式（19.3節）・Rollout手順（14章・19.8節）はいずれも変更していない。既存のM/R/C/U/A分類・Version1.0〜v1.4時点の1〜48番・5 Pilotおよびkatakana-app Rolloutの実装コードは変更していない。 |
 | v1.6 | 2026-08-08 | **Group A Rollout完了実績反映版**（Phase25-Yで確定。根拠: Group A全7アプリ〔katakana-app・register-app・janken-app・timetable-app・shiritori2・cup_game・kyou-no-kiroku〕のRollout完了〔Phase25-M〜X〕から得られた実装事実。コード変更は伴わない実績記録Phase）。19.17節の直後へ19.18節「Group A Rollout完了実績」を新設し、以下を記録した：Group A 7アプリの完了実績一覧（19.18.2節）、Strategy B実例2件・Strategy C実例2件・状態駆動型（shiritori2）・配列index型（cup_game）・A＋Cハイブリッド型（kyou-no-kiroku）というStrategy分類実績とA/B/C分類が排他的でない典型パターンの整理であることの明確化（19.18.3節）、`buildScanItems()`がDOM queryを必須としないことの確定（19.18.4節）、1/2スイッチadapter実装の複数実例とadvance/select分離がadapter責務のまま維持できることの再確認（19.18.5節）、setTimeoutチェーンの2例目〔kyou-no-kiroku〕（19.18.6節）、restartOnActivateの非対称パターン実例（19.18.7節）、`focus()`／`scrollIntoView()`／TTS／progress bar／highlight保持／設定パネルscope切替という副作用実例の集約（19.18.8節）、common chrome含有・非含有の両実績の再確認（19.18.9節）、Inventory一次スクリーニング方針のGroup A完了実績による再確認（19.18.10節、timetable-appの「400ms→150ms」誤記訂正実績を含む）、Rollout標準手順の正式化と高難度対象における調査・設計Phase／実装Phase分離の有効性の記録（19.18.11節）。あわせて3.3節のStrategy B／C「実例」欄へjanken-app・register-appを追記、Strategy A/B/Cが排他的分類ではない旨の補足を追加、19.9節へGroup A完了実績への参照注記を追加。Version1.0採用事項へ54〜62番を追加。Version2検討事項の13番（Group A残り6アプリの個別コード確認結果を踏まえたGroup A定義見直しの要否）は19.18.3節により回答済みのため削除した。**本改訂は新しい共通基盤・helper API・Strategy種別・配置方式の追加ではなく、Group A Rollout完了という実装実績の記録・補足である。** helper6 API（16章）・配置方式（19.3節）・Rollout手順の骨格（14章・19.8節）はいずれも変更していない。既存のM/R/C/U/A分類・Version1.0〜v1.5時点の1〜53番・Group A 7アプリの実装コードは変更していない。 |
+| v1.7 | 2026-08-12 | **Group B Rollout完了実績反映版**（Phase25-APで確定。根拠: Group B全6アプリ〔yomikaki-app・bosai-app・ongaku-app・time-timer・sugoroku-app・nazori-app〕のRollout完了、および同過程で発見・修正した利用者向け既存不具合3件〔ongaku-app・sugoroku-app・nazori-app〕の実装事実。コード変更は伴わない実績記録Phase）。19.18節の直後へ19.19節「Group B Rollout完了実績」を新設し、以下を記録した：Group B 6アプリの完了実績一覧（19.19.2節）、「highlightClass違い」という分類名がobject state方式・1/2スイッチadapter・Tab第3入力経路・fake event activation・優先度付き状態機械・動的once clickリスナーという実装の構造的多様性を十分表していなかったことの明確化（19.19.3節、Group名自体は変更せず）、bosai-app（common chrome含有への訂正、19.19.4節）・time-timer（条件付きfocus()フォールバック、19.19.5節）・ongaku-app（fake event・候補タイプ別activation分岐、19.19.6節）・sugoroku-app（「8分岐」ではなく優先度付き9分岐であることの確定、19.19.7節）・nazori-app（direct click決定方式への統合、19.19.8節）の各アプリ実績、Rollout前調査で発見・修正した利用者向け既存不具合3件からの運用上の教訓（19.19.9節）、`activateCurrentScanItem()`が単純click()発火に限らないことのactivation adapter整理（19.19.10節）、helper7を追加しないinput adapter整理（19.19.11節）、副作用保持の追加実例集約（19.19.12節）、Rollout標準手順への「main版実ブラウザ確認」「既存不具合判定」「独立した不具合修正Phase」の明示的追加と正式化（19.19.13節）。あわせて5.2節・5.3節へbosai-appのcommon chrome記述に関する訂正注記を追加、19.9節へGroup B完了実績への参照注記を追加。Version1.0採用事項へ63〜72番を追加。Version2検討事項は、Group B実績により完全に回答済みとなった項目が確認できなかったため変更していない。**本改訂は新しい共通基盤・helper API・Strategy種別・配置方式の追加ではなく、Group B Rollout完了という実装実績、および利用者向け既存不具合の発見・修正実績の記録・補足である。** helper6 API（16章）・配置方式（19.3節）・Rollout手順の骨格（14章・19.8節・19.18.11節）・「利害のある既存不具合はRolloutと分離して先に修正する」というPhase25-AG/AK/AN以降で確立した運用（19.19.13節で正式化）はいずれも新規導入ではなく既存実践の記録である。既存のM/R/C/U/A分類・Version1.0〜v1.6時点の1〜62番・Group B 6アプリの実装コードは変更していない。 |
 
 ---
 
