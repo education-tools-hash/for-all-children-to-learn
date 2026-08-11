@@ -2966,13 +2966,21 @@ function buildScanItems(){
   const globalCtrls=Array.from(document.querySelectorAll('.scannable'));
   scanItems=[...tabs,...keys,...phrBtns,...globalCtrls];
 }
-function startScan(){
-  stopScan();buildScanItems();
+// helper6契約: buildScanItems()の薄いラッパー（既存のif(scanMode) buildScanItems()呼び出し群はそのまま維持し、置き換えない）
+function refreshSwitchScanItems(){
+  buildScanItems();
+}
+// helper6契約: highlight classの除去だけに責務を絞る（progress barリセット等は各呼び出し元側で維持）
+function clearScanHighlight(){
+  scanItems.forEach(el=>el.classList.remove('scan-lit'));
+}
+function startSwitchScan(){
+  stopSwitchScan();buildScanItems();
   scanIndex=0;
   const interval=scanSpeed;
   scanBar.classList.add('active');
   scanTimer=setInterval(()=>{
-    scanItems.forEach(el=>el.classList.remove('scan-lit'));
+    clearScanHighlight();
     const total=scanItems.length;
     if(total===0){scanIndex=0;return;}
     if(scanIndex>=total)scanIndex=0;
@@ -2981,13 +2989,15 @@ function startScan(){
     scanIndex++;
   },interval);
 }
-function stopScan(){
+function startScan(){startSwitchScan();}
+function stopSwitchScan(){
   clearInterval(scanTimer);
-  scanItems.forEach(el=>el.classList.remove('scan-lit'));
+  clearScanHighlight();
   scanBarFill.style.width='0%';
   scanBar.classList.remove('active');
 }
-function selectCurrentScan(){
+function stopScan(){stopSwitchScan();}
+function activateCurrentScanItem(){
   if(!scanMode)return;
   const idx=scanIndex-1;
   if(idx<0||idx>=scanItems.length)return;
@@ -2997,7 +3007,7 @@ function selectCurrentScan(){
     currentMode=el.dataset.mode;
     document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
     el.classList.add('active');isShift=false;
-    renderKeyboard();startScan();return;
+    renderKeyboard();startSwitchScan();return;
   }
   if(el.classList.contains('phrase-btn')){el.click();return;}
   if(el.tagName==='INPUT'&&el.type==='range'){
@@ -3011,6 +3021,7 @@ function selectCurrentScan(){
   }
   el.click();
 }
+function selectCurrentScan(){activateCurrentScanItem();}
 
 // Switch event listeners
 document.addEventListener('keydown',e=>{
