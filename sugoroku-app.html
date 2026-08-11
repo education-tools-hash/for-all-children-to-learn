@@ -2623,60 +2623,95 @@ function speak(t){
 }
 
 // ===== SCAN =====
-function buildScanTgts(){
-  scanTgts=[];
-
+// buildScanItems: 候補生成ロジック(旧buildScanTgtsから抽出)。優先度順9分岐・各分岐の
+// selector/条件・「最初に一致した分岐のみ採用」(即returnによる早期確定)・class判定と
+// inline style判定の既存不統一(helpmod/setupのみstyle.display判定)を完全維持する純関数。
+function buildScanItems(){
   // 優先度順にモーダル・パネルを確認
   if(document.getElementById('single-cell-edit').classList.contains('on')){
-    scanTgts=Array.from(document.querySelectorAll('#single-cell-edit button:not(:disabled)'));return;
+    return Array.from(document.querySelectorAll('#single-cell-edit button:not(:disabled)'));
   }
   if(document.getElementById('cell-editor').classList.contains('on')){
-    scanTgts=Array.from(document.querySelectorAll('#cell-editor button:not(:disabled)'));return;
+    return Array.from(document.querySelectorAll('#cell-editor button:not(:disabled)'));
   }
   if(document.getElementById('setpanel').classList.contains('on')){
-    scanTgts=Array.from(document.querySelectorAll('.ssheet button, .ssheet .tsw, .ssheet .spb'));return;
+    return Array.from(document.querySelectorAll('.ssheet button, .ssheet .tsw, .ssheet .spb'));
   }
   if(document.getElementById('helpmod').style.display==='flex'){
-    scanTgts=[document.getElementById('helpclose')];return;
+    return [document.getElementById('helpclose')];
   }
   if(document.getElementById('homemod').classList.contains('on')){
-    scanTgts=[document.getElementById('homeyes'),document.getElementById('homeno')];return;
+    return [document.getElementById('homeyes'),document.getElementById('homeno')];
   }
   if(document.getElementById('evmod').classList.contains('on')){
-    scanTgts=[document.getElementById('evok')];return;
+    return [document.getElementById('evok')];
   }
   if(document.getElementById('goalmod').classList.contains('on')){
-    scanTgts=[document.getElementById('rbtn')];return;
+    return [document.getElementById('rbtn')];
   }
 
   // ゲーム画面
   if(document.getElementById('game').classList.contains('on')){
-    scanTgts=Array.from(document.querySelectorAll('#ctrl button:not(:disabled), #topbar button'));return;
+    return Array.from(document.querySelectorAll('#ctrl button:not(:disabled), #topbar button'));
   }
 
   // ホーム画面（setup）
   if(document.getElementById('setup').style.display!=='none'){
-    scanTgts=Array.from(document.querySelectorAll(
+    return Array.from(document.querySelectorAll(
       '#setup .opt, #setup .t-opt, #setup .edit-cells-btn, #setup .go-btn'
-    ));return;
+    ));
   }
+  return [];
 }
-function startScan(){stopScan();buildScanTgts();sti=0;hlScan();scanTmr=setInterval(()=>{sti=(sti+1)%Math.max(1,scanTgts.length);hlScan();},scanSec*1000);}
-function stopScan(){if(scanTmr){clearInterval(scanTmr);scanTmr=null;}document.querySelectorAll('.shi').forEach(e=>e.classList.remove('shi'));}
+function buildScanTgts(){ scanTgts=buildScanItems(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
+// refreshSwitchScanItems: 350ms delayed refreshで必要な最小責務(候補再取得+sti初期化)のみを
+// 抽出する。350ms待機・if(!scanOn)return;・hlScan()呼び出し・timer非操作という呼び出し元
+// 固有の意味論はactivateCurrentScanItem()側にそのまま残し、ここでは統合しない。
+function refreshSwitchScanItems(){
+  scanTgts=buildScanItems();
+  sti=0;
+}
+
+function startSwitchScan(){
+  stopSwitchScan();
+  refreshSwitchScanItems();
+  hlScan();
+  scanTmr=setInterval(()=>{sti=(sti+1)%Math.max(1,scanTgts.length);hlScan();},scanSec*1000);
+}
+function startScan(){ startSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
+// clearScanHighlight: 旧stopScan()に存在した「.shi全解除」処理のみを抽出する。
+// hlScan()冒頭の同処理には影響しない(hlScan()は内部helperとして無変更のまま維持する)。
+function clearScanHighlight(){
+  document.querySelectorAll('.shi').forEach(e=>e.classList.remove('shi'));
+}
+
+function stopSwitchScan(){
+  if(scanTmr){clearInterval(scanTmr);scanTmr=null;}
+  clearScanHighlight();
+}
+function stopScan(){ stopSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
+// hlScan: 内部helperとして維持する(helper6には含めない)。全解除→0件ならreturn→対象取得→
+// .shi付与→scrollIntoView→speak(TTS、aria-label優先・20文字制限・speechSynthesis.cancel)
+// という既存順序を完全維持するため、内部の呼び出し先はあえて変更しない。
 function hlScan(){
   document.querySelectorAll('.shi').forEach(e=>e.classList.remove('shi'));
   if(!scanTgts.length)return;
   const t=scanTgts[sti];
   if(t){t.classList.add('shi');t.scrollIntoView({behavior:'smooth',block:'nearest'});speak(t.getAttribute('aria-label')||t.textContent.trim().slice(0,20));}
 }
-function trigScan(){
+
+// activateCurrentScanItem: Phase25-AK修正版trigScan()をそのまま移設する。bip→click()→
+// 350ms後のif(!scanOn)return;ガード(Phase25-AKで追加、OFF後のハイライト復活バグの修正)を
+// 含む再取得+sti初期化+hlScan()、という順序・タイミングを一切変更しない。
+function activateCurrentScanItem(){
   if(!scanOn||!scanTgts.length)return;
   const t=scanTgts[sti];
-  // 350ms後の再ハイライトはSwitch ScanをOFFにした後も無条件に実行されていたため、
-  // OFF直後に決定した場合、OFF後にハイライトが再出現し消せなくなる不具合があった
-  // （Phase25-AJで発見）。scanOnを再確認し、OFF中は再ハイライトしないようにする。
-  if(t){bip(660,.1,.2);t.click();setTimeout(()=>{if(!scanOn)return;buildScanTgts();sti=0;hlScan();},350);}
+  if(t){bip(660,.1,.2);t.click();setTimeout(()=>{if(!scanOn)return;refreshSwitchScanItems();hlScan();},350);}
 }
+function trigScan(){ activateCurrentScanItem(); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
 // ===== LISTENERS =====
 document.getElementById('rollbtn').addEventListener('click',roll);
@@ -2883,10 +2918,10 @@ function applyS(){document.getElementById('siv').textContent=scanSec.toFixed(1)+
 document.getElementById('sim').addEventListener('click',()=>{if(scanSec>0.5){scanSec=Math.round((scanSec-.5)*10)/10;applyS();bip(440,.07,.15);}});
 document.getElementById('sip').addEventListener('click',()=>{if(scanSec<5.0){scanSec=Math.round((scanSec+.5)*10)/10;applyS();bip(440,.07,.15);}});
 
-document.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){if(scanOn){e.preventDefault();trigScan();}}});
+document.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){if(scanOn){e.preventDefault();activateCurrentScanItem();}}});
 let tx=0;
 document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
-document.addEventListener('touchend',e=>{if(scanOn&&Math.abs(e.changedTouches[0].clientX-tx)<40)trigScan();});
+document.addEventListener('touchend',e=>{if(scanOn&&Math.abs(e.changedTouches[0].clientX-tx)<40)activateCurrentScanItem();});
 
 // 外部スイッチ対応：pointerdown（タッチ・マウス・スタイラス・スイッチデバイス共通）
 let _ptrLastTime=0;
@@ -2898,7 +2933,7 @@ document.addEventListener('pointerdown',e=>{
   // ボタン・入力要素への直接タップはスキャン発火させない（通常操作を妨げないため）
   const tag=e.target.tagName;
   if(tag==='BUTTON'||tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||tag==='A') return;
-  trigScan();
+  activateCurrentScanItem();
 });
 document.addEventListener('touchstart',()=>{_ptrLastTime=Date.now();},{passive:true});
 
