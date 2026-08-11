@@ -2901,9 +2901,25 @@ function onSoundBtnClick(e, index, sound, emoji) {
   }
 }
 
-function setupScan() {
-  stopScan(); scanIndex=0;
-  const btns=document.querySelectorAll('.sound-button, .scannable'); if(!btns.length) return;
+// buildScanItems: 候補取得ロジック。querySelectorAll('.sound-button, .scannable')の
+// DOM順をそのまま返す純関数。disabled除外・hidden除外・offsetParent/getClientRects判定・
+// 並び替えは追加しない(既存意味論を完全維持)。
+function buildScanItems() {
+  return document.querySelectorAll('.sound-button, .scannable');
+}
+
+// refreshSwitchScanItems: buildScanItems()を呼ぶ薄い共通API。既存コードには同じqueryが
+// 複数箇所(旧setupScan/handle2ButtonKey/activateScanBtn/updateScanHighlight/stopScan)に
+// 重複していたが、意味論・タイミングが完全に同一な箇所(startSwitchScan/handle2ButtonKey/
+// activateCurrentScanItem/stopSwitchScanのclearScanHighlight)のみbuildScanItems()経由へ
+// 揃え、updateScanHighlight()は既存のまま変更しない(Phase25-AB以降の既存方針を踏襲)。
+function refreshSwitchScanItems() {
+  return buildScanItems();
+}
+
+function startSwitchScan() {
+  stopSwitchScan(); scanIndex=0;
+  const btns=refreshSwitchScanItems(); if(!btns.length) return;
   updateScanHighlight();
   if(settings.switchCount===1) {
     scanTimer=setInterval(()=>{ scanIndex=(scanIndex+1)%btns.length; updateScanHighlight(); }, settings.scanSpeed*1000);
@@ -2914,23 +2930,31 @@ function setupScan() {
     btns.forEach(btn=>{ btn.onclick=null; });
   }
 }
+function setupScan() { startSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
 function handle2ButtonKey(e) {
-  const btns=document.querySelectorAll('.sound-button, .scannable');
+  const btns=refreshSwitchScanItems();
   if(e.code==='Space'){e.preventDefault();scanIndex=(scanIndex+1)%btns.length;updateScanHighlight();}
-  else if(e.code==='Enter') activateScanBtn();
+  else if(e.code==='Enter') activateCurrentScanItem();
 }
-function handleScanKey(e) { if(e.code==='Space'||e.code==='Enter') activateScanBtn(); }
-function handleScanActivate(e) { e.stopPropagation(); activateScanBtn(); }
-function activateScanBtn() {
-  const btns=document.querySelectorAll('.sound-button, .scannable'); if(!btns[scanIndex]) return;
+function handleScanKey(e) { if(e.code==='Space'||e.code==='Enter') activateCurrentScanItem(); }
+function handleScanActivate(e) { e.stopPropagation(); activateCurrentScanItem(); }
+
+// activateCurrentScanItem: Phase25-AG修正版activateScanBtn()をそのまま移設する。
+// sound-buttonのfake event経路(currentTarget/clientX/clientY合成・onSoundBtnClick直接
+// 呼び出し)、common chrome等の.sound-button以外に対するclick()委譲(1スイッチ時は対象自身の
+// handleScanActivateを一時解除してからclick()し直後に再登録する対処を含む)、いずれも
+// Phase25-AGの修正内容を一切後退させずそのまま維持する。
+function activateCurrentScanItem() {
+  const btns=refreshSwitchScanItems(); if(!btns[scanIndex]) return;
   const btn=btns[scanIndex];
   // common chrome等の.sound-button以外の候補にはdataset.soundが存在しないため、
   // 以下のfake event合成ロジックを通さず、通常のclick()で本来のハンドラを発火させる
   // （Phase25-AFで発見: これらの候補が選択された状態で決定するとTypeErrorになっていた既存不具合の修正）。
   // 1スイッチモードでは全候補(common chrome含む)へhandleScanActivateがcaptureリスナーとして
-  // 装着されているため(setupScan())、click()をそのまま呼ぶとこの対象自身のリスナーが
+  // 装着されているため(startSwitchScan())、click()をそのまま呼ぶとこの対象自身のリスナーが
   // stopPropagation()で本来のハンドラを握りつぶしてしまう。ここで発火させるclick()は
-  // 既にactivateScanBtn()による決定操作そのものであり再度の横取りは不要なため、
+  // 既にactivateCurrentScanItem()による決定操作そのものであり再度の横取りは不要なため、
   // この1回のclick()の間だけ対象自身のhandleScanActivateを一時的に外す
   // （1スイッチのclick横取り設計自体は変更しない。2スイッチではそもそも未登録のため無害）。
   if(!btn.classList.contains('sound-button')) {
@@ -2945,13 +2969,25 @@ function activateScanBtn() {
   const fakeE={currentTarget:btn, clientX:btn.getBoundingClientRect().left+btn.offsetWidth/2, clientY:btn.getBoundingClientRect().top+btn.offsetHeight/2};
   onSoundBtnClick(fakeE,parseInt(btn.dataset.index),sound,s.emoji);
 }
+function activateScanBtn() { activateCurrentScanItem(); } // 互換エイリアス(既存呼び出し箇所は無変更)
+
+// updateScanHighlight: 内部helperとして維持する(helper6には含めない)。toggle方式・対象・
+// タイミングを変更しないため、あえてbuildScanItems()経由へ変更せず既存のまま残す。
 function updateScanHighlight() { document.querySelectorAll('.sound-button, .scannable').forEach((b,i)=>b.classList.toggle('scanning',i===scanIndex)); }
-function stopScan() {
+
+// clearScanHighlight: 旧stopScan()に存在した「.scanning全解除」処理のみを抽出する。
+// updateScanHighlight()のtoggle方式・対象・タイミングには影響しない。
+function clearScanHighlight() {
+  document.querySelectorAll('.sound-button, .scannable').forEach(b=>b.classList.remove('scanning'));
+}
+
+function stopSwitchScan() {
   if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
   document.removeEventListener('keydown',handleScanKey);
   document.removeEventListener('keydown',handle2ButtonKey);
-  document.querySelectorAll('.sound-button, .scannable').forEach(b=>b.classList.remove('scanning'));
+  clearScanHighlight();
 }
+function stopScan() { stopSwitchScan(); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
 // ===== TOAST =====
 function showToast(msg) {
