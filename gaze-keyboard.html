@@ -3062,7 +3062,7 @@ function renderPhrases(){
     btn.innerHTML=`<span class="pemo">${p.emoji}</span><span>${p.label}</span>`;
     btn.appendChild(makeDwellRing());
     const act=()=>{
-      text+=p.text;updateDisplay();showToast('💬 '+p.text);
+      rtAppendString(p.text);updateDisplay();showToast('💬 '+p.text);
       if(speakPhrase&&window.speechSynthesis){
         window.speechSynthesis.cancel();
         const u=new SpeechSynthesisUtterance(p.text);
@@ -3083,7 +3083,7 @@ function renderAAC(){
     card.innerHTML=`<span class="ace">${c.emoji}</span><span class="acl">${c.label}</span>`;
     card.appendChild(makeDwellRing());
     const act=()=>{
-      text+=c.text;updateDisplay();showToast('🖼️ '+c.text);
+      rtAppendString(c.text);updateDisplay();showToast('🖼️ '+c.text);
       if(speakPhrase&&window.speechSynthesis){
         window.speechSynthesis.cancel();
         const u=new SpeechSynthesisUtterance(c.text);
@@ -3791,9 +3791,10 @@ function renderPredictions() {
         // 入力途中の語を補完して置換
         const lastWord = getLastWord(text);
         if (lastWord.length > 0 && p.word.includes(lastWord)) {
-          text = text.slice(0, -lastWord.length) + p.word;
+          rtDeleteLastChars(lastWord.length);
+          rtAppendString(p.word);
         } else {
-          text += p.word;
+          rtAppendString(p.word);
         }
         learnWord(p.word);
         updateDisplay();
@@ -5104,6 +5105,42 @@ function rtMakeSpan(content) {
   if (rtStyle.underline) span.style.textDecoration = 'underline';
   if (rtStyle.fontSize)  span.style.fontSize       = rtStyle.fontSize;
   return span;
+}
+
+// ── rtAppendString / rtDeleteLastChars：フレーズ・AAC・予測変換など複数文字をまとめて操作する内部helper ──
+// handleKeyInput()を文字数分ループ呼び出しすると1文字ごとのTTS/flashEffect等が多重発火するため、
+// 音声入力と同じ「spanを直接追記してtextを再同期する」経路のみを再利用する
+function rtAppendString(str) {
+  str.split('').forEach(ch => {
+    const block = rtGetOrCreateBlock();
+    block.appendChild(rtMakeSpan(ch));
+  });
+  text = getEditorPlainText();
+}
+function rtDeleteLastChars(n) {
+  for (let i = 0; i < n; i++) {
+    const blocks = richEditor.querySelectorAll('div');
+    const lastBlock = blocks[blocks.length - 1] || richEditor;
+    const spans = lastBlock.querySelectorAll('span');
+    if (spans.length > 0) {
+      const lastSpan = spans[spans.length - 1];
+      if (lastSpan.textContent.length > 1) {
+        lastSpan.textContent = lastSpan.textContent.slice(0, -1);
+      } else {
+        lastSpan.remove();
+        if (lastBlock.innerHTML === '' && lastBlock !== richEditor) {
+          const allBlocks = Array.from(richEditor.querySelectorAll('div'));
+          const idx = allBlocks.indexOf(lastBlock);
+          lastBlock.remove();
+          currentBlock = allBlocks[idx - 1] || null;
+        }
+      }
+    } else if (lastBlock !== richEditor && lastBlock.textContent === '') {
+      lastBlock.remove();
+      currentBlock = null;
+    }
+  }
+  text = getEditorPlainText();
 }
 
 // ── updateDisplay：text変数 → richEditor に反映 ──
