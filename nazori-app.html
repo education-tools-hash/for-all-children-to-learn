@@ -1859,16 +1859,17 @@ function tickScan() {
   scanTimer = setTimeout(tickScan, settings.scanInterval * 1000);
 }
 
-// スキャン選択：ハイライト中ボタンがクリック／タップされたら次へ進む
-// （ボタン自体のクリックは通常通り発火する。スキャンのタイマーをリセットするだけ）
+// スキャン決定：ハイライト中ボタンを決定する。
+// 旧実装はhighlight解除とtimer再スケジュールのみを行い、対象のclick()自体を発火させて
+// いなかったため、Space/Enterキー（外付けスイッチ含む）では実際に候補を決定できない
+// 既存不具合があった（Phase25-AMで発見）。tickScan()が各対象へ動的に付与する
+// _scanClickHandler（highlight解除・timer停止・400ms後再開を担う、direct clickと共通の
+// 決定後処理）へそのまま委譲することで、direct clickと同一の決定処理経路に統合する。
 function selectScanTarget() {
   if (!settings.switchScan) return;
   const highlighted = document.querySelector('.scan-highlight');
   if (highlighted) {
-    highlighted.classList.remove('scan-highlight');
-    if (scanTimer) clearTimeout(scanTimer);
-    // ボタン自体のイベントが先に発火するので、少し待ってから次へ
-    scanTimer = setTimeout(tickScan, 500);
+    highlighted.click();
   }
 }
 
