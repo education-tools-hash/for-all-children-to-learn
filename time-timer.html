@@ -1921,7 +1921,11 @@ function lightenColor(hex) {
 // ===============================================================
 // スキャン
 // ===============================================================
-function updateScanItems() {
+// buildScanItems: 候補生成ロジック(旧updateScanItemsのfilterチェーンから抽出。
+// querySelectorAll('.scannable')のDOM順・12段階の既存filter条件・#settingsToggle明示除外・
+// common chrome含有は無変更。disabledチェックは追加せず、offsetParent/getClientRects方式へも
+// 置き換えない)
+function buildScanItems() {
   const panel=document.getElementById('settingsPanel');
   const cardArea=document.querySelector('.card-area');
   const cardAreaHidden = cardArea && cardArea.style.display==='none';
@@ -1948,7 +1952,7 @@ function updateScanItems() {
   // （HTML内でこの<script>より後ろに定義されているため）。存在しない間はfalse扱いにする。
   const helpModalEl = document.getElementById('helpModal');
   const helpOpen = !!helpModalEl && helpModalEl.classList.contains('open');
-  scanItems=Array.from(document.querySelectorAll('.scannable'))
+  return Array.from(document.querySelectorAll('.scannable'))
     .filter(el=>!el.closest('#settingsPanel')||panel.classList.contains('open'))
     .filter(el=>!cardAreaHidden || !el.closest('.card-area'))
     .filter(el=>!cardGridHidden || !el.closest('#cardGrid'))
@@ -1972,22 +1976,39 @@ function updateScanItems() {
     .filter(el=>el.id!=='settingsToggle');
 }
 
+// refreshSwitchScanItems: 候補再取得の共通API。既存のperTick意味論(呼ぶたびに最新のDOM状態から
+// 候補を再計算する)を変更しない。scanIndexは不用意にリセットしない(責務をitems再取得のみに限定)。
+function refreshSwitchScanItems() {
+  scanItems = buildScanItems();
+}
+function updateScanItems() { refreshSwitchScanItems(); } // 互換エイリアス(既存の外部呼び出し箇所は無変更)
+
 function toggleScanMode(en) {
   scanEnabled=en;
   document.body.classList.toggle('scan-mode',en);
   en?startScan():stopScan();
 }
 
-function startScan() {
-  stopScan(); scanIndex=0; highlightScan();
+function startSwitchScan() {
+  stopSwitchScan(); scanIndex=0; highlightScan();
   scanInterval=setInterval(()=>{scanIndex=(scanIndex+1)%scanItems.length;highlightScan();},scanSpeedVal*1000);
 }
+function startScan() { startSwitchScan(); } // 互換エイリアス(既存の外部呼び出し箇所は無変更)
 
-function stopScan() {
-  clearInterval(scanInterval);
+// clearScanHighlight: stopScan()とhighlightScan()に存在した「.scan-focused全解除」処理のうち、
+// 共有可能な部分のみを抽出する。呼び出しタイミングは変更しない。
+function clearScanHighlight() {
   scanItems.forEach(el=>el.classList.remove('scan-focused'));
 }
 
+function stopSwitchScan() {
+  clearInterval(scanInterval);
+  clearScanHighlight();
+}
+function stopScan() { stopSwitchScan(); } // 互換エイリアス(既存の外部呼び出し箇所は無変更)
+
+// highlightScan: 内部helperとして維持する(helper6には含めない)。候補再取得→全解除→scanIndex補正→
+// 対象へ付与→scrollIntoView、という既存順序を完全維持するため、内部の呼び出し先はあえて変更しない。
 function highlightScan() {
   updateScanItems();
   scanItems.forEach(el=>el.classList.remove('scan-focused'));
@@ -1996,20 +2017,27 @@ function highlightScan() {
 
 function updateScanSpeed(v) { scanSpeedVal=parseFloat(v); if(scanEnabled)startScan(); }
 
+// activateCurrentScanItem: Space/Enterの既存決定処理を抽出する。対象item取得→click前activeElement
+// 記録→click()→click後activeElement記録→focusMoved判定→条件付きfocus()、という順序・5条件を
+// 完全維持する。preventScroll等の新オプションは追加しない。
+function activateCurrentScanItem() {
+  const item=scanItems[scanIndex];
+  if(item){
+    const before=document.activeElement;
+    item.click();
+    const after=document.activeElement;
+    const focusMoved=after&&after!==before&&after!==document.body;
+    if(!focusMoved&&item.isConnected&&!item.closest('[inert]')&&!item.closest('[hidden]')&&item.getClientRects().length>0&&!item.disabled){
+      item.focus();
+    }
+  }
+}
+
 document.addEventListener('keydown',e=>{
   if(!scanEnabled)return;
   if(e.key===' '||e.key==='Enter'){
     e.preventDefault();
-    const item=scanItems[scanIndex];
-    if(item){
-      const before=document.activeElement;
-      item.click();
-      const after=document.activeElement;
-      const focusMoved=after&&after!==before&&after!==document.body;
-      if(!focusMoved&&item.isConnected&&!item.closest('[inert]')&&!item.closest('[hidden]')&&item.getClientRects().length>0&&!item.disabled){
-        item.focus();
-      }
-    }
+    activateCurrentScanItem();
   }
   if(e.key==='Tab'){e.preventDefault();scanIndex=(scanIndex+(e.shiftKey?-1:1)+scanItems.length)%scanItems.length;highlightScan();clearInterval(scanInterval);scanInterval=setInterval(()=>{scanIndex=(scanIndex+1)%scanItems.length;highlightScan();},scanSpeedVal*1000);}
 });
