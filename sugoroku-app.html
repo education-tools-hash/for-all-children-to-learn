@@ -2672,7 +2672,10 @@ function hlScan(){
 function trigScan(){
   if(!scanOn||!scanTgts.length)return;
   const t=scanTgts[sti];
-  if(t){bip(660,.1,.2);t.click();setTimeout(()=>{buildScanTgts();sti=0;hlScan();},350);}
+  // 350ms後の再ハイライトはSwitch ScanをOFFにした後も無条件に実行されていたため、
+  // OFF直後に決定した場合、OFF後にハイライトが再出現し消せなくなる不具合があった
+  // （Phase25-AJで発見）。scanOnを再確認し、OFF中は再ハイライトしないようにする。
+  if(t){bip(660,.1,.2);t.click();setTimeout(()=>{if(!scanOn)return;buildScanTgts();sti=0;hlScan();},350);}
 }
 
 // ===== LISTENERS =====
