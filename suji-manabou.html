@@ -1362,9 +1362,37 @@ function toggleAutoRead(cb) {
 }
 function toggleScan(cb) {
   scanMode = cb.checked;
-  document.body.classList.toggle('scan-mode', scanMode);
-  if (scanMode) { setTimeout(updateScanTargets, 200); startAutoScan(); }
-  else stopAutoScan();
+  if (scanMode) { startSwitchScan(); } else { stopSwitchScan(); }
+}
+
+// ===== helper6: Switch Scan 共通API（既存実装をラップして責務を整理。挙動は変更しない） =====
+// startSwitchScan()/stopSwitchScan(): toggleScan()のON/OFF分岐をそのまま抽出したもの。
+// 実行順・timing（200ms delayでのcandidate再取得、startAutoScan()呼び出し順）は無変更。
+function startSwitchScan() {
+  document.body.classList.add('scan-mode');
+  setTimeout(updateScanTargets, 200);
+  startAutoScan();
+}
+function stopSwitchScan() {
+  stopAutoScan();
+  clearScanHighlight();
+}
+// clearScanHighlight(): このアプリのhighlightは per要素classではなく、
+// body.scan-mode クラス + ネイティブfocus(:focus疑似クラス)の組み合わせで表現される
+// （他アプリの.scan-lit等を削除する方式とは異なる）。よって「highlightを消す」とは
+// このアプリでは「body.scan-modeクラスを外す」ことに等しい。個々のcandidateへの
+// focus/blur()は一切変更しない（既存のnative focus意味論を保持するため）。
+function clearScanHighlight() {
+  document.body.classList.remove('scan-mode');
+}
+// buildScanItems() / refreshSwitchScanItems(): 既存のgetScanTargets()/updateScanTargets()
+// をそのまま呼び出す薄いエイリアス。既存呼び出し箇所（changeScanSpeed()・startAutoScan()内
+// setInterval・tab切替ハンドラ等）は互換のためrenameせず元の関数名のまま残す。
+function buildScanItems() {
+  return getScanTargets();
+}
+function refreshSwitchScanItems() {
+  updateScanTargets();
 }
 // fontSizeLevelに応じてbody classと#font-size-displayラベルだけを一致させる。
 // 共通A11yパネル側には一切触れない(共通ボタンへの委譲は呼び出し側の責務)。
@@ -1467,16 +1495,24 @@ function stopAutoScan() {
   scanInterval = null;
 }
 
+// activateCurrentScanItem(): 現在candidateの決定操作。既存どおりelement.click()のみ
+// （候補タイプ別の分岐は新設しない）。
+function activateCurrentScanItem() {
+  const f = document.activeElement;
+  if (f && f !== document.body) f.click();
+}
+
 // 下部の汎用キーボードハンドラ（Spaceキー・Enterキーで主要ボタンを操作）も同じ
 // activeElementをclick()するため、scanMode中はstopImmediatePropagation()で
-// そちらへ到達させず二重activationを防ぐ。
+// そちらへ到達させず二重activationを防ぐ。この判定・preventDefault/stopImmediatePropagation
+// はinput adapter（このリスナー自身）の責務としてactivateCurrentScanItem()の外に残す。
 document.addEventListener('keydown', e => {
   if (scanMode && (e.key === ' ' || e.key === 'Enter')) {
     const f = document.activeElement;
     if (f && f !== document.body) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      f.click();
+      activateCurrentScanItem();
     }
   }
 });
