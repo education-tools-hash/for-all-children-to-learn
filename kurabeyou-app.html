@@ -323,7 +323,6 @@
     gap: var(--dm-space-6); flex-wrap: wrap;
     min-height: 220px; margin-bottom: var(--dm-space-5);
   }
-  .stimulus-shape.color-c { background: var(--dm-color-info); }
   .stimulus-shape.placed { opacity: 0.3; pointer-events: none; }
   .order-slots { display: flex; align-items: center; justify-content: center; gap: var(--dm-space-4); margin-bottom: var(--dm-space-4); }
   .order-slot {
@@ -332,10 +331,9 @@
     font-weight: 900; font-size: var(--dm-font-size-subheading); color: var(--dm-color-sub);
     background: var(--dm-color-soft); flex-shrink: 0;
   }
-  .order-slot.filled { border-style: solid; }
-  .order-slot.filled.color-a { border-color: var(--dm-color-primary); background: rgba(0,169,157,.12); color: var(--dm-color-primary-dark); }
-  .order-slot.filled.color-b { border-color: var(--dm-color-accent); background: rgba(245,166,35,.16); color: #8a5a10; }
-  .order-slot.filled.color-c { border-color: var(--dm-color-info); background: rgba(74,143,217,.14); color: #2f5f95; }
+  /* .filled state's border/background color is set inline per-question (see fillOrderSlot()),
+     since the palette color assigned to each candidate varies question to question. */
+  .order-slot.filled { border-style: solid; color: var(--dm-color-ink); }
 
   /* ===== session completion (inline, non-modal) ===== */
   .complete-area { text-align: center; padding: var(--dm-space-6) 0; }
@@ -407,8 +405,6 @@
   .stimulus-shape.shape-square { border-radius: var(--dm-radius-md); }
   /* length concept: fixed height so width/length is the dominant visual cue, not area */
   .stimulus-shape.shape-bar { height: 48px; min-width: 60px; border-radius: var(--dm-radius-sm); }
-  .stimulus-shape.color-a { background: var(--dm-color-primary); }
-  .stimulus-shape.color-b { background: var(--dm-color-accent); }
   .stimulus-shape:active { transform: scale(0.94); }
   .stimulus-shape.tap-pulse { transform: scale(1.12); }
   .stimulus-shape.auto-anim { animation: kurabeyouPulse 4s ease-in-out infinite; }
@@ -463,7 +459,33 @@
     .compare-stage, .order-stage { gap: var(--dm-space-5); }
     .control-row-label { width: 100%; margin-right: 0; }
     .order-slot { width: 52px; height: 52px; }
-    .order-slots { gap: var(--dm-space-3); }
+    .order-slots { gap: var(--dm-space-3); margin-bottom: var(--dm-space-2); }
+
+    /* vertical compaction so Level4's 3 candidates sit closer to the initial
+       viewport — trims whitespace/margins only; targets stay >=44px and
+       button labels/text stay legible (nothing here shrinks below existing
+       token sizes used elsewhere in the app). */
+    .app { padding-top: var(--dm-space-4); padding-bottom: var(--dm-space-6); }
+    /* on narrow viewports .app isn't width-constrained by its max-width, so its
+       content starts flush at the left edge, directly under the fixed common
+       home button (top:12px;left:12px;width:44px) — clear it here rather than
+       touching the shared home-button styling used by every app. */
+    .app-header { margin-bottom: var(--dm-space-4); padding-left: 52px; }
+    .control-bar { margin-bottom: var(--dm-space-3); gap: var(--dm-space-1); }
+    .concept-btn, .count-btn, .level-btn { padding: var(--dm-space-1) var(--dm-space-3); }
+    .prompt-text { margin-bottom: var(--dm-space-4); font-size: var(--dm-font-size-heading); }
+    .progress-wrap { margin-bottom: var(--dm-space-3); }
+    .stimulus-stage, .compare-stage, .order-stage { min-height: 160px; margin-bottom: var(--dm-space-4); }
+  }
+
+  /* shorter viewports (older/smaller phones) are the real constraint, not
+     narrowness by itself — compact further based on height so the fix
+     targets the actual limiting dimension. */
+  @media (max-height: 700px) {
+    .control-bar { margin-bottom: var(--dm-space-2); }
+    .prompt-text { margin-bottom: var(--dm-space-2); }
+    .progress-wrap { margin-bottom: var(--dm-space-2); }
+    .stimulus-stage, .compare-stage, .order-stage { min-height: 140px; margin-bottom: var(--dm-space-2); }
   }
 </style>
 
@@ -491,7 +513,7 @@
       </div>
     </div>
     <div class="control-row" id="questionCountRow" hidden>
-      <span class="control-row-label" id="countGroupLabel">もんすう</span>
+      <span class="control-row-label" id="countGroupLabel">もんだいすう</span>
       <div class="count-buttons" role="group" aria-labelledby="countGroupLabel">
         <button class="count-btn" data-count="3" tabindex="0" aria-pressed="false">3もん</button>
         <button class="count-btn" data-count="5" tabindex="0" aria-pressed="true">5もん</button>
@@ -539,15 +561,15 @@
 
     <div id="level1View" class="level-view" hidden>
       <div class="stimulus-stage">
-        <div id="shape1" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="かたち"></div>
+        <div id="shape1" class="stimulus-shape" tabindex="0" role="button" aria-label="かたち"></div>
       </div>
       <button id="level1NextBtn" class="next-btn" tabindex="0">つぎへ →</button>
     </div>
 
     <div id="level2View" class="level-view" hidden>
       <div class="compare-stage">
-        <div id="objBig2" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="おおきいかたち"></div>
-        <div id="objSmall2" class="stimulus-shape color-b" tabindex="0" role="button" aria-label="ちいさいかたち"></div>
+        <div id="objBig2" class="stimulus-shape" tabindex="0" role="button" aria-label="おおきいかたち"></div>
+        <div id="objSmall2" class="stimulus-shape" tabindex="0" role="button" aria-label="ちいさいかたち"></div>
       </div>
       <p id="level2ResultText" class="result-text" aria-live="polite"></p>
       <button id="level2NextBtn" class="next-btn" tabindex="0">つぎへ →</button>
@@ -556,8 +578,8 @@
     <div id="level3View" class="level-view" hidden>
       <div id="level3PlayArea">
         <div class="compare-stage">
-          <div id="objA3" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="かたちA"></div>
-          <div id="objB3" class="stimulus-shape color-b" tabindex="0" role="button" aria-label="かたちB"></div>
+          <div id="objA3" class="stimulus-shape" tabindex="0" role="button" aria-label="かたちA"></div>
+          <div id="objB3" class="stimulus-shape" tabindex="0" role="button" aria-label="かたちB"></div>
         </div>
         <div id="feedbackArea" class="feedback-area" aria-live="polite"></div>
       </div>
@@ -566,9 +588,9 @@
     <div id="level4View" class="level-view" hidden>
       <div id="level4PlayArea">
         <div class="order-stage">
-          <div id="item0" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="1つめのかたち"></div>
-          <div id="item1" class="stimulus-shape color-b" tabindex="0" role="button" aria-label="2つめのかたち"></div>
-          <div id="item2" class="stimulus-shape color-c" tabindex="0" role="button" aria-label="3つめのかたち"></div>
+          <div id="item0" class="stimulus-shape" tabindex="0" role="button" aria-label="1つめのかたち"></div>
+          <div id="item1" class="stimulus-shape" tabindex="0" role="button" aria-label="2つめのかたち"></div>
+          <div id="item2" class="stimulus-shape" tabindex="0" role="button" aria-label="3つめのかたち"></div>
         </div>
         <div class="order-slots">
           <div class="order-slot" id="orderSlot0" data-slot="0">1</div>
@@ -613,11 +635,29 @@ var comparisonMode = 'size'; // 'size' | 'length'
 var QUESTION_COUNTS = [3, 5, 10];
 var questionCount = 5;
 var session = null; // { total, current, completed, correct, startedAt } — single source of truth for Level3/4 progress; null when level is 1 or 2
-var LEVEL4_COLOR_CLASSES = ['color-a', 'color-b', 'color-c'];
 
 var SIZE_PAIRS = [[210,120],[195,130],[180,135]]; // pair[0] is always the larger value
 var LENGTH_PAIRS = [[280,110],[250,130],[220,150]]; // pair[0] is always the longer value; wider spread than SIZE_PAIRS so length reads as a width cue, not an area cue
 var SHAPES = ['circle','square'];
+
+/* presentation-only color palette: which candidate gets which color is
+   randomized per question and carries no learning meaning — correctEl /
+   correctOrder are always derived from value alone (see generateLevel3Question
+   / generateLevel4Question). Two of the six reuse existing design tokens
+   (primary teal, accent orange); the rest are small in-app additions chosen
+   for visual distinction from each other and from the danger/feedback colors,
+   not a new sitewide color system. */
+var KURABEYOU_PALETTE = [
+  { bg: '#00A99D', tint: 'rgba(0,169,157,.14)' },   // teal (--dm-color-primary)
+  { bg: '#F5A623', tint: 'rgba(245,166,35,.16)' },  // orange (--dm-color-accent)
+  { bg: '#4A8FD9', tint: 'rgba(74,143,217,.14)' },  // blue (--dm-color-info)
+  { bg: '#D9639C', tint: 'rgba(217,99,156,.14)' },  // pink
+  { bg: '#8B6FD9', tint: 'rgba(139,111,217,.14)' }, // purple
+  { bg: '#7CB342', tint: 'rgba(124,179,66,.16)' }   // yellow-green
+];
+function pickDistinctColors(n) {
+  return shuffleArray(KURABEYOU_PALETTE).slice(0, n);
+}
 
 /* per-concept text/config, keyed by comparisonMode. moreLabel/lessLabel are the
    internal (log/aria) vocabulary for "the bigger/longer one" and "the smaller/
@@ -1106,12 +1146,11 @@ sessionRestartBtn.addEventListener('click', function() {
 /* =====================================================================
    stimulus rendering
 ===================================================================== */
-function applyShape(el, shape, sizePx, colorClass) {
+function applyShape(el, shape, sizePx, colorObj) {
   el.classList.remove('shape-circle', 'shape-square', 'shape-bar');
   el.classList.add(shape === 'square' ? 'shape-square' : shape === 'bar' ? 'shape-bar' : 'shape-circle');
   el.style.setProperty('--stim-size', sizePx + 'px');
-  el.classList.remove('color-a', 'color-b');
-  el.classList.add(colorClass);
+  el.style.background = colorObj.bg; // presentation only; never read by judgment logic
 }
 
 function tapPulse(el) {
@@ -1128,7 +1167,7 @@ function renderLevel1() {
   promptText.textContent = '';
   var stimuli = COMPARISON[comparisonMode].level1Stimuli;
   var cfg = stimuli[level1Index % stimuli.length];
-  applyShape(shape1, cfg.shape, cfg.size, 'color-a');
+  applyShape(shape1, cfg.shape, cfg.size, pickDistinctColors(1)[0]);
   shape1.classList.toggle('auto-anim', true);
 }
 function level1Next() {
@@ -1157,8 +1196,9 @@ function renderLevel2() {
   objSmall2.setAttribute('aria-label', cfg.ariaLess);
   var combo = cfg.level2Combos[level2Index % cfg.level2Combos.length];
   var pair = cfg.pairs[combo.pair % cfg.pairs.length];
-  applyShape(objBig2, combo.shape, pair[0], 'color-a');
-  applyShape(objSmall2, combo.shape, pair[1], 'color-b');
+  var colors2 = pickDistinctColors(2);
+  applyShape(objBig2, combo.shape, pair[0], colors2[0]);
+  applyShape(objSmall2, combo.shape, pair[1], colors2[1]);
 }
 function level2Next() {
   level2Index++;
@@ -1199,6 +1239,7 @@ function generateLevel3Question() {
   var rightValue = moreOnLeft ? pair[1] : pair[0];
   var moreEl = moreOnLeft ? objA3 : objB3;
   var lessEl = moreOnLeft ? objB3 : objA3;
+  var colors = pickDistinctColors(2); // presentation only; independent of value/position, never read by judgment logic
 
   return {
     concept: comparisonMode,
@@ -1209,6 +1250,7 @@ function generateLevel3Question() {
     moreEl: moreEl,
     lessEl: lessEl,
     correctEl: promptMore ? moreEl : lessEl,
+    colors: colors,
     startTime: performance.now()
   };
 }
@@ -1222,8 +1264,8 @@ function renderLevel3() {
   var q = generateLevel3Question();
   level3State = q;
 
-  applyShape(objA3, q.shape, q.leftValue, 'color-a');
-  applyShape(objB3, q.shape, q.rightValue, 'color-b');
+  applyShape(objA3, q.shape, q.leftValue, q.colors[0]);
+  applyShape(objB3, q.shape, q.rightValue, q.colors[1]);
 
   var promptStr = q.promptMore ? cfg.promptMore : cfg.promptLess;
   promptText.textContent = promptStr;
@@ -1320,6 +1362,7 @@ function generateLevel4Question() {
 
   var sorted = items.slice().sort(function(a, b) { return order === 'desc' ? b.value - a.value : a.value - b.value; });
   var correctOrder = sorted.map(function(it) { return it.id; });
+  var colors = pickDistinctColors(3); // presentation only, indexed by DOM slot (item0/1/2) — independent of value/rank
 
   return {
     concept: comparisonMode,
@@ -1327,6 +1370,7 @@ function generateLevel4Question() {
     shape: shape,
     items: items,
     correctOrder: correctOrder,
+    colors: colors,
     selectedOrder: [],
     currentStep: 0,
     mistakes: 0,
@@ -1350,14 +1394,17 @@ function renderLevel4() {
 
   q.items.forEach(function(it, i) {
     var el = level4Items[i];
-    applyShape(el, q.shape, it.value, LEVEL4_COLOR_CLASSES[i]);
+    applyShape(el, q.shape, it.value, q.colors[i]);
     el.classList.remove('placed');
     el.setAttribute('tabindex', '0');
     el.dataset.itemId = it.id;
   });
   orderSlotEls.forEach(function(s, i) {
     s.textContent = String(i + 1);
-    s.classList.remove('filled', 'color-a', 'color-b', 'color-c');
+    s.classList.remove('filled');
+    s.style.borderColor = '';
+    s.style.background = '';
+    s.style.color = '';
   });
 
   var promptStr = q.order === 'desc' ? cfg.level4PromptDesc : cfg.level4PromptAsc;
@@ -1384,8 +1431,11 @@ function level4Select(el) {
     el.setAttribute('tabindex', '-1');
     var itemIndex = level4Items.indexOf(el);
     var slotEl = orderSlotEls[slotIndex];
+    var slotColor = q.colors[itemIndex];
     slotEl.textContent = '✓';
-    slotEl.classList.add('filled', LEVEL4_COLOR_CLASSES[itemIndex]);
+    slotEl.classList.add('filled');
+    slotEl.style.borderColor = slotColor.bg;
+    slotEl.style.background = slotColor.tint;
     if (animationEnabled) tapPulse(el);
     beep(880, 120);
 
@@ -1443,6 +1493,10 @@ level4Items.forEach(function(el) { el.addEventListener('click', function() { lev
 /* =====================================================================
    level switching
 ===================================================================== */
+function shouldShowQuestionCount() {
+  return level === 3 || level === 4;
+}
+
 function showLevel(n) {
   if (level3FeedbackTimeoutId) { clearTimeout(level3FeedbackTimeoutId); level3FeedbackTimeoutId = null; }
   if (level4FeedbackTimeoutId) { clearTimeout(level4FeedbackTimeoutId); level4FeedbackTimeoutId = null; }
@@ -1456,7 +1510,7 @@ function showLevel(n) {
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
-  questionCountRow.hidden = !(n === 3 || n === 4);
+  questionCountRow.hidden = !shouldShowQuestionCount();
   answered = false;
   answered4 = false;
   sessionCompleteArea.hidden = true;
