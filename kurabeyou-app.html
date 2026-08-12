@@ -543,12 +543,21 @@
   .records-list { display: flex; flex-direction: column; gap: var(--dm-space-2); margin-bottom: var(--dm-space-3); }
   .record-item { background: var(--dm-color-soft); border-radius: var(--dm-radius-sm); padding: var(--dm-space-3); font-size: var(--dm-font-size-caption); line-height: var(--dm-line-height-caption); }
   .record-item-title { font-weight: 900; margin-bottom: var(--dm-space-1); }
-  .records-showmore-btn, .records-delete-btn {
+  .records-showmore-btn, .records-delete-btn, .records-csv-btn {
     width: 100%; min-height: 44px; border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
     background: #fff; font-weight: 900; cursor: pointer; font-family: inherit; font-size: var(--dm-font-size-caption);
     margin-bottom: var(--dm-space-2);
   }
+  .records-csv-btn { color: var(--dm-color-primary-dark); border-color: var(--dm-color-primary); }
   .records-delete-btn { color: var(--dm-color-danger-text); border-color: var(--dm-color-danger); }
+  .record-expand-btn {
+    min-height: 44px; padding: var(--dm-space-1) var(--dm-space-3); margin-top: var(--dm-space-1);
+    border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
+    background: #fff; color: var(--dm-color-primary-dark); font-weight: 900; cursor: pointer;
+    font-family: inherit; font-size: var(--dm-font-size-caption);
+  }
+  .record-detail { margin-top: var(--dm-space-2); padding-top: var(--dm-space-2); border-top: 1px dashed var(--dm-color-border); }
+  .record-detail div { margin-bottom: var(--dm-space-1); }
   .records-confirm { background: rgba(238,108,124,.08); border: 2px solid var(--dm-color-danger); border-radius: var(--dm-radius-sm); padding: var(--dm-space-3); margin-bottom: var(--dm-space-2); }
   .records-confirm p { margin: 0 0 var(--dm-space-2); font-weight: 700; font-size: var(--dm-font-size-caption); }
   .records-confirm-buttons { display: flex; gap: var(--dm-space-2); }
@@ -655,6 +664,7 @@
       <p id="recordsEmpty" class="records-empty" hidden>まだ記録はありません</p>
       <div id="recordsList" class="records-list"></div>
       <button id="recordsShowMoreBtn" class="records-showmore-btn" tabindex="0" hidden>もっと見る</button>
+      <button id="recordsCsvBtn" class="records-csv-btn" tabindex="0" hidden>📄 CSVで書き出す</button>
       <button id="recordsDeleteBtn" class="records-delete-btn" tabindex="0" hidden>きろくをすべて消す</button>
       <div id="recordsConfirm" class="records-confirm" hidden>
         <p>記録をすべて消しますか？</p>
@@ -824,6 +834,7 @@ var settingsCloseBtn = document.getElementById('settingsCloseBtn');
 var recordsEmpty = document.getElementById('recordsEmpty');
 var recordsList = document.getElementById('recordsList');
 var recordsShowMoreBtn = document.getElementById('recordsShowMoreBtn');
+var recordsCsvBtn = document.getElementById('recordsCsvBtn');
 var recordsDeleteBtn = document.getElementById('recordsDeleteBtn');
 var recordsConfirm = document.getElementById('recordsConfirm');
 var recordsConfirmCancel = document.getElementById('recordsConfirmCancel');
@@ -1390,6 +1401,8 @@ function generateLevel3Question() {
     lessEl: lessEl,
     correctEl: promptMore ? moreEl : lessEl,
     colors: colors,
+    firstSelected: null, // label of the first attempt, for the mistake-detail record (Phase26-C6)
+    mistakeSelections: [], // labels of every wrong attempt, in order
     startTime: performance.now()
   };
 }
@@ -1420,20 +1433,32 @@ function level3Select(el) {
   var q = level3State;
   var cfg = COMPARISON[q.concept];
   var correct = (el === q.correctEl);
-  var responseTimeMs = Math.round(performance.now() - q.startTime);
+  var selectedLabel = (el === q.moreEl) ? cfg.moreLabel : cfg.lessLabel;
+  if (!q.firstSelected) q.firstSelected = selectedLabel;
 
-  addLog({
-    time: new Date().toISOString(),
-    concept: q.concept,
-    level: 3,
-    prompt: q.promptMore ? cfg.moreLabel : cfg.lessLabel,
-    selected: (el === q.moreEl) ? cfg.moreLabel : cfg.lessLabel,
-    correct: correct,
-    responseTimeMs: responseTimeMs,
-    questionIndex: session ? session.current : null,
-    questionTotal: session ? session.total : null,
-    inputMethod: currentInputMethod || null
-  });
+  if (correct) {
+    // one entry per completed question (not per attempt) — firstSelected/
+    // mistakeSelections carry the full attempt history, so a question with
+    // retries still produces a single, readable record instead of N rows.
+    var responseTimeMs = Math.round(performance.now() - q.startTime);
+    addLog({
+      time: new Date().toISOString(),
+      concept: q.concept,
+      level: 3,
+      prompt: q.promptMore ? cfg.moreLabel : cfg.lessLabel,
+      selected: selectedLabel,
+      correct: true,
+      firstSelected: q.firstSelected,
+      mistakeSelections: q.mistakeSelections.slice(),
+      mistakes: q.mistakeSelections.length,
+      responseTimeMs: responseTimeMs,
+      questionIndex: session ? session.current : null,
+      questionTotal: session ? session.total : null,
+      inputMethod: currentInputMethod || null
+    });
+  } else {
+    q.mistakeSelections.push(selectedLabel);
+  }
   currentInputMethod = null;
 
   if (correct) {
@@ -1513,6 +1538,7 @@ function generateLevel4Question() {
     selectedOrder: [],
     currentStep: 0,
     mistakes: 0,
+    mistakeDetails: [], // { step, selectedId, expectedId } per wrong pick, for the mistake-detail record (Phase26-C6)
     startTime: performance.now()
   };
 }
@@ -1586,8 +1612,10 @@ function level4Select(el) {
         concept: q.concept,
         level: 4,
         order: q.order,
+        items: q.items,
         correctOrder: q.correctOrder,
         selectedOrder: q.selectedOrder,
+        mistakeDetails: q.mistakeDetails,
         mistakes: q.mistakes,
         responseTimeMs: responseTimeMs,
         questionIndex: session ? session.current : null,
@@ -1610,6 +1638,7 @@ function level4Select(el) {
     }
   } else {
     q.mistakes++;
+    q.mistakeDetails.push({ step: q.currentStep + 1, selectedId: itemId, expectedId: expectedId });
     answered4 = true;
     level4FeedbackArea.textContent = 'もういちど やってみよう';
     level4FeedbackArea.className = 'feedback-area incorrect';
@@ -1809,6 +1838,71 @@ function summarizeSession(sess) {
   return { title: title, dateStr: formatRecordDate(lastEntry.time), lines: lines };
 }
 
+// human-readable text for internal size/length labels — used in both the
+// records UI detail lines and the CSV, kept in one place so they stay in sync.
+var RECORDS_SELECTED_TEXT = { big: 'おおきいほう', small: 'ちいさいほう', long: 'ながいほう', short: 'みじかいほう' };
+
+// which of the 3 Level4 items (by actual value, not DOM position) a given
+// itemId represents, e.g. "いちばん大きい" — needs the full items[] array,
+// so this only works for entries that have it (new-format entries do).
+function level4RankLabel(items, itemId, concept) {
+  if (!items) return '';
+  var sorted = items.slice().sort(function(a, b) { return b.value - a.value; });
+  var idx = sorted.findIndex(function(it) { return it.id === itemId; });
+  var labels = concept === 'length'
+    ? ['いちばん長い', '中くらいの長さ', 'いちばん短い']
+    : ['いちばん大きい', '中くらいの大きさ', 'いちばん小さい'];
+  return labels[idx] || '';
+}
+
+// per-question "what went wrong" lines for Level3. Handles both the current
+// one-entry-per-question format (firstSelected/mistakeSelections embedded)
+// and older logs where each attempt was its own entry (correct:false rows
+// followed by the eventual correct:true row) — old entries are just as
+// readable, only without a named "first" selection when there were 2+ wrong
+// attempts in a row (rare in practice, and still shows the correct count).
+function level3QuestionDetails(sess) {
+  var lines = [];
+  var pendingMistakes = [];
+  sess.entries.forEach(function(e) {
+    if (e.correct !== true) { pendingMistakes.push(e.selected); return; }
+    var qIndex = e.questionIndex || (lines.length + 1);
+    var cfg = COMPARISON[e.concept];
+    var promptText = cfg ? (e.prompt === cfg.moreLabel ? cfg.promptMore : cfg.promptLess) : (RECORDS_SELECTED_TEXT[e.prompt] || e.prompt || '');
+    var mistakes = (e.mistakeSelections && e.mistakeSelections.length) ? e.mistakeSelections : pendingMistakes;
+    if (!mistakes.length) {
+      lines.push(qIndex + '問目：「' + promptText + '」に、まよわず せいかい');
+    } else {
+      var firstLabel = e.firstSelected || mistakes[0];
+      var firstText = RECORDS_SELECTED_TEXT[firstLabel] || firstLabel;
+      lines.push(qIndex + '問目：「' + promptText + '」で、さいしょに' + firstText + 'を選び、' + mistakes.length + '回 やりなおして せいかい');
+    }
+    pendingMistakes = [];
+  });
+  return lines;
+}
+
+// per-question "where they got stuck" lines for Level4.
+function level4QuestionDetails(sess) {
+  return sess.entries.map(function(e, idx) {
+    var qIndex = e.questionIndex || (idx + 1);
+    var orderLabel = (RECORDS_ORDER_NAME[e.concept] && RECORDS_ORDER_NAME[e.concept][e.order]) || '';
+    var head = qIndex + '問目（' + orderLabel + '）：';
+    if (e.mistakeDetails && e.mistakeDetails.length && e.items) {
+      var parts = e.mistakeDetails.map(function(m) {
+        var selLabel = level4RankLabel(e.items, m.selectedId, e.concept) || 'ちがうもの';
+        var expLabel = level4RankLabel(e.items, m.expectedId, e.concept) || '別のもの';
+        return m.step + '番目：' + selLabel + 'を選択。本来は' + expLabel;
+      });
+      return head + parts.join('／');
+    }
+    if (typeof e.mistakes === 'number' && e.mistakes > 0) {
+      return head + e.mistakes + '回 やりなおして せいかい';
+    }
+    return head + 'まちがえずに せいかい';
+  });
+}
+
 function renderRecords() {
   var sessions = groupLogIntoSessions(readLog()).reverse(); // most recent first
   recordsList.innerHTML = '';
@@ -1817,14 +1911,17 @@ function renderRecords() {
     recordsEmpty.hidden = false;
     recordsShowMoreBtn.hidden = true;
     recordsDeleteBtn.hidden = true;
+    recordsCsvBtn.hidden = true;
     return;
   }
   recordsEmpty.hidden = true;
   recordsDeleteBtn.hidden = false;
+  recordsCsvBtn.hidden = false;
 
   var visibleCount = recordsShowAll ? sessions.length : Math.min(RECORDS_SHOW_INITIAL, sessions.length);
   for (var i = 0; i < visibleCount; i++) {
-    var s = summarizeSession(sessions[i]);
+    var sess = sessions[i];
+    var s = summarizeSession(sess);
     var item = document.createElement('div');
     item.className = 'record-item';
     var titleEl = document.createElement('div');
@@ -1836,10 +1933,132 @@ function renderRecords() {
       p.textContent = line;
       item.appendChild(p);
     });
+
+    if (sess.level === 3 || sess.level === 4) {
+      var detailLines = sess.level === 3 ? level3QuestionDetails(sess) : level4QuestionDetails(sess);
+      if (detailLines.length) {
+        var detailBox = document.createElement('div');
+        detailBox.className = 'record-detail';
+        detailBox.hidden = true;
+        detailLines.forEach(function(line) {
+          var dp = document.createElement('div');
+          dp.textContent = line;
+          detailBox.appendChild(dp);
+        });
+        var expandBtn = document.createElement('button');
+        expandBtn.type = 'button';
+        expandBtn.className = 'record-expand-btn';
+        expandBtn.tabIndex = 0;
+        expandBtn.textContent = 'くわしく見る';
+        expandBtn.setAttribute('aria-expanded', 'false');
+        expandBtn.addEventListener('click', function() {
+          var willShow = detailBox.hidden;
+          detailBox.hidden = !willShow;
+          expandBtn.textContent = willShow ? 'とじる' : 'くわしく見る';
+          expandBtn.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+          if (scanMode) refreshSwitchScanItems();
+        });
+        item.appendChild(expandBtn);
+        item.appendChild(detailBox);
+      }
+    }
+
     recordsList.appendChild(item);
   }
   recordsShowMoreBtn.hidden = recordsShowAll || sessions.length <= RECORDS_SHOW_INITIAL;
 }
+
+/* =====================================================================
+   CSV export — one unified file across all levels; columns not applicable
+   to a given level are left blank rather than fabricated. Raw values are
+   used for the ordering columns (not rank labels) so a teacher can compare
+   numbers directly; everything else uses the same human-readable text as
+   the records UI.
+===================================================================== */
+var CSV_HEADERS = ['日時', 'テーマ', 'レベル', '問題番号', '問題数', '問題文', '正解', '最初の選択', '最終選択', '正誤', '再試行回数', '間違えた内容', '反応時間ms', '並べる方向', '正しい順序', '実際の選択順序'];
+
+function csvEscape(value) {
+  var s = (value === null || value === undefined) ? '' : String(value);
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function formatRecordDateTimeFull(iso) {
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  } catch (e) { return ''; }
+}
+
+function level4OrderValuesText(entry, orderIds) {
+  if (!entry.items || !orderIds) return '';
+  return orderIds.map(function(id) {
+    var it = entry.items.filter(function(x) { return x.id === id; })[0];
+    return it ? it.value : '';
+  }).join('→');
+}
+
+function buildRecordsCsvRows() {
+  var rows = [CSV_HEADERS.slice()];
+  readLog().forEach(function(e) {
+    var row = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+    row[0] = formatRecordDateTimeFull(e.time);
+    row[1] = RECORDS_CONCEPT_NAME[e.concept] || e.concept || '';
+    row[2] = RECORDS_LEVEL_NAME[e.level] || ('レベル' + e.level);
+    row[3] = (typeof e.questionIndex === 'number') ? e.questionIndex : '';
+    row[4] = (typeof e.questionTotal === 'number') ? e.questionTotal : '';
+
+    if (e.level === 3) {
+      var cfg3 = COMPARISON[e.concept];
+      row[5] = cfg3 ? (e.prompt === cfg3.moreLabel ? cfg3.promptMore : cfg3.promptLess) : '';
+      row[6] = RECORDS_SELECTED_TEXT[e.prompt] || e.prompt || '';
+      row[7] = RECORDS_SELECTED_TEXT[e.firstSelected] || RECORDS_SELECTED_TEXT[e.selected] || e.firstSelected || '';
+      row[8] = RECORDS_SELECTED_TEXT[e.selected] || e.selected || '';
+      row[9] = (e.correct === true) ? 'せいかい' : (e.correct === false ? 'まちがい' : '');
+      row[10] = (e.mistakeSelections && e.mistakeSelections.length) ? e.mistakeSelections.length : (typeof e.mistakes === 'number' ? e.mistakes : '');
+      row[11] = (e.mistakeSelections && e.mistakeSelections.length) ? e.mistakeSelections.map(function(m) { return RECORDS_SELECTED_TEXT[m] || m; }).join('、') : '';
+      row[12] = (typeof e.responseTimeMs === 'number') ? e.responseTimeMs : '';
+    } else if (e.level === 4) {
+      row[10] = (typeof e.mistakes === 'number') ? e.mistakes : '';
+      row[11] = (e.mistakeDetails && e.mistakeDetails.length && e.items) ? e.mistakeDetails.map(function(m) {
+        var selIt = e.items.filter(function(x) { return x.id === m.selectedId; })[0];
+        var expIt = e.items.filter(function(x) { return x.id === m.expectedId; })[0];
+        return m.step + '番目:' + (selIt ? selIt.value : '?') + '→本来' + (expIt ? expIt.value : '?');
+      }).join('／') : '';
+      row[12] = (typeof e.responseTimeMs === 'number') ? e.responseTimeMs : '';
+      row[13] = (RECORDS_ORDER_NAME[e.concept] && RECORDS_ORDER_NAME[e.concept][e.order]) || '';
+      row[14] = level4OrderValuesText(e, e.correctOrder);
+      row[15] = level4OrderValuesText(e, e.selectedOrder);
+    } else if (e.level === 2) {
+      row[8] = RECORDS_SELECTED_TEXT[e.selected] || e.selected || '';
+    }
+
+    rows.push(row);
+  });
+  return rows;
+}
+
+function downloadRecordsCsv() {
+  var log = readLog();
+  if (log.length === 0) return; // button is hidden whenever there's nothing to export
+  var rows = buildRecordsCsvRows();
+  var csvBody = rows.map(function(row) { return row.map(csvEscape).join(','); }).join('\r\n');
+  var UTF8_BOM = '﻿'; // Excel needs this to detect UTF-8 correctly instead of mis-reading Japanese as another codepage
+  var blob = new Blob([UTF8_BOM + csvBody], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var d = new Date();
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'kurabeyou-records-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+}
+recordsCsvBtn.addEventListener('click', downloadRecordsCsv);
 
 recordsShowMoreBtn.addEventListener('click', function() {
   recordsShowAll = true;

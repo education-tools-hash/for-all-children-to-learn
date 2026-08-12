@@ -120,6 +120,17 @@ def _scratch_the_scratch_app(pg):
     pg.wait_for_timeout(400)
 
 
+def _show_kurabeyou_level3(pg):
+    """おおきい？ちいさい？くらべよう：レベル3(どっちかな？)へ切り替え、
+    2つの図形を見比べている状態で撮影する（初期状態の1つだけの図形より、
+    比較教材であることが一目で伝わるため）"""
+    btn = pg.query_selector('.level-btn[data-level="3"]')
+    if not btn:
+        return
+    btn.click()
+    pg.wait_for_timeout(400)
+
+
 def _start_mogura_tataki(pg):
     """もぐらたたき：はじめる！→カウントダウン終了を待ち→実際にモグラを叩いた瞬間にする"""
     btn = pg.query_selector("#btnStart")
@@ -150,6 +161,7 @@ def _start_mogura_tataki(pg):
 PLAY_ACTIONS = {
     "scratch-app": _scratch_the_scratch_app,
     "mogura-tataki": _start_mogura_tataki,
+    "kurabeyou-app": _show_kurabeyou_level3,
 }
 
 
