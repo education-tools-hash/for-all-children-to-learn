@@ -806,7 +806,7 @@ const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app',
 // SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
 // 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ
 // → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
-const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print']); // nazorin-print: 印刷専用ツールのため読み上げ不要
+const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app']); // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app: 学習コンテンツ自体の読み上げと重ねない
 
 // 🔧 既存の独自設定ボタンを持つアプリ: セレクタを指定すると、
 // ・元のボタンは非表示にする
