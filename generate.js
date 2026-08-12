@@ -1716,7 +1716,37 @@ function generateChangelog(apps) {
   const all = [...autoEntries, ...MANUAL_CHANGELOG];
   all.sort((a, b) => b.date.localeCompare(a.date));
 
-  return all;
+  // 1 calendar date = 1 visible changelog entry（Phase26-D2）:
+  // autoEntries と MANUAL_CHANGELOG はここまで別ソースの別要素として生成されており、
+  // 同じ date でも自動的には統合されない。sort が安定ソートであることを利用し、
+  // 同じ date の要素を出現順（= autoEntries → MANUAL_CHANGELOG の順）のまま1つへ集約する。
+  // 元のtext/detailsは一切破棄せず、各要素のtextをdetailsの1行として残し、
+  // その要素が持っていたdetailsをその直後へ続ける「・」プレフィックス行として展開する
+  // ことで、統合後もdetails展開時に全内訳が失われずに読める状態を保つ。
+  const dateOrder = [];
+  const dateGroups = {};
+  all.forEach(item => {
+    if (!dateGroups[item.date]) {
+      dateGroups[item.date] = [];
+      dateOrder.push(item.date);
+    }
+    dateGroups[item.date].push(item);
+  });
+
+  const TYPE_PRIORITY = ['new', 'update', 'design', 'fix'];
+  return dateOrder.map(date => {
+    const members = dateGroups[date];
+    if (members.length === 1) return members[0]; // 単独日はそのまま(不要な差分を避ける)
+
+    const types = members.map(m => m.type);
+    const primaryType = TYPE_PRIORITY.find(t => types.includes(t)) || types[0];
+    const details = [];
+    members.forEach(m => {
+      details.push(m.text);
+      if (Array.isArray(m.details)) m.details.forEach(d => details.push('・' + d));
+    });
+    return { date, type: primaryType, text: 'どのまなを更新しました', details };
+  });
 }
 
 function updateChangelog(apps) {
