@@ -1921,6 +1921,38 @@ function level4QuestionDetails(sess) {
   });
 }
 
+// kept out of renderRecords()'s loop body on purpose: var is function-scoped,
+// so detailBox/expandBtn declared inline there would all share one binding
+// across iterations, and every button ended up toggling only the last record.
+function appendRecordDetailToggle(item, detailLines, index) {
+  var detailId = 'recordDetail' + index;
+  var detailBox = document.createElement('div');
+  detailBox.className = 'record-detail';
+  detailBox.id = detailId;
+  detailBox.hidden = true;
+  detailLines.forEach(function(line) {
+    var dp = document.createElement('div');
+    dp.textContent = line;
+    detailBox.appendChild(dp);
+  });
+  var expandBtn = document.createElement('button');
+  expandBtn.type = 'button';
+  expandBtn.className = 'record-expand-btn';
+  expandBtn.tabIndex = 0;
+  expandBtn.textContent = 'くわしく見る';
+  expandBtn.setAttribute('aria-expanded', 'false');
+  expandBtn.setAttribute('aria-controls', detailId);
+  expandBtn.addEventListener('click', function() {
+    var willShow = detailBox.hidden;
+    detailBox.hidden = !willShow;
+    expandBtn.textContent = willShow ? 'とじる' : 'くわしく見る';
+    expandBtn.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+    if (scanMode) refreshSwitchScanItems();
+  });
+  item.appendChild(expandBtn);
+  item.appendChild(detailBox);
+}
+
 function renderRecords() {
   var sessions = groupLogIntoSessions(readLog()).reverse(); // most recent first
   recordsList.innerHTML = '';
@@ -1955,29 +1987,7 @@ function renderRecords() {
     if (sess.level === 3 || sess.level === 4) {
       var detailLines = sess.level === 3 ? level3QuestionDetails(sess) : level4QuestionDetails(sess);
       if (detailLines.length) {
-        var detailBox = document.createElement('div');
-        detailBox.className = 'record-detail';
-        detailBox.hidden = true;
-        detailLines.forEach(function(line) {
-          var dp = document.createElement('div');
-          dp.textContent = line;
-          detailBox.appendChild(dp);
-        });
-        var expandBtn = document.createElement('button');
-        expandBtn.type = 'button';
-        expandBtn.className = 'record-expand-btn';
-        expandBtn.tabIndex = 0;
-        expandBtn.textContent = 'くわしく見る';
-        expandBtn.setAttribute('aria-expanded', 'false');
-        expandBtn.addEventListener('click', function() {
-          var willShow = detailBox.hidden;
-          detailBox.hidden = !willShow;
-          expandBtn.textContent = willShow ? 'とじる' : 'くわしく見る';
-          expandBtn.setAttribute('aria-expanded', willShow ? 'true' : 'false');
-          if (scanMode) refreshSwitchScanItems();
-        });
-        item.appendChild(expandBtn);
-        item.appendChild(detailBox);
+        appendRecordDetailToggle(item, detailLines, i);
       }
     }
 
