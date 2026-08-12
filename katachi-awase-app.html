@@ -104,6 +104,14 @@
   .shape-btn .shape-visual { background: var(--shape-color, #00A99D); }
   .shape-btn[aria-pressed="true"] { background: var(--dm-color-soft,#F6F9FA); box-shadow: inset 0 0 0 3px var(--dm-color-primary-dark,#00857B); }
   .shape-btn.shape-placed { visibility: hidden; pointer-events: none; }
+  /* touch-action:none is scoped to shape buttons only (never body/page) so a swipe
+     starting anywhere else keeps scrolling normally (Phase26-D7 §24/§46); it tells the
+     browser upfront not to claim this element for native panning, avoiding the
+     preventDefault-timing race that a plain "wait for the move event" approach would hit. */
+  .shape-btn { touch-action: none; }
+  .shape-btn.dragging { opacity: .35; }
+  .drag-proxy { transform: scale(1.08); box-shadow: 0 6px 16px rgba(0,0,0,.28); z-index: 1000; }
+  .target-btn.drag-hover { outline: 3px dashed var(--dm-color-primary-dark,#00857B); outline-offset: 2px; }
 
   /* outline/silhouette rendering for un-filled targets: a box-shadow inset does not clip cleanly
      along a clip-path polygon's diagonal edges (the triangle's slanted sides barely rendered),
@@ -722,7 +730,14 @@ function renderTask() {
     ring.className = 'gaze-dwell-ring';
     btn.appendChild(visual);
     btn.appendChild(ring);
-    btn.addEventListener('click', function() { onShapeActivate(s.id, currentInputMethod || 'click'); });
+    btn.addEventListener('click', function() {
+      if (suppressNextClick) { suppressNextClick = false; return; } // a real drag just completed via this same gesture
+      onShapeActivate(s.id, currentInputMethod || 'click');
+    });
+    btn.addEventListener('pointerdown', function(e) { onShapePointerDown(e, s.id); });
+    btn.addEventListener('pointermove', onShapePointerMove);
+    btn.addEventListener('pointerup', onShapePointerUp);
+    btn.addEventListener('pointercancel', onShapePointerCancel);
     shapesTray.appendChild(btn);
   });
 }
@@ -744,6 +759,7 @@ function renderProgress() {
 function shouldShowQuestionCount() { return level === 2 || level === 3; }
 
 function startProblem() {
+  cancelActiveDrag();
   clearPendingFeedback();
   task = generateTask(level);
   phase = 'waitingShape';
@@ -786,6 +802,29 @@ function setQuestionCount(n) {
   if (shouldShowQuestionCount()) startLevel(level);
 }
 
+// unconditional "select this shape" — always ends in a fresh waitingTarget selection,
+// regardless of what was selected before (including this same shape). Used by
+// onShapeActivate's fresh-pick branch AND by drag-drop success (Phase26-D7), which must
+// never trigger the toggle-to-deselect behavior a plain re-tap would: a completed drag
+// onto a valid target is unambiguous positive intent, not a "did I mean to deselect?".
+function selectShapeFresh(shapeId, inputMethod, startedAtOverride) {
+  var shape = task.shapes.filter(function(s) { return s.id === shapeId && !s.placed; })[0];
+  if (!shape) return false;
+  currentInputMethod = inputMethod;
+  task.selectedShapeId = shapeId;
+  // drag routes both the "select" and "place" calls through this function back-to-back at
+  // drop time (Phase26-D7), so Date.now() here would always read ~0ms of response time
+  // instead of the actual pick-up-to-drop duration tap's timing captures naturally —
+  // callers that already know when the user first engaged the shape pass that timestamp.
+  task.shapeStartedAt = startedAtOverride || Date.now();
+  phase = 'waitingTarget';
+  speak(SHAPE_LABEL[shape.shapeType]);
+  resetDwellState();
+  renderTask();
+  if (scanMode) refreshSwitchScanItems();
+  return true;
+}
+
 // handles three cases via the same entry point (Phase26-D6):
 //   waitingShape, any unplaced shape        -> fresh selection
 //   waitingTarget, a DIFFERENT unplaced shape -> switch selection (old shape's UI clears)
@@ -808,13 +847,7 @@ function onShapeActivate(shapeId, inputMethod) {
     return;
   }
 
-  task.selectedShapeId = shapeId;
-  task.shapeStartedAt = Date.now();
-  phase = 'waitingTarget';
-  speak(SHAPE_LABEL[shape.shapeType]);
-  resetDwellState();
-  renderTask();
-  if (scanMode) refreshSwitchScanItems();
+  selectShapeFresh(shapeId, inputMethod);
 }
 
 function onTargetActivate(targetId, inputMethod) {
@@ -831,6 +864,138 @@ function onTargetActivate(targetId, inputMethod) {
     handleWrongPlacement(shape, targetId);
   }
 }
+
+/* =====================================================================
+   drag placement (Phase26-D7) — an OPTIONAL alternative to tap-tap, not a
+   replacement. Pointer Events unify touch/mouse in one implementation
+   (no separate touch/mouse code paths). Every drag ends by routing through
+   selectShapeFresh()/onTargetActivate() — the exact same functions tap
+   uses — so feedback/TTS/records/progress/canonical state are identical
+   regardless of which input produced them; this file adds no second
+   correctness path.
+
+   dragState is transient UI-only state (pointer id, start coords, the
+   visual proxy element) and is never merged into task — task stays the
+   single canonical source of what's selected/placed, as before. Nothing
+   in task is touched until a drop actually lands on a target: dropping
+   outside any target is therefore a true no-op on canonical state (the
+   pre-drag selection, whatever it was, is simply still there), which is
+   what makes "outside drop = cancel, not a mistake" free rather than
+   something that needs explicit save/restore logic.
+===================================================================== */
+var dragState = null; // { shapeId, pointerId, startX, startY, dragging, proxyEl, originalEl }
+var DRAG_THRESHOLD_PX = 8;
+var suppressNextClick = false; // set once a real drag completes, so the browser's
+                                // post-pointerup synthetic click doesn't also fire
+                                // onShapeActivate (Phase26-D6.1 "1 gesture = 1 activation")
+
+function cancelActiveDrag() {
+  if (!dragState) return;
+  var ds = dragState;
+  dragState = null;
+  if (ds.dragging) {
+    cleanupDragProxy(ds);
+    ds.originalEl.classList.remove('dragging');
+    try { ds.originalEl.releasePointerCapture(ds.pointerId); } catch (e) {}
+  }
+}
+
+function createDragProxy(originalEl) {
+  var rect = originalEl.getBoundingClientRect();
+  var proxy = originalEl.cloneNode(true);
+  proxy.removeAttribute('id');
+  proxy.removeAttribute('tabindex');
+  proxy.setAttribute('aria-hidden', 'true');
+  proxy.className = 'shape-btn drag-proxy';
+  proxy.style.position = 'fixed';
+  proxy.style.left = rect.left + 'px';
+  proxy.style.top = rect.top + 'px';
+  proxy.style.width = rect.width + 'px';
+  proxy.style.height = rect.height + 'px';
+  proxy.style.margin = '0';
+  proxy.style.pointerEvents = 'none'; // excluded from elementFromPoint() hit-testing
+  proxy._offsetX = rect.width / 2;
+  proxy._offsetY = rect.height / 2;
+  return proxy;
+}
+function positionDragProxy(proxy, clientX, clientY) {
+  proxy.style.left = (clientX - proxy._offsetX) + 'px';
+  proxy.style.top = (clientY - proxy._offsetY) + 'px';
+}
+function cleanupDragProxy(ds) {
+  if (ds.proxyEl && ds.proxyEl.parentNode) ds.proxyEl.parentNode.removeChild(ds.proxyEl);
+  document.querySelectorAll('.target-btn.drag-hover').forEach(function(el) { el.classList.remove('drag-hover'); });
+}
+function hitTestTarget(clientX, clientY) {
+  var el = document.elementFromPoint(clientX, clientY);
+  if (!el) return null;
+  var targetBtn = el.closest ? el.closest('.target-btn') : null;
+  if (!targetBtn || targetBtn.classList.contains('target-filled')) return null;
+  return targetBtn;
+}
+function updateDragHoverHighlight(clientX, clientY) {
+  var hit = hitTestTarget(clientX, clientY);
+  document.querySelectorAll('.target-btn.drag-hover').forEach(function(el) { if (el !== hit) el.classList.remove('drag-hover'); });
+  if (hit) hit.classList.add('drag-hover');
+}
+
+function onShapePointerDown(e, shapeId) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return; // left button only
+  if (dragState) return; // one active drag at a time (Phase26-D7 multi-pointer guard)
+  if (!task) return;
+  var shape = task.shapes.filter(function(s) { return s.id === shapeId && !s.placed; })[0];
+  if (!shape) return;
+  dragState = { shapeId: shapeId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startTime: Date.now(), dragging: false, proxyEl: null, originalEl: e.currentTarget };
+}
+function onShapePointerMove(e) {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  var dx = e.clientX - dragState.startX, dy = e.clientY - dragState.startY;
+  if (!dragState.dragging) {
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return; // still just a tap-in-progress
+    dragState.dragging = true;
+    try { dragState.originalEl.setPointerCapture(dragState.pointerId); } catch (err) {}
+    dragState.originalEl.classList.add('dragging');
+    dragState.proxyEl = createDragProxy(dragState.originalEl);
+    document.body.appendChild(dragState.proxyEl);
+  }
+  e.preventDefault(); // only once a drag is confirmed — before that, ordinary page
+                       // scroll starting on a shape is left alone (touch-action:none
+                       // on .shape-btn handles the initial-gesture race; see CSS)
+  positionDragProxy(dragState.proxyEl, e.clientX, e.clientY);
+  updateDragHoverHighlight(e.clientX, e.clientY);
+}
+function onShapePointerUp(e) {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  var ds = dragState;
+  dragState = null;
+  if (!ds.dragging) return; // never crossed the threshold — let the normal click handle it as a tap
+
+  suppressNextClick = true;
+  setTimeout(function() { suppressNextClick = false; }, 0);
+
+  var dropTarget = hitTestTarget(e.clientX, e.clientY);
+  cleanupDragProxy(ds);
+  ds.originalEl.classList.remove('dragging');
+  try { ds.originalEl.releasePointerCapture(ds.pointerId); } catch (err) {}
+
+  if (!task) return; // level/session changed mid-drag
+  var stillAvailable = task.shapes.some(function(s) { return s.id === ds.shapeId && !s.placed; });
+  if (!stillAvailable) return; // stale drag from a since-replaced problem
+
+  if (dropTarget) {
+    if (!selectShapeFresh(ds.shapeId, 'drag', ds.startTime)) return;
+    onTargetActivate(dropTarget.dataset.targetId, 'drag');
+  }
+  // else: dropped outside any target — cancel. task.selectedShapeId was never touched
+  // during this drag, so whatever was selected before (this shape, a different shape,
+  // or nothing) is already exactly as it was; nothing to restore.
+}
+function onShapePointerCancel(e) {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  cancelActiveDrag();
+}
+window.addEventListener('blur', cancelActiveDrag);
+document.addEventListener('visibilitychange', function() { if (document.hidden) cancelActiveDrag(); });
 
 function handleWrongPlacement(shape, wrongTargetId) {
   if (!task.attemptsByShape[shape.id]) task.attemptsByShape[shape.id] = [];
@@ -1021,6 +1186,7 @@ function activateCurrentScanItem() {
   if (el && el !== document.body) el.click();
 }
 function setScanMode(on) {
+  cancelActiveDrag();
   scanMode = on;
   if (on) {
     gazeEnabled = false;
@@ -1137,6 +1303,7 @@ function disableGaze() {
   lastGazeX = null; lastGazeY = null;
 }
 function setGazeEnabled(on) {
+  cancelActiveDrag();
   gazeEnabled = on;
   if (on) {
     if (scanMode) { scanMode = false; toggleScan.checked = false; stopSwitchScan(); }
@@ -1152,6 +1319,7 @@ toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.che
    settings panel open/close
 ===================================================================== */
 function openSettings() {
+  cancelActiveDrag();
   settingsPanel.hidden = false;
   settingsBtn.setAttribute('aria-expanded', 'true');
   renderRecords();
