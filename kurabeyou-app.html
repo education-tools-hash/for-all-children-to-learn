@@ -565,8 +565,12 @@
   #recordsConfirmDelete { background: var(--dm-color-danger); border-color: var(--dm-color-danger); color: #fff; }
 
   @media (max-width: 480px) {
-    .stimulus-shape { --stim-size: 130px !important; }
-    .stimulus-shape.shape-bar { min-width: 50px; }
+    /* NOTE: stimulus size itself is scaled proportionally in JS (see
+       getStimScale() / applyShape()), not capped here — a flat !important
+       override used to force every shape to the same 130px regardless of
+       its actual value, silently erasing the big/small (or long/short)
+       difference the whole activity depends on (Phase26-C6.1). */
+    .stimulus-shape.shape-bar { min-width: 44px; }
     .compare-stage, .order-stage { gap: var(--dm-space-5); }
     .control-row-label { width: 100%; margin-right: 0; }
     .order-slot { width: 52px; height: 52px; }
@@ -763,8 +767,11 @@ var QUESTION_COUNTS = [3, 5, 10];
 var questionCount = 5;
 var session = null; // { total, current, completed, correct, startedAt } — single source of truth for Level3/4 progress; null when level is 1 or 2
 
-var SIZE_PAIRS = [[210,120],[195,130],[180,135]]; // pair[0] is always the larger value
-var LENGTH_PAIRS = [[280,110],[250,130],[220,150]]; // pair[0] is always the longer value; wider spread than SIZE_PAIRS so length reads as a width cue, not an area cue
+// every pair's ratio is kept >= 1.6 so big/small (or long/short) are unmistakably
+// different once rendered — the previous [180,135] (1.33x) and [220,150] (1.47x)
+// pairs were below the 1.5x floor this app now requires (Phase26-C6.1).
+var SIZE_PAIRS = [[210,130],[195,120],[180,110]]; // pair[0] is always the larger value
+var LENGTH_PAIRS = [[280,170],[260,150],[240,140]]; // pair[0] is always the longer value; wider spread than SIZE_PAIRS so length reads as a width cue, not an area cue
 var SHAPES = ['circle','square'];
 
 /* presentation-only color palette: which candidate gets which color is
@@ -804,7 +811,10 @@ var COMPARISON = {
     ariaLess: 'ちいさいかたち',
     moreLabel: 'big',
     lessLabel: 'small',
-    level4Patterns: [[120,170,220],[130,180,230],[110,160,210]],
+    // adjacent ratios (medium/small, large/medium) all >= 1.35, so "middle"
+    // reads as genuinely between the other two, not indistinguishable from
+    // either (the old [130,180,230] pattern's large/medium ratio was 1.28x).
+    level4Patterns: [[100,140,190],[110,155,210],[95,135,185]],
     level4PromptDesc: 'おおきい じゅんに ならべよう',
     level4PromptAsc: 'ちいさい じゅんに ならべよう'
   },
@@ -821,7 +831,7 @@ var COMPARISON = {
     ariaLess: 'みじかいかたち',
     moreLabel: 'long',
     lessLabel: 'short',
-    level4Patterns: [[100,190,280],[110,200,290],[90,180,270]],
+    level4Patterns: [[100,140,190],[115,160,220],[90,130,180]],
     level4PromptDesc: 'ながい じゅんに ならべよう',
     level4PromptAsc: 'みじかい じゅんに ならべよう'
   }
@@ -1287,10 +1297,18 @@ sessionRestartBtn.addEventListener('click', function() {
 /* =====================================================================
    stimulus rendering
 ===================================================================== */
+// narrow viewports get every stimulus scaled down by the same factor, so the
+// *ratio* between big/small (or long/short/medium) survives rendering
+// exactly — capping each shape to a fixed max would instead collapse
+// different values to the same on-screen size (Phase26-C6.1 root cause).
+function getStimScale() {
+  return window.innerWidth <= 480 ? 0.58 : 1;
+}
+
 function applyShape(el, shape, sizePx, colorObj) {
   el.classList.remove('shape-circle', 'shape-square', 'shape-bar');
   el.classList.add(shape === 'square' ? 'shape-square' : shape === 'bar' ? 'shape-bar' : 'shape-circle');
-  el.style.setProperty('--stim-size', sizePx + 'px');
+  el.style.setProperty('--stim-size', Math.round(sizePx * getStimScale()) + 'px');
   el.style.background = colorObj.bg; // presentation only; never read by judgment logic
 }
 
