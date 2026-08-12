@@ -6,7 +6,7 @@
 <title>おおきい？ちいさい？くらべよう</title>
 <!-- seo-tags: 自動挿入 (generate.js) -->
 <link rel="canonical" href="https://donomana.jp/app-details/kurabeyou-app-detail.html">
-<meta name="description" content="大きい・小さいの違いを、見たり選んだりしながら学べる教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。だんだん難しくなる3つのレベルで、「見て気づく」から「くらべて選ぶ」まで段階 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
+<meta name="description" content="大きい・小さい、長い・短いの違いを、見たり選んだりしながら学べる教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。だんだん難しくなる3つのレベルで、「見て気づく」から「くらべて選 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
 <!-- /seo-tags -->
 <!-- design-tokens: 自動挿入 (generate.js) -->
 <style>
@@ -290,6 +290,18 @@
     font-size: var(--dm-font-size-caption); font-family: inherit;
   }
 
+  /* ===== top control bar: concept + level switching (always visible) ===== */
+  .control-bar { display: flex; flex-direction: column; gap: var(--dm-space-2); margin-bottom: var(--dm-space-5); }
+  .control-row { display: flex; align-items: center; gap: var(--dm-space-2); flex-wrap: wrap; }
+  .control-row-label { font-size: var(--dm-font-size-caption); font-weight: 700; color: var(--dm-color-sub); margin-right: var(--dm-space-1); }
+  .concept-btn {
+    min-width: 44px; min-height: 44px; padding: var(--dm-space-2) var(--dm-space-4);
+    border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
+    background: #fff; color: var(--dm-color-ink); font-weight: 900; cursor: pointer;
+    font-size: var(--dm-font-size-caption); font-family: inherit;
+  }
+  .concept-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
+
   /* ===== settings panel (non-modal, inline) ===== */
   .settings-panel {
     background: var(--dm-color-surface); border: 2px solid var(--dm-color-border);
@@ -305,11 +317,12 @@
   }
   .setting-row:last-of-type { border-bottom: none; }
   .setting-label { font-weight: 700; font-size: var(--dm-font-size-body); }
-  .level-buttons { display: flex; gap: var(--dm-space-2); }
+  .level-buttons { display: flex; gap: var(--dm-space-2); flex-wrap: wrap; }
   .level-btn {
-    min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-sm);
+    min-width: 44px; min-height: 44px; padding: var(--dm-space-2) var(--dm-space-3);
+    border-radius: var(--dm-radius-pill);
     border: 2px solid var(--dm-color-border); background: #fff; font-weight: 900;
-    font-size: var(--dm-font-size-body); cursor: pointer; font-family: inherit;
+    font-size: var(--dm-font-size-caption); cursor: pointer; font-family: inherit;
   }
   .level-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
   .toggle { position: relative; width: 50px; height: 27px; flex-shrink: 0; display: inline-block; }
@@ -353,6 +366,8 @@
   }
   .stimulus-shape.shape-circle { border-radius: 50%; }
   .stimulus-shape.shape-square { border-radius: var(--dm-radius-md); }
+  /* length concept: fixed height so width/length is the dominant visual cue, not area */
+  .stimulus-shape.shape-bar { height: 48px; min-width: 60px; border-radius: var(--dm-radius-sm); }
   .stimulus-shape.color-a { background: var(--dm-color-primary); }
   .stimulus-shape.color-b { background: var(--dm-color-accent); }
   .stimulus-shape:active { transform: scale(0.94); }
@@ -405,7 +420,9 @@
 
   @media (max-width: 480px) {
     .stimulus-shape { --stim-size: 130px !important; }
+    .stimulus-shape.shape-bar { min-width: 50px; }
     .compare-stage { gap: var(--dm-space-5); }
+    .control-row-label { width: 100%; margin-right: 0; }
   }
 </style>
 
@@ -415,16 +432,26 @@
     <button id="settingsBtn" class="settings-toggle-btn scannable" data-scan="1" tabindex="0" aria-expanded="false" aria-controls="settingsPanel">⚙️ せってい</button>
   </header>
 
-  <section id="settingsPanel" class="settings-panel" hidden>
-    <h2 class="settings-title">せってい</h2>
-    <div class="setting-row">
-      <span class="setting-label" id="levelGroupLabel">レベル</span>
-      <div class="level-buttons" role="group" aria-labelledby="levelGroupLabel">
-        <button class="level-btn" data-level="1" tabindex="0" aria-pressed="false">1</button>
-        <button class="level-btn" data-level="2" tabindex="0" aria-pressed="false">2</button>
-        <button class="level-btn" data-level="3" tabindex="0" aria-pressed="false">3</button>
+  <div id="controlBar" class="control-bar">
+    <div class="control-row">
+      <span class="control-row-label" id="conceptGroupLabel">くらべるテーマ</span>
+      <div class="concept-buttons" role="group" aria-labelledby="conceptGroupLabel">
+        <button class="concept-btn" data-concept="size" tabindex="0" aria-pressed="true">おおきい・ちいさい</button>
+        <button class="concept-btn" data-concept="length" tabindex="0" aria-pressed="false">ながい・みじかい</button>
       </div>
     </div>
+    <div class="control-row">
+      <span class="control-row-label" id="levelGroupLabel">レベル</span>
+      <div class="level-buttons" role="group" aria-labelledby="levelGroupLabel">
+        <button class="level-btn" data-level="1" tabindex="0" aria-pressed="false">みてたのしむ</button>
+        <button class="level-btn" data-level="2" tabindex="0" aria-pressed="false">みくらべる</button>
+        <button class="level-btn" data-level="3" tabindex="0" aria-pressed="false">どっちかな？</button>
+      </div>
+    </div>
+  </div>
+
+  <section id="settingsPanel" class="settings-panel" hidden>
+    <h2 class="settings-title">せってい</h2>
     <div class="setting-row">
       <span class="setting-label" id="ttsLabel">🔊 よみあげ</span>
       <label class="toggle"><input type="checkbox" id="toggleTts" tabindex="0" aria-labelledby="ttsLabel" checked><span class="toggle-slider"></span></label>
@@ -503,15 +530,53 @@ var scanTargets = [];
 var settingsOpen = false;
 var answered = false; // Level3 gate: true while a decision is being processed/shown
 var currentInputMethod = null; // 'touch' | 'keyboard' | 'switch' | 'gaze' (best-effort, not guessed)
+var comparisonMode = 'size'; // 'size' | 'length'
 
-var SIZE_PAIRS = [[210,120],[195,130],[180,135]];
+var SIZE_PAIRS = [[210,120],[195,130],[180,135]]; // pair[0] is always the larger value
+var LENGTH_PAIRS = [[280,110],[250,130],[220,150]]; // pair[0] is always the longer value; wider spread than SIZE_PAIRS so length reads as a width cue, not an area cue
 var SHAPES = ['circle','square'];
+
+/* per-concept text/config, keyed by comparisonMode. moreLabel/lessLabel are the
+   internal (log/aria) vocabulary for "the bigger/longer one" and "the smaller/
+   shorter one" respectively, kept stable across concepts so Level3's judgment
+   logic never needs to branch on concept. */
+var COMPARISON = {
+  size: {
+    pairs: SIZE_PAIRS,
+    level1Stimuli: [{ shape: 'circle', size: 170 }, { shape: 'square', size: 170 }],
+    level2Combos: [{ shape: 'circle', pair: 0 }, { shape: 'square', pair: 1 }, { shape: 'circle', pair: 2 }, { shape: 'square', pair: 0 }],
+    level2Prompt: 'どっちが おおきいかな？',
+    promptMore: 'おおきい ほうは どっち？',
+    promptLess: 'ちいさい ほうは どっち？',
+    feedbackMore: 'おおきいね',
+    feedbackLess: 'ちいさいね',
+    ariaMore: 'おおきいかたち',
+    ariaLess: 'ちいさいかたち',
+    moreLabel: 'big',
+    lessLabel: 'small'
+  },
+  length: {
+    pairs: LENGTH_PAIRS,
+    level1Stimuli: [{ shape: 'bar', size: 260 }],
+    level2Combos: [{ shape: 'bar', pair: 0 }, { shape: 'bar', pair: 1 }, { shape: 'bar', pair: 2 }],
+    level2Prompt: 'どっちが ながいかな？',
+    promptMore: 'ながい ほうは どっち？',
+    promptLess: 'みじかい ほうは どっち？',
+    feedbackMore: 'ながいね',
+    feedbackLess: 'みじかいね',
+    ariaMore: 'ながいかたち',
+    ariaLess: 'みじかいかたち',
+    moreLabel: 'long',
+    lessLabel: 'short'
+  }
+};
 
 /* DOM refs */
 var settingsBtn = document.getElementById('settingsBtn');
 var settingsPanel = document.getElementById('settingsPanel');
 var settingsCloseBtn = document.getElementById('settingsCloseBtn');
 var levelBtns = Array.from(document.querySelectorAll('.level-btn'));
+var conceptBtns = Array.from(document.querySelectorAll('.concept-btn'));
 var toggleTts = document.getElementById('toggleTts');
 var toggleAnimation = document.getElementById('toggleAnimation');
 var toggleGaze = document.getElementById('toggleGaze');
@@ -549,10 +614,11 @@ function loadSettings() {
   animationEnabled = (typeof s.animation === 'boolean') ? s.animation : true;
   gazeEnabled = (typeof s.gazeEnabled === 'boolean') ? s.gazeEnabled : false;
   scanSpeed = (typeof s.scanSpeed === 'number' && s.scanSpeed >= 500 && s.scanSpeed <= 5000) ? s.scanSpeed : 2000;
+  comparisonMode = (s.comparisonMode === 'length') ? 'length' : 'size'; // missing/unknown value → safe default, no migration needed
   // scanMode itself is never restored ON automatically (avoid surprising auto-scan on load)
 }
 function saveSettings() {
-  var s = { level: level, tts: ttsEnabled, animation: animationEnabled, gazeEnabled: gazeEnabled, scanSpeed: scanSpeed };
+  var s = { level: level, tts: ttsEnabled, animation: animationEnabled, gazeEnabled: gazeEnabled, scanSpeed: scanSpeed, comparisonMode: comparisonMode };
   try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
 }
 
@@ -636,7 +702,10 @@ function buildScanItems() {
   } else if (level === 3) {
     items = answered ? [] : [objA3, objB3];
   }
-  if (!settingsOpen) items.push(settingsBtn);
+  if (!settingsOpen) {
+    items = items.concat(levelBtns, conceptBtns);
+    items.push(settingsBtn);
+  }
   items = items.concat(commonChromeCandidates());
   return items.filter(isVisibleEnabled);
 }
@@ -852,8 +921,8 @@ function setGazeEnabled(on) {
    stimulus rendering
 ===================================================================== */
 function applyShape(el, shape, sizePx, colorClass) {
-  el.classList.remove('shape-circle', 'shape-square');
-  el.classList.add(shape === 'square' ? 'shape-square' : 'shape-circle');
+  el.classList.remove('shape-circle', 'shape-square', 'shape-bar');
+  el.classList.add(shape === 'square' ? 'shape-square' : shape === 'bar' ? 'shape-bar' : 'shape-circle');
   el.style.setProperty('--stim-size', sizePx + 'px');
   el.classList.remove('color-a', 'color-b');
   el.classList.add(colorClass);
@@ -868,19 +937,17 @@ function tapPulse(el) {
 }
 
 /* ---- Level 1 ---- */
-var level1Stimuli = [
-  { shape: 'circle', size: 170 },
-  { shape: 'square', size: 170 }
-];
 var level1Index = 0;
 function renderLevel1() {
   promptText.textContent = '';
-  var cfg = level1Stimuli[level1Index];
+  var stimuli = COMPARISON[comparisonMode].level1Stimuli;
+  var cfg = stimuli[level1Index % stimuli.length];
   applyShape(shape1, cfg.shape, cfg.size, 'color-a');
   shape1.classList.toggle('auto-anim', true);
 }
 function level1Next() {
-  level1Index = (level1Index + 1) % level1Stimuli.length;
+  var stimuli = COMPARISON[comparisonMode].level1Stimuli;
+  level1Index = (level1Index + 1) % stimuli.length;
   renderLevel1();
   resetDwellState();
   if (scanMode) refreshSwitchScanItems();
@@ -894,19 +961,16 @@ shape1.addEventListener('click', function() {
 level1NextBtn.addEventListener('click', level1Next);
 
 /* ---- Level 2 ---- */
-var LEVEL2_COMBOS = [
-  { shape: 'circle', pair: 0 },
-  { shape: 'square', pair: 1 },
-  { shape: 'circle', pair: 2 },
-  { shape: 'square', pair: 0 }
-];
 var level2Index = 0;
 function renderLevel2() {
-  promptText.textContent = 'どっちが おおきいかな？';
+  var cfg = COMPARISON[comparisonMode];
+  promptText.textContent = cfg.level2Prompt;
   level2ResultText.textContent = '';
   level2ResultText.className = 'result-text';
-  var combo = LEVEL2_COMBOS[level2Index % LEVEL2_COMBOS.length];
-  var pair = SIZE_PAIRS[combo.pair % SIZE_PAIRS.length];
+  objBig2.setAttribute('aria-label', cfg.ariaMore);
+  objSmall2.setAttribute('aria-label', cfg.ariaLess);
+  var combo = cfg.level2Combos[level2Index % cfg.level2Combos.length];
+  var pair = cfg.pairs[combo.pair % cfg.pairs.length];
   applyShape(objBig2, combo.shape, pair[0], 'color-a');
   applyShape(objSmall2, combo.shape, pair[1], 'color-b');
 }
@@ -917,39 +981,65 @@ function level2Next() {
   if (scanMode) refreshSwitchScanItems();
 }
 function level2Select(which) {
-  var msg = which === 'big' ? 'おおきいね' : 'ちいさいね';
+  var cfg = COMPARISON[comparisonMode];
+  var msg = which === 'more' ? cfg.feedbackMore : cfg.feedbackLess;
   level2ResultText.textContent = msg;
   level2ResultText.className = 'result-text show-big';
   speak(msg);
-  tapPulse(which === 'big' ? objBig2 : objSmall2);
+  tapPulse(which === 'more' ? objBig2 : objSmall2);
 }
-objBig2.addEventListener('click', function() { level2Select('big'); });
-objSmall2.addEventListener('click', function() { level2Select('small'); });
+objBig2.addEventListener('click', function() { level2Select('more'); });
+objSmall2.addEventListener('click', function() { level2Select('less'); });
 level2NextBtn.addEventListener('click', level2Next);
 
 /* ---- Level 3 ---- */
-var level3State = null; // { promptType: 'big'|'small', bigEl, smallEl, startTime }
+// question state is generated exactly once per question: prompt, stimulus
+// sizes, and the correct answer all derive from this single object, so
+// render / click-judgment / log / TTS can never see mutually inconsistent
+// values (the previous implementation recomputed "which element is big"
+// twice, via two independently-indexed conditionals, and the two
+// computations silently disagreed half the time).
+var level3State = null; // { concept, promptMore, moreEl, lessEl, correctEl, startTime }
+var level3FeedbackTimeoutId = null;
+
+function generateLevel3Question() {
+  var cfg = COMPARISON[comparisonMode];
+  var promptMore = Math.random() < 0.5; // true = prompt asks for the bigger/longer one
+  var shape = comparisonMode === 'length' ? 'bar' : SHAPES[Math.floor(Math.random() * SHAPES.length)];
+  var pair = cfg.pairs[Math.floor(Math.random() * cfg.pairs.length)]; // pair[0] > pair[1]
+  var moreOnLeft = Math.random() < 0.5;
+
+  var leftValue = moreOnLeft ? pair[0] : pair[1];
+  var rightValue = moreOnLeft ? pair[1] : pair[0];
+  var moreEl = moreOnLeft ? objA3 : objB3;
+  var lessEl = moreOnLeft ? objB3 : objA3;
+
+  return {
+    concept: comparisonMode,
+    promptMore: promptMore,
+    shape: shape,
+    leftValue: leftValue,
+    rightValue: rightValue,
+    moreEl: moreEl,
+    lessEl: lessEl,
+    correctEl: promptMore ? moreEl : lessEl,
+    startTime: performance.now()
+  };
+}
+
 function renderLevel3() {
   answered = false;
   feedbackArea.textContent = '';
   feedbackArea.className = 'feedback-area';
 
-  var promptType = Math.random() < 0.5 ? 'big' : 'small';
-  var shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-  var pair = SIZE_PAIRS[Math.floor(Math.random() * SIZE_PAIRS.length)];
-  var bigOnLeft = Math.random() < 0.5;
+  var cfg = COMPARISON[comparisonMode];
+  var q = generateLevel3Question();
+  level3State = q;
 
-  var leftEl = bigOnLeft ? objA3 : objB3;
-  var rightEl = bigOnLeft ? objB3 : objA3;
-  applyShape(leftEl, shape, bigOnLeft ? pair[0] : pair[1], 'color-a');
-  applyShape(rightEl, shape, bigOnLeft ? pair[1] : pair[0], 'color-b');
+  applyShape(objA3, q.shape, q.leftValue, 'color-a');
+  applyShape(objB3, q.shape, q.rightValue, 'color-b');
 
-  var bigEl = bigOnLeft ? objA3 : objB3;
-  var smallEl = bigOnLeft ? objB3 : objA3;
-
-  level3State = { promptType: promptType, bigEl: bigEl, smallEl: smallEl, startTime: performance.now() };
-
-  var promptStr = promptType === 'big' ? 'おおきい ほうは どっち？' : 'ちいさい ほうは どっち？';
+  var promptStr = q.promptMore ? cfg.promptMore : cfg.promptLess;
   promptText.textContent = promptStr;
   speak(promptStr);
 
@@ -960,15 +1050,17 @@ function renderLevel3() {
 function level3Select(el) {
   if (answered || !level3State) return;
   answered = true;
-  var correctEl = level3State.promptType === 'big' ? level3State.bigEl : level3State.smallEl;
-  var correct = (el === correctEl);
-  var responseTimeMs = Math.round(performance.now() - level3State.startTime);
+  var q = level3State;
+  var cfg = COMPARISON[q.concept];
+  var correct = (el === q.correctEl);
+  var responseTimeMs = Math.round(performance.now() - q.startTime);
 
   addLog({
     time: new Date().toISOString(),
+    concept: q.concept,
     level: 3,
-    prompt: level3State.promptType,
-    selected: (el === level3State.bigEl) ? 'big' : 'small',
+    prompt: q.promptMore ? cfg.moreLabel : cfg.lessLabel,
+    selected: (el === q.moreEl) ? cfg.moreLabel : cfg.lessLabel,
     correct: correct,
     responseTimeMs: responseTimeMs,
     inputMethod: currentInputMethod || null
@@ -993,7 +1085,8 @@ function level3Select(el) {
   if (scanMode) refreshSwitchScanItems();
   resetDwellState();
 
-  setTimeout(function() {
+  level3FeedbackTimeoutId = setTimeout(function() {
+    level3FeedbackTimeoutId = null;
     if (correct) {
       renderLevel3();
     } else {
@@ -1012,6 +1105,7 @@ objB3.addEventListener('click', function() { level3Select(objB3); });
    level switching
 ===================================================================== */
 function showLevel(n) {
+  if (level3FeedbackTimeoutId) { clearTimeout(level3FeedbackTimeoutId); level3FeedbackTimeoutId = null; }
   level = n;
   level1View.hidden = (n !== 1);
   level2View.hidden = (n !== 2);
@@ -1032,6 +1126,28 @@ function showLevel(n) {
 
 levelBtns.forEach(function(b) {
   b.addEventListener('click', function() { showLevel(Number(b.dataset.level)); });
+});
+
+/* =====================================================================
+   comparison concept switching (size ⇄ length)
+===================================================================== */
+function setComparisonMode(mode) {
+  if (mode !== 'size' && mode !== 'length') return;
+  if (comparisonMode === mode) return;
+  comparisonMode = mode;
+  conceptBtns.forEach(function(b) {
+    var on = b.dataset.concept === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  // reuse showLevel()'s existing cleanup (pending timeout cancel, dwell reset,
+  // scan candidate refresh, answered reset, fresh prompt) for the current level
+  // under the new concept, so no old-concept state survives the switch.
+  showLevel(level);
+}
+
+conceptBtns.forEach(function(b) {
+  b.addEventListener('click', function() { setComparisonMode(b.dataset.concept); });
 });
 
 /* =====================================================================
@@ -1111,6 +1227,11 @@ function init() {
   toggleGaze.checked = gazeEnabled;
   toggleScan.checked = false; // scanMode itself always starts OFF regardless of stored gazeEnabled
   scanSpeedDisplay.textContent = (scanSpeed / 1000).toFixed(1) + '秒';
+  conceptBtns.forEach(function(b) {
+    var on = b.dataset.concept === comparisonMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
 
   showLevel(level);
 
