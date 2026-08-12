@@ -838,6 +838,7 @@ const SETTINGS_PROXY = {
   'gaze-keyboard':      { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'mogura-tataki':      { selector: '#btnSet, #homeSetBtn', label: '🔧 このアプリの詳細設定を開く' },
   'scratch-app':        { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'kurabeyou-app':      { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -898,7 +899,7 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // 不自然な空白/白い帯ができるアプリはこちらでdisplay:noneにして詰める。
   // (hiragana-learn/katakana-app/suji-manabou: 横並びnav-tabsの1要素として存在
   //  shiritori2: 独自の上部バー.top-barの1要素として存在)
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2']);
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
@@ -1614,6 +1615,7 @@ const MANUAL_CHANGELOG = [
     "「おおきい？ちいさい？くらべよう」で、問題と図形の組み合わせをより正確にし、レベルを画面上から切り替えられるようにしました。また、「ながい・みじかい」の学習を追加しました。",
     "「おおきい？ちいさい？くらべよう」で、取り組む問題数を選べるようにし、学習の進み具合が分かる表示を追加しました。また、大きい順・小さい順、長い順・短い順に3つを並べる学習を追加しました。",
     "「おおきい？ちいさい？くらべよう」で、問題数の表示を分かりやすくし、図形の色のバリエーションや小さな画面での見やすさを改善しました。",
+    "「おおきい？ちいさい？くらべよう」の設定画面を使いやすく整理し、問題数の表示を修正しました。また、学習の記録を確認できるようにしました。",
   ] },
   { date: "2026-08-11", type: "update", text: "各アプリの不具合をまとめて修正しました。", details: [
     "「すごろく」スイッチ操作でスキャンをオフにした直後に、選んだボタンのハイライトが消えずに残ってしまうことがある問題を修正しました。",
