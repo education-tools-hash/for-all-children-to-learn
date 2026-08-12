@@ -126,7 +126,20 @@
   .target-btn .shape-visual::after { content: ''; position: absolute; inset: 5px; background: var(--dm-color-bg,#fff); }
   .target-btn .shape-visual.shape-circle::after { border-radius: 50%; }
   .target-btn .shape-visual.shape-square::after { border-radius: var(--dm-radius-sm,5px); }
-  .target-btn .shape-visual.shape-triangle::after { clip-path: polygon(50% 4%, 4% 96%, 96% 96%); }
+  /* Phase26-D8: reusing the outer triangle's percentage-based polygon on the ::after box (which was
+     only inset:5px, i.e. smaller by the same 5px on every side) scales the whole triangle down
+     around its own center rather than offsetting each edge inward by an equal perpendicular
+     distance. Because the slanted edges are far from vertical/horizontal, that uniform box shrink
+     leaves only ~2px of perpendicular gap on the two slanted sides versus ~4.6px on the horizontal
+     base — the base reads as visibly thicker than the sides. Fix: this override resets inset to 0
+     (so the triangle's ::after is the same size/coordinate-space as the outer shape, unlike
+     circle/square which still rely on the shared inset:5px above) and clips it with a true mitered
+     inward offset of the outer triangle's 3 edges by 5px each (matching the circle/square 5px
+     ring), computed from the outer polygon's fixed 1:2 edge slope: the apex moves down by
+     5*sqrt(5)px and each base corner moves inward by 5*phi px (phi = golden ratio, an artifact of
+     that slope) while both stay 5px above the base — independent of the target's box size, so the
+     same calc() values also cover the 88px mobile target from the 480px breakpoint below. */
+  .target-btn .shape-visual.shape-triangle::after { inset: 0; clip-path: polygon(50% calc(4% + 11.18px), calc(4% + 8.09px) calc(96% - 5px), calc(96% - 8.09px) calc(96% - 5px)); }
   .target-btn.target-filled .shape-visual { background: var(--fill-color, var(--dm-color-primary,#00A99D)); }
   .target-btn.target-filled .shape-visual::after { display: none; }
   .target-btn.target-filled { pointer-events: none; }
