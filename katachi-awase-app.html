@@ -72,23 +72,23 @@
   .app-title { font-size: var(--dm-font-size-heading,1.5rem); margin: 0; }
   .settings-toggle-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; }
 
-  .level-row, .count-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); margin: var(--dm-space-4,16px) 0; }
+  .level-row, .count-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); margin: var(--dm-space-2,8px) 0; }
   .level-row[hidden], .count-row[hidden] { display: none; }
   .level-btn, .count-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-pill,999px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
   .level-btn.active, .count-btn.active { background: var(--dm-color-primary,#00A99D); border-color: var(--dm-color-primary,#00A99D); color: #fff; }
 
-  #progressArea { margin: var(--dm-space-3,12px) 0; }
+  #progressArea { margin: var(--dm-space-2,8px) 0; }
   #progressText { font-weight: 700; font-size: 1.0625rem; }
   #progressBar { width: 100%; height: 14px; border-radius: var(--dm-radius-pill,999px); background: var(--dm-color-soft,#F6F9FA); overflow: hidden; margin-top: 4px; }
   #progressBarFill { height: 100%; background: var(--dm-color-primary,#00A99D); width: 0%; transition: width .25s ease; }
 
-  #feedbackText { min-height: 1.6em; font-size: 1.25rem; font-weight: 700; text-align: center; margin: var(--dm-space-3,12px) 0; color: var(--dm-color-primary-dark,#00857B); }
+  #feedbackText { min-height: 1.6em; font-size: 1.25rem; font-weight: 700; text-align: center; margin: var(--dm-space-2,8px) 0; color: var(--dm-color-primary-dark,#00857B); }
 
-  .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dm-space-4,16px); margin: var(--dm-space-5,20px) 0; }
+  .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dm-space-4,16px); margin: var(--dm-space-3,12px) 0; }
   .tray-label { width: 100%; text-align: center; font-size: 0.875rem; color: var(--dm-color-sub,#5E6D78); margin-bottom: 4px; }
 
   .shape-btn, .target-btn {
-    min-width: 84px; min-height: 84px; width: 84px; height: 84px;
+    min-width: 96px; min-height: 96px; width: 96px; height: 96px;
     border: none; background: transparent; padding: 6px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     border-radius: var(--dm-radius-md,9px);
@@ -109,9 +109,13 @@
      along a clip-path polygon's diagonal edges (the triangle's slanted sides barely rendered),
      so the outline is built from two stacked layers instead — an outer border-color shape and an
      inset ::after in the page background color, both clipped identically — which stays crisp for
-     every shape type including angled ones. */
-  .target-btn .shape-visual { position: relative; background: var(--dm-color-border,#EDF1F0); }
-  .target-btn .shape-visual::after { content: ''; position: absolute; inset: 3px; background: var(--dm-color-bg,#fff); }
+     every shape type including angled ones. Phase26-D6: the outer layer's own color was
+     --dm-color-border (#EDF1F0), a near-white gray with too little contrast against the white
+     page background to read as a target on an ordinary (non-high-contrast) screen — the inset
+     width was a secondary issue. Switched to --dm-color-sub (#5E6D78, already used elsewhere in
+     this app as body-text-adjacent gray) and widened the visible ring from 3px to 5px. */
+  .target-btn .shape-visual { position: relative; background: var(--dm-color-sub,#5E6D78); }
+  .target-btn .shape-visual::after { content: ''; position: absolute; inset: 5px; background: var(--dm-color-bg,#fff); }
   .target-btn .shape-visual.shape-circle::after { border-radius: 50%; }
   .target-btn .shape-visual.shape-square::after { border-radius: var(--dm-radius-sm,5px); }
   .target-btn .shape-visual.shape-triangle::after { clip-path: polygon(50% 4%, 4% 96%, 96% 96%); }
@@ -153,7 +157,7 @@
   body.high-contrast { filter: invert(1) hue-rotate(180deg); }
 
   @media (max-width: 480px) {
-    .shape-btn, .target-btn { width: 72px; height: 72px; min-width: 72px; min-height: 72px; }
+    .shape-btn, .target-btn { width: 88px; height: 88px; min-width: 88px; min-height: 88px; }
   }
   /* .app's max-width:720px only centers content clear of the fixed left/right common buttons once
      the viewport is wide enough (~800px+); below that, .app's content edge still falls within the
@@ -782,11 +786,28 @@ function setQuestionCount(n) {
   if (shouldShowQuestionCount()) startLevel(level);
 }
 
+// handles three cases via the same entry point (Phase26-D6):
+//   waitingShape, any unplaced shape        -> fresh selection
+//   waitingTarget, a DIFFERENT unplaced shape -> switch selection (old shape's UI clears)
+//   waitingTarget, the SAME shape again       -> deselect back to waitingShape
+// None of these three touch task.mistakes/attemptsByShape — only onTargetActivate's
+// wrong-target branch records a mistake, so changing your mind is never logged as one.
 function onShapeActivate(shapeId, inputMethod) {
-  if (!task || phase !== 'waitingShape') return;
+  if (!task) return;
+  if (phase !== 'waitingShape' && phase !== 'waitingTarget') return; // feedback: no shape candidates
   var shape = task.shapes.filter(function(s) { return s.id === shapeId && !s.placed; })[0];
   if (!shape) return;
   currentInputMethod = inputMethod;
+
+  if (phase === 'waitingTarget' && task.selectedShapeId === shapeId) {
+    task.selectedShapeId = null;
+    phase = 'waitingShape';
+    resetDwellState();
+    renderTask();
+    if (scanMode) refreshSwitchScanItems();
+    return;
+  }
+
   task.selectedShapeId = shapeId;
   task.shapeStartedAt = Date.now();
   phase = 'waitingTarget';
@@ -933,7 +954,13 @@ function buildScanItems() {
     if (phase === 'waitingShape') {
       items = Array.from(shapesTray.querySelectorAll('.shape-btn:not(.shape-placed)'));
     } else if (phase === 'waitingTarget') {
-      items = Array.from(targetsTray.querySelectorAll('.target-btn:not(.target-filled)'));
+      // Phase26-D6: Switch users get full reselect/deselect capability — every unplaced
+      // shape (including the currently selected one, for deselect) stays a candidate
+      // alongside the targets. Switch requires an explicit press, so re-landing on the
+      // same shape is a deliberate action, not passive lingering (unlike gaze — see
+      // getGazeTargets() below, which excludes the selected shape for that reason).
+      items = Array.from(shapesTray.querySelectorAll('.shape-btn:not(.shape-placed)'))
+        .concat(Array.from(targetsTray.querySelectorAll('.target-btn:not(.target-filled)')));
     } // feedback: 0 learning candidates
   } else if (!sessionCompleteArea.hidden) {
     items = [restartBtn];
@@ -1050,7 +1077,20 @@ function getGazeTargets() {
   if (settingsPanel.hidden === false) return [];
   if (!task) return [];
   if (phase === 'waitingShape') return Array.from(shapesTray.querySelectorAll('.shape-btn:not(.shape-placed)'));
-  if (phase === 'waitingTarget') return Array.from(targetsTray.querySelectorAll('.target-btn:not(.target-filled)'));
+  if (phase === 'waitingTarget') {
+    // Phase26-D6: gaze may switch to a DIFFERENT unplaced shape (A dwell -> B dwell -> B
+    // selected), but the currently selected shape is deliberately excluded from its own
+    // candidate set here. Unlike touch/keyboard/Switch — each a discrete, deliberate
+    // action — gaze can linger on the shape a user just picked simply while they think
+    // about which target to choose next; if that shape stayed a candidate, 900ms of
+    // ordinary thinking-glance would silently deselect it. Re-selecting to deselect via
+    // gaze is deferred pending user review (see Phase26-D6 report) rather than shipped
+    // with this known false-deselect risk.
+    var otherShapes = Array.from(shapesTray.querySelectorAll('.shape-btn:not(.shape-placed)'))
+      .filter(function(el) { return el.dataset.shapeId !== task.selectedShapeId; });
+    var targets = Array.from(targetsTray.querySelectorAll('.target-btn:not(.target-filled)'));
+    return otherShapes.concat(targets);
+  }
   return []; // feedback
 }
 function resetDwellState() {
