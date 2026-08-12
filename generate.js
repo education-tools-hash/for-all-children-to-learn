@@ -1701,14 +1701,73 @@ function formatDateJP(ymd) {
   return `${y}年${m}月${d}日`;
 }
 
+// Phase26-D4: MANUAL_CHANGELOG の各行は歴史的に「「アプリ名」で...」という表記が
+// 大半だが、そのアプリ名は必ずしも現行 apps-data.json の title と一致しない
+// (改名・表記ゆれ: 例「読み書きサポートエディタ」→現行「よみかき サポートエディタ」、
+// 「ひかるボタン」→現行「ひかるボタン（注視訓練）」、「おかねのべんきょう」→現行
+// 「おかねのおべんきょう」等)。誤った統合を避けるため、曖昧な正規表現一致では
+// なく、実際の過去データを確認して構築したこの明示的なエイリアス表のみを
+// 「安全にアプリだと判断できる」根拠として使う。ここに無い表記は非アプリ扱いにする。
+const APP_NAME_ALIASES = {
+  'なぞり書き練習ツール': 'nazori-app',
+  '視線入力キーボード': 'gaze-keyboard',
+  '視線キーボード': 'gaze-keyboard',
+  'ひらがな まなぼう！': 'hiragana-learn',
+  'すうじ まなぼう！': 'suji-manabou',
+  'おおきい？ちいさい？くらべよう': 'kurabeyou-app',
+  'かたちをあわせよう': 'katachi-awase-app',
+  'すごろく': 'sugoroku-app',
+  'おんがくあそび': 'ongaku-app',
+  'とけい': 'tokei-app',
+  'しりとりあそび': 'shiritori2',
+  'しりとり': 'shiritori2',
+  'けずりえ': 'scratch-app',
+  'なぞりんプリント': 'nazorin-print',
+  'カタカナ まなぼう！': 'katakana-app',
+  '読み書きサポートエディタ': 'yomikaki-app',
+  'よみかき サポートエディタ': 'yomikaki-app',
+  'ぼうさいたんけんたい': 'bosai-app',
+  'マッチング': 'matching-app',
+  'きょうのきろく': 'kyou-no-kiroku',
+  'ひかるボタン': 'tyushi',
+  'ひかるボタン（注視訓練）': 'tyushi',
+  'おえかきひろば': 'drawing-app',
+  'SST': 'sst-app',
+  'SST ソーシャルスキルトレーニング': 'sst-app',
+  'コミュニケーションボード': 'kimochi-board',
+  'もぐらたたき': 'mogura-tataki',
+  'おかねのべんきょう': 'okane-app',
+  'おかねのおべんきょう': 'okane-app',
+};
+
+// 文字列先頭から連続する「...」を全て取り出す。先頭以外(文中)の「」は対象外とする
+// ことで、「とけい」の「とけいタイマー」タブが... のような「アプリ名の中の機能名」
+// を誤ってアプリ名として拾わない。「ひかるボタン」「おえかきひろば」設定から... の
+// ような、1行で2アプリに触れているケースは両方とも正しく拾える。
+function extractLeadingAppNames(text) {
+  const names = [];
+  let rest = String(text);
+  let m;
+  while ((m = rest.match(/^「([^」]+)」/))) {
+    names.push(m[1]);
+    rest = rest.slice(m[0].length);
+  }
+  return names;
+}
+
 function generateChangelog(apps) {
-  // アプリの releaseDate から自動生成
+  const appById = {};
+  apps.forEach(a => { appById[a.id] = a; });
+
+  // アプリの releaseDate から自動生成。sourceAppId を持たせ、後続の集約処理が
+  // 曖昧な文字列一致に頼らず確実にアプリを特定できるようにする。
   const autoEntries = apps
     .filter(a => a.releaseDate)
     .map(a => ({
       date: a.releaseDate,
       type: 'new',
       text: `「${a.releaseDisplayName || a.title}」を公開しました`,
+      sourceAppId: a.id,
       ...(a.releaseDetails ? { details: a.releaseDetails } : {})
     }));
 
@@ -1716,13 +1775,10 @@ function generateChangelog(apps) {
   const all = [...autoEntries, ...MANUAL_CHANGELOG];
   all.sort((a, b) => b.date.localeCompare(a.date));
 
-  // 1 calendar date = 1 visible changelog entry（Phase26-D2）:
-  // autoEntries と MANUAL_CHANGELOG はここまで別ソースの別要素として生成されており、
-  // 同じ date でも自動的には統合されない。sort が安定ソートであることを利用し、
-  // 同じ date の要素を出現順（= autoEntries → MANUAL_CHANGELOG の順）のまま1つへ集約する。
-  // 元のtext/detailsは一切破棄せず、各要素のtextをdetailsの1行として残し、
-  // その要素が持っていたdetailsをその直後へ続ける「・」プレフィックス行として展開する
-  // ことで、統合後もdetails展開時に全内訳が失われずに読める状態を保つ。
+  // 1 calendar date = 1 visible changelog entry（Phase26-D2）は維持したまま、
+  // Phase26-D4ではさらに 1 app = 1 visible detail item / 1 意味のあるsite変更 = 1 item
+  // まで集約する。元のMANUAL_CHANGELOG/releaseDetailsは一切書き換えず、ここでは
+  // 表示用の集約だけを行う。
   const dateOrder = [];
   const dateGroups = {};
   all.forEach(item => {
@@ -1733,31 +1789,104 @@ function generateChangelog(apps) {
     dateGroups[item.date].push(item);
   });
 
-  // updateCount(Phase26-D2.1): 「表示行数」と「意味上の更新件数」を別概念として扱う。
-  // グループ見出し（アプリ名の公開文・「各アプリの不具合をまとめて修正しました。」等）は
-  // 利用者向けの実更新内容そのものではないため件数に数えない。details[]を持つ項目は
-  // details.lengthを、持たない単独項目はtext自体が1件の更新内容なので1を件数とする。
-  function computeUpdateCount(item) {
-    return (Array.isArray(item.details) && item.details.length > 0) ? item.details.length : 1;
-  }
-
   const TYPE_PRIORITY = ['new', 'update', 'design', 'fix'];
+
   return dateOrder.map(date => {
     const members = dateGroups[date];
-    if (members.length === 1) {
-      return { ...members[0], updateCount: computeUpdateCount(members[0]) };
+
+    const appGroups = {}; // appId -> { releasedHere, updatedHere, updateType }
+    const appOrder = [];
+    const siteItems = []; // { text } — アプリを安全に特定できない/アプリ横断の変更
+
+    members.forEach(m => {
+      if (m.sourceAppId) {
+        // automatic release entry: アプリは確定済み
+        if (!appGroups[m.sourceAppId]) {
+          appGroups[m.sourceAppId] = { releasedHere: false, updatedHere: false, updateType: m.type };
+          appOrder.push(m.sourceAppId);
+        }
+        appGroups[m.sourceAppId].releasedHere = true;
+        return;
+      }
+
+      const contentLines = (Array.isArray(m.details) && m.details.length > 0) ? m.details : [m.text];
+      const perLineApps = [];
+      let allLinesMatched = true;
+      contentLines.forEach(line => {
+        const names = extractLeadingAppNames(line).map(n => APP_NAME_ALIASES[n]).filter(Boolean);
+        if (names.length === 0) allLinesMatched = false;
+        perLineApps.push(names);
+      });
+
+      if (!allLinesMatched) {
+        // 1行でもアプリを安全に特定できない場合、このentry全体を1つのsite項目として
+        // 扱う（誤ったアプリへの統合より、元のtextをそのまま見せる方が安全）。
+        siteItems.push({ text: m.text });
+        return;
+      }
+      perLineApps.forEach(names => {
+        names.forEach(appId => {
+          if (!appGroups[appId]) {
+            appGroups[appId] = { releasedHere: false, updatedHere: false, updateType: m.type };
+            appOrder.push(appId);
+          }
+          appGroups[appId].updatedHere = true;
+          appGroups[appId].updateType = m.type;
+        });
+      });
+    });
+
+    const releaseApps = [];
+    const updatedOnlyApps = [];
+    const detailLines = [];
+    appOrder.forEach(appId => {
+      const g = appGroups[appId];
+      const app = appById[appId];
+      const title = app ? app.title : appId;
+      if (g.releasedHere && g.updatedHere) {
+        releaseApps.push({ appId, title });
+        detailLines.push(`「${title}」を公開し、改善しました`);
+      } else if (g.releasedHere) {
+        releaseApps.push({ appId, title });
+        detailLines.push(`「${title}」を公開しました`);
+      } else {
+        updatedOnlyApps.push({ appId, title });
+        detailLines.push(g.updateType === 'design' ? `「${title}」を見やすく改善しました` : `「${title}」を改善しました`);
+      }
+    });
+    siteItems.forEach(s => detailLines.push(s.text));
+
+    const updateCount = detailLines.length;
+    const isTrivialSingleSiteItem = releaseApps.length === 0 && updatedOnlyApps.length === 0 && siteItems.length === 1;
+
+    // 見出し生成: 固定文言「どのまなを更新しました」は使わず、その日の内容から
+    // 短く要約する。非アプリ変更が1件だけの日は、その元のtext(既に人が書いた
+    // 要約)をそのまま見出しに使う。
+    let text;
+    if (isTrivialSingleSiteItem) {
+      text = siteItems[0].text;
+    } else {
+      const clauses = [];
+      if (releaseApps.length > 0) {
+        clauses.push(releaseApps.length === 1 ? `「${releaseApps[0].title}」を公開` : `新しい教材を${releaseApps.length}つ追加`);
+      }
+      if (updatedOnlyApps.length > 0) {
+        clauses.push(updatedOnlyApps.length === 1 ? `「${updatedOnlyApps[0].title}」を改善` : 'いくつかの教材を改善');
+      }
+      if (siteItems.length > 0) {
+        clauses.push(siteItems.length === 1 ? 'サイトの一部を改善' : 'サイトを改善');
+      }
+      text = clauses.length > 0 ? clauses.join('し、') + 'しました' : '更新しました';
     }
 
     const types = members.map(m => m.type);
     const primaryType = TYPE_PRIORITY.find(t => types.includes(t)) || types[0];
-    const details = [];
-    let updateCount = 0;
-    members.forEach(m => {
-      details.push(m.text);
-      if (Array.isArray(m.details)) m.details.forEach(d => details.push('・' + d));
-      updateCount += computeUpdateCount(m);
-    });
-    return { date, type: primaryType, text: 'どのまなを更新しました', details, updateCount };
+
+    // 単独のsite項目1件だけの日は、見出し自体がその内容そのものなので、同じ文を
+    // もう一度「詳細」として展開させる意味のないトグルを出さない(details省略)。
+    return isTrivialSingleSiteItem
+      ? { date, type: primaryType, text, updateCount }
+      : { date, type: primaryType, text, details: detailLines, updateCount };
   });
 }
 
