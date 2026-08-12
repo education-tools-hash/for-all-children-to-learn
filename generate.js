@@ -1733,19 +1733,31 @@ function generateChangelog(apps) {
     dateGroups[item.date].push(item);
   });
 
+  // updateCount(Phase26-D2.1): 「表示行数」と「意味上の更新件数」を別概念として扱う。
+  // グループ見出し（アプリ名の公開文・「各アプリの不具合をまとめて修正しました。」等）は
+  // 利用者向けの実更新内容そのものではないため件数に数えない。details[]を持つ項目は
+  // details.lengthを、持たない単独項目はtext自体が1件の更新内容なので1を件数とする。
+  function computeUpdateCount(item) {
+    return (Array.isArray(item.details) && item.details.length > 0) ? item.details.length : 1;
+  }
+
   const TYPE_PRIORITY = ['new', 'update', 'design', 'fix'];
   return dateOrder.map(date => {
     const members = dateGroups[date];
-    if (members.length === 1) return members[0]; // 単独日はそのまま(不要な差分を避ける)
+    if (members.length === 1) {
+      return { ...members[0], updateCount: computeUpdateCount(members[0]) };
+    }
 
     const types = members.map(m => m.type);
     const primaryType = TYPE_PRIORITY.find(t => types.includes(t)) || types[0];
     const details = [];
+    let updateCount = 0;
     members.forEach(m => {
       details.push(m.text);
       if (Array.isArray(m.details)) m.details.forEach(d => details.push('・' + d));
+      updateCount += computeUpdateCount(m);
     });
-    return { date, type: primaryType, text: 'どのまなを更新しました', details };
+    return { date, type: primaryType, text: 'どのまなを更新しました', details, updateCount };
   });
 }
 
@@ -1771,6 +1783,9 @@ function updateChangelog(apps) {
     if (details.length > 0) {
       parts.push(`details: ${JSON.stringify(details)}`);
     }
+    // updateCount(Phase26-D2.1): 表示件数(「N件」)は details.length ではなくこの値を
+    // 使う。単なる表示行数(グループ見出しを含む)と意味上の更新件数を混同しないため。
+    parts.push(`updateCount: ${JSON.stringify(e.updateCount)}`);
     lines.push(`  { ${parts.join(', ')} },`);
   }
   lines.push('];');
