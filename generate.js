@@ -806,7 +806,7 @@ const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app',
 // SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
 // 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ
 // → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
-const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app']); // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app: 学習コンテンツ自体の読み上げと重ねない
+const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app', 'katachi-awase-app']); // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app・katachi-awase-app: 学習コンテンツ自体の読み上げと重ねない
 
 // 🔧 既存の独自設定ボタンを持つアプリ: セレクタを指定すると、
 // ・元のボタンは非表示にする
@@ -839,6 +839,7 @@ const SETTINGS_PROXY = {
   'mogura-tataki':      { selector: '#btnSet, #homeSetBtn', label: '🔧 このアプリの詳細設定を開く' },
   'scratch-app':        { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
   'kurabeyou-app':      { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'katachi-awase-app':  { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -899,7 +900,7 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // 不自然な空白/白い帯ができるアプリはこちらでdisplay:noneにして詰める。
   // (hiragana-learn/katakana-app/suji-manabou: 横並びnav-tabsの1要素として存在
   //  shiritori2: 独自の上部バー.top-barの1要素として存在)
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app']);
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
