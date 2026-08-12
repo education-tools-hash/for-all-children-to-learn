@@ -6,7 +6,7 @@
 <title>おおきい？ちいさい？くらべよう</title>
 <!-- seo-tags: 自動挿入 (generate.js) -->
 <link rel="canonical" href="https://donomana.jp/app-details/kurabeyou-app-detail.html">
-<meta name="description" content="大きい・小さい、長い・短いの違いを、見たり選んだりしながら学べる教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。だんだん難しくなる3つのレベルで、「見て気づく」から「くらべて選 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
+<meta name="description" content="大きい・小さい、長い・短いの違いを、見たり選んだりしながら学べる教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。「見て気づく」から「くらべて選ぶ」、「3つを順番に並べる」まで、 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
 <!-- /seo-tags -->
 <!-- design-tokens: 自動挿入 (generate.js) -->
 <style>
@@ -301,6 +301,45 @@
     font-size: var(--dm-font-size-caption); font-family: inherit;
   }
   .concept-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
+  .count-btn {
+    min-width: 44px; min-height: 44px; padding: var(--dm-space-2) var(--dm-space-4);
+    border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
+    background: #fff; color: var(--dm-color-ink); font-weight: 900; cursor: pointer;
+    font-size: var(--dm-font-size-caption); font-family: inherit;
+  }
+  .count-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
+
+  /* ===== progress (dot pattern reused from tokei-app.html / switch-training-app.html) ===== */
+  .progress-wrap { margin-bottom: var(--dm-space-5); text-align: center; }
+  .progress-label { font-size: var(--dm-font-size-body); font-weight: 700; color: var(--dm-color-sub); margin-bottom: var(--dm-space-2); }
+  .progress-dots { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .progress-dot { width: 16px; height: 16px; border-radius: var(--dm-radius-circle); background: #dfe6e9; transition: background var(--dm-duration-base); }
+  .progress-dot.done { background: var(--dm-color-primary); }
+  .progress-dot.current { background: #FFD700; box-shadow: 0 0 0 3px #fff, 0 0 0 5px #FFD700; }
+
+  /* ===== Level4 ordering ===== */
+  .order-stage {
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: var(--dm-space-6); flex-wrap: wrap;
+    min-height: 220px; margin-bottom: var(--dm-space-5);
+  }
+  .stimulus-shape.color-c { background: var(--dm-color-info); }
+  .stimulus-shape.placed { opacity: 0.3; pointer-events: none; }
+  .order-slots { display: flex; align-items: center; justify-content: center; gap: var(--dm-space-4); margin-bottom: var(--dm-space-4); }
+  .order-slot {
+    width: 64px; height: 64px; border-radius: var(--dm-radius-md);
+    border: 3px dashed var(--dm-color-border); display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: var(--dm-font-size-subheading); color: var(--dm-color-sub);
+    background: var(--dm-color-soft); flex-shrink: 0;
+  }
+  .order-slot.filled { border-style: solid; }
+  .order-slot.filled.color-a { border-color: var(--dm-color-primary); background: rgba(0,169,157,.12); color: var(--dm-color-primary-dark); }
+  .order-slot.filled.color-b { border-color: var(--dm-color-accent); background: rgba(245,166,35,.16); color: #8a5a10; }
+  .order-slot.filled.color-c { border-color: var(--dm-color-info); background: rgba(74,143,217,.14); color: #2f5f95; }
+
+  /* ===== session completion (inline, non-modal) ===== */
+  .complete-area { text-align: center; padding: var(--dm-space-6) 0; }
+  .complete-text { font-size: var(--dm-font-size-display); font-weight: 900; margin: 0 0 var(--dm-space-6); color: var(--dm-color-primary-dark); }
 
   /* ===== settings panel (non-modal, inline) ===== */
   .settings-panel {
@@ -421,8 +460,10 @@
   @media (max-width: 480px) {
     .stimulus-shape { --stim-size: 130px !important; }
     .stimulus-shape.shape-bar { min-width: 50px; }
-    .compare-stage { gap: var(--dm-space-5); }
+    .compare-stage, .order-stage { gap: var(--dm-space-5); }
     .control-row-label { width: 100%; margin-right: 0; }
+    .order-slot { width: 52px; height: 52px; }
+    .order-slots { gap: var(--dm-space-3); }
   }
 </style>
 
@@ -446,6 +487,15 @@
         <button class="level-btn" data-level="1" tabindex="0" aria-pressed="false">みてたのしむ</button>
         <button class="level-btn" data-level="2" tabindex="0" aria-pressed="false">みくらべる</button>
         <button class="level-btn" data-level="3" tabindex="0" aria-pressed="false">どっちかな？</button>
+        <button class="level-btn" data-level="4" tabindex="0" aria-pressed="false">じゅんばん</button>
+      </div>
+    </div>
+    <div class="control-row" id="questionCountRow" hidden>
+      <span class="control-row-label" id="countGroupLabel">もんすう</span>
+      <div class="count-buttons" role="group" aria-labelledby="countGroupLabel">
+        <button class="count-btn" data-count="3" tabindex="0" aria-pressed="false">3もん</button>
+        <button class="count-btn" data-count="5" tabindex="0" aria-pressed="true">5もん</button>
+        <button class="count-btn" data-count="10" tabindex="0" aria-pressed="false">10もん</button>
       </div>
     </div>
   </div>
@@ -482,6 +532,11 @@
   <section id="learnArea" class="learn-area">
     <p id="promptText" class="prompt-text"></p>
 
+    <div id="progressArea" class="progress-wrap" hidden>
+      <div class="progress-label" aria-live="polite"><span id="qNow">1</span><span class="q-sep">/</span><span id="qTotal">5</span> もんめ</div>
+      <div id="progressDots" class="progress-dots" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0" aria-valuetext="1もんめ、ぜんぶで5もん"></div>
+    </div>
+
     <div id="level1View" class="level-view" hidden>
       <div class="stimulus-stage">
         <div id="shape1" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="かたち"></div>
@@ -499,11 +554,34 @@
     </div>
 
     <div id="level3View" class="level-view" hidden>
-      <div class="compare-stage">
-        <div id="objA3" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="かたちA"></div>
-        <div id="objB3" class="stimulus-shape color-b" tabindex="0" role="button" aria-label="かたちB"></div>
+      <div id="level3PlayArea">
+        <div class="compare-stage">
+          <div id="objA3" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="かたちA"></div>
+          <div id="objB3" class="stimulus-shape color-b" tabindex="0" role="button" aria-label="かたちB"></div>
+        </div>
+        <div id="feedbackArea" class="feedback-area" aria-live="polite"></div>
       </div>
-      <div id="feedbackArea" class="feedback-area" aria-live="polite"></div>
+    </div>
+
+    <div id="level4View" class="level-view" hidden>
+      <div id="level4PlayArea">
+        <div class="order-stage">
+          <div id="item0" class="stimulus-shape color-a" tabindex="0" role="button" aria-label="1つめのかたち"></div>
+          <div id="item1" class="stimulus-shape color-b" tabindex="0" role="button" aria-label="2つめのかたち"></div>
+          <div id="item2" class="stimulus-shape color-c" tabindex="0" role="button" aria-label="3つめのかたち"></div>
+        </div>
+        <div class="order-slots">
+          <div class="order-slot" id="orderSlot0" data-slot="0">1</div>
+          <div class="order-slot" id="orderSlot1" data-slot="1">2</div>
+          <div class="order-slot" id="orderSlot2" data-slot="2">3</div>
+        </div>
+        <div id="level4FeedbackArea" class="feedback-area" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div id="sessionCompleteArea" class="complete-area" hidden>
+      <p id="sessionCompleteText" class="complete-text" aria-live="polite"></p>
+      <button id="sessionRestartBtn" class="next-btn" tabindex="0">もういちど</button>
     </div>
   </section>
 </main>
@@ -529,8 +607,13 @@ var scanFocusIndex = -1;
 var scanTargets = [];
 var settingsOpen = false;
 var answered = false; // Level3 gate: true while a decision is being processed/shown
+var answered4 = false; // Level4 gate: same role as `answered`, for one ordering step's feedback
 var currentInputMethod = null; // 'touch' | 'keyboard' | 'switch' | 'gaze' (best-effort, not guessed)
 var comparisonMode = 'size'; // 'size' | 'length'
+var QUESTION_COUNTS = [3, 5, 10];
+var questionCount = 5;
+var session = null; // { total, current, completed, correct, startedAt } — single source of truth for Level3/4 progress; null when level is 1 or 2
+var LEVEL4_COLOR_CLASSES = ['color-a', 'color-b', 'color-c'];
 
 var SIZE_PAIRS = [[210,120],[195,130],[180,135]]; // pair[0] is always the larger value
 var LENGTH_PAIRS = [[280,110],[250,130],[220,150]]; // pair[0] is always the longer value; wider spread than SIZE_PAIRS so length reads as a width cue, not an area cue
@@ -553,7 +636,10 @@ var COMPARISON = {
     ariaMore: 'おおきいかたち',
     ariaLess: 'ちいさいかたち',
     moreLabel: 'big',
-    lessLabel: 'small'
+    lessLabel: 'small',
+    level4Patterns: [[120,170,220],[130,180,230],[110,160,210]],
+    level4PromptDesc: 'おおきい じゅんに ならべよう',
+    level4PromptAsc: 'ちいさい じゅんに ならべよう'
   },
   length: {
     pairs: LENGTH_PAIRS,
@@ -567,7 +653,10 @@ var COMPARISON = {
     ariaMore: 'ながいかたち',
     ariaLess: 'みじかいかたち',
     moreLabel: 'long',
-    lessLabel: 'short'
+    lessLabel: 'short',
+    level4Patterns: [[100,190,280],[110,200,290],[90,180,270]],
+    level4PromptDesc: 'ながい じゅんに ならべよう',
+    level4PromptAsc: 'みじかい じゅんに ならべよう'
   }
 };
 
@@ -577,6 +666,8 @@ var settingsPanel = document.getElementById('settingsPanel');
 var settingsCloseBtn = document.getElementById('settingsCloseBtn');
 var levelBtns = Array.from(document.querySelectorAll('.level-btn'));
 var conceptBtns = Array.from(document.querySelectorAll('.concept-btn'));
+var questionCountRow = document.getElementById('questionCountRow');
+var questionCountBtns = Array.from(document.querySelectorAll('.count-btn'));
 var toggleTts = document.getElementById('toggleTts');
 var toggleAnimation = document.getElementById('toggleAnimation');
 var toggleGaze = document.getElementById('toggleGaze');
@@ -586,9 +677,16 @@ var scanSpeedPlus = document.getElementById('scanSpeedPlus');
 var scanSpeedDisplay = document.getElementById('scanSpeedDisplay');
 
 var promptText = document.getElementById('promptText');
+var progressArea = document.getElementById('progressArea');
+var qNow = document.getElementById('qNow');
+var qTotal = document.getElementById('qTotal');
+var progressDots = document.getElementById('progressDots');
 var level1View = document.getElementById('level1View');
 var level2View = document.getElementById('level2View');
 var level3View = document.getElementById('level3View');
+var level3PlayArea = document.getElementById('level3PlayArea');
+var level4View = document.getElementById('level4View');
+var level4PlayArea = document.getElementById('level4PlayArea');
 var shape1 = document.getElementById('shape1');
 var level1NextBtn = document.getElementById('level1NextBtn');
 var objBig2 = document.getElementById('objBig2');
@@ -598,6 +696,15 @@ var level2NextBtn = document.getElementById('level2NextBtn');
 var objA3 = document.getElementById('objA3');
 var objB3 = document.getElementById('objB3');
 var feedbackArea = document.getElementById('feedbackArea');
+var item0 = document.getElementById('item0');
+var item1 = document.getElementById('item1');
+var item2 = document.getElementById('item2');
+var level4Items = [item0, item1, item2];
+var orderSlotEls = [document.getElementById('orderSlot0'), document.getElementById('orderSlot1'), document.getElementById('orderSlot2')];
+var level4FeedbackArea = document.getElementById('level4FeedbackArea');
+var sessionCompleteArea = document.getElementById('sessionCompleteArea');
+var sessionCompleteText = document.getElementById('sessionCompleteText');
+var sessionRestartBtn = document.getElementById('sessionRestartBtn');
 
 /* =====================================================================
    localStorage: settings
@@ -609,16 +716,17 @@ function loadSettings() {
   if (raw) {
     try { s = JSON.parse(raw) || {}; } catch (e) { s = {}; }
   }
-  level = (s.level === 1 || s.level === 2 || s.level === 3) ? s.level : 1;
+  level = (s.level === 1 || s.level === 2 || s.level === 3 || s.level === 4) ? s.level : 1;
   ttsEnabled = (typeof s.tts === 'boolean') ? s.tts : true;
   animationEnabled = (typeof s.animation === 'boolean') ? s.animation : true;
   gazeEnabled = (typeof s.gazeEnabled === 'boolean') ? s.gazeEnabled : false;
   scanSpeed = (typeof s.scanSpeed === 'number' && s.scanSpeed >= 500 && s.scanSpeed <= 5000) ? s.scanSpeed : 2000;
   comparisonMode = (s.comparisonMode === 'length') ? 'length' : 'size'; // missing/unknown value → safe default, no migration needed
+  questionCount = (QUESTION_COUNTS.indexOf(s.questionCount) !== -1) ? s.questionCount : 5; // missing/unknown value → safe default
   // scanMode itself is never restored ON automatically (avoid surprising auto-scan on load)
 }
 function saveSettings() {
-  var s = { level: level, tts: ttsEnabled, animation: animationEnabled, gazeEnabled: gazeEnabled, scanSpeed: scanSpeed, comparisonMode: comparisonMode };
+  var s = { level: level, tts: ttsEnabled, animation: animationEnabled, gazeEnabled: gazeEnabled, scanSpeed: scanSpeed, comparisonMode: comparisonMode, questionCount: questionCount };
   try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
 }
 
@@ -700,10 +808,12 @@ function buildScanItems() {
   } else if (level === 2) {
     items = [objBig2, objSmall2, level2NextBtn];
   } else if (level === 3) {
-    items = answered ? [] : [objA3, objB3];
+    items = sessionComplete() ? [sessionRestartBtn] : (answered ? [] : [objA3, objB3]);
+  } else if (level === 4) {
+    items = sessionComplete() ? [sessionRestartBtn] : (answered4 ? [] : unplacedLevel4Els());
   }
   if (!settingsOpen) {
-    items = items.concat(levelBtns, conceptBtns);
+    items = items.concat(levelBtns, conceptBtns, questionCountBtns);
     items.push(settingsBtn);
   }
   items = items.concat(commonChromeCandidates());
@@ -811,7 +921,9 @@ function getGazeTargets() {
   } else if (level === 2) {
     items = [objBig2, objSmall2, level2NextBtn];
   } else if (level === 3) {
-    items = answered ? [] : [objA3, objB3];
+    items = sessionComplete() ? [sessionRestartBtn] : (answered ? [] : [objA3, objB3]);
+  } else if (level === 4) {
+    items = sessionComplete() ? [sessionRestartBtn] : (answered4 ? [] : unplacedLevel4Els());
   }
   if (!settingsOpen) items.push(settingsBtn);
   return items.filter(isVisibleEnabled);
@@ -916,6 +1028,80 @@ function setGazeEnabled(on) {
   }
   saveSettings();
 }
+
+/* =====================================================================
+   session (Level3/4 progress): single source of truth for "which question,
+   how many total, how many completed" — the visible progress UI and the
+   Switch Scan/gaze candidate gating both read from this one object, never
+   computed separately.
+===================================================================== */
+function sessionComplete() {
+  return !!session && session.completed >= session.total;
+}
+
+function startSession() {
+  if (level3FeedbackTimeoutId) { clearTimeout(level3FeedbackTimeoutId); level3FeedbackTimeoutId = null; }
+  if (level4FeedbackTimeoutId) { clearTimeout(level4FeedbackTimeoutId); level4FeedbackTimeoutId = null; }
+  session = { total: questionCount, current: 1, completed: 0, correct: 0, startedAt: performance.now() };
+  sessionCompleteArea.hidden = true;
+  if (level === 3) level3PlayArea.hidden = false;
+  if (level === 4) level4PlayArea.hidden = false;
+  updateProgressUI();
+}
+
+function advanceSession() {
+  if (!session) return;
+  session.completed++;
+  session.correct++;
+  if (session.completed >= session.total) {
+    showSessionComplete();
+  } else {
+    session.current++;
+    updateProgressUI();
+    if (level === 3) renderLevel3();
+    else if (level === 4) renderLevel4();
+  }
+}
+
+function showSessionComplete() {
+  updateProgressUI();
+  if (level === 3) level3PlayArea.hidden = true;
+  if (level === 4) level4PlayArea.hidden = true;
+  promptText.textContent = '';
+  sessionCompleteArea.hidden = false;
+  sessionCompleteText.textContent = 'できたね！ ぜんぶ おわったよ！';
+  speak('できたね！ ぜんぶ おわったよ！');
+  beep(1046, 220);
+  resetDwellState();
+  if (scanMode) refreshSwitchScanItems();
+}
+
+function updateProgressUI() {
+  if (!session) { progressArea.hidden = true; return; }
+  progressArea.hidden = false;
+  var shownCurrent = Math.min(session.current, session.total);
+  qNow.textContent = shownCurrent;
+  qTotal.textContent = session.total;
+  progressDots.setAttribute('aria-valuemin', '0');
+  progressDots.setAttribute('aria-valuemax', String(session.total));
+  progressDots.setAttribute('aria-valuenow', String(session.completed));
+  progressDots.setAttribute('aria-valuetext', shownCurrent + 'もんめ、ぜんぶで' + session.total + 'もん');
+  progressDots.innerHTML = '';
+  for (var i = 0; i < session.total; i++) {
+    var dot = document.createElement('span');
+    var cls = 'progress-dot';
+    if (i < session.completed) cls += ' done';
+    else if (i === session.completed && !sessionComplete()) cls += ' current';
+    dot.className = cls;
+    progressDots.appendChild(dot);
+  }
+}
+
+sessionRestartBtn.addEventListener('click', function() {
+  startSession();
+  if (level === 3) renderLevel3();
+  else if (level === 4) renderLevel4();
+});
 
 /* =====================================================================
    stimulus rendering
@@ -1063,6 +1249,8 @@ function level3Select(el) {
     selected: (el === q.moreEl) ? cfg.moreLabel : cfg.lessLabel,
     correct: correct,
     responseTimeMs: responseTimeMs,
+    questionIndex: session ? session.current : null,
+    questionTotal: session ? session.total : null,
     inputMethod: currentInputMethod || null
   });
   currentInputMethod = null;
@@ -1088,7 +1276,7 @@ function level3Select(el) {
   level3FeedbackTimeoutId = setTimeout(function() {
     level3FeedbackTimeoutId = null;
     if (correct) {
-      renderLevel3();
+      advanceSession();
     } else {
       answered = false;
       feedbackArea.textContent = '';
@@ -1102,23 +1290,191 @@ objA3.addEventListener('click', function() { level3Select(objA3); });
 objB3.addEventListener('click', function() { level3Select(objB3); });
 
 /* =====================================================================
+   Level 4: ordering ("じゅんばん")
+   canonical question state is generated once per question — items' values,
+   correctOrder (derived purely from those values, never from DOM position),
+   and selectedOrder/currentStep all live on the same object, so render,
+   click-judgment, log, and TTS can never disagree (same principle as
+   Level3's generateLevel3Question, extended to a 3-item ranking).
+===================================================================== */
+var level4State = null; // { concept, order, shape, items, correctOrder, selectedOrder, currentStep, mistakes, startTime }
+var level4FeedbackTimeoutId = null;
+
+function shuffleArray(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function generateLevel4Question() {
+  var cfg = COMPARISON[comparisonMode];
+  var pattern = cfg.level4Patterns[Math.floor(Math.random() * cfg.level4Patterns.length)];
+  var shape = comparisonMode === 'length' ? 'bar' : SHAPES[Math.floor(Math.random() * SHAPES.length)];
+  var order = Math.random() < 0.5 ? 'desc' : 'asc'; // desc = biggest/longest first, asc = smallest/shortest first
+  var domIds = ['item0', 'item1', 'item2'];
+  var shuffledValues = shuffleArray(pattern);
+  var items = domIds.map(function(id, i) { return { id: id, value: shuffledValues[i] }; });
+
+  var sorted = items.slice().sort(function(a, b) { return order === 'desc' ? b.value - a.value : a.value - b.value; });
+  var correctOrder = sorted.map(function(it) { return it.id; });
+
+  return {
+    concept: comparisonMode,
+    order: order,
+    shape: shape,
+    items: items,
+    correctOrder: correctOrder,
+    selectedOrder: [],
+    currentStep: 0,
+    mistakes: 0,
+    startTime: performance.now()
+  };
+}
+
+function unplacedLevel4Els() {
+  if (!level4State) return [];
+  return level4Items.filter(function(el) { return level4State.selectedOrder.indexOf(el.dataset.itemId) === -1; });
+}
+
+function renderLevel4() {
+  answered4 = false;
+  level4FeedbackArea.textContent = '';
+  level4FeedbackArea.className = 'feedback-area';
+
+  var cfg = COMPARISON[comparisonMode];
+  var q = generateLevel4Question();
+  level4State = q;
+
+  q.items.forEach(function(it, i) {
+    var el = level4Items[i];
+    applyShape(el, q.shape, it.value, LEVEL4_COLOR_CLASSES[i]);
+    el.classList.remove('placed');
+    el.setAttribute('tabindex', '0');
+    el.dataset.itemId = it.id;
+  });
+  orderSlotEls.forEach(function(s, i) {
+    s.textContent = String(i + 1);
+    s.classList.remove('filled', 'color-a', 'color-b', 'color-c');
+  });
+
+  var promptStr = q.order === 'desc' ? cfg.level4PromptDesc : cfg.level4PromptAsc;
+  promptText.textContent = promptStr;
+  speak(promptStr);
+
+  resetDwellState();
+  if (scanMode) refreshSwitchScanItems();
+}
+
+function level4Select(el) {
+  if (answered4 || !level4State) return;
+  var q = level4State;
+  var itemId = el.dataset.itemId;
+  if (q.selectedOrder.indexOf(itemId) !== -1) return; // already placed; ignore (candidates already exclude it, this is a guard)
+
+  var expectedId = q.correctOrder[q.currentStep];
+
+  if (itemId === expectedId) {
+    q.selectedOrder.push(itemId);
+    var slotIndex = q.currentStep;
+    q.currentStep++;
+    el.classList.add('placed');
+    el.setAttribute('tabindex', '-1');
+    var itemIndex = level4Items.indexOf(el);
+    var slotEl = orderSlotEls[slotIndex];
+    slotEl.textContent = '✓';
+    slotEl.classList.add('filled', LEVEL4_COLOR_CLASSES[itemIndex]);
+    if (animationEnabled) tapPulse(el);
+    beep(880, 120);
+
+    if (q.currentStep >= 3) {
+      answered4 = true;
+      var responseTimeMs = Math.round(performance.now() - q.startTime);
+      addLog({
+        time: new Date().toISOString(),
+        concept: q.concept,
+        level: 4,
+        order: q.order,
+        correctOrder: q.correctOrder,
+        selectedOrder: q.selectedOrder,
+        mistakes: q.mistakes,
+        responseTimeMs: responseTimeMs,
+        questionIndex: session ? session.current : null,
+        questionTotal: session ? session.total : null,
+        inputMethod: currentInputMethod || null
+      });
+      currentInputMethod = null;
+      level4FeedbackArea.textContent = 'できたね！';
+      level4FeedbackArea.className = 'feedback-area correct';
+      speak('できたね！');
+      if (scanMode) refreshSwitchScanItems();
+      resetDwellState();
+      level4FeedbackTimeoutId = setTimeout(function() {
+        level4FeedbackTimeoutId = null;
+        advanceSession();
+      }, 1400);
+    } else {
+      if (scanMode) refreshSwitchScanItems();
+      resetDwellState();
+    }
+  } else {
+    q.mistakes++;
+    answered4 = true;
+    level4FeedbackArea.textContent = 'もういちど やってみよう';
+    level4FeedbackArea.className = 'feedback-area incorrect';
+    speak('もういちど やってみよう');
+    beep(330, 200);
+    if (scanMode) refreshSwitchScanItems();
+    resetDwellState();
+    level4FeedbackTimeoutId = setTimeout(function() {
+      level4FeedbackTimeoutId = null;
+      answered4 = false;
+      level4FeedbackArea.textContent = '';
+      level4FeedbackArea.className = 'feedback-area';
+      if (scanMode) refreshSwitchScanItems();
+      resetDwellState();
+    }, 1200);
+  }
+}
+level4Items.forEach(function(el) { el.addEventListener('click', function() { level4Select(el); }); });
+
+/* =====================================================================
    level switching
 ===================================================================== */
 function showLevel(n) {
   if (level3FeedbackTimeoutId) { clearTimeout(level3FeedbackTimeoutId); level3FeedbackTimeoutId = null; }
+  if (level4FeedbackTimeoutId) { clearTimeout(level4FeedbackTimeoutId); level4FeedbackTimeoutId = null; }
   level = n;
   level1View.hidden = (n !== 1);
   level2View.hidden = (n !== 2);
   level3View.hidden = (n !== 3);
+  level4View.hidden = (n !== 4);
   levelBtns.forEach(function(b) {
     var on = Number(b.dataset.level) === n;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
+  questionCountRow.hidden = !(n === 3 || n === 4);
   answered = false;
-  if (n === 1) renderLevel1();
-  else if (n === 2) renderLevel2();
-  else renderLevel3();
+  answered4 = false;
+  sessionCompleteArea.hidden = true;
+  if (n === 1) {
+    session = null;
+    progressArea.hidden = true;
+    renderLevel1();
+  } else if (n === 2) {
+    session = null;
+    progressArea.hidden = true;
+    renderLevel2();
+  } else if (n === 3) {
+    startSession();
+    renderLevel3();
+  } else {
+    startSession();
+    renderLevel4();
+  }
   resetDwellState();
   if (scanMode) refreshSwitchScanItems();
   saveSettings();
@@ -1148,6 +1504,27 @@ function setComparisonMode(mode) {
 
 conceptBtns.forEach(function(b) {
   b.addEventListener('click', function() { setComparisonMode(b.dataset.concept); });
+});
+
+/* =====================================================================
+   question count switching (3 / 5 / 10)
+===================================================================== */
+function setQuestionCount(n) {
+  if (QUESTION_COUNTS.indexOf(n) === -1) return;
+  if (questionCount === n) return;
+  questionCount = n;
+  questionCountBtns.forEach(function(b) {
+    var on = Number(b.dataset.count) === n;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  saveSettings();
+  // reuse showLevel()'s full reset + startSession() for the current level, same as concept switching
+  if (level === 3 || level === 4) showLevel(level);
+}
+
+questionCountBtns.forEach(function(b) {
+  b.addEventListener('click', function() { setQuestionCount(Number(b.dataset.count)); });
 });
 
 /* =====================================================================
@@ -1229,6 +1606,11 @@ function init() {
   scanSpeedDisplay.textContent = (scanSpeed / 1000).toFixed(1) + '秒';
   conceptBtns.forEach(function(b) {
     var on = b.dataset.concept === comparisonMode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  questionCountBtns.forEach(function(b) {
+    var on = Number(b.dataset.count) === questionCount;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
