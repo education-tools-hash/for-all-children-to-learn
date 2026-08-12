@@ -1703,11 +1703,15 @@ function stopAutoScan() {
 }
 
 // スペース・Enterでクリック
+// 下部の汎用キーボードハンドラ（Spaceキー・Enterキーで主要ボタンを操作）も同じ
+// activeElementをclick()するため、scanMode中はstopImmediatePropagation()で
+// そちらへ到達させず二重activationを防ぐ。
 document.addEventListener('keydown', e => {
   if (scanMode && (e.key === ' ' || e.key === 'Enter')) {
     const f = document.activeElement;
     if (f && f !== document.body) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       f.click();
     }
   }
@@ -1722,8 +1726,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById(btn.dataset.tab).classList.add('active');
     if (scanMode) {
       scanFocusIndex = -1;
-      // 動的生成（クイズ・マッチング）が完了するまで少し待つ
-      setTimeout(updateScanTargets, 300);
+      // 動的生成（クイズ・マッチング）が完了するまで少し待つ。
+      // このタイマー予約後にscanModeがOFFへ変わることがあるため、発火時点でも再確認する。
+      setTimeout(() => { if (scanMode) updateScanTargets(); }, 300);
     }
   });
 });
