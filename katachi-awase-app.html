@@ -65,7 +65,15 @@
 <!-- /design-tokens -->
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--dm-color-bg,#fff); color: var(--dm-color-ink,#3B4A54); font-family: 'BIZ UDPGothic','Noto Sans JP',sans-serif; }
+  /* Phase26-H: page background is a very light warm paper tone rather than pure white
+     (#FAF7F2, not a design-tokens value — deliberately its own local color rather than
+     reusing --dm-color-soft/--dm-color-border, both of which are already used elsewhere
+     in this file as fills/tracks that need to read against a plain white page; reusing
+     either here would make those collide with the new page color). This is untouched by
+     generate.js's design-tokens injection (kept out of the auto-managed :root block
+     above), and keeps the target's white inner cutout (still literal white, unchanged)
+     and shape/level/count buttons' white fills visibly distinct from the page itself. */
+  html, body { margin: 0; padding: 0; background: #FAF7F2; color: var(--dm-color-ink,#3B4A54); font-family: 'BIZ UDPGothic','Noto Sans JP',sans-serif; }
   body { padding-bottom: var(--dm-space-8,48px); }
   .app { max-width: 720px; margin: 0 auto; padding: var(--dm-space-6,24px) var(--dm-space-4,16px) var(--dm-space-8,48px); }
   .app-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-3,12px); margin-bottom: var(--dm-space-4,16px); }
@@ -84,11 +92,21 @@
 
   #feedbackText { min-height: 1.6em; font-size: 1.25rem; font-weight: 700; text-align: center; margin: var(--dm-space-2,8px) 0; color: var(--dm-color-primary-dark,#00857B); }
 
-  .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dm-space-4,16px); margin: var(--dm-space-3,12px) 0; }
+  /* Phase26-H: gap widened from space-4(16px) to space-6(24px) now that shape/target boxes
+     are larger, so the row still reads as evenly spread rather than crowded; margin trimmed
+     from space-3(12px) to space-2(8px) to reclaim some of the inter-tray whitespace for the
+     larger boxes instead. Mobile keeps the original 16px gap (see the ≤480px block below) —
+     at 375px width the wider gap would leave the 3-target/3-shape row too tight against the
+     larger mobile box size. */
+  .tray { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dm-space-6,24px); margin: var(--dm-space-2,8px) 0; }
   .tray-label { width: 100%; text-align: center; font-size: 0.875rem; color: var(--dm-color-sub,#5E6D78); margin-bottom: 4px; }
 
+  /* Phase26-H: enlarged from 96px (base tier) per real-device feedback that the shapes read
+     too small; see the ≤480px and ≥1024px blocks below for the mobile and desktop tiers.
+     The D8 triangle stroke math (below) is derived from fixed px offsets independent of box
+     size, so it stays correct at every size here unchanged. */
   .shape-btn, .target-btn {
-    min-width: 96px; min-height: 96px; width: 96px; height: 96px;
+    min-width: 112px; min-height: 112px; width: 112px; height: 112px;
     border: none; background: transparent; padding: 6px; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     border-radius: var(--dm-radius-md,9px);
@@ -102,7 +120,12 @@
   .shape-visual.shape-triangle { clip-path: polygon(50% 4%, 4% 96%, 96% 96%); border-radius: 0; }
 
   .shape-btn .shape-visual { background: var(--shape-color, #00A99D); }
-  .shape-btn[aria-pressed="true"] { background: var(--dm-color-soft,#F6F9FA); box-shadow: inset 0 0 0 3px var(--dm-color-primary-dark,#00857B); }
+  /* Phase26-H: was --dm-color-soft, which is now the same tone the progress-bar track and
+     other "soft" fills use — against the new page background (also a similar pale tone,
+     see html/body above) that made the selected-shape highlight barely visible. Switching
+     to --dm-color-surface (plain white) makes the selected shape read as a raised white
+     card against the paper-toned page, which is more visible, not less. */
+  .shape-btn[aria-pressed="true"] { background: var(--dm-color-surface,#fff); box-shadow: inset 0 0 0 3px var(--dm-color-primary-dark,#00857B); }
   .shape-btn.shape-placed { visibility: hidden; pointer-events: none; }
   /* touch-action:none is scoped to shape buttons only (never body/page) so a swipe
      starting anywhere else keeps scrolling normally (Phase26-D7 §24/§46); it tells the
@@ -177,8 +200,13 @@
 
   body.high-contrast { filter: invert(1) hue-rotate(180deg); }
 
+  /* Phase26-H: 88px -> 100px. Gap stays at the original 16px (not the wider 24px the
+     tablet/desktop tiers now use above) — at 375px width, 3 boxes at 100px plus a 24px gap
+     would leave the row only 11px short of overflowing; 16px keeps the same comfortable
+     margin the previous 88px/16px combination had. */
   @media (max-width: 480px) {
-    .shape-btn, .target-btn { width: 88px; height: 88px; min-width: 88px; min-height: 88px; }
+    .shape-btn, .target-btn { width: 100px; height: 100px; min-width: 100px; min-height: 100px; }
+    .tray { gap: var(--dm-space-4,16px); }
   }
   /* .app's max-width:720px only centers content clear of the fixed left/right common buttons once
      the viewport is wide enough (~800px+); below that, .app's content edge still falls within the
@@ -188,6 +216,16 @@
     .app { padding-top: var(--dm-space-4,16px); }
     .app-header { padding-left: 52px; }
     .level-row { margin-top: 76px; }
+  }
+  /* Phase26-H: desktop tier. Widening .app's max-width still leaves >=56px clear of the
+     fixed home/lock/fullscreen buttons' 12px-inset+44px reach even at this breakpoint's own
+     lower edge ((1024-900)/2=62px), so — unlike the <=800px tier above — no extra clearance
+     padding is needed here; the centering margin alone is already enough. This tier only
+     kicks in well past 800px, so it never overlaps with that clearance block. */
+  @media (min-width: 1024px) {
+    .app { max-width: 900px; }
+    .shape-btn, .target-btn { width: 128px; height: 128px; min-width: 128px; min-height: 128px; }
+    .tray { gap: var(--dm-space-7,32px); }
   }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
