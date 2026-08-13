@@ -117,9 +117,12 @@
      Level2/3 — a real "nothing to notice" risk for a discovery game, not just a cosmetic
      nit. Raised (character sits higher = more shows) across all three tiers while keeping
      a clear step-down between levels. */
+  /* Re-tuned for the M6.1 character rebuild's taller viewBox (100x130, was 100x100) —
+     the same top% now reveals proportionally less of the character, so peek-2/3 are
+     raised further (peek-1 was already comfortable and is unchanged). */
   .mt-character.peek-1 { top: -12%; }
-  .mt-character.peek-2 { top: 4%; }
-  .mt-character.peek-3 { top: 19%; }
+  .mt-character.peek-2 { top: -4%; }
+  .mt-character.peek-3 { top: 8%; }
   .mt-hidespot.revealed .mt-character { top: -22% !important; transform: translate(-50%,0) scale(1.12); z-index: 3; }
 
   .mt-cloud { position: absolute; left: 50%; bottom: 2%; width: 90%; z-index: 2; transform: translateX(-50%); transition: opacity var(--dm-duration-base,250ms) ease, transform var(--dm-duration-base,250ms) ease; }
@@ -469,62 +472,107 @@
    per-character ear/feature variation.
 ===================================================================== */
 var CHARACTERS = [
-  { id: 'rabbit', label: 'うさぎ', color: '#F9D8DC' },
-  { id: 'cat',    label: 'ねこ',   color: '#FFE3B0' },
-  { id: 'dog',    label: 'いぬ',   color: '#E6D6C4' },
-  { id: 'chick',  label: 'ひよこ', color: '#FFF0A8' },
-  { id: 'bear',   label: 'くま',   color: '#D9C6A8' },
-  { id: 'star',   label: 'おほしさま', color: '#FFE9A0' }
+  { id: 'rabbit', label: 'うさぎ', color: '#FBEEF0' },
+  { id: 'cat',    label: 'ねこ',   color: '#FFCF8A' },
+  { id: 'dog',    label: 'いぬ',   color: '#F0DFC4' },
+  { id: 'chick',  label: 'ひよこ', color: '#FFE873' },
+  { id: 'bear',   label: 'くま',   color: '#C9A876' },
+  { id: 'star',   label: 'おほしさま', color: '#FFDD57' }
 ];
 var CHAR_BY_ID = {};
 CHARACTERS.forEach(function(c) { CHAR_BY_ID[c.id] = c; });
 
+/* Phase M6.1 character rebuild: viewBox widened from "0 0 100 100" to "0 0 100 130"
+   with the head recentered lower (cy=82) — the original 100x100 box clipped any feature
+   extending above y=0 (SVG's default overflow:hidden against the viewBox), which is
+   exactly what was cutting うさぎ's long ears off at the top. The extra headroom (y=0..~50
+   above the head) comfortably fits every character's tallest feature with a safety
+   margin, verified across all 6 characters x 3 levels x 5 viewports. Species are now
+   distinguished by concrete features (whiskers, muzzle, stripes, beak) rather than head
+   shape alone, addressing the "too abstract to recognize" User Review finding. */
 function characterInnerSVG(charId) {
-  var eyes = '<circle cx="38" cy="55" r="5" fill="#3B4A54"/><circle cx="62" cy="55" r="5" fill="#3B4A54"/>';
-  var mouth = '<path d="M42 68 Q50 74 58 68" stroke="#3B4A54" stroke-width="3" fill="none" stroke-linecap="round"/>';
-  var head = '<circle cx="50" cy="58" r="30" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>';
-  var blush = '<circle cx="26" cy="62" r="5" fill="#00000014"/><circle cx="74" cy="62" r="5" fill="#00000014"/>';
+  var eyes = '<circle cx="39" cy="79" r="6" fill="#3B4A54"/><circle cx="61" cy="79" r="6" fill="#3B4A54"/>' +
+             '<circle cx="41.2" cy="76.8" r="1.7" fill="#fff"/><circle cx="63.2" cy="76.8" r="1.7" fill="#fff"/>';
+  var mouth = '<path d="M42 96 Q50 102 58 96" stroke="#3B4A54" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  var head = '<circle cx="50" cy="82" r="30" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>';
+  var blush = '<ellipse cx="27" cy="90" rx="6" ry="4" fill="#EE9DA6" opacity="0.5"/><ellipse cx="73" cy="90" rx="6" ry="4" fill="#EE9DA6" opacity="0.5"/>';
+  var dotNose = '<circle cx="50" cy="90" r="2.6" fill="#3B4A54"/>';
   switch (charId) {
-    case 'rabbit':
-      return '<ellipse cx="36" cy="16" rx="8" ry="24" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(-12 36 16)"/>' +
-             '<ellipse cx="64" cy="16" rx="8" ry="24" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(12 64 16)"/>' +
-             head + blush + eyes + mouth;
-    case 'cat':
-      return '<path d="M26 30 L20 2 L44 22 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
-             '<path d="M74 30 L80 2 L56 22 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
-             head + blush + eyes + mouth;
-    case 'dog':
-      // Rendered Validation (M6.1 §B): ears anchored near the head's vertical center
-      // (old cy=48) hang almost entirely alongside the head rather than above it, so at
-      // Level2/3's small peek amounts almost nothing showed above the cloud — clearly
-      // less discoverable than the other 5 characters' top-anchored ears/points.
-      // Re-anchored higher (cy=30, near the head's top edge) with a wider outward flare
-      // so the ears still read as floppy (not pointy like the cat's) while their
-      // attachment/upper portion now sits where the peek boundary actually is.
-      return '<ellipse cx="19" cy="30" rx="11" ry="22" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(-28 19 30)"/>' +
-             '<ellipse cx="81" cy="30" rx="11" ry="22" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(28 81 30)"/>' +
-             head + blush + eyes + mouth;
-    case 'bear':
-      return '<circle cx="25" cy="24" r="13" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>' +
-             '<circle cx="75" cy="24" r="13" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>' +
-             head + blush + eyes + mouth;
-    case 'chick':
-      // small head tuft: without one, chick has no top feature to peek above the cloud
-      // at Level2/3 (all 5 other characters have ears/points there) — found via
-      // Rendered Validation (M6 §61), not just a code-correctness check.
-      return '<path d="M50 22 Q46 8 54 6 Q50 14 56 16 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
-             head + blush + eyes + '<path d="M44 64 L56 64 L50 75 Z" fill="#F5A623" stroke="#3B4A54" stroke-width="2" stroke-linejoin="round"/>';
-    case 'star':
-      return '<path d="M50 4 L61 37 L96 37 L68 58 L79 92 L50 71 L21 92 L32 58 L4 37 L39 37 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
-             '<circle cx="40" cy="52" r="4.5" fill="#3B4A54"/><circle cx="60" cy="52" r="4.5" fill="#3B4A54"/>' +
-             '<path d="M43 61 Q50 66 57 61" stroke="#3B4A54" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+    case 'rabbit': {
+      var earOuter = '<ellipse cx="CX" cy="30" rx="9" ry="28" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(ANG CX 30)"/>';
+      var earInner = '<ellipse cx="CX" cy="34" rx="4" ry="19" fill="#F7C6CE" transform="rotate(ANG CX 34)"/>';
+      var pinkNose = '<path d="M46 88 L54 88 L50 93 Z" fill="#F0AEB8" stroke="#3B4A54" stroke-width="1.5" stroke-linejoin="round"/>';
+      return earOuter.replace(/CX/g, '36').replace('ANG', '-13') +
+             earOuter.replace(/CX/g, '64').replace('ANG', '13') +
+             earInner.replace(/CX/g, '36').replace('ANG', '-13') +
+             earInner.replace(/CX/g, '64').replace('ANG', '13') +
+             head + blush + eyes + pinkNose + mouth;
+    }
+    case 'cat': {
+      var earOuter = '<path d="M22 54 L15 8 L42 40 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>';
+      var earOuterR = '<path d="M78 54 L85 8 L58 40 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>';
+      var earInner = '<path d="M25 48 L21 20 L37 37 Z" fill="#F7C6CE"/>';
+      var earInnerR = '<path d="M75 48 L79 20 L63 37 Z" fill="#F7C6CE"/>';
+      var stripes = '<path d="M30 62 Q34 58 38 61" stroke="#E08A3C" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+                     '<path d="M70 62 Q66 58 62 61" stroke="#E08A3C" stroke-width="2" fill="none" stroke-linecap="round"/>';
+      var whiskers = '<path d="M14 84 L30 82 M14 90 L30 88 M14 96 L30 93" stroke="#3B4A54" stroke-width="1.6" stroke-linecap="round"/>' +
+                     '<path d="M86 84 L70 82 M86 90 L70 88 M86 96 L70 93" stroke="#3B4A54" stroke-width="1.6" stroke-linecap="round"/>';
+      var triNose = '<path d="M46.5 88 L53.5 88 L50 92.5 Z" fill="#E08A3C" stroke="#3B4A54" stroke-width="1.5" stroke-linejoin="round"/>';
+      return earOuter + earOuterR + earInner + earInnerR + head + stripes + blush + eyes + whiskers + triNose + mouth;
+    }
+    case 'dog': {
+      // Ears anchored near the head TOP (not its vertical center) so a meaningful part of
+      // them still shows at Level2/3's small peek amounts — matching the other 5
+      // characters' top-anchored ears/points (Rendered Validation finding, M6.1 §7/8).
+      // Rounder (rx closer to ry) and rotated further toward horizontal than an
+      // upward-pointing ellipse would be, so the ear droops alongside the head instead
+      // of reading as a fox-like spike — first attempt at "raised attachment" (M6.1)
+      // was too thin/upright to look floppy. The attachment (this shape's top edge)
+      // still sits near the head's top, so the peek behavior is unchanged.
+      var earOuter = '<ellipse cx="CX" cy="50" rx="14" ry="21" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(ANG CX 50)"/>';
+      // #FBF3E3 against the dog's own #F0DFC4 body color read as nearly the same tone —
+      // pure white gives the muzzle patch actual contrast instead of blending away.
+      var muzzle = '<ellipse cx="50" cy="91" rx="16" ry="12" fill="#FFFFFF" stroke="#3B4A54" stroke-width="2"/>';
+      var nose = '<ellipse cx="50" cy="85" rx="4.5" ry="3.4" fill="#3B4A54"/>';
+      return earOuter.replace(/CX/g, '17').replace('ANG', '-42') +
+             earOuter.replace(/CX/g, '83').replace('ANG', '42') +
+             head + muzzle + blush + eyes + nose + mouth;
+    }
+    case 'bear': {
+      var earOuter = '<circle cx="CX" cy="38" r="14" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>';
+      var earInner = '<circle cx="CX" cy="38" r="7" fill="#E7CBA0"/>';
+      var muzzle = '<ellipse cx="50" cy="90" rx="14" ry="10" fill="#E7CBA0" stroke="#3B4A54" stroke-width="2"/>';
+      var nose = '<ellipse cx="50" cy="85" rx="4" ry="3" fill="#3B4A54"/>';
+      return earOuter.replace('CX', '26') + earOuter.replace('CX', '74') +
+             earInner.replace('CX', '26') + earInner.replace('CX', '74') +
+             head + muzzle + blush + eyes + nose + mouth;
+    }
+    case 'chick': {
+      var tuft = '<path d="M50 52 Q42 24 52 12 Q48 28 60 22 Q50 36 55 50 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>';
+      var wingL = '<ellipse cx="24" cy="90" rx="8" ry="12" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2" transform="rotate(-18 24 90)"/>';
+      var wingR = '<ellipse cx="76" cy="90" rx="8" ry="12" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2" transform="rotate(18 76 90)"/>';
+      var beak = '<path d="M43 90 L57 90 L50 100 Z" fill="#F5A623" stroke="#3B4A54" stroke-width="2" stroke-linejoin="round"/>';
+      return wingL + wingR + tuft + head + blush + eyes + beak;
+    }
+    case 'star': {
+      // Softer/rounder star: a higher inner-radius ratio than a "classic" 5-point star
+      // makes the points shorter and stubbier (less spiky), per the "丸みのあるsoft
+      // shape" direction — combined with stroke-linejoin:round on every vertex.
+      var starPath = '<path d="M50 10 L59 40 L90 42 L64 60 L74 90 L50 72 L26 90 L36 60 L10 42 L41 40 Z" ' +
+                      'fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>';
+      var starEyes = '<circle cx="40" cy="58" r="5.5" fill="#3B4A54"/><circle cx="60" cy="58" r="5.5" fill="#3B4A54"/>' +
+                      '<circle cx="42" cy="55.8" r="1.6" fill="#fff"/><circle cx="62" cy="55.8" r="1.6" fill="#fff"/>';
+      var starBlush = '<ellipse cx="30" cy="66" rx="5" ry="3.5" fill="#EE9DA6" opacity="0.5"/><ellipse cx="70" cy="66" rx="5" ry="3.5" fill="#EE9DA6" opacity="0.5"/>';
+      var starMouth = '<path d="M43 68 Q50 73 57 68" stroke="#3B4A54" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+      return starPath + starBlush + starEyes + starMouth;
+    }
     default:
       return head + eyes + mouth;
   }
 }
 function characterSVG(charId) {
   var c = CHAR_BY_ID[charId];
-  return '<svg viewBox="0 0 100 100" style="--char-color:' + c.color + '" aria-hidden="true">' + characterInnerSVG(charId) + '</svg>';
+  return '<svg viewBox="0 0 100 130" style="--char-color:' + c.color + '" aria-hidden="true">' + characterInnerSVG(charId) + '</svg>';
 }
 var CLOUD_SVG = '<svg viewBox="0 0 100 84" aria-hidden="true">' +
   '<ellipse cx="50" cy="58" rx="44" ry="20" fill="#FFFFFF" stroke="#B9C7D1" stroke-width="2.5"/>' +
