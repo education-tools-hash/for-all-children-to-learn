@@ -1074,7 +1074,11 @@ function onTargetActivate(targetId, inputMethod) {
   if (target.shapeType === shape.shapeType && target.size === shape.size) {
     handleCorrectPlacement(shape, targetId);
   } else {
-    handleWrongPlacement(shape, target.shapeType);
+    // Phase26-I3.1: pass a minimal {shapeType, size} snapshot rather than the whole
+    // target object — target.id is an internal composite id (e.g. "circle-large") that
+    // must never end up in records/CSV, so it's deliberately left out here rather than
+    // filtered out later.
+    handleWrongPlacement(shape, { shapeType: target.shapeType, size: target.size });
   }
 }
 
@@ -1246,15 +1250,22 @@ function onShapePointerLostCapture(e) {
 window.addEventListener('blur', cancelActiveDrag);
 document.addEventListener('visibilitychange', function() { if (document.hidden) cancelActiveDrag(); });
 
-// Phase26-I2: takes the wrongly-chosen target's semantic *type* (e.g. 'circle'), not its
-// id — attemptsByShape feeds buildRecordsCsvRows()'s "間違えた内容" column via
-// SHAPE_LABEL[type] (see below), which only resolves correctly for a real shape type,
-// not a composite type+size id. Passing shapeType here (rather than a raw target id)
-// keeps that lookup correct regardless of what target ids look like.
-function handleWrongPlacement(shape, wrongTargetType) {
+// Phase26-I2: takes the wrongly-chosen target's semantic *type+size*, not its id —
+// attemptsByShape feeds buildRecordsCsvRows()'s "間違えた内容" column via
+// shapeSpokenLabel() (see below), which only resolves correctly for a real
+// {shapeType, size} pair, not a composite type+size id. Passing a plain
+// {shapeType, size} object here (rather than a raw target id or the whole target,
+// which also carries its internal composite id) keeps that lookup correct and never
+// lets an internal id like "circle-large" reach records/CSV.
+// Phase26-I3.1: size was dropped here even though target.size was already available at
+// the call site — attemptsByShape stored shapeType only, so "おおきさ" mistakes lost
+// which size was picked (e.g. a small-circle-onto-large-circle-target miss recorded only
+// "まる", identical to a correct-size miss). Now stores the full {shapeType, size} pair;
+// for "かたち" concept size is always undefined, so this is a no-op there.
+function handleWrongPlacement(shape, wrongTarget) {
   if (!task.attemptsByShape[shape.id]) task.attemptsByShape[shape.id] = [];
-  task.attemptsByShape[shape.id].push(wrongTargetType);
-  task.mistakes.push({ shapeId: shape.id, selectedTargetType: wrongTargetType, expectedType: shape.shapeType });
+  task.attemptsByShape[shape.id].push(wrongTarget);
+  task.mistakes.push({ shapeId: shape.id, selectedTargetType: wrongTarget.shapeType, selectedTargetSize: wrongTarget.size, expectedType: shape.shapeType });
   phase = 'feedback';
   feedbackText.textContent = 'もういちど';
   speak('もういちど');
@@ -1800,7 +1811,15 @@ function buildRecordsCsvRows() {
       SHAPE_LABEL[e.selected] || e.selected,
       e.correct ? 'せいかい' : 'まちがい',
       e.mistakes,
-      (e.mistakeSelections || []).map(function(m) { return SHAPE_LABEL[m] || m; }).join('、'),
+      // Phase26-I3.1: mistakeSelections entries are {shapeType, size} objects going
+      // forward (see handleWrongPlacement) so size-aware labels reuse shapeSpokenLabel()
+      // — the same helper TTS/aria-label already use, no new label logic. Pre-I3.1
+      // records still hold plain shapeType strings (an おおきさ concept could only have
+      // existed since I3, so any pre-I3.1 mistakeSelections is unambiguously "かたち"
+      // and never needed a size label anyway); both forms are handled here.
+      (e.mistakeSelections || []).map(function(m) {
+        return typeof m === 'string' ? (SHAPE_LABEL[m] || m) : shapeSpokenLabel(m);
+      }).join('、'),
       e.responseTimeMs,
       e.shapeSize ? SIZE_LABEL[e.shapeSize] : ''
     ]);
