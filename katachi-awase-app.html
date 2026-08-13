@@ -74,7 +74,11 @@
      above), and keeps the target's white inner cutout (still literal white, unchanged)
      and shape/level/count buttons' white fills visibly distinct from the page itself. */
   html, body { margin: 0; padding: 0; background: #FAF7F2; color: var(--dm-color-ink,#3B4A54); font-family: 'BIZ UDPGothic','Noto Sans JP',sans-serif; }
-  body { padding-bottom: var(--dm-space-8,48px); }
+  /* Phase26-I3: body's own bottom padding was redundant with .app's (below) — everything in
+     this page, including #settingsPanel/#sessionCompleteArea, lives inside <main class="app">,
+     which already reserves the same var(--dm-space-8,48px) at its own bottom edge. Removing
+     the duplicate reclaims ~48px of otherwise-invisible whitespace, which is what keeps
+     375x667 scroll-free now that .concept-row (below) is shown. */
   .app { max-width: 720px; margin: 0 auto; padding: var(--dm-space-6,24px) var(--dm-space-4,16px) var(--dm-space-8,48px); }
   .app-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-3,12px); margin-bottom: var(--dm-space-4,16px); }
   .app-title { font-size: var(--dm-font-size-heading,1.5rem); margin: 0; }
@@ -121,6 +125,18 @@
   .shape-visual.shape-circle { border-radius: 50%; }
   .shape-visual.shape-square { border-radius: var(--dm-radius-sm,5px); }
   .shape-visual.shape-triangle { clip-path: polygon(50% 4%, 4% 96%, 96% 96%); border-radius: 0; }
+  /* Phase26-I3: おおきさ concept's large/small visual sizing. Resizes .shape-visual's own
+     layout box (width/height), NOT a transform:scale() — a transform would shrink the D8
+     triangle stroke's clip-path result proportionally along with everything else (an
+     already-rendered 5px stroke becoming ~3px at 60%), undoing the fixed-px-offset design
+     that keeps the stroke ~5px regardless of box size (verified across Phase26-H's 88-128px
+     button tiers). Resizing the box instead lets that same box-size-independent math simply
+     recompute correctly at the smaller size. .shape-btn/.target-btn themselves (the actual
+     touch/drag/Switch Scan/gaze hit area) are never touched by this — only the visual drawn
+     inside shrinks; the parent's flex centering (above) keeps it centered automatically.
+     "large" needs no override (100%/100% is .shape-visual's existing default). Ratio
+     100:60 = 1.67, matching kurabeyou-app's >=1.6 large/small floor (Phase26-C6.1). */
+  .shape-visual.size-small { width: 60%; height: 60%; }
 
   .shape-btn .shape-visual { background: var(--shape-color, #00A99D); }
   /* Phase26-H: was --dm-color-soft, which is now the same tone the progress-bar track and
@@ -214,11 +230,18 @@
   /* .app's max-width:720px only centers content clear of the fixed left/right common buttons once
      the viewport is wide enough (~800px+); below that, .app's content edge still falls within the
      fixed home button's (top:12px;left:12px;44px) and lock/fullscreen pair's (top:64px;right:12px;
-     44px each) reach, so both need explicit clearance up to that width, not just under 480px. */
+     44px each) reach, so both need explicit clearance up to that width, not just under 480px.
+     Phase26-I3: this clearance now belongs to .concept-row rather than .level-row, since
+     .concept-row is the first full-width row after the header now that it's shown (previously
+     .level-row held that position while .concept-row was hidden). Moving the clearance rather
+     than duplicating it keeps the net height added by showing .concept-row down to just its own
+     ~44px + one normal inter-row gap, instead of stacking a second 76px reservation underneath
+     it — the difference that keeps 375x667 scroll-free (see the concept-row/mobile validation
+     notes in docs/katachi-awase-size-learning-design-v1.md). */
   @media (max-width: 800px) {
     .app { padding-top: var(--dm-space-4,16px); }
     .app-header { padding-left: 52px; }
-    .level-row { margin-top: 76px; }
+    .concept-row { margin-top: 76px; }
   }
   /* Phase26-H: desktop tier. Widening .app's max-width still leaves >=56px clear of the
      fixed home/lock/fullscreen buttons' 12px-inset+44px reach even at this breakpoint's own
@@ -519,11 +542,10 @@
     <button id="settingsBtn" class="settings-toggle-btn scannable" data-scan="1" tabindex="0" aria-expanded="false" aria-controls="settingsPanel">⚙️ せってい</button>
   </header>
 
-  <!-- Phase26-I2: concept switching foundation (かたち/おおきさ), modeled on kurabeyou-app's
-       .concept-btn row. Left `hidden` (same pattern as #countRow below) — "おおきさ" has no
-       actual questions/UI behind it yet (that's Phase26-I3+), so this stays a Continuous-
-       Release-safe internal foundation rather than a half-built feature shown to users. -->
-  <div class="concept-row" id="conceptRow" role="group" aria-label="がくしゅうの しゅるい" hidden>
+  <!-- Phase26-I3: concept switching (かたち/おおきさ), modeled on kurabeyou-app's .concept-btn
+       row (Phase26-I2 foundation, now enabled). Default concept is "かたち" so existing users
+       land on the material they already know (see currentConcept below). -->
+  <div class="concept-row" id="conceptRow" role="group" aria-label="がくしゅうの しゅるい">
     <button class="concept-btn active" data-concept="shape" tabindex="0" aria-pressed="true">かたち</button>
     <button class="concept-btn" data-concept="size" tabindex="0" aria-pressed="false">おおきさ</button>
   </div>
@@ -670,10 +692,90 @@ function shuffleArray(arr) {
 }
 function pickColors(n) { return shuffleArray(PALETTE).slice(0, n); }
 
-// Phase26-I2: which top-level learning concept is active ('shape' | 'size'). 'size' has
-// no question/rendering logic behind it yet (Phase26-I3+) and the UI to reach it is
-// hidden in production (#conceptRow), so this stays 'shape' for every real user today —
-// existing level/session/task/phase all continue to describe the "かたち" concept only.
+/* =====================================================================
+   Phase26-I3: おおきさ concept (large/small)
+===================================================================== */
+var SIZE_TYPES = ['large', 'small'];
+var SIZE_LABEL = { large: 'おおきい', small: 'ちいさい' };
+// every shape in the おおきさ concept renders in this single fixed color (the app's own
+// primary teal, already used elsewhere — not a new color) instead of the randomized
+// per-shape palette "かたち" uses. Size is the only thing being taught here; if shapes
+// also varied in color, a learner could match by color instead of by size, silently
+// defeating the lesson (docs/katachi-awase-size-learning-design-v1.md §9/§15).
+var SIZE_CONCEPT_COLOR = '#00A99D';
+
+// Shared spoken/ARIA label for a shape or target object. Reduces to the plain shape-type
+// label when size is null ("かたち", unchanged from before this concept existed);
+// prefixes the size word when set ("おおきさ") — e.g. "おおきい まる". Centralizing this
+// keeps TTS and aria-label from ever drifting apart, and keeps internal ids (e.g.
+// "circle-large") out of both — see makeShapeId's comment.
+function shapeSpokenLabel(shapeOrTarget) {
+  var base = SHAPE_LABEL[shapeOrTarget.shapeType];
+  return shapeOrTarget.size ? (SIZE_LABEL[shapeOrTarget.size] + ' ' + base) : base;
+}
+
+// All 6 (type, size) combinations. おおきさ questions always draw shape/target identities
+// from this pool without repeating a combination within one task, so every id
+// makeShapeId() produces in a given task is unique by construction — no duplicate ids or
+// ambiguous targets are possible regardless of which combinations get picked.
+function allSizeCombos() {
+  var combos = [];
+  SHAPE_TYPES.forEach(function(t) { SIZE_TYPES.forEach(function(sz) { combos.push({ type: t, size: sz }); }); });
+  return combos;
+}
+function buildSizeTaskFromCombos(lvl, combos) {
+  var shapeOrder = shuffleArray(combos);
+  var targetOrder = shuffleArray(combos);
+  return {
+    level: lvl,
+    shapes: shapeOrder.map(function(c) { return { id: makeShapeId(c.type, c.size), shapeType: c.type, size: c.size, color: SIZE_CONCEPT_COLOR, placed: false }; }),
+    targets: targetOrder.map(function(c) { return { id: makeShapeId(c.type, c.size), shapeType: c.type, size: c.size, filled: false }; }),
+    selectedShapeId: null,
+    placedShapeIds: [],
+    mistakes: [],
+    attemptsByShape: {},
+    shapeStartedAt: null,
+    startedAt: Date.now()
+  };
+}
+// Level1 (おなじ): same shape, both sizes — the only variable to judge is size itself.
+// Level2 (ちがう): different shape AND different size on both items, so neither attribute
+//   alone determines the answer — matching requires reading both together.
+// Level3 (みっつ): 3 distinct (type, size) combinations out of the 6 possible — may repeat
+//   a type at a different size, or use 3 different types; always unique per combination.
+function generateSizeTask(lvl) {
+  var combos;
+  if (lvl === 1) {
+    var t1 = shuffleArray(SHAPE_TYPES)[0];
+    combos = [{ type: t1, size: 'large' }, { type: t1, size: 'small' }];
+  } else if (lvl === 2) {
+    var types2 = shuffleArray(SHAPE_TYPES).slice(0, 2);
+    var sizes2 = shuffleArray(SIZE_TYPES); // random which type gets large vs small
+    combos = [{ type: types2[0], size: sizes2[0] }, { type: types2[1], size: sizes2[1] }];
+  } else {
+    combos = shuffleArray(allSizeCombos()).slice(0, 3);
+  }
+  return buildSizeTaskFromCombos(lvl, combos);
+}
+
+// Level button labels swap with concept — かたち's are item counts, おおきさ's describe
+// what the level is asking the learner to judge (same-shape-pair / different-shape-pair /
+// three-way). Level3 reuses "みっつ" in both concepts since "3 items" is literally true
+// either way.
+var LEVEL_LABELS = {
+  shape: { 1: 'ひとつ', 2: 'ふたつ', 3: 'みっつ' },
+  size: { 1: 'おなじ', 2: 'ちがう', 3: 'みっつ' }
+};
+function updateLevelLabels() {
+  levelBtns.forEach(function(b) {
+    b.textContent = LEVEL_LABELS[currentConcept][Number(b.dataset.level)];
+  });
+}
+
+// Phase26-I3: which top-level learning concept is active ('shape' | 'size'). Always starts
+// 'shape' on page load — existing users land on the material they already know, regardless
+// of what they last selected (currentConcept is intentionally not persisted via
+// saveSettings()/loadSettings()).
 var currentConcept = 'shape';
 var level = 1;
 var questionCount = 5;
@@ -746,9 +848,8 @@ function loadSettings() {
 /* =====================================================================
    canonical task generation — semantic mapping is always (shape type, shape
    size) === (target type, target size); DOM order, left/right position and
-   color never encode correctness. This app's only concept today ("かたち")
-   never sets size, so every shape/target here has size:null and generates
-   the exact same id it always has (see makeShapeId above).
+   color never encode correctness. This generator is the "かたち" concept only
+   (size is always null); see generateSizeTask above for "おおきさ".
 ===================================================================== */
 function generateTask(lvl) {
   var n = (lvl === 1) ? 1 : lvl;
@@ -783,9 +884,9 @@ function renderTask() {
     btn.className = 'target-btn' + (t.filled ? ' target-filled' : '');
     btn.tabIndex = 0;
     btn.dataset.targetId = t.id;
-    btn.setAttribute('aria-label', SHAPE_LABEL[t.shapeType] + ' の ばしょ' + (t.filled ? '（うめた）' : ''));
+    btn.setAttribute('aria-label', shapeSpokenLabel(t) + ' の ばしょ' + (t.filled ? '（うめた）' : ''));
     var visual = document.createElement('div');
-    visual.className = 'shape-visual shape-' + t.shapeType;
+    visual.className = 'shape-visual shape-' + t.shapeType + (t.size ? ' size-' + t.size : '');
     if (t.filled) {
       var filledShape = task.shapes.filter(function(s) { return s.id === t.id; })[0];
       if (filledShape) visual.style.setProperty('--fill-color', filledShape.color);
@@ -805,10 +906,10 @@ function renderTask() {
     btn.tabIndex = 0;
     btn.dataset.shapeId = s.id;
     btn.setAttribute('aria-pressed', (task.selectedShapeId === s.id) ? 'true' : 'false');
-    btn.setAttribute('aria-label', SHAPE_LABEL[s.shapeType]);
+    btn.setAttribute('aria-label', shapeSpokenLabel(s));
     btn.style.setProperty('--shape-color', s.color);
     var visual = document.createElement('div');
-    visual.className = 'shape-visual shape-' + s.shapeType;
+    visual.className = 'shape-visual shape-' + s.shapeType + (s.size ? ' size-' + s.size : '');
     var ring = document.createElement('div');
     ring.className = 'gaze-dwell-ring';
     btn.appendChild(visual);
@@ -845,7 +946,7 @@ function shouldShowQuestionCount() { return level === 2 || level === 3; }
 function startProblem() {
   cancelActiveDrag();
   clearPendingFeedback();
-  task = generateTask(level);
+  task = (currentConcept === 'size') ? generateSizeTask(level) : generateTask(level);
   phase = 'waitingShape';
   feedbackText.textContent = '';
   sessionCompleteArea.hidden = true;
@@ -873,13 +974,13 @@ function startLevel(n) {
   saveSettings();
 }
 
-// Phase26-I2: foundation only — #conceptRow is hidden in production, so this is only
-// reachable from test/dev tooling today. Mirrors startLevel()'s safety teardown
-// (cancelActiveDrag/clearPendingFeedback) so a concept switch can never leave a stale
-// drag gesture or pending feedback timeout pointed at the concept being left. The
-// 'shape' concept's own state (level/session/task/phase) is left completely untouched
-// by a switch — Phase26-I3 will decide what "starting a size problem" means and is
-// expected to extend this function rather than replace it.
+// Phase26-I3: switching concept always restarts at that concept's Level1 — startLevel()
+// already does the full safe reset this needs (cancelActiveDrag/clearPendingFeedback
+// again defensively, session/progress reset, fresh task/render), so a concept switch can
+// never leave a stale selection, drag gesture, pending feedback timeout, or progress count
+// pointed at the concept being left. Always resetting to Level1 (rather than keeping
+// whatever level number was active) avoids any confusion between the two concepts'
+// different level meanings at the same number.
 function setConcept(concept) {
   if (concept === currentConcept) return;
   cancelActiveDrag();
@@ -890,8 +991,8 @@ function setConcept(concept) {
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
-  // No 'size' rendering path exists yet (Phase26-I3+); intentionally left as a no-op
-  // beyond the state/button update above.
+  updateLevelLabels();
+  startLevel(1);
 }
 
 function setQuestionCount(n) {
@@ -923,7 +1024,7 @@ function selectShapeFresh(shapeId, inputMethod, startedAtOverride) {
   // callers that already know when the user first engaged the shape pass that timestamp.
   task.shapeStartedAt = startedAtOverride || Date.now();
   phase = 'waitingTarget';
-  speak(SHAPE_LABEL[shape.shapeType]);
+  speak(shapeSpokenLabel(shape));
   resetDwellState();
   renderTask();
   if (scanMode) refreshSwitchScanItems();
@@ -1178,9 +1279,10 @@ function handleCorrectPlacement(shape, targetId) {
   if (target) target.filled = true;
 
   if (level !== 1) {
-    addLog({
+    var logEntry = {
       time: new Date().toISOString(),
       level: level,
+      concept: currentConcept, // Phase26-I3: new field, always present going forward; absent on any pre-existing entry, which callers should treat as 'shape'
       questionIndex: session ? session.current + 1 : 1,
       questionTotal: session ? session.total : 1,
       shape: shape.shapeType,
@@ -1191,7 +1293,12 @@ function handleCorrectPlacement(shape, targetId) {
       mistakeSelections: (task.attemptsByShape[shape.id] || []).slice(),
       responseTimeMs: task.shapeStartedAt ? (Date.now() - task.shapeStartedAt) : null,
       inputMethod: currentInputMethod || 'unknown'
-    });
+    };
+    // Phase26-I3: shapeSize is only ever added for the おおきさ concept, so a plain
+    // "かたち" log entry's set of keys stays exactly what it was before this concept
+    // existed — existing readers of the log never see a key they don't already handle.
+    if (shape.size) logEntry.shapeSize = shape.size;
+    addLog(logEntry);
   }
 
   task.selectedShapeId = null;
@@ -1503,7 +1610,6 @@ toggleAnimation.addEventListener('change', function() {
    detail panel are bound 1:1 via a dedicated per-record function so each
    call gets its own closure scope (donomana new-app standard v1.0 §24).
 ===================================================================== */
-var RECORDS_LEVEL_NAME = { 2: 'ふたつ', 3: 'みっつ' };
 var recordsShowAll = false;
 
 function groupLogIntoSessions(log) {
@@ -1511,12 +1617,18 @@ function groupLogIntoSessions(log) {
   // consecutive entries can legitimately share the same questionIndex (every shape in one problem).
   // A new session only starts when questionIndex drops back to 1 after having been > 1 — a bare
   // "entry.questionIndex === 1" check would wrongly split each problem's own shapes apart.
+  // Phase26-I3: also splits on concept change — level numbers are reused between concepts
+  // (e.g. size-concept Level2 and shape-concept Level2), so a level-only check would wrongly
+  // merge a かたち session and an おおきさ session together if they happened to share a level
+  // number. entry.concept is absent on any pre-Phase26-I3 log entry, treated as 'shape'.
   var sessions = [];
   var current = null;
   var lastQuestionIndex = null;
   log.forEach(function(entry) {
-    var startsNew = !current || current.level !== entry.level || (entry.questionIndex === 1 && lastQuestionIndex !== null && lastQuestionIndex !== 1);
-    if (startsNew) { current = { level: entry.level, entries: [] }; sessions.push(current); }
+    var entryConcept = entry.concept || 'shape';
+    var startsNew = !current || current.level !== entry.level || current.concept !== entryConcept ||
+      (entry.questionIndex === 1 && lastQuestionIndex !== null && lastQuestionIndex !== 1);
+    if (startsNew) { current = { level: entry.level, concept: entryConcept, entries: [] }; sessions.push(current); }
     current.entries.push(entry);
     lastQuestionIndex = entry.questionIndex;
   });
@@ -1541,8 +1653,12 @@ function groupEntriesByProblem(entries) {
   });
   return order.map(function(qi) { return { questionIndex: qi, shapes: byIndex[qi] }; });
 }
+function sessionLevelName(sess) {
+  var concept = sess.concept || 'shape';
+  return (LEVEL_LABELS[concept] && LEVEL_LABELS[concept][sess.level]) || ('レベル' + sess.level);
+}
 function summarizeSession(sess) {
-  var levelName = RECORDS_LEVEL_NAME[sess.level] || ('レベル' + sess.level);
+  var levelName = sessionLevelName(sess);
   var last = sess.entries[sess.entries.length - 1];
   var total = last ? last.questionTotal : null;
   var problems = groupEntriesByProblem(sess.entries);
@@ -1553,11 +1669,12 @@ function summarizeSession(sess) {
     lines: ['問題数：' + (total || problems.length) + '問 ／ 完了：' + problems.length + '問 ／ まちがえた回数：' + mistakeTotal + '回']
   };
 }
-function katachiQuestionDetails(sess) {
+function sessionQuestionDetails(sess) {
   var problems = groupEntriesByProblem(sess.entries);
   return problems.map(function(p) {
     var shapesText = p.shapes.map(function(e) {
-      return SHAPE_LABEL[e.shape] + (e.mistakes > 0 ? '（' + e.mistakes + '回やりなおし）' : '');
+      var label = e.shapeSize ? (SIZE_LABEL[e.shapeSize] + ' ' + SHAPE_LABEL[e.shape]) : SHAPE_LABEL[e.shape];
+      return label + (e.mistakes > 0 ? '（' + e.mistakes + '回やりなおし）' : '');
     }).join('、');
     return p.questionIndex + '問目：' + shapesText;
   });
@@ -1618,7 +1735,7 @@ function renderRecords() {
       p.textContent = line;
       item.appendChild(p);
     });
-    var detailLines = katachiQuestionDetails(sess);
+    var detailLines = sessionQuestionDetails(sess);
     if (detailLines.length) appendRecordDetailToggle(item, detailLines, i);
     recordsList.appendChild(item);
   }
@@ -1652,7 +1769,10 @@ recordsConfirmDelete.addEventListener('click', function() {
 /* =====================================================================
    CSV export — generated from canonical log data only, never from DOM.
 ===================================================================== */
-var CSV_HEADERS = ['日時', 'レベル', '問題番号', '問題数', '形', '正しい場所', '選択した場所', '正誤', '再試行回数', '間違えた内容', '反応時間ms'];
+// Phase26-I3: 'おおきさ' appended as a new 12th column, after the original 11. Existing column
+// order/positions are unchanged so any external tooling built against the old 11-column CSV
+// keeps working; the new column is simply blank for かたち-concept rows (no shapeSize recorded).
+var CSV_HEADERS = ['日時', 'レベル', '問題番号', '問題数', '形', '正しい場所', '選択した場所', '正誤', '再試行回数', '間違えた内容', '反応時間ms', 'おおきさ'];
 function csvEscape(value) {
   var s = (value === null || value === undefined) ? '' : String(value);
   if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
@@ -1669,9 +1789,11 @@ function formatRecordDateTimeFull(iso) {
 function buildRecordsCsvRows() {
   var rows = [CSV_HEADERS.slice()];
   readLog().forEach(function(e) {
+    var entryConcept = e.concept || 'shape';
+    var levelName = (LEVEL_LABELS[entryConcept] && LEVEL_LABELS[entryConcept][e.level]) || ('レベル' + e.level);
     rows.push([
       formatRecordDateTimeFull(e.time),
-      RECORDS_LEVEL_NAME[e.level] || ('レベル' + e.level),
+      levelName,
       e.questionIndex, e.questionTotal,
       SHAPE_LABEL[e.shape] || e.shape,
       SHAPE_LABEL[e.expected] || e.expected,
@@ -1679,7 +1801,8 @@ function buildRecordsCsvRows() {
       e.correct ? 'せいかい' : 'まちがい',
       e.mistakes,
       (e.mistakeSelections || []).map(function(m) { return SHAPE_LABEL[m] || m; }).join('、'),
-      e.responseTimeMs
+      e.responseTimeMs,
+      e.shapeSize ? SIZE_LABEL[e.shapeSize] : ''
     ]);
   });
   return rows;

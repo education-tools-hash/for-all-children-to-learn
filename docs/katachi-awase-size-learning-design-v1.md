@@ -1,9 +1,26 @@
-# かたちをあわせよう × おおきさ学習 設計案 v1.1（Phase26-I〜I2）
+# かたちをあわせよう × おおきさ学習 設計案 v1.1（Phase26-I〜I3）
 
-- 版: v1.1（v1.0の設計をユーザー承認、Phase26-I2で基盤実装。実際の「おおきさ」問題はまだ未実装）
-- 起草: Phase26-I（設計）／Phase26-I2（concept row・複合shape ID基盤の実装）
-- 位置づけ: `katachi-awase-app.html`への実装はPhase26-I2で開始したが、**「おおきさ」conceptはProduction上ではまだ非表示（`#conceptRow[hidden]`）**。ユーザーから見える新機能はまだ公開されていない。
-- Release: Phase26-I2は既存「かたち」学習の動作・見た目を一切変えない内部基盤変更であり、Continuous Release対象として扱った（30章参照）。「おおきさ」concept自体の公開は引き続きRelease Approval Gate対象。
+- 版: v1.1（v1.0の設計をユーザー承認、Phase26-I2で基盤実装、Phase26-I3で実際の「おおきさ」問題を実装）
+- 起草: Phase26-I（設計）／Phase26-I2（concept row・複合shape ID基盤の実装）／Phase26-I3（Level1〜3の実問題実装）
+- 位置づけ: `katachi-awase-app.html`への実装はPhase26-I3で概ね完了したが、**このworktree/branch（`feature/katachi-awase-size-learning`）はmainに未マージ・Production未公開**。ユーザーから見える新機能はまだ公開されていない（Release Approval Gate — User Review待ち）。
+- Release: Phase26-I2は既存「かたち」学習の動作・見た目を一切変えない内部基盤変更であり、Continuous Release対象として扱った（30章参照）。Phase26-I3（「おおきさ」concept本体の実装・公開）はRelease Approval Gate対象であり、本Phaseはimplementation + local validationまでで停止し、mainマージ・Production公開はPhase26-I4（ユーザー承認後）に持ち越す。
+
+---
+
+## 0.5 Phase26-I3 追記（実装内容の確定）
+
+Phase26-I2の申し送り事項（0章末尾）を受け、Phase26-I3で以下を実装・検証した。
+
+- **375×667スクロール問題の解消**: shape/targetサイズ（Phase26-Hの拡大成果）は変更せず、(1) `.level-row`から`.concept-row`へ固定ボタンよけの`margin-top:76px`を移設、(2) `body`と`.app`で重複していた`padding-bottom:48px`のうち`body`側の冗長分を削除、の2点のみで解消。375×667実測でオーバーフロー44px→0pxを確認、他4ビューポート（375×812/390×844/768×1024/1280×900）も0pxのまま。
+- **Level構成（おおきさ concept）**: Level1「おなじ」＝同一shapeType・大小2値（例: 大○/小○）。Level2「ちがう」＝異なるshapeType・大小2値（例: 大○/小△）。Level3「みっつ」＝shapeType×sizeの組み合わせ3件（重複なし）。ラベルは375px幅の`.level-row`に収まることを実測確認。
+- **比率**: 大=100%、小=60%（`.shape-visual.size-small { width:60%; height:60%; }`）。`.shape-btn`/`.target-btn`自体のヒットエリアは変更せず、内側の`.shape-visual`のみ`width`/`height`で縮小（`transform:scale()`は不使用 — D8のストローク幅計算がbox size非依存であるため、scale()を使うと三角形の斜辺ストロークが比例縮小して細くなってしまう問題を回避）。
+- **小さい三角形のレンダリング検証**: 60%サイズの三角形について、base・左右斜辺のストローク幅をピクセル計測した結果、100%サイズとほぼ同一（4〜5px、375×667/1280×900いずれも）であることを確認。再設計は不要だった。
+- **色**: おおきさ判定中は全shapeを単一色（`#00A99D`、既存Design System色）に統一。Level1/2/3いずれも大小間の色差なしを実機検証済み。
+- **一致判定**: `shapeType`と`size`の両方が一致した場合のみ正解（同形・サイズ違いを誤って正解としない）ことを直接実行検証で確認。
+- **Records/CSV**: ログエントリに`concept`と（おおきさ concept時のみ）`shapeSize`を追加。セッション分割ロジック（`groupLogIntoSessions`）はlevel一致に加えてconcept一致も条件化（同一level番号でもconceptが違えば別セッション扱い）。CSVは既存11列の末尾に「おおきさ」列を追加（12列目）、既存列の順序・内容は変更なし。旧形式ログ（`concept`/`shapeSize`欠落）は`concept`を`'shape'`とみなして読み込み、CSV新列は空欄で正常出力されることを合成データで確認。
+- **concept切替時の状態リセット**: ドラッグ中断・feedback/選択クリア・task/進捗/セッションリセットを実装。実機検証で確認済み（詳細はPhase26-I3最終報告を参照）。
+
+本追記の詳細な検証ログ・67項目の確認結果はPhase26-I3の最終報告（チャット履歴）を参照。
 
 ---
 
