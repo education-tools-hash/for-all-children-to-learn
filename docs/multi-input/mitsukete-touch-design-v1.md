@@ -1,8 +1,8 @@
-# 「どこかな？みーつけた！」個別設計 v1.5（Phase M5〜M7.1b — Pop Discovery / Peekaboo）
+# 「どこかな？みーつけた！」個別設計 v1.6（Phase M5〜M7.1c — Pop Discovery / Peekaboo）
 
-- 版: v1.5（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映、v1.5はPhase M7.1bのオルゴールBGM再設計を反映）
+- 版: v1.6（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映、v1.5はPhase M7.1bのオルゴールBGM再設計を反映、v1.6はPhase M7.1cの繊細化（Delicate Music Box）再調整を反映）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
-- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a／M7.1b（BGM追加・修正・オルゴール化）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
+- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a／M7.1b／M7.1c（BGM追加・修正・オルゴール化・繊細化）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
 
 ---
 
@@ -461,6 +461,43 @@ Phase M7.1aのLocal RC（`2e38233`）に対するAudio User Reviewの結果、**
 **再検証結果**: Phase M7.1aで確立した検証一式（ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level遷移/trial遷移/visibility制御/4通りのsound設定組み合わせ/55回混在活性化ストレス/20回BGM切替ストレス/`currentTime`実時間進行）を新assetに対して再実行し、全てPASS。再生基盤（`HTMLAudioElement`）・ファイルパス（`assets/mitsukete-touch/audio/bgm-loop.mp3`）・app側コードはPhase M7.1aから一切変更していないため、game logic・Records・CSV・Touch/Gaze/Switch/Keyboardへの影響はない。console error・pageerrorとも0件。
 
 **Audio Validation事項（未確認・ユーザー確認が必要）**: 「オルゴールらしいか」「かわいいか」「M7.1のベル版と比べてより世界観に合うか」「音圧がやや高めに感じられないか」——これらはAI自身が聴覚的に検証できないため、構造的な設計（音色パーシャル比・エンベロープ・和声・音圧測定値）のみを保証し、実際の聴感評価はユーザーに委ねる。
+
+### Phase M7.1c: Delicate Music Box Final Tuning
+
+Phase M7.1b（オルゴール化）のAudio User Reviewでは、「BGMが実際に鳴ることを確認（PASS）」は維持されたものの、**旧BGMとの差が十分に感じられない・音の存在感がやや強い・もっと繊細な感じがよい**というフィードバックを受けた。目標を「オルゴール曲を前面で聴かせる」ことから、**「ふわふわした空の中で、遠くから小さなオルゴールが自然に聞こえてくる」**ことへ明確に引き下げ、`assets/mitsukete-touch/audio/bgm-loop.mp3`を再設計した（`mitsukete-touch-app.html`のplayback architecture・game logicには一切触れていない）。
+
+**M7.1bからの具体的変更**:
+- **warm padを完全に削除**——music box単体（モノフォニック、和音伴奏なし）で成立させた。M7.1bは各小節頭にroot+fifthのdyadを常時鳴らしていたが、これがBGMの密度・存在感を上げていたと判断し撤去した。
+- **音数を大幅に削減**——M7.1bは旋律18音＋伴奏16音＝計34イベントだったのに対し、本版は**10音のみ**（メロディのみ、和音なし）。24秒あたりの音数密度は約9.5音（M7.1bは約34音）。
+- **休符を積極的に設計**——10音を4つの短いフレーズ群（2〜3音ずつ）に分け、フレーズ間に平均2.55秒・最大6.08秒の完全な沈黙区間を配置した（「♪……ころん……　……♪……ころん、ころん……」のイメージ）。
+- **音色をさらに柔らかく**——attackを2ms→9msへ延ばし最初のtransientを丸め、decayを短縮（1.35〜0.38秒→0.85〜0.20秒）して長く鳴り続けないようにし、上位倍音の音量をさらに絞った（2〜4倍音の振幅を0.40/0.16/0.06→0.30/0.10/0.03へ）。
+- **マスターローパスを6200Hz→5500Hz**へ（要件の5000〜6000Hz候補範囲内）、こもらない範囲で高域をさらに抑制。
+- **リバーブ（air）のwetを0.15→0.09**へ（要件の0.06〜0.12候補範囲内）、tapも3本→2本へ削減し、「大きなホール」ではなく「オルゴールの周囲にわずかな空気がある」程度に留めた。
+- **velocity variation**: 各音に±15%のランダムな強弱（`rng.uniform(0.85,1.15)`）を付与し、機械的な均一感を避けた。
+- **timing humanization**: 各音の発音位置に±12msのジッターを付与し、完全な等間隔感を弱めた（リズムが不安定になるほどではない範囲）。
+- **register**: C5〜A5（中高域）のみを使用し、極端な高音（C6等）は使わない方針を維持・徹底した。
+- **tempo**: 80BPM→76BPM（要件の72〜82候補範囲内）。ただしテンポ変更よりも音数削減を優先する方針どおり、テンポ差は小さく留めている。
+- **duration**: 24.0秒→約25.26秒（要件の20〜30秒範囲内、「24秒を音で埋める必要はない」との指示どおり沈黙区間を許容）。
+- **音圧の正規化方針を変更**——M7.1/M7.1bはピークを-6dBFS（0.5）へ強制正規化していたが、本版は「peakを必要以上に0.5へ正規化しない」という要件に従い、**RMSを直接0.075（要件の0.065〜0.090の中央値）へ正規化**する方式に変更した。結果として最終peakは0.441（自然な値、強制正規化なし）。
+
+**M7.1bとの客観比較**（開発中のみ、比較用assetはリポジトリ外のスクラッチ領域にのみ保存しFinal commitには含めていない）:
+
+| 指標 | M7.1b | M7.1c |
+|---|---|---|
+| RMS | 0.1275 | 0.075（-41%） |
+| Peak | 0.500（強制正規化） | 0.441（自然） |
+| 音イベント数（24秒あたり換算） | 約34 | 約9.5 |
+| 和音/pad | あり（常時） | なし |
+| ファイルサイズ | 173KB | 73KB |
+| duration | 24.0秒 | 25.26秒 |
+
+音数・音圧・ファイルサイズいずれも明確に減少しており、「客観的にも疎で静かになっている」ことを数値で確認した。
+
+**ループ検証**: M7.1/M7.1bと同じ手法（末尾減衰の折り返し加算＋10msクロスフェード）を維持。境界前後の完全無音を波形解析で確認。加えて`currentTime`をloop終端-0.6秒へシークして境界を跨がせるテストで、`paused`のまま停止せず正しく先頭付近（約1.14秒）へ折り返し再生継続することを実測確認した。
+
+**再検証結果**: Phase M7.1a/M7.1bで確立した検証一式（ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level遷移/trial遷移/visibility制御/4通りのsound設定組み合わせ/`currentTime`実時間進行/loop境界越え）を新assetに対して再実行し、全てPASS。`mitsukete-touch-app.html`はPhase M7.1a以降変更していない（`BGM_VOLUME=0.22`も据え置き）ため、game logic・Records・CSV・Touch/Gaze/Switch/Keyboardへの影響はない。console error・pageerrorとも0件。
+
+**Audio Validation事項（未確認・ユーザー確認が必要）**: 「繊細に感じられるか」「自然に背景へ溶け込んでいるか」「discovery SFXより明確に控えめか」「音圧・密度は今度こそ十分に下がったと感じられるか」——引き続きAI自身が聴覚的に検証できないため、構造的な設計・測定値の変化のみを保証し、実際の聴感評価はユーザーに委ねる。
 
 ---
 
