@@ -541,6 +541,10 @@
       <label class="toggle"><input type="checkbox" id="toggleSound" checked><span class="toggle-slider"></span></label>
     </div>
     <div class="setting-row">
+      <label for="toggleBgm">BGM（バックグラウンド音楽）</label>
+      <label class="toggle"><input type="checkbox" id="toggleBgm"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
       <label for="toggleGaze">視線入力（ドウェル選択）</label>
       <label class="toggle"><input type="checkbox" id="toggleGaze"><span class="toggle-slider"></span></label>
     </div>
@@ -661,6 +665,13 @@ var suppressNextClick = false;
 var STORAGE_LOG_KEY = 'mitsukete_touch_log';
 var STORAGE_SETTINGS_KEY = 'mitsukete_touch_settings';
 var soundEnabled = true;
+// Phase M7.1: BGM defaults OFF. Per the Program's established sensory-conservative
+// philosophy (M0/M2.1 "刺激が強くなりすぎないよう" precedent, reaffirmed in this app's
+// own M6 design as "success-only"/gentle-by-default), a continuous background sound is
+// a larger, more persistent stimulus than the existing short discovery chime, so it is
+// opt-in rather than on-by-default. The toggle is placed as the very first settings row
+// (alongside 音) so engagement-focused users can switch it on in one tap.
+var bgmEnabled = false;
 var gazeEnabled = false;
 var scanMode = false;
 
@@ -670,10 +681,11 @@ function loadSettings() {
     if (!raw) return;
     var s = JSON.parse(raw);
     if (typeof s.soundEnabled === 'boolean') soundEnabled = s.soundEnabled;
+    if (typeof s.bgmEnabled === 'boolean') bgmEnabled = s.bgmEnabled;
   } catch (e) {}
 }
 function saveSettings() {
-  try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({ soundEnabled: soundEnabled })); } catch (e) {}
+  try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({ soundEnabled: soundEnabled, bgmEnabled: bgmEnabled })); } catch (e) {}
 }
 function readLog() {
   try { var raw = localStorage.getItem(STORAGE_LOG_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
@@ -684,28 +696,124 @@ function addLog(entry) { var log = readLog(); log.push(entry); writeLog(log); }
 /* =====================================================================
    Sound — short two-note "discovery" tone via Web Audio, distinct from
    the Pilot's single-tone (Phase M5 §9 / M6 §24). No external assets.
+   Phase M7.1: audioCtx is now shared with the BGM module below (a single
+   AudioContext for the whole app, per Design System token reuse principle
+   — no duplicate contexts).
 ===================================================================== */
 var audioCtx = null;
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
 function playDiscoverySound() {
   if (!soundEnabled) return;
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    var now = audioCtx.currentTime;
+    var ctx = ensureAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    var now = ctx.currentTime;
     [ [740, 0.00, 0.11], [988, 0.10, 0.13] ].forEach(function(spec) {
       var freq = spec[0], start = now + spec[1], dur = spec[2];
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, start);
       gain.gain.setValueAtTime(0.0001, start);
       gain.gain.exponentialRampToValueAtTime(0.13, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.connect(gain); gain.connect(ctx.destination);
       osc.start(start); osc.stop(start + dur + 0.02);
     });
   } catch (e) {}
 }
+
+/* =====================================================================
+   BGM — Phase M7.1. Original, self-authored toy-piano/glockenspiel style
+   ambient loop (assets/mitsukete-touch/audio/bgm-loop.mp3, ~20s seamless
+   loop, self-hosted, no external CDN). Independent ON/OFF from SFX
+   (soundEnabled above); BGM OFF never affects discovery SFX and vice versa.
+
+   Autoplay policy (§7/§8 of the Phase M7.1 spec): browsers block audio
+   playback until a real user gesture. bgmUnlockListeners below fire on any
+   pointerdown/keydown anywhere in the app (covers Touch, Keyboard, and
+   Switch — a physical switch reaching this app as a keydown/click is
+   already an established pattern here, see Switch Scan spec) so BGM starts
+   on whichever of those happens first, with no Touch-first assumption.
+   Gaze activation is *not* a trusted browser input event (it is driven by
+   a requestAnimationFrame dwell timer), so gaze alone cannot satisfy the
+   browser's autoplay gesture requirement — this is a real platform
+   constraint, not a design choice; see design doc for the documented
+   fallback (the BGM toggle itself, reachable by Touch/Keyboard/Switch, is
+   always a valid unlock point even for gaze-primary sessions).
+===================================================================== */
+var BGM_URL = 'assets/mitsukete-touch/audio/bgm-loop.mp3';
+var BGM_GAIN = 0.16; // file peak ~0.5 -> effective peak ~0.08, clearly under discovery SFX's 0.13 peak (§10)
+var bgmBuffer = null;
+var bgmBufferPromise = null;
+var bgmGainNode = null;
+var bgmSourceNode = null;
+var bgmPlaying = false;
+
+function loadBgmBuffer() {
+  if (bgmBufferPromise) return bgmBufferPromise;
+  var ctx = ensureAudioCtx();
+  bgmBufferPromise = fetch(BGM_URL)
+    .then(function(r) { return r.arrayBuffer(); })
+    .then(function(ab) { return ctx.decodeAudioData(ab); })
+    .then(function(buf) { bgmBuffer = buf; return buf; })
+    .catch(function(e) { bgmBufferPromise = null; throw e; });
+  return bgmBufferPromise;
+}
+function startBgm() {
+  if (!bgmEnabled || bgmPlaying) return;
+  var ctx = ensureAudioCtx();
+  if (ctx.state === 'suspended') { ctx.resume().catch(function(){}); }
+  loadBgmBuffer().then(function(buf) {
+    // re-check after the async load: settings/state may have changed while fetching
+    if (!bgmEnabled || bgmPlaying) return;
+    if (!bgmGainNode) {
+      bgmGainNode = ctx.createGain();
+      bgmGainNode.gain.value = BGM_GAIN;
+      bgmGainNode.connect(ctx.destination);
+    }
+    bgmSourceNode = ctx.createBufferSource();
+    bgmSourceNode.buffer = buf;
+    bgmSourceNode.loop = true;
+    bgmSourceNode.connect(bgmGainNode);
+    bgmSourceNode.start(0);
+    bgmPlaying = true;
+  }).catch(function(){});
+}
+function stopBgm() {
+  bgmPlaying = false;
+  if (bgmSourceNode) {
+    try { bgmSourceNode.stop(0); } catch (e) {}
+    try { bgmSourceNode.disconnect(); } catch (e) {}
+    bgmSourceNode = null;
+  }
+}
+function setBgmEnabled(on) {
+  bgmEnabled = on;
+  saveSettings();
+  if (on) { startBgm(); } else { stopBgm(); }
+}
+function tryUnlockAudio() {
+  var ctx = ensureAudioCtx();
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(function() { if (bgmEnabled) startBgm(); }).catch(function() {});
+  } else if (bgmEnabled) {
+    startBgm();
+  }
+}
+document.addEventListener('pointerdown', tryUnlockAudio, true);
+document.addEventListener('keydown', tryUnlockAudio, true);
+document.addEventListener('visibilitychange', function() {
+  if (!audioCtx) return;
+  if (document.hidden) {
+    if (audioCtx.state === 'running') audioCtx.suspend().catch(function() {});
+  } else if (bgmEnabled && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(function() {});
+  }
+});
 
 /* =====================================================================
    Trial generation (Phase M5 §7.3-7.4, M6 §11-16, §39-41)
@@ -758,6 +866,7 @@ function activateItem(itemId, inputMethod) {
   if (now < transient.inputLockUntil) return;
   var item = currentItems.filter(function(i) { return i.id === itemId; })[0];
   if (!item) return;
+  tryUnlockAudio(); // no-op if already unlocked; harmless best-effort for gaze (see BGM module notes)
 
   transient.inputLockUntil = now + ACTIVATION_LOCK_MS;
   var responseTime = Math.round(now - trialStartedAt);
@@ -1119,6 +1228,9 @@ settingsCloseBtn.addEventListener('click', closeSettings);
 var toggleSound = document.getElementById('toggleSound');
 toggleSound.addEventListener('change', function() { soundEnabled = toggleSound.checked; saveSettings(); });
 
+var toggleBgm = document.getElementById('toggleBgm');
+toggleBgm.addEventListener('change', function() { setBgmEnabled(toggleBgm.checked); });
+
 /* =====================================================================
    Records / CSV — observed events only; target/other kept neutral,
    never "correct/mistake" (Phase M5 §14, M6 §42-51).
@@ -1255,6 +1367,7 @@ document.getElementById('recordsConfirmCancel').addEventListener('click', functi
 ===================================================================== */
 loadSettings();
 toggleSound.checked = soundEnabled;
+toggleBgm.checked = bgmEnabled;
 startNewTrial();
 </script>
 </body>

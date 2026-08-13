@@ -1,8 +1,8 @@
-# 「どこかな？みーつけた！」個別設計 v1.2（Phase M5〜M7 — Pop Discovery / Peekaboo）
+# 「どこかな？みーつけた！」個別設計 v1.3（Phase M5〜M7.1 — Pop Discovery / Peekaboo）
 
-- 版: v1.2（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映）
+- 版: v1.3（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
-- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。
+- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1（BGM追加）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
 
 ---
 
@@ -395,6 +395,30 @@ User Reviewにより、M6.1（2回目）の具体化SVGでも、ユーザーが�
 **Production Release検証で新規に発見・修正した回帰バグ**: M6.2で`.mt-size-1`（Level1のhidespotサイズ）を168px→194px（モバイル）へ拡大した際、同じくM6.1以来存在する`.mt-ring`（gaze dwellリング、`inset:-8px`で常にDOM上に存在しopacityのみ切り替え）の8px外側張り出しを考慮せずに24%/76%の角position設定を据え置いたため、375/390px幅でLevel1の右側position（right/upper-right/lower-right）が実際に7px程度の水平overflowを起こすことをProduction公開前のresponsive再検証で発見した。position指定を27%/73%へ調整し、`.mt-ring`の外側張り出しを含めた実測（Playwright `scrollWidth`＋各要素`getBoundingClientRect()`）で5viewport×3Level×6キャラクターの overflow 0 / clipping 0 / collision 0 を確認した上で公開した。
 
 **Production確認結果**: HTTP 200、主要ファイル（アプリ本体・6キャラクターPNG）のSHA256が全てlocalと一致、Level1〜3・6キャラクター・Touch/Keyboard・共通chrome（home/lock/fullscreen/a11y）・独自設定ボタンの非表示化・duplicate ID 0・console/pageerror 0・failed request 0を確認。GitHub Actionsの`generate`workflowによる自動commit（1件、mockup/icon反映によるog:image等の差し替えのみ）を経て、最終的に`main`=`origin/main`=`1c3f865`で一致。
+
+### Phase M7.1: BGM / Sound Experience Enhancement（Local RC、Audio User Review待ち）
+
+Production公開済みアプリへの改善Phaseとして、「楽しい雰囲気づくり」を目的にBGMを追加した。既存の発見音（`playDiscoverySound()`、740Hz/988Hz）とは完全に独立したON/OFFを持つ、控えめな背景音という位置づけ。**本Phaseはmain未統合・push未実行・Production未公開のLocal RCであり、Audio User Review（実際に聞いての承認）を経て初めてRelease Phaseへ進む。**
+
+**BGM素材**: 参考音源のコピー・外部素材の流用は行わず、numpyによる完全自作のオリジナル合成（トイピアノ／グロッケンシュピール風のベル音色＋ミュージックボックス風のプラック音色、Cメジャー、96BPM、8小節=20.0秒のシームレスループ）。ペンタトニック（C D E G A）の疎らなメロディに、コード進行 C–G–Am–F–C–G–F–C の柔らかいアルペジオ伴奏を重ね、軽いマルチタップ・ディレイ由来のリバーブで「ふわふわ空」の空気感を加えた。continuous bassは使用していない。ループ境界は「末尾の減衰テールを先頭へ折り返して加算する」手法＋10msの短いイコールパワー・クロスフェードにより、聴感上の継ぎ目が出ないよう設計した。soft limiter（tanh）でクリッピングを防止し、最終ピークは意図的に-6dBFS相当（0.5）に抑えている。著作権上の懸念は一切ない（完全新規制作物）。
+
+**保存形式**: `assets/mitsukete-touch/audio/bgm-loop.mp3`（自己ホスト、外部CDN不使用）。WAV（1.7MB）ではなくMP3（`soundfile`/libsndfileでエンコード、約214KB）を採用し、iPad/iPhone（Safari/WebKit）を含む主要ブラウザでの再生互換性とファイルサイズのバランスを優先した。
+
+**BGM ON/OFFと「音」の分離**: 設定パネルに「音」（既存の発見音トグル）とは独立した「BGM（バックグラウンド音楽）」トグルを新設。`STORAGE_SETTINGS_KEY`（`mitsukete_touch_settings`）の同一JSONへ`bgmEnabled`フィールドを追加する形で保存し、新しい保存基盤は作っていない。4通りの組み合わせ（BGM ON/OFF × 音 ON/OFF）すべてで学習体験が正常に成立することをPlaywrightで確認済み。
+
+**初期値の判断**: BGM初期値は**OFF**とした。優先順位は要件どおり (1)既存慣例 (2)autoplay安全性 (3)感覚刺激への配慮 (4)Engagement の順で検討し、(3)を(4)より優先した。理由: 本Programは重度・重複障害のある学習者を含む対象を想定しており、M0以来「刺激が強くなりすぎないよう」という一貫した設計判断がある（`multi-input-program-design-v1.md`、miru-hirogaruの発見音設計等）。継続的なBGMは単発の発見音よりも持続的・侵襲的な刺激になりうるため、既定はOFFとし、設定パネルの最上段（「音」の直下）という発見しやすい位置に置くことでEngagement重視の利用者が即座にONへ切り替えられるようにした。既存アプリ調査では`tyushi.html`（ひかるボタン）に類似の「BGM」トグル（既定ON）が存在するが、これは1回の操作ごとに約7.5秒だけ鳴る短い反応的な演奏であり、本アプリが目指す「セッション全体を通じて流れ続ける背景音」とは性質が異なるため、既定値をそのまま踏襲しなかった。
+
+**Autoplay Policy対応**: `document`レベルの`pointerdown`/`keydown`リスナー（capture phase、副作用のみでpreventDefault/stopPropagationなし）により、Touch・Keyboard・Switch（物理スイッチはこのアプリでは既にkeydown/clickとして到達する設計）のいずれかによる最初の実操作でAudioContextを`resume()`し、BGM ONであれば再生を開始する。加えて`activateItem()`冒頭でもベストエフォートで同じ解錠を試みる（Gaze起点の呼び出しに対する保険、ただし後述の制約により確実性は保証されない）。**Gazeのみでの解錠は、ブラウザのautoplayポリシーが要求する「信頼できるユーザー操作」にrequestAnimationFrame駆動のdwellタイマーが該当しないため、原理的に不確実な既知の制約である。** ローカルのPlaywright自動テスト環境では簡易なmousemoveでも解錠に成功する挙動が観測されたが、これは自動化環境（headless Chromium）特有の緩和されたautoplay判定による可能性が高く、実機Safari等の厳格な挙動を保証するものではないため、本書はこれを「Gazeでの解錠が確実に動作する」根拠として扱わない。代替案として、設定パネルの「BGM」トグル自体（Gaze非対象・Touch/Keyboard/Switchでのみ到達可能な既存設計）を確実な解錠手段として位置づけている——Gaze主体の利用者でも、支援者が一度トグルへ触れればセッション中は継続再生される。
+
+**多重再生防止**: `bgmPlaying`フラグによるガード（`startBgm()`は再生中は即return、非同期バッファ読み込み完了後も再チェック）、単一の共有`AudioContext`（既存の発見音と共用）、単一の`bgmGainNode`。Level切替・trial切替では`AudioBufferSourceNode`を停止・再生成しない（既存のsourceがそのままループを継続）。55回の混在input活性化ストレス・20回のBGM ON/OFF連続切替ストレスいずれも、多重再生・console error・pageerrorともに0件を確認。
+
+**Visibility制御**: `document.visibilitychange`で、タブが隠れたら共有AudioContext自体を`suspend()`（発見音・BGM双方を一時停止、再生位置は保持）、復帰時にBGM ONであれば`resume()`。
+
+**音量バランス**: BGMファイル自体のピークは0.5だが、再生時は`bgmGainNode`で0.16倍に絞り、実効ピークは約0.08——既存発見音のピークゲイン0.13より明確に小さい値とした。MVPでは複雑なduckingは実装していない（要件どおり、まずgainの引き下げのみで対応）。
+
+**Records/CSV**: 変更なし（9項目/9列を維持）。BGM設定は学習記録に含めていない。
+
+**Audio User Review事項（未確認・ユーザー確認が必要）**: (1)可愛さ・楽しさの主観評価、(2)音量が適切か、(3)テンポ感、(4)聴き続けて疲れないか、(5)発見音を邪魔しないか、(6)Level1〜3を通じて違和感がないか——これらはAI自身が聴覚的に検証できないため、構造的な設計（ペンタトニック・エンベロープ・ループ処理・音量バランス）のみを保証し、実際の聴感評価はユーザーに委ねる。
 
 ---
 
