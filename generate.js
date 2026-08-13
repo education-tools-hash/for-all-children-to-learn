@@ -841,6 +841,7 @@ const SETTINGS_PROXY = {
   'kurabeyou-app':      { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'katachi-awase-app':  { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'miru-hirogaru-app':  { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'mitsukete-touch-app':{ selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -901,7 +902,7 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // 不自然な空白/白い帯ができるアプリはこちらでdisplay:noneにして詰める。
   // (hiragana-learn/katakana-app/suji-manabou: 横並びnav-tabsの1要素として存在
   //  shiritori2: 独自の上部バー.top-barの1要素として存在)
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app']);
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
