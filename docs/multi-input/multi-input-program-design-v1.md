@@ -213,6 +213,9 @@ Canonical/Transient分離はPhase26-E v1.1標準の既存原則をそのまま�
 ### 8.2 Switch Scan共通仕様
 auto scan / manual scanの両対応、one-switch/two-switch、scan interval、wrap、highlight、activation、pause after activationを既存標準12章に準拠して整備する。**候補数は各教材のLevel1で1〜2、最大でも3程度に抑える**（29章）。
 
+#### 8.2.1 Gaze × Switch Scan 視覚的共存パターン（Phase M2.1で確立、他アプリへ再利用可）
+両入力を同時ONにできる設計（8.5章）である以上、Gaze dwell進行リングとSwitch Scanハイライトが同じtarget上で同時に表示されうる。「みるとひろがる」の実装・検証（Phase M2.1）で、両者の描画帯を同じ半径近辺に置くと視覚的に区別できなくなることが確認された。確立した対処パターン: **target本体（内側）→ gaze dwell進行リング（中間、target境界のすぐ外）→ Switch Scanハイライト（外側、gaze リングの外縁から明確な間隔を空ける）** の3層を同心円状に配置し、色だけでなく形状（gaze=進行に応じた塗りつぶし弧、switch=破線アウトライン）でも区別できるようにする。この半径の間隔（実装値の目安: gazeリング外縁からswitchアウトラインの内縁まで4〜6px以上）は、target size・入力方式が同じ限り他のMulti-Input教材でも再利用できる。
+
 ### 8.3 Touch共通仕様
 tap、touchstart時の即時視覚feedback、大きなhit area、誤操作許容（小さな指ズレでactivationが暴発しない）。**dragは原則不要**（既存2教材のようなdrag-and-dropは本Program非対象）。
 

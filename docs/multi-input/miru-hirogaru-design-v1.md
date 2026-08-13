@@ -1,9 +1,9 @@
-# 「みるとひろがる」個別設計 v1.0（Phase M1）
+# 「みるとひろがる」個別設計 v1.1（Phase M1〜M2.1）
 
-- 版: v1.0（設計のみ、実装未着手）
+- 版: v1.1（v1.0をPhase M2実装・Phase M2.1のGaze×Switch Scan視覚的共存確認で確定・更新）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計、Phase M0）の下位文書。Program共通方針（Touch/Gaze/Switch/Keyboard対等設計、success-only可、canonical/transient分離等）を継承する。
-- Production: 本Phaseでは一切のアプリコード・generate.js・apps-data.json・changelogを変更しない。設計文書のみ。
-- Pilot: Multi-Input Programの共通Input Adapterを最初にPilotするアプリ（M0 15章で決定）。
+- Production: `miru-hirogaru-app.html`はfeature/miru-hirogaru-mvp branch上に実装済みだが、mainへ未統合・Production未公開（Release Approval Gate、User Review待ち）。generate.js/apps-data.json/changelogはいずれも未変更。
+- Pilot: Multi-Input Programの共通Input Adapterを最初にPilotするアプリ（M0 15章で決定）。`activateTarget(targetId, inputMethod)`としてアプリ内Pilot実装済み。
 
 ---
 
@@ -379,20 +379,30 @@ filename: **`miru-hirogaru-app.html`**（M0で提案した候補をそのまま�
 
 ---
 
-## 28. 残存論点・ユーザー判断事項
+## 28. M2実装確定事項（Phase M2/M2.1、ユーザー承認済み）
 
-1. **Level1 feedback方式**: color spreading + soft soundの組み合わせ（4.2章）でよいか。
-2. **feedback duration**: 900ms（4.3章）でよいか。
-3. **Level2左右/上下**: 左右配置（5.1章）でよいか。
-4. **Level3静止/移動**: 静止3target（3.2章）でM1スコープとしてよいか（moving targetは将来）。
-5. **success-onlyを全Level維持するか**: Level1〜3すべてでmistakeなし（3.1章）でよいか。
-6. **activation lock**: 300ms（8章）でよいか。
-7. **Switch interval**: 1500ms（15.3章）でよいか。
-8. **Level1 direct switch**: Level1のみDirect Activation、Level2/3はAuto Scan（15.1-15.2章）でよいか。
-9. **session終了方式**: 支援者による明示的終了＋10回activationのソフト提案（10.2章）でよいか。
-10. **sound/TTS**: soundあり（ミュート可）・TTSなしでMVP開始（12章）でよいか。
-11. **records最小項目**: 9.1章の7項目でよいか、削減または追加が必要か。
-12. **M2 MVP範囲**: 25章のスコープ（実装するもの/しないもの）でよいか。
+M1時点の12件の残存論点は、Phase M2実装・Phase M2.1のUser Reviewを経て以下の通りすべて確定した（`miru-hirogaru-app.html`実装済み）。
+
+1. **Level1 feedback方式**: color spreading（`.mh-spread`、900ms ease-outスケール＋フェード）＋soft sound（Web Audio API、660→880Hz、約180ms）の組み合わせで確定。
+2. **feedback duration**: 900msで確定。
+3. **Level2左右/上下**: 左右配置で確定。teal circle（左・ひだり）／orange square（右・みぎ）の色形両方の差別化で実装。
+4. **Level3静止/移動**: 静止3target（circle/square/triangle、横並び）でM2スコープ確定。moving targetはM2非対象のまま。
+5. **success-onlyを全Level維持するか**: Level1〜3すべてmistake概念なしで確定・実装（`activateTarget()`にfailure分岐は存在しない）。
+6. **activation lock**: 300msで確定。
+7. **Switch interval**: 1500ms固定（設定UIなし）で確定。
+8. **Level1 direct switch**: Level1のみDirect Activation（scan cycle無し、switch press即activation）、Level2/3はAuto Scanで確定・実装。
+9. **session終了方式**: 支援者による明示的終了（既存共通home/lockボタン）＋10回activationごとのソフト完了メッセージ（「たくさんできたね！つづけてあそべます」、4秒で自動消去、強制終了なし）で確定。
+10. **sound/TTS**: soundあり（ミュート可、既定ON）・TTSなしでMVP確定。
+11. **records最小項目**: 9.1章の7項目（timestamp/level/target/inputMethod/responseTime/dwellDuration/activationCount）のまま確定、CSV列も同一。
+12. **M2 MVP範囲**: 25章のスコープ通り実装完了（moving target/sensory3段階/manual scan/two-switch/custom dwell設定/preference analytics/TTSは非対象のまま）。
+
+### 実測確定値（Rendered Validation済み）
+- Target size: Level1 168px（375px以下）/200px、Level2 128px/140px×2、Level3 96px/110px×3
+- Colors: circle=`#00A99D`（primary）、square=`#F5A623`（accent）、triangle=`#4A8FD9`（info）——いずれも既存Design System色
+- Background: `#FAF7F2`
+
+### Phase M2.1: Gaze × Switch Scan 視覚的共存の確認・修正
+Gaze dwell ring（`.mh-target-ring`、inset:-8px）とSwitch Scan highlight（`.mh-target.scan-focus`、当初outline-offset:6px）が同時ONの状態で、両者の描画帯がほぼ同じ半径に重なり視覚的に区別しにくいことが実機検証で判明した。**Switch Scan outlineのoutline-offsetを6px→14pxへ変更**し、target本体→gaze進行リング（内側）→Switch Scanハイライト（外側、明確な間隔あり）の3層が同心円として明確に分離されることを確認（375×667を含む5viewport、high contrast、reduced motionいずれも確認済み）。Level1はDirect Activationのため、両方ON時でもLevel1のtarget自体にはSwitch Scanのoutlineは表示されない（scan cycleが存在しないため）ことも確認した。
 
 ---
 
