@@ -751,6 +751,7 @@ function renderTask() {
     btn.addEventListener('pointermove', onShapePointerMove);
     btn.addEventListener('pointerup', onShapePointerUp);
     btn.addEventListener('pointercancel', onShapePointerCancel);
+    btn.addEventListener('lostpointercapture', onShapePointerLostCapture);
     shapesTray.appendChild(btn);
   });
 }
@@ -902,15 +903,27 @@ var suppressNextClick = false; // set once a real drag completes, so the browser
                                 // post-pointerup synthetic click doesn't also fire
                                 // onShapeActivate (Phase26-D6.1 "1 gesture = 1 activation")
 
+// single idempotent cleanup path for every way a drag gesture can end (successful drop,
+// outside-drop cancel, pointercancel, blur/visibilitychange, and lostpointercapture as a
+// fallback — Phase26-G). Unconditionally safe to call even for a gesture that never
+// crossed the drag threshold (proxyEl is null, the 'dragging' class was never added —
+// both are no-ops) since pointer capture is now claimed at pointerdown time (see
+// onShapePointerDown) and must be released either way.
+function finishDragVisuals(ds) {
+  if (!ds) return;
+  if (ds.proxyEl && ds.proxyEl.parentNode) ds.proxyEl.parentNode.removeChild(ds.proxyEl);
+  document.querySelectorAll('.target-btn.drag-hover').forEach(function(el) { el.classList.remove('drag-hover'); });
+  if (ds.originalEl) {
+    ds.originalEl.classList.remove('dragging');
+    try { ds.originalEl.releasePointerCapture(ds.pointerId); } catch (e) {}
+  }
+}
+
 function cancelActiveDrag() {
   if (!dragState) return;
   var ds = dragState;
   dragState = null;
-  if (ds.dragging) {
-    cleanupDragProxy(ds);
-    ds.originalEl.classList.remove('dragging');
-    try { ds.originalEl.releasePointerCapture(ds.pointerId); } catch (e) {}
-  }
+  finishDragVisuals(ds);
 }
 
 function createDragProxy(originalEl) {
@@ -935,10 +948,6 @@ function positionDragProxy(proxy, clientX, clientY) {
   proxy.style.left = (clientX - proxy._offsetX) + 'px';
   proxy.style.top = (clientY - proxy._offsetY) + 'px';
 }
-function cleanupDragProxy(ds) {
-  if (ds.proxyEl && ds.proxyEl.parentNode) ds.proxyEl.parentNode.removeChild(ds.proxyEl);
-  document.querySelectorAll('.target-btn.drag-hover').forEach(function(el) { el.classList.remove('drag-hover'); });
-}
 function hitTestTarget(clientX, clientY) {
   var el = document.elementFromPoint(clientX, clientY);
   if (!el) return null;
@@ -956,9 +965,30 @@ function onShapePointerDown(e, shapeId) {
   if (e.pointerType === 'mouse' && e.button !== 0) return; // left button only
   if (dragState) return; // one active drag at a time (Phase26-D7 multi-pointer guard)
   if (!task) return;
+  // Mirrors onShapeActivate's tap guard (Phase26-G): 'feedback' is a brief transitional
+  // phase (700-900ms after a placement) with its own pending setTimeout that will call
+  // renderTask() when it fires. Starting a NEW drag during that window let a still-active
+  // gesture's originalEl/proxy survive past the render that swaps in fresh shape/target
+  // buttons — the render destroys originalEl (pointer capture is implicitly released,
+  // so this gesture's eventual pointerup never reaches onShapePointerUp), leaving
+  // dragState stuck non-null (blocking all future drags via the guard above) and the
+  // proxy — appended directly to document.body, untouched by the tray rebuild —
+  // orphaned on screen. This is the consecutive-drag freeze reported in Phase26-G.
+  if (phase !== 'waitingShape' && phase !== 'waitingTarget') return;
   var shape = task.shapes.filter(function(s) { return s.id === shapeId && !s.placed; })[0];
   if (!shape) return;
   dragState = { shapeId: shapeId, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, startTime: Date.now(), dragging: false, proxyEl: null, originalEl: e.currentTarget };
+  // Claim pointer capture immediately, not lazily once the movement threshold is first
+  // crossed (Phase26-G). Before capture is set, pointermove/pointerup route via normal
+  // hit-testing at the pointer's current screen position. For a fast/long gesture toward
+  // a distant target (a real swipe), the very first move sample can already land outside
+  // originalEl's bounds — onShapePointerMove (bound only to .shape-btn elements) then
+  // never fires again for this pointerId, the threshold never registers as crossed, and
+  // the eventual pointerup lands on whatever element the pointer ended up over (e.g. a
+  // .target-btn, which has no matching handler), stranding dragState permanently and
+  // blocking every future drag via the guard above. Capturing here guarantees every event
+  // for this gesture keeps reaching originalEl regardless of how far/fast the pointer moves.
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
 }
 function onShapePointerMove(e) {
   if (!dragState || e.pointerId !== dragState.pointerId) return;
@@ -966,7 +996,6 @@ function onShapePointerMove(e) {
   if (!dragState.dragging) {
     if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return; // still just a tap-in-progress
     dragState.dragging = true;
-    try { dragState.originalEl.setPointerCapture(dragState.pointerId); } catch (err) {}
     dragState.originalEl.classList.add('dragging');
     dragState.proxyEl = createDragProxy(dragState.originalEl);
     document.body.appendChild(dragState.proxyEl);
@@ -981,15 +1010,13 @@ function onShapePointerUp(e) {
   if (!dragState || e.pointerId !== dragState.pointerId) return;
   var ds = dragState;
   dragState = null;
+  var dropTarget = ds.dragging ? hitTestTarget(e.clientX, e.clientY) : null;
+  finishDragVisuals(ds); // always release the capture claimed at pointerdown, even if the
+                          // threshold was never crossed (proxy/class cleanup are no-ops then)
   if (!ds.dragging) return; // never crossed the threshold — let the normal click handle it as a tap
 
   suppressNextClick = true;
   setTimeout(function() { suppressNextClick = false; }, 0);
-
-  var dropTarget = hitTestTarget(e.clientX, e.clientY);
-  cleanupDragProxy(ds);
-  ds.originalEl.classList.remove('dragging');
-  try { ds.originalEl.releasePointerCapture(ds.pointerId); } catch (err) {}
 
   if (!task) return; // level/session changed mid-drag
   var stillAvailable = task.shapes.some(function(s) { return s.id === ds.shapeId && !s.placed; });
@@ -1004,6 +1031,16 @@ function onShapePointerUp(e) {
   // or nothing) is already exactly as it was; nothing to restore.
 }
 function onShapePointerCancel(e) {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  cancelActiveDrag();
+}
+// Safety-net fallback (Phase26-G): if the captured element is ever removed from the DOM
+// while capture is still held, the browser implicitly releases capture and fires this
+// event on it — but does not reliably also fire pointercancel in every browser. Routing
+// it through the same idempotent cancelActiveDrag() guarantees dragState/proxy/pointer
+// capture never gets stuck even if some other, not-yet-identified path recreates the
+// render-during-drag race the phase guard above closes off.
+function onShapePointerLostCapture(e) {
   if (!dragState || e.pointerId !== dragState.pointerId) return;
   cancelActiveDrag();
 }
