@@ -19,8 +19,9 @@ Phase26-I2の申し送り事項（0章末尾）を受け、Phase26-I3で以下�
 - **一致判定**: `shapeType`と`size`の両方が一致した場合のみ正解（同形・サイズ違いを誤って正解としない）ことを直接実行検証で確認。
 - **Records/CSV**: ログエントリに`concept`と（おおきさ concept時のみ）`shapeSize`を追加。セッション分割ロジック（`groupLogIntoSessions`）はlevel一致に加えてconcept一致も条件化（同一level番号でもconceptが違えば別セッション扱い）。CSVは既存11列の末尾に「おおきさ」列を追加（12列目）、既存列の順序・内容は変更なし。旧形式ログ（`concept`/`shapeSize`欠落）は`concept`を`'shape'`とみなして読み込み、CSV新列は空欄で正常出力されることを合成データで確認。
 - **concept切替時の状態リセット**: ドラッグ中断・feedback/選択クリア・task/進捗/セッションリセットを実装。実機検証で確認済み（詳細はPhase26-I3最終報告を参照）。
+- **Phase26-I3.1 追記（誤答記録のsize対応）**: `mistakeSelections`（CSV「間違えた内容」列の元データ）は当初shapeTypeのみを保存しており、おおきさ concept で「形は合っていたが大きさを間違えた」情報が失われていた。修正後は誤答targetの`{shapeType, size}`（internal target IDではない）を保存し、既存の`shapeSpokenLabel()`（TTS/aria-labelと共通）でCSVへ「おおきい まる」「ちいさい さんかく」のようにsize-aware表示する。CSVの列構造（12列）自体はI3から変更なし。旧形式（`mistakeSelections`がshapeType文字列の配列のみ）のrecordも`typeof`判定で後方互換を維持。
 
-本追記の詳細な検証ログ・67項目の確認結果はPhase26-I3の最終報告（チャット履歴）を参照。
+本追記の詳細な検証ログはPhase26-I3/I3.1/I4/I4.1の各最終報告（チャット履歴）を参照。
 
 ---
 
