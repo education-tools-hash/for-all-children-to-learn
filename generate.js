@@ -1620,7 +1620,7 @@ const MANUAL_CHANGELOG = [
     "「おおきい？ちいさい？くらべよう」で、どの問題で間違えたかを記録から確認できるようにし、記録をCSVで書き出せるようにしました。",
     "「おおきい？ちいさい？くらべよう」で、スマートフォンなどの小さな画面でも、大きさや長さの違いがより分かりやすく表示されるよう改善しました。",
     "「おおきい？ちいさい？くらべよう」の学習記録で、『くわしく見る』を押したときに、選んだ記録とは別の内容が表示されることがある問題を修正しました。",
-    "「かたちをあわせよう」の見やすさと操作性を改善しました。",
+    "「かたちをあわせよう」の図形の見やすさ、操作性を改善しました",
   ] },
   { date: "2026-08-11", type: "update", text: "各アプリの不具合をまとめて修正しました。", details: [
     "「すごろく」スイッチ操作でスキャンをオフにした直後に、選んだボタンのハイライトが消えずに残ってしまうことがある問題を修正しました。",
@@ -1795,7 +1795,7 @@ function generateChangelog(apps) {
   return dateOrder.map(date => {
     const members = dateGroups[date];
 
-    const appGroups = {}; // appId -> { releasedHere, updatedHere, updateType }
+    const appGroups = {}; // appId -> { releasedHere, updatedHere, updateType, updateLines }
     const appOrder = [];
     const siteItems = []; // { text } — アプリを安全に特定できない/アプリ横断の変更
 
@@ -1803,7 +1803,7 @@ function generateChangelog(apps) {
       if (m.sourceAppId) {
         // automatic release entry: アプリは確定済み
         if (!appGroups[m.sourceAppId]) {
-          appGroups[m.sourceAppId] = { releasedHere: false, updatedHere: false, updateType: m.type };
+          appGroups[m.sourceAppId] = { releasedHere: false, updatedHere: false, updateType: m.type, updateLines: [] };
           appOrder.push(m.sourceAppId);
         }
         appGroups[m.sourceAppId].releasedHere = true;
@@ -1825,14 +1825,22 @@ function generateChangelog(apps) {
         siteItems.push({ text: m.text });
         return;
       }
-      perLineApps.forEach(names => {
-        names.forEach(appId => {
+      // 各行が指すアプリを判定するのと同時に、その行の原文(MANUAL_CHANGELOGの著者が
+      // 書いたuser-facing text)自体もappごとに保持する(Phase26-F)。この原文は、
+      // 後段でその日のそのアプリの改善内容として一意に確定できる場合(＝同日にその
+      // アプリを指す行が1本だけの場合)にそのまま表示へ使う。Structure(1 app=1 item
+      // への集約)は自動化してよいが、著者が書いたsemantics(具体的に何が良くなったか)
+      // は生成処理が勝手に一般化・破棄してはならない、というPhase26-E策定の原則
+      // (Structure may be normalized; semantics must be preserved)をここで実装する。
+      contentLines.forEach((line, idx) => {
+        perLineApps[idx].forEach(appId => {
           if (!appGroups[appId]) {
-            appGroups[appId] = { releasedHere: false, updatedHere: false, updateType: m.type };
+            appGroups[appId] = { releasedHere: false, updatedHere: false, updateType: m.type, updateLines: [] };
             appOrder.push(appId);
           }
           appGroups[appId].updatedHere = true;
           appGroups[appId].updateType = m.type;
+          appGroups[appId].updateLines.push(String(line).trim());
         });
       });
     });
@@ -1844,20 +1852,41 @@ function generateChangelog(apps) {
       const g = appGroups[appId];
       const app = appById[appId];
       const title = app ? app.title : appId;
+      // そのアプリを名指しした行が同日に1本だけなら、その原文を意味を保ったまま
+      // そのまま使う。複数本ある場合(同じアプリへ複数Phase由来の別々の一文が
+      // まだMANUAL_CHANGELOG側で1文へ統合されていない場合)は、無理な自動合成は
+      // 行わず、従来通りの一般化文へフォールバックする(44.6/44.7は執筆時に人が
+      // 統合する運用を前提としており、本関数は新たな文章生成処理を持たない)。
+      const updateText = g.updateLines.length === 1
+        ? g.updateLines[0]
+        : (g.updateType === 'design' ? `「${title}」を見やすく改善しました` : `「${title}」を改善しました`);
       if (g.releasedHere && g.updatedHere) {
+        // 新規公開とその日の改善は意味の異なるsemantic categoryのため、1行へ
+        // 一般化して合成せず、2つの別項目として保持する(Phase26-E 44.3/Phase26-F)。
         releaseApps.push({ appId, title });
-        detailLines.push(`「${title}」を公開し、改善しました`);
+        detailLines.push(`「${title}」を公開しました`);
+        detailLines.push(updateText);
       } else if (g.releasedHere) {
         releaseApps.push({ appId, title });
         detailLines.push(`「${title}」を公開しました`);
       } else {
         updatedOnlyApps.push({ appId, title });
-        detailLines.push(g.updateType === 'design' ? `「${title}」を見やすく改善しました` : `「${title}」を改善しました`);
+        detailLines.push(updateText);
       }
     });
     siteItems.forEach(s => detailLines.push(s.text));
 
-    const updateCount = detailLines.length;
+    // 1行で複数アプリへ言及する原文(例:「AAA」「BBB」設定から〜を修正)は、その同じ
+    // 原文がappごとの行として2回積まれうる。情報を落とさない範囲での構造的な整理
+    // として、完全一致する行の重複だけを除去する(Phase26-F)。
+    const seenDetailLines = new Set();
+    const dedupedDetailLines = detailLines.filter(line => {
+      if (seenDetailLines.has(line)) return false;
+      seenDetailLines.add(line);
+      return true;
+    });
+
+    const updateCount = dedupedDetailLines.length;
     const isTrivialSingleSiteItem = releaseApps.length === 0 && updatedOnlyApps.length === 0 && siteItems.length === 1;
 
     // 見出し生成: 固定文言「どのまなを更新しました」は使わず、その日の内容から
@@ -1887,7 +1916,7 @@ function generateChangelog(apps) {
     // もう一度「詳細」として展開させる意味のないトグルを出さない(details省略)。
     return isTrivialSingleSiteItem
       ? { date, type: primaryType, text, updateCount }
-      : { date, type: primaryType, text, details: detailLines, updateCount };
+      : { date, type: primaryType, text, details: dedupedDetailLines, updateCount };
   });
 }
 
