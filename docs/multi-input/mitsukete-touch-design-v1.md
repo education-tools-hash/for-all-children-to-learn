@@ -358,6 +358,34 @@ User Reviewの結果、抽象的なオリジナル造形（`viewBox="0 0 100 100
 - **Character Recognition**: full reveal時に6キャラクターが一目で区別できること。peek時はLevel1で種類まで分かりやすく、Level2/3では「何かいる」ことが明確であれば種類の断定は不要。
 - **No Character Clipping**: 全viewport・全Level・全キャラクターでSVG/hidespot/viewportいずれによるclippingが発生しないこと。
 
+### Phase M6.2: キャラクターasset方式への移行（コード生成SVG→イラストasset）
+
+User Reviewにより、M6.1（2回目）の具体化SVGでも、ユーザーが別途ChatGPTで生成した参考イラスト（グロッシーな3D調・大きな黒目に白ハイライト・丸い輪郭・淡いパステル色・雲から覗く構図の6キャラクター）と比べると、可愛らしさ・親しみやすさ・「見つけたい」と思わせる訴求力の面で見劣りするとの指摘があった。これを受け、方針を次のとおり変更した。
+
+> User Reviewの結果、認識性だけでなくEngagementを高めるため、コード生成によるsimple SVGキャラクターから、統一された高品質イラストasset方式へ変更した。Visual Source of TruthはUser承認済みの生成参考画像とし、Touch/Gaze/Switch/Keyboardのsemantic interactionとは独立したpresentation assetとして管理する。
+
+**設計原則（新規追加）**: キャラクターの見た目（asset）と、Touch/Gaze/Switch/Keyboardが操作する意味的なUI（`.mt-hidespot`ボタン・`aria-label`・`activateItem(itemId, inputMethod)`）は、明確に別レイヤーとして扱う。asset側をどれだけ作り替えても、意味的interaction層（イベントリスナー・キーボード操作・スクリーンリーダー向け名前）には触れない。今回の移行でも`activateItem`のシグネチャ・呼び出し規約・records/CSVスキーマは一切変更していない。
+
+**Visual Source of Truth**: ユーザーがChatGPTで生成し、ローカルに配置した参考画像1枚（3列×2行グリッド、うさぎ/ねこ/いぬ/ひよこ/くま/おほしさまの6キャラクターが雲の上から覗く構図）。実装前に画像ファイルを直接読み込んで確認した上で作業を開始した（想像や既存キャラクターの模倣ではなく、実ファイルを参照）。
+
+**asset抽出方法（優先順位どおり「クリーンな抽出」を採用）**:
+1. 参考画像を3×2のセル（512×512）に分割。
+2. 各セルから、参考画像自身の雲・前足イラスト部分を除いた「キャラクターの顔・上半身」のみを切り出し（雲は本アプリ自身のSVG（`CLOUD_SVG`）を引き続き使用するため、参考画像側の雲は採用しない）。
+3. 切り出し境界に合わせてアルファチャンネルへ feather（縁を滑らかに透明化するグラデーションマスク）を適用し、背景色や矩形境界が見えないようにした。くま/ひよこ/おほしさまの3体は当初の切り出し下端が参考画像自身の雲の水色ふちに掛かっていたため、下端を再調整（feather幅も個別に縮小）し、雲の色が一切残らないことを確認した。
+4. 6体を統一キャンバス（543×382px、透明背景）へ正規化。各キャラクターの目の中心座標を全て同一点に揃えることで、種ごとに異なるアートワークの縦横比・余白があっても、CSS側は1種類のwidth/top設定だけで全キャラクターに同じ見え方（視覚的中心・目の高さ・基準線が統一）を実現できるようにした（8章の「統一canvas」要件に対応）。
+
+**保存場所・形式**: `assets/mitsukete-touch/{rabbit,cat,dog,chick,bear,star}.png`（リポジトリ既存の`assets/{app}/`慣例に準拠、外部URL不使用）。全てPNG(RGBA)、543×382px、ファイルサイズは1体あたり約83〜138KB（6体合計 約700KB）。
+
+**レイヤー構成**: `.mt-character`（背面・キャラクターimg）→`.mt-cloud`（前面・本アプリ自身のCLOUD_SVGのまま、参考画像の雲は不使用）という既存の重なり順を維持。キャラクターimgには`alt=""`と`aria-hidden="true"`を付与し、意味的な名前は引き続き`.mt-hidespot`の`aria-label`のみが担う（重複読み上げなし）。
+
+**旧SVGの扱い**: `characterInnerSVG()`・`characterSVG()`は完全に削除し、`characterImg(charId)`（`<img src="assets/mitsukete-touch/{id}.png">`を返す）へ置き換えた。フォールバックとして旧SVG関数を残すことはしていない（未使用コードを残さない方針）。
+
+**雲・キャラクターの拡大**（User Review「雲とイラストがもっと大きくてもよい」への対応）: `.mt-size-1/2/3`を200/150/130px（モバイル168/128/100px）から230/176/152px（モバイル194/150/104px）へ拡大、`.mt-cloud`のwidthも90%→98%へ拡大。Playwrightによる境界矩形の網羅測定（5 viewport×3 Level×6キャラクター）で、Level3の3か所横並びレイアウトが375/390px幅では`left:24%/right:76%`のままだと衝突することを発見したため、**Level3限定**で`.mt-size-3.mt-pos-left/right`を17.5%/82.5%へ個別に広げ（Level1/2の位置指定には影響しない）、モバイル用breakpointも480px→600pxへ拡張して衝突しない範囲を広げた。最終的に0 clipping・0 collision・0 horizontal overflowを確認した。
+
+**peek量の再調整**: 6体を統一canvasへ正規化した結果、キャラクターごとに「canvas最上部から実際に不透明なピクセルが始まる位置」が異なることが判明した（うさぎは耳が最上部近くにあるため7%、いぬは垂れ耳が最も低い位置から始まるため40%）。最も厳しいいぬを基準に、Level3（`peek-3: -6%`）でもいぬの耳先が確実に覗くことをRendered Validationで確認した上で、`peek-1/2/3`を`-34%/-18%/-6%`、revealed状態を`-46%`へ再設定した。
+
+**新規に発見・修正したバグ（asset作業とは無関係、Switch再検証で発見）**: Level2/3でSwitchスキャンによりhidespotへ意味的activationがフォーカスされている状態でSpaceキーを押すと、hidespotボタン自身のkeydownリスナーが`activateItem()`を呼び出し、その内部で同期的に`renderItems()`→`refreshSwitchScanItems()`が走ってDOMとフォーカスが再構築される。その直後、同じSpaceキー入力がdocument側のAuto Scanハンドラへもbubbleし、再構築後にフォーカスが移っていた別要素（レベル切替ボタン等）を誤ってclickし、trialとlevelが意図せずリセットされる二重発火が生じることを、本Phase必須のSwitch再検証で発見した。hidespotボタン側のkeydownリスナーで、scanMode有効時のSpaceキーをdocument側ハンドラへ一任する（何もしない）よう1行のガードを追加し修正した（Enterキーの直接操作には影響なし）。修正後、Level2/3のSwitch scan+space活性化で二重発火・trial/level誤リセットが発生しないことを確認した。
+
 ---
 
 ## 24. 引用・参照
