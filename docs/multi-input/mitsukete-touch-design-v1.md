@@ -1,8 +1,8 @@
-# 「どこかな？みーつけた！」個別設計 v1.4（Phase M5〜M7.1a — Pop Discovery / Peekaboo）
+# 「どこかな？みーつけた！」個別設計 v1.5（Phase M5〜M7.1b — Pop Discovery / Peekaboo）
 
-- 版: v1.4（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映）
+- 版: v1.5（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映、v1.5はPhase M7.1bのオルゴールBGM再設計を反映）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
-- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a（BGM追加・修正）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
+- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a／M7.1b（BGM追加・修正・オルゴール化）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
 
 ---
 
@@ -439,6 +439,28 @@ Phase M7.1のLocal RC（`c5af79d`）をAudio User Reviewへ供したところ、
 **再検証結果**: ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level切替/trial切替/visibility制御/4通りのsound設定組み合わせ/55回混在活性化ストレス/20回BGM切替ストレス——全てPlaywrightで`currentTime`の実進行を含めて再確認し、PASS。console error・pageerrorとも0件を維持。
 
 **それでも自動テストでは証明できないこと**: 実際にスピーカー/ヘッドフォンから音が聞こえるか、システム音量・OSのミュート設定・実ブラウザのメディア許可設定等、JavaScriptから観測不能な要因は今回のような自動検証の範囲外である。今回の修正は「アプリ側のコードに起因する構造的な無音バグ」を解消したという主張に留まり、**実際に聞こえることの最終確認はAudio User Reviewに委ねる。**
+
+### Phase M7.1b: オルゴールBGM調整
+
+Phase M7.1aのLocal RC（`2e38233`）に対するAudio User Reviewの結果、**BGMが実際に鳴ることを確認（PASS）**、HTMLAudioElementによる再生基盤・BGM ON/OFFともに承認された。その上で、「オルゴール風の方がアプリの世界観に合う」というUser Feedbackを受け、再生基盤・game logic・他のcharacter/layout等には一切触れず、`assets/mitsukete-touch/audio/bgm-loop.mp3`の音楽的デザインのみを再設計した。
+
+**新BGMコンセプト**: 「ふわふわ雲の上で、かわいい動物たちとかくれんぼをしているようなオルゴール」。子守唄ではなく、穏やかだが少し弾む、遊びのBGMを目指した。
+
+**音色設計**: music box（オルゴール）系の音色を主役に据え、Phase M7.1のベル（やや非調和なパーシャル比）から、より調和的なパーシャル比（1, 2.006, 3, 4 — 2倍音のみわずかにデチューンして自然な揺らぎを持たせ、金属的になりすぎないようにした）へ変更。低次倍音ほど長く鳴る減衰設計（1.35秒/0.95秒/0.6秒/0.38秒）で丸く温かい響きとし、マスターローパスを6200Hz（M7.1は7000Hz）へ下げて高音の鋭さ（キンキン感）を抑えた。補助的に非常に薄いwarm pad（各小節頭に1回、root+fifthのdyadを小音量0.034で配置）を追加し、和声的な土台を与えつつ主旋律の邪魔をしないようにした。リバーブもM7.1（wet 0.22）よりさらに軽く（wet 0.15、taps 3本・より短いdelay）し、長い残響で音像が濁らないようにした。
+
+**作曲**: 完全新規のオリジナル作曲。既存曲・童謡・有名なオルゴール曲の引用は一切なし。Cメジャー・ペンタトニック（C D E G A）中心、8小節のAABB的構成（bar0-1とbar4-5がほぼ同型の動機、bar2-3とbar6-7が応答的な動機、最終小節はC5一音で静かに減衰しループ境界へ繋がる）。旋律は意図的に疎らにし（1小節に2〜3音、休符を多く配置）、「音と音の間に適度な余白」を作った。和声進行はI–I–IV–V–I–I–IV–Iというシンプルな構成としたが、Phase M7.1（I–V–vi–IV–I–V–IV–I）とは別の進行にして単純な焼き直しにならないようにした。
+
+**tempo/duration**: 80BPM（M7.1の96BPMよりゆったり）、8小節=24.0秒（M7.1は20.0秒）。要件の20〜30秒範囲内。
+
+**ループ**: M7.1と同じ手法（末尾減衰テールの先頭への折り返し加算＋10msイコールパワー・クロスフェード）を踏襲。波形解析でループ境界前後が完全な無音（`0.0`）であることを確認済み。加えて、`currentTime`を意図的にループ境界直前（23.5秒）へシークしてから境界を跨がせるテストを行い、`paused`のまま停止せず正しく先頭付近（約1.17秒）へ折り返して再生継続することを確認した。
+
+**音量/asset比較**: 新assetもM7.1と同じ手法でマスターピークを-6dBFS相当（0.5）へ正規化したため、アプリ側の`BGM_VOLUME`（`HTMLAudioElement.volume`）は0.22のまま変更していない。ただし新assetのRMSは0.128（M7.1のBGMは0.103）で、ピークは同一でも平均的な音圧はやや高め——疎らな旋律の合間を埋める常時鳴っているwarm padの存在が主因と考えられる。数値上clippingはなく（近フルスケールサンプル0件）、要件どおり「安易にvolume設定を変更しない」方針を維持したが、この音圧差はAudio User Reviewで報告し、体感で強すぎる場合は`BGM_VOLUME`側の微調整を次Phaseで検討する。
+
+**比較用asset**: 差し替え前のPhase M7.1a版BGM（`bgm-loop-OLD-bell-for-comparison.mp3`）はリポジトリ外のスクラッチ領域にのみ一時保存し、コミットには含めていない。最終的にUserが試聴するのは新オルゴール版のみ。
+
+**再検証結果**: Phase M7.1aで確立した検証一式（ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level遷移/trial遷移/visibility制御/4通りのsound設定組み合わせ/55回混在活性化ストレス/20回BGM切替ストレス/`currentTime`実時間進行）を新assetに対して再実行し、全てPASS。再生基盤（`HTMLAudioElement`）・ファイルパス（`assets/mitsukete-touch/audio/bgm-loop.mp3`）・app側コードはPhase M7.1aから一切変更していないため、game logic・Records・CSV・Touch/Gaze/Switch/Keyboardへの影響はない。console error・pageerrorとも0件。
+
+**Audio Validation事項（未確認・ユーザー確認が必要）**: 「オルゴールらしいか」「かわいいか」「M7.1のベル版と比べてより世界観に合うか」「音圧がやや高めに感じられないか」——これらはAI自身が聴覚的に検証できないため、構造的な設計（音色パーシャル比・エンベロープ・和声・音圧測定値）のみを保証し、実際の聴感評価はユーザーに委ねる。
 
 ---
 
