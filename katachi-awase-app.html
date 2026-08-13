@@ -80,10 +80,13 @@
   .app-title { font-size: var(--dm-font-size-heading,1.5rem); margin: 0; }
   .settings-toggle-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; }
 
-  .level-row, .count-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); margin: var(--dm-space-2,8px) 0; }
-  .level-row[hidden], .count-row[hidden] { display: none; }
-  .level-btn, .count-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-pill,999px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
-  .level-btn.active, .count-btn.active { background: var(--dm-color-primary,#00A99D); border-color: var(--dm-color-primary,#00A99D); color: #fff; }
+  /* Phase26-I2: .concept-row reuses the exact same row/button styling as .level-row/
+     .count-row (no new visual pattern) — kept `hidden` today (see the HTML), but styled
+     now so a future phase enabling it doesn't also need new CSS. */
+  .level-row, .count-row, .concept-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); margin: var(--dm-space-2,8px) 0; }
+  .level-row[hidden], .count-row[hidden], .concept-row[hidden] { display: none; }
+  .level-btn, .count-btn, .concept-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-pill,999px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
+  .level-btn.active, .count-btn.active, .concept-btn.active { background: var(--dm-color-primary,#00A99D); border-color: var(--dm-color-primary,#00A99D); color: #fff; }
 
   #progressArea { margin: var(--dm-space-2,8px) 0; }
   #progressText { font-weight: 700; font-size: 1.0625rem; }
@@ -516,6 +519,15 @@
     <button id="settingsBtn" class="settings-toggle-btn scannable" data-scan="1" tabindex="0" aria-expanded="false" aria-controls="settingsPanel">⚙️ せってい</button>
   </header>
 
+  <!-- Phase26-I2: concept switching foundation (かたち/おおきさ), modeled on kurabeyou-app's
+       .concept-btn row. Left `hidden` (same pattern as #countRow below) — "おおきさ" has no
+       actual questions/UI behind it yet (that's Phase26-I3+), so this stays a Continuous-
+       Release-safe internal foundation rather than a half-built feature shown to users. -->
+  <div class="concept-row" id="conceptRow" role="group" aria-label="がくしゅうの しゅるい" hidden>
+    <button class="concept-btn active" data-concept="shape" tabindex="0" aria-pressed="true">かたち</button>
+    <button class="concept-btn" data-concept="size" tabindex="0" aria-pressed="false">おおきさ</button>
+  </div>
+
   <div class="level-row" role="group" aria-label="レベル">
     <button class="level-btn" data-level="1" tabindex="0" aria-pressed="true">ひとつ</button>
     <button class="level-btn" data-level="2" tabindex="0" aria-pressed="false">ふたつ</button>
@@ -594,6 +606,7 @@
 /* =====================================================================
    basic elements / canonical settings state
 ===================================================================== */
+var conceptBtns = Array.from(document.querySelectorAll('.concept-btn'));
 var levelBtns = Array.from(document.querySelectorAll('.level-btn'));
 var countBtns = Array.from(document.querySelectorAll('.count-btn'));
 var countRow = document.getElementById('countRow');
@@ -636,6 +649,17 @@ var SHAPE_LABEL = { circle: 'まる', triangle: 'さんかく', square: 'しか�
    from shape id alone (see selectTarget). Targets never show a fill color
    until placed, so color can never be used as a matching cue. */
 var PALETTE = ['#00A99D', '#F5A623', '#4A8FD9', '#D9639C', '#8B6FD9', '#7CB342'];
+/* Phase26-I2: shape/target identity ("id") is composed from semantic type + size,
+   collapsing to the bare type string when size is absent — which keeps every id
+   byte-for-byte identical to what this app produced before this change, for every
+   code path the existing "かたち" concept (size is always null here) exercises.
+   TTS/aria-label/CSS-class/records/CSV already read shapeType (never id) for anything
+   user-facing (see SHAPE_LABEL usage throughout) — id is used only for internal
+   bookkeeping (DOM dataset attributes, canonical-state lookups, dragState, Switch
+   Scan/gaze element matching), so widening what id can be does not by itself change
+   anything a user sees. Foundation for future same-type-different-size tasks (e.g.
+   a large circle and a small circle in the same problem); not used for that yet. */
+function makeShapeId(type, size) { return size ? (type + '-' + size) : type; }
 function shuffleArray(arr) {
   var a = arr.slice();
   for (var i = a.length - 1; i > 0; i--) {
@@ -646,6 +670,11 @@ function shuffleArray(arr) {
 }
 function pickColors(n) { return shuffleArray(PALETTE).slice(0, n); }
 
+// Phase26-I2: which top-level learning concept is active ('shape' | 'size'). 'size' has
+// no question/rendering logic behind it yet (Phase26-I3+) and the UI to reach it is
+// hidden in production (#conceptRow), so this stays 'shape' for every real user today —
+// existing level/session/task/phase all continue to describe the "かたち" concept only.
+var currentConcept = 'shape';
 var level = 1;
 var questionCount = 5;
 var ttsEnabled = true;
@@ -715,8 +744,11 @@ function loadSettings() {
 }
 
 /* =====================================================================
-   canonical task generation — semantic mapping is always shape id === target
-   id; DOM order, left/right position and color never encode correctness.
+   canonical task generation — semantic mapping is always (shape type, shape
+   size) === (target type, target size); DOM order, left/right position and
+   color never encode correctness. This app's only concept today ("かたち")
+   never sets size, so every shape/target here has size:null and generates
+   the exact same id it always has (see makeShapeId above).
 ===================================================================== */
 function generateTask(lvl) {
   var n = (lvl === 1) ? 1 : lvl;
@@ -726,12 +758,12 @@ function generateTask(lvl) {
   var targetOrder = shuffleArray(types);
   return {
     level: lvl,
-    shapes: shapeOrder.map(function(t, i) { return { id: t, shapeType: t, color: colors[types.indexOf(t)], placed: false }; }),
-    targets: targetOrder.map(function(t) { return { id: t, shapeType: t, filled: false }; }),
+    shapes: shapeOrder.map(function(t, i) { return { id: makeShapeId(t, null), shapeType: t, size: null, color: colors[types.indexOf(t)], placed: false }; }),
+    targets: targetOrder.map(function(t) { return { id: makeShapeId(t, null), shapeType: t, size: null, filled: false }; }),
     selectedShapeId: null,
     placedShapeIds: [],
-    mistakes: [], // {shapeId, selectedTargetId, expectedTargetId, attempt}
-    attemptsByShape: {}, // shapeId -> array of wrong target ids tried, in order
+    mistakes: [], // {shapeId, selectedTargetType, expectedType, attempt}
+    attemptsByShape: {}, // shapeId -> array of wrong target *types* tried, in order (semantic, not id — see handleWrongPlacement)
     shapeStartedAt: null,
     startedAt: Date.now()
   };
@@ -841,6 +873,27 @@ function startLevel(n) {
   saveSettings();
 }
 
+// Phase26-I2: foundation only — #conceptRow is hidden in production, so this is only
+// reachable from test/dev tooling today. Mirrors startLevel()'s safety teardown
+// (cancelActiveDrag/clearPendingFeedback) so a concept switch can never leave a stale
+// drag gesture or pending feedback timeout pointed at the concept being left. The
+// 'shape' concept's own state (level/session/task/phase) is left completely untouched
+// by a switch — Phase26-I3 will decide what "starting a size problem" means and is
+// expected to extend this function rather than replace it.
+function setConcept(concept) {
+  if (concept === currentConcept) return;
+  cancelActiveDrag();
+  clearPendingFeedback();
+  currentConcept = concept;
+  conceptBtns.forEach(function(b) {
+    var on = b.dataset.concept === concept;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  // No 'size' rendering path exists yet (Phase26-I3+); intentionally left as a no-op
+  // beyond the state/button update above.
+}
+
 function setQuestionCount(n) {
   if ([3, 5, 10].indexOf(n) === -1) return;
   if (questionCount === n) return;
@@ -907,13 +960,20 @@ function onTargetActivate(targetId, inputMethod) {
   var shapeId = task.selectedShapeId;
   var shape = task.shapes.filter(function(s) { return s.id === shapeId; })[0];
   if (!shape) return;
+  var target = task.targets.filter(function(t) { return t.id === targetId; })[0];
+  if (!target) return;
   currentInputMethod = inputMethod;
 
-  // semantic mapping only — never DOM index/left-right/color
-  if (targetId === shape.shapeType) {
+  // semantic mapping only — never DOM index/left-right/color. Compares (type, size)
+  // explicitly (Phase26-I2) rather than the old `targetId === shape.shapeType`
+  // shortcut, which only worked because target.id happened to equal target.shapeType
+  // when every id was a bare type string; that stops holding once composite type+size
+  // ids exist. size is always null on both sides in the current "かたち" concept, so
+  // this produces identical results to before.
+  if (target.shapeType === shape.shapeType && target.size === shape.size) {
     handleCorrectPlacement(shape, targetId);
   } else {
-    handleWrongPlacement(shape, targetId);
+    handleWrongPlacement(shape, target.shapeType);
   }
 }
 
@@ -1085,10 +1145,15 @@ function onShapePointerLostCapture(e) {
 window.addEventListener('blur', cancelActiveDrag);
 document.addEventListener('visibilitychange', function() { if (document.hidden) cancelActiveDrag(); });
 
-function handleWrongPlacement(shape, wrongTargetId) {
+// Phase26-I2: takes the wrongly-chosen target's semantic *type* (e.g. 'circle'), not its
+// id — attemptsByShape feeds buildRecordsCsvRows()'s "間違えた内容" column via
+// SHAPE_LABEL[type] (see below), which only resolves correctly for a real shape type,
+// not a composite type+size id. Passing shapeType here (rather than a raw target id)
+// keeps that lookup correct regardless of what target ids look like.
+function handleWrongPlacement(shape, wrongTargetType) {
   if (!task.attemptsByShape[shape.id]) task.attemptsByShape[shape.id] = [];
-  task.attemptsByShape[shape.id].push(wrongTargetId);
-  task.mistakes.push({ shapeId: shape.id, selectedTargetId: wrongTargetId, expectedTargetId: shape.shapeType });
+  task.attemptsByShape[shape.id].push(wrongTargetType);
+  task.mistakes.push({ shapeId: shape.id, selectedTargetType: wrongTargetType, expectedType: shape.shapeType });
   phase = 'feedback';
   feedbackText.textContent = 'もういちど';
   speak('もういちど');
@@ -1181,6 +1246,7 @@ function clearPendingFeedback() {
   if (feedbackTimeoutId) { clearTimeout(feedbackTimeoutId); feedbackTimeoutId = null; }
 }
 
+conceptBtns.forEach(function(b) { b.addEventListener('click', function() { setConcept(b.dataset.concept); }); });
 levelBtns.forEach(function(b) { b.addEventListener('click', function() { startLevel(Number(b.dataset.level)); }); });
 countBtns.forEach(function(b) { b.addEventListener('click', function() { setQuestionCount(Number(b.dataset.count)); }); });
 restartBtn.addEventListener('click', function() { startLevel(level); });
@@ -1219,6 +1285,11 @@ function buildScanItems() {
     items = [restartBtn];
   }
   if (settingsPanel.hidden !== false) {
+    // conceptBtns live inside #conceptRow, which is `hidden` in production today —
+    // isVisibleEnabled()'s `el.closest('[hidden]')` check already filters them out below,
+    // so including them here is forward-safe: harmless while hidden, correctly scannable
+    // once a future phase un-hides the row (Phase26-I2 foundation).
+    items = items.concat(conceptBtns);
     items = items.concat(levelBtns);
     if (shouldShowQuestionCount()) items = items.concat(countBtns);
     items.push(settingsBtn);

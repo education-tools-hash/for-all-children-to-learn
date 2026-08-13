@@ -1,9 +1,31 @@
-# かたちをあわせよう × おおきさ学習 設計案 v1.0（Phase26-I）
+# かたちをあわせよう × おおきさ学習 設計案 v1.1（Phase26-I〜I2）
 
-- 版: v1.0（設計のみ、未承認・未実装）
-- 起草: Phase26-I（`katachi-awase-app.html` / `kurabeyou-app.html` の横断調査に基づく設計）
-- 位置づけ: **本文書は実装を伴わない。** `katachi-awase-app.html`・`kurabeyou-app.html`・`generate.js` 等のProductionコードは本Phaseで一切変更していない。ユーザー承認後、別Phase（Phase26-I2等）で実装する際の設計根拠として使う。
-- Release: 本Phaseは学習内容そのものの拡張の設計であり、**Release Approval Gate対象**。本文書の内容はまだ公開されない。
+- 版: v1.1（v1.0の設計をユーザー承認、Phase26-I2で基盤実装。実際の「おおきさ」問題はまだ未実装）
+- 起草: Phase26-I（設計）／Phase26-I2（concept row・複合shape ID基盤の実装）
+- 位置づけ: `katachi-awase-app.html`への実装はPhase26-I2で開始したが、**「おおきさ」conceptはProduction上ではまだ非表示（`#conceptRow[hidden]`）**。ユーザーから見える新機能はまだ公開されていない。
+- Release: Phase26-I2は既存「かたち」学習の動作・見た目を一切変えない内部基盤変更であり、Continuous Release対象として扱った（30章参照）。「おおきさ」concept自体の公開は引き続きRelease Approval Gate対象。
+
+---
+
+## 0. Phase26-I2 追記（ユーザー承認事項の反映）
+
+Phase26-Iの設計案について、以下がユーザー承認事項として確定した。
+
+- **Level構成**: 4章の「案4（concept分離型）」を採用。kurabeyou-appの`.concept-btn`パターンを踏襲し、「かたち」/「おおきさ」のconcept行を新設。
+- **大/中/小**: 3章「案A」を採用。まず**大/小の2値のみ**を実装対象とする。「中」はPhase26では実装しない（実授業結果を見て将来判断）。
+- **色**: 9章「案B」寄りの方針。おおきさ学習中は判断前の図形色を原則統一し、大きさと色を対応させない。具体色の最終実装はPhase26-I3で決定する。
+- **Feedback**: 10章の基本案どおり、現行「ぴったり！」を維持。概念強化発話などの過剰な追加は行わない。
+- **アプリ間導線**: 15章の提案は現時点で実装しない。
+
+### Phase26-I2で判明した新規の知見（I3への申し送り）
+
+concept-row（44px、`.level-row`と同型）を試験的に表示した場合の375×667への影響を実測したところ、**現状の`.level-row`等の余白のまま単純に1行追加すると、縦スクロールが発生する**ことが判明した（Phase26-Hで確保した375×667の無余白状態が壊れる）。「おおきさ」conceptを実際に公開するPhase（Phase26-I3以降）では、以下のいずれか（または組み合わせ）で375×667の無スクロールを再度成立させる必要がある。
+
+- concept行と既存level-row間などの余白（`margin`）を詰める
+- concept行自体をよりコンパクトな高さにする
+- （最終手段として）Phase26-Hで拡大したshape/targetサイズを見直す — ただしPhase26-Hの成果を壊すため優先度は最も低い
+
+本項目はPhase26-I2のClose条件には影響しない（「おおきさ」concept自体がまだProduction非表示のため）が、Phase26-I3着手時に必ず再検証すること。
 
 ---
 
