@@ -209,6 +209,10 @@
   <!-- /favicon -->
 </head>
 <body>
+<!-- Phase M7.1a: BGM via native HTMLAudioElement (see BGM module JS for why this
+     replaced the initial Web Audio AudioBufferSourceNode approach). aria-hidden since
+     it carries no semantic/interactive role; controls are the settings-panel toggle. -->
+<audio id="bgmAudio" src="assets/mitsukete-touch/audio/bgm-loop.mp3" loop preload="auto" aria-hidden="true"></audio>
 <!-- announce-helper: 自動挿入 (generate.js) -->
 <div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
 <div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
@@ -727,14 +731,31 @@ function playDiscoverySound() {
 }
 
 /* =====================================================================
-   BGM — Phase M7.1. Original, self-authored toy-piano/glockenspiel style
-   ambient loop (assets/mitsukete-touch/audio/bgm-loop.mp3, ~20s seamless
-   loop, self-hosted, no external CDN). Independent ON/OFF from SFX
-   (soundEnabled above); BGM OFF never affects discovery SFX and vice versa.
+   BGM — Phase M7.1 / M7.1a. Original, self-authored toy-piano/glockenspiel
+   style ambient loop (assets/mitsukete-touch/audio/bgm-loop.mp3, ~20s
+   seamless loop, self-hosted, no external CDN). Independent ON/OFF from
+   SFX (soundEnabled above); BGM OFF never affects discovery SFX and vice
+   versa.
+
+   Phase M7.1a root-cause fix: the original implementation used a Web Audio
+   AudioBufferSourceNode, fetched+decoded *after* the unlocking gesture, with
+   ctx.resume() fired-and-forgotten (not awaited) before source.start(0).
+   Internal state looked fully healthy in automated (headless) testing
+   (audioCtx.state==='running', bgmPlaying===true, correct buffer/gain), but
+   Audio User Review on a real browser found it produced no audible sound —
+   exactly the gap the task warned about: internal flags are not proof of
+   actual output. Rather than chase that async-gesture race further, BGM now
+   uses a plain <audio loop> element (#bgmAudio in the body), which handles
+   its own buffering/looping natively and gives a directly awaitable,
+   explicitly-rejecting Promise from play() when the browser blocks it — a
+   much narrower, better-tested surface for "does sound actually come out"
+   than manually wiring a decoded AudioBufferSourceNode. The short discovery
+   SFX (oscillators, precise scheduling) is unaffected and stays on Web
+   Audio via the shared audioCtx above.
 
    Autoplay policy (§7/§8 of the Phase M7.1 spec): browsers block audio
-   playback until a real user gesture. bgmUnlockListeners below fire on any
-   pointerdown/keydown anywhere in the app (covers Touch, Keyboard, and
+   playback until a real user gesture. The unlock listener below fires on
+   any pointerdown/keydown anywhere in the app (covers Touch, Keyboard, and
    Switch — a physical switch reaching this app as a keydown/click is
    already an established pattern here, see Switch Scan spec) so BGM starts
    on whichever of those happens first, with no Touch-first assumption.
@@ -745,51 +766,42 @@ function playDiscoverySound() {
    fallback (the BGM toggle itself, reachable by Touch/Keyboard/Switch, is
    always a valid unlock point even for gaze-primary sessions).
 ===================================================================== */
-var BGM_URL = 'assets/mitsukete-touch/audio/bgm-loop.mp3';
-var BGM_GAIN = 0.16; // file peak ~0.5 -> effective peak ~0.08, clearly under discovery SFX's 0.13 peak (§10)
-var bgmBuffer = null;
-var bgmBufferPromise = null;
-var bgmGainNode = null;
-var bgmSourceNode = null;
+// HTMLAudioElement 0-1 scale, linear multiplier on the file's own decoded samples
+// (file peak is ~0.5 / -6dBFS by design, see design doc). 0.22 -> effective peak
+// ~0.11, deliberately kept a bit under the discovery SFX's 0.13 peak gain (§13:
+// raise from the original too-quiet 0.16-on-a-0..1-Web-Audio-gain value, but stay
+// clipping-free and don't let BGM out-compete the SFX). Tunable pending Audio User
+// Review of actual perceived loudness.
+var BGM_VOLUME = 0.22;
+var bgmAudioEl = document.getElementById('bgmAudio');
+bgmAudioEl.volume = BGM_VOLUME;
 var bgmPlaying = false;
+var bgmPlayAttemptInFlight = false;
 
-function loadBgmBuffer() {
-  if (bgmBufferPromise) return bgmBufferPromise;
-  var ctx = ensureAudioCtx();
-  bgmBufferPromise = fetch(BGM_URL)
-    .then(function(r) { return r.arrayBuffer(); })
-    .then(function(ab) { return ctx.decodeAudioData(ab); })
-    .then(function(buf) { bgmBuffer = buf; return buf; })
-    .catch(function(e) { bgmBufferPromise = null; throw e; });
-  return bgmBufferPromise;
-}
 function startBgm() {
-  if (!bgmEnabled || bgmPlaying) return;
-  var ctx = ensureAudioCtx();
-  if (ctx.state === 'suspended') { ctx.resume().catch(function(){}); }
-  loadBgmBuffer().then(function(buf) {
-    // re-check after the async load: settings/state may have changed while fetching
-    if (!bgmEnabled || bgmPlaying) return;
-    if (!bgmGainNode) {
-      bgmGainNode = ctx.createGain();
-      bgmGainNode.gain.value = BGM_GAIN;
-      bgmGainNode.connect(ctx.destination);
-    }
-    bgmSourceNode = ctx.createBufferSource();
-    bgmSourceNode.buffer = buf;
-    bgmSourceNode.loop = true;
-    bgmSourceNode.connect(bgmGainNode);
-    bgmSourceNode.start(0);
-    bgmPlaying = true;
-  }).catch(function(){});
+  if (!bgmEnabled || bgmPlaying || bgmPlayAttemptInFlight) return;
+  bgmPlayAttemptInFlight = true;
+  var playPromise = bgmAudioEl.play();
+  if (!playPromise || typeof playPromise.then !== 'function') {
+    // very old browsers: play() returns undefined, assume it worked synchronously
+    bgmPlayAttemptInFlight = false;
+    bgmPlaying = !bgmAudioEl.paused;
+    return;
+  }
+  playPromise.then(function() {
+    bgmPlayAttemptInFlight = false;
+    bgmPlaying = !bgmAudioEl.paused;
+  }).catch(function() {
+    // blocked by autoplay policy (no valid gesture yet) or transient error;
+    // bgmEnabled stays true so the next real gesture (via tryUnlockAudio) retries
+    bgmPlayAttemptInFlight = false;
+    bgmPlaying = false;
+  });
 }
 function stopBgm() {
   bgmPlaying = false;
-  if (bgmSourceNode) {
-    try { bgmSourceNode.stop(0); } catch (e) {}
-    try { bgmSourceNode.disconnect(); } catch (e) {}
-    bgmSourceNode = null;
-  }
+  bgmPlayAttemptInFlight = false;
+  try { bgmAudioEl.pause(); } catch (e) {}
 }
 function setBgmEnabled(on) {
   bgmEnabled = on;
@@ -797,21 +809,24 @@ function setBgmEnabled(on) {
   if (on) { startBgm(); } else { stopBgm(); }
 }
 function tryUnlockAudio() {
+  // discovery SFX unlock (unchanged, already proven in Production) ...
   var ctx = ensureAudioCtx();
-  if (ctx.state === 'suspended') {
-    ctx.resume().then(function() { if (bgmEnabled) startBgm(); }).catch(function() {});
-  } else if (bgmEnabled) {
-    startBgm();
-  }
+  if (ctx.state === 'suspended') ctx.resume().catch(function() {});
+  // ...and BGM unlock/retry, now via the <audio> element's own play() gesture handling
+  if (bgmEnabled && !bgmPlaying) startBgm();
 }
 document.addEventListener('pointerdown', tryUnlockAudio, true);
 document.addEventListener('keydown', tryUnlockAudio, true);
 document.addEventListener('visibilitychange', function() {
-  if (!audioCtx) return;
   if (document.hidden) {
-    if (audioCtx.state === 'running') audioCtx.suspend().catch(function() {});
-  } else if (bgmEnabled && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(function() {});
+    if (!bgmAudioEl.paused) bgmAudioEl.pause();
+    bgmPlaying = false; // so the resume branch's startBgm() below isn't skipped by its own "already playing" guard
+  } else if (bgmEnabled) {
+    startBgm();
+  }
+  if (audioCtx) {
+    if (document.hidden) { if (audioCtx.state === 'running') audioCtx.suspend().catch(function() {}); }
+    else if (audioCtx.state === 'suspended') { audioCtx.resume().catch(function() {}); }
   }
 });
 

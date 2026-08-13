@@ -1,8 +1,8 @@
-# 「どこかな？みーつけた！」個別設計 v1.3（Phase M5〜M7.1 — Pop Discovery / Peekaboo）
+# 「どこかな？みーつけた！」個別設計 v1.4（Phase M5〜M7.1a — Pop Discovery / Peekaboo）
 
-- 版: v1.3（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映）
+- 版: v1.4（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
-- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1（BGM追加）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
+- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a（BGM追加・修正）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
 
 ---
 
@@ -410,15 +410,35 @@ Production公開済みアプリへの改善Phaseとして、「楽しい雰囲�
 
 **Autoplay Policy対応**: `document`レベルの`pointerdown`/`keydown`リスナー（capture phase、副作用のみでpreventDefault/stopPropagationなし）により、Touch・Keyboard・Switch（物理スイッチはこのアプリでは既にkeydown/clickとして到達する設計）のいずれかによる最初の実操作でAudioContextを`resume()`し、BGM ONであれば再生を開始する。加えて`activateItem()`冒頭でもベストエフォートで同じ解錠を試みる（Gaze起点の呼び出しに対する保険、ただし後述の制約により確実性は保証されない）。**Gazeのみでの解錠は、ブラウザのautoplayポリシーが要求する「信頼できるユーザー操作」にrequestAnimationFrame駆動のdwellタイマーが該当しないため、原理的に不確実な既知の制約である。** ローカルのPlaywright自動テスト環境では簡易なmousemoveでも解錠に成功する挙動が観測されたが、これは自動化環境（headless Chromium）特有の緩和されたautoplay判定による可能性が高く、実機Safari等の厳格な挙動を保証するものではないため、本書はこれを「Gazeでの解錠が確実に動作する」根拠として扱わない。代替案として、設定パネルの「BGM」トグル自体（Gaze非対象・Touch/Keyboard/Switchでのみ到達可能な既存設計）を確実な解錠手段として位置づけている——Gaze主体の利用者でも、支援者が一度トグルへ触れればセッション中は継続再生される。
 
-**多重再生防止**: `bgmPlaying`フラグによるガード（`startBgm()`は再生中は即return、非同期バッファ読み込み完了後も再チェック）、単一の共有`AudioContext`（既存の発見音と共用）、単一の`bgmGainNode`。Level切替・trial切替では`AudioBufferSourceNode`を停止・再生成しない（既存のsourceがそのままループを継続）。55回の混在input活性化ストレス・20回のBGM ON/OFF連続切替ストレスいずれも、多重再生・console error・pageerrorともに0件を確認。
+**多重再生防止（M7.1a時点でHTMLAudioElement方式に変更、下記参照）**: `bgmPlaying`/`bgmPlayAttemptInFlight`フラグによるガード、単一の`<audio id="bgmAudio">`要素。Level切替・trial切替では要素を再生成しない（同一要素が`loop`属性でループを継続）。55回の混在input活性化ストレス・20回のBGM ON/OFF連続切替ストレスいずれも、多重再生・console error・pageerrorともに0件を確認。
 
-**Visibility制御**: `document.visibilitychange`で、タブが隠れたら共有AudioContext自体を`suspend()`（発見音・BGM双方を一時停止、再生位置は保持）、復帰時にBGM ONであれば`resume()`。
+**Visibility制御**: `document.visibilitychange`で、タブが隠れたら`bgmAudioEl.pause()`（発見音用の共有AudioContextは別途`suspend()`）、復帰時にBGM ONであれば`startBgm()`で`play()`を再試行。
 
-**音量バランス**: BGMファイル自体のピークは0.5だが、再生時は`bgmGainNode`で0.16倍に絞り、実効ピークは約0.08——既存発見音のピークゲイン0.13より明確に小さい値とした。MVPでは複雑なduckingは実装していない（要件どおり、まずgainの引き下げのみで対応）。
+**音量バランス**: BGMファイル自体のピークは0.5（-6dBFS）だが、再生時は`bgmAudioEl.volume`で0.22倍に絞り、実効ピークは約0.11——既存発見音のピークゲイン0.13よりやや小さい値とした（M7.1時点の0.16→M7.1aで0.22へ引き上げ、詳細は下記）。MVPでは複雑なduckingは実装していない。
 
 **Records/CSV**: 変更なし（9項目/9列を維持）。BGM設定は学習記録に含めていない。
 
 **Audio User Review事項（未確認・ユーザー確認が必要）**: (1)可愛さ・楽しさの主観評価、(2)音量が適切か、(3)テンポ感、(4)聴き続けて疲れないか、(5)発見音を邪魔しないか、(6)Level1〜3を通じて違和感がないか——これらはAI自身が聴覚的に検証できないため、構造的な設計（ペンタトニック・エンベロープ・ループ処理・音量バランス）のみを保証し、実際の聴感評価はユーザーに委ねる。
+
+### Phase M7.1a: BGM実機無音バグ調査・修正
+
+Phase M7.1のLocal RC（`c5af79d`）をAudio User Reviewへ供したところ、設定でBGM=ONへ切り替えても**実際には聞こえない**ことが判明した。自動テスト（`audioCtx.state==='running'`、`bgmPlaying===true`、正しいbuffer/gain値）は全てPASSしていたが、これらは内部stateに過ぎず実際の音声出力を証明しないという本Phaseの指摘どおりの事象だった。
+
+**Root Cause**: 当初実装はWeb Audioの`AudioBufferSourceNode`を使用し、unlockジェスチャの**後**にMP3を`fetch()`→`decodeAudioData()`し、かつ`audioCtx.resume()`を`await`せずに（fire-and-forgetで）`source.start(0)`を呼んでいた。headless Chromiumの自動テスト環境ではこの非同期gestureタイミングのズレが問題にならず内部stateは健全に見えたが、実機ブラウザでは同じ非同期経路が原因で実際の音声出力に至らなかったと判断した（正確な失敗メカニズムはブラウザ実装依存で完全特定はできないが、fetch/decodeという実質的に不確定な時間のかかる非同期処理をunlock gestureとplayback開始の間に挟んでいたこと自体が構造的リスクであり、これを取り除く方向で修正した）。
+
+**調査手順と証拠**:
+1. MP3 asset自体を`soundfile`で直接解析——peak 0.5、RMS 0.103、全882,000サンプルが非ゼロ、NaN/Infなし。**asset自体は正常**と確認。
+2. Web Audio経路のtrace——fetch→decodeAudioData→source.start()の各段階を個別確認したが、いずれも「成功したように見える」内部stateしか得られず、実音の証拠にならないことを再確認。
+3. `HTMLAudioElement`方式へ切替後、`currentTime`の実時間進行を計測——トグルON後、壁時計1.503秒の経過に対し`currentTime`が1.515秒進行（ほぼ1:1）。これは実際にブラウザが継続的にデコード・再生していることの強い証拠であり、単なる`paused===false`フラグより遥かに説得力のある検証とした。
+4. OFF時は`currentTime`が完全に静止すること、ON→OFF→ON再開時に正しく`currentTime`が再進行することも確認。
+
+**修正内容**: BGMの実装を`AudioBufferSourceNode`から`<audio id="bgmAudio" src="..." loop preload="auto">`（body直下、`aria-hidden="true"`）＋`HTMLAudioElement.play()/.pause()`へ全面変更した。理由は要件が示すとおり「実装方式へのこだわりより実機で確実に音が出ることを優先」——`<audio>`要素は自身でバッファリング・ループを完結し、`play()`が返すPromiseがautoplayブロック時に明示的にrejectするため、fetch/decodeの手動管理や非同期gestureタイミングのズレという不確実性の高い経路を排除できる。発見音（正確なタイミングでの短いoscillator2音）は変更のメリットが薄く、実装済みで実績もあるためWeb Audio（共有`audioCtx`）のまま維持した。
+
+**音量再調整**: 旧実装のBGM_GAIN 0.16（Web Audio gain、ファイルpeak0.5への乗数）を、新実装ではBGM_VOLUME 0.22（`HTMLAudioElement.volume`、同じくファイルpeak0.5への乗数）へ引き上げた。実効ピークは約0.08→約0.11。「聞こえない」の根本原因は経路の問題であり音量そのものではなかった可能性が高いが、要件の推奨（0.20〜0.35を候補として比較）に従い、発見音のピークゲイン0.13をわずかに下回る範囲で余裕を持たせた。
+
+**再検証結果**: ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level切替/trial切替/visibility制御/4通りのsound設定組み合わせ/55回混在活性化ストレス/20回BGM切替ストレス——全てPlaywrightで`currentTime`の実進行を含めて再確認し、PASS。console error・pageerrorとも0件を維持。
+
+**それでも自動テストでは証明できないこと**: 実際にスピーカー/ヘッドフォンから音が聞こえるか、システム音量・OSのミュート設定・実ブラウザのメディア許可設定等、JavaScriptから観測不能な要因は今回のような自動検証の範囲外である。今回の修正は「アプリ側のコードに起因する構造的な無音バグ」を解消したという主張に留まり、**実際に聞こえることの最終確認はAudio User Reviewに委ねる。**
 
 ---
 
