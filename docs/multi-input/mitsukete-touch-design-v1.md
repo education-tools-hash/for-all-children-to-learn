@@ -1,8 +1,8 @@
-# 「どこかな？みーつけた！」個別設計 v1.1（Phase M5〜M6 — Pop Discovery / Peekaboo）
+# 「どこかな？みーつけた！」個別設計 v1.2（Phase M5〜M7 — Pop Discovery / Peekaboo）
 
-- 版: v1.1（v1.0をPhase M6実装で確定・更新。表示名「どこかな？みーつけた！」確定、内部filenameは`mitsukete-touch-app.html`のまま）
+- 版: v1.2（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
-- Production: `mitsukete-touch-app.html`はfeature/mitsukete-touch-mvp branch上に実装済みだが、mainへ未統合・Production未公開（Release Approval Gate、User Review待ち）。generate.js/apps-data.json/changelogはいずれも未変更。
+- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。
 
 ---
 
@@ -385,6 +385,16 @@ User Reviewにより、M6.1（2回目）の具体化SVGでも、ユーザーが�
 **peek量の再調整**: 6体を統一canvasへ正規化した結果、キャラクターごとに「canvas最上部から実際に不透明なピクセルが始まる位置」が異なることが判明した（うさぎは耳が最上部近くにあるため7%、いぬは垂れ耳が最も低い位置から始まるため40%）。最も厳しいいぬを基準に、Level3（`peek-3: -6%`）でもいぬの耳先が確実に覗くことをRendered Validationで確認した上で、`peek-1/2/3`を`-34%/-18%/-6%`、revealed状態を`-46%`へ再設定した。
 
 **新規に発見・修正したバグ（asset作業とは無関係、Switch再検証で発見）**: Level2/3でSwitchスキャンによりhidespotへ意味的activationがフォーカスされている状態でSpaceキーを押すと、hidespotボタン自身のkeydownリスナーが`activateItem()`を呼び出し、その内部で同期的に`renderItems()`→`refreshSwitchScanItems()`が走ってDOMとフォーカスが再構築される。その直後、同じSpaceキー入力がdocument側のAuto Scanハンドラへもbubbleし、再構築後にフォーカスが移っていた別要素（レベル切替ボタン等）を誤ってclickし、trialとlevelが意図せずリセットされる二重発火が生じることを、本Phase必須のSwitch再検証で発見した。hidespotボタン側のkeydownリスナーで、scanMode有効時のSpaceキーをdocument側ハンドラへ一任する（何もしない）よう1行のガードを追加し修正した（Enterキーの直接操作には影響なし）。修正後、Level2/3のSwitch scan+space活性化で二重発火・trial/level誤リセットが発生しないことを確認した。
+
+### Phase M7: Production Release
+
+2026-08-13、User Production Approval（「とても良い感じです。リリースしてOKです」）を受領し、`900e07c`をFinal RCとしてmainへfast-forward統合、`apps-data.json`/`generate.js`への正式登録を経て`https://donomana.jp/mitsukete-touch-app.html`として公開した。
+
+**登録内容**: `apps-data.json`へ「みるとひろがる」と同型のschemaで新規エントリを追加（category「認知支援」、releaseDate 2026-08-13）。`generate.js`の`SETTINGS_PROXY`・`hideWithDisplayNone`へ`mitsukete-touch-app`を登録し、アプリ自身の`#settingsBtn`が共通a11yパネルの「このアプリの詳細設定を開く」プロキシへ正しく統合されるようにした（Phase M4で発生した新規アプリ設定ボタン登録漏れの再発なし）。changelogは`MANUAL_CHANGELOG`を手編集せず、`releaseDate`による自動生成（`generateChangelog()`）に任せた結果、同日公開の「みるとひろがる」・同日改善の「かたちをあわせよう」と自動的に1つの日付エントリへ統合された。
+
+**Production Release検証で新規に発見・修正した回帰バグ**: M6.2で`.mt-size-1`（Level1のhidespotサイズ）を168px→194px（モバイル）へ拡大した際、同じくM6.1以来存在する`.mt-ring`（gaze dwellリング、`inset:-8px`で常にDOM上に存在しopacityのみ切り替え）の8px外側張り出しを考慮せずに24%/76%の角position設定を据え置いたため、375/390px幅でLevel1の右側position（right/upper-right/lower-right）が実際に7px程度の水平overflowを起こすことをProduction公開前のresponsive再検証で発見した。position指定を27%/73%へ調整し、`.mt-ring`の外側張り出しを含めた実測（Playwright `scrollWidth`＋各要素`getBoundingClientRect()`）で5viewport×3Level×6キャラクターの overflow 0 / clipping 0 / collision 0 を確認した上で公開した。
+
+**Production確認結果**: HTTP 200、主要ファイル（アプリ本体・6キャラクターPNG）のSHA256が全てlocalと一致、Level1〜3・6キャラクター・Touch/Keyboard・共通chrome（home/lock/fullscreen/a11y）・独自設定ボタンの非表示化・duplicate ID 0・console/pageerror 0・failed request 0を確認。GitHub Actionsの`generate`workflowによる自動commit（1件、mockup/icon反映によるog:image等の差し替えのみ）を経て、最終的に`main`=`origin/main`=`1c3f865`で一致。
 
 ---
 
