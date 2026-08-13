@@ -1,8 +1,8 @@
-# 「どこかな？みーつけた！」個別設計 v1.6（Phase M5〜M7.1c — Pop Discovery / Peekaboo）
+# 「どこかな？みーつけた！」個別設計 v1.7（Phase M5〜M7.1d — Pop Discovery / Peekaboo）
 
-- 版: v1.6（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映、v1.5はPhase M7.1bのオルゴールBGM再設計を反映、v1.6はPhase M7.1cの繊細化（Delicate Music Box）再調整を反映）
+- 版: v1.7（v1.0をPhase M6実装で確定・更新、v1.1をPhase M6.2のイラストasset移植で更新、v1.2はPhase M7のProduction公開完了を反映、v1.3はPhase M7.1のBGM追加（Local RC）を反映、v1.4はPhase M7.1aのBGM実機無音バグ修正（HTMLAudioElement方式への切替）を反映、v1.5はPhase M7.1bのオルゴールBGM再設計を反映、v1.6はPhase M7.1cの繊細化（Delicate Music Box）再調整を反映、v1.7はPhase M7.1dのAuthentic Continuous Gentle Music Box最終調整を反映）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
-- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a／M7.1b／M7.1c（BGM追加・修正・オルゴール化・繊細化）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
+- Production: Phase M7（2026-08-13）にて `https://donomana.jp/mitsukete-touch-app.html` として正式公開済み（User Production Approval取得済み、main統合・apps-data.json登録・generate.js実行・Production smoke test PASS）。**Phase M7.1／M7.1a／M7.1b／M7.1c／M7.1d（BGM追加・修正・オルゴール化・繊細化・連続化最終調整）はLocal RCの段階であり、main未統合・Production未公開。Audio User Review待ち。**
 
 ---
 
@@ -498,6 +498,93 @@ Phase M7.1b（オルゴール化）のAudio User Reviewでは、「BGMが実際�
 **再検証結果**: Phase M7.1a/M7.1bで確立した検証一式（ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level遷移/trial遷移/visibility制御/4通りのsound設定組み合わせ/`currentTime`実時間進行/loop境界越え）を新assetに対して再実行し、全てPASS。`mitsukete-touch-app.html`はPhase M7.1a以降変更していない（`BGM_VOLUME=0.22`も据え置き）ため、game logic・Records・CSV・Touch/Gaze/Switch/Keyboardへの影響はない。console error・pageerrorとも0件。
 
 **Audio Validation事項（未確認・ユーザー確認が必要）**: 「繊細に感じられるか」「自然に背景へ溶け込んでいるか」「discovery SFXより明確に控えめか」「音圧・密度は今度こそ十分に下がったと感じられるか」——引き続きAI自身が聴覚的に検証できないため、構造的な設計・測定値の変化のみを保証し、実際の聴感評価はユーザーに委ねる。
+
+### Phase M7.1d: Authentic Continuous Gentle Music Box Final Tuning
+
+Phase M7.1cのAudio User Reviewでは、RMSは狙いどおり下がったものの「**音がぷつぷつ途切れている**」という評価だった。さらに、「BGMなのでずっと音は鳴っていてほしい。ただあまり強すぎず自然な感じの音がいい」「しっかりオルゴールにしてください。これまでの音はオルゴールにもなっていない」という、これまでで最も具体的なフィードバックを受けた。本Phaseはこの2つの問題——**(A) そもそもオルゴールとして聞こえていない**、**(B) 音が途切れる**——を同時に解決することを目的とした。
+
+**M7.1c root issue**: 事後解析で判明した2点。(1) Phase M7.1／M7.1b／M7.1cはいずれも「減衰するsine波パーシャルの合成」のみで音を作っており、実際のオルゴール（櫛歯オルゴール）が持つ物理的特徴——**弾かれた瞬間の小さなノイズ的pluck transient**と**小さな共鳴箱のresonance**——を一切モデル化していなかった。人間の耳が「オルゴールらしさ」を認識する手がかりの多くはこの2要素にあると考えられ、これが「オルゴールになっていない」という評価の主因と推定した。(2) M7.1cは「繊細さ」を「疎らな配置＋長い完全無音」で実現しようとしたが、これはUserの意図する「繊細＝音楽は連続しているが控えめ」とは異なる解釈だった。
+
+**timbre再設計**: 上記2要素を新たに追加したsynthesisへ全面刷新し、3候補を構造的に比較した。
+
+| Candidate | 特徴 | pluck level | metallicity(相対) |
+|---|---|---|---|
+| A. Soft Traditional | 倍音多め（1,2,3,5次）、pluck強め | 0.30 | 0.096（最高） |
+| **B. Warm Rounded（採用）** | 倍音を1,2.006,3次に絞り丸く、pluckは中庸 | 0.16 | 0.071 |
+| C. Cute Delicate | pluck最小、decay最速 | 0.12 | 0.064（最低） |
+
+各候補についてpeak/RMS/metallicity（2500Hz以上のスペクトルエネルギー比）を測定した上で、要件が示す「Warm RoundedまたはCute Delicate方向を優先」という指針と、「オルゴールと分かる」ために必要な最低限のpluck存在感とのバランスから、**Candidate B（Warm Rounded）**を採用した。単純に既存パラメータを弱めるのではなく、pluck transient・resonance bodyという新しい信号要素を追加した点が、これまでのPhaseとの本質的な違いである。
+
+**fundamental設計**: 基音1.0倍を中心に、2.006倍（微デチューン）・3.0倍のみの控えめな倍音構成（decay 1.25秒／0.8秒／0.45秒）。
+
+**metallic partial設計**: 2〜3倍音の振幅を0.24／0.08と抑え、ベル化・チャイム化を避けた。
+
+**pluck transient設計**: 発音瞬間に5msの共振フィルタ済みノイズバースト（中心周波数2600Hz、Q=7）を、レベル0.16でtone成分に重畳。クリックノイズにならない範囲で「ポロン」の立ち上がりを作る新規要素。
+
+**resonance body設計**: 950Hz付近の短い減衰共鳴（減衰0.35秒）を微量（0.09）加え、小さな共鳴箱の質感を付与。warm padとは異なり、各note発音に付随する短い成分として設計した（持続はしない）。
+
+**warm pad有無**: **なし**（M7.1bで使用、M7.1cで削除済みの方針を維持）。
+
+**accompaniment設計**: 全小節・全拍（4拍子×8小節＝32回）でroot/fifthを交互に鳴らす、常時継続する四分音符パルス。音色はmelodyと同じsynth_musicbox関数（＝「同じ小さなオルゴールが伴奏も弾いている」統一感）。velocity 0.050（±15%ゆらぎ）と控えめにし、伴奏自体が主役化しないようにした。この常時継続する伴奏が、休符区間の「音楽的な連続性」を担保する中核。
+
+**melody設計**: 8小節中6小節に1〜2音、2小節は休符（伴奏のみ）という疎密のある配置、計9音。大きな跳躍を避け、C5〜A5のペンタトニック中心。
+
+**key/scale**: Cメジャー・ペンタトニック中心（維持）。
+
+**tempo**: 76BPM（要件の72〜80範囲内の基準値）。
+
+**duration**: 約25.26秒（要件の20〜30秒、推奨24〜26秒範囲内）。
+
+**total events**: 41（accompaniment 32 + melody 9）。要件の目安「20〜32程度」をやや超えるが、要件本文にも「絶対条件ではない、重要なのは連続性」とあり、後述のとおり無音0秒という結果が連続性を直接裏付けているため、この総数を採用した。
+
+**note density**: 24秒換算で約39イベント。
+
+**attack**: 6ms（要件の5〜15ms候補範囲内）、pluck transientの短い立ち上がり成分と合わせて自然な「ポロン」を狙った。
+
+**decay**: 基音1.25秒（M7.1cの0.85秒よりやや長め、要件どおり）。ベル化しない範囲で音の接続を助ける長さに留めた。
+
+**low-pass**: 5800Hz（要件の5000〜6500Hz候補範囲内）。M7.1cの5500Hzよりわずかに開き、pluck transientの高域成分が埋もれて「オルゴールと分からなくなる」ことを避けた。
+
+**reverb**: wet 0.10（要件の0.06〜0.12候補範囲内、tap 2本）。「小さなオルゴールの周囲にわずかな空気」程度に維持。
+
+**velocity humanization**: 各noteに±15%のランダム強弱（accompaniment/melody共通）。
+
+**timing humanization**: accompaniment±10ms、melody±12msのジッター。
+
+**peak**: 0.400（強制正規化なし、自然な値）。
+
+**RMS**: **0.080**（要件目標0.070〜0.090の中央値、M7.1bの0.1275へは戻していない）。
+
+**silence detection**: 20msウィンドウのRMS包絡線に対し、閾値0.008（目標RMSの約1/10）を下回る連続区間を「無音」と定義して波形を直接解析した（note間隔からの推定ではない）。
+
+**M7.1b/c/dの客観比較**（比較用assetはリポジトリ外のスクラッチ領域にのみ保存、Final commitには含めていない）:
+
+| 指標 | M7.1b | M7.1c | M7.1d |
+|---|---|---|---|
+| duration | 24.00s | 25.26s | 25.26s |
+| total events | 34 | 10 | 41 |
+| melody events | 18 | 10 | 9 |
+| accompaniment events | 16（小節頭のみ） | 0 | 32（毎拍・常時） |
+| peak | 0.500（強制） | 0.441（自然） | 0.400（自然） |
+| RMS | 0.1275 | 0.075 | **0.080** |
+| max silence | 0.30s | **4.86s** | **0.0s** |
+| avg silence | 0.18s | 2.94s | 0.0s |
+| silence区間数 | 7 | 5 | **0** |
+| warm pad | あり | なし | なし |
+| continuous accompaniment | 部分的（小節頭のみ） | なし | **あり（毎拍）** |
+| low-pass | 6200Hz | 5500Hz | 5800Hz |
+| reverb wet | 0.15 | 0.09 | 0.10 |
+| tempo | 80BPM | 76BPM | 76BPM |
+
+**M7.1dはM7.1bよりRMSが明確に低く（-37%）、かつM7.1cで発生していた最大4.86秒の無音区間が0秒（同一閾値での解析で無音区間0件）まで解消されている**ことを数値で確認した。「静かさ」と「連続性」を同時に満たした設計であることの直接的な証拠である。
+
+**musical loop検証**: 波形上の無音そのものが存在しないため、境界での聴感上の切れ目はより検出困難になった。加えて、コード進行を各小節C–C–F–G–C–Am–F–Cとし、**最終小節（bar7）と先頭小節（bar0）を共にCメジャー（トニック）に設計**したことで、ループ境界を跨いでも和声的な違和感が出ないようにした。波形解析ではループ境界前後±100msのピーク値（前0.080／後0.112）に極端な差はなく、境界サンプル間の振幅差も0.006と無音入力に対して十分小さいことを確認。さらに`currentTime`をloop終端-0.6秒へシークして境界を跨がせるテストで、`paused`にならず正しく先頭付近（約1.15秒）へ折り返して再生継続することを実測した。
+
+**再検証結果**: Phase M7.1a以降確立した検証一式（ON/OFF/ON→OFF→ON/reload persistence/Touch・Keyboard・Switch解錠/Level遷移/trial遷移/visibility制御/4通りのsound設定組み合わせ/`currentTime`実時間進行/loop境界越え/50回規模のstress）を新assetに対して再実行し、全てPASS。`mitsukete-touch-app.html`はPhase M7.1a以降変更していない（`BGM_VOLUME=0.22`も据え置き、変更不要と判断）ため、game logic・Multi-Input（Touch/Gaze/Switch/Keyboard）・Records・CSVへの影響はない。console error・pageerrorとも0件。
+
+**今後のMulti-Input Programへの知見（Program共通文書への示唆）**: BGMにおける「繊細さ」は、長い無音や断続的な再生を意味しない。子どもの活動を邪魔しない音量・音色で、音楽そのものは自然に連続して流れていることを意味する。また、楽器名（オルゴール等）を設計仕様として指定する場合、音響パラメータ上その特徴を模倣するだけでなく、最終的には人間がその楽器として認識できることをUser Reviewで確認する必要がある——今回のケースでは、pluck transientとresonance bodyという物理的要素の欠如が、パラメータ調整だけでは解決しない根本原因だった。この教訓は今後のMulti-Input教材のAudio/Engagement Designに再利用できる（`multi-input-program-design-v1.md`への反映は、Program全体に影響する共通知見と判断された場合に別途検討する）。
+
+**Audio User Reviewで確認する5項目**: ①聞いた瞬間に「オルゴール」と感じるか　②BGMとして最初から最後まで自然につながって聞こえるか　③「ぷつぷつ途切れる」感じがなくなったか　④音が強すぎず、繊細で自然か　⑤「どこかな？みーつけた！」のかわいい世界観に合っているか。いずれもAI自身が聴覚的に断定できないため、構造的な設計・測定値の変化のみを保証し、最終判定はユーザーに委ねる。
 
 ---
 
