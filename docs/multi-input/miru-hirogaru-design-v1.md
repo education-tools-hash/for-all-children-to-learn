@@ -1,6 +1,6 @@
-# 「みるとひろがる」個別設計 v1.1（Phase M1〜M2.1）
+# 「みるとひろがる」個別設計 v1.2（Phase M1〜M8）
 
-- 版: v1.1（v1.0をPhase M2実装・Phase M2.1のGaze×Switch Scan視覚的共存確認で確定・更新）
+- 版: v1.2（v1.1にPhase M8 Engagement Redesign（Visual Asset Integration、30章）を追加。Phase M2〜M2.1の内容は変更なし）
 - 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計、Phase M0）の下位文書。Program共通方針（Touch/Gaze/Switch/Keyboard対等設計、success-only可、canonical/transient分離等）を継承する。
 - Production: `miru-hirogaru-app.html`はfeature/miru-hirogaru-mvp branch上に実装済みだが、mainへ未統合・Production未公開（Release Approval Gate、User Review待ち）。generate.js/apps-data.json/changelogはいずれも未変更。
 - Pilot: Multi-Input Programの共通Input Adapterを最初にPilotするアプリ（M0 15章で決定）。`activateTarget(targetId, inputMethod)`としてアプリ内Pilot実装済み。
@@ -406,8 +406,61 @@ Gaze dwell ring（`.mh-target-ring`、inset:-8px）とSwitch Scan highlight（`.
 
 ---
 
-## 29. 引用・参照
+## 30. Phase M8: Engagement Redesign（Visual Asset Integration）
+
+Phase M2/M2.1で確定した「circle/square/triangleの図形target」を、**Technical PASSはできてもEngagement（かわいい・触りたい・また遊びたい）が成立していない**という課題意識から、イラストのおもちゃアセットへ全面刷新した。学習目標（1章）・Semantic Activation APIの外形（7章）・Records哲学（9章）は変更しない。作業はworktree `for-all-children-to-learn-m8` / branch `feature/miru-hirogaru-engagement-refresh`（`main`から分岐、`aacf4cf`）上で行い、**本Phaseの終了時点でmain統合・push・Production公開は一切行わない**（Local RCまで、27章のRelease Gateに従いUser Review待ちで停止）。
+
+### 30.1 世界観
+「おとのなる ふしぎなおもちゃのへや」。明るいパステル調のおもちゃ部屋を背景とし、通常時は静か（背景・おもちゃとも無音・無動作）。子どもの働きかけ（Touch/Gaze/Switch/Keyboard）に対し、おもちゃが動き、表情が変わり、短い音とキラキラ・音符エフェクトで応答する。Semantic Goal（2章）「子どもが対象へ働きかける → 世界が変化する」をより具体的な情動体験へ翻訳したものであり、Semantic Goal自体は変更していない。
+
+### 30.2 6種のおもちゃ（Visual Source of Truth）
+ユーザー提供の参照画像（6列×2行、ready/active各状態）から抽出: たいこ(drum) / ミニピアノ(piano) / ベル(bell) / びっくり箱(jackbox) / くまのぬいぐるみ(bear) / きしゃ(train)。いずれもパステル・丸み・グロス感・大きな瞳・白ハイライト・頬の赤みという「みつけてタッチ」と共通のVisual Family（M6.2の資産分離原則を継承）で統一されている。Active状態は「同じおもちゃが応答している」と読み取れることを維持しつつ、動き（例: たいこがはねる、ピアノの鍵盤が押される、ベルが揺れる、びっくり箱からぬいぐるみが飛び出す、くまが手を振る、きしゃが前後に動く）・表情変化・キラキラ/音符を新たに追加した状態として作られている。
+
+### 30.3 アセット方式（資産/意味分離、M6.2原則の踏襲）
+PNG（12枚、`assets/miru-hirogaru/{drum,piano,bell,jackbox,bear,train}-{ready,active}.png`）。ready/active状態は`<img src>`の差し替えで切り替える（レイヤー合成ではない）。外部CDNなし、リポジトリ内格納。各トイのready/active bboxのunion+marginを共通crop boxとして両状態へ同一適用することで、状態切り替え時に絵の位置が動かないことを保証した。抽出時にpiano→bellのセル境界にじみ（隣接セルの色が混入）を発見・`MIN_LEFT_OVERRIDE`で除去、また連結成分解析による小さな浮遊スペックの除去を全12枚に適用済み——低品質なまま採用していない。
+
+### 30.4 Level再設計
+既存のLevel1/2/3の目的（3章: 反応/選択/注意移動）は変更せず、静止3章・success-only（3.1章）もそのまま維持。target実装を図形からTOYSベースへ全面差し替えた。
+
+- **Level1「ならしてみよう！」**: 6種からランダムに1体を中央・大サイズで提示（直前と同じおもちゃの連続提示は回避）。目的は選択課題ではなく「働きかけたら楽しいことが起きた」という単一体験。
+- **Level2「どっちを ならす？」**: 6種から重複なしで2体を左右提示。「どちらも正解」を維持（5.3章のtarget choice記録方針は変更なし）。
+- **Level3「おへやを にぎやかにしよう！」**: 6種から重複なしで3体を提示。**このLevelのみ、activateItemがcanonicalに`item.activated`を持続させる**（Level1/2はfeedback後に必ずreadyへ戻る一過性のtransient挙動のまま）。1体を鳴らしても他の2体はそのまま操作可能で、全3体がactivated状態になった時点で「わあ！おへやが にぎやかになった！」というソフトな完了メッセージ（4秒で自動消去、強制終了なし——28章9番の既存パターンを踏襲）を表示し、`ROOM_COMPLETE_PAUSE_MS`（1400ms）後に新しい3体の部屋を開始する。Level3はアプリ名「みるとひろがる」（見ると部屋がひろがる＝にぎやかになる）を最も象徴するLevelとして設計した。
+
+### 30.5 Level3レイアウト（375×667優先、2+1段組）
+3体を横一列に収めると窮屈になるため、「上段2体＋下段中央1体」の段組を採用。実装は当初CSS Flexboxの`flex-basis:100%`で3体目を折り返す方式を試みたが、`flex-basis`がbutton要素自身の`width`指定を上書きしてしまい3体目の画像が画面幅いっぱいに巨大化する不具合が発生した。**CSS Gridへ変更**（`display:grid; grid-template-columns:repeat(2,max-content); justify-content:center`、3体目のみ`grid-column:1/3; justify-self:center`）することで、折り返した要素が自身の`width`を保ったまま2カラム分の中央に配置される構成へ修正し、375×667を含む5viewportで問題なく描画されることを確認した（30.9章）。
+
+### 30.6 SFX設計（BGMなし）
+1トイあたり0.2〜0.8秒の短いWeb Audio合成音（`tone()`=オシレータ+指数減衰エンベロープ、`noiseBurst()`=フィルタ済みノイズバースト）を1〜3イベント組み合わせ、6種それぞれに異なる音色を割り当てた（例: たいこ=低く柔らかいsine+ノイズバースト、ピアノ=2音の軽いアルペジオ、ベル=高いsine2本の弱い刺激音、びっくり箱=短いピッチグライド、くま=2音の柔らかいsine、きしゃ=ノイズバースト+低いsine2発の汽笛風）。音量は突発的な大音量にならないよう抑え、Sound OFF時は`playToySfx()`冒頭で完全に処理を打ち切る（Web Audioノードが一切生成されないことをPlaywrightで確認済み、30.9章）。
+
+**BGMは本Phaseで意図的に追加していない。** これは「どこかな？みーつけた！」のPhase M7.1〜M7.1eで得た教訓——BGMの技術的再生成功（実機で鳴ること）と、音として心地よく感じられる品質は別問題であり、後者は反復調整でも満足のいく水準に達しなかった——を踏まえた判断であり、User側の最終決定（M7.1e）を本Phaseにもそのまま適用した。ビジュアル＋短いSFXのみで「行動→変化」の因果関係とEngagementの両立を図る。
+
+### 30.7 アニメーション・Reduced Motion・Flash Safety
+動きはactivation後にのみ発生し（アイドル時・常時アニメーションは行わない）、`.mh-toy.pop-in`のpopスケールアニメーション（約650ms）として実装。`prefers-reduced-motion: reduce`環境では全体トークン（既存の`animation-duration:0.01ms !important`ブロック）によりこのpopアニメーションもほぼ瞬時になるが、**ready→active画像の差し替え自体はアニメーションと独立した状態変化であるため、reduced-motionでも変化そのものは必ず視認できる**ことを確認済み（19.1章の「何も起きない状態は禁止」を継承）。キラキラ/音符演出はopacityの単発フェード（Level3の部屋装飾のみ）で、点滅の反復は行わないためFlash Safety（19.3章）に抵触しない。
+
+### 30.8 Multi-Input Equity / Gaze×Switch
+既存のsemantic activation API（`activateItem(itemId, inputMethod)`、旧`activateTarget`から改称し全アプリ共通命名へ統一）はTouch/Gaze/Switch/Keyboardの4入力を等しく1つの関数へ合流させる構造を変更していない。Level3の「activated済みトイは再activationしない」制約は、`activateItem`自身のガードに加え、Gaze対象抽出（`getGazeTargets`）・Switch Scan候補抽出（`buildScanItems`）双方で`.is-activated`要素を候補から除外することで、**入力方式に関わらず同一の除外挙動**を保証している（Input Equity）。Gaze dwell ring（内側、conic-gradient進行表示）とSwitch Scan focus outline（外側、14pxオフセットの破線、28章Phase M2.1で確定した分離幅を踏襲）は、同一トイ・別トイいずれの組み合わせでも視覚的に重ならず判別可能であることを確認済み。
+
+また、Switch Scanの`keydown`ハンドラにおいて、per-buttonのSpaceキー処理とdocument-levelのAuto Scan Spaceハンドラが競合し得る構造（`activateItem()`の同期的`renderItems()`が再フォーカスを発生させ、同一Spaceキー押下が二重activationを起こしうる——「どこかな？みーつけた！」M6.2/M7.1aで実際に発生した不具合と同型のアーキテクチャ）に対し、本Phaseでは該当バグが未発生の段階で予防的に対処した。per-buttonのkeydownハンドラに`if (scanMode && (e.key===' '||e.key==='Spacebar')) return;`を追加し、scanMode中のSpace処理をdocument-levelハンドラへ一本化している。
+
+### 30.9 Rendered Validation / Engagement Validation 結果概要
+- 5viewport（375×667 / 375×812 / 390×844 / 768×1024 / 1280×900）× Level1/2/3の全組み合わせで、水平overflow・`.mh-toy`要素のviewport外はみ出し・console/pageerrorともに0件。
+- ランダム抽選ロジックをアプリ内関数（`buildTrialItems`/`buildRoomItems`）へ直接2000試行×3Level実行し、無効トイID・同一試行内重複・直前トイ即時再選出（Level1/2）・直前部屋との完全一致（Level3）いずれも0件、6トイの出現頻度もほぼ均等であることを確認。
+- Level3の持続化ロジック（1体activateしても他2体はready維持、3体揃うとroom-complete）をTouch/Gaze/Switch/Keyboard全入力で個別に実行し、いずれも同一のcanonical挙動（`.is-activated`除外含む）となることを確認。
+- Reduced Motion環境（`prefers-reduced-motion: reduce`）でready→active画像差し替えが即座に反映されることを確認（アニメーション自体は0.01msへ短縮されるが、状態変化そのものは維持）。
+- 60〜80件規模のTouch/Keyboard/Gaze/Switch混在activationを複数回実行し、record重複0件・stale dwell 0件・scan focus残留0件・`scanInterval`ハンドル残留0件・console/pageerror 0件を確認（27章2. Activation Lock/17章Input Conflictの既存ガードが新TOYSモデルでも正しく機能）。
+- Engagement Validation（主観評価）: 6トイのready/active比較シート（`final_six_ready_comparison.png`/`final_six_active_comparison.png`相当）で、ready状態のみから全6種が即座に識別可能であり、active状態でも同一トイと分かる表情・演出の一貫性を確認。Production（円/正方形/三角形のみのUI）とのbefore/after比較でも、視覚的な訴求力の差は明確。
+
+### 30.10 変更ファイル
+`miru-hirogaru-app.html`、`assets/miru-hirogaru/*`（新規12ファイル）、本設計doc。`apps-data.json`/`generate.js`/MANUAL_CHANGELOG/sitemap等、Release/公開に関わるファイルは一切変更していない。
+
+### 30.11 Release Gate
+27章のRelease Gateに従い、本PhaseはImplementation・Validationまでを完了した状態で停止する。**main統合・push・Production公開はいずれも未実施であり、Visual User Reviewでの承認を経るまで実施しない。**
+
+---
+
+## 31. 引用・参照
 
 - `docs/multi-input/multi-input-program-design-v1.md`（Phase M0、v1.1）: Program共通方針全般。
 - `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.1）: Design System・Switch Scan・gaze/dwell・Release Policy等。
 - `katachi-awase-app.html`: hit area不変の原則、composite id設計、Switch Scan/gaze D6非対称仕様の参照実装。
+- `mitsukete-touch-app.html`（Phase M6.2/M7）: 資産/意味分離原則、Switch-Space二重発火の予防的修正パターンの参照実装元。

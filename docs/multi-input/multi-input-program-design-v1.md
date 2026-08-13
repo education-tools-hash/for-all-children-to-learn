@@ -368,3 +368,12 @@ M2/M4/M6それぞれで「実装→Validation→User Review→Explicit Approval�
 - `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.1運用中）: Release Policy(48章)、Canonical/Transient State(17章)、Input Asymmetry、Switch Scan(12章)、gaze/dwell(13章)、Pointer Events Standard(49章)、Rendered Validation(27-29章)、responsive(30章)、Records/CSV(22,26章)、更新履歴(44章)を参照。
 - `katachi-awase-app.html`（Phase26-D〜I5.1）: Pointer Events統一drag、composite id設計、Switch Scan/gaze D6非対称仕様、Rendered Validation手法（stroke幅ピクセル計測）を参照。
 - `kurabeyou-app.html`: 記録/CSV設計、レベル切替UI、Design System適用の参照実装として使用。
+
+---
+
+## 20. Phase M8知見: Engagement RedesignとProgram共通原則の関係
+
+「みるとひろがる」Phase M8（Engagement Redesign、詳細は`docs/multi-input/miru-hirogaru-design-v1.md`30章）で得られた、他教材にも再利用価値のある知見を2点記録する。
+
+1. **資産/意味分離（asset/semantic separation）はEngagementとMulti-Input Equityを両立させる。** `activateItem(itemId, inputMethod)`のようなsemantic activation APIの外形を変えずに、target実装を図形からイラストアセット（ready/active2状態のPNG差し替え）へ差し替えることで、Touch/Gaze/Switch/Keyboardの等価性（7章の共通Input Adapter原則）を一切崩さずに視覚的訴求力を大幅に高められる。すなわちEngagement向上は「入力方式ごとの特別扱い」を必要としない——同一のsemantic状態（例: `.is-activated`）をGaze対象抽出・Switch Scan候補抽出双方が参照する構造を保てば、どれだけビジュアルを作り込んでもInput Equityは自動的に維持される。
+2. **Sound Experienceにおいて「技術的再生成功」と「体感品質」は独立した合格基準である。** 「どこかな？みーつけた！」M7.1〜M7.1eのBGM実験（実機で鳴ることの確認は複数回成功したが、音質・自然さの面でUser Reviewを通過できず最終的に不採用）を踏まえ、本Phaseでは新規BGMを追加しないという判断を先取りして行った。今後BGMやCustom SFXを追加する教材でも、Playwright等での「鳴ることの確認」だけをRelease基準にせず、実際に聴いた上でのUser Review Gateを必須とする。

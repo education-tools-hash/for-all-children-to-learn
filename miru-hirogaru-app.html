@@ -66,7 +66,21 @@
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #FAF7F2; color: var(--dm-color-ink,#3B4A54); font-family: 'BIZ UDPGothic','Noto Sans JP',sans-serif; }
-  .app { max-width: 720px; margin: 0 auto; padding: var(--dm-space-6,24px) var(--dm-space-4,16px) var(--dm-space-8,48px); min-height: 100vh; display: flex; flex-direction: column; }
+  /* Phase M8: "おとのなる ふしぎなおもちゃのへや" — a static, subtle toy-room backdrop
+     (pale wall + soft rug + a light shelf line + a gentle bunting), built entirely from
+     CSS gradients/shapes so it never competes with the Toy assets for attention and
+     never reads as a second interactive object (§25 "操作対象に見える背景Toyは禁止"). */
+  html, body {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 38%),
+      radial-gradient(ellipse 70% 40% at 50% 100%, #F7DCC6 0%, rgba(247,220,198,0) 70%),
+      linear-gradient(180deg, #FFF6E8 0%, #FCEFDD 55%, #FBE9D2 100%);
+    background-attachment: fixed;
+  }
+  .room-shelf { position: fixed; left: 0; right: 0; bottom: 22vh; height: 10px; background: linear-gradient(180deg, #E9C9A0 0%, #DDB688 100%); box-shadow: 0 3px 6px rgba(150,110,60,0.18); opacity: 0.55; pointer-events: none; z-index: 0; }
+  .room-bunting { position: fixed; top: 0; left: 0; right: 0; height: 46px; pointer-events: none; z-index: 0; opacity: 0.5; overflow: hidden; }
+  .room-bunting svg { width: 100%; height: 100%; display: block; }
+  .app { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: var(--dm-space-6,24px) var(--dm-space-4,16px) var(--dm-space-8,48px); min-height: 100vh; display: flex; flex-direction: column; }
   /* padding-left clears the fixed #donomanaHomeBtn (top:12/left:12, 44x44px, so its
      right edge sits at x=56 in viewport coords) — .app's own 16px padding alone left
      the title's first ~2 characters rendered directly under the home icon at narrow
@@ -82,87 +96,86 @@
 
   #softCompleteText { min-height: 1.6em; font-size: 1.0625rem; font-weight: 700; text-align: center; margin: var(--dm-space-2,8px) 0; color: var(--dm-color-primary-dark,#00857B); }
 
-  /* target area — flex-grow so Level1's single large target can take most of the
-     remaining vertical space at 375x667 without any scroll. */
-  #targetArea { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--dm-space-6,24px); flex-wrap: nowrap; min-height: 220px; }
-  #targetArea.level2, #targetArea.level3 { gap: var(--dm-space-4,16px); }
+  /* target area — flex-grow so Level1's single large toy can take most of the
+     remaining vertical space at 375x667 without any scroll. Level3 wraps so its
+     "2 on top + 1 below" staggered layout (§24: avoid a cramped rigid 3-across row)
+     can form naturally instead of forcing 3 across a narrow viewport. */
+  #targetArea { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--dm-space-6,24px); flex-wrap: nowrap; min-height: 220px; }
+  #targetArea.level2 { gap: var(--dm-space-5,20px); }
+  /* Level3 uses grid (not flex) for the "2 top + 1 below" stagger (§24: avoid a
+     cramped rigid 3-across row): a flex flex-basis:100% approach was tried first,
+     but flex-basis overrides the item's own `width`, so the 3rd toy stretched to
+     fill the full row width and its image ballooned huge. Grid lets a spanning
+     item keep its own width while still centering across both columns. */
+  #targetArea.level3 { display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; align-content: center; gap: var(--dm-space-4,16px) var(--dm-space-3,12px); }
+  /* nth-of-type (not nth-child): the room-decor <div> elements are inserted before the
+     toy <button>s in the DOM, which would throw off a child-index count */
+  #targetArea.level3 .mh-toy:nth-of-type(3) { grid-column: 1 / 3; justify-self: center; }
 
-  .mh-target {
-    position: relative;
-    border: none; background: transparent; padding: 0; cursor: pointer;
+  /* Phase M8: Level3-only subtle room "coming alive" decor, driven by how many of the
+     3 toys in the current room are already activated (§26). Kept small/understated —
+     the toys themselves stay the visual focus. */
+  .room-decor { position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: 0; transition: opacity var(--dm-duration-base,250ms) ease; }
+  #targetArea.level3.room-decor-1 .room-decor-star,
+  #targetArea.level3.room-decor-2 .room-decor-star,
+  #targetArea.level3.room-decor-3 .room-decor-star { opacity: 0.5; }
+  #targetArea.level3.room-decor-2 .room-decor-note,
+  #targetArea.level3.room-decor-3 .room-decor-note { opacity: 0.5; }
+  #targetArea.level3.room-decor-3 .room-decor-rainbow { opacity: 0.7; }
+
+  .mh-toy {
+    position: relative; z-index: 1;
+    border: none; background: transparent; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    border-radius: 50%;
+    padding: 14px; border-radius: var(--dm-radius-md,9px);
     -webkit-tap-highlight-color: transparent;
   }
-  .mh-target:focus-visible {
+  .mh-toy:focus-visible {
     outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: var(--dm-focus-offset,2px);
   }
-  .mh-target-shape {
-    width: 100%; height: 100%; border-radius: 50%;
-    background: var(--target-color, var(--dm-color-primary,#00A99D));
-    position: relative; z-index: 2;
-    transition: filter var(--dm-duration-fast,150ms) ease;
+  .mh-toy-img {
+    display: block; width: 100%; height: auto; position: relative; z-index: 2;
+    transition: filter var(--dm-duration-fast,150ms) ease, transform 550ms cubic-bezier(.34,1.56,.64,1);
+    filter: drop-shadow(0 4px 8px rgba(120,90,60,0.16));
   }
-  .mh-target-shape.shape-square { border-radius: var(--dm-radius-md,9px); }
-  .mh-target-shape.shape-triangle { border-radius: 0; clip-path: polygon(50% 4%, 4% 96%, 96% 96%); }
 
   /* touchstart / activation-lock press preview: a quick, discrete darken — not an
      animation-timed effect, so it is unaffected by prefers-reduced-motion and still
      gives immediate "I pressed it" feedback. */
-  .mh-target.pressed .mh-target-shape { filter: brightness(0.85); }
+  .mh-toy.pressed .mh-toy-img { filter: drop-shadow(0 4px 8px rgba(120,90,60,0.16)) brightness(0.9); }
 
-  /* "activated" is a plain class toggle (added/removed by JS on a fixed 900ms timer,
-     not an animation), so the color itself visibly changes even under
-     prefers-reduced-motion (which only zeroes animation/transition *duration*, not
-     discrete property values) — this is the actual required-visible-change layer;
-     the spreading rings below are a decorative enhancement on top of it. */
-  .mh-target.activated .mh-target-shape { background: var(--dm-color-primary-dark,#00857B); }
-
-  /* color-spreading feedback: a ring layer growing from the target's own size out to
-     ~3x with a fade-out, 900ms, ease-out. Under prefers-reduced-motion the global
-     token block above collapses this to ~0ms, so it becomes an instant one-frame
-     flash rather than a moving animation — the .activated color change (above) is
-     what remains as the real feedback in that case. */
-  .mh-spread {
-    position: absolute; inset: 0; z-index: 1;
-    border-radius: 50%;
-    background: var(--target-color, var(--dm-color-primary,#00A99D));
-    opacity: 0; transform: scale(1);
-    pointer-events: none;
-  }
-  .mh-target.activated .mh-spread {
-    animation: mhSpread 900ms ease-out;
-  }
-  @keyframes mhSpread {
-    0%   { opacity: 0.55; transform: scale(1); }
-    100% { opacity: 0; transform: scale(2.6); }
+  /* "activated": the ready->active image swap (done in JS, a discrete src change) is
+     the actual required-visible-change layer and stays fully intact under
+     prefers-reduced-motion. The bounce below is a decorative enhancement on top —
+     under reduced-motion the global token block collapses its duration to ~0ms. */
+  .mh-toy.pop-in .mh-toy-img { animation: mhPop 650ms cubic-bezier(.34,1.56,.64,1); }
+  @keyframes mhPop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.16); }
+    100% { transform: scale(1); }
   }
 
   /* gaze dwell progress ring — conic-gradient driven by --dwell-ratio (0..1), updated
-     every animation frame in JS. Outline-only so it never competes visually with the
-     spreading fill above. */
-  .mh-target-ring {
-    position: absolute; inset: -8px; z-index: 3; border-radius: 50%;
+     every animation frame in JS. A rounded-rect outline (not a circle) since the toy
+     images themselves are not circular; sized from the button's own padded box so it
+     stays clear of the image edges even for the widest active-state artwork. */
+  .mh-toy-ring {
+    position: absolute; inset: -6px; z-index: 3; border-radius: 22px;
     pointer-events: none;
     background: conic-gradient(var(--dm-color-accent,#F5A623) calc(var(--dwell-ratio,0) * 360deg), transparent 0deg);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
             mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
     opacity: 0;
   }
-  .mh-target.gaze-dwelling .mh-target-ring { opacity: 1; }
+  .mh-toy.gaze-dwelling .mh-toy-ring { opacity: 1; }
 
-  /* Switch Scan highlight — outline + scale, never color-only (37/59章).
-     Phase M2.1: outline-offset raised from 6px to 14px — at 6px this sat almost exactly
-     on top of .mh-target-ring's band (inset:-8px, ~6px wide, i.e. 2-8px out from the
-     target edge), so with Gaze and Switch Scan both ON the two rings visually merged
-     into one confusing band. 14px keeps a clear ~4-6px gap outside the gaze ring's
-     outer edge, so the two stay legible as two concentric, independently-readable
-     rings (target body -> gaze progress -> scan highlight, per the M0 visual-priority
-     order) instead of one ambiguous one. */
-  .mh-target.scan-focus { outline: var(--dm-focus-width,3px) dashed var(--dm-focus-color,#00A99D); outline-offset: 14px; }
-  .mh-target.scan-focus .mh-target-shape { transform: scale(1.06); }
+  /* Switch Scan highlight — outline + scale, never color-only (37/59章). Offset 14px
+     keeps a clear gap outside the gaze ring's outer edge (Phase M2.1 lesson, reused
+     verbatim here) so Gaze + Switch stay legible as two independent concentric cues. */
+  .mh-toy.scan-focus { outline: var(--dm-focus-width,3px) dashed var(--dm-focus-color,#00A99D); outline-offset: 14px; border-radius: 22px; }
+  .mh-toy.scan-focus .mh-toy-img { transform: scale(1.05); }
 
-  .mh-target-label { position: absolute; top: -1.6em; left: 50%; transform: translateX(-50%); font-size: 0.8125rem; color: var(--dm-color-sub,#5E6D78); white-space: nowrap; }
+  .mh-toy-label { position: absolute; bottom: -0.3em; left: 50%; transform: translateX(-50%); font-size: 0.8125rem; color: var(--dm-color-sub,#5E6D78); white-space: nowrap; z-index: 2; }
 
   #settingsPanel { background: #fff; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); padding: var(--dm-space-4,16px); margin-top: var(--dm-space-4,16px); }
   #settingsPanel h2 { font-size: 1.0625rem; margin: 0 0 var(--dm-space-3,12px); }
@@ -180,15 +193,18 @@
   #recordsEmpty { color: var(--dm-color-sub,#5E6D78); font-size: 0.9375rem; }
   #recordsCsvBtn, #recordsDeleteBtn, #recordsShowMoreBtn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: var(--dm-space-2,8px); margin-right: var(--dm-space-2,8px); }
 
-  /* ---- responsive target sizing (Rendered Validation targets per M1 design doc) ---- */
-  .lvl1-target { width: 200px; height: 200px; }
-  .lvl2-target { width: 140px; height: 140px; }
-  .lvl3-target { width: 110px; height: 110px; }
+  /* ---- responsive toy sizing (Rendered Validation targets, Phase M8) ----
+     Toy assets are natively ~230-256px wide x ~446-512px tall (aspect ~0.5-0.56);
+     width below drives display size, height follows automatically via .mh-toy-img's
+     width:100%/height:auto so each toy's own proportions are preserved. */
+  .mh-toy.size-1 { width: 190px; }
+  .mh-toy.size-2 { width: 148px; }
+  .mh-toy.size-3 { width: 124px; }
   @media (max-width: 480px) {
-    .lvl1-target { width: 168px; height: 168px; }
-    .lvl2-target { width: 128px; height: 128px; }
-    .lvl3-target { width: 96px; height: 96px; }
-    #targetArea.level3 { gap: var(--dm-space-3,12px); }
+    .mh-toy.size-1 { width: 156px; }
+    .mh-toy.size-2 { width: 120px; }
+    .mh-toy.size-3 { width: 102px; }
+    #targetArea.level3 { gap: var(--dm-space-3,12px) var(--dm-space-2,8px); }
   }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
@@ -509,6 +525,21 @@
 <style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <a href="https://donomana.jp/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
 <!-- /home-btn -->
+<!-- Phase M8: static toy-room backdrop decoration, aria-hidden (purely presentational,
+     never an interactive/semantic element — §25/§30 asset/semantic separation). -->
+<div class="room-shelf" aria-hidden="true"></div>
+<div class="room-bunting" aria-hidden="true">
+  <svg viewBox="0 0 400 46" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="0,4 40,4 80,4 120,4 160,4 200,4 240,4 280,4 320,4 360,4 400,4" fill="none" stroke="#E3C9A6" stroke-width="2"/>
+    <path d="M20,4 L36,4 L28,22 Z" fill="#F0AEB8"/>
+    <path d="M76,4 L92,4 L84,22 Z" fill="#8FD3C7"/>
+    <path d="M132,4 L148,4 L140,22 Z" fill="#FBD97A"/>
+    <path d="M188,4 L204,4 L196,22 Z" fill="#A7C7EE"/>
+    <path d="M244,4 L260,4 L252,22 Z" fill="#F0AEB8"/>
+    <path d="M300,4 L316,4 L308,22 Z" fill="#8FD3C7"/>
+    <path d="M356,4 L372,4 L364,22 Z" fill="#FBD97A"/>
+  </svg>
+</div>
 <main id="app" class="app">
   <header class="app-header">
     <h1 class="app-title">みるとひろがる</h1>
@@ -560,37 +591,45 @@
 
 <script>
 /* =====================================================================
-   Level / Target definitions (Phase M1 design: static, success-only,
-   no correct/mistake state at all — see docs/multi-input/miru-hirogaru-design-v1.md)
+   Toy definitions (Phase M8 Engagement Redesign — "おとのなる ふしぎな
+   おもちゃのへや"). Visual asset (ready/active PNG pair) is fully separate
+   from the semantic interaction layer below: activateItem(itemId,
+   inputMethod) still doesn't know or care what the toy looks like, only
+   which item/role was activated — matching the asset/semantic separation
+   principle established for 「どこかな？みーつけた！」 (M6.2).
+   success-only — no correct/mistake state, all 6 toys are always "success".
 ===================================================================== */
-var LEVEL_TARGETS = {
-  1: [
-    { id: 'center', label: 'まんなか', shape: 'circle', color: '#00A99D', sizeClass: 'lvl1-target' }
-  ],
-  2: [
-    { id: 'left',  label: 'ひだり', shape: 'circle', color: '#00A99D', sizeClass: 'lvl2-target' },
-    { id: 'right', label: 'みぎ',   shape: 'square', color: '#F5A623', sizeClass: 'lvl2-target' }
-  ],
-  3: [
-    { id: 't1', label: 'ひだり',   shape: 'circle',   color: '#00A99D', sizeClass: 'lvl3-target' },
-    { id: 't2', label: 'まんなか', shape: 'square',   color: '#F5A623', sizeClass: 'lvl3-target' },
-    { id: 't3', label: 'みぎ',     shape: 'triangle', color: '#4A8FD9', sizeClass: 'lvl3-target' }
-  ]
-};
+var TOYS = [
+  { id: 'drum',    label: 'たいこ',       sfx: 'drum'    },
+  { id: 'piano',   label: 'ピアノ',       sfx: 'piano'   },
+  { id: 'bell',    label: 'ベル',         sfx: 'bell'    },
+  { id: 'jackbox', label: 'びっくりばこ', sfx: 'jackbox' },
+  { id: 'bear',    label: 'くまさん',     sfx: 'bear'    },
+  { id: 'train',   label: 'きしゃ',       sfx: 'train'   }
+];
+var TOY_BY_ID = {};
+TOYS.forEach(function(t) { TOY_BY_ID[t.id] = t; });
+function toyImg(toyId, state) { return 'assets/miru-hirogaru/' + toyId + '-' + state + '.png'; }
+
+var LEVEL_COUNT = { 1: 1, 2: 2, 3: 3 };
+var LEVEL_SIZE_CLASS = { 1: 'size-1', 2: 'size-2', 3: 'size-3' };
 
 var DWELL_MS = 900;              // Phase M0 confirmed
-var FEEDBACK_MS = 900;           // Phase M1 confirmed
+var FEEDBACK_MS = 900;           // Phase M1 confirmed — reaction/animation lock window
 var ACTIVATION_LOCK_MS = 300;    // Phase M1 confirmed
 var SCAN_INTERVAL_MS = 1500;     // Phase M1 confirmed (fixed, no UI — see design doc §60)
-var SOFT_COMPLETE_EVERY = 10;    // Phase M1 confirmed
+var SOFT_COMPLETE_EVERY = 10;    // Phase M1 confirmed (Level1/2 "たくさんできたね" cadence)
+var NEXT_TRIAL_MS = 700;         // Level1/2 only: pause after feedback before a fresh toy appears
+var ROOM_COMPLETE_PAUSE_MS = 1400; // Level3 only: pause after all 3 toys are active before a new room
 
 /* =====================================================================
-   Canonical / Transient state (Phase M1 §18, §43-44)
+   Canonical / Transient state (Phase M1 §18, §43-44; extended for Phase M8's
+   per-item activated state and Level3's cumulative "room")
 ===================================================================== */
 var canonical = {
   level: 1,
   phase: 'ready',       // 'ready' | 'feedback'
-  activeTargetId: null,
+  itemIds: [],
   activationCount: 0,
   trialIndex: 0,
   sessionStart: Date.now()
@@ -604,8 +643,12 @@ var transient = {
   scanTimer: null,
   inputLockUntil: 0,
   feedbackTimer: null,
-  touchStartPos: null
+  nextTrialTimer: null,
+  touchStartPos: null,
+  previousToyId: null,       // Level1: avoid picking the same toy twice in a row
+  previousRoomIds: null      // Level3: avoid the exact same 3-toy room twice in a row
 };
+var currentItems = [];  // [{id, toyId, label, activated}] for the current trial (L1/L2) or room (L3)
 var trialStartedAt = performance.now();
 var currentInputMethod = 'unknown';
 var lastDwellDurationMs = null; // captured only for gaze activations, consumed once per record
@@ -646,41 +689,173 @@ function addLog(entry) {
 }
 
 /* =====================================================================
-   Sound — short, gentle Web Audio tone. No external audio files (no
-   licensing/CDN dependency). Silent no-op if soundEnabled is false or
-   Web Audio is unavailable.
+   Sound — Phase M8: one short, distinct, fully self-authored Web Audio SFX
+   per toy (no external audio files, same no-CDN/no-licensing-risk approach
+   as the Pilot's original playSoftTone). BGM was explicitly evaluated and
+   rejected for this Program (Phase M7.1-M7.1e on 「どこかな？みーつけた！」
+   found technical playback success and User-Review-satisfying sound
+   *quality* are separate conditions) — this Phase adds no BGM.
 ===================================================================== */
 var audioCtx = null;
-function playSoftTone() {
+function ensureAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function tone(ctx, t0, freq1, freq2, dur, peakGain, type) {
+  var osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq1, t0);
+  if (freq2 && freq2 !== freq1) osc.frequency.exponentialRampToValueAtTime(freq2, t0 + dur * 0.8);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(peakGain, t0 + Math.min(0.02, dur * 0.25));
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(t0); osc.stop(t0 + dur + 0.02);
+}
+function noiseBurst(ctx, t0, dur, peakGain, filterHz) {
+  var n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  var buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  for (var i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  var src = ctx.createBufferSource(); src.buffer = buf;
+  var filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = filterHz || 1800;
+  var gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(peakGain, t0 + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(filt); filt.connect(gain); gain.connect(ctx.destination);
+  src.start(t0); src.stop(t0 + dur + 0.02);
+}
+var TOY_SFX = {
+  // "ドン♪" — low soft thump: quick pitch-drop sine + a touch of noise for body, no click
+  drum: function(ctx, now) {
+    tone(ctx, now, 150, 65, 0.20, 0.20, 'sine');
+    noiseBurst(ctx, now, 0.06, 0.05, 900);
+  },
+  // "ポロン♪" — two quick soft plucked notes ascending (reuses the pluck-style envelope
+  // approach validated in the mitsukete-touch BGM work, at SFX length)
+  piano: function(ctx, now) {
+    tone(ctx, now, 523.25, 523.25, 0.16, 0.14, 'triangle');
+    tone(ctx, now + 0.10, 659.25, 659.25, 0.18, 0.13, 'triangle');
+  },
+  // "リン♪" — single soft bell: fundamental + light 2nd partial, short decay
+  bell: function(ctx, now) {
+    tone(ctx, now, 987.77, 987.77, 0.35, 0.11, 'sine');
+    tone(ctx, now, 1975.5, 1975.5, 0.20, 0.035, 'sine');
+  },
+  // "ポン♪" — a quick bouncy upward chirp (the lid popping open)
+  jackbox: function(ctx, now) {
+    tone(ctx, now, 300, 720, 0.16, 0.17, 'sine');
+  },
+  // soft toy chime — two gentle notes, warmer/lower than the bell
+  bear: function(ctx, now) {
+    tone(ctx, now, 587.33, 587.33, 0.22, 0.12, 'sine');
+    tone(ctx, now + 0.13, 783.99, 783.99, 0.22, 0.10, 'sine');
+  },
+  // "シュッポッポ♪" — short filtered "shu" noise + two low "po" thumps, brief (not a whistle)
+  train: function(ctx, now) {
+    noiseBurst(ctx, now, 0.10, 0.10, 1200);
+    tone(ctx, now + 0.10, 130, 100, 0.10, 0.14, 'sine');
+    tone(ctx, now + 0.22, 130, 100, 0.10, 0.14, 'sine');
+  }
+};
+function playToySfx(toyId) {
   if (!soundEnabled) return;
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    var now = audioCtx.currentTime;
-    var osc = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(660, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(now);
-    osc.stop(now + 0.2);
+    var ctx = ensureAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    var fn = TOY_SFX[toyId];
+    if (fn) fn(ctx, ctx.currentTime);
   } catch (e) { /* silent — sound is optional, never blocks activation */ }
 }
 
 /* =====================================================================
-   Semantic Activation API (Phase M1 §7, §67 — piloted inline in this app)
+   Trial / Room generation (Phase M8). Level1/2 cycle a fresh random trial
+   after each activation (mitsukete-touch precedent); Level3 builds one
+   cumulative "room" of 3 toys that persists — activated toys stay active
+   until all 3 are active, then a new room begins.
 ===================================================================== */
-function activateTarget(targetId, inputMethod) {
+function pickFrom(pool, avoid) {
+  var candidates = pool.filter(function(x) { return x !== avoid; });
+  if (candidates.length === 0) candidates = pool.slice();
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+function pickDistinctToys(n, avoidId) {
+  var pool = TOYS.map(function(t) { return t.id; });
+  var first = pickFrom(pool, avoidId);
+  var picked = [first];
+  var remaining = pool.filter(function(id) { return id !== first; });
+  while (picked.length < n && remaining.length) {
+    var idx = Math.floor(Math.random() * remaining.length);
+    picked.push(remaining[idx]);
+    remaining.splice(idx, 1);
+  }
+  return picked;
+}
+function sameSet(a, b) {
+  if (a.length !== b.length) return false;
+  var as = a.slice().sort(), bs = b.slice().sort();
+  return as.every(function(v, i) { return v === bs[i]; });
+}
+function buildTrialItems(level) {
+  var toyIds = pickDistinctToys(LEVEL_COUNT[level], transient.previousToyId);
+  transient.previousToyId = toyIds[0];
+  return toyIds.map(function(toyId, idx) {
+    var toy = TOY_BY_ID[toyId];
+    return { id: 'item-' + canonical.trialIndex + '-' + idx, toyId: toyId, label: toy.label, activated: false };
+  });
+}
+function startNewTrial() {
+  clearTimeout(transient.feedbackTimer); clearTimeout(transient.nextTrialTimer);
+  canonical.trialIndex += 1;
+  currentItems = buildTrialItems(canonical.level);
+  canonical.itemIds = currentItems.map(function(i) { return i.id; });
+  canonical.phase = 'ready';
+  trialStartedAt = performance.now();
+  resetDwellState();
+  renderItems();
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+function buildRoomItems() {
+  var pool = TOYS.map(function(t) { return t.id; });
+  var attempt, tries = 0;
+  do {
+    var shuffled = pool.slice();
+    for (var i = shuffled.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+    }
+    attempt = shuffled.slice(0, 3);
+    tries++;
+  } while (transient.previousRoomIds && sameSet(attempt, transient.previousRoomIds) && tries < 8);
+  transient.previousRoomIds = attempt;
+  return attempt.map(function(toyId, idx) {
+    var toy = TOY_BY_ID[toyId];
+    return { id: 'room-' + canonical.trialIndex + '-' + idx, toyId: toyId, label: toy.label, activated: false };
+  });
+}
+function startNewRoom() {
+  clearTimeout(transient.feedbackTimer); clearTimeout(transient.nextTrialTimer);
+  canonical.trialIndex += 1;
+  currentItems = buildRoomItems();
+  canonical.itemIds = currentItems.map(function(i) { return i.id; });
+  canonical.phase = 'ready';
+  trialStartedAt = performance.now();
+  resetDwellState();
+  renderItems();
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+
+/* =====================================================================
+   Semantic Activation API (Phase M1 §7, §67; extended M8 §21-23 for
+   Level3's cumulative per-item persistent activated state)
+===================================================================== */
+function activateItem(itemId, inputMethod) {
   if (canonical.phase !== 'ready') return; // feedback-phase suppression (§17/§40)
   var now = performance.now();
   if (now < transient.inputLockUntil) return; // activation lock (§8/§10, 300ms)
-  var target = LEVEL_TARGETS[canonical.level].find(function(t) { return t.id === targetId; });
-  if (!target) return;
+  var item = currentItems.filter(function(i) { return i.id === itemId; })[0];
+  if (!item || item.activated) return; // Level3: an already-active toy is not re-activatable
 
   transient.inputLockUntil = now + ACTIVATION_LOCK_MS;
   var responseTime = Math.round(now - trialStartedAt);
@@ -688,21 +863,20 @@ function activateTarget(targetId, inputMethod) {
   lastDwellDurationMs = null;
 
   canonical.phase = 'feedback';
-  canonical.activeTargetId = targetId;
+  item.activated = true;
   canonical.activationCount += 1;
-  canonical.trialIndex += 1;
   currentInputMethod = inputMethod;
 
   resetDwellState();
   if (scanMode) { stopAutoScan(); clearScanHighlight_classOnly(); }
 
-  playSoftTone();
-  renderTargets(); // apply .activated class immediately
+  playToySfx(item.toyId);
+  renderItems(); // ready->active image swap + pop animation, applied immediately
 
   addLog({
     time: new Date().toISOString(),
     level: canonical.level,
-    target: target.label,     // semantic label only — never target.id/internal id (§46)
+    target: item.label,     // semantic label only — never item.id/internal id (§46)
     inputMethod: inputMethod,
     responseTime: responseTime,
     dwellDuration: dwellDuration,
@@ -711,11 +885,21 @@ function activateTarget(targetId, inputMethod) {
 
   transient.feedbackTimer = setTimeout(function() {
     canonical.phase = 'ready';
-    canonical.activeTargetId = null;
     trialStartedAt = performance.now();
-    renderTargets();
-    if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
-    maybeShowSoftCompletion();
+    if (canonical.level === 3) {
+      renderItems();
+      if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+      if (currentItems.every(function(i) { return i.activated; })) {
+        showRoomComplete();
+        transient.nextTrialTimer = setTimeout(startNewRoom, ROOM_COMPLETE_PAUSE_MS);
+      }
+    } else {
+      item.activated = false;
+      renderItems();
+      if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+      maybeShowSoftCompletion();
+      transient.nextTrialTimer = setTimeout(startNewTrial, NEXT_TRIAL_MS);
+    }
   }, FEEDBACK_MS);
 }
 
@@ -727,51 +911,63 @@ function maybeShowSoftCompletion() {
     setTimeout(function() { if (el.textContent === 'たくさんできたね！つづけてあそべます') el.textContent = ''; }, 4000);
   }
 }
+function showRoomComplete() {
+  var el = document.getElementById('softCompleteText');
+  el.textContent = 'わあ！おへやが にぎやかになった！';
+  donomanaAnnounce('わあ！おへやが にぎやかになった！');
+  setTimeout(function() { if (el.textContent === 'わあ！おへやが にぎやかになった！') el.textContent = ''; }, 4000);
+}
 
 /* =====================================================================
    Rendering
 ===================================================================== */
 var targetArea = document.getElementById('targetArea');
-function renderTargets() {
+var ROOM_DECOR_HTML =
+  '<div class="room-decor room-decor-star" aria-hidden="true" style="position:absolute;left:8%;top:6%;font-size:28px;">⭐</div>' +
+  '<div class="room-decor room-decor-note" aria-hidden="true" style="position:absolute;right:10%;top:10%;font-size:26px;">🎵</div>' +
+  '<div class="room-decor room-decor-rainbow" aria-hidden="true" style="position:absolute;left:50%;top:2%;transform:translateX(-50%);font-size:30px;">🌈</div>';
+function renderItems() {
   targetArea.className = 'level' + canonical.level;
-  var targets = LEVEL_TARGETS[canonical.level];
-  targetArea.innerHTML = '';
-  targets.forEach(function(t) {
+  targetArea.innerHTML = (canonical.level === 3) ? ROOM_DECOR_HTML : '';
+  if (canonical.level === 3) {
+    var activeCount = currentItems.filter(function(i) { return i.activated; }).length;
+    if (activeCount >= 1) targetArea.classList.add('room-decor-1');
+    if (activeCount >= 2) targetArea.classList.add('room-decor-2');
+    if (activeCount >= 3) targetArea.classList.add('room-decor-3');
+  }
+  currentItems.forEach(function(item) {
+    var toy = TOY_BY_ID[item.toyId];
     var btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'mh-target ' + t.sizeClass + ' scannable';
+    btn.className = 'mh-toy ' + LEVEL_SIZE_CLASS[canonical.level] + ' scannable';
     btn.dataset.scan = '1';
-    btn.dataset.targetId = t.id;
+    btn.dataset.itemId = item.id;
     btn.tabIndex = 0;
-    btn.setAttribute('aria-label', t.label);
-    if (canonical.phase === 'feedback' && canonical.activeTargetId === t.id) btn.classList.add('activated');
+    btn.setAttribute('aria-label', item.activated ? (toy.label + '：うごいた！') : toy.label);
+
+    var img = document.createElement('img');
+    img.className = 'mh-toy-img';
+    img.src = toyImg(item.toyId, item.activated ? 'active' : 'ready');
+    img.alt = '';
+    img.draggable = false;
+    btn.appendChild(img);
 
     var labelEl = document.createElement('span');
-    labelEl.className = 'mh-target-label';
-    labelEl.textContent = t.label;
+    labelEl.className = 'mh-toy-label';
+    labelEl.textContent = toy.label;
     labelEl.setAttribute('aria-hidden', 'true');
     btn.appendChild(labelEl);
 
     var ring = document.createElement('span');
-    ring.className = 'mh-target-ring';
+    ring.className = 'mh-toy-ring';
     ring.setAttribute('aria-hidden', 'true');
     btn.appendChild(ring);
 
-    var spread = document.createElement('span');
-    spread.className = 'mh-spread';
-    spread.setAttribute('aria-hidden', 'true');
-    btn.appendChild(spread);
+    if (item.activated) { btn.classList.add('pop-in'); btn.classList.add('is-activated'); }
 
-    var shapeEl = document.createElement('span');
-    shapeEl.className = 'mh-target-shape shape-' + t.shape;
-    shapeEl.style.setProperty('--target-color', t.color);
-    shapeEl.setAttribute('aria-hidden', 'true');
-    btn.appendChild(shapeEl);
-
-    btn.addEventListener('click', function(e) {
+    btn.addEventListener('click', function() {
       if (suppressNextClick) { suppressNextClick = false; return; }
-      currentInputMethodFromEvent(e);
-      activateTarget(t.id, currentInputMethod);
+      activateItem(item.id, currentInputMethod);
     });
     btn.addEventListener('pointerdown', function(e) {
       if (e.pointerType === 'touch' || e.pointerType === 'mouse') {
@@ -787,9 +983,18 @@ function renderTargets() {
       if (Math.sqrt(dx * dx + dy * dy) > 8) { suppressNextClick = true; btn.classList.remove('pressed'); }
     });
     btn.addEventListener('keydown', function(e) {
+      // Phase M8 preventive fix (found and fixed the hard way on 「どこかな？みーつけた！」
+      // M6.2/M7.1a): when scanMode is on, Space is owned exclusively by the document-level
+      // Auto Scan handler below. If this listener also handled Space, activateItem()'s
+      // synchronous renderItems() (which re-focuses via refreshSwitchScanItems() once
+      // phase leaves 'ready') would shift focus before the same Space keydown finishes
+      // bubbling to that document handler, which would then act a second time on
+      // whatever the re-render happened to focus next -- spuriously double-activating.
+      // Enter is unaffected (the document handler never handles Enter).
+      if (scanMode && (e.key === ' ' || e.key === 'Spacebar')) return;
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
         e.preventDefault();
-        activateTarget(t.id, 'keyboard');
+        activateItem(item.id, 'keyboard');
       }
     });
 
@@ -798,7 +1003,6 @@ function renderTargets() {
   if (scanMode) refreshSwitchScanItems();
 }
 var suppressNextClick = false;
-function currentInputMethodFromEvent() { /* click already resolved via pointerdown listener below */ }
 document.addEventListener('pointerdown', function(e) {
   currentInputMethod = (e.pointerType === 'touch') ? 'touch' : 'click';
 }, true);
@@ -808,19 +1012,18 @@ document.addEventListener('pointerdown', function(e) {
 ===================================================================== */
 var levelBtns = Array.from(document.querySelectorAll('.level-btn'));
 function setLevel(n) {
-  clearTimeout(transient.feedbackTimer);
+  clearTimeout(transient.feedbackTimer); clearTimeout(transient.nextTrialTimer);
   canonical.level = n;
-  canonical.phase = 'ready';
-  canonical.activeTargetId = null;
-  trialStartedAt = performance.now();
+  transient.previousToyId = null;
+  transient.previousRoomIds = null;
   resetDwellState();
   levelBtns.forEach(function(b) {
     var on = Number(b.dataset.level) === n;
     b.classList.toggle('active', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
-  renderTargets();
-  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+  document.getElementById('softCompleteText').textContent = '';
+  if (n === 3) { startNewRoom(); } else { startNewTrial(); }
 }
 levelBtns.forEach(function(b) { b.addEventListener('click', function() { setLevel(Number(b.dataset.level)); }); });
 
@@ -832,11 +1035,13 @@ var gazeRafId = null;
 function getGazeTargets() {
   if (!settingsPanelHidden()) return [];
   if (canonical.phase !== 'ready') return [];
-  return Array.from(targetArea.querySelectorAll('.mh-target'));
+  // Level3: an already-activated toy is excluded from gaze the same way
+  // activateItem() itself refuses to re-activate it (§23 input-method parity)
+  return Array.from(targetArea.querySelectorAll('.mh-toy')).filter(function(el) { return !el.classList.contains('is-activated'); });
 }
 function resetDwellState() {
   if (transient.gazeTargetId) {
-    var el = targetArea.querySelector('[data-target-id="' + transient.gazeTargetId + '"]');
+    var el = targetArea.querySelector('[data-item-id="' + transient.gazeTargetId + '"]');
     if (el) { el.classList.remove('gaze-dwelling'); el.style.removeProperty('--dwell-ratio'); }
   }
   transient.gazeTargetId = null;
@@ -850,7 +1055,7 @@ function gazeTick() {
     var targets = getGazeTargets();
     var hit = null;
     if (el) { for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) { hit = targets[i]; break; } } }
-    var hitId = hit ? hit.dataset.targetId : null;
+    var hitId = hit ? hit.dataset.itemId : null;
 
     // leave-and-reenter re-trigger gate: once a target has just been activated via
     // gaze, it must be looked away from before a new dwell can start on it again.
@@ -867,14 +1072,14 @@ function gazeTick() {
       }
     } else if (transient.gazeTargetId && hitId !== transient.gazeAwaitingLeaveId) {
       var ratio = Math.min(1, (performance.now() - transient.gazeStartedAt) / DWELL_MS);
-      var dwellEl = targetArea.querySelector('[data-target-id="' + transient.gazeTargetId + '"]');
+      var dwellEl = targetArea.querySelector('[data-item-id="' + transient.gazeTargetId + '"]');
       if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
       if (ratio >= 1) {
         var activatedId = transient.gazeTargetId;
         lastDwellDurationMs = Math.round(performance.now() - transient.gazeStartedAt);
         resetDwellState();
         transient.gazeAwaitingLeaveId = activatedId;
-        activateTarget(activatedId, 'gaze');
+        activateItem(activatedId, 'gaze');
       }
     }
   }
@@ -926,7 +1131,10 @@ function buildScanItems() {
     items = Array.from(settingsPanel.querySelectorAll('[tabindex="0"]'));
   } else {
     items = items.concat(levelBtns);
-    if (canonical.phase === 'ready') items = items.concat(Array.from(targetArea.querySelectorAll('.mh-target')));
+    if (canonical.phase === 'ready') {
+      // Level3: already-activated toys are excluded, same as Gaze (§23 input-method parity)
+      items = items.concat(Array.from(targetArea.querySelectorAll('.mh-toy')).filter(function(el) { return !el.classList.contains('is-activated'); }));
+    }
     items.push(settingsBtn);
   }
   items = items.concat(commonChromeCandidates());
@@ -977,8 +1185,8 @@ function stopSwitchScan() { stopAutoScan(); clearScanHighlight(); }
 function activateCurrentScanItem() {
   var el = document.activeElement;
   if (!el || el === document.body) return;
-  if (el.classList.contains('mh-target')) {
-    activateTarget(el.dataset.targetId, 'switch');
+  if (el.classList.contains('mh-toy')) {
+    activateItem(el.dataset.itemId, 'switch');
   } else {
     el.click();
   }
@@ -996,8 +1204,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === ' ' || e.key === 'Spacebar') {
     if (scanMode) {
       if (settingsPanelHidden() && canonical.level === 1) {
-        // Direct Activation: the single Level1 target responds straight to the switch.
-        if (canonical.phase === 'ready') activateTarget('center', 'switch');
+        // Direct Activation: the single Level1 toy responds straight to the switch.
+        if (canonical.phase === 'ready' && currentItems[0]) activateItem(currentItems[0].id, 'switch');
       } else {
         e.preventDefault();
         activateCurrentScanItem();
@@ -1161,7 +1369,7 @@ document.getElementById('recordsConfirmCancel').addEventListener('click', functi
 ===================================================================== */
 loadSettings();
 toggleSound.checked = soundEnabled;
-renderTargets();
+startNewTrial();
 </script>
 </body>
 </html>
