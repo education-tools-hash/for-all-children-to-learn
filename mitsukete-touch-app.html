@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>どこかな？みーつけた！</title>
+<meta name="description" content="どこかにかくれているものを見つけて、タッチ・視線・スイッチなどで選ぶことを楽しむ教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
+<!-- design-tokens: 自動挿入 (generate.js) -->
+<style>
+:root{
+  --dm-radius-sm:5px;
+  --dm-radius-md:9px;
+  --dm-radius-pill:999px;
+  --dm-radius-circle:50%;
+  --dm-focus-width:3px;
+  --dm-focus-color:#00A99D;
+  --dm-focus-offset:2px;
+  --dm-color-primary:#00A99D;
+  --dm-color-primary-dark:#00857B;
+  --dm-color-accent:#F5A623;
+  --dm-color-info:#4A8FD9;
+  --dm-color-danger:#EE6C7C;
+  --dm-color-danger-text:#BA5461;
+  --dm-color-surface:#FFFFFF;
+  --dm-color-soft:#F6F9FA;
+  --dm-color-border:#EDF1F0;
+  --dm-color-ink:#3B4A54;
+  --dm-color-sub:#5E6D78;
+  --dm-color-bg:#FFFFFF;
+  --dm-space-1:4px;
+  --dm-space-2:8px;
+  --dm-space-3:12px;
+  --dm-space-4:16px;
+  --dm-space-5:20px;
+  --dm-space-6:24px;
+  --dm-space-7:32px;
+  --dm-space-8:48px;
+  --dm-space-9:64px;
+  --dm-duration-fast:150ms;
+  --dm-duration-base:250ms;
+  --dm-easing-standard:ease;
+  --dm-font-size-display:2rem;
+  --dm-font-size-heading:1.5rem;
+  --dm-font-size-subheading:1.25rem;
+  --dm-font-size-body:1.0625rem;
+  --dm-font-size-body-kid:1.5rem;
+  --dm-font-size-caption:0.8125rem;
+  --dm-line-height-heading:1.4;
+  --dm-line-height-body:1.7;
+  --dm-line-height-body-kid:1.8;
+  --dm-line-height-caption:1.6;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+</style>
+<!-- /design-tokens -->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: linear-gradient(180deg, #EAF4FB 0%, #FAF7F2 55%); color: var(--dm-color-ink,#3B4A54); font-family: 'BIZ UDPGothic','Noto Sans JP',sans-serif; }
+  .app { max-width: 720px; margin: 0 auto; padding: var(--dm-space-6,24px) var(--dm-space-4,16px) var(--dm-space-8,48px); min-height: 100vh; display: flex; flex-direction: column; }
+  .app-header { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-3,12px); margin-bottom: var(--dm-space-4,16px); padding-left: 44px; }
+  .app-title { font-size: var(--dm-font-size-heading,1.5rem); margin: 0; }
+  .settings-toggle-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; }
+
+  .level-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); margin: var(--dm-space-2,8px) 0; }
+  .level-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-3,12px); border-radius: var(--dm-radius-pill,999px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; }
+  .level-btn.active { background: var(--dm-color-primary,#00A99D); border-color: var(--dm-color-primary,#00A99D); color: #fff; }
+
+  #softCompleteText, #discoveryText { min-height: 1.6em; font-size: 1.0625rem; font-weight: 700; text-align: center; margin: var(--dm-space-2,8px) 0; color: var(--dm-color-primary-dark,#00857B); }
+
+  #playArea { position: relative; flex: 1; min-height: 320px; }
+
+  .mt-hidespot {
+    position: absolute; border: none; background: transparent; padding: 0; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mt-hidespot:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 6px; border-radius: 16px; }
+  /* Percentages are relative to #playArea's own width (max-width:720px container minus
+     16px side padding — as narrow as ~343px at 375px viewport), while each hide spot is
+     translated by -50% of its OWN width/height to center on the point. At 10%/90% the
+     largest tier (Level1, 168px mobile => 84px half-width) pushed off both edges of a
+     343px-wide play area (10% of 343 = 34px, well under the required ~84px margin) —
+     real horizontal overflow, not just a Level1 edge case, confirmed via Playwright
+     scrollWidth checks at 375/390px. 24%/76% keeps an 82px+ margin at 343px width,
+     enough for the 168px tier with a small safety buffer. */
+  .mt-pos-left           { left: 24%;  top: 50%; transform: translate(-50%,-50%); }
+  .mt-pos-center         { left: 50%;  top: 50%; transform: translate(-50%,-50%); }
+  .mt-pos-right          { left: 76%;  top: 50%; transform: translate(-50%,-50%); }
+  .mt-pos-upper-left     { left: 24%;  top: 18%; transform: translate(-50%,-50%); }
+  .mt-pos-upper-right    { left: 76%;  top: 18%; transform: translate(-50%,-50%); }
+  .mt-pos-lower-left     { left: 24%;  top: 82%; transform: translate(-50%,-50%); }
+  .mt-pos-lower-right    { left: 76%;  top: 82%; transform: translate(-50%,-50%); }
+
+  .mt-size-1 { width: 200px; height: 200px; }
+  .mt-size-2 { width: 150px; height: 150px; }
+  .mt-size-3 { width: 130px; height: 130px; }
+  @media (max-width: 480px) {
+    .mt-size-1 { width: 168px; height: 168px; }
+    .mt-size-2 { width: 128px; height: 128px; }
+    .mt-size-3 { width: 100px; height: 100px; }
+  }
+
+  .mt-character {
+    position: absolute; left: 50%; width: 62%; z-index: 1;
+    transform: translate(-50%, 0);
+    transition: transform var(--dm-duration-base,250ms) ease, top var(--dm-duration-base,250ms) ease;
+  }
+  .mt-character svg { width: 100%; height: auto; display: block; }
+  /* Rendered Validation (M6 §61): the original -4/16/30% values left thin-featured
+     characters (esp. おほしさま's star points) nearly invisible above the cloud at
+     Level2/3 — a real "nothing to notice" risk for a discovery game, not just a cosmetic
+     nit. Raised (character sits higher = more shows) across all three tiers while keeping
+     a clear step-down between levels. */
+  .mt-character.peek-1 { top: -12%; }
+  .mt-character.peek-2 { top: 4%; }
+  .mt-character.peek-3 { top: 19%; }
+  .mt-hidespot.revealed .mt-character { top: -22% !important; transform: translate(-50%,0) scale(1.12); z-index: 3; }
+
+  .mt-cloud { position: absolute; left: 50%; bottom: 2%; width: 90%; z-index: 2; transform: translateX(-50%); transition: opacity var(--dm-duration-base,250ms) ease, transform var(--dm-duration-base,250ms) ease; }
+  .mt-cloud svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 3px 4px rgba(59,74,84,0.12)); }
+  .mt-hidespot.revealed .mt-cloud { opacity: 0; transform: translateX(-50%) translateY(14%) scale(0.85); }
+  .mt-hidespot.neutral-pulse .mt-cloud { animation: mtSway 380ms ease-in-out; }
+  @keyframes mtSway { 0%{transform:translateX(-50%) rotate(0deg);} 30%{transform:translateX(-50%) rotate(-4deg) scale(1.03);} 65%{transform:translateX(-50%) rotate(3deg) scale(1.03);} 100%{transform:translateX(-50%) rotate(0deg);} }
+
+  .mt-sparkle { position: absolute; left: 50%; top: -10%; width: 34%; z-index: 4; opacity: 0; pointer-events: none; transform: translate(-50%,0) scale(0.4); }
+  .mt-hidespot.revealed .mt-sparkle { animation: mtSparkle 900ms ease-out; }
+  @keyframes mtSparkle { 0%{opacity:0; transform:translate(-50%,0) scale(0.3) rotate(0deg);} 35%{opacity:1; transform:translate(-50%,0) scale(1) rotate(15deg);} 100%{opacity:0; transform:translate(-50%,-40%) scale(1.1) rotate(30deg);} }
+
+  .mt-label { position: absolute; bottom: -1.6em; left: 50%; transform: translateX(-50%); font-size: 0.75rem; color: var(--dm-color-sub,#5E6D78); white-space: nowrap; z-index: 5; }
+
+  /* gaze dwell ring — same pattern as miru-hirogaru pilot, inner ring close to hide spot edge. */
+  .mt-ring {
+    position: absolute; inset: -8px; z-index: 6; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(var(--dm-color-accent,#F5A623) calc(var(--dwell-ratio,0) * 360deg), transparent 0deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    opacity: 0;
+  }
+  .mt-hidespot.gaze-dwelling .mt-ring { opacity: 1; }
+
+  /* Switch Scan highlight — outer ring, offset 14px so it stays visually separated from
+     the gaze ring above it (Phase M2.1 lesson from miru-hirogaru, reused verbatim here). */
+  .mt-hidespot.scan-focus { outline: var(--dm-focus-width,3px) dashed var(--dm-focus-color,#00A99D); outline-offset: 14px; border-radius: 50%; }
+
+  .mt-hidespot.pressed .mt-cloud { filter: brightness(0.96); }
+
+  #settingsPanel { background: #fff; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); padding: var(--dm-space-4,16px); margin-top: var(--dm-space-4,16px); }
+  #settingsPanel h2 { font-size: 1.0625rem; margin: 0 0 var(--dm-space-3,12px); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-3,12px); padding: var(--dm-space-2,8px) 0; }
+  .toggle { position: relative; display: inline-block; width: 44px; height: 26px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--dm-color-border,#EDF1F0); border-radius: 999px; cursor: pointer; transition: background var(--dm-duration-fast,150ms); }
+  .toggle-slider::before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform var(--dm-duration-fast,150ms); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .toggle input:checked + .toggle-slider { background: var(--dm-color-primary,#00A99D); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+  .toggle input:focus-visible + .toggle-slider { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .settings-close-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: none; background: var(--dm-color-primary,#00A99D); color: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; margin-top: var(--dm-space-3,12px); }
+
+  #recordsList .record-item { border-bottom: 1px solid var(--dm-color-border,#EDF1F0); padding: var(--dm-space-2,8px) 0; font-size: 0.9375rem; }
+  #recordsEmpty { color: var(--dm-color-sub,#5E6D78); font-size: 0.9375rem; }
+  #recordsCsvBtn, #recordsDeleteBtn, #recordsShowMoreBtn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: var(--dm-space-2,8px); margin-right: var(--dm-space-2,8px); }
+</style>
+</head>
+<body>
+<!-- announce-helper: 自動挿入 (generate.js) -->
+<div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  if (window.donomanaAnnounce) return;
+  var politeTimer = null, assertiveTimer = null;
+  function donomanaAnnounce(message, options){
+    if (typeof message !== 'string') return;
+    if (message.trim() === '') return;
+    var opts = options || {};
+    var priority = (opts.priority === 'assertive') ? 'assertive' : 'polite';
+    var clearDelay = (typeof opts.clearDelay === 'number' && Number.isFinite(opts.clearDelay) && opts.clearDelay >= 0) ? opts.clearDelay : 50;
+    var elId = (priority === 'assertive') ? 'donomanaAnnounceAssertive' : 'donomanaAnnouncePolite';
+    var live = document.getElementById(elId);
+    if (!live) return;
+    if (priority === 'assertive') { clearTimeout(assertiveTimer); } else { clearTimeout(politeTimer); }
+    live.textContent = '';
+    var timer = setTimeout(function(){ live.textContent = message; }, clearDelay);
+    if (priority === 'assertive') { assertiveTimer = timer; } else { politeTimer = timer; }
+  }
+  window.donomanaAnnounce = donomanaAnnounce;
+})();
+</script>
+<!-- /announce-helper -->
+<!-- a11y-panel: 自動挿入 (generate.js) -->
+<style>#settingsBtn{display:none !important;pointer-events:none !important;}</style>
+<style>#donomanaA11yBtn:focus-visible,#donomanaA11yPanel button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" aria-controls="donomanaA11yPanel" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
+<div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" aria-hidden="true" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
+  <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>
+  <button id="donomanaSettingsProxy" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">🔧 このアプリの詳細設定を開く</button>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🎨 表示モード</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-contrast="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
+    <button data-a11y-contrast="hc" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔤 文字の大きさ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-font="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
+    <button data-a11y-font="large" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
+    <button data-a11y-font="xlarge" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
+  </div>
+  <button id="donomanaA11yReset" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
+</div>
+<div id="donomanaA11yStatus" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  var P = 'donomana-a11y-';
+  function all(sel){return document.querySelectorAll(sel);}
+  function mark(sel, dataAttr, value){
+    all(sel).forEach(function(b){
+      var on = b.dataset[dataAttr] === value;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
+  }
+  var donomanaAnnounceA11yTimer = null;
+  function donomanaAnnounceA11y(msg){
+    var live = document.getElementById('donomanaA11yStatus');
+    if (!live) return;
+    clearTimeout(donomanaAnnounceA11yTimer);
+    live.textContent = '';
+    donomanaAnnounceA11yTimer = setTimeout(function(){ live.textContent = msg; }, 50);
+  }
+  function applyContrast(mode){
+    document.documentElement.style.filter = (mode === 'hc') ? 'invert(1) hue-rotate(180deg)' : '';
+    mark('[data-a11y-contrast]', 'a11yContrast', mode);
+    localStorage.setItem(P + 'contrast', mode);
+  }
+  function applyFont(size){
+    var zoomMap = { normal: '', large: '125%', xlarge: '150%' };
+    document.body.style.zoom = zoomMap[size] || '';
+    mark('[data-a11y-font]', 'a11yFont', size);
+    localStorage.setItem(P + 'font', size);
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('donomanaA11yBtn');
+    var panel = document.getElementById('donomanaA11yPanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var open = panel.style.display === 'block';
+      panel.style.display = open ? 'none' : 'block';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      panel.setAttribute('aria-hidden', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e){
+      if (!panel.contains(e.target) && e.target !== btn) {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && panel.style.display === 'block') btn.click();
+    });
+    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){
+      applyContrast(b.dataset.a11yContrast);
+      donomanaAnnounceA11y(b.dataset.a11yContrast === 'hc' ? 'ハイコントラストをオンにしました' : 'ハイコントラストをオフにしました');
+    }); });
+    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){
+      applyFont(b.dataset.a11yFont);
+      donomanaAnnounceA11y('文字の大きさを' + ({normal:'標準',large:'大',xlarge:'特大'}[b.dataset.a11yFont] || '標準') + 'にしました');
+    }); });
+    var proxyBtn = document.getElementById('donomanaSettingsProxy');
+    if (proxyBtn) {
+      function donomanaIsFocusable(el){
+        if (!el || !el.isConnected || el.disabled || el.tabIndex === -1) return false;
+        if (el.hasAttribute('hidden') || el.closest('[hidden]') || el.closest('[inert]')) return false;
+        if (el.getClientRects().length === 0) return false;
+        var cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+        if (Number.parseFloat(cs.opacity) === 0) return false;
+        return true;
+      }
+      function donomanaFirstFocusable(root){
+        if (!root) return null;
+        var cands = root.querySelectorAll('button, input, select, textarea, a[href], [tabindex]');
+        for (var i = 0; i < cands.length; i++) { if (donomanaIsFocusable(cands[i])) return cands[i]; }
+        return null;
+      }
+      proxyBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var candidates = Array.from(document.querySelectorAll("#settingsBtn"));
+        var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+        if (!original) return;
+        var controlsId = original.getAttribute('aria-controls');
+        var beforeVisible = null;
+        if (!controlsId) {
+          beforeVisible = new Set();
+          document.querySelectorAll('body *').forEach(function(el){
+            if (el.getClientRects().length > 0) beforeVisible.add(el);
+          });
+        }
+        original.focus();
+        original.click();
+        setTimeout(function(){
+          var active = document.activeElement;
+          var needsFallback = (active === document.body) || (active === original && !donomanaIsFocusable(original));
+          if (!needsFallback) return;
+          var target = null;
+          if (controlsId) {
+            target = donomanaFirstFocusable(document.getElementById(controlsId));
+          } else {
+            var newly = [];
+            document.querySelectorAll('body *').forEach(function(el){
+              if (el.getClientRects().length > 0 && !beforeVisible.has(el)) newly.push(el);
+            });
+            for (var i = 0; i < newly.length; i++) {
+              if (/^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(newly[i].tagName) && donomanaIsFocusable(newly[i])) { target = newly[i]; break; }
+            }
+          }
+          if (target) target.focus();
+        }, 100);
+      });
+    }
+    var resetBtn = document.getElementById('donomanaA11yReset');
+    if (resetBtn) resetBtn.addEventListener('click', function(){
+      applyContrast('normal'); applyFont('normal');
+      localStorage.removeItem(P + 'contrast'); localStorage.removeItem(P + 'font');
+      donomanaAnnounceA11y('設定をリセットしました');
+    });
+    applyContrast(localStorage.getItem(P + 'contrast') || 'normal');
+    applyFont(localStorage.getItem(P + 'font') || 'normal');
+  });
+})();
+</script>
+<!-- /a11y-panel -->
+<!-- lock-fs-btn: 自動挿入 (generate.js) -->
+<style>#donomanaLockBtn:focus-visible,#donomanaFsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
+  <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
+  <button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>
+</div>
+<div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
+<script>
+(function(){
+  var locked=false, toastTimer=null;
+  function toast(msg){
+    var el=document.getElementById('donomanaLockToast');
+    if(!el)return;
+    el.textContent=msg;
+    el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)';
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(-10px)';},2200);
+  }
+  function setLock(on){
+    locked=on;
+    var btn=document.getElementById('donomanaLockBtn');
+    if(btn){
+      btn.textContent=on?'🔒':'🔓';
+      btn.style.background=on?'rgba(255,80,80,0.92)':'rgba(255,255,255,0.92)';
+      btn.setAttribute('aria-label',on?'ロックちゅう（タップでかいじょ）':'がめんをロック');
+    }
+    if(on){
+      history.pushState({donomanaLocked:true},'');
+      history.pushState({donomanaLocked:true},'');
+      toast('🔒 がめんをロックしたよ');
+    } else {
+      toast('🔓 ロックをかいじょしたよ');
+    }
+  }
+  window.addEventListener('popstate',function(){
+    if(locked){history.pushState({donomanaLocked:true},'');toast('🔒 まえの がめんには もどれないよ');}
+  });
+  window.addEventListener('beforeunload',function(e){
+    if(locked){e.preventDefault();e.returnValue='';}
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var lockBtn=document.getElementById('donomanaLockBtn');
+    if(lockBtn)lockBtn.addEventListener('click',function(){setLock(!locked);});
+    var homeBtn=document.getElementById('donomanaHomeBtn');
+    if(homeBtn){
+      homeBtn.addEventListener('click',function(e){
+        if(locked){e.preventDefault();toast('🔒 まえの がめんには もどれないよ');}
+      });
+    }
+    var fsBtn=document.getElementById('donomanaFsBtn');
+    function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);}
+    function updateFsBtn(){if(fsBtn){fsBtn.textContent=inFS()?'⊡':'⛶';fsBtn.setAttribute('aria-label',inFS()?'全画面を解除':'全画面表示');}}
+    ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange'].forEach(function(ev){document.addEventListener(ev,updateFsBtn);});
+    if(fsBtn)fsBtn.addEventListener('click',function(){
+      if(!inFS()){
+        var el=document.documentElement;
+        var req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;
+        if(req)req.call(el);
+      } else {
+        var ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen;
+        if(ex)ex.call(document);
+      }
+    });
+  });
+})();
+</script>
+<!-- /lock-fs-btn -->
+<!-- home-btn: 自動挿入 (generate.js) -->
+<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<a href="https://donomana.jp/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
+<!-- /home-btn -->
+<main id="app" class="app">
+  <header class="app-header">
+    <h1 class="app-title">どこかな？みーつけた！</h1>
+    <button id="settingsBtn" class="settings-toggle-btn scannable" data-scan="1" tabindex="0" aria-expanded="false" aria-controls="settingsPanel">⚙️ せってい</button>
+  </header>
+
+  <div class="level-row" role="group" aria-label="レベル">
+    <button class="level-btn" data-level="1" tabindex="0" aria-pressed="true">どこかな？</button>
+    <button class="level-btn" data-level="2" tabindex="0" aria-pressed="false">みつけた！</button>
+    <button class="level-btn" data-level="3" tabindex="0" aria-pressed="false">いっぱいかくれんぼ</button>
+  </div>
+
+  <div id="softCompleteText" aria-live="polite"></div>
+  <div id="discoveryText" aria-live="polite"></div>
+
+  <div id="playArea"></div>
+
+  <div id="settingsPanel" hidden>
+    <h2>詳細設定</h2>
+
+    <div class="setting-row">
+      <label for="toggleSound">音</label>
+      <label class="toggle"><input type="checkbox" id="toggleSound" checked><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <label for="toggleGaze">視線入力（ドウェル選択）</label>
+      <label class="toggle"><input type="checkbox" id="toggleGaze"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <label for="toggleScan">スイッチスキャン</label>
+      <label class="toggle"><input type="checkbox" id="toggleScan" tabindex="0"><span class="toggle-slider"></span></label>
+    </div>
+
+    <h2>きろく</h2>
+    <div id="recordsEmpty">まだ きろくが ありません</div>
+    <div id="recordsList"></div>
+    <button id="recordsShowMoreBtn" class="records-showmore-btn" tabindex="0" hidden>もっと見る</button>
+    <div id="recordsStatus" aria-live="polite"></div>
+    <button id="recordsCsvBtn" type="button" tabindex="0" hidden>CSVで書き出す</button>
+    <button id="recordsDeleteBtn" type="button" tabindex="0" hidden>きろくをすべて消す</button>
+    <div id="recordsConfirm" hidden>
+      <p>きろくをすべて消しますか？</p>
+      <button id="recordsConfirmDelete" type="button" tabindex="0">消す</button>
+      <button id="recordsConfirmCancel" type="button" tabindex="0">やめる</button>
+    </div>
+
+    <button id="settingsCloseBtn" class="settings-close-btn" tabindex="0">とじる</button>
+  </div>
+</main>
+
+<script>
+/* =====================================================================
+   Character / Cloud assets — original simple SVG, no emoji, no external
+   images (Phase M5 design doc §5.2/§35). Shared head+eyes+mouth pieces,
+   per-character ear/feature variation.
+===================================================================== */
+var CHARACTERS = [
+  { id: 'rabbit', label: 'うさぎ', color: '#F9D8DC' },
+  { id: 'cat',    label: 'ねこ',   color: '#FFE3B0' },
+  { id: 'dog',    label: 'いぬ',   color: '#E6D6C4' },
+  { id: 'chick',  label: 'ひよこ', color: '#FFF0A8' },
+  { id: 'bear',   label: 'くま',   color: '#D9C6A8' },
+  { id: 'star',   label: 'おほしさま', color: '#FFE9A0' }
+];
+var CHAR_BY_ID = {};
+CHARACTERS.forEach(function(c) { CHAR_BY_ID[c.id] = c; });
+
+function characterInnerSVG(charId) {
+  var eyes = '<circle cx="38" cy="55" r="5" fill="#3B4A54"/><circle cx="62" cy="55" r="5" fill="#3B4A54"/>';
+  var mouth = '<path d="M42 68 Q50 74 58 68" stroke="#3B4A54" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  var head = '<circle cx="50" cy="58" r="30" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>';
+  var blush = '<circle cx="26" cy="62" r="5" fill="#00000014"/><circle cx="74" cy="62" r="5" fill="#00000014"/>';
+  switch (charId) {
+    case 'rabbit':
+      return '<ellipse cx="36" cy="16" rx="8" ry="24" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(-12 36 16)"/>' +
+             '<ellipse cx="64" cy="16" rx="8" ry="24" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(12 64 16)"/>' +
+             head + blush + eyes + mouth;
+    case 'cat':
+      return '<path d="M26 30 L20 2 L44 22 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
+             '<path d="M74 30 L80 2 L56 22 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
+             head + blush + eyes + mouth;
+    case 'dog':
+      return '<ellipse cx="21" cy="48" rx="11" ry="20" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(-16 21 48)"/>' +
+             '<ellipse cx="79" cy="48" rx="11" ry="20" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" transform="rotate(16 79 48)"/>' +
+             head + blush + eyes + mouth;
+    case 'bear':
+      return '<circle cx="25" cy="24" r="13" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>' +
+             '<circle cx="75" cy="24" r="13" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5"/>' +
+             head + blush + eyes + mouth;
+    case 'chick':
+      // small head tuft: without one, chick has no top feature to peek above the cloud
+      // at Level2/3 (all 5 other characters have ears/points there) — found via
+      // Rendered Validation (M6 §61), not just a code-correctness check.
+      return '<path d="M50 22 Q46 8 54 6 Q50 14 56 16 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
+             head + blush + eyes + '<path d="M44 64 L56 64 L50 75 Z" fill="#F5A623" stroke="#3B4A54" stroke-width="2" stroke-linejoin="round"/>';
+    case 'star':
+      return '<path d="M50 4 L61 37 L96 37 L68 58 L79 92 L50 71 L21 92 L32 58 L4 37 L39 37 Z" fill="var(--char-color)" stroke="#3B4A54" stroke-width="2.5" stroke-linejoin="round"/>' +
+             '<circle cx="40" cy="52" r="4.5" fill="#3B4A54"/><circle cx="60" cy="52" r="4.5" fill="#3B4A54"/>' +
+             '<path d="M43 61 Q50 66 57 61" stroke="#3B4A54" stroke-width="2.5" fill="none" stroke-linecap="round"/>';
+    default:
+      return head + eyes + mouth;
+  }
+}
+function characterSVG(charId) {
+  var c = CHAR_BY_ID[charId];
+  return '<svg viewBox="0 0 100 100" style="--char-color:' + c.color + '" aria-hidden="true">' + characterInnerSVG(charId) + '</svg>';
+}
+var CLOUD_SVG = '<svg viewBox="0 0 100 84" aria-hidden="true">' +
+  '<ellipse cx="50" cy="58" rx="44" ry="20" fill="#FFFFFF" stroke="#B9C7D1" stroke-width="2.5"/>' +
+  '<circle cx="28" cy="42" r="18" fill="#FFFFFF" stroke="#B9C7D1" stroke-width="2.5"/>' +
+  '<circle cx="55" cy="32" r="23" fill="#FFFFFF" stroke="#B9C7D1" stroke-width="2.5"/>' +
+  '<circle cx="78" cy="44" r="16" fill="#FFFFFF" stroke="#B9C7D1" stroke-width="2.5"/>' +
+  '</svg>';
+var SPARKLE_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 0 L24 16 L40 20 L24 24 L20 40 L16 24 L0 20 L16 16 Z" fill="#F5A623"/></svg>';
+
+/* =====================================================================
+   Position slots (Phase M5 §11/M6 §11-16)
+===================================================================== */
+var POSITION_LABEL = {
+  left: 'ひだり', center: 'まんなか', right: 'みぎ',
+  'upper-left': 'ひだりうえ', 'upper-right': 'みぎうえ',
+  'lower-left': 'ひだりした', 'lower-right': 'みぎした'
+};
+var ALL_POSITIONS = ['left', 'center', 'right', 'upper-left', 'upper-right', 'lower-left', 'lower-right'];
+var LEVEL_POSITIONS = { 1: ALL_POSITIONS, 2: ['left', 'right'], 3: ['left', 'center', 'right'] };
+var LEVEL_SIZE_CLASS = { 1: 'mt-size-1', 2: 'mt-size-2', 3: 'mt-size-3' };
+var LEVEL_PEEK_CLASS = { 1: 'peek-1', 2: 'peek-2', 3: 'peek-3' };
+
+var DWELL_MS = 900;
+var ACTIVATION_LOCK_MS = 300;
+var SCAN_INTERVAL_MS = 1500;
+var POSITIVE_REVEAL_MS = 900;
+var NEXT_TRIAL_MS = 1200;
+var NEUTRAL_FEEDBACK_MS = 350;
+var SOFT_COMPLETE_EVERY = 5;
+
+/* =====================================================================
+   Canonical / Transient state (Phase M5 §13, M6 §40-41)
+===================================================================== */
+var canonical = {
+  level: 1,
+  phase: 'ready',        // 'ready' | 'feedback'
+  targetItemId: null,
+  itemIds: [],
+  trialIndex: 0,
+  targetActivationCount: 0,
+  totalActivationCount: 0,
+  sessionStart: Date.now()
+};
+var transient = {
+  gazeItemId: null, gazeStartedAt: 0, gazeAwaitingLeaveId: null,
+  scanIndex: -1, scanTimer: null,
+  inputLockUntil: 0,
+  feedbackTimer: null, nextTrialTimer: null,
+  touchStartPos: null,
+  previousPosition: null, previousCharacterId: null
+};
+var currentItems = [];       // full item objects for the active trial (rendering + matching detail)
+var trialStartedAt = performance.now();
+var currentInputMethod = 'unknown';
+var lastDwellDurationMs = null;
+var suppressNextClick = false;
+
+/* =====================================================================
+   Settings / storage
+===================================================================== */
+var STORAGE_LOG_KEY = 'mitsukete_touch_log';
+var STORAGE_SETTINGS_KEY = 'mitsukete_touch_settings';
+var soundEnabled = true;
+var gazeEnabled = false;
+var scanMode = false;
+
+function loadSettings() {
+  try {
+    var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
+    if (!raw) return;
+    var s = JSON.parse(raw);
+    if (typeof s.soundEnabled === 'boolean') soundEnabled = s.soundEnabled;
+  } catch (e) {}
+}
+function saveSettings() {
+  try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({ soundEnabled: soundEnabled })); } catch (e) {}
+}
+function readLog() {
+  try { var raw = localStorage.getItem(STORAGE_LOG_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function writeLog(log) { try { localStorage.setItem(STORAGE_LOG_KEY, JSON.stringify(log)); } catch (e) {} }
+function addLog(entry) { var log = readLog(); log.push(entry); writeLog(log); }
+
+/* =====================================================================
+   Sound — short two-note "discovery" tone via Web Audio, distinct from
+   the Pilot's single-tone (Phase M5 §9 / M6 §24). No external assets.
+===================================================================== */
+var audioCtx = null;
+function playDiscoverySound() {
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    var now = audioCtx.currentTime;
+    [ [740, 0.00, 0.11], [988, 0.10, 0.13] ].forEach(function(spec) {
+      var freq = spec[0], start = now + spec[1], dur = spec[2];
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.13, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(start); osc.stop(start + dur + 0.02);
+    });
+  } catch (e) {}
+}
+
+/* =====================================================================
+   Trial generation (Phase M5 §7.3-7.4, M6 §11-16, §39-41)
+===================================================================== */
+function pickFrom(pool, avoid) {
+  var candidates = pool.filter(function(x) { return x !== avoid; });
+  if (candidates.length === 0) candidates = pool.slice();
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+function buildTrialItems(level) {
+  // Level1's candidate list is 7 positions to choose ONE hide spot FROM (§14) — the trial
+  // itself only ever has 1 hide spot, never 7. Level2/3's lists are the fixed slot sets
+  // actually used every trial (2 and 3 respectively), so they need no such narrowing.
+  var slots = (level === 1) ? [pickFrom(LEVEL_POSITIONS[1], transient.previousPosition)] : LEVEL_POSITIONS[level];
+  var targetSlot = (level === 1) ? slots[0] : pickFrom(slots, transient.previousPosition);
+  var targetChar = CHAR_BY_ID[pickFrom(CHARACTERS.map(function(c) { return c.id; }), transient.previousCharacterId)];
+  transient.previousPosition = targetSlot;
+  transient.previousCharacterId = targetChar.id;
+  return slots.map(function(pos, idx) {
+    var isTarget = pos === targetSlot;
+    return {
+      id: 'item-' + canonical.trialIndex + '-' + idx,
+      role: isTarget ? 'target' : 'other',
+      position: pos,
+      characterId: isTarget ? targetChar.id : null,
+      label: isTarget ? targetChar.label : null,
+      active: false
+    };
+  });
+}
+function startNewTrial() {
+  clearTimeout(transient.feedbackTimer); clearTimeout(transient.nextTrialTimer);
+  canonical.trialIndex += 1;
+  currentItems = buildTrialItems(canonical.level);
+  canonical.targetItemId = currentItems.filter(function(i) { return i.role === 'target'; })[0].id;
+  canonical.itemIds = currentItems.map(function(i) { return i.id; });
+  canonical.phase = 'ready';
+  trialStartedAt = performance.now();
+  resetDwellState();
+  renderItems();
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+
+/* =====================================================================
+   Semantic Activation API (Phase M5 §12.1, M6 §17-18)
+===================================================================== */
+function activateItem(itemId, inputMethod) {
+  if (canonical.phase !== 'ready') return;
+  var now = performance.now();
+  if (now < transient.inputLockUntil) return;
+  var item = currentItems.filter(function(i) { return i.id === itemId; })[0];
+  if (!item) return;
+
+  transient.inputLockUntil = now + ACTIVATION_LOCK_MS;
+  var responseTime = Math.round(now - trialStartedAt);
+  var dwellDuration = (inputMethod === 'gaze') ? lastDwellDurationMs : null;
+  lastDwellDurationMs = null;
+  currentInputMethod = inputMethod;
+  resetDwellState();
+  if (scanMode) { stopAutoScan(); clearScanHighlight_classOnly(); }
+
+  var targetItem = currentItems.filter(function(i) { return i.role === 'target'; })[0];
+  canonical.totalActivationCount += 1;
+  canonical.phase = 'feedback';
+
+  if (item.role === 'target') {
+    canonical.targetActivationCount += 1;
+    item.active = true;
+    playDiscoverySound();
+    renderItems();
+    document.getElementById('discoveryText').textContent = 'みつけた！';
+    donomanaAnnounce('みつけた！' + item.label);
+    addLog({
+      time: new Date().toISOString(), level: canonical.level,
+      selectedPosition: POSITION_LABEL[item.position], itemRole: 'target',
+      inputMethod: inputMethod, responseTime: responseTime, dwellDuration: dwellDuration,
+      targetPosition: POSITION_LABEL[item.position], trialIndex: canonical.trialIndex
+    });
+    transient.nextTrialTimer = setTimeout(function() {
+      document.getElementById('discoveryText').textContent = '';
+      maybeShowSoftCompletion();
+      startNewTrial();
+    }, NEXT_TRIAL_MS);
+  } else {
+    item.neutralPulse = true;
+    renderItems();
+    addLog({
+      time: new Date().toISOString(), level: canonical.level,
+      selectedPosition: POSITION_LABEL[item.position], itemRole: 'other',
+      inputMethod: inputMethod, responseTime: responseTime, dwellDuration: dwellDuration,
+      targetPosition: POSITION_LABEL[targetItem.position], trialIndex: canonical.trialIndex
+    });
+    transient.feedbackTimer = setTimeout(function() {
+      item.neutralPulse = false;
+      canonical.phase = 'ready';
+      renderItems();
+      if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+    }, NEUTRAL_FEEDBACK_MS);
+  }
+}
+function maybeShowSoftCompletion() {
+  if (canonical.targetActivationCount > 0 && canonical.targetActivationCount % SOFT_COMPLETE_EVERY === 0) {
+    var el = document.getElementById('softCompleteText');
+    el.textContent = 'いっぱいみつけたね！';
+    donomanaAnnounce('いっぱいみつけたね！');
+    setTimeout(function() { if (el.textContent === 'いっぱいみつけたね！') el.textContent = ''; }, 4000);
+  }
+}
+
+/* =====================================================================
+   Rendering
+===================================================================== */
+var playArea = document.getElementById('playArea');
+function renderItems() {
+  playArea.innerHTML = '';
+  currentItems.forEach(function(item) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mt-hidespot mt-pos-' + item.position + ' ' + LEVEL_SIZE_CLASS[canonical.level] + ' scannable';
+    btn.dataset.scan = '1';
+    btn.dataset.itemId = item.id;
+    btn.tabIndex = 0;
+    var revealed = item.active;
+    if (revealed) btn.classList.add('revealed');
+    if (item.neutralPulse) btn.classList.add('neutral-pulse');
+    btn.setAttribute('aria-label', revealed ? (POSITION_LABEL[item.position] + '：' + item.label + 'を みつけたよ') : (POSITION_LABEL[item.position] + 'の くも'));
+
+    var charEl = document.createElement('span');
+    charEl.className = 'mt-character ' + LEVEL_PEEK_CLASS[canonical.level];
+    charEl.innerHTML = item.role === 'target' ? characterSVG(item.characterId) : '';
+    btn.appendChild(charEl);
+
+    var cloudEl = document.createElement('span');
+    cloudEl.className = 'mt-cloud';
+    cloudEl.innerHTML = CLOUD_SVG;
+    btn.appendChild(cloudEl);
+
+    var ring = document.createElement('span');
+    ring.className = 'mt-ring';
+    btn.appendChild(ring);
+
+    if (revealed) {
+      var sparkle = document.createElement('span');
+      sparkle.className = 'mt-sparkle';
+      sparkle.innerHTML = SPARKLE_SVG;
+      btn.appendChild(sparkle);
+    }
+
+    var label = document.createElement('span');
+    label.className = 'mt-label';
+    label.textContent = POSITION_LABEL[item.position];
+    label.setAttribute('aria-hidden', 'true');
+    btn.appendChild(label);
+
+    btn.addEventListener('click', function() {
+      if (suppressNextClick) { suppressNextClick = false; return; }
+      activateItem(item.id, currentInputMethod);
+    });
+    btn.addEventListener('pointerdown', function(e) {
+      if (e.pointerType === 'touch' || e.pointerType === 'mouse') {
+        transient.touchStartPos = { x: e.clientX, y: e.clientY };
+        btn.classList.add('pressed');
+      }
+    });
+    btn.addEventListener('pointerup', function() { btn.classList.remove('pressed'); transient.touchStartPos = null; });
+    btn.addEventListener('pointercancel', function() { btn.classList.remove('pressed'); transient.touchStartPos = null; });
+    btn.addEventListener('pointermove', function(e) {
+      if (!transient.touchStartPos) return;
+      var dx = e.clientX - transient.touchStartPos.x, dy = e.clientY - transient.touchStartPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > 8) { suppressNextClick = true; btn.classList.remove('pressed'); }
+    });
+    btn.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        activateItem(item.id, 'keyboard');
+      }
+    });
+
+    playArea.appendChild(btn);
+  });
+  if (scanMode) refreshSwitchScanItems();
+}
+document.addEventListener('pointerdown', function(e) {
+  currentInputMethod = (e.pointerType === 'touch') ? 'touch' : 'click';
+}, true);
+
+/* =====================================================================
+   Level switching
+===================================================================== */
+var levelBtns = Array.from(document.querySelectorAll('.level-btn'));
+function setLevel(n) {
+  clearTimeout(transient.feedbackTimer); clearTimeout(transient.nextTrialTimer);
+  canonical.level = n;
+  transient.previousPosition = null;
+  transient.previousCharacterId = null;
+  levelBtns.forEach(function(b) {
+    var on = Number(b.dataset.level) === n;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  document.getElementById('discoveryText').textContent = '';
+  startNewTrial();
+}
+levelBtns.forEach(function(b) { b.addEventListener('click', function() { setLevel(Number(b.dataset.level)); }); });
+
+/* =====================================================================
+   Gaze / dwell (Pilot pattern reused verbatim — Phase M5 §11.2 / M6 §28-29)
+===================================================================== */
+var lastGazeX = null, lastGazeY = null;
+var gazeRafId = null;
+function getGazeTargets() {
+  if (!settingsPanelHidden()) return [];
+  if (canonical.phase !== 'ready') return [];
+  return Array.from(playArea.querySelectorAll('.mt-hidespot'));
+}
+function resetDwellState() {
+  if (transient.gazeItemId) {
+    var el = playArea.querySelector('[data-item-id="' + transient.gazeItemId + '"]');
+    if (el) { el.classList.remove('gaze-dwelling'); el.style.removeProperty('--dwell-ratio'); }
+  }
+  transient.gazeItemId = null;
+  transient.gazeStartedAt = 0;
+}
+function onGazeMove(e) { lastGazeX = e.clientX; lastGazeY = e.clientY; }
+function gazeTick() {
+  if (gazeEnabled && lastGazeX !== null) {
+    var el = document.elementFromPoint(lastGazeX, lastGazeY);
+    var targets = getGazeTargets();
+    var hit = null;
+    if (el) { for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) { hit = targets[i]; break; } } }
+    var hitId = hit ? hit.dataset.itemId : null;
+
+    if (transient.gazeAwaitingLeaveId && hitId !== transient.gazeAwaitingLeaveId) {
+      transient.gazeAwaitingLeaveId = null;
+    }
+    if (hitId !== transient.gazeItemId) {
+      resetDwellState();
+      if (hit && hitId !== transient.gazeAwaitingLeaveId) {
+        transient.gazeItemId = hitId;
+        transient.gazeStartedAt = performance.now();
+        hit.classList.add('gaze-dwelling');
+      }
+    } else if (transient.gazeItemId && hitId !== transient.gazeAwaitingLeaveId) {
+      var ratio = Math.min(1, (performance.now() - transient.gazeStartedAt) / DWELL_MS);
+      var dwellEl = playArea.querySelector('[data-item-id="' + transient.gazeItemId + '"]');
+      if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
+      if (ratio >= 1) {
+        var activatedId = transient.gazeItemId;
+        lastDwellDurationMs = Math.round(performance.now() - transient.gazeStartedAt);
+        resetDwellState();
+        transient.gazeAwaitingLeaveId = activatedId;
+        activateItem(activatedId, 'gaze');
+      }
+    }
+  }
+  gazeRafId = requestAnimationFrame(gazeTick);
+}
+function enableGaze() {
+  if (gazeRafId) return;
+  document.addEventListener('mousemove', onGazeMove);
+  gazeRafId = requestAnimationFrame(gazeTick);
+}
+function disableGaze() {
+  document.removeEventListener('mousemove', onGazeMove);
+  if (gazeRafId) { cancelAnimationFrame(gazeRafId); gazeRafId = null; }
+  resetDwellState();
+  transient.gazeAwaitingLeaveId = null;
+  lastGazeX = null; lastGazeY = null;
+}
+function setGazeEnabled(on) {
+  gazeEnabled = on;
+  if (on) enableGaze(); else disableGaze();
+}
+var toggleGaze = document.getElementById('toggleGaze');
+toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); });
+
+/* =====================================================================
+   Switch Scan — Level1 Direct Activation (single hide spot), Level2/3
+   Auto Scan at 1500ms including distractors (Input Equity, M5 §11.3 /
+   M6 §30-34).
+===================================================================== */
+function settingsPanelHidden() { return settingsPanel.hidden; }
+function commonChromeCandidates() {
+  return [
+    document.getElementById('donomanaHomeBtn'),
+    document.getElementById('donomanaLockBtn'),
+    document.getElementById('donomanaFsBtn'),
+    document.getElementById('donomanaA11yBtn')
+  ].filter(Boolean);
+}
+function isVisibleEnabled(el) {
+  if (!el || !el.isConnected || el.disabled) return false;
+  if (el.closest('[hidden]')) return false;
+  var cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+  return true;
+}
+function buildScanItems() {
+  var items = [];
+  if (!settingsPanelHidden()) {
+    items = Array.from(settingsPanel.querySelectorAll('[tabindex="0"]'));
+  } else {
+    items = items.concat(levelBtns);
+    if (canonical.phase === 'ready') items = items.concat(Array.from(playArea.querySelectorAll('.mt-hidespot')));
+    items.push(settingsBtn);
+  }
+  items = items.concat(commonChromeCandidates());
+  return items.filter(isVisibleEnabled);
+}
+var scanTargets = [];
+var scanFocusIndex = -1;
+var scanInterval = null;
+function refreshSwitchScanItems() {
+  scanFocusIndex = -1;
+  scanTargets = buildScanItems();
+  clearScanHighlight_classOnly();
+  if (scanTargets.length) {
+    scanFocusIndex = 0;
+    scanTargets[0].focus({ preventScroll: true });
+    scanTargets[0].classList.add('scan-focus');
+  }
+}
+function clearScanHighlight_classOnly() {
+  document.querySelectorAll('.scan-focus').forEach(function(el) { el.classList.remove('scan-focus'); });
+}
+function clearScanHighlight() {
+  document.body.classList.remove('scan-mode');
+  clearScanHighlight_classOnly();
+}
+function startAutoScan() {
+  stopAutoScan();
+  if (settingsPanelHidden() && canonical.level === 1) return; // Direct Activation
+  scanInterval = setInterval(function() {
+    var targets = buildScanItems();
+    if (!targets.length) return;
+    scanTargets = targets;
+    if (scanFocusIndex >= targets.length) scanFocusIndex = 0;
+    scanFocusIndex = (scanFocusIndex + 1) % targets.length;
+    var t = targets[scanFocusIndex];
+    if (t) { clearScanHighlight_classOnly(); t.focus({ preventScroll: true }); t.classList.add('scan-focus'); }
+  }, SCAN_INTERVAL_MS);
+}
+function stopAutoScan() { clearInterval(scanInterval); scanInterval = null; }
+function startSwitchScan() {
+  document.body.classList.add('scan-mode');
+  setTimeout(function() { if (scanMode) refreshSwitchScanItems(); }, 200);
+  startAutoScan();
+}
+function stopSwitchScan() { stopAutoScan(); clearScanHighlight(); }
+function activateCurrentScanItem() {
+  var el = document.activeElement;
+  if (!el || el === document.body) return;
+  if (el.classList.contains('mt-hidespot')) {
+    activateItem(el.dataset.itemId, 'switch');
+  } else {
+    el.click();
+  }
+}
+function setScanMode(on) {
+  scanMode = on;
+  if (on) { startSwitchScan(); } else { stopSwitchScan(); }
+}
+var toggleScan = document.getElementById('toggleScan');
+toggleScan.addEventListener('change', function() { setScanMode(toggleScan.checked); });
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === ' ' || e.key === 'Spacebar') {
+    if (scanMode) {
+      if (settingsPanelHidden() && canonical.level === 1) {
+        if (canonical.phase === 'ready' && currentItems[0]) activateItem(currentItems[0].id, 'switch');
+      } else {
+        e.preventDefault();
+        activateCurrentScanItem();
+      }
+    }
+  }
+});
+
+/* =====================================================================
+   Settings panel open/close
+===================================================================== */
+var settingsBtn = document.getElementById('settingsBtn');
+var settingsPanel = document.getElementById('settingsPanel');
+var settingsCloseBtn = document.getElementById('settingsCloseBtn');
+function openSettings() {
+  settingsPanel.hidden = false;
+  settingsBtn.setAttribute('aria-expanded', 'true');
+  renderRecords();
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+function closeSettings() {
+  settingsPanel.hidden = true;
+  settingsBtn.setAttribute('aria-expanded', 'false');
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+settingsBtn.addEventListener('click', function() { settingsPanel.hidden ? openSettings() : closeSettings(); });
+settingsCloseBtn.addEventListener('click', closeSettings);
+
+var toggleSound = document.getElementById('toggleSound');
+toggleSound.addEventListener('change', function() { soundEnabled = toggleSound.checked; saveSettings(); });
+
+/* =====================================================================
+   Records / CSV — observed events only; target/other kept neutral,
+   never "correct/mistake" (Phase M5 §14, M6 §42-51).
+===================================================================== */
+var recordsShowAll = false;
+var RECORDS_SHOW_INITIAL = 5;
+function groupIntoSessions(log) {
+  var GAP_MS = 5 * 60 * 1000;
+  var sessions = [];
+  var current = null;
+  var lastTime = null;
+  log.forEach(function(entry) {
+    var t = new Date(entry.time).getTime();
+    var startsNew = !current || (lastTime !== null && (t - lastTime) > GAP_MS) || current.level !== entry.level;
+    if (startsNew) { current = { level: entry.level, entries: [] }; sessions.push(current); }
+    current.entries.push(entry);
+    lastTime = t;
+  });
+  return sessions;
+}
+function formatRecordDate(iso) {
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  } catch (e) { return ''; }
+}
+var LEVEL_NAME = { 1: 'どこかな？', 2: 'みつけた！', 3: 'いっぱいかくれんぼ' };
+var INPUT_LABEL = { touch: 'タッチ', click: 'タッチ', gaze: 'しせん', switch: 'スイッチ', keyboard: 'キーボード' };
+function summarizeSession(sess) {
+  var first = sess.entries[0], last = sess.entries[sess.entries.length - 1];
+  var durationMs = first && last ? (new Date(last.time) - new Date(first.time)) : 0;
+  var foundCount = sess.entries.filter(function(e) { return e.itemRole === 'target'; }).length;
+  var inputCounts = {};
+  sess.entries.forEach(function(e) { inputCounts[e.inputMethod] = (inputCounts[e.inputMethod] || 0) + 1; });
+  var mainInput = Object.keys(inputCounts).sort(function(a, b) { return inputCounts[b] - inputCounts[a]; })[0] || '-';
+  return {
+    dateStr: first ? formatRecordDate(first.time) : '',
+    title: LEVEL_NAME[sess.level] || ('レベル' + sess.level),
+    lines: ['活動時間：約' + Math.max(1, Math.round(durationMs / 1000)) + '秒 ／ みつけた回数：' + foundCount + '回 ／ 働きかけ回数：' + sess.entries.length + '回 ／ 主な入力：' + (INPUT_LABEL[mainInput] || mainInput)]
+  };
+}
+function renderRecords() {
+  var sessions = groupIntoSessions(readLog()).reverse();
+  var list = document.getElementById('recordsList');
+  var empty = document.getElementById('recordsEmpty');
+  var showMoreBtn = document.getElementById('recordsShowMoreBtn');
+  var csvBtn = document.getElementById('recordsCsvBtn');
+  var deleteBtn = document.getElementById('recordsDeleteBtn');
+  list.innerHTML = '';
+  if (sessions.length === 0) {
+    empty.hidden = false; showMoreBtn.hidden = true; csvBtn.hidden = true; deleteBtn.hidden = true;
+    return;
+  }
+  empty.hidden = true; csvBtn.hidden = false; deleteBtn.hidden = false;
+  var visibleCount = recordsShowAll ? sessions.length : Math.min(RECORDS_SHOW_INITIAL, sessions.length);
+  for (var i = 0; i < visibleCount; i++) {
+    var s = summarizeSession(sessions[i]);
+    var item = document.createElement('div');
+    item.className = 'record-item';
+    var title = document.createElement('div');
+    title.style.fontWeight = '700';
+    title.textContent = (s.dateStr ? s.dateStr + '　' : '') + s.title;
+    item.appendChild(title);
+    s.lines.forEach(function(line) { var p = document.createElement('div'); p.textContent = line; item.appendChild(p); });
+    list.appendChild(item);
+  }
+  showMoreBtn.hidden = recordsShowAll || sessions.length <= RECORDS_SHOW_INITIAL;
+}
+document.getElementById('recordsShowMoreBtn').addEventListener('click', function() {
+  recordsShowAll = true; renderRecords();
+  if (scanMode) refreshSwitchScanItems();
+});
+
+var CSV_HEADERS = ['日時', 'レベル', '選んだ場所', '種類', '入力方法', '反応時間ms', '注視時間ms', 'かくれていた場所', 'trial'];
+var ROLE_LABEL = { target: 'みつけた', other: 'ほかのばしょ' };
+function csvEscape(value) {
+  var s = (value === null || value === undefined) ? '' : String(value);
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function formatRecordDateTimeFull(iso) {
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  } catch (e) { return ''; }
+}
+function buildRecordsCsvRows() {
+  var rows = [CSV_HEADERS.slice()];
+  readLog().forEach(function(e) {
+    rows.push([
+      formatRecordDateTimeFull(e.time),
+      LEVEL_NAME[e.level] || ('レベル' + e.level),
+      e.selectedPosition,
+      ROLE_LABEL[e.itemRole] || e.itemRole,
+      INPUT_LABEL[e.inputMethod] || e.inputMethod,
+      e.responseTime,
+      (e.dwellDuration === null || e.dwellDuration === undefined) ? '' : e.dwellDuration,
+      e.targetPosition,
+      e.trialIndex
+    ]);
+  });
+  return rows;
+}
+function downloadRecordsCsv() {
+  var rows = buildRecordsCsvRows();
+  var csv = rows.map(function(r) { return r.map(csvEscape).join(','); }).join('\r\n');
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'mitsukete-touch-records.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('recordsCsvBtn').addEventListener('click', downloadRecordsCsv);
+document.getElementById('recordsDeleteBtn').addEventListener('click', function() {
+  document.getElementById('recordsConfirm').hidden = false;
+});
+document.getElementById('recordsConfirmDelete').addEventListener('click', function() {
+  writeLog([]);
+  document.getElementById('recordsConfirm').hidden = true;
+  renderRecords();
+  document.getElementById('recordsStatus').textContent = 'きろくをすべて消しました';
+  if (scanMode) refreshSwitchScanItems();
+});
+document.getElementById('recordsConfirmCancel').addEventListener('click', function() {
+  document.getElementById('recordsConfirm').hidden = true;
+});
+
+/* =====================================================================
+   init
+===================================================================== */
+loadSettings();
+toggleSound.checked = soundEnabled;
+startNewTrial();
+</script>
+</body>
+</html>

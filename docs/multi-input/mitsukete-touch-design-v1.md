@@ -1,8 +1,8 @@
-# 「みつけてタッチ」個別設計 v1.0（Phase M5 — Pop Discovery / Peekaboo再設計）
+# 「どこかな？みーつけた！」個別設計 v1.1（Phase M5〜M6 — Pop Discovery / Peekaboo）
 
-- 版: v1.0（設計のみ、実装未着手）
-- 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変える。
-- Production: 本Phaseでは一切のアプリコード・generate.js・apps-data.json・changelogを変更しない。設計文書のみ。
+- 版: v1.1（v1.0をPhase M6実装で確定・更新。表示名「どこかな？みーつけた！」確定、内部filenameは`mitsukete-touch-app.html`のまま）
+- 位置づけ: `docs/multi-input/multi-input-program-design-v1.md`（Program共通設計）の下位文書。Multi-Input Program 2本目のアプリ。「みるとひろがる」（`miru-hirogaru-app.html`／`miru-hirogaru-design-v1.md`）で確立した入力基盤（semantic activation・canonical/transient state分離・Gaze/Switch共存パターン）を再利用しつつ、体験は意図的に作り変えた。
+- Production: `mitsukete-touch-app.html`はfeature/mitsukete-touch-mvp branch上に実装済みだが、mainへ未統合・Production未公開（Release Approval Gate、User Review待ち）。generate.js/apps-data.json/changelogはいずれも未変更。
 
 ---
 
@@ -307,24 +307,32 @@ moving targets、4+ distractors、complex backgrounds、photo images、TTS、man
 
 ---
 
-## 23. 残存論点・ユーザー判断事項
+## 23. M6実装確定事項（ユーザー承認・実装反映済み）
 
-1. **世界観**: ふわふわ空の世界（雲）を推奨したが、この方向性でよいか（4.2章）。
-2. **キャラクター数・種類**: うさぎ/ねこ/いぬ/ひよこ/くま/おほしさまの6種でよいか（5.1章）。
-3. **キャラクターstyle**: シンプルSVG/ベクター、round/soft/pastel統一styleでよいか（5.2章）。
-4. **Level名**: 「どこかな？」「みつけた！」「いっぱいかくれんぼ」でよいか（6.4章）。
-5. **Level1位置ランダム化**: 7候補位置＋直前位置除外の制御でよいか（7.3章）。
-6. **Level2 distractor方式**: neutral distractor（空の雲）でよいか（6.2章）。
-7. **distractor feedback**: ふわっ/ゆらっとした軽い揺れでよいか（8.1章）。
-8. **Level3 3か所固定**: MVPスコープとしてよいか（6.3章）。
-9. **positive reveal演出**: pop+reveal+sparkle+soft soundの組み合わせでよいか（8章）。
-10. **次trial待ち時間**: 1200msでよいか（7.2章）。
-11. **Switch Level1 Direct Activation**: 「みるとひろがる」と同じ判断でよいか（11.3章）。
-12. **distractor scan**: Switch利用者にもdistractorを候補として含める方針でよいか（11.3章）。
-13. **records**: 8列CSV・target位置記録を含む55/61章の項目でよいか。
-14. **soft completion 5回**: target発見5回ごとの区切りでよいか（15.1章）。
-15. **アプリ表示名**: 「どこかな？みーつけた！」を推奨するが、現行名「みつけてタッチ」を維持する案とどちらを取るか（18.2章）。
-16. **M6 MVP範囲**: 20.1/20.2章のスコープでよいか。
+M5時点の16件の残存論点は、ユーザー承認とPhase M6実装を経てすべて確定した（`mitsukete-touch-app.html`実装済み、feature/mitsukete-touch-mvp branch）。
+
+1. **世界観**: ふわふわ空の世界（雲）で確定・実装。単一の雲SVG（`CLOUD_SVG`）で統一。
+2. **キャラクター**: うさぎ/ねこ/いぬ/ひよこ/くま/おほしさまの6種で確定・実装。
+3. **キャラクターstyle**: オリジナルSVG（`characterInnerSVG()`）、round/soft/pastel統一styleで実装。emoji不使用、既存キャラクター模倣なし。
+4. **Level名**: 「どこかな？」「みつけた！」「いっぱいかくれんぼ」で確定・実装。
+5. **Level1位置ランダム化**: 7候補位置＋直前位置除外（`pickFrom()`）で実装。100trial×3levelのランダム性検証で異常なしを確認。
+6. **Level2 distractor方式**: neutral distractor（空の雲、`characterId:null`）で実装。
+7. **distractor feedback**: `neutral-pulse`クラスによる380ms sway animationで実装、×/赤/ブザー/「ちがう」等は一切使用していない。
+8. **Level3**: 3か所固定（left/center/right）で実装。
+9. **positive reveal演出**: pop(scale 1.12)+character reveal+sparkle+discovery sound(2音)+「みつけた！」テキストの組み合わせで実装。
+10. **次trial待ち時間**: 1200msで実装（`NEXT_TRIAL_MS`）。
+11. **Switch Level1 Direct Activation**: 実装・確認済み（`startAutoScan()`がlevel===1で早期returnし、Spaceキーが`currentItems[0]`を直接activateする専用分岐）。
+12. **distractor scan**: target/other双方がscan候補に含まれることを実測確認（`buildScanItems()`はroleで区別しない）。
+13. **records**: 正式に**9項目**として確定（M5時点の「8列」表記はM6で訂正）。timestamp/level/selectedPosition/itemRole/inputMethod/responseTime/dwellDuration/targetPosition/trialIndex。CSVも9列。
+14. **soft completion**: target発見5回ごとで実装（`SOFT_COMPLETE_EVERY=5`）、強制終了なし。
+15. **アプリ表示名**: 「どこかな？みーつけた！」で確定・実装（filenameは`mitsukete-touch-app.html`のまま）。
+16. **M6 MVP範囲**: 21章のスコープ通り実装完了。
+
+### 実装で判明した追加調整（Rendered Validation、コード側で対応）
+
+- **Position percentage修正**: 当初の`left:10%/right:90%`は、hidespotの`translate(-50%)`центering と組み合わさると375〜390px幅のviewportで実際に水平overflowを起こすことをPlaywright実測で発見（Level2/3で確認、Level1でも理論上発生しうる潜在バグ）。`left:24%/right:76%`（および corner位置も同様に調整）へ修正し、全position×全level×全viewportの網羅テストでoverflow 0を確認。
+- **Peek視認性の調整**: 当初のpeek量（top: -4%/16%/30%）は、おほしさまの細い光条等、特徴の薄いキャラクターでLevel2/3の視認性が低すぎたため、`-12%/4%/19%`へ引き上げ。
+- **ひよこキャラクターへの頭部tuftの追加**: ひよこは耳がなく、雲の外に飛び出す「上部特徴」を持たない唯一のキャラクターだったため、小さな頭の巻き毛（tuft）を追加し、他5キャラクターと同様に発見時のシルエットで判別できるようにした。
 
 ---
 
