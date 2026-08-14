@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>じゅんばんにみよう｜どのまな</title>
+<!-- design-tokens: 自動挿入 (generate.js) -->
+<style>
+:root{
+  --dm-radius-sm:5px;
+  --dm-radius-md:9px;
+  --dm-radius-pill:999px;
+  --dm-radius-circle:50%;
+  --dm-focus-width:3px;
+  --dm-focus-color:#00A99D;
+  --dm-focus-offset:2px;
+  --dm-color-primary:#00A99D;
+  --dm-color-primary-dark:#00857B;
+  --dm-color-accent:#F5A623;
+  --dm-color-info:#4A8FD9;
+  --dm-color-danger:#EE6C7C;
+  --dm-color-danger-text:#BA5461;
+  --dm-color-surface:#FFFFFF;
+  --dm-color-soft:#F6F9FA;
+  --dm-color-border:#EDF1F0;
+  --dm-color-ink:#3B4A54;
+  --dm-color-sub:#5E6D78;
+  --dm-color-bg:#FFFFFF;
+  --dm-space-1:4px;
+  --dm-space-2:8px;
+  --dm-space-3:12px;
+  --dm-space-4:16px;
+  --dm-space-5:20px;
+  --dm-space-6:24px;
+  --dm-space-7:32px;
+  --dm-space-8:48px;
+  --dm-space-9:64px;
+  --dm-duration-fast:150ms;
+  --dm-duration-base:250ms;
+  --dm-easing-standard:ease;
+  --dm-font-size-display:2rem;
+  --dm-font-size-heading:1.5rem;
+  --dm-font-size-subheading:1.25rem;
+  --dm-font-size-body:1.0625rem;
+  --dm-font-size-body-kid:1.5rem;
+  --dm-font-size-caption:0.8125rem;
+  --dm-line-height-heading:1.4;
+  --dm-line-height-body:1.7;
+  --dm-line-height-body-kid:1.8;
+  --dm-line-height-caption:1.6;
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+</style>
+<!-- /design-tokens -->
+<!-- seo-tags: 自動挿入 (generate.js) -->
+<link rel="canonical" href="https://donomana.jp/app-details/junban-miyou-app-detail.html">
+<meta name="description" content="おもちゃのれっしゃに、かわいいなかまたちを順番に乗せていく教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。正しい順番を理解できたかを問う教材ではなく、次に注目してほしい対象へや 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
+<!-- /seo-tags -->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: linear-gradient(180deg, #EAF4FF 0%, #FDF9F0 60%, #FBF3E4 100%); color: var(--dm-color-ink,#3B4A54); font-family: 'BIZ UDPGothic','Noto Sans JP',sans-serif; overflow-x: hidden; }
+  .app { max-width: 720px; margin: 0 auto; padding: var(--dm-space-4,16px) var(--dm-space-4,16px) var(--dm-space-6,24px); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ===== header ===== */
+  .jm-hdr { display: flex; align-items: center; gap: 8px; padding: 6px 4px; }
+  .jm-hb { min-width: 40px; min-height: 40px; width: 40px; height: 40px; border-radius: 10px; border: none; background: rgba(74,66,112,.08); color: #4A4270; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .jm-hb:hover, .jm-hb:focus-visible { background: rgba(74,66,112,.16); outline: none; }
+  .jm-htitle { flex: 1; min-width: 0; }
+  .jm-htitle h1 { font-size: 1.15rem; font-weight: 800; margin: 0; line-height: 1.25; color: #4A4270; }
+  .jm-htitle p { font-size: 0.72rem; margin: 1px 0 0; color: #8b83ad; font-weight: 700; }
+
+  .level-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); margin: 10px 0 4px; }
+  .level-btn { min-height: 44px; padding: 8px 14px; border-radius: var(--dm-radius-pill,999px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; }
+  .level-btn.active { background: #4A4270; border-color: #4A4270; color: #fff; }
+
+  #guideText { min-height: 1.6em; font-size: 1.0625rem; font-weight: 800; text-align: center; margin: 6px 0 4px; color: #4A4270; }
+  #softCompleteText { min-height: 1.3em; font-size: 0.95rem; font-weight: 700; text-align: center; margin: 0 0 4px; color: #B8860B; }
+
+  /* ===== stage (target area + toy-train-world background) ===== */
+  #stage {
+    position: relative; flex: 1; min-height: 300px; border-radius: 22px; overflow: hidden;
+    background:
+      radial-gradient(circle at 85% 8%, rgba(255,214,140,.55), transparent 45%),
+      linear-gradient(180deg, #CFE8FB 0%, #E8F4FC 42%, #F3EAD3 78%, #E9D8AE 100%);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.6);
+  }
+  .jm-cloud-deco { position: absolute; opacity: .85; pointer-events: none; }
+  .jm-cloud-deco svg { display: block; filter: drop-shadow(0 2px 3px rgba(120,140,160,.18)); }
+  .jm-hill { position: absolute; left: 0; right: 0; bottom: 84px; height: 46px; background: #CDEAC0; border-radius: 50% 50% 0 0 / 100% 100% 0 0; opacity: .8; pointer-events: none; }
+  .jm-rainbow { position: absolute; top: 6%; right: 4%; width: 80px; opacity: .55; pointer-events: none; }
+
+  #targetArea { position: absolute; inset: 0 0 92px 0; }
+  .jm-passenger-btn {
+    position: absolute; border: none; background: transparent; padding: 0; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; width: 210px; height: 210px;
+  }
+  .jm-passenger-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 6px; border-radius: 50%; }
+  .jm-pos-center      { left: 50%; top: 52%; transform: translate(-50%,-50%); }
+  .jm-pos-left        { left: 27%; top: 52%; transform: translate(-50%,-50%); }
+  .jm-pos-right       { left: 73%; top: 52%; transform: translate(-50%,-50%); }
+  .jm-pos-upper-left  { left: 27%; top: 22%; transform: translate(-50%,-50%); }
+  .jm-pos-upper-right { left: 73%; top: 22%; transform: translate(-50%,-50%); }
+  .jm-pos-lower-left  { left: 27%; top: 66%; transform: translate(-50%,-50%); }
+  .jm-pos-lower-right { left: 73%; top: 66%; transform: translate(-50%,-50%); }
+  @media (max-width: 600px) {
+    .jm-passenger-btn { width: 168px; height: 168px; }
+  }
+  /* Phase M10-C §9: 広いviewportではpassengerをより大きく表示する(layout/hit-target構造は不変) */
+  @media (min-width: 900px) {
+    .jm-passenger-btn { width: 268px; height: 268px; }
+  }
+
+  .jm-passenger-img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; position: relative; z-index: 2; transition: transform 220ms ease; }
+  .jm-passenger-btn.appear .jm-passenger-img { animation: jmPop 420ms cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes jmPop { 0%{ transform: scale(.4); opacity: 0; } 60%{ transform: scale(1.08); opacity: 1; } 100%{ transform: scale(1); opacity: 1; } }
+  /* Phase M10-D: activation直後、元のpassengerボタンはその場でふっと消える
+     (実際に車両まで移動する様子は、別要素jm-boarding-cloneがstage内を移動して見せる)。 */
+  .jm-passenger-btn.boarding .jm-passenger-img { animation: jmBoardFade 260ms ease-in both; }
+  @keyframes jmBoardFade { 0%{ opacity: 1; } 100%{ opacity: 0; } }
+
+  /* Phase M10-D §2: Real Boarding — passengerが実際にcarriageまで歩いていく移動animation。
+     stage直下に絶対配置したクローンをJSでfromRect→toRectへtransitionさせる。 */
+  .jm-boarding-clone { position: absolute; z-index: 15; pointer-events: none; object-fit: contain; transition: left 850ms ease, top 850ms ease, width 850ms ease, height 850ms ease, opacity 200ms ease 650ms; }
+  @media (prefers-reduced-motion: reduce) { .jm-boarding-clone { transition: none !important; } }
+
+  /* Guided Attention: innermost ring, gentle scale + soft glow + light ring (§24-25) */
+  .jm-ga-glow { position: absolute; inset: 6%; z-index: 1; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(circle, rgba(255,214,110,.65) 0%, rgba(255,214,110,0) 70%); transition: opacity 240ms ease; }
+  .jm-ga-ring { position: absolute; inset: 2%; z-index: 1; border-radius: 50%; pointer-events: none; border: 3px solid rgba(255,188,66,.85); opacity: 0; transition: opacity 240ms ease; }
+  .jm-passenger-btn.ga-active .jm-ga-glow,
+  .jm-passenger-btn.ga-active .jm-ga-ring { opacity: 1; }
+  .jm-passenger-btn.ga-active .jm-passenger-img { animation: jmGaPulse 1.6s ease-in-out infinite; }
+  @keyframes jmGaPulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.055); } }
+
+  /* Gaze dwell ring — outside Guided Attention ring, same layering principle as mitsukete/miru (§25) */
+  .jm-gaze-ring {
+    position: absolute; inset: -10px; z-index: 3; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(var(--dm-color-accent,#F5A623) calc(var(--dwell-ratio,0) * 360deg), transparent 0deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    opacity: 0;
+  }
+  .jm-passenger-btn.gaze-dwelling .jm-gaze-ring { opacity: 1; }
+
+  /* Switch Scan highlight — outermost, dashed, offset well clear of the gaze ring (§25-26) */
+  .jm-passenger-btn.scan-focus { outline: var(--dm-focus-width,3px) dashed var(--dm-focus-color,#00A99D); outline-offset: 16px; border-radius: 50%; }
+
+  .jm-passenger-btn.pressed .jm-passenger-img { filter: brightness(0.97); }
+
+  /* ===== next-position hint dots (decorative only, §19 — no arrows) ===== */
+  .jm-hint-dot { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px dashed rgba(120,140,160,.35); pointer-events: none; z-index: 0; transform: translate(-50%,-50%); }
+
+  /* ===== train dock (bottom, §3: 基本停車位置は画面右側) ===== */
+  /* 右padding=76pxは共有a11yボタン(⚙: 48px + right:16px)と重ならないための余白
+     (scratch-app.html等の既存パターンを踏襲、§14 chrome overlap=0)。
+     justify-content:flex-end で、機関車+車両群を右側に停車させる(§3)。
+     transformはJS(startDeparture)がstage幅から動的に算出して設定する
+     (viewportごとに実際に画面外まで完全退出させるため、固定%では不十分)。 */
+  #trainDock { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; display: flex; justify-content: flex-end; align-items: flex-end; gap: 3px; padding: 0 76px 8px 10px; background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(233,216,174,.55) 35%, rgba(200,170,110,.5) 100%); transform: translateX(0); }
+  .jm-rail { position: absolute; left: 0; right: 0; bottom: 6px; height: 4px; background: repeating-linear-gradient(90deg, #B08D57 0 14px, transparent 14px 24px); opacity: .7; }
+  #trainDock.departing { transition: transform var(--jm-depart-ms, 5500ms) linear; }
+  /* Phase M10-C §14-15: 機関車+5両がすべて375px幅でも収まるよう、carriage画像自体の
+     アスペクト比(1536:1024=1.5:1)に合わせたaspect-ratioボックス+clamp()幅で構成する。
+     375px viewportでの実測(loco+5car+5gap+dock左右padding)が343pxの#stage幅に収まる
+     ことをPlaywrightで確認済み(overflow 0)。 */
+  .jm-loco-img { width: clamp(38px, 11.2vw, 90px); aspect-ratio: 1536 / 1024; height: auto; display: block; flex-shrink: 0; filter: drop-shadow(0 3px 3px rgba(90,70,40,.25)); }
+  .jm-car-slot { width: clamp(32px, 9.6vw, 76px); aspect-ratio: 1536 / 1024; flex-shrink: 0; position: relative; }
+  .jm-car-slot .jm-car-img { width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1; filter: drop-shadow(0 3px 3px rgba(90,70,40,.2)); }
+  .jm-car-slot.empty .jm-car-img { opacity: .38; filter: grayscale(.15) drop-shadow(0 2px 2px rgba(90,70,40,.12)); }
+  /* Phase M10-E: boarded状態は専用Active asset(passenger+carriageが1枚に
+     合成済み)へ差し替える(§5)。--jm-active-scaleは、Active asset間での
+     content占有率の差(実測で確認済み、現状dogのみ)を表示上でのみ補正する
+     非破壊的スケール(§12)。 */
+  .jm-car-slot.boarded .jm-car-img { animation: jmCarIn 380ms cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes jmCarIn {
+    0%{ transform: translateY(14px) translateY(var(--jm-active-shift-y,0%)) scale(calc(var(--jm-active-scale,1) * 0.5)); opacity: 0; }
+    100%{ transform: translateY(0) translateY(var(--jm-active-shift-y,0%)) scale(var(--jm-active-scale,1)); opacity: 1; }
+  }
+
+  /* ===== Level3: 5体同時配置(§1) — passenger idごとに固定位置を割り当てる。
+     現在target(interactive button)も、待機中4体(非interactive装飾img、
+     scan/gaze対象外)も、同じ.jm-l3-slot-N位置クラスを共有する。 ===== */
+  .jm-l3-slot-0 { left: 18%; top: 24%; }
+  .jm-l3-slot-1 { left: 82%; top: 24%; }
+  .jm-l3-slot-2 { left: 15%; top: 62%; }
+  .jm-l3-slot-3 { left: 85%; top: 62%; }
+  .jm-l3-slot-4 { left: 50%; top: 42%; }
+  .jm-l3-idle { position: absolute; width: 84px; height: 84px; transform: translate(-50%,-50%); z-index: 1; pointer-events: none; }
+  .jm-l3-idle img { width: 100%; height: 100%; object-fit: contain; display: block; opacity: .8; filter: saturate(.88); }
+  @media (max-width: 600px) { .jm-l3-idle { width: 68px; height: 68px; } }
+  @media (min-width: 900px) { .jm-l3-idle { width: 110px; height: 110px; } }
+  .jm-passenger-btn.jm-l3-active { width: 140px; height: 140px; transform: translate(-50%,-50%); z-index: 2; }
+  @media (max-width: 600px) { .jm-passenger-btn.jm-l3-active { width: 112px; height: 112px; } }
+  @media (min-width: 900px) { .jm-passenger-btn.jm-l3-active { width: 176px; height: 176px; } }
+
+  #departureBanner {
+    position: absolute; left: 50%; top: 40%; transform: translate(-50%,-50%) scale(.7); z-index: 20;
+    background: #fff; border-radius: 20px; padding: 14px 30px; box-shadow: 0 10px 40px rgba(74,66,112,.28);
+    font-size: 1.5rem; font-weight: 900; color: #E8792B; opacity: 0; pointer-events: none; text-align: center;
+    white-space: nowrap; max-width: 90%;
+    transition: opacity 260ms ease, transform 260ms cubic-bezier(.34,1.56,.64,1);
+  }
+  @media (max-width: 360px) { #departureBanner { font-size: 1.25rem; padding: 12px 22px; } }
+  #departureBanner.on { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+
+  .jm-sparkle-pop { position: absolute; z-index: 21; font-size: 1.6rem; pointer-events: none; opacity: 0; }
+  .jm-sparkle-pop.on { animation: jmSparklePop 700ms ease-out both; }
+  @keyframes jmSparklePop { 0%{ opacity: 0; transform: translateY(0) scale(.5); } 30%{ opacity: 1; transform: translateY(-8px) scale(1.05); } 100%{ opacity: 0; transform: translateY(-26px) scale(1); } }
+
+  #settingsPanel { background: #fff; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); padding: var(--dm-space-4,16px); margin-top: var(--dm-space-4,16px); }
+  #settingsPanel h2 { font-size: 1.0625rem; margin: 0 0 var(--dm-space-3,12px); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-3,12px); padding: var(--dm-space-2,8px) 0; }
+  .toggle { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: var(--dm-color-border,#EDF1F0); border-radius: 999px; cursor: pointer; transition: background var(--dm-duration-fast,150ms); }
+  .toggle-slider::before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform var(--dm-duration-fast,150ms); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .toggle input:checked + .toggle-slider { background: #4A4270; }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+  .toggle input:focus-visible + .toggle-slider { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .settings-close-btn { min-height: 44px; padding: 8px 16px; border-radius: var(--dm-radius-md,9px); border: none; background: #4A4270; color: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; margin-top: 12px; }
+
+  #recordsList .record-item { border-bottom: 1px solid var(--dm-color-border,#EDF1F0); padding: 8px 0; font-size: 0.9375rem; }
+  #recordsEmpty { color: var(--dm-color-sub,#5E6D78); font-size: 0.9375rem; }
+  #recordsCsvBtn, #recordsDeleteBtn, #recordsShowMoreBtn { min-height: 44px; padding: 8px 16px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: 8px; margin-right: 8px; }
+
+  body.hc #stage { background: #000; box-shadow: inset 0 0 0 2px #fff; }
+  body.hc .jm-hill, body.hc .jm-cloud-deco, body.hc .jm-rainbow { display: none; }
+  body.hc .jm-ga-glow { background: radial-gradient(circle, rgba(255,255,0,.7) 0%, rgba(255,255,0,0) 70%); }
+  body.hc .jm-ga-ring { border-color: #FFFF00; }
+  body.hc .jm-passenger-btn.scan-focus { outline-color: #FFFF00; }
+  body.hc .jm-gaze-ring { --dm-color-accent: #FFFF00; }
+  body.hc #departureBanner { background: #111; color: #FFFF00; border: 2px solid #fff; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .jm-passenger-btn.appear .jm-passenger-img,
+    .jm-passenger-btn.boarding .jm-passenger-img,
+    .jm-passenger-btn.ga-active .jm-passenger-img,
+    .jm-car-slot.boarded .jm-car-img,
+    #trainDock.departing,
+    .jm-sparkle-pop.on { animation: none !important; }
+    /* animation:noneにより--jm-active-scaleの補正(keyframe側)も無効化されるため、
+       reduced-motion時は静的transformとして掛け直す(dogの表示サイズ補正を維持)。 */
+    .jm-car-slot.boarded .jm-car-img { transform: translateY(var(--jm-active-shift-y,0%)) scale(var(--jm-active-scale,1)) !important; opacity: 1 !important; }
+    .jm-passenger-btn.ga-active .jm-ga-ring { opacity: .9; }
+  }
+</style>
+<!-- favicon: 自動挿入 (generate.js) -->
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#00A99D">
+  <!-- /favicon -->
+</head>
+<body>
+<!-- lock-fs-btn: 自動挿入 (generate.js) -->
+<style>#donomanaLockBtn:focus-visible,#donomanaFsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
+  <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
+  <button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>
+</div>
+<div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
+<script>
+(function(){
+  var locked=false, toastTimer=null;
+  function toast(msg){
+    var el=document.getElementById('donomanaLockToast');
+    if(!el)return;
+    el.textContent=msg;
+    el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)';
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){el.style.opacity='0';el.style.transform='translateX(-50%) translateY(-10px)';},2200);
+  }
+  function setLock(on){
+    locked=on;
+    var btn=document.getElementById('donomanaLockBtn');
+    if(btn){
+      btn.textContent=on?'🔒':'🔓';
+      btn.style.background=on?'rgba(255,80,80,0.92)':'rgba(255,255,255,0.92)';
+      btn.setAttribute('aria-label',on?'ロックちゅう（タップでかいじょ）':'がめんをロック');
+    }
+    if(on){
+      history.pushState({donomanaLocked:true},'');
+      history.pushState({donomanaLocked:true},'');
+      toast('🔒 がめんをロックしたよ');
+    } else {
+      toast('🔓 ロックをかいじょしたよ');
+    }
+  }
+  window.addEventListener('popstate',function(){
+    if(locked){history.pushState({donomanaLocked:true},'');toast('🔒 まえの がめんには もどれないよ');}
+  });
+  window.addEventListener('beforeunload',function(e){
+    if(locked){e.preventDefault();e.returnValue='';}
+  });
+  document.addEventListener('DOMContentLoaded',function(){
+    var lockBtn=document.getElementById('donomanaLockBtn');
+    if(lockBtn)lockBtn.addEventListener('click',function(){setLock(!locked);});
+    var homeBtn=document.getElementById('donomanaHomeBtn');
+    if(homeBtn){
+      homeBtn.addEventListener('click',function(e){
+        if(locked){e.preventDefault();toast('🔒 まえの がめんには もどれないよ');}
+      });
+    }
+    var fsBtn=document.getElementById('donomanaFsBtn');
+    function inFS(){return !!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);}
+    function updateFsBtn(){if(fsBtn){fsBtn.textContent=inFS()?'⊡':'⛶';fsBtn.setAttribute('aria-label',inFS()?'全画面を解除':'全画面表示');}}
+    ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange'].forEach(function(ev){document.addEventListener(ev,updateFsBtn);});
+    if(fsBtn)fsBtn.addEventListener('click',function(){
+      if(!inFS()){
+        var el=document.documentElement;
+        var req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen;
+        if(req)req.call(el);
+      } else {
+        var ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen;
+        if(ex)ex.call(document);
+      }
+    });
+  });
+})();
+</script>
+<!-- /lock-fs-btn -->
+<!-- announce-helper: 自動挿入 (generate.js) -->
+<div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  if (window.donomanaAnnounce) return;
+  var politeTimer = null, assertiveTimer = null;
+  function donomanaAnnounce(message, options){
+    if (typeof message !== 'string') return;
+    if (message.trim() === '') return;
+    var opts = options || {};
+    var priority = (opts.priority === 'assertive') ? 'assertive' : 'polite';
+    var clearDelay = (typeof opts.clearDelay === 'number' && Number.isFinite(opts.clearDelay) && opts.clearDelay >= 0) ? opts.clearDelay : 50;
+    var elId = (priority === 'assertive') ? 'donomanaAnnounceAssertive' : 'donomanaAnnouncePolite';
+    var live = document.getElementById(elId);
+    if (!live) return;
+    if (priority === 'assertive') { clearTimeout(assertiveTimer); } else { clearTimeout(politeTimer); }
+    live.textContent = '';
+    var timer = setTimeout(function(){ live.textContent = message; }, clearDelay);
+    if (priority === 'assertive') { assertiveTimer = timer; } else { politeTimer = timer; }
+  }
+  window.donomanaAnnounce = donomanaAnnounce;
+})();
+</script>
+<!-- /announce-helper -->
+<!-- a11y-panel: 自動挿入 (generate.js) -->
+<style>#setBtn{opacity:0 !important;pointer-events:none !important;}</style>
+<style>#donomanaA11yBtn:focus-visible,#donomanaA11yPanel button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" aria-controls="donomanaA11yPanel" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
+<div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" aria-hidden="true" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
+  <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>
+  <button id="donomanaSettingsProxy" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:10px;margin-bottom:10px;border-radius:8px;border:2px solid #00A99D;background:#fff;color:#00857B;font-size:12px;font-weight:900;cursor:pointer;">🔧 このアプリの詳細設定を開く</button>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🎨 表示モード</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-contrast="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
+    <button data-a11y-contrast="hc" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔤 文字の大きさ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-font="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
+    <button data-a11y-font="large" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
+    <button data-a11y-font="xlarge" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔊 選択・タップの読み上げ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-sr="off" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オフ</button>
+    <button data-a11y-sr="on" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オン</button>
+  </div>
+  <button id="donomanaA11yReset" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
+</div>
+<div id="donomanaA11yStatus" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  var P = 'donomana-a11y-';
+  function all(sel){return document.querySelectorAll(sel);}
+  function mark(sel, dataAttr, value){
+    all(sel).forEach(function(b){
+      var on = b.dataset[dataAttr] === value;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
+  }
+  var donomanaAnnounceA11yTimer = null;
+  function donomanaAnnounceA11y(msg){
+    var live = document.getElementById('donomanaA11yStatus');
+    if (!live) return;
+    clearTimeout(donomanaAnnounceA11yTimer);
+    live.textContent = '';
+    donomanaAnnounceA11yTimer = setTimeout(function(){ live.textContent = msg; }, 50);
+  }
+  function applyContrast(mode){
+    // 背景を黒・文字を白に反転する方式(弱視・色覚特性のある方向けに、
+    // 単純なコントラスト強調より確実に見やすくなるため)
+    document.documentElement.style.filter = (mode === 'hc') ? 'invert(1) hue-rotate(180deg)' : '';
+    mark('[data-a11y-contrast]', 'a11yContrast', mode);
+    localStorage.setItem(P + 'contrast', mode);
+  }
+  function applyFont(size){
+    var zoomMap = { normal: '', large: '125%', xlarge: '150%' };
+    document.body.style.zoom = zoomMap[size] || '';
+    mark('[data-a11y-font]', 'a11yFont', size);
+    localStorage.setItem(P + 'font', size);
+  }
+  
+  var srEnabled = false;
+  function speak(text){
+    if (!srEnabled || !window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text.trim());
+    u.lang = 'ja-JP'; u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }
+  function onGlobalSpeakClick(e){
+    if (!srEnabled) return;
+    if (e.target.closest('#donomanaA11yPanel, #donomanaA11yBtn')) return;
+    var el = e.target.closest('button, a, [role="button"]');
+    if (!el) return;
+    var text = (el.getAttribute('aria-label') || el.textContent || '').trim();
+    if (text) speak(text);
+  }
+  function applyScreenReader(enabled){
+    srEnabled = enabled;
+    mark('[data-a11y-sr]', 'a11ySr', enabled ? 'on' : 'off');
+    localStorage.setItem(P + 'sr', enabled ? '1' : '0');
+    if (enabled) {
+      speak('読み上げ機能をオンにしました');
+      document.addEventListener('click', onGlobalSpeakClick, true);
+    } else {
+      window.speechSynthesis && window.speechSynthesis.cancel();
+      document.removeEventListener('click', onGlobalSpeakClick, true);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('donomanaA11yBtn');
+    var panel = document.getElementById('donomanaA11yPanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var open = panel.style.display === 'block';
+      panel.style.display = open ? 'none' : 'block';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      panel.setAttribute('aria-hidden', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e){
+      if (!panel.contains(e.target) && e.target !== btn) {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && panel.style.display === 'block') btn.click();
+    });
+    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){
+      applyContrast(b.dataset.a11yContrast);
+      donomanaAnnounceA11y(b.dataset.a11yContrast === 'hc' ? 'ハイコントラストをオンにしました' : 'ハイコントラストをオフにしました');
+    }); });
+    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){
+      applyFont(b.dataset.a11yFont);
+      donomanaAnnounceA11y('文字の大きさを' + ({normal:'標準',large:'大',xlarge:'特大'}[b.dataset.a11yFont] || '標準') + 'にしました');
+    }); });
+    all('[data-a11y-sr]').forEach(function(b){ b.addEventListener('click', function(){
+      applyScreenReader(b.dataset.a11ySr === 'on');
+      donomanaAnnounceA11y(b.dataset.a11ySr === 'on' ? '読み上げ機能をオンにしました' : '読み上げ機能をオフにしました');
+    }); });
+    
+  var proxyBtn = document.getElementById('donomanaSettingsProxy');
+  if (proxyBtn) {
+    // フォーカス可能条件の最小十分セット(Phase16.44-C横断調査で導出、Phase16.45-Bでdisplay/opacity判定を追加):
+    // 接続済み・disabledでない・tabIndex!==-1・hidden属性/祖先なし・inert配下でない・
+    // クライアント矩形を持つ・display:noneでない・visibility:hidden/collapseでない・opacity:0でない。
+    // pointer-events:noneはキーボードフォーカス可否と一致しないため判定条件に含めない。
+    function donomanaIsFocusable(el){
+      if (!el || !el.isConnected || el.disabled || el.tabIndex === -1) return false;
+      if (el.hasAttribute('hidden') || el.closest('[hidden]') || el.closest('[inert]')) return false;
+      if (el.getClientRects().length === 0) return false;
+      var cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+      if (Number.parseFloat(cs.opacity) === 0) return false;
+      return true;
+    }
+    function donomanaFirstFocusable(root){
+      if (!root) return null;
+      var cands = root.querySelectorAll('button, input, select, textarea, a[href], [tabindex]');
+      for (var i = 0; i < cands.length; i++) { if (donomanaIsFocusable(cands[i])) return cands[i]; }
+      return null;
+    }
+    proxyBtn.addEventListener('click', function(e){
+      // 実際のクリックイベントがこのままdocumentまでバブリングすると、
+      // アプリ側の「パネル外をクリックしたら閉じる」処理が、いま開いたばかりの
+      // 設定パネルを"外側クリック"と誤認してすぐ閉じてしまう(反応しないように見えるバグの原因)。
+      // これを防ぐため、実クリックの伝播はここで止める。
+      e.stopPropagation();
+      var candidates = Array.from(document.querySelectorAll("#setBtn"));
+      // 複数該当する場合、実際に表示されている（offsetParentがnullでない）ものを優先
+      var original = candidates.find(function(el){ return el.offsetParent !== null; }) || candidates[0];
+      panel.style.display = 'none';
+      btn.setAttribute('aria-expanded', 'false');
+      panel.setAttribute('aria-hidden', 'true');
+      if (!original) return;
+      // Phase16.45-A: 上のpanel非表示により、フォーカス中だった#donomanaSettingsProxyの祖先が
+      // display:noneになる。ブラウザは非同期にfocusout(relatedTarget=null)を発生させdocument.body
+      // へフォーカスを落とす(Phase16.43調査で確認した既存の構造的バグ)。originalへ明示的にfocusして
+      // からclickすることで大半のアプリではこれを未然に防げるが、original自身がdisplay:none等で
+      // フォーカス不能なアプリも存在するため(Phase16.44-C調査)、その場合に備えたfallbackも用意する。
+      var controlsId = original.getAttribute('aria-controls');
+      var beforeVisible = null;
+      if (!controlsId) {
+        // aria-controlsが無いアプリ向け: クリック前の可視要素集合を保存し、
+        // fallback時にクリック後との差分(新たに可視化された要素)を求める。
+        beforeVisible = new Set();
+        document.querySelectorAll('body *').forEach(function(el){
+          if (el.getClientRects().length > 0) beforeVisible.add(el);
+        });
+      }
+      original.focus();
+      original.click();
+      // BODYへ落ちた場合に加え、original.focus()自体は成功しているがoriginalがgenerate.jsにより
+      // 恒常的にopacity:0/display:noneで隠されているため、キーボード操作者から見て不可視なフォーカス
+      // (例: time-timerの#settingsToggle)が残るケースも救済する(Phase16.45-B)。アプリ独自のfocus処理が
+      // 既にoriginal以外の要素へ移動させている場合はここで何もしない(既存の独自focus処理を壊さないため)。
+      // janken-app/register-app等、自前で約50ms後にfocusを移すアプリより十分後の100msで判定する。
+      setTimeout(function(){
+        var active = document.activeElement;
+        var needsFallback = (active === document.body) || (active === original && !donomanaIsFocusable(original));
+        if (!needsFallback) return;
+        var target = null;
+        if (controlsId) {
+          target = donomanaFirstFocusable(document.getElementById(controlsId));
+        } else {
+          var newly = [];
+          document.querySelectorAll('body *').forEach(function(el){
+            if (el.getClientRects().length > 0 && !beforeVisible.has(el)) newly.push(el);
+          });
+          for (var i = 0; i < newly.length; i++) {
+            if (/^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(newly[i].tagName) && donomanaIsFocusable(newly[i])) { target = newly[i]; break; }
+          }
+        }
+        if (target) target.focus();
+      }, 100);
+    });
+  }
+    var resetBtn = document.getElementById('donomanaA11yReset');
+    if (resetBtn) resetBtn.addEventListener('click', function(){
+      applyContrast('normal'); applyFont('normal'); applyScreenReader(false);
+      localStorage.removeItem(P + 'contrast'); localStorage.removeItem(P + 'font'); localStorage.removeItem(P + 'sr');
+      donomanaAnnounceA11y('設定をリセットしました');
+    });
+    applyContrast(localStorage.getItem(P + 'contrast') || 'normal');
+    applyFont(localStorage.getItem(P + 'font') || 'normal');
+    applyScreenReader(localStorage.getItem(P + 'sr') === '1');
+  });
+})();
+</script>
+<!-- /a11y-panel -->
+
+<div class="app">
+  <header class="jm-hdr">
+    <a href="https://donomana.jp/" class="jm-hb" aria-label="もどる">←</a>
+    <div class="jm-htitle">
+      <h1>🚂 じゅんばんにみよう</h1>
+      <p>しゅっぱつ！おもちゃのれっしゃ</p>
+    </div>
+    <button class="jm-hb" id="setBtn" aria-label="せってい" aria-expanded="false">⚙️</button>
+  </header>
+
+  <div class="level-row" role="group" aria-label="れべる">
+    <button class="level-btn active" data-level="1" aria-pressed="true">① ひとつずつ</button>
+    <button class="level-btn" data-level="2" aria-pressed="false">② つぎはどこ？</button>
+    <button class="level-btn" data-level="3" aria-pressed="false">③ みんなでしゅっぱつ！</button>
+  </div>
+
+  <div id="guideText" role="status" aria-live="polite"></div>
+  <div id="softCompleteText" role="status" aria-live="polite"></div>
+
+  <div id="stage">
+    <div class="jm-rainbow" aria-hidden="true">
+      <svg viewBox="0 0 100 60"><path d="M5,58 A45,45 0 0 1 95,58" fill="none" stroke="#F6A6C1" stroke-width="5"/><path d="M13,58 A37,37 0 0 1 87,58" fill="none" stroke="#FBD98A" stroke-width="5"/><path d="M21,58 A29,29 0 0 1 79,58" fill="none" stroke="#A6D9F6" stroke-width="5"/></svg>
+    </div>
+    <div class="jm-cloud-deco" style="top:8%; left:8%; width:64px;" aria-hidden="true">
+      <svg viewBox="0 0 100 60"><ellipse cx="50" cy="40" rx="42" ry="16" fill="#fff"/><circle cx="30" cy="30" r="15" fill="#fff"/><circle cx="55" cy="24" r="18" fill="#fff"/><circle cx="76" cy="32" r="13" fill="#fff"/></svg>
+    </div>
+    <div class="jm-cloud-deco" style="top:14%; right:14%; width:48px;" aria-hidden="true">
+      <svg viewBox="0 0 100 60"><ellipse cx="50" cy="40" rx="42" ry="16" fill="#fff"/><circle cx="30" cy="30" r="15" fill="#fff"/><circle cx="55" cy="24" r="18" fill="#fff"/><circle cx="76" cy="32" r="13" fill="#fff"/></svg>
+    </div>
+    <div class="jm-hill" aria-hidden="true"></div>
+
+    <div id="targetArea" role="group" aria-label="なかま"></div>
+
+    <div class="jm-rail" aria-hidden="true"></div>
+    <div id="trainDock" role="img" aria-label="れっしゃ"></div>
+    <div id="departureBanner" aria-hidden="true">しゅっぱつ！</div>
+  </div>
+
+  <!-- 設定パネル -->
+  <div id="settingsPanel" hidden>
+    <h2>⚙️ せってい</h2>
+    <div class="setting-row">
+      <div><strong>🔊 おと</strong></div>
+      <label class="toggle" aria-label="おと"><input type="checkbox" id="toggleSound"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><strong>👁 しせん入力モード</strong><div style="font-size:.8rem;color:#8b83ad">マウス移動でも注視の代わりに使えます</div></div>
+      <label class="toggle" aria-label="しせん入力モード"><input type="checkbox" id="toggleGaze"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row">
+      <div><strong>🔘 スイッチスキャン</strong></div>
+      <label class="toggle" aria-label="スイッチスキャン"><input type="checkbox" id="toggleScan"><span class="toggle-slider"></span></label>
+    </div>
+
+    <h2 style="margin-top:18px;">📋 きろく</h2>
+    <div id="recordsEmpty" hidden>まだ きろくが ありません</div>
+    <div id="recordsList"></div>
+    <button id="recordsShowMoreBtn" hidden>もっと見る</button>
+    <div>
+      <button id="recordsCsvBtn" hidden>⬇ CSVでダウンロード</button>
+      <button id="recordsDeleteBtn" hidden>🗑 きろくを消す</button>
+    </div>
+    <div id="recordsConfirm" hidden style="margin-top:8px;padding:10px;background:#FFF4F0;border-radius:8px;">
+      <p>きろくをすべて消しますか？</p>
+      <button id="recordsConfirmDelete" type="button">消す</button>
+      <button id="recordsConfirmCancel" type="button">やめる</button>
+    </div>
+    <div id="recordsStatus" role="status" aria-live="polite" style="font-size:.85rem;color:#00857B;"></div>
+
+    <button id="settingsCloseBtn" class="settings-close-btn">とじる</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   Passengers / Train assets (Phase M10-C — Visual Source of Truth:
+   User提供の高解像度個別asset。Reference Sheetからの再トリミングは廃止。
+   Ready/Activeは単一の高解像度passenger画像をcarriage画像の上へCSSで
+   layer合成することで表現する(専用のActive画像は使用しない)。
+===================================================================== */
+/* Phase M10-E: Userが用意した専用Active(乗車済み)assetの車両色に合わせて
+   carマッピングを更新(rabbit=pink/cat=orange/dog=green/bear=blue/chick=purple、
+   Phase M10-B〜Dの対応から入れ替わっている)。
+   activeScaleは、Active asset間で「1枚の画像内でのpassenger+車両の占有率」が
+   一致していないことを実データ(alpha bboxサイズ)で確認した差を補正するための、
+   非破壊的な表示上のスケール補正(原画像そのものは無加工)。 */
+var PASSENGERS = [
+  { id: 'rabbit', label: 'うさぎ', car: 'pink',   slot: 0 },
+  { id: 'cat',    label: 'ねこ',   car: 'orange', slot: 1 },
+  { id: 'dog',    label: 'いぬ',   car: 'green',  slot: 2, activeScale: 1.32, activeShiftY: '14.2%' },
+  { id: 'bear',   label: 'くま',   car: 'blue',   slot: 3 },
+  { id: 'chick',  label: 'ひよこ', car: 'purple', slot: 4 }
+];
+var PASSENGER_BY_ID = {};
+PASSENGERS.forEach(function(p){ PASSENGER_BY_ID[p.id] = p; });
+var ASSET_BASE = 'assets/junban-miyou/';
+function passengerImg(id) { return ASSET_BASE + 'passengers/' + id + '.png'; }
+function activeImg(id) { return ASSET_BASE + 'passengers/' + id + '-active.png'; }
+function carriageImg(color) { return ASSET_BASE + 'train/carriage-' + color + '.png'; }
+var LOCOMOTIVE_IMG = ASSET_BASE + 'train/locomotive.png';
+
+var ALL_POSITIONS = ['left','right','upper-left','upper-right','lower-left','lower-right','center'];
+/* Phase M10-D §1: Level Differentiation
+   Level1: 1trial=1passenger+1carriage、乗車のたびに短い列車が出発する。
+   Level2: 7位置を移動するpassengerを1体ずつ、右停車中の列車へ積み上げる。
+   Level3: 5体を画面に同時配置し、Guided Attentionで順に注意を移す(位置はid固定slot、
+           pickPositionは使用しない)。 */
+var LEVEL_POSITIONS = { 1: ['center'], 2: ALL_POSITIONS };
+var LEVEL_SEQUENCE_LEN = { 1: 1, 2: 5, 3: 5 };
+var LEVEL_NAME = { 1: 'ひとつずつ', 2: 'つぎはどこ？', 3: 'みんなでしゅっぱつ！' };
+
+var DWELL_MS = 900;
+var ACTIVATION_LOCK_MS = 300;
+var SCAN_INTERVAL_MS = 1500;
+var BOARD_TRAVEL_MS = 850;         // §2: passengerが実際にcarriageへ移動する時間(700-1000ms)
+var POST_BOARD_GAP_MS = 260;       // 乗車確認後、次のなかまが出るまでの小休止
+var COMPLETE_HOLD_MS = 1150;       // §3: 完成列車を静止表示する時間(800-1500ms)
+var DEPARTURE_MS = 5500;           // §3: しゅっぱつ走行時間(5-6秒を基準)
+var POST_DEPARTURE_GAP_MS = 700;   // §3: 退出完了後、次roundまでの余白(500-1000ms)
+
+/* =====================================================================
+   Canonical / Transient state (§34-35)
+===================================================================== */
+var canonical = {
+  level: 1,
+  phase: 'ready',          // 'ready' | 'boarding' | 'departing'
+  sequenceIndex: 0,
+  currentPassengerId: null,
+  completedPassengerIds: [],
+  trialIndex: 0,
+  activationCount: 0,
+  sessionStart: Date.now()
+};
+var transient = {
+  gazePassengerId: null, gazeStartedAt: 0, gazeAwaitingLeaveId: null,
+  scanIndex: -1, scanTimer: null,
+  inputLockUntil: 0,
+  feedbackTimer: null, nextAppearTimer: null, roundResetTimer: null, guidedAttentionTimer: null,
+  touchStartPos: null,
+  previousPassengerId: null, previousPosition: null,
+  sequence: []           // 今ラウンドのpassenger idの並び
+};
+var trialStartedAt = performance.now();
+var lastDwellDurationMs = null;
+var currentInputMethod = 'unknown';
+var suppressNextClick = false;
+
+/* =====================================================================
+   Settings / storage
+===================================================================== */
+var STORAGE_LOG_KEY = 'junban_miyou_log';
+var STORAGE_SETTINGS_KEY = 'junban_miyou_settings';
+var soundEnabled = true;
+var gazeEnabled = false;
+var scanMode = false;
+
+function loadSettings() {
+  try {
+    var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
+    if (!raw) return;
+    var s = JSON.parse(raw);
+    if (typeof s.soundEnabled === 'boolean') soundEnabled = s.soundEnabled;
+  } catch (e) {}
+}
+function saveSettings() {
+  try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({ soundEnabled: soundEnabled })); } catch (e) {}
+}
+function readLog() {
+  try { var raw = localStorage.getItem(STORAGE_LOG_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function writeLog(log) { try { localStorage.setItem(STORAGE_LOG_KEY, JSON.stringify(log)); } catch (e) {} }
+function addLog(entry) { var log = readLog(); log.push(entry); writeLog(log); }
+
+/* =====================================================================
+   Sound — short synthesized tones via Web Audio. No external assets, no BGM (§39).
+===================================================================== */
+var audioCtx = null;
+function tone(specs) {
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    var now = audioCtx.currentTime;
+    specs.forEach(function(spec) {
+      var freq = spec[0], start = now + spec[1], dur = spec[2], peak = spec[3] || 0.13;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(peak, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(start); osc.stop(start + dur + 0.02);
+    });
+  } catch (e) {}
+}
+function playBoardSound() { tone([[720, 0, 0.10, 0.14], [960, 0.07, 0.11, 0.12]]); }      // ぽん♪
+function playAppearSound() { tone([[1300, 0, 0.07, 0.06]]); }                              // きらん♪(控えめ)
+function playDepartSound() { tone([[300, 0, 0.09, 0.15], [220, 0.09, 0.13, 0.13]]); }      // ガタン♪
+
+/* =====================================================================
+   Sequence generation (§36) — 5passengerから重複なしで抽出、直前ラウンド
+   と完全一致回避、直前passengerの連続repeat抑制。
+===================================================================== */
+function pickSequence(level) {
+  var len = LEVEL_SEQUENCE_LEN[level];
+  var pool = PASSENGERS.map(function(p){ return p.id; });
+  var seq = [];
+  var avoid = transient.previousPassengerId;
+  for (var i = 0; i < len; i++) {
+    var candidates = pool.filter(function(id){ return seq.indexOf(id) === -1 && id !== avoid; });
+    if (candidates.length === 0) candidates = pool.filter(function(id){ return seq.indexOf(id) === -1; });
+    if (candidates.length === 0) candidates = pool.slice();
+    var pick = candidates[Math.floor(Math.random() * candidates.length)];
+    seq.push(pick);
+    avoid = pick;
+  }
+  // 直前ラウンドと完全一致した場合は先頭2つを入れ替えて回避(len>=2のときのみ意味を持つ)
+  if (len > 1 && transient.previousSequence && seq.join(',') === transient.previousSequence.join(',')) {
+    var tmp = seq[0]; seq[0] = seq[1]; seq[1] = tmp;
+  }
+  return seq;
+}
+function pickPosition(level) {
+  var slots = LEVEL_POSITIONS[level];
+  var candidates = slots.filter(function(p){ return p !== transient.previousPosition; });
+  if (candidates.length === 0) candidates = slots.slice();
+  var pos = candidates[Math.floor(Math.random() * candidates.length)];
+  transient.previousPosition = pos;
+  return pos;
+}
+
+/* =====================================================================
+   Round / trial control
+===================================================================== */
+var stage = document.getElementById('stage');
+var targetArea = document.getElementById('targetArea');
+var trainDock = document.getElementById('trainDock');
+var guideText = document.getElementById('guideText');
+var departureBanner = document.getElementById('departureBanner');
+
+function clearAllTimers() {
+  clearTimeout(transient.feedbackTimer);
+  clearTimeout(transient.nextAppearTimer);
+  clearTimeout(transient.roundResetTimer);
+  clearTimeout(transient.guidedAttentionTimer);
+}
+
+function startNewRound() {
+  clearAllTimers();
+  canonical.trialIndex += 1;
+  canonical.sequenceIndex = 0;
+  canonical.completedPassengerIds = [];
+  canonical.phase = 'ready';
+  transient.sequence = pickSequence(canonical.level);
+  renderTrainDock();
+  departureBanner.classList.remove('on');
+  trainDock.classList.remove('departing');
+  trainDock.style.transform = 'translateX(0)';
+  document.getElementById('softCompleteText').textContent = '';
+  showCurrentTarget();
+}
+function currentSequenceLength() { return transient.sequence.length; }
+
+function showCurrentTarget() {
+  clearTimeout(transient.nextAppearTimer);
+  resetDwellState();
+  var idx = canonical.sequenceIndex;
+  if (idx >= currentSequenceLength()) return; // ラウンド完了(departureへ)
+  var passengerId = transient.sequence[idx];
+  canonical.currentPassengerId = passengerId;
+  canonical.phase = 'ready';
+  transient.previousPassengerId = passengerId;
+  trialStartedAt = performance.now();
+
+  if (canonical.level === 3) {
+    renderLevel3Stage();
+  } else {
+    var pos = pickPosition(canonical.level);
+    renderTargetArea(passengerId, pos);
+  }
+
+  var label = PASSENGER_BY_ID[passengerId].label;
+  guideText.textContent = (currentSequenceLength() > 1)
+    ? ('つぎは「' + label + '」だよ！ (' + (idx + 1) + '/' + currentSequenceLength() + ')')
+    : ('「' + label + '」が きたよ！');
+  donomanaAnnounce('つぎは' + label);
+  playAppearSound();
+
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+
+function buildPassengerButton(passengerId, extraClass) {
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'jm-passenger-btn appear ga-active scannable ' + extraClass;
+  btn.dataset.scan = '1';
+  btn.dataset.passengerId = passengerId;
+  btn.tabIndex = 0;
+  btn.setAttribute('aria-label', PASSENGER_BY_ID[passengerId].label + 'に はたらきかける');
+
+  var glow = document.createElement('span'); glow.className = 'jm-ga-glow'; btn.appendChild(glow);
+  var ring = document.createElement('span'); ring.className = 'jm-ga-ring'; btn.appendChild(ring);
+
+  var img = document.createElement('img');
+  img.className = 'jm-passenger-img';
+  img.src = passengerImg(passengerId);
+  img.alt = '';
+  img.draggable = false;
+  btn.appendChild(img);
+
+  var gazeRing = document.createElement('span'); gazeRing.className = 'jm-gaze-ring'; btn.appendChild(gazeRing);
+
+  attachPassengerHandlers(btn, passengerId);
+  return btn;
+}
+
+function renderTargetArea(passengerId, pos) {
+  targetArea.innerHTML = '';
+  targetArea.appendChild(buildPassengerButton(passengerId, 'jm-pos-' + pos));
+}
+
+/* Phase M10-D §1 Level3: 5体を画面に同時配置する。乗車済みは列車側に残るため
+   ここには表示しない。現在targetのみinteractive button、残りは非interactiveな
+   装飾img(role/tabindexなし＝scan・gaze候補から自然に除外される、§5)。 */
+function renderLevel3Stage() {
+  targetArea.innerHTML = '';
+  var currentId = transient.sequence[canonical.sequenceIndex];
+  PASSENGERS.forEach(function(p) {
+    if (canonical.completedPassengerIds.indexOf(p.id) !== -1) return;
+    if (p.id === currentId) {
+      targetArea.appendChild(buildPassengerButton(p.id, 'jm-l3-active jm-l3-slot-' + p.slot));
+    } else {
+      var wrap = document.createElement('span');
+      wrap.className = 'jm-l3-idle jm-l3-slot-' + p.slot;
+      wrap.setAttribute('aria-hidden', 'true');
+      var img = document.createElement('img');
+      img.src = passengerImg(p.id);
+      img.alt = '';
+      img.draggable = false;
+      wrap.appendChild(img);
+      targetArea.appendChild(wrap);
+    }
+  });
+}
+
+function attachPassengerHandlers(btn, passengerId) {
+  btn.addEventListener('click', function() {
+    if (suppressNextClick) { suppressNextClick = false; return; }
+    activatePassenger(passengerId, currentInputMethod);
+  });
+  btn.addEventListener('pointerdown', function(e) {
+    if (e.pointerType === 'touch' || e.pointerType === 'mouse') {
+      transient.touchStartPos = { x: e.clientX, y: e.clientY };
+      btn.classList.add('pressed');
+    }
+  });
+  btn.addEventListener('pointerup', function() { btn.classList.remove('pressed'); transient.touchStartPos = null; });
+  btn.addEventListener('pointercancel', function() { btn.classList.remove('pressed'); transient.touchStartPos = null; });
+  btn.addEventListener('pointermove', function(e) {
+    if (!transient.touchStartPos) return;
+    var dx = e.clientX - transient.touchStartPos.x, dy = e.clientY - transient.touchStartPos.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 8) { suppressNextClick = true; btn.classList.remove('pressed'); }
+  });
+  btn.addEventListener('keydown', function(e) {
+    if (scanMode && (e.key === ' ' || e.key === 'Spacebar')) return;
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      activatePassenger(passengerId, 'keyboard');
+    }
+  });
+}
+document.addEventListener('pointerdown', function(e) {
+  currentInputMethod = (e.pointerType === 'touch') ? 'touch' : 'click';
+}, true);
+
+/* =====================================================================
+   Semantic Activation API (§31-33) — 1 physical input = 1 semantic activation。
+   Touch/Gaze/Switch/Keyboardは全てこの一箇所へ合流する。
+===================================================================== */
+function prefersReducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+/* Phase M10-D §2: Real Boarding — passengerを、そのcarriage(trainDock内に
+   既にemptyで用意済み)の座席位置まで実際に移動させる。stage直下へ絶対配置した
+   クローンをFLIP的にtransitionさせ、到着後にboardCar()でcarriage内へ着席させる。
+   reduced-motionでは移動を省略し、即座に着席状態を表示する(§2)。 */
+/* Phase M10-E: cloneはReady画像自身のaspect比を保ったまま(歪ませない)、
+   carSlotの高さにおおよそ合わせて中央下寄せで着地させる。到着と同時に
+   boardCar()が空車両画像を専用Active assetへ差し替えるため、clone自身を
+   Active assetと同一サイズへ変形させる必要はない(§6のflow通り、
+   clone除去とActive asset表示はonComplete内で同時に行われ、flicker/
+   一瞬消える間隙が出ないようにする)。 */
+function animateBoardingTravel(passengerId, sourceImg, onComplete) {
+  var carSlot = trainDock.querySelector('.jm-car-slot[data-passenger-id="' + passengerId + '"]');
+  if (!sourceImg || !carSlot || prefersReducedMotion()) { onComplete(); return; }
+
+  var fromRect = sourceImg.getBoundingClientRect();
+  var stageRect = stage.getBoundingClientRect();
+  var slotRect = carSlot.getBoundingClientRect();
+  var targetH = slotRect.height * 0.9;
+  var targetW = targetH * (fromRect.width / fromRect.height);
+  var targetLeft = (slotRect.left - stageRect.left) + (slotRect.width - targetW) / 2;
+  var targetTop = (slotRect.top - stageRect.top) + (slotRect.height - targetH);
+
+  var clone = document.createElement('img');
+  clone.className = 'jm-boarding-clone';
+  clone.src = passengerImg(passengerId);
+  clone.alt = '';
+  clone.style.left = (fromRect.left - stageRect.left) + 'px';
+  clone.style.top = (fromRect.top - stageRect.top) + 'px';
+  clone.style.width = fromRect.width + 'px';
+  clone.style.height = fromRect.height + 'px';
+  stage.appendChild(clone);
+  clone.getBoundingClientRect(); // force reflow so the transition below actually animates
+  requestAnimationFrame(function() {
+    clone.style.left = targetLeft + 'px';
+    clone.style.top = targetTop + 'px';
+    clone.style.width = targetW + 'px';
+    clone.style.height = targetH + 'px';
+    clone.style.opacity = '0';
+  });
+  setTimeout(function() { clone.remove(); onComplete(); }, BOARD_TRAVEL_MS + 30);
+}
+
+function activatePassenger(passengerId, inputMethod) {
+  if (canonical.phase !== 'ready') return;
+  var now = performance.now();
+  if (now < transient.inputLockUntil) return;
+  if (passengerId !== canonical.currentPassengerId) return;
+
+  transient.inputLockUntil = now + ACTIVATION_LOCK_MS + BOARD_TRAVEL_MS;
+  var responseTime = Math.round(now - trialStartedAt);
+  var dwellDuration = (inputMethod === 'gaze') ? lastDwellDurationMs : null;
+  lastDwellDurationMs = null;
+  currentInputMethod = inputMethod;
+  resetDwellState();
+  if (scanMode) { stopAutoScan(); clearScanHighlight_classOnly(); }
+
+  canonical.activationCount += 1;
+  canonical.phase = 'boarding';
+
+  var btn = targetArea.querySelector('.jm-passenger-btn');
+  var sourceImg = btn ? btn.querySelector('.jm-passenger-img') : null;
+  if (btn) {
+    btn.classList.remove('ga-active');
+    btn.classList.add('boarding');
+    btn.tabIndex = -1;
+    btn.style.pointerEvents = 'none';
+  }
+  playBoardSound();
+  spawnSparkle();
+
+  addLog({
+    time: new Date().toISOString(), level: canonical.level,
+    passenger: PASSENGER_BY_ID[passengerId].label, sequenceIndex: canonical.sequenceIndex + 1,
+    sequenceLength: currentSequenceLength(), inputMethod: inputMethod,
+    responseTime: responseTime, dwellDuration: dwellDuration, trialIndex: canonical.trialIndex
+  });
+
+  animateBoardingTravel(passengerId, sourceImg, function() {
+    canonical.completedPassengerIds.push(passengerId);
+    boardCar(passengerId);
+    canonical.sequenceIndex += 1;
+    targetArea.innerHTML = '';
+    if (canonical.sequenceIndex >= currentSequenceLength()) {
+      showSoftCompletion();
+      transient.roundResetTimer = setTimeout(startDeparture, COMPLETE_HOLD_MS);
+    } else {
+      transient.nextAppearTimer = setTimeout(showCurrentTarget, POST_BOARD_GAP_MS);
+    }
+  });
+}
+
+function spawnSparkle() {
+  var btn = targetArea.querySelector('.jm-passenger-btn');
+  if (!btn) return;
+  var rect = btn.getBoundingClientRect();
+  var stageRect = stage.getBoundingClientRect();
+  var el = document.createElement('span');
+  el.className = 'jm-sparkle-pop';
+  el.textContent = '✨';
+  el.style.left = (rect.left - stageRect.left + rect.width / 2 - 12) + 'px';
+  el.style.top = (rect.top - stageRect.top - 6) + 'px';
+  stage.appendChild(el);
+  requestAnimationFrame(function() { el.classList.add('on'); });
+  setTimeout(function() { el.remove(); }, 750);
+}
+
+function showSoftCompletion() {
+  var el = document.getElementById('softCompleteText');
+  el.textContent = (currentSequenceLength() > 1) ? 'みんな のった！' : 'のったね！';
+  guideText.textContent = '';
+  donomanaAnnounce(el.textContent);
+}
+
+/* Phase M10-D §3: Departureを大幅に見やすくする。停車位置(画面右)から、
+   viewport全体を横切って左端の外まで完全に退出するまで(5-6秒基準)、
+   round終了処理を進めない。reduced-motionでは短い遷移に留めるが、
+   「乗った状態」自体は既にboardCar()で確定済みなので状態は明確なまま。 */
+function startDeparture() {
+  canonical.phase = 'departing';
+  guideText.textContent = 'しゅっぱつ！';
+  donomanaAnnounce('しゅっぱつ！', { priority: 'assertive' });
+  playDepartSound();
+  departureBanner.classList.add('on');
+  if (scanMode) { stopAutoScan(); clearScanHighlight(); }
+
+  var durationMs = prefersReducedMotion() ? 400 : DEPARTURE_MS;
+  var stageRect = stage.getBoundingClientRect();
+  // #trainDock自体はleft:0;right:0でstage全幅に及ぶため、そのgetBoundingClientRect()を
+  // 使うと右側padding(76px、a11yボタン避け)分だけ距離を見誤る。実際に見えている列車の
+  // 右端(最後の車両、flex-end配置でDOM順=視覚順)を基準に、確実に左端の外まで運ぶ。
+  var lastCarEl = trainDock.lastElementChild;
+  var lastCarRect = lastCarEl ? lastCarEl.getBoundingClientRect() : trainDock.getBoundingClientRect();
+  var distance = Math.max(320, (lastCarRect.right - stageRect.left) + 60);
+  trainDock.style.setProperty('--jm-depart-ms', durationMs + 'ms');
+  trainDock.classList.add('departing');
+  trainDock.getBoundingClientRect(); // force reflow
+  requestAnimationFrame(function() {
+    trainDock.style.transform = 'translateX(-' + distance + 'px)';
+  });
+
+  transient.roundResetTimer = setTimeout(function() {
+    transient.previousSequence = transient.sequence.slice();
+    startNewRound();
+  }, durationMs + POST_DEPARTURE_GAP_MS);
+}
+
+/* =====================================================================
+   Train dock rendering
+===================================================================== */
+function renderTrainDock() {
+  trainDock.innerHTML = '';
+  var loco = document.createElement('img');
+  loco.className = 'jm-loco-img';
+  loco.src = LOCOMOTIVE_IMG;
+  loco.alt = '';
+  loco.draggable = false;
+  trainDock.appendChild(loco);
+
+  transient.sequence.forEach(function(passengerId) {
+    var slot = document.createElement('span');
+    slot.className = 'jm-car-slot empty';
+    slot.dataset.passengerId = passengerId;
+    var carImg = document.createElement('img');
+    carImg.className = 'jm-car-img';
+    carImg.src = carriageImg(PASSENGER_BY_ID[passengerId].car);
+    carImg.alt = '';
+    carImg.draggable = false;
+    slot.appendChild(carImg);
+    trainDock.appendChild(slot);
+  });
+}
+/* Phase M10-E: 空車両画像を、専用のActive(乗車済み)asset 1枚へ差し替える
+   (CSS layer合成/clip-pathによる疑似乗車表現は廃止、§5,7)。activeScaleが
+   設定されているpassenger(現状dogのみ)は、Active asset間でのcontent占有率の
+   差(alpha bboxの実測で確認済み)を表示上でのみ補正する。 */
+function boardCar(passengerId) {
+  var slot = trainDock.querySelector('.jm-car-slot[data-passenger-id="' + passengerId + '"]');
+  if (!slot) return;
+  slot.classList.remove('empty');
+  slot.classList.add('boarded');
+  var carImg = slot.querySelector('.jm-car-img');
+  carImg.src = activeImg(passengerId);
+  var p = PASSENGER_BY_ID[passengerId];
+  carImg.style.setProperty('--jm-active-scale', p.activeScale || 1);
+  carImg.style.setProperty('--jm-active-shift-y', p.activeShiftY || '0%');
+}
+
+/* =====================================================================
+   Level switching
+===================================================================== */
+var levelBtns = Array.from(document.querySelectorAll('.level-btn'));
+function setLevel(n) {
+  clearAllTimers();
+  canonical.level = n;
+  transient.previousPosition = null;
+  transient.previousPassengerId = null;
+  levelBtns.forEach(function(b) {
+    var on = Number(b.dataset.level) === n;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  document.getElementById('softCompleteText').textContent = '';
+  departureBanner.classList.remove('on');
+  trainDock.classList.remove('departing');
+  trainDock.style.transform = 'translateX(0)';
+  stage.querySelectorAll('.jm-boarding-clone').forEach(function(el) { el.remove(); });
+  startNewRound();
+}
+levelBtns.forEach(function(b) { b.addEventListener('click', function() { setLevel(Number(b.dataset.level)); }); });
+
+/* =====================================================================
+   Gaze / dwell (established pattern, reused verbatim — §29)
+===================================================================== */
+var lastGazeX = null, lastGazeY = null;
+var gazeRafId = null;
+function getGazeTargets() {
+  if (!settingsPanelHidden()) return [];
+  if (canonical.phase !== 'ready') return [];
+  return Array.from(targetArea.querySelectorAll('.jm-passenger-btn'));
+}
+function resetDwellState() {
+  if (transient.gazePassengerId) {
+    var el = targetArea.querySelector('[data-passenger-id="' + transient.gazePassengerId + '"]');
+    if (el) { el.classList.remove('gaze-dwelling'); el.style.removeProperty('--dwell-ratio'); }
+  }
+  transient.gazePassengerId = null;
+  transient.gazeStartedAt = 0;
+}
+function onGazeMove(e) { lastGazeX = e.clientX; lastGazeY = e.clientY; }
+function gazeTick() {
+  if (gazeEnabled && lastGazeX !== null) {
+    var el = document.elementFromPoint(lastGazeX, lastGazeY);
+    var targets = getGazeTargets();
+    var hit = null;
+    if (el) { for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) { hit = targets[i]; break; } } }
+    var hitId = hit ? hit.dataset.passengerId : null;
+
+    if (transient.gazeAwaitingLeaveId && hitId !== transient.gazeAwaitingLeaveId) {
+      transient.gazeAwaitingLeaveId = null;
+    }
+    if (hitId !== transient.gazePassengerId) {
+      resetDwellState();
+      if (hit && hitId !== transient.gazeAwaitingLeaveId) {
+        transient.gazePassengerId = hitId;
+        transient.gazeStartedAt = performance.now();
+        hit.classList.add('gaze-dwelling');
+      }
+    } else if (transient.gazePassengerId && hitId !== transient.gazeAwaitingLeaveId) {
+      var ratio = Math.min(1, (performance.now() - transient.gazeStartedAt) / DWELL_MS);
+      var dwellEl = targetArea.querySelector('[data-passenger-id="' + transient.gazePassengerId + '"]');
+      if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
+      if (ratio >= 1) {
+        var activatedId = transient.gazePassengerId;
+        lastDwellDurationMs = Math.round(performance.now() - transient.gazeStartedAt);
+        resetDwellState();
+        transient.gazeAwaitingLeaveId = activatedId;
+        activatePassenger(activatedId, 'gaze');
+      }
+    }
+  }
+  gazeRafId = requestAnimationFrame(gazeTick);
+}
+function enableGaze() {
+  if (gazeRafId) return;
+  document.addEventListener('mousemove', onGazeMove);
+  gazeRafId = requestAnimationFrame(gazeTick);
+}
+function disableGaze() {
+  document.removeEventListener('mousemove', onGazeMove);
+  if (gazeRafId) { cancelAnimationFrame(gazeRafId); gazeRafId = null; }
+  resetDwellState();
+  transient.gazeAwaitingLeaveId = null;
+  lastGazeX = null; lastGazeY = null;
+}
+function setGazeEnabled(on) { gazeEnabled = on; if (on) enableGaze(); else disableGaze(); }
+var toggleGaze = document.getElementById('toggleGaze');
+toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); });
+
+/* =====================================================================
+   Switch Scan — Level1 Direct Activation, Level2/3 Auto Scan (§26-27)
+===================================================================== */
+function settingsPanelHidden() { return settingsPanel.hidden; }
+function commonChromeCandidates() {
+  return [document.getElementById('donomanaA11yBtn')].filter(Boolean);
+}
+function isVisibleEnabled(el) {
+  if (!el || !el.isConnected || el.disabled) return false;
+  if (el.closest('[hidden]')) return false;
+  var cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+  return true;
+}
+function buildScanItems() {
+  var items = [];
+  if (!settingsPanelHidden()) {
+    items = Array.from(settingsPanel.querySelectorAll('[tabindex="0"], input, button'));
+  } else {
+    items = items.concat(levelBtns);
+    if (canonical.phase === 'ready') items = items.concat(Array.from(targetArea.querySelectorAll('.jm-passenger-btn')));
+    items.push(setBtn);
+  }
+  items = items.concat(commonChromeCandidates());
+  return items.filter(isVisibleEnabled);
+}
+var scanTargets = [];
+var scanFocusIndex = -1;
+var scanInterval = null;
+function refreshSwitchScanItems() {
+  scanFocusIndex = -1;
+  scanTargets = buildScanItems();
+  clearScanHighlight_classOnly();
+  if (scanTargets.length) {
+    scanFocusIndex = 0;
+    scanTargets[0].focus({ preventScroll: true });
+    scanTargets[0].classList.add('scan-focus');
+  }
+}
+function clearScanHighlight_classOnly() {
+  document.querySelectorAll('.scan-focus').forEach(function(el) { el.classList.remove('scan-focus'); });
+}
+function clearScanHighlight() {
+  document.body.classList.remove('scan-mode');
+  clearScanHighlight_classOnly();
+}
+function startAutoScan() {
+  stopAutoScan();
+  if (settingsPanelHidden() && canonical.level === 1) return; // Direct Activation
+  scanInterval = setInterval(function() {
+    var targets = buildScanItems();
+    if (!targets.length) return;
+    scanTargets = targets;
+    if (scanFocusIndex >= targets.length) scanFocusIndex = 0;
+    scanFocusIndex = (scanFocusIndex + 1) % targets.length;
+    var t = targets[scanFocusIndex];
+    if (t) { clearScanHighlight_classOnly(); t.focus({ preventScroll: true }); t.classList.add('scan-focus'); }
+  }, SCAN_INTERVAL_MS);
+}
+function stopAutoScan() { clearInterval(scanInterval); scanInterval = null; }
+function startSwitchScan() {
+  document.body.classList.add('scan-mode');
+  setTimeout(function() { if (scanMode) refreshSwitchScanItems(); }, 200);
+  startAutoScan();
+}
+function stopSwitchScan() { stopAutoScan(); clearScanHighlight(); }
+function activateCurrentScanItem() {
+  var el = document.activeElement;
+  if (!el || el === document.body) return;
+  if (el.classList.contains('jm-passenger-btn')) {
+    activatePassenger(el.dataset.passengerId, 'switch');
+  } else {
+    el.click();
+  }
+}
+function setScanMode(on) { scanMode = on; if (on) { startSwitchScan(); } else { stopSwitchScan(); } }
+var toggleScan = document.getElementById('toggleScan');
+toggleScan.addEventListener('change', function() { setScanMode(toggleScan.checked); });
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === ' ' || e.key === 'Spacebar') {
+    if (scanMode) {
+      if (settingsPanelHidden() && canonical.level === 1) {
+        if (canonical.phase === 'ready' && canonical.currentPassengerId) activatePassenger(canonical.currentPassengerId, 'switch');
+      } else {
+        e.preventDefault();
+        activateCurrentScanItem();
+      }
+    }
+  }
+});
+
+/* =====================================================================
+   Settings panel open/close
+===================================================================== */
+var setBtn = document.getElementById('setBtn');
+var settingsPanel = document.getElementById('settingsPanel');
+var settingsCloseBtn = document.getElementById('settingsCloseBtn');
+function openSettings() {
+  settingsPanel.hidden = false;
+  setBtn.setAttribute('aria-expanded', 'true');
+  renderRecords();
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+function closeSettings() {
+  settingsPanel.hidden = true;
+  setBtn.setAttribute('aria-expanded', 'false');
+  if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+}
+setBtn.addEventListener('click', function() { settingsPanel.hidden ? openSettings() : closeSettings(); });
+settingsCloseBtn.addEventListener('click', closeSettings);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && !settingsPanel.hidden) closeSettings();
+});
+
+var toggleSound = document.getElementById('toggleSound');
+toggleSound.addEventListener('change', function() { soundEnabled = toggleSound.checked; saveSettings(); });
+
+/* =====================================================================
+   Records / CSV — observed events only (§37-38)
+===================================================================== */
+var recordsShowAll = false;
+var RECORDS_SHOW_INITIAL = 5;
+function groupIntoSessions(log) {
+  var GAP_MS = 5 * 60 * 1000;
+  var sessions = [];
+  var current = null;
+  var lastTime = null;
+  log.forEach(function(entry) {
+    var t = new Date(entry.time).getTime();
+    var startsNew = !current || (lastTime !== null && (t - lastTime) > GAP_MS) || current.level !== entry.level;
+    if (startsNew) { current = { level: entry.level, entries: [] }; sessions.push(current); }
+    current.entries.push(entry);
+    lastTime = t;
+  });
+  return sessions;
+}
+function formatRecordDate(iso) {
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  } catch (e) { return ''; }
+}
+var INPUT_LABEL = { touch: 'タッチ', click: 'タッチ', gaze: 'しせん', switch: 'スイッチ', keyboard: 'キーボード' };
+function summarizeSession(sess) {
+  var first = sess.entries[0], last = sess.entries[sess.entries.length - 1];
+  var durationMs = first && last ? (new Date(last.time) - new Date(first.time)) : 0;
+  var inputCounts = {};
+  sess.entries.forEach(function(e) { inputCounts[e.inputMethod] = (inputCounts[e.inputMethod] || 0) + 1; });
+  var mainInput = Object.keys(inputCounts).sort(function(a, b) { return inputCounts[b] - inputCounts[a]; })[0] || '-';
+  return {
+    dateStr: first ? formatRecordDate(first.time) : '',
+    title: 'レベル' + sess.level + '（' + (LEVEL_NAME[sess.level] || '') + '）',
+    lines: ['活動時間：約' + Math.max(1, Math.round(durationMs / 1000)) + '秒 ／ のせた回数：' + sess.entries.length + '回 ／ 主な入力：' + (INPUT_LABEL[mainInput] || mainInput)]
+  };
+}
+function renderRecords() {
+  var sessions = groupIntoSessions(readLog()).reverse();
+  var list = document.getElementById('recordsList');
+  var empty = document.getElementById('recordsEmpty');
+  var showMoreBtn = document.getElementById('recordsShowMoreBtn');
+  var csvBtn = document.getElementById('recordsCsvBtn');
+  var deleteBtn = document.getElementById('recordsDeleteBtn');
+  list.innerHTML = '';
+  if (sessions.length === 0) {
+    empty.hidden = false; showMoreBtn.hidden = true; csvBtn.hidden = true; deleteBtn.hidden = true;
+    return;
+  }
+  empty.hidden = true; csvBtn.hidden = false; deleteBtn.hidden = false;
+  var visibleCount = recordsShowAll ? sessions.length : Math.min(RECORDS_SHOW_INITIAL, sessions.length);
+  for (var i = 0; i < visibleCount; i++) {
+    var s = summarizeSession(sessions[i]);
+    var item = document.createElement('div');
+    item.className = 'record-item';
+    var title = document.createElement('div');
+    title.style.fontWeight = '700';
+    title.textContent = (s.dateStr ? s.dateStr + '　' : '') + s.title;
+    item.appendChild(title);
+    s.lines.forEach(function(line) { var p = document.createElement('div'); p.textContent = line; item.appendChild(p); });
+    list.appendChild(item);
+  }
+  showMoreBtn.hidden = recordsShowAll || sessions.length <= RECORDS_SHOW_INITIAL;
+}
+document.getElementById('recordsShowMoreBtn').addEventListener('click', function() {
+  recordsShowAll = true; renderRecords();
+  if (scanMode) refreshSwitchScanItems();
+});
+
+var CSV_HEADERS = ['日時', 'レベル', 'なかま', 'じゅんばん', 'ぜんたい数', '入力方法', '反応時間ms', '注視時間ms', 'trial'];
+function csvEscape(value) {
+  var s = (value === null || value === undefined) ? '' : String(value);
+  if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function formatRecordDateTimeFull(iso) {
+  try {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  } catch (e) { return ''; }
+}
+function buildRecordsCsvRows() {
+  var rows = [CSV_HEADERS.slice()];
+  readLog().forEach(function(e) {
+    rows.push([
+      formatRecordDateTimeFull(e.time), e.level, e.passenger, e.sequenceIndex, e.sequenceLength,
+      INPUT_LABEL[e.inputMethod] || e.inputMethod, e.responseTime,
+      (e.dwellDuration === null || e.dwellDuration === undefined) ? '' : e.dwellDuration,
+      e.trialIndex
+    ]);
+  });
+  return rows;
+}
+function downloadRecordsCsv() {
+  var rows = buildRecordsCsvRows();
+  var csv = rows.map(function(r) { return r.map(csvEscape).join(','); }).join('\r\n');
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'junban-miyou-records.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+document.getElementById('recordsCsvBtn').addEventListener('click', downloadRecordsCsv);
+document.getElementById('recordsDeleteBtn').addEventListener('click', function() {
+  document.getElementById('recordsConfirm').hidden = false;
+});
+document.getElementById('recordsConfirmDelete').addEventListener('click', function() {
+  writeLog([]);
+  document.getElementById('recordsConfirm').hidden = true;
+  renderRecords();
+  document.getElementById('recordsStatus').textContent = 'きろくをすべて消しました';
+  if (scanMode) refreshSwitchScanItems();
+});
+document.getElementById('recordsConfirmCancel').addEventListener('click', function() {
+  document.getElementById('recordsConfirm').hidden = true;
+});
+
+/* =====================================================================
+   init
+===================================================================== */
+loadSettings();
+toggleSound.checked = soundEnabled;
+startNewRound();
+</script>
+</body>
+</html>

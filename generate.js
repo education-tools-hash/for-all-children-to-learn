@@ -785,7 +785,7 @@ const BASE_URL = 'https://donomana.jp';
 const BASE_PATH = ''; // カスタムドメイン(donomana.jp)はサイトルートから配信されるため空文字
 
 // 🏠 ホームボタン: 全ページ共通のフローティングボタン設定
-const HOME_BTN_SKIP_APPS = new Set(['scratch-app']); // 既に独自のヘッダー内リンクを実装済み
+const HOME_BTN_SKIP_APPS = new Set(['scratch-app', 'junban-miyou-app']); // 既に独自のヘッダー内リンクを実装済み
 const HOME_BTN_HTML = [
   '<!-- home-btn: 自動挿入 (generate.js) -->',
   '<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
@@ -842,6 +842,7 @@ const SETTINGS_PROXY = {
   'katachi-awase-app':  { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'miru-hirogaru-app':  { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'mitsukete-touch-app':{ selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'junban-miyou-app':   { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
