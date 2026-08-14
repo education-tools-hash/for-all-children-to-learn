@@ -1,6 +1,6 @@
-# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C/D/E）
+# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C/D/E/F2）
 
-Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）、Phase M10-D（Level Differentiation / Real Boarding / Slow Departure UX Fix）、Phase M10-E（Dedicated Boarding Asset Integration / Final Local UX QA）の内容を統合して記録する。
+Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）、Phase M10-D（Level Differentiation / Real Boarding / Slow Departure UX Fix）、Phase M10-E（Dedicated Boarding Asset Integration / Final Local UX QA）、Phase M10-F2（dog-active Vertical Alignment Fix）の内容を統合して記録する。
 
 ## 1. 学習目標
 
@@ -46,8 +46,12 @@ Phase M10-Eで納品されたActive asset側の車両色に合わせて更新し
 
 この対応は乗車順（sequence順）に関わらず固定。列車内での車両の並び順は、その回のsequence順（左から乗った順）になる。
 
-### 3.5 Active asset間のサイズ補正（Phase M10-E）
+### 3.5 Active asset間のサイズ補正（Phase M10-E、Phase M10-F2でY軸補正を追加）
 5枚のActive assetは全て同一キャンバスサイズ（1536×1024）だが、実際のpassenger+carriageが占める領域の比率は一致していない（alpha bboxの実測で確認）。特にdogは他4体（キャンバス高さの92〜98%を占有）に対し約69%しか占有しておらず、そのまま並べると1両だけ小さく見える。原画像は無加工のまま、`PASSENGERS[].activeScale`（dogのみ`1.32`）でCSS transform scaleを掛けて表示上のみ補正している（`--jm-active-scale` CSS変数、`boardCar()`で設定）。reduced-motion時もこの補正は静的transformとして維持される。
+
+**Phase M10-F2の追加修正**：5両完成状態で、dog-activeのみ他4両より高い位置に表示され、車輪の接地ラインが揃っていないことがUser Visual Reviewで判明した。実ブラウザで5両の`.jm-car-img`の`getBoundingClientRect()`を測定したところ、dogのboxのみ他4両と比べて上下対称に大きく（`scale(1.32)`は中心原点(50% 50%)基準のため、キャンバス内のコンテンツが上下非対称に配置されている場合はcenter-based scaleだけでは接地位置が揃わない）表示されていた。dog-active.pngのalpha bbox実測では、下端の余白が全体の25.5%（他4体は2.1〜4.4%）を占めており、これがscale後の見た目のズレの原因と特定した。
+
+原画像・`activeScale`値はそのまま維持し、新たに`PASSENGERS[].activeShiftY`（dogのみ`'14.2%'`）による`translateY`補正を追加した。既存の`scale(1.32)`と合成した状態で車輪の接地ラインが他4両と一致するよう、実測値から補正量を算出した（`--jm-active-shift-y` CSS変数、`boardCar()`で設定。`jmCarIn` keyframeおよびreduced-motion静的transformの両方に`translateY(var(--jm-active-shift-y,0%)) scale(var(--jm-active-scale,1))`として適用、他4体は`var(...,0%)`のフォールバックにより無影響）。修正後、5両のレンダリング済みスクリーンショットに対しPythonで各車両の最下部の暗色ピクセル（車輪）行を検出したところ、5両全てで同一行に一致することを確認した。
 
 ## 4. Level設計（Phase M10-D で Level Differentiation を適用）
 

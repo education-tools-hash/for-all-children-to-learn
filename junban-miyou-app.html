@@ -179,8 +179,8 @@
      非破壊的スケール(§12)。 */
   .jm-car-slot.boarded .jm-car-img { animation: jmCarIn 380ms cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes jmCarIn {
-    0%{ transform: scale(calc(var(--jm-active-scale,1) * 0.5)) translateY(14px); opacity: 0; }
-    100%{ transform: scale(var(--jm-active-scale,1)) translateY(0); opacity: 1; }
+    0%{ transform: translateY(14px) translateY(var(--jm-active-shift-y,0%)) scale(calc(var(--jm-active-scale,1) * 0.5)); opacity: 0; }
+    100%{ transform: translateY(0) translateY(var(--jm-active-shift-y,0%)) scale(var(--jm-active-scale,1)); opacity: 1; }
   }
 
   /* ===== Level3: 5体同時配置(§1) — passenger idごとに固定位置を割り当てる。
@@ -246,7 +246,7 @@
     .jm-sparkle-pop.on { animation: none !important; }
     /* animation:noneにより--jm-active-scaleの補正(keyframe側)も無効化されるため、
        reduced-motion時は静的transformとして掛け直す(dogの表示サイズ補正を維持)。 */
-    .jm-car-slot.boarded .jm-car-img { transform: scale(var(--jm-active-scale,1)) !important; opacity: 1 !important; }
+    .jm-car-slot.boarded .jm-car-img { transform: translateY(var(--jm-active-shift-y,0%)) scale(var(--jm-active-scale,1)) !important; opacity: 1 !important; }
     .jm-passenger-btn.ga-active .jm-ga-ring { opacity: .9; }
   }
 </style>
@@ -566,7 +566,7 @@
 var PASSENGERS = [
   { id: 'rabbit', label: 'うさぎ', car: 'pink',   slot: 0 },
   { id: 'cat',    label: 'ねこ',   car: 'orange', slot: 1 },
-  { id: 'dog',    label: 'いぬ',   car: 'green',  slot: 2, activeScale: 1.32 },
+  { id: 'dog',    label: 'いぬ',   car: 'green',  slot: 2, activeScale: 1.32, activeShiftY: '14.2%' },
   { id: 'bear',   label: 'くま',   car: 'blue',   slot: 3 },
   { id: 'chick',  label: 'ひよこ', car: 'purple', slot: 4 }
 ];
@@ -1044,8 +1044,9 @@ function boardCar(passengerId) {
   slot.classList.add('boarded');
   var carImg = slot.querySelector('.jm-car-img');
   carImg.src = activeImg(passengerId);
-  var scale = PASSENGER_BY_ID[passengerId].activeScale;
-  carImg.style.setProperty('--jm-active-scale', scale || 1);
+  var p = PASSENGER_BY_ID[passengerId];
+  carImg.style.setProperty('--jm-active-scale', p.activeScale || 1);
+  carImg.style.setProperty('--jm-active-shift-y', p.activeShiftY || '0%');
 }
 
 /* =====================================================================
