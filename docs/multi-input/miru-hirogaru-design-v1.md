@@ -464,3 +464,51 @@ PNG（12枚、`assets/miru-hirogaru/{drum,piano,bell,jackbox,bear,train}-{ready,
 - `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.1）: Design System・Switch Scan・gaze/dwell・Release Policy等。
 - `katachi-awase-app.html`: hit area不変の原則、composite id設計、Switch Scan/gaze D6非対称仕様の参照実装。
 - `mitsukete-touch-app.html`（Phase M6.2/M7）: 資産/意味分離原則、Switch-Space二重発火の予防的修正パターンの参照実装元。
+
+---
+
+## 32. Phase M10-I: SFX Volume Fix（Piano Visual Fixは新asset待ちで未実施）
+
+Production公開後、UserからSFXが全体的に小さいこと、特に「びっくり箱」「太鼓」が小さいことの報告を受けた。
+
+### 32.1 実測（推測で修正しない）
+`OfflineAudioContext`で全6音を実際にレンダリングし、peak振幅・RMS・実測継続時間を計測した（Puppeteer経由でアプリ実コードの`TOY_SFX`をそのまま実行）。
+
+修正前の実測（peakDb / rmsActiveDb / 継続時間）:
+
+| トイ | peakDb | rmsActiveDb | 継続時間 |
+|---|---|---|---|
+| たいこ | -15.0 | -28.8 | 0.20s |
+| ピアノ | -17.4 | -32.9 | 0.28s |
+| ベル | -18.0 | -33.3 | 0.35s |
+| びっくり箱 | -15.8 | -30.1 | 0.16s |
+| くま | -18.4 | -32.6 | 0.35s |
+| きしゃ | -17.3 | -33.6 | 0.32s |
+
+**重要な発見**: たいこ・びっくり箱は振幅(peak/RMS)だけを見ると6音中で最も大きい部類であり、「音量不足」ではなかった。実際の原因は、(a) 継続時間が6音中最短（たいこ0.20s・びっくり箱0.16s、他は0.28〜0.35s）であること、(b) たいこは低域中心（150→65Hz）で小型スピーカーで減衰しやすい周波数帯であること、の2点であると判明した。「小さい」という主観報告は音量そのものではなく知覚的な「弱さ・短さ」に起因していた。
+
+### 32.2 修正方法
+音源ファイルは存在しない（全音Web Audio合成）ため、asset加工は不要。`tone()`/`noiseBurst()`共通の`SFX_GAIN`定数（1.6倍）を新設し全音を底上げしつつ、たいこ・びっくり箱のみ追加で継続時間延長・peakGain増量・（たいこのみ）低域下限の引き上げを行った。
+
+- 全音共通: `SFX_GAIN = 1.6`
+- たいこ: `tone(170, 85, 0.27s, peakGain 0.28)` + `noiseBurst(0.09s, peakGain 0.08)`（旧: `tone(150,65,0.20s,0.20)` + `noiseBurst(0.06s,0.05)`）
+- びっくり箱: `tone(300, 720, 0.24s, peakGain 0.26)`（旧: `tone(300,720,0.16s,0.17)`）
+
+修正後の実測:
+
+| トイ | peakDb | rmsActiveDb | 継続時間 |
+|---|---|---|---|
+| たいこ | -7.4 | -22.2 | 0.27s |
+| ピアノ | -13.4 | -29.1 | 0.28s |
+| ベル | -13.9 | -29.6 | 0.35s |
+| びっくり箱 | -7.8 | -22.8 | 0.24s |
+| くま | -14.3 | -28.8 | 0.35s |
+| きしゃ | -13.3 | -29.8 | 0.32s |
+
+たいこ・びっくり箱は他4音より意図的に大きく（+約6dB）補正し、短さ・低域減衰による知覚的弱さを相殺した。最大peak値は0.42（たいこ）で、クリッピング閾値1.0に対し十分な余裕がある。
+
+### 32.3 Piano Visual Fix（未実施・新asset待ち）
+`piano-ready.png`/`piano-active.png`の右側clippingを実ブラウザで調査した結果、CSS/レイアウト起因ではなく、**元PNGアセット自体の右側コンテンツ欠損**（左端には透明マージンと完全な曲線があるのに対し、右端は本体フレームがマージンなしでキャンバス端に直接切れている）と判明した。Phase M8設計doc（30.3章）記載の「piano→bellのセル境界にじみをMIN_LEFT_OVERRIDEで除去」した際、隣接bellセルとの境界調整でpiano自身の右側コンテンツも一緒に削られた可能性が高い。CSS側のscale/object-fit/paddingでは元から存在しないピクセルを復元できないため、User確認の結果、**高解像度の新しいpiano asset（ready/active）が用意されるまでPiano Visual Fixは保留**とし、本Phaseでは実施しない。asset・CSSともに変更していない。
+
+### 32.4 変更ファイル
+`miru-hirogaru-app.html`のみ（`TOY_SFX`/`tone()`/`noiseBurst()`のパラメータ変更）。piano assetおよびpiano関連CSSは変更していない。
