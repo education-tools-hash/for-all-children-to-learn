@@ -206,6 +206,24 @@
     .mh-toy.size-3 { width: 102px; }
     #targetArea.level3 { gap: var(--dm-space-3,12px) var(--dm-space-2,8px); }
   }
+
+  /* Phase M10-I: piano-ready.png再納品版(1328x1184, aspect ~1.12)は他5トイ(aspect
+     ~0.5-0.56の縦長)と大きく異なる横長比率のため、共通size-N幅をそのまま適用すると
+     高さが他トイの約半分になる(実測済み)。User承認により、pianoのみ高さを他トイへ
+     揃える方向でwidthを個別に拡大する(非破壊的CSS補正、画像自体は無加工)。
+     :not(.is-activated)で意図的にready状態のみへ限定している — piano-active.pngは
+     本Phase時点で未差し替え(旧・右側欠損版のまま、aspect ~0.56)であり、この幅補正を
+     activated状態にも適用すると、旧active画像が新しい横長ボックス幅に対して縦に
+     大きく間延びして表示され、既存の欠損よりも悪化する(実機確認済み)。piano-active.png
+     が新アセットへ差し替わり次第、:not(.is-activated)の限定を解除する。 */
+  .mh-toy[data-toy-id="piano"]:not(.is-activated).size-1 { width: 362px; }
+  .mh-toy[data-toy-id="piano"]:not(.is-activated).size-2 { width: 275px; }
+  .mh-toy[data-toy-id="piano"]:not(.is-activated).size-3 { width: 226px; }
+  @media (max-width: 480px) {
+    .mh-toy[data-toy-id="piano"]:not(.is-activated).size-1 { width: 292px; }
+    .mh-toy[data-toy-id="piano"]:not(.is-activated).size-2 { width: 217px; }
+    .mh-toy[data-toy-id="piano"]:not(.is-activated).size-3 { width: 180px; }
+  }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -955,6 +973,7 @@ function renderItems() {
     btn.className = 'mh-toy ' + LEVEL_SIZE_CLASS[canonical.level] + ' scannable';
     btn.dataset.scan = '1';
     btn.dataset.itemId = item.id;
+    btn.dataset.toyId = item.toyId; // Phase M10-I: piano専用サイズ補正CSSのセレクタ用
     btn.tabIndex = 0;
     btn.setAttribute('aria-label', item.activated ? (toy.label + '：うごいた！') : toy.label);
 
