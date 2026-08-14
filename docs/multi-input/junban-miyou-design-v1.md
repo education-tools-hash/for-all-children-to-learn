@@ -1,6 +1,6 @@
-# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B）
+# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C）
 
-Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）とPhase M10-B（Visual Asset Production / Local Prototype）の内容を統合して記録する。
+Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）の内容を統合して記録する。
 
 ## 1. 学習目標
 
@@ -14,17 +14,20 @@ Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.
 
 ## 3. Visual Asset
 
-### 3.1 Source of Truth
-Phase M10-Aで生成・User承認済みの Visual Reference Sheet（`junban-visual-reference.png`）から個別assetを抽出した。新規SVG描画・新規AI画像生成は行っていない。
+### 3.1 Source of Truth（Phase M10-C で刷新）
+Phase M10-BではVisual Reference Sheet（`junban-visual-reference.png`）から個別assetをPIL自動クロップで抽出していたが、**User Visual Reviewで画質不足（ぼやけ・隣接イラスト混入）が指摘され、Phase M10-Cで方式を全面刷新した**。
 
-### 3.2 抽出方法
-Python(PIL)でsheet内の各要素を自動検出（非白色ピクセルのバウンディングボックス検出）し、タイトクロップ＋背景透過（白色からの距離に基づくアルファ変換＋2px feather）を行った。抽出後、全16asset を目視で品質確認（隣接asset混入なし・shadow/outline欠けなし・透過正常）。
+現在の方式：Userが個別に用意した高解像度assetをそのまま使用する。Reference Sheetからの再トリミングは廃止し、Visual Reference Sheetは世界観・配色確認用のみに用途を限定する（3.1旧方式は廃止、新方式に完全移行）。
+
+### 3.2 Asset仕様
+- passenger: 1024〜1536px級、RGBA・透明背景。5体とも1枚の独立イラストとして提供され、専用の「Active（車両に乗った状態）」画像は存在しない。
+- train: locomotive・carriage 5色とも1536×1024、RGBA・透明背景。
+- Ready/Activeの区別は、**同一のpassenger画像をCSSでcarriage画像の上へlayer合成する**ことで実現する（`.jm-car-rider`）。専用のActive画像を用意する必要がなくなり、asset数が16→11に削減された。
 
 ### 3.3 Asset一覧（`assets/junban-miyou/`）
-- `train/locomotive.png` — 機関車（左向き3/4view）
+- `train/locomotive.png` — 機関車
 - `train/carriage-{pink,orange,green,blue,purple}.png` — 空車両5色
-- `passengers/{rabbit,cat,dog,bear,chick}-ready.png` — Ready状態（列車の外）
-- `passengers/{rabbit,cat,dog,bear,chick}-active.png` — Active状態（車両に乗車済み、各なかま専用の車両色と合成済み）
+- `passengers/{rabbit,cat,dog,bear,chick}.png` — なかま5体（単一の高解像度イラスト、Ready/Active共用）
 
 ### 3.4 なかま↔車両色の対応（固定）
 | なかま | 車両色 |
@@ -37,24 +40,28 @@ Python(PIL)でsheet内の各要素を自動検出（非白色ピクセルのバ�
 
 この対応は乗車順（sequence順）に関わらず固定。列車内での車両の並び順は、その回のsequence順（左から乗った順）になる。
 
-## 4. Level設計
+## 4. Level設計（Phase M10-C で Achievement / Accumulation UX Fix を適用）
 
-全Level共通で、画面には常に「今はたらきかけられる対象」が1体のみ存在する（distractorなし）。乗車後、`BOARD_ANIM_MS`(480ms) → `NEXT_APPEAR_DELAY_MS`(650ms) を経て次のなかまが出現する。
+Phase M10-BではLevel1/2は1体乗せるごとに即次のなかまへ切り替わり、働きかけた結果が画面上に残らないという課題があった（User Feedback）。Phase M10-Cで**全Levelを「5体全員を順に乗せ、乗せた結果が列車として画面に残り続ける」構成へ統一**した。
+
+全Level共通の仕様：
+- 1ラウンド = 5体（`PASSENGERS`の全員、`LEVEL_SEQUENCE_LEN`は全Level `5`）。
+- 画面には常に「今はたらきかけられる対象」が1体のみ存在する（distractorなし）。
+- 乗車した仲間は**列車の対応する車両に残り続ける**（`completedPassengerIds`はラウンド完了までクリアしない。車両画像はcarriage＋riderのlayer合成で、乗車後も消えない）。
+- 5体全員が乗車すると、完成した列車をそのまま`COMPLETE_HOLD_MS`(750ms)見せてから、「みんな のった！」のsoft completion→`しゅっぱつ！`のdeparture演出（列車が画面外へ移動、SFX）→新ラウンド開始、という流れになる。
 
 ### Level1「ひとつずつ」
-- 位置は常に中央（`center`）固定。最も大きく表示。
-- 乗車ごとに新しいなかまが即座に出現し、無限に継続する（「しゅっぱつ」演出は発生しない）。
+- 位置は常に中央（`center`）固定。最も大きく、最も分かりやすい条件で「働きかける→乗る→残る」を経験する。
 - Switch = Direct Activation（Auto Scanなし、Spaceキーで即activation）。
 
 ### Level2「つぎはどこ？」
-- 出現位置が7候補（`left/right/upper-left/upper-right/lower-left/lower-right/center`、直前と同一位置は避ける）の中でランダムに変化する。
-- Level1同様、乗車ごとに次のなかまが即座に出現し継続する（departureなし）。矢印などの位置指示UIは使わない。Guided Attention（後述）のみで次の対象に気づけるようにする。
+- 出現位置が7候補（`left/right/upper-left/upper-right/lower-left/lower-right/center`、直前と同一位置は避ける）の中でランダムに変化する。矢印などの位置指示UIは使わない。Guided Attention（後述）のみで次の対象に気づけるようにする。
 - Switch = Auto Scan（1500ms間隔）。
 
 ### Level3「みんなでしゅっぱつ！」
-- 1ラウンド = 3体（MVP、5体中からランダム抽出、直前ラウンドと完全一致しないことを保証）。
+- 位置は中央固定（Level1と同様）。5体全員での完成・しゅっぱつを最も気持ちよく体験できることに主眼を置く（位置の複雑さより、完成体験の質を優先）。
 - 1体ごとに列車の対応する車両へ乗車していく様子が視覚的に積み上がる。
-- 3体全て乗車すると `departureBanner`（「しゅっぱつ！」）表示＋列車が画面外へ短く移動するアニメーション（1s）＋SFXが再生され、その後新しいラウンドが始まる。
+- 5体全て乗車すると`COMPLETE_HOLD_MS`(750ms)完成列車を見せてから、`departureBanner`（「しゅっぱつ！」）表示＋列車が画面外へ短く移動するアニメーション（1s）＋SFXが再生され、その後新しいラウンドが始まる。
 - Switch = Auto Scan。
 
 ## 5. Guided Attention
