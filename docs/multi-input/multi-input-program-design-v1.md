@@ -377,3 +377,11 @@ M2/M4/M6それぞれで「実装→Validation→User Review→Explicit Approval�
 
 1. **資産/意味分離（asset/semantic separation）はEngagementとMulti-Input Equityを両立させる。** `activateItem(itemId, inputMethod)`のようなsemantic activation APIの外形を変えずに、target実装を図形からイラストアセット（ready/active2状態のPNG差し替え）へ差し替えることで、Touch/Gaze/Switch/Keyboardの等価性（7章の共通Input Adapter原則）を一切崩さずに視覚的訴求力を大幅に高められる。すなわちEngagement向上は「入力方式ごとの特別扱い」を必要としない——同一のsemantic状態（例: `.is-activated`）をGaze対象抽出・Switch Scan候補抽出双方が参照する構造を保てば、どれだけビジュアルを作り込んでもInput Equityは自動的に維持される。
 2. **Sound Experienceにおいて「技術的再生成功」と「体感品質」は独立した合格基準である。** 「どこかな？みーつけた！」M7.1〜M7.1eのBGM実験（実機で鳴ることの確認は複数回成功したが、音質・自然さの面でUser Reviewを通過できず最終的に不採用）を踏まえ、本Phaseでは新規BGMを追加しないという判断を先取りして行った。今後BGMやCustom SFXを追加する教材でも、Playwright等での「鳴ることの確認」だけをRelease基準にせず、実際に聴いた上でのUser Review Gateを必須とする。
+
+---
+
+## 21. Phase M10知見: Guided Attentionの位置づけ
+
+「じゅんばんにみよう」（詳細は`docs/multi-input/junban-miyou-design-v1.md`）の設計・実装で明確化した点を1つ記録する。
+
+**Guided Attentionは「正解を教えるUI」ではなく、次に注意を向けやすくする支援である。** 6.5章で選定した「Guided Sequence型」はdistractorを持たないため、対象が正誤判定の手がかりになることはない。Guided Attention（gentle scale＋soft glow＋inner ring）は、唯一操作可能な対象の「気づきやすさ」を高めるための演出であり、複数候補から正解を選ばせるための強調表示ではない。この区別は、既存のGaze dwell ring（8.1章）・Switch Scan highlight（8.2.1章）と役割・視覚层を明確に分離する設計判断の前提になっている。
