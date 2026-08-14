@@ -1,6 +1,6 @@
-# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C/D）
+# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C/D/E）
 
-Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）、Phase M10-D（Level Differentiation / Real Boarding / Slow Departure UX Fix）の内容を統合して記録する。
+Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）、Phase M10-D（Level Differentiation / Real Boarding / Slow Departure UX Fix）、Phase M10-E（Dedicated Boarding Asset Integration / Final Local UX QA）の内容を統合して記録する。
 
 ## 1. 学習目標
 
@@ -19,26 +19,35 @@ Phase M10-BではVisual Reference Sheet（`junban-visual-reference.png`）から
 
 現在の方式：Userが個別に用意した高解像度assetをそのまま使用する。Reference Sheetからの再トリミングは廃止し、Visual Reference Sheetは世界観・配色確認用のみに用途を限定する（3.1旧方式は廃止、新方式に完全移行）。
 
-### 3.2 Asset仕様
-- passenger: 1024〜1536px級、RGBA・透明背景。5体とも1枚の独立イラストとして提供され、専用の「Active（車両に乗った状態）」画像は存在しない。
-- train: locomotive・carriage 5色とも1536×1024、RGBA・透明背景。
-- Ready/Activeの区別は、**同一のpassenger画像をCSSでcarriage画像の上へlayer合成する**ことで実現する（`.jm-car-rider`）。専用のActive画像を用意する必要がなくなり、asset数が16→11に削減された。
+### 3.2 Asset仕様（Phase M10-E で Dedicated Boarding Asset 方式へ移行）
+Phase M10-Dまでは、Ready用のpassenger単体画像をCSSでcarriage画像の上へlayer合成し（`.jm-car-rider`、下部をclip-pathで欠けさせる疑似乗車表現）boarded状態を作っていたが、User Visual Reviewで「動物が車両の前に配置されているように見える」という指摘を受けた。Phase M10-Eで、**Userが新たに用意した「passenger+carriageが1枚に合成された専用Active asset」5枚**へ最終boarded visualを置き換えた。
+
+- passenger（Ready用）: 1024〜1536px級、RGBA・透明背景、5体1枚ずつ。
+- passenger-active（Active/boarded用、新規）: 1536×1024、RGBA・透明背景、5体1枚ずつ。1ファイル=1passenger+1carriageが最初から合成された画像。
+- train（locomotive・空carriage 5色）: 1536×1024、RGBA・透明背景。Ready表示中の「これから乗る車両」プレースホルダーとして、また将来のmaintenance用に維持する（削除しない）。
+- 5枚のActive assetは、alpha channel実データ（`mode=RGBA`か、代表座標のalpha値、緑背景への`alpha_composite`結果）で個別に透過を検証した。初回納品時、rabbit/cat/chickの3枚が`mode=RGB`（アルファチャンネルなし）で市松模様が画素として焼き付いていることが判明し、User側で3回にわたり作り直しを依頼・再検証した上で採用した（自力での背景除去・加工は行っていない）。
 
 ### 3.3 Asset一覧（`assets/junban-miyou/`）
 - `train/locomotive.png` — 機関車
-- `train/carriage-{pink,orange,green,blue,purple}.png` — 空車両5色
-- `passengers/{rabbit,cat,dog,bear,chick}.png` — なかま5体（単一の高解像度イラスト、Ready/Active共用）
+- `train/carriage-{pink,orange,green,blue,purple}.png` — 空車両5色（Ready中のプレースホルダー用に維持）
+- `passengers/{rabbit,cat,dog,bear,chick}.png` — なかま5体のReady単体イラスト
+- `passengers/{rabbit,cat,dog,bear,chick}-active.png` — なかま5体の専用Active（乗車済み）イラスト（Phase M10-E新規）
 
-### 3.4 なかま↔車両色の対応（固定）
+### 3.4 なかま↔車両色の対応（固定、Phase M10-E で更新）
+Phase M10-Eで納品されたActive asset側の車両色に合わせて更新した（Phase M10-B〜Dの対応から入れ替わっている）。
+
 | なかま | 車両色 |
 |---|---|
 | うさぎ (rabbit) | ピンク |
-| ねこ (cat) | みずいろ |
-| いぬ (dog) | むらさき |
-| くま (bear) | オレンジ |
-| ひよこ (chick) | みどり |
+| ねこ (cat) | オレンジ |
+| いぬ (dog) | みどり |
+| くま (bear) | あお |
+| ひよこ (chick) | むらさき |
 
 この対応は乗車順（sequence順）に関わらず固定。列車内での車両の並び順は、その回のsequence順（左から乗った順）になる。
+
+### 3.5 Active asset間のサイズ補正（Phase M10-E）
+5枚のActive assetは全て同一キャンバスサイズ（1536×1024）だが、実際のpassenger+carriageが占める領域の比率は一致していない（alpha bboxの実測で確認）。特にdogは他4体（キャンバス高さの92〜98%を占有）に対し約69%しか占有しておらず、そのまま並べると1両だけ小さく見える。原画像は無加工のまま、`PASSENGERS[].activeScale`（dogのみ`1.32`）でCSS transform scaleを掛けて表示上のみ補正している（`--jm-active-scale` CSS変数、`boardCar()`で設定）。reduced-motion時もこの補正は静的transformとして維持される。
 
 ## 4. Level設計（Phase M10-D で Level Differentiation を適用）
 
@@ -83,13 +92,13 @@ Phase M10-Cでは全Levelが「5体を1体ずつ出して積み上げる」同�
 
 一切実装していない。×・赤・ブザー・「ちがう」等は存在しない。Level1/2では操作可能な対象以外は画面上に存在しないため、原理的に「間違った対象を選ぶ」状況が発生しない。Level3では非currentな4体が画面上に存在するが、非interactive（button化しない）ため、タップしても`activatePassenger()`のガードで静かに無視される（4.のLevel3節参照）。
 
-## 6.5 Real Boarding（Phase M10-D §2）
+## 6.5 Real Boarding（Phase M10-D §2、Phase M10-E で最終visualを刷新）
 
 「passengerをcarriageの前面付近へ移動するだけ」の表現をやめ、実際にcarriageまで移動して着席する様子を見せる。
 
-- activation時、対象passengerのライブ画像をclone（`.jm-boarding-clone`、`position:absolute`で`#stage`直下）し、現在位置（`getBoundingClientRect()`）から対応するcarriageの座席位置まで、`BOARD_TRAVEL_MS`(850ms、700-1000msの目安内)かけてCSS transitionで移動・縮小させる（`animateBoardingTravel()`）。元のボタン自身は260msで素早くfade outし、以降は`tabIndex=-1`・`pointer-events:none`で完全に無効化される。
-- 到着後、`boardCar()`でcarriage画像の上へ実際のriderを配置する。riderは`clip-path: inset(0 0 24% 0)`で下部を欠けさせ、車両の縁の内側に腰掛けているように見せる（専用のback/front-rim assetを使わず、既存の単一carriage画像のまま実現）。
-- `prefers-reduced-motion`では移動アニメーションを省略し、`animateBoardingTravel()`が即座に`onComplete()`を呼んで着席状態を表示する（移動は省くが、着席という状態変化自体は必ず明確に表示される）。
+- activation時、対象passengerのライブ画像をclone（`.jm-boarding-clone`、`position:absolute`で`#stage`直下）し、現在位置（`getBoundingClientRect()`）から対応するcarriageの座席位置付近まで、`BOARD_TRAVEL_MS`(850ms、700-1000msの目安内)かけてCSS transitionで移動させる（`animateBoardingTravel()`）。cloneはReady画像自身のaspect比を保ったまま(歪ませない)、carriageの高さ90%・水平中央・下端揃えへ着地し、末尾200msでopacityも0へfadeする。元のボタン自身は260msで素早くfade outし、以降は`tabIndex=-1`・`pointer-events:none`で完全に無効化される。
+- 到着と同時に、`boardCar()`が空車両画像を**専用Active（乗車済み）asset 1枚**へ差し替える（Phase M10-D時点ではpassenger単体画像をclip-pathで疑似的に乗車させていたが、User Visual Reviewで「車両の前に配置されているように見える」との指摘を受け、Phase M10-EでUser提供の専用合成画像方式に置き換えた。6.6章参照）。cloneの除去とActive assetの表示は同一フレーム内で行われ、flicker・一瞬消える間隙が出ないようにしている。
+- `prefers-reduced-motion`では移動アニメーションを省略し、`animateBoardingTravel()`が即座に`onComplete()`を呼んでActive asset表示に切り替える（移動は省くが、着席という状態変化自体は必ず明確に表示される）。
 
 ## 6.6 Departure（Phase M10-D §3）
 

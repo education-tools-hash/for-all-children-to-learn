@@ -127,7 +127,7 @@
 
   /* Phase M10-D §2: Real Boarding — passengerが実際にcarriageまで歩いていく移動animation。
      stage直下に絶対配置したクローンをJSでfromRect→toRectへtransitionさせる。 */
-  .jm-boarding-clone { position: absolute; z-index: 15; pointer-events: none; object-fit: contain; transition: left 850ms ease, top 850ms ease, width 850ms ease, height 850ms ease; }
+  .jm-boarding-clone { position: absolute; z-index: 15; pointer-events: none; object-fit: contain; transition: left 850ms ease, top 850ms ease, width 850ms ease, height 850ms ease, opacity 200ms ease 650ms; }
   @media (prefers-reduced-motion: reduce) { .jm-boarding-clone { transition: none !important; } }
 
   /* Guided Attention: innermost ring, gentle scale + soft glow + light ring (§24-25) */
@@ -173,14 +173,15 @@
   .jm-car-slot { width: clamp(32px, 9.6vw, 76px); aspect-ratio: 1536 / 1024; flex-shrink: 0; position: relative; }
   .jm-car-slot .jm-car-img { width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1; filter: drop-shadow(0 3px 3px rgba(90,70,40,.2)); }
   .jm-car-slot.empty .jm-car-img { opacity: .38; filter: grayscale(.15) drop-shadow(0 2px 2px rgba(90,70,40,.12)); }
+  /* Phase M10-E: boarded状態は専用Active asset(passenger+carriageが1枚に
+     合成済み)へ差し替える(§5)。--jm-active-scaleは、Active asset間での
+     content占有率の差(実測で確認済み、現状dogのみ)を表示上でのみ補正する
+     非破壊的スケール(§12)。 */
   .jm-car-slot.boarded .jm-car-img { animation: jmCarIn 380ms cubic-bezier(.34,1.56,.64,1) both; }
-  @keyframes jmCarIn { 0%{ transform: scale(.5) translateY(14px); opacity: 0; } 100%{ transform: scale(1) translateY(0); opacity: 1; } }
-  /* Phase M10-D §2: 乗車済みなかまをcarriageの上へlayer合成。下部を
-     clip-path で欠けさせることで、車両の縁の内側に座っている(下半身が
-     隠れている)ように見せる(専用のback/front-rim assetを使わず実現)。 */
-  .jm-car-rider { position: absolute; left: 50%; top: 0%; width: 54%; height: auto; transform: translateX(-50%); z-index: 2; pointer-events: none; object-fit: contain; clip-path: inset(0 0 24% 0); }
-  .jm-car-slot.boarded .jm-car-rider { animation: jmRiderIn 380ms 60ms cubic-bezier(.34,1.56,.64,1) both; }
-  @keyframes jmRiderIn { 0%{ transform: translateX(-50%) scale(.4) translateY(-10px); opacity: 0; } 100%{ transform: translateX(-50%) scale(1) translateY(0); opacity: 1; } }
+  @keyframes jmCarIn {
+    0%{ transform: scale(calc(var(--jm-active-scale,1) * 0.5)) translateY(14px); opacity: 0; }
+    100%{ transform: scale(var(--jm-active-scale,1)) translateY(0); opacity: 1; }
+  }
 
   /* ===== Level3: 5体同時配置(§1) — passenger idごとに固定位置を割り当てる。
      現在target(interactive button)も、待機中4体(非interactive装飾img、
@@ -241,9 +242,11 @@
     .jm-passenger-btn.boarding .jm-passenger-img,
     .jm-passenger-btn.ga-active .jm-passenger-img,
     .jm-car-slot.boarded .jm-car-img,
-    .jm-car-slot.boarded .jm-car-rider,
     #trainDock.departing,
     .jm-sparkle-pop.on { animation: none !important; }
+    /* animation:noneにより--jm-active-scaleの補正(keyframe側)も無効化されるため、
+       reduced-motion時は静的transformとして掛け直す(dogの表示サイズ補正を維持)。 */
+    .jm-car-slot.boarded .jm-car-img { transform: scale(var(--jm-active-scale,1)) !important; opacity: 1 !important; }
     .jm-passenger-btn.ga-active .jm-ga-ring { opacity: .9; }
   }
 </style>
@@ -554,17 +557,24 @@
    Ready/Activeは単一の高解像度passenger画像をcarriage画像の上へCSSで
    layer合成することで表現する(専用のActive画像は使用しない)。
 ===================================================================== */
+/* Phase M10-E: Userが用意した専用Active(乗車済み)assetの車両色に合わせて
+   carマッピングを更新(rabbit=pink/cat=orange/dog=green/bear=blue/chick=purple、
+   Phase M10-B〜Dの対応から入れ替わっている)。
+   activeScaleは、Active asset間で「1枚の画像内でのpassenger+車両の占有率」が
+   一致していないことを実データ(alpha bboxサイズ)で確認した差を補正するための、
+   非破壊的な表示上のスケール補正(原画像そのものは無加工)。 */
 var PASSENGERS = [
   { id: 'rabbit', label: 'うさぎ', car: 'pink',   slot: 0 },
-  { id: 'cat',    label: 'ねこ',   car: 'blue',   slot: 1 },
-  { id: 'dog',    label: 'いぬ',   car: 'purple', slot: 2 },
-  { id: 'bear',   label: 'くま',   car: 'orange', slot: 3 },
-  { id: 'chick',  label: 'ひよこ', car: 'green',  slot: 4 }
+  { id: 'cat',    label: 'ねこ',   car: 'orange', slot: 1 },
+  { id: 'dog',    label: 'いぬ',   car: 'green',  slot: 2, activeScale: 1.32 },
+  { id: 'bear',   label: 'くま',   car: 'blue',   slot: 3 },
+  { id: 'chick',  label: 'ひよこ', car: 'purple', slot: 4 }
 ];
 var PASSENGER_BY_ID = {};
 PASSENGERS.forEach(function(p){ PASSENGER_BY_ID[p.id] = p; });
 var ASSET_BASE = 'assets/junban-miyou/';
 function passengerImg(id) { return ASSET_BASE + 'passengers/' + id + '.png'; }
+function activeImg(id) { return ASSET_BASE + 'passengers/' + id + '-active.png'; }
 function carriageImg(color) { return ASSET_BASE + 'train/carriage-' + color + '.png'; }
 var LOCOMOTIVE_IMG = ASSET_BASE + 'train/locomotive.png';
 
@@ -856,6 +866,12 @@ function prefersReducedMotion() {
    既にemptyで用意済み)の座席位置まで実際に移動させる。stage直下へ絶対配置した
    クローンをFLIP的にtransitionさせ、到着後にboardCar()でcarriage内へ着席させる。
    reduced-motionでは移動を省略し、即座に着席状態を表示する(§2)。 */
+/* Phase M10-E: cloneはReady画像自身のaspect比を保ったまま(歪ませない)、
+   carSlotの高さにおおよそ合わせて中央下寄せで着地させる。到着と同時に
+   boardCar()が空車両画像を専用Active assetへ差し替えるため、clone自身を
+   Active assetと同一サイズへ変形させる必要はない(§6のflow通り、
+   clone除去とActive asset表示はonComplete内で同時に行われ、flicker/
+   一瞬消える間隙が出ないようにする)。 */
 function animateBoardingTravel(passengerId, sourceImg, onComplete) {
   var carSlot = trainDock.querySelector('.jm-car-slot[data-passenger-id="' + passengerId + '"]');
   if (!sourceImg || !carSlot || prefersReducedMotion()) { onComplete(); return; }
@@ -863,10 +879,10 @@ function animateBoardingTravel(passengerId, sourceImg, onComplete) {
   var fromRect = sourceImg.getBoundingClientRect();
   var stageRect = stage.getBoundingClientRect();
   var slotRect = carSlot.getBoundingClientRect();
-  var targetW = slotRect.width * 0.54;
-  var targetH = targetW * (fromRect.height / fromRect.width);
+  var targetH = slotRect.height * 0.9;
+  var targetW = targetH * (fromRect.width / fromRect.height);
   var targetLeft = (slotRect.left - stageRect.left) + (slotRect.width - targetW) / 2;
-  var targetTop = (slotRect.top - stageRect.top);
+  var targetTop = (slotRect.top - stageRect.top) + (slotRect.height - targetH);
 
   var clone = document.createElement('img');
   clone.className = 'jm-boarding-clone';
@@ -883,6 +899,7 @@ function animateBoardingTravel(passengerId, sourceImg, onComplete) {
     clone.style.top = targetTop + 'px';
     clone.style.width = targetW + 'px';
     clone.style.height = targetH + 'px';
+    clone.style.opacity = '0';
   });
   setTimeout(function() { clone.remove(); onComplete(); }, BOARD_TRAVEL_MS + 30);
 }
@@ -1016,19 +1033,19 @@ function renderTrainDock() {
     trainDock.appendChild(slot);
   });
 }
+/* Phase M10-E: 空車両画像を、専用のActive(乗車済み)asset 1枚へ差し替える
+   (CSS layer合成/clip-pathによる疑似乗車表現は廃止、§5,7)。activeScaleが
+   設定されているpassenger(現状dogのみ)は、Active asset間でのcontent占有率の
+   差(alpha bboxの実測で確認済み)を表示上でのみ補正する。 */
 function boardCar(passengerId) {
   var slot = trainDock.querySelector('.jm-car-slot[data-passenger-id="' + passengerId + '"]');
   if (!slot) return;
   slot.classList.remove('empty');
   slot.classList.add('boarded');
-  // carriage画像はそのまま(色付き空車両)、その上にpassenger画像をlayer合成する
-  // (専用のActive画像は使用せず、高解像度passenger単体assetを再利用する)
-  var rider = document.createElement('img');
-  rider.className = 'jm-car-rider';
-  rider.src = passengerImg(passengerId);
-  rider.alt = '';
-  rider.draggable = false;
-  slot.appendChild(rider);
+  var carImg = slot.querySelector('.jm-car-img');
+  carImg.src = activeImg(passengerId);
+  var scale = PASSENGER_BY_ID[passengerId].activeScale;
+  carImg.style.setProperty('--jm-active-scale', scale || 1);
 }
 
 /* =====================================================================
