@@ -206,6 +206,28 @@
     .mh-toy.size-3 { width: 102px; }
     #targetArea.level3 { gap: var(--dm-space-3,12px) var(--dm-space-2,8px); }
   }
+
+  /* Phase M10-I: piano-ready.png(1328x1024, aspect ~1.12)・piano-active.png
+     (1536x1024, aspect ~1.5)はいずれも他5トイ(aspect ~0.5-0.56の縦長)と大きく
+     異なる横長比率のため、共通size-N幅をそのまま適用すると高さが他トイの半分以下
+     になる(実測済み)。User承認により、pianoのみ高さを他トイへ揃える方向でwidthを
+     個別に拡大する(非破壊的CSS補正、画像自体は無加工)。ready/activeで画像自体の
+     aspectが異なる(他5トイはready/active間で同一canvas寸法だが、pianoはUser提供の
+     新assetがready/activeで別々の寸法のため)ため、幅補正値もそれぞれ個別に計算した。 */
+  .mh-toy[data-toy-id="piano"]:not(.is-activated).size-1 { width: 362px; }
+  .mh-toy[data-toy-id="piano"]:not(.is-activated).size-2 { width: 275px; }
+  .mh-toy[data-toy-id="piano"]:not(.is-activated).size-3 { width: 226px; }
+  .mh-toy[data-toy-id="piano"].is-activated.size-1 { width: 420px; }
+  .mh-toy[data-toy-id="piano"].is-activated.size-2 { width: 318px; }
+  .mh-toy[data-toy-id="piano"].is-activated.size-3 { width: 260px; }
+  @media (max-width: 480px) {
+    .mh-toy[data-toy-id="piano"]:not(.is-activated).size-1 { width: 292px; }
+    .mh-toy[data-toy-id="piano"]:not(.is-activated).size-2 { width: 217px; }
+    .mh-toy[data-toy-id="piano"]:not(.is-activated).size-3 { width: 180px; }
+    .mh-toy[data-toy-id="piano"].is-activated.size-1 { width: 300px; }
+    .mh-toy[data-toy-id="piano"].is-activated.size-2 { width: 225px; }
+    .mh-toy[data-toy-id="piano"].is-activated.size-3 { width: 185px; }
+  }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -955,6 +977,7 @@ function renderItems() {
     btn.className = 'mh-toy ' + LEVEL_SIZE_CLASS[canonical.level] + ' scannable';
     btn.dataset.scan = '1';
     btn.dataset.itemId = item.id;
+    btn.dataset.toyId = item.toyId; // Phase M10-I: piano専用サイズ補正CSSのセレクタ用
     btn.tabIndex = 0;
     btn.setAttribute('aria-label', item.activated ? (toy.label + '：うごいた！') : toy.label);
 
