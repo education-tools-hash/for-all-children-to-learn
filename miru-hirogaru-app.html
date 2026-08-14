@@ -701,7 +701,16 @@ function ensureAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
+// Phase M10-I: 全SFXが「全体的に小さい」というUser報告を受け、OfflineAudioContextでの
+// 実測(peak/RMS)に基づき補正した。実測の結果、太鼓・びっくり箱は他5音よりpeak/RMSが
+// 低いのではなく実は6音中で最も大きい部類だったが、継続時間が最短(太鼓0.20s・びっくり箱
+// 0.16s、他は0.28〜0.35s)であること、太鼓は低域(65〜150Hz)中心で小型スピーカーで
+// 減衰しやすいことが、知覚上「小さく感じる」実際の原因だった。そのため単純な
+// peakGain一律最大化ではなく、(a)全SFX共通のSFX_GAINで底上げしつつ、
+// (b)太鼓・びっくり箱のみ継続時間を延長し、太鼓は低域下限を引き上げて補正した。
+var SFX_GAIN = 1.6;
 function tone(ctx, t0, freq1, freq2, dur, peakGain, type) {
+  peakGain = peakGain * SFX_GAIN;
   var osc = ctx.createOscillator(), gain = ctx.createGain();
   osc.type = type || 'sine';
   osc.frequency.setValueAtTime(freq1, t0);
@@ -713,6 +722,7 @@ function tone(ctx, t0, freq1, freq2, dur, peakGain, type) {
   osc.start(t0); osc.stop(t0 + dur + 0.02);
 }
 function noiseBurst(ctx, t0, dur, peakGain, filterHz) {
+  peakGain = peakGain * SFX_GAIN;
   var n = Math.max(1, Math.floor(ctx.sampleRate * dur));
   var buf = ctx.createBuffer(1, n, ctx.sampleRate);
   var data = buf.getChannelData(0);
@@ -727,10 +737,12 @@ function noiseBurst(ctx, t0, dur, peakGain, filterHz) {
   src.start(t0); src.stop(t0 + dur + 0.02);
 }
 var TOY_SFX = {
-  // "ドン♪" — low soft thump: quick pitch-drop sine + a touch of noise for body, no click
+  // "ドン♪" — low soft thump: quick pitch-drop sine + a touch of noise for body, no click.
+  // Phase M10-I: 継続時間を0.20→0.27s、低域下限を65→85Hzへ引き上げ(小型スピーカーでの
+  // 減衰対策)、peakGainも底上げ。
   drum: function(ctx, now) {
-    tone(ctx, now, 150, 65, 0.20, 0.20, 'sine');
-    noiseBurst(ctx, now, 0.06, 0.05, 900);
+    tone(ctx, now, 170, 85, 0.27, 0.28, 'sine');
+    noiseBurst(ctx, now, 0.09, 0.08, 900);
   },
   // "ポロン♪" — two quick soft plucked notes ascending (reuses the pluck-style envelope
   // approach validated in the mitsukete-touch BGM work, at SFX length)
@@ -743,9 +755,10 @@ var TOY_SFX = {
     tone(ctx, now, 987.77, 987.77, 0.35, 0.11, 'sine');
     tone(ctx, now, 1975.5, 1975.5, 0.20, 0.035, 'sine');
   },
-  // "ポン♪" — a quick bouncy upward chirp (the lid popping open)
+  // "ポン♪" — a quick bouncy upward chirp (the lid popping open).
+  // Phase M10-I: 継続時間を0.16→0.24s、peakGainを底上げ(単発チャープで最短だったため)。
   jackbox: function(ctx, now) {
-    tone(ctx, now, 300, 720, 0.16, 0.17, 'sine');
+    tone(ctx, now, 300, 720, 0.24, 0.26, 'sine');
   },
   // soft toy chime — two gentle notes, warmer/lower than the bell
   bear: function(ctx, now) {
