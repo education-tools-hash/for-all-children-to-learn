@@ -507,18 +507,20 @@ Production公開後、UserからSFXが全体的に小さいこと、特に「び
 
 たいこ・びっくり箱は他4音より意図的に大きく（+約6dB）補正し、短さ・低域減衰による知覚的弱さを相殺した。最大peak値は0.42（たいこ）で、クリッピング閾値1.0に対し十分な余裕がある。
 
-### 32.3 Piano Visual Fix（ready対応済み・active待ちでmain未統合）
+### 32.3 Piano Visual Fix（ready/active両対応完了）
 `piano-ready.png`/`piano-active.png`の右側clippingを実ブラウザで調査した結果、CSS/レイアウト起因ではなく、**元PNGアセット自体の右側コンテンツ欠損**（左端には透明マージンと完全な曲線があるのに対し、右端は本体フレームがマージンなしでキャンバス端に直接切れている）と判明した。Phase M8設計doc（30.3章）記載の「piano→bellのセル境界にじみをMIN_LEFT_OVERRIDEで除去」した際、隣接bellセルとの境界調整でpiano自身の右側コンテンツも一緒に削られた可能性が高い。CSS側のscale/object-fit/paddingでは元から存在しないピクセルを復元できないため、User確認の結果、**高解像度の新しいpiano asset（ready/active）が用意されるまでPiano Visual Fixは保留**とし、Phase M10-I初回では実施しなかった。
 
 その後、Userより新しい`piano-ready.png`（1328×1184、RGBA、alpha extrema(0,254)、右端マージン5.87%）が提供された。実データ検証（fake transparency chekcerboardなし、右側の曲線が左側と同様に完全な状態であることを緑背景composite・高倍率クロップで確認）の結果、右側clippingは解消されていることを確認した。
 
 ただし、新assetのaspect比（1328/1184≈1.12、横長）が他5トイ（aspect約0.5〜0.56、縦長）と大きく異なり、共通`.mh-toy.size-N`幅をそのまま適用すると高さが他トイの約半分になることを実測で確認した。User承認により、pianoのみ高さを他トイへ揃える方向でCSS上のwidthを個別拡大する非破壊的補正を実装した（`data-toy-id`属性を新設し`.mh-toy[data-toy-id="piano"].size-N`セレクタで対応）。5viewport×Level1/2/3全組み合わせでoverflow 0、他トイとの高さ差はおおむね3%以内であることを確認済み。
 
-**重要**: `piano-active.png`は本段階では未差し替え（旧・右側欠損版のまま）。上記の幅拡大補正をactivated状態にも適用すると、旧active画像が新しい横長ボックス幅に対して縦に大きく間延びして表示され、既存の欠損よりも悪化することを実機確認した。そのため幅拡大補正は`:not(.is-activated)`でready状態限定とし、activate時は元のサイズへ戻る（サイズジャンプが発生する暫定挙動）よう安全策を入れている。
+当初、`piano-active.png`は未差し替え（旧・右側欠損版のまま）だった。上記の幅拡大補正をactivated状態にも適用すると、旧active画像が新しい横長ボックス幅に対して縦に大きく間延びして表示され、既存の欠損よりも悪化することを実機確認したため、幅拡大補正を`:not(.is-activated)`でready状態限定とし、activate時は元のサイズへ戻る（サイズジャンプが発生する暫定挙動）よう安全策を入れた上で、User判断によりpiano-active.pngが用意されるまでmainへ統合せずローカルブランチ保留とした。
 
-User判断により、**piano-active.pngも用意されるまでは本修正をmainへ統合せず、ローカルブランチ（`fix/miru-hirogaru-sfx-piano-visual`）保留のまま**とする。ready→activateのサイズジャンプを本番ユーザーへ見せないための判断。
+その後、Userより新しい`piano-active.png`（1536×1024、RGBA、alpha extrema(0,254)）が提供された。alpha bboxはgetbbox()閾値0では四辺とも0px（キャンバス端まで到達）だったが、これはjunban-miyou Phase M10-Gで発見したものと同種の、視覚的に無関係な微弱ノイズ画素（alpha=1程度）による測定アーティファクトと判明した。閾値5〜10で見ると左4.9〜5.3%・右3.0〜3.5%・上2.4〜3.3%・下0〜1.2%の実質的なマージンがあり、緑背景composite・左右端の高倍率クロップ比較でも完全な曲線・fake transparencyなしを確認した。
 
-新piano-ready.pngのファイルサイズは1.62MB（旧139KBから約11.6倍）で最適化未実施。piano-active.png到着後、両方まとめてPhase M10-G同様の最適化（PNG lossless再圧縮+実測ベースdownscale）を検討する。
+`piano-active.png`（1536×1024, aspect 1.5）は`piano-ready.png`（1328×1184, aspect 1.12）とaspect比が異なる（他5トイはready/active間で同一canvas寸法を維持する設計だが、pianoのみUser提供の新2アセットの寸法が個別に異なるため）。そのためready用・active用で個別にCSS幅補正値を算出し、`.mh-toy[data-toy-id="piano"].is-activated.size-N`セレクタを追加した。5viewport×Level1（piano単独activate、最も幅の制約が厳しいケース）/2/3全組み合わせで実測し、overflow 0を確認した。ready→active切り替え時のサイズ遷移も、旧・欠損版で発生していたような不自然な縦間延びはなく、自然な見た目であることをスクリーンショットで確認した。
+
+新2アセットの合計ファイルサイズは1.62MB+1.89MB=3.51MB（旧piano-ready 139KB+piano-active 163KB=302KBから約11.6倍）で最適化未実施。Phase M10-G同様の最適化（PNG lossless再圧縮+実測ベースdownscale）は本Phaseのスコープ外とし、必要であれば別Phaseで検討する。
 
 ### 32.4 変更ファイル
-`miru-hirogaru-app.html`（`TOY_SFX`/`tone()`/`noiseBurst()`パラメータ変更、piano専用CSS幅補正、`data-toy-id`属性追加）、`assets/miru-hirogaru/piano-ready.png`（新asset差し替え）。`piano-active.png`は変更していない。
+`miru-hirogaru-app.html`（`TOY_SFX`/`tone()`/`noiseBurst()`パラメータ変更、piano専用CSS幅補正、`data-toy-id`属性追加）、`assets/miru-hirogaru/piano-ready.png`・`assets/miru-hirogaru/piano-active.png`（両方とも新asset差し替え）。
