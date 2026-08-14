@@ -120,8 +120,15 @@
   .jm-passenger-img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; position: relative; z-index: 2; transition: transform 220ms ease; }
   .jm-passenger-btn.appear .jm-passenger-img { animation: jmPop 420ms cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes jmPop { 0%{ transform: scale(.4); opacity: 0; } 60%{ transform: scale(1.08); opacity: 1; } 100%{ transform: scale(1); opacity: 1; } }
-  .jm-passenger-btn.boarding .jm-passenger-img { animation: jmBoard 480ms ease-in both; }
-  @keyframes jmBoard { 0%{ transform: scale(1) translateY(0); opacity: 1; } 100%{ transform: scale(.5) translateY(120px); opacity: 0; } }
+  /* Phase M10-D: activation直後、元のpassengerボタンはその場でふっと消える
+     (実際に車両まで移動する様子は、別要素jm-boarding-cloneがstage内を移動して見せる)。 */
+  .jm-passenger-btn.boarding .jm-passenger-img { animation: jmBoardFade 260ms ease-in both; }
+  @keyframes jmBoardFade { 0%{ opacity: 1; } 100%{ opacity: 0; } }
+
+  /* Phase M10-D §2: Real Boarding — passengerが実際にcarriageまで歩いていく移動animation。
+     stage直下に絶対配置したクローンをJSでfromRect→toRectへtransitionさせる。 */
+  .jm-boarding-clone { position: absolute; z-index: 15; pointer-events: none; object-fit: contain; transition: left 850ms ease, top 850ms ease, width 850ms ease, height 850ms ease; }
+  @media (prefers-reduced-motion: reduce) { .jm-boarding-clone { transition: none !important; } }
 
   /* Guided Attention: innermost ring, gentle scale + soft glow + light ring (§24-25) */
   .jm-ga-glow { position: absolute; inset: 6%; z-index: 1; border-radius: 50%; pointer-events: none; opacity: 0; background: radial-gradient(circle, rgba(255,214,110,.65) 0%, rgba(255,214,110,0) 70%); transition: opacity 240ms ease; }
@@ -149,13 +156,15 @@
   /* ===== next-position hint dots (decorative only, §19 — no arrows) ===== */
   .jm-hint-dot { position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 2px dashed rgba(120,140,160,.35); pointer-events: none; z-index: 0; transform: translate(-50%,-50%); }
 
-  /* ===== train dock (bottom) ===== */
-  /* 右padding=76pxは共有a11yボタン(⚙: 48px + right:16px)と最後の車両が重ならないための
-     余白(scratch-app.html等の既存パターンを踏襲、§14 chrome overlap=0)。 */
-  #trainDock { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; display: flex; align-items: flex-end; gap: 3px; padding: 0 76px 8px 10px; background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(233,216,174,.55) 35%, rgba(200,170,110,.5) 100%); }
+  /* ===== train dock (bottom, §3: 基本停車位置は画面右側) ===== */
+  /* 右padding=76pxは共有a11yボタン(⚙: 48px + right:16px)と重ならないための余白
+     (scratch-app.html等の既存パターンを踏襲、§14 chrome overlap=0)。
+     justify-content:flex-end で、機関車+車両群を右側に停車させる(§3)。
+     transformはJS(startDeparture)がstage幅から動的に算出して設定する
+     (viewportごとに実際に画面外まで完全退出させるため、固定%では不十分)。 */
+  #trainDock { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; display: flex; justify-content: flex-end; align-items: flex-end; gap: 3px; padding: 0 76px 8px 10px; background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(233,216,174,.55) 35%, rgba(200,170,110,.5) 100%); transform: translateX(0); }
   .jm-rail { position: absolute; left: 0; right: 0; bottom: 6px; height: 4px; background: repeating-linear-gradient(90deg, #B08D57 0 14px, transparent 14px 24px); opacity: .7; }
-  #trainDock.departing { animation: jmDepart 1s ease-in-out both; }
-  @keyframes jmDepart { 0%{ transform: translateX(0); } 40%{ transform: translateX(10px); } 70%{ transform: translateX(-6px); } 100%{ transform: translateX(36px); opacity: .0; } }
+  #trainDock.departing { transition: transform var(--jm-depart-ms, 5500ms) linear; }
   /* Phase M10-C §14-15: 機関車+5両がすべて375px幅でも収まるよう、carriage画像自体の
      アスペクト比(1536:1024=1.5:1)に合わせたaspect-ratioボックス+clamp()幅で構成する。
      375px viewportでの実測(loco+5car+5gap+dock左右padding)が343pxの#stage幅に収まる
@@ -166,10 +175,28 @@
   .jm-car-slot.empty .jm-car-img { opacity: .38; filter: grayscale(.15) drop-shadow(0 2px 2px rgba(90,70,40,.12)); }
   .jm-car-slot.boarded .jm-car-img { animation: jmCarIn 380ms cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes jmCarIn { 0%{ transform: scale(.5) translateY(14px); opacity: 0; } 100%{ transform: scale(1) translateY(0); opacity: 1; } }
-  /* 乗車済みなかまをcarriageの上へlayer合成(専用Active画像を使わず、passenger単体assetを再利用) */
-  .jm-car-rider { position: absolute; left: 50%; top: 0%; width: 54%; height: auto; transform: translateX(-50%); z-index: 2; pointer-events: none; object-fit: contain; }
+  /* Phase M10-D §2: 乗車済みなかまをcarriageの上へlayer合成。下部を
+     clip-path で欠けさせることで、車両の縁の内側に座っている(下半身が
+     隠れている)ように見せる(専用のback/front-rim assetを使わず実現)。 */
+  .jm-car-rider { position: absolute; left: 50%; top: 0%; width: 54%; height: auto; transform: translateX(-50%); z-index: 2; pointer-events: none; object-fit: contain; clip-path: inset(0 0 24% 0); }
   .jm-car-slot.boarded .jm-car-rider { animation: jmRiderIn 380ms 60ms cubic-bezier(.34,1.56,.64,1) both; }
   @keyframes jmRiderIn { 0%{ transform: translateX(-50%) scale(.4) translateY(-10px); opacity: 0; } 100%{ transform: translateX(-50%) scale(1) translateY(0); opacity: 1; } }
+
+  /* ===== Level3: 5体同時配置(§1) — passenger idごとに固定位置を割り当てる。
+     現在target(interactive button)も、待機中4体(非interactive装飾img、
+     scan/gaze対象外)も、同じ.jm-l3-slot-N位置クラスを共有する。 ===== */
+  .jm-l3-slot-0 { left: 18%; top: 24%; }
+  .jm-l3-slot-1 { left: 82%; top: 24%; }
+  .jm-l3-slot-2 { left: 15%; top: 62%; }
+  .jm-l3-slot-3 { left: 85%; top: 62%; }
+  .jm-l3-slot-4 { left: 50%; top: 42%; }
+  .jm-l3-idle { position: absolute; width: 84px; height: 84px; transform: translate(-50%,-50%); z-index: 1; pointer-events: none; }
+  .jm-l3-idle img { width: 100%; height: 100%; object-fit: contain; display: block; opacity: .8; filter: saturate(.88); }
+  @media (max-width: 600px) { .jm-l3-idle { width: 68px; height: 68px; } }
+  @media (min-width: 900px) { .jm-l3-idle { width: 110px; height: 110px; } }
+  .jm-passenger-btn.jm-l3-active { width: 140px; height: 140px; transform: translate(-50%,-50%); z-index: 2; }
+  @media (max-width: 600px) { .jm-passenger-btn.jm-l3-active { width: 112px; height: 112px; } }
+  @media (min-width: 900px) { .jm-passenger-btn.jm-l3-active { width: 176px; height: 176px; } }
 
   #departureBanner {
     position: absolute; left: 50%; top: 40%; transform: translate(-50%,-50%) scale(.7); z-index: 20;
@@ -528,11 +555,11 @@
    layer合成することで表現する(専用のActive画像は使用しない)。
 ===================================================================== */
 var PASSENGERS = [
-  { id: 'rabbit', label: 'うさぎ', car: 'pink' },
-  { id: 'cat',    label: 'ねこ',   car: 'blue' },
-  { id: 'dog',    label: 'いぬ',   car: 'purple' },
-  { id: 'bear',   label: 'くま',   car: 'orange' },
-  { id: 'chick',  label: 'ひよこ', car: 'green' }
+  { id: 'rabbit', label: 'うさぎ', car: 'pink',   slot: 0 },
+  { id: 'cat',    label: 'ねこ',   car: 'blue',   slot: 1 },
+  { id: 'dog',    label: 'いぬ',   car: 'purple', slot: 2 },
+  { id: 'bear',   label: 'くま',   car: 'orange', slot: 3 },
+  { id: 'chick',  label: 'ひよこ', car: 'green',  slot: 4 }
 ];
 var PASSENGER_BY_ID = {};
 PASSENGERS.forEach(function(p){ PASSENGER_BY_ID[p.id] = p; });
@@ -542,19 +569,23 @@ function carriageImg(color) { return ASSET_BASE + 'train/carriage-' + color + '.
 var LOCOMOTIVE_IMG = ASSET_BASE + 'train/locomotive.png';
 
 var ALL_POSITIONS = ['left','right','upper-left','upper-right','lower-left','lower-right','center'];
-// Phase M10-C: Achievement/Accumulation UX Fix — 全Levelで5キャラクター全員を使用する。
-var LEVEL_POSITIONS = { 1: ['center'], 2: ALL_POSITIONS, 3: ['center'] };
-var LEVEL_SEQUENCE_LEN = { 1: 5, 2: 5, 3: 5 };
+/* Phase M10-D §1: Level Differentiation
+   Level1: 1trial=1passenger+1carriage、乗車のたびに短い列車が出発する。
+   Level2: 7位置を移動するpassengerを1体ずつ、右停車中の列車へ積み上げる。
+   Level3: 5体を画面に同時配置し、Guided Attentionで順に注意を移す(位置はid固定slot、
+           pickPositionは使用しない)。 */
+var LEVEL_POSITIONS = { 1: ['center'], 2: ALL_POSITIONS };
+var LEVEL_SEQUENCE_LEN = { 1: 1, 2: 5, 3: 5 };
 var LEVEL_NAME = { 1: 'ひとつずつ', 2: 'つぎはどこ？', 3: 'みんなでしゅっぱつ！' };
 
 var DWELL_MS = 900;
 var ACTIVATION_LOCK_MS = 300;
 var SCAN_INTERVAL_MS = 1500;
-var BOARD_ANIM_MS = 480;
-var NEXT_APPEAR_DELAY_MS = 650;
-var DEPARTURE_MS = 1000;
-var COMPLETE_HOLD_MS = 750;       // 完成列車を見せてからdepartureへ移る余韻(§11: 500-1000ms)
-var ROUND_RESET_DELAY_MS = 1600;
+var BOARD_TRAVEL_MS = 850;         // §2: passengerが実際にcarriageへ移動する時間(700-1000ms)
+var POST_BOARD_GAP_MS = 260;       // 乗車確認後、次のなかまが出るまでの小休止
+var COMPLETE_HOLD_MS = 1150;       // §3: 完成列車を静止表示する時間(800-1500ms)
+var DEPARTURE_MS = 5500;           // §3: しゅっぱつ走行時間(5-6秒を基準)
+var POST_DEPARTURE_GAP_MS = 700;   // §3: 退出完了後、次roundまでの余白(500-1000ms)
 
 /* =====================================================================
    Canonical / Transient state (§34-35)
@@ -695,12 +726,13 @@ function startNewRound() {
   renderTrainDock();
   departureBanner.classList.remove('on');
   trainDock.classList.remove('departing');
+  trainDock.style.transform = 'translateX(0)';
   document.getElementById('softCompleteText').textContent = '';
-  showNextPassenger();
+  showCurrentTarget();
 }
 function currentSequenceLength() { return transient.sequence.length; }
 
-function showNextPassenger() {
+function showCurrentTarget() {
   clearTimeout(transient.nextAppearTimer);
   resetDwellState();
   var idx = canonical.sequenceIndex;
@@ -708,11 +740,16 @@ function showNextPassenger() {
   var passengerId = transient.sequence[idx];
   canonical.currentPassengerId = passengerId;
   canonical.phase = 'ready';
-  var pos = pickPosition(canonical.level);
   transient.previousPassengerId = passengerId;
   trialStartedAt = performance.now();
 
-  renderTargetArea(passengerId, pos);
+  if (canonical.level === 3) {
+    renderLevel3Stage();
+  } else {
+    var pos = pickPosition(canonical.level);
+    renderTargetArea(passengerId, pos);
+  }
+
   var label = PASSENGER_BY_ID[passengerId].label;
   guideText.textContent = (currentSequenceLength() > 1)
     ? ('つぎは「' + label + '」だよ！ (' + (idx + 1) + '/' + currentSequenceLength() + ')')
@@ -723,11 +760,10 @@ function showNextPassenger() {
   if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
 }
 
-function renderTargetArea(passengerId, pos) {
-  targetArea.innerHTML = '';
+function buildPassengerButton(passengerId, extraClass) {
   var btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'jm-passenger-btn appear ga-active jm-pos-' + pos + ' scannable';
+  btn.className = 'jm-passenger-btn appear ga-active scannable ' + extraClass;
   btn.dataset.scan = '1';
   btn.dataset.passengerId = passengerId;
   btn.tabIndex = 0;
@@ -746,7 +782,36 @@ function renderTargetArea(passengerId, pos) {
   var gazeRing = document.createElement('span'); gazeRing.className = 'jm-gaze-ring'; btn.appendChild(gazeRing);
 
   attachPassengerHandlers(btn, passengerId);
-  targetArea.appendChild(btn);
+  return btn;
+}
+
+function renderTargetArea(passengerId, pos) {
+  targetArea.innerHTML = '';
+  targetArea.appendChild(buildPassengerButton(passengerId, 'jm-pos-' + pos));
+}
+
+/* Phase M10-D §1 Level3: 5体を画面に同時配置する。乗車済みは列車側に残るため
+   ここには表示しない。現在targetのみinteractive button、残りは非interactiveな
+   装飾img(role/tabindexなし＝scan・gaze候補から自然に除外される、§5)。 */
+function renderLevel3Stage() {
+  targetArea.innerHTML = '';
+  var currentId = transient.sequence[canonical.sequenceIndex];
+  PASSENGERS.forEach(function(p) {
+    if (canonical.completedPassengerIds.indexOf(p.id) !== -1) return;
+    if (p.id === currentId) {
+      targetArea.appendChild(buildPassengerButton(p.id, 'jm-l3-active jm-l3-slot-' + p.slot));
+    } else {
+      var wrap = document.createElement('span');
+      wrap.className = 'jm-l3-idle jm-l3-slot-' + p.slot;
+      wrap.setAttribute('aria-hidden', 'true');
+      var img = document.createElement('img');
+      img.src = passengerImg(p.id);
+      img.alt = '';
+      img.draggable = false;
+      wrap.appendChild(img);
+      targetArea.appendChild(wrap);
+    }
+  });
 }
 
 function attachPassengerHandlers(btn, passengerId) {
@@ -783,13 +848,52 @@ document.addEventListener('pointerdown', function(e) {
    Semantic Activation API (§31-33) — 1 physical input = 1 semantic activation。
    Touch/Gaze/Switch/Keyboardは全てこの一箇所へ合流する。
 ===================================================================== */
+function prefersReducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+/* Phase M10-D §2: Real Boarding — passengerを、そのcarriage(trainDock内に
+   既にemptyで用意済み)の座席位置まで実際に移動させる。stage直下へ絶対配置した
+   クローンをFLIP的にtransitionさせ、到着後にboardCar()でcarriage内へ着席させる。
+   reduced-motionでは移動を省略し、即座に着席状態を表示する(§2)。 */
+function animateBoardingTravel(passengerId, sourceImg, onComplete) {
+  var carSlot = trainDock.querySelector('.jm-car-slot[data-passenger-id="' + passengerId + '"]');
+  if (!sourceImg || !carSlot || prefersReducedMotion()) { onComplete(); return; }
+
+  var fromRect = sourceImg.getBoundingClientRect();
+  var stageRect = stage.getBoundingClientRect();
+  var slotRect = carSlot.getBoundingClientRect();
+  var targetW = slotRect.width * 0.54;
+  var targetH = targetW * (fromRect.height / fromRect.width);
+  var targetLeft = (slotRect.left - stageRect.left) + (slotRect.width - targetW) / 2;
+  var targetTop = (slotRect.top - stageRect.top);
+
+  var clone = document.createElement('img');
+  clone.className = 'jm-boarding-clone';
+  clone.src = passengerImg(passengerId);
+  clone.alt = '';
+  clone.style.left = (fromRect.left - stageRect.left) + 'px';
+  clone.style.top = (fromRect.top - stageRect.top) + 'px';
+  clone.style.width = fromRect.width + 'px';
+  clone.style.height = fromRect.height + 'px';
+  stage.appendChild(clone);
+  clone.getBoundingClientRect(); // force reflow so the transition below actually animates
+  requestAnimationFrame(function() {
+    clone.style.left = targetLeft + 'px';
+    clone.style.top = targetTop + 'px';
+    clone.style.width = targetW + 'px';
+    clone.style.height = targetH + 'px';
+  });
+  setTimeout(function() { clone.remove(); onComplete(); }, BOARD_TRAVEL_MS + 30);
+}
+
 function activatePassenger(passengerId, inputMethod) {
   if (canonical.phase !== 'ready') return;
   var now = performance.now();
   if (now < transient.inputLockUntil) return;
   if (passengerId !== canonical.currentPassengerId) return;
 
-  transient.inputLockUntil = now + ACTIVATION_LOCK_MS;
+  transient.inputLockUntil = now + ACTIVATION_LOCK_MS + BOARD_TRAVEL_MS;
   var responseTime = Math.round(now - trialStartedAt);
   var dwellDuration = (inputMethod === 'gaze') ? lastDwellDurationMs : null;
   lastDwellDurationMs = null;
@@ -801,7 +905,13 @@ function activatePassenger(passengerId, inputMethod) {
   canonical.phase = 'boarding';
 
   var btn = targetArea.querySelector('.jm-passenger-btn');
-  if (btn) { btn.classList.remove('ga-active'); btn.classList.add('boarding'); }
+  var sourceImg = btn ? btn.querySelector('.jm-passenger-img') : null;
+  if (btn) {
+    btn.classList.remove('ga-active');
+    btn.classList.add('boarding');
+    btn.tabIndex = -1;
+    btn.style.pointerEvents = 'none';
+  }
   playBoardSound();
   spawnSparkle();
 
@@ -812,20 +922,18 @@ function activatePassenger(passengerId, inputMethod) {
     responseTime: responseTime, dwellDuration: dwellDuration, trialIndex: canonical.trialIndex
   });
 
-  transient.feedbackTimer = setTimeout(function() {
+  animateBoardingTravel(passengerId, sourceImg, function() {
     canonical.completedPassengerIds.push(passengerId);
     boardCar(passengerId);
     canonical.sequenceIndex += 1;
     targetArea.innerHTML = '';
     if (canonical.sequenceIndex >= currentSequenceLength()) {
-      // 全Level共通：5体全員が乗車したら、完成した列車をしばらく見せてから
-      // しゅっぱつへつなげる(Phase M10-C Achievement/Accumulation UX Fix §5,7,9,11)。
       showSoftCompletion();
       transient.roundResetTimer = setTimeout(startDeparture, COMPLETE_HOLD_MS);
     } else {
-      transient.nextAppearTimer = setTimeout(showNextPassenger, NEXT_APPEAR_DELAY_MS);
+      transient.nextAppearTimer = setTimeout(showCurrentTarget, POST_BOARD_GAP_MS);
     }
-  }, BOARD_ANIM_MS);
+  });
 }
 
 function spawnSparkle() {
@@ -845,23 +953,42 @@ function spawnSparkle() {
 
 function showSoftCompletion() {
   var el = document.getElementById('softCompleteText');
-  el.textContent = 'みんな のった！';
+  el.textContent = (currentSequenceLength() > 1) ? 'みんな のった！' : 'のったね！';
   guideText.textContent = '';
-  donomanaAnnounce('みんなのった！');
+  donomanaAnnounce(el.textContent);
 }
 
+/* Phase M10-D §3: Departureを大幅に見やすくする。停車位置(画面右)から、
+   viewport全体を横切って左端の外まで完全に退出するまで(5-6秒基準)、
+   round終了処理を進めない。reduced-motionでは短い遷移に留めるが、
+   「乗った状態」自体は既にboardCar()で確定済みなので状態は明確なまま。 */
 function startDeparture() {
   canonical.phase = 'departing';
   guideText.textContent = 'しゅっぱつ！';
   donomanaAnnounce('しゅっぱつ！', { priority: 'assertive' });
   playDepartSound();
   departureBanner.classList.add('on');
-  trainDock.classList.add('departing');
   if (scanMode) { stopAutoScan(); clearScanHighlight(); }
+
+  var durationMs = prefersReducedMotion() ? 400 : DEPARTURE_MS;
+  var stageRect = stage.getBoundingClientRect();
+  // #trainDock自体はleft:0;right:0でstage全幅に及ぶため、そのgetBoundingClientRect()を
+  // 使うと右側padding(76px、a11yボタン避け)分だけ距離を見誤る。実際に見えている列車の
+  // 右端(最後の車両、flex-end配置でDOM順=視覚順)を基準に、確実に左端の外まで運ぶ。
+  var lastCarEl = trainDock.lastElementChild;
+  var lastCarRect = lastCarEl ? lastCarEl.getBoundingClientRect() : trainDock.getBoundingClientRect();
+  var distance = Math.max(320, (lastCarRect.right - stageRect.left) + 60);
+  trainDock.style.setProperty('--jm-depart-ms', durationMs + 'ms');
+  trainDock.classList.add('departing');
+  trainDock.getBoundingClientRect(); // force reflow
+  requestAnimationFrame(function() {
+    trainDock.style.transform = 'translateX(-' + distance + 'px)';
+  });
+
   transient.roundResetTimer = setTimeout(function() {
     transient.previousSequence = transient.sequence.slice();
     startNewRound();
-  }, ROUND_RESET_DELAY_MS);
+  }, durationMs + POST_DEPARTURE_GAP_MS);
 }
 
 /* =====================================================================
@@ -921,6 +1048,8 @@ function setLevel(n) {
   document.getElementById('softCompleteText').textContent = '';
   departureBanner.classList.remove('on');
   trainDock.classList.remove('departing');
+  trainDock.style.transform = 'translateX(0)';
+  stage.querySelectorAll('.jm-boarding-clone').forEach(function(el) { el.remove(); });
   startNewRound();
 }
 levelBtns.forEach(function(b) { b.addEventListener('click', function() { setLevel(Number(b.dataset.level)); }); });
