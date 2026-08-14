@@ -1,6 +1,6 @@
-# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C/D/E/F2）
+# 「じゅんばんにみよう」設計書 v1.0（Phase M10-A/B/C/D/E/F2/G）
 
-Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）、Phase M10-D（Level Differentiation / Real Boarding / Slow Departure UX Fix）、Phase M10-E（Dedicated Boarding Asset Integration / Final Local UX QA）、Phase M10-F2（dog-active Vertical Alignment Fix）の内容を統合して記録する。
+Multi-Input Program 3教材目。設計方針は [multi-input-program-design-v1.md](./multi-input-program-design-v1.md) の6章・7章を継承する。本書はPhase M10-A（Learning/UX/Visual Design）、Phase M10-B（Visual Asset Production / Local Prototype初版）、Phase M10-C（High-Resolution Visual Asset Replacement / Achievement・Accumulation UX Fix）、Phase M10-D（Level Differentiation / Real Boarding / Slow Departure UX Fix）、Phase M10-E（Dedicated Boarding Asset Integration / Final Local UX QA）、Phase M10-F2（dog-active Vertical Alignment Fix）、Phase M10-G（Production Asset Optimization / Release Preparation）の内容を統合して記録する。
 
 ## 1. 学習目標
 
@@ -177,3 +177,37 @@ Sound OFF設定で完全無音になる（`soundEnabled`フラグで全SFX関数
 ## 12. Engagement Principle
 
 Rendered Validationにより、6種のなかまが一貫した画風で表示され、Guided Attention・Gaze・Switchの3層が視覚的に破綻なく共存すること、Level3で列車が1体ずつ実際に埋まっていく様子が視覚的に分かりやすいことを確認した。「かわいい」「次はだれ？」「乗せたい」という反応を狙ったVisual/UX設計だが、最終的な子ども向け適合性の判断はUser Reviewに委ねる。
+
+## 13. Production Asset Optimization（Phase M10-G）
+
+Phase M10-F2でUser Final Visual Approvalを得た後、`assets/junban-miyou/`配下16ファイル合計約23.6MBをProduction公開前提でサイズ最適化した。
+
+### 13.1 方針
+PNG形式を維持したまま（サイト全体でWebP未使用のため新formatは導入しない）、(a) losslessな再圧縮、(b) 実ブラウザ最大rendered sizeの実測に基づく解像度適正化、の2軸で削減した。
+
+### 13.2 実測に基づく解像度決定
+Puppeteerで6種のviewport/DPR組み合わせ（375×667@2x 〜 1920×1080@1x）における実際のrendered sizeを計測した。
+
+- Ready用passenger画像（`.jm-passenger-btn`内）: CSSで268px固定（`.app{max-width:720px}`によりviewport幅に関わらず頭打ち）。DPR3相当まで見込んだ物理px上限は約800px。
+- Active/train画像（train dock内の各car）: CSS実測で最大約100px（dogは`activeScale:1.32`適用後で約132px）。DPR3見込みで物理px上限は約400px。
+
+これに対し、原画像は passengers系が1024〜1536px、train/active系が全て1536×1024。物理px上限に対して2倍前後の安全マージンを確保する方針で以下の縮小率を採用した。
+
+- Ready用5枚（`passengers/{id}.png`）: 70%縮小（長辺で約950〜1150px、必要な約800pxに対し安全マージンあり）
+- Active5枚 + train6枚（`passengers/{id}-active.png`, `train/*.png`）: 40%縮小（長辺614px、必要な約400pxに対し安全マージンあり）
+
+縮小は`PIL.Image.resize(..., Image.LANCZOS)`＋PNG再圧縮（`optimize=True, compress_level=9`）。
+
+### 13.3 Alpha Integrity検証
+縮小後全16ファイルで`mode=RGBA`・alpha extrema `(0,255)`を維持していることを確認した。過去（M10-E）にrabbit/cat/chickで発生した「RGBモード・市松模様焼き付き」の再発はなかった。
+
+dog-activeについては、alphaチャンネルにgetbbox()の閾値0（1以上のあらゆる非ゼロ値）を使うと、視覚的に無関係な微弱ノイズ画素（alpha=1程度）の影響でbboxがcanvas全体に広がって見える現象を確認した（M10-F2時点の実測値25.5%と一致しないように見えた）。閾値5以上でbboxを取ると、原画像・縮小後candidateともに下端余白比率が25.1〜25.5%で一致し、M10-F2の測定・補正の前提と矛盾しないことを確認した。閾値0でのbboxはこのファイル固有の測定アーティファクトであり、実際のレンダリング結果には影響しない。
+
+### 13.4 dog-active補正の維持確認
+縮小後もreduced-motion時のcomputed transformは`matrix(1.32, 0, 0, 1.32, 0, 3.408)`でPhase M10-F2と完全一致し、`--jm-active-scale`・`--jm-active-shift-y`の補正が縮小後も正しく機能することを確認した。5両完成状態のスクリーンショットに対しPythonで車輪（暗色ピクセル）の接地行を計測したところ、全車両で行81〜82に一致し、接地ラインの整列が維持されていることを確認した。
+
+### 13.5 Visual比較
+5組のReady・5組のActiveそれぞれについて、原画像と縮小後candidateを典型的な表示サイズ（幅320px相当）および顔部分2倍ズームで並べて比較し、目・表情・毛の輪郭・リボン・alpha edgeに視認可能な劣化がないことを確認した。
+
+### 13.6 結果
+合計約23.6MB→約5.0MB（約78.7%削減）。個別ファイルサイズ・削減率の詳細はPhase M10-G最終報告を参照。
