@@ -1283,9 +1283,17 @@ function closeSettings() {
   settingsPanel.hidden = true;
   settingsBtn.setAttribute('aria-expanded', 'false');
   if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
+  // settingsBtn is CSS-hidden (SETTINGS_PROXY, generate.js) and its opener
+  // (#donomanaSettingsProxy) sits inside the a11y panel, which is already closed by the
+  // time this runs (Phase16.45-A) — neither is a valid focus target. Return focus to the
+  // persistent #donomanaA11yBtn (always visible) instead of losing it to <body>.
+  (document.getElementById('donomanaA11yBtn') || settingsBtn).focus();
 }
 settingsBtn.addEventListener('click', function() { settingsPanel.hidden ? openSettings() : closeSettings(); });
 settingsCloseBtn.addEventListener('click', closeSettings);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && !settingsPanel.hidden) closeSettings();
+});
 
 var toggleSound = document.getElementById('toggleSound');
 toggleSound.addEventListener('change', function() { soundEnabled = toggleSound.checked; saveSettings(); });
