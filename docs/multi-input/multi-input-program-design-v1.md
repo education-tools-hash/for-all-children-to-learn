@@ -384,4 +384,53 @@ M2/M4/M6それぞれで「実装→Validation→User Review→Explicit Approval�
 
 「じゅんばんにみよう」（詳細は`docs/multi-input/junban-miyou-design-v1.md`）の設計・実装で明確化した点を1つ記録する。
 
-**Guided Attentionは「正解を教えるUI」ではなく、次に注意を向けやすくする支援である。** 6.5章で選定した「Guided Sequence型」はdistractorを持たないため、対象が正誤判定の手がかりになることはない。Guided Attention（gentle scale＋soft glow＋inner ring）は、唯一操作可能な対象の「気づきやすさ」を高めるための演出であり、複数候補から正解を選ばせるための強調表示ではない。この区別は、既存のGaze dwell ring（8.1章）・Switch Scan highlight（8.2.1章）と役割・視覚层を明確に分離する設計判断の前提になっている。
+**Guided Attentionは「正解を教えるUI」ではなく、次に注意を向けやすくする支援である。** 6.5章で選定した「Guided Sequence型」はdistractorを持たないため、対象が正誤判定の手がかりになることはない。Guided Attention（gentle scale＋soft glow＋inner ring）は、唯一操作可能な対象の「気づきやすさ」を高めるための演出であり、複数候補から正解を選ばせるための強調表示ではない。この区別は、既存のGaze dwell ring（8.1章）・Switch Scan highlight（8.2.1章）と役割・視覚层を明確に分離する設計判断の前提になっている。なおGuided Attentionは専用のtiming定数群を持つ独立した機構ではなく、既存のLevel3 flow（boarding/departure等）のタイミング設計に内包された視覚演出として実装されている（M11監査で確認、22.6章）。
+
+---
+
+## 22. Phase M11知見: 3教材横断監査で確定したFoundation
+
+Phase M11（Multi-Input Pilot 3-App Cross-Audit / Foundation Close）で、「みるとひろがる」「みつけてタッチ」「じゅんばんにみよう」の実装を横断監査し、15章で示した「1本目で試作→2本目で再検証→3本目で正式共通化」の判断点に到達した。本章はその監査結果を、今後のMulti-Input教材（4本目以降）が最初から採用すべきFoundationとして整理する。分類基準は「A: 今すぐFoundationとして固定（新規教材で原則必須）」「B: 次の新規教材から採用（既存3本へのretrofit不要）」「C: 教材固有（共通化しない）」「D: 追加調査」の4段階。
+
+### 22.1 Foundation A（今すぐFoundationとして固定）
+
+3教材すべてで値・実装パターンが完全一致し、かつ意図的な設計判断として文書化されていることを確認したもの。今後の新規教材は特段の理由がない限りこれらをそのまま採用する。
+
+- **Semantic Activation Architecture**: `activateXxx(targetId, inputMethod)`という2引数の単一関数へTouch/Gaze/Switch/Keyboardの4入力ハンドラすべてを合流させる設計（7章）。3教材とも入力方式ごとのロジック複製は皆無だった。
+- **dwell = 900ms固定**（8.1章で確定済みの値がそのまま3教材で踏襲）。
+- **Switch Scan interval = 1500ms**、**activation lock = 300ms**（教材固有の理由がある場合はこれに加算してよい。例: じゅんばんにみようは乗車移動アニメーション分`BOARD_TRAVEL_MS`を加算）。
+- **helper6パターン**（`buildScanItems`/`startSwitchScan`/`stopSwitchScan`/`refreshSwitchScanItems`/`activateCurrentScanItem`/`clearScanHighlight`）と`isVisibleEnabled(el)`: 3教材で関数名・実装ロジックがほぼ完全一致。
+- **Level1（候補1個）でのSwitch Direct Activation**: scan cyclingを行わずswitch押下で即activationする設計が3教材全てに存在し、判定条件・document-level keydown分岐まで共通化されている。9章で挙げた論点はこれをもって「Multi-Input Foundation標準」として確定する。
+- **Gaze re-trigger gate**（`gazeAwaitingLeaveId`による「leave-and-reenter」パターン）と`resetDwellState()`命名。
+- **Gaze targetは常に学習targetのみ、common chromeを含めない**（`getGazeTargets()`が3教材ともcommon chrome要素を返さない設計で統一。13章の原則の実装レベルでの確認）。
+- **Touch**: hit area 44px超のwidth/height明示指定、8px移動しきい値による`suppressNextClick`パターン（tap/drag誤判定防止）。
+- **success-onlyのFeedback Philosophy**: 3教材とも`correct`/`mistake`/`score`フィールドを持たず、コード中コメントに一貫して「success-only」「observed behavior only、no diagnostic interpretation」が明記されている。×・赤・ブザー・「ちがう」等の否定的表現は皆無。
+- **Records**: `date/level/inputMethod/responseTime/dwellDuration`の5フィールドは3教材でフィールド名まで統一。`groupIntoSessions()`によるUI表示側セッション集約（生ログ自体は1 activation = 1 entryのフラット構造を維持）も3教材でほぼ同一実装。
+- **1 physical input = 1 semantic activation**（8.6章）: M11で3教材に対しTouch/Gaze/Switch/Keyboardを同一targetへ同時発火させるstress testを実施し、いずれも二重activationが発生しないことを実機（Production）で確認した。
+- **sound OFF時にAudioContext/oscillatorを生成しない**設計（`soundEnabled`フラグによるガード）。
+- **Common Chrome標準（Home/Lock/Fs/A11y）のgenerate.js注入のみを使用し、独自実装を持たない**こと（M10-J是正後、3教材で確認）。
+
+### 22.2 Foundation B（次の新規教材から採用、既存3本へのretrofitは不要）
+
+- **SFX Perceptual Design**（Phase M10-I/M10-I-2知見）: 数値上のpeak/RMSだけでは知覚音量を判断できない。小型スピーカーは低域（150Hz未満）を強く減衰させるため、低域中心のSFXは電気的に大きくても知覚的に小さく感じられる。対策として(a) 150〜300Hz程度のmid body成分の追加、(b) onset transient（短いclick/pop）による立ち上がりの手応え、(c) 聴覚の時間積分窓（約200ms）を意識した継続時間、(d) 複数の短い断片で構成する音は断片間の無音gapを詰める、の4点を今後のSFX設計時に最初から考慮する。実測はOfflineAudioContextでの数値検証に加え、実ブラウザでの聴取確認（User Review）を両方必須とする（20.2章の既存原則を強化）。
+- **Timing Accessibility ≒ 「速い＝快適」を適用しない**: じゅんばんにみようのDeparture演出（停車位置から画面外まで完全に退出するまで約5.5秒、reduced motion時は約400msへ短縮）は、一般的なWeb UIなら「遅すぎる」と判断されうる時間だが、「子どもが完成状態を見届けられること」自体を目的として意図的に設計された。今後の教材でも、気づく・見る・反応する・追視する・見届けるための時間は短縮対象ではなくアクセシビリティ要件として扱う。
+- **Records CSV**: 列を7〜9列程度に収める既存方針（11.4章）は3教材で守られている。ただし11.4が示した共通列候補のうち`app`（保存key名で暗黙に判別できるため不要）と`result`（success-onlyのため不要）は3教材とも実装しておらず、これは意図的な簡略化として追認する。11.4章の候補リストは「その教材で本当に意味を持つ列だけ採用してよい」というガイドとして扱い、全列の実装を義務としない。
+- **Pre-Production Checklistへの明示チェック追加**（M10-J・M11で判明、詳細は`docs/design-system/donomana-new-app-development-standard-v1_0.md` v1.2 §56・57 Case I）。
+
+### 22.3 Foundation C（教材固有、共通化しない）
+
+- Level/Room/Round遷移待ち時間（`NEXT_TRIAL_MS`等）は700ms〜1200msの間で教材の情報量に応じて個別設計されており、統一しない。
+- `commonChromeCandidates()`（Switch Scanの共通chrome候補範囲）: みるとひろがる・みつけてタッチはHome/Lock/Fs/A11yの4つを候補に含めるが、じゅんばんにみようはA11yのみ（`junban-miyou-design-v1.md`に明記された個別設計判断）。「含める/含めない」自体は教材ごとに明示決定する現行ルール（12章）を維持し、一律標準化しない。
+- Records/CSVの`target`相当フィールド名（`target`/`selectedPosition`/`passenger`）は教材の意味に応じて異なる名前を使ってよい。無理に共通名へ揃えない。
+- SFX種類数・複雑さ（みるとひろがる6種+noise burst、みつけてタッチ1種、じゅんばんにみよう3種）は教材の役割に応じたスコープで妥当であり、一律の音数・構成を求めない。
+
+### 22.4 Foundation D（追加調査、まだ標準化しない）
+
+- **Keyboard Escape一貫性**: じゅんばんにみようのみアプリ本体`settingsPanel`にEscapeで閉じる独自ハンドラを持つ。みるとひろがる・みつけてタッチの自アプリ設定パネルはEscapeに未対応（共通A11yパネルのEscapeのみ対応）。重大な不具合ではないが、3教材間の一貫性という観点では要検討。次の新規教材着手前に別Fix Phaseで方針を決める。
+- **Shared Code化の是非**（23章参照）: helper6・`isVisibleEnabled`・Touch 8pxしきい値・CSV BOM書き出し等は3教材でほぼ逐語的に一致しており、15章が想定した「3本目での正式共通化」の判断点に到達している。ただしこのリポジトリはビルド工程を持たない自己完結HTML群（`package.json`なし、`generate.js`のみ）であり、ランタイムで`<script src>`により外部JSを読み込む方式は各アプリの自己完結性を損なう。M11時点では、`generate.js`の既存の「マーカーコメント差し替えによる注入」方式（Common Chromeで実績あり）をMulti-Input共通helperへ拡張できないか、という設計方向のみを次Phase候補として記録し、本Phaseでは実装しない。
+
+### 22.5 Asset Production Lessons
+
+- 「みるとひろがる」の`piano-ready.png`/`piano-active.png`は2枚合計約3.51MBで、同アプリのasset合計（約4.86MB）の約69%を占める。他の10枚（1枚あたり数十〜200KB台）と比べ突出しており、将来のasset最適化Phaseで優先対象とする（本Phaseでは最適化しない）。
+- 「じゅんばんにみよう」の`passengers/*.png`（非active版、717〜802px、400〜680KB台）は、対応する`*-active.png`（614×410、130〜200KB台）より3〜5倍大きい非対称な構成になっている。M10-Eで導入された「Dedicated Active Boarding Asset」がactive版のみ実rendered size×DPR基準で最適化され、非active（ready）版は最適化されないまま残った可能性が高い。M10-Gで確立した「実rendered size×DPRを基準にProduction解像度を決める」手法を、ready/active両方の状態へ一貫して適用することを今後のAsset Production Standardの原則として明記する。
+- 上記2件はいずれも「今すぐ最適化」ではなく「将来まとめて最適化」を推奨する（現時点でProduction上のfailed request・表示不具合は確認されていないため）。
