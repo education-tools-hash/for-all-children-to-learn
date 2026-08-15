@@ -762,8 +762,14 @@ var TOY_SFX = {
   // "ドン♪" — low soft thump: quick pitch-drop sine + a touch of noise for body, no click.
   // Phase M10-I: 継続時間を0.20→0.27s、低域下限を65→85Hzへ引き上げ(小型スピーカーでの
   // 減衰対策)、peakGainも底上げ。
+  // Phase M10-I-2: 測定の結果、peak/RMSは6音中最大クラスまで達していたが、支配周波数が
+  // 85〜170Hzの低域スイープのみに集中しており、小型スピーカーが減衰させる帯域だった
+  // ため知覚的に小さく感じられていた。150〜240Hzのmid body成分と短いonset clickを追加し、
+  // 低域一本足の構成を補強した(低域スイープ自体は維持しキャラクターは変えない)。
   drum: function(ctx, now) {
-    tone(ctx, now, 170, 85, 0.27, 0.28, 'sine');
+    tone(ctx, now, 170, 85, 0.30, 0.28, 'sine');
+    tone(ctx, now, 240, 160, 0.24, 0.21, 'triangle');
+    noiseBurst(ctx, now, 0.045, 0.16, 2400);
     noiseBurst(ctx, now, 0.09, 0.08, 900);
   },
   // "ポロン♪" — two quick soft plucked notes ascending (reuses the pluck-style envelope
@@ -779,8 +785,13 @@ var TOY_SFX = {
   },
   // "ポン♪" — a quick bouncy upward chirp (the lid popping open).
   // Phase M10-I: 継続時間を0.16→0.24s、peakGainを底上げ(単発チャープで最短だったため)。
+  // Phase M10-I-2: 測定の結果、peak/RMSは6音中2番目に高いが、単一のsine chirpのみで
+  // durationが6音中最短(0.13s)だった。二層目のchirpとonsetのpop transientを追加して
+  // 厚みと立ち上がりの手応えを補強した(単発chirpの基本キャラクターは維持)。
   jackbox: function(ctx, now) {
-    tone(ctx, now, 300, 720, 0.24, 0.26, 'sine');
+    tone(ctx, now, 300, 720, 0.26, 0.26, 'sine');
+    tone(ctx, now + 0.02, 460, 980, 0.24, 0.16, 'triangle');
+    noiseBurst(ctx, now, 0.04, 0.14, 2600);
   },
   // soft toy chime — two gentle notes, warmer/lower than the bell
   bear: function(ctx, now) {
@@ -788,10 +799,16 @@ var TOY_SFX = {
     tone(ctx, now + 0.13, 783.99, 783.99, 0.22, 0.10, 'sine');
   },
   // "シュッポッポ♪" — short filtered "shu" noise + two low "po" thumps, brief (not a whistle)
+  // Phase M10-I-2: 測定の結果、6音中RMS activeが最も低かった。低域(100〜130Hz)の断片的な
+  // 3ヒット構成で、ヒット間に無音ギャップがあり、聞き取りやすい中域成分が無いことが原因
+  // だった。各thumpのpeakGain/durationを底上げし、ギャップを詰め、300〜260Hz付近のmid
+  // layerを重ねて「ポッ」の芯を強めた(シュッ+ポッポッという基本キャラクターは維持)。
   train: function(ctx, now) {
-    noiseBurst(ctx, now, 0.10, 0.10, 1200);
-    tone(ctx, now + 0.10, 130, 100, 0.10, 0.14, 'sine');
-    tone(ctx, now + 0.22, 130, 100, 0.10, 0.14, 'sine');
+    noiseBurst(ctx, now, 0.10, 0.11, 1200);
+    tone(ctx, now + 0.09, 130, 100, 0.14, 0.18, 'sine');
+    tone(ctx, now + 0.09, 300, 260, 0.14, 0.11, 'triangle');
+    tone(ctx, now + 0.20, 130, 100, 0.14, 0.18, 'sine');
+    tone(ctx, now + 0.20, 300, 260, 0.14, 0.11, 'triangle');
   }
 };
 function playToySfx(toyId) {
