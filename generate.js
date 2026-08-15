@@ -785,7 +785,7 @@ const BASE_URL = 'https://donomana.jp';
 const BASE_PATH = ''; // カスタムドメイン(donomana.jp)はサイトルートから配信されるため空文字
 
 // 🏠 ホームボタン: 全ページ共通のフローティングボタン設定
-const HOME_BTN_SKIP_APPS = new Set(['scratch-app', 'junban-miyou-app']); // 既に独自のヘッダー内リンクを実装済み
+const HOME_BTN_SKIP_APPS = new Set(['scratch-app']); // 既に独自のヘッダー内リンクを実装済み
 const HOME_BTN_HTML = [
   '<!-- home-btn: 自動挿入 (generate.js) -->',
   '<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
