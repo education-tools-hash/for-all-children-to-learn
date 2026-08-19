@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>コミュニケーションボード</title>
+<!-- gaze-shared-css: 自動挿入 (generate.js) -->
+<style>
+  .stepper-btn { min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1.125rem; font-weight: 700; cursor: pointer; }
+  .stepper-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .stepper-val { min-width: 4.2em; text-align: center; font-size: 0.9375rem; font-weight: 700; }
+</style>
+<!-- /gaze-shared-css -->
 <!-- design-tokens: 自動挿入 (generate.js) -->
 <style>
 :root{
@@ -790,6 +797,9 @@
     pointer-events:none; z-index:6;
     mix-blend-mode:screen;
   }
+  body.gaze-progress-hidden .card.gaze-dwell::after { opacity:0; }
+  #gazeSubSettings { transition:opacity .15s ease; }
+  #gazeSubSettings.dimmed { opacity:.45; }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -1466,17 +1476,99 @@
       </label>
     </div>
 
-    <!-- 注視じかん（ドウェルタイム） -->
-    <div class="sp-row">
-      <div class="sp-row-info">
-        <div class="sp-row-label">⏳ みつづける じかん</div>
-        <div class="sp-row-desc">このじかん ポインターが とまったら きまります</div>
+    <div id="gazeSubSettings" class="dimmed">
+      <!-- 注視じかん（ドウェルタイム） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">⏳ みつづける じかん</div>
+          <div class="sp-row-desc">このじかん ポインターが とまったら きまります</div>
+        </div>
+        <div class="stepper">
+          <button class="stepper-btn" id="dwellMinus">－</button>
+          <div class="stepper-val" id="dwellVal">1.0秒</div>
+          <button class="stepper-btn" id="dwellPlus">＋</button>
+        </div>
       </div>
-      <div class="stepper">
-        <button class="stepper-btn" id="dwellMinus">－</button>
-        <div class="stepper-val" id="dwellVal">1.5秒</div>
-        <button class="stepper-btn" id="dwellPlus">＋</button>
+
+      <!-- みはじめの ゆとり（entry delay） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">👀 みはじめの ゆとり</div>
+          <div class="sp-row-desc">とおりすぎただけでは えらばれにくくなります</div>
+        </div>
+        <div class="stepper">
+          <button class="stepper-btn" id="entryDelayMinus">－</button>
+          <div class="stepper-val" id="entryDelayVal">なし</div>
+          <button class="stepper-btn" id="entryDelayPlus">＋</button>
+        </div>
       </div>
+
+      <!-- さいせんたくまでの ま（cooldown） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">🔁 さいせんたくまでの ま</div>
+          <div class="sp-row-desc">おなじカードを すぐに えらびなおしにくくします</div>
+        </div>
+        <div class="stepper">
+          <button class="stepper-btn" id="cooldownMinus">－</button>
+          <div class="stepper-val" id="cooldownVal">0.9秒</div>
+          <button class="stepper-btn" id="cooldownPlus">＋</button>
+        </div>
+      </div>
+
+      <!-- みつめている しるし（dwell progress） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">💡 みつめている しるし</div>
+          <div class="sp-row-desc">とまっている あいだの ひかりを みせます</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleGazeProgress" checked>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <!-- あたり はんいを ひろげる（target enlargement） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">🎯 あたり はんいを ひろげる</div>
+          <div class="sp-row-desc">カードの みための おおきさは かわりません</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleGazeEnlarge">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <!-- カードの あいだを ひろげる（target spacing） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">↔️ カードの あいだを ひろげる</div>
+          <div class="sp-row-desc">となりのカードを えらびにくくします</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleGazeSpacing">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <!-- うごきを ゆっくり（motion speed） -->
+      <div class="sp-row">
+        <div class="sp-row-info">
+          <div class="sp-row-label">🐢 うごきを ゆっくり</div>
+          <div class="sp-row-desc">けっかひょうじの きりかわりを ゆっくりにします</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggleGazeSlowMotion">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+
+      <button class="reset-btn" id="gazeSettingsResetBtn">【ねらった ところで えらぶ の せっていを もどす】</button>
     </div>
 
     <!-- ── スキャン枠カスタマイズ ── -->
@@ -1694,6 +1786,61 @@
   </div>
 </div>
 
+<!-- gaze-shared-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Gaze Foundation (Phase M11.4-A/B) — SAFE TO SHARE constants and
+   pure helper functions common to Gaze Accessibility Standard v1.0
+   implementations (docs/design-system/donomana-gaze-accessibility-standard-v1_0.md
+   §33.3/§34/§35). Auto-injected by generate.js — edit generate.js's
+   buildGazeSharedFoundationJSHTML() instead of this block directly. */
+var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2
+var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3
+var COOLDOWN_MIN_MS = 300, COOLDOWN_MAX_MS = 3000, COOLDOWN_STEP_MS = 100;       // §10
+var TARGET_SCALE_STANDARD = 100, TARGET_SCALE_LARGE = 150;                      // §12.3
+var MOTION_SLOW_FACTOR = 1.4;                                                   // §14.2
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+function effMs(baseMs) { return (motionSpeedLevel === 'slow') ? Math.round(baseMs * MOTION_SLOW_FACTOR) : baseMs; }
+function formatSecondsLabel(ms) { return (ms / 1000).toFixed(1) + '秒'; }
+function wireStepper(minusId, plusId, valId, get, set, min, max, step, format) {
+  var valEl = document.getElementById(valId);
+  function refresh() { valEl.textContent = format(get()); }
+  document.getElementById(minusId).addEventListener('click', function() { set(clamp(get() - step, min, max)); refresh(); saveSettings(); });
+  document.getElementById(plusId).addEventListener('click', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });
+  refresh();
+  return refresh;
+}
+// hitTestGazeTargets: upgraded from SHARE WITH OPTIONS to SAFE TO SHARE in
+// Phase M11.4-B after confirming byte-identical bodies across all 3 Pilot
+// apps (§35.2). options: { scale: <percent, default 100>, erosion: <px,
+// default 0> }. Call sites (KEEP LOCAL, per-app gaze-tick code) assemble
+// and pass these from their own gazeTargetScalePct/targetSpacingWide state;
+// miru-hirogaru never passes erosion (its spacing uses CSS gap instead),
+// which this default cleanly reproduces without any app-specific branch here.
+function hitTestGazeTargets(x, y, targets, options) {
+  var opts = options || {};
+  var scalePct = (typeof opts.scale === 'number') ? opts.scale : 100;
+  var erosionPx = (typeof opts.erosion === 'number') ? opts.erosion : 0;
+  if (scalePct <= 100 && erosionPx <= 0) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) return targets[i]; }
+    return null;
+  }
+  var scale = scalePct / 100;
+  var best = null, bestArea = Infinity;
+  for (var j = 0; j < targets.length; j++) {
+    var r = targets[j].getBoundingClientRect();
+    var padX = Math.max(0, (r.width * (scale - 1) / 2) - erosionPx);
+    var padY = Math.max(0, (r.height * (scale - 1) / 2) - erosionPx);
+    if (x >= r.left - padX && x <= r.right + padX && y >= r.top - padY && y <= r.bottom + padY) {
+      var area = r.width * r.height;
+      if (area < bestArea) { bestArea = area; best = targets[j]; }
+    }
+  }
+  return best;
+}
+</script>
+<!-- /gaze-shared-js -->
 <script>
 /* ── 定数 ── */
 const FONT_LEVELS  = ['ちいさい','ふつう','おおきい','とても おおきい'];
@@ -1702,13 +1849,32 @@ const INTERVAL_STEPS = [0.8,1.0,1.2,1.5,2.0,2.5,3.0,4.0,5.0];
 const GAZE_DWELL_STEPS = [0.6,0.8,1.0,1.2,1.5,2.0,2.5,3.0];
 
 /* ── 状態 ── */
+// gazeDwellIndex既定値: Gaze Standard §8のdefault(900ms)に最も近いGAZE_DWELL_STEPSの
+// 要素は index2(1.0秒、100ms差)。GAZE_DWELL_STEPS自体への挿入は、既存ユーザーの
+// 保存済みgazeDwellIndex(配列位置)の意味を壊す破壊的migrationになるため行わない
+// （Phase M11.6-C brief §13「既存保存値migrationも確認する」）。新規インストール
+// 時のみこのdefaultが使われ、既存の保存値は従来どおり尊重される。
 let state = { fontIndex:1, highContrast:false, switchScan:true, tts:false, intervalIndex:4,
               scanColor:'#FFD700', scanWidthIndex:1,
-              gazeEnabled:false, gazeDwellIndex:4 };
+              gazeEnabled:false, gazeDwellIndex:2,
+              gazeEntryDelayMs:0, gazeCooldownMs:900, gazeProgressVisible:true,
+              gazeTargetScalePct:100, gazeSpacingWide:false, gazeMotionSlow:false };
 let currentIndex = 0;
 let scanInterval  = null;
 let isShowingResult = false;
+// Gaze Shared Foundation's effMs() (generate.js-injected) reads a module-level
+// `motionSpeedLevel` string var by name ('normal'|'slow') — this app's own
+// architecture instead keeps that flag inside `state.gazeMotionSlow` (a
+// boolean). This var exists solely so the shared effMs() has something to
+// read; every place that changes state.gazeMotionSlow also updates this.
+let motionSpeedLevel = 'normal';
+// Gaze Shared Foundation's wireStepper() (generate.js-injected) calls a
+// module-level saveSettings() by name after every stepper click — this app's
+// own persistence function is named saveState(). Alias rather than rename
+// the existing function (KEEP LOCAL, unrelated to this Phase's scope).
+function saveSettings() { saveState(); }
 let isPanelOpen = false;
+const SPACING_EROSION_PX = 8; // KEEP LOCAL, mirrors kurabeyou/katachi-awase/Pilot's SPACING_EROSION_PX
 
 /* ── DOM ── */
 const cards        = Array.from(document.querySelectorAll('.card, .scannable'));
@@ -1736,6 +1902,11 @@ const toggleGaze    = document.getElementById('toggleGaze');
 const dwellMinusBtn = document.getElementById('dwellMinus');
 const dwellPlusBtn  = document.getElementById('dwellPlus');
 const dwellValEl    = document.getElementById('dwellVal');
+const toggleGazeProgress    = document.getElementById('toggleGazeProgress');
+const toggleGazeEnlarge     = document.getElementById('toggleGazeEnlarge');
+const toggleGazeSpacing     = document.getElementById('toggleGazeSpacing');
+const toggleGazeSlowMotion  = document.getElementById('toggleGazeSlowMotion');
+const gazeSettingsResetBtn  = document.getElementById('gazeSettingsResetBtn');
 
 /* ── 保存・復元 ── */
 function saveState() {
@@ -1754,6 +1925,16 @@ function loadState() {
     if (s.scanWidthIndex !== undefined) state.scanWidthIndex = s.scanWidthIndex;
     if (s.gazeEnabled     !== undefined) state.gazeEnabled     = s.gazeEnabled;
     if (s.gazeDwellIndex  !== undefined) state.gazeDwellIndex  = s.gazeDwellIndex;
+    // Gaze Standard settings: existing saved objects predate these fields, so a
+    // missing/malformed field always safely merges to its documented default
+    // (no migration step needed).
+    if (typeof s.gazeEntryDelayMs === 'number') state.gazeEntryDelayMs = clamp(s.gazeEntryDelayMs, ENTRY_DELAY_MIN_MS, ENTRY_DELAY_MAX_MS);
+    if (typeof s.gazeCooldownMs === 'number') state.gazeCooldownMs = clamp(s.gazeCooldownMs, COOLDOWN_MIN_MS, COOLDOWN_MAX_MS);
+    if (typeof s.gazeProgressVisible === 'boolean') state.gazeProgressVisible = s.gazeProgressVisible;
+    if (s.gazeTargetScalePct === TARGET_SCALE_LARGE) state.gazeTargetScalePct = TARGET_SCALE_LARGE;
+    if (typeof s.gazeSpacingWide === 'boolean') state.gazeSpacingWide = s.gazeSpacingWide;
+    if (typeof s.gazeMotionSlow === 'boolean') state.gazeMotionSlow = s.gazeMotionSlow;
+    motionSpeedLevel = state.gazeMotionSlow ? 'slow' : 'normal';
   } catch(e) {}
 }
 
@@ -1779,6 +1960,16 @@ function applySettings() {
   applyScanStyle();
   toggleGaze.checked     = state.gazeEnabled;
   dwellValEl.textContent = GAZE_DWELL_STEPS[state.gazeDwellIndex].toFixed(1) + '秒';
+  var gazeSub = document.getElementById('gazeSubSettings');
+  if (gazeSub) gazeSub.classList.toggle('dimmed', !state.gazeEnabled);
+  refreshEntryDelayVal();
+  refreshCooldownVal();
+  toggleGazeProgress.checked = state.gazeProgressVisible;
+  document.body.classList.toggle('gaze-progress-hidden', !state.gazeProgressVisible);
+  toggleGazeEnlarge.checked = (state.gazeTargetScalePct === TARGET_SCALE_LARGE);
+  toggleGazeSpacing.checked = state.gazeSpacingWide;
+  toggleGazeSlowMotion.checked = state.gazeMotionSlow;
+  motionSpeedLevel = state.gazeMotionSlow ? 'slow' : 'normal';
   saveState();
   if (state.switchScan && !state.gazeEnabled && !isShowingResult && !isPanelOpen) {
     startScan();
@@ -1800,16 +1991,32 @@ function closePanel() {
     currentIndex = 0;
     startScan();
   }
+  // settingsBtn is CSS-hidden (opacity:0 !important, SETTINGS_PROXY) and its opener
+  // (#donomanaSettingsProxy) sits inside the a11y panel, which is already closed by the
+  // time this runs (Phase16.45-A) — neither is a valid focus target. Return focus to the
+  // persistent #donomanaA11yBtn (always visible) instead of losing it to <body>.
+  const a11yBtn = document.getElementById('donomanaA11yBtn');
+  (a11yBtn || settingsBtn).focus();
 }
 
 settingsBtn.addEventListener('click',    e => { e.stopPropagation(); openPanel(); });
 settingsClose.addEventListener('click',  e => { e.stopPropagation(); closePanel(); });
 settingsOverlay.addEventListener('click',e => { if (e.target === settingsOverlay) closePanel(); });
+document.addEventListener('keydown', e => {
+  // isPanelOpen is shared with the help modal (openHelp/closeHelp also set it),
+  // so check settingsOverlay's own visibility rather than the shared flag —
+  // otherwise Escape while the help modal is open would incorrectly run
+  // closePanel() instead of leaving the help modal's own handling alone.
+  if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) closePanel();
+});
 
 /* ステッパー・トグル */
 [fontMinusBtn, fontPlusBtn, intervalMinus, intervalPlus,
  toggleHC, toggleSwitch, toggleTTS, resetBtn,
- toggleGaze, dwellMinusBtn, dwellPlusBtn].forEach(el => {
+ toggleGaze, dwellMinusBtn, dwellPlusBtn,
+ toggleGazeProgress, toggleGazeEnlarge, toggleGazeSpacing, toggleGazeSlowMotion, gazeSettingsResetBtn,
+ document.getElementById('entryDelayMinus'), document.getElementById('entryDelayPlus'),
+ document.getElementById('cooldownMinus'), document.getElementById('cooldownPlus')].forEach(el => {
   el.addEventListener('click',  e => e.stopPropagation());
   el.addEventListener('touchstart', e => e.stopPropagation());
 });
@@ -1974,7 +2181,7 @@ function activateCurrentScanItem(index) {
     flashOverlay.classList.remove('active');
     isShowingResult = false;
     if (state.switchScan && !state.gazeEnabled && !isPanelOpen) startSwitchScan();
-  }, 1600);
+  }, effMs(1600));
 }
 function selectCard(index) { activateCurrentScanItem(index); } // 互換エイリアス(既存呼び出し箇所は無変更)
 
@@ -2011,7 +2218,12 @@ function isFocusedUiControl(el) {
 
 document.addEventListener('keydown', e => {
   if (isPanelOpen) return;
-  if (!state.switchScan) return;          // ★ OFFなら何もしない
+  // Decision A (Gaze Standard §0): Enter/Space must also confirm the card
+  // gaze is currently dwelling toward, not only a Switch Scan cycling
+  // candidate — currentIndex is updated by both mechanisms the same way, so
+  // this only widens which state makes "current" meaningful; it does not
+  // change what happens once that condition holds.
+  if (!state.switchScan && !state.gazeEnabled) return;          // ★ どちらもOFFなら何もしない
   if (isFocusedUiControl(document.activeElement)) return;          // ★ ネイティブ操作要素にフォーカス中は横取りしない
   if (e.code === 'Space' || e.code === 'Enter') {
     e.preventDefault();
@@ -2094,47 +2306,68 @@ function speak(text) {
 let gazeLoopRunning = false;
 let dwellIndex = -1;
 let dwellStart = 0;
+let dwellEntryAt = 0;          // when the currently-hovered card was first entered
+                                // (dwellStart stays 0 — entry-delay pending — until
+                                // gazeEntryDelayMs has elapsed since dwellEntryAt)
+let gazeAwaitingLeaveIdx = -1; // leave-and-reenter re-trigger gate (§10.2 方式A)
+let gazeAwaitingLeaveUntil = 0;
 
 /* ════════════════════════════════════════
    ポインターで えらぶ（マウス・見るマウス・Tobii等）
    ─ カメラは使用せず、OSが出力するポインター座標
      （mousemove）をもとに、今どのカードの上に
      ポインターがあるかを判定してドウェル選択する
+   ─ hitTestGazeTargets(): Gaze Shared Foundation (generate.js-injected)。
+     scale<=100 && erosion<=0のときは従来のelementFromPoint相当の判定と
+     byte-identicalなため、拡大・間隔設定を両方OFFのままなら挙動は完全に
+     不変（cardsは.card 4枚 + 共通chromeの.scannableボタンを含む既存の
+     対象範囲をそのまま維持）。
 ════════════════════════════════════════ */
 
 function onPointerMove(e) {
   if (!gazeLoopRunning) return;
   if (isPanelOpen || isShowingResult) return;
 
-  const x = e.clientX;
-  const y = e.clientY;
+  const hit = hitTestGazeTargets(e.clientX, e.clientY, cards, { scale: state.gazeTargetScalePct, erosion: state.gazeSpacingWide ? SPACING_EROSION_PX : 0 });
+  const idx = hit ? cards.indexOf(hit) : -1;
+  const now = performance.now();
 
-  const idx = hitTestCards(x, y);
+  // leave-and-reenter re-trigger gate (§10.2 方式A): once a card has just been
+  // activated via gaze, it must be looked away from *and* gazeCooldownMs must
+  // have elapsed (whichever is later) before a new dwell can start on it again.
+  if (gazeAwaitingLeaveIdx !== -1 && idx !== gazeAwaitingLeaveIdx && now >= gazeAwaitingLeaveUntil) {
+    gazeAwaitingLeaveIdx = -1;
+  }
+
   if (idx === -1) {
-    if (dwellIndex !== -1) { clearDwellVisual(); dwellIndex = -1; }
+    if (dwellIndex !== -1) { clearDwellVisual(); dwellIndex = -1; dwellStart = 0; dwellEntryAt = 0; }
     return;
   }
   if (idx !== dwellIndex) {
-    dwellIndex = idx;
-    dwellStart = performance.now();
-    currentIndex = idx;
-    highlightCard(idx);
+    clearDwellVisual(); dwellIndex = -1; dwellStart = 0; dwellEntryAt = 0;
+    if (idx !== gazeAwaitingLeaveIdx) {
+      dwellIndex = idx;
+      dwellEntryAt = now;
+      currentIndex = idx;
+      highlightCard(idx);
+      // dwellStart stays 0 (entry-delay pending) until gazeEntryDelayMs elapses
+    }
+  } else if (dwellIndex !== -1 && idx !== gazeAwaitingLeaveIdx) {
+    if (dwellStart === 0) {
+      if (now - dwellEntryAt >= state.gazeEntryDelayMs) dwellStart = now;
+    } else {
+      const dwellMs = GAZE_DWELL_STEPS[state.gazeDwellIndex] * 1000;
+      const elapsed = now - dwellStart;
+      const ratio = Math.min(elapsed / dwellMs, 1);
+      if (state.gazeProgressVisible) updateDwellVisual(idx, ratio);
+      if (elapsed >= dwellMs) {
+        dwellIndex = -1; dwellStart = 0; dwellEntryAt = 0;
+        gazeAwaitingLeaveIdx = idx;
+        gazeAwaitingLeaveUntil = now + state.gazeCooldownMs;
+        activateCurrentScanItem(idx);
+      }
+    }
   }
-  const dwellMs = GAZE_DWELL_STEPS[state.gazeDwellIndex] * 1000;
-  const elapsed = performance.now() - dwellStart;
-  updateDwellVisual(idx, Math.min(elapsed / dwellMs, 1));
-  if (elapsed >= dwellMs) {
-    dwellIndex = -1;
-    activateCurrentScanItem(idx);
-  }
-}
-
-function hitTestCards(x, y) {
-  for (let i = 0; i < cards.length; i++) {
-    const r = cards[i].getBoundingClientRect();
-    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
-  }
-  return -1;
 }
 
 function updateDwellVisual(idx, ratio) {
@@ -2157,7 +2390,7 @@ function clearDwellVisual() {
 
 function enablePointerSelect() {
   gazeLoopRunning = true;
-  dwellIndex = -1;
+  dwellIndex = -1; dwellStart = 0; dwellEntryAt = 0;
   stopScan();
   document.addEventListener('mousemove', onPointerMove);
 }
@@ -2165,13 +2398,16 @@ function disablePointerSelect() {
   gazeLoopRunning = false;
   document.removeEventListener('mousemove', onPointerMove);
   clearDwellVisual();
-  dwellIndex = -1;
+  dwellIndex = -1; dwellStart = 0; dwellEntryAt = 0;
+  gazeAwaitingLeaveIdx = -1; gazeAwaitingLeaveUntil = 0;
   if (state.switchScan && !isShowingResult && !isPanelOpen) startScan();
 }
 
 /* トグル・ステッパー */
 toggleGaze.addEventListener('change', () => {
   state.gazeEnabled = toggleGaze.checked;
+  var gazeSub = document.getElementById('gazeSubSettings');
+  if (gazeSub) gazeSub.classList.toggle('dimmed', !state.gazeEnabled);
   saveState();
   if (state.gazeEnabled) {
     enablePointerSelect();
@@ -2194,6 +2430,67 @@ dwellPlusBtn.addEventListener('click', () => {
     saveState();
   }
 });
+
+/* ---- §9 entry delay / §10 cooldown steppers ----
+   formatSecondsLabel() / wireStepper(): Gaze Shared Foundation (generate.js
+   -injected). dwell自体は既存GAZE_DWELL_STEPS方式のまま維持し(Option B、上記)、
+   entryDelay/cooldownのみ連続値のShared wireStepper()を新規採用する。 */
+var refreshEntryDelayVal = wireStepper('entryDelayMinus', 'entryDelayPlus', 'entryDelayVal',
+  function() { return state.gazeEntryDelayMs; }, function(v) { state.gazeEntryDelayMs = v; saveState(); },
+  ENTRY_DELAY_MIN_MS, ENTRY_DELAY_MAX_MS, ENTRY_DELAY_STEP_MS,
+  function(ms) { return ms === 0 ? 'なし' : (ms / 1000).toFixed(2).replace(/0$/, '') + '秒'; });
+var refreshCooldownVal = wireStepper('cooldownMinus', 'cooldownPlus', 'cooldownVal',
+  function() { return state.gazeCooldownMs; }, function(v) { state.gazeCooldownMs = v; saveState(); },
+  COOLDOWN_MIN_MS, COOLDOWN_MAX_MS, COOLDOWN_STEP_MS, formatSecondsLabel);
+
+/* ---- §11.2 dwell progress ON/OFF ---- */
+toggleGazeProgress.addEventListener('change', () => {
+  state.gazeProgressVisible = toggleGazeProgress.checked;
+  document.body.classList.toggle('gaze-progress-hidden', !state.gazeProgressVisible);
+  saveState();
+});
+
+/* ---- §12.3 gaze target enlargement (hit area only; .card CSS is never
+   touched, so visual card size stays exactly as the grid layout renders it) ---- */
+toggleGazeEnlarge.addEventListener('change', () => {
+  state.gazeTargetScalePct = toggleGazeEnlarge.checked ? TARGET_SCALE_LARGE : TARGET_SCALE_STANDARD;
+  saveState();
+});
+
+/* ---- §13.2 target spacing — hit-region erosion only, no DOM/layout gap
+   change (the existing --gap:20px grid spacing is left untouched) ---- */
+toggleGazeSpacing.addEventListener('change', () => {
+  state.gazeSpacingWide = toggleGazeSpacing.checked;
+  saveState();
+});
+
+/* ---- §14.2 motion / progression speed — affects only the result-display
+   feedback timing (the 1600ms flashOverlay pause in activateCurrentScanItem,
+   via effMs()), never the card grid/animation itself ---- */
+toggleGazeSlowMotion.addEventListener('change', () => {
+  state.gazeMotionSlow = toggleGazeSlowMotion.checked;
+  motionSpeedLevel = state.gazeMotionSlow ? 'slow' : 'normal';
+  saveState();
+});
+
+/* ---- Reset: restores the Gaze/pointer-select settings (incl. ON/OFF) to
+   their documented defaults, keeping UI/state/persisted-value in sync. ---- */
+function resetGazeSettingsToDefault() {
+  state.gazeEnabled = false; toggleGaze.checked = false; disablePointerSelect();
+  var gazeSub = document.getElementById('gazeSubSettings');
+  if (gazeSub) gazeSub.classList.add('dimmed');
+  state.gazeDwellIndex = 2; dwellValEl.textContent = GAZE_DWELL_STEPS[state.gazeDwellIndex].toFixed(1) + '秒';
+  state.gazeEntryDelayMs = 0; refreshEntryDelayVal();
+  state.gazeCooldownMs = 900; refreshCooldownVal();
+  state.gazeProgressVisible = true; toggleGazeProgress.checked = true;
+  document.body.classList.remove('gaze-progress-hidden');
+  state.gazeTargetScalePct = TARGET_SCALE_STANDARD; toggleGazeEnlarge.checked = false;
+  state.gazeSpacingWide = false; toggleGazeSpacing.checked = false;
+  state.gazeMotionSlow = false; toggleGazeSlowMotion.checked = false; motionSpeedLevel = 'normal';
+  saveState();
+  donomanaAnnounce('ねらったところでえらぶ の せっていを もどしました');
+}
+gazeSettingsResetBtn.addEventListener('click', resetGazeSettingsToDefault);
 
 
 

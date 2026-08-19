@@ -1287,7 +1287,7 @@ function buildDesignTokensHTML() {
 //  ・対象アプリはGAZE_SHARED_FOUNDATION_APPSに明示登録した場合のみ(全アプリ
 //    一括適用はしない。Phase M11.4-Aはmitsukete-touch-appのみ)。
 // ============================================================
-const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app', 'junban-miyou-app', 'miru-hirogaru-app', 'kurabeyou-app', 'katachi-awase-app']);
+const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app', 'junban-miyou-app', 'miru-hirogaru-app', 'kurabeyou-app', 'katachi-awase-app', 'kimochi-board']);
 
 function buildGazeSharedFoundationCSSHTML() {
   return [
@@ -1772,6 +1772,7 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-08-19", type: "update", text: "「コミュニケーションボード」の視線入力設定を充実しました。" },
   { date: "2026-08-19", type: "update", text: "「かたちをあわせよう」の視線入力設定を充実しました。" },
   { date: "2026-08-19", type: "update", text: "「おおきい？ちいさい？くらべよう」の視線入力設定を充実しました。" },
   { date: "2026-08-19", type: "update", text: "「じゅんばんにみよう」の設定画面を閉じたあとの操作をより分かりやすくしました。" },
