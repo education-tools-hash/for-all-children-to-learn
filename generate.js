@@ -1277,6 +1277,124 @@ function buildDesignTokensHTML() {
 }
 
 // ============================================================
+//  Donomana Gaze Foundation (Phase M11.4-A PoC)
+//  ・docs/design-system/donomana-gaze-accessibility-standard-v1_0.md §33.3の
+//    SAFE TO SHARE分類のみを対象とする(定数・純粋関数・CSS)。
+//  ・SHARE WITH OPTIONS（hitTestGazeTargets等）・KEEP LOCAL（gaze tick状態機械・
+//    canonical/transient state・activation function等）は対象外。各アプリの
+//    手書きコードに残す(§33.4の設計方針どおり、Switch Scan helper6と同じく
+//    「契約は揃えるが実装は手書きを維持する」領域)。
+//  ・対象アプリはGAZE_SHARED_FOUNDATION_APPSに明示登録した場合のみ(全アプリ
+//    一括適用はしない。Phase M11.4-Aはmitsukete-touch-appのみ)。
+// ============================================================
+const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app']);
+
+function buildGazeSharedFoundationCSSHTML() {
+  return [
+    '<!-- gaze-shared-css: 自動挿入 (generate.js) -->',
+    '<style>',
+    '  .stepper-btn { min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1.125rem; font-weight: 700; cursor: pointer; }',
+    '  .stepper-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }',
+    '  .stepper-val { min-width: 4.2em; text-align: center; font-size: 0.9375rem; font-weight: 700; }',
+    '</style>',
+    '<!-- /gaze-shared-css -->'
+  ].join('\n');
+}
+
+function buildGazeSharedFoundationJSHTML() {
+  return [
+    '<!-- gaze-shared-js: 自動挿入 (generate.js) -->',
+    '<script>',
+    '/* Donomana Gaze Foundation (Phase M11.4-A PoC) — SAFE TO SHARE constants and',
+    '   pure helper functions common to Gaze Accessibility Standard v1.0',
+    '   implementations (docs/design-system/donomana-gaze-accessibility-standard-v1_0.md',
+    '   §33.3). Auto-injected by generate.js — edit generate.js\'s',
+    '   buildGazeSharedFoundationJSHTML() instead of this block directly. */',
+    'var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2',
+    'var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3',
+    'var COOLDOWN_MIN_MS = 300, COOLDOWN_MAX_MS = 3000, COOLDOWN_STEP_MS = 100;       // §10',
+    'var TARGET_SCALE_STANDARD = 100, TARGET_SCALE_LARGE = 150;                      // §12.3',
+    'var MOTION_SLOW_FACTOR = 1.4;                                                   // §14.2',
+    'function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }',
+    'function effMs(baseMs) { return (motionSpeedLevel === \'slow\') ? Math.round(baseMs * MOTION_SLOW_FACTOR) : baseMs; }',
+    'function formatSecondsLabel(ms) { return (ms / 1000).toFixed(1) + \'秒\'; }',
+    'function wireStepper(minusId, plusId, valId, get, set, min, max, step, format) {',
+    '  var valEl = document.getElementById(valId);',
+    '  function refresh() { valEl.textContent = format(get()); }',
+    '  document.getElementById(minusId).addEventListener(\'click\', function() { set(clamp(get() - step, min, max)); refresh(); saveSettings(); });',
+    '  document.getElementById(plusId).addEventListener(\'click\', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });',
+    '  refresh();',
+    '  return refresh;',
+    '}',
+    '</script>',
+    '<!-- /gaze-shared-js -->'
+  ].join('\n');
+}
+
+function injectGazeSharedFoundationToAppHtmls(apps) {
+  const cssStartMark = '<!-- gaze-shared-css: 自動挿入 (generate.js) -->';
+  const cssEndMark   = '<!-- /gaze-shared-css -->';
+  const jsStartMark  = '<!-- gaze-shared-js: 自動挿入 (generate.js) -->';
+  const jsEndMark    = '<!-- /gaze-shared-js -->';
+  const cssBlock = buildGazeSharedFoundationCSSHTML();
+  const jsBlock  = buildGazeSharedFoundationJSHTML();
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    if (!GAZE_SHARED_FOUNDATION_APPS.has(app.filename)) continue;
+    const fname = `${app.filename}.html`;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      let html = original;
+
+      // CSS: 既存マーカーがあれば差し替え、なければ</title>直後(design-tokensの直前)に挿入
+      const cssStartIdx = html.indexOf(cssStartMark);
+      if (cssStartIdx !== -1) {
+        const cssEndIdx = html.indexOf(cssEndMark, cssStartIdx);
+        if (cssEndIdx !== -1) html = html.slice(0, cssStartIdx) + cssBlock + html.slice(cssEndIdx + cssEndMark.length);
+      } else {
+        const titleEnd = html.indexOf('</title>');
+        const headMatch = html.match(/<head[^>]*>/);
+        const insertAt = titleEnd !== -1 ? titleEnd + '</title>'.length
+                       : headMatch ? headMatch.index + headMatch[0].length : -1;
+        if (insertAt !== -1) html = html.slice(0, insertAt) + '\n' + cssBlock + html.slice(insertAt);
+      }
+
+      // JS: 既存マーカーがあれば差し替え、なければ</main>直後(アプリ本体scriptの直前)に挿入
+      // -- wireStepper()等はアプリ本体scriptのトップレベルで即時呼び出されるため、
+      //    このscriptタグは必ずアプリ本体scriptより前に置く必要がある。
+      const jsStartIdx = html.indexOf(jsStartMark);
+      if (jsStartIdx !== -1) {
+        const jsEndIdx = html.indexOf(jsEndMark, jsStartIdx);
+        if (jsEndIdx !== -1) html = html.slice(0, jsStartIdx) + jsBlock + html.slice(jsEndIdx + jsEndMark.length);
+      } else {
+        const mainEnd = html.indexOf('</main>');
+        if (mainEnd !== -1) {
+          const insertAt = mainEnd + '</main>'.length;
+          html = html.slice(0, insertAt) + '\n' + jsBlock + html.slice(insertAt);
+        }
+      }
+
+      if (html !== original) {
+        fs.writeFileSync(filePath, html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname}`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n👁 Gaze Shared Foundation挿入(PoC対象アプリのみ): ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0) log.forEach(l => console.log(l));
+}
+
+// ============================================================
 //  ファビコン関連: 全ページの <head> に統一して挿入する
 //  ・サイトルート絶対パス指定 (/) なので
 //    どの階層のページからも同じファビコンが参照される
@@ -2086,6 +2204,11 @@ injectAnnounceHelperToAppHtmls(apps);
 // 個別アプリHTML(ルート直下の*.html)にDesign Token(角丸・フォーカス共通CSS変数)を一括挿入
 //     除外リストなし。:root の変数定義のみのため既存表示には影響しない
 injectDesignTokensToAppHtmls(apps);
+
+// Donomana Gaze Foundation(Phase M11.4-A PoC)をGAZE_SHARED_FOUNDATION_APPSに
+//     登録したアプリのみへ挿入。SAFE TO SHARE分類の定数・純粋関数・CSSのみ対象
+//     (docs/design-system/donomana-gaze-accessibility-standard-v1_0.md §33.3-33.4)
+injectGazeSharedFoundationToAppHtmls(apps);
 
 // 11. 個別アプリHTML(ルート直下の*.html)にcanonical/meta descriptionを一括挿入
 //     アプリ本体ページと詳細ページが同じ検索語で評価を分け合う(カニバリゼーション)のを防ぐため、

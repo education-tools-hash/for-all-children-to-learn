@@ -1,7 +1,7 @@
 # どのまな 視線入力アクセシビリティ標準仕様書（Donomana Gaze Accessibility Standard）v1.0
 
-- 版: v1.0（改訂2）
-- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）
+- 版: v1.0（改訂3）
+- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）／改訂: 2026-08-19（Phase M11.4-A、Gaze Shared Foundation PoC成功・mitsukete-touch-app.htmlで実装）
 - 状態: **確定**（Phase M11.2起草時点で「ユーザー確認事項」としていた2論点は、Phase M11.3-Aにおけるユーザー明示決定（0章）により正式確定した。17.2章・31.1章参照）。**Phase M11.3-A（miru-hirogaru-app.html）・M11.3-B（mitsukete-touch-app.html／junban-miyou-app.html）により、Multi-Input Pilot 3教材すべてが本書のREQUIRED 8項目（6章）を実装済み（29章参照）。Tobii実機確認はみるとひろがるのみユーザー確認済み（M11.3-Aゲート）。どこかな？みーつけた！／じゅんばんにみようは自動検証のみで、Tobii実機確認は引き続き未実施（Phase M11.3-B報告47番）。**
 - 起草根拠: Multi-Input Pilot 3教材（「みるとひろがる」`docs/multi-input/miru-hirogaru-design-v1.md`／「どこかな？みーつけた！」`docs/multi-input/mitsukete-touch-design-v1.md`／「じゅんばんにみよう」`docs/multi-input/junban-miyou-design-v1.md`、いずれもPhase M0〜M11で確立・Tobii等実機検証済み）を第一のSource of Truthとし、既存Production公開中の視線入力対応アプリ11本（18章）のコード横断調査、および既存承認済み仕様書（1章）との整合確認を根拠とする。
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（新規アプリ開発標準 v1.2、以下「New App Standard」）13章「gaze / dwell（CONDITIONAL）」の詳細補足文書。New App Standardを置き換えるものではなく、視線入力固有の要件を詳細化する下位文書として位置づける。Design System v2.1・Switch Scan仕様書v1.8・モーダルアクセシビリティ仕様書v1.1のいずれとも矛盾しないことを26章で確認している。
@@ -46,6 +46,7 @@
 31. Migration Guidance
 32. Compliance Checklist
 33. Phase M11.3-C: Cross-App Consistency Audit / Shared Candidate Findings
+34. Phase M11.4-A: Gaze Shared Foundation PoC結果
 
 ---
 
@@ -700,3 +701,46 @@ Phase M11.3-Cで、Multi-Input Pilot 3教材（実装完了後）を横断比較
 - **rollback容易性**: 高い。マーカーブロックの削除、または旧ファイルへの復元で即座に戻せる。
 - **manual app編集との競合**: KEEP LOCAL部分（gaze-tick）を手書きのまま残す設計であれば、既存のSwitch Scan rollout（21アプリ実績）と同水準のリスクに収まる。SAFE TO SHARE部分を注入対象にする場合、当該HTML/CSSブロックをアプリ側で直接編集しないという運用規律が必要（既存injectorと同じ運用）。
 - **結論**: 定数・純粋関数・Settings UI HTML/CSSの注入は技術的に無理がなく、M11.4でのPoC対象として有力。gaze-tick状態機械の共通化は、Switch Scan helper6同様「契約はそろえるが実装は手書きを維持する」方針を推奨する。
+
+---
+
+## 34. Phase M11.4-A: Gaze Shared Foundation PoC結果
+
+33.4章の設計方針を、`mitsukete-touch-app.html`を対象に実装PoCとして検証した。**結果: 成功。** SAFE TO SHARE項目のgenerate.js marker injection化、およびhitTestGazeTargets()のoption parameter化のいずれも、既存挙動を完全に保ったまま実現できることを実証した。
+
+### 34.1 実装内容
+
+- **generate.js**: `GAZE_SHARED_FOUNDATION_APPS`（登録制Set、本PoCは`mitsukete-touch-app`のみ）に基づき、`injectGazeSharedFoundationToAppHtmls()`を新設。CSS（`.stepper-btn`/`.stepper-val`）を`<head>`内`<!-- gaze-shared-css -->`マーカーへ、JS（定数5行＋`clamp()`/`effMs()`/`formatSecondsLabel()`/`wireStepper()`）を`</main>`直後の`<!-- gaze-shared-js -->`マーカーへ、既存injector群（design-tokens等）と同一の差し替えロジックで注入する。
+- **mitsukete-touch-app.html**: 上記に対応する手書きコードを削除し、二重定義を排除。`SPACING_EROSION_PX`（教材固有のerosion量、KEEP LOCAL）と`MT_REVEAL_DURATION_*`（教材固有のmotion timer、KEEP LOCAL）はアプリ側に維持。
+
+### 34.2 hitTestGazeTargets() option parameter API（確定）
+
+```js
+hitTestGazeTargets(x, y, targets, options)
+// options: { scale: <百分率、既定100>, erosion: <px、既定0> }
+```
+
+`scale`/`erosion`いずれも数値パラメータとし、erosion量自体（8px）はアプリ側の`SPACING_EROSION_PX`定数から呼び出し時に渡す設計とした——関数本体に定数を埋め込まず、真に純粋な関数とするため。`gazeTargetScalePct`/`targetSpacingWide`という状態変数への参照は関数内から排除し、呼び出し側（gaze-tick、KEEP LOCAL）が値を組み立てて渡す。既定値（`scale:100, erosion:0`）は既存の`elementFromPoint`一本化パスと完全に一致し、挙動変化なし。**本Phaseではこの関数自体はgenerate.js注入の対象にしていない**（呼び出し側との結合がまだ残るSHARE WITH OPTIONS段階のため、33.4章の「段階2」のまま）。
+
+### 34.3 miru-hirogaru-app.html対応可否
+
+**本Phaseでは対応しない（禁止事項どおり）。** ただし34.2章のoptions APIは、miruの既存呼び出し（`hitTestGazeTargets(x, y, targets)`、scale-onlyでerosionなし）を`hitTestGazeTargets(x, y, targets, { scale: gazeTargetScalePct })`（erosion省略＝0）へ書き換えるだけで無変更のまま吸収できることを設計上確認した（erosionを渡さなければ現行のscale-onlyパスと完全一致）。実際の適用要否はM11.4-Bでユーザー判断とする。
+
+### 34.4 junban-miyou-app.html対応可否
+
+mitsukete-touch-app.htmlと`hitTestGazeTargets()`本体がbyte-identicalだったため（Phase M11.3-C 33.2章）、同じoptions API・同じSAFE TO SHARE injection対象がそのまま適用できる設計上の見込みが高い。実装はM11.4-Bへ持ち越す。
+
+### 34.5 検証結果概要
+
+- **before/after equivalence**: `test_mitsukete.py`（Phase M11.3-B/Cから継続使用、変更なし）を再実行し、全項目（Gaze ON/OFF・dwell・progress・cooldown・entry delay・target enlargement・target spacing・motion・Touch・Keyboard・Switch Scan・simultaneous input・duplicate activation・persistence・reset・modal・level transition・reduced-motion・5viewport×3Level responsive）が改修前と完全に同一の結果を示した。console/page error 0。
+- **hitTest unit検証**: target中心・target外・target edge・scale 100%/150%・erosion境界（isolated single-targetで明確に分離）・overlap・hidden targetの全パターンで期待どおりの挙動を確認。
+- **冪等性**: `node generate.js`を4回連続実行し、2回目以降はファイルハッシュが完全不変（0件更新）であることを確認。
+- **副作用**: `miru-hirogaru-app.html`・`junban-miyou-app.html`・`index.html`はdiff 0（`GAZE_SHARED_FOUNDATION_APPS`未登録のため無影響）。
+
+### 34.6 shared化メリット/リスク評価
+
+**メリット**: 3教材共通の定数・純粋関数（約20行×3箇所）が単一のgenerate.js定義へ集約され、将来のGaze Standard default値変更（例: entry delay範囲の見直し）が1箇所の編集で3教材へ反映可能になる。既存injector運用（8種実績）と同一パターンのため、開発者の学習コストも低い。
+
+**リスク**: 低い。①注入対象はPURE code（DOM/教材ロジックへの依存なし）に限定しているため、教材固有の挙動へ波及する経路がない。②登録制Set方式のため意図しない一括適用が起きない。③冪等性は既存機構の再利用であり新規リスクなし。唯一の運用上の留意点は、SAFE TO SHARE注入対象のHTML/CSSブロックをアプリ側で直接編集しない規律を維持すること（既存injector群と同水準の運用ルール）。
+
+**結論**: 33.4章のPoC失敗条件（app固有コード破壊・global scope衝突・timing差による挙動変化・CSS注入の波及・冪等性喪失・複雑性がメリットを上回る）はいずれも該当しなかった。M11.4-Bでの残り2教材への横展開を推奨する。
