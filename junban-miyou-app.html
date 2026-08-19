@@ -213,7 +213,9 @@
   #departureBanner.on { opacity: 1; transform: translate(-50%,-50%) scale(1); }
 
   .jm-sparkle-pop { position: absolute; z-index: 21; font-size: 1.6rem; pointer-events: none; opacity: 0; }
-  .jm-sparkle-pop.on { animation: jmSparklePop 700ms ease-out both; }
+  /* Gaze Standard v1.0 §14 (motion speed): defaults to the original fixed 700ms;
+     prefers-reduced-motion's !important block above always wins regardless. */
+  .jm-sparkle-pop.on { animation: jmSparklePop var(--jm-sparkle-duration, 700ms) ease-out both; }
   @keyframes jmSparklePop { 0%{ opacity: 0; transform: translateY(0) scale(.5); } 30%{ opacity: 1; transform: translateY(-8px) scale(1.05); } 100%{ opacity: 0; transform: translateY(-26px) scale(1); } }
 
   #settingsPanel { background: #fff; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); padding: var(--dm-space-4,16px); margin-top: var(--dm-space-4,16px); }
@@ -231,6 +233,20 @@
   #recordsList .record-item { border-bottom: 1px solid var(--dm-color-border,#EDF1F0); padding: 8px 0; font-size: 0.9375rem; }
   #recordsEmpty { color: var(--dm-color-sub,#5E6D78); font-size: 0.9375rem; }
   #recordsCsvBtn, #recordsDeleteBtn, #recordsShowMoreBtn { min-height: 44px; padding: 8px 16px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: 8px; margin-right: 8px; }
+
+  /* ---- Gaze Accessibility Standard v1.0 Reference Implementation (Phase M11.3-B,
+     adapted from miru-hirogaru's Phase M11.3-A implementation) ---- */
+  #gazeSubSettings { transition: opacity var(--dm-duration-fast,150ms) ease; }
+  #gazeSubSettings.dimmed { opacity: 0.45; }
+  .setting-group-title { font-size: 0.8125rem; font-weight: 700; color: #8b83ad; margin: 12px 0 4px; }
+  .stepper-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; }
+  .stepper-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .stepper-btn { min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1.125rem; font-weight: 700; cursor: pointer; }
+  .stepper-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .stepper-val { min-width: 4.2em; text-align: center; font-size: 0.9375rem; font-weight: 700; }
+  .settings-reset-btn { min-height: 44px; padding: 8px 16px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  /* §11.2 dwell progress ON/OFF */
+  body.gaze-progress-hidden .jm-passenger-btn.gaze-dwelling .jm-gaze-ring { opacity: 0; }
 
   body.hc #stage { background: #000; box-shadow: inset 0 0 0 2px #fff; }
   body.hc .jm-hill, body.hc .jm-cloud-deco, body.hc .jm-rainbow { display: none; }
@@ -617,12 +633,63 @@
       <label class="toggle" aria-label="おと"><input type="checkbox" id="toggleSound"><span class="toggle-slider"></span></label>
     </div>
     <div class="setting-row">
-      <div><strong>👁 しせん入力モード</strong><div style="font-size:.8rem;color:#8b83ad">マウス移動でも注視の代わりに使えます</div></div>
-      <label class="toggle" aria-label="しせん入力モード"><input type="checkbox" id="toggleGaze"><span class="toggle-slider"></span></label>
+      <div><strong>👁 視線入力</strong><div style="font-size:.8rem;color:#8b83ad">マウス移動でも注視の代わりに使えます</div></div>
+      <label class="toggle" aria-label="視線入力"><input type="checkbox" id="toggleGaze" tabindex="0"><span class="toggle-slider"></span></label>
     </div>
+
+    <div id="gazeSubSettings" class="dimmed">
+      <div class="setting-group-title">選択</div>
+      <div class="stepper-row">
+        <span id="dwellLabel">見つめて決めるまでの時間</span>
+        <div class="stepper-controls">
+          <button type="button" class="stepper-btn" id="dwellMinusBtn" tabindex="0" aria-label="見つめて決めるまでの時間を短く">－</button>
+          <span class="stepper-val" id="dwellVal" aria-live="off">0.9秒</span>
+          <button type="button" class="stepper-btn" id="dwellPlusBtn" tabindex="0" aria-label="見つめて決めるまでの時間を長く">＋</button>
+        </div>
+      </div>
+      <div class="stepper-row">
+        <span id="entryDelayLabel">見はじめのゆとり</span>
+        <div class="stepper-controls">
+          <button type="button" class="stepper-btn" id="entryDelayMinusBtn" tabindex="0" aria-label="見はじめのゆとりを短く">－</button>
+          <span class="stepper-val" id="entryDelayVal" aria-live="off">なし</span>
+          <button type="button" class="stepper-btn" id="entryDelayPlusBtn" tabindex="0" aria-label="見はじめのゆとりを長く">＋</button>
+        </div>
+      </div>
+      <div class="stepper-row">
+        <span id="cooldownLabel">再選択までの間</span>
+        <div class="stepper-controls">
+          <button type="button" class="stepper-btn" id="cooldownMinusBtn" tabindex="0" aria-label="再選択までの間を短く">－</button>
+          <span class="stepper-val" id="cooldownVal" aria-live="off">0.9秒</span>
+          <button type="button" class="stepper-btn" id="cooldownPlusBtn" tabindex="0" aria-label="再選択までの間を長く">＋</button>
+        </div>
+      </div>
+
+      <div class="setting-group-title">見やすさ・操作しやすさ</div>
+      <div class="setting-row">
+        <div>見つめている印</div>
+        <label class="toggle" aria-label="見つめている印"><input type="checkbox" id="toggleGazeProgress" tabindex="0" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div>見やすさ・押しやすさの範囲を広げる</div>
+        <label class="toggle" aria-label="見やすさ・押しやすさの範囲を広げる"><input type="checkbox" id="toggleGazeEnlarge" tabindex="0"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div>ボタンの間隔を広げる</div>
+        <label class="toggle" aria-label="ボタンの間隔を広げる"><input type="checkbox" id="toggleGazeSpacing" tabindex="0"><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="setting-group-title">動き</div>
+      <div class="setting-row">
+        <div>動きをゆっくりにする</div>
+        <label class="toggle" aria-label="動きをゆっくりにする"><input type="checkbox" id="toggleGazeSlowMotion" tabindex="0"><span class="toggle-slider"></span></label>
+      </div>
+
+      <button type="button" id="gazeSettingsResetBtn" class="settings-reset-btn" tabindex="0">視線入力の設定を既定にもどす</button>
+    </div>
+
     <div class="setting-row">
       <div><strong>🔘 スイッチスキャン</strong></div>
-      <label class="toggle" aria-label="スイッチスキャン"><input type="checkbox" id="toggleScan"><span class="toggle-slider"></span></label>
+      <label class="toggle" aria-label="スイッチスキャン"><input type="checkbox" id="toggleScan" tabindex="0"><span class="toggle-slider"></span></label>
     </div>
 
     <h2 style="margin-top:18px;">📋 きろく</h2>
@@ -684,7 +751,7 @@ var LEVEL_POSITIONS = { 1: ['center'], 2: ALL_POSITIONS };
 var LEVEL_SEQUENCE_LEN = { 1: 1, 2: 5, 3: 5 };
 var LEVEL_NAME = { 1: 'ひとつずつ', 2: 'つぎはどこ？', 3: 'みんなでしゅっぱつ！' };
 
-var DWELL_MS = 900;
+var DWELL_MS = 900;                // now the *default* for adjustable dwellDurationMs (Gaze Standard §8)
 var ACTIVATION_LOCK_MS = 300;
 var SCAN_INTERVAL_MS = 1500;
 var BOARD_TRAVEL_MS = 850;         // §2: passengerが実際にcarriageへ移動する時間(700-1000ms)
@@ -692,6 +759,37 @@ var POST_BOARD_GAP_MS = 260;       // 乗車確認後、次のなかまが出る
 var COMPLETE_HOLD_MS = 1150;       // §3: 完成列車を静止表示する時間(800-1500ms)
 var DEPARTURE_MS = 5500;           // §3: しゅっぱつ走行時間(5-6秒を基準)
 var POST_DEPARTURE_GAP_MS = 700;   // §3: 退出完了後、次roundまでの余白(500-1000ms)
+
+/* =====================================================================
+   Gaze Accessibility Standard v1.0 Reference Implementation (Phase M11.3-B,
+   adapted from miru-hirogaru's Phase M11.3-A implementation — REQUIRED
+   settings §6.1〜§6.8). Defaults below all preserve this app's existing
+   shipped behavior exactly (Migration Guidance §31.2).
+===================================================================== */
+var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2
+var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3
+var COOLDOWN_MIN_MS = 300, COOLDOWN_MAX_MS = 3000, COOLDOWN_STEP_MS = 100;       // §10
+var TARGET_SCALE_STANDARD = 100, TARGET_SCALE_LARGE = 150;                      // §12.3
+var SPACING_EROSION_PX = 8;                                                     // §13.2 (no practical
+                                          // effect here since only 1 gaze target ever exists at once —
+                                          // kept only for cross-app Settings UI consistency, §17/§20)
+var MOTION_SLOW_FACTOR = 1.4;                                                   // §14.2
+var JM_SPARKLE_DURATION_NORMAL_MS = 700, JM_SPARKLE_DURATION_SLOW_MS = 980;      // §14.2
+
+var dwellDurationMs = DWELL_MS;          // §8, adjustable 300–3000ms
+var entryDelayMs = 0;                    // §9, adjustable 0–500ms, default 0 (off)
+var cooldownMs = 900;                    // §10, adjustable 300–3000ms
+var dwellProgressVisible = true;         // §11.2
+var gazeTargetScalePct = TARGET_SCALE_STANDARD; // §12.3, hit-area only
+var targetSpacingWide = false;           // §13.2
+var motionSpeedLevel = 'normal';         // §14.2, 'normal' | 'slow'
+
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+function effMs(baseMs) { return (motionSpeedLevel === 'slow') ? Math.round(baseMs * MOTION_SLOW_FACTOR) : baseMs; }
+// §2: the actual delay before onComplete() fires in animateBoardingTravel() — 0 when
+// reduced-motion short-circuits the animation, otherwise the (possibly slowed) travel
+// time. Used to keep transient.inputLockUntil in sync with the real completion time.
+function boardingCompletionMs() { return prefersReducedMotion() ? 0 : (effMs(BOARD_TRAVEL_MS) + 30); }
 
 /* =====================================================================
    Canonical / Transient state (§34-35)
@@ -707,7 +805,8 @@ var canonical = {
   sessionStart: Date.now()
 };
 var transient = {
-  gazePassengerId: null, gazeStartedAt: 0, gazeAwaitingLeaveId: null,
+  gazePassengerId: null, gazeStartedAt: 0, gazeEntryAt: 0,
+  gazeAwaitingLeaveId: null, gazeAwaitingLeaveUntil: 0,
   scanIndex: -1, scanTimer: null,
   inputLockUntil: 0,
   feedbackTimer: null, nextAppearTimer: null, roundResetTimer: null, guidedAttentionTimer: null,
@@ -735,10 +834,32 @@ function loadSettings() {
     if (!raw) return;
     var s = JSON.parse(raw);
     if (typeof s.soundEnabled === 'boolean') soundEnabled = s.soundEnabled;
+    // Gaze Accessibility Standard v1.0 §16 — stored in this app's existing single
+    // settings object, not a new localStorage key.
+    if (typeof s.gazeEnabled === 'boolean') gazeEnabled = s.gazeEnabled;
+    if (typeof s.dwellDurationMs === 'number') dwellDurationMs = clamp(s.dwellDurationMs, DWELL_MIN_MS, DWELL_MAX_MS);
+    if (typeof s.entryDelayMs === 'number') entryDelayMs = clamp(s.entryDelayMs, ENTRY_DELAY_MIN_MS, ENTRY_DELAY_MAX_MS);
+    if (typeof s.cooldownMs === 'number') cooldownMs = clamp(s.cooldownMs, COOLDOWN_MIN_MS, COOLDOWN_MAX_MS);
+    if (typeof s.dwellProgressVisible === 'boolean') dwellProgressVisible = s.dwellProgressVisible;
+    if (s.gazeTargetScalePct === TARGET_SCALE_STANDARD || s.gazeTargetScalePct === TARGET_SCALE_LARGE) gazeTargetScalePct = s.gazeTargetScalePct;
+    if (typeof s.targetSpacingWide === 'boolean') targetSpacingWide = s.targetSpacingWide;
+    if (s.motionSpeedLevel === 'normal' || s.motionSpeedLevel === 'slow') motionSpeedLevel = s.motionSpeedLevel;
   } catch (e) {}
 }
 function saveSettings() {
-  try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({ soundEnabled: soundEnabled })); } catch (e) {}
+  try {
+    localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({
+      soundEnabled: soundEnabled,
+      gazeEnabled: gazeEnabled,
+      dwellDurationMs: dwellDurationMs,
+      entryDelayMs: entryDelayMs,
+      cooldownMs: cooldownMs,
+      dwellProgressVisible: dwellProgressVisible,
+      gazeTargetScalePct: gazeTargetScalePct,
+      targetSpacingWide: targetSpacingWide,
+      motionSpeedLevel: motionSpeedLevel
+    }));
+  } catch (e) {}
 }
 function readLog() {
   try { var raw = localStorage.getItem(STORAGE_LOG_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
@@ -997,7 +1118,7 @@ function animateBoardingTravel(passengerId, sourceImg, onComplete) {
     clone.style.height = targetH + 'px';
     clone.style.opacity = '0';
   });
-  setTimeout(function() { clone.remove(); onComplete(); }, BOARD_TRAVEL_MS + 30);
+  setTimeout(function() { clone.remove(); onComplete(); }, effMs(BOARD_TRAVEL_MS) + 30);
 }
 
 function activatePassenger(passengerId, inputMethod) {
@@ -1006,7 +1127,7 @@ function activatePassenger(passengerId, inputMethod) {
   if (now < transient.inputLockUntil) return;
   if (passengerId !== canonical.currentPassengerId) return;
 
-  transient.inputLockUntil = now + ACTIVATION_LOCK_MS + BOARD_TRAVEL_MS;
+  transient.inputLockUntil = now + ACTIVATION_LOCK_MS + boardingCompletionMs();
   var responseTime = Math.round(now - trialStartedAt);
   var dwellDuration = (inputMethod === 'gaze') ? lastDwellDurationMs : null;
   lastDwellDurationMs = null;
@@ -1042,9 +1163,9 @@ function activatePassenger(passengerId, inputMethod) {
     targetArea.innerHTML = '';
     if (canonical.sequenceIndex >= currentSequenceLength()) {
       showSoftCompletion();
-      transient.roundResetTimer = setTimeout(startDeparture, COMPLETE_HOLD_MS);
+      transient.roundResetTimer = setTimeout(startDeparture, effMs(COMPLETE_HOLD_MS));
     } else {
-      transient.nextAppearTimer = setTimeout(showCurrentTarget, POST_BOARD_GAP_MS);
+      transient.nextAppearTimer = setTimeout(showCurrentTarget, effMs(POST_BOARD_GAP_MS));
     }
   });
 }
@@ -1083,7 +1204,7 @@ function startDeparture() {
   departureBanner.classList.add('on');
   if (scanMode) { stopAutoScan(); clearScanHighlight(); }
 
-  var durationMs = prefersReducedMotion() ? 400 : DEPARTURE_MS;
+  var durationMs = prefersReducedMotion() ? 400 : effMs(DEPARTURE_MS);
   var stageRect = stage.getBoundingClientRect();
   // #trainDock自体はleft:0;right:0でstage全幅に及ぶため、そのgetBoundingClientRect()を
   // 使うと右側padding(76px、a11yボタン避け)分だけ距離を見誤る。実際に見えている列車の
@@ -1101,7 +1222,7 @@ function startDeparture() {
   transient.roundResetTimer = setTimeout(function() {
     transient.previousSequence = transient.sequence.slice();
     startNewRound();
-  }, durationMs + POST_DEPARTURE_GAP_MS);
+  }, durationMs + effMs(POST_DEPARTURE_GAP_MS));
 }
 
 /* =====================================================================
@@ -1185,36 +1306,76 @@ function resetDwellState() {
   }
   transient.gazePassengerId = null;
   transient.gazeStartedAt = 0;
+  transient.gazeEntryAt = 0;
 }
 function onGazeMove(e) { lastGazeX = e.clientX; lastGazeY = e.clientY; }
+
+// Gaze Standard §12.3/§13.2: at 100% scale + normal spacing this stays byte-for-byte
+// the original elementFromPoint-based test. §13.2 note: getGazeTargets() already
+// returns at most 1 element at any time (the single currently-activatable passenger
+// — idle Level3 passengers are non-interactive <span>s, never candidates), so the
+// spacing erosion below has no adjacent-target collision to prevent in this app; it
+// is still applied for Settings UI/behavior consistency with the other two Gaze
+// Standard apps (§17/§20), and is harmless (never expands below the visual size).
+function hitTestGazeTargets(x, y, targets) {
+  if (gazeTargetScalePct <= TARGET_SCALE_STANDARD && !targetSpacingWide) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) return targets[i]; }
+    return null;
+  }
+  var scale = gazeTargetScalePct / 100;
+  var best = null, bestArea = Infinity;
+  for (var j = 0; j < targets.length; j++) {
+    var r = targets[j].getBoundingClientRect();
+    var padX = Math.max(0, (r.width * (scale - 1) / 2) - (targetSpacingWide ? SPACING_EROSION_PX : 0));
+    var padY = Math.max(0, (r.height * (scale - 1) / 2) - (targetSpacingWide ? SPACING_EROSION_PX : 0));
+    if (x >= r.left - padX && x <= r.right + padX && y >= r.top - padY && y <= r.bottom + padY) {
+      var area = r.width * r.height;
+      if (area < bestArea) { bestArea = area; best = targets[j]; }
+    }
+  }
+  return best;
+}
+
 function gazeTick() {
   if (gazeEnabled && lastGazeX !== null) {
-    var el = document.elementFromPoint(lastGazeX, lastGazeY);
     var targets = getGazeTargets();
-    var hit = null;
-    if (el) { for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) { hit = targets[i]; break; } } }
+    var hit = hitTestGazeTargets(lastGazeX, lastGazeY, targets);
     var hitId = hit ? hit.dataset.passengerId : null;
+    var now = performance.now();
 
-    if (transient.gazeAwaitingLeaveId && hitId !== transient.gazeAwaitingLeaveId) {
+    // leave-and-reenter re-trigger gate (Gaze Standard §10.2 方式A) with a §10
+    // cooldown floor: the gate holds until the gaze has left the passenger AND
+    // cooldownMs has elapsed since activation, whichever is later.
+    if (transient.gazeAwaitingLeaveId && hitId !== transient.gazeAwaitingLeaveId && now >= transient.gazeAwaitingLeaveUntil) {
       transient.gazeAwaitingLeaveId = null;
     }
     if (hitId !== transient.gazePassengerId) {
       resetDwellState();
       if (hit && hitId !== transient.gazeAwaitingLeaveId) {
         transient.gazePassengerId = hitId;
-        transient.gazeStartedAt = performance.now();
-        hit.classList.add('gaze-dwelling');
+        transient.gazeEntryAt = now;
+        // gazeStartedAt stays 0 (entry-delay pending) until §9's entryDelayMs elapses
       }
     } else if (transient.gazePassengerId && hitId !== transient.gazeAwaitingLeaveId) {
-      var ratio = Math.min(1, (performance.now() - transient.gazeStartedAt) / DWELL_MS);
-      var dwellEl = targetArea.querySelector('[data-passenger-id="' + transient.gazePassengerId + '"]');
-      if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
-      if (ratio >= 1) {
-        var activatedId = transient.gazePassengerId;
-        lastDwellDurationMs = Math.round(performance.now() - transient.gazeStartedAt);
-        resetDwellState();
-        transient.gazeAwaitingLeaveId = activatedId;
-        activatePassenger(activatedId, 'gaze');
+      if (transient.gazeStartedAt === 0) {
+        if (now - transient.gazeEntryAt >= entryDelayMs) {
+          transient.gazeStartedAt = now;
+          hit.classList.add('gaze-dwelling');
+        }
+      } else {
+        var ratio = Math.min(1, (now - transient.gazeStartedAt) / dwellDurationMs);
+        var dwellEl = targetArea.querySelector('[data-passenger-id="' + transient.gazePassengerId + '"]');
+        if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
+        if (ratio >= 1) {
+          var activatedId = transient.gazePassengerId;
+          lastDwellDurationMs = Math.round(now - transient.gazeStartedAt);
+          resetDwellState();
+          transient.gazeAwaitingLeaveId = activatedId;
+          transient.gazeAwaitingLeaveUntil = now + cooldownMs;
+          activatePassenger(activatedId, 'gaze');
+        }
       }
     }
   }
@@ -1230,11 +1391,90 @@ function disableGaze() {
   if (gazeRafId) { cancelAnimationFrame(gazeRafId); gazeRafId = null; }
   resetDwellState();
   transient.gazeAwaitingLeaveId = null;
+  transient.gazeAwaitingLeaveUntil = 0;
   lastGazeX = null; lastGazeY = null;
 }
-function setGazeEnabled(on) { gazeEnabled = on; if (on) enableGaze(); else disableGaze(); }
+function setGazeEnabled(on) {
+  gazeEnabled = on;
+  if (on) enableGaze(); else disableGaze();
+  var sub = document.getElementById('gazeSubSettings');
+  if (sub) sub.classList.toggle('dimmed', !on);
+}
 var toggleGaze = document.getElementById('toggleGaze');
-toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); });
+toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); saveSettings(); });
+
+/* ---- §8.2 dwell time / §9 entry delay / §10 cooldown steppers ---- */
+function formatSecondsLabel(ms) { return (ms / 1000).toFixed(1) + '秒'; }
+function wireStepper(minusId, plusId, valId, get, set, min, max, step, format) {
+  var valEl = document.getElementById(valId);
+  function refresh() { valEl.textContent = format(get()); }
+  document.getElementById(minusId).addEventListener('click', function() { set(clamp(get() - step, min, max)); refresh(); saveSettings(); });
+  document.getElementById(plusId).addEventListener('click', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });
+  refresh();
+  return refresh;
+}
+var refreshDwellVal = wireStepper('dwellMinusBtn', 'dwellPlusBtn', 'dwellVal',
+  function() { return dwellDurationMs; }, function(v) { dwellDurationMs = v; },
+  DWELL_MIN_MS, DWELL_MAX_MS, DWELL_STEP_MS, formatSecondsLabel);
+var refreshEntryDelayVal = wireStepper('entryDelayMinusBtn', 'entryDelayPlusBtn', 'entryDelayVal',
+  function() { return entryDelayMs; }, function(v) { entryDelayMs = v; },
+  ENTRY_DELAY_MIN_MS, ENTRY_DELAY_MAX_MS, ENTRY_DELAY_STEP_MS,
+  function(ms) { return ms === 0 ? 'なし' : (ms / 1000).toFixed(2).replace(/0$/, '') + '秒'; });
+var refreshCooldownVal = wireStepper('cooldownMinusBtn', 'cooldownPlusBtn', 'cooldownVal',
+  function() { return cooldownMs; }, function(v) { cooldownMs = v; },
+  COOLDOWN_MIN_MS, COOLDOWN_MAX_MS, COOLDOWN_STEP_MS, formatSecondsLabel);
+
+/* ---- §11.2 dwell progress ON/OFF ---- */
+function applyDwellProgressVisible(on) {
+  dwellProgressVisible = on;
+  document.body.classList.toggle('gaze-progress-hidden', !on);
+}
+var toggleGazeProgress = document.getElementById('toggleGazeProgress');
+toggleGazeProgress.addEventListener('change', function() { applyDwellProgressVisible(toggleGazeProgress.checked); saveSettings(); });
+
+/* ---- §12.3 gaze target enlargement (hit area only; getGazeTargets() already limits
+   candidates to the single currently-activatable passenger, so this never touches
+   idle or already-boarded passengers, §14 of the Phase M11.3-B brief) ---- */
+function applyTargetScale(large) {
+  gazeTargetScalePct = large ? TARGET_SCALE_LARGE : TARGET_SCALE_STANDARD;
+}
+var toggleGazeEnlarge = document.getElementById('toggleGazeEnlarge');
+toggleGazeEnlarge.addEventListener('change', function() { applyTargetScale(toggleGazeEnlarge.checked); saveSettings(); });
+
+/* ---- §13.2 target spacing (erosion on the enlarged hit box only; see note above
+   hitTestGazeTargets — no practical effect in this app, kept for UI consistency) ---- */
+function applyTargetSpacing(wide) {
+  targetSpacingWide = wide;
+}
+var toggleGazeSpacing = document.getElementById('toggleGazeSpacing');
+toggleGazeSpacing.addEventListener('change', function() { applyTargetSpacing(toggleGazeSpacing.checked); saveSettings(); });
+
+/* ---- §14.2 motion / progression speed — affects post-activation pacing (boarding
+   wait, complete-hold, departure, post-departure gap, sparkle) only, never the dwell
+   timing itself. prefers-reduced-motion always takes precedence (guarded explicitly
+   in startDeparture()/animateBoardingTravel(), never fought by this setting). ---- */
+function applyMotionSpeed(level) {
+  motionSpeedLevel = level;
+  document.documentElement.style.setProperty('--jm-sparkle-duration', (level === 'slow' ? JM_SPARKLE_DURATION_SLOW_MS : JM_SPARKLE_DURATION_NORMAL_MS) + 'ms');
+}
+var toggleGazeSlowMotion = document.getElementById('toggleGazeSlowMotion');
+toggleGazeSlowMotion.addEventListener('change', function() { applyMotionSpeed(toggleGazeSlowMotion.checked ? 'slow' : 'normal'); saveSettings(); });
+
+/* ---- Reset: restores all Gaze Standard settings (incl. ON/OFF) to their
+   documented defaults, keeping UI/internal-state/persisted-value in sync. ---- */
+function resetGazeSettingsToDefault() {
+  setGazeEnabled(false); toggleGaze.checked = false;
+  dwellDurationMs = DWELL_MS; refreshDwellVal();
+  entryDelayMs = 0; refreshEntryDelayVal();
+  cooldownMs = 900; refreshCooldownVal();
+  applyDwellProgressVisible(true); toggleGazeProgress.checked = true;
+  applyTargetScale(false); toggleGazeEnlarge.checked = false;
+  applyTargetSpacing(false); toggleGazeSpacing.checked = false;
+  applyMotionSpeed('normal'); toggleGazeSlowMotion.checked = false;
+  saveSettings();
+  donomanaAnnounce('視線入力の設定を既定にもどしました');
+}
+document.getElementById('gazeSettingsResetBtn').addEventListener('click', resetGazeSettingsToDefault);
 
 /* =====================================================================
    Switch Scan — Level1 Direct Activation, Level2/3 Auto Scan (§26-27)
@@ -1481,6 +1721,18 @@ document.getElementById('recordsConfirmCancel').addEventListener('click', functi
 ===================================================================== */
 loadSettings();
 toggleSound.checked = soundEnabled;
+
+// Gaze Accessibility Standard v1.0 §16: apply the loaded (or default) values to
+// every control's displayed state and to the underlying live effect (see
+// miru-hirogaru-app.html's identical init pattern, Phase M11.3-A).
+refreshDwellVal(); refreshEntryDelayVal(); refreshCooldownVal();
+toggleGazeProgress.checked = dwellProgressVisible; applyDwellProgressVisible(dwellProgressVisible);
+toggleGazeEnlarge.checked = (gazeTargetScalePct === TARGET_SCALE_LARGE); applyTargetScale(gazeTargetScalePct === TARGET_SCALE_LARGE);
+toggleGazeSpacing.checked = targetSpacingWide; applyTargetSpacing(targetSpacingWide);
+toggleGazeSlowMotion.checked = (motionSpeedLevel === 'slow'); applyMotionSpeed(motionSpeedLevel);
+toggleGaze.checked = gazeEnabled;
+setGazeEnabled(gazeEnabled); // starts the rAF loop only if the persisted value was true
+
 startNewRound();
 </script>
 </body>
