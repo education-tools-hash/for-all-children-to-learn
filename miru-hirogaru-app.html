@@ -148,7 +148,11 @@
      the actual required-visible-change layer and stays fully intact under
      prefers-reduced-motion. The bounce below is a decorative enhancement on top —
      under reduced-motion the global token block collapses its duration to ~0ms. */
-  .mh-toy.pop-in .mh-toy-img { animation: mhPop 650ms cubic-bezier(.34,1.56,.64,1); }
+  /* Gaze Standard v1.0 §14 (motion speed): --mh-pop-duration defaults to the
+     original fixed 650ms and is only overridden by JS when the user selects
+     "ゆっくり" — prefers-reduced-motion's !important block above always wins
+     regardless of this value, so the two never conflict. */
+  .mh-toy.pop-in .mh-toy-img { animation: mhPop var(--mh-pop-duration, 650ms) cubic-bezier(.34,1.56,.64,1); }
   @keyframes mhPop {
     0%   { transform: scale(1); }
     45%  { transform: scale(1.16); }
@@ -228,6 +232,38 @@
     .mh-toy[data-toy-id="piano"].is-activated.size-2 { width: 225px; }
     .mh-toy[data-toy-id="piano"].is-activated.size-3 { width: 185px; }
   }
+
+  /* ---- Gaze Accessibility Standard v1.0 Reference Implementation (Phase M11.3-A) ---- */
+
+  /* §11.2 dwell progress ON/OFF — the ring keeps computing/tracking dwell as normal,
+     only its visibility is suppressed. Higher specificity (body class + 2 classes)
+     than the base `.mh-toy.gaze-dwelling .mh-toy-ring{opacity:1}` rule (line ~170),
+     so no !important needed. */
+  body.gaze-progress-hidden .mh-toy.gaze-dwelling .mh-toy-ring { opacity: 0; }
+
+  /* §13.2 target spacing — a 2-step "ふつう/ひろめ" preset (not a continuous slider,
+     per Gaze Standard §13.2's own recommendation) that widens the existing gap value
+     only. Values verified against 375px-width Rendered Validation math (see Phase
+     M11.3-A report) to stay clear of horizontal overflow at both Level2 and Level3. */
+  body.gaze-spacing-wide #targetArea.level2 { gap: 34px; }
+  body.gaze-spacing-wide #targetArea.level3 { gap: 26px 20px; }
+  @media (max-width: 480px) {
+    body.gaze-spacing-wide #targetArea.level3 { gap: 20px 14px; }
+  }
+
+  /* Settings panel: Gaze Standard §15.2 group structure (A視線入力/B選択/C見やすさ・
+     操作しやすさ/D動き). §15.1 group A always stays enabled; B/C/D are dimmed (not
+     disabled — still Switch-Scan/keyboard reachable) while gaze is OFF, matching the
+     cup_game.html reference pattern (Gaze Standard §15.2). */
+  .setting-group-title { font-size: 0.8125rem; font-weight: 700; color: var(--dm-color-sub,#5E6D78); margin: var(--dm-space-3,12px) 0 var(--dm-space-1,4px); }
+  #gazeSubSettings { transition: opacity var(--dm-duration-fast,150ms) ease; }
+  #gazeSubSettings.dimmed { opacity: 0.45; }
+  .stepper-row { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-2,8px); padding: var(--dm-space-2,8px) 0; }
+  .stepper-controls { display: flex; align-items: center; gap: var(--dm-space-2,8px); }
+  .stepper-btn { min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1.125rem; font-weight: 700; cursor: pointer; }
+  .stepper-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .stepper-val { min-width: 4.2em; text-align: center; font-size: 0.9375rem; font-weight: 700; }
+  .settings-reset-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: var(--dm-space-2,8px); }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -586,9 +622,60 @@
       <label class="toggle"><input type="checkbox" id="toggleSound" checked><span class="toggle-slider"></span></label>
     </div>
     <div class="setting-row">
-      <label for="toggleGaze">視線入力（ドウェル選択）</label>
-      <label class="toggle"><input type="checkbox" id="toggleGaze"><span class="toggle-slider"></span></label>
+      <label for="toggleGaze">視線入力</label>
+      <label class="toggle"><input type="checkbox" id="toggleGaze" tabindex="0"><span class="toggle-slider"></span></label>
     </div>
+
+    <div id="gazeSubSettings" class="dimmed">
+      <div class="setting-group-title">選択</div>
+      <div class="stepper-row">
+        <span id="dwellLabel">見つめて決めるまでの時間</span>
+        <div class="stepper-controls">
+          <button type="button" class="stepper-btn" id="dwellMinusBtn" tabindex="0" aria-label="見つめて決めるまでの時間を短く">－</button>
+          <span class="stepper-val" id="dwellVal" aria-live="off">0.9秒</span>
+          <button type="button" class="stepper-btn" id="dwellPlusBtn" tabindex="0" aria-label="見つめて決めるまでの時間を長く">＋</button>
+        </div>
+      </div>
+      <div class="stepper-row">
+        <span id="entryDelayLabel">見はじめのゆとり</span>
+        <div class="stepper-controls">
+          <button type="button" class="stepper-btn" id="entryDelayMinusBtn" tabindex="0" aria-label="見はじめのゆとりを短く">－</button>
+          <span class="stepper-val" id="entryDelayVal" aria-live="off">なし</span>
+          <button type="button" class="stepper-btn" id="entryDelayPlusBtn" tabindex="0" aria-label="見はじめのゆとりを長く">＋</button>
+        </div>
+      </div>
+      <div class="stepper-row">
+        <span id="cooldownLabel">再選択までの間</span>
+        <div class="stepper-controls">
+          <button type="button" class="stepper-btn" id="cooldownMinusBtn" tabindex="0" aria-label="再選択までの間を短く">－</button>
+          <span class="stepper-val" id="cooldownVal" aria-live="off">0.9秒</span>
+          <button type="button" class="stepper-btn" id="cooldownPlusBtn" tabindex="0" aria-label="再選択までの間を長く">＋</button>
+        </div>
+      </div>
+
+      <div class="setting-group-title">見やすさ・操作しやすさ</div>
+      <div class="setting-row">
+        <label for="toggleGazeProgress">見つめている印</label>
+        <label class="toggle"><input type="checkbox" id="toggleGazeProgress" tabindex="0" checked><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <label for="toggleGazeEnlarge">見やすさ・押しやすさの範囲を広げる</label>
+        <label class="toggle"><input type="checkbox" id="toggleGazeEnlarge" tabindex="0"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <label for="toggleGazeSpacing">ボタンの間隔を広げる</label>
+        <label class="toggle"><input type="checkbox" id="toggleGazeSpacing" tabindex="0"><span class="toggle-slider"></span></label>
+      </div>
+
+      <div class="setting-group-title">動き</div>
+      <div class="setting-row">
+        <label for="toggleGazeSlowMotion">動きをゆっくりにする</label>
+        <label class="toggle"><input type="checkbox" id="toggleGazeSlowMotion" tabindex="0"><span class="toggle-slider"></span></label>
+      </div>
+
+      <button type="button" id="gazeSettingsResetBtn" class="settings-reset-btn" tabindex="0">視線入力の設定を既定にもどす</button>
+    </div>
+
     <div class="setting-row">
       <label for="toggleScan">スイッチスキャン</label>
       <label class="toggle"><input type="checkbox" id="toggleScan" tabindex="0"><span class="toggle-slider"></span></label>
@@ -636,13 +723,39 @@ function toyImg(toyId, state) { return 'assets/miru-hirogaru/' + toyId + '-' + s
 var LEVEL_COUNT = { 1: 1, 2: 2, 3: 3 };
 var LEVEL_SIZE_CLASS = { 1: 'size-1', 2: 'size-2', 3: 'size-3' };
 
-var DWELL_MS = 900;              // Phase M0 confirmed
+var DWELL_MS = 900;              // Phase M0 confirmed — now the *default* for the
+                                  // user-adjustable dwellDurationMs (Gaze Standard §8)
 var FEEDBACK_MS = 900;           // Phase M1 confirmed — reaction/animation lock window
 var ACTIVATION_LOCK_MS = 300;    // Phase M1 confirmed
 var SCAN_INTERVAL_MS = 1500;     // Phase M1 confirmed (fixed, no UI — see design doc §60)
 var SOFT_COMPLETE_EVERY = 10;    // Phase M1 confirmed (Level1/2 "たくさんできたね" cadence)
 var NEXT_TRIAL_MS = 700;         // Level1/2 only: pause after feedback before a fresh toy appears
 var ROOM_COMPLETE_PAUSE_MS = 1400; // Level3 only: pause after all 3 toys are active before a new room
+
+/* =====================================================================
+   Gaze Accessibility Standard v1.0 Reference Implementation (Phase M11.3-A)
+   — REQUIRED settings §6.1〜§6.8. Defaults below all preserve this app's
+   existing shipped behavior exactly (Migration Guidance §31.2): gaze stays
+   OFF by default, dwell/cooldown keep their prior fixed values, entry delay
+   is 0 (no behavior change), progress stays visible, target scale/spacing
+   stay at 100%/normal, motion stays at normal speed.
+===================================================================== */
+var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2
+var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3
+var COOLDOWN_MIN_MS = 300, COOLDOWN_MAX_MS = 3000, COOLDOWN_STEP_MS = 100;       // §10
+var TARGET_SCALE_STANDARD = 100, TARGET_SCALE_LARGE = 150;                      // §12.3
+var MOTION_SLOW_FACTOR = 1.4;                                                   // §14.2
+var MH_POP_DURATION_NORMAL_MS = 650, MH_POP_DURATION_SLOW_MS = 900;             // §14.2
+
+var dwellDurationMs = DWELL_MS;          // §8, adjustable 300–3000ms
+var entryDelayMs = 0;                    // §9, adjustable 0–500ms, default 0 (off)
+var cooldownMs = FEEDBACK_MS;            // §10, adjustable 300–3000ms
+var dwellProgressVisible = true;         // §11.2
+var gazeTargetScalePct = TARGET_SCALE_STANDARD; // §12.3, hit-area only — never shrinks
+var targetSpacingWide = false;           // §13.2
+var motionSpeedLevel = 'normal';         // §14.2, 'normal' | 'slow'
+
+function effMs(baseMs) { return (motionSpeedLevel === 'slow') ? Math.round(baseMs * MOTION_SLOW_FACTOR) : baseMs; }
 
 /* =====================================================================
    Canonical / Transient state (Phase M1 §18, §43-44; extended for Phase M8's
@@ -658,9 +771,11 @@ var canonical = {
 };
 var transient = {
   gazeTargetId: null,
-  gazeStartedAt: 0,
+  gazeStartedAt: 0,            // 0 = target locked in but still within entry delay (§9)
+  gazeEntryAt: 0,               // timestamp gaze first landed on the current candidate (§9)
   dwellProgress: 0,
   gazeAwaitingLeaveId: null,   // leave-and-reenter re-trigger gate (§16/§34 of M1 doc)
+  gazeAwaitingLeaveUntil: 0,   // §10 cooldown floor — gate holds until leave AND this time
   scanIndex: -1,
   scanTimer: null,
   inputLockUntil: 0,
@@ -684,16 +799,40 @@ var soundEnabled = true;
 var gazeEnabled = false;
 var scanMode = false;
 
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
 function loadSettings() {
   try {
     var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
     if (!raw) return;
     var s = JSON.parse(raw);
     if (typeof s.soundEnabled === 'boolean') soundEnabled = s.soundEnabled;
+    // Gaze Accessibility Standard v1.0 §16 — stored in this app's existing single
+    // settings object, not a new localStorage key (no key proliferation).
+    if (typeof s.gazeEnabled === 'boolean') gazeEnabled = s.gazeEnabled;
+    if (typeof s.dwellDurationMs === 'number') dwellDurationMs = clamp(s.dwellDurationMs, DWELL_MIN_MS, DWELL_MAX_MS);
+    if (typeof s.entryDelayMs === 'number') entryDelayMs = clamp(s.entryDelayMs, ENTRY_DELAY_MIN_MS, ENTRY_DELAY_MAX_MS);
+    if (typeof s.cooldownMs === 'number') cooldownMs = clamp(s.cooldownMs, COOLDOWN_MIN_MS, COOLDOWN_MAX_MS);
+    if (typeof s.dwellProgressVisible === 'boolean') dwellProgressVisible = s.dwellProgressVisible;
+    if (s.gazeTargetScalePct === TARGET_SCALE_STANDARD || s.gazeTargetScalePct === TARGET_SCALE_LARGE) gazeTargetScalePct = s.gazeTargetScalePct;
+    if (typeof s.targetSpacingWide === 'boolean') targetSpacingWide = s.targetSpacingWide;
+    if (s.motionSpeedLevel === 'normal' || s.motionSpeedLevel === 'slow') motionSpeedLevel = s.motionSpeedLevel;
   } catch (e) {}
 }
 function saveSettings() {
-  try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({ soundEnabled: soundEnabled })); } catch (e) {}
+  try {
+    localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify({
+      soundEnabled: soundEnabled,
+      gazeEnabled: gazeEnabled,
+      dwellDurationMs: dwellDurationMs,
+      entryDelayMs: entryDelayMs,
+      cooldownMs: cooldownMs,
+      dwellProgressVisible: dwellProgressVisible,
+      gazeTargetScalePct: gazeTargetScalePct,
+      targetSpacingWide: targetSpacingWide,
+      motionSpeedLevel: motionSpeedLevel
+    }));
+  } catch (e) {}
 }
 function readLog() {
   try {
@@ -943,16 +1082,16 @@ function activateItem(itemId, inputMethod) {
       if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
       if (currentItems.every(function(i) { return i.activated; })) {
         showRoomComplete();
-        transient.nextTrialTimer = setTimeout(startNewRoom, ROOM_COMPLETE_PAUSE_MS);
+        transient.nextTrialTimer = setTimeout(startNewRoom, effMs(ROOM_COMPLETE_PAUSE_MS));
       }
     } else {
       item.activated = false;
       renderItems();
       if (scanMode) { refreshSwitchScanItems(); startAutoScan(); }
       maybeShowSoftCompletion();
-      transient.nextTrialTimer = setTimeout(startNewTrial, NEXT_TRIAL_MS);
+      transient.nextTrialTimer = setTimeout(startNewTrial, effMs(NEXT_TRIAL_MS));
     }
-  }, FEEDBACK_MS);
+  }, effMs(FEEDBACK_MS));
 }
 
 function maybeShowSoftCompletion() {
@@ -1099,20 +1238,47 @@ function resetDwellState() {
   }
   transient.gazeTargetId = null;
   transient.gazeStartedAt = 0;
+  transient.gazeEntryAt = 0;
   transient.dwellProgress = 0;
 }
 function onGazeMove(e) { lastGazeX = e.clientX; lastGazeY = e.clientY; }
+
+// Gaze Standard §12.3: hit area may exceed visual size. At the 100% (standard)
+// scale this stays byte-for-byte the original elementFromPoint-based test (zero
+// behavior change at default). Only the "large" (150%) setting switches to an
+// expanded-bounding-box test, since elementFromPoint is inherently bound to actual
+// rendered pixels and cannot report a hit outside them.
+function hitTestGazeTargets(x, y, targets) {
+  if (gazeTargetScalePct <= TARGET_SCALE_STANDARD) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) return targets[i]; }
+    return null;
+  }
+  var scale = gazeTargetScalePct / 100;
+  var best = null, bestArea = Infinity;
+  for (var j = 0; j < targets.length; j++) {
+    var r = targets[j].getBoundingClientRect();
+    var padX = r.width * (scale - 1) / 2, padY = r.height * (scale - 1) / 2;
+    if (x >= r.left - padX && x <= r.right + padX && y >= r.top - padY && y <= r.bottom + padY) {
+      var area = r.width * r.height;
+      if (area < bestArea) { bestArea = area; best = targets[j]; }
+    }
+  }
+  return best;
+}
+
 function gazeTick() {
   if (gazeEnabled && lastGazeX !== null) {
-    var el = document.elementFromPoint(lastGazeX, lastGazeY);
     var targets = getGazeTargets();
-    var hit = null;
-    if (el) { for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) { hit = targets[i]; break; } } }
+    var hit = hitTestGazeTargets(lastGazeX, lastGazeY, targets);
     var hitId = hit ? hit.dataset.itemId : null;
+    var now = performance.now();
 
-    // leave-and-reenter re-trigger gate: once a target has just been activated via
-    // gaze, it must be looked away from before a new dwell can start on it again.
-    if (transient.gazeAwaitingLeaveId && hitId !== transient.gazeAwaitingLeaveId) {
+    // leave-and-reenter re-trigger gate (§10.2 方式A): once a target has just been
+    // activated via gaze, it must be looked away from *and* cooldownMs must have
+    // elapsed (§10, whichever is later) before a new dwell can start on it again.
+    if (transient.gazeAwaitingLeaveId && hitId !== transient.gazeAwaitingLeaveId && now >= transient.gazeAwaitingLeaveUntil) {
       transient.gazeAwaitingLeaveId = null;
     }
 
@@ -1120,19 +1286,28 @@ function gazeTick() {
       resetDwellState();
       if (hit && hitId !== transient.gazeAwaitingLeaveId) {
         transient.gazeTargetId = hitId;
-        transient.gazeStartedAt = performance.now();
-        hit.classList.add('gaze-dwelling');
+        transient.gazeEntryAt = now;
+        // gazeStartedAt stays 0 (entry-delay pending) until §9's entryDelayMs elapses
       }
     } else if (transient.gazeTargetId && hitId !== transient.gazeAwaitingLeaveId) {
-      var ratio = Math.min(1, (performance.now() - transient.gazeStartedAt) / DWELL_MS);
-      var dwellEl = targetArea.querySelector('[data-item-id="' + transient.gazeTargetId + '"]');
-      if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
-      if (ratio >= 1) {
-        var activatedId = transient.gazeTargetId;
-        lastDwellDurationMs = Math.round(performance.now() - transient.gazeStartedAt);
-        resetDwellState();
-        transient.gazeAwaitingLeaveId = activatedId;
-        activateItem(activatedId, 'gaze');
+      if (transient.gazeStartedAt === 0) {
+        // §9 entry delay: no progress shown yet, dwell has not started
+        if (now - transient.gazeEntryAt >= entryDelayMs) {
+          transient.gazeStartedAt = now;
+          hit.classList.add('gaze-dwelling');
+        }
+      } else {
+        var ratio = Math.min(1, (now - transient.gazeStartedAt) / dwellDurationMs);
+        var dwellEl = targetArea.querySelector('[data-item-id="' + transient.gazeTargetId + '"]');
+        if (dwellEl) dwellEl.style.setProperty('--dwell-ratio', String(ratio));
+        if (ratio >= 1) {
+          var activatedId = transient.gazeTargetId;
+          lastDwellDurationMs = Math.round(now - transient.gazeStartedAt);
+          resetDwellState();
+          transient.gazeAwaitingLeaveId = activatedId;
+          transient.gazeAwaitingLeaveUntil = now + cooldownMs;
+          activateItem(activatedId, 'gaze');
+        }
       }
     }
   }
@@ -1148,14 +1323,89 @@ function disableGaze() {
   if (gazeRafId) { cancelAnimationFrame(gazeRafId); gazeRafId = null; }
   resetDwellState();
   transient.gazeAwaitingLeaveId = null;
+  transient.gazeAwaitingLeaveUntil = 0;
   lastGazeX = null; lastGazeY = null;
 }
 function setGazeEnabled(on) {
   gazeEnabled = on;
   if (on) enableGaze(); else disableGaze();
+  var sub = document.getElementById('gazeSubSettings');
+  if (sub) sub.classList.toggle('dimmed', !on);
 }
 var toggleGaze = document.getElementById('toggleGaze');
-toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); });
+toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); saveSettings(); });
+
+/* ---- §8.2 dwell time / §9 entry delay / §10 cooldown steppers ---- */
+function formatSecondsLabel(ms) { return (ms / 1000).toFixed(1) + '秒'; }
+function wireStepper(minusId, plusId, valId, get, set, min, max, step, format) {
+  var valEl = document.getElementById(valId);
+  function refresh() { valEl.textContent = format(get()); }
+  document.getElementById(minusId).addEventListener('click', function() { set(clamp(get() - step, min, max)); refresh(); saveSettings(); });
+  document.getElementById(plusId).addEventListener('click', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });
+  refresh();
+  return refresh;
+}
+var refreshDwellVal = wireStepper('dwellMinusBtn', 'dwellPlusBtn', 'dwellVal',
+  function() { return dwellDurationMs; }, function(v) { dwellDurationMs = v; },
+  DWELL_MIN_MS, DWELL_MAX_MS, DWELL_STEP_MS, formatSecondsLabel);
+var refreshEntryDelayVal = wireStepper('entryDelayMinusBtn', 'entryDelayPlusBtn', 'entryDelayVal',
+  function() { return entryDelayMs; }, function(v) { entryDelayMs = v; },
+  ENTRY_DELAY_MIN_MS, ENTRY_DELAY_MAX_MS, ENTRY_DELAY_STEP_MS,
+  function(ms) { return ms === 0 ? 'なし' : (ms / 1000).toFixed(2).replace(/0$/, '') + '秒'; });
+var refreshCooldownVal = wireStepper('cooldownMinusBtn', 'cooldownPlusBtn', 'cooldownVal',
+  function() { return cooldownMs; }, function(v) { cooldownMs = v; },
+  COOLDOWN_MIN_MS, COOLDOWN_MAX_MS, COOLDOWN_STEP_MS, formatSecondsLabel);
+
+/* ---- §11.2 dwell progress ON/OFF ---- */
+function applyDwellProgressVisible(on) {
+  dwellProgressVisible = on;
+  document.body.classList.toggle('gaze-progress-hidden', !on);
+}
+var toggleGazeProgress = document.getElementById('toggleGazeProgress');
+toggleGazeProgress.addEventListener('change', function() { applyDwellProgressVisible(toggleGazeProgress.checked); saveSettings(); });
+
+/* ---- §12.3 gaze target enlargement (hit area only, visual size unchanged) ---- */
+function applyTargetScale(large) {
+  gazeTargetScalePct = large ? TARGET_SCALE_LARGE : TARGET_SCALE_STANDARD;
+}
+var toggleGazeEnlarge = document.getElementById('toggleGazeEnlarge');
+toggleGazeEnlarge.addEventListener('change', function() { applyTargetScale(toggleGazeEnlarge.checked); saveSettings(); });
+
+/* ---- §13.2 target spacing (2-step preset, layout gap only) ---- */
+function applyTargetSpacing(wide) {
+  targetSpacingWide = wide;
+  document.body.classList.toggle('gaze-spacing-wide', wide);
+}
+var toggleGazeSpacing = document.getElementById('toggleGazeSpacing');
+toggleGazeSpacing.addEventListener('change', function() { applyTargetSpacing(toggleGazeSpacing.checked); saveSettings(); });
+
+/* ---- §14.2 motion / progression speed (2-step, RECOMMENDED tier implemented
+   here per Phase M11.3-A §6.8) — only affects post-activation pacing, never
+   the dwell timing itself. prefers-reduced-motion always takes precedence
+   (its !important block overrides --mh-pop-duration regardless of this). ---- */
+function applyMotionSpeed(level) {
+  motionSpeedLevel = level;
+  document.body.classList.toggle('gaze-slow-motion', level === 'slow');
+  document.documentElement.style.setProperty('--mh-pop-duration', (level === 'slow' ? MH_POP_DURATION_SLOW_MS : MH_POP_DURATION_NORMAL_MS) + 'ms');
+}
+var toggleGazeSlowMotion = document.getElementById('toggleGazeSlowMotion');
+toggleGazeSlowMotion.addEventListener('change', function() { applyMotionSpeed(toggleGazeSlowMotion.checked ? 'slow' : 'normal'); saveSettings(); });
+
+/* ---- §12 Reset: restores all Gaze Standard settings (incl. ON/OFF) to their
+   documented defaults, and keeps UI/internal-state/persisted-value in sync. ---- */
+function resetGazeSettingsToDefault() {
+  setGazeEnabled(false); toggleGaze.checked = false;
+  dwellDurationMs = DWELL_MS; refreshDwellVal();
+  entryDelayMs = 0; refreshEntryDelayVal();
+  cooldownMs = FEEDBACK_MS; refreshCooldownVal();
+  applyDwellProgressVisible(true); toggleGazeProgress.checked = true;
+  applyTargetScale(false); toggleGazeEnlarge.checked = false;
+  applyTargetSpacing(false); toggleGazeSpacing.checked = false;
+  applyMotionSpeed('normal'); toggleGazeSlowMotion.checked = false;
+  saveSettings();
+  donomanaAnnounce('視線入力の設定を既定にもどしました');
+}
+document.getElementById('gazeSettingsResetBtn').addEventListener('click', resetGazeSettingsToDefault);
 
 /* =====================================================================
    Switch Scan (Phase M1 §33-37) — Level1 is Direct Activation (no scan
@@ -1430,6 +1680,20 @@ document.getElementById('recordsConfirmCancel').addEventListener('click', functi
 ===================================================================== */
 loadSettings();
 toggleSound.checked = soundEnabled;
+
+// Gaze Accessibility Standard v1.0 §16: apply the loaded (or default) values to
+// every control's displayed state and to the underlying live effect. The
+// stepper/checkbox wiring above already ran with default values at parse time
+// (before loadSettings() had anything to load), so their initial refresh()/
+// apply*() calls must be re-run here now that persisted values are known.
+refreshDwellVal(); refreshEntryDelayVal(); refreshCooldownVal();
+toggleGazeProgress.checked = dwellProgressVisible; applyDwellProgressVisible(dwellProgressVisible);
+toggleGazeEnlarge.checked = (gazeTargetScalePct === TARGET_SCALE_LARGE); applyTargetScale(gazeTargetScalePct === TARGET_SCALE_LARGE);
+toggleGazeSpacing.checked = targetSpacingWide; applyTargetSpacing(targetSpacingWide);
+toggleGazeSlowMotion.checked = (motionSpeedLevel === 'slow'); applyMotionSpeed(motionSpeedLevel);
+toggleGaze.checked = gazeEnabled;
+setGazeEnabled(gazeEnabled); // starts the rAF loop only if the persisted value was true
+
 startNewTrial();
 </script>
 </body>

@@ -524,3 +524,13 @@ Production公開後、UserからSFXが全体的に小さいこと、特に「び
 
 ### 32.4 変更ファイル
 `miru-hirogaru-app.html`（`TOY_SFX`/`tone()`/`noiseBurst()`パラメータ変更、piano専用CSS幅補正、`data-toy-id`属性追加）、`assets/miru-hirogaru/piano-ready.png`・`assets/miru-hirogaru/piano-active.png`（両方とも新asset差し替え）。
+
+---
+
+## 33. Phase M11.3-A: Gaze Accessibility Standard v1.0 Reference Implementation
+
+`docs/design-system/donomana-gaze-accessibility-standard-v1_0.md`策定（Phase M11.2）およびDecision A/B確定（Phase M11.3-A 0章）を受け、本教材を同Standardの最初のReference Implementationとした。
+
+**歴史的経緯の記録**: 当初Pilot（M0〜M2、13章）では、視線入力は「常時有効」（Touch/Gaze/Switchの自動併用、Mode選択UIなし）として設計・実装されていた。Gaze Accessibility Standard v1.0策定後、視線入力ON/OFFはREQUIREDへ正式に格上げされた（Decision B）。本Phaseでこの設計判断そのものを削除・上書きするのではなく、**M0〜M2時点の設計判断として本節に保存した上で**、`miru-hirogaru-app.html`へ視線入力ON/OFF（既定OFF、既存の「常時有効」体験は設定で明示的にONにした場合のみ得られる）を追加した。
+
+**実装した8項目**（Gaze Standard §6.1〜§6.8）: 視線入力ON/OFF・ドウェル時間調整（300〜3000ms、既定900ms）・ドウェル進捗表示ON/OFF・再選択防止（既存Leave-and-Reenter Gateにcooldown下限を追加）・注視開始までの猶予（0〜500ms、既定0ms）・視線ターゲット拡大（hit areaのみ、100%/150%）・ターゲット間余白（ふつう/ひろめの2段階）・視覚変化速度（ふつう/ゆっくりの2段階）。既定値はすべて既存の実装済み挙動を保つよう選定しており、設定変更をしない限り体験は変化しない。詳細はPhase M11.3-A最終報告を参照。

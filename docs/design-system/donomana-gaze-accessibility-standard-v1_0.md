@@ -1,8 +1,8 @@
 # どのまな 視線入力アクセシビリティ標準仕様書（Donomana Gaze Accessibility Standard）v1.0
 
-- 版: v1.0（起草）
-- 起草日: 2026-08-19
-- 状態: **起草完了・ユーザー承認待ち**（他の承認済み仕様書と異なり、本文書は本Phase内での起草物であり、ユーザーによる明示的承認を経ていない。31章参照）
+- 版: v1.0（改訂1）
+- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）
+- 状態: **確定**（Phase M11.2起草時点で「ユーザー確認事項」としていた2論点は、Phase M11.3-Aにおけるユーザー明示決定（0章）により正式確定した。17.2章・31.1章参照）
 - 起草根拠: Multi-Input Pilot 3教材（「みるとひろがる」`docs/multi-input/miru-hirogaru-design-v1.md`／「どこかな？みーつけた！」`docs/multi-input/mitsukete-touch-design-v1.md`／「じゅんばんにみよう」`docs/multi-input/junban-miyou-design-v1.md`、いずれもPhase M0〜M11で確立・Tobii等実機検証済み）を第一のSource of Truthとし、既存Production公開中の視線入力対応アプリ11本（18章）のコード横断調査、および既存承認済み仕様書（1章）との整合確認を根拠とする。
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（新規アプリ開発標準 v1.2、以下「New App Standard」）13章「gaze / dwell（CONDITIONAL）」の詳細補足文書。New App Standardを置き換えるものではなく、視線入力固有の要件を詳細化する下位文書として位置づける。Design System v2.1・Switch Scan仕様書v1.8・モーダルアクセシビリティ仕様書v1.1のいずれとも矛盾しないことを26章で確認している。
 
@@ -12,6 +12,7 @@
 
 ## 目次
 
+0. User Decision（Phase M11.3-Aで確定）
 1. 関連文書と本書の位置づけ
 2. 目的
 3. 適用範囲
@@ -47,19 +48,33 @@
 
 ---
 
+## 0. User Decision（Phase M11.3-Aで確定）
+
+Phase M11.2起草時点で「ユーザー確認事項」（29章・31.1章）としていた2論点は、Phase M11.3-A冒頭でユーザーにより以下の通り明示決定された。本書全体はこの決定を前提として以降の章を記述する。
+
+### Decision A — Gaze × Switch Scan
+
+GazeとSwitch Scanは**相互排他にしない**。Touch / Gaze / Switch Scan / Keyboardは、教材が対応している場合、原則として併用可能とする。ただし複数入力方式による二重発火・競合は許可しない。入力方式ごとに別の教材ロジックを持たせず、common activation gate・common activation API・cooldown / duplicate suppression等によって、1つの利用者意図につき1回だけ教材イベントを発火させる設計とする。「同時ON可能」と「同時発火可能」は同義ではない（詳細は17.2章）。
+
+### Decision B — Gaze ON/OFF
+
+視線入力ON/OFFはREQUIREDのまま維持する。Multi-Input Pilot初期設計でGaze ON/OFFを設けなかった判断は、Pilot時点の歴史的設計として扱う。今後の正式標準としては、Gaze対応教材は利用者・支援者が視線入力を明示的に有効／無効化できることをREQUIREDとする（詳細は31.1章）。
+
+---
+
 ## 1. 関連文書と本書の位置づけ
 
 本書は既存仕様書を要約・複製しない。New App Standard 1章の文書地図（Design System v2.1・Dev Rules v1.0・モーダルアクセシビリティ仕様書v1.1・Switch Scan仕様書v1.8・Storage Architecture v2.0）をそのまま継承し、以下を追加する。
 
 | 文書 | 内部版 | 状態 | 正本とする範囲 |
 |---|---|---|---|
-| 本文書（Gaze Accessibility Standard） | v1.0 | **起草完了・ユーザー承認待ち** | 視線入力（Gaze/Dwell）固有の設定・UI・lifecycle・Multi-Input統合要件 |
+| 本文書（Gaze Accessibility Standard） | v1.0（改訂1） | **確定** | 視線入力（Gaze/Dwell）固有の設定・UI・lifecycle・Multi-Input統合要件 |
 | `docs/multi-input/multi-input-program-design-v1.md` | v1.1 | 承認済み（Phase M0） | Multi-Input Program共通設計。本書8・17章の一次根拠 |
 | `docs/multi-input/miru-hirogaru-design-v1.md` | v1.2 | 承認済み・Production未公開（Level3のみ） | Pilot実装1本目。dwell/re-trigger/視覚共存パターンの一次根拠 |
 | `docs/multi-input/mitsukete-touch-design-v1.md` | v1.2 | 承認済み・Production公開済み | Pilot実装2本目。hit area＝隠れ場所全体、distractor gaze対応の一次根拠 |
 | `docs/multi-input/junban-miyou-design-v1.md` | v1.0 | 承認済み（Production公開状況は本Phase調査範囲外） | Pilot実装3本目。Guided Attention・3層視覚共存拡張の一次根拠 |
 
-New App Standard 13章「gaze / dwell（CONDITIONAL）」は本書と役割が重複する部分があるが、23章「実装変更について」の最小変更方針に従い、本Phaseでは13章本文の書き換えは行わず、本書への参照ポインタ1文の追記のみを行う（31.3章）。13章が例示するkurabeyou-app.html／katachi-awase-app.htmlの「Switch Scanとの原則相互排他」という記述と、本書17.2章が採用するMulti-Input Pilotの「同時ON許容」という記述は、意図的に異なる設計判断であり、どちらか一方が誤りというわけではない（17.2章で詳述、29章の未確定論点としても明記）。
+New App Standard 13章「gaze / dwell（CONDITIONAL）」は本書と役割が重複する部分があるが、23章「実装変更について」の最小変更方針に従い、13章本文の大規模な書き換えは行わない。ただしPhase M11.3-A（0章 Decision A）により、13章が例示するkurabeyou-app.html／katachi-awase-app.htmlの「Switch Scanとの原則相互排他」という記述は、**今後の新規実装・改修の指針としては本書17.2章の記述に置き換わる**（「入力方式そのものを排他にする」から「複数入力方式は利用可能だが、単一操作に対する重複activationを防ぐ」への転換）。既存のkurabeyou-app.html／katachi-awase-app.htmlのコード自体は本Phaseでは変更しない（3章、遡及適用しない）。
 
 ---
 
@@ -111,7 +126,7 @@ Phase M11.2の依頼内容（8項目）はすべてREQUIRED（視線入力対応
 
 | # | 項目 | 分類 | 既存実装での検証状況 |
 |---|---|---|---|
-| 6.1 | 視線入力 ON/OFF | **REQUIRED** | 既存アプリ11本中9本で実装例あり（30章）。Pilot 3教材は意図的に不採用（29章・31.1章で詳述） |
+| 6.1 | 視線入力 ON/OFF | **REQUIRED**（Decision B、0章で正式確定） | 既存アプリ11本中9本で実装例あり（30章）。Pilot 3教材は当時の設計判断で不採用だったが、Phase M11.3-Aから順次追加する（29章・31.1章で詳述） |
 | 6.2 | ドウェル時間の調整 | **REQUIRED** | 既存アプリ6本以上で実装例あり（範囲・初期値は8章）。Pilot 3教材・katachi-awase・kurabeyouは固定値900ms |
 | 6.3 | ドウェル進捗表示 | **REQUIRED**（表示自体） | 表示そのものはほぼ全アプリで実装済み。**明示的なON/OFF切替**は既存実装に例がない新規要件（11章） |
 | 6.4 | 再選択防止（cooldown） | **REQUIRED**（機構の存在） | Pilot 3教材のLeave-and-Reenter Gateが最も検証されたパターン（Foundation A）。数値cooldown方式も既存単体アプリに実績あり（10章） |
@@ -364,16 +379,32 @@ dwell進捗（0-1の割合）、現在dwell中のtargetId、dwell開始時刻、
 
 Touch中にGaze dwellが完了する等の競合ケースには、activation発生時に短いactivation lock（300ms、Foundation A）を設け、この間は他の入力方式からのactivationも無視する（Multi-Input Program 8.6章）。
 
-### 17.2 Gaze × Switch Scanの同時ON（重要な未確定論点）
+### 17.2 Gaze × Switch Scanの同時ON（Decision A、Phase M11.3-Aで正式確定）
 
-**Multi-Input Pilot 3教材は、Gaze/Switch Scanの同時ON（自動併用）を既定とする設計を採用している。** Touch/Gaze/Switchを排他的モード選択にせず、すべて同時に有効な状態を標準とする（Multi-Input Program 8.5章）。両者が同一target上で同時に視覚表示されうるため、Phase M2.1で「target本体（内側）→ gaze dwell進行リング（中間）→ Switch Scanハイライト（外側、明確な間隔）」という3層同心円配置パターンを確立し、色だけでなく形状（gaze=進行に応じた塗りつぶし弧、switch=破線アウトライン）でも区別できるようにしている（外側offsetは実測により14〜16pxへ収束、miru-hirogaru/junban-miyou双方で採用）。実機での二重activationストレステストもPASSしている（Multi-Input Program 22.1章）。
+**GazeとSwitch Scanは相互排他にしない。** Touch / Gaze / Switch Scan / Keyboardは、教材が対応している場合、原則として併用可能とする。これはPhase M11.2時点では「Multi-Input PilotとNew App Standard 13章のどちらが正か」という未確定論点だったが、Phase M11.3-A冒頭でユーザーが明示決定した（0章 Decision A）ことにより、**「入力方式は同時ONを許容するが、単一の利用者意図につき教材イベントは1回だけ発火させる」という方針をREQUIREDとして正式確定する。**
 
-**一方、New App Standard 13章は「Switch Scanとの関係: 原則相互排他とする」と明記し、kurabeyou-app.htmlの`setScanMode(on)`がSwitch Scan ON時に`gazeEnabled = false`を強制する実装を根拠として挙げている。** katachi-awase-app.htmlも同様の設計である。
+**根拠**: Multi-Input Pilot 3教材（miru-hirogaru/mitsukete-touch/junban-miyou）は、Touch/Gaze/Switchを排他的モード選択にせず、すべて同時に有効な状態を標準として実装している（Multi-Input Program 8.5章）。両者が同一target上で同時に視覚表示されうるため、Phase M2.1で「target本体（内側）→ gaze dwell進行リング（中間）→ Switch Scanハイライト（外側、明確な間隔）」という3層同心円配置パターンを確立し、色だけでなく形状（gaze=進行に応じた塗りつぶし弧、switch=破線アウトライン）でも区別できるようにしている（外側offsetは実測により14〜16pxへ収束、miru-hirogaru/junban-miyou双方で採用）。実機での二重activationストレステストもPASSしている（Multi-Input Program 22.1章）。
 
-この2つの設計判断は**意図的に異なっており、どちらか一方を「誤り」として本Phaseで一方的に上書きしない**（23章の最小変更方針、Stop Conditions）。本書は以下の暫定整理を提案し、最終判断はユーザー確認事項として扱う（29章）。
+New App Standard 13章が根拠として挙げるkurabeyou-app.html／katachi-awase-app.htmlの「Switch Scan ON時に`gazeEnabled = false`を強制する」実装は、この決定により**今後の新規実装の模範パターンではなくなる**。ただし両アプリの既存コードは本Phaseでは変更しない（遡及適用しない、3章）。
 
-- **Multi-Input Program系（新規Gaze対応教材）**: 同時ON方式（3層視覚共存パターン）をREQUIRED実装として採用する。3教材・実機検証という最も強い根拠を持つため。
-- **単体アプリ（既存の`gazeEnabled=false`強制方式）**: 既存挙動を変更しない（遡及適用しない、3章）。新規に単体アプリとしてGazeとSwitch Scanを両方実装する場合、相互排他方式・同時ON方式のどちらを取るかはアプリごとに明示決定する（Switch Scan仕様書v1.8 §1.3の「達成すべき結果を優先し、命名統一は必須要件としない」という基本姿勢とも整合）。
+### 17.2.1 「同時ON可能」と「同時発火可能」は同義ではない（重要）
+
+Decision Aは**入力方式の同時有効化（enabled state）**を許可するものであり、**同一の利用者意図に対する複数回の教材イベント発火（activation）**を許可するものではない。この2つを混同しない。
+
+- **Simultaneous Enabled State**: GazeとSwitch Scanが同時にON（`gazeEnabled === true && switchScanEnabled === true`）である状態そのものは常に許容する。
+- **Simultaneous Activation**: 1つのtargetに対し、Gaze dwellの完了とSwitch Scanのactivationが極めて近いタイミングで両方発生した場合でも、教材ロジック（semantic activation）が実行されるのは1回のみとする。
+
+これを保証するため、以下をREQUIREDとする。
+
+1. **Common Activation Gate**: すべての入力方式（Touch/Gaze/Switch/Keyboard）のactivationは、単一のsemantic activation関数（7章）へ合流させる。入力方式ごとに別の教材ロジックを持たせない。
+2. **Common Activation API**: 上記関数の引数は`(targetId, inputMethod)`の形を基本とする。`inputMethod`は観察記録（10章）にのみ用い、教材の分岐条件には使わない（原則11「Physical diversity, semantic unity」）。
+3. **Cooldown / Duplicate Suppression**: Activation Lock（300ms、17.1章）とtarget単位のcooldown/leave-reenter gate（10章）を、入力方式を問わず共通に適用する。Gaze dwellの完了時点・Switch Scanのactivation時点のどちらであっても、同一targetが既にactivation直後のロック・cooldown状態であれば新規activationを無視する。
+
+### 17.2.2 実装方針（相互排他 → 重複防止への転換）
+
+既存の`gazeEnabled=false`強制方式のような「一方をONにすると他方を強制OFFにする」実装は、新規実装では採用しない。代わりに、両方を独立してON/OFFできる状態を維持したまま、17.2.1の共通Gateで重複発火のみを防ぐ。
+
+新規に単体アプリとしてGazeとSwitch Scanを実装する場合も、この方針（同時ON許容＋共通Gateによる重複防止）をREQUIREDとする。既存の相互排他実装（kurabeyou-app.html／katachi-awase-app.html）は、Phase M11.3-Aでは変更しないが、将来の改修時にはこの方針への移行を検討する（31章）。
 
 ### 17.3 視覚的共存パターンの再利用可能な仕様
 
@@ -513,7 +544,7 @@ kyou-no-kiroku.htmlの既存案内（「設定＞アクセシビリティ＞ポ�
 
 | Requirement | miru-hirogaru | mitsukete-touch | junban-miyou | 判定 |
 |---|---|---|---|---|
-| 6.1 視線入力 ON/OFF | なし（自動併用、Mode UIなし） | なし（同左） | なし（同左） | **Missing**（意図的設計判断。Multi-Input Program 8.5章「過剰な設定はしない」方針との緊張関係あり、31.1章） |
+| 6.1 視線入力 ON/OFF | なし（自動併用、Mode UIなし） | なし（同左） | なし（同左） | **Missing**（Pilot当時の意図的設計判断。Decision B（0章）により今後REQUIRED、Phase M11.3-Aで「みるとひろがる」から追加着手、31.1章） |
 | 6.2 ドウェル時間調整 | 900ms固定（UIなし） | 900ms固定（同左） | 900ms固定（同左） | **Missing**（値自体は8章のdefaultとして妥当・確定済み。調整UIのみ欠如） |
 | 6.3 ドウェル進捗表示 | 常時表示、ON/OFF不可 | 同左 | 同左（Guided Attentionと3層共存） | **Minor gap**（表示自体は標準パターンとして完全準拠。toggleのみ欠如） |
 | 6.4 再選択防止 | Leave-and-Reenter Gate | 同左 | 同左 | **Already compliant**（本書10.2章 方式Aそのもの。Foundation A水準） |
@@ -522,7 +553,7 @@ kyou-no-kiroku.htmlの既存案内（「設定＞アクセシビリティ＞ポ�
 | 6.7 ターゲット間余白調整 | 実測固定（調整不可） | 実測固定・精緻に調整済み（調整不可） | 実測固定（調整不可） | **Missing**（設計時の余白最適化は最も手厚い部類。利用者向け可変UIが欠如） |
 | 6.8 注視開始までの猶予 | なし | なし | なし | **Missing**（新規要件、9.2章の通り既存実装皆無） |
 
-**総評**: Pilot 3教材は6.4（再選択防止）において本書が定めるFoundation A水準そのものであり、6.3（進捗表示）・6.5（速度）・6.6/6.7（拡大・余白）は「原則は確立しているが利用者向け可変UIがない」という共通パターンを示す。6.1（ON/OFF）のみ、原則自体が本書の要求と異なる意図的設計判断であり、31.1章で個別に扱う。
+**総評**: Pilot 3教材は6.4（再選択防止）において本書が定めるFoundation A水準そのものであり、6.3（進捗表示）・6.5（速度）・6.6/6.7（拡大・余白）は「原則は確立しているが利用者向け可変UIがない」という共通パターンを示す。6.1（ON/OFF）は、Pilot当時の意図的設計判断だったが、Decision B（0章）により今後REQUIREDとして扱う。31.1章・Phase M11.3-A（本書と対になる実装Phase）で個別に扱う。
 
 ---
 
@@ -566,19 +597,21 @@ katachi-awase-app／kurabeyou-appはdwell時間が固定値（900ms）でUIが�
 
 ## 31. Migration Guidance
 
-### 31.1 未確定論点: Pilot 3教材へのGaze ON/OFF追加
+### 31.1 Decision B: Pilot 3教材へのGaze ON/OFF追加（Phase M11.3-Aで正式確定）
 
-6.1（視線入力ON/OFF）はREQUIRED項目だが、Pilot 3教材はMulti-Input Program 8.5章で「自動併用を既定とし、Mode選択UIは複数入力が具体的に競合する問題が確認された場合にのみ追加を検討する（過剰な設定はしない）」と明示的に決定している。この決定は本Phaseの調査時点で覆す根拠（具体的な競合報告等）が見つかっていない。
+6.1（視線入力ON/OFF）はREQUIRED項目である。Pilot 3教材はMulti-Input Program 8.5章で「自動併用を既定とし、Mode選択UIは複数入力が具体的に競合する問題が確認された場合にのみ追加を検討する（過剰な設定はしない）」と明示的に決定していたが、これはPilot時点（Multi-Input Program策定当時）の歴史的設計判断として扱う（0章 Decision B）。
 
-本書は6.1をREQUIRED項目として維持するが、Pilot 3教材へ遡及適用するかどうかはユーザー判断事項として明示する。追加する場合も、defaultをONに保てば既存の「自動併用」体験を破壊せずに済む（backward compatible）。
+**今後の正式標準としては、Gaze対応教材は利用者・支援者が視線入力を明示的に有効／無効化できることをREQUIREDとする。** Pilot 3教材への遡及適用（実装追加）はPhase M11.3-A以降で順次行う。まず「みるとひろがる」1本をReference Implementationとして実装し（Phase M11.3-A）、検証結果を踏まえて残り2教材へ横展開する（Phase M11.3-B）。追加時はdefaultをONに保つことで、既存の「自動併用」体験を破壊せずに済む（backward compatible、31.2章）。
+
+**Pilot設計書側の扱い**: `docs/multi-input/multi-input-program-design-v1.md` 8.5章の「自動併用に確定」という記述は、過去の設計経緯として削除・書き換えしない。Gaze ON/OFF実装時に、当該アプリの個別設計書（例: `miru-hirogaru-design-v1.md`）へ「当初Pilotでは常時有効だったが、Gaze Accessibility Standard v1.0策定後はON/OFF REQUIRED」という最小限の履歴注記を追加する運用とする（実際の注記はPhase M11.3-A実装時に当該設計書へ追記する、5章参照）。
 
 ### 31.2 後方互換性を保った追加の指針
 
 本書が新規要件として挙げた項目（6.3のON/OFF・6.6〜6.8・9章のentry delay）は、いずれもdefault値を「現行挙動と同一」に設定することで、既存実装への追加時に見た目・体験を変えずに導入できる設計とした（各章のdefault値を参照）。既存アプリへの適用時も、まずdefault値を現行挙動と一致させてから設定UIを追加することを推奨する。
 
-### 31.3 New App Standardへの最小cross-reference
+### 31.3 New App Standardへの反映（Phase M11.2: 参照ポインタ追加／Phase M11.3-A: Decision A反映）
 
-New App Standard 13章「gaze / dwell（CONDITIONAL）」の末尾に、本書への参照ポインタを1文追記する（本Phase内で実施、32章のチェックリストとは独立）。13章本文（dwell safetyチェックリスト等）自体の書き換えは行わない。17.2章で述べたSwitch Scan相互排他の記述との緊張関係は、参照ポインタの追記時に短い注記として明記する。
+Phase M11.2でNew App Standard 13章「gaze / dwell（CONDITIONAL）」の末尾に本書への参照ポインタを追記済み（v1.2→v1.3）。Phase M11.3-Aでは、Decision Aの確定を受け、13章「Switch Scanとの関係」の記述を「原則相互排他」から「同時ON許容＋重複activation防止」へ改訂する（New App Standard側の変更内容は同文書の改訂履歴で管理する）。dwell safetyチェックリスト等、Decision A/Bと無関係な13章本文は変更しない。
 
 ---
 
