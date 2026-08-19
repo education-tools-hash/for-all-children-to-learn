@@ -1,7 +1,7 @@
 # どのまな 視線入力アクセシビリティ標準仕様書（Donomana Gaze Accessibility Standard）v1.0
 
-- 版: v1.0（改訂4）
-- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）／改訂: 2026-08-19（Phase M11.4-A、Gaze Shared Foundation PoC成功・mitsukete-touch-app.htmlで実装）／改訂: 2026-08-19（Phase M11.4-B、Gaze Shared Foundation Pilot 3教材横展開完了・hitTestGazeTargets() SAFE TO SHARE昇格）
+- 版: v1.0（改訂5）
+- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）／改訂: 2026-08-19（Phase M11.4-A、Gaze Shared Foundation PoC成功・mitsukete-touch-app.htmlで実装）／改訂: 2026-08-19（Phase M11.4-B、Gaze Shared Foundation Pilot 3教材横展開完了・hitTestGazeTargets() SAFE TO SHARE昇格）／改訂: 2026-08-19（Phase M11.5、Multi-Input Pilot Program Close・じゅんばんにみようのフォーカス復帰不具合修正・36章追加）
 - 状態: **確定**（Phase M11.2起草時点で「ユーザー確認事項」としていた2論点は、Phase M11.3-Aにおけるユーザー明示決定（0章）により正式確定した。17.2章・31.1章参照）。**Phase M11.3-A（miru-hirogaru-app.html）・M11.3-B（mitsukete-touch-app.html／junban-miyou-app.html）により、Multi-Input Pilot 3教材すべてが本書のREQUIRED 8項目（6章）を実装済み（29章参照）。Tobii実機確認はみるとひろがるのみユーザー確認済み（M11.3-Aゲート）。どこかな？みーつけた！／じゅんばんにみようは自動検証のみで、Tobii実機確認は引き続き未実施（Phase M11.3-B報告47番）。**
 - 起草根拠: Multi-Input Pilot 3教材（「みるとひろがる」`docs/multi-input/miru-hirogaru-design-v1.md`／「どこかな？みーつけた！」`docs/multi-input/mitsukete-touch-design-v1.md`／「じゅんばんにみよう」`docs/multi-input/junban-miyou-design-v1.md`、いずれもPhase M0〜M11で確立・Tobii等実機検証済み）を第一のSource of Truthとし、既存Production公開中の視線入力対応アプリ11本（18章）のコード横断調査、および既存承認済み仕様書（1章）との整合確認を根拠とする。
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（新規アプリ開発標準 v1.2、以下「New App Standard」）13章「gaze / dwell（CONDITIONAL）」の詳細補足文書。New App Standardを置き換えるものではなく、視線入力固有の要件を詳細化する下位文書として位置づける。Design System v2.1・Switch Scan仕様書v1.8・モーダルアクセシビリティ仕様書v1.1のいずれとも矛盾しないことを26章で確認している。
@@ -48,6 +48,7 @@
 33. Phase M11.3-C: Cross-App Consistency Audit / Shared Candidate Findings
 34. Phase M11.4-A: Gaze Shared Foundation PoC結果
 35. Phase M11.4-B: Gaze Shared Foundation 横展開・hitTestGazeTargets() SAFE TO SHARE昇格
+36. Phase M11.5: Multi-Input Pilot Program Close
 
 ---
 
@@ -802,4 +803,28 @@ Switch Scan仕様書のhelper6パターン（「contractは共有、実装はapp
 
 ### 35.6 手法上の注意点（透明性のための開示）
 
-横展開作業の途中、再利用していたPlaywrightテストスクリプト（本Phase以前のフェーズから流用）のうち複数本が、過去フェーズのworktreeディレクトリ（`ROOT`変数）を指したままになっていたことを自己発見した。これらのworktreeは過去フェーズのコミット時点のまま物理的にディスク上に残存しているため、修正前に実行した一部の「before/after equivalence」検証は、本Phaseの実際のコード変更ではなく過去フェーズの凍結スナップショットを検証していたことになる。発見後、全テストスクリプトの`ROOT`を本Phaseのworktree（`for-all-children-to-learn-m11-4b`）へ修正し、かつ`hitTestGazeTargets()`呼び出しを新API（`options`引数）に合わせて更新した上で、全テストを再実行し直した。本章35.5の検証結果はすべて修正後の再実行結果である。この問題は本Phase内で自己発見・自己修正されたものであり、ユーザーからの指摘によるものではない。今後のフェーズでは、流用テストスクリプトの`ROOT`が現在のworktreeを指しているかを実行前に必ず確認する。
+横展開作業の途中、再利用していたPlaywrightテストスクリプト（本Phase以前のフェーズから流用）のうち複数本が、過去フェーズのworktreeディレクトリ（`ROOT`変数）を指したままになっていたことを自己発見した。これらのworktreeは過去フェーズのコミット時点のまま物理的にディスク上に残存しているため、修正前に実行した一部の「before/after equivalence」検証は、本Phaseの実際のコード変更ではなく過去フェーズの凍結スナップショットを検証していたことになる。発見後、全テストスクリプトの`ROOT`を本Phaseのworktree（`for-all-children-to-learn-m11-4b`）へ修正し、かつ`hitTestGazeTargets()`呼び出しを新API（`options`引数）に合わせて更新した上で、全テストを再実行し直した。本章35.5の検証結果はすべて修正後の再実行結果である。この問題は本Phase内で自己発見・自己修正されたものであり、ユーザーからの指摘によるものではない。今後のフェーズでは、流用テストスクリプトの`ROOT`が現在のworktreeを指しているかを実行前に必ず確認する。**Phase M11.5でこの問題の恒久的な再発防止策（テストROOTの環境変数化）を実施した（36.2章参照）。**
+
+## 36. Phase M11.5: Multi-Input Pilot Program Close
+
+Phase M11.5でMulti-Input Pilot Program自体を正式にCloseした。Program Close全体の記録は`docs/multi-input/multi-input-program-design-v1.md` 24章を正本とし、本章ではGaze Standardに直接関わる要点のみ記す。
+
+### 36.1 Pilot 3教材のGaze Standard準拠状況（最終確認）
+
+Retrospective Verification（0章・35.6章で指摘された問題の是正後）として、最新Production HEAD（`main` commit `56ecb17`）に対しGaze関連の全テストスイートを再実行し、REQUIRED 8項目（6章）が3教材すべてで維持されていることを再確認した。console/page error 0件。詳細は`docs/multi-input/multi-input-program-design-v1.md` 24.2章参照。
+
+### 36.2 テストROOT再発防止
+
+35.6章で発見された「流用テストスクリプトのROOTが旧worktreeを指したまま」という問題について、Phase M11.5で恒久対策を実施した。対象8スクリプトすべての`ROOT`を、ハードコードされたworktree名から`os.environ.get("DONOMANA_TEST_ROOT", r"...\for-all-children-to-learn")`（未指定時は常に最新`main`を指す）へ変更し、Phase毎にROOTを書き換える運用そのものを廃止した。
+
+### 36.3 じゅんばんにみようのフォーカス復帰不具合修正
+
+Program Close監査で、じゅんばんにみようの設定パネルを閉じた際（Escape・とじるボタンいずれも）にフォーカスが`<body>`へ落ち、みるとひろがる・みつけてタッチのように`#donomanaA11yBtn`へ戻らない不具合を発見し、他2教材と同じフォーカス復帰処理を追加して解消した。3教材の`closeSettings()`挙動が一致したことを確認済み。詳細は`docs/multi-input/multi-input-program-design-v1.md` 24.5章参照。
+
+### 36.4 実機検証状況（変更なし）
+
+Tobii実機確認は引き続きみるとひろがるのみ（Phase M11.3-Aゲート）。どこかな？みーつけた！・じゅんばんにみようは自動検証のみで、Tobii実機確認は本Phase時点でも未実施のまま。既存Gazeアプリへの段階Rolloutに着手する前に、この2教材への実機確認を優先することが望ましい（`docs/multi-input/multi-input-program-design-v1.md` 24.4章）。
+
+### 36.5 Program Close判定
+
+`docs/multi-input/multi-input-program-design-v1.md` 24.13章のとおり、Program Close完了条件をすべて満たしたと判定し、Pilot 3教材を今後のMulti-Input教材開発におけるReference Setとして確定した。Gaze Standard自体は「確定」のまま変更なし（0章のUser Decisionに変更はない）。

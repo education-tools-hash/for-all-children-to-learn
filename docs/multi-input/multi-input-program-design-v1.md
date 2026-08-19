@@ -1,9 +1,9 @@
-# Multi-Input教材群 共通設計 v1.1（Phase M0〜M1）
+# Multi-Input教材群 共通設計 v1.2（Phase M0〜M11.5）
 
-- 版: v1.1（v1.0をPhase M0承認事項で確定、Phase M1で「みるとひろがる」個別設計を`miru-hirogaru-design-v1.md`へ分離）
-- 対象: 「みるとひろがる」「みつけてタッチ」「じゅんばんにみよう」の3教材
-- 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.1運用中）の下位文書。既存標準と矛盾する場合は既存標準を優先し、本書側を見直す。
-- Production: 本Phaseでは一切のアプリコード・generate.js・apps-data.json・changelogを変更しない。設計文書のみ。
+- 版: v1.2（v1.0をPhase M0承認事項で確定、Phase M1で「みるとひろがる」個別設計を`miru-hirogaru-design-v1.md`へ分離。Phase M11.5でPilot Program Close・23章Gaze Shared Foundation・24章Program Close記録を追加）
+- 対象: 「みるとひろがる」「みつけてタッチ」「じゅんばんにみよう」の3教材（Phase M11.5でPilot Program Closeし、以降Reference Setとして扱う。24章参照）
+- 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.6運用中）の下位文書。既存標準と矛盾する場合は既存標準を優先し、本書側を見直す。
+- Production: Phase M11.5では、Program Close監査で発見したじゅんばんにみようのフォーカス復帰不具合（24.5章）のみアプリコードを修正した。それ以外の変更はテストスクリプト（リポジトリ外のスクラッチパッド）と設計文書のみ。
 
 ---
 
@@ -426,11 +426,151 @@ Phase M11（Multi-Input Pilot 3-App Cross-Audit / Foundation Close）で、「�
 
 ### 22.4 Foundation D（追加調査、まだ標準化しない）
 
-- **Keyboard Escape一貫性**: じゅんばんにみようのみアプリ本体`settingsPanel`にEscapeで閉じる独自ハンドラを持つ。みるとひろがる・みつけてタッチの自アプリ設定パネルはEscapeに未対応（共通A11yパネルのEscapeのみ対応）。重大な不具合ではないが、3教材間の一貫性という観点では要検討。次の新規教材着手前に別Fix Phaseで方針を決める。
-- **Shared Code化の是非**（23章参照）: helper6・`isVisibleEnabled`・Touch 8pxしきい値・CSV BOM書き出し等は3教材でほぼ逐語的に一致しており、15章が想定した「3本目での正式共通化」の判断点に到達している。ただしこのリポジトリはビルド工程を持たない自己完結HTML群（`package.json`なし、`generate.js`のみ）であり、ランタイムで`<script src>`により外部JSを読み込む方式は各アプリの自己完結性を損なう。M11時点では、`generate.js`の既存の「マーカーコメント差し替えによる注入」方式（Common Chromeで実績あり）をMulti-Input共通helperへ拡張できないか、という設計方向のみを次Phase候補として記録し、本Phaseでは実装しない。
+- ~~**Keyboard Escape一貫性**: じゅんばんにみようのみアプリ本体`settingsPanel`にEscapeで閉じる独自ハンドラを持つ。みるとひろがる・みつけてタッチの自アプリ設定パネルはEscapeに未対応（共通A11yパネルのEscapeのみ対応）。~~ **【Phase M11.5で解消済み・本記述は陳旧化】** Phase M11.5時点のコード確認で、3教材とも`document.addEventListener('keydown', ...)`によるEscape即時クローズが既に実装済み（いつのPhaseで解消されたかは特定できていないが、少なくともM11.3以降のいずれかのPhaseで解消された）であることを確認した。本項目はD区分から除外する。なお、Phase M11.5では別種の不整合（Escapeまたは閉じるボタンで設定パネルを閉じた後、じゅんばんにみようのみフォーカスが`<body>`へ落ちてしまい、みるとひろがる・みつけてタッチのように常時表示の`#donomanaA11yBtn`へ戻らない）を新たに発見し、その場で修正済み（24.5章参照）。
+- **Shared Code化の是非**（23章参照）: helper6・`isVisibleEnabled`・Touch 8pxしきい値・CSV BOM書き出し等は3教材でほぼ逐語的に一致しており、15章が想定した「3本目での正式共通化」の判断点に到達している。ただしこのリポジトリはビルド工程を持たない自己完結HTML群（`package.json`なし、`generate.js`のみ）であり、ランタイムで`<script src>`により外部JSを読み込む方式は各アプリの自己完結性を損なう。M11時点では、`generate.js`の既存の「マーカーコメント差し替えによる注入」方式（Common Chromeで実績あり）をMulti-Input共通helperへ拡張できないか、という設計方向のみを次Phase候補として記録し、本Phaseでは実装しない。**この設計方向はPhase M11.4-A/Bで実装され、Gaze Shared Foundationとして確立した（23章参照）。**
 
 ### 22.5 Asset Production Lessons
 
 - 「みるとひろがる」の`piano-ready.png`/`piano-active.png`は2枚合計約3.51MBで、同アプリのasset合計（約4.86MB）の約69%を占める。他の10枚（1枚あたり数十〜200KB台）と比べ突出しており、将来のasset最適化Phaseで優先対象とする（本Phaseでは最適化しない）。
 - 「じゅんばんにみよう」の`passengers/*.png`（非active版、717〜802px、400〜680KB台）は、対応する`*-active.png`（614×410、130〜200KB台）より3〜5倍大きい非対称な構成になっている。M10-Eで導入された「Dedicated Active Boarding Asset」がactive版のみ実rendered size×DPR基準で最適化され、非active（ready）版は最適化されないまま残った可能性が高い。M10-Gで確立した「実rendered size×DPRを基準にProduction解像度を決める」手法を、ready/active両方の状態へ一貫して適用することを今後のAsset Production Standardの原則として明記する。
 - 上記2件はいずれも「今すぐ最適化」ではなく「将来まとめて最適化」を推奨する（現時点でProduction上のfailed request・表示不具合は確認されていないため）。
+
+## 23. Phase M11.4-A/B知見: Gaze Shared Foundation確立
+
+22.4章「Shared Code化の是非」で次Phase候補として記録した設計方向（`generate.js`のマーカーコメント差し替え注入をMulti-Input共通helperへ拡張する）は、Phase M11.4-A（PoC、みつけてタッチのみ）・Phase M11.4-B（じゅんばんにみよう・みるとひろがるへ横展開）で実装され、3教材共通のGaze Shared Foundationとして確立した。詳細は`docs/design-system/donomana-gaze-accessibility-standard-v1_0.md`の34章・35章を正本とし、本書では要点のみ記す。
+
+- Shared化対象はGaze関連の定数・純粋関数・`hitTestGazeTargets()`・stepper CSSに限定し、gaze tick状態機械・activation・lifecycle等のDOM/教材依存コードはLocal Adapterとしてアプリ側に維持する契約（Switch Scan helper6パターン踏襲）を確立した。
+- `hitTestGazeTargets()`はM11.4-Bで3教材のbyte-identical確認を経てSHARE WITH OPTIONSからSAFE TO SHAREへ昇格した。
+- Gaze以外の22.1章Foundation A項目（helper6・CSV BOM書き出し等）は、本Phase時点ではまだ`generate.js`注入化していない。Gaze Shared Foundationの実績（3教材で冪等性・挙動同等性を維持したまま共通化に成功）は、これらGaze以外の項目についても同じマーカー注入方式が適用可能であることの実証例として、将来のPhaseで参照できる。
+
+## 24. Phase M11.5: Multi-Input Pilot Program Close
+
+Phase M1〜M11.4-Bで進めてきたMulti-Input Pilot Programを本Phaseで正式にCloseした。対象は「みるとひろがる」「みつけてタッチ（どこかな？みーつけた！）」「じゅんばんにみよう」の3教材。以降、この3教材はMulti-Input教材開発全般の**Reference Set**として扱う。
+
+### 24.1 Pilot期間・対象・スコープ
+
+- **期間**: Phase M0（2026-08-13承認）からPhase M11.5（本Phase、2026-08-19）まで。
+- **対象3教材**: 「みるとひろがる」（`miru-hirogaru-app.html`）／「どこかな？みーつけた！」（`mitsukete-touch-app.html`）／「じゅんばんにみよう」（`junban-miyou-app.html`）。
+- **4入力方式**: Touch / Gaze / Switch Scan / Keyboard。Decision A（0章、Phase M11.3-A確定）によりGaze×Switch Scanは相互排他ではなく同時ON可能。ただし1つの利用者意図につき1回のみactivationが発火する（Semantic Activation Architecture、22.1章）。
+- **Gaze Accessibility Standard v1.0**: `docs/design-system/donomana-gaze-accessibility-standard-v1_0.md`（現行v1.0（改訂4））。REQUIRED 8項目（Gaze ON/OFF・dwell調整・dwell進捗表示・cooldown・entry delay・target拡大・target余白・motion速度）を3教材すべてに実装済み。
+- **Gaze Shared Foundation**: 23章参照。3教材とも`GAZE_SHARED_FOUNDATION_APPS`へ登録済み。
+
+### 24.2 Validation Status（自動検証）
+
+Phase M11.5冒頭のRetrospective Verificationで、最新Production HEAD（`main` commit `56ecb17`時点、および本Phaseの追加修正を含むworktree）に対し、以下をすべて再実行し再確認した。
+
+- miru: Gaze ON/OFF・dwell・entry delay・cooldown・target拡大・target余白・motion・persistence・reset・cleanup・duplicate activation・reduced-motion・responsiveの全項目PASS（console/page error 0）。
+- mitsukete: Gaze 8項目・erosion hit test・target拡大・spacing・level遷移・duplicate activation・responsiveの全項目PASS（error 0）。
+- じゅんばんにみよう: Gaze 8項目・Guided Attention・boarding・passenger lifecycle・scene遷移・settings proxy・Switch Scan・duplicate activation・responsiveの全項目PASS（error 0）。
+- 共通: `hitTestGazeTargets()`単体テスト全パターンPASS、`node generate.js`3回連続冪等（hash安定・marker重複なし）。
+
+これらの結果は、過去Phase（M11.3-C・M11.4-A）で使われていた一部テストスクリプトのROOT不整合（0章・24.6章参照）を是正した後の再実行結果であり、過去Phaseの「PASS」表記を現時点のProduction HEAD上で裏付け直したものである。
+
+### 24.3 Real-device Evidence（実機検証状況）
+
+自動検証と実機検証を明確に分けて記録する。
+
+- **「みるとひろがる」**: Tobii実機によるユーザー確認PASS済み（Phase M11.3-Aゲート、`docs/design-system/donomana-gaze-accessibility-standard-v1_0.md` 5章に記載）。Pilot 3教材の中で唯一、実機Gaze deviceでの検証記録がリポジトリ文書内に存在する。
+- **「どこかな？みーつけた！」「じゅんばんにみよう」**: リポジトリ文書内に実機（Tobii等）確認済みという記録は存在しない。自動検証（Playwright、`elementFromPoint`等によるシミュレーション）のみで、**実機Gaze deviceでの検証は未実施として明記する**。自動検証で代替できない領域（実際の視線トラッキング精度・キャリブレーションドリフト・個人差のある注視パターンでのdwell/entry delay/cooldownの体感適切性等）は、この2教材について未確認のまま残っている。
+
+### 24.4 Known Limitations（既知の制約）
+
+- **実機検証の非対称性**（24.3章）: みるとひろがるのみTobii実機確認済み。他2教材への実機確認は、既存Gazeアプリへの段階Rolloutを判断する前に優先して実施することが望ましい。
+- **mitsuketeの高倍率zoom時オーバーフロー**: Phase M11.5の監査で新規発見。`mitsukete-touch-app.html`は`.mt-ring`（gaze dwell進捗リング、教材固有のKEEP LOCAL要素）が原因で、ブラウザzoom 150%/200%時に横方向オーバーフローが発生する（200%時、`scrollWidth`が`clientWidth`を90px超過）。100%zoom・5viewport×3Level responsiveでは発生しない（既存test_mitsukete.py・test_junban.py等で確認済み）。miru・じゅんばんにみようでは同条件下オーバーフローなし。機能的な入力方式・Gaze REQUIRED項目には影響しないため、Program CloseのBlockerとはしないが、次のmitsukete改修Phaseで`.mt-ring`のzoom追従を修正することを推奨する。
+- **既存11 Gazeアプリの実装水準のばらつき**（24.6章）: Pilot 3教材のようなREQUIRED 8項目完全準拠のアプリは既存アプリ側には存在しない。段階的Rolloutが必要。
+
+### 24.5 Phase M11.5で発見・修正した不具合
+
+Program Close監査の過程で、じゅんばんにみようの設定パネルを閉じた際（Escapeキー・とじるボタンいずれも）、フォーカスが`<body>`へ落ちてしまい、みるとひろがる・みつけてタッチのように常時表示の`#donomanaA11yBtn`へ戻らない不具合を発見した。原因はじゅんばんにみようの`closeSettings()`関数に、他2教材が持つフォーカス復帰処理（`(document.getElementById('donomanaA11yBtn') || setBtn).focus();`）が欠落していたこと。miru・mitsuketeの既存実装をそのまま踏襲する形で追加修正し、3教材の挙動を一致させた。Switch Scan・Keyboard操作でこの設定パネルを頻用する利用者にとって、閉じた直後にどこにもフォーカスが無い状態は操作継続の妨げになるため、アクセシビリティ上意味のある修正と判断し、Program Close文書化と同一Phase内で実施した（22.4章の記述修正も参照）。
+
+### 24.6 手法上の注意点（Retrospective Verification、0章）
+
+Phase M11.4-Bで、過去フェーズから流用したPlaywrightテストスクリプトの`ROOT`変数が旧worktreeディレクトリを指したままだったという手法上の問題が自己発見された。M11.4-B内では修正後に再実行しPASSを確認済みだが、Phase M11.3-C・M11.4-Aの一部PASS表記はこの問題の影響を受けていた可能性があった。本Phase冒頭でこの点を明示的に検証し直し、以下を確認した。
+
+- 全8本のテストスクリプト（`test_gaze.py`〜`test_gaze4.py`・`test_mitsukete.py`・`test_junban.py`・`test_setbtn_fix.py`・`test_hittest_unit.py`）はいずれも過去worktree（`for-all-children-to-learn-m11-4b`）へのhard-code以外に、リポジトリ内へ影響する箇所はなかった（これらのスクリプトはgit管理下のリポジトリには一切含まれておらず、セッションスクラッチパッド内のみに存在する一時ファイルである）。
+- 再発防止として、全8本の`ROOT`を`os.environ.get("DONOMANA_TEST_ROOT", r"...\for-all-children-to-learn")`へ変更した。デフォルト値は常に最新の`main`（Production HEAD）を指すため、今後のPhaseでスクリプトを流用する際にROOTを手動で書き換える運用を廃止できる。特定worktreeに対して検証したい場合のみ、環境変数`DONOMANA_TEST_ROOT`で上書きする。
+- 修正後、最新Production HEAD（`main` commit `56ecb17`）に対し全8本＋新規追加のa11y監査スクリプトを再実行し、すべてPASS（console/page error 0）したことを24.2章のとおり確認した。これにより、M11.3-C・M11.4-Aの「PASS」表記は、少なくとも本Phaseで再検証した項目については現時点のProduction HEAD上で裏付けられたと言える。過去Phaseの報告書自体は改ざん・書き換えていない。
+
+### 24.7 Reference Architecture（今後のMulti-Input教材の概念モデル）
+
+```
+Input Layer:  Touch / Gaze / Switch / Keyboard
+                    ↓
+Local Adapter: target collection / state・lifecycle / activation
+                    ↓
+Common activation path（1 semantic activation、22.1章）
+                    ↓
+Learning Experience
+```
+
+GazeについてはShared Foundation（23章）を利用し、定数・純粋関数・`hitTestGazeTargets()`・stepper CSSはgenerate.js注入、gaze tick状態機械・activation・lifecycleはLocal Adapterとしてアプリ側に残す。既存のSwitch Scan仕様書（helper6パターン、22.1章で確認済み）と概念的に同型であり、「入力方式ごとにcontractは共有、実装はapp-local adapterに残す」という一貫した設計原則をMulti-Input Program全体の基盤とする。
+
+### 24.8 新規教材への適用方針（M12以降）
+
+M12以降の新規Multi-Input教材は、Pilot期間中に確立された「1本目で試作→2本目で再検証→3本目で正式共通化」という段階的アプローチ（15章）を経る必要はなく、**最初から**以下へ準拠する。
+
+- Touch / Gaze / Switch Scan / Keyboardの4入力方式
+- Gaze Accessibility Standard v1.0（REQUIRED 8項目）
+- Gaze Shared Foundation（generate.js注入）
+- 22.1章Foundation Aで確定した共通パターン（Semantic Activation Architecture・helper6・success-only Feedback等）
+- Common Settings UI（11章の情報設計・grouping・命名パターン）
+
+「後からGaze対応」「後からSwitch対応」という開発順序には戻らない。これは新規開発コストを抑えるためのPilotの主要な成果であり、後退させない。
+
+### 24.9 既存Gazeアプリ Rollout Inventory（軽量再確認）
+
+M11.2で調査した既存11アプリ（tyushi / gaze-keyboard / mogura-tataki / scratch-app / drawing-app / kimochi-board / okane-app / cup_game / kyou-no-kiroku / kurabeyou-app / katachi-awase-app）について、現行コードを軽く再確認し4グループへ分類した。本Phaseでは分類のみ行い、一括実装はしない。
+
+**Group A（軽微変更でShared Foundation適用可能）**: 該当なし。REQUIRED 8項目を大半満たした上でShared Foundation配線のみが残るアプリは、既存11本の中には存在しなかった。
+
+**Group B（Gaze Settings追加が主）**:
+- `kurabeyou-app.html`・`katachi-awase-app.html`: Pilotと同系統のRAF基調`gazeEnabled`/`gazeRafId`アーキテクチャと固定`DWELL_MS=900`を既に持つ（Gaze Standard 0章に記載の「Decision A確定前の`gazeEnabled=false`強制」実装）。adjustable dwell・entry delay・cooldown・progress表示・target拡大・target余白・motion速度の7項目が未実装。
+- `kimochi-board.html`: `toggleGaze`とstep配列（`GAZE_DWELL_STEPS`）による簡易的なdwell調整UIを既に持つが、entry delay・cooldown・target拡大・target余白・motion速度の5項目が未実装。Switch ScanとGazeの排他制御（`if (state.switchScan && !state.gazeEnabled...)`）がDecision A確定前の設計のまま残っており、Decision Aへの追随も必要。
+
+**Group C（Gaze architecture再設計必要）**:
+- `okane-app.html`・`kyou-no-kiroku.html`: `mousemove`+`setTimeout`ベースのdwell実装（`gazeCurrentTarget`/`gazeDwellTimer`）。Shared Foundationが前提とするRAF基調の`gazeTick()`ループへの変換が必要。
+- `drawing-app.html`・`scratch-app.html`: 「注視で連続的に描く／こする」という継続的ジェスチャー型のGaze機能で、Pilotの「離散的ターゲットへdwellして選択する」モデルと構造が異なる。target拡大・target余白といったREQUIRED項目の概念自体をこの用途にどう適用するか、教材ごとの再設計が必要。
+
+**Group D（適用要否の判断が必要）**:
+- `gaze-keyboard.html`: `gazeEnabled`等のON/OFFトグルが見当たらず、Gazeがオプション機能ではなくアプリの主要入力方式そのものである可能性が高い。「Multi-Input＝複数入力方式から選べる」というPilotの前提がこのアプリにそのまま当てはまるか、製品判断が必要。
+- `tyushi.html`・`mogura-tataki.html`: dwell関連の記述はあるが`gazeEnabled`/`toggleGaze`に相当する設定が見当たらず、Gazeが現在アプリの正式機能として提供されているか要確認。
+- `cup_game.html`: `toggleGazeCursor`という「gazeカーソルの表示切替」のみの限定的なトグルがあり、dwell選択を伴うフルのGaze入力を意図しているか不明。スコープ判断が先に必要。
+
+### 24.10 Rollout Priority（次Phase候補）
+
+24.9章のGroup Bに分類した3本（`kurabeyou-app.html`・`katachi-awase-app.html`・`kimochi-board.html`）を、次の既存アプリRollout Phaseの最初の対象として推奨する。理由:
+
+- 3本ともPilotと同系統のGaze基盤（`gazeEnabled`ベースのトグル、dwellの概念）を既に持ち、Pilot 3教材で3回検証済みのSettings追加パターンをそのまま適用できる見込みが高く、回帰リスクが低い。
+- Group C・Dは、Settings追加の前にアーキテクチャ変換または製品スコープ判断という別種の作業が必要で、Group Bより準備コストが高い。
+- 3〜5本という規模の目安にも合致する。
+
+Group C・D（`okane-app.html`・`kyou-no-kiroku.html`・`drawing-app.html`・`scratch-app.html`・`gaze-keyboard.html`・`tyushi.html`・`mogura-tataki.html`・`cup_game.html`）は、Group B完了後に個別のInvestigate Phaseでスコープを確定してから着手する。
+
+### 24.11 M12 Readiness評価
+
+新規教材「どっちがいい？」（M12）着手可否を、以下の観点で評価した。
+
+- Shared Foundation: 3教材で安定運用中、SAFE TO SHAREへの昇格実績あり（23章）。**Ready**。
+- Gaze Accessibility Standard: v1.0（改訂4）で確定、REQUIRED 8項目の実装パターンが3教材で再現性を持つことを確認済み。**Ready**。
+- Reference app: 3教材とも利用可能。特にみるとひろがるはTobii実機確認済みのため、Gazeの実装リファレンスとして最も信頼できる。**Ready**。
+- Settings UI: 名称・順序・grouping・range/step/unit/default/reset/persistence/disabled挙動が3教材で一致することを本Phaseで確認済み（見た目のmarkupは統一不要、情報設計のみ統一）。**Ready**。
+- Multi-Input activation方針: Semantic Activation Architecture・Decision A（Gaze×Switch Scan同時ON）が22.1章・0章で確定済み。**Ready**。
+
+以上より、**M12「どっちがいい？」はReadyと判定する。**
+
+### 24.12 Pilot Close後の推奨順序
+
+**Option A**: Pilot Close → 既存Gazeアプリへの段階Rollout（少数） → M12
+**Option B**: Pilot Close → M12 → 既存Rollout
+
+**推奨: Option A。** 理由:
+
+- 既存アプリRollout（Group B、24.10章）は、Pilot 3教材で3回繰り返し検証済みの「Gaze Settings追加＋Shared Foundation配線」という定型作業であり、実装・検証コストが予測しやすく、次の新規教材着手前に消化しておくことでチームの検証手順・テストROOT運用（24.6章の再発防止策）がさらに1〜3本分実地で検証される。
+- M12は新規教材であり、Reference Architecture・Gaze Standard・Shared Foundationの「初めての新規適用」というM12固有の検証観点がある。直前に別種の作業（既存アプリRollout）を挟まず、Pilot Close直後の知見が新鮮なうちに着手する方が学習の連続性は高いが、Group Bの3本は技術的にほぼ手順が確立しているため、先に片付けても知見の劣化は小さい。
+- 教育的観点では、既存アプリのRolloutは「今使っている児童生徒・支援者」への価値提供が早期に届く一方、M12は新規機能であり届く価値は新規利用者に限られる。既存資産の底上げを優先する方が、限られた開発リソースの配分として妥当性が高い。
+
+ただし、Option Aを選ぶ場合もGroup Bの3本は「3〜5本」の少数に留め、既存Rolloutが本格的な全11本展開へ肥大化する前にM12へ着手することを条件とする。
+
+### 24.13 Close判定
+
+24.2章（自動検証）・24.5章（発見した不具合の修正）・24.6章（Retrospective Verification）の結果、Program Closeの完了条件（27章、Phase M11.5ブリーフ）をすべて満たしたと判定する。**Multi-Input Pilot Programを本Phaseをもって正式にCloseし、Pilot 3教材を今後のMulti-Input教材開発におけるReference Setとして確定する。**
