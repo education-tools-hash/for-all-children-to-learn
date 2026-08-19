@@ -1,8 +1,8 @@
-# 「どっちがいい？」設計書 v1.0（Phase M12-A: Educational / UX Design）
+# 「どっちがいい？」設計書 v1.1（Phase M12-A: Educational / UX Design、Phase M12-B: Level1 Local Prototype）
 
-Multi-Input Program 4教材目（Pilot 3教材Close後の最初の新規教材）。設計方針は[multi-input-program-design-v1.md](./multi-input-program-design-v1.md)を継承し、視線入力仕様は[donomana-gaze-accessibility-standard-v1_0.md](../design-system/donomana-gaze-accessibility-standard-v1_0.md)のREQUIRED 8項目に最初から準拠する。本書はPhase M12-A（教育設計・UX設計のみ、アプリ本体は実装しない）の成果物であり、Phase M12-Bでの実装着手前にUser承認を得るための設計書として作成する。
+Multi-Input Program 4教材目（Pilot 3教材Close後の最初の新規教材）。設計方針は[multi-input-program-design-v1.md](./multi-input-program-design-v1.md)を継承し、視線入力仕様は[donomana-gaze-accessibility-standard-v1_0.md](../design-system/donomana-gaze-accessibility-standard-v1_0.md)のREQUIRED 8項目に最初から準拠する。本書はPhase M12-A（教育設計・UX設計のみ、アプリ本体は実装しない）の成果物として起草し、Phase M12-Bで最初のLocal Prototype（Level1「どっち？」のみ）を実装した。1〜31章はM12-A時点の原設計を保持し、Prototype実装で確定した内容・変更点は32章に**revisionとして追記する**（原設計は結果に合わせて書き換えない）。
 
-- 位置づけ: 新規アプリ開発。初回Production公開は`docs/design-system/donomana-new-app-development-standard-v1_0.md`が定めるUser Approval Gate対象（48章 Release Policy）。本Phaseでは公開しない。
+- 位置づけ: 新規アプリ開発。初回Production公開は`docs/design-system/donomana-new-app-development-standard-v1_0.md`が定めるUser Approval Gate対象（48章 Release Policy）。Phase M12-Bまでの時点では未公開（`apps-data.json`未登録、`generate.js`未対象）。
 - Source of Truth: Multi-Input Program設計書・Gaze Accessibility Standard v1.0・Pilot Reference Set 3教材（`miru-hirogaru-app.html`／`mitsukete-touch-app.html`／`junban-miyou-app.html`）・Group B Rollout 3教材（`kurabeyou-app.html`／`katachi-awase-app.html`／`kimochi-board.html`）。特に`kimochi-board.html`（コミュニケーションボード）は「正解・不正解を設けない選択・意思表出型教材」という点で本教材と教育的に最も近い既存教材であり、feedback設計・success-only哲学の参照元とする。
 
 ---
@@ -457,3 +457,53 @@ Production公開時に必要になる項目（本Phaseでは実施しない、In
 7. **カテゴリー展開の順序**: 本書の推奨（食べ物・動物→楽器）でよいか、それとも異なる優先順位を希望するか
 
 実装後の大きな方向転換を避けるため、上記7点についてはPhase M12-B着手前にユーザー確認を得ることを推奨する。
+
+---
+
+## 32. Phase M12-B: Level1 Local Prototype 実装結果
+
+### 32.1 User承認済み決定事項（31章User Review Pointsへの回答）
+
+- App名: 「どっちがいい？」を正式採用（27章の代替候補「どっちがすき？」は不採用）
+- Level構造: 将来的に3構成を維持するが、**本Phaseでは「どっち？」のみ実装**
+- Category: 食べ物・動物のみ（音・楽器はM12-C以降）
+- World: 5章で推奨した「おもちゃのおへや」（候補B）は**不採用**。miru-hirogaru-appと世界観が近すぎるという判断により、明るくシンプルな「えらべるひろば」（空・草原の床・雲や星の控えめな装飾）を新規採用
+- Assets: 絵文字のみの方針は不採用。具体的でシンプルな専用イラスト（本Phaseでは4対象: りんご・バナナ・いぬ・ねこ）を採用する方向へ変更
+- Randomization: 左右入れ替えdefault ON、設定からOFF可能——原設計どおり
+
+### 32.2 Asset Inventory調査結果
+
+既存asset（`assets/`配下）を調査した結果、`assets/junban-miyou/passengers/dog.png`・`cat.png`、`assets/mitsukete-touch/dog.png`・`cat.png`、`assets/scratch/dog.png`・`cat.png`が見つかったが、いずれも**再利用しなかった**。理由:
+- `mitsukete-touch`のdog/catは「かくれんぼで覗く」構図（下半分のみ描画）で、選択UIの文脈と合わない
+- `junban-miyou`のdog/catは緑のバンダナ・青いリュックサック等、「列車に乗る」という別教材固有の物語的装飾を伴っており、そのまま流用すると他教材のキャラクター（と、その世界観）を無秩序に持ち込むことになる（M12-A設計書26章が禁止する事態そのもの）
+- りんご・バナナに相当する既存assetは`assets/`配下に一切存在しなかった
+
+適切な既存assetがなかったため、**Phase M12-B独自のplaceholder SVG（りんご・バナナ・いぬ・ねこ、計4種）をインラインで新規作成した**。丸みを帯びた単純な形状・はっきりした輪郭・淡いパステル配色とし、25章のasset visual rulesに沿わせた。ただし**これはPrototype用の暫定illustrationであり、Production最終品質のassetではない**（`dotchiga-ii-app.html`内にもコメントで明記）。将来のPhaseでより作り込んだillustrationへ置き換える余地を残す。
+
+### 32.3 World実装
+
+「えらべるひろば」として、空グラデーション背景・下部の草原（curved top-edge）・控えめな雲2つ・星2つを実装した。miru-hirogaru-appとの差別化のため、配色を暖色（miru）ではなく寒色寄り（青空）とし、世界観の主役はあくまで2つのchoiceとなるよう装飾要素は`pointer-events:none`・低opacity・小サイズに抑えた（17章 Visual hierarchy原則）。
+
+### 32.4 Input Method Tagging: 'switch'は独立した値として扱わない（重要な発見）
+
+実装当初、Switch Scanでの選択を`inputMethod:'switch'`として記録する設計で実装したところ、Keyboard用とSwitch Scan用に**別々のkeydownリスナー**を持つ構成となり、あるchoiceボタンに実DOM focusが残ったままSwitch Scanが有効化されると、同一の物理的なEnterキー押下が両方のリスナーを発火させてしまう不具合を自己発見した（`activateChoice()`自体のisShowingResultガードにより実際の二重ログ・二重feedbackは防がれていたが、`inputMethod`の記録値が不定になっていた）。
+
+原因を`kurabeyou-app.html`の実装で確認したところ、Reference Set / Group B rolloutの確立された規約では、**Switch Scanでの選択もKeyboardでの選択も`inputMethod:'keyboard'`として記録し、'switch'という独立した値は使わない**ことが分かった。これは外部スイッチデバイスがハードウェア的にキーボードEnter/Spaceイベントとして送出される（＝コードレベルでは区別できない、区別する意味がない）ためであり、意図的な設計判断だった。
+
+この規約に合わせ、`activateCurrentScanItem()`を`document.activeElement.click()`という単一実装へ統一し、Switch Scanのcycling自体が実DOM focusを移動させる（`target.focus({preventScroll:true})`）よう変更し、Keyboard用・Switch Scan用のkeydownリスナーを1本へ統合した。この設計変更後、二重発火の問題は解消し、Playwrightで実証確認した。**本節はM12-A原設計（12章 activation model、20章 Keyboard設計）の記述を否定するものではなく、それらを実装レベルで正確化する追記である**——`activateChoice(choiceId, inputMethod)`という単一活性化関数へ全入力方式を合流させるという原則自体は変更していない。29章「record方針」のinputMethod候補も、'switch'を独立枠として扱わず'keyboard'に統合する。
+
+### 32.5 検証結果概要
+
+Playwrightによる自動検証（3本のテストスイート、console/page error 0件）で以下を確認した:
+- Touch/Keyboard/Switch Scan/Gaze、いずれの入力方式でも`activateChoice()`を経由し、同一のfeedback・記録経路に到達すること
+- Gaze ON かつ Switch Scan ON の同時状態が保持可能（Decision A）で、単一のクリックが1回のみ記録されること（duplicate prevention）
+- Gaze dwell完了・entry delay・cooldownが期待どおり機能すること
+- randomization ON時に左右順序が変化し、OFF時に固定されること
+- 全trial終了後、正答数等の評価的表示なしに完了画面が表示され、「もういちど」で正しくリセットされること
+- 設定パネルopen中は`getGazeTargets().length===0`（Gaze isolation）、Escapeで閉じる、閉じた後のフォーカスが可視要素へ復帰すること
+- `prefers-reduced-motion:reduce`下でもselected状態（static highlight相当）が適用され続けること
+- 375×667〜1280×900の5 viewportすべてで、target enlargement（150%）＋target spacing（wide）を同時に有効化してもhorizontal overflowが発生しないこと（2 choice間のgapは狭いviewportで24px、広いviewportで48px）
+
+### 32.6 Production公開状態
+
+`dotchiga-ii-app.html`は`apps-data.json`に未登録、`generate.js`の処理対象外（`GAZE_SHARED_FOUNDATION_APPS`にも未登録）。sitemap・changelog・app-details・index.htmlのいずれにも反映されていない。Local Prototypeとしてのみ存在し、Production未公開の状態を維持している。
