@@ -1,7 +1,7 @@
 # どのまな 視線入力アクセシビリティ標準仕様書（Donomana Gaze Accessibility Standard）v1.0
 
-- 版: v1.0（改訂3）
-- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）／改訂: 2026-08-19（Phase M11.4-A、Gaze Shared Foundation PoC成功・mitsukete-touch-app.htmlで実装）
+- 版: v1.0（改訂4）
+- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）／改訂: 2026-08-19（Phase M11.4-A、Gaze Shared Foundation PoC成功・mitsukete-touch-app.htmlで実装）／改訂: 2026-08-19（Phase M11.4-B、Gaze Shared Foundation Pilot 3教材横展開完了・hitTestGazeTargets() SAFE TO SHARE昇格）
 - 状態: **確定**（Phase M11.2起草時点で「ユーザー確認事項」としていた2論点は、Phase M11.3-Aにおけるユーザー明示決定（0章）により正式確定した。17.2章・31.1章参照）。**Phase M11.3-A（miru-hirogaru-app.html）・M11.3-B（mitsukete-touch-app.html／junban-miyou-app.html）により、Multi-Input Pilot 3教材すべてが本書のREQUIRED 8項目（6章）を実装済み（29章参照）。Tobii実機確認はみるとひろがるのみユーザー確認済み（M11.3-Aゲート）。どこかな？みーつけた！／じゅんばんにみようは自動検証のみで、Tobii実機確認は引き続き未実施（Phase M11.3-B報告47番）。**
 - 起草根拠: Multi-Input Pilot 3教材（「みるとひろがる」`docs/multi-input/miru-hirogaru-design-v1.md`／「どこかな？みーつけた！」`docs/multi-input/mitsukete-touch-design-v1.md`／「じゅんばんにみよう」`docs/multi-input/junban-miyou-design-v1.md`、いずれもPhase M0〜M11で確立・Tobii等実機検証済み）を第一のSource of Truthとし、既存Production公開中の視線入力対応アプリ11本（18章）のコード横断調査、および既存承認済み仕様書（1章）との整合確認を根拠とする。
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（新規アプリ開発標準 v1.2、以下「New App Standard」）13章「gaze / dwell（CONDITIONAL）」の詳細補足文書。New App Standardを置き換えるものではなく、視線入力固有の要件を詳細化する下位文書として位置づける。Design System v2.1・Switch Scan仕様書v1.8・モーダルアクセシビリティ仕様書v1.1のいずれとも矛盾しないことを26章で確認している。
@@ -47,6 +47,7 @@
 32. Compliance Checklist
 33. Phase M11.3-C: Cross-App Consistency Audit / Shared Candidate Findings
 34. Phase M11.4-A: Gaze Shared Foundation PoC結果
+35. Phase M11.4-B: Gaze Shared Foundation 横展開・hitTestGazeTargets() SAFE TO SHARE昇格
 
 ---
 
@@ -744,3 +745,61 @@ mitsukete-touch-app.htmlと`hitTestGazeTargets()`本体がbyte-identicalだっ�
 **リスク**: 低い。①注入対象はPURE code（DOM/教材ロジックへの依存なし）に限定しているため、教材固有の挙動へ波及する経路がない。②登録制Set方式のため意図しない一括適用が起きない。③冪等性は既存機構の再利用であり新規リスクなし。唯一の運用上の留意点は、SAFE TO SHARE注入対象のHTML/CSSブロックをアプリ側で直接編集しない規律を維持すること（既存injector群と同水準の運用ルール）。
 
 **結論**: 33.4章のPoC失敗条件（app固有コード破壊・global scope衝突・timing差による挙動変化・CSS注入の波及・冪等性喪失・複雑性がメリットを上回る）はいずれも該当しなかった。M11.4-Bでの残り2教材への横展開を推奨する。
+
+## 35. Phase M11.4-B: Gaze Shared Foundation 横展開・hitTestGazeTargets() SAFE TO SHARE昇格
+
+34章のPoCを、残り2教材（`junban-miyou-app.html`→`miru-hirogaru-app.html`の順）へ横展開した。**結果: 成功。** Multi-Input Pilot 3教材すべてがGaze Shared Foundationを共有する状態が完成し、加えて`hitTestGazeTargets()`自体もSHARE WITH OPTIONSからSAFE TO SHAREへ昇格した。
+
+### 35.1 実装内容
+
+- **`junban-miyou-app.html`**（Step 1）: 34.4章の見込みどおり、mitsukete-touch-app.htmlと同じ手書きコードをShared Foundationへ委譲。教材固有の`SPACING_EROSION_PX`・`JM_SPARKLE_DURATION_NORMAL_MS`/`_SLOW_MS`はKEEP LOCALのままアプリ側に維持。
+- **`miru-hirogaru-app.html`**（Step 2、Tobii実機検証済みReference Implementation）: 34.3章の設計見込みどおり、共通定数・純粋関数をShared Foundationへ委譲。呼び出し箇所は`hitTestGazeTargets(lastGazeX, lastGazeY, targets, { scale: gazeTargetScalePct })`とし、**`erosion`オプションは意図的に一切渡していない**（省略＝既定値0）。これによりmiruのhit-test判定は改修前とbyte-identicalな`elementFromPoint`一本化パスを通り続け、Tobii実機で確認済みのdwell/entry delay/cooldown/target scale/spacing/motion/進捗/activation timing/leave-and-reenter/判定境界のいずれも変更していない。教材固有の`MH_POP_DURATION_NORMAL_MS`/`_SLOW_MS`はKEEP LOCALのままアプリ側に維持。
+- **`generate.js`**: `GAZE_SHARED_FOUNDATION_APPS`に`'junban-miyou-app'`・`'miru-hirogaru-app'`を追加登録（`'mitsukete-touch-app'`と合わせて3教材すべてが登録済み）。
+
+### 35.2 generate.js注入ロジックのバグ修正（横展開中に発見）
+
+`injectGazeSharedFoundationToAppHtmls()`のJS注入用フォールバックアンカーが`html.indexOf('</main>')`だったため、`<main>`要素を持たない`junban-miyou-app.html`（`<div class="app">`構造）では注入位置を特定できず失敗することが判明した。`html.lastIndexOf('<script>')`（教材本体の最終`<script>`タグ直前）へアンカーを変更し、`<main>`の有無に依存しない堅牢な注入位置決定とした。3教材とも注入位置が教材本体スクリプトの直前であることを確認済み。
+
+### 35.3 hitTestGazeTargets() のSAFE TO SHARE昇格
+
+16章の判断基準（miru側wrapper不要・app固有分岐が入らない・option数が安定/小規模・material依存ロジックが入らない）を、3教材横展開完了時点で再評価した。
+
+- **miru側wrapper不要**: 35.1章のとおり、miruは`erosion`省略のみで対応でき、wrapper関数は不要だった。
+- **app固有分岐なし**: `sed`で3教材の`hitTestGazeTargets()`関数本体を抽出し diff したところ、**byte-identical**であることを確認した（mitsukete・junban・miru間で1バイトの差異もなし）。
+- **option数の安定性**: `{scale, erosion}`の2オプションのまま変化なし。
+- **material依存ロジックなし**: 関数内に教材名・DOM構造への分岐は一切ない（純粋な座標×矩形判定のみ）。
+
+以上4条件すべてを満たしたため、`hitTestGazeTargets()`を`buildGazeSharedFoundationJSHTML()`内へ移設し、SAFE TO SHAREへ昇格した。3教材の手書き関数本体は削除し、各教材の呼び出し箇所（KEEP LOCAL）のみが残る。
+
+### 35.4 Shared / Local Adapter 契約（Switch Scan helper6パターン踏襲）
+
+Switch Scan仕様書のhelper6パターン（「contractは共有、実装はapp-local adapterに残す」）にならい、Gaze Shared Foundationの責務境界を以下のとおり明文化する。
+
+**Shared（generate.js注入、`<!-- gaze-shared-css -->`/`<!-- gaze-shared-js -->`）:**
+- 定数: `DWELL_MIN_MS`/`_MAX_MS`/`_STEP_MS`、`ENTRY_DELAY_MIN_MS`/`_MAX_MS`/`_STEP_MS`、`COOLDOWN_MIN_MS`/`_MAX_MS`/`_STEP_MS`、`TARGET_SCALE_STANDARD`/`_LARGE`、`MOTION_SLOW_FACTOR`
+- 純粋関数: `clamp()`、`effMs()`、`formatSecondsLabel()`、`wireStepper()`、`hitTestGazeTargets(x, y, targets, options)`
+- CSS: `.stepper-btn`、`.stepper-btn:focus-visible`、`.stepper-val`
+
+**Local Adapter（教材ごとに手書き、KEEP LOCAL）:**
+- gaze tick状態機械（canonical/transient state）
+- 教材固有DOM属性・ターゲット収集ロジック
+- activation関数
+- `applyMotionSpeed()`のターゲットタイマー呼び出し
+- 設定行マークアップ（settings row HTML）
+- ターゲット間余白の実現方式（例: `SPACING_EROSION_PX`のような教材固有のerosion量定数と、それを`hitTestGazeTargets()`へ渡す呼び出し組み立て）
+- シーン/レベルのライフサイクル
+- Guided Attention
+- 教材固有のcleanup処理
+
+**契約の性質**: Sharedは「値を受け取り値を返す、DOM/教材ロジックに依存しないPURE code」に限定する。教材固有の状態・タイミング定数・DOM構造への依存が生じた時点で、その項目はLocal Adapter側へ残す（＝Sharedへ昇格させない）。`hitTestGazeTargets()`が昇格できたのは、教材固有のerosion値そのものではなく「erosion値を受け取って判定するロジック」のみを関数化していたためである。
+
+### 35.5 検証結果概要
+
+- **before/after equivalence**: miru用4本（`test_gaze.py`〜`test_gaze4.py`）・mitsukete用1本（`test_mitsukete.py`）・junban用1本（`test_junban.py`、Guided Attention・boarding lifecycle・level遷移時のstray activation防止含む）・junban setBtn回帰用1本（`test_setbtn_fix.py`）・`hitTestGazeTargets()`単体テスト1本（`test_hittest_unit.py`）の全8本を、本Phase横展開後および`hitTestGazeTargets()`のSAFE TO SHARE昇格後の状態で再実行し、すべてPASS（console/page error 0件）。
+- **冪等性**: `node generate.js`を3回連続実行し、2回目・3回目とも対象3教材ファイルが「既に最新」（0件更新）と判定され、SHA-256ハッシュが3回とも完全一致することを確認した。
+- **マーカー整合性**: 3教材とも`<!-- gaze-shared-css -->`/`<!-- gaze-shared-js -->`の開始・終了マーカーがそれぞれ1組のみ存在し、重複・空白ドリフトは検出されなかった。
+- **miru Tobii挙動保存**: 35.1章のとおり`erosion`を渡さない設計により、hit-test判定パスが改修前と完全に同一であることをunit test・equivalenceテスト双方で確認した。
+
+### 35.6 手法上の注意点（透明性のための開示）
+
+横展開作業の途中、再利用していたPlaywrightテストスクリプト（本Phase以前のフェーズから流用）のうち複数本が、過去フェーズのworktreeディレクトリ（`ROOT`変数）を指したままになっていたことを自己発見した。これらのworktreeは過去フェーズのコミット時点のまま物理的にディスク上に残存しているため、修正前に実行した一部の「before/after equivalence」検証は、本Phaseの実際のコード変更ではなく過去フェーズの凍結スナップショットを検証していたことになる。発見後、全テストスクリプトの`ROOT`を本Phaseのworktree（`for-all-children-to-learn-m11-4b`）へ修正し、かつ`hitTestGazeTargets()`呼び出しを新API（`options`引数）に合わせて更新した上で、全テストを再実行し直した。本章35.5の検証結果はすべて修正後の再実行結果である。この問題は本Phase内で自己発見・自己修正されたものであり、ユーザーからの指摘によるものではない。今後のフェーズでは、流用テストスクリプトの`ROOT`が現在のworktreeを指しているかを実行前に必ず確認する。

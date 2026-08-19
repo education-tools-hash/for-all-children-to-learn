@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>みるとひろがる</title>
+<!-- gaze-shared-css: 自動挿入 (generate.js) -->
+<style>
+  .stepper-btn { min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1.125rem; font-weight: 700; cursor: pointer; }
+  .stepper-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .stepper-val { min-width: 4.2em; text-align: center; font-size: 0.9375rem; font-weight: 700; }
+</style>
+<!-- /gaze-shared-css -->
 <!-- seo-tags: 自動挿入 (generate.js) -->
 <link rel="canonical" href="https://donomana.jp/app-details/miru-hirogaru-app-detail.html">
 <meta name="description" content="見る・触れる・スイッチを押すと、おもちゃが動いたり音が鳴ったりして応えてくれる、初期的な因果関係を楽しむ教材です。タッチ、キーボード、スイッチ、視線入力など、一人ひとりに合った方法で参加できます。正解・不正解はなく、働き 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
@@ -260,9 +267,9 @@
   #gazeSubSettings.dimmed { opacity: 0.45; }
   .stepper-row { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-2,8px); padding: var(--dm-space-2,8px) 0; }
   .stepper-controls { display: flex; align-items: center; gap: var(--dm-space-2,8px); }
-  .stepper-btn { min-width: 44px; min-height: 44px; border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 1.125rem; font-weight: 700; cursor: pointer; }
-  .stepper-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
-  .stepper-val { min-width: 4.2em; text-align: center; font-size: 0.9375rem; font-weight: 700; }
+  /* .stepper-btn / .stepper-val: Phase M11.4-B rollout — moved to the Gaze
+     Shared Foundation CSS block (generate.js-injected, see
+     <!-- gaze-shared-css --> in <head>). Not duplicated here. */
   .settings-reset-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.875rem; font-weight: 700; cursor: pointer; margin-top: var(--dm-space-2,8px); }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
@@ -698,6 +705,61 @@
   </div>
 </main>
 
+<!-- gaze-shared-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Gaze Foundation (Phase M11.4-A/B) — SAFE TO SHARE constants and
+   pure helper functions common to Gaze Accessibility Standard v1.0
+   implementations (docs/design-system/donomana-gaze-accessibility-standard-v1_0.md
+   §33.3/§34/§35). Auto-injected by generate.js — edit generate.js's
+   buildGazeSharedFoundationJSHTML() instead of this block directly. */
+var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2
+var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3
+var COOLDOWN_MIN_MS = 300, COOLDOWN_MAX_MS = 3000, COOLDOWN_STEP_MS = 100;       // §10
+var TARGET_SCALE_STANDARD = 100, TARGET_SCALE_LARGE = 150;                      // §12.3
+var MOTION_SLOW_FACTOR = 1.4;                                                   // §14.2
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+function effMs(baseMs) { return (motionSpeedLevel === 'slow') ? Math.round(baseMs * MOTION_SLOW_FACTOR) : baseMs; }
+function formatSecondsLabel(ms) { return (ms / 1000).toFixed(1) + '秒'; }
+function wireStepper(minusId, plusId, valId, get, set, min, max, step, format) {
+  var valEl = document.getElementById(valId);
+  function refresh() { valEl.textContent = format(get()); }
+  document.getElementById(minusId).addEventListener('click', function() { set(clamp(get() - step, min, max)); refresh(); saveSettings(); });
+  document.getElementById(plusId).addEventListener('click', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });
+  refresh();
+  return refresh;
+}
+// hitTestGazeTargets: upgraded from SHARE WITH OPTIONS to SAFE TO SHARE in
+// Phase M11.4-B after confirming byte-identical bodies across all 3 Pilot
+// apps (§35.2). options: { scale: <percent, default 100>, erosion: <px,
+// default 0> }. Call sites (KEEP LOCAL, per-app gaze-tick code) assemble
+// and pass these from their own gazeTargetScalePct/targetSpacingWide state;
+// miru-hirogaru never passes erosion (its spacing uses CSS gap instead),
+// which this default cleanly reproduces without any app-specific branch here.
+function hitTestGazeTargets(x, y, targets, options) {
+  var opts = options || {};
+  var scalePct = (typeof opts.scale === 'number') ? opts.scale : 100;
+  var erosionPx = (typeof opts.erosion === 'number') ? opts.erosion : 0;
+  if (scalePct <= 100 && erosionPx <= 0) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) return targets[i]; }
+    return null;
+  }
+  var scale = scalePct / 100;
+  var best = null, bestArea = Infinity;
+  for (var j = 0; j < targets.length; j++) {
+    var r = targets[j].getBoundingClientRect();
+    var padX = Math.max(0, (r.width * (scale - 1) / 2) - erosionPx);
+    var padY = Math.max(0, (r.height * (scale - 1) / 2) - erosionPx);
+    if (x >= r.left - padX && x <= r.right + padX && y >= r.top - padY && y <= r.bottom + padY) {
+      var area = r.width * r.height;
+      if (area < bestArea) { bestArea = area; best = targets[j]; }
+    }
+  }
+  return best;
+}
+</script>
+<!-- /gaze-shared-js -->
 <script>
 /* =====================================================================
    Toy definitions (Phase M8 Engagement Redesign — "おとのなる ふしぎな
@@ -740,12 +802,12 @@ var ROOM_COMPLETE_PAUSE_MS = 1400; // Level3 only: pause after all 3 toys are ac
    is 0 (no behavior change), progress stays visible, target scale/spacing
    stay at 100%/normal, motion stays at normal speed.
 ===================================================================== */
-var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2
-var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3
-var COOLDOWN_MIN_MS = 300, COOLDOWN_MAX_MS = 3000, COOLDOWN_STEP_MS = 100;       // §10
-var TARGET_SCALE_STANDARD = 100, TARGET_SCALE_LARGE = 150;                      // §12.3
-var MOTION_SLOW_FACTOR = 1.4;                                                   // §14.2
-var MH_POP_DURATION_NORMAL_MS = 650, MH_POP_DURATION_SLOW_MS = 900;             // §14.2
+/* DWELL_MIN_MS/MAX_MS/STEP_MS・ENTRY_DELAY_*・COOLDOWN_*・TARGET_SCALE_*・
+   MOTION_SLOW_FACTOR、clamp()、effMs() — Phase M11.4-B rolloutでGaze Shared
+   Foundation（generate.js注入、<!-- gaze-shared-js -->）へ移動済み。
+   このアプリ本体scriptより前に別scriptタグとして挿入されるため、
+   ここでの再定義は不要（重複させない）。 */
+var MH_POP_DURATION_NORMAL_MS = 650, MH_POP_DURATION_SLOW_MS = 900;             // §14.2 — KEEP LOCAL (app-specific timer)
 
 var dwellDurationMs = DWELL_MS;          // §8, adjustable 300–3000ms
 var entryDelayMs = 0;                    // §9, adjustable 0–500ms, default 0 (off)
@@ -754,8 +816,6 @@ var dwellProgressVisible = true;         // §11.2
 var gazeTargetScalePct = TARGET_SCALE_STANDARD; // §12.3, hit-area only — never shrinks
 var targetSpacingWide = false;           // §13.2
 var motionSpeedLevel = 'normal';         // §14.2, 'normal' | 'slow'
-
-function effMs(baseMs) { return (motionSpeedLevel === 'slow') ? Math.round(baseMs * MOTION_SLOW_FACTOR) : baseMs; }
 
 /* =====================================================================
    Canonical / Transient state (Phase M1 §18, §43-44; extended for Phase M8's
@@ -798,8 +858,6 @@ var STORAGE_SETTINGS_KEY = 'miru_hirogaru_settings';
 var soundEnabled = true;
 var gazeEnabled = false;
 var scanMode = false;
-
-function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
 function loadSettings() {
   try {
@@ -1245,33 +1303,19 @@ function onGazeMove(e) { lastGazeX = e.clientX; lastGazeY = e.clientY; }
 
 // Gaze Standard §12.3: hit area may exceed visual size. At the 100% (standard)
 // scale this stays byte-for-byte the original elementFromPoint-based test (zero
-// behavior change at default). Only the "large" (150%) setting switches to an
-// expanded-bounding-box test, since elementFromPoint is inherently bound to actual
-// rendered pixels and cannot report a hit outside them.
-function hitTestGazeTargets(x, y, targets) {
-  if (gazeTargetScalePct <= TARGET_SCALE_STANDARD) {
-    var el = document.elementFromPoint(x, y);
-    if (!el) return null;
-    for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) return targets[i]; }
-    return null;
-  }
-  var scale = gazeTargetScalePct / 100;
-  var best = null, bestArea = Infinity;
-  for (var j = 0; j < targets.length; j++) {
-    var r = targets[j].getBoundingClientRect();
-    var padX = r.width * (scale - 1) / 2, padY = r.height * (scale - 1) / 2;
-    if (x >= r.left - padX && x <= r.right + padX && y >= r.top - padY && y <= r.bottom + padY) {
-      var area = r.width * r.height;
-      if (area < bestArea) { bestArea = area; best = targets[j]; }
-    }
-  }
-  return best;
-}
+// behavior change at default). miru-hirogaru realizes target spacing via CSS
+// `gap` (not hit-area erosion, §13), so the call site below never passes an
+// `erosion` value — the shared default (0) reproduces the exact prior
+// scale-only behavior; no erosion concept is introduced here.
+// hitTestGazeTargets() itself: moved to Gaze Shared Foundation (Phase M11.4-B,
+// generate.js-injected, upgraded SHARE WITH OPTIONS → SAFE TO SHARE after
+// confirming byte-identical bodies across all 3 Pilot apps, Gaze Standard
+// §35.2). Not duplicated here.
 
 function gazeTick() {
   if (gazeEnabled && lastGazeX !== null) {
     var targets = getGazeTargets();
-    var hit = hitTestGazeTargets(lastGazeX, lastGazeY, targets);
+    var hit = hitTestGazeTargets(lastGazeX, lastGazeY, targets, { scale: gazeTargetScalePct });
     var hitId = hit ? hit.dataset.itemId : null;
     var now = performance.now();
 
@@ -1335,16 +1379,9 @@ function setGazeEnabled(on) {
 var toggleGaze = document.getElementById('toggleGaze');
 toggleGaze.addEventListener('change', function() { setGazeEnabled(toggleGaze.checked); saveSettings(); });
 
-/* ---- §8.2 dwell time / §9 entry delay / §10 cooldown steppers ---- */
-function formatSecondsLabel(ms) { return (ms / 1000).toFixed(1) + '秒'; }
-function wireStepper(minusId, plusId, valId, get, set, min, max, step, format) {
-  var valEl = document.getElementById(valId);
-  function refresh() { valEl.textContent = format(get()); }
-  document.getElementById(minusId).addEventListener('click', function() { set(clamp(get() - step, min, max)); refresh(); saveSettings(); });
-  document.getElementById(plusId).addEventListener('click', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });
-  refresh();
-  return refresh;
-}
+/* ---- §8.2 dwell time / §9 entry delay / §10 cooldown steppers ----
+   formatSecondsLabel() / wireStepper(): moved to Gaze Shared Foundation
+   (Phase M11.4-B rollout, generate.js-injected). Not duplicated here. */
 var refreshDwellVal = wireStepper('dwellMinusBtn', 'dwellPlusBtn', 'dwellVal',
   function() { return dwellDurationMs; }, function(v) { dwellDurationMs = v; },
   DWELL_MIN_MS, DWELL_MAX_MS, DWELL_STEP_MS, formatSecondsLabel);

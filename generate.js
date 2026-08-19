@@ -1287,7 +1287,7 @@ function buildDesignTokensHTML() {
 //  ・対象アプリはGAZE_SHARED_FOUNDATION_APPSに明示登録した場合のみ(全アプリ
 //    一括適用はしない。Phase M11.4-Aはmitsukete-touch-appのみ)。
 // ============================================================
-const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app']);
+const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app', 'junban-miyou-app', 'miru-hirogaru-app']);
 
 function buildGazeSharedFoundationCSSHTML() {
   return [
@@ -1305,10 +1305,10 @@ function buildGazeSharedFoundationJSHTML() {
   return [
     '<!-- gaze-shared-js: 自動挿入 (generate.js) -->',
     '<script>',
-    '/* Donomana Gaze Foundation (Phase M11.4-A PoC) — SAFE TO SHARE constants and',
+    '/* Donomana Gaze Foundation (Phase M11.4-A/B) — SAFE TO SHARE constants and',
     '   pure helper functions common to Gaze Accessibility Standard v1.0',
     '   implementations (docs/design-system/donomana-gaze-accessibility-standard-v1_0.md',
-    '   §33.3). Auto-injected by generate.js — edit generate.js\'s',
+    '   §33.3/§34/§35). Auto-injected by generate.js — edit generate.js\'s',
     '   buildGazeSharedFoundationJSHTML() instead of this block directly. */',
     'var DWELL_MIN_MS = 300, DWELL_MAX_MS = 3000, DWELL_STEP_MS = 100;               // §8.2',
     'var ENTRY_DELAY_MIN_MS = 0, ENTRY_DELAY_MAX_MS = 500, ENTRY_DELAY_STEP_MS = 50;  // §9.3',
@@ -1325,6 +1325,36 @@ function buildGazeSharedFoundationJSHTML() {
     '  document.getElementById(plusId).addEventListener(\'click\', function() { set(clamp(get() + step, min, max)); refresh(); saveSettings(); });',
     '  refresh();',
     '  return refresh;',
+    '}',
+    '// hitTestGazeTargets: upgraded from SHARE WITH OPTIONS to SAFE TO SHARE in',
+    '// Phase M11.4-B after confirming byte-identical bodies across all 3 Pilot',
+    '// apps (§35.2). options: { scale: <percent, default 100>, erosion: <px,',
+    '// default 0> }. Call sites (KEEP LOCAL, per-app gaze-tick code) assemble',
+    '// and pass these from their own gazeTargetScalePct/targetSpacingWide state;',
+    '// miru-hirogaru never passes erosion (its spacing uses CSS gap instead),',
+    '// which this default cleanly reproduces without any app-specific branch here.',
+    'function hitTestGazeTargets(x, y, targets, options) {',
+    '  var opts = options || {};',
+    '  var scalePct = (typeof opts.scale === \'number\') ? opts.scale : 100;',
+    '  var erosionPx = (typeof opts.erosion === \'number\') ? opts.erosion : 0;',
+    '  if (scalePct <= 100 && erosionPx <= 0) {',
+    '    var el = document.elementFromPoint(x, y);',
+    '    if (!el) return null;',
+    '    for (var i = 0; i < targets.length; i++) { if (targets[i] === el || targets[i].contains(el)) return targets[i]; }',
+    '    return null;',
+    '  }',
+    '  var scale = scalePct / 100;',
+    '  var best = null, bestArea = Infinity;',
+    '  for (var j = 0; j < targets.length; j++) {',
+    '    var r = targets[j].getBoundingClientRect();',
+    '    var padX = Math.max(0, (r.width * (scale - 1) / 2) - erosionPx);',
+    '    var padY = Math.max(0, (r.height * (scale - 1) / 2) - erosionPx);',
+    '    if (x >= r.left - padX && x <= r.right + padX && y >= r.top - padY && y <= r.bottom + padY) {',
+    '      var area = r.width * r.height;',
+    '      if (area < bestArea) { bestArea = area; best = targets[j]; }',
+    '    }',
+    '  }',
+    '  return best;',
     '}',
     '</script>',
     '<!-- /gaze-shared-js -->'
@@ -1362,18 +1392,24 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
         if (insertAt !== -1) html = html.slice(0, insertAt) + '\n' + cssBlock + html.slice(insertAt);
       }
 
-      // JS: 既存マーカーがあれば差し替え、なければ</main>直後(アプリ本体scriptの直前)に挿入
+      // JS: 既存マーカーがあれば差し替え、なければアプリ本体script直前に挿入
       // -- wireStepper()等はアプリ本体scriptのトップレベルで即時呼び出されるため、
       //    このscriptタグは必ずアプリ本体scriptより前に置く必要がある。
+      //    アンカーは</main>ではなくファイル内最後の<script>タグの直前とする
+      //    (Phase M11.4-B判明: junban-miyou-app.htmlは<main>を持たず
+      //    <div class="app">を使うため</main>アンカーが不成立。lock-fs-btn/
+      //    home-btn/announce-helper/a11y-panel等の共通chrome scriptは全アプリで
+      //    アプリ本体scriptより前に位置するため、「最後の<script>タグ」は
+      //    <main>の有無によらずアプリ本体scriptを指す)。
       const jsStartIdx = html.indexOf(jsStartMark);
       if (jsStartIdx !== -1) {
         const jsEndIdx = html.indexOf(jsEndMark, jsStartIdx);
         if (jsEndIdx !== -1) html = html.slice(0, jsStartIdx) + jsBlock + html.slice(jsEndIdx + jsEndMark.length);
       } else {
-        const mainEnd = html.indexOf('</main>');
-        if (mainEnd !== -1) {
-          const insertAt = mainEnd + '</main>'.length;
-          html = html.slice(0, insertAt) + '\n' + jsBlock + html.slice(insertAt);
+        const lastScriptIdx = html.lastIndexOf('<script>');
+        if (lastScriptIdx !== -1) {
+          const insertAt = lastScriptIdx;
+          html = html.slice(0, insertAt) + jsBlock + '\n' + html.slice(insertAt);
         }
       }
 
