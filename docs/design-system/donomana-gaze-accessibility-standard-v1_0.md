@@ -1,8 +1,8 @@
 # どのまな 視線入力アクセシビリティ標準仕様書（Donomana Gaze Accessibility Standard）v1.0
 
-- 版: v1.0（改訂1）
-- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）
-- 状態: **確定**（Phase M11.2起草時点で「ユーザー確認事項」としていた2論点は、Phase M11.3-Aにおけるユーザー明示決定（0章）により正式確定した。17.2章・31.1章参照）
+- 版: v1.0（改訂2）
+- 起草日: 2026-08-19／改訂: 2026-08-19（Phase M11.3-A、Decision A・B確定）／改訂: 2026-08-19（Phase M11.3-B・M11.3-C、Pilot 3教材への実装完了・default値確定・Final Consistency Audit）
+- 状態: **確定**（Phase M11.2起草時点で「ユーザー確認事項」としていた2論点は、Phase M11.3-Aにおけるユーザー明示決定（0章）により正式確定した。17.2章・31.1章参照）。**Phase M11.3-A（miru-hirogaru-app.html）・M11.3-B（mitsukete-touch-app.html／junban-miyou-app.html）により、Multi-Input Pilot 3教材すべてが本書のREQUIRED 8項目（6章）を実装済み（29章参照）。Tobii実機確認はみるとひろがるのみユーザー確認済み（M11.3-Aゲート）。どこかな？みーつけた！／じゅんばんにみようは自動検証のみで、Tobii実機確認は引き続き未実施（Phase M11.3-B報告47番）。**
 - 起草根拠: Multi-Input Pilot 3教材（「みるとひろがる」`docs/multi-input/miru-hirogaru-design-v1.md`／「どこかな？みーつけた！」`docs/multi-input/mitsukete-touch-design-v1.md`／「じゅんばんにみよう」`docs/multi-input/junban-miyou-design-v1.md`、いずれもPhase M0〜M11で確立・Tobii等実機検証済み）を第一のSource of Truthとし、既存Production公開中の視線入力対応アプリ11本（18章）のコード横断調査、および既存承認済み仕様書（1章）との整合確認を根拠とする。
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（新規アプリ開発標準 v1.2、以下「New App Standard」）13章「gaze / dwell（CONDITIONAL）」の詳細補足文書。New App Standardを置き換えるものではなく、視線入力固有の要件を詳細化する下位文書として位置づける。Design System v2.1・Switch Scan仕様書v1.8・モーダルアクセシビリティ仕様書v1.1のいずれとも矛盾しないことを26章で確認している。
 
@@ -45,6 +45,7 @@
 30. 既存Gazeアプリ Inventory
 31. Migration Guidance
 32. Compliance Checklist
+33. Phase M11.3-C: Cross-App Consistency Audit / Shared Candidate Findings
 
 ---
 
@@ -542,18 +543,20 @@ kyou-no-kiroku.htmlの既存案内（「設定＞アクセシビリティ＞ポ�
 
 ## 29. Pilot 3教材 Compliance
 
+**本章はPhase M11.2時点（Pilot初期実装）の状態を記録していたが、Phase M11.3-A（miru-hirogaru-app.html）・M11.3-B（mitsukete-touch-app.html／junban-miyou-app.html）の実装完了を受け、以下は現在の状態に更新済みである。** Phase M11.2時点の記録は`docs/multi-input/*-design-v1.md`各書の履歴注記（31.1章参照）に残る。
+
 | Requirement | miru-hirogaru | mitsukete-touch | junban-miyou | 判定 |
 |---|---|---|---|---|
-| 6.1 視線入力 ON/OFF | なし（自動併用、Mode UIなし） | なし（同左） | なし（同左） | **Missing**（Pilot当時の意図的設計判断。Decision B（0章）により今後REQUIRED、Phase M11.3-Aで「みるとひろがる」から追加着手、31.1章） |
-| 6.2 ドウェル時間調整 | 900ms固定（UIなし） | 900ms固定（同左） | 900ms固定（同左） | **Missing**（値自体は8章のdefaultとして妥当・確定済み。調整UIのみ欠如） |
-| 6.3 ドウェル進捗表示 | 常時表示、ON/OFF不可 | 同左 | 同左（Guided Attentionと3層共存） | **Minor gap**（表示自体は標準パターンとして完全準拠。toggleのみ欠如） |
-| 6.4 再選択防止 | Leave-and-Reenter Gate | 同左 | 同左 | **Already compliant**（本書10.2章 方式Aそのもの。Foundation A水準） |
-| 6.5 視覚変化・進行速度 | reduced-motion対応、app内animation toggleなし | 同左 | 同左（Departure/Guided Attentionはreduced-motionで別途短縮値を持つ） | **Minor gap**（基礎水準は満たすが14.1章のapp内トグルなし。junban-miyouはreduced-motion時の代替値まで個別設計済みで最も手厚い） |
-| 6.6 視線ターゲット拡大 | 固定サイズ、hit area=視覚サイズ | 固定サイズ、hit area=hide spot全体（原則採用済み） | 固定サイズ | **Different implementation**（原則はmitsuketeのみ確立済み。可変設定UIは3教材とも欠如） |
-| 6.7 ターゲット間余白調整 | 実測固定（調整不可） | 実測固定・精緻に調整済み（調整不可） | 実測固定（調整不可） | **Missing**（設計時の余白最適化は最も手厚い部類。利用者向け可変UIが欠如） |
-| 6.8 注視開始までの猶予 | なし | なし | なし | **Missing**（新規要件、9.2章の通り既存実装皆無） |
+| 6.1 視線入力 ON/OFF | 実装済み（既定OFF、永続化） | 実装済み（同左） | 実装済み（同左） | **Already compliant**（Decision B、0章） |
+| 6.2 ドウェル時間調整 | 300–3000ms、既定900ms | 同左 | 同左 | **Already compliant** |
+| 6.3 ドウェル進捗表示 | ON/OFF切替可能 | 同左 | 同左（Guided Attention 3層構造は無変更） | **Already compliant** |
+| 6.4 再選択防止 | Leave-and-Reenter Gate + cooldown floor（300–3000ms） | 同左 | 同左 | **Already compliant**（Foundation A水準） |
+| 6.5 視覚変化・進行速度 | 2段階トグル（ふつう/ゆっくり）、reduced-motion優先 | 同左 | 同左（Departure等5タイマー対応、`boardingCompletionMs()`でロック時間と同期） | **Already compliant**（REQUIRED基礎水準＋RECOMMENDED上位実装） |
+| 6.6 視線ターゲット拡大 | hit areaのみ拡大（100/150%） | 同左（既存の「hit area=隠れ場所全体」原則と両立） | 同左（現在targetのみ拡大、getGazeTargets()の既存限定により自然に安全） | **Already compliant** |
+| 6.7 ターゲット間余白調整 | CSS layout gap方式 | hit region erosion方式（絶対%配置のため） | hit region erosion方式（実質効果なし、UI一貫性目的） | **Already compliant（実装方式はアプリ固有、33章参照）** |
+| 6.8 注視開始までの猶予 | 0–500ms、既定0ms | 同左 | 同左 | **Already compliant** |
 
-**総評**: Pilot 3教材は6.4（再選択防止）において本書が定めるFoundation A水準そのものであり、6.3（進捗表示）・6.5（速度）・6.6/6.7（拡大・余白）は「原則は確立しているが利用者向け可変UIがない」という共通パターンを示す。6.1（ON/OFF）は、Pilot当時の意図的設計判断だったが、Decision B（0章）により今後REQUIREDとして扱う。31.1章・Phase M11.3-A（本書と対になる実装Phase）で個別に扱う。
+**総評（Phase M11.3-C更新）**: Multi-Input Pilot 3教材はGaze Accessibility Standard v1.0のREQUIRED 8項目すべてを実装済み（Phase M11.3-A/B）。設定名称・グループ順序・数値レンジ・defaultはPhase M11.3-Cの横断監査でbyte-identicalを確認済み（33章）。6.7（target spacing）のみ、実現方式（CSS gap／hit region erosion）がアプリのレイアウト構造に応じて異なるが、これは意図的・正当な差異であり統一の対象としない（33章）。Tobii実機確認はみるとひろがるのみ完了（M11.3-Aゲート）、他2教材は自動検証のみで実機確認は引き続き未実施。
 
 ---
 
@@ -601,7 +604,7 @@ katachi-awase-app／kurabeyou-appはdwell時間が固定値（900ms）でUIが�
 
 6.1（視線入力ON/OFF）はREQUIRED項目である。Pilot 3教材はMulti-Input Program 8.5章で「自動併用を既定とし、Mode選択UIは複数入力が具体的に競合する問題が確認された場合にのみ追加を検討する（過剰な設定はしない）」と明示的に決定していたが、これはPilot時点（Multi-Input Program策定当時）の歴史的設計判断として扱う（0章 Decision B）。
 
-**今後の正式標準としては、Gaze対応教材は利用者・支援者が視線入力を明示的に有効／無効化できることをREQUIREDとする。** Pilot 3教材への遡及適用（実装追加）はPhase M11.3-A以降で順次行う。まず「みるとひろがる」1本をReference Implementationとして実装し（Phase M11.3-A）、検証結果を踏まえて残り2教材へ横展開する（Phase M11.3-B）。追加時はdefaultをONに保つことで、既存の「自動併用」体験を破壊せずに済む（backward compatible、31.2章）。
+**今後の正式標準としては、Gaze対応教材は利用者・支援者が視線入力を明示的に有効／無効化できることをREQUIREDとする。** Pilot 3教材への遡及適用は、まず「みるとひろがる」1本をReference Implementationとして実装し（Phase M11.3-A、User Tobii確認PASS）、検証結果を踏まえて残り2教材（どこかな？みーつけた！／じゅんばんにみよう）へ横展開した（Phase M11.3-B）。**Phase M11.3-C時点で3教材とも実装完了。** defaultはON/OFFともに既存の「自動併用」体験を破壊しないOFFを採用（backward compatible、31.2章）。
 
 **Pilot設計書側の扱い**: `docs/multi-input/multi-input-program-design-v1.md` 8.5章の「自動併用に確定」という記述は、過去の設計経緯として削除・書き換えしない。Gaze ON/OFF実装時に、当該アプリの個別設計書（例: `miru-hirogaru-design-v1.md`）へ「当初Pilotでは常時有効だったが、Gaze Accessibility Standard v1.0策定後はON/OFF REQUIRED」という最小限の履歴注記を追加する運用とする（実際の注記はPhase M11.3-A実装時に当該設計書へ追記する、5章参照）。
 
@@ -639,3 +642,61 @@ Phase M11.2でNew App Standard 13章「gaze / dwell（CONDITIONAL）」の末尾
 - [ ] Tobii等の実機確認項目を満たす（キャリブレーション案内文を含む、26章）
 - [ ] Gaze×Switch Scan同時ON方針を明示決定した（17.2章、相互排他 or 同時ON）
 - [ ] 5viewport（375×667/375×812/390×844/768×1024/1280×900）でoverflow・clippingがない（24章）
+
+---
+
+## 33. Phase M11.3-C: Cross-App Consistency Audit / Shared Candidate Findings
+
+Phase M11.3-Cで、Multi-Input Pilot 3教材（実装完了後）を横断比較した結果を記録する。M11.4での共通化判断の一次資料とする。**本章の記載はいずれも調査結果の記録であり、本Phaseでは実装の共通化・統合は行っていない。**
+
+### 33.1 設定名称・順序・数値レンジのByte-Identical確認
+
+3教材のソースを直接diffし、以下がbyte-identicalであることを確認した: 設定グループ見出し（選択／見やすさ・操作しやすさ／動き）、各設定のラベル文言、`DWELL_MIN_MS/MAX_MS/STEP_MS`（300/3000/100）、`ENTRY_DELAY_*`（0/500/50）、`COOLDOWN_*`（300/3000/100）、`TARGET_SCALE_STANDARD/LARGE`（100/150）、`MOTION_SLOW_FACTOR`（1.4）。既定値（gazeEnabled=false、dwellDurationMs=900、entryDelayMs=0、cooldownMs=900、dwellProgressVisible=true、gazeTargetScalePct=100、targetSpacingWide=false、motionSpeedLevel='normal'）も3教材で完全一致。
+
+### 33.2 hitTestGazeTargets() 差分分析
+
+- **mitsukete-touch-app.html／junban-miyou-app.html**: 関数本体がbyte-identical（scale拡大＋`targetSpacingWide`時のerosion処理を含む）。
+- **miru-hirogaru-app.html**: erosion処理を持たない（scale拡大のみ）。target spacingをCSS `gap`（flex/gridレイアウト）で実現しているため、hit-test側での対応が不要という設計判断（13章参照）。
+
+**1つのhelperへの統合可否**: scale拡大部分は3教材で意味・実装とも完全に共通化可能。erosion部分はmiruに「spacingをCSS gapで扱う」という設計判断がある限り無条件の統合はできない——共通helper化する場合は`erosion: boolean`のようなoption parameterで吸収する設計が必要（例: miruはoption未指定またはfalseで現行同等）。
+
+**miruへerosion概念を追加するメリット**: 3教材の実装が完全一致し、将来のhelper抽出が単純になる。**デメリット**: miruは既にUser Tobii確認PASS済みの実装（Phase M11.3-Aゲート）であり、動作を変更する変更は再度の実機確認を要する。CSS gap方式は視覚的にも余白が広がったことが分かりやすいという利点があり、erosion方式（視覚的に変化しない、hit areaのみ縮む）に統一することが必ずしも改善とは言えない。**結論**: 本Phaseでは統一しない。M11.4でoption parameter方式の設計を先に固め、miruへの適用要否はその後にユーザー判断を仰ぐ。
+
+### 33.3 Shared Candidate 最終分類
+
+**SAFE TO SHARE**（3教材でbyte-identical、依存関係なし、そのまま抽出可能）:
+- Gaze定数ブロック（`DWELL_MIN_MS`等8定数、33.1章）
+- `clamp(v, lo, hi)`
+- `wireStepper(minusId, plusId, valId, get, set, min, max, step, format)`
+- `formatSecondsLabel(ms)`
+- `effMs(baseMs)`（`MOTION_SLOW_FACTOR`同様3教材一致。ただし各アプリの`motionSpeedLevel`変数への依存があるため、共有時は変数ではなく関数引数化が必要）
+- Settings UI CSS のうち `.stepper-btn` / `.stepper-val`（byte-identical）
+
+**SHARE WITH OPTIONS**（機能・目的は共通だが数値/実装に軽微な差があり、パラメータ化が必要）:
+- `hitTestGazeTargets()`（33.2章、erosion有無をoption化）
+- `.setting-group-title` / `.stepper-row` / `.settings-reset-btn` のCSS（junban-miyou-appのみ`--dm-space-*`/`--dm-color-sub`トークンではなくハードコード値・独自アクセントカラーを使用——同ファイルの既存デザイン規約に合わせた意図的差異。共有時はCSSカスタムプロパティでフォールバックを持たせるか、junban側の小さな上書きを許容する設計が必要）
+- `resetGazeSettingsToDefault()`（構造は共通だが、cooldown既定値の参照元が異なる: miru=`FEEDBACK_MS`定数、mitsukete/junban=リテラル`900`。意味的にはどれも「900ms」で一致するが、コード上の参照先を揃えるには各アプリの命名を調整する必要がある）
+
+**KEEP LOCAL**（教材固有の意味に深く結合しており、共有すべきでない）:
+- gaze-tick状態機械の変数名・DOM属性名（`transient.gazeTargetId`/`gazeItemId`/`gazePassengerId`、`data-item-id`/`data-passenger-id`）
+- `applyMotionSpeed()`が実際にスケールするタイマー群（miru: 3個、mitsukete: 2個、junban: 5個+`boardingCompletionMs()`）——Multi-Input Program 22.3章 Foundation Cの「Level/Room/Round遷移待ち時間は個別設計、統一しない」という既存原則と整合
+- 設定行のHTML markup様式（junban-miyou-appの`<div><strong>`+aria-label方式は、本Phase以前から存在する当該ファイル独自の規約であり、本Phaseで新たに生じた差異ではない）
+- target spacingの実現方式そのもの（miru=CSS gap、mitsukete/junban=hit region erosion。レイアウトアーキテクチャの違いに起因する正当な差異）
+
+### 33.4 generate.js Marker Injection方式の適用可能性調査
+
+既存の`injectA11yPanelToAppHtmls()`等（`<!-- xxx: 自動挿入 (generate.js) -->`〜`<!-- /xxx -->`のマーカー間を差し替える方式）を調査した結果：
+
+- **既存injector（a11y-panel/home-btn/lock-fs-btn/announce-helper）はすべて「アプリの内部stateに依存しない、自己完結したapp-agnostic overlay UI」である**——これがマーカー注入方式が安全に機能している前提条件。
+- Gaze機能はこの前提を満たさない: dwell判定は各アプリの`getGazeTargets()`（DOM構造依存）・`activateXxx()`（教材固有のsemantic activation関数）に必ず結合する。33.3章のKEEP LOCAL項目がまさにこの結合部分。
+- **段階的に切り分けると3層になる**:
+  1. 定数・純粋関数・Settings UI HTML/CSS（33.3章SAFE TO SHARE相当）——既存injector群と同じ「app-agnostic」条件を満たし、そのままマーカー注入方式を適用できる。
+  2. `hitTestGazeTargets()`（33.3章SHARE WITH OPTIONS相当）——option parameter化すれば注入可能だが、呼び出し側（gaze-tick）との結合が残る。
+  3. gaze-tick状態機械そのもの（33.3章KEEP LOCAL）——Switch Scan仕様書v1.8のhelper6と同じ位置づけ（「契約は結果の形のみ、実装は各アプリのadapterとして残す」）とするのが安全。マーカー注入の対象にしない。
+- **marker候補位置**: Settings UI HTML/CSSは`<!-- gaze-settings-ui: 自動挿入 (generate.js) -->`のような専用マーカーを`#settingsPanel`内・`<style>`内にそれぞれ新設する案が有力（3教材とも設定IDが既に統一されているため、テンプレート化が容易）。
+- **id衝突リスク**: 低い。3教材とも本Phase以前からGaze設定要素のid（`#dwellMinusBtn`等）を意図的に統一しており、他要素との衝突も確認されていない。
+- **app固有設定との境界**: 33.3章の3分類がそのまま境界線になる。SAFE TO SHARE/一部のSHARE WITH OPTIONSまでがinjector側、KEEP LOCALは既存のSwitch Scan helper6と同様、アプリごとの手書きadapterのまま残す。
+- **generate再実行時の冪等性**: 既存8種のinjectorと同一のマーカー差し替えロジックを再利用するため、追加のリスクなし（差分がなければファイル書き換えなし、というべき等性は実証済みの機構）。
+- **rollback容易性**: 高い。マーカーブロックの削除、または旧ファイルへの復元で即座に戻せる。
+- **manual app編集との競合**: KEEP LOCAL部分（gaze-tick）を手書きのまま残す設計であれば、既存のSwitch Scan rollout（21アプリ実績）と同水準のリスクに収まる。SAFE TO SHARE部分を注入対象にする場合、当該HTML/CSSブロックをアプリ側で直接編集しないという運用規律が必要（既存injectorと同じ運用）。
+- **結論**: 定数・純粋関数・Settings UI HTML/CSSの注入は技術的に無理がなく、M11.4でのPoC対象として有力。gaze-tick状態機械の共通化は、Switch Scan helper6同様「契約はそろえるが実装は手書きを維持する」方針を推奨する。

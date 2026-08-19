@@ -903,7 +903,14 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // 不自然な空白/白い帯ができるアプリはこちらでdisplay:noneにして詰める。
   // (hiragana-learn/katakana-app/suji-manabou: 横並びnav-tabsの1要素として存在
   //  shiritori2: 独自の上部バー.top-barの1要素として存在)
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app']);
+  // Phase M11.3-C: junban-miyou-appを追加。opacity:0+pointer-events:noneのみでは
+  // ネイティブTab順序からも自アプリのSwitch Scan候補(isVisibleEnabled()は
+  // display==='none'のみ判定し、opacityは見ない)からも除外されず、フォーカス可能・
+  // 実質operableな「見えないボタン」が残っていた(#setBtnのkeyboard focus/Switch Scan
+  // scan-focusが視覚的に何も無い位置に当たる不具合)。同じMulti-Input Pilotの
+  // miru-hirogaru-app/mitsukete-touch-appと同じdisplay:none方式に揃えることで、
+  // ネイティブTab順序・isVisibleEnabled()双方から自動的に除外される。
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
@@ -1611,6 +1618,7 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-08-19", type: "update", text: "「じゅんばんにみよう」の設定ボタンを操作しやすくしました。" },
   { date: "2026-08-19", type: "update", text: "「じゅんばんにみよう」の視線入力の設定を充実させました。" },
   { date: "2026-08-19", type: "update", text: "「どこかな？みーつけた！」の視線入力の設定を充実させました。" },
   { date: "2026-08-19", type: "update", text: "「みるとひろがる」の視線入力の設定を充実させました。" },

@@ -1,7 +1,7 @@
-# どのまな 新規アプリ開発標準仕様書 v1.4
+# どのまな 新規アプリ開発標準仕様書 v1.5
 
-- 版: v1.4
-- 発行: 2026-08-12（v1.0）／改訂: 2026-08-13（v1.1）／改訂: 2026-08-15（v1.2）／改訂: 2026-08-19（v1.3）／改訂: 2026-08-19（v1.4）
+- 版: v1.5
+- 発行: 2026-08-12（v1.0）／改訂: 2026-08-13（v1.1）／改訂: 2026-08-15（v1.2）／改訂: 2026-08-19（v1.3）／改訂: 2026-08-19（v1.4）／改訂: 2026-08-19（v1.5）
 - 起草根拠: Phase16〜Phase26（既存29アプリの横断調査・修正・共通化）、Phase26-A〜C7（新規アプリkurabeyou-app「おおきい？ちいさい？くらべよう」のゼロからの開発・production公開）に加え、v1.1ではPhase26-D（既存アプリ「かたちをあわせよう」のPointer Eventsドラッグ実装・非矩形shape描画の実効ストローク幅修正・実機Rendered Validation運用）およびPhase26-E（本書自体の改訂）で得られた実装事実。v1.2はPhase M10-J（新規アプリ「じゅんばんにみよう」がCommon Chrome標準Home Navigationを使わず独自「←」リンクを実装したまま公開されていた不具合の修正）およびPhase M11（Multi-Input Pilot 3教材の横断監査）で判明した、8章の本文記載自体は明確だが56章Pre-Production Checklist側に対応する明示チェック項目がなかったという運用ギャップの是正
 - 位置づけ: **新規アプリを最初からどのまな標準品質で設計・実装・検証・公開するための統合実行仕様。** 既存の各個別仕様書（1章参照）を置き換えるものではなく、「新規アプリを作るときに、どの既存仕様をどう適用するか」を束ねる上位の実行仕様として機能する。既存アプリの通常改善（Release Policyは48章）にも同様に適用される。
 - 承認: 本v1.1は文書化Phase（Phase26-E）の成果物としてv1.0を改訂する。既存の承認済み仕様書（Design System v2.1、モーダルアクセシビリティ仕様書v1.1、Switch Scan仕様書v1.8、保存基盤仕様書v2.0、開発ルールVer.1.0）の内容を変更・上書きするものではない。
@@ -19,6 +19,7 @@
 | v1.2 | 2026-08-15 | Phase M10-J・M11で判明した運用ギャップを是正。56章Pre-Production Checklistへ「Common Chrome（Home/Lock/Fullscreen/A11y等）はgenerate.js注入のみを使用し、独自の重複実装がないか」の確認項目を追加。57章へCase I（Home Navigation独自実装）を追加。新規アプリ・既存アプリ双方の公開直前確認で、本文（8章）がREQUIREDと定める要件が運用チェックリスト側にも明示的に落とし込まれていることを保証する |
 | v1.3 | 2026-08-19 | Phase M11.2（Donomana Gaze Accessibility Standard v1.0策定）に伴う最小cross-reference追加。1章の文書地図へ新規仕様書`docs/design-system/donomana-gaze-accessibility-standard-v1_0.md`を追加。13章「gaze / dwell」へ同文書への参照ポインタと、Switch Scanとの関係（相互排他 vs Multi-Input Programの同時ON方式）が両文書間で異なる設計判断のまま併存している旨の注記を追加。13章本文の既存記述（dwell safetyチェックリスト等）自体は変更していない |
 | v1.4 | 2026-08-19 | Phase M11.3-A（Decision A: Gaze×Switch Scan相互排他の撤廃）を反映。13章「Switch Scanとの関係」を「原則相互排他」から「同時ON許容＋common activation gateによる重複activation防止」へ改訂。kurabeyou-app.html／katachi-awase-app.htmlの既存実装（`gazeEnabled=false`強制）は変更せず、旧記述であることのみ明記。1章の文書地図のGaze Accessibility Standard行を「起草完了・ユーザー承認待ち」から「確定」へ更新 |
+| v1.5 | 2026-08-19 | Phase M11.3-B（Multi-Input Pilot 3教材へのGaze Accessibility Standard実装完了）・M11.3-C（Final Consistency Audit・junban-miyou-app.html設定ボタン不具合修正）を反映。1章の文書地図のGaze Accessibility Standard行を「v1.0（改訂1）」から「v1.0（改訂2）」・状態を「Phase M11.3-A/B/CでMulti-Input Pilot 3教材へ実装完了」へ更新。本文（13章等）の変更なし |
 
 ---
 
@@ -46,7 +47,7 @@
 | `docs/design-system/donomana-switch-scan-spec-v1_0.md`（ファイル名はv1_0だが内部版はv1.8） | v1.8 | **承認済み・21アプリRollout完了** | Switch Scanのhelper6契約、候補取得戦略、新規アプリ向けチェックリスト（同文書19.22.14節） |
 | `donomana-storage-architecture-v2_0.md` | v2.0 | **確定（3アプリで実装済み）** | localStorage/IndexedDBのバージョニング・移行・バックアップ設計 |
 | `donomana-typography-spec-v3_0.md` | v3.0（改訂4） | **未承認・レビュー待ち** | rem化トークンの提案のみ。**正式なTypography数値仕様はDesign System §1.3であり、本文書ではない** |
-| `docs/design-system/donomana-gaze-accessibility-standard-v1_0.md` | v1.0（改訂1） | **確定（Phase M11.3-AでDecision A・B確定）** | 視線入力（Gaze/Dwell）固有の設定・UI・lifecycle・Multi-Input統合要件。本書13章の詳細補足文書 |
+| `docs/design-system/donomana-gaze-accessibility-standard-v1_0.md` | v1.0（改訂2） | **確定（Phase M11.3-A/B/CでMulti-Input Pilot 3教材へ実装完了）** | 視線入力（Gaze/Dwell）固有の設定・UI・lifecycle・Multi-Input統合要件。本書13章の詳細補足文書 |
 | `docs/donomana-site-renewal-roadmap-v2.md` | Ver.2.0 | 正本ロードマップ | サイト全体の優先順位（「何をやるか」）。本書は「新規アプリをどう作るか」を扱い、役割が異なる |
 
 **注意（自己監査で確認済み）**: Typography v3.0は本文中に「本文書はドラフトである…generate.js・アプリHTML・既存Token値/Token名は本文書のみを理由に変更してはならない」と明記されている未承認文書である。本書はこれを正式標準として扱わない。新規アプリのtypographyはDesign System §1.3の数値と、generate.jsが実際に注入する`--dm-font-size-*`／`--dm-line-height-*`トークン（9章参照、これは既に稼働中のtoken定義であり提案ではない）に従う。
