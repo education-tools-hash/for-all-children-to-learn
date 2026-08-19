@@ -1,9 +1,9 @@
-# Multi-Input教材群 共通設計 v1.2（Phase M0〜M11.5）
+# Multi-Input教材群 共通設計 v1.3（Phase M0〜M12-A）
 
-- 版: v1.2（v1.0をPhase M0承認事項で確定、Phase M1で「みるとひろがる」個別設計を`miru-hirogaru-design-v1.md`へ分離。Phase M11.5でPilot Program Close・23章Gaze Shared Foundation・24章Program Close記録を追加）
-- 対象: 「みるとひろがる」「みつけてタッチ」「じゅんばんにみよう」の3教材（Phase M11.5でPilot Program Closeし、以降Reference Setとして扱う。24章参照）
+- 版: v1.3（v1.0をPhase M0承認事項で確定、Phase M1で「みるとひろがる」個別設計を`miru-hirogaru-design-v1.md`へ分離。Phase M11.5でPilot Program Close・23章Gaze Shared Foundation・24章Program Close記録を追加。Phase M12-Aで25章「どっちがいい？」教育設計・UX設計の記録を追加）
+- 対象: 「みるとひろがる」「みつけてタッチ」「じゅんばんにみよう」の3教材（Phase M11.5でPilot Program Closeし、以降Reference Setとして扱う。24章参照）。Phase M12-Aより、Pilot Close後最初の新規教材「どっちがいい？」の設計を開始（25章、詳細は`dotchiga-ii-design-v1.md`）。
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.6運用中）の下位文書。既存標準と矛盾する場合は既存標準を優先し、本書側を見直す。
-- Production: Phase M11.5では、Program Close監査で発見したじゅんばんにみようのフォーカス復帰不具合（24.5章）のみアプリコードを修正した。それ以外の変更はテストスクリプト（リポジトリ外のスクラッチパッド）と設計文書のみ。
+- Production: Phase M12-Aは設計文書のみ作成し、アプリコード・generate.js・apps-data.json・changelogは一切変更しない。
 
 ---
 
@@ -574,3 +574,12 @@ Group C・D（`okane-app.html`・`kyou-no-kiroku.html`・`drawing-app.html`・`s
 ### 24.13 Close判定
 
 24.2章（自動検証）・24.5章（発見した不具合の修正）・24.6章（Retrospective Verification）の結果、Program Closeの完了条件（27章、Phase M11.5ブリーフ）をすべて満たしたと判定する。**Multi-Input Pilot Programを本Phaseをもって正式にCloseし、Pilot 3教材を今後のMulti-Input教材開発におけるReference Setとして確定する。**
+
+## 25. Phase M12-A: 「どっちがいい？」教育設計・UX設計
+
+Pilot Program Close（24章）・Group B Gaze Rollout完了（Phase M11.6-A/B/C、既存Gazeアプリ3本への段階Rollout）を受け、Pilot Close後最初の新規Multi-Input教材として「どっちがいい？」の教育設計・UX設計を実施した。**本Phaseではアプリ本体を実装しない**（設計のみ）。詳細な設計内容（教育目標・Level構造比較・choice category評価・World比較・Multi-Input仕様・Gaze Standard準拠設計・record方針・asset方針等）は[dotchiga-ii-design-v1.md](./dotchiga-ii-design-v1.md)を正本として記録する。本章では本文書（Program設計書）との接続点のみ要点を記す。
+
+- **教育的位置づけ**: 正解・不正解を設けない「選択・意思表出」型教材。既存の`kimochi-board.html`（コミュニケーションボード）が本Program内で唯一同種のsuccess-only選択型教材であり、feedback設計・Error Philosophy（10章）の参照元とした。
+- **Reference Architecture継承**: 22.1章 Foundation A（Semantic Activation Architecture・helper6パターン・success-only Feedback Philosophy等）へ最初から準拠する設計とし、24.8章「新規教材への適用方針」（Gaze Standard・Shared Foundation・Common Settings UIへ最初から準拠し、後から対応する開発順序に戻らない）を初めて実地適用する教材となる。
+- **Guided Attentionとの区別**: 21章で確立した「Guided Attentionは正解を教えるUIではない」という原則を、本教材では一歩進めて「2つの選択肢のどちらか一方にGuided Attention相当の強調を用いない」という明示的禁止事項として設計に組み込んだ（Agency原則）。
+- **未確定事項**: Level構造・choice category・World・表示名・asset方針・randomization既定値・category展開順序の7点について、実装着手前のUser Review Pointとして設計書に整理済み（詳細は同文書31章）。
