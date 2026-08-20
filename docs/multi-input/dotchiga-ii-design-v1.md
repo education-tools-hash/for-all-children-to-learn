@@ -507,3 +507,45 @@ Playwrightによる自動検証（3本のテストスイート、console/page er
 ### 32.6 Production公開状態
 
 `dotchiga-ii-app.html`は`apps-data.json`に未登録、`generate.js`の処理対象外（`GAZE_SHARED_FOUNDATION_APPS`にも未登録）。sitemap・changelog・app-details・index.htmlのいずれにも反映されていない。Local Prototypeとしてのみ存在し、Production未公開の状態を維持している。
+
+---
+
+## 33. Phase M12-B': Asset / Visual Polish 実装結果
+
+### 33.1 placeholder asset終了
+
+Phase M12-Bで暫定実装したインラインplaceholder SVG 4種（りんご・バナナ・いぬ・ねこ、`ICONS`オブジェクト、`.choice-card svg`ルール）を全て削除した。`.choice-card`内は`<span class="choice-icon">`（innerHTMLへSVG文字列を注入）から`<img class="choice-icon">`（`src`属性へPNGパスを設定）へ置き換えた。教材ロジック（`activateChoice()`・Touch/Gaze/Switch Scan/Keyboard・duplicate prevention・randomization・record・completion・trial flow・settings・hit area・responsive breakpoint・result timing）は一切変更していない。
+
+### 33.2 approved asset方針
+
+User承認済みの高品質PNGイラスト4種（りんご・バナナ・いぬ・ねこ）を採用した。他教材（`junban-miyou`/`mitsukete-touch`/`scratch`のdog/cat）からの流用はPhase M12-B時点で調査済み・不採用と結論済み（32.2節）であり、本Phaseでは新規に用意されたdotchiga-ii専用assetのみを使用した。
+
+### 33.3 asset path
+
+`assets/dotchiga-ii/`配下に新規配置（英数字lowercase命名、既存asset命名規則に準拠、既存assetへの上書きなし）:
+- `assets/dotchiga-ii/apple.png`
+- `assets/dotchiga-ii/banana.png`
+- `assets/dotchiga-ii/dog.png`
+- `assets/dotchiga-ii/cat.png`
+
+4ファイルとも1254×1254px、PNG/RGBA。
+
+### 33.4 透過確認
+
+「RGBAだから透過」と推測せず、白・黒・グレー・市松模様・本アプリの空色World背景・赤の6背景へ実際に合成表示して確認した（Playwrightスクリーンショット）。4素材とも市松模様の焼き付き・黒背景の焼き付き・不要な白背景のいずれも検出されず、実透過を確認した。
+
+### 33.5 visual review status
+
+Playwright自動検証（既存の3テストスイートに加え、本Phase用に新規のtransparency合成確認・pair表示確認・regression確認を実施、console/page error 0件）で以下を確認した:
+- Touch/Keyboard/Switch Scan/Gaze全入力方式で`activateChoice()`を経由した選択が引き続き機能すること（回帰なし）
+- Switch Scan対象は引き続き2件（`choiceA`/`choiceB`のbuttonのみ）で、`img`要素はscan対象・Tab stopのいずれにも追加されていないこと
+- Gaze hit-testingは`hitTestGazeTargets()`による`choice-card`のbounding rect基準のままで、画像の可視領域・透過領域に依存していないこと
+- randomization ON/OFF、record（`inputMethod`/`pair`等、result/correct列なし）、completion（非評価的表示・restart）、設定パネルのGaze isolation・Escape・フォーカス復帰、`prefers-reduced-motion:reduce`下のselected状態、いずれも既存どおり機能すること
+- 375×667／375×812／390×844／768×1024／1280×900の5 viewport、および りんご/バナナ・バナナ/りんご・いぬ/ねこ・ねこ/いぬの4 pair×順序すべてで、耳・バナナ両端・りんごの葉のクリッピングなし、choice-card 2枚のサイズ・shadow・border・brightness・animation状態が選択前は完全に同一であること（Agency維持）
+- `.choice-card .choice-icon { object-fit: contain }`により、正方形canvas（1254×1254）内のイラストがカードからはみ出さず、りんご・バナナ・いぬ・ねこ間で極端な visual weight の不均衡は生じないこと（category単位の追加CSSクラスは不要と判断）
+
+文字ラベル（りんご/バナナ/いぬ/ねこ）は、Phase M12-B時点の実装に存在しなかったため、本Phaseでも追加していない。31章の設計方針同様、追加要否はUser Review Pointとして残す。
+
+### 33.6 Production公開状態
+
+`apps-data.json`未登録・`app-intro`未登録・`app-details`未作成・sitemap未登録・changelog追加なし。Phase M12-B'完了時点でもLocal Prototypeのまま、Production非公開を維持している。
