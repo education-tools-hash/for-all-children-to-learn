@@ -341,6 +341,12 @@
      they render as an explicit PROTOTYPE PLACEHOLDER (dashed card + glyph +
      "プロトタイプ" tag, see .choice-placeholder below), never a broken
      image and never presented as finished art (M12-C brief §1/§17/§44).
+     Phase M12-C' update: the Activity Selector moved from the Settings
+     panel to an always-visible Activity Tabs row between the header and
+     the stage, so a child can switch activity without opening Settings
+     first (Agency — see design doc §35). Settings' 「あそび」group keeps
+     only えらぶかいすう now; the activity buttons themselves (.activity-btn)
+     are unchanged, just relocated.
   ===================================================================== */
   * { box-sizing: border-box; }
   body {
@@ -477,13 +483,55 @@
     font-size: var(--dm-font-size-caption); font-family: inherit;
   }
   .count-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
-  .activity-buttons { display: flex; gap: var(--dm-space-2); flex-wrap: wrap; padding-bottom: var(--dm-space-3); }
+
+  /* ===== Activity Tabs (Phase M12-C' §2/§17) — the single source of truth
+     for switching activity, always visible above the stage. Deliberately
+     kept LESS visually prominent than the 2 choices (still the primary
+     element) and than .activity-label (the current-activity heading);
+     see design doc revision for the full priority-order rationale. Reuses
+     .activity-btn/aria-pressed from Phase M12-C's Settings-panel selector
+     unchanged (same pill look, same selected-state color) — only the
+     wrapper/placement is new, so no separate "tab" visual language had to
+     be invented. Not role="tablist"/role="tab": this app's Keyboard/Switch
+     Scan model is "whatever has DOM focus, Enter/Space activates it" via a
+     single global keydown handler (no arrow-key roving-tabindex support
+     exists anywhere in this app), so real ARIA tabs semantics would over-
+     promise arrow-key navigation that isn't implemented. role="group" +
+     aria-pressed matches the exact pattern already proven for
+     .count-btn/.activity-btn in this file and needs no new interaction
+     code (§23). */
+  .activity-tabs {
+    position: relative; z-index: 1;
+    display: flex; justify-content: center; align-items: stretch;
+    gap: var(--dm-space-3); flex-wrap: wrap;
+    /* padding-top (not margin-top — adjacent block margins collapse, and
+       .app-header's own 20px margin-bottom would have swallowed a smaller
+       margin-top here with zero visible effect): clears the fixed lock/
+       fullscreen button cluster (top:64px..bottom:108px) — without it the
+       header's natural height leaves the tabs starting at y≈106px, 2px
+       into that band (measured overlap at 375–390px widths, §3/§28 Common
+       Chrome collision).
+       margin-bottom: at Gaze target-enlargement max (150%, §12.3) a
+       choice-card's padded hit-box extends ~55px beyond its own edges and
+       a tab's ~11px beyond its own — so the visible gap between the
+       nearest tab and the nearest choice card must clear >=66px or their
+       padded hit-boxes intersect (§9/§21, a Stop Condition per §35). Both
+       values were sized against the shortest required viewport (375×667)
+       and confirmed overlap-free there via automated bounding-rect
+       measurement (see Phase M12-C' report). */
+    padding-top: var(--dm-space-3);
+    margin: 0 0 calc(var(--dm-space-9) + 12px);
+  }
+  @media (min-width: 701px) {
+    .activity-tabs { gap: var(--dm-space-5); }
+  }
   .activity-btn {
     min-height: 44px; padding: var(--dm-space-2) var(--dm-space-4);
     border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
     background: #fff; color: var(--dm-color-ink); font-weight: 900; cursor: pointer;
     font-size: var(--dm-font-size-caption); font-family: inherit;
   }
+  .activity-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
   .activity-btn[aria-pressed="true"] { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
   .records-section { padding: var(--dm-space-2) 0 var(--dm-space-3); border-bottom: 1px solid var(--dm-color-border); }
   .record-empty { color: var(--dm-color-sub,#5E6D78); font-size: 0.875rem; margin: 0 0 var(--dm-space-2); }
@@ -540,6 +588,12 @@
     <button id="settingsBtn" class="settings-toggle-btn scannable" data-scan="1" tabindex="0" aria-expanded="false" aria-controls="settingsPanel">⚙️ せってい</button>
   </header>
 
+  <div class="activity-tabs" role="group" aria-label="かつどうを えらぶ">
+    <button type="button" class="activity-btn" data-activity="level1" tabindex="0" aria-pressed="true">どっち？</button>
+    <button type="button" class="activity-btn" data-activity="level2" tabindex="0" aria-pressed="false">すきなのはどっち？</button>
+    <button type="button" class="activity-btn" data-activity="level3" tabindex="0" aria-pressed="false">どっちにする？</button>
+  </div>
+
   <section class="stage" id="stage">
     <button type="button" class="choice-card" id="choiceA" data-choice-id="" tabindex="0" aria-label="">
       <span class="sparkle" aria-hidden="true"></span>
@@ -557,14 +611,6 @@
     <h2 class="settings-title">せってい</h2>
 
     <div class="setting-group-title">あそび</div>
-    <div class="setting-row">
-      <span class="setting-label" id="activityGroupLabel">かつどう</span>
-    </div>
-    <div class="activity-buttons" role="group" aria-labelledby="activityGroupLabel">
-      <button type="button" class="activity-btn" data-activity="level1" tabindex="0" aria-pressed="true">どっち？</button>
-      <button type="button" class="activity-btn" data-activity="level2" tabindex="0" aria-pressed="false">すきなのはどっち？</button>
-      <button type="button" class="activity-btn" data-activity="level3" tabindex="0" aria-pressed="false">どっちにする？</button>
-    </div>
     <div class="setting-row">
       <span class="setting-label" id="countLabel">えらぶかいすう</span>
       <div class="count-buttons" role="group" aria-labelledby="countLabel">
@@ -1038,7 +1084,12 @@ function activateChoice(choiceId, inputMethod) {
   currentInputMethod = inputMethod;
   var dwellForLog = (inputMethod === 'gaze') ? lastGazeDwellActualMs : null;
   resetDwellState();
-  if (scanMode) stopSwitchScan();
+  // Restart (not stop) so the tabs-only scan set from buildScanItems()'s
+  // isShowingResult branch takes over during feedback — keeps Activity
+  // Tabs Switch-reachable through the whole ~1.6s window (§16), while the
+  // 2 choices themselves are still excluded via activateChoice()'s own
+  // isShowingResult guard above, so no duplicate selection is possible.
+  if (scanMode) startSwitchScan();
 
   el.classList.add('selected');
   var def = CHOICES[choiceId];
@@ -1102,6 +1153,12 @@ function updateActivityLabel() {
 }
 function switchActivity(newId) {
   if (!ACTIVITIES[newId] || newId === currentActivity) return;
+  // Settings keeps exclusive interaction focus while open — same rule
+  // activateChoice() already applies to the 2 choices (§16 scope is
+  // isShowingResult, not settingsOpen; this mirrors the pre-existing
+  // choice-area convention for consistency across all 3 activatable
+  // groups: choices / tabs / settings).
+  if (settingsOpen) return;
   if (pendingTrialTimeout) { clearTimeout(pendingTrialTimeout); pendingTrialTimeout = null; }
   if (scanMode) stopSwitchScan();
   currentActivity = newId;
@@ -1181,9 +1238,14 @@ function isVisibleEnabled(el) {
   return el.getClientRects().length > 0;
 }
 function buildScanItems() {
-  if (settingsOpen || isShowingResult) return [];
-  if (!completeArea.hidden) return [restartBtn].filter(isVisibleEnabled);
-  return [choiceA, choiceB].filter(isVisibleEnabled);
+  // Activity Tabs Standard §11/§12: recommended scan order is the 3 tabs
+  // first, then the trial's own targets — and §16 requires tabs to stay
+  // Switch-operable even mid-feedback (isShowingResult), unlike the
+  // choices, which must NOT be re-selectable during that window.
+  if (settingsOpen) return [];
+  if (isShowingResult) return activityBtns.filter(isVisibleEnabled);
+  if (!completeArea.hidden) return activityBtns.concat([restartBtn]).filter(isVisibleEnabled);
+  return activityBtns.concat([choiceA, choiceB]).filter(isVisibleEnabled);
 }
 function clearScanHighlight() {
   document.querySelectorAll('.scan-focus').forEach(function(el) { el.classList.remove('scan-focus'); });
@@ -1225,10 +1287,11 @@ function setScanMode(on) {
    Gaze / dwell (Gaze Accessibility Standard v1.0)
 ===================================================================== */
 function getGazeTargets() {
+  // Same tabs-always-reachable rule as buildScanItems() above (§9/§16).
   if (settingsOpen) return [];
-  if (isShowingResult) return [];
-  if (!completeArea.hidden) return [];
-  return [choiceA, choiceB];
+  if (isShowingResult) return activityBtns.slice();
+  if (!completeArea.hidden) return activityBtns.slice();
+  return activityBtns.concat([choiceA, choiceB]);
 }
 function resetDwellState() {
   if (dwellTarget) { dwellTarget.classList.remove('gaze-dwell'); dwellTarget.style.removeProperty('--dwell-ratio'); }

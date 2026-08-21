@@ -610,3 +610,68 @@ Playwright自動検証（新規テストスイート、console/page error 0件�
 ### 34.10 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Phase M12-C完了時点でもLocal Prototypeのまま、Production非公開を維持している。
+
+---
+
+## 35. Phase M12-C': Activity Tabs（活動選択の上部常時表示化）実装結果
+
+### 35.1 変更理由
+
+Phase M12-CまではSettings内「あそび」グループにActivity Selectorがあり、活動を切り替えるには子ども（または支援者）がまず⚙️せっていを開く必要があった。本Phaseはこの操作段階を1段階削減し、**子ども本人が設定画面を開かずに「今日はどれをやろう？」を自分で選べる**よう、活動選択を教材画面上部の常時表示Activity Tabsへ移動した。これは「どっちがいい？」が大切にする**自分で選ぶ（Agency）**という学習経験を、教材内容（どちらの絵を選ぶか）だけでなく教材操作そのもの（どの活動をやるか）にも一貫して適用する変更であり、単なるUIレイアウト変更ではない。
+
+### 35.2 配置とDOM構造
+
+`<header class="app-header">`（タイトル+現在の活動名+せっていボタン）と`<section class="stage">`（2択カード）の間に、新設の`<div class="activity-tabs" role="group" aria-label="かつどうを えらぶ">`を配置。中身の3ボタンはPhase M12-CでSettings内に実装済みだった`.activity-btn`（`aria-pressed`で選択状態を表現するpillボタン、`switchActivity()`をclickで呼ぶ）をクラス名・挙動とも変更せずそのまま再利用し、置き場所だけをSettingsパネルから移動した。Settings側の旧`.activity-buttons`ラッパー・`かつどう`ラベル行は完全に削除し、activity stateの二重保持を避けた（§4/§5相当）。
+
+### 35.3 ARIA: role="tablist"にしなかった理由
+
+見た目はタブだが、`role="tablist"`/`role="tab"`は採用しなかった。理由は、このアプリ（および共有基盤 `gaze-shared-js`）のKeyboard/Switch Scanモデルが「DOM focusがどこにあってもEnter/Spaceで activateする」という単一のグローバルkeydownハンドラに一本化されており、矢印キーによるroving tabindexナビゲーションが実装されていないため。ARIA tabsパターンを形式的に付けると、スクリーンリーダーユーザーに矢印キー操作を期待させてしまい実際の挙動と乖離する。既に`.count-btn`で実績のある`role="group"`+`aria-pressed`パターンをそのまま踏襲し、新しい対話コードを一切追加しなかった。
+
+### 35.4 Touch / Keyboard
+
+`.activity-btn`はネイティブ`<button>`・`tabindex="0"`のままなので、Tab移動+Enter/Spaceでの活性化は既存のグローバルkeydownハンドラで無変更のまま動作する。Touch targetはボタン全体（`min-height:44px`+`padding`）で、文字だけを狙う必要はない（§7相当）。
+
+### 35.5 Switch Scan
+
+`buildScanItems()`の返り値に活動タブ3つを先頭へ追加し、通常のtrial中は「Tab1→Tab2→Tab3→ChoiceA→ChoiceB」の5項目スキャン（推奨順序どおり）。ただしフィードバック表示中（`isShowingResult`）は選択肢2つを除外しタブ3つのみをスキャン対象とすることで、フィードバック中でも活動切替がSwitchから可能な状態を維持しつつ、二重回答を防ぐ既存ガードには影響しない。この分岐に対応するため、`activateChoice()`内の選択直後の処理を`stopSwitchScan()`から`startSwitchScan()`（タブのみを対象に再起動）へ変更した。毎trial 5項目スキャンになる負担増については、既存の「スキャンかんかく」設定でスピード調整が可能であり、かつ「どの活動をするか」を自分で選べること自体がこのアプリの教育目標の一部であるため、タブを含めたままとした（§12「教育的操作性とscan負担の両方を報告する」に対する結論）。
+
+### 35.6 Gaze
+
+`getGazeTargets()`にも活動タブを追加。設定パネルが開いている間は既存の選択肢と同様にタブもgaze対象から除外し（Settingsが排他的に操作フォーカスを持つという既存の選択肢向けルールを、タブにも一貫して適用）、フィードバック表示中・完了画面中はタブのみを対象とする。`switchActivity()`自体が`clearGazeCandidateState()`でdwell state・leave-and-reenterゲートを確実にリセットするため、活動をまたいだstale dwellは発生しない。
+
+### 35.7 Gaze target spacing（重なり回避の実測）
+
+Gaze target enlargement最大値（150%、erosion 0＝spacing wide未使用時が最悪ケース）で、活動タブの拡大hit areaと選択肢カードの拡大hit areaが重ならないよう、`.activity-tabs`のpadding-top/margin-bottomを調整した。
+
+- 固定Common Chrome（🔓/⛶ボタン、`top:64px`〜`bottom:108px`）との衝突: 実装当初、タブの先頭行が`top:106px`で描画され、375〜390px幅で2px・横47px幅の実衝突が発生した（`.app-header`のmargin-bottom(20px)と新設`margin-top`が隣接ブロックマージンとして相殺され当初の対策が効かなかったため、`margin-top`ではなく`padding-top:12px`へ変更して解決）。
+- タブ〜選択肢カード間のGaze隙間: 220px角カードは150%拡大時に自身の外側へ約55px、44px高のタブは約11px拡大するため、必要な最小隙間は約66px。最短の必須検証ビューポート（375×667）で実測隙間が64pxと2px不足していたため、`margin-bottom`を`64px + 12px`へ拡大し解消した。
+- 上記はいずれもPlaywright（Python）でheadless Chromiumを起動し、`getBoundingClientRect()`の実測値から重なり判定を機械的に行って検証した（375×667/375×812/390×844/768×1024/1280×900の必須5解像度すべてでchrome衝突0件・gaze重なり0件を確認）。
+
+### 35.8 Settings再構成
+
+Settings内「あそび」グループは活動選択ボタンを取り除いた結果、「えらぶかいすう」のみが残る。グループ自体は空にならないため見出しは維持した（§5）。他の4グループ（おと・ひょうじ／しせん／スイッチ／きろく、いずれもPhase M12-Cで新設済み）は無変更。
+
+### 35.9 現在の活動名表示（.activity-label）との重複評価
+
+`<h1>どっちがいい？</h1>`直下の`.activity-label`（現在の活動名、Phase M12-Cで新設）は本Phaseでも維持した。優先順位（§17: 選択肢2つ＞現在の活動名＞Activity Tabs＞Common Chrome/Settings）どおり、選択されたタブの色だけでは伝わりにくい「今なにをしているか」を、タブより一段階目立つ独立した見出しとして明示する役割があるため。ただし文字サイズは本文相当（`--dm-font-size-body`）に抑えてあり、選択肢2枚と競合するような巨大見出しにはなっていない。二重表示ではあるが、タブの選択色（コントラストのみに依存する表現）を補う冗長化として意図的に残す判断とした。
+
+### 35.10 Record / Persistence
+
+`activateChoice()`のrecord記録ロジック（`activity`フィールドを含む）は無変更。`currentActivity`の保存/復元も既存の`saveSettings()`/`loadSettings()`をそのまま利用しており、リロード後もタブの選択状態（`aria-pressed`）・活動名表示・保存されたactivityが一致することをPlaywrightで確認した。
+
+### 35.11 検証結果概要（Playwright, Python, headless Chromium）
+
+- console/page error: 0件（初期ロード時・全viewport共通）
+- Touch: タブclickでLevel1→2→3→1と正しく切替、`currentActivity`/`aria-pressed`/活動名表示すべて同期
+- Keyboard: タブへfocus + Enterで切替を確認
+- Gaze: タブへのdwell（既定900ms）で切替を確認
+- Switch Scan: `buildScanItems()`が trial中`[level1,level2,level3,choiceA,choiceB]`、フィードバック中`[level1,level2,level3]`、次trialで元の5項目に戻ることを確認
+- フィードバック表示中の活動切替: 切替直後に`isShowingResult`がfalseへ戻り、`pendingTrialTimeout`が`null`（clearTimeout済み）になること、2秒待機後も`trialIndex`が誤って進行せず新活動(level3)のまま留まること（stale timeoutなし）を確認
+- Record: Level2選択後のログエントリに`activity:"level2"`が正しく記録されることを確認
+- Settings: `#settingsPanel`のHTMLに`activity-btn`が含まれないこと（Activity Selector完全削除）を確認
+- Persistence: `switchActivity('level3')`後にリロードしても`currentActivity`・タブの`aria-pressed`・活動名表示が一致することを確認
+- Responsive: 375×667/375×812/390×844/768×1024/1280×900の5解像度すべてで横スクロールなし・Common Chrome衝突なし・Gaze拡大時の重なりなしを確認（375×667が最も厳しい制約となった）
+
+### 35.12 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Phase M12-C'完了時点でもLocal Prototypeのまま、Production非公開を維持している。
