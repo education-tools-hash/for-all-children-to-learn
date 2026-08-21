@@ -549,3 +549,64 @@ Playwright自動検証（既存の3テストスイートに加え、本Phase用�
 ### 33.6 Production公開状態
 
 `apps-data.json`未登録・`app-intro`未登録・`app-details`未作成・sitemap未登録・changelog追加なし。Phase M12-B'完了時点でもLocal Prototypeのまま、Production非公開を維持している。
+
+---
+
+## 34. Phase M12-C: Level2 / Level3・Settings・Record Expansion 実装結果
+
+### 34.1 3活動の実装
+
+「どっち？」（Level1、既存維持）・「すきなのはどっち？」（Level2、新規）・「どっちにする？」（Level3、新規）の3活動を実装した。UI上の主表記は機能名のみで、「Level」「レベルアップ」等の数値・段階表現は一切使用していない（内部stateの`currentActivity`値（`level1`/`level2`/`level3`）としてのみ残る）。App headerの`<h1>`直下に現在の活動名を表示する`.activity-label`を新設した。
+
+### 34.2 Data-driven Choice / Activity定義
+
+`CHOICES`（choice id → category/label/asset/prototypePlaceholder/sound）と`ACTIVITIES`（activity id → label/categories）のdata定義を新設し、`pairsForCategories()`が同一カテゴリー内の組み合わせのみを機械的に生成する（§23 Pair Rules — 食べ物×動物のような異カテゴリーpairは構造上発生しない）。Level1/Level2は同じcategories（食べ物・動物）を参照するため、pair pool（りんご/バナナ・いぬ/ねこ）は完全に同一——両者の違いはfeedback言語のみに限定されている（34.4節）。
+
+### 34.3 Level3（楽器カテゴリー）とAsset状態
+
+Level3のcategoryは`instrument`（たいこ・ベル）のみ。**たいこ・ベルの正式illustrationは本Phase開始時点で未提供**のため、`CHOICES.drum`/`CHOICES.bell`に`prototypePlaceholder:true`を設定し、`renderChoiceIcon()`が`<img>`へ`src`を設定せず、代わりに`.choice-placeholder`（破線ボーダー・斜線パターン・絵文字🥁/🔔・「プロトタイプ」タグ）を表示する。broken image・空白表示のいずれも発生しない。ピアノ・木琴は本Phaseで未実装（`CHOICES`未定義）——`assets/dotchiga-ii/piano.png`/`xylophone.png`のpath自体もまだ予約していない（drum/bellの2choiceのみが§18の「最低」要件を満たす）。
+
+**→ User Asset Review Required**（§17）: たいこ・ベルの正式illustrationが提供され次第、`CHOICES.drum`/`CHOICES.bell`から`prototypePlaceholder`/`placeholderGlyph`を削除し`asset`パスを追加するだけで済むよう、data-driven構造にしてある。
+
+### 34.4 Level1/2/3のfeedback差分
+
+`activateChoice()`自体は単一のまま（§26 Semantic Activation Architecture、Foundation A）で、結果処理のみ`RESULT_HANDLERS`（`handleLevel1Result`/`handleLevel2Result`/`handleLevel3Result`）へ分離した（§27）。
+- Level1: 既存どおり`beep(660,180)` + `speak(label)`
+- Level2: 同じ`beep(660,180)`を維持しつつ、`speak(label + ' を えらんだね')`——「好きなんだね」等の断定表現は不使用（§13）
+- Level3: `beep()`を鳴らさず、選択されたinstrumentの`sound`（Web Audio、drumは130Hz triangle、bellは1180Hz sine、いずれも220–260ms・gain 0.22）を選択結果そのものとして再生し、220ms後に`speak(label)`を呼ぶ（§18/§21、音とTTSの重なり回避）。ブラウザVUで生成したtoneであり、楽器の実音を装ってはいない。
+
+### 34.5 Activity切替とcleanup
+
+`switchActivity(newId)`を新設し、trialIndex reset・`pendingTrialTimeout`のclearTimeout（新規追加した変数——**旧実装は次trialへの`setTimeout`をどこにも保持しておらず、フィードバック表示中に活動を切り替えると、切替後に旧活動のpairで`startTrial()`が呼ばれてしまう実バグが存在した**。本Phaseで発見し修正）・selected classの除去・`clearGazeCandidateState()`（dwell state + leave-and-reenter gate）のリセット・`updateActivityLabel()`・`startTrial()`・（scanMode時）`startSwitchScan()`再起動を行う。Playwrightで「選択直後（isShowingResult中）に活動切替」を明示的に再現し、旧activityのtrialが紛れ込まないことを確認した（34.9節）。
+
+### 34.6 Activity Selector UI
+
+設定パネル内「あそび」グループの先頭に、3つの活動を切り替えるボタン群（`.activity-btn`、`aria-pressed`で選択状態を表現、`.count-btn`と同じ視覚言語のpillボタン）を配置した。支援者・教員が開いて選ぶ想定のため、子ども向けの巨大な選択画面は作らず、既存の非modal設定パネルへ統合した。
+
+### 34.7 Settings グループ化
+
+既存の視線入力サブグループ構造（Gaze Standard §15.2の4群: 視線入力／選択／見やすさ・操作しやすさ／動き）はそのまま維持し、その外側にトップレベルの4グループ「あそび」（活動＋えらぶかいすう）／「おと・ひょうじ」（おと・こえ・うごき・ひだりみぎ）／「しせん」（Gaze、既存構造を包含）／「スイッチ」（Switch Scan）／「きろく」（記録UI、34.8節）を`.setting-group-title`で追加した。既存のGaze/Switch Scan設定項目・値・挙動は一切変更していない。
+
+### 34.8 Record拡張
+
+**記録フィールド**: `activity`・`category`を新規追加。`dwellDuration`は元設計（§20）に定義されていたが実装時に欠落していたことが判明したため、本Phaseで追加した（gaze選択時のみ実測値、他入力方式は`null`）。`result`/`correct`列は引き続き設けていない。
+
+**記録UI**: 既存アプリ（`kurabeyou-app.html`）の設定パネル内蔵型record UIパターンを踏襲し、新規UIを発明しなかった（§38）。設定パネル「きろく」グループに、新しい順の一覧（`もっと みる`でページング）・CSV出力・全削除を実装。削除は`kurabeyou-app.html`と同じ「2段階のインラインconfirm」方式（ネイティブ`confirm()`は不使用、キャンセルで元に戻る）。CSVはUTF-8 BOM付き、`buildRecordsCsvRows()`が保存済みlogのみから構築（DOM由来ではない、New App Development Standard §26準拠）、ファイル名は`dotchiga-ii-kiroku-YYYY-MM-DD.csv`（`kurabeyou-records-YYYY-MM-DD.csv`と同型）。一覧に表示するのは日時・活動・えらんだもの・入力方式の4列のみ（§39、好み度・診断ラベルは一切表示しない）。
+
+design doc §38が求めた「既存patternを探す」調査の結果、New App Development Standard §24（record detail UIの1:1 binding要件）は該当なし——本UIは1行1レコードのシンプルな一覧のみで、展開式detail toggleを持たないため、closure bugリスクの生じる構造そのものを採用していない。
+
+### 34.9 検証結果概要
+
+Playwright自動検証（新規テストスイート、console/page error 0件）で以下を確認した:
+- Level1: 既存M12-B/B' regression全項目（Touch/Keyboard/Switch Scan/Gaze/duplicate prevention/randomization/settings isolation/reduced-motion/responsive）に回帰なし
+- Level2: pair poolがLevel1と完全一致、feedback文言が「を えらんだね」（断定なし）、record に`activity:'level2'`
+- Level3: instrument pairが選択可能、`prototypePlaceholder`のchoiceが`<img>`をhidden化し`.choice-placeholder`を表示、選択時に`beep()`ではなくinstrument toneが再生され220ms後にTTS、record に`activity:'level3'`/`category:'instrument'`
+- Activity切替（実際のbutton clickおよび直接呼び出し双方）: `aria-pressed`同期、placeholderと実assetの往復表示切替、フィードバック表示中の切替でも古いtrialが紛れ込まないこと（34.5節のバグ修正の実証）
+- Cross-Level入力方式: Level3でのGaze dwell選択・Level2でのSwitch Scan選択、いずれも`activateChoice()`経由・同一のduplicate prevention・inputMethod正記録を確認
+- Record UI: 一覧表示・CSVダウンロード（実際の`download`イベント発火・ファイル名確認）・削除の2段階confirm（キャンセルでデータ保持／確定で削除）
+- 設定パネルopen中の`getGazeTargets().length===0`/`buildScanItems().length===0`はrecord UI追加後も維持（record UIを別panelにせず既存settings-panel内へ統合したため、既存isolationロジックがそのまま適用される）
+- 375×667〜1280×900でLevel3のcard・placeholderにクリッピングなし（§46）
+
+### 34.10 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Phase M12-C完了時点でもLocal Prototypeのまま、Production非公開を維持している。
