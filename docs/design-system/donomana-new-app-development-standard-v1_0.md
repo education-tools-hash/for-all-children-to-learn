@@ -185,6 +185,18 @@ Switch Scanの候補に含める/含めないは、アプリ設計時に明示�
 
 gazeでは原則、学習targetと共通chromeを分離する（13章参照）。
 
+### 8.1 Help / Usage Guide Compliance（REQUIRED）
+
+新規アプリでは設計段階から、`docs/design-system/donomana-help-usage-guide-standard-v1_0.md`（Phase M12-D''''で`dotchiga-ii-app.html`をReference Implementationとして策定）へ準拠する。後付けにしない。最低限：
+
+- Help entry（画面ロック／全画面と同じCommon Chromeクラスターへ常時表示、Settings内に隠さない）
+- Common Chrome placement（§5 Common Chrome Ordering: Lock → Fullscreen → Help）
+- 十分な内容量（初見の教員・保護者・支援者がHelpだけで基本操作を理解できること。同Standard §8/§9の必須説明構造A〜Fを満たす）
+- アプリ固有機能の説明
+- Accessibility（Keyboard open/close、visible focus、screen reader見出し構造、Gaze/Switch isolation、focus return）
+
+既存Productionアプリへの一括適用は行わない。Rollout状況は`docs/design-system/donomana-help-inventory-v1.md`を参照。
+
 ---
 
 ## 9. Design System参照
@@ -792,6 +804,8 @@ Implementation → Validation → User Review → Explicit Approval → Release
 
 新規アプリの初回production公開には**Release Approval Gate**を適用する。46章のlocal test minimum gate・47章のscenario test・50〜51章のproduction verificationがすべてPASSした後も、**ユーザーによる明示的な承認**を得るまでproduction公開しない。3章Stage 9のGateと対応する。
 
+Release Approval Gateには、Help / Usage Guide Standard v1.0準拠（8.1章: Common Chrome入口・十分な内容量・実装と説明の一致・responsive・accessibility）のPASSを含める。Help欠落状態、または入口がSettings内等に隠れた状態ではRelease Approval Gateを通過しない。
+
 ### 48.2 既存アプリの通常改善
 
 以下に該当し、十分なValidation PASS後は**Continuous Release**（Implementation → Validation → 問題なければmain統合 → push → Production Validationを、都度の承認待ちなしに連続実行してよい）可能とする。
@@ -911,7 +925,7 @@ Actions表示だけで完了判定しない。GitHub Actions画面のCI表示遅
 
 ## 53. Required / Conditional / Optional 一覧
 
-**REQUIRED**（全新規アプリに適用）: 教育的要件定義／条件付きUI／設定入口一本化／common chrome／Design System token使用／keyboard／reduced motion／保存（破損耐性）／inputMethod記録の観測ベース原則（記録機能がある場合）／記録詳細1:1バインディング（複数recordの場合）／複数件UI Validation（複数件を持つUIの場合）／responsive／mobile visual gate／focus visible／delayed callback二重確認／timer start guard／metadata完全記入／app-details/app-intro/index card/sitemap自動生成準拠／local test minimum gate／scenario test／production verification／productionを最終真実とする原則／Release Policy遵守（新規アプリはApproval Gate、既存アプリ改善はValidation PASS後Continuous Release可）／更新履歴のsemantic category rule遵守
+**REQUIRED**（全新規アプリに適用）: 教育的要件定義／条件付きUI／設定入口一本化／common chrome／Help / Usage Guide Standard v1.0準拠（8.1章）／Design System token使用／keyboard／reduced motion／保存（破損耐性）／inputMethod記録の観測ベース原則（記録機能がある場合）／記録詳細1:1バインディング（複数recordの場合）／複数件UI Validation（複数件を持つUIの場合）／responsive／mobile visual gate／focus visible／delayed callback二重確認／timer start guard／metadata完全記入／app-details/app-intro/index card/sitemap自動生成準拠／local test minimum gate／scenario test／production verification／productionを最終真実とする原則／Release Policy遵守（新規アプリはApproval Gate、既存アプリ改善はValidation PASS後Continuous Release可）／更新履歴のsemantic category rule遵守
 
 **CONDITIONAL**（該当する教材のみ、該当時はREQUIRED相当）: Level UI標準（複数Level） ／ Switch Scan（原則REQUIRED、入力方式として採用する場合） ／ gaze/dwell（採用する場合） ／ TTS（採用する場合） ／ Drag / Pointer Events Standard（drag操作を実装する場合） ／ 色と学習ロジック分離（色を使う場合） ／ canonical question state（問題型教材） ／ 問題数・進捗（終了条件を持つ教材） ／ 終了状態（有限問題型教材） ／ 学習記録（記録機能を持つ教材） ／ CSV（記録機能を持つ教材では原則REQUIRED候補） ／ Rendered Stimulus Validation・刺激差基準・responsive刺激scale（視覚的な違いが学習内容そのものである比較教材） ／ 非矩形shapeのRendered Validation（円・三角形等のCSS非矩形shapeを持つ場合） ／ modal（原則不使用、PINロックのみ例外）
 
@@ -979,6 +993,7 @@ Actions表示だけで完了判定しない。GitHub Actions画面のCI表示遅
 [ ] Switch Scan新規アプリ向けチェックリスト（Switch Scan仕様書v1.8 §19.22.14）全項目
 [ ] metadata完全記入
 [ ] 更新履歴がsemantic category ruleに沿っている（44章）
+[ ] Help / Usage Guide Standard v1.0準拠（8.1章）: Common Chrome入口・十分な内容量・実装と説明の一致・responsive・accessibility。Help欠落状態でRC Readyとしない
 [ ] generate実行・diff確認
 [ ] git diff --check
 [ ] production smoke test

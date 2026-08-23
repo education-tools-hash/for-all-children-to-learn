@@ -968,3 +968,52 @@ U1〜U8相当: たいこ／ベルが完全に消えていること、「どっ�
 ### 40.13 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。
+
+---
+
+## 41. Phase M12-D'''': Help Standard化 & Reference Implementation（PENDING USER HELP REVIEW）
+
+### 41.1 目的
+
+「どっちがいい？」のHelp（旧: Settings内アコーディオン、Phase M12-D'''）は入口が見つけにくく内容も簡潔すぎるとの課題を受け、**Help / Usage Guide をどのまな全アプリ共通のStandardとして正式化**し、本アプリをそのReference Implementationとして完成させた。詳細は`docs/design-system/donomana-help-usage-guide-standard-v1_0.md`（新設）を正本とし、本節にはM12固有の実装内容のみ記す（重複管理しない）。
+
+### 41.2 Help入口をCommon Chromeへ移動
+
+Settings内`<details id="usageGuide">`（Phase M12-D'''）を廃止し、Common Chromeの固定クラスター（`top:64px;right:12px`、ロック・全画面ボタンと同一row）へ`donomanaHelpBtn`（❓、accessible name「つかいかた」）を追加した。順序は Lock → Fullscreen → Help。generate.jsのCommon Chrome injectorへは組み込んでいない（本Phaseでは既存Production全アプリへの影響を避けるため、`dotchiga-ii-app.html`内へ手書きしたReference Implementation。Standard文書§22にPoC化の判断を記録）。
+
+### 41.3 Help panel
+
+新設`#helpPanel`（`.settings-panel`を再利用、非modal）。`h2`（パネルタイトル）→`h3`（大項目: このアプリについて／3つの活動／自分の画像を使う／操作方法／設定／記録）→`h4`（小項目）の見出し階層。技術用語（IndexedDB等）は本文に一切出していない。Settingsと相互排他（`openHelp()`は`settingsOpen`なら`closeSettings()`を呼び、`openSettings()`も同様に`helpOpen`なら`closeHelp()`を呼ぶ）。Escape・focus return（`helpBtn`自身、CSS非表示でないためproxy不要）・`getGazeTargets()`/`buildScanItems()`への`helpOpen`ガード追加・`activateChoice()`/`switchActivity()`への`helpOpen`ガード追加は、いずれもSettingsの既存パターンをそのまま複製し新しい隔離システムを発明していない。
+
+### 41.4 検証結果概要（Playwright, Python, headless Chromium）
+
+- Help button: Common Chrome上に正しく配置、aria-label「つかいかた」、クリック/キーボード(Enter)両方で開閉、Escapeで閉じてfocusがhelpBtnへ復帰
+- 見出し構造: h2→h3→h4、スキップなし
+- Gaze/Switch isolation: Help表示中`getGazeTargets()`/`buildScanItems()`とも0件、`switchActivity()`もブロック
+- Settings⇄Help相互排他: 双方向で確認
+- 内容チェック: たいこ/ベル/instrument/おためし等の残留語、技術用語、いずれも本文中0件（`textContent`走査で確認）
+- 3ボタンへ拡張したCommon Chromeクラスターについて、Gaze target enlargement(100%/150%)×spacing(normal/wide)×5解像度の全組み合わせでActivity Tabs・選択肢との衝突0件を再確認（M12-Dで確立した`padding-top:16px`のクリアランスが引き続き有効）
+- 既存回帰: Level1/Level2/Custom Level3/Custom persistence/completion(`.stage[hidden]`)/CSV、いずれもPASS
+- Responsive: 375×667/375×812/390×844/768×1024/1280×900で子ども画面・Help panel・Settings panelいずれもoverflowなし
+- console/page error: 全シーケンスを通して0件
+
+### 41.5 Standard文書・関連文書更新
+
+- 新設: `docs/design-system/donomana-help-usage-guide-standard-v1_0.md`（Donomana Help / Usage Guide Standard v1.0）
+- 新設: `docs/design-system/donomana-help-inventory-v1.md`（全34 Productionアプリの現状調査、Group A〜D分類、Rollout優先順位）
+- 更新: `donomana-design-system-v2_0.html` §7.6.4へ本Standardへのcross-reference行を追加（既存の表示方式原則は変更なし）
+- 更新: `donomana-new-app-development-standard-v1_0.md` §8.1（新設）・Pre-Production Checklist・§53 REQUIRED一覧・§48.1 Release Approval GateへHelp / Usage Guide Standard準拠を追加
+
+いずれも**既存Productionアプリのコードは変更していない**（調査・ドキュメントのみ）。
+
+### 41.6 未確認（PENDING USER HELP REVIEW）
+
+H1〜H10相当: 「？」の発見しやすさ、375pxでのCommon Chrome操作しやすさ、Help内容の理解しやすさ（目的・3活動の違い・Custom画像設定手順・4入力方式・設定・記録の説明）、文章量の過不足——実機・実際の読者視点でのUser確認待ち。
+
+### 41.7 Phase M12-D''''完了判定
+
+**Phase M12-D'''' = PENDING USER HELP REVIEW**。上記41.6の確認PASS後、Phase M12-D系列（M12-D〜M12-D''''）全体のClose判定に進む。既存Productionアプリへの段階Rolloutは別Phaseとする。
+
+### 41.8 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。既存Productionアプリのコードも本Phaseでは無変更。

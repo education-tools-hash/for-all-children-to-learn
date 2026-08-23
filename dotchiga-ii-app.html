@@ -259,6 +259,14 @@
 <div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
   <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
   <button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>
+  <!-- Phase M12-D'''' — Donomana Help / Usage Guide Standard v1.0 §8:
+       REQUIRED position is the same fixed top operating row as
+       Lock/Fullscreen, not buried in Settings. This is a hand-authored
+       Reference Implementation (not yet part of generate.js's shared
+       Common Chrome injector — see design doc §41 Common Chrome injector
+       feasibility note), styled identically to donomanaLockBtn/FsBtn so
+       it already matches the row's established visual language. -->
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpPanel" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
 </div>
 <div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
 <script>
@@ -490,26 +498,23 @@
   }
   .count-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
 
-  /* ===== Usage Guide (Phase M12-D''' §15/§16, Design System v2.0 §7.6.4) —
-     native <details>/<summary>, styled to match the rest of Settings. ===== */
-  .usage-guide {
-    border: 2px solid var(--dm-color-border); border-radius: var(--dm-radius-md);
-    margin-bottom: var(--dm-space-4); overflow: hidden;
+  /* ===== Help panel (Phase M12-D'''' — Donomana Help / Usage Guide
+     Standard v1.0 §7/§22): entry point lives in Common Chrome (the fixed
+     lock/fullscreen cluster, see #donomanaHelpBtn below), not inside
+     Settings (§54 "入口をSettingsへ戻さない"). Content itself reuses
+     .settings-panel's exact container so it needs no new visual language,
+     matching the Standard's "形式は共通、内容は個別" principle (§15). ===== */
+  .help-title { font-size: var(--dm-font-size-subheading); margin: 0 0 var(--dm-space-4); }
+  .help-body h3 {
+    font-size: var(--dm-font-size-body); font-weight: 900; margin: var(--dm-space-5) 0 var(--dm-space-2);
+    color: var(--dm-color-primary-dark); padding-top: var(--dm-space-3); border-top: 1px solid var(--dm-color-border);
   }
-  .usage-guide-summary {
-    list-style: none; cursor: pointer; min-height: 44px; padding: var(--dm-space-3) var(--dm-space-4);
-    display: flex; align-items: center; font-weight: 700; font-size: var(--dm-font-size-body);
-    color: var(--dm-color-ink); background: var(--dm-color-soft);
-  }
-  .usage-guide-summary::-webkit-details-marker { display: none; }
-  .usage-guide-summary:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: -2px; }
-  .usage-guide-summary::after { content: '▾'; margin-left: auto; transition: transform var(--dm-duration-fast,150ms); }
-  .usage-guide[open] .usage-guide-summary::after { transform: rotate(180deg); }
-  .usage-guide-body { padding: var(--dm-space-2) var(--dm-space-4) var(--dm-space-4); }
-  .usage-guide-body h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; padding: 0; margin: -1px; }
-  .usage-guide-body h4 { font-size: 0.9375rem; margin: var(--dm-space-3) 0 var(--dm-space-1); color: var(--dm-color-primary-dark); }
-  .usage-guide-body h4:first-of-type { margin-top: 0; }
-  .usage-guide-body p { margin: 0 0 var(--dm-space-2); font-size: 0.875rem; line-height: var(--dm-line-height-body); color: var(--dm-color-ink); }
+  .help-body h3:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .help-body h4 { font-size: 0.9375rem; font-weight: 700; margin: var(--dm-space-3) 0 var(--dm-space-1); color: var(--dm-color-ink); }
+  .help-body h4:first-of-type { margin-top: 0; }
+  .help-body p { margin: 0 0 var(--dm-space-2); font-size: 0.875rem; line-height: var(--dm-line-height-body); color: var(--dm-color-ink); }
+  .help-body ul { margin: 0 0 var(--dm-space-2); padding-left: 1.4em; font-size: 0.875rem; line-height: var(--dm-line-height-body); }
+  .help-body li { margin-bottom: 2px; }
 
   /* ===== Activity Tabs (Phase M12-C' §2/§17) — the single source of truth
      for switching activity, always visible above the stage. Deliberately
@@ -669,35 +674,70 @@
     </button>
   </section>
 
+  <!-- Phase M12-D'''' — Donomana Help / Usage Guide Standard v1.0 Reference
+       Implementation. §12 completion bar: a first-time teacher/caregiver
+       must be able to understand basic usage from this content alone.
+       §14 required structure (A-F) all present. §16: no technical terms
+       (IndexedDB/Blob/ARIA/state machine/etc.) anywhere below. Heading
+       hierarchy is h2 (this panel's own title) → h3 (major section) → h4
+       (sub-topic), never skipping a level (§24). -->
+  <section id="helpPanel" class="settings-panel" hidden aria-labelledby="helpTitle">
+    <h2 class="help-title" id="helpTitle">「どっちがいい？」の つかいかた</h2>
+    <div class="help-body">
+      <h3>このアプリについて</h3>
+      <p>「どっちがいい？」は、2つのものを見くらべて、自分で1つを選ぶことを楽しむ教材です。正解や不正解はありません。タッチだけでなく、視線入力・スイッチスキャン・キーボードなど、その子に合った方法で選ぶことができます。選んだものが分かりやすく変化したり、音声で名前を聞いたりしながら、「自分で選んだ」ことを感じられるようにしています。</p>
+
+      <h3>3つの活動</h3>
+      <p>画面上部の「どっち？」「すきなのはどっち？」「どっちにする？」から、いつでも活動を切り替えられます。本人がタッチや視線入力などで自分で切り替えることもできます（🗣️ こえで いう をONにすると、活動の名前を読み上げます）。</p>
+      <h4>どっち？</h4>
+      <p>2つのものを見て、どちらか1つを選ぶ活動です。まずは「2つの中から1つを選ぶ」という経験を楽しみたいときに使います（例：りんご／バナナ、いぬ／ねこ）。正解・不正解はありません。</p>
+      <h4>すきなのはどっち？</h4>
+      <p>2つから、今、自分が選びたいものを選ぶ活動です。自分の気持ちや意思を表す経験につなげます。ただし、一度の選択だけで「この子はこれが好き」と決めつけるものではありません。そのときどきの本人の選択を大切にしてください。</p>
+      <h4>どっちにする？</h4>
+      <p>先生や保護者、支援者が、本人にとって意味のある2つの画像を自由に登録して使う活動です（例：絵本／音楽、ブランコ／すべりだい、ジュース／おちゃ、ボール／シャボンだま、きょうしつ／たいいくかん）。本人が選んだ内容を、実際の活動や意思決定につなげて使うことを想定しています。</p>
+
+      <h3>自分の画像を使う</h3>
+      <p>「どっちにする？」で使う画像は、次の手順で登録します。</p>
+      <ul>
+        <li>右下の「⚙️ せってい」を開く</li>
+        <li>「どっちにする？」の「ひだり」で「📷 がぞうを えらぶ」から画像を選ぶ</li>
+        <li>「ひだり」の「なまえ」を入力する</li>
+        <li>「みぎ」も同じように画像と名前を登録する</li>
+        <li>「ほぞんする」を押す</li>
+        <li>「せってい」を閉じて「どっちにする？」を選ぶ</li>
+      </ul>
+      <p>写真・イラスト・絵カードなど、どのような画像でも使えます。本人が日常で使っている物・場所・活動などの写真を使うと、選ぶことの意味がより分かりやすくなる場合があります。</p>
+      <p>🔒 登録した画像は、この端末のブラウザ内だけに保存されます。どのまなのサーバーへ画像が送信されることはありません。</p>
+
+      <h3>操作方法</h3>
+      <h4>タッチ</h4>
+      <p>選びたいカードにタッチします。</p>
+      <h4>視線入力</h4>
+      <p>「せってい」で視線入力をONにすると、選びたいカードを一定時間見つめるだけで選べます。見つめる時間・見つめている印の表示・選びやすさの範囲や間隔なども「せってい」で調整できます。</p>
+      <h4>スイッチ</h4>
+      <p>「せってい」でスイッチスキャンをONにすると、選べる場所が順番に移動します。選びたい場所でスイッチを入力してください。</p>
+      <h4>キーボード</h4>
+      <p>Tabキーで移動し、EnterキーまたはSpaceキーで選べます。</p>
+
+      <h3>設定</h3>
+      <ul>
+        <li><b>えらぶかいすう</b>：1つの活動で何回選んだら終わりにするか</li>
+        <li><b>🔊 おと／🗣️ こえで いう</b>：選択の音や、選んだものの名前の読み上げのON/OFF</li>
+        <li><b>🎬 うごき／↔️ ひだり・みぎを いれかえる</b>：見た目の動きの有無や、左右の入れ替え</li>
+        <li><b>どっちにする？</b>：自分の画像の登録・変更・削除</li>
+        <li><b>👁️ しせんにゅうりょく</b>：視線入力の細かい調整</li>
+        <li><b>🔘 スイッチスキャン</b>：スイッチの間隔調整</li>
+        <li><b>きろく</b>：記録の確認・CSV書き出し・削除</li>
+      </ul>
+
+      <h3>記録</h3>
+      <p>いつ・どの活動で・何を選んだかを記録できます。「⚙️ せってい」の「きろく」から確認でき、CSVファイルとして書き出すこともできます。記録は、そのときの選択を振り返るためのものです。一度の選択だけから、好みや能力を判断するものではありません。</p>
+    </div>
+    <button id="helpCloseBtn" class="settings-close-btn" tabindex="0">とじる</button>
+  </section>
+
   <section id="settingsPanel" class="settings-panel" hidden>
     <h2 class="settings-title">せってい</h2>
-
-    <!-- Phase M12-D''' §15/§16 — Design System v2.0 §7.6.4 "ヘルプ": short
-         content that fits one screen uses a page-in-place accordion, never
-         a new modal (§7.5 permits only PIN-lock as a new-modal exception).
-         Native <details>/<summary> gives Enter/Space/Tab for free — no new
-         keyboard-handling code (§19/§22). It lives inside the existing
-         non-modal Settings panel, so it inherits the exact same isolation
-         Settings already has (getGazeTargets()/buildScanItems() return []
-         whenever settingsOpen — §20/§21 need no new isolation code either). -->
-    <details class="usage-guide" id="usageGuide">
-      <summary class="usage-guide-summary">❓ つかいかた</summary>
-      <div class="usage-guide-body">
-        <h3>つかいかた</h3>
-        <h4>このアプリについて</h4>
-        <p>「どっちがいい？」は、2つのものから自分で選ぶことを楽しむ教材です。タッチ・視線入力・スイッチスキャン・キーボードなど、自分に合った方法で選べます。正解・不正解はありません。</p>
-        <h4>「どっち？」</h4>
-        <p>2つのものを見て、どちらか1つを選びます。</p>
-        <h4>「すきなのはどっち？」</h4>
-        <p>2つのものから、選びたいものを選びます。選んだものに正解・不正解はありません。</p>
-        <h4>「どっちにする？」</h4>
-        <p>先生や支援者が、好きな画像を2枚登録して使います（例：音楽／絵本、ブランコ／すべりだい）。子ども本人が、実際に選びたい2つから選択できます。</p>
-        <h4>自分の画像を使う</h4>
-        <p>下の「どっちにする？」の設定から、左右の画像と名前を登録します。🔒 登録した画像は、この端末のブラウザ内だけに保存され、外部サーバーへは送信されません。</p>
-        <h4>入力方法</h4>
-        <p>タッチ・視線入力・スイッチスキャン・キーボードに対応しています。</p>
-      </div>
-    </details>
 
     <div class="setting-row">
       <span class="setting-label" id="countLabel">えらぶかいすう</span>
@@ -1339,7 +1379,7 @@ var RESULT_HANDLERS = { level1: handleLevel1Result, level2: handleLevel2Result, 
 /* Semantic Activation Architecture (Program design doc §22.1 Foundation A):
    every input method funnels into this single function. */
 function activateChoice(choiceId, inputMethod) {
-  if (isShowingResult || settingsOpen || !completeArea.hidden) return;
+  if (isShowingResult || settingsOpen || helpOpen || !completeArea.hidden) return;
   var el = getChoiceEl(choiceId);
   if (!el) return;
   isShowingResult = true;
@@ -1416,12 +1456,12 @@ function updateActivityLabel() {
 }
 function switchActivity(newId) {
   if (!ACTIVITIES[newId] || newId === currentActivity) return;
-  // Settings keeps exclusive interaction focus while open — same rule
+  // Settings/Help keep exclusive interaction focus while open — same rule
   // activateChoice() already applies to the 2 choices (§16 scope is
   // isShowingResult, not settingsOpen; this mirrors the pre-existing
-  // choice-area convention for consistency across all 3 activatable
-  // groups: choices / tabs / settings).
-  if (settingsOpen) return;
+  // choice-area convention for consistency across all activatable
+  // groups: choices / tabs / settings / help).
+  if (settingsOpen || helpOpen) return;
   if (pendingTrialTimeout) { clearTimeout(pendingTrialTimeout); pendingTrialTimeout = null; }
   if (scanMode) stopSwitchScan();
   currentActivity = newId;
@@ -1513,7 +1553,7 @@ function buildScanItems() {
   // first, then the trial's own targets — and §16 requires tabs to stay
   // Switch-operable even mid-feedback (isShowingResult), unlike the
   // choices, which must NOT be re-selectable during that window.
-  if (settingsOpen) return [];
+  if (settingsOpen || helpOpen) return []; // §26/§27: Help isolates exactly like Settings
   if (isShowingResult) return activityBtns.filter(isVisibleEnabled);
   if (!completeArea.hidden || !level3EmptyState.hidden) {
     return activityBtns.concat([restartBtn, level3EmptyEditBtn]).filter(isVisibleEnabled);
@@ -1561,7 +1601,7 @@ function setScanMode(on) {
 ===================================================================== */
 function getGazeTargets() {
   // Same tabs-always-reachable rule as buildScanItems() above (§9/§16).
-  if (settingsOpen) return [];
+  if (settingsOpen || helpOpen) return []; // §26/§27: Help isolates exactly like Settings
   if (isShowingResult) return activityBtns.slice();
   if (!completeArea.hidden || !level3EmptyState.hidden) return activityBtns.slice();
   return activityBtns.concat([choiceA, choiceB]);
@@ -1642,6 +1682,7 @@ function setGazeEnabled(on) {
    settings panel open/close
 ===================================================================== */
 function openSettings() {
+  if (helpOpen) closeHelp(); // §25/§44 mutual exclusivity, see openHelp() below
   settingsOpen = true;
   settingsPanel.hidden = false;
   settingsBtn.setAttribute('aria-expanded', 'true');
@@ -1662,8 +1703,42 @@ function closeSettings() {
 }
 settingsBtn.addEventListener('click', function() { settingsPanel.hidden ? openSettings() : closeSettings(); });
 settingsCloseBtn.addEventListener('click', closeSettings);
+
+/* =====================================================================
+   Help panel (Phase M12-D'''' — Donomana Help / Usage Guide Standard v1.0
+   §25-§29). Mirrors openSettings()/closeSettings() exactly (§22 "形式は
+   共通") — same non-modal isolation contract, so getGazeTargets()/
+   buildScanItems() just need one extra `|| helpOpen` guard (§26/§27), not
+   a parallel isolation system. §28: focus returns to the button that
+   opened it — donomanaHelpBtn itself is never CSS-hidden (unlike
+   settingsBtn), so no proxy-button indirection is needed here.
+===================================================================== */
+var helpOpen = false;
+var helpBtn = document.getElementById('donomanaHelpBtn');
+var helpPanel = document.getElementById('helpPanel');
+var helpCloseBtn = document.getElementById('helpCloseBtn');
+function openHelp() {
+  if (settingsOpen) closeSettings();
+  helpOpen = true;
+  helpPanel.hidden = false;
+  helpBtn.setAttribute('aria-expanded', 'true');
+  resetDwellState();
+  if (scanMode) refreshSwitchScanItems();
+}
+function closeHelp() {
+  helpOpen = false;
+  helpPanel.hidden = true;
+  helpBtn.setAttribute('aria-expanded', 'false');
+  if (scanMode) refreshSwitchScanItems();
+  helpBtn.focus();
+}
+helpBtn.addEventListener('click', function() { helpPanel.hidden ? openHelp() : closeHelp(); });
+helpCloseBtn.addEventListener('click', closeHelp);
+
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && settingsOpen) closeSettings();
+  if (e.key !== 'Escape') return;
+  if (settingsOpen) closeSettings();
+  else if (helpOpen) closeHelp();
 });
 
 /* =====================================================================
