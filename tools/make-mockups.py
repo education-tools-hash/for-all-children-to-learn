@@ -164,6 +164,14 @@ PLAY_ACTIONS = {
     "kurabeyou-app": _show_kurabeyou_level3,
 }
 
+# Phase M12-G: User承認済みの正式アイコンartworkを持つアプリ。ここに登録した
+# アプリは、assets/icons/{id}.png の自動生成(絵文字+パステルグラデーション)を
+# スキップする — このスクリプトは既存ファイルの有無を見ずに毎回無条件で上書き
+# するため、登録しないとUser承認済みartworkが次回実行時に古い自動生成アイコン
+# へ静かに戻ってしまう。mockup(assets/mockups/{id}.png、実画面スクリーンショ
+# ット)はこのSetと無関係で、対象アプリでも通常どおり再生成される。
+CUSTOM_ICON_APPS = {"dotchiga-ii"}
+
 
 def main():
     only = set(sys.argv[1:])
@@ -240,22 +248,28 @@ def main():
                 img = Image.open(raw).resize((1200, 630), Image.LANCZOS)
                 img.save(OUT_MOCK / f"{aid}.png", optimize=True)
 
-                # 4) アイコン(512x512 透過)
-                (TMP / f"icon-{aid}.html").write_text(
-                    ICON_HTML.format(icon=app["icon"], primary=primary,
-                                     grad_a=shade(primary, 0.22),
-                                     grad_b=shade(primary, -0.18)),
-                    encoding="utf-8")
-                ctx = browser.new_context(viewport={"width": 512, "height": 512})
-                pg = ctx.new_page()
-                pg.goto(f"http://localhost:{PORT}/_mockup_tmp/icon-{aid}.html",
-                        wait_until="load")
-                pg.wait_for_timeout(200)
-                pg.screenshot(path=str(OUT_ICON / f"{aid}.png"), omit_background=True)
-                ctx.close()
+                # 4) アイコン(512x512 透過) — User承認済み正式artworkを持つ
+                #    アプリ(CUSTOM_ICON_APPS)は自動生成をスキップし、既存
+                #    ファイルをそのまま保持する。
+                if aid in CUSTOM_ICON_APPS:
+                    icon_note = " (icon: User artwork保持、自動生成skip)"
+                else:
+                    (TMP / f"icon-{aid}.html").write_text(
+                        ICON_HTML.format(icon=app["icon"], primary=primary,
+                                         grad_a=shade(primary, 0.22),
+                                         grad_b=shade(primary, -0.18)),
+                        encoding="utf-8")
+                    ctx = browser.new_context(viewport={"width": 512, "height": 512})
+                    pg = ctx.new_page()
+                    pg.goto(f"http://localhost:{PORT}/_mockup_tmp/icon-{aid}.html",
+                            wait_until="load")
+                    pg.wait_for_timeout(200)
+                    pg.screenshot(path=str(OUT_ICON / f"{aid}.png"), omit_background=True)
+                    ctx.close()
+                    icon_note = ""
 
                 mk = (OUT_MOCK / f"{aid}.png").stat().st_size // 1024
-                print(f"OK (mockup {mk}KB)")
+                print(f"OK (mockup {mk}KB){icon_note}")
 
             browser.close()
     finally:
