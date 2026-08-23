@@ -351,6 +351,15 @@
      PLACEHOLDER (.choice-placeholder markup/CSS + renderChoiceIcon()) has
      been removed entirely — Level3 renders through the same plain <img>
      path as every other choice now (see design doc §36).
+     Phase M12-D'' update: added Custom Choice — a supporter can register
+     2 own photos (IndexedDB, device-local only) for Level3, alongside the
+     builtin たいこ／ベル set (design doc §39).
+     Phase M12-D''' update: after repeated real-device tuning, User Review
+     rejected the instrument sound quality outright — たいこ／ベル, their
+     assets, and all instrument-specific sound synthesis are removed.
+     「どっちにする？」 is Custom Choice only now (no more set selector);
+     see design doc §40. A page-in-place Usage Guide (Design System v2.0
+     §7.6.4) was also added to Settings.
   ===================================================================== */
   * { box-sizing: border-box; }
   body {
@@ -480,20 +489,27 @@
     font-size: var(--dm-font-size-caption); font-family: inherit;
   }
   .count-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
-  /* .level3-set-btn intentionally does NOT also carry the .count-btn class
-     (Phase M12-D'' bugfix): .count-btn is also a JS selector root
-     (`document.querySelectorAll('.count-btn')`) for the えらぶかいすう
-     stepper, so a shared class made every level3-set-btn click also fire
-     that handler and stomp trialCount to NaN. Same visual pill look via a
-     duplicated (not shared) rule instead. */
-  .level3-set-btn {
-    min-width: 44px; min-height: 44px; padding: var(--dm-space-2) var(--dm-space-4);
-    border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
-    background: #fff; color: var(--dm-color-ink); font-weight: 900; cursor: pointer;
-    font-size: var(--dm-font-size-caption); font-family: inherit;
+
+  /* ===== Usage Guide (Phase M12-D''' §15/§16, Design System v2.0 §7.6.4) —
+     native <details>/<summary>, styled to match the rest of Settings. ===== */
+  .usage-guide {
+    border: 2px solid var(--dm-color-border); border-radius: var(--dm-radius-md);
+    margin-bottom: var(--dm-space-4); overflow: hidden;
   }
-  .level3-set-btn[aria-pressed="true"] { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
-  .level3-set-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .usage-guide-summary {
+    list-style: none; cursor: pointer; min-height: 44px; padding: var(--dm-space-3) var(--dm-space-4);
+    display: flex; align-items: center; font-weight: 700; font-size: var(--dm-font-size-body);
+    color: var(--dm-color-ink); background: var(--dm-color-soft);
+  }
+  .usage-guide-summary::-webkit-details-marker { display: none; }
+  .usage-guide-summary:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: -2px; }
+  .usage-guide-summary::after { content: '▾'; margin-left: auto; transition: transform var(--dm-duration-fast,150ms); }
+  .usage-guide[open] .usage-guide-summary::after { transform: rotate(180deg); }
+  .usage-guide-body { padding: var(--dm-space-2) var(--dm-space-4) var(--dm-space-4); }
+  .usage-guide-body h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; padding: 0; margin: -1px; }
+  .usage-guide-body h4 { font-size: 0.9375rem; margin: var(--dm-space-3) 0 var(--dm-space-1); color: var(--dm-color-primary-dark); }
+  .usage-guide-body h4:first-of-type { margin-top: 0; }
+  .usage-guide-body p { margin: 0 0 var(--dm-space-2); font-size: 0.875rem; line-height: var(--dm-line-height-body); color: var(--dm-color-ink); }
 
   /* ===== Activity Tabs (Phase M12-C' §2/§17) — the single source of truth
      for switching activity, always visible above the stage. Deliberately
@@ -656,7 +672,33 @@
   <section id="settingsPanel" class="settings-panel" hidden>
     <h2 class="settings-title">せってい</h2>
 
-    <div class="setting-group-title">あそび</div>
+    <!-- Phase M12-D''' §15/§16 — Design System v2.0 §7.6.4 "ヘルプ": short
+         content that fits one screen uses a page-in-place accordion, never
+         a new modal (§7.5 permits only PIN-lock as a new-modal exception).
+         Native <details>/<summary> gives Enter/Space/Tab for free — no new
+         keyboard-handling code (§19/§22). It lives inside the existing
+         non-modal Settings panel, so it inherits the exact same isolation
+         Settings already has (getGazeTargets()/buildScanItems() return []
+         whenever settingsOpen — §20/§21 need no new isolation code either). -->
+    <details class="usage-guide" id="usageGuide">
+      <summary class="usage-guide-summary">❓ つかいかた</summary>
+      <div class="usage-guide-body">
+        <h3>つかいかた</h3>
+        <h4>このアプリについて</h4>
+        <p>「どっちがいい？」は、2つのものから自分で選ぶことを楽しむ教材です。タッチ・視線入力・スイッチスキャン・キーボードなど、自分に合った方法で選べます。正解・不正解はありません。</p>
+        <h4>「どっち？」</h4>
+        <p>2つのものを見て、どちらか1つを選びます。</p>
+        <h4>「すきなのはどっち？」</h4>
+        <p>2つのものから、選びたいものを選びます。選んだものに正解・不正解はありません。</p>
+        <h4>「どっちにする？」</h4>
+        <p>先生や支援者が、好きな画像を2枚登録して使います（例：音楽／絵本、ブランコ／すべりだい）。子ども本人が、実際に選びたい2つから選択できます。</p>
+        <h4>自分の画像を使う</h4>
+        <p>下の「どっちにする？」の設定から、左右の画像と名前を登録します。🔒 登録した画像は、この端末のブラウザ内だけに保存され、外部サーバーへは送信されません。</p>
+        <h4>入力方法</h4>
+        <p>タッチ・視線入力・スイッチスキャン・キーボードに対応しています。</p>
+      </div>
+    </details>
+
     <div class="setting-row">
       <span class="setting-label" id="countLabel">えらぶかいすう</span>
       <div class="count-buttons" role="group" aria-labelledby="countLabel">
@@ -665,15 +707,12 @@
         <button class="count-btn" data-count="10" tabindex="0" aria-pressed="false">10かい</button>
       </div>
     </div>
-    <div class="setting-row">
-      <span class="setting-label" id="level3SetLabel">どっちにする？ の えらぶもの</span>
-      <div class="count-buttons" role="group" aria-labelledby="level3SetLabel">
-        <button type="button" class="level3-set-btn" data-set="builtin" tabindex="0" aria-pressed="true">おためし</button>
-        <button type="button" class="level3-set-btn" data-set="custom" tabindex="0" aria-pressed="false">じぶんでつくる</button>
-      </div>
-    </div>
-    <div id="customEditor" class="custom-editor" hidden>
-      <p class="custom-editor-privacy">えらんだ がぞうは、この たんまつの ブラウザないだけに ほぞんされます。</p>
+
+    <!-- Phase M12-D''' §9/§11: Level3 is Custom Choice only now — no more
+         builtin/custom set selector, editor always visible. -->
+    <div class="setting-group-title">どっちにする？</div>
+    <div id="customEditor" class="custom-editor">
+      <p class="custom-editor-privacy">🔒 えらんだ がぞうは、この たんまつの ブラウザないだけに ほぞんされます。</p>
       <div class="custom-sides">
         <div class="custom-side">
           <div class="setting-group-title" style="margin-top:0;">ひだり</div>
@@ -701,10 +740,10 @@
       <p class="custom-editor-msg" id="customEditorMsg" role="status" aria-live="polite"></p>
       <div class="custom-editor-buttons">
         <button type="button" id="customSaveBtn" class="settings-reset-btn custom-save-btn" tabindex="0">ほぞんする</button>
-        <button type="button" id="customDeleteBtn" class="settings-reset-btn" tabindex="0">じぶんでつくる を ぜんぶ けす</button>
+        <button type="button" id="customDeleteBtn" class="settings-reset-btn" tabindex="0">とうろくした がぞうを ぜんぶ けす</button>
       </div>
       <div class="record-confirm" id="customDeleteConfirm" hidden>
-        <p>じぶんでつくる の がぞうを ぜんぶ けしますか？</p>
+        <p>とうろくした がぞうと なまえを ぜんぶ けしますか？</p>
         <button type="button" id="customDeleteCancelBtn" class="settings-reset-btn" tabindex="0">キャンセル</button>
         <button type="button" id="customDeleteConfirmBtn" class="settings-reset-btn" tabindex="0">けす</button>
       </div>
@@ -818,12 +857,12 @@
     <button type="button" class="primary-btn" id="restartBtn" tabindex="0">もういちど</button>
   </section>
 
-  <!-- Phase M12-D'' §26: shown instead of #stage when 「どっちにする？」の
-       じぶんでつくる is selected but nothing has been registered yet — a
+  <!-- Phase M12-D''/§26 (mode selector removed D'''): shown instead of
+       #stage when 「どっちにする？」 has nothing registered yet — a
        supporter-facing nudge, never a broken/empty child-facing card. -->
   <section class="complete-area" id="level3EmptyState" hidden>
-    <p class="complete-text" id="level3EmptyText" style="font-size: var(--dm-font-size-heading);">じぶんでつくる が まだ ありません</p>
-    <button type="button" class="primary-btn" id="level3EmptyEditBtn" tabindex="0">せっていで つくる</button>
+    <p class="complete-text" id="level3EmptyText" style="font-size: var(--dm-font-size-heading);">「どっちにする？」で つかう がぞうを、まだ せっていしていません</p>
+    <button type="button" class="primary-btn" id="level3EmptyEditBtn" tabindex="0">せっていを ひらく</button>
   </section>
 </main>
 
@@ -897,22 +936,19 @@ var STORAGE_LOG_KEY = 'dotchiga_ii_log';
 /* ---- data-driven choice + activity definitions (Phase M12-C §22/§23) ----
    Each choice belongs to a category; same-trial pairs are always built
    within one category (§23 — no food-vs-animal pairs). `asset` is a
-   User-approved illustration. Phase M12-C'' replaced drum/bell's Phase
-   M12-C PROTOTYPE PLACEHOLDER (prototypePlaceholder:true/placeholderGlyph,
-   now removed along with the .choice-placeholder markup/CSS/renderer they
-   drove) with User-approved assets/dotchiga-ii/drum.png and bell.png —
-   see design doc §36 for the transparency/visual-weight review. `sound` is
-   a soft Web Audio tone (NOT a sampled instrument recording, §18) used
-   only by Level3's result handler. */
+   User-approved illustration.
+   Phase M12-D''': the builtin たいこ／ベル instrument choices (added
+   M12-C, given final art M12-C'', tuned twice for volume/timbre M12-D'/
+   M12-D'') are removed here — after repeated real-device tuning attempts,
+   User Review rejected the instrument sound quality outright and decided
+   「どっちにする？」should be Custom Choice only (design doc §40). Their
+   assets (drum.png/bell.png) and dedicated sound synthesis are removed
+   with them (see playTone()/playBellTone() removal below). */
 var CHOICES = {
-  apple:  { category: 'food',       label: 'りんご', asset: 'assets/dotchiga-ii/apple.png', source: 'builtin' },
-  banana: { category: 'food',       label: 'バナナ', asset: 'assets/dotchiga-ii/banana.png', source: 'builtin' },
-  dog:    { category: 'animal',     label: 'いぬ',   asset: 'assets/dotchiga-ii/dog.png', source: 'builtin' },
-  cat:    { category: 'animal',     label: 'ねこ',   asset: 'assets/dotchiga-ii/cat.png', source: 'builtin' },
-  drum:   { category: 'instrument', label: 'たいこ', asset: 'assets/dotchiga-ii/drum.png', source: 'builtin',
-            sound: { kind: 'tone', freq: 130, type: 'triangle', durationMs: 220, peakGain: 0.36 } },
-  bell:   { category: 'instrument', label: 'ベル',   asset: 'assets/dotchiga-ii/bell.png', source: 'builtin',
-            sound: { kind: 'bell', freq: 900, durationMs: 700, peakGain: 0.34 } }
+  apple:  { category: 'food',   label: 'りんご', asset: 'assets/dotchiga-ii/apple.png' },
+  banana: { category: 'food',   label: 'バナナ', asset: 'assets/dotchiga-ii/banana.png' },
+  dog:    { category: 'animal', label: 'いぬ',   asset: 'assets/dotchiga-ii/dog.png' },
+  cat:    { category: 'animal', label: 'ねこ',   asset: 'assets/dotchiga-ii/cat.png' }
 };
 /* Phase M12-D'' §0/§30: customLeft/customRight are added to CHOICES at
    runtime (see applyCustomChoiceDataToChoices() below) once IndexedDB data
@@ -933,24 +969,22 @@ function pairsForCategories(categories) {
 /* Level1/Level2 intentionally share the same category pool (§11) — the
    difference between them is entirely in framing/feedback language
    (handleLevel1Result / handleLevel2Result below), never in which pairs
-   appear. */
+   appear. Level3's categories start empty and are populated exclusively
+   by rebuildLevel3Pairs() below (Custom Choice only, Phase M12-D'''). */
 var ACTIVITIES = {
   level1: { id: 'level1', label: 'どっち？',           categories: ['food', 'animal'] },
   level2: { id: 'level2', label: 'すきなのはどっち？', categories: ['food', 'animal'] },
-  level3: { id: 'level3', label: 'どっちにする？',     categories: ['instrument'] }
+  level3: { id: 'level3', label: 'どっちにする？',     categories: ['custom'] }
 };
 var ACTIVITY_ORDER = ['level1', 'level2', 'level3'];
 ACTIVITY_ORDER.forEach(function(id) { ACTIVITIES[id].pairs = pairsForCategories(ACTIVITIES[id].categories); });
 
-/* Phase M12-D'' §2/§5: 「どっちにする？」 now has 2 sets — builtin
-   (category 'instrument', unchanged) and custom (category 'custom',
-   populated at runtime once IndexedDB data loads, see
-   applyCustomChoiceDataToChoices()). level3SetMode picks which category
-   ACTIVITIES.level3 draws its pairs from; call this whenever the mode
-   changes OR the custom data itself changes. */
+/* Phase M12-D''' §9: 「どっちにする？」 is Custom Choice only now (no more
+   builtin/custom set selector) — this just recomputes ACTIVITIES.level3's
+   single pair from whatever CHOICES.customLeft/customRight currently
+   exist. Call whenever the custom data itself changes (save/delete/load). */
 function rebuildLevel3Pairs() {
-  ACTIVITIES.level3.categories = (level3SetMode === 'custom') ? ['custom'] : ['instrument'];
-  ACTIVITIES.level3.pairs = pairsForCategories(ACTIVITIES.level3.categories);
+  ACTIVITIES.level3.pairs = pairsForCategories(['custom']);
   if (currentActivity === 'level3') currentPairs = ACTIVITIES.level3.pairs;
 }
 
@@ -972,7 +1006,6 @@ var gazeTargetScalePct = TARGET_SCALE_STANDARD;
 var targetSpacingWide = false;
 var motionSpeedLevel = 'normal';
 var SPACING_EROSION_PX = 8;
-var level3SetMode = 'builtin'; // 'builtin' | 'custom' — §5
 var customChoiceData = null;   // IndexedDB record or null — §10
 var customObjectUrls = { left: null, right: null }; // §25 revoke tracking
 var pendingCustomImages = { left: null, right: null }; // staged {blob,mimeType} in the editor, not yet saved
@@ -1027,8 +1060,6 @@ var toggleGazeEnlarge = document.getElementById('toggleGazeEnlarge');
 var toggleGazeSpacing = document.getElementById('toggleGazeSpacing');
 var toggleGazeSlowMotion = document.getElementById('toggleGazeSlowMotion');
 var gazeSettingsResetBtn = document.getElementById('gazeSettingsResetBtn');
-var level3SetBtns = Array.from(document.querySelectorAll('.level3-set-btn'));
-var customEditorEl = document.getElementById('customEditor');
 var customEditorMsg = document.getElementById('customEditorMsg');
 var customLeftPreview = document.getElementById('customLeftPreview');
 var customLeftPreviewEmpty = document.getElementById('customLeftPreviewEmpty');
@@ -1059,7 +1090,7 @@ function saveSettings() {
     dwellDurationMs: dwellDurationMs, entryDelayMs: entryDelayMs, cooldownMs: cooldownMs,
     dwellProgressVisible: dwellProgressVisible, gazeTargetScalePct: gazeTargetScalePct,
     targetSpacingWide: targetSpacingWide, motionSpeedLevel: motionSpeedLevel,
-    currentActivity: currentActivity, level3SetMode: level3SetMode
+    currentActivity: currentActivity
   };
   try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
 }
@@ -1084,7 +1115,6 @@ function loadSettings() {
   motionSpeedLevel = (s.motionSpeedLevel === 'slow') ? 'slow' : 'normal';
   currentActivity = (ACTIVITIES.hasOwnProperty(s.currentActivity)) ? s.currentActivity : 'level1';
   currentPairs = ACTIVITIES[currentActivity].pairs;
-  level3SetMode = (s.level3SetMode === 'custom') ? 'custom' : 'builtin';
 }
 
 /* =====================================================================
@@ -1186,8 +1216,8 @@ function applyCustomChoiceDataToChoices() {
   if (!customChoiceData) return;
   customObjectUrls.left = URL.createObjectURL(customChoiceData.left.imageBlob);
   customObjectUrls.right = URL.createObjectURL(customChoiceData.right.imageBlob);
-  CHOICES.customLeft = { category: 'custom', label: customChoiceData.left.label, asset: customObjectUrls.left, source: 'custom' };
-  CHOICES.customRight = { category: 'custom', label: customChoiceData.right.label, asset: customObjectUrls.right, source: 'custom' };
+  CHOICES.customLeft = { category: 'custom', label: customChoiceData.left.label, asset: customObjectUrls.left };
+  CHOICES.customRight = { category: 'custom', label: customChoiceData.right.label, asset: customObjectUrls.right };
 }
 function level3CustomHasData() {
   return !!(CHOICES.customLeft && CHOICES.customRight);
@@ -1227,84 +1257,15 @@ function beep(freq, durationMs) {
     osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + durationMs / 1000);
   } catch (e) {}
 }
-/* Level3 result sound (§18/§19): a soft Web Audio tone standing in for the
-   instrument, NOT a claim of realism. peakGain (Phase M12-D' §11: raised
-   from the original flat 0.22 after Tobii User Review reported instrument
-   sounds as "かなり小さい") defaults to the pre-M12-D' level only if a
-   caller omits it. */
-function playTone(freq, type, durationMs, peakGain) {
-  if (!soundEnabled) return;
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var osc = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.type = type || 'sine'; osc.frequency.value = freq;
-    var peak = (typeof peakGain === 'number') ? peakGain : 0.22;
-    gain.gain.setValueAtTime(peak, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durationMs / 1000);
-    osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + durationMs / 1000);
-  } catch (e) {}
-}
-/* Bell result sound (Phase M12-D' §14-17): Tobii User Review reported the
-   old single 1180Hz sine as "not bell-like". A real bell's brightness
-   comes from a handful of INHARMONIC partials (not a clean overtone
-   series) that decay at different rates — the upper partials die out
-   first, which is exactly what makes a bell sound different from a flute
-   playing the same pitch. 3 sine partials (§15, kept simple — no larger
-   sound-engine), each with its own decay so the upper ones fade faster
-   (§16 "attack ほぼ即時, decay 500-900ms, exponential"), amplitude-summed
-   so the total peak can never exceed peakGain regardless of partial count
-   (§12 clipping safety). Highest partial stays under 2kHz (§17). */
-function playBellTone(fundamentalFreq, durationMs, peakGain) {
-  if (!soundEnabled) return;
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var now = audioCtx.currentTime;
-    var partials = [
-      { ratio: 1,   share: 1.00, decayMs: durationMs },        // fundamental
-      { ratio: 1.5, share: 0.35, decayMs: durationMs * 0.6 },  // §15 harmonic1
-      { ratio: 2.2, share: 0.15, decayMs: durationMs * 0.4 }   // §15 harmonic2
-    ];
-    var shareSum = partials.reduce(function(sum, p) { return sum + p.share; }, 0);
-    partials.forEach(function(p) {
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      osc.frequency.value = fundamentalFreq * p.ratio;
-      var peak = peakGain * (p.share / shareSum);
-      var attackEnd = now + 0.01; // §16 attack: ~10ms, well within 5-15ms
-      var decayEnd = attackEnd + (p.decayMs / 1000);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(peak, attackEnd);
-      gain.gain.exponentialRampToValueAtTime(0.0001, decayEnd);
-      osc.start(now); osc.stop(decayEnd + 0.02);
-    });
-  } catch (e) {}
-}
-/* Phase M12-D'' §31-35: a real-audio-asset playback path, DORMANT until a
-   User-approved recording exists. §32 is explicit that Claude Code must
-   never fetch third-party audio into this repo without confirmed rights
-   — a repo-wide search (Phase M12-D) found zero existing audio files of
-   any kind (mp3/wav/ogg/m4a), so drum/bell keep using the Web Audio
-   synthesis above (kind:'tone'/'bell', unchanged) as the active sound.
-   Wiring in a real recording later is a 1-line data change in CHOICES —
-   set kind:'asset' and assetPath to e.g. assets/dotchiga-ii/audio/
-   drum.mp3 (§33) — no further code here. AUDIO QUALITY = PENDING USER
-   ASSET until that happens; this function existing does not change that
-   status. */
-var audioAssetCache = {};
-function playAudioAsset(assetPath, volume) {
-  if (!soundEnabled) return;
-  try {
-    var audio = audioAssetCache[assetPath];
-    if (!audio) { audio = new Audio(assetPath); audioAssetCache[assetPath] = audio; }
-    audio.currentTime = 0;
-    audio.volume = (typeof volume === 'number') ? volume : 0.8; // §34: default not too quiet
-    audio.play().catch(function() {}); // autoplay-policy rejection is silent, not thrown
-  } catch (e) {}
-}
+/* Phase M12-D''': playTone()/playBellTone() (the たいこ／ベル instrument
+   synthesis, tuned across M12-D'/M12-D'') and playAudioAsset() (the
+   dormant real-audio-asset path from M12-D'', never wired to anything
+   else) are removed together with the instrument choices they existed
+   for — User Review rejected the sound quality outright, and Custom
+   Choice photos carry no synthesized sound at all (§12), so nothing in
+   this app calls a "play an instrument-like tone" helper anymore.
+   beep() above is unrelated and stays — it's Level1/Level2's shared
+   selection-confirmation tone, never instrument-specific. */
 function speak(text) {
   if (!speechEnabled) return;
   if (!('speechSynthesis' in window)) return;
@@ -1318,11 +1279,12 @@ function speak(text) {
    trial flow
 ===================================================================== */
 function startTrial() {
-  // Phase M12-D'' §26: 「どっちにする？」+ じぶんでつくる with nothing
-  // registered yet has an empty currentPairs — never index into it (that
-  // would hand the child a broken card); show the supporter-facing empty
-  // state instead, exactly like showComplete() swaps in completeArea.
-  if (currentActivity === 'level3' && level3SetMode === 'custom' && !level3CustomHasData()) {
+  // Phase M12-D''/§26 (mode selector removed in D'''): 「どっちにする？」
+  // with nothing registered yet has an empty currentPairs — never index
+  // into it (that would hand the child a broken card); show the
+  // supporter-facing empty state instead, exactly like showComplete()
+  // swaps in completeArea.
+  if (currentActivity === 'level3' && !level3CustomHasData()) {
     stage.hidden = true;
     level3EmptyState.hidden = false;
     if (scanMode) refreshSwitchScanItems();
@@ -1366,29 +1328,11 @@ function handleLevel2Result(choiceId, def) {
   speak(def.label + ' を えらんだね');
 }
 function handleLevel3Result(choiceId, def) {
-  // §14/§18: the sound IS the result, not mere reinforcement — and it may
-  // overlap the selection beep only in spirit, never in timing, so we skip
-  // beep() here and let the instrument tone stand alone before speech (§21).
-  // Custom Choice photos have no def.sound (§19 — no synthesized "sound"
-  // is invented for an arbitrary photo), so there's nothing to wait for
-  // and speech fires immediately.
-  var s = def.sound;
-  if (s) {
-    if (s.kind === 'bell') playBellTone(s.freq, s.durationMs, s.peakGain);
-    else if (s.kind === 'asset') playAudioAsset(s.assetPath, s.volume); // §31-35, dormant today
-    else playTone(s.freq, s.type, s.durationMs, s.peakGain);
-  }
-  // Phase M12-D' §20: bell's decay (700ms) is now much longer than drum's
-  // (220ms) — 220ms was tuned for the old bell duration (260ms) and would
-  // now start speech while the bell is still near its loudest. 380ms sits
-  // in the User-suggested 300-450ms band and, per §20's own allowance,
-  // does not need to wait for the tail to fully finish.
-  // §19: Custom Choice acknowledges the pick ("を えらんだね", same
-  // non-assertive phrasing as Level2) rather than naming it bare, since a
-  // supporter-chosen photo/activity reads more naturally as an
-  // acknowledged choice than a bare label.
-  var speechText = (def.source === 'custom') ? (def.label + ' を えらんだね') : def.label;
-  setTimeout(function() { speak(speechText); }, s ? 380 : 0);
+  // Phase M12-D''': Level3 is Custom Choice only now — no instrument tone
+  // to play or wait for, so speech fires immediately. §12: acknowledge
+  // the pick ("を えらんだね", same non-assertive phrasing as Level2)
+  // rather than a bare label or any preference claim.
+  speak(def.label + ' を えらんだね');
 }
 var RESULT_HANDLERS = { level1: handleLevel1Result, level2: handleLevel2Result, level3: handleLevel3Result };
 
@@ -1910,18 +1854,12 @@ recordConfirmBtn.addEventListener('click', function() {
 });
 
 /* =====================================================================
-   Level3 Set Selector + Custom Choice editor (Phase M12-D'' §5/§6/§42-44)
+   Custom Choice editor (Phase M12-D'' §6, mode selector removed §9/§44)
    — lives entirely inside the existing non-modal Settings panel, so it
    inherits Settings' existing exclusive-interaction-focus behavior
    (getGazeTargets()/buildScanItems() already return [] whenever
    settingsOpen is true) with no new isolation code (§44).
 ===================================================================== */
-function updateLevel3SetButtons() {
-  level3SetBtns.forEach(function(b) {
-    b.setAttribute('aria-pressed', b.dataset.set === level3SetMode ? 'true' : 'false');
-  });
-  customEditorEl.hidden = (level3SetMode !== 'custom');
-}
 function renderCustomSidePreview(side) {
   var imgEl = (side === 'left') ? customLeftPreview : customRightPreview;
   var emptyEl = (side === 'left') ? customLeftPreviewEmpty : customRightPreviewEmpty;
@@ -1941,7 +1879,6 @@ function renderCustomSidePreview(side) {
   else if (!pending && !saved) labelInput.value = '';
 }
 function renderCustomEditor() {
-  updateLevel3SetButtons();
   renderCustomSidePreview('left');
   renderCustomSidePreview('right');
 }
@@ -2048,17 +1985,6 @@ customDeleteConfirmBtn.addEventListener('click', function() {
   });
 });
 
-level3SetBtns.forEach(function(b) {
-  b.addEventListener('click', function() {
-    if (b.dataset.set === level3SetMode) return;
-    level3SetMode = b.dataset.set;
-    renderCustomEditor();
-    rebuildLevel3Pairs();
-    trialIndex = 0;
-    if (currentActivity === 'level3') startTrial();
-    saveSettings();
-  });
-});
 level3EmptyEditBtn.addEventListener('click', function() { openSettings(); });
 
 /* =====================================================================

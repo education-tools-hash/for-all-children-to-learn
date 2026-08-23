@@ -894,3 +894,77 @@ Custom Choice選択時のみ「◯◯ を えらんだね」（Level2と同じ�
 ### 39.13 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。
+
+---
+
+## 40. Phase M12-D''': Builtin Instrument Removal & Usage Guide（PENDING USER REVIEW）
+
+### 40.1 User Review結果とBuiltin instrument削除の決定
+
+Phase M12-D''のUser Reviewにより、Custom Choice機能（画像2枚の自由登録・保存/再読み込み・名前読み上げ・実用性）はすべてPASSと判定された。一方、たいこ／ベルの音質はPhase M12-D'・M12-D''の2回にわたる実機調整（音量引き上げ・ベルのinharmonic 3-partial合成への刷新）を経てもUserが満足する品質に至らなかった。このためBuiltin「たいこ／ベル」を完全に削除し、「どっちにする？」をCustom Choice（Userが自由に画像2枚＋名前2つを設定する活動）へ一本化する決定がなされた。
+
+### 40.2 Source of Truth調査結果（使い方機能の正式要件）
+
+実装前に`docs/design-system/donomana-new-app-development-standard-v1_0.md`と`donomana-design-system-v2_0.html`を確認した。
+
+- New App Development Standard §該当箇所（"7.5 モーダル・ポップアップ禁止"改訂ログ）は、Design System §7.5/§7.6を参照する形で「新規モーダルの追加を原則禁止し、PINロックのみを正式例外とする」方針を明記している。
+- Design System v2.0 §7.6.4「ヘルプ」（"新設"タグ付き、v2.0で新規制定）が正式pattern: **短文（1画面に収まる内容）はページ内アコーディオンで展開、長文・対象者が分かれる場合は別画面ルート**、見出し構造は7.2の階層規約（h1→h2→h3、スキップ禁止）に必ず準拠、と定めている。
+- 既存Production調査（`bosai-app.html`・`drawing-app.html`・`gaze-keyboard.html`・`kimochi-board.html`等、4本確認）: いずれも§7.5改訂前（2026年3〜6月ごろ）に実装された**旧式のmodalベースヘルプ**（`.help-modal`/`helpBtn`/`role="dialog"`）であり、Design System改訂ログ#8により「既存実装は経過措置として容認、新規アクセシビリティ改善のみ許容」と位置づけられている。新規に採用してよいpatternではない。
+- **結論**: 「どっちがいい？」の使い方機能はこのアプリにとって完全新規のため、既存アプリのmodalパターンではなく、Design System v2.0 §7.6.4の非modalパターン（ページ内アコーディオン）を採用した。内容量（6項目、各2〜3文）は「1画面に収まる」範囲と判断し、別画面ルートは採用しなかった。
+
+### 40.3 Builtin Instrument削除
+
+`CHOICES`から`drum`/`bell`エントリを削除（`apple`/`banana`/`dog`/`cat`は無変更）。`ACTIVITIES.level3.categories`は`['instrument']`から`['custom']`固定へ変更し、`rebuildLevel3Pairs()`はもはやmode分岐を持たず常にCustom Choiceのpairのみを再計算する。`assets/dotchiga-ii/drum.png`/`bell.png`はrepo-wide search（他ファイル参照0件を確認）の後、`git rm`で削除した。`apple.png`/`banana.png`/`dog.png`/`cat.png`は無変更。
+
+### 40.4 Instrument Sound / dead code削除
+
+`playTone()`（たいこ用汎用tone合成）・`playBellTone()`（ベル用3-partial inharmonic合成、M12-D''で新設したばかり）を完全削除。`playAudioAsset()`（M12-D''で「将来の実音asset用」に用意した休眠実装、`kind:'asset'`分岐ごと）も、現時点でどこからも参照されないdead codeと判断し削除した（§7「将来使うかもしれないだけを理由に残さない」方針どおり。将来Custom Audioを追加する際は再導入可能）。`beep()`・`audioCtx`は Level1/Level2の選択確認音として引き続き使用するため維持。`handleLevel3Result()`は「sound再生 → 条件付き遅延 → source分岐したspeech」という複雑な分岐から、「即座に『◯◯ を えらんだね』を読み上げるだけ」へ大幅に簡素化された。
+
+### 40.5 Level3 = Custom Choice一本化
+
+Settings内のBuiltin/Custom set selector（`.level3-set-btn`、「おためし」/「じぶんでつくる」）を完全削除。Custom Editorは常時表示（旧`level3SetMode`によるhidden切替を撤去）。空状態メッセージは「じぶんでつくる」というmode名を前提とした文言から、「『どっちにする？』で つかう がぞうを、まだ せっていしていません」へ変更（ボタンも「せっていを ひらく」に統一）。`level3SetMode`変数・その永続化（`saveSettings()`/`loadSettings()`）・関連DOM参照（`level3SetBtns`/`customEditorEl`）を削除した。
+
+### 40.6 Settings再構成（§28 group見出し再評価）
+
+「あそび」という見出しは、Activity SelectorがPhase M12-C'で上部Tabsへ移動して以降「えらぶかいすう」1項目だけを収容していた。参考アプリ調査の結果、`kurabeyou-app.html`/`katachi-awase-app.html`は単一の「もんだいすう」的設定を親見出しなしの独立行として提示しており、1項目のみのために装飾的な親見出しを維持する必然性がないと判断し、「あそび」見出しを削除して「えらぶかいすう」を先頭の独立行とした（根拠を伴う変更、§28要件）。Custom Editorには新たに「どっちにする？」という活動名そのものの見出しを与えた。
+
+### 40.7 使い方（Usage Guide）追加
+
+Settings先頭に`<details id="usageGuide"><summary>❓ つかいかた</summary>...</details>`をネイティブdisclosureとして実装。中身は`<h3>つかいかた</h3>`（視覚的に隠されたランドマーク見出し）+ 6つの`<h4>`小見出し（このアプリについて／「どっち？」／「すきなのはどっち？」／「どっちにする？」／自分の画像を使う／入力方法）。技術用語（IndexedDB・Blob・Gaze Shared Foundation・semantic activation等）は本文へ一切出していない。プライバシー説明は「🔒 登録した画像は、この端末のブラウザ内だけに保存され、外部サーバーへは送信されません。」を含む。ネイティブ`<details>/<summary>`を採用したためEnter/Space/Tabでの開閉・focus visibleは追加コードなしで動作し、既存のSettings非modal isolation（`settingsOpen`中は`getGazeTargets()`/`buildScanItems()`が常に`[]`）にそのまま含まれるため、Gaze/Switch隔離のための新規コードも不要だった。
+
+### 40.8 Legacy Record対応
+
+Phase M12-C〜M12-D''の間に記録された`activity:"level3", category:"instrument", selectedChoice:"drum"/"bell"`形式の過去recordが端末に残っている場合の挙動を確認した。`renderRecordList()`/`buildRecordsCsvRows()`はいずれも`CHOICES[entry.selectedChoice]`が存在しない場合の安全なfallback chain（`entry.selectedLabel || (CHOICES[id]||{}).label || id`）を既に備えており、追加のmigrationコードなしでcrashしないことをPlaywrightで実際に古い形式のlogデータを注入して確認した（記録一覧表示・CSV出力とも正常。`selectedLabel`フィールドがない旧record（M12-D''以前）はCSV上で空欄になるのみで、これも許容範囲と判断——判断内容の報告のみとし、追加のmigration実装は行っていない）。
+
+### 40.9 検証結果概要（Playwright, Python, headless Chromium）
+
+- Settings構造: 「あそび」見出し削除・set selector 0件・Custom Editor常時表示・使い方 accordion存在、いずれも確認
+- 使い方: キーボード（focus+Enter）で開閉、見出し構造`h3→h4`（スキップなし）、開いている間も`getGazeTargets()`/`buildScanItems()`は0件（Settings既存isolationを自動継承）
+- Level1/Level2: Touch/Keyboardで回帰なし
+- Custom Level3: Touch/Keyboard/Gaze/Switch Scan(候補5件不変)いずれもPASS、読み上げ「◯◯ を えらんだね」を確認
+- 空状態: 新しい文言で表示、「せっていを ひらく」からSettings起動を確認
+- Legacy record: 旧instrument形式のrecordを注入してもcrashせず一覧・CSVとも正常出力
+- No Network Upload: Custom画像保存操作中のネットワークリクエスト0件を再確認
+- 完了画面: `.stage[hidden]`修正が引き続き有効（前trialカードの残留なし）
+- Responsive: 375×667/375×812/390×844/768×1024/1280×900で子ども画面・Settings・使い方展開後いずれもhorizontal overflowなし
+- console/page error: 全シーケンスを通して0件
+
+### 40.10 実機状態の明確化
+
+- Tobii basic operation: PASS（M12-D）
+- Gaze Settings: PASS（M12-D）
+- Custom Choice UI: User実機確認により画像登録・名前読み上げPASS（M12-D''）
+- Switch実機: 引き続きDEFERRED BY USER（未実施、Blocker扱いにしない）
+- Instrument audio: REMOVED BY USER DECISION（本Phase）
+
+### 40.11 未確認（PENDING USER REVIEW）
+
+U1〜U8相当: たいこ／ベルが完全に消えていること、「どっちにする？」でCustom画像2択のみが表示されること、Custom画像設定が引き続き簡単なこと、名前読み上げ正常、「使い方」の見つけやすさ・わかりやすさ、Settingsの複雑さ、375pxでの実用性——いずれも実機でのUser確認待ち。
+
+### 40.12 Phase M12-D'''完了判定
+
+**Phase M12-D''' = PENDING USER REVIEW**。上記40.11の確認が得られ次第、Phase M12-D系列全体（M12-D〜M12-D'''）の最終Close判定を行う。
+
+### 40.13 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。
