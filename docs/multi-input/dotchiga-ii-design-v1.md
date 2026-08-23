@@ -675,3 +675,51 @@ Settings内「あそび」グループは活動選択ボタンを取り除いた
 ### 35.12 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Phase M12-C'完了時点でもLocal Prototypeのまま、Production非公開を維持している。
+
+---
+
+## 36. Phase M12-C'': Level3 楽器asset正式反映
+
+### 36.1 正式デザイン
+
+Level3「どっちにする？」のたいこ／ベルについて、User Reviewで以下を正式採用した。
+
+- **たいこ**: 子どもが遊びで叩くタイプの太鼓（和太鼓ではない）。顔・目・口などのキャラクター表現なし。赤・青・黄を中心とした明るい配色、白い打面、木製のばち2本（先端は赤）。既存のりんご・バナナ・犬・猫と同程度の高品質illustration style。
+- **ベル**: 黄色いハンドベル、赤い持ち手、丸みのある子ども向け玩具デザイン。顔なし、中のclapperが見える。たいこと同じ光沢・illustration style。
+
+### 36.2 Asset反映
+
+`assets/dotchiga-ii/drum.png`・`assets/dotchiga-ii/bell.png`（いずれも1254×1254、RGBA PNG、既存4assetと同一解像度）を配置し、`CHOICES.drum`/`CHOICES.bell`の`asset`フィールドへ設定した。既存の`apple.png`/`banana.png`/`dog.png`/`cat.png`は無変更。
+
+### 36.3 透過確認
+
+両assetとも4隅のアルファ値が`RGBA(0,0,0,0)`（完全透過）であることを確認し、白・黒・空色（アプリ背景色`#BEE3F8`相当）へ実際に合成してedge halo・市松模様の焼き付き・黒背景焼き付きがないことを目視確認した。アルファヒストグラム（完全透明/完全不透明/中間値の内訳）は既存4assetと同じ傾向（完全不透明ピクセルがごく僅かで、大部分がソフトシェーディングによる中間alpha）であり、drum/bell固有の異常ではなく本アプリのillustration styleの通常特性であると判断した。
+
+### 36.4 Visual Weight
+
+`object-fit: contain`（既存のまま、無変更）を採用し、asset個別のCSS調整は追加しなかった。理由: 両assetの実コンテンツbounding box（透過部分を除いた実描画範囲）は、たいこが1254×1254キャンバスの93.5%、ベルが84.9%を占め、既存4assetの実測値（りんご80.1%・バナナ85.8%・犬96.8%・猫94.4%）とほぼ同じ分布に収まっている。既存assetの間でも17ポイント程度の自然なばらつきが既に許容されているため、drum/bell間の見た目の大きさの差はこの既存の許容範囲内と判断し、magic numberによる個別調整は行わなかった（§7）。
+
+### 36.5 Prototype表示の削除
+
+`.choice-placeholder`のCSS（破線border・斜線パターン・「プロトタイプ」タグの`::after`）、HTML側の`<span class="choice-placeholder">`（choiceA/choiceB双方）、`renderChoiceIcon()`関数とその呼び出し・`choiceAPlaceholder`/`choiceBPlaceholder`のDOM参照を全て削除した。`startTrial()`は`choiceAIcon.src = CHOICES[order[0]].asset`という直接代入に戻し、`CHOICES.drum`/`CHOICES.bell`から`prototypePlaceholder`/`placeholderGlyph`を削除した。他Levelのchoice card構造・CSS・JSは無変更。
+
+### 36.6 Choice card / Sound / Accessibility
+
+Choice cardの構造（画像ではなくbutton全体がTouch/Gaze/Switch/Keyboard target）・`img`の`alt=""`/`aria-hidden="true"`（button nameとの二重読み上げ回避）・Level3のsoundロジック（drum選択→triangle 130Hz、bell選択→sine 1180Hz、既存のまま）は本Phaseで一切変更していない。
+
+### 36.7 検証結果概要（Playwright, Python, headless Chromium）
+
+- `.choice-placeholder`要素: DOM上0件（削除確認）
+- drum.png/bell.pngが2つの独立したbutton/imgとして表示され、1枚の合成画像になっていないことを確認（`choiceA`/`choiceB`が常にdrum/bellいずれかを別々に保持）
+- 両asset`naturalWidth: 1254`（broken imageなし）
+- Touch/Keyboard/Gaze dwellの3方式でLevel3のdrum/bell選択が正常に動作
+- Switch Scanの候補数が画像追加前後で変化しない（`[level1,level2,level3,choiceA,choiceB]`の5件のまま、§13）
+- Activity Tabs・Settings（Activity Selector非存在）に回帰なし
+- Recordログに`category:"instrument"`・`pair:"bell_drum"`・`selectedChoice`が正しく記録される
+- 375×667/375×812/390×844/768×1024/1280×900の5解像度でLevel3を確認、horizontal overflow・Gaze 150%拡大時の重なり・Common Chrome衝突いずれも0件（drum stick・bell handleのclipなし）
+- console/page error: 0件
+- User Visual Review用にBefore/After比較・透過確認・チェックリストをまとめたArtifactを作成し提示した
+
+### 36.8 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Phase M12-C''完了時点でもLocal Prototype / checkpointのまま、Production非公開を維持している。

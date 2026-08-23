@@ -336,17 +336,21 @@
      (assets/dotchiga-ii/apple.png, banana.png, dog.png, cat.png). Still a
      Local Prototype — not Production-final (apps-data.json unregistered).
      Phase M12-C update: added Level2「すきなのはどっち？」/ Level3「どっちに
-     する？」+ an Activity Selector. Level3 uses the「たいこ／ベル」instrument
-     pair — NO approved illustration exists yet for those two choices, so
-     they render as an explicit PROTOTYPE PLACEHOLDER (dashed card + glyph +
-     "プロトタイプ" tag, see .choice-placeholder below), never a broken
-     image and never presented as finished art (M12-C brief §1/§17/§44).
+     する？」+ an Activity Selector. Level3 originally used the「たいこ／
+     ベル」instrument pair with NO approved illustration, rendered as an
+     explicit PROTOTYPE PLACEHOLDER (dashed card + glyph + "プロトタイプ"
+     tag) — see the M12-C'' note below for its replacement.
      Phase M12-C' update: the Activity Selector moved from the Settings
      panel to an always-visible Activity Tabs row between the header and
      the stage, so a child can switch activity without opening Settings
      first (Agency — see design doc §35). Settings' 「あそび」group keeps
      only えらぶかいすう now; the activity buttons themselves (.activity-btn)
      are unchanged, just relocated.
+     Phase M12-C'' update: drum/bell now use User-approved illustrations
+     (assets/dotchiga-ii/drum.png, bell.png), so the Phase M12-C PROTOTYPE
+     PLACEHOLDER (.choice-placeholder markup/CSS + renderChoiceIcon()) has
+     been removed entirely — Level3 renders through the same plain <img>
+     path as every other choice now (see design doc §36).
   ===================================================================== */
   * { box-sizing: border-box; }
   body {
@@ -410,22 +414,6 @@
   .choice-card:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 4px; }
   .scan-focus { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D) !important; outline-offset: 4px; }
   .choice-card .choice-icon { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .choice-card .choice-icon[hidden] { display: none; }
-  /* Phase M12-C §44: functional stand-in for a choice with no approved
-     asset yet — must never be mistaken for finished art. */
-  .choice-placeholder {
-    width: 100%; height: 100%; position: relative;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 84px; line-height: 1;
-    border: 3px dashed #C7A227; border-radius: 20px;
-    background: repeating-linear-gradient(135deg, rgba(201,162,39,0.06) 0 10px, rgba(201,162,39,0.12) 10px 20px);
-  }
-  .choice-placeholder[hidden] { display: none; }
-  .choice-placeholder::after {
-    content: 'プロトタイプ'; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-    font-size: 10px; font-weight: 900; letter-spacing: .06em;
-    color: #6B5510; background: #FFEDA8; padding: 2px 9px; border-radius: 100px; white-space: nowrap;
-  }
   .choice-card.selected { transform: scale(1.12); box-shadow: 0 10px 28px rgba(244,180,40,0.45); }
   .choice-card.selected::after {
     content: ''; position: absolute; inset: -10px; border-radius: 34px;
@@ -598,12 +586,10 @@
     <button type="button" class="choice-card" id="choiceA" data-choice-id="" tabindex="0" aria-label="">
       <span class="sparkle" aria-hidden="true"></span>
       <img class="choice-icon" id="choiceAIcon" alt="" aria-hidden="true">
-      <span class="choice-placeholder" hidden aria-hidden="true"></span>
     </button>
     <button type="button" class="choice-card" id="choiceB" data-choice-id="" tabindex="0" aria-label="">
       <span class="sparkle" aria-hidden="true"></span>
       <img class="choice-icon" id="choiceBIcon" alt="" aria-hidden="true">
-      <span class="choice-placeholder" hidden aria-hidden="true"></span>
     </button>
   </section>
 
@@ -799,22 +785,21 @@ var STORAGE_LOG_KEY = 'dotchiga_ii_log';
 /* ---- data-driven choice + activity definitions (Phase M12-C §22/§23) ----
    Each choice belongs to a category; same-trial pairs are always built
    within one category (§23 — no food-vs-animal pairs). `asset` is a
-   User-approved illustration (Phase M12-B'). `prototypePlaceholder:true`
-   marks a choice with NO approved asset yet (§43/§44) — such a choice
-   never gets an <img src>; it renders a clearly-labeled PROTOTYPE
-   PLACEHOLDER box instead (see renderChoiceIcon()) and is called out as
-   "User Asset Review Required" in the Phase M12-C report (§17/§1 — this
-   is a functional-test stand-in, never a finished/Production asset).
-   `sound` is a soft Web Audio tone (NOT a sampled instrument recording,
-   §18) used only by Level3's result handler. */
+   User-approved illustration. Phase M12-C'' replaced drum/bell's Phase
+   M12-C PROTOTYPE PLACEHOLDER (prototypePlaceholder:true/placeholderGlyph,
+   now removed along with the .choice-placeholder markup/CSS/renderer they
+   drove) with User-approved assets/dotchiga-ii/drum.png and bell.png —
+   see design doc §36 for the transparency/visual-weight review. `sound` is
+   a soft Web Audio tone (NOT a sampled instrument recording, §18) used
+   only by Level3's result handler. */
 var CHOICES = {
   apple:  { category: 'food',       label: 'りんご', asset: 'assets/dotchiga-ii/apple.png' },
   banana: { category: 'food',       label: 'バナナ', asset: 'assets/dotchiga-ii/banana.png' },
   dog:    { category: 'animal',     label: 'いぬ',   asset: 'assets/dotchiga-ii/dog.png' },
   cat:    { category: 'animal',     label: 'ねこ',   asset: 'assets/dotchiga-ii/cat.png' },
-  drum:   { category: 'instrument', label: 'たいこ', prototypePlaceholder: true, placeholderGlyph: '🥁',
+  drum:   { category: 'instrument', label: 'たいこ', asset: 'assets/dotchiga-ii/drum.png',
             sound: { freq: 130, type: 'triangle', durationMs: 220 } },
-  bell:   { category: 'instrument', label: 'ベル',   prototypePlaceholder: true, placeholderGlyph: '🔔',
+  bell:   { category: 'instrument', label: 'ベル',   asset: 'assets/dotchiga-ii/bell.png',
             sound: { freq: 1180, type: 'sine', durationMs: 260 } }
 };
 
@@ -887,8 +872,6 @@ var choiceA = document.getElementById('choiceA');
 var choiceB = document.getElementById('choiceB');
 var choiceAIcon = document.getElementById('choiceAIcon');
 var choiceBIcon = document.getElementById('choiceBIcon');
-var choiceAPlaceholder = choiceA.querySelector('.choice-placeholder');
-var choiceBPlaceholder = choiceB.querySelector('.choice-placeholder');
 var activityLabelEl = document.getElementById('activityLabel');
 var activityBtns = Array.from(document.querySelectorAll('.activity-btn'));
 var settingsBtn = document.getElementById('settingsBtn');
@@ -1013,21 +996,6 @@ function speak(text) {
 /* =====================================================================
    trial flow
 ===================================================================== */
-function renderChoiceIcon(cardEl, imgEl, placeholderEl, choiceId) {
-  var def = CHOICES[choiceId];
-  if (def.prototypePlaceholder) {
-    imgEl.hidden = true;
-    imgEl.removeAttribute('src');
-    placeholderEl.hidden = false;
-    placeholderEl.textContent = def.placeholderGlyph || '❔';
-  } else {
-    placeholderEl.hidden = true;
-    placeholderEl.textContent = '';
-    imgEl.hidden = false;
-    imgEl.src = def.asset;
-  }
-}
-
 function startTrial() {
   isShowingResult = false;
   choiceA.classList.remove('selected');
@@ -1037,8 +1005,8 @@ function startTrial() {
   currentPair = order;
   choiceA.dataset.choiceId = order[0];
   choiceB.dataset.choiceId = order[1];
-  renderChoiceIcon(choiceA, choiceAIcon, choiceAPlaceholder, order[0]);
-  renderChoiceIcon(choiceB, choiceBIcon, choiceBPlaceholder, order[1]);
+  choiceAIcon.src = CHOICES[order[0]].asset;
+  choiceBIcon.src = CHOICES[order[1]].asset;
   choiceA.setAttribute('aria-label', CHOICES[order[0]].label);
   choiceB.setAttribute('aria-label', CHOICES[order[1]].label);
   resetDwellState();
