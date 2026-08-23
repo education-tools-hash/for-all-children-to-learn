@@ -1090,3 +1090,43 @@ RC worktree `for-all-children-to-learn-m12-e-rc`（branch `release/dotchiga-ii-r
 `apps-data.json`へ`dotchiga-ii`エントリを登録済み、`generate.js`実行により`app-details/dotchiga-ii-app-detail.html`・`sitemap.xml`・`app-intro.html`・`index.html`への反映も完了しているが、**すべて`release/dotchiga-ii-rc`ブランチ上のみ**であり、mainへのmerge/pushは一切行っていない。**Production状態: NOT RELEASED。**
 
 **Phase M12-E状態: RC READY — WAITING FOR USER APPROVAL。**
+
+---
+
+## 43. Phase M12-E' / M12-E'' / M12-F Production Integration（Pre-Push）
+
+### 43.1 Phase M12-E': RC Visual Polish
+
+代表ビジュアル（`assets/icons/dotchiga-ii.png`・`assets/mockups/dotchiga-ii.png`）が既存34アプリと異なり未生成のままだったことが判明。原因はデザインではなく、サイト公式ツール`tools/make-mockups.py`を本アプリに対して未実行だったこと。同ツールを実行し、既存アプリと同一の生成物を持たせることで解決（独自の見せ方は新設していない）。index.html カード・app-intro.html カード・app-details ヒーロー（スクリーンショット新規掲載、og:image/twitter:image/JSON-LDも専用画像へ切替）の3箇所を修正。`node generate.js` 3回実行、2・3回目差分0。既存34アプリのファイルへの影響0件、`dotchiga-ii-app.html`本体は無変更。commit `57f49e1`。Before/After比較Artifactを作成し、User Review Points V1〜V7として提示。
+
+### 43.2 Phase M12-E'': Production Preflight
+
+Production登録前の最終整合確認。2点の発見:
+
+1. **Gaze Shared Foundation registration**: `GAZE_SHARED_FOUNDATION_APPS`への新規アプリ登録は、Gaze Accessibility Standard §33.4/§35・New App Standard §13・M11.5 Program Close（§36.5、Pilot 3教材を将来開発の「参照パターン」として確定するのみで、コード共有機構への強制登録は求めていない）のいずれからも正式要件と確認できず、**登録不要**と結論。変更なし。
+2. **Help Common Chrome Ordering不一致**: Donomana Help / Usage Guide Standard v1.0 §5.1「Lock → Fullscreen → Help」のREQUIRED正式orderingに対し、M12-Eの回帰修正（donomanaHelpBtnをgenerate.js所有markerブロック外へ退避した際の応急処置）が「Help → Lock → Fullscreen」という逆順になっていたことを検出。Help Standard準拠のため、Helpのwrapperをmarkerブロックの**後**（DOM順・視覚順とも）・`right:12px`（画面端フラッシュ）へ再配置し、`div:has(> #donomanaLockBtn){right:64px!important}`という本ページ限定のCSS override（generate.jsの共有テンプレートは無変更）でLock/FSクラスターを左へ64pxシフトすることで、重なりなく「Lock → Fullscreen → Help」を実現。この配置は、M12-E以前（M12-D''''時点でUserが確認したスクリーンショット）と同一の視覚配置に一致する。commit `9c84cbc`。Playwright回帰テスト（35項目+Switch Scan自動巡回確認）で修正後PASSを再確認。
+
+### 43.3 User Review 承認
+
+User Visual Reviewについて、以下の明示的承認を受けた:
+
+- M12-E RC Review R1〜R10: **PASS**
+- M12-E' Visual Review V1〜V7: **PASS**
+- M12-E'' Production Preflight: **PASS**
+- Release Candidate（`9c84cbc`）のProductionへの公開: **承認**
+
+### 43.4 Phase M12-F: Production Integration（Pre-Push状態）
+
+worktree `for-all-children-to-learn-m12-f-release`／branch `release/dotchiga-ii-production`を、最新`origin/main`（`b05f94e`）から新規作成。`9c84cbc`は`origin/main`からdivergenceなく直線的に派生していることを確認（`git merge-base origin/main 9c84cbc` = `b05f94e`）ため、`git merge --ff-only 9c84cbc`によりfast-forward統合（コンフリクト0）。
+
+main worktree側の残存obsolete untracked asset（`assets/dotchiga-ii/drum.png`・`assets/dotchiga-ii/bell.png`）は、Git管理外・リポジトリ全体参照0件・M12-D'''でUser Decisionにより機能廃止済みの3条件をすべて満たすことを再確認の上、削除。main worktreeはclean。
+
+Help Inventoryを全35 Productionアプリへ更新（`dotchiga-ii-app.html`をGroup A・Standard Reference Implementationとして追加、Group A: 14→15、他Group無変更、合計15+4+2+1+13=35、機械的に再集計し一致確認）。Changelogは`releaseDate`（`2026-08-23`）からの自動生成のみで対応（MANUAL_CHANGELOGへの手動追記は「アプリ追加以外」専用のため不要、既存の同日entryなし）。
+
+`node generate.js`を3回実行、Help Inventory以外の生成物はいずれも既に最新（差分0）——RCブランチ側で既に十分に検証・生成済みだったため。sitemap.xmlは`dotchiga-ii-app.html`・`app-details/dotchiga-ii-app-detail.html`の2URLのみ、重複・typoなし。
+
+Pre-Push Full Regressionとして、既存35項目（Common Chrome・Help・Settings・Level1/2/Custom Level3・Custom永続化・CSV・privacy・reduced motion・keyboard・instrument残留語）に加え、Custom Choiceの置換・削除サイクル（13項目）、Gaze設定項目（dwell/cooldown/entry delay/target enlargement/spacing）の存在確認、5解像度×4ページ（index/app-intro/app-details/app本体）のhorizontal overflow確認（20項目）、375〜390px幅でのCommon Chromeクラスター非衝突確認をすべて実施し、全PASS。console/page error 0件。
+
+### 43.5 Production公開状態（Pre-Push）
+
+この時点でまだ`origin/main`へはpushしていない。**Production状態: NOT RELEASED（Pre-Push Gate通過、push待ち）。**

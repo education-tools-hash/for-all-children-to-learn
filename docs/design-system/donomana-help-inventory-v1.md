@@ -1,8 +1,9 @@
 # Donomana Help / Usage Guide — Production App Inventory v1
 
 策定: Phase M12-D''''。`docs/design-system/donomana-help-usage-guide-standard-v1_0.md`のRollout計画（§21）の根拠資料。
+改訂: Phase M12-F（2026-08-23、Production Release）。「どっちがいい？」（dotchiga-ii-app.html）のProduction公開に伴い、Group A・Standard Reference Implementationとして表・集計へ追加（全34→全35アプリ）。策定時点（M12-D''''）の調査対象34アプリの記録はそのまま維持し、削除していない。既存34アプリのコードは本改訂でも変更していない。
 
-全34 Productionアプリ（`apps-data.json`記載）を対象に、既存の「使い方」実装状況を調査した。**本Phaseでは既存Productionアプリのコードは一切変更していない**（調査のみ）。
+全35 Productionアプリ（`apps-data.json`記載）を対象に、既存の「使い方」実装状況を調査した。**既存Productionアプリのコードは一切変更していない**（調査のみ）。
 
 ## 分類基準
 
@@ -50,18 +51,19 @@
 | miru-hirogaru-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
 | mitsukete-touch-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
 | junban-miyou-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
+| dotchiga-ii-app.html | Yes | top chrome（Lock/Fullscreen隣、Standard §5.1正式ordering準拠） | `#helpPanel`（`.settings-panel`再利用、非modal、role=dialogなし） | このアプリについて／3つの活動／自分の画像を使う（Custom Choice・Privacy含む）／操作方法（Touch/視線入力/スイッチ/キーボード個別）／設定／記録の6セクション、h2→h3→h4階層 — Standard自体のReference Implementation | Yes（4入力方式を個別h4で説明） | Yes | Yes | native button, OK | Group A | Standard Reference Implementation（対応不要） |
 
-## 集計（全34アプリ、unique app単位）
+## 集計（全35アプリ、unique app単位）
 
-Group分類は各アプリにつき1個のみ付与する（`Group B+C`は「入口・内容の両方に課題を持つ」ための**独立した複合カテゴリ**であり、`Group B`・`Group C`の内数ではない。matching-appは`Group B`・`Group C`いずれの件数にも含まれず、`Group B+C`としてのみ1回カウントする）。表の34行から機械的に再集計した結果は以下のとおりで、5カテゴリの合計は34アプリと一致する。
+Group分類は各アプリにつき1個のみ付与する（`Group B+C`は「入口・内容の両方に課題を持つ」ための**独立した複合カテゴリ**であり、`Group B`・`Group C`の内数ではない。matching-appは`Group B`・`Group C`いずれの件数にも含まれず、`Group B+C`としてのみ1回カウントする）。表の35行から機械的に再集計した結果は以下のとおりで、5カテゴリの合計は35アプリと一致する。
 
-- **Group A**（Help有・top chrome入口・内容十分、ほぼ準拠）: **14** — nazori-app, nazorin-print, okane-app, register-app, schedule-app, yomikaki-app, sst-app, kimochi-board, drawing-app, slideshow-sakusei, kyou-no-kiroku, scratch-app, gaze-keyboard, mogura-tataki（うちokane-app/mogura-tatakiが特に模範的）
+- **Group A**（Help有・top chrome入口・内容十分、ほぼ準拠）: **15** — nazori-app, nazorin-print, okane-app, register-app, schedule-app, yomikaki-app, sst-app, kimochi-board, drawing-app, slideshow-sakusei, kyou-no-kiroku, scratch-app, gaze-keyboard, mogura-tataki, dotchiga-ii-app（うちokane-app/mogura-tataki/dotchiga-ii-appが特に模範的——dotchiga-ii-appはStandard自体のReference Implementation）
 - **Group B**（Help有だが入口が旧式・非持続。matching-appを含まない）: 4 — janken-app, tyushi, directions-app, time-timer
 - **Group C**（Help有だが内容不足。matching-appを含まない）: 2 — timetable-app, sugoroku-app
 - **Group B+C**（入口・内容両方に課題。B/Cいずれとも重複カウントしない独立カテゴリ）: 1 — matching-app
 - **Group D**（Helpなし）: 13 — hiragana-learn, katakana-app, shiritori2, tokei-app, cup_game, bosai-app, suji-manabou, ongaku-app, kurabeyou-app, katachi-awase-app, miru-hirogaru-app, mitsukete-touch-app, junban-miyou-app
 
-**合計確認**: 14 + 4 + 2 + 1 + 13 = **34**（全Production app総数と一致）。
+**合計確認**: 15 + 4 + 2 + 1 + 13 = **35**（全Production app総数と一致）。
 
 ### 横断的な技術的所見
 
