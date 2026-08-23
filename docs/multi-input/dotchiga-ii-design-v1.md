@@ -1130,3 +1130,55 @@ Pre-Push Full Regressionとして、既存35項目（Common Chrome・Help・Sett
 ### 43.5 Production公開状態（Pre-Push）
 
 この時点でまだ`origin/main`へはpushしていない。**Production状態: NOT RELEASED（Pre-Push Gate通過、push待ち）。**
+
+---
+
+## 44. Phase M12-F: Production公開完了
+
+### 44.1 統合・push
+
+`main`（`b05f94e`）へProduction integration commit `01d65f2`をfast-forward merge（`git merge --ff-only 01d65f2`、コンフリクト0）。main worktree側の残存obsolete untracked asset（`assets/dotchiga-ii/drum.png`・`assets/dotchiga-ii/bell.png`）は、削除条件（Git管理外・repo-wide参照0・M12-D'''でUser Decisionにより機能廃止済み・他用途なし）をすべて満たすことを確認の上、merge前に削除済み。
+
+`git push origin main`実行、`b05f94e..01d65f2 main -> main`で成功。force pushなし、history rewriteなし。
+
+### 44.2 Deployment
+
+push後、GitHub Actionsの`generate`ワークフローおよび`pages build and deployment`ワークフローがcommit `01d65f2`に対して自動起動。両方とも約30秒で`success`完了を確認（GitHub REST APIで直接ポーリング確認、`gh` CLIは本環境に未インストールのため）。`generate`ワークフローによるCI側の自動コミットは発生せず（`origin/main`は引き続き`01d65f2`のまま）——push前にローカルで`node generate.js`を3回実行し完全な冪等性を確認済みだったことと整合する。
+
+### 44.3 Production実測
+
+`donomana.jp`上で以下を実機URLに対して直接確認（Playwright, headless Chromium）:
+
+- Index（`https://donomana.jp/`）: dotchiga-iiカード表示、専用アイコン画像使用（絵文字fallbackなし）、app-detailsへのリンク正常
+- app-intro（`https://donomana.jp/app-intro.html`）: カード表示、専用アイコン画像使用、launchリンク正常
+- app-details（`https://donomana.jp/app-details/dotchiga-ii-app-detail.html`）: hero アイコン画像・モックアップスクリーンショット表示、Custom画像登録・プライバシーの説明本文中に存在確認、launchボタン正常
+- app本体（`https://donomana.jp/dotchiga-ii-app.html`）: Common Chrome（Home/Lock/Fullscreen/Help）表示、**Lock → Fullscreen → Helpの正式順序を実機URLで再確認**、Activity Tabs 3件、Level2切替・Level3空状態、Help開閉・内容・focus復帰、Settings開閉、いずれも正常
+- Custom Choice: 安全なテスト画像2枚で保存→Level3反映確認→選択操作→reload後も永続化確認→テストデータ削除・空状態復帰まで実施、Custom Choice画像保存アクションを個別に計測し外部リクエスト0件を確認（ページ全体で検出された外部リクエストはGoogle Fonts・Google Analytics・Creative Commonsバッジ等、サイト共通のインフラでありCustom Choiceとは無関係と特定）
+- Gaze: dwell設定コントロール存在確認、`getGazeTargets()`が視線ON時に正しくtarget群を返すことを確認（synthetic smoke）
+- Switch Scan: 自動巡回でフォーカスが複数要素間を移動することを確認（synthetic smoke）
+- console/page error: 全シーケンスを通して0件
+- 主要導線（index→app-intro等）のリンク切れなし
+
+### 44.4 実機検証ステータス（最終・変更なし）
+
+- Tobii: PASS（実機、M12-D/M12-D'で確認済み、本Phaseでの実装変更なしのため再実機は必須としない方針どおり）
+- Switch実機: 引き続き**DEFERRED BY USER**——PASSへ書き換えていない。Production Blockerとして扱っていない。
+
+### 44.5 Production URLs（確定）
+
+- App: `https://donomana.jp/dotchiga-ii-app.html`
+- App Details: `https://donomana.jp/app-details/dotchiga-ii-app-detail.html`
+- Index: `https://donomana.jp/`
+- App Intro: `https://donomana.jp/app-intro.html`
+
+### 44.6 Follow-up（本Releaseのスコープ外、別課題として記録）
+
+- Follow-up A: 既存35アプリへのHelp / Usage Guide Standardロールアウト
+- Follow-up B: Switch実機検証（Userの環境で実施可能になり次第）
+- Follow-up C: Gaze Shared Foundationの将来的なRollout要否の評価
+
+### 44.7 Phase M12-F / Phase M12 Close判定
+
+Production Verification（44.3）がすべてPASSしたため、**Phase M12-F = COMPLETE**と判定する。M12-A（設計）からM12-F（Production公開）までの全Phaseが完了したため、**Phase M12 = COMPLETE — PRODUCTION RELEASED**として正式にCloseする。
+
+**Production状態: RELEASED。** commit `01d65f2`、公開日 2026-08-23。
