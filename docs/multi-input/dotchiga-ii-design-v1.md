@@ -825,3 +825,72 @@ Userが実機Tobii Eye Tracker 5でActivity Tabs・Level1/2/3・Settings・Gaze 
 ### 38.8 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。
+
+---
+
+## 39. Phase M12-D'': Custom Choice Authoring + Real Audio Foundation（PENDING USER REVIEW）
+
+### 39.1 Level3教育目標の再定義
+
+「どっちにする？」の本質を「楽器を選ぶ」から「自分の選択によって、実際に選ぶ内容が決まる」へ再定義した。楽器（たいこ/ベル）は初期サンプルの1つという位置づけに変わり、支援者・家庭がその子にとって意味のある2つのものを自由に登録できる「じぶんでつくる」モードを追加した。
+
+### 39.2 Builtin / Custom の2 set構成
+
+Settings内「あそび」グループに「どっちにする？ の えらぶもの」set selector（おためし/じぶんでつくる）を新設した。`level3SetMode`（'builtin'|'custom'）が`ACTIVITIES.level3.categories`を動的に切り替え、`rebuildLevel3Pairs()`が対応する`pairsForCategories()`を再計算する。Activity Tabs（どっち？/すきなのはどっち？/どっちにする？）自体は無変更。
+
+### 39.3 Custom Choice Editor
+
+Settings内、set selectorの直下に「じぶんでつくる」選択時のみ表示される編集UI（ひだり/みぎ各々: プレビュー・画像選択・名前入力・削除ボタン）を実装した。子ども向けchoice画面には一切表示されない（既存の`.choice-card`構造をそのまま再利用）。
+
+### 39.4 画像の取り扱い
+
+- **保存先**: IndexedDB（`donomana-dotchi-custom`データベース、`choiceSets`ストア、MVPでは単一レコード`default-custom`）。base64でlocalStorageへ入れる方式は採用しなかった。リポジトリ内に既存のIndexedDB活用例（`matching-app.html`等）があることを確認済み。
+- **プライバシー**: 画像は選択・保存・表示のいずれの操作でも外部へ送信されない。Playwrightでネットワークリクエストを実測し、保存操作中に自ホスト（127.0.0.1）・data:・blob: 以外のリクエストが0件であることを確認した。UIにも「えらんだ がぞうは、この たんまつの ブラウザないだけに ほぞんされます。」と明記。
+- **リサイズ**: `createImageBitmap(file, {imageOrientation:'from-image'})`でEXIF回転を正規化した上で、長辺1600pxを上限にcanvas描画・`toBlob()`で再エンコード。アスペクト比保持・crop無し・縮小のみ（拡大しない）。フォーマットは入力のまま維持（PNG/WebPは透過を保持、JPEGはJPEGのまま）。4000×3000のJPEGが1600×1200へ正しく縮小されることをPlaywrightで実測確認。
+- **対応形式**: PNG/JPEG/WebPのみ（`accept`属性 + `file.type`の二重チェック）。非対応形式（GIF等）はデコードを試みず、やさしい文言でエラー表示することを確認。
+
+### 39.5 独立2 choice / Object URL lifecycle
+
+`CHOICES.customLeft`/`customRight`をIndexedDBのBlobから`URL.createObjectURL()`で生成し、既存の`asset`フィールドへそのまま代入（`startTrial()`側の変更不要）。画像の差し替え・削除・アプリ側でのデータ再読込のたびに、直前のobject URLを`URL.revokeObjectURL()`してから新しいURLを発行する`applyCustomChoiceDataToChoices()`に一本化し、leakが起きない構造にした。左のみ差し替えても右のlabel/画像が保持されることをPlaywrightで確認。
+
+### 39.6 空状態
+
+「じぶんでつくる」選択時に画像未登録の場合、`startTrial()`の先頭で検知し、子ども向けカードの代わりに支援者向けメッセージ「じぶんでつくる が まだ ありません」+「せっていで つくる」ボタン（Settingsを開く）を表示する。broken cardは一切出さない。
+
+### 39.7 Speech / Record
+
+Custom Choice選択時のみ「◯◯ を えらんだね」（Level2と同じ非断定的言い回し）で読み上げ、builtinのたいこ/ベルは既存どおり素のlabelのまま（`def.source`で分岐）。楽器のようなsynthesized soundは発明せず、Custom選択時は音声を即座に読み上げる（既存のsound再生待ちディレイをスキップ）。Recordには新規`selectedLabel`フィールドを追加し、選択時点のlabelをスナップショットとして保存（画像本体・ファイル名・パスは一切保存しない）。記録一覧・CSVとも、画像が後で差し替え・削除されても過去の記録は選択時点の名前を正しく表示し続けることを確認。
+
+### 39.8 発見・修正したバグ
+
+1. **class名衝突によるtrialCount破壊**: 新設のset selectorボタンに既存の`.count-btn`クラスを流用したところ、`document.querySelectorAll('.count-btn')`ベースの「えらぶかいすう」ステッパーのクリックハンドラも誤って発火し、`trialCount`が`NaN`になる実バグをPlaywrightのrecord検証（`trialTotal`欄）で発見した。新ボタンは独立クラス`.level3-set-btn`へ切り離し、CSSを複製して解消。
+2. **`.stage[hidden]`のCSS欠落（M12-Bから存在した既存バグ）**: `stage.hidden = true`は`hidden`属性を設定するだけで、`.stage{display:flex}`という既存の author rule が UA既定の`[hidden]{display:none}`より優先されるため、非表示にならず前trialの2枚のカードが完了画面・空状態画面の背後に残り続けていたことが、今回スクリーンショットの目視確認で判明した。`.complete-area[hidden]`等と同型の`.stage[hidden]{display:none}`を追加して解消。**この不具合はPhase M12-B以来存在しており、M12-Dで提示したUser Visual Review用Artifactの完了画面スクリーンショットにも症状が写り込んでいた**（Artifact自体は未修正のまま残っているため、次回Artifactで訂正後の画面を再提示する）。
+
+### 39.9 Sound Asset Architecture（PENDING USER ASSET）
+
+`playAudioAsset(assetPath, volume)`（`HTMLAudio`ベース）を新設し、`handleLevel3Result()`に`sound.kind === 'asset'`の分岐を追加した。ただし**リポジトリ内に正式なdrum/bell実音asset（mp3/wav/ogg等）は依然として0件**であることを確認済みであり（M12-Dでの調査時と同様）、第三者サイトからの無断音源取得は行っていない。`CHOICES.drum`/`CHOICES.bell`は`kind:'tone'`/`kind:'bell'`（Web Audio合成）のまま無変更で、`playAudioAsset()`は休眠状態。正式音源が承認された場合、`assets/dotchiga-ii/audio/drum.*`/`bell.*`に配置し、CHOICES側で`kind:'asset', assetPath:'...'`に変更するだけで反映される設計とした。**AUDIO QUALITY = PENDING USER ASSET**。
+
+### 39.10 検証結果概要（Playwright, Python, headless Chromium）
+
+- Custom画像2枚の登録→保存→reload→「どっちにする？」表示で完全復元することを確認（§47相当）
+- 左画像のみ差し替えても右の画像・labelが保持されることを確認（§48相当）
+- 削除後、`CHOICES.customLeft`/`customRight`が存在しなくなり、object URLが確実にrevokeされ、子ども画面が空状態へ正しくフォールバックすることを確認（§49相当）
+- Touch/Keyboard/Gaze dwellでCustom Choiceの選択が正常動作、Switch Scanの候補数は画像追加前後で5件のまま不変
+- 既存回帰: Level1/Level2/Builtin Level3/Activity Tabs/Settings構成/Record/CSV/Completion、いずれも回帰なし
+- 375×812/390×844/768×1024でEditor UIのhorizontal overflowなし
+- console/page error: 全シーケンスを通して0件
+- 画像保存操作中のネットワークリクエストを実測し、自ホスト・data:・blob: 以外が0件であることを確認（No Network Upload、§50相当）
+
+### 39.11 未確認（PENDING USER REVIEW）
+
+- Custom Choice機能のUser Review（C1〜C7相当: 登録のしやすさ・名前入力のわかりやすさ・即時反映・reload後の保持・子ども画面のシンプルさ・Tobiiでの実選択・Settings画面の複雑さ）
+- Sound（A1〜A4相当）: 正式実音asset未提供のためPENDING継続
+- Switch実機検証: 引き続きUserが延期を選択中（DEFERRED BY USER）、今回のTobii/Switch双方とも実機確認は未実施
+
+### 39.12 Phase M12-D''完了判定
+
+**Phase M12-D'' = PENDING USER REVIEW**。上記39.11のUser確認が得られるまで完了扱いとしない。
+
+### 39.13 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。

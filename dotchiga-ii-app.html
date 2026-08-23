@@ -396,6 +396,15 @@
   @media (max-width: 480px) {
     .stage { flex-direction: column; gap: var(--dm-space-6); min-height: 60vh; }
   }
+  /* Phase M12-D'' bugfix: pre-existing since M12-B — `stage.hidden = true`
+     only sets the `hidden` attribute; without this override, the earlier
+     `display: flex` author rule beats the UA `[hidden]{display:none}`
+     rule at equal specificity (author origin wins ties), so the previous
+     trial's 2 choice cards stayed visibly rendered behind both the
+     completion screen and (newly, §26) the empty custom-choice state.
+     Same class of fix already applied to .complete-area/.settings-panel/
+     .custom-preview img — .stage had simply never had it. */
+  .stage[hidden] { display: none; }
   .choice-card {
     position: relative;
     width: 220px; height: 220px;
@@ -471,6 +480,20 @@
     font-size: var(--dm-font-size-caption); font-family: inherit;
   }
   .count-btn.active { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
+  /* .level3-set-btn intentionally does NOT also carry the .count-btn class
+     (Phase M12-D'' bugfix): .count-btn is also a JS selector root
+     (`document.querySelectorAll('.count-btn')`) for the えらぶかいすう
+     stepper, so a shared class made every level3-set-btn click also fire
+     that handler and stomp trialCount to NaN. Same visual pill look via a
+     duplicated (not shared) rule instead. */
+  .level3-set-btn {
+    min-width: 44px; min-height: 44px; padding: var(--dm-space-2) var(--dm-space-4);
+    border-radius: var(--dm-radius-pill); border: 2px solid var(--dm-color-border);
+    background: #fff; color: var(--dm-color-ink); font-weight: 900; cursor: pointer;
+    font-size: var(--dm-font-size-caption); font-family: inherit;
+  }
+  .level3-set-btn[aria-pressed="true"] { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
+  .level3-set-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
 
   /* ===== Activity Tabs (Phase M12-C' §2/§17) — the single source of truth
      for switching activity, always visible above the stage. Deliberately
@@ -542,6 +565,38 @@
   .record-confirm p { margin: 0 0 var(--dm-space-2); font-weight: 700; font-size: 0.875rem; }
   .record-confirm .settings-reset-btn { margin-top: 0; margin-right: var(--dm-space-2); }
   #recordConfirmBtn { background: #C0392B; border-color: #C0392B; color: #fff; }
+
+  /* ===== Custom Choice editor (Phase M12-D'' §6/§43) — supporter-facing
+     only, never shown on the child's choice screen (§3/§17). Reuses
+     .settings-reset-btn/.count-btn/.record-confirm exactly as-is, so the
+     new UI needs no separate visual language. ===== */
+  .custom-editor { padding: var(--dm-space-2) 0 var(--dm-space-3); border-bottom: 1px solid var(--dm-color-border); }
+  .custom-editor-privacy { font-size: 0.8125rem; color: var(--dm-color-sub,#5E6D78); margin: 0 0 var(--dm-space-3); }
+  .custom-sides { display: flex; gap: var(--dm-space-4); }
+  @media (max-width: 480px) { .custom-sides { flex-direction: column; } }
+  .custom-side { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--dm-space-2); }
+  .custom-preview {
+    width: 100%; aspect-ratio: 1 / 1; border-radius: var(--dm-radius-md); border: 2px solid var(--dm-color-border);
+    background: var(--dm-color-soft); display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .custom-preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .custom-preview img[hidden] { display: none; }
+  .custom-preview-empty { font-size: 0.8125rem; color: var(--dm-color-sub,#5E6D78); }
+  .custom-file-label { display: flex; align-items: center; justify-content: center; margin-top: 0; text-align: center; }
+  .custom-file-input:focus-visible + .custom-file-label { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .custom-file-input {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0; padding: 0; margin: -1px;
+  }
+  .custom-label-input {
+    min-height: 44px; padding: 0 var(--dm-space-3); border-radius: var(--dm-radius-md);
+    border: 2px solid var(--dm-color-border); font-size: 0.9375rem; font-family: inherit; color: var(--dm-color-ink);
+  }
+  .custom-label-input:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 1px; }
+  .custom-editor-msg { min-height: 1.4em; font-size: 0.8125rem; font-weight: 700; color: var(--dm-color-primary-dark); margin: var(--dm-space-3) 0 0; }
+  .custom-editor-buttons { display: flex; gap: var(--dm-space-2); flex-wrap: wrap; margin-top: var(--dm-space-2); }
+  .custom-save-btn { background: var(--dm-color-primary); border-color: var(--dm-color-primary); color: #fff; }
+
   .toggle { position: relative; width: 50px; height: 27px; flex-shrink: 0; display: inline-block; }
   .toggle input { position: absolute; opacity: 0; width: 44px; height: 44px; top: -8px; left: -3px; margin: 0; cursor: pointer; }
   .toggle-slider { position: absolute; inset: 0; background: #ccc; border-radius: 27px; transition: background var(--dm-duration-base); pointer-events: none; }
@@ -608,6 +663,50 @@
         <button class="count-btn" data-count="3" tabindex="0" aria-pressed="false">3かい</button>
         <button class="count-btn" data-count="5" tabindex="0" aria-pressed="true">5かい</button>
         <button class="count-btn" data-count="10" tabindex="0" aria-pressed="false">10かい</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label" id="level3SetLabel">どっちにする？ の えらぶもの</span>
+      <div class="count-buttons" role="group" aria-labelledby="level3SetLabel">
+        <button type="button" class="level3-set-btn" data-set="builtin" tabindex="0" aria-pressed="true">おためし</button>
+        <button type="button" class="level3-set-btn" data-set="custom" tabindex="0" aria-pressed="false">じぶんでつくる</button>
+      </div>
+    </div>
+    <div id="customEditor" class="custom-editor" hidden>
+      <p class="custom-editor-privacy">えらんだ がぞうは、この たんまつの ブラウザないだけに ほぞんされます。</p>
+      <div class="custom-sides">
+        <div class="custom-side">
+          <div class="setting-group-title" style="margin-top:0;">ひだり</div>
+          <div class="custom-preview" id="customLeftPreviewBox">
+            <img id="customLeftPreview" alt="" aria-hidden="true" hidden>
+            <span id="customLeftPreviewEmpty" class="custom-preview-empty">がぞう なし</span>
+          </div>
+          <input type="file" id="customLeftFile" class="custom-file-input" accept="image/png,image/jpeg,image/webp" tabindex="0">
+          <label for="customLeftFile" class="settings-reset-btn custom-file-label">📷 がぞうを えらぶ</label>
+          <input type="text" id="customLeftLabel" class="custom-label-input" maxlength="24" placeholder="なまえ（れい：ブランコ）" tabindex="0">
+          <button type="button" id="customLeftRemove" class="settings-reset-btn" tabindex="0" hidden>この がぞうを けす</button>
+        </div>
+        <div class="custom-side">
+          <div class="setting-group-title" style="margin-top:0;">みぎ</div>
+          <div class="custom-preview" id="customRightPreviewBox">
+            <img id="customRightPreview" alt="" aria-hidden="true" hidden>
+            <span id="customRightPreviewEmpty" class="custom-preview-empty">がぞう なし</span>
+          </div>
+          <input type="file" id="customRightFile" class="custom-file-input" accept="image/png,image/jpeg,image/webp" tabindex="0">
+          <label for="customRightFile" class="settings-reset-btn custom-file-label">📷 がぞうを えらぶ</label>
+          <input type="text" id="customRightLabel" class="custom-label-input" maxlength="24" placeholder="なまえ（れい：すべりだい）" tabindex="0">
+          <button type="button" id="customRightRemove" class="settings-reset-btn" tabindex="0" hidden>この がぞうを けす</button>
+        </div>
+      </div>
+      <p class="custom-editor-msg" id="customEditorMsg" role="status" aria-live="polite"></p>
+      <div class="custom-editor-buttons">
+        <button type="button" id="customSaveBtn" class="settings-reset-btn custom-save-btn" tabindex="0">ほぞんする</button>
+        <button type="button" id="customDeleteBtn" class="settings-reset-btn" tabindex="0">じぶんでつくる を ぜんぶ けす</button>
+      </div>
+      <div class="record-confirm" id="customDeleteConfirm" hidden>
+        <p>じぶんでつくる の がぞうを ぜんぶ けしますか？</p>
+        <button type="button" id="customDeleteCancelBtn" class="settings-reset-btn" tabindex="0">キャンセル</button>
+        <button type="button" id="customDeleteConfirmBtn" class="settings-reset-btn" tabindex="0">けす</button>
       </div>
     </div>
 
@@ -718,6 +817,14 @@
     <p class="complete-text" id="completeText">いっぱい えらべたね</p>
     <button type="button" class="primary-btn" id="restartBtn" tabindex="0">もういちど</button>
   </section>
+
+  <!-- Phase M12-D'' §26: shown instead of #stage when 「どっちにする？」の
+       じぶんでつくる is selected but nothing has been registered yet — a
+       supporter-facing nudge, never a broken/empty child-facing card. -->
+  <section class="complete-area" id="level3EmptyState" hidden>
+    <p class="complete-text" id="level3EmptyText" style="font-size: var(--dm-font-size-heading);">じぶんでつくる が まだ ありません</p>
+    <button type="button" class="primary-btn" id="level3EmptyEditBtn" tabindex="0">せっていで つくる</button>
+  </section>
 </main>
 
 <!-- gaze-shared-js: 自動挿入 (generate.js) -->
@@ -798,15 +905,19 @@ var STORAGE_LOG_KEY = 'dotchiga_ii_log';
    a soft Web Audio tone (NOT a sampled instrument recording, §18) used
    only by Level3's result handler. */
 var CHOICES = {
-  apple:  { category: 'food',       label: 'りんご', asset: 'assets/dotchiga-ii/apple.png' },
-  banana: { category: 'food',       label: 'バナナ', asset: 'assets/dotchiga-ii/banana.png' },
-  dog:    { category: 'animal',     label: 'いぬ',   asset: 'assets/dotchiga-ii/dog.png' },
-  cat:    { category: 'animal',     label: 'ねこ',   asset: 'assets/dotchiga-ii/cat.png' },
-  drum:   { category: 'instrument', label: 'たいこ', asset: 'assets/dotchiga-ii/drum.png',
+  apple:  { category: 'food',       label: 'りんご', asset: 'assets/dotchiga-ii/apple.png', source: 'builtin' },
+  banana: { category: 'food',       label: 'バナナ', asset: 'assets/dotchiga-ii/banana.png', source: 'builtin' },
+  dog:    { category: 'animal',     label: 'いぬ',   asset: 'assets/dotchiga-ii/dog.png', source: 'builtin' },
+  cat:    { category: 'animal',     label: 'ねこ',   asset: 'assets/dotchiga-ii/cat.png', source: 'builtin' },
+  drum:   { category: 'instrument', label: 'たいこ', asset: 'assets/dotchiga-ii/drum.png', source: 'builtin',
             sound: { kind: 'tone', freq: 130, type: 'triangle', durationMs: 220, peakGain: 0.36 } },
-  bell:   { category: 'instrument', label: 'ベル',   asset: 'assets/dotchiga-ii/bell.png',
+  bell:   { category: 'instrument', label: 'ベル',   asset: 'assets/dotchiga-ii/bell.png', source: 'builtin',
             sound: { kind: 'bell', freq: 900, durationMs: 700, peakGain: 0.34 } }
 };
+/* Phase M12-D'' §0/§30: customLeft/customRight are added to CHOICES at
+   runtime (see applyCustomChoiceDataToChoices() below) once IndexedDB data
+   loads — never declared statically here, since their asset (an
+   objectUrl, not a static path) doesn't exist until a Blob is loaded. */
 
 function pairsForCategories(categories) {
   var pairs = [];
@@ -831,6 +942,18 @@ var ACTIVITIES = {
 var ACTIVITY_ORDER = ['level1', 'level2', 'level3'];
 ACTIVITY_ORDER.forEach(function(id) { ACTIVITIES[id].pairs = pairsForCategories(ACTIVITIES[id].categories); });
 
+/* Phase M12-D'' §2/§5: 「どっちにする？」 now has 2 sets — builtin
+   (category 'instrument', unchanged) and custom (category 'custom',
+   populated at runtime once IndexedDB data loads, see
+   applyCustomChoiceDataToChoices()). level3SetMode picks which category
+   ACTIVITIES.level3 draws its pairs from; call this whenever the mode
+   changes OR the custom data itself changes. */
+function rebuildLevel3Pairs() {
+  ACTIVITIES.level3.categories = (level3SetMode === 'custom') ? ['custom'] : ['instrument'];
+  ACTIVITIES.level3.pairs = pairsForCategories(ACTIVITIES.level3.categories);
+  if (currentActivity === 'level3') currentPairs = ACTIVITIES.level3.pairs;
+}
+
 /* ---- state ---- */
 var soundEnabled = true;
 var speechEnabled = true;
@@ -849,6 +972,10 @@ var gazeTargetScalePct = TARGET_SCALE_STANDARD;
 var targetSpacingWide = false;
 var motionSpeedLevel = 'normal';
 var SPACING_EROSION_PX = 8;
+var level3SetMode = 'builtin'; // 'builtin' | 'custom' — §5
+var customChoiceData = null;   // IndexedDB record or null — §10
+var customObjectUrls = { left: null, right: null }; // §25 revoke tracking
+var pendingCustomImages = { left: null, right: null }; // staged {blob,mimeType} in the editor, not yet saved
 
 var currentActivity = 'level1';
 var currentPairs = ACTIVITIES[currentActivity].pairs;
@@ -900,6 +1027,26 @@ var toggleGazeEnlarge = document.getElementById('toggleGazeEnlarge');
 var toggleGazeSpacing = document.getElementById('toggleGazeSpacing');
 var toggleGazeSlowMotion = document.getElementById('toggleGazeSlowMotion');
 var gazeSettingsResetBtn = document.getElementById('gazeSettingsResetBtn');
+var level3SetBtns = Array.from(document.querySelectorAll('.level3-set-btn'));
+var customEditorEl = document.getElementById('customEditor');
+var customEditorMsg = document.getElementById('customEditorMsg');
+var customLeftPreview = document.getElementById('customLeftPreview');
+var customLeftPreviewEmpty = document.getElementById('customLeftPreviewEmpty');
+var customLeftFile = document.getElementById('customLeftFile');
+var customLeftLabel = document.getElementById('customLeftLabel');
+var customLeftRemove = document.getElementById('customLeftRemove');
+var customRightPreview = document.getElementById('customRightPreview');
+var customRightPreviewEmpty = document.getElementById('customRightPreviewEmpty');
+var customRightFile = document.getElementById('customRightFile');
+var customRightLabel = document.getElementById('customRightLabel');
+var customRightRemove = document.getElementById('customRightRemove');
+var customSaveBtn = document.getElementById('customSaveBtn');
+var customDeleteBtn = document.getElementById('customDeleteBtn');
+var customDeleteConfirm = document.getElementById('customDeleteConfirm');
+var customDeleteCancelBtn = document.getElementById('customDeleteCancelBtn');
+var customDeleteConfirmBtn = document.getElementById('customDeleteConfirmBtn');
+var level3EmptyState = document.getElementById('level3EmptyState');
+var level3EmptyEditBtn = document.getElementById('level3EmptyEditBtn');
 
 /* =====================================================================
    persistence
@@ -912,7 +1059,7 @@ function saveSettings() {
     dwellDurationMs: dwellDurationMs, entryDelayMs: entryDelayMs, cooldownMs: cooldownMs,
     dwellProgressVisible: dwellProgressVisible, gazeTargetScalePct: gazeTargetScalePct,
     targetSpacingWide: targetSpacingWide, motionSpeedLevel: motionSpeedLevel,
-    currentActivity: currentActivity
+    currentActivity: currentActivity, level3SetMode: level3SetMode
   };
   try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
 }
@@ -937,6 +1084,113 @@ function loadSettings() {
   motionSpeedLevel = (s.motionSpeedLevel === 'slow') ? 'slow' : 'normal';
   currentActivity = (ACTIVITIES.hasOwnProperty(s.currentActivity)) ? s.currentActivity : 'level1';
   currentPairs = ACTIVITIES[currentActivity].pairs;
+  level3SetMode = (s.level3SetMode === 'custom') ? 'custom' : 'builtin';
+}
+
+/* =====================================================================
+   Custom Choice storage (Phase M12-D'' §8-§12/§28) — IndexedDB, never
+   localStorage: base64-encoding photos into localStorage's small string
+   quota is exactly what §9 rules out. Every image stays on this device;
+   nothing here ever calls fetch()/XHR/sendBeacon (§8/§50). All failures
+   are caught and surfaced as a gentle message (§28) — a broken photo
+   upload must never take down Level1/Level2/Builtin Level3.
+===================================================================== */
+var CUSTOM_DB_NAME = 'donomana-dotchi-custom';
+var CUSTOM_DB_VERSION = 1;
+var CUSTOM_STORE_NAME = 'choiceSets';
+var CUSTOM_SET_ID = 'default-custom'; // MVP: a single custom set (§10)
+var CUSTOM_MAX_DIMENSION = 1600;      // §11
+var CUSTOM_MAX_LABEL_LEN = 24;        // §16
+var CUSTOM_ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp']; // §7
+
+function openCustomDB() {
+  return new Promise(function(resolve, reject) {
+    if (!window.indexedDB) { reject(new Error('no-indexeddb')); return; }
+    var req = indexedDB.open(CUSTOM_DB_NAME, CUSTOM_DB_VERSION);
+    req.onupgradeneeded = function() {
+      var db = req.result;
+      if (!db.objectStoreNames.contains(CUSTOM_STORE_NAME)) {
+        db.createObjectStore(CUSTOM_STORE_NAME, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = function() { resolve(req.result); };
+    req.onerror = function() { reject(req.error || new Error('indexeddb-open-failed')); };
+  });
+}
+function loadCustomChoiceSet() {
+  return openCustomDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction(CUSTOM_STORE_NAME, 'readonly');
+      var req = tx.objectStore(CUSTOM_STORE_NAME).get(CUSTOM_SET_ID);
+      req.onsuccess = function() { resolve(req.result || null); };
+      req.onerror = function() { reject(req.error || new Error('indexeddb-get-failed')); };
+    });
+  });
+}
+function saveCustomChoiceSet(record) {
+  return openCustomDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction(CUSTOM_STORE_NAME, 'readwrite');
+      tx.objectStore(CUSTOM_STORE_NAME).put(record);
+      tx.oncomplete = function() { resolve(); };
+      tx.onerror = function() { reject(tx.error || new Error('indexeddb-put-failed')); };
+    });
+  });
+}
+function deleteCustomChoiceSet() {
+  return openCustomDB().then(function(db) {
+    return new Promise(function(resolve, reject) {
+      var tx = db.transaction(CUSTOM_STORE_NAME, 'readwrite');
+      tx.objectStore(CUSTOM_STORE_NAME).delete(CUSTOM_SET_ID);
+      tx.oncomplete = function() { resolve(); };
+      tx.onerror = function() { reject(tx.error || new Error('indexeddb-delete-failed')); };
+    });
+  });
+}
+
+/* Decode + resize in-browser only (§7/§11/§12). No format is ever
+   force-converted for the sake of it — PNG/WebP keep transparency, JPEG
+   stays JPEG. Downscale-only (never upscale), full-bitmap draw (no crop),
+   explicit EXIF orientation normalization. */
+function resizeImageFile(file) {
+  if (!file || CUSTOM_ACCEPTED_TYPES.indexOf(file.type) === -1) {
+    return Promise.reject(new Error('unsupported-format'));
+  }
+  var outType = file.type; // one of the 3 accepted types, unchanged
+  return createImageBitmap(file, { imageOrientation: 'from-image' }).then(function(bitmap) {
+    var scale = Math.min(1, CUSTOM_MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    var w = Math.max(1, Math.round(bitmap.width * scale));
+    var h = Math.max(1, Math.round(bitmap.height * scale));
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    if (bitmap.close) bitmap.close();
+    return new Promise(function(resolve, reject) {
+      canvas.toBlob(function(blob) {
+        if (blob) resolve(blob); else reject(new Error('encode-failed'));
+      }, outType, 0.92);
+    });
+  });
+}
+
+/* Rebuilds CHOICES.customLeft/customRight from customChoiceData (§0/§24)
+   and manages their objectUrl lifecycle (§25) — always revokes the
+   previous pair of URLs before creating new ones, so replacing an image
+   or deleting the set can never leak a blob URL. */
+function applyCustomChoiceDataToChoices() {
+  if (customObjectUrls.left) { URL.revokeObjectURL(customObjectUrls.left); customObjectUrls.left = null; }
+  if (customObjectUrls.right) { URL.revokeObjectURL(customObjectUrls.right); customObjectUrls.right = null; }
+  delete CHOICES.customLeft;
+  delete CHOICES.customRight;
+  if (!customChoiceData) return;
+  customObjectUrls.left = URL.createObjectURL(customChoiceData.left.imageBlob);
+  customObjectUrls.right = URL.createObjectURL(customChoiceData.right.imageBlob);
+  CHOICES.customLeft = { category: 'custom', label: customChoiceData.left.label, asset: customObjectUrls.left, source: 'custom' };
+  CHOICES.customRight = { category: 'custom', label: customChoiceData.right.label, asset: customObjectUrls.right, source: 'custom' };
+}
+function level3CustomHasData() {
+  return !!(CHOICES.customLeft && CHOICES.customRight);
 }
 
 /* ---- record (M12-A design doc §20 / M12-B §28 / M12-C §37: no correct/result column) ---- */
@@ -1029,6 +1283,28 @@ function playBellTone(fundamentalFreq, durationMs, peakGain) {
     });
   } catch (e) {}
 }
+/* Phase M12-D'' §31-35: a real-audio-asset playback path, DORMANT until a
+   User-approved recording exists. §32 is explicit that Claude Code must
+   never fetch third-party audio into this repo without confirmed rights
+   — a repo-wide search (Phase M12-D) found zero existing audio files of
+   any kind (mp3/wav/ogg/m4a), so drum/bell keep using the Web Audio
+   synthesis above (kind:'tone'/'bell', unchanged) as the active sound.
+   Wiring in a real recording later is a 1-line data change in CHOICES —
+   set kind:'asset' and assetPath to e.g. assets/dotchiga-ii/audio/
+   drum.mp3 (§33) — no further code here. AUDIO QUALITY = PENDING USER
+   ASSET until that happens; this function existing does not change that
+   status. */
+var audioAssetCache = {};
+function playAudioAsset(assetPath, volume) {
+  if (!soundEnabled) return;
+  try {
+    var audio = audioAssetCache[assetPath];
+    if (!audio) { audio = new Audio(assetPath); audioAssetCache[assetPath] = audio; }
+    audio.currentTime = 0;
+    audio.volume = (typeof volume === 'number') ? volume : 0.8; // §34: default not too quiet
+    audio.play().catch(function() {}); // autoplay-policy rejection is silent, not thrown
+  } catch (e) {}
+}
 function speak(text) {
   if (!speechEnabled) return;
   if (!('speechSynthesis' in window)) return;
@@ -1042,6 +1318,18 @@ function speak(text) {
    trial flow
 ===================================================================== */
 function startTrial() {
+  // Phase M12-D'' §26: 「どっちにする？」+ じぶんでつくる with nothing
+  // registered yet has an empty currentPairs — never index into it (that
+  // would hand the child a broken card); show the supporter-facing empty
+  // state instead, exactly like showComplete() swaps in completeArea.
+  if (currentActivity === 'level3' && level3SetMode === 'custom' && !level3CustomHasData()) {
+    stage.hidden = true;
+    level3EmptyState.hidden = false;
+    if (scanMode) refreshSwitchScanItems();
+    return;
+  }
+  level3EmptyState.hidden = true;
+  stage.hidden = false;
   isShowingResult = false;
   choiceA.classList.remove('selected');
   choiceB.classList.remove('selected');
@@ -1081,9 +1369,13 @@ function handleLevel3Result(choiceId, def) {
   // §14/§18: the sound IS the result, not mere reinforcement — and it may
   // overlap the selection beep only in spirit, never in timing, so we skip
   // beep() here and let the instrument tone stand alone before speech (§21).
+  // Custom Choice photos have no def.sound (§19 — no synthesized "sound"
+  // is invented for an arbitrary photo), so there's nothing to wait for
+  // and speech fires immediately.
   var s = def.sound;
   if (s) {
     if (s.kind === 'bell') playBellTone(s.freq, s.durationMs, s.peakGain);
+    else if (s.kind === 'asset') playAudioAsset(s.assetPath, s.volume); // §31-35, dormant today
     else playTone(s.freq, s.type, s.durationMs, s.peakGain);
   }
   // Phase M12-D' §20: bell's decay (700ms) is now much longer than drum's
@@ -1091,7 +1383,12 @@ function handleLevel3Result(choiceId, def) {
   // now start speech while the bell is still near its loudest. 380ms sits
   // in the User-suggested 300-450ms band and, per §20's own allowance,
   // does not need to wait for the tail to fully finish.
-  setTimeout(function() { speak(def.label); }, 380);
+  // §19: Custom Choice acknowledges the pick ("を えらんだね", same
+  // non-assertive phrasing as Level2) rather than naming it bare, since a
+  // supporter-chosen photo/activity reads more naturally as an
+  // acknowledged choice than a bare label.
+  var speechText = (def.source === 'custom') ? (def.label + ' を えらんだね') : def.label;
+  setTimeout(function() { speak(speechText); }, s ? 380 : 0);
 }
 var RESULT_HANDLERS = { level1: handleLevel1Result, level2: handleLevel2Result, level3: handleLevel3Result };
 
@@ -1123,6 +1420,7 @@ function activateChoice(choiceId, inputMethod) {
     category: def.category,
     pair: currentPair.slice().sort().join('_'),
     selectedChoice: choiceId,
+    selectedLabel: def.label, // §21/§22: a text snapshot only — no image data, no filename/path
     inputMethod: inputMethod,
     trialIndex: trialIndex + 1,
     trialTotal: trialCount,
@@ -1273,7 +1571,9 @@ function buildScanItems() {
   // choices, which must NOT be re-selectable during that window.
   if (settingsOpen) return [];
   if (isShowingResult) return activityBtns.filter(isVisibleEnabled);
-  if (!completeArea.hidden) return activityBtns.concat([restartBtn]).filter(isVisibleEnabled);
+  if (!completeArea.hidden || !level3EmptyState.hidden) {
+    return activityBtns.concat([restartBtn, level3EmptyEditBtn]).filter(isVisibleEnabled);
+  }
   return activityBtns.concat([choiceA, choiceB]).filter(isVisibleEnabled);
 }
 function clearScanHighlight() {
@@ -1319,7 +1619,7 @@ function getGazeTargets() {
   // Same tabs-always-reachable rule as buildScanItems() above (§9/§16).
   if (settingsOpen) return [];
   if (isShowingResult) return activityBtns.slice();
-  if (!completeArea.hidden) return activityBtns.slice();
+  if (!completeArea.hidden || !level3EmptyState.hidden) return activityBtns.slice();
   return activityBtns.concat([choiceA, choiceB]);
 }
 function resetDwellState() {
@@ -1405,6 +1705,8 @@ function openSettings() {
   recordVisibleCount = RECORD_PAGE_SIZE;
   resetRecordConfirmUI();
   renderRecordList();
+  resetCustomDeleteConfirmUI();
+  renderCustomEditor();
   if (scanMode) refreshSwitchScanItems();
 }
 function closeSettings() {
@@ -1540,7 +1842,11 @@ function renderRecordList() {
   reversed.slice(0, recordVisibleCount).forEach(function(entry) {
     var li = document.createElement('li');
     var activityLabel = (ACTIVITIES[entry.activity] || {}).label || entry.activity || '';
-    var choiceLabel = (CHOICES[entry.selectedChoice] || {}).label || entry.selectedChoice || '';
+    // §21: prefer the recorded snapshot (entry.selectedLabel) over a live
+    // CHOICES lookup — a Custom Choice photo can be replaced or deleted
+    // later, and old records must keep showing what was actually chosen
+    // at the time, not whatever now occupies that slot.
+    var choiceLabel = entry.selectedLabel || (CHOICES[entry.selectedChoice] || {}).label || entry.selectedChoice || '';
     var inputLabel = INPUT_METHOD_LABELS[entry.inputMethod] || entry.inputMethod || '';
     li.innerHTML =
       '<span class="record-time">' + formatRecordTime(entry.time) + '</span>' +
@@ -1553,7 +1859,7 @@ function renderRecordList() {
 }
 recordMoreBtn.addEventListener('click', function() { recordVisibleCount += RECORD_PAGE_SIZE; renderRecordList(); });
 
-var RECORD_CSV_COLUMNS = ['time', 'activity', 'category', 'pair', 'selectedChoice', 'inputMethod', 'trialIndex', 'trialTotal', 'dwellDuration'];
+var RECORD_CSV_COLUMNS = ['time', 'activity', 'category', 'pair', 'selectedChoice', 'selectedLabel', 'inputMethod', 'trialIndex', 'trialTotal', 'dwellDuration'];
 function buildRecordsCsvRows(log) {
   var rows = [RECORD_CSV_COLUMNS.join(',')];
   log.forEach(function(entry) {
@@ -1604,6 +1910,158 @@ recordConfirmBtn.addEventListener('click', function() {
 });
 
 /* =====================================================================
+   Level3 Set Selector + Custom Choice editor (Phase M12-D'' §5/§6/§42-44)
+   — lives entirely inside the existing non-modal Settings panel, so it
+   inherits Settings' existing exclusive-interaction-focus behavior
+   (getGazeTargets()/buildScanItems() already return [] whenever
+   settingsOpen is true) with no new isolation code (§44).
+===================================================================== */
+function updateLevel3SetButtons() {
+  level3SetBtns.forEach(function(b) {
+    b.setAttribute('aria-pressed', b.dataset.set === level3SetMode ? 'true' : 'false');
+  });
+  customEditorEl.hidden = (level3SetMode !== 'custom');
+}
+function renderCustomSidePreview(side) {
+  var imgEl = (side === 'left') ? customLeftPreview : customRightPreview;
+  var emptyEl = (side === 'left') ? customLeftPreviewEmpty : customRightPreviewEmpty;
+  var removeBtn = (side === 'left') ? customLeftRemove : customRightRemove;
+  var labelInput = (side === 'left') ? customLeftLabel : customRightLabel;
+  var pending = pendingCustomImages[side];
+  var saved = customChoiceData ? customChoiceData[side] : null;
+  if (pending && pending.previewUrl) {
+    imgEl.src = pending.previewUrl; imgEl.hidden = false; emptyEl.hidden = true; removeBtn.hidden = false;
+  } else if (saved) {
+    imgEl.src = (side === 'left') ? customObjectUrls.left : customObjectUrls.right;
+    imgEl.hidden = false; emptyEl.hidden = true; removeBtn.hidden = false;
+  } else {
+    imgEl.removeAttribute('src'); imgEl.hidden = true; emptyEl.hidden = false; removeBtn.hidden = true;
+  }
+  if (!pending && saved) labelInput.value = saved.label;
+  else if (!pending && !saved) labelInput.value = '';
+}
+function renderCustomEditor() {
+  updateLevel3SetButtons();
+  renderCustomSidePreview('left');
+  renderCustomSidePreview('right');
+}
+
+function handleCustomImageFile(side, file) {
+  customEditorMsg.textContent = '';
+  resizeImageFile(file).then(function(blob) {
+    if (pendingCustomImages[side] && pendingCustomImages[side].previewUrl) {
+      URL.revokeObjectURL(pendingCustomImages[side].previewUrl); // §25
+    }
+    pendingCustomImages[side] = { blob: blob, mimeType: blob.type, previewUrl: URL.createObjectURL(blob) };
+    renderCustomSidePreview(side);
+  }).catch(function() {
+    customEditorMsg.textContent = 'この がぞうは よみこめませんでした。べつの がぞうを おためしください。';
+  });
+}
+customLeftFile.addEventListener('change', function() {
+  var f = customLeftFile.files[0];
+  if (f) handleCustomImageFile('left', f);
+  customLeftFile.value = '';
+});
+customRightFile.addEventListener('change', function() {
+  var f = customRightFile.files[0];
+  if (f) handleCustomImageFile('right', f);
+  customRightFile.value = '';
+});
+function removeCustomSide(side) {
+  if (pendingCustomImages[side] && pendingCustomImages[side].previewUrl) {
+    URL.revokeObjectURL(pendingCustomImages[side].previewUrl);
+  }
+  // §14: only clears this editing session's staged/preview state — the
+  // saved IndexedDB record (if any) is untouched until 保存/けす is
+  // pressed, so a stray tap here can't destroy an already-saved photo.
+  pendingCustomImages[side] = { blob: null, mimeType: null, previewUrl: null, removed: true };
+  (side === 'left' ? customLeftLabel : customRightLabel).value = '';
+  renderCustomSidePreview(side);
+}
+customLeftRemove.addEventListener('click', function() { removeCustomSide('left'); });
+customRightRemove.addEventListener('click', function() { removeCustomSide('right'); });
+
+function currentSideBlob(side) {
+  var pending = pendingCustomImages[side];
+  if (pending && pending.removed) return null;
+  if (pending && pending.blob) return { blob: pending.blob, mimeType: pending.mimeType };
+  if (customChoiceData && customChoiceData[side]) return { blob: customChoiceData[side].imageBlob, mimeType: customChoiceData[side].mimeType };
+  return null;
+}
+customSaveBtn.addEventListener('click', function() {
+  var leftLabel = customLeftLabel.value.trim().slice(0, CUSTOM_MAX_LABEL_LEN);
+  var rightLabel = customRightLabel.value.trim().slice(0, CUSTOM_MAX_LABEL_LEN);
+  var leftImg = currentSideBlob('left');
+  var rightImg = currentSideBlob('right');
+  if (!leftImg || !rightImg || !leftLabel || !rightLabel) {
+    // §15: gentle guidance, not a harsh error state.
+    customEditorMsg.textContent = 'ひだり・みぎ りょうほうに がぞうと なまえを いれてください。';
+    return;
+  }
+  var record = {
+    id: CUSTOM_SET_ID,
+    left: { label: leftLabel, imageBlob: leftImg.blob, mimeType: leftImg.mimeType },
+    right: { label: rightLabel, imageBlob: rightImg.blob, mimeType: rightImg.mimeType },
+    updatedAt: new Date().toISOString()
+  };
+  saveCustomChoiceSet(record).then(function() {
+    customChoiceData = record;
+    pendingCustomImages = { left: null, right: null };
+    applyCustomChoiceDataToChoices();
+    rebuildLevel3Pairs();
+    trialIndex = 0;
+    renderCustomEditor();
+    if (currentActivity === 'level3') startTrial();
+    customEditorMsg.textContent = 'ほぞんしました。';
+    donomanaAnnounce('じぶんでつくる を ほぞんしました');
+  }).catch(function() {
+    // §28: storage failure never breaks the rest of the app.
+    customEditorMsg.textContent = 'がぞうを ほぞんできませんでした。';
+  });
+});
+
+function resetCustomDeleteConfirmUI() {
+  customDeleteConfirm.hidden = true;
+  customDeleteBtn.hidden = false;
+}
+customDeleteBtn.addEventListener('click', function() {
+  customDeleteBtn.hidden = true;
+  customDeleteConfirm.hidden = false;
+  customDeleteConfirmBtn.focus();
+});
+customDeleteCancelBtn.addEventListener('click', function() { resetCustomDeleteConfirmUI(); customDeleteBtn.focus(); });
+customDeleteConfirmBtn.addEventListener('click', function() {
+  deleteCustomChoiceSet().then(function() {
+    customChoiceData = null;
+    pendingCustomImages = { left: null, right: null };
+    applyCustomChoiceDataToChoices();
+    rebuildLevel3Pairs();
+    trialIndex = 0;
+    renderCustomEditor();
+    resetCustomDeleteConfirmUI();
+    if (currentActivity === 'level3') startTrial();
+    donomanaAnnounce('じぶんでつくる を けしました');
+  }).catch(function() {
+    customEditorMsg.textContent = 'けせませんでした。もういちど おためしください。';
+    resetCustomDeleteConfirmUI();
+  });
+});
+
+level3SetBtns.forEach(function(b) {
+  b.addEventListener('click', function() {
+    if (b.dataset.set === level3SetMode) return;
+    level3SetMode = b.dataset.set;
+    renderCustomEditor();
+    rebuildLevel3Pairs();
+    trialIndex = 0;
+    if (currentActivity === 'level3') startTrial();
+    saveSettings();
+  });
+});
+level3EmptyEditBtn.addEventListener('click', function() { openSettings(); });
+
+/* =====================================================================
    init
 ===================================================================== */
 function init() {
@@ -1630,7 +2088,22 @@ function init() {
   toggleGaze.checked = gazeEnabled;
   setGazeEnabled(gazeEnabled);
 
-  startTrial();
+  // Phase M12-D'' §9: IndexedDB is async, unlike everything else init()
+  // restores — startTrial() must wait for it, or a reload landing on
+  // 「どっちにする？」+ じぶんでつくる would flash the empty state (§26)
+  // for a moment even though data actually exists. loadCustomChoiceSet()
+  // failures are swallowed here (§28) so a broken/blocked IndexedDB can
+  // never stop Level1/Level2/Builtin Level3 from starting.
+  loadCustomChoiceSet().then(function(record) {
+    customChoiceData = record;
+  }).catch(function() {
+    customChoiceData = null;
+  }).then(function() {
+    applyCustomChoiceDataToChoices();
+    rebuildLevel3Pairs();
+    renderCustomEditor();
+    startTrial();
+  });
 }
 init();
 </script>
