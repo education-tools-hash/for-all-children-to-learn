@@ -317,33 +317,6 @@
 })();
 </script>
 <!-- /a11y-panel -->
-<!-- Phase M12-D'''' — Donomana Help / Usage Guide Standard v1.0 §8:
-     REQUIRED position is the same fixed top operating row as
-     Lock/Fullscreen, not buried in Settings. This is a hand-authored
-     Reference Implementation (not yet part of generate.js's shared
-     Common Chrome injector — see design doc §41 Common Chrome injector
-     feasibility note), styled identically to donomanaLockBtn/FsBtn so
-     it already matches the row's established visual language.
-     IMPORTANT (Phase M12-E fix): this button MUST live OUTSIDE the
-     lock-fs-btn marker-comment block below (start/end markers,
-     search for "lock-fs-btn" in this file). generate.js replaces
-     everything between those markers wholesale on every run, so
-     placing this button inside them silently deletes it on
-     regeneration (found during M12-E RC prep: node generate.js's
-     first run wiped this button and its click handler began failing
-     silently via getElementById returning null). Its own fixed-position
-     wrapper is placed here, immediately BEFORE the lock-fs-btn marker
-     block, both in DOM order and visually (right:116px, i.e. 12px edge
-     offset + 44px + 8px gap + 44px = 108px, +8px gap = 116px, just to
-     the left of the Lock/Fullscreen pair which always renders flush to
-     the screen edge at right:12px). DOM order is kept in sync with this
-     new visual left-to-right order (Help, Lock, FS) so the shared
-     .scannable[data-scan] Switch Scan traversal — which reads elements
-     in DOM order — still matches what a Switch user sees left-to-right. -->
-<style>#donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
-<div style="position:fixed;top:64px;right:116px;z-index:99999;">
-  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpPanel" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
-</div>
 <!-- lock-fs-btn: 自動挿入 (generate.js) -->
 <style>#donomanaLockBtn:focus-visible,#donomanaFsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
@@ -411,6 +384,39 @@
 })();
 </script>
 <!-- /lock-fs-btn -->
+<!-- Phase M12-D'''' — Donomana Help / Usage Guide Standard v1.0 §5/§5.1:
+     REQUIRED position is the same fixed top operating row as
+     Lock/Fullscreen, and REQUIRED ordering is the literal sequence
+     "Lock -> Fullscreen -> Help" (Help added as the 3rd/last member of
+     the cluster, i.e. closest to the screen edge). This is a
+     hand-authored Reference Implementation (not yet part of generate.js's
+     shared Common Chrome injector — see design doc §41 feasibility note).
+     PLACEMENT HISTORY: M12-D'''' originally placed this button as a 3rd
+     child INSIDE the lock-fs-btn marker block above, correctly achieving
+     Lock->FS->Help order. M12-E's first generate.js run then silently
+     deleted it, because generate.js replaces everything between the
+     lock-fs-btn markers wholesale on every run (found during M12-E RC
+     prep). The M12-E fix moved it OUTSIDE the markers but placed it
+     BEFORE the cluster (right:116px, to the left of Lock/FS), which kept
+     the button working but put it FIRST instead of LAST — violating the
+     Help Standard's REQUIRED Lock->Fullscreen->Help ordering (caught in
+     M12-E'' preflight). This M12-E'' fix corrects that: the wrapper now
+     sits AFTER the marker block (both in the DOM, for Switch Scan/Tab
+     order, and visually), at right:12px — the same edge-flush margin
+     Lock/FS used to occupy when Help was their 3rd child. The CSS rule
+     just below pushes the generate.js-owned Lock/FS cluster from its
+     default right:12px out to right:64px (12px Help width... precisely:
+     44px Help button + 8px gap = 52px, so Lock/FS's right becomes
+     12+44+8=64px) so the two clusters sit side by side with a matching
+     8px gap and no overlap, without editing generate.js's shared
+     template (which would affect all 35 apps). -->
+<style>
+  #donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
+  div:has(> #donomanaLockBtn){right:64px!important;}
+</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpPanel" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
 <!-- home-btn: 自動挿入 (generate.js) -->
 <style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <a href="https://donomana.jp/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
