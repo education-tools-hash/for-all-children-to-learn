@@ -1017,3 +1017,76 @@ H1〜H10相当: 「？」の発見しやすさ、375pxでのCommon Chrome操作�
 ### 41.8 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。既存Productionアプリのコードも本Phaseでは無変更。
+
+---
+
+## 42. Phase M12-D系列 Close判定 & Phase M12-E: Release Candidate準備（RC READY — WAITING FOR USER APPROVAL）
+
+### 42.1 Phase M12-D''''のUser承認・Close判定
+
+Userより「Phase M12-D'''' の内容は概ね承認します」との回答を受けた。同時に指摘されたInventory件数不整合（Group A〜D合計とProduction app総数の不一致）を修正し（`donomana-help-inventory-v1.md`のGroup A=14/B=4/C=2/B+C=1（独立した複合Group、他Groupの内数ではない）/D=13、合計34で確定）、`git diff --check`再実行（クリーン）の上、checkpointとしてコミット済み（`fd3e7cd`）。
+
+41.6のH1〜H10相当項目（「？」の発見しやすさ、375pxでの操作しやすさ等）はUser側で個別には逐条確認されていないが、上記の承認メッセージ以外に指摘事項はなかったため、**M12-D''''はUser承認によりClose**として扱う。個別H項目の実機/読者視点での逐条確認が別途必要になった場合は、その時点で追加確認する。
+
+これにより、**Phase M12-D系列（M12-D／M12-D'／M12-D''／M12-D'''／M12-D''''）は全体としてClose**する。
+
+### 42.2 Phase M12-D系列 実機/自動ステータス最終一覧
+
+以下はこれまでの各Phaseで実際に得られた確認結果のみを列挙する。未実施の項目を「PASS」に書き換えることはしていない。
+
+| 項目 | ステータス | 確認Phase |
+|---|---|---|
+| Tobii basic operation | PASS（実機） | M12-D |
+| Gaze Settings | PASS（実機） | M12-D |
+| Activity Tabs・Level1/2/3・Settings・Gaze Standard 8項目 | PASS（実機、Tobii Eye Tracker 5） | M12-D' |
+| Custom Choice UI（画像登録・名前読み上げ） | PASS（実機） | M12-D'' |
+| Instrument audio（たいこ／ベル） | REMOVED BY USER DECISION（品質不満足のため機能自体を削除、実機評価の対象外に） | M12-D''' |
+| Help / Usage Guide Standard v1.0 | User承認（概ね承認、Inventory件数修正のみ実施） | M12-D'''' |
+| Switch実機検証 | **DEFERRED BY USER**（未実施。Production Blockerとはしない） | M12-D''〜継続 |
+
+### 42.3 Phase M12-E: RC準備内容
+
+RC worktree `for-all-children-to-learn-m12-e-rc`（branch `release/dotchiga-ii-rc`、`fd3e7cd`からbranch）にて以下を実施。
+
+- `apps-data.json`へ`dotchiga-ii`エントリを追加（既存34アプリと同一スキーマ、`junban-miyou-app`のエントリを構造モデルとして参照）。category=`認知支援`は3つの既存Multi-Input系兄弟アプリ（`miru-hirogaru-app`/`mitsukete-touch-app`/`junban-miyou-app`）と同一で非曖昧、User Review Pointとしての中断は不要と判断
+- `generate.js`の`SETTINGS_PROXY`マップと`hideWithDisplayNone`Setへ`dotchiga-ii-app`を追加（本アプリの独自Settings起動ボタンを共有a11yパネルへ正しくproxyするために必須）
+- `node generate.js`を3回実行し冪等性を確認（2回目・3回目とも`dotchiga-ii-app.html`への差分0、リポジトリ全体でも他アプリのファイルに意図しない変更がないことを`git status`/`git diff --stat`で確認）
+- `app-details/dotchiga-ii-app-detail.html`生成を確認、`sitemap.xml`・`app-intro.html`・`index.html`（`CHANGELOG`含む）への追加が既存34件を一切変更せず正しく追記されたことを確認
+
+### 42.4 発見した重大な不具合と修正: donomanaHelpBtn削除バグ
+
+`node generate.js`の初回実行で、`dotchiga-ii-app.html`内の`donomanaHelpBtn`（M12-D''''でCommon Chromeへ追加したHelpボタン）とその説明コメントが**サイレントに削除される**ことが判明した。
+
+**原因**: 41.2で追加した`donomanaHelpBtn`は、Lock/Fullscreenボタンと同じ視覚的な行に見せるため`<!-- lock-fs-btn -->`〜`<!-- /lock-fs-btn -->`マーカーブロック内（generate.jsが毎回丸ごと置換する領域）に手書きされていた。このマーカーはgenerate.js自身のCommon Chrome injectorが完全所有しており、Help button自体はgenerate.jsのテンプレートの一部ではないため、実行のたびに消去される。ボタン消滅後は`document.getElementById('donomanaHelpBtn')`が`null`を返し、クリックハンドラの登録自体がサイレントに失敗する状態になっていた。
+
+**修正**: `donomanaHelpBtn`を`<!-- lock-fs-btn -->`マーカーの**外側**（直前）に独立した`position:fixed`ラッパーとして再配置。Lock/FSブロックは常に`right:12px`起点でgenerate.jsに再生成されるため、Helpボタンをその左側（`right:116px` = 12px＋44px＋8px gap＋44px＋8px gap）に配置。これによりLock/FSペアより画面端から遠い位置になり、**視覚順序が「Lock→FS→Help」から「Help→Lock→FS」へ変わる**（以前はHelpが最も画面端に近い＝右端だったが、marker外への退避に伴い今回のRCでは最も左寄りになった）。共有`.scannable[data-scan]`によるSwitch Scan走査順序もDOM順に依存するため、DOM上の位置もマーカーの直前（Help→Lock→FSの順）へ揃え、視覚順序とスキャン順序の一致を維持した。
+
+修正後、Playwright自動検証で以下を確認: Common Chrome 4ボタン（Home/Lock/FS/Help）すべて表示、視覚順序Help.x < Lock.x < FS.x、Help開閉・aria-expanded・focus復帰・h2→h3見出し構造・Settings相互排他（`buildScanItems()`が0件を返す）、いずれもPASS。`node generate.js`再実行（2回目・3回目）でも本修正箇所に差分が生じないことを確認済み（42.3参照）。
+
+**Userへの開示事項**: 以前M12-D''''のArtifactで共有したスクリーンショットでは、Helpボタンは画面右端（Lock/FSより外側）に位置していた。本Phaseの修正により、Production登録後のRC版ではHelpボタンがLock/FSより内側（画面端から見て左）に位置が変わっている。機能・アクセシビリティ上の後退はないが、視覚的な並び順の変更としてR-series Review Pointの1つとして報告する。
+
+### 42.5 既知の未解決事項（Blocker扱いとしない）
+
+`dotchiga-ii-app.html`は`gaze-shared-css`/`gaze-shared-js`マーカーを手書きで含んでいるが、`generate.js`の`GAZE_SHARED_FOUNDATION_APPS`（Gaze Shared Foundation PoC対象アプリのAllowlist）には未登録。このため`node generate.js`はこのブロックを一切更新しない。現状は既存の手書き実装がこれまでのPhaseで検証済みの内容のまま維持されているため機能上の問題はないが、将来Gaze Shared Foundationがサイト全体で更新された際、本アプリへは自動反映されない。本Phaseのスコープ外と判断し、将来Phaseへの申し送り事項とする。
+
+### 42.6 Phase M12-E 回帰検証結果概要（Playwright, Python, headless Chromium）
+
+- Common Chrome: Home/Lock/FS/Help全ボタン表示・視覚順序・DOM順序一致、console/page error 0件
+- Help panel: 開閉・aria-expanded・見出し階層（h2×1・h3×6）・focus復帰、いずれもPASS（42.4の修正後）
+- Settings⇔Help相互排他、a11yパネル経由のSettings Proxy起動、いずれもPASS
+- Level1（どっち？）: 選択→フィードバック表示、正常動作
+- Activity Tabs: Level2（すきなのはどっち？）切替、console error 0件
+- Level3 Custom（どっちにする？）: 未登録時はempty-state表示、Custom Choice保存後はempty-state消滅・stage表示（`display:flex`）
+- Custom Choice永続化: 画像アップロード（左右）→保存→reload後もIndexedDBから正しく復元、empty-stateに戻らないことを確認
+- CSV export: `donomanaSettingsProxy`経由でSettings起動→CSV出力ボタンでdownloadイベント発火（`dotchiga-ii-kiroku-2026-08-23.csv`）を確認
+- 完了/空状態画面: `.stage[hidden]`修正が引き続き有効（Level1では`display:flex`、Level3 empty-state表示中は`display:none`と正しく出し分け）
+- Privacy: Custom Choice保存を含む全操作シーケンスでexternalネットワークリクエスト0件
+- reduced motion: `prefers-reduced-motion: reduce`のブラウザcontextで正しく検出
+- keyboard: Tab移動でフォーカスが実際に移動することを確認
+- instrument残留語（drum/bell/たいこ/ベル/instrument/おためし）: HTML内の実際のヒットはM12-D'''での機能削除を説明する2件の履歴コメントのみ（`playTone`/`playBellTone`関数定義は0件、UI文言・aria-label・画像参照はいずれも0件）。広範な文字列一致では「レベル」の部分文字列としての「ベル」誤検出が多数含まれたため、目視で全件を個別確認した
+
+### 42.7 Production公開状態
+
+`apps-data.json`へ`dotchiga-ii`エントリを登録済み、`generate.js`実行により`app-details/dotchiga-ii-app-detail.html`・`sitemap.xml`・`app-intro.html`・`index.html`への反映も完了しているが、**すべて`release/dotchiga-ii-rc`ブランチ上のみ**であり、mainへのmerge/pushは一切行っていない。**Production状態: NOT RELEASED。**
+
+**Phase M12-E状態: RC READY — WAITING FOR USER APPROVAL。**

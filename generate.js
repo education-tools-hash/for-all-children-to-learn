@@ -843,6 +843,7 @@ const SETTINGS_PROXY = {
   'miru-hirogaru-app':  { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'mitsukete-touch-app':{ selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'junban-miyou-app':   { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
+  'dotchiga-ii-app':    { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -910,7 +911,10 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // scan-focusが視覚的に何も無い位置に当たる不具合)。同じMulti-Input Pilotの
   // miru-hirogaru-app/mitsukete-touch-appと同じdisplay:none方式に揃えることで、
   // ネイティブTab順序・isVisibleEnabled()双方から自動的に除外される。
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app']);
+  // Phase M12-E: dotchiga-ii-appを追加。miru-hirogaru-app/mitsukete-touch-app/
+  // junban-miyou-appと同じMulti-Input系アプリで、Switch Scan・Activity Tabs
+  // 双方のネイティブTab順序からsettingsBtnを除外する必要がある点も同一。
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
