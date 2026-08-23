@@ -723,3 +723,58 @@ Choice cardの構造（画像ではなくbutton全体がTouch/Gaze/Switch/Keyboa
 ### 36.8 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Phase M12-C''完了時点でもLocal Prototype / checkpointのまま、Production非公開を維持している。
+
+---
+
+## 37. Phase M12-D: Real Device Validation & Final Polish（PENDING REAL-DEVICE REVIEW）
+
+### 37.1 位置づけ
+
+本Phaseは新機能追加ではなく、M12-A〜C''までの実装をRelease Candidate直前品質まで検証するPhase。**自動テストPASS ≠ 実機PASS**の原則のもと、Playwright等の自動検証で確認できた範囲と、Tobii Eye Tracker 5・外部Switchによる実機確認（User Review待ち）を明確に分離して記録する。
+
+### 37.2 Automated Preflight（PASS）
+
+Playwright（Python, headless Chromium）で以下を検証し、すべてPASS・console/page error 0件を確認した。
+
+- Level1/2/3 × Touch/Keyboard/synthetic Gaze/Switch Scan（12組合せ）
+- Activity Tabs（4入力方式・selected state・reload後persistence・feedback表示中の切替）
+- Cross-Level: 1→2→3→1連続切替、重複起動防止（連続クリック・近接同時touch+keyboard・同期3連続dispatchいずれもrecordは1件のみ）
+- Gaze Standard 8全項目（ON/OFF・dwell・progress・cooldown・motion speed・target enlargement・target spacing・entry delay）の変更・reload後persistence・reset既定値復帰
+- Settings密度（375px、8グループ、horizontal overflowなし）
+- Record（禁止フィールド0件）、CSV（BOM・列順）、削除2段階confirm
+- Completion（Level1/2/3とも非評価的メッセージ、スコア非表示）
+- Reduced Motion（transition/animation実質0秒、Level3を音OFF+reduced motionで選択しても`.selected`のみで結果視認可能）
+- Accessibility（Escape・focus return・設定パネル表示中のGaze/Switch対象0件によるmodal isolation）
+
+### 37.3 Gaze幾何マトリクス検証と修正
+
+5解像度（375×667/375×812/390×844/768×1024/1280×900）× target enlargement（100%/150%）× target spacing（normal/wide）の全16パターンで、Activity Tab同士・Tab⇔Choice・Choice同士・Tab⇔Common Chromeのhit region重なりを`getBoundingClientRect()`実測で機械的に検査した。
+
+- **既定設定（拡大100%）は全16パターンでclean**（重なりゼロ）。
+- 拡大150%（最大）でのみ2件検出:
+  1. Activity Tab⇔固定ロック/全画面ボタンの1px重なり（375〜390px幅）。`.activity-tabs`の`padding-top`を12px→16pxへ拡大し解消、全解像度で再検証済み（§35.7で導入したCommon Chrome回避策の追加調整）。
+  2. choiceA⇔choiceBの重なり。**M12-B（Level1初期実装）からの既存特性**であり、Activity Tabs関連の変更が原因ではない。`hitTestGazeTargets()`は重複領域で常に面積の小さい方を採用するため、実際に誤選択が起きうるのは2枚のカードのちょうど中間（視覚的には何もない空白）を持続して見つめた場合のみに限られる。2choice間の距離は教育設計の中心（設計doc§17 Visual Hierarchy）に関わるため、Userの実機判断（Tobiiチェックリスト G7）を待ってから対応方針を決定する。未修正のまま次工程へ。
+
+### 37.4 Real Device Gate（PENDING）
+
+Tobii Eye Tracker 5用チェックリスト（G1〜G10）・外部Switch用チェックリスト（S1〜S7）を含むArtifactを作成し提示した。いずれも**実施結果はまだ得られていない**。Claude Codeはsynthetic gaze/simulated switch scanの自動テスト結果のみを根拠に「実機確認済み」とは記載しない。
+
+### 37.5 Sound Review（PENDING）
+
+リポジトリ内に既存sound asset（mp3/wav/ogg）は0件で、全音源はWeb Audio合成であることを確認した（§22「まず既存assetを調査」の結果）。現行のLevel3 sound（たいこ: 130Hz triangle、ベル: 1180Hz sine、いずれも既存のまま無変更）が「たいこ/ベルらしく聞こえるか」はAIには判定できないため、Userの実機聴取結果を待つ。変更が必要と判断された場合のみ、Before/After比較の上で対応する。
+
+### 37.6 Feedback Timing / Desktop間隔（PENDING）
+
+`effMs(1600)`のfeedback timingはMulti-Input Program Design標準上「アプリ固有」（他アプリ実績700〜1200ms）であり、本アプリの1600msが適切かはUserの実機確認待ち。1280px時の2choice間の距離感（Gaze移動負荷）についても目視評価をArtifactのスクリーンショットとあわせて依頼した。
+
+### 37.7 変更内容
+
+本PhaseでのコードVariable変更は、37.3節の`padding-top`拡大（12px→16px）1件のみ。他はすべて検証のみで、コードは無変更（「問題がなければ変更しないことも正解とする」という本Phaseの原則どおり）。
+
+### 37.8 Phase M12-D完了判定
+
+**Phase M12-D = PENDING REAL-DEVICE REVIEW**。Tobii/Switch実機確認、sound確認、feedback timing確認のいずれもUser回答待ちのため、本Phaseは未完了として扱う。回答が得られ次第、MINOR POLISHがあれば最小修正→再検証→本Phaseのcommitへ、BLOCKERがあれば個別に報告・対応方針を協議する。
+
+### 37.9 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。
