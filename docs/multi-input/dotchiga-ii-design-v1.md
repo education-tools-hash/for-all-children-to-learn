@@ -778,3 +778,50 @@ Tobii Eye Tracker 5用チェックリスト（G1〜G10）・外部Switch用チ�
 ### 37.9 Production公開状態
 
 `apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。
+
+---
+
+## 38. Phase M12-D': Tobii Feedback Polish（PENDING AUDIO REVIEW）
+
+### 38.1 Tobii User Test結果
+
+Userが実機Tobii Eye Tracker 5でActivity Tabs・Level1/2/3・Settings・Gaze Standard 8全項目を確認し、いずれもPASS。MINOR POLISH要望が3点: (1)Activity Tab選択時の活動名読み上げ、(2)Level3楽器音の音量不足、(3)ベル音がベルらしく聞こえない。教育設計・Level構造・asset・Gaze geometry・Settings構成は変更しない前提で、この3点のみ最小修正した。
+
+### 38.2 Activity Tab読み上げ
+
+`switchActivity(newId)`内、`updateActivityLabel()`の直後に`speak(ACTIVITIES[newId].label)`を1行追加した。新しい設定は作らず、既存の「音声ラベル」設定（`speechEnabled`/`toggleSpeech`）をそのまま流用（§6）。Touch/Gaze/Switch/Keyboardの4入力方式は既に`switchActivity()`という単一のfunnelに集約されている（Phase M12-C由来のSemantic Activation Architecture）ため、activity button個別の読み上げ処理を追加する必要はなく、この1行で4入力方式すべてに反映される。`speak()`は既存のとおり呼び出し時に`speechSynthesis.cancel()`を先に実行するため、連続タブ切替や「タブ読み上げ直後に楽器choiceを選択」といったシーケンスでも新しい発話が古い発話を確実に打ち切り、キューが積み上がらないことをPlaywrightで確認した（38.5節）。
+
+### 38.3 Instrument Sound 音量・音色改善
+
+**たいこ**: Userの指摘は音量のみ（音色への指摘なし）だったため、既存の単一oscillator構成（130Hz triangle, 220ms）は無変更のまま、`playTone()`にオプションの`peakGain`引数を追加し、`CHOICES.drum.sound.peakGain`を0.22→0.36へ引き上げた。
+
+**ベル**: 「ベルらしく聞こえない」という指摘のため、新関数`playBellTone()`を新設。単一の1180Hz sineから、fundamental（900Hz）+ harmonic1（1350Hz, 1.5倍）+ harmonic2（1980Hz, 2.2倍）の3 sine partial構成へ変更した。実際のベルは整数次倍音ではなくinharmonicな部分音を持ち、かつ上位の部分音ほど早く減衰する特性を持つため、この非整数比率（1.5倍・2.2倍）と、fundamentalよりharmonicのほうが短い減衰時間（durationMs×0.6・×0.4）を採用した。attackはexponentialRampToValueAtTimeで約10ms（§16の5-15ms範囲内）、decayは700ms（§16の500-900ms範囲内）。3 partialの瞬間ピークをあらかじめ按分（share比 1.00:0.35:0.15を正規化）することで、合算しても目標peakGain（0.34）を超えないよう設計し、Playwrightで実際のgain automation値を実測して合計が正確に0.34になることを確認した（クリッピング安全性、§12）。最上位partialも1980Hzで2kHz未満に収まる（§17）。
+
+### 38.4 TTSタイミング調整
+
+ベルのdecayが260ms→700msへ伸びたことに伴い、instrument sound再生後のTTS遅延を220ms→380ms（User提案の300-450ms範囲内）へ調整した。完全に音が鳴り終わるまで待つ必要はないという§20の方針どおり、ベルの減衰テール中にTTSが始まる設計のまま。
+
+### 38.5 検証結果概要（Playwright, Python, headless Chromium）
+
+- **Audio構造**: drum選択で1 oscillator（130Hz, triangle, peak gain 0.36を実測確認）。bell選択で3 oscillator（900/1350/1980Hz, いずれもsine, 全て正常にstart、例外・console errorなし）。bell 3partialのgain automationピーク値を実測し、0.2267 + 0.0793 + 0.034 = 0.34（設計どおり正確に一致）を確認
+- **Activity Tab読み上げ**: Touch/Keyboard/Gaze dwell/Switch相当の4入力方式すべてで、活動切替ごとに読み上げが正確に1回のみ発火し、テキストも正しいことを確認。「音声ラベル」OFF時は0回。連続3回タブ切替でcancel→speakが3組正しく発生（queue pileupなし）。タブ読み上げ直後の楽器choice選択でも、旧発話が新しい発話のcancel呼び出しで確実に打ち切られることを確認（二重発話・queue衝突なし）
+- **Gaze回帰**: dwell進行・selected state・isShowingResult遷移に変化なし
+- **Record回帰**: フィールド構成（activity/category/pair/selectedChoice/inputMethod/dwellDuration等）に変化なし
+- **Responsive**: 375×667・1280×900で横スクロールなし、視覚レイアウトはBefore/Afterで同一（スクリーンショット確認）
+- **console/page error**: 全シーケンスを通して0件
+
+### 38.6 未確認（PENDING）
+
+以下はAIには判定できない、または実機でのみ確認可能な項目のため、Userの確認を待つ。
+
+- **User Audio Review（A1-A9）**: Activity Tab読み上げの自然さ、音声ラベルOFF時の無音、たいこ/ベルの音量が実機で十分か、ベルが「リン♪」とベルらしく聞こえるか、刺さらないか、TTSとの重なりが自然か
+- **Tobii再確認**: Activity Tab 3種・drum・bellを実機で再度選択し、speech/sound二重発火なし・Gaze操作回帰なしを確認
+- **Switch実機検証**: 引き続き未実施（PENDING USER REAL-DEVICE TEST）。今回のTobii PASSをSwitch PASSに流用していない
+
+### 38.7 Phase M12-D'完了判定
+
+**Phase M12-D' = PENDING AUDIO REVIEW**。上記38.6のUser確認が得られ、PASSと判断された時点でPhase M12-D全体（M12-D + M12-D'）をCompleteとして扱う。
+
+### 38.8 Production公開状態
+
+`apps-data.json`未登録・`generate.js`対象外・sitemap/changelog未追加。Production非公開を維持している。mainへのmerge/pushは本Phase内では行わない。

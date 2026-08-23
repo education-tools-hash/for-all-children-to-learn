@@ -803,9 +803,9 @@ var CHOICES = {
   dog:    { category: 'animal',     label: 'いぬ',   asset: 'assets/dotchiga-ii/dog.png' },
   cat:    { category: 'animal',     label: 'ねこ',   asset: 'assets/dotchiga-ii/cat.png' },
   drum:   { category: 'instrument', label: 'たいこ', asset: 'assets/dotchiga-ii/drum.png',
-            sound: { freq: 130, type: 'triangle', durationMs: 220 } },
+            sound: { kind: 'tone', freq: 130, type: 'triangle', durationMs: 220, peakGain: 0.36 } },
   bell:   { category: 'instrument', label: 'ベル',   asset: 'assets/dotchiga-ii/bell.png',
-            sound: { freq: 1180, type: 'sine', durationMs: 260 } }
+            sound: { kind: 'bell', freq: 900, durationMs: 700, peakGain: 0.34 } }
 };
 
 function pairsForCategories(categories) {
@@ -974,9 +974,11 @@ function beep(freq, durationMs) {
   } catch (e) {}
 }
 /* Level3 result sound (§18/§19): a soft Web Audio tone standing in for the
-   instrument, NOT a claim of realism. Slightly softer gain than beep()
-   since Level3's sound IS the result, not just reinforcement. */
-function playTone(freq, type, durationMs) {
+   instrument, NOT a claim of realism. peakGain (Phase M12-D' §11: raised
+   from the original flat 0.22 after Tobii User Review reported instrument
+   sounds as "かなり小さい") defaults to the pre-M12-D' level only if a
+   caller omits it. */
+function playTone(freq, type, durationMs, peakGain) {
   if (!soundEnabled) return;
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -984,9 +986,47 @@ function playTone(freq, type, durationMs) {
     var gain = audioCtx.createGain();
     osc.connect(gain); gain.connect(audioCtx.destination);
     osc.type = type || 'sine'; osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+    var peak = (typeof peakGain === 'number') ? peakGain : 0.22;
+    gain.gain.setValueAtTime(peak, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durationMs / 1000);
     osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + durationMs / 1000);
+  } catch (e) {}
+}
+/* Bell result sound (Phase M12-D' §14-17): Tobii User Review reported the
+   old single 1180Hz sine as "not bell-like". A real bell's brightness
+   comes from a handful of INHARMONIC partials (not a clean overtone
+   series) that decay at different rates — the upper partials die out
+   first, which is exactly what makes a bell sound different from a flute
+   playing the same pitch. 3 sine partials (§15, kept simple — no larger
+   sound-engine), each with its own decay so the upper ones fade faster
+   (§16 "attack ほぼ即時, decay 500-900ms, exponential"), amplitude-summed
+   so the total peak can never exceed peakGain regardless of partial count
+   (§12 clipping safety). Highest partial stays under 2kHz (§17). */
+function playBellTone(fundamentalFreq, durationMs, peakGain) {
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var now = audioCtx.currentTime;
+    var partials = [
+      { ratio: 1,   share: 1.00, decayMs: durationMs },        // fundamental
+      { ratio: 1.5, share: 0.35, decayMs: durationMs * 0.6 },  // §15 harmonic1
+      { ratio: 2.2, share: 0.15, decayMs: durationMs * 0.4 }   // §15 harmonic2
+    ];
+    var shareSum = partials.reduce(function(sum, p) { return sum + p.share; }, 0);
+    partials.forEach(function(p) {
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = fundamentalFreq * p.ratio;
+      var peak = peakGain * (p.share / shareSum);
+      var attackEnd = now + 0.01; // §16 attack: ~10ms, well within 5-15ms
+      var decayEnd = attackEnd + (p.decayMs / 1000);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(peak, attackEnd);
+      gain.gain.exponentialRampToValueAtTime(0.0001, decayEnd);
+      osc.start(now); osc.stop(decayEnd + 0.02);
+    });
   } catch (e) {}
 }
 function speak(text) {
@@ -1042,8 +1082,16 @@ function handleLevel3Result(choiceId, def) {
   // overlap the selection beep only in spirit, never in timing, so we skip
   // beep() here and let the instrument tone stand alone before speech (§21).
   var s = def.sound;
-  if (s) playTone(s.freq, s.type, s.durationMs);
-  setTimeout(function() { speak(def.label); }, 220);
+  if (s) {
+    if (s.kind === 'bell') playBellTone(s.freq, s.durationMs, s.peakGain);
+    else playTone(s.freq, s.type, s.durationMs, s.peakGain);
+  }
+  // Phase M12-D' §20: bell's decay (700ms) is now much longer than drum's
+  // (220ms) — 220ms was tuned for the old bell duration (260ms) and would
+  // now start speech while the bell is still near its loudest. 380ms sits
+  // in the User-suggested 300-450ms band and, per §20's own allowance,
+  // does not need to wait for the tail to fully finish.
+  setTimeout(function() { speak(def.label); }, 380);
 }
 var RESULT_HANDLERS = { level1: handleLevel1Result, level2: handleLevel2Result, level3: handleLevel3Result };
 
@@ -1145,6 +1193,14 @@ function switchActivity(newId) {
   choiceB.classList.remove('selected');
   clearGazeCandidateState();
   updateActivityLabel();
+  // Phase M12-D' §4-8: reuses the existing 音声ラベル (speechEnabled) gate
+  // and speak()'s own speechSynthesis.cancel()-before-speak policy — no new
+  // setting, no per-input-method duplication (Touch/Gaze/Switch/Keyboard
+  // all funnel through this one switchActivity() call, so this single line
+  // covers all 4 — §5/§8), and no queue pile-up on rapid tab switching or a
+  // tab-then-choice sequence (§21), since the next speak() call (whichever
+  // comes first) always cancels this one before it does.
+  speak(ACTIVITIES[newId].label);
   startTrial();
   if (scanMode) startSwitchScan();
   saveSettings();
