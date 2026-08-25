@@ -212,7 +212,142 @@ Phase T4-C等への追加分割は不要と判断する(範囲が限定的なテ
 - PWA対応・学習記録機能改修・UI大規模変更: 行っていない
 - Production HTML/JSの内容変更: 行っていない(本文書と調査記録のみ追加)
 
-## 12. Phase Status
+## 12. Phase Status (T4-A時点)
 
 **Phase T4-A = ANALYTICS / PRIVACY DISCLOSURE AUDITED — READY FOR
 CONSISTENCY FIX。** main merge/push/Production deployは行っていない。
+
+---
+
+## 13. Phase T4-B 実装結果
+
+Phase T4-B(Analytics / Privacy Disclosure Consistency Fix & Production
+Release)で実施した修正内容と検証結果を記録する。
+
+### 13.1 修正内容(修正前 → 修正後)
+
+**(1) `index.html` 2078行目(トップページ info-card、最優先・必須)**
+
+- 修正前:
+  > 📌 本サイトは **GitHub Pages** を利用して公開しています。
+  > アクセス解析や個人情報の収集は行っていません。
+- 修正後:
+  > 📌 本サイトは **GitHub Pages** を利用して公開しています。
+  > アクセス解析・個人情報の取り扱いについては、下記の
+  > <a href="#privacySection" onclick="openPrivacy()">プライバシー
+  > ポリシー</a>をご確認ください。
+- 矛盾する断定を除去し、既存の`openPrivacy()`リンクパターン(サイト内
+  で既に使われているものと同一の実装)を再利用して、プライバシー
+  ポリシー本文へ誘導する形にした。
+
+**(2) `index.html` `#privacySection`のアクセス解析項目(精度改善・任意)**
+
+- 修正前(末尾):「…データはGoogleのサーバーに送信されます。」
+- 修正後(一文追記):「…データはGoogleのサーバーに送信されます。
+  Google Analyticsはトップページ（https://donomana.jp/）にのみ
+  設置しています。」
+- 既存文の削除・書き換えはせず、GAの実際の導入範囲を明示する一文の
+  みを追記した。
+
+**(3) `apps-data.json` きょうのきろく`features[].desc`(2296行目、
+Source of Truth)**
+
+- 修正前:「入力したすべてのデータは端末内にのみ保存。サーバー送信・
+  広告・解析ツールは一切なし。」
+- 修正後:「入力した記録データはすべて端末内にのみ保存され、外部の
+  サーバーへ送信されることはありません。」
+- 「解析ツールは一切なし」という、サイト全体に解析なしと誤読され
+  得る曖昧な断定を避け、当該アプリの記録データのスコープに限定した
+  表現へ変更。`node generate.js`実行により`app-intro.html`・
+  `app-details/kyou-no-kiroku-detail.html`へ正しく伝播することを
+  確認した(Source of Truthは`apps-data.json`のみ、生成物は直接
+  編集していない)。
+
+**(4) `generate.js` `MANUAL_CHANGELOG`(更新履歴、既存日付行への統合)**
+
+- 既存の2026-08-25エントリー(ひらがな・カタカナのなぞり判定改善)の
+  `details`配列に本件の行を直接追加すると、`generateChangelog()`の
+  アプリ名自動判定ロジック(`extractLeadingAppNames`)がアプリ名を
+  含まない行によってエントリー全体を汎用サイト項目へ縮退させて
+  しまい、既存の2つの具体的な内訳(ひらがな・カタカナ)の表示が
+  失われることが判明した。そのため、**同じ日付(`2026-08-25`)を
+  持つ別のMANUAL_CHANGELOGエントリー**として
+  `{ date: "2026-08-25", type: "update", text: "プライバシーに関する
+  ご案内を分かりやすくしました。" }`を追加する方式を採用した。
+  日付ごとの集約は`generate.js`側で行われるため、これは既存の
+  2026-08-25の1行(1 date = 1 entry)に統合され、新しい日付行は
+  作成されない。結果として生成された見出しは「いくつかの教材を
+  改善し、サイトの一部を改善しました」(内訳3件: ひらがな・
+  カタカナ・プライバシー案内)となり、既存の具体的な内訳2件は
+  そのまま保持された。
+
+### 13.2 Analytics実装の完全性(変更なしの確認)
+
+- GA4スクリプトブロック(`index.html` 1047-1053行目)・measurement ID
+  `G-8GHH7JKZMB`は完全に無変更。
+- `grep -rc "gtag\|googletagmanager" --include="*.html" .`の結果、
+  該当は`index.html`の5行のみ(修正前と同一件数)。他ページへの
+  拡散・重複・削除は一切なし。
+- Cookie consent機能・Analytics provider変更は行っていない。
+
+### 13.3 Generate冪等性
+
+- `node generate.js`を2回実行し、`app-intro.html`・
+  `app-details/kyou-no-kiroku-detail.html`のMD5ハッシュが両実行間で
+  完全一致することを確認した。2回目実行後の`git status --porcelain`
+  も変化なし(ドリフトなし)。
+
+### 13.4 サイト全体再走査(Section 9相当)
+
+- 旧・矛盾文言「アクセス解析や個人情報の収集は行っていません」は
+  リポジトリ全体で0件(完全に除去)。
+- 新文言(プライバシーポリシーへの誘導リンク、GA範囲追記)が
+  `index.html`に正しく存在することを確認。
+- 広い意味でのキーワード再走査で、本Phaseの対象外だが類似パターン
+  (該当ページ単体では正確だが表現が曖昧、という4.3と同種)の2件を
+  新たに発見した(**修正対象外・将来Phase候補として記録**):
+  - `kyou-no-kiroku.html` 1480行目:「広告・解析なし：アクセス解析
+    ツールや広告配信サービスは一切導入していません。」
+    (このページ自体にはGA未導入のため事実と矛盾しないが、「解析
+    ツール」という表現がサイト全体を指すと誤読され得る)
+  - `sst-app-detail.html`(および`app-details/sst-app-detail.html`)
+    197行目のタグ表記「🔒 個人情報は端末内保存・外部送信なし」
+    (同様にこのページ単体では正確)
+  - これらは`apps-data.json`経由ではなくアプリ本体/生成済み詳細
+    ページへの直接的なhand-authored文言であり、本Phase(Section 5、
+    apps-data.json経由の修正のみを許可)の承認範囲外のため、
+    今回は変更していない。
+- ルート直下の重複`kyou-no-kiroku-detail.html`(既知・別管理の
+  技術的負債、Section 8参照)にはGAが導入されていないことを再確認
+  (`grep -c "gtag\|googletagmanager"` → 0件)。新たな矛盾は生じて
+  いない。
+
+### 13.5 ブラウザ検証(Playwright、ローカル)
+
+- デスクトップ(1280×900)・モバイル(390×780)の両ビューポートで、
+  `index.html`のconsoleエラー・pageエラー = 0件。
+- 新文言の表示、旧文言の非表示、リンククリックによる
+  `#privacySection`展開(`aria-expanded="true"`・`privacy-body`に
+  `open`クラス付与)、GA範囲追記文の展開後表示、を確認。
+- キーボード操作(Tabでのフォーカス到達 → Enterキーでの展開)が
+  マウスクリックと同等に機能することを確認。既存の`aria-expanded`
+  / `aria-controls`構造は無変更。
+- `app-intro.html`・`app-details/kyou-no-kiroku-detail.html`の両方で
+  新文言が正しく表示され、consoleエラー・pageエラー = 0件。
+- 更新履歴セクションの開閉・詳細内訳の開閉が正常に動作し、新旧の
+  内訳3件すべてが正しく表示されることを確認。
+
+### 13.6 本Phaseで変更していないこと(再確認)
+
+- Google Analyticsの削除・設定変更・provider変更: 行っていない。
+- Cookie consent機能の追加: 行っていない。
+- PWA対応・学習記録アーキテクチャ変更・アプリ横断の共有記録機能・
+  UI大規模刷新・無関係なリファクタリング: 行っていない。
+- Section 13.4で発見した2件の類似表現(きょうのきろく本体・SST詳細
+  ページ)は、承認範囲外のため意図的に未修正のまま将来Phase候補として
+  記録した。
+
+## 14. Phase Status (最終)
+
+**Phase T4-B = ANALYTICS / PRIVACY DISCLOSURE CONSISTENCY FIXED —
+PRODUCTION RELEASED**(Production上の実ブラウザ検証完了後に確定)。
