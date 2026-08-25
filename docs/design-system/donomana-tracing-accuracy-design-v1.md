@@ -1296,3 +1296,253 @@ REVIEW。** Production(`hiragana-learn.html`本番ファイル)への統合は
 main merge/push/deployは行っていない。鏡像自己混同(W5、7件)への
 対応方針(追加Phaseを設けるか、既知の限界として記録し先へ進むか)
 について、Userの判断を仰ぐ。
+
+---
+
+# Revision 11 — Phase T2-D 結果(Tracing Accuracy Final Integrity /
+Mirror Discrimination Investigation)
+
+## T2-D.0 結論
+
+T2-C'''(User実機承認済み)を起点に、main統合前の最終Release Integrity
+Auditを実施し、**説明できない差分は0件**であることを確認した。あわせて
+鏡像自己混同(W5、7件)の一般化可能な解決方法を調査したが、**安全に
+一般化できる方式は発見できなかった**ため、Phase仕様の指示通り
+無理に修正せず**Known Limitationとして記録**する。`engine.js`・
+`hiragana-learn.html`の判定ロジックは本Phaseで**一切変更していない**
+(調査用の新規exploreスクリプト1件のみ追加)。全Regression要件
+(golden-tests.js・golden-tests-full46.js・single-bad-stroke・
+cross-character・whole-character・Motor Accessibility・Pilot
+Regression Lock・Real Browser Validation)を再実行し、T2-C'''時点と
+完全に同一の結果であることを確認した。
+
+## T2-D.1 Release Integrity Audit
+
+- **Baseline**: checkpoint `a1103b16d1f3752b708c225b42b679e973522f3a`
+  (T2-C'''、branch `fix/tracing-balance-calibration-t2c3`)
+- **origin/main**: `93cd85f3b36a3eceb33d4b8d6106fae842aab189`
+  (T2-C'''時点から進行なし、なぞり判定と無関係な変更のみ)
+- **HEAD一致確認**: 作業開始時点のHEADがbaseline checkpointと完全一致
+  していることを`git rev-parse HEAD`で確認済み
+- **checkpoint「50 files changed」の完全な内訳**(`git diff
+  d3f4c8a..a1103b16 --name-status`で列挙・全件説明済み):
+  - 実装変更 3件: `hiragana-learn.html`(+115/-8)・
+    `tools/tracing-poc/engine.js`(+192/-22)・
+    `tools/tracing-poc/golden-tests-independent46.js`(+16/-14)
+  - 設計文書 1件: Revision 10追加(+322/-0、純追記)
+  - 新規較正記録スクリプト 3件: `analyze-dtw-distribution.js`・
+    `analyze-position-completion.js`・`analyze-relative-discrimination.js`
+  - 新規実ブラウザテスト 1件: `test-t2c3-realbrowser.py`(+296)
+  - 既存`test-hiragana-pilot.py`再実行による再生成物 27件
+    (`pilot-review-artifacts/`配下、スコア・debugフィールド更新に伴う
+    JSON差分+スクリーンショット再描画のbyte差分のみ)
+  - 本Phase自身の実ブラウザ検証で新規生成された証跡 15件
+    (`t2c3-realbrowser-artifacts/`配下、PNG14+JSON1)
+  - 合計 3+1+3+1+27+15 = **50件、完全に一致**
+- **CRLFのみ・空白のみの差分**: `git diff d3f4c8a..a1103b16 --check`は
+  空(該当なし)
+- **意図しないasset変更**: `pilot-report.json`の差分を`git diff`で
+  直接確認し、`structuralDiscrimination`フィールドが
+  `strokePosition`/`strokeCompletion`/`characterDiscrimination`/
+  `characterDiscriminationDetail`へ置き換わっている、意図通りの
+  debug出力変更のみであることを確認(ゴミ・破損データなし)
+- **Production対象外ファイル**: `katakana-app.html`・`apps-data.json`・
+  `generate.js`・`index.html`は本checkpointでも無変更
+  (`git diff d3f4c8a..a1103b16 --stat`が空)
+
+**判定: 説明できない差分は0件。STOP条件に該当せず、Auditを通過。**
+
+## T2-D.2 Mirror Self-Confusion 調査
+
+### 対象
+
+W5(鏡像)による予期しないPASS 7件: あ・く・こ・す(×2)・の・り
+(T2-C'''時点でwhole-character unexpected_pass=7として記録済み)
+
+### 検討した一般化候補: Signed Curvature / Chirality Guard
+
+`tools/tracing-poc/explore-mirror-chirality.js`(exploration専用、
+`engine.js`は無変更)にて、以下の仮説を実測検証した:
+
+**仮説**: strokeの「符号付き曲率(重心からの符号付き掃引面積)」を
+user/reference間で比較し、既存の双方向DTW(forward/reversed)が
+「どちらの向きで最も一致するか」を既に判定していることを利用して、
+その向きを踏まえた符号の一致・不一致を見れば、character-specific
+hackやstroke direction HARD化なしに鏡像を検出できるのではないか。
+
+**実測結果**:
+
+| 項目 | 結果 |
+|---|---|
+| 既知Mirror 7件のうち検出できた件数 | **3/7**(あ・す×2のみ。く・こ・の・りは未検出) |
+| 既存の「reversed direction(正しい形状)」safety check | false flag 0/11(この点は安全) |
+| Motor Accessibility safety check(46文字×12種のgood-case、1248 stroke) | **false flag 1件**(す/wobble_018 stroke#0) |
+
+**不採用の理由**:
+
+1. **検出率が43%と低く、一般化された解決とは言えない**(く・こ・の・り
+   の4件は、鏡像によって反転した符号が、既存の双方向DTWが選択する
+   「reversed」整列判定とちょうど打ち消し合い、符号が一致して見える
+   ケースが大半だった)。
+2. **数学的に構造的な限界がある**: 平面曲線の符号付き曲率は、
+   traversal(描画順序)を反転すると符号が反転する
+   (κ_reversed(s) = −κ_original(L−s)という微分幾何の一般的性質)。
+   一方、鏡像反転(reflection)も符号を反転させる。したがって
+   「順序反転」と「鏡像反転」は**この特徴量だけでは原理的に区別
+   できない**。本システムは「reversed direction(逆順で描いても
+   正解)」を意図的にsoft-supportしており(`structuralDistance`の
+   bidirectional DTW、`startEndComponent`のbest-of-both、golden-tests.js
+   の`reversed direction (correct shape)`が既存の許容ケースとして
+   PASS済み)、この双方向許容を壊さずに鏡像だけを狙い撃つ符号ベースの
+   判定は原理的に成立しない。
+3. **Motor Accessibilityへの既存のリスクの兆候**: 1248 stroke中
+   すでに1件の誤検出(す/wobble_018)が発生しており、直線に近い
+   stroke(符号付き曲率が小さくnoiseに不安定)では、より広い
+   Regression suite(368件のMotor Accessibility本試験やP5-P8の
+   tremor/backtrack/pause/uneven等)まで対象を広げた場合、誤検出が
+   さらに増加するリスクが高いと判断した。
+
+上記3点により、この候補は「一般化された安全な方法」の基準を満たさず、
+**不採用**とした。
+
+### 他候補の検討
+
+- **Stroke endpoint geometry / start-end region relationship**:
+  既存の`startEndComponent`が既に`min(forward, reversed)`の
+  best-of-both方式で実装されており(Section startEndComponent
+  参照)、これ自体が双方向許容の設計のため、鏡像ケースでも
+  既存のsoft scoreに実質的に「吸収」されてしまうことを確認した
+  (7件のfalse positive score 0.654〜0.841は、startEnd成分も
+  含めた合成scoreの結果であり、endpoint比較だけを独立に厳格化
+  しても、既存の双方向許容との組み合わせで同じ限界に直面する
+  と判断)。
+- **Topology / path orientation / signed turning behavior**: 上記の
+  Signed Curvature Guardの実測・数学的分析がこのカテゴリ全体の
+  本質的な限界(bidirectional matchingとの構造的な非両立性)を
+  示しているため、同カテゴリの追加バリエーションを追求しても
+  同じ壁に当たると判断し、これ以上の探索は行わなかった。
+
+### 結論: Known Limitationとして記録
+
+Mirror Self-Confusion(W5、7件: あ・く・こ・す×2・の・り)は、
+**本Phaseの制約下(character-specific hack禁止・pair blacklist禁止・
+stroke direction HARD化禁止・Motor Accessibility後退禁止)では
+安全に一般化して解決する方法が見つからなかった**。Phase仕様の
+指示「無理に修正せずKnown Limitationとして残すこと」に従い、
+`engine.js`・`hiragana-learn.html`の判定ロジックへの変更は
+一切行っていない。
+
+## T2-D.3 Before / After
+
+| 観点 | Before(T2-C''') | After(T2-D) |
+|---|---|---|
+| Release Integrity | 未監査 | **監査完了、説明できない差分0件** |
+| Mirror Self-Confusion(W5、7件) | 既知の残存(未調査) | **調査完了。安全な一般化手法なし、Known Limitationとして正式記録** |
+| judgment logic(engine.js/hiragana-learn.html) | T2-C'''時点 | **無変更**(調査専用ファイル1件追加のみ) |
+| Regression(golden/independent/real-browser) | T2-C'''時点で全PASS | **再実行、完全同一の結果を再確認** |
+| Performance | 平均13.45ms | プロファイル実施、**変更なし**(下記T2-D.5参照) |
+
+## T2-D.4 Regression再実行結果
+
+- `golden-tests.js`: total=93, failed=0(ALL STRICT CHECKS PASSED)
+- `golden-tests-full46.js`: N2〜N6・P1〜P8 全項目 failed=0
+  (ALL STRICT CHECKS PASSED)
+- `golden-tests-independent46.js`:
+  - single-bad-stroke: total=372, false_positive=**0**(ambiguous=1、
+    す W3_truncated、T2-C'''と同一)
+  - cross-character: total pairs=558, **FALSE_POSITIVE=0**
+  - whole-character(W5/W6/W7): total=230, unexpected_pass=7
+    (全件W5、T2-C'''と同一、本Phaseで新たに発生した件数増加なし)
+  - Motor Accessibility: total=368, **failed=0**
+  - Pilot Regression Lock(い/あ): **10/10 OK**
+- Real-Browser Validation:
+  - `test-hiragana-pilot.py`: console error=0, page error=0、既存
+    ケースの結果に変化なし
+  - `test-t2c3-realbrowser.py`再実行: A〜Eすべての結果が
+    T2-C'''時点と**完全一致**(25%縮小→RETRY、cross-character 7組
+    →RETRY、単一悪筆画4件→RETRY、partial 88/90%→PASS、wobble+offset
+    12文字→全PASS、通常なぞり15文字→全PASS、い/あ wobble→PASS)、
+    console/page error 0/0
+
+**最低条件との照合**: cross-character FALSE_POSITIVE=0 ✅ /
+single-bad-stroke明確なFALSE_POSITIVE=0 ✅ / ideal全文字PASS ✅ /
+Motor Accessibility regression=0 ✅ / い・あ regression=0 ✅ /
+通常なぞりregression=0 ✅ — **すべて達成**。
+
+## T2-D.5 Performance Profiling
+
+Relative Character Discriminationの計算コストを分離計測した
+(warm sibling cache状態、46文字×mild wobble):
+
+| 条件 | 平均 | 最大 |
+|---|---|---|
+| Relative Character Discrimination込み | 12.82ms | 28.84ms |
+| Relative Character Discrimination抜き | 1.63ms | 4.00ms |
+| **差分(このGuard自体のコスト)** | **11.20ms** | — |
+
+内訳をさらに分析: 最も遅い文字は3画文字群(や27.79ms・も26.08ms等)、
+最も速いのは1画文字群(の1.60ms等)。これは「同画数の他候補文字数」
+(1画11文字・2画17文字・3画13文字・4画5文字)× 候補ごとのDTW計算量
+(画数の2乗)に比例しており、想定通りの挙動でありバグではない。
+
+**安全な高速化の可否**: 以下を検討したが、いずれも「正確性を変えずに」
+という条件を満たせないか、リスクに見合うほどの効果が見込めないと
+判断し、**本Phaseでは`engine.js`への性能最適化変更は行わなかった**:
+
+- DTWのsample point数を減らす → 判定に使う距離そのものが変わるため
+  不採用(判定品質を変更しない、という条件に抵触)。
+- `matchStrokes`のassignmentや既存の`strokeResults[i].
+  structuralDistance`を`targetAvg`計算に転用し、target自身への
+  permutation探索を省略する → 数値的に完全に同一になる保証がなく、
+  全Regression suiteの再検証が必要になるリスクの高い変更のため、
+  今回は見送った。
+- DTW内部の`Float64Array`割り当てをpool化する等の実装レベルの
+  微最適化 → 検討したが、既存の性能(実ブラウザでconsole/page error
+  0、体感遅延なしを確認済み)に対して緊急性がなく、「数ms削減の
+  ために判定品質を変更してはならない」という指示のもと、リスクを
+  取ってまで実施する必要はないと判断した。
+
+**結論**: 現在の性能(平均12-13ms・最大29-32ms、1文字なぞり完了ごと
+1回のみの評価)は実ブラウザ検証で問題が確認されていないため、
+`engine.js`のロジックは変更せず、プロファイル結果の記録のみを本
+Revisionに残す。
+
+## T2-D.6 Known Limitations
+
+- **鏡像自己混同(W5)7件**(あ・く・こ・す×2・の・り):
+  T2-D.2の調査により、本Phaseの制約下では安全に一般化できる
+  解決方法が見つからなかった。既存のいずれのGuard(Absolute
+  Geometry・Position・Completion・Relative Discrimination)も
+  鏡像を検出対象としていない。将来的な対応が必要な場合は、
+  「reversed directionの意図的な双方向許容」という設計原則自体を
+  見直す(例: 過去のstroke order/directionをsoft scoreとして
+  記録し、character単位で複数のsoft signalを組み合わせた
+  確率的判定へ移行する等)、より大きな設計変更が必要になると
+  考えられるが、これはT2-C'''〜T2-Dで確立したThree-Guard Designの
+  安定性を壊すリスクを伴うため、本Phaseでは着手しない。
+- **す stroke#1 W3_truncated(ambiguous、1件)**: T2-C'''より継続する
+  既知の残存(score=0.824)。明確なfalse positiveではない。
+
+## T2-D.7 変更ファイル・Production影響
+
+- 新規: `tools/tracing-poc/explore-mirror-chirality.js`
+  (Mirror調査記録、`engine.js`へは未統合)
+- 変更: `docs/design-system/donomana-tracing-accuracy-design-v1.md`
+  (Revision 11追加)
+- 再生成のみ(内容変化なし): `tools/tracing-poc/pilot-review-artifacts/*`・
+  `tools/tracing-poc/t2c3-realbrowser-artifacts/*`
+  (Regression再実行に伴うスクリーンショット再描画)
+- **`tools/tracing-poc/engine.js`・`hiragana-learn.html`: 無変更**
+  (本Phaseの核心。判定ロジックは一切変更していない)
+- 無変更: `katakana-app.html`・`apps-data.json`・`generate.js`・
+  `index.html`
+- main merge/push: なし。Production deploy: なし
+
+## T2-D.8 Phase Status
+
+**Phase T2-D = FINAL INTEGRITY AUDITED / MIRROR INVESTIGATION
+CLOSED (KNOWN LIMITATION) — WAITING FOR USER APPROVAL。**
+Release Integrity Auditは説明できない差分0件で通過。Mirror
+Self-Confusionは安全な一般化手法が見つからず、Known Limitationとして
+正式記録。判定ロジックは無変更、全Regressionは完全に同一の結果を
+維持。main merge/push/Production deployは行っていない。
