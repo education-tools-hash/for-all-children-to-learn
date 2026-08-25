@@ -1568,3 +1568,35 @@ Production確認結果は最終chat報告を参照。Mirror Self-Confusion
 (W5、7件)・す stroke#1 W3_truncated(ambiguous、1件)はRevision 11
 記載の通りKnown Limitationとして維持し、本Phaseでは一切変更して
 いない。
+
+---
+
+# Revision 13 — Phase T3-A: Katakana Tracing Baseline / Portability Audit
+
+**Phase T3-A = KATAKANA TRACING BASELINE AUDITED — READY FOR
+IMPLEMENTATION PLAN。** `katakana-app.html`・`engine.js`・
+`hiragana-learn.html`とも本Phaseで**一切変更していない**
+(調査専用ツール4件の追加のみ)。詳細は最終chat報告を参照。要点:
+
+- `katakana-app.html`は現在も**T1baseline相当**
+  (`traceStrokeCount>=strokes`の画数のみ判定、Pointer Events未導入、
+  座標記録なし、TracingEngine未接続)。
+- `strokeData`は**hiragana-learn.htmlと完全に同一形式**
+  (KanjiVG由来`M`/`c`のみのSVG path、viewBox 0 0 109 109、
+  canvas 320×320)であることを確認。46文字全件でdata異常なし。
+- T2 threshold・Three-Guardをそのまま適用した場合:
+  ideal 46/46 PASS、Motor Accessibility 460件中7件が
+  `stroke_position_failed`で予期せず不合格(ウ・シ・ミ・ヨ)、
+  W2/W3/W6は0件の予期しないPASS、W5(鏡像)のみ2件
+  (エ・ニ、T2のKnown Limitationと同種)。
+- Cross-character risk(DTW margin自動抽出、806組)の最小marginは
+  約0.0099(ヲ↔テ)で、T2の`RELATIVE_DISCRIMINATION_MARGIN=0.008`
+  より上— 期待できる兆候だが、カタカナ自身のgood-case marginとの
+  突き合わせ較正はT3-Bで必要。
+- Performance: カタカナ2画文字群(24文字)がひらがな最大群(17文字)
+  より多く、平均評価コストはひらがな9.58ms→カタカナ13.39msへ
+  増加(許容範囲内、最適化は本Phase対象外)。
+- 推奨方針: T2 engine.jsをカタカナへそのまま移植し、
+  Position Guard閾値のみカタカナ自身のMotor Accessibilityデータで
+  再較正(T2と同じ方法論、character-specific hackではない)。
+  大規模な共有engine化はカタカナでの精度確立後に判断する。
