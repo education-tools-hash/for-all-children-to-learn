@@ -70,21 +70,51 @@
     // reliably catch a whole-character large positional shift (W2).
     ABS_POSITION_MAX: 0.50,
 
-    // Structural Discrimination Guard (Root Cause B): order-aware (DTW)
-    // distance between each matched user/reference stroke, in intrinsic
-    // space. Nearest-point shape/coverage is order-agnostic and cannot
-    // tell a loop from an open sweep that happens to occupy a similar
-    // point cloud (see design doc Revision 9 for the calibration story —
-    // turning-angle and net-rotation profiles were tried first and
-    // rejected for being too sensitive to legitimate local motor noise
-    // (uneven/backtrack); DTW tolerates that noise far better since it is
-    // explicitly designed to absorb local speed/timing variation).
-    // Calibrated against the full motor-variation suite (worst legitimate
-    // case = 0.0363) and the 15 known cross-character false positives
-    // (13 of 15 score 0.037-0.086; る/ろ remain a residual, reported
-    // ambiguous pair at ~0.029-0.031 — see design doc, not force-fit with
-    // a character-specific exception).
-    STRUCTURAL_MAX_DISTANCE: 0.038,
+    // --- Phase T2-C''' additions ---
+    // T2-C'' used STRUCTURAL_MAX_DISTANCE as an ABSOLUTE DTW hard gate.
+    // Root-caused as a real source of User-perceived over-strictness:
+    // analyze-dtw-distribution.js found 2 legitimate wobble(0.018) cases
+    // (お, や) that ALREADY exceed 0.038 on their own — an absolute cutoff
+    // this tight has essentially no safety margin. DTW distance itself is
+    // kept (still computed per stroke, still useful), but is no longer a
+    // standalone pass/fail gate. It is repurposed below as a RELATIVE
+    // Character Discrimination signal instead (Section 15-24): "is the
+    // trace clearly closer to a DIFFERENT character" rather than
+    // "is the trace far from the target in absolute terms" — the former
+    // is what actually answers the pedagogical question and, per
+    // analyze-relative-discrimination.js, cleanly separates ALL 15 known
+    // cross-character false positives (min margin 0.0171) from the worst
+    // legitimate motor-variation case (margin -0.0131), including る/ろ
+    // and ぬ/め which the old absolute gate could never fully resolve.
+    RELATIVE_DISCRIMINATION_MARGIN: 0.008,
+
+    // Per-Stroke Position Guard (replaces relying on whole-character
+    // centroid alone for catching a single badly-placed stroke): matched
+    // stroke centroid distance / character bbox diagonal. Calibrated via
+    // analyze-position-completion.js: worst case among offset/wobble/scale
+    // = 0.0557, but golden-traces.js's `tremor` (independent random phase
+    // added per-point — not smooth oscillation) produces a real centroid
+    // bias up to 0.237 for two short strokes (き/ほ) — an existing,
+    // unmodified Motor Accessibility test, not a new one added for this
+    // guard. Rather than "fix" that test to make this guard look better,
+    // the threshold is set safely above it (0.26), leaving a thinner but
+    // still positive margin to the hardest-to-catch large-shift (W2) case
+    // (0.2913) — see design doc Revision 10 for the full margin discussion.
+    STROKE_POSITION_MAX: 0.26,
+
+    // Per-Stroke Completion / Progress Guard (catches W3 — stopping partway
+    // through a stroke — independent of raw path length, which noise can
+    // inflate). Measures how much of the reference's 0..1 arc-length
+    // progression the user's points collectively touch (direction-
+    // agnostic), both point sets mapped into the REFERENCE stroke's own
+    // coordinate frame (a truncated user fragment must not get to
+    // re-center/re-scale itself to look more "spread out" than it is).
+    // Calibrated via analyze-position-completion.js: exact 45% truncation
+    // -> span 0.444; worst legitimate motor-variation case (a complex
+    // stroke in ふ under a small offset) -> span 0.571. Set between the two
+    // with margin on both sides; per spec Section 13, 85% is NOT used as a
+    // hard requirement — this is deliberately a wide floor.
+    STROKE_COMPLETION_MIN_SPAN: 0.50,
   };
 
   // ---------------------------------------------------------------------
@@ -475,6 +505,112 @@
   }
 
   // ---------------------------------------------------------------------
+  // Per-Stroke Position Guard (Phase T2-C''')
+  // ---------------------------------------------------------------------
+  function strokePositionMetric(userAbsPts, refAbsPts, charDiag) {
+    const uC = centroidOf(userAbsPts), rC = centroidOf(refAbsPts);
+    return charDiag > 1e-6 ? dist(uC, rC) / charDiag : 0;
+  }
+
+  // ---------------------------------------------------------------------
+  // Per-Stroke Completion / Progress Guard (Phase T2-C''')
+  // Both point sets are mapped into the REFERENCE stroke's own transform
+  // (see design doc Revision 10) so a truncated/incomplete user fragment
+  // cannot re-center-and-rescale itself to look more complete than it is.
+  // ---------------------------------------------------------------------
+  function bboxTransformParams(points) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach((p) => {
+      if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+    });
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const scale = 1 / Math.max(maxX - minX, maxY - minY, 1e-6);
+    return { cx, cy, scale };
+  }
+  function applyTransform(points, t) {
+    return points.map((p) => ({ x: (p.x - t.cx) * t.scale, y: (p.y - t.cy) * t.scale }));
+  }
+
+  function progressSpan(userAbsPts, refAbsPts) {
+    const t = bboxTransformParams(refAbsPts);
+    const userPts = applyTransform(userAbsPts, t);
+    const refPts = applyTransform(refAbsPts, t);
+    const N = refPts.length;
+    const progresses = userPts.map((up) => {
+      let best = Infinity, bestIdx = 0;
+      for (let i = 0; i < N; i++) {
+        const d = dist(up, refPts[i]);
+        if (d < best) { best = d; bestIdx = i; }
+      }
+      return bestIdx / (N - 1);
+    });
+    const forwardSpan = Math.max(...progresses) - Math.min(...progresses);
+    const reversedProgresses = progresses.map((p) => 1 - p);
+    const reversedSpan = Math.max(...reversedProgresses) - Math.min(...reversedProgresses);
+    return Math.max(forwardSpan, reversedSpan);
+  }
+
+  // ---------------------------------------------------------------------
+  // Relative Character Discrimination (Phase T2-C''' — replaces the T2-C''
+  // absolute DTW hard gate). Compares the user's trace against the TARGET
+  // character's reference vs. the best-matching OTHER character sharing
+  // the same stroke count, and only flags a problem when another character
+  // is CLEARLY closer (RELATIVE_DISCRIMINATION_MARGIN), not merely closer.
+  // Sibling reference paths are cached per-character (keyed by the `d`
+  // strings, which uniquely identify a stroke set) so repeated evaluations
+  // in the same session don't re-parse/re-sample SVG paths every time.
+  // ---------------------------------------------------------------------
+  const siblingFeatureCache = new Map();
+  function cachedIntrinsicStrokes(strokeDefs) {
+    const key = strokeDefs.map((s) => s.d).join('|');
+    let cached = siblingFeatureCache.get(key);
+    if (!cached) {
+      cached = strokeDefs.map((s) => intrinsicNormalize(sampleReferencePath(s.d, 64).points));
+      siblingFeatureCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  function avgDtwToCandidate(userIntrinsicStrokes, candidateStrokeDefs) {
+    const n = userIntrinsicStrokes.length;
+    if (candidateStrokeDefs.length !== n) return Infinity;
+    const candFeatures = cachedIntrinsicStrokes(candidateStrokeDefs);
+    const costMatrix = userIntrinsicStrokes.map((u) => candFeatures.map((c) => structuralDistance(u, c)));
+    const idx = candFeatures.map((_, i) => i);
+    let best = Infinity;
+    permutations(idx).forEach((perm) => {
+      let cost = 0;
+      for (let i = 0; i < n; i++) cost += costMatrix[i][perm[i]];
+      if (cost < best) best = cost;
+    });
+    return best / n;
+  }
+
+  // allCharacters: { [charKey]: strokeDefs } — full reference set (e.g.
+  // production `strokeData`). targetChar: the character being traced.
+  // Returns null (skip the guard) if either is not provided, or if there
+  // are no other same-stroke-count candidates to compare against.
+  function relativeCharacterDiscrimination(userIntrinsicStrokes, allCharacters, targetChar) {
+    if (!allCharacters || !targetChar || !allCharacters[targetChar]) return null;
+    const n = userIntrinsicStrokes.length;
+    const targetAvg = avgDtwToCandidate(userIntrinsicStrokes, allCharacters[targetChar]);
+    let bestOtherChar = null, bestOtherAvg = Infinity;
+    Object.keys(allCharacters).forEach((cand) => {
+      if (cand === targetChar) return;
+      if (allCharacters[cand].length !== n) return;
+      const avg = avgDtwToCandidate(userIntrinsicStrokes, allCharacters[cand]);
+      if (avg < bestOtherAvg) { bestOtherAvg = avg; bestOtherChar = cand; }
+    });
+    if (bestOtherChar === null) return null; // no same-stroke-count siblings to compare against
+    const margin = targetAvg - bestOtherAvg; // positive: some other character is closer than target
+    return {
+      pass: margin < THRESHOLDS.RELATIVE_DISCRIMINATION_MARGIN,
+      targetAvg, bestOtherChar, bestOtherAvg, margin,
+    };
+  }
+
+  // ---------------------------------------------------------------------
   // Main entry point
   // ---------------------------------------------------------------------
   // userStrokes: array of strokes, each an array of {x,y} in 0..1 space.
@@ -551,6 +687,8 @@
       const dir = directionComponent(uf, rf);
       const lengthRatio = rf.length > 0 ? uf.length / rf.length : 1;
       const structural = structuralDistance(uf.intrinsicPoints, rf.intrinsicPoints);
+      const positionMetric = strokePositionMetric(uf.absPoints, rf.absPoints, Math.hypot(charBBox.width, charBBox.height));
+      const completion = progressSpan(uf.absPoints, rf.absPoints);
       return {
         matchedReferenceStroke: j,
         referenceLabel: rf.label,
@@ -562,14 +700,36 @@
         directionLabel: dir.label,
         lengthRatio,
         structuralDistance: structural,
+        positionMetric,
+        completion,
         cost: costMatrix[i][j],
       };
     });
 
-    // Structural Discrimination Guard (Phase T2-C''): every matched stroke
-    // must ALSO be order-aware-close to its reference, not just close as
-    // an unordered point cloud. Independent of Per-Stroke Quality Floor.
-    const structuralGuardOk = strokeResults.every((r) => r.structuralDistance <= THRESHOLDS.STRUCTURAL_MAX_DISTANCE);
+    // Per-Stroke Position Guard (Phase T2-C'''): catches a single stroke
+    // drawn far from where it belongs even when other strokes are correct
+    // (whole-character centroid alone averages this out in multi-stroke
+    // characters). Per-stroke, not absolute-pixel: normalized by the
+    // character's own bbox diagonal.
+    const positionGuardOk = strokeResults.every((r) => r.positionMetric <= THRESHOLDS.STROKE_POSITION_MAX);
+
+    // Per-Stroke Completion Guard (Phase T2-C'''): catches a stroke that
+    // stops partway through (independent of raw path length, which
+    // meandering/noise can inflate without actually finishing the stroke).
+    const completionGuardOk = strokeResults.every((r) => r.completion >= THRESHOLDS.STROKE_COMPLETION_MIN_SPAN);
+
+    // Relative Character Discrimination (Phase T2-C'''): replaces the
+    // T2-C'' absolute DTW hard gate. Opt-in via opts.allCharacters +
+    // opts.targetChar (e.g. hiragana-learn.html passes the full strokeData
+    // object and the currently-selected kana). Skipped (treated as passing)
+    // if not provided, so existing callers/tests without sibling data are
+    // unaffected.
+    const relativeDiscrimination = relativeCharacterDiscrimination(
+      userFeatures.map((f) => f.intrinsicPoints),
+      opts.allCharacters,
+      opts.targetChar
+    );
+    const characterDiscriminationOk = relativeDiscrimination ? relativeDiscrimination.pass : true;
 
     const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(assignment);
     const spatialScore = spatialAgreement(userFeatures, refFeatures, assignment);
@@ -608,18 +768,24 @@
     // 「誤魔化すべきでないbad case」の大半が0.77以下)。
     const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
     hardGate.strokeQualityFloor = perStrokeFloorOk;
-    hardGate.structuralDiscrimination = structuralGuardOk;
+    hardGate.strokePosition = positionGuardOk;
+    hardGate.strokeCompletion = completionGuardOk;
+    hardGate.characterDiscrimination = characterDiscriminationOk;
+    hardGate.characterDiscriminationDetail = relativeDiscrimination;
 
     const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
     let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
     score = clamp01(score);
 
-    const pass = hardGatePassed && perStrokeFloorOk && structuralGuardOk && score >= THRESHOLDS.PASS_THRESHOLD;
+    const pass = hardGatePassed && perStrokeFloorOk && positionGuardOk && completionGuardOk
+      && characterDiscriminationOk && score >= THRESHOLDS.PASS_THRESHOLD;
 
     let reason = 'ok';
     if (!hardGatePassed) reason = 'hard_gate_failed';
     else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
-    else if (!structuralGuardOk) reason = 'structural_discrimination_failed';
+    else if (!positionGuardOk) reason = 'stroke_position_failed';
+    else if (!completionGuardOk) reason = 'stroke_completion_failed';
+    else if (!characterDiscriminationOk) reason = 'character_discrimination_failed';
     else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
 
     return {
@@ -650,6 +816,10 @@
     // exposed for the visual debugger / tests
     computeBBox,
     centroidOf,
+    structuralDistance,
+    strokePositionMetric,
+    progressSpan,
+    relativeCharacterDiscrimination,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

@@ -54,7 +54,7 @@ CHARS.forEach((ch) => {
     W_METHODS.forEach(([label, fn]) => {
       const wrong = label === 'W2_shifted' ? IW.w2Shifted(refPts, charBBox, idx) : fn(refPts);
       const trace = idealTrace.map((s, i) => (i === idx ? wrong : s));
-      const result = Engine.evaluateCharacter(trace, refDefs);
+      const result = Engine.evaluateCharacter(trace, refDefs, { allCharacters: REFERENCE, targetChar: ch });
       singleBadTotal++;
       if (result.pass) {
         singleBadUnexpectedPass++;
@@ -88,7 +88,7 @@ Object.entries(byStrokeCount).forEach(([n, group]) => {
       if (target === source) return;
       crossTotal++;
       const sourceTrace = Traces.ideal(REFERENCE[source]);
-      const result = Engine.evaluateCharacter(sourceTrace, REFERENCE[target]);
+      const result = Engine.evaluateCharacter(sourceTrace, REFERENCE[target], { allCharacters: REFERENCE, targetChar: target });
       const entry = { target, source, strokeCount: Number(n), score: result.score, pass: result.pass };
       if (result.pass) crossFalsePositive.push(entry);
       else if (result.score >= AMBIGUOUS_BAND) crossAmbiguous.push(entry);
@@ -125,7 +125,7 @@ CHARS.forEach((ch) => {
     ['W7_missing_stroke', wrongCountMissing],
   ].forEach(([label, trace]) => {
     wholeCharTotal++;
-    const result = Engine.evaluateCharacter(trace, refDefs);
+    const result = Engine.evaluateCharacter(trace, refDefs, { allCharacters: REFERENCE, targetChar: ch });
     if (result.pass) wholeCharUnexpectedPass.push({ ch, method: label, score: result.score });
   });
 });
@@ -150,7 +150,7 @@ CHARS.forEach((ch) => {
   const refDefs = REFERENCE[ch];
   POSITIVE_CASES.forEach(([label, fn]) => {
     positiveTotal++;
-    const result = Engine.evaluateCharacter(fn(refDefs), refDefs);
+    const result = Engine.evaluateCharacter(fn(refDefs), refDefs, { allCharacters: REFERENCE, targetChar: ch });
     if (!result.pass) { positiveFailed++; positiveFailures.push({ ch, label, score: result.score }); }
   });
 });
@@ -164,28 +164,30 @@ function lockCheck(label, expected, result) {
 }
 {
   const ii = REFERENCE['い'];
-  lockCheck('い ideal', true, Engine.evaluateCharacter(Traces.ideal(ii), ii));
-  lockCheck('い wobble', true, Engine.evaluateCharacter(Traces.mildWobble(ii, 0.012, 10), ii));
+  const iiOpts = { allCharacters: REFERENCE, targetChar: 'い' };
+  lockCheck('い ideal', true, Engine.evaluateCharacter(Traces.ideal(ii), ii, iiOpts));
+  lockCheck('い wobble', true, Engine.evaluateCharacter(Traces.mildWobble(ii, 0.012, 10), ii, iiOpts));
   const bbox = charBBoxOf(ii);
   const y1 = bbox.minY + (bbox.maxY - bbox.minY) * 0.28, y2 = bbox.minY + (bbox.maxY - bbox.minY) * 0.72;
   const x0 = bbox.minX + (bbox.maxX - bbox.minX) * 0.15, x1 = bbox.minX + (bbox.maxX - bbox.minX) * 0.85;
   const line = (y) => Array.from({ length: 20 }, (_, i) => ({ x: x0 + (x1 - x0) * i / 19, y }));
-  lockCheck('い ニ横線', false, Engine.evaluateCharacter([line(y1), line(y2)], ii));
+  lockCheck('い ニ横線', false, Engine.evaluateCharacter([line(y1), line(y2)], ii, iiOpts));
   const vline = (x) => Array.from({ length: 20 }, (_, i) => ({ x, y: bbox.minY + (bbox.maxY - bbox.minY) * i / 19 }));
-  lockCheck('い 縦線2本', false, Engine.evaluateCharacter([vline(bbox.minX + (bbox.maxX - bbox.minX) * 0.3), vline(bbox.minX + (bbox.maxX - bbox.minX) * 0.7)], ii));
-  lockCheck('い tiny', false, Engine.evaluateCharacter(Traces.tinyStrokes(ii, 0.15), ii));
+  lockCheck('い 縦線2本', false, Engine.evaluateCharacter([vline(bbox.minX + (bbox.maxX - bbox.minX) * 0.3), vline(bbox.minX + (bbox.maxX - bbox.minX) * 0.7)], ii, iiOpts));
+  lockCheck('い tiny', false, Engine.evaluateCharacter(Traces.tinyStrokes(ii, 0.15), ii, iiOpts));
 
   const aa = REFERENCE['あ'];
-  lockCheck('あ ideal', true, Engine.evaluateCharacter(Traces.ideal(aa), aa));
-  lockCheck('あ wobble', true, Engine.evaluateCharacter(Traces.mildWobble(aa, 0.012, 10), aa));
+  const aaOpts = { allCharacters: REFERENCE, targetChar: 'あ' };
+  lockCheck('あ ideal', true, Engine.evaluateCharacter(Traces.ideal(aa), aa, aaOpts));
+  lockCheck('あ wobble', true, Engine.evaluateCharacter(Traces.mildWobble(aa, 0.012, 10), aa, aaOpts));
   const idealA = Traces.ideal(aa);
   const partial3rd = idealA.map((s, i) => (i === 2 ? s.slice(0, Math.round(s.length * 0.5)) : s));
-  lockCheck('あ partial 3rd', false, Engine.evaluateCharacter(partial3rd, aa));
+  lockCheck('あ partial 3rd', false, Engine.evaluateCharacter(partial3rd, aa, aaOpts));
   const p0 = idealA[2][0], p1 = idealA[2][idealA[2].length - 1];
   const straight3rd = idealA.map((s, i) => (i === 2 ? Array.from({ length: 20 }, (_, j) => ({ x: p0.x + (p1.x - p0.x) * j / 19, y: p0.y + (p1.y - p0.y) * j / 19 })) : s));
-  lockCheck('あ straight 3rd', false, Engine.evaluateCharacter(straight3rd, aa));
+  lockCheck('あ straight 3rd', false, Engine.evaluateCharacter(straight3rd, aa, aaOpts));
   const zigzag3rd = idealA.map((s, i) => (i === 2 ? IW.w4Zigzag(refSamplePoints(aa[2], 40), 20) : s));
-  lockCheck('あ zigzag 3rd', false, Engine.evaluateCharacter(zigzag3rd, aa));
+  lockCheck('あ zigzag 3rd', false, Engine.evaluateCharacter(zigzag3rd, aa, aaOpts));
 }
 
 // ---------------------------------------------------------------------
