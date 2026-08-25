@@ -2332,6 +2332,14 @@ const TracingEngine = (function () {
     // の重み付き合計)がこれを下回ったら、文字全体scoreが高くても不合格にする。
     // 「良い画が悪い画を相殺する」false positive対策(あ・3画目で確認)。
     STROKE_QUALITY_FLOOR: 0.80,
+    // Phase T2-C'': Absolute Geometry Guard(25%スケール等) + Structural
+    // Discrimination Guard(DTW、そ/る/ろ・ぬ/め・ね/れ/わ・け/は等の混同対策)。
+    // 詳細な較正根拠はtools/tracing-poc/engine.jsのコメントおよび
+    // donomana-tracing-accuracy-design-v1.md Revision 9参照。
+    ABS_SCALE_MIN: 0.50,
+    ABS_SCALE_MAX: 1.70,
+    ABS_POSITION_MAX: 0.50,
+    STRUCTURAL_MAX_DISTANCE: 0.038,
   };
 
   function tokenizeNumbers(str) {
@@ -2580,6 +2588,47 @@ const TracingEngine = (function () {
     return clamp01(1 - best / R);
   }
 
+  // Absolute Geometry Guard(Phase T2-C''): 文字全体の絶対スケール・位置。
+  // 弧長比(pathLengthRatio)は震え等のノイズでジグザグ化し不当に膨張するため
+  // gateには使わずdebug表示のみ(bbox対角線比のみが安定してスケールを捉える)。
+  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox) {
+    const refDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
+    const userAllPts = userFeatures.flatMap((f) => f.absPoints);
+    const userBBox = computeBBox(userAllPts);
+    const userDiag = Math.hypot(userBBox.width, userBBox.height);
+    const scaleRatio = userDiag / refDiag;
+    const refTotalLength = refFeatures.reduce((a, f) => a + f.length, 0) || 1e-6;
+    const userTotalLength = userFeatures.reduce((a, f) => a + f.length, 0);
+    const pathLengthRatio = userTotalLength / refTotalLength;
+    const refCentroid = { x: (charBBox.minX + charBBox.maxX) / 2, y: (charBBox.minY + charBBox.maxY) / 2 };
+    const userCentroid = centroidOf(userAllPts);
+    const positionRatio = dist(userCentroid, refCentroid) / refDiag;
+    const scaleOk = scaleRatio >= THRESHOLDS.ABS_SCALE_MIN && scaleRatio <= THRESHOLDS.ABS_SCALE_MAX;
+    const positionOk = positionRatio <= THRESHOLDS.ABS_POSITION_MAX;
+    return { pass: scaleOk && positionOk, scaleRatio, pathLengthRatio, positionRatio, scaleOk, positionOk };
+  }
+
+  // Structural Discrimination Guard(Phase T2-C''): 順序を考慮したDTW距離。
+  function dtwDistance(a, b) {
+    const m = a.length, n = b.length;
+    let prev = new Float64Array(n + 1).fill(Infinity);
+    prev[0] = 0;
+    for (let i = 1; i <= m; i++) {
+      const cur = new Float64Array(n + 1).fill(Infinity);
+      for (let j = 1; j <= n; j++) {
+        const cost = dist(a[i - 1], b[j - 1]);
+        cur[j] = cost + Math.min(prev[j], cur[j - 1], prev[j - 1]);
+      }
+      prev = cur;
+    }
+    return prev[n] / (m + n);
+  }
+  function structuralDistance(userIntrinsicPts, refIntrinsicPts) {
+    const forward = dtwDistance(userIntrinsicPts, refIntrinsicPts);
+    const reversed = dtwDistance([...userIntrinsicPts].reverse(), refIntrinsicPts);
+    return Math.min(forward, reversed);
+  }
+
   function evaluateCharacter(userStrokes, referenceStrokeDefs, opts) {
     opts = opts || {};
     const N = opts.samplePoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
@@ -2600,9 +2649,14 @@ const TracingEngine = (function () {
       actualStrokeCount: userFeatures.length,
       minLength: null,
       grossLocation: null,
+      absoluteGeometry: null,
     };
     const grossLocationPerStroke = userFeatures.map((uf) => pointInExpandedBBox(uf.centroid, charBBox, THRESHOLDS.GROSS_LOCATION_MARGIN));
     hardGate.grossLocation = grossLocationPerStroke.every(Boolean);
+
+    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox);
+    hardGate.absoluteGeometry = absGeom.pass;
+    hardGate.absoluteGeometryDetail = absGeom;
 
     if (!hardGate.strokeCount) {
       return { pass: false, score: 0, reason: 'stroke_count_mismatch', hardGate, strokes: [], orderPenalty: null, spatialScore: null };
@@ -2615,7 +2669,7 @@ const TracingEngine = (function () {
       return rf.length > 0 ? uf.length / rf.length >= THRESHOLDS.MIN_LENGTH_RATIO : true;
     });
     hardGate.minLength = minLengthOk;
-    const hardGatePassed = hardGate.strokeCount && hardGate.minLength && hardGate.grossLocation;
+    const hardGatePassed = hardGate.strokeCount && hardGate.minLength && hardGate.grossLocation && hardGate.absoluteGeometry;
 
     const strokeResults = userFeatures.map((uf, i) => {
       const j = assignment[i];
@@ -2627,8 +2681,10 @@ const TracingEngine = (function () {
       const startEnd = startEndComponent(uf, rf);
       const dir = directionComponent(uf, rf);
       const lengthRatio = rf.length > 0 ? uf.length / rf.length : 1;
-      return { matchedReferenceStroke: j, referenceLabel: rf.label, shape: shapeScore, coverage, offPath, startEnd, direction: dir.component, directionLabel: dir.label, lengthRatio, cost: costMatrix[i][j] };
+      const structural = structuralDistance(uf.intrinsicPoints, rf.intrinsicPoints);
+      return { matchedReferenceStroke: j, referenceLabel: rf.label, shape: shapeScore, coverage, offPath, startEnd, direction: dir.component, directionLabel: dir.label, lengthRatio, structuralDistance: structural, cost: costMatrix[i][j] };
     });
+    const structuralGuardOk = strokeResults.every((r) => r.structuralDistance <= THRESHOLDS.STRUCTURAL_MAX_DISTANCE);
 
     const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(assignment);
     const spatialScore = spatialAgreement(userFeatures, refFeatures, assignment);
@@ -2644,15 +2700,17 @@ const TracingEngine = (function () {
     // 各strokeの合成scoreがSTROKE_QUALITY_FLOORを下回っていないか見る。
     const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
     hardGate.strokeQualityFloor = perStrokeFloorOk;
+    hardGate.structuralDiscrimination = structuralGuardOk;
 
     const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
     let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
     score = clamp01(score);
-    const pass = hardGatePassed && perStrokeFloorOk && score >= THRESHOLDS.PASS_THRESHOLD;
+    const pass = hardGatePassed && perStrokeFloorOk && structuralGuardOk && score >= THRESHOLDS.PASS_THRESHOLD;
 
     let reason = 'ok';
     if (!hardGatePassed) reason = 'hard_gate_failed';
     else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
+    else if (!structuralGuardOk) reason = 'structural_discrimination_failed';
     else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
 
     return {
@@ -2937,7 +2995,7 @@ function updateTracingDebugPanel(result) {
   if (!TRACING_DEBUG) { el.style.display = 'none'; return; }
   el.style.display = 'block';
   if (!result) { el.textContent = `(${currentTraceKana}) waiting for ${(strokeData[currentTraceKana]||[]).length} strokes...`; return; }
-  el.textContent = JSON.stringify({ pass: result.pass, score: +result.score.toFixed(3), reason: result.reason, hardGate: result.hardGate, strokes: result.strokes.map(s => ({ shape: +s.shape.toFixed(2), coverage: +s.coverage.toFixed(2), offPath: +s.offPath.toFixed(2), startEnd: +s.startEnd.toFixed(2), dir: s.directionLabel, matched: s.matchedReferenceStroke, perStrokeScore: +s.perStrokeScore.toFixed(3) })) }, null, 1);
+  el.textContent = JSON.stringify({ pass: result.pass, score: +result.score.toFixed(3), reason: result.reason, hardGate: result.hardGate, strokes: result.strokes.map(s => ({ shape: +s.shape.toFixed(2), coverage: +s.coverage.toFixed(2), offPath: +s.offPath.toFixed(2), startEnd: +s.startEnd.toFixed(2), dir: s.directionLabel, matched: s.matchedReferenceStroke, perStrokeScore: +s.perStrokeScore.toFixed(3), structuralDistance: +s.structuralDistance.toFixed(4) })) }, null, 1);
 }
 
 // Init trace

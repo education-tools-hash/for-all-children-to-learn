@@ -105,7 +105,19 @@ function w6WrongScale(points, factor) {
   return points.map((p) => ({ x: bbox.cx + (p.x - bbox.cx) * factor, y: bbox.cy + (p.y - bbox.cy) * factor }));
 }
 
+// W6 (whole-character variant) — shrinks EVERY stroke about the SAME
+// character-wide center, i.e. "wrote the whole character small", not
+// "shrank each stroke individually toward its own center" (which leaves
+// strokes scattered at their original relative positions and doesn't
+// actually test absolute character scale).
+function w6WrongScaleWholeCharacter(strokesPoints, factor, charBBox) {
+  return strokesPoints.map((points) =>
+    points.map((p) => ({ x: charBBox.cx + (p.x - charBBox.cx) * factor, y: charBBox.cy + (p.y - charBBox.cy) * factor }))
+  );
+}
+
 module.exports = {
   bboxOf, chordEndpoints,
   w1Perpendicular, w2Shifted, w3Truncated, w4Zigzag, w5MirrorHorizontal, w5MirrorVertical, w6WrongScale,
+  w6WrongScaleWholeCharacter,
 };

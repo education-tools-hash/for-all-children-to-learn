@@ -45,6 +45,46 @@
     // 全motor-variation良好ケースの最低値=0.921、直線代用等の「本来曲線が必要な
     // strokeの誤魔化し」=0.33〜0.70程度。0.80は両者の間に十分なマージンを持つ。
     STROKE_QUALITY_FLOOR: 0.80,
+
+    // --- Phase T2-C'' additions (Root Cause A/B from T2-C' Independent
+    // Validation). Both are NEW, independent Hard Gates — no existing
+    // threshold above was changed to make room for these.
+
+    // Absolute Geometry Guard (Root Cause A): a uniform-scale copy of a
+    // character is indistinguishable from the ideal in intrinsic
+    // (self-normalized) shape/coverage terms, and MIN_LENGTH_RATIO alone
+    // doesn't catch it (a 0.25x shrink still has length ratio 0.25 > 0.22).
+    // These compare the CHARACTER's overall absolute (pre-intrinsic-
+    // normalization) size/position against the reference's, independent of
+    // per-stroke assignment. Calibrated deterministically (uniform scaling
+    // has no noise): 25% must fail with a large margin; the 80-120%
+    // "ordinary variation" range from the T2-C'' spec, and even the
+    // documented 65-140% borderline range, must comfortably pass so Motor
+    // Accessibility is not tightened.
+    ABS_SCALE_MIN: 0.50,
+    ABS_SCALE_MAX: 1.70,
+    // Character-level centroid displacement, normalized by the reference's
+    // own bbox diagonal. Independent of (and looser than) the existing
+    // per-stroke Hard Gate C (GROSS_LOCATION_MARGIN), which only checks
+    // each stroke's own centroid against an expanded box and didn't
+    // reliably catch a whole-character large positional shift (W2).
+    ABS_POSITION_MAX: 0.50,
+
+    // Structural Discrimination Guard (Root Cause B): order-aware (DTW)
+    // distance between each matched user/reference stroke, in intrinsic
+    // space. Nearest-point shape/coverage is order-agnostic and cannot
+    // tell a loop from an open sweep that happens to occupy a similar
+    // point cloud (see design doc Revision 9 for the calibration story —
+    // turning-angle and net-rotation profiles were tried first and
+    // rejected for being too sensitive to legitimate local motor noise
+    // (uneven/backtrack); DTW tolerates that noise far better since it is
+    // explicitly designed to absorb local speed/timing variation).
+    // Calibrated against the full motor-variation suite (worst legitimate
+    // case = 0.0363) and the 15 known cross-character false positives
+    // (13 of 15 score 0.037-0.086; る/ろ remain a residual, reported
+    // ambiguous pair at ~0.029-0.031 — see design doc, not force-fit with
+    // a character-specific exception).
+    STRUCTURAL_MAX_DISTANCE: 0.038,
   };
 
   // ---------------------------------------------------------------------
@@ -372,6 +412,69 @@
   }
 
   // ---------------------------------------------------------------------
+  // Absolute Geometry Guard (Phase T2-C'' — Root Cause A)
+  // ---------------------------------------------------------------------
+  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox) {
+    const refDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
+    const userAllPts = userFeatures.flatMap((f) => f.absPoints);
+    const userBBox = computeBBox(userAllPts);
+    const userDiag = Math.hypot(userBBox.width, userBBox.height);
+    const scaleRatio = userDiag / refDiag;
+
+    const refTotalLength = refFeatures.reduce((a, f) => a + f.length, 0) || 1e-6;
+    const userTotalLength = userFeatures.reduce((a, f) => a + f.length, 0);
+    const pathLengthRatio = userTotalLength / refTotalLength;
+
+    const refCentroid = { x: (charBBox.minX + charBBox.maxX) / 2, y: (charBBox.minY + charBBox.maxY) / 2 };
+    const userCentroid = centroidOf(userAllPts);
+    const positionRatio = dist(userCentroid, refCentroid) / refDiag;
+
+    const scaleOk = scaleRatio >= THRESHOLDS.ABS_SCALE_MIN && scaleRatio <= THRESHOLDS.ABS_SCALE_MAX;
+    // NOTE: total arc-length ratio is NOT used as a gate here despite being
+    // listed as a candidate metric in the T2-C'' spec. Found empirically:
+    // per-point tremor/wobble noise (independent random jitter on every
+    // sampled point) inflates raw arc length substantially — a jagged path
+    // between two nearby points is much longer than a smooth one, even at
+    // small amplitude — while bbox diagonal stays stable (noise doesn't
+    // systematically expand the overall extent). mildWobble(0.012) already
+    // pushed pathLengthRatio to 1.74, which would have failed here and
+    // broken a User-approved Motor Accessibility case. Kept as a debug-only
+    // reported value, not gated on.
+    const positionOk = positionRatio <= THRESHOLDS.ABS_POSITION_MAX;
+
+    return {
+      pass: scaleOk && positionOk,
+      scaleRatio, pathLengthRatio, positionRatio, scaleOk, positionOk,
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // Structural Discrimination Guard (Phase T2-C'' — Root Cause B)
+  // Order-aware (DTW) distance — see THRESHOLDS.STRUCTURAL_MAX_DISTANCE
+  // comment for why this was chosen over turning-angle/net-rotation.
+  // ---------------------------------------------------------------------
+  function dtwDistance(a, b) {
+    const m = a.length, n = b.length;
+    let prev = new Float64Array(n + 1).fill(Infinity);
+    prev[0] = 0;
+    for (let i = 1; i <= m; i++) {
+      const cur = new Float64Array(n + 1).fill(Infinity);
+      for (let j = 1; j <= n; j++) {
+        const cost = dist(a[i - 1], b[j - 1]);
+        cur[j] = cost + Math.min(prev[j], cur[j - 1], prev[j - 1]);
+      }
+      prev = cur;
+    }
+    return prev[n] / (m + n); // normalized by path length so point-count-independent
+  }
+
+  function structuralDistance(userIntrinsicPts, refIntrinsicPts) {
+    const forward = dtwDistance(userIntrinsicPts, refIntrinsicPts);
+    const reversed = dtwDistance([...userIntrinsicPts].reverse(), refIntrinsicPts);
+    return Math.min(forward, reversed);
+  }
+
+  // ---------------------------------------------------------------------
   // Main entry point
   // ---------------------------------------------------------------------
   // userStrokes: array of strokes, each an array of {x,y} in 0..1 space.
@@ -399,6 +502,7 @@
       actualStrokeCount: userFeatures.length,
       minLength: null, // filled below once assignment is known
       grossLocation: null,
+      absoluteGeometry: null, // filled below — Phase T2-C''
     };
 
     // Gross-location gate can be evaluated even without a valid count match,
@@ -407,6 +511,12 @@
       pointInExpandedBBox(uf.centroid, charBBox, THRESHOLDS.GROSS_LOCATION_MARGIN)
     );
     hardGate.grossLocation = grossLocationPerStroke.every(Boolean);
+
+    // Absolute Geometry Guard (Phase T2-C''): character-level, independent
+    // of per-stroke assignment, so it can run even before stroke matching.
+    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox);
+    hardGate.absoluteGeometry = absGeom.pass;
+    hardGate.absoluteGeometryDetail = absGeom;
 
     if (!hardGate.strokeCount) {
       return {
@@ -428,7 +538,7 @@
     });
     hardGate.minLength = minLengthOk;
 
-    const hardGatePassed = hardGate.strokeCount && hardGate.minLength && hardGate.grossLocation;
+    const hardGatePassed = hardGate.strokeCount && hardGate.minLength && hardGate.grossLocation && hardGate.absoluteGeometry;
 
     const strokeResults = userFeatures.map((uf, i) => {
       const j = assignment[i];
@@ -440,6 +550,7 @@
       const startEnd = startEndComponent(uf, rf);
       const dir = directionComponent(uf, rf);
       const lengthRatio = rf.length > 0 ? uf.length / rf.length : 1;
+      const structural = structuralDistance(uf.intrinsicPoints, rf.intrinsicPoints);
       return {
         matchedReferenceStroke: j,
         referenceLabel: rf.label,
@@ -450,9 +561,15 @@
         direction: dir.component,
         directionLabel: dir.label,
         lengthRatio,
+        structuralDistance: structural,
         cost: costMatrix[i][j],
       };
     });
+
+    // Structural Discrimination Guard (Phase T2-C''): every matched stroke
+    // must ALSO be order-aware-close to its reference, not just close as
+    // an unordered point cloud. Independent of Per-Stroke Quality Floor.
+    const structuralGuardOk = strokeResults.every((r) => r.structuralDistance <= THRESHOLDS.STRUCTURAL_MAX_DISTANCE);
 
     const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(assignment);
     const spatialScore = spatialAgreement(userFeatures, refFeatures, assignment);
@@ -491,16 +608,18 @@
     // 「誤魔化すべきでないbad case」の大半が0.77以下)。
     const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
     hardGate.strokeQualityFloor = perStrokeFloorOk;
+    hardGate.structuralDiscrimination = structuralGuardOk;
 
     const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
     let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
     score = clamp01(score);
 
-    const pass = hardGatePassed && perStrokeFloorOk && score >= THRESHOLDS.PASS_THRESHOLD;
+    const pass = hardGatePassed && perStrokeFloorOk && structuralGuardOk && score >= THRESHOLDS.PASS_THRESHOLD;
 
     let reason = 'ok';
     if (!hardGatePassed) reason = 'hard_gate_failed';
     else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
+    else if (!structuralGuardOk) reason = 'structural_discrimination_failed';
     else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
 
     return {

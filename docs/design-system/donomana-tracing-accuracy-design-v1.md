@@ -838,3 +838,139 @@ Section 11「No Overfitting」の方針に従い、以下は**本Phaseでは実�
 independent wrong traceの大量PASS)しているため、Phase T2-D
 (Production Readiness)には進まない。** Root Causeと対応方針候補
 (上記T2-C'.7)についてUserの判断を仰ぐ。
+
+---
+
+# Revision 9 — Phase T2-C'' 結果(Absolute Geometry Guard / Structural Discrimination Guard)
+
+## T2-C''.0 結論
+
+Root Cause A(絶対スケール不足)・Root Cause B(構造テンプレート類似による
+cross-character混同)へ対応する2つの新規Hard Gateを追加。**Motor
+Accessibility(368件)・「い」「あ」Pilot Regression Lock(10件)は
+一切劣化なし。** cross-character false positiveは15→4、whole-character
+の予期しないPASSは60→2まで減少。ただし**T2-D Gateは完全には満たしていない**
+(cross-character 4件・single-bad-stroke W2/W3系94件が残存)。
+
+## T2-C''.1 Absolute Geometry Guard(Root Cause A)
+
+文字全体の絶対geometry(intrinsic正規化前)を、character単位・
+assignment非依存で評価する新Hard Gate。
+
+- **bbox対角線比**(`scaleRatio`): user文字全体のunion bboxとreference文字
+  全体のunion bboxの対角線長比。`ABS_SCALE_MIN=0.50`〜`ABS_SCALE_MAX=1.70`。
+- **中心位置ずれ比**(`positionRatio`): user/referenceの重心距離を
+  reference bbox対角線で正規化。`ABS_POSITION_MAX=0.50`。
+- **弧長比**(`pathLengthRatio`)は**計算のみ行いgateには使わない**。
+  理由: `mildWobble(0.012)`のような正規のMotor Accessibilityケースで
+  ジグザグにより弧長が最大1.74倍に不当膨張し、既存Golden Testで
+  5件の新規Regressionを引き起こした(実測・修正済み)。bbox対角線は
+  ノイズで系統的には広がらないため安定した指標だった。
+
+**較正**: 25%均等縮小は決定論的(ノイズなし)なため直接計算: scaleRatio≈0.25
+で確実に不合格。80-140%程度の通常variationは0.50-1.70の範囲に十分収まる
+よう意図的に緩めに設定(Motor Accessibility優先)。
+
+## T2-C''.2 Structural Discrimination Guard(Root Cause B)
+
+### 試行錯誤の記録(採用に至るまで)
+
+1. **Turning-angle profile(不採用)**: strokeをcoarse segmentへ分割し
+   方向角の系列を比較。そ/る/ろ等では分離できたが、`uneven`(局所的な
+   震え)・`backtrack`(軽い書き戻し)といった既存Motor Accessibilityテスト
+   で悪好ケースの最悪値が0.44〜0.66 radまで悪化し、FALSE POSITIVE群
+   (0.29 rad〜)と逆転。平滑化・segment数の調整でも解消せず。
+2. **Net rotation(不採用)**: 符号付き累積回転角。点対点の生角度計算が
+   64点解像度でノイズに極めて敏感(隣接点はほぼ同一地点のため、
+   わずかなノイズで角度が事実上ランダム化)、good caseの最悪値が37 rad
+   まで暴走。segment化しても`backtrack`が意図せず約2π相当の回転を
+   生む測定アーティファクトが発生し不採用。
+3. **DTW(採用)**: 順序を考慮したpath整列距離(intrinsic正規化後、
+   双方向: 逆方向描画も許容)。ローカルな速度・タイミングのブレを
+   吸収する設計のため、`uneven`/`backtrack`/`sparse`等への耐性が
+   turning-profileより大幅に高い。全motor-variationの最悪値0.0363に対し、
+   15件のFALSE POSITIVEのうち13件は0.037〜0.086で明確に分離。
+
+**採用**: `STRUCTURAL_MAX_DISTANCE = 0.038`(good最悪値0.0363との
+マージンを優先、無理に閾値を下げてMotor Accessibilityを危険に晒さない)。
+
+### 既知の残存ペア(character-specific hackを入れず記録)
+
+- **る ↔ ろ**(DTW距離0.029〜0.031、good最悪値0.036より低い)
+- **ぬ ↔ め**(DTW距離0.037前後、good最悪値との差が0.0007しかなくHard
+  Gateとして安全に採用できるマージンがない)
+
+いずれも「そもそもこの2文字はDTWで測っても形状として非常に近い」ことが
+確認された(shape/coverageも0.79〜0.93と高い)。Character-specific
+thresholdやpair-specific blacklistは導入していない(Section20の方針通り)。
+
+## T2-C''.3 Independent Validation再実行結果(修正前→修正後)
+
+| 指標 | 修正前(T2-C') | 修正後(T2-C'') |
+|---|---|---|
+| Cross-character FALSE POSITIVE | 15 | **4**(る↔ろ、ぬ↔め) |
+| Whole-character 予期しないPASS | 60(うち51件がW6 25%縮小) | **2**(く・りのW5 mirror_verticalのみ、W6は0件) |
+| Single-bad-stroke 予期しないPASS | 99 | 94(W2位置ずらし・W3先頭45%打ち切りが未解決、Root Cause A/Bの対象外) |
+| Motor Accessibility(368件) | - | **失敗0**(劣化なし) |
+| 「い」「あ」Pilot Regression Lock | - | **10/10 OK**(劣化なし) |
+
+W6(全文字25%縮小)較正時に、独立テスト generator自体のバグを発見・修正:
+各strokeを個別の中心で縮小していたため「文字全体を1つの中心で縮小」という
+Section24の意図と異なっていた(`independent-wrong-trace.js`に
+`w6WrongScaleWholeCharacter`を追加)。
+
+## T2-C''.4 実ブラウザ確認
+
+`test-t2c2-realbrowser.py`(Playwright実マウス駆動、`hiragana-learn.html`
+本体): **A(あ25%縮小)→RETRY、B(そ←る)→RETRY、D(ね←れ)→RETRY、
+E(け←は)→RETRY、C(ぬ←め)→PASS(既知の残存、隠さず報告)**。
+そ・る・ろ・ぬ・め・ね・れ・わ・け・は・あの理想トレース全てPASS維持、
+「い」「あ」wobbleもPASS維持。**console/page error 0/0。**
+
+## T2-C''.5 Performance
+
+DTW追加後も評価時間 平均1.07ms・最大10.5ms(46文字×3試行、JIT
+warmup込み)。既存(数ms程度)から極端な増加なし、pointermove中の
+評価は引き続き無し。
+
+## T2-C''.6 T2-D Gate 判定(Section 50)
+
+| 条件 | 状態 |
+|---|---|
+| 25% scale false positive解消 | ✅ 達成 |
+| large shift(whole-character)false positive解消 | ✅ 達成(W6は0件、W2は文字全体シフトでは検証済み) |
+| Cross-character clear false positive = 0 | ❌ **未達(4件残存)** |
+| single-bad-stroke重大false positive解消 | ❌ **未達(94件、主にW2/W3)** |
+| ideal全文字PASS | ✅ |
+| Motor variation維持 | ✅ |
+| い/あ User-approved behavior維持 | ✅ |
+| Engine-specific hacks | ✅ 0件 |
+
+**T2-D Gateは完全には満たされていない。** ただしCross-character
+FALSE POSITIVEは15→4、Whole-character予期しないPASSは60→2と大幅に
+改善しており、Root Cause A(絶対スケール)は実質的に解決、Root Cause B
+(構造テンプレート類似)も大部分解決(15中13ペア)。残る4件・94件は
+別種の問題(single-stroke単位の位置ずれ・部分的な打ち切り)であり、
+本Phaseで発見した2つのRoot Causeとは異なる追加調査が必要と考えられる。
+
+## T2-C''.7 変更ファイル・Production影響
+
+- 変更: `tools/tracing-poc/engine.js`(Absolute Geometry Guard・
+  Structural Discrimination Guard追加。既存threshold・Hard Gate・
+  Per-Stroke Quality Floor・PASS_THRESHOLDは無変更)
+- 変更: `hiragana-learn.html`(同内容をインライン移植コピーへ反映)
+- 変更: `tools/tracing-poc/golden-tests-independent46.js`・
+  `independent-wrong-trace.js`(W6テスト自体のバグ修正)
+- 新規: `explore-structural-feature.js`・`explore-net-rotation.js`・
+  `explore-dtw.js`(探索記録、不採用案含む)、
+  `test-t2c2-realbrowser.py`
+- 無変更: `katakana-app.html`
+- main merge/push: なし
+
+## T2-C''.8 Phase Status
+
+**Phase T2-C'' = GEOMETRY DISCRIMINATION FIX READY — WAITING FOR USER
+REVIEW。** T2-D Gateは完全一致ではないため、残る4件のcross-character
+ペア(る/ろ、ぬ/め)と94件のsingle-bad-stroke(W2/W3)への対応方針
+(追加調査Phaseを設けるか、既知の限界として記録し先へ進むか)について
+Userの判断を仰ぐ。

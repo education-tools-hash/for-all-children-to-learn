@@ -110,7 +110,10 @@ CHARS.forEach((ch) => {
 
   const mirrorH = ideal.map((s) => IW.w5MirrorHorizontal(s));
   const mirrorV = ideal.map((s) => IW.w5MirrorVertical(s));
-  const wrongScale = ideal.map((s) => IW.w6WrongScale(s, 0.25));
+  // Whole-character shrink about ONE shared center (Section 24: "wrote the
+  // whole character small"), not each stroke shrunk toward its own
+  // individual center (which leaves strokes scattered, not actually small).
+  const wrongScale = IW.w6WrongScaleWholeCharacter(ideal, 0.25, charBBoxOf(refDefs));
   const wrongCountExtra = ideal.concat([ideal[ideal.length - 1]]);
   const wrongCountMissing = Traces.incompleteStrokeCount(refDefs);
 
