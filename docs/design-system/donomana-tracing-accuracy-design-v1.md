@@ -1816,3 +1816,263 @@ katakana 46文字、warm cache状態: 平均13.65ms・最大25.22ms
 **Phase T3-B = KATAKANA TRACING ENGINE CALIBRATED — WAITING FOR USER
 REVIEW。** main merge/push/Production deployは行っていない。RC
 checkpointでUser Reviewを待つ。
+
+---
+
+# Revision 15 — Phase T3-C: Katakana Independent Validation / Stroke
+Assignment Robustness Gate
+
+## T3-C.0 結論
+
+T3-B RC(checkpoint `71ae38c`)を独立に再検証し、完全に同一の結果を
+再現した(Integrity Lock通過)。ウのstroke-assignment入れ替えについて、
+2つの一般化候補(centroid位置コスト・endpoint位置コスト)を数値的に
+検証したが、**いずれも同一の理由(鏡像反転への脆弱性)で不採用**とし、
+`engine-katakana.js`・`katakana-app.html`は**本Phaseで一切変更して
+いない**。あわせて、より広い seed sweep により、この限定的な問題が
+T3-Bの単一seedテストが示唆したより実際にはやや高い頻度(後述)で
+発生することを正直に記録する。Negative Accuracyは本Phase全体を通じて
+一切妥協していない。**Release Decision: B(CURRENT ASSIGNMENT
+ACCEPTABLE WITH DOCUMENTED KNOWN LIMITATION)**。
+
+## T3-C.1 T3-B RC Integrity Lock
+
+`golden-tests-katakana-independent46.js`を再実行し、T3-Bの報告値と
+完全一致を確認:
+
+| 指標 | T3-B報告値 | T3-C再現値 |
+|---|---|---|
+| single-bad-stroke unexpected_pass | 0 | 0 |
+| whole-character W5(mirror) | エ・ニの2件 | エ・ニの2件(一致) |
+| cross-character FALSE_POSITIVE | 0 | 0 |
+| Motor Accessibility failed | 2(ウ moderate_wobble・uneven) | 2(同一) |
+
+**判定: 完全一致。STOP条件に該当せず。**
+
+## T3-C.2 Stroke Assignment Root Cause(数値証明)
+
+`investigate-u-assignment.js`により、ウのstroke#0(「てんを うつ」)・
+stroke#1(「よこに はらう」)間のassignment過程を完全に記録:
+
+- **shape-costのみ(現行`matchStrokes`)**: moderate_wobbleにおいて
+  identity[0,1,2]の合計cost=0.0838、swap[1,0,2]の合計cost=0.0830。
+  **差はわずか0.0007(0.8%)** — shape情報だけではこの2 strokeを
+  安定して区別できない、事実上のtie。
+- **原因**: intrinsic正規化(bbox基準の再中心化・再スケール)は
+  形状比較に必要な一方、「短く・単純な2本のstroke」(点+短い横線)を
+  正規化すると、互いに酷似した一般的な短い曲線として見えてしまう。
+  これはウ固有の現象ではなく、**短く近接した2 strokeを持つ文字全般に
+  共通する、shape-onlyマッチングの構造的な弱点**。
+- **絶対位置による対比**: 同じ2 strokeの重心距離(絶対座標)は
+  identity=0.0070、swap=0.6244で**89倍の差**。位置情報を使えば
+  一瞬で区別できることを示す。
+- 「ウだから」ではなく、上記の数値(shape-costの僅差 vs 位置情報の
+  圧倒的な差)が根本原因を説明する。
+
+## T3-C.3 一般化候補の検証
+
+### Candidate C: shape cost + centroid距離(文字bbox対角線で正規化)
+
+`engine-katakana-candidate.js`(投機的コピー、未採用)。
+`ASSIGNMENT_POSITION_WEIGHT`を0.0001〜0.15まで細かくsweep
+(`sweep-assignment-weight.js`):
+
+| weight | ウ修正 | Mirror unexpected(基準2件) |
+|---|---|---|
+| 0.0001〜0.001 | されない | 2件(変化なし) |
+| **0.002** | **される** | **3件(エH,エV,ニH)— 既に増加** |
+| 0.003〜0.15 | される | 3〜4件 |
+
+**ウを修正するのに必要な最小weight(0.002)と、Mirror
+unexpected_passが増加し始めるweight(0.002)が完全に一致し、
+分離可能な安全域が存在しない。**
+
+### Candidate D: shape cost + endpoint距離(start/end、双方向対応)
+
+`engine-katakana-candidate-d.js`。weight=0.15で検証:
+
+- ウ・ミのmild_wobble失敗: 20 seed中0/20(完全に解消)
+- Mirror unexpected_pass: **4件**(エH,エV,ニH,ニV — Candidate Cと
+  同じ4件、同じ2文字がVertical方向でも新たに通ってしまう)
+
+**Candidate CとDは異なる位置特徴量(centroid vs endpoint)だが、
+全く同じ失敗モードに帰着する。** 理論的根拠: 鏡像反転(reflection)は
+centroidもendpointも同じ線形変換で移動させるため、どちらの
+絶対位置特徴量も「反転によって別のstrokeの位置と偶然近くなる」
+という同じ脆弱性を共有する。これは個別のバグではなく、
+**「assignmentに絶対位置情報を加える」というアプローチ自体が、
+鏡像に対して構造的に脆弱である**ことを示す一般的な結果。
+
+### 不採用の判断
+
+Section 6(Do Not Force a Fix)の基準に照らし、CandidateC・Dとも
+**不採用**。理由: Negative Accuracy(Mirror)を悪化させることが
+2つの独立した候補で一貫して確認され、かつ理論的にも説明可能な
+構造的トレードオフであるため、安全な一般化解は本Phaseの調査範囲内
+では発見できなかった。
+
+## T3-C.4 Synthetic Test Realism Audit
+
+`golden-traces.js`の`mildWobble`/`mildlyUneven`は、T2で問題になった
+`withTremor`の独立位相バグ(sin/cos位相を各点ごとに乱数で独立に
+与えることによる非連続な異常振動)とは異なり、**各点のx/y座標へ
+直接一様乱数を加算するだけの、素朴で保守的なノイズモデル**である
+ことを確認した。これは測定artifactではなく、**短いstrokeほど
+固定振幅ノイズの相対的な影響が大きくなる**という、現実の手ぶれに
+おいても妥当な特性を表している(絶対的なペン先の震え幅は
+strokeの意図した長さに関係なく概ね一定であるため)。
+
+### より広いseed sweepによる頻度の正直な記録
+
+T3-Bの報告(460件中2件失敗)は**固定seed(10/11など)1点のみ**の
+結果であり、実際の発生頻度を過小評価していた可能性がある。本Phaseで
+複数seed(1〜20または1〜30)による再測定を実施:
+
+- ウ: `mild_wobble(0.012)`で20 seed中**6件(30%)**、
+  `moderate_wobble(0.018)`+`uneven`で30 seed中**13件(21.7%)**が
+  assignment入れ替えを起こす。
+- ミ: `mild_wobble(0.012)`で20 seed中**2件(10%)**
+  (stroke#1↔#2のswap、ウとは異なるstroke対だが同一メカニズム)。
+- **46文字中この2文字以外は、20 seedのmild_wobble sweepで
+  失敗0件**(問題は全体に分散しているのではなく、この2文字に
+  限定的)。
+
+**この事実を隠さず記録する**: T3-Bの「2/460」という数字は、
+実際にはウ・ミという2文字に限って言えば、mild〜moderate wobbleの
+もとで**10〜30%程度の頻度で発生しうる**。ただし全体(46文字)に
+対する影響範囲は変わらず2/46文字(4.3%)であり、
+Negative Accuracyには一切影響しない(false rejectのみ、
+false acceptは発生しない)。
+
+## T3-C.5 Independent Validation
+
+`golden-tests-katakana-independent46.js`(T3-Bの較正には使用して
+いない、独立したnegative-only生成ロジック)により全項目を再確認:
+ideal 46/46 PASS、Motor Accessibility 460件中458 PASS(既知2件)、
+cross-character全806方向対 FALSE_POSITIVE=0、single-bad-stroke
+全416件 false_positive=0、whole-character攻撃(W5/W6/W7)230件中
+unexpected_pass=2(エ・ニのW5のみ)。
+
+## T3-C.6 Risk Pair Deep Validation
+
+`calibrate-relative-discrimination-katakana.js`をT3-Bと同一の
+(無変更)engineで再実行し、同一の結果を確認: min wrong-character
+margin=0.0099(ヲ↔テ)、worst good-case margin=-0.0019
+(ヌ/moderate_wobble vs ス)。
+
+### Margin符号定義の明確化(第三者にも誤解なく読めるように)
+
+`margin = targetAvg - comparisonAvg`と定義する。
+
+- **targetAvg**: userの入力(intrinsic正規化後)と、判定対象
+  文字(target)の全stroke平均DTW距離(最適permutation)。
+- **comparisonAvg**: 同じuser入力と、比較対象文字(wrong-character
+  側では「もう一方の文字」、good-case側では「risk pairの相方」)
+  との平均DTW距離。
+- **marginが正(margin > 0)**: targetの方がcomparison対象より
+  「遠い」= comparison対象の方が近い = 別文字の可能性が高い
+  → `RELATIVE_DISCRIMINATION_MARGIN`以上ならRETRY。
+- **marginが負(margin < 0)**: targetの方がcomparison対象より
+  「近い」= 正しく自分自身(target)に近い = 健全な状態。
+- **wrong-character側**(該当文字を描かず、間違って相方を描いた
+  場合): marginは正であるべき(かつ`RELATIVE_DISCRIMINATION_MARGIN`
+  以上)。今回の最小値は0.0099。
+- **good側**(targetを正しく、motor variationありで描いた場合):
+  marginは負であるべき。今回の最悪値は-0.0019。
+- **現在のthreshold**: `RELATIVE_DISCRIMINATION_MARGIN = 0.008`は
+  (-0.0019, 0.0099)の範囲に安全に収まる。
+
+## T3-C.7 ヲ/テ結果
+
+ideal margin=-0.0099。moderate_wobble/tremor/uneven等を加えても
+margin=-0.003〜-0.008の範囲に留まり、0.008の閾値まで十分な
+マージンを維持(T3-Bから変化なし、engine無変更のため当然の帰結)。
+
+## T3-C.8 Real Browser Stress Validation
+
+`test-katakana-stress.py`(Playwright実マウス駆動、katakana-app.html
+本体、engine変更なし):
+
+- ウ(normal/mild/moderate/uneven、いずれもこの回のseed実現では
+  assignment=[0,1,2]を維持): **全てPASS**
+- シ・ミ・ヨ(normal/mild): **全てPASS**
+- リスクペア6組(ヲ←テ・テ←ヲ・ス←ヌ・ヌ←ス・ユ←コ・コ←ユ):
+  **全てRETRY**(character_discrimination_failed)
+- Negative: 25%縮小(ウ)→RETRY、位置ずらし(ヒ)→RETRY
+  (stroke_position_failed)、打ち切り(ミ)→RETRY
+  (stroke_completion_failed)
+- console/page error: **0/0**
+
+この回の実ブラウザ試行ではウのassignment入れ替えは再現しなかった
+(T3-C.4のseed sweep結果と整合: 特定のnoise実現でのみ発生する
+確率的な事象であり、常に発生するわけではない)。
+
+## T3-C.9 console/page error
+
+**0 / 0**
+
+## T3-C.10 Performance
+
+候補C・Dとも不採用のため、`engine-katakana.js`は無変更。
+Before/After計測は不要(変更なし)。T3-B baseline
+(平均13.65ms・最大25.22ms)がそのまま維持される。
+
+## T3-C.11 Hiragana Isolation
+
+`hiragana-learn.html`・`tools/tracing-poc/engine.js`は本Phaseで
+**無変更**(`git diff`で確認済み)。候補実装はすべて
+`engine-katakana-candidate*.js`という独立ファイルで検証し、
+不採用としたため`engine-katakana.js`自体にも波及していない。
+
+## T3-C.12 Known Limitations(更新)
+
+- **Mirror Self-Confusion(エ・ニ、W5、2件)** — T2/T3-B由来、
+  本Phaseで増加なし(候補不採用のため)。
+- **ウ・ミ: 短く近接した2 strokeのshape-cost tie起因の
+  assignment入れ替え(2/46文字)** — T3-Bでは「2/460」とだけ
+  報告されていたが、本Phaseの複数seed調査により、該当2文字に限れば
+  mild〜moderate wobble下で**10〜30%程度の頻度**で発生しうることが
+  判明。Negative Accuracyへの影響はなし(false rejectのみ)。
+  2つの独立した一般化候補(centroid位置・endpoint位置)がいずれも
+  Mirror Self-Confusionとの構造的トレードオフにより不採用となった
+  ため、安全な一般化解は本Phase時点で存在しない。将来的な対応が
+  必要な場合は、鏡像に対して不変な相対位置特徴量(例:
+  stroke間の相対配置のうち反転で符号が変わらない量)等、
+  より高度なアプローチの研究が必要と考えられるが、これは
+  T2〜T3-Cで確立したThree-Guard Designの安定性を壊すリスクを
+  伴うため、本Phaseでは着手しない。
+
+## T3-C.13 変更ファイル
+
+- 新規(調査専用、未採用候補の記録): `tools/tracing-poc/
+  investigate-u-assignment.js`・`engine-katakana-candidate.js`・
+  `engine-katakana-candidate-d.js`・`sweep-assignment-weight.js`・
+  `golden-tests-katakana-candidate-check.js`・
+  `test-katakana-stress.py`
+- 変更: `docs/design-system/donomana-tracing-accuracy-design-v1.md`
+  (Revision 15追記)
+- **`katakana-app.html`・`tools/tracing-poc/engine-katakana.js`・
+  `hiragana-learn.html`・`tools/tracing-poc/engine.js`は無変更**
+- main merge/push/Production deploy: なし
+
+## T3-C.14 Release Decision
+
+**B. CURRENT ASSIGNMENT ACCEPTABLE WITH DOCUMENTED KNOWN
+LIMITATION。**
+
+根拠: (1) T3-B RCの全指標を独立に再現、一致を確認。(2) ウ・ミの
+assignment問題について2つの独立した一般化候補を数値的に検証したが、
+いずれもMirror Self-Confusionとの構造的トレードオフにより不採用。
+(3) Negative Accuracy(cross-character・single-bad-stroke・
+whole-character・25%scale・position shift・truncation)は本Phase
+全体を通じて一切妥協なし。(4) risk pair(ヲ/テ含む7組)は
+Motor variationを含めてもclean separationを維持。(5) 残存する
+Known Limitation(ウ・ミの2/46文字、頻度10〜30%)はfalse reject
+のみでfalse acceptを伴わず、教育的設計の根幹(誤ったなぞりの
+拒否)を脅かすものではない。
+
+## T3-C.15 Phase Status
+
+**Phase T3-C = KATAKANA TRACING INDEPENDENTLY VALIDATED — READY
+FOR RELEASE REVIEW。** main merge/push/Production deployは
+行っていない。RC checkpointで停止する。
