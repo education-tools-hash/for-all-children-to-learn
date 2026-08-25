@@ -114,6 +114,19 @@
     RELATIVE_DISCRIMINATION_MARGIN: 0.008,
     SELF_REFLECTION_MARGIN: 0.008, // Phase T3-C'' — calibrated: worst-good=-0.0051, best-mirror=0.0174
     ASSIGNMENT_AMBIGUITY_WINDOW: 0.005, // Phase T3-C'' — covers known near-tie failures (U<=0.0028, mi<=0.0001, te=0.0036)
+    // Phase T3-D1: Multi-Hypothesis Assignment Acceptance Safety Guard.
+    // An alternative (non-best-shape-cost) assignment is only accepted if
+    // it does not make ANY stroke's completion/position WORSE than under
+    // the best-shape-cost assignment (a legitimate correction, e.g. U,
+    // is a Pareto improvement across all affected strokes; the mi/W3
+    // exploit instead trades one stroke's rescue for another's
+    // regression). Calibrated via calibrate-monotonic-safety.js: worst
+    // regression among 26 legitimate rescue cases (46 chars x 20 seeds x
+    // 3 motor transforms) = 0.0000 (exactly monotonic); mi/W3 exploit's
+    // regression = -0.33 (position) / -0.41 (completion). This tolerance
+    // is a numerical safety margin only, ~15-20x smaller than the
+    // smallest known exploit regression.
+    MONOTONIC_REGRESSION_TOLERANCE: 0.02,
 
     // Per-Stroke Position Guard (replaces relying on whole-character
     // centroid alone for catching a single badly-placed stroke): matched
@@ -824,6 +837,7 @@
     }
 
     let chosen = evaluateForAssignment(assignment);
+    const bestShapeCostResults = chosen.strokeResults; // baseline for T3-D1 monotonicity safety check
     if (n >= 2) {
       const idxAll = refFeatures.map((_, i) => i);
       const allPerms = permutations(idxAll)
@@ -834,7 +848,20 @@
         const nearTiePerms = allPerms.filter((a) => a.cost <= allPerms[0].cost + THRESHOLDS.ASSIGNMENT_AMBIGUITY_WINDOW);
         for (let k = 1; k < nearTiePerms.length; k++) {
           const alt = evaluateForAssignment(nearTiePerms[k].perm);
-          if (alt.assignmentDependentOk) { chosen = alt; break; }
+          if (!alt.assignmentDependentOk) continue;
+          // Phase T3-D1 Safety Guard: only accept this alternative if it
+          // is a Pareto improvement over the best-shape-cost assignment
+          // for EVERY stroke (no stroke's completion drops or position
+          // worsens beyond the numerical tolerance). Blocks the mi/W3
+          // exploit (one stroke rescued by regressing another) while
+          // preserving legitimate corrections (e.g. U), which improve
+          // every affected stroke together.
+          const tol = THRESHOLDS.MONOTONIC_REGRESSION_TOLERANCE;
+          const isMonotonic = alt.strokeResults.every((r, i) =>
+            r.completion >= bestShapeCostResults[i].completion - tol &&
+            r.positionMetric <= bestShapeCostResults[i].positionMetric + tol
+          );
+          if (isMonotonic) { chosen = alt; break; }
         }
       }
     }

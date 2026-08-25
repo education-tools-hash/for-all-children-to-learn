@@ -2609,3 +2609,163 @@ USER DECISION。** Section 5で発見した視覚的に明らかな未完成
 strokeのPASS事例により、Section 6以降(multi-seed lock・Real
 Browser RC・Integration・Push・Production Deploy)には進んでいない。
 main / Production は変更されていない。
+
+---
+
+# Revision 19 — Phase T3-D1: Multi-Hypothesis Assignment Safety Guard
+
+## T3-D1.0 結論
+
+**Phase T3-D1 = MULTI-HYPOTHESIS SAFETY GUARD VALIDATED — READY TO
+RESUME PRODUCTION RELEASE。** T3-DのRelease Blocker(ミ
+stroke#1 W3_truncatedがPASSする問題)について、Multi-Hypothesis
+Assignmentを撤回せず、**「alternative assignmentを安全に採用して
+よいか」を判定するAcceptance Safety Guard**を追加して解決した。
+Motor Accessibility(ウ・ミ・テ)・Mirror(0件)は一切後退させず、
+かつ独立exploit探索(全46文字・全stroke・W1-W4攻撃 計416件)で
+新たな抜け道も0件であることを確認した。
+
+## T3-D1.1 Integrity Reproduction
+
+T3-C''成功状態(ideal 46/46・Motor Accessibility 460/460・
+cross-character FALSE_POSITIVE=0/806・Mirror=0・既知ウ
+seed4/6/11/16=PASS)とT3-D Blocker(ミ stroke#1 W3_truncated
+→ 実ブラウザでPASS、score=0.744、assignment=[1,0,2])の両方を
+再現・確認済み。
+
+## T3-D1.2 Exploit Root Cause(再確認)
+
+Completion閾値の問題ではなく、Multi-Hypothesis Assignmentが
+near-tie permutationを探索する際、truncatedしたuser strokeを
+より短い別のreference strokeへ再割当てすることでCompletion Guardを
+すり抜けていた(T3-Dで特定済み、本Phaseで数値的に再確認)。
+
+## T3-D1.3-4 Candidate Safety Features(検討・不採用)
+
+### Candidate A: Character-relative extent consistency
+
+bbox対角線比のmismatch(`|userStrokeDiag/userCharDiag -
+refStrokeDiag/refCharDiag|`)を測定。単一seed較正では
+worst-good=0.1677 < exploit=0.1798で分離できるように見えたが、
+**20 seed × 3 motor transforms × 46文字へ較正を広げた結果、
+worst-good=0.1871(キ/moderate/seed20)がexploit(0.1798)を
+上回り、clean separationが失われた**。この特徴量単独では
+Hard Gate化しない(Section 10の指示通り、恣意的な単一seed較正で
+決定しなかったことが、この不採用判断を正しく導いた)。
+
+arc length比(`stroke.length/charDiag`)も試したが、T2-C''で
+既知の通りnoiseに敏感で使用不可と再確認。
+
+### Candidate B: Improvement (monotonicity) consistency — 採用
+
+alternative assignment採用前後で、各strokeのcompletion/positionが
+**best-shape-cost assignmentと比較して全stroke分改善している
+(regressionなし)か**を検証。
+
+- 正当なrescue(46文字×20 seed×3 motor transform、計26件検出):
+  **全26件でregression=0.0000**(完全にmonotonic)。
+- ミ/W3 exploit: worstCompletionRegression=**-0.4127**、
+  worstPositionRegression=**-0.3293**(明確な非monotonic)。
+
+**Clean separationが極めて明確**(0.0000 vs -0.33〜-0.41)であり、
+character-specific判定を一切要さない一般化された安全基準として
+採用した。
+
+## T3-D1.5 Extent Feature Role
+
+Section 9の指示通り、Candidate A(extent)はassignment
+selection costへは再度組み込んでいない(T3-C'のCandidate Eと
+同じ轍を踏まない)。Candidate B(採用)はランキングにも影響せず、
+「既に選ばれたalternativeを最終的に受理してよいか」という
+**Acceptance判定のみ**に使う設計を貫いた。
+
+## T3-D1.6 実装
+
+`THRESHOLDS.MONOTONIC_REGRESSION_TOLERANCE = 0.02`
+(較正済み既知値の最小規模(-0.33)の約15分の1、数値誤差の
+安全マージンとしてのみ機能)。Multi-Hypothesisのnear-tie探索
+ループ内で、each alternativeについて
+`assignmentDependentOk`判定に加え、`bestShapeCostResults`
+(best-shape-cost assignmentの各stroke結果)との比較で
+`isMonotonic`判定を追加。満たさないalternativeはスキップし、
+次の近接permutationを試す(全て失敗した場合は
+best-shape-cost assignmentの結果へfall back = 元々の
+正しい失敗が維持される)。
+
+## T3-D1.7-8 Independent Exploit Search
+
+全46文字・全stroke・W1-W4攻撃(計416件)を再スキャン。
+Safety Guard導入前: unexpected_pass=1(ミ/W3のみ)。
+**Safety Guard導入後: unexpected_pass=0**。新たな抜け道は
+発見されなかった。
+
+## T3-D1.9 ミW3 Before/After
+
+- **Before**: badge=PASS, score=0.744, reason=ok,
+  assignment=[1,0,2](swap)
+- **After**: badge=RETRY(実ブラウザ確認済み), score=0.834,
+  reason=stroke_completion_failed, assignment=[0,1,2](正しい
+  対応に復帰、stroke#1のcompletion=0.429で正しく検出)
+
+## T3-D1.10 Motor Accessibility / multi-seed
+
+全体460/460 PASS(変化なし)。ウ・ミ・テとも mild/moderate/uneven
+全て**0%失敗を維持**。既知ウ seed 4/6/11/16、実ブラウザで
+全てPASS維持。
+
+## T3-D1.11-13 Negative Accuracy
+
+cross-character FALSE_POSITIVE=**0/806**(維持)。single-bad-stroke
+unexpected_pass=**0/416**(1→0、ミW3含め完全解消)。Mirror
+unexpected_pass=**0**(維持)。25%scale・position shift・truncation
+いずれもfalse_positive=0。
+
+## T3-D1.14-15 Real Browser
+
+`test-mi-residual-gate.py`: ミW3 exact fixture → **RETRY**
+(before同一のスクリーンショット状態、視覚的未完成が今度は正しく
+RETRYと判定される)。`test-u-realbrowser-repro.py`: ウ seed
+4/6/11/16 → 全PASS(assignment=[0,1,2])。`test-katakana-stress.py`
+/`test-katakana-rc.py`: ウ/シ/ミ/ヨ 全variation PASS、risk pairs
+全RETRY、Mirror・25%・position shift・truncation 全RETRY、
+smoke test正常。console/page error: **0/0**。
+
+## T3-D1.16 Performance
+
+較正・実装後の測定: 平均約31-33ms(T3-C'' baseline約31-34msと
+同水準、Safety Guardは軽量な比較のみでDTW等の追加計算は発生
+しないため実質変化なし)。
+
+## T3-D1.17 Hiragana Isolation
+
+`hiragana-learn.html`・`tools/tracing-poc/engine.js`は本Phaseで
+**無変更**(確認済み)。
+
+## T3-D1.18 変更ファイル
+
+- 変更: `tools/tracing-poc/engine-katakana.js`(Safety Guard追加)
+- 変更: `katakana-app.html`(同内容インライン移植)
+- 新規(較正・探索記録): `tools/tracing-poc/
+  calibrate-assignment-safety.js`(Candidate A、不採用の記録)・
+  `calibrate-monotonic-safety.js`(Candidate B、採用の記録)・
+  `explore-assignment-exploits.js`(独立exploit探索)
+- 無変更: `hiragana-learn.html`・`tools/tracing-poc/engine.js`
+
+## T3-D1.19 Known Limitations
+
+新規のKnown Limitationなし。T3-C''までのMirror・Motor
+Accessibility解消状態を維持しつつ、T3-Dで発見されたRelease
+Blockerを character-specific hackなしで解消した。
+
+## T3-D1.20 Final Release Recommendation
+
+Multi-Hypothesis Assignment Acceptance Safety Guard(monotonicity
+check)により、T3-D Blockerを一般化された方法で解消。全Negative
+Accuracy Gate・Motor Accessibility Gateを満たし、独立exploit探索
+でも新規抜け道は0件。Production Release Reviewの再開を推奨する。
+
+## T3-D1.21 Phase Status
+
+**Phase T3-D1 = MULTI-HYPOTHESIS SAFETY GUARD VALIDATED — READY TO
+RESUME PRODUCTION RELEASE。** main merge/push/Production deployは
+行っていない。RC checkpointで停止する。
