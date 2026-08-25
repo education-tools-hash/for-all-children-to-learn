@@ -347,7 +347,141 @@ Source of Truth)**
   ページ)は、承認範囲外のため意図的に未修正のまま将来Phase候補として
   記録した。
 
-## 14. Phase Status (最終)
+## 14. Phase Status (T4-B時点)
 
 **Phase T4-B = ANALYTICS / PRIVACY DISCLOSURE CONSISTENCY FIXED —
 PRODUCTION RELEASED**(Production上の実ブラウザ検証完了後に確定)。
+
+---
+
+## 15. Phase T4-C 実装結果(Remaining Privacy Wording Cleanup)
+
+T4-Bのsite-wide再スキャンで報告された残存表現(Finding A・B/C)について、
+本Phaseで文言の再監査と修正を行った。
+
+### 15.1 Exact Source Audit(修正前の再確認)
+
+T4-Bの報告文言をそのまま機械的に置換せず、各対象の実装を再確認した。
+
+**Finding A: `kyou-no-kiroku.html` 1480行目**
+
+- 種別: 手書き(interactive app page、`generate.js`の生成対象外。
+  CLAUDE.md記載の「Interactive app pages」に該当)。
+- 文脈: 「🔒 プライバシー・データの安全について」パネル
+  (1459-1493行目)内の3項目中2番目。同パネルの他項目は「アプリの
+  動作に…」「アイコンに使用した写真・イラストも端末内のみで…」と、
+  いずれも暗黙にこのアプリ自身を指す書き方になっているのに対し、
+  この項目のみ「アクセス解析ツールや広告配信サービスは一切導入して
+  いません」とスコープを明示しない書き方になっていた。
+- このアプリ自体にはGoogle Analyticsが導入されていないため、文言
+  自体は事実と矛盾しないが、サイト全体についての断定と誤読され得る
+  点がT4-Bの指摘通り存在すると確認した。
+
+**Finding B/C: `sst-app-detail.html` / `app-details/sst-app-detail.html`
+197行目のタグ「🔒 個人情報は端末内保存・外部送信なし」**
+
+- Source of Truthを`apps-data.json`(1662行目、SSTアプリの`badges`
+  配列)まで遡って確認した結果、**この文言は「アクセス解析」や
+  「解析ツール」について何も述べていない**ことが判明した
+  (「個人情報は端末内保存・外部送信なし」という、データの保存場所
+  に関するタグであり、T4-Bの報告にあった「解析ツールなし」パターンの
+  類例ではなかった)。
+- 同じ`apps-data.json`のSSTエントリーには`caution`フィールド
+  (1652行目)が既に存在し、そこでは「きもち日記の音声入力を使う
+  場合のみ、文字起こしのためブラウザの音声認識サービスに音声データが
+  送信されます」という例外を含めて正確に開示されている。タグ表記
+  はbadge欄の性質上、他アプリ同様に簡潔な要約であり、この例外を
+  含めていない点はあるが、これは「アクセス解析のサイト全体への
+  誤読」という本Phaseの対象パターンとは異なる、別種の精度課題である。
+- 結論: **Finding B/Cは本Phase(T4-C)の対象スコープ外と判断し、
+  修正を行わなかった**。T4-Bの報告における特徴づけ(「解析ツールなし」
+  相当の表現)が実装の再確認により不正確であったことをここに記録する。
+  badge文言とcautionフィールドの記述粒度の差自体は、将来的に
+  「badge文言の精度改善」を検討する場合の候補として記録するに留める
+  (Analytics disclosureとは別テーマ)。
+
+### 15.2 修正内容
+
+**`kyou-no-kiroku.html` 1480行目**
+
+- Source of Truth: `kyou-no-kiroku.html`自身(手書き、生成対象外)。
+- 修正前:
+  > 広告・解析なし：アクセス解析ツールや広告配信サービスは一切導入
+  > していません。
+- 修正後:
+  > 広告・解析なし：この教材には、アクセス解析ツールや広告配信
+  > サービスを組み込んでいません。
+- 「この教材には」を明示することで、同パネル内の他2項目と同じ
+  スコープ表現の様式に揃え、サイト全体についての断定と誤読されない
+  ようにした。実装(GA未導入)自体は変更していない。
+
+### 15.3 Analytics Integrity
+
+- GA4スクリプトブロック(`index.html` 1047-1053行目)・measurement ID
+  `G-8GHH7JKZMB`は本Phaseでも完全に無変更。
+- `grep -rc "gtag\|googletagmanager" --include="*.html" .`の結果、
+  該当は`index.html`の5行のみ(T4-Bから変化なし)。
+- Cookie consent機能の追加・Analytics provider変更は行っていない。
+
+### 15.4 Generated Output / Idempotency
+
+- `kyou-no-kiroku.html`は`generate.js`の生成対象外であることを
+  確認済み(`node generate.js`実行後も本ファイルは変更されず、
+  `git status --porcelain`は本ファイルの手動編集のみを示した)。
+- `node generate.js`を2回連続実行し、出力ログ・`git status`の差分
+  なしを確認(idempotency確認)。
+
+### 15.5 Site-wide Final Re-scan
+
+- 「解析ツール」「アクセス解析」「Google Analytics」を含むファイルを
+  再走査した結果、該当は`index.html`(正確)・`terms.html`(正確)・
+  `kyou-no-kiroku.html`(本Phaseで修正済み)・ルート直下の重複
+  `kyou-no-kiroku-detail.html`(既知の技術的負債、Section 8参照、
+  対応なし)の4件のみとなった。利用者向けページに「サイト全体では
+  アクセス解析を行っていない」と誤読される残存文言は確認されなかった。
+- ページ単位で正確かつ範囲が明記された既存の説明
+  (`index.html`・`terms.html`のGA開示、`apps-data.json`経由の
+  きょうのきろく機能説明)は変更していない。
+
+### 15.6 Root-level Duplicate Page
+
+- ルート直下の重複`kyou-no-kiroku-detail.html`にGAが導入されていない
+  ことを再確認した(`grep -c "gtag\|googletagmanager"` → 0件)。
+  本Phaseでは整理・削除・redirect等を一切行わず、存在確認のみに
+  留め、既知・別管理の技術的負債として維持した。
+
+### 15.7 Browser Validation
+
+- `kyou-no-kiroku.html`のヘルプモーダル(`#modalHelp`、`#helpBtn`
+  クリックで表示)をdesktop(1280×900)・mobile(390×780)の両
+  ビューポートで確認。新文言の表示・旧文言の非表示・console
+  エラー0件・pageエラー0件を確認した。
+
+### 15.8 Accessibility
+
+- 修正対象は`<span>`内のテキストのみで、修正前後ともにaria属性は
+  存在しない(新規のインタラクティブ要素・aria属性の追加なし)。
+  既存のモーダル開閉動作・構造への影響はない。
+
+### 15.9 Changelog
+
+- 本Phaseは既存の2026-08-25エントリー「プライバシーに関するご案内を
+  分かりやすくしました。」と同一目的・同日の軽微な文言整理であるため、
+  新しい更新履歴項目は追加しなかった。
+
+### 15.10 本Phaseで変更していないこと
+
+- Google Analyticsの削除・設定変更・provider変更: 行っていない。
+- Cookie consent機能の追加: 行っていない。
+- 大規模なPrivacy再設計: 行っていない。
+- Finding B/C(SSTのbadge文言): スコープ外と判断し、意図的に未修正。
+- ルート直下の重複`kyou-no-kiroku-detail.html`: 削除・redirect等は
+  行っていない(既知の技術的負債として維持)。
+
+## 16. Phase Status (最終)
+
+**Phase T4-C = REMAINING PRIVACY WORDING CLEANED — PRODUCTION
+RELEASED**(Production上の実ブラウザ検証完了後に確定)。
+
+**Phase T4 = ANALYTICS / PRIVACY DISCLOSURE CONSISTENCY — COMPLETE**
+(T4-C完了・Final Closure Gate通過後に確定)。
