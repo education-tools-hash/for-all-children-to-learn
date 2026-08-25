@@ -564,3 +564,131 @@ shape/coverage計算がこの区別を自然に内包していた。**
 
 前回のLANプレビュー(同一worktree・同一URL、サーバー再起動不要)で、
 特に「あ」の3画目をわざと雑に描いて RETRY になることをご確認ください。
+
+---
+
+# Revision 7 — Phase T2-C 結果(ひらがな46文字 Full Local Rollout)
+
+## T2-C.0 User Approval
+
+Phase T2-B'' User Re-Review: N1〜N5全てユーザー評価「ばっちり」。
+Phase T2-B'' = PASS、Phase T2-C = UNBLOCKED。
+
+## T2-C.1 Character Inventory / Structural Classification
+
+`tools/tracing-poc/extract-reference-full.js`で全46文字(strokeDataの
+gojuon全体、濁音・拗音等は対象外)を抽出。画数分布: 1画11文字・2画17文字・
+3画13文字・4画5文字。`tools/tracing-poc/character-inventory.js`で各strokeの
+弧長・弦長比(curvature)を計算し、5グループへ分類(実データに基づき命名):
+
+- B 単純曲線: く・へ(2文字)
+- C hook/turn: い・う・し・す・り(5文字)
+- D loop/large curve: え・こ・そ・つ・て・ぬ・ね・の・ひ・み・め・ゆ・よ・
+  ら・る・れ・ろ・わ・ん(19文字)
+- E 複数画(位置関係が重要): き・け・さ・せ・ふ(5文字)
+- F 複雑(3-4画+loop/sweep): あ・お・か・た・な・に・は・ほ・ま・む・も・
+  や・を(13文字)
+
+(「A: ほぼ直線中心」に単独で分類される文字はなし — 全文字が最低1画は
+曲線的要素を持つ)
+
+Reference Data Audit: 全46文字104strokeについてゼロ長・不正bbox・
+サンプリング失敗を検査、**異常0件**。文字全体のbboxも全て既存の
+6%マージン内に収まることを確認(Guide clippingリスクなし)。
+
+## T2-C.2 SVG Guide / Engine Full Rollout
+
+`hiragana-learn.html`から`TRACING_PILOT_CHARS`分岐を完全撤去。
+`drawGuide()`は全46文字で`drawSvgGuide()`(旧`drawPilotSvgGuide`)を呼び、
+fillTextフォールバックは削除。`endTrace()`の「非Pilot文字は画数のみ判定」
+という旧分岐も削除し、全文字が`evaluateTraceAttempt()`(旧
+`evaluatePilotAttempt`)を通る一本の経路に統一。命名整理:
+`PILOT_GUIDE_MARGIN/SCALE`→`GUIDE_MARGIN/SCALE`、
+`pilotCanvasToNormalized`→`canvasToNormalized`、
+`showPilotRetry`→`showRetry`、`pilotRetryTimer`→`retryTimer`。
+
+46文字Guide contact sheet(実ブラウザ描画)で全文字を目視確認:
+canvas内に収まる・極端に小さい/切れている文字なし・線の太さ一貫・
+開始ドット一貫・文字間のサイズ感に大きな差なし。
+
+## T2-C.3 Per-Stroke Quality Floor 全46文字較正
+
+`min(shape, coverage) >= 0.80`をそのまま46文字へ適用開始。まず
+「全stroke最後の1画を直線代用」という単純な全文字テストを実施したところ、
+き・け・さ・す・た・に・は・ほ・も・りの10文字で **False Negative**
+(直線代用がPASSしてしまう)を検出。
+
+### Wrong Trace Generatorの3段階改良(Root Cause調査の記録)
+
+1. **第1版(不採用)**: 弧長/弦長比(curvature)でstraight/zigzagを分岐。
+   「あ」では機能したが、10文字で一般化に失敗。理由: 細長いstrokeは
+   curvature比が高くても、intrinsic正規化後の実際のふくらみ(bulge)が
+   小さいことがあり、curvature比だけではshape/coverageの挙動を予測できない。
+2. **第2版(不採用)**: intrinsic空間での最大垂直偏差(max bulge)で分岐。
+   10件→3件(き・た・も)に改善したが、まだ不十分。理由:
+   一部の区間だけ急に曲がるstrokeは、局所的なmax偏差は大きくても
+   全体平均(shape scoreが実際に見ているもの)は小さいまま。
+3. **採用: Engineへ直接問い合わせる方式**。幾何学的proxyでの予測をやめ、
+   「他の画は理想的に描いた状態で、直線代用がFloorをクリアしてしまうか」
+   をEngine自身([`Engine.evaluateCharacter`])に実際に評価させ、
+   クリアしてしまう場合のみperpendicular zigzagへフォールバック
+   (これも同様に検証)。この方式で**全46文字・93 stroke位置で
+   False Negative 0件**を達成。
+
+**この過程でPer-Stroke Quality Floor自体(`min(shape,coverage) >= 0.80`)
+やHard Gate、PASS_THRESHOLDは一切変更していない。** 修正したのは
+テスト側(wrong-trace-generator.js)の「壊れたstrokeの作り方」のみ
+(Phase spec Section 16-17の方針通り、global floor/thresholdの安易な
+変更やcharacter-specific特例は一切導入していない)。
+
+## T2-C.4 Full 46-Character Golden Test Suite
+
+`tools/tracing-poc/golden-tests-full46.js`: 46文字 × (P1理想/P2震え/P3位置
+ずれ/P4大きさ違い/P5不均一sampling/P6軽い書き戻し/P7 tremor/P8一時停止)
++ (N1極短/N2離れた位置/N3画数不足/N4画数超過/N5無関係な形) +
+N6単一stroke破損(2画以上の全文字、93 stroke位置、character-aware
+wrong trace generator使用) = **総計691 strict checks、失敗0**。
+逆方向・逆筆順(SOFT policy、borderline扱い)は81ケース全てPASS寄り。
+実行時間 約0.4〜0.8秒(46文字分)。
+
+## T2-C.5 実ブラウザ検証(Full Rollout)
+
+`tools/tracing-poc/test-full-rollout-realbrowser.py`(Playwright実マウス
+駆動pointer event、`hiragana-learn.html`本体を直接操作):
+
+- 代表13文字(Pilot 5: い・く・こ・あ・ま + 拡張8: う・き・さ・た・な・の・
+  ふ・も — 画数1〜4・全構造グループ・Floor較正で問題になった3文字を含む)で
+  Guide表示+理想トレースPASSを確認。
+- **「い」/「あ」Pilot Regression Lock(Section 11)**: 全13ケース
+  (い: ideal/wobble/offset/scale→PASS、ニ/縦線/極短/離れた位置→RETRY。
+  あ: ideal/wobble→PASS、3画目partial/straight/zigzag→RETRY)を
+  実ブラウザで再確認、**全て期待通り(ok=true)**。
+- **旧非Pilot文字の挙動転換確認**: 「か」に任意の直線2本を描くケースが、
+  以前は旧ロジックによりPASSしていたが、**Full Rollout後はRETRYへ転換**
+  (legacy分岐が実際にコードから除去されたことをlive appで実証)。
+  「か」の理想トレースはPASSを維持。
+- Multi-touch guard・pointer capture・clearTrace reset・privacy
+  (localStorage)は全てT2-B/B'/B''確立の挙動を維持。
+- Responsive 5 viewport(375×667/390×844/768×1024/1024×768/1280×900)、
+  4画文字「な」で崩れなし。
+- **console error 0件・page error 0件**。
+
+## T2-C.6 変更ファイル・Production影響
+
+- 変更: `hiragana-learn.html`(Pilot/Legacy分岐の撤去・命名整理のみ、
+  Hard Gate・Per-Stroke Quality Floor・PASS_THRESHOLD等の数値は無変更)
+- 新規: `tools/tracing-poc/extract-reference-full.js`、
+  `tools/tracing-poc/character-inventory.js`、
+  `tools/tracing-poc/wrong-trace-generator.js`、
+  `tools/tracing-poc/golden-tests-full46.js`、
+  `tools/tracing-poc/test-full-rollout-realbrowser.py`
+- 無変更: `katakana-app.html`、`tools/tracing-poc/engine.js`
+  (Pilot向けengine.jsは変更なし。hiragana-learn.html内の埋め込みコピーも
+  数値は無変更、命名のみ整理)
+- main merge/push: なし
+
+## T2-C.7 次のUser Review
+
+代表13文字(Core 5 + Extended 8)を中心に、46文字一覧からも自由に
+確認いただけます。LANプレビューは同一方式(新規worktree用にサーバー
+再起動、URLは変更なし)。

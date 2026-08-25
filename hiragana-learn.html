@@ -2306,12 +2306,13 @@ function resetStroke() {
   if (currentStrokeKana) loadStroke(currentStrokeKana);
 }
 
-// ===== 3.0 TRACING ENGINE (Phase T2-B Local Pilot — い/く/こ/あ/ま のみ) =====
-// tools/tracing-poc/engine.js (Phase T2-A PoC, checkpoint commit 5298318)から
-// そのまま移植。THRESHOLDSはPoCで確定した値を凍結し、本統合を理由に変更しない
-// (donomana-tracing-accuracy-design-v1.md「Threshold freeze」参照)。
+// ===== 3.0 TRACING ENGINE (Phase T2-C — ひらがな46文字 Full Rollout) =====
+// tools/tracing-poc/engine.js (Phase T2-A PoC, checkpoint 5298318で導入、
+// T2-B''でPer-Stroke Quality Floorを追加)からそのまま移植。THRESHOLDSは
+// PoC/Pilotで確定した値を凍結し、46文字への展開自体を理由に変更しない
+// (donomana-tracing-accuracy-design-v1.md「Threshold freeze」参照。
+// 全46文字での較正結果はRevision 7参照)。
 // DOM非依存の純粋関数群。canvasへの描画はTRACEセクション側が行う。
-const TRACING_PILOT_CHARS = ['い', 'く', 'こ', 'あ', 'ま'];
 const TracingEngine = (function () {
   'use strict';
 
@@ -2719,7 +2720,7 @@ function setTraceKana(k) {
   traceStrokeCount = 0;
   traceStrokes = [];
   currentStrokePoints = [];
-  if (pilotRetryTimer) { clearTimeout(pilotRetryTimer); pilotRetryTimer = null; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   clearTrace();
   drawGuide(k);
   document.getElementById('goodJob').classList.remove('show');
@@ -2727,16 +2728,18 @@ function setTraceKana(k) {
   updateTracingDebugPanel(null);
 }
 
-// KanjiVG(109x109) → traceGuide canvas への変換。Phase T2-B Pilot文字では
-// この座標系を「見えているGuide」と「判定Reference」の両方が共有する
-// (Guide Source Unification — donomana-tracing-accuracy-design-v1.md Revision 3)。
-const PILOT_GUIDE_MARGIN = traceGuide.width * 0.06;
-const PILOT_GUIDE_SCALE = (traceGuide.width - PILOT_GUIDE_MARGIN * 2) / 109;
-function pilotCanvasToNormalized(px, py) {
+// KanjiVG(109x109) → traceGuide canvas への変換。この座標系を「見えている
+// Guide」と「判定Reference」の両方が共有する(Guide Source Unification —
+// donomana-tracing-accuracy-design-v1.md Revision 3)。Phase T2-Cで全46文字へ
+// 展開(Pilot 5文字限定の分岐は撤去済み。Reference Data Audit — 全104strokeの
+// bboxが同じマージンに収まることを確認済み)。
+const GUIDE_MARGIN = traceGuide.width * 0.06;
+const GUIDE_SCALE = (traceGuide.width - GUIDE_MARGIN * 2) / 109;
+function canvasToNormalized(px, py) {
   // sampleReferencePath()と同じ0..1(KanjiVG 109基準)空間へ逆変換する。
   return {
-    x: (px - PILOT_GUIDE_MARGIN) / PILOT_GUIDE_SCALE / 109,
-    y: (py - PILOT_GUIDE_MARGIN) / PILOT_GUIDE_SCALE / 109,
+    x: (px - GUIDE_MARGIN) / GUIDE_SCALE / 109,
+    y: (py - GUIDE_MARGIN) / GUIDE_SCALE / 109,
   };
 }
 
@@ -2755,31 +2758,19 @@ function drawGuide(k) {
   traceGCtx.moveTo(0,0); traceGCtx.lineTo(size,size);
   traceGCtx.moveTo(size,0); traceGCtx.lineTo(0,size);
   traceGCtx.stroke();
-
-  if (TRACING_PILOT_CHARS.includes(k) && strokeData[k]) {
-    drawPilotSvgGuide(k, size);
-  } else {
-    // 非Pilot文字は既存のfillTextゴースト文字を無変更のまま維持
-    traceGCtx.save();
-    traceGCtx.font = `bold ${size*0.72}px "Noto Sans JP", sans-serif`;
-    traceGCtx.fillStyle = 'rgba(100,100,200,0.12)';
-    traceGCtx.textAlign = 'center';
-    traceGCtx.textBaseline = 'middle';
-    traceGCtx.fillText(k, size/2, size/2+size*0.05);
-    traceGCtx.restore();
-  }
+  drawSvgGuide(k, size);
 }
 
-// Pilot文字のGuideをKanjiVG SVG pathから直接描画(fillTextではなく実stroke形状)。
+// GuideをKanjiVG SVG pathから直接描画(fillTextではなく実stroke形状)。
 // 判定Reference(TracingEngine.evaluateCharacter)と完全に同じ`strokeData[k]`
-// を、完全に同じ座標変換(PILOT_GUIDE_MARGIN/SCALE)で描くため、
-// 「見えている線=判定基準」が成立する。
-function drawPilotSvgGuide(k, size) {
+// を、完全に同じ座標変換(GUIDE_MARGIN/SCALE)で描くため、
+// 「見えている線=判定基準」が成立する。全46文字共通(Phase T2-C)。
+function drawSvgGuide(k, size) {
   strokeData[k].forEach((stroke) => {
     const { points } = TracingEngine.sampleReferencePath(stroke.d, 48);
     const toCanvas = (p) => ({
-      x: p.x * 109 * PILOT_GUIDE_SCALE + PILOT_GUIDE_MARGIN,
-      y: p.y * 109 * PILOT_GUIDE_SCALE + PILOT_GUIDE_MARGIN,
+      x: p.x * 109 * GUIDE_SCALE + GUIDE_MARGIN,
+      y: p.y * 109 * GUIDE_SCALE + GUIDE_MARGIN,
     });
     traceGCtx.save();
     traceGCtx.strokeStyle = 'rgba(120,140,220,0.28)';
@@ -2810,7 +2801,7 @@ function clearTrace() {
   traceStrokeCount = 0;
   traceStrokes = [];
   currentStrokePoints = [];
-  if (pilotRetryTimer) { clearTimeout(pilotRetryTimer); pilotRetryTimer = null; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   document.getElementById('retryJob').classList.remove('show');
   tracePCtx.clearRect(0,0,traceCanvas.width,traceCanvas.height);
   drawGuide(currentTraceKana);
@@ -2846,13 +2837,13 @@ function getPos(e) {
 let activePointerId = null;
 let currentStrokePoints = [];
 let traceStrokes = []; // 現在の文字での「確定済みstroke」の点列(canvas px)。永続化はしない。
-let pilotRetryTimer = null;
+let retryTimer = null;
 
 traceCanvas.addEventListener('pointerdown', e => {
   if (activePointerId !== null) return;
   activePointerId = e.pointerId;
   try { traceCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 一部の合成/特殊ケースでのみ発生、描画自体は継続する */ }
-  if (pilotRetryTimer) { clearTimeout(pilotRetryTimer); pilotRetryTimer = null; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   traceDrawing = true;
   const p = getPos(e);
   traceLastX = p.x; traceLastY = p.y;
@@ -2890,33 +2881,18 @@ function endTrace() {
   traceStrokeCount++;
   traceStrokes.push(currentStrokePoints);
   currentStrokePoints = [];
-
-  const k = currentTraceKana;
-  if (TRACING_PILOT_CHARS.includes(k) && strokeData[k]) {
-    evaluatePilotAttempt(k);
-    return;
-  }
-
-  // 非Pilot文字: 既存ロジックを完全に無変更で維持(画数のみ判定)
-  const strokeCount = (strokeData[k] || []).length || 3;
-  if (traceStrokeCount >= strokeCount) {
-    document.getElementById('goodJob').classList.add('show');
-    celebrate();
-    speak('じょうず！');
-    traceStrokeCount = 0;
-    addLog('trace', {kana: k});
-  }
+  evaluateTraceAttempt(currentTraceKana);
 }
 
-// Phase T2-B: Pilot文字(い/く/こ/あ/ま)専用の評価フロー。
+// Phase T2-C: 全46文字共通の評価フロー(旧・画数のみ判定はひらがなから撤去済み)。
 // 期待画数に達するまでは何もしない(Hard Gate Aの画数一致を待つ)。
 // 達した時点(それ以上描いた場合を含む)でTracingEngineへ投入する。
-function evaluatePilotAttempt(k) {
+function evaluateTraceAttempt(k) {
   const expected = strokeData[k].length;
   if (traceStrokes.length < expected) return; // まだ画数不足、待つ
 
   const normalizedStrokes = traceStrokes.map(stroke =>
-    stroke.map(p => pilotCanvasToNormalized(p.x, p.y))
+    stroke.map(p => canvasToNormalized(p.x, p.y))
   );
   const result = TracingEngine.evaluateCharacter(normalizedStrokes, strokeData[k]);
   updateTracingDebugPanel(result);
@@ -2929,20 +2905,20 @@ function evaluatePilotAttempt(k) {
     traceStrokes = [];
     addLog('trace', {kana: k});
   } else {
-    showPilotRetry();
+    showRetry();
   }
 }
 
 // Errorless/Supportive UX(Section 18-20): ×やブザー、赤い大きな失敗表示は
 // 使わない。描いた線はしばらく見えたままにしてから消し、Guideは残す。
 // 同じ文字を再試行できるようにするだけで、勝手に次の文字へは進まない。
-function showPilotRetry() {
+function showRetry() {
   const el = document.getElementById('retryJob');
   el.classList.add('show');
   speak('もういちど なぞってみよう');
-  if (pilotRetryTimer) clearTimeout(pilotRetryTimer);
-  pilotRetryTimer = setTimeout(() => {
-    pilotRetryTimer = null;
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
     el.classList.remove('show');
     traceStrokeCount = 0;
     traceStrokes = [];
