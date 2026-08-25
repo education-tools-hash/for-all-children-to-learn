@@ -1600,3 +1600,219 @@ IMPLEMENTATION PLAN。** `katakana-app.html`・`engine.js`・
   Position Guard閾値のみカタカナ自身のMotor Accessibilityデータで
   再較正(T2と同じ方法論、character-specific hackではない)。
   大規模な共有engine化はカタカナでの精度確立後に判断する。
+
+---
+
+# Revision 14 — Phase T3-B: Katakana Tracing Engine Port / Calibration
+
+## T3-B.0 結論
+
+**Phase T3-B = KATAKANA TRACING ENGINE CALIBRATED — WAITING FOR USER
+REVIEW。** T2の判定ロジック(Absolute Geometry Guard・Per-Stroke Quality
+Floor・Position Guard・Completion Guard・Relative Character
+Discrimination)を`katakana-app.html`へそのまま移植し、Pointer Events・
+SVG Guide描画・debugパネルもhiragana T2実装に倣って追加した。
+`STROKE_POSITION_MAX`のみカタカナ自身のgood/bad分布実測に基づき
+0.26→0.355へ再較正(他の閾値は無変更)。Negative Accuracy
+(cross-character FALSE_POSITIVE=0/806、single-bad-stroke false
+positive=0/416、ideal 46/46 PASS)を一切妥協せず、Motor Accessibility
+も大幅に改善(460件中7→2失敗)。残る2件は根本原因を特定済みの
+narrow Known Limitationとして記録する(後述)。
+
+## T3-B.1 Engine Port
+
+`katakana-app.html`へhiragana-learn.htmlのTracingEngine実装
+(THRESHOLDS・shape/coverage評価・Absolute Geometry Guard・Per-Stroke
+Quality Floor・Position Guard・Completion Guard・Relative Character
+Discrimination)を丸ごと移植。`allCharacters`にはカタカナ`strokeData`
+自身を使用。`hiragana-learn.html`・`tools/tracing-poc/engine.js`は
+本Phaseで**無変更**。
+
+Position Guard較正のため`STROKE_POSITION_MAX`のみカタカナ専用値が
+必要になったが、`engine.js`(hiragana Node参照)自体は変更せず、
+`tools/tracing-poc/engine-katakana.js`という物理的コピーを新規作成し
+(この1行のみが`engine.js`との差分)、カタカナ向けNode-based
+golden/calibrationテストは全てこちらを参照する。
+
+## T3-B.2 Pointer Events移行
+
+旧mousedown/mousemove/mouseup/mouseleave + touchstart/touchmove/touchend
+の二重実装を、hiragana T2と同じPointer Events(pointerdown/pointermove/
+pointerup/pointercancel、`setPointerCapture`)へ置換。既存CSSの
+`touch-action:none`(T3-Aで既に存在を確認済み)がそのまま活用される
+形になった。1本のstrokeが`activePointerId`管理により二重記録され
+ないことをReal Browser検証で確認済み。
+
+## T3-B.3 Guide Rendering移行
+
+`fillText()`による旧Guideを、`TracingEngine.sampleReferencePath`経由の
+SVG path描画(`drawSvgGuide`)へ置換。判定Referenceと表示Guideが
+完全に同じ`strokeData[k]`・同じ座標変換(`GUIDE_MARGIN`/`GUIDE_SCALE`)
+を共有する状態を実現(hiragana T2-Cと同一設計)。canvas寸法(320×320)・
+レイアウト・既存UIは変更していない。
+
+## T3-B.4 Logging Semantics
+
+`addLog('trace', {kana})`はPASS時のみ発火するよう変更(旧実装は
+画数到達のみで無条件発火)。Real Browser smoke testで、PASS後に
+`learningLog`が実際に増加し、末尾エントリの`type`が`'trace'`である
+ことを確認済み。
+
+## T3-B.5 Position Guard Calibration(最重要項目)
+
+`calibrate-position-katakana.js`でカタカナ46文字のpositionMetric分布を
+完全測定:
+
+- **good最大値**: 0.3482(ウ/uneven stroke#0)。上位はウ・ミ・ヨ
+  (uneven・wobble系)が占める。
+- **bad最小値(W2)**: 0.3598(ミ stroke#0)。
+- **separation margin**: 0.0116(薄いがclean、重複なし)。
+- **分布**: T3-A失敗文字(ウ・シ・ミ・ヨ)はいずれもgood-case分布の
+  上位(0.29〜0.35)に集中しており、他の大多数の文字(コ・ロ等)は
+  0.06以下。カタカナは短い・独立した点画(ウ・シ・ミの点や短い線)が
+  多く、character全体bbox対角線に対する相対位置ずれがhiraganaより
+  大きく出やすい構造的な傾向があると考えられる。
+- **採用threshold**: `STROKE_POSITION_MAX = 0.355`
+  (worstGood 0.3482 + 0.0068、bestBad 0.3598 − 0.0048。単一の
+  非character-specific値。必要最小限の緩和)。
+
+## T3-B.6 Relative Character Risk Calibration
+
+`calibrate-relative-discrimination-katakana.js`でT3-A抽出の7リスク
+ペア(ヲ/テ・ス/ヌ・ユ/コ・エ/キ・ソ/ハ・メ/ハ・ヒ/セ)を、ideal
+だけでなくwobble/moderate_wobble/offset/uneven/backtrack/tremorを
+加えたtarget入力でも測定:
+
+- **min wrong-character margin**: 0.0099(ヲ↔テ)
+- **worst good-case margin**: -0.0019(ヌ/moderate_wobble vs ス)
+- **clean separation**: あり、(-0.0019, 0.0099)の範囲。
+- 現行`RELATIVE_DISCRIMINATION_MARGIN=0.008`はこの範囲に安全に収まる
+  ため**無変更**。
+
+### ヲ/テ詳細
+
+ideal margin=-0.0099、moderate_wobble/tremor/uneven等を加えても
+margin は-0.003〜-0.008の範囲に留まり、0.008の閾値まで十分な
+余裕がある。Motor variationとwrong-character分布の重なりは
+確認されなかった。
+
+## T3-B.7 Golden Test結果(`golden-tests-katakana-independent46.js`)
+
+- single-bad-stroke(W1-W4): total=416, unexpected_pass=**0**
+  (ambiguous=0, false_positive=0) — hiraganaの1件(ambiguous)より
+  さらに良好。
+- whole-character(W5/W6/W7): total=230, unexpected_pass=**2**
+  (エ・ニ、いずれもW5鏡像。W6/W7は0件)
+- cross-character: total pairs=806, **FALSE_POSITIVE=0**
+  (clear_fail=617, ambiguous=189)
+- risk pair spot-check: 検証した7ペア14方向すべて正しくRETRY
+
+## T3-B.8 Motor Accessibility結果
+
+再較正後: total=460, **failed=2**(T3-A baseline 7から改善)。
+残存2件はいずれも**ウ**の`moderate_wobble`・`uneven`ケースで、
+reason=`stroke_completion_failed`(Position Guardではない)。
+
+### 根本原因分析
+
+ウの1画目(「てんを うつ」= 短い点)と2画目(「よこに はらう」=
+短い横線)は、共に短く近接した位置にある。moderate wobble/uneven
+ノイズ下で`matchStrokes`のshape-costベース最適permutationが、
+まれに1画目↔2画目を**入れ替えて**割り当てる(assignment=[1,0,2]、
+正しくは[0,1,2])。入れ替わった状態でCompletion Guardを計算すると、
+本来無関係なreference strokeに対するprogress spanとなり、異常に
+低い値(0.032〜0.111)が出る。これは**Completion閾値の較正問題では
+なく**、ウ固有の「2本の短く近接したstroke」という構造が、既存の
+(本Phaseで変更していない)`matchStrokes`のshape-costにとって
+稀に曖昧になるケースである。mild_wobble以下・tremor・backtrack・
+pause・offset・scale・irregularでは発生せず(assignment=[0,1,2]を
+維持)、moderate_wobble・unevenという比較的強めのノイズでのみ
+発生する。Real Browser検証で使用した通常のwobble強度では発生しない
+ことを確認済み(Section T3-B.11参照)。
+
+`STROKE_COMPLETION_MIN_SPAN`・`STROKE_POSITION_MAX`のいずれを
+調整しても解決しない(問題の所在がassignment自体であるため)。
+`matchStrokes`のshape-costロジック自体は`engine.js`と共有されており、
+「カタカナのためだけの仕様変更」を避けるため本Phaseでは変更しない。
+
+### Known Limitationとして記録
+
+**ウ: moderate-or-greater noise下でのstroke-assignment入れ替え
+(460件中2件、0.4%)**。1文字・強めのノイズ条件下のみ・原因特定済み・
+Negative Accuracyへの影響なし。Mirror Self-Confusion・
+す/W3_truncated ambiguousと同種の、既存architectureの範囲内の
+narrow Known Limitationとして扱い、無理な閾値変更や
+character-specific hackでの隠蔽は行っていない。
+
+## T3-B.9 Negative Accuracy結果
+
+- 25% scale: unexpected PASS **0**
+- large position shift: clear false positive **0**
+- truncated: clear false positive **0**
+- cross-character: FALSE_POSITIVE **0**
+- ideal: **46/46 PASS**
+
+## T3-B.10 Mirror結果
+
+エ・ニのW5鏡像2件、T3-Aから**増加なし**。Release Blockerとしない
+(T2のKnown Limitationと同種)。mirror workaroundは導入していない。
+
+## T3-B.11 Real Browser結果(`test-katakana-rc.py`)
+
+`katakana-app.html`本体をPlaywright実マウス駆動で直接検証:
+
+- A. 通常なぞり(17文字、リスクペア全員+ウ/シ/ミ/ヨ含む): **全てPASS**
+- B. リスクペア(ヲ←テ・テ←ヲ・ス←ヌ・ヌ←ス・ユ←コ・コ←ユ):
+  **全てRETRY**(reason: `character_discrimination_failed`)
+- C. 25%縮小(ウ): **RETRY**
+- D. 位置ずらし(ヒ): **RETRY**(reason: `stroke_position_failed`)
+- E. 打ち切り(ミ): **RETRY**(reason: `stroke_completion_failed`)
+- F. wobble(ウ・シ・ミ・ヨ): **全てPASS**
+  (通常のwobble強度ではT3-B.8のassignment入れ替えは発生しない)
+
+## T3-B.12 console/page error
+
+**0 / 0**(Real Browser検証全ケース通して)
+
+## T3-B.13 Non-Tracing Smoke Test
+
+文字選択・ガイド表示(SVGガイドの実ピクセル描画を確認)・
+clear/reset(再選択によるink clearを確認)・navigation(前後移動)・
+記録機能(PASS時のみ`learningLog`が`'trace'`エントリで増加)、
+いずれも正常動作を確認。回帰なし。
+
+## T3-B.14 Performance
+
+katakana 46文字、warm cache状態: 平均13.65ms・最大25.22ms
+(T3-A baseline 13.39ms/23.58msから同水準、Position Guard閾値変更は
+計算量に影響しないため実質変化なし)。大幅悪化なし。性能最適化は
+本Phaseで実施していない。
+
+## T3-B.15 変更ファイル
+
+- 変更: `katakana-app.html`(TracingEngine移植・Pointer Events・
+  SVG Guide・evaluateTraceAttempt・updateTracingDebugPanel・
+  retryJob/tracingDebugPanel要素とCSS追加)
+- 新規: `tools/tracing-poc/engine-katakana.js`(`STROKE_POSITION_MAX`
+  のみ`engine.js`と異なる物理コピー)
+- 新規: `tools/tracing-poc/calibrate-position-katakana.js`・
+  `calibrate-relative-discrimination-katakana.js`・
+  `golden-tests-katakana-independent46.js`・`test-katakana-rc.py`
+- 無変更: `hiragana-learn.html`・`tools/tracing-poc/engine.js`・
+  `apps-data.json`・`generate.js`・`index.html`
+- main merge/push/Production deploy: なし(RC checkpointで停止)
+
+## T3-B.16 Known Limitations(まとめ)
+
+- Mirror Self-Confusion(エ・ニ、W5、2件)— T2由来の既存architecture
+  限界、増加なし。
+- ウ: moderate-or-greater noise下でのstroke-assignment入れ替え
+  (2/460、0.4%)— 本Phaseで新規発見、根本原因特定済み、閾値変更・
+  character-specific hackでは解決せず、narrow Known Limitationとして
+  記録。
+
+## T3-B.17 Phase Status
+
+**Phase T3-B = KATAKANA TRACING ENGINE CALIBRATED — WAITING FOR USER
+REVIEW。** main merge/push/Production deployは行っていない。RC
+checkpointでUser Reviewを待つ。

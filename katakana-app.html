@@ -238,6 +238,12 @@
   .good-job { font-size: 1.9rem; animation: pop 0.5s ease; display: none; margin-top: 8px; }
   .good-job.show { display: block; }
   @keyframes pop { 0%{transform:scale(0)} 60%{transform:scale(1.3)} 100%{transform:scale(1)} }
+  /* Phase T3-B: hiragana T2と同等のRETRY(否定的でない)フィードバック */
+  .retry-job { display: none; margin-top: 8px; animation: pop 0.4s ease; }
+  .retry-job.show { display: block; }
+  .retry-job__main { font-size: 1.2rem; font-weight: 700; color: #7B5EA7; }
+  .retry-job__sub { font-size: 0.82rem; color: #888; margin-top: 2px; }
+  #tracingDebugPanel { display: none; font-family: monospace; font-size: 0.65rem; white-space: pre-wrap; text-align: left; background: #222; color: #9f9; border-radius: 8px; padding: 8px; margin-top: 10px; max-width: 320px; max-height: 220px; overflow: auto; }
 
   /* ===== 4. QUIZ ===== */
   .quiz-char { font-size: calc(clamp(5rem,20vw,8rem) * var(--font-scale)); font-weight: 900; text-align: center; color: var(--dark); animation: popIn 0.3s ease; }
@@ -815,6 +821,11 @@
             <canvas id="traceCanvas" width="320" height="320"></canvas>
           </div>
           <div class="good-job" id="goodJob">🌟 じょうず！ 🌟</div>
+          <div class="retry-job" id="retryJob">
+            <div class="retry-job__main">もういちど なぞってみよう</div>
+            <div class="retry-job__sub">せんに そって なぞってみよう</div>
+          </div>
+          <div id="tracingDebugPanel"></div>
         </div>
         <button onclick="traceMove(1)"  style="background:linear-gradient(135deg,#F3E5FF,#E1BEE7);border:3px solid #C3A6E8;border-radius:50%;width:50px;height:50px;font-size:1.4rem;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #B39DDB;display:flex;align-items:center;justify-content:center;color:#7B5EA7;flex-shrink:0;">▶</button>
       </div>
@@ -1558,6 +1569,523 @@ function stepStroke(){
 // ================================================================
 // 3. TRACE
 // ================================================================
+// ===== Phase T3-B: Tracing Accuracy Engine (ported from hiragana-learn.html T2) =====
+const TracingEngine = (function () {
+  'use strict';
+
+  const THRESHOLDS = {
+    SAMPLE_POINTS_PER_STROKE: 64,
+    MIN_LENGTH_RATIO: 0.22,
+    GROSS_LOCATION_MARGIN: 0.45,
+    SHAPE_TOLERANCE: 0.16,
+    SHAPE_NORM: 0.34,
+    STARTEND_RADIUS: 0.24,
+    OFFPATH_FAIL_RATIO: 0.55,
+    ORDER_PENALTY_WEIGHT: 0.12,
+    WEIGHTS: { shape: 0.40, coverage: 0.28, offPath: 0.14, startEnd: 0.10, direction: 0.08 },
+    SPATIAL_WEIGHT: 0.10,
+    PASS_THRESHOLD: 0.60,
+    // Phase T2-B'': 個々のstroke合成score(shape/coverage/offPath/startEnd/direction
+    // の重み付き合計)がこれを下回ったら、文字全体scoreが高くても不合格にする。
+    // 「良い画が悪い画を相殺する」false positive対策(あ・3画目で確認)。
+    STROKE_QUALITY_FLOOR: 0.80,
+    // Phase T2-C'': Absolute Geometry Guard(25%スケール等) + Structural
+    // Discrimination Guard(DTW、そ/る/ろ・ぬ/め・ね/れ/わ・け/は等の混同対策)。
+    // 詳細な較正根拠はtools/tracing-poc/engine.jsのコメントおよび
+    // donomana-tracing-accuracy-design-v1.md Revision 9参照。
+    ABS_SCALE_MIN: 0.50,
+    ABS_SCALE_MAX: 1.70,
+    ABS_POSITION_MAX: 0.50,
+    // Phase T2-C''': DTWの絶対閾値によるHard Gateは廃止(User実機で
+    // 「少し厳しい」と感じた一因と特定。良好ケースの一部が0.038を超えていた)。
+    // 代わりにRelative Character Discrimination(margin)・Per-Stroke
+    // Position Guard・Completion Guardへ責務分離。較正根拠は
+    // tools/tracing-poc/engine.jsのコメントおよびdesign doc Revision 10参照。
+    RELATIVE_DISCRIMINATION_MARGIN: 0.008,
+    STROKE_POSITION_MAX: 0.355, // Phase T3-B: katakana-calibrated (T2 hiragana value was 0.26; see docs/design-system/donomana-tracing-accuracy-design-v1.md Revision 14)
+    STROKE_COMPLETION_MIN_SPAN: 0.50,
+  };
+
+  function tokenizeNumbers(str) {
+    const re = /-?\d*\.\d+(?:e-?\d+)?|-?\d+(?:e-?\d+)?/gi;
+    return (str.match(re) || []).map(Number);
+  }
+
+  function parseCubicPath(d) {
+    const commandRe = /([Mc])([^Mc]*)/g;
+    let match;
+    let cur = { x: 0, y: 0 };
+    const segments = [];
+    let sawMove = false;
+    while ((match = commandRe.exec(d)) !== null) {
+      const cmd = match[1];
+      const nums = tokenizeNumbers(match[2]);
+      if (cmd === 'M') {
+        if (nums.length < 2) throw new Error(`Malformed M command in path: ${d}`);
+        cur = { x: nums[0], y: nums[1] };
+        sawMove = true;
+      } else if (cmd === 'c') {
+        if (!sawMove) throw new Error(`"c" command before any "M" in path: ${d}`);
+        if (nums.length % 6 !== 0) throw new Error(`"c" command coordinate count not a multiple of 6 in path: ${d}`);
+        for (let i = 0; i < nums.length; i += 6) {
+          const p0 = cur;
+          const p1 = { x: p0.x + nums[i], y: p0.y + nums[i + 1] };
+          const p2 = { x: p0.x + nums[i + 2], y: p0.y + nums[i + 3] };
+          const p3 = { x: p0.x + nums[i + 4], y: p0.y + nums[i + 5] };
+          segments.push({ p0, p1, p2, p3 });
+          cur = p3;
+        }
+      }
+    }
+    if (!segments.length) throw new Error(`No cubic segments parsed from path: ${d}`);
+    return segments;
+  }
+
+  function cubicPoint(seg, t) {
+    const mt = 1 - t;
+    const a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, e = t * t * t;
+    return {
+      x: a * seg.p0.x + b * seg.p1.x + c * seg.p2.x + e * seg.p3.x,
+      y: a * seg.p0.y + b * seg.p1.y + c * seg.p2.y + e * seg.p3.y,
+    };
+  }
+
+  function dist(a, b) { const dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
+
+  function flattenToPolyline(segments, stepsPerSegment) {
+    const pts = []; const cum = [0]; let prev = null;
+    segments.forEach((seg) => {
+      for (let s = 0; s <= stepsPerSegment; s++) {
+        if (s === 0 && prev !== null) continue;
+        const t = s / stepsPerSegment;
+        const p = cubicPoint(seg, t);
+        if (prev !== null) cum.push(cum[cum.length - 1] + dist(prev, p));
+        pts.push(p); prev = p;
+      }
+    });
+    return { pts, cum, total: cum[cum.length - 1] };
+  }
+
+  function resamplePolylineByArcLength(pts, cum, numPoints) {
+    const total = cum[cum.length - 1];
+    const out = [];
+    if (total <= 0) { for (let i = 0; i < numPoints; i++) out.push({ x: pts[0].x, y: pts[0].y }); return out; }
+    let seg = 0;
+    for (let i = 0; i < numPoints; i++) {
+      const target = (total * i) / (numPoints - 1);
+      while (seg < cum.length - 2 && cum[seg + 1] < target) seg++;
+      const segStart = cum[seg], segEnd = cum[seg + 1];
+      const segLen = segEnd - segStart;
+      const localT = segLen > 0 ? (target - segStart) / segLen : 0;
+      const a = pts[seg], b = pts[Math.min(seg + 1, pts.length - 1)];
+      out.push({ x: a.x + (b.x - a.x) * localT, y: a.y + (b.y - a.y) * localT });
+    }
+    return out;
+  }
+
+  const KANJIVG_VIEWBOX = 109;
+
+  function sampleReferencePath(d, numPoints) {
+    numPoints = numPoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
+    const segments = parseCubicPath(d);
+    const { pts, cum, total } = flattenToPolyline(segments, 24);
+    const sampled = resamplePolylineByArcLength(pts, cum, numPoints);
+    const norm = sampled.map((p) => ({ x: p.x / KANJIVG_VIEWBOX, y: p.y / KANJIVG_VIEWBOX }));
+    return { points: norm, length: total / KANJIVG_VIEWBOX };
+  }
+
+  function resampleUserStroke(points, numPoints) {
+    numPoints = numPoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
+    if (points.length < 2) return { points: [points[0], points[0]], length: 0 };
+    const cum = [0];
+    for (let i = 1; i < points.length; i++) cum.push(cum[i - 1] + dist(points[i - 1], points[i]));
+    const sampled = resamplePolylineByArcLength(points, cum, numPoints);
+    return { points: sampled, length: cum[cum.length - 1] };
+  }
+
+  function computeBBox(points) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach((p) => {
+      if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+    });
+    return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+  }
+
+  function centroidOf(points) {
+    const n = points.length; let sx = 0, sy = 0;
+    points.forEach((p) => { sx += p.x; sy += p.y; });
+    return { x: sx / n, y: sy / n };
+  }
+
+  function intrinsicNormalize(points) {
+    const bbox = computeBBox(points);
+    const cx = (bbox.minX + bbox.maxX) / 2, cy = (bbox.minY + bbox.maxY) / 2;
+    const scale = 1 / Math.max(bbox.width, bbox.height, 1e-6);
+    return points.map((p) => ({ x: (p.x - cx) * scale, y: (p.y - cy) * scale }));
+  }
+
+  function extractStrokeFeatures(absolutePoints, arcLength) {
+    const bbox = computeBBox(absolutePoints);
+    return {
+      absPoints: absolutePoints,
+      intrinsicPoints: intrinsicNormalize(absolutePoints),
+      length: arcLength,
+      bbox,
+      centroid: centroidOf(absolutePoints),
+      start: absolutePoints[0],
+      end: absolutePoints[absolutePoints.length - 1],
+    };
+  }
+
+  function nearestDistanceTo(pt, others) {
+    let best = Infinity;
+    for (let i = 0; i < others.length; i++) { const d = dist(pt, others[i]); if (d < best) best = d; }
+    return best;
+  }
+
+  function bidirectionalStats(userPts, refPts) {
+    const userToRef = userPts.map((p) => nearestDistanceTo(p, refPts));
+    const refToUser = refPts.map((p) => nearestDistanceTo(p, userPts));
+    const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+    return { meanUserToRef: mean(userToRef), meanRefToUser: mean(refToUser) };
+  }
+
+  function coverageRatio(refPts, userPts, tolerance) {
+    let covered = 0;
+    refPts.forEach((p) => { if (nearestDistanceTo(p, userPts) <= tolerance) covered++; });
+    return covered / refPts.length;
+  }
+
+  function offPathRatio(userPts, refPts, tolerance) {
+    let off = 0;
+    userPts.forEach((p) => { if (nearestDistanceTo(p, refPts) > tolerance) off++; });
+    return off / userPts.length;
+  }
+
+  function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+  function permutations(arr) {
+    if (arr.length <= 1) return [arr];
+    const result = [];
+    arr.forEach((item, i) => {
+      const rest = arr.slice(0, i).concat(arr.slice(i + 1));
+      permutations(rest).forEach((p) => result.push([item].concat(p)));
+    });
+    return result;
+  }
+
+  function shapeCost(userFeat, refFeat) {
+    const stats = bidirectionalStats(userFeat.intrinsicPoints, refFeat.intrinsicPoints);
+    return (stats.meanUserToRef + stats.meanRefToUser) / 2;
+  }
+
+  function matchStrokes(userFeatures, refFeatures) {
+    const n = userFeatures.length;
+    const costMatrix = userFeatures.map((uf) => refFeatures.map((rf) => shapeCost(uf, rf)));
+    if (n !== refFeatures.length) return { assignment: null, totalCost: Infinity, costMatrix };
+    const indices = refFeatures.map((_, i) => i);
+    let best = null, bestCost = Infinity;
+    permutations(indices).forEach((perm) => {
+      let cost = 0;
+      for (let i = 0; i < n; i++) cost += costMatrix[i][perm[i]];
+      if (cost < bestCost) { bestCost = cost; best = perm; }
+    });
+    return { assignment: best, totalCost: bestCost, costMatrix };
+  }
+
+  function orderPenaltyFor(assignment) {
+    const n = assignment.length;
+    if (n < 2) return 0;
+    let inversions = 0;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (assignment[i] > assignment[j]) inversions++;
+    return inversions / ((n * (n - 1)) / 2);
+  }
+
+  function spatialAgreement(userFeatures, refFeatures, assignment) {
+    const n = userFeatures.length;
+    if (n < 2) return 1;
+    let agree = 0, total = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const uI = userFeatures[i].centroid, uJ = userFeatures[j].centroid;
+        const rI = refFeatures[assignment[i]].centroid, rJ = refFeatures[assignment[j]].centroid;
+        const userDx = Math.sign(uJ.x - uI.x), refDx = Math.sign(rJ.x - rI.x);
+        const userDy = Math.sign(uJ.y - uI.y), refDy = Math.sign(rJ.y - rI.y);
+        total += 2;
+        if (userDx === refDx || Math.abs(uJ.x - uI.x) < 0.02) agree++;
+        if (userDy === refDy || Math.abs(uJ.y - uI.y) < 0.02) agree++;
+      }
+    }
+    return agree / total;
+  }
+
+  function unionBBox(features) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    features.forEach((f) => {
+      minX = Math.min(minX, f.bbox.minX); minY = Math.min(minY, f.bbox.minY);
+      maxX = Math.max(maxX, f.bbox.maxX); maxY = Math.max(maxY, f.bbox.maxY);
+    });
+    return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+  }
+
+  function pointInExpandedBBox(pt, bbox, marginRatio) {
+    const mx = bbox.width * marginRatio, my = bbox.height * marginRatio;
+    return pt.x >= bbox.minX - mx && pt.x <= bbox.maxX + mx && pt.y >= bbox.minY - my && pt.y <= bbox.maxY + my;
+  }
+
+  function directionComponent(userFeat, refFeat) {
+    const uv = { x: userFeat.end.x - userFeat.start.x, y: userFeat.end.y - userFeat.start.y };
+    const rv = { x: refFeat.end.x - refFeat.start.x, y: refFeat.end.y - refFeat.start.y };
+    const uLen = Math.hypot(uv.x, uv.y), rLen = Math.hypot(rv.x, rv.y);
+    if (uLen < 1e-6 || rLen < 1e-6) return { cos: 0, label: 'ambiguous', component: 0.5 };
+    const cos = (uv.x * rv.x + uv.y * rv.y) / (uLen * rLen);
+    const label = cos >= 0.3 ? 'forward' : cos <= -0.3 ? 'reversed' : 'ambiguous';
+    return { cos, label, component: Math.abs(cos) };
+  }
+
+  function startEndComponent(userFeat, refFeat) {
+    const R = THRESHOLDS.STARTEND_RADIUS;
+    const forward = dist(userFeat.start, refFeat.start) + dist(userFeat.end, refFeat.end);
+    const reversed = dist(userFeat.start, refFeat.end) + dist(userFeat.end, refFeat.start);
+    const best = Math.min(forward, reversed) / 2;
+    return clamp01(1 - best / R);
+  }
+
+  // Absolute Geometry Guard(Phase T2-C''): 文字全体の絶対スケール・位置。
+  // 弧長比(pathLengthRatio)は震え等のノイズでジグザグ化し不当に膨張するため
+  // gateには使わずdebug表示のみ(bbox対角線比のみが安定してスケールを捉える)。
+  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox) {
+    const refDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
+    const userAllPts = userFeatures.flatMap((f) => f.absPoints);
+    const userBBox = computeBBox(userAllPts);
+    const userDiag = Math.hypot(userBBox.width, userBBox.height);
+    const scaleRatio = userDiag / refDiag;
+    const refTotalLength = refFeatures.reduce((a, f) => a + f.length, 0) || 1e-6;
+    const userTotalLength = userFeatures.reduce((a, f) => a + f.length, 0);
+    const pathLengthRatio = userTotalLength / refTotalLength;
+    const refCentroid = { x: (charBBox.minX + charBBox.maxX) / 2, y: (charBBox.minY + charBBox.maxY) / 2 };
+    const userCentroid = centroidOf(userAllPts);
+    const positionRatio = dist(userCentroid, refCentroid) / refDiag;
+    const scaleOk = scaleRatio >= THRESHOLDS.ABS_SCALE_MIN && scaleRatio <= THRESHOLDS.ABS_SCALE_MAX;
+    const positionOk = positionRatio <= THRESHOLDS.ABS_POSITION_MAX;
+    return { pass: scaleOk && positionOk, scaleRatio, pathLengthRatio, positionRatio, scaleOk, positionOk };
+  }
+
+  // Structural Discrimination Guard(Phase T2-C''): 順序を考慮したDTW距離。
+  function dtwDistance(a, b) {
+    const m = a.length, n = b.length;
+    let prev = new Float64Array(n + 1).fill(Infinity);
+    prev[0] = 0;
+    for (let i = 1; i <= m; i++) {
+      const cur = new Float64Array(n + 1).fill(Infinity);
+      for (let j = 1; j <= n; j++) {
+        const cost = dist(a[i - 1], b[j - 1]);
+        cur[j] = cost + Math.min(prev[j], cur[j - 1], prev[j - 1]);
+      }
+      prev = cur;
+    }
+    return prev[n] / (m + n);
+  }
+  function structuralDistance(userIntrinsicPts, refIntrinsicPts) {
+    const forward = dtwDistance(userIntrinsicPts, refIntrinsicPts);
+    const reversed = dtwDistance([...userIntrinsicPts].reverse(), refIntrinsicPts);
+    return Math.min(forward, reversed);
+  }
+
+  // Per-Stroke Position Guard(Phase T2-C'''): stroke centroid距離/文字対角線。
+  function strokePositionMetric(userAbsPts, refAbsPts, charDiag) {
+    const uC = centroidOf(userAbsPts), rC = centroidOf(refAbsPts);
+    return charDiag > 1e-6 ? dist(uC, rC) / charDiag : 0;
+  }
+
+  // Per-Stroke Completion Guard(Phase T2-C'''): reference側の変換をuser側にも
+  // 共有し、進行度(0..1)のspanを見る(方向非依存)。
+  function bboxTransformParams(points) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    points.forEach((p) => { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; });
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const scale = 1 / Math.max(maxX - minX, maxY - minY, 1e-6);
+    return { cx, cy, scale };
+  }
+  function applyTransform(points, t) { return points.map((p) => ({ x: (p.x - t.cx) * t.scale, y: (p.y - t.cy) * t.scale })); }
+  function progressSpan(userAbsPts, refAbsPts) {
+    const t = bboxTransformParams(refAbsPts);
+    const userPts = applyTransform(userAbsPts, t);
+    const refPts = applyTransform(refAbsPts, t);
+    const N = refPts.length;
+    const progresses = userPts.map((up) => {
+      let best = Infinity, bestIdx = 0;
+      for (let i = 0; i < N; i++) { const d = dist(up, refPts[i]); if (d < best) { best = d; bestIdx = i; } }
+      return bestIdx / (N - 1);
+    });
+    const forwardSpan = Math.max(...progresses) - Math.min(...progresses);
+    const reversedProgresses = progresses.map((p) => 1 - p);
+    const reversedSpan = Math.max(...reversedProgresses) - Math.min(...reversedProgresses);
+    return Math.max(forwardSpan, reversedSpan);
+  }
+
+  // Relative Character Discrimination(Phase T2-C'''): target vs 同画数の
+  // 他文字の中で最も近いもの、をDTWで比較。marginがある場合のみRETRY。
+  const siblingFeatureCache = new Map();
+  function cachedIntrinsicStrokes(strokeDefs) {
+    const key = strokeDefs.map((s) => s.d).join('|');
+    let cached = siblingFeatureCache.get(key);
+    if (!cached) {
+      cached = strokeDefs.map((s) => intrinsicNormalize(sampleReferencePath(s.d, 64).points));
+      siblingFeatureCache.set(key, cached);
+    }
+    return cached;
+  }
+  function avgDtwToCandidate(userIntrinsicStrokes, candidateStrokeDefs) {
+    const n = userIntrinsicStrokes.length;
+    if (candidateStrokeDefs.length !== n) return Infinity;
+    const candFeatures = cachedIntrinsicStrokes(candidateStrokeDefs);
+    const costMatrix = userIntrinsicStrokes.map((u) => candFeatures.map((c) => structuralDistance(u, c)));
+    const idx = candFeatures.map((_, i) => i);
+    let best = Infinity;
+    permutations(idx).forEach((perm) => {
+      let cost = 0;
+      for (let i = 0; i < n; i++) cost += costMatrix[i][perm[i]];
+      if (cost < best) best = cost;
+    });
+    return best / n;
+  }
+  function relativeCharacterDiscrimination(userIntrinsicStrokes, allCharacters, targetChar) {
+    if (!allCharacters || !targetChar || !allCharacters[targetChar]) return null;
+    const n = userIntrinsicStrokes.length;
+    const targetAvg = avgDtwToCandidate(userIntrinsicStrokes, allCharacters[targetChar]);
+    let bestOtherChar = null, bestOtherAvg = Infinity;
+    Object.keys(allCharacters).forEach((cand) => {
+      if (cand === targetChar) return;
+      if (allCharacters[cand].length !== n) return;
+      const avg = avgDtwToCandidate(userIntrinsicStrokes, allCharacters[cand]);
+      if (avg < bestOtherAvg) { bestOtherAvg = avg; bestOtherChar = cand; }
+    });
+    if (bestOtherChar === null) return null;
+    const margin = targetAvg - bestOtherAvg;
+    return { pass: margin < THRESHOLDS.RELATIVE_DISCRIMINATION_MARGIN, targetAvg, bestOtherChar, bestOtherAvg, margin };
+  }
+
+  function evaluateCharacter(userStrokes, referenceStrokeDefs, opts) {
+    opts = opts || {};
+    const N = opts.samplePoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
+
+    const refFeatures = referenceStrokeDefs.map((s) => {
+      const { points, length } = sampleReferencePath(s.d, N);
+      return Object.assign(extractStrokeFeatures(points, length), { label: s.label });
+    });
+    const userFeatures = userStrokes.map((stroke) => {
+      const { points, length } = resampleUserStroke(stroke, N);
+      return extractStrokeFeatures(points, length);
+    });
+    const charBBox = unionBBox(refFeatures);
+
+    const hardGate = {
+      strokeCount: userFeatures.length === refFeatures.length,
+      expectedStrokeCount: refFeatures.length,
+      actualStrokeCount: userFeatures.length,
+      minLength: null,
+      grossLocation: null,
+      absoluteGeometry: null,
+    };
+    const grossLocationPerStroke = userFeatures.map((uf) => pointInExpandedBBox(uf.centroid, charBBox, THRESHOLDS.GROSS_LOCATION_MARGIN));
+    hardGate.grossLocation = grossLocationPerStroke.every(Boolean);
+
+    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox);
+    hardGate.absoluteGeometry = absGeom.pass;
+    hardGate.absoluteGeometryDetail = absGeom;
+
+    if (!hardGate.strokeCount) {
+      return { pass: false, score: 0, reason: 'stroke_count_mismatch', hardGate, strokes: [], orderPenalty: null, spatialScore: null };
+    }
+
+    const { assignment, costMatrix } = matchStrokes(userFeatures, refFeatures);
+
+    const minLengthOk = userFeatures.every((uf, i) => {
+      const rf = refFeatures[assignment[i]];
+      return rf.length > 0 ? uf.length / rf.length >= THRESHOLDS.MIN_LENGTH_RATIO : true;
+    });
+    hardGate.minLength = minLengthOk;
+    const hardGatePassed = hardGate.strokeCount && hardGate.minLength && hardGate.grossLocation && hardGate.absoluteGeometry;
+
+    const strokeResults = userFeatures.map((uf, i) => {
+      const j = assignment[i];
+      const rf = refFeatures[j];
+      const stats = bidirectionalStats(uf.intrinsicPoints, rf.intrinsicPoints);
+      const shapeScore = clamp01(1 - ((stats.meanUserToRef + stats.meanRefToUser) / 2) / THRESHOLDS.SHAPE_NORM);
+      const coverage = coverageRatio(rf.intrinsicPoints, uf.intrinsicPoints, THRESHOLDS.SHAPE_TOLERANCE);
+      const offPath = offPathRatio(uf.intrinsicPoints, rf.intrinsicPoints, THRESHOLDS.SHAPE_TOLERANCE);
+      const startEnd = startEndComponent(uf, rf);
+      const dir = directionComponent(uf, rf);
+      const lengthRatio = rf.length > 0 ? uf.length / rf.length : 1;
+      const structural = structuralDistance(uf.intrinsicPoints, rf.intrinsicPoints);
+      const positionMetric = strokePositionMetric(uf.absPoints, rf.absPoints, Math.hypot(charBBox.width, charBBox.height));
+      const completion = progressSpan(uf.absPoints, rf.absPoints);
+      return { matchedReferenceStroke: j, referenceLabel: rf.label, shape: shapeScore, coverage, offPath, startEnd, direction: dir.component, directionLabel: dir.label, lengthRatio, structuralDistance: structural, positionMetric, completion, cost: costMatrix[i][j] };
+    });
+
+    // Per-Stroke Position Guard(Phase T2-C'''): 他のstrokeが正しくても
+    // 1本だけ全く違う場所に描かれた場合を検出する(文字全体のcentroidだけでは
+    // 相殺されてしまう)。文字のbbox対角線で正規化したper-stroke指標。
+    const positionGuardOk = strokeResults.every((r) => r.positionMetric <= THRESHOLDS.STROKE_POSITION_MAX);
+
+    // Per-Stroke Completion Guard(Phase T2-C'''): stroke途中で止めた場合を
+    // 検出する(raw path lengthはノイズで水増しされうるため使わない)。
+    const completionGuardOk = strokeResults.every((r) => r.completion >= THRESHOLDS.STROKE_COMPLETION_MIN_SPAN);
+
+    // Relative Character Discrimination(Phase T2-C'''): T2-C''の絶対DTW
+    // hard gateを置き換える。opts.allCharacters/opts.targetChar(本番では
+    // strokeData/選択中のkana)が渡された場合のみ有効。未指定時はpass扱い。
+    const relativeDiscrimination = relativeCharacterDiscrimination(
+      userFeatures.map((f) => f.intrinsicPoints),
+      opts.allCharacters,
+      opts.targetChar
+    );
+    const characterDiscriminationOk = relativeDiscrimination ? relativeDiscrimination.pass : true;
+
+    const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(assignment);
+    const spatialScore = spatialAgreement(userFeatures, refFeatures, assignment);
+    const w = THRESHOLDS.WEIGHTS;
+    const perStrokeScores = strokeResults.map((r) => {
+      const offPathPenalty = r.offPath > THRESHOLDS.OFFPATH_FAIL_RATIO ? 1 : r.offPath;
+      return clamp01(w.shape * r.shape + w.coverage * r.coverage - w.offPath * offPathPenalty + w.startEnd * r.startEnd + w.direction * r.direction);
+    });
+    strokeResults.forEach((r, i) => { r.perStrokeScore = perStrokeScores[i]; });
+    const avgStrokeScore = perStrokeScores.reduce((a, b) => a + b, 0) / perStrokeScores.length;
+
+    // Per-Stroke Quality Floor(Phase T2-B''): 文字全体の平均とは独立に、
+    // 各strokeの合成scoreがSTROKE_QUALITY_FLOORを下回っていないか見る。
+    const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
+    hardGate.strokeQualityFloor = perStrokeFloorOk;
+    hardGate.strokePosition = positionGuardOk;
+    hardGate.strokeCompletion = completionGuardOk;
+    hardGate.characterDiscrimination = characterDiscriminationOk;
+    hardGate.characterDiscriminationDetail = relativeDiscrimination;
+
+    const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
+    let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
+    score = clamp01(score);
+    const pass = hardGatePassed && perStrokeFloorOk && positionGuardOk && completionGuardOk
+      && characterDiscriminationOk && score >= THRESHOLDS.PASS_THRESHOLD;
+
+    let reason = 'ok';
+    if (!hardGatePassed) reason = 'hard_gate_failed';
+    else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
+    else if (!positionGuardOk) reason = 'stroke_position_failed';
+    else if (!completionGuardOk) reason = 'stroke_completion_failed';
+    else if (!characterDiscriminationOk) reason = 'character_discrimination_failed';
+    else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
+
+    return {
+      pass, score, reason,
+      hardGate, assignment, strokes: strokeResults, orderPenalty, spatialScore,
+    };
+  }
+
+  return { THRESHOLDS, sampleReferencePath, evaluateCharacter, computeBBox };
+})();
+
 const traceGuide=document.getElementById('traceGuide');
 const traceCanvas=document.getElementById('traceCanvas');
 const traceGCtx=traceGuide.getContext('2d');
@@ -1594,8 +2122,28 @@ function traceMove(dir){
 }
 
 function setTraceKana(k){
-  currentTraceKana=k; traceStrokeCount=0; clearTrace(); drawGuide(k);
+  currentTraceKana=k;
+  traceStrokeCount=0;
+  traceStrokes=[];
+  currentStrokePoints=[];
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  clearTrace();
+  drawGuide(k);
   document.getElementById('goodJob').classList.remove('show');
+  document.getElementById('retryJob').classList.remove('show');
+  updateTracingDebugPanel(null);
+}
+
+// KanjiVG(109x109) -> traceGuide canvas への変換。判定Reference
+// (TracingEngine.evaluateCharacter)と表示Guideが同じ座標変換を共有する
+// (hiragana-learn.html T2-Cと同じ設計。Guide Source Unification)。
+const GUIDE_MARGIN = traceGuide.width * 0.06;
+const GUIDE_SCALE = (traceGuide.width - GUIDE_MARGIN * 2) / 109;
+function canvasToNormalized(px, py) {
+  return {
+    x: (px - GUIDE_MARGIN) / GUIDE_SCALE / 109,
+    y: (py - GUIDE_MARGIN) / GUIDE_SCALE / 109,
+  };
 }
 
 function drawGuide(k){
@@ -1605,50 +2153,162 @@ function drawGuide(k){
   traceGCtx.beginPath(); traceGCtx.moveTo(sz/2,0); traceGCtx.lineTo(sz/2,sz); traceGCtx.moveTo(0,sz/2); traceGCtx.lineTo(sz,sz/2); traceGCtx.stroke();
   traceGCtx.strokeStyle='#F4F4F4';
   traceGCtx.beginPath(); traceGCtx.moveTo(0,0); traceGCtx.lineTo(sz,sz); traceGCtx.moveTo(sz,0); traceGCtx.lineTo(0,sz); traceGCtx.stroke();
-  traceGCtx.save();
-  traceGCtx.font=`bold ${sz*0.72}px "Noto Sans JP",sans-serif`;
-  traceGCtx.fillStyle='rgba(56,191,161,0.13)';
-  traceGCtx.textAlign='center'; traceGCtx.textBaseline='middle';
-  traceGCtx.fillText(k,sz/2,sz/2+sz*0.04);
-  traceGCtx.restore();
+  drawSvgGuide(k, sz);
+}
+
+// GuideをKanjiVG SVG pathから直接描画(fillTextではなく実stroke形状)。
+// 判定Reference(TracingEngine.evaluateCharacter)と完全に同じ`strokeData[k]`
+// を、完全に同じ座標変換(GUIDE_MARGIN/SCALE)で描くため、
+// 「見えている線=判定基準」が成立する(hiragana-learn.html T2-Cと同じ設計)。
+function drawSvgGuide(k, size) {
+  strokeData[k].forEach((stroke) => {
+    const { points } = TracingEngine.sampleReferencePath(stroke.d, 48);
+    const toCanvas = (p) => ({
+      x: p.x * 109 * GUIDE_SCALE + GUIDE_MARGIN,
+      y: p.y * 109 * GUIDE_SCALE + GUIDE_MARGIN,
+    });
+    traceGCtx.save();
+    traceGCtx.strokeStyle = 'rgba(120,140,220,0.28)';
+    traceGCtx.lineWidth = size * 0.075;
+    traceGCtx.lineCap = 'round';
+    traceGCtx.lineJoin = 'round';
+    traceGCtx.beginPath();
+    points.forEach((p, i) => {
+      const c = toCanvas(p);
+      i === 0 ? traceGCtx.moveTo(c.x, c.y) : traceGCtx.lineTo(c.x, c.y);
+    });
+    traceGCtx.stroke();
+    const c0 = toCanvas(points[0]);
+    traceGCtx.fillStyle = 'rgba(120,140,220,0.4)';
+    traceGCtx.beginPath();
+    traceGCtx.arc(c0.x, c0.y, size * 0.025, 0, Math.PI * 2);
+    traceGCtx.fill();
+    traceGCtx.restore();
+  });
 }
 
 function clearTrace(){
+  traceStrokeCount = 0;
+  traceStrokes = [];
+  currentStrokePoints = [];
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  document.getElementById('retryJob').classList.remove('show');
   tracePCtx.clearRect(0,0,traceCanvas.width,traceCanvas.height);
   drawGuide(currentTraceKana);
 }
 function setColor(el){ document.querySelectorAll('.color-pick').forEach(c=>c.classList.remove('active')); el.classList.add('active'); traceColor=el.dataset.color; }
 function setSize(s,el){ traceSize=s; document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
 
-function getTracePos(e){
-  const r=traceCanvas.getBoundingClientRect();
-  const sx=traceCanvas.width/r.width, sy=traceCanvas.height/r.height;
-  if(e.touches) return {x:(e.touches[0].clientX-r.left)*sx, y:(e.touches[0].clientY-r.top)*sy};
-  return {x:(e.clientX-r.left)*sx, y:(e.clientY-r.top)*sy};
+function getPos(e) {
+  const r = traceCanvas.getBoundingClientRect();
+  const scaleX = traceCanvas.width / r.width;
+  const scaleY = traceCanvas.height / r.height;
+  return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
 }
 
-traceCanvas.addEventListener('mousedown',e=>{traceDrawing=true;const p=getTracePos(e);traceLastX=p.x;traceLastY=p.y;});
-traceCanvas.addEventListener('mousemove',e=>{if(!traceDrawing)return;const p=getTracePos(e);doTraceDraw(p);});
-traceCanvas.addEventListener('mouseup',endTrace);
-traceCanvas.addEventListener('mouseleave',endTrace);
-traceCanvas.addEventListener('touchstart',e=>{e.preventDefault();traceDrawing=true;const p=getTracePos(e);traceLastX=p.x;traceLastY=p.y;},{passive:false});
-traceCanvas.addEventListener('touchmove',e=>{e.preventDefault();if(!traceDrawing)return;const p=getTracePos(e);doTraceDraw(p);},{passive:false});
-traceCanvas.addEventListener('touchend',endTrace);
+// ===== Pointer Events(mouse/touch/pen統一、hiragana-learn.html T2と同じ設計) =====
+// 旧mousedown/mousemove/mouseup/mouseleave + touchstart/touchmove/touchend の
+// 二重実装を置き換える。setPointerCapture()により、描画中にpointerが
+// canvas境界へ少しはみ出しても途切れない。同時多点入力は最初の1本のみ処理する。
+let activePointerId = null;
+let currentStrokePoints = [];
+let traceStrokes = [];
+let retryTimer = null;
 
-function doTraceDraw(p){
-  tracePCtx.beginPath(); tracePCtx.strokeStyle=traceColor; tracePCtx.lineWidth=traceSize; tracePCtx.lineCap='round'; tracePCtx.lineJoin='round';
-  tracePCtx.moveTo(traceLastX,traceLastY); tracePCtx.lineTo(p.x,p.y); tracePCtx.stroke();
-  traceLastX=p.x; traceLastY=p.y;
+traceCanvas.addEventListener('pointerdown', e => {
+  if (activePointerId !== null) return;
+  activePointerId = e.pointerId;
+  try { traceCanvas.setPointerCapture(e.pointerId); } catch (err) { /* 一部の合成/特殊ケースでのみ発生、描画自体は継続する */ }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  traceDrawing = true;
+  const p = getPos(e);
+  traceLastX = p.x; traceLastY = p.y;
+  currentStrokePoints = [p];
+});
+traceCanvas.addEventListener('pointermove', e => {
+  if (!traceDrawing || e.pointerId !== activePointerId) return;
+  const p = getPos(e);
+  tracePCtx.beginPath();
+  tracePCtx.strokeStyle = traceColor;
+  tracePCtx.lineWidth = traceSize;
+  tracePCtx.lineCap = 'round';
+  tracePCtx.lineJoin = 'round';
+  tracePCtx.moveTo(traceLastX, traceLastY);
+  tracePCtx.lineTo(p.x, p.y);
+  tracePCtx.stroke();
+  traceLastX = p.x; traceLastY = p.y;
+  currentStrokePoints.push(p);
+});
+traceCanvas.addEventListener('pointerup', e => {
+  if (e.pointerId !== activePointerId) return;
+  activePointerId = null;
+  endTrace();
+});
+traceCanvas.addEventListener('pointercancel', e => {
+  if (e.pointerId !== activePointerId) return;
+  activePointerId = null;
+  endTrace();
+});
+
+function endTrace() {
+  if (!traceDrawing) return;
+  traceDrawing = false;
+  traceStrokeCount++;
+  traceStrokes.push(currentStrokePoints);
+  currentStrokePoints = [];
+  evaluateTraceAttempt(currentTraceKana);
 }
 
-function endTrace(){
-  if(!traceDrawing)return; traceDrawing=false; traceStrokeCount++;
-  const strokes=(strokeData[currentTraceKana]||[]).length||2;
-  if(traceStrokeCount>=strokes){
+// 全46文字共通の評価フロー(旧・画数のみ判定はここから撤去)。
+// 期待画数に達するまでは何もしない(Hard Gate Aの画数一致を待つ)。
+function evaluateTraceAttempt(k) {
+  const expected = strokeData[k].length;
+  if (traceStrokes.length < expected) return;
+
+  const normalizedStrokes = traceStrokes.map(stroke =>
+    stroke.map(p => canvasToNormalized(p.x, p.y))
+  );
+  const result = TracingEngine.evaluateCharacter(normalizedStrokes, strokeData[k], { allCharacters: strokeData, targetChar: k });
+  updateTracingDebugPanel(result);
+
+  if (result.pass) {
     document.getElementById('goodJob').classList.add('show');
-    celebrate(); speak('じょうず！'); traceStrokeCount=0;
-    addLog('trace', {kana: currentTraceKana});
+    celebrate();
+    speak('じょうず！');
+    traceStrokeCount = 0;
+    traceStrokes = [];
+    addLog('trace', {kana: k});
+  } else {
+    showRetry();
   }
+}
+
+// Errorless/Supportive UX: ×やブザー、赤い大きな失敗表示は使わない。
+// 描いた線はしばらく見えたままにしてから消し、Guideは残す。
+function showRetry() {
+  const el = document.getElementById('retryJob');
+  el.classList.add('show');
+  speak('もういちど なぞってみよう');
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    el.classList.remove('show');
+    traceStrokeCount = 0;
+    traceStrokes = [];
+    tracePCtx.clearRect(0,0,traceCanvas.width,traceCanvas.height);
+    drawGuide(currentTraceKana);
+  }, 1700);
+}
+
+// Phase T3-B debug overlay(?tracingDebug=1のときのみ、Production未搭載)
+const TRACING_DEBUG = new URLSearchParams(location.search).get('tracingDebug') === '1';
+function updateTracingDebugPanel(result) {
+  const el = document.getElementById('tracingDebugPanel');
+  if (!el) return;
+  if (!TRACING_DEBUG) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  if (!result) { el.textContent = `(${currentTraceKana}) waiting for ${(strokeData[currentTraceKana]||[]).length} strokes...`; return; }
+  el.textContent = JSON.stringify({ pass: result.pass, score: +result.score.toFixed(3), reason: result.reason, hardGate: result.hardGate, strokes: result.strokes.map(s => ({ shape: +s.shape.toFixed(2), coverage: +s.coverage.toFixed(2), offPath: +s.offPath.toFixed(2), startEnd: +s.startEnd.toFixed(2), dir: s.directionLabel, matched: s.matchedReferenceStroke, perStrokeScore: +s.perStrokeScore.toFixed(3), structuralDistance: +s.structuralDistance.toFixed(4), positionMetric: +s.positionMetric.toFixed(4), completion: +s.completion.toFixed(3) })) }, null, 1);
 }
 
 setTraceKana('ア');
