@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Phase T2-A Tracing Engine PoC — Visual Debugger (NOT PRODUCTION)</title>
+<!-- Same font source/weights as hiragana-learn.html (see drawGuide()/CSS there) —
+     loaded verbatim so the ghost-glyph rendering below is a faithful
+     reproduction, not a fallback-font approximation. -->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
+  body { font-family: 'Noto Sans JP', sans-serif; margin: 16px; background: #f4f4f8; color: #222; }
+  h1 { font-size: 1.1rem; }
+  .banner { background: #FFF3CD; border: 1px solid #E8C468; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+  .layout { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .controls { display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+  .controls label { font-size: 0.85rem; font-weight: 700; }
+  .controls select, .controls button { font-size: 0.95rem; padding: 4px; }
+  canvas { background: #fff; border: 2px solid #ddd; border-radius: 12px; }
+  .legend { font-size: 0.78rem; line-height: 1.6; }
+  .legend span.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+  .result-badge { font-size: 1.3rem; font-weight: 900; padding: 6px 14px; border-radius: 10px; display: inline-block; }
+  .pass { background: #DFF5E1; color: #1B7A32; }
+  .fail { background: #FDE0E0; color: #B0281C; }
+  table.scores { border-collapse: collapse; font-size: 0.78rem; margin-top: 8px; }
+  table.scores th, table.scores td { border: 1px solid #ddd; padding: 3px 8px; text-align: right; }
+  table.scores th { background: #f0f0f0; }
+  table.scores td:first-child, table.scores th:first-child { text-align: left; }
+  #debugJson { font-size: 0.7rem; white-space: pre-wrap; background: #fafafa; border: 1px solid #ddd; padding: 8px; max-width: 480px; max-height: 300px; overflow: auto; }
+</style>
+</head>
+<body>
+<div class="banner">
+  ⚠ Phase T2-A PoC専用のデバッグツールです。Production(hiragana-learn.html / katakana-app.html)には組み込まれておらず、統合予定もこのファイルにはありません。<br>
+  目的: (1) ガイド字形(fillText)とKanjiVG reference centerlineのズレ確認、(2) 各テストケースのcomponent scoreを人間が確認できるようにする。
+</div>
+
+<h1>Tracing Engine PoC — Visual Debugger</h1>
+
+<div class="layout">
+  <div class="controls">
+    <label>文字</label>
+    <select id="charSelect"></select>
+
+    <label>テストケース</label>
+    <select id="caseSelect"></select>
+
+    <label><input type="checkbox" id="showGuide" checked> ガイド字形 (fillText, 本番同等)</label>
+    <label><input type="checkbox" id="showRef" checked> Reference centerline (SVG path resample)</label>
+    <label><input type="checkbox" id="showCorridor" checked> Tolerance corridor</label>
+    <label><input type="checkbox" id="showUser" checked> User trace</label>
+
+    <div style="display:flex; gap:6px;">
+      <button id="viewA" data-view="A">View A: Guideのみ</button>
+      <button id="viewB" data-view="B">View B: Referenceのみ</button>
+      <button id="viewC" data-view="C">View C: Overlay</button>
+    </div>
+    <div id="viewLabel" style="font-size:0.78rem;color:#666;">現在: Overlay(初期状態)</div>
+    <div id="fontStatus" style="font-size:0.72rem;color:#888;">font: 確認中…</div>
+
+    <div id="resultBadge" class="result-badge">-</div>
+    <div id="scoreLine"></div>
+    <table class="scores" id="scoreTable"></table>
+
+    <div class="legend">
+      <div><span class="swatch" style="background:rgba(100,100,200,0.12)"></span>ガイド字形(fillText)</div>
+      <div><span class="swatch" style="background:#2E7DD1"></span>Reference centerline</div>
+      <div><span class="swatch" style="background:rgba(46,125,209,0.15)"></span>Tolerance corridor</div>
+      <div><span class="swatch" style="background:#E8834A"></span>User trace (stroke順に色分け)</div>
+    </div>
+  </div>
+
+  <canvas id="stage" width="320" height="320"></canvas>
+
+  <div>
+    <div style="font-size:0.8rem;font-weight:700;margin-bottom:4px;">Debug JSON (evaluateCharacter出力)</div>
+    <div id="debugJson"></div>
+  </div>
+</div>
+
+<script src="fixtures/reference-data.generated.js"></script>
+<script src="engine.js"></script>
+<script src="golden-traces.js"></script>
+<script>
+(function () {
+  'use strict';
+  const REF = window.TRACING_POC_REFERENCE;
+  const Engine = window.TracingEngine;
+  const Traces = window.GoldenTraces;
+  const CHARS = Object.keys(REF);
+
+  const STROKE_COLORS = ['#E8834A', '#4ECDC4', '#C3A6E8', '#5BA4D4'];
+
+  const CASES = [
+    { id: 'ideal', label: '理想(P1)', fn: (r) => Traces.ideal(r) },
+    { id: 'wobbleMild', label: '軽い震え(P2, amp=0.012)', fn: (r) => Traces.mildWobble(r, 0.012, 10) },
+    { id: 'wobbleStrong', label: '強い震え(B1, amp=0.03)', fn: (r) => Traces.mildWobble(r, 0.03, 12) },
+    { id: 'offset', label: '位置ずれ(P3)', fn: (r) => Traces.slightOffset(r, 0.03, 0.02) },
+    { id: 'offsetLarge', label: '大きめ位置ずれ(B2)', fn: (r) => Traces.slightOffset(r, 0.07, 0.06) },
+    { id: 'scaleUp', label: '大きさ違い・拡大(P4)', fn: (r) => Traces.slightScale(r, 1.12) },
+    { id: 'scaleDown', label: '大きさ違い・縮小(P4)', fn: (r) => Traces.slightScale(r, 0.9) },
+    { id: 'uneven', label: '局所的な揺れ(P5)', fn: (r) => Traces.mildlyUneven(r, 20) },
+    { id: 'reversedDir', label: '逆方向(B3)', fn: (r) => Traces.reversedDirection(r) },
+    { id: 'reversedOrder', label: '逆筆順(B4)', fn: (r) => Traces.reversedOrder(r) },
+    { id: 'tiny', label: '極短stroke(F1)', fn: (r) => Traces.tinyStrokes(r, 0.15) },
+    { id: 'offPosition', label: '文字から離れた位置(F2)', fn: (r) => Traces.offPosition(r) },
+    { id: 'incomplete', label: '画数不足(F3)', fn: (r) => Traces.incompleteStrokeCount(r) },
+    { id: 'unrelated', label: '無関係な形(F4)', fn: (r) => Traces.unrelatedShape(r, 30) },
+    { id: 'twoHoriz', label: '横線2本("ニ"型)', fn: (r) => Traces.twoHorizontalLines(r), only2: true },
+    { id: 'twoVert', label: '縦線2本', fn: (r) => Traces.twoVerticalLines(r), only2: true },
+    { id: 'tremor', label: '手の震え風oscillation', fn: (r) => Traces.withTremor(Traces.ideal(r), 0.01, 1.2, 50) },
+    { id: 'pause', label: '途中で一時停止', fn: (r) => Traces.withBriefPause(Traces.ideal(r)) },
+    { id: 'backtrack', label: '軽い書き戻し', fn: (r) => Traces.withSmallBacktrack(Traces.ideal(r), 60) },
+    { id: 'sparse', label: 'まばらな入力点(device差)', fn: (r) => Traces.withDensity(Traces.ideal(r), 10) },
+  ];
+
+  const charSelect = document.getElementById('charSelect');
+  const caseSelect = document.getElementById('caseSelect');
+  CHARS.forEach((c) => {
+    const o = document.createElement('option'); o.value = c; o.textContent = `${c} (${REF[c].length}画)`;
+    charSelect.appendChild(o);
+  });
+
+  function populateCases() {
+    const n = REF[charSelect.value].length;
+    caseSelect.innerHTML = '';
+    CASES.forEach((c) => {
+      if (c.only2 && n !== 2) return;
+      const o = document.createElement('option'); o.value = c.id; o.textContent = c.label;
+      caseSelect.appendChild(o);
+    });
+  }
+  populateCases();
+  charSelect.addEventListener('change', () => { populateCases(); render(); });
+  caseSelect.addEventListener('change', render);
+  ['showGuide', 'showRef', 'showCorridor', 'showUser'].forEach((id) =>
+    document.getElementById(id).addEventListener('change', () => { render(); })
+  );
+
+  // View presets (Section "Overlay表示" View A/B/C). Driven by the same
+  // checkboxes so manual toggling and automated (Playwright) driving stay
+  // in sync — no separate rendering path to keep faithful to the engine.
+  const VIEW_LABELS = { A: 'View A: Guideのみ', B: 'View B: Referenceのみ', C: 'View C: Overlay(Guide+Reference+Corridor)' };
+  function setView(view) {
+    const set = (id, val) => { document.getElementById(id).checked = val; };
+    if (view === 'A') { set('showGuide', true); set('showRef', false); set('showCorridor', false); set('showUser', false); }
+    if (view === 'B') { set('showGuide', false); set('showRef', true); set('showCorridor', false); set('showUser', false); }
+    if (view === 'C') { set('showGuide', true); set('showRef', true); set('showCorridor', true); set('showUser', false); }
+    document.getElementById('viewLabel').textContent = '現在: ' + VIEW_LABELS[view];
+    document.getElementById('stage').dataset.view = view;
+    render();
+  }
+  document.getElementById('viewA').addEventListener('click', () => setView('A'));
+  document.getElementById('viewB').addEventListener('click', () => setView('B'));
+  document.getElementById('viewC').addEventListener('click', () => setView('C'));
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const SIZE = canvas.width;
+
+  function toCanvas(p) { return { x: p.x * SIZE, y: p.y * SIZE }; }
+
+  // Faithful reproduction of production drawGuide() (hiragana-learn.html:2339-2361):
+  // same canvas size (320), same font string, same fillStyle alpha, same
+  // alignment/baseline/offset formula. Only the grid line styling differs
+  // cosmetically (kept from the original PoC debugger) since it does not
+  // affect the glyph geometry being validated here.
+  function drawGhostGlyph(ch) {
+    ctx.save();
+    ctx.font = `bold ${SIZE * 0.72}px "Noto Sans JP", sans-serif`;
+    ctx.fillStyle = 'rgba(100,100,200,0.12)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(ch, SIZE / 2, SIZE / 2 + SIZE * 0.05);
+    ctx.restore();
+  }
+
+  function drawPolyline(points, color, width) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const c = toCanvas(p);
+      i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawCorridor(points, radiusNormalized, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    points.forEach((p) => {
+      const c = toCanvas(p);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, radiusNormalized * SIZE, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  function render() {
+    const ch = charSelect.value;
+    const refDefs = REF[ch];
+    const caseId = caseSelect.value;
+    const caseDef = CASES.find((c) => c.id === caseId) || CASES[0];
+    const userStrokes = caseDef.fn(refDefs);
+
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    // Background grid (mirrors production drawGuide)
+    ctx.strokeStyle = '#F0F0F0'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(SIZE / 2, 0); ctx.lineTo(SIZE / 2, SIZE); ctx.moveTo(0, SIZE / 2); ctx.lineTo(SIZE, SIZE / 2); ctx.stroke();
+
+    if (document.getElementById('showGuide').checked) drawGhostGlyph(ch);
+
+    const refFeatures = refDefs.map((s) => {
+      const { points, length } = Engine.sampleReferencePath(s.d, 64);
+      return Engine.extractStrokeFeatures(points, length);
+    });
+
+    if (document.getElementById('showCorridor').checked) {
+      refFeatures.forEach((rf) => {
+        const radiusAbs = Engine.THRESHOLDS.SHAPE_TOLERANCE * Math.max(rf.bbox.width, rf.bbox.height, 1e-6);
+        drawCorridor(rf.absPoints, radiusAbs, 'rgba(46,125,209,0.10)');
+      });
+    }
+    if (document.getElementById('showRef').checked) {
+      refFeatures.forEach((rf) => drawPolyline(rf.absPoints, '#2E7DD1', 2));
+    }
+
+    const result = Engine.evaluateCharacter(userStrokes, refDefs);
+
+    if (document.getElementById('showUser').checked) {
+      userStrokes.forEach((s, i) => drawPolyline(s, STROKE_COLORS[i % STROKE_COLORS.length], 4));
+    }
+
+    const badge = document.getElementById('resultBadge');
+    badge.textContent = result.pass ? 'PASS' : 'FAIL';
+    badge.className = 'result-badge ' + (result.pass ? 'pass' : 'fail');
+    document.getElementById('scoreLine').textContent =
+      `score=${result.score.toFixed(3)}  reason=${result.reason}  hardGate=${JSON.stringify(result.hardGate)}`;
+
+    const table = document.getElementById('scoreTable');
+    if (result.strokes.length) {
+      let html = '<tr><th>user#</th><th>matched ref#</th><th>shape</th><th>coverage</th><th>offPath</th><th>start/end</th><th>dir</th><th>len比</th></tr>';
+      result.strokes.forEach((s, i) => {
+        html += `<tr><td>${i}</td><td>${s.matchedReferenceStroke}</td><td>${s.shape.toFixed(2)}</td><td>${s.coverage.toFixed(2)}</td><td>${s.offPath.toFixed(2)}</td><td>${s.startEnd.toFixed(2)}</td><td>${s.direction.toFixed(2)} (${s.directionLabel})</td><td>${s.lengthRatio.toFixed(2)}</td></tr>`;
+      });
+      table.innerHTML = html;
+    } else {
+      table.innerHTML = '<tr><td>(hard gate failed before stroke matching)</td></tr>';
+    }
+
+    document.getElementById('debugJson').textContent = JSON.stringify(result, null, 2);
+  }
+
+  // Canvas fillText() does NOT wait for web fonts automatically — without
+  // this, the ghost glyph would silently render in a fallback font instead
+  // of the actual "Noto Sans JP" production uses, making any visual
+  // comparison meaningless. Explicitly load the same weight drawGuide()
+  // requests ("bold" ~= 700) before the first paint, and re-render after
+  // document.fonts is fully settled as a safety net.
+  const FONT_SPEC = `bold ${SIZE * 0.72}px "Noto Sans JP"`;
+  const fontStatusEl = document.getElementById('fontStatus');
+  fontStatusEl.textContent = `font: 読み込み中… (${FONT_SPEC})`;
+  Promise.race([
+    document.fonts.load(FONT_SPEC).then(() => document.fonts.ready),
+    new Promise((resolve) => setTimeout(resolve, 4000)), // fallback timeout, still renders
+  ]).then(() => {
+    const loaded = document.fonts.check(FONT_SPEC);
+    fontStatusEl.textContent = loaded
+      ? `font: Noto Sans JP 読み込み済み (${FONT_SPEC})`
+      : `font: Noto Sans JP 読み込み失敗 — フォールバックフォントで描画中 (要確認)`;
+    fontStatusEl.dataset.fontLoaded = String(loaded);
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
