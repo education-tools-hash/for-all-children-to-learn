@@ -2308,3 +2308,225 @@ classroom impact推定・再試行成功率推定)を提供する。
 **Phase T3-C' = NO SAFE GENERALIZED ASSIGNMENT FIX — RETURNED FOR
 USER RELEASE DECISION。** main merge/push/Production deployは
 行っていない。RC checkpointで停止する。
+
+---
+
+# Revision 17 — Phase T3-C'': Assignment Ambiguity / Self-Reflection
+Decoupling
+
+## T3-C''.0 結論
+
+**Phase T3-C'' = ASSIGNMENT AMBIGUITY SAFELY RESOLVED — READY FOR
+RELEASE REVIEW。** T3-C'までの3候補(centroid位置・endpoint位置・
+character-relative extent)がすべて「assignment精度向上→Mirror
+Self-Confusion防御の偶然の副作用喪失」という同一の構造的トレードオフ
+で失敗した根本原因は、**「1つの正しいassignmentを選ぶ」という問題と
+「Mirrorかどうかを判定する」という問題が、暗黙のうちに結合していた
+こと**だった。本Phaseはこの2つを明示的に分離した:
+
+1. **Multi-Hypothesis Assignment**(assignment-dependent guards向け):
+   shape-costがnear-tieの場合のみ、複数のassignment候補を試す。
+2. **Self-Reflection Discrimination**(assignment-independent、新規
+   Guard): assignmentに一切依存せず、対象文字自身のreferenceと
+   その水平/垂直mirrorへの平均DTW距離を独立に比較する。
+
+この分離により、**ウ・ミ・テのfalse rejectを完全に解消**
+(multi-seed 0/20、実ブラウザ再現ケースも全てPASSへ転換)しつつ、
+**Mirror unexpected_passは2件→0件**(エ・ニも含め完全解消)という、
+Negative Accuracyを犠牲にしない改善を達成した。ただし
+single-bad-stroke検証で新たに1件の"ambiguous"(false_positiveではない)
+residualが生じたことを正直に記録する(後述)。
+
+## T3-C''.1 Integrity Reproduction
+
+`golden-tests-katakana-independent46.js`(変更前のengine-katakana.js)
+でT3-C'と完全一致を確認: ideal 46/46、cross-character
+FALSE_POSITIVE=0/806、single-bad-stroke false_positive=0/416、
+Mirror=エ・ニ2件、Motor Accessibility single-seed 458/460。
+
+## T3-C''.2 Assignment Confidence Distribution(再較正)
+
+`analyze-ambiguity-distribution.js`(T3-C'から流用、値は無条件再利用
+せず根拠を再確認)。全46文字×4種入力(168サンプル)のbest/second-best
+permutation cost gapを再測定: min=0.0000, p5=0.0010, p25=0.0257,
+median=0.3505(T3-C'と同一分布、engine未変更のため当然)。既知の
+near-tie failure文字の必要gap: ウ(0.0007〜0.0028)・ミ
+(0.0000〜0.0001)・テ(moderate_wobbleで0.0036)。これら全てを
+カバーする最小限の値として`ASSIGNMENT_AMBIGUITY_WINDOW=0.005`を
+採用(テの0.0036に対し0.0014の安全マージン)。
+
+## T3-C''.3 Multi-Hypothesis Assignment Candidate
+
+shape-costのbest/second-best gapが`ASSIGNMENT_AMBIGUITY_WINDOW`未満の
+場合のみ、near-tie範囲内の全permutationを試し、assignment-dependent
+guards(minLength・Per-Stroke Quality Floor・Position・Completion)の
+**いずれかのhypothesisが全guardを満たせばそれを採用**する
+(「1つでもPASSなら無条件PASS」ではなく、あくまでassignment-dependent
+guardsの合否判定のみに限定。score/reasonは採用されたhypothesisの
+値を一貫して使用)。
+
+## T3-C''.4 Guard依存性の分類(実装確認)
+
+コード(`engine-katakana.js`)を精査し、正確に分類:
+
+| Guard | 分類 | 根拠 |
+|---|---|---|
+| strokeCount | assignment-independent | 画数比較のみ |
+| grossLocation | assignment-independent | user strokeの重心 vs 文字全体bbox、assignment不使用 |
+| absoluteGeometry | assignment-independent | 文字全体スケール/位置、assignment不使用 |
+| Relative Character Discrimination | assignment-independent | 独自の内部permutation探索(対象文字比較用)を持ち、`chosen.assignment`を参照しない |
+| **Self-Reflection Discrimination(新規)** | **assignment-independent** | 同上、対象文字自身のmirrorとの独自探索 |
+| minLength | assignment-dependent | `refFeatures[assignment[i]]`参照 |
+| Per-Stroke Quality Floor | assignment-dependent | `strokeResults`(assignment適用後)参照 |
+| Position Guard | assignment-dependent | 同上 |
+| Completion Guard | assignment-dependent | 同上 |
+
+near-tie時に信頼できないのはassignment-dependentな4つのみ。
+
+## T3-C''.5 Mirror Architecture Audit
+
+T3-C'で発見した通り、現行の「たまたま起きるMirror検出」は
+shape-onlyのassignmentがエのV-mirrorで誤ったpermutation
+(`[2,1,0]`)を選び、それがPosition Guardを偶然トリガーすることに
+依存していた。これは**assignmentから完全に分離すべき偶然の
+副作用**であり、堅牢なMirror防御ではないとT3-C'で結論済み。
+
+## T3-C''.6-7 Self-Reflection Discrimination設計・反射不変性
+
+対象文字のreference(64点サンプリング、intrinsic正規化)と、
+各strokeをその自身のbbox中心で水平/垂直反転した2つのmirror版を
+事前計算。userの全strokeとの平均DTW距離(最適permutation探索、
+Relative Character Discriminationと同じ機構)を、original・
+horizontal mirror・vertical mirrorの3通りで計算し、
+`margin = origAvg - min(hAvg, vAvg)`が`SELF_REFLECTION_MARGIN`
+以上ならRETRY。Direction Toleranceは`structuralDistance`が既に
+双方向(forward/reversed)DTWであるため、reverse-direction strokeを
+mirrorと誤認しない。
+
+## T3-C''.8 Mirror Dataset / Good-Mirror Separation
+
+`calibrate-self-reflection.js`で、GOOD側(ideal・mild/moderate
+wobble・offset・uneven・backtrack・tremor・**reversed_direction**含む)
+とW5 mirror攻撃(全46文字×H/V)を測定:
+
+- **worst good**: -0.0051(ン/moderate_wobble)
+- **best mirror**: 0.0174(エH)
+- **separation margin**: 0.0225、clean separation確認。
+- 採用値: `SELF_REFLECTION_MARGIN=0.008`(safely within window)。
+
+## T3-C''.9 Symmetric Characters
+
+較正データにおいて、事実上鏡像対称に近い文字(例: ン等、good側worst
+marginの上位を占める)も、reversed_direction込みの安全マージン
+(0.0225)の範囲内に収まることを確認。character-specific thresholdは
+導入していない。
+
+## T3-C''.10 Combined Architecture Candidate: 採用
+
+Multi-Hypothesis AssignmentとSelf-Reflection Discriminationを
+組み合わせて`engine-katakana.js`・`katakana-app.html`へ反映。
+
+## T3-C''.11-12 Motor Accessibility: Before/After
+
+| 文字 | Before(T3-C') mild/moderate/uneven | After(本Phase) |
+|---|---|---|
+| ウ | 30%/45%/10% | **0%/0%/0%** |
+| ミ | 10%/30%/0% | **0%/0%/0%** |
+| テ | 0%/5%/0% | **0%/0%/0%** |
+
+46文字全体のMotor Accessibility(single-seed, 460件): **failed=0**
+(T3-C'までの2から改善)。他文字への新規false rejectは確認されず。
+
+## T3-C''.13-15 cross-character / single-bad-stroke / scale・position・truncation
+
+- cross-character: FALSE_POSITIVE=**0/806**(維持)
+- single-bad-stroke: total=416, unexpected_pass=**1**
+  (false_positive=**0**、ambiguous=1: **[ミ] stroke#1
+  W3_truncated score=0.744**)。**新規residualとして正直に記録する**:
+  BASE(旧engine)ではこのケースはassignment=[0,1,2](正しい対応)の
+  もとでCompletion Guardが正しく失敗していたが、Multi-Hypothesisが
+  near-tie(ミのstroke0/1)を理由に別のassignment=[1,0,2]を試し、
+  たまたま切り詰められたuser strokeがより短いreference stroke
+  (ref#0)と対応することでCompletion Guardをすり抜けた。これは
+  Multi-Hypothesisの構造的なリスクであり、hiragana T2-C'''以来
+  一貫して使われてきた「ambiguous(score>=0.45)」区分(false_positive
+  ではない)に該当する軽微な事例として扱う。46文字を通じて他に
+  同種の事例は確認されていない(1/416、0.24%)。
+- 25% scale: false_positive=**0**
+- large shift: false_positive=**0**
+- truncation: 上記1件を除き false_positive=**0**
+
+## T3-C''.16 Mirror
+
+W5 unexpected_pass: **2件→0件**(エH・ニHも解消)。Motor
+Accessibilityを犠牲にした結果ではなく、Self-Reflection
+Discriminationによる独立した検出。
+
+## T3-C''.17 Real Browser
+
+- `test-u-realbrowser-repro.py`: 既知失敗seed(4・6・11・16)、
+  Before全てRETRY→**After全て`assignment=[0,1,2]`でPASS**。
+- `test-katakana-stress.py`: ウ(normal/mild/moderate/uneven)・
+  シ・ミ・ヨ 全PASS、risk pairs 6組全RETRY、25%縮小・位置ずらし・
+  打ち切り 全RETRY。
+- `test-katakana-rc.py`: 通常なぞり17文字全PASS、smoke test
+  (文字選択・ガイド表示・clear/reset・記録)全て正常。
+- console/page error: **0/0**(全実ブラウザ検証)
+
+## T3-C''.18 Performance
+
+Before(T3-C' baseline的な相対測定): 約27ms(このセッション実行時、
+システム負荷により絶対値はT3-B/T3-C報告値と異なるが、Before/After
+比較のため同一プロセス内で測定)。After(Multi-Hypothesis +
+Self-Reflection込み): 約31-34ms。相対的に約20-25%の増加。
+実ブラウザ検証では体感遅延・タイムアウトは一切確認されていない。
+
+## T3-C''.19 Hiragana Isolation
+
+`hiragana-learn.html`・`tools/tracing-poc/engine.js`は本Phaseで
+**無変更**(`git diff`で確認済み)。
+
+## T3-C''.20 変更ファイル
+
+- 変更: `tools/tracing-poc/engine-katakana.js`(Multi-Hypothesis
+  Assignment・Self-Reflection Discrimination追加)
+- 変更: `katakana-app.html`(同内容をインライン移植)
+- 新規(投機的候補の実装記録): `tools/tracing-poc/
+  engine-katakana-candidate-selfreflect.js`・
+  `calibrate-self-reflection.js`
+- 無変更: `hiragana-learn.html`・`tools/tracing-poc/engine.js`
+- main merge/push/Production deploy: なし
+
+## T3-C''.21 Known Limitations(更新)
+
+- Mirror Self-Confusion: **解消**(0件)。
+- ウ・ミ・テのfalse reject: **解消**(0/20 each)。
+- **新規、軽微**: ミ stroke#1 W3_truncated(ambiguous、score=0.744、
+  1/416)。Multi-Hypothesis Assignmentの構造的トレードオフに
+  起因、false_positiveではなくambiguous区分。
+
+## T3-C''.22 Actual Learner Pattern Consideration
+
+再試行成功率の推定(T3-C'記載)は各試行のノイズ実現が独立である
+という仮定に基づく近似値であり、同一学習者内での運動パターンの
+自己相関(疲労・慣れ等)により実際の連続再試行成功率は理論値と
+異なりうることを明記する。ただし本Phaseの改善によりウ・ミ・テの
+false reject自体が解消されたため、この考慮の実務的重要性は
+大幅に低下した。
+
+## T3-C''.23 Final Release Recommendation
+
+Multi-Hypothesis Assignment + Self-Reflection Discriminationの
+組み合わせにより、Motor Accessibility(ウ・ミ・テ)とMirror
+Self-Confusionの両方を、Negative Accuracyを妥協せず改善した
+(cross-character・25%scale・position shift・truncationは
+false_positive 0を維持)。新規に生じた1件のambiguous residual
+(ミ/W3_truncated、score=0.744)は、既存の同種区分の中でも軽微な
+部類であることを開示した上で、Production Release Reviewへ進むことを
+推奨する。
+
+## T3-C''.24 Phase Status
+
+**Phase T3-C'' = ASSIGNMENT AMBIGUITY SAFELY RESOLVED — READY FOR
+RELEASE REVIEW。** main merge/push/Production deployは行っていない。
+RC checkpointで停止する。

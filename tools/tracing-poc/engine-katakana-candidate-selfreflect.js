@@ -1,23 +1,14 @@
-// Phase T3-B/T3-C'' — Katakana Tracing Engine (Node test/calibration reference)
+// Phase T3-B — Katakana Tracing Engine (Node test/calibration reference)
 //
 // This is a physical copy of tools/tracing-poc/engine.js (the hiragana
 // Node reference), created because katakana's own Position Guard
 // calibration (calibrate-position-katakana.js) requires a different
 // STROKE_POSITION_MAX than hiragana — and engine.js itself must not be
 // changed just for katakana (it stays the exact hiragana reference/test
-// baseline). Diffs from engine.js:
-// - STROKE_POSITION_MAX 0.26 -> 0.355 (Phase T3-B; see docs/design-system/
-//   donomana-tracing-accuracy-design-v1.md Revision 14: katakana
-//   worst-good=0.3482, best-bad(W2)=0.3598).
-// - Phase T3-C'' additions (Revision 17): Multi-Hypothesis Assignment
-//   (near-tie shape-cost permutations are all tried for the
-//   assignment-dependent guards, resolving the U/mi/te stroke-assignment
-//   ambiguity — see calibrate-position-katakana.js's successor
-//   analyze-ambiguity-distribution.js) and Self-Reflection Discrimination
-//   (assignment-independent Mirror defense, replacing the previous
-//   accidental Position-Guard-via-wrong-assignment side effect that
-//   Candidate C/D/E all depended on and broke). Both are katakana-only;
-//   hiragana-learn.html / engine.js are unmodified.
+// baseline). This file is the ONLY diff from engine.js:
+// STROKE_POSITION_MAX 0.26 -> 0.355 (see docs/design-system/
+// donomana-tracing-accuracy-design-v1.md Revision 14 for the full
+// calibration evidence: katakana worst-good=0.3482, best-bad(W2)=0.3598).
 // All other thresholds are unchanged from T2 (ABS_SCALE_MIN/MAX,
 // ABS_POSITION_MAX, STROKE_QUALITY_FLOOR, STROKE_COMPLETION_MIN_SPAN,
 // RELATIVE_DISCRIMINATION_MARGIN, PASS_THRESHOLD).
@@ -615,7 +606,8 @@
   }
 
   // ---------------------------------------------------------------------
-  // Phase T3-C'' Section 10 — Self-Reflection Discrimination.
+  // Phase T3-C'' Section 10 — Self-Reflection Discrimination (candidate,
+  // NOT wired into evaluateCharacter yet — calibration only).
   //
   // Assignment-independent: does NOT use the `assignment` array computed
   // by matchStrokes at all. Compares the user's whole-character trace

@@ -1604,6 +1604,8 @@ const TracingEngine = (function () {
     RELATIVE_DISCRIMINATION_MARGIN: 0.008,
     STROKE_POSITION_MAX: 0.355, // Phase T3-B: katakana-calibrated (T2 hiragana value was 0.26; see docs/design-system/donomana-tracing-accuracy-design-v1.md Revision 14)
     STROKE_COMPLETION_MIN_SPAN: 0.50,
+    SELF_REFLECTION_MARGIN: 0.008, // Phase T3-C'' — calibrated: worst-good=-0.0051, best-mirror=0.0174
+    ASSIGNMENT_AMBIGUITY_WINDOW: 0.005, // Phase T3-C'' — covers known near-tie failures (U<=0.0028, mi<=0.0001, te=0.0036)
   };
 
   function tokenizeNumbers(str) {
@@ -1951,6 +1953,66 @@ const TracingEngine = (function () {
     });
     return best / n;
   }
+
+  // Phase T3-C'' Section 10 — Self-Reflection Discrimination.
+  // Assignment-independent: does NOT use the per-stroke `assignment` array
+  // at all. Compares the user's whole-character trace against the
+  // TARGET's own reference AND its horizontally/vertically mirrored
+  // versions (each stroke mirrored about its own bbox center, matching
+  // the W5 test convention), via an independent best-permutation search.
+  function mirrorHorizontalPts(points) {
+    let minX = Infinity, maxX = -Infinity;
+    points.forEach((p) => { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; });
+    const cx = (minX + maxX) / 2;
+    return points.map((p) => ({ x: 2 * cx - p.x, y: p.y }));
+  }
+  function mirrorVerticalPts(points) {
+    let minY = Infinity, maxY = -Infinity;
+    points.forEach((p) => { if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; });
+    const cy = (minY + maxY) / 2;
+    return points.map((p) => ({ x: p.x, y: 2 * cy - p.y }));
+  }
+  const mirrorFeatureCache = new Map();
+  function cachedMirroredIntrinsicStrokes(strokeDefs, mirrorFn, tag) {
+    const key = tag + '|' + strokeDefs.map((s) => s.d).join('|');
+    let cached = mirrorFeatureCache.get(key);
+    if (!cached) {
+      cached = strokeDefs.map((s) => intrinsicNormalize(mirrorFn(sampleReferencePath(s.d, 64).points)));
+      mirrorFeatureCache.set(key, cached);
+    }
+    return cached;
+  }
+  function avgDtwToFeatures(userIntrinsicStrokes, candFeatures) {
+    const n = userIntrinsicStrokes.length;
+    if (candFeatures.length !== n) return Infinity;
+    const costMatrix = userIntrinsicStrokes.map((u) => candFeatures.map((c) => structuralDistance(u, c)));
+    const idx = candFeatures.map((_, i) => i);
+    let best = Infinity;
+    permutations(idx).forEach((perm) => {
+      let cost = 0;
+      for (let i = 0; i < n; i++) cost += costMatrix[i][perm[i]];
+      if (cost < best) best = cost;
+    });
+    return best / n;
+  }
+  function selfReflectionDiscrimination(userIntrinsicStrokes, refStrokeDefs) {
+    const n = userIntrinsicStrokes.length;
+    if (refStrokeDefs.length !== n) return null;
+    const origFeatures = cachedIntrinsicStrokes(refStrokeDefs);
+    const hFeatures = cachedMirroredIntrinsicStrokes(refStrokeDefs, mirrorHorizontalPts, 'h');
+    const vFeatures = cachedMirroredIntrinsicStrokes(refStrokeDefs, mirrorVerticalPts, 'v');
+    const origAvg = avgDtwToFeatures(userIntrinsicStrokes, origFeatures);
+    const hAvg = avgDtwToFeatures(userIntrinsicStrokes, hFeatures);
+    const vAvg = avgDtwToFeatures(userIntrinsicStrokes, vFeatures);
+    const bestMirrorAvg = Math.min(hAvg, vAvg);
+    const bestMirrorType = hAvg <= vAvg ? 'horizontal' : 'vertical';
+    const margin = origAvg - bestMirrorAvg;
+    return {
+      pass: margin < THRESHOLDS.SELF_REFLECTION_MARGIN,
+      origAvg, hAvg, vAvg, bestMirrorAvg, bestMirrorType, margin,
+    };
+  }
+
   function relativeCharacterDiscrimination(userIntrinsicStrokes, allCharacters, targetChar) {
     if (!allCharacters || !targetChar || !allCharacters[targetChar]) return null;
     const n = userIntrinsicStrokes.length;
@@ -2002,40 +2064,79 @@ const TracingEngine = (function () {
 
     const { assignment, costMatrix } = matchStrokes(userFeatures, refFeatures);
 
-    const minLengthOk = userFeatures.every((uf, i) => {
-      const rf = refFeatures[assignment[i]];
-      return rf.length > 0 ? uf.length / rf.length >= THRESHOLDS.MIN_LENGTH_RATIO : true;
-    });
-    hardGate.minLength = minLengthOk;
+    // Phase T3-C'' Multi-Hypothesis Assignment: near-tie shape-cost
+    // permutations are all tried for the assignment-DEPENDENT guards
+    // (minLength, Per-Stroke Quality Floor, Position Guard, Completion
+    // Guard). Safe only because Mirror Self-Confusion is now caught by
+    // the assignment-INDEPENDENT Self-Reflection Discrimination guard
+    // below (see design doc Revision 17).
+    const n = userFeatures.length;
+    function evaluateForAssignment(candAssignment) {
+      const minLengthOk = userFeatures.every((uf, i) => {
+        const rf = refFeatures[candAssignment[i]];
+        return rf.length > 0 ? uf.length / rf.length >= THRESHOLDS.MIN_LENGTH_RATIO : true;
+      });
+      const strokeResults = userFeatures.map((uf, i) => {
+        const j = candAssignment[i];
+        const rf = refFeatures[j];
+        const stats = bidirectionalStats(uf.intrinsicPoints, rf.intrinsicPoints);
+        const shapeScore = clamp01(1 - ((stats.meanUserToRef + stats.meanRefToUser) / 2) / THRESHOLDS.SHAPE_NORM);
+        const coverage = coverageRatio(rf.intrinsicPoints, uf.intrinsicPoints, THRESHOLDS.SHAPE_TOLERANCE);
+        const offPath = offPathRatio(uf.intrinsicPoints, rf.intrinsicPoints, THRESHOLDS.SHAPE_TOLERANCE);
+        const startEnd = startEndComponent(uf, rf);
+        const dir = directionComponent(uf, rf);
+        const lengthRatio = rf.length > 0 ? uf.length / rf.length : 1;
+        const structural = structuralDistance(uf.intrinsicPoints, rf.intrinsicPoints);
+        const positionMetric = strokePositionMetric(uf.absPoints, rf.absPoints, Math.hypot(charBBox.width, charBBox.height));
+        const completion = progressSpan(uf.absPoints, rf.absPoints);
+        return {
+          matchedReferenceStroke: j, referenceLabel: rf.label, shape: shapeScore, coverage, offPath, startEnd,
+          direction: dir.component, directionLabel: dir.label, lengthRatio, structuralDistance: structural,
+          positionMetric, completion, cost: costMatrix[i][j],
+        };
+      });
+      const positionGuardOk = strokeResults.every((r) => r.positionMetric <= THRESHOLDS.STROKE_POSITION_MAX);
+      const completionGuardOk = strokeResults.every((r) => r.completion >= THRESHOLDS.STROKE_COMPLETION_MIN_SPAN);
+      const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
+
+      const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(candAssignment);
+      const spatialScore = spatialAgreement(userFeatures, refFeatures, candAssignment);
+      const w = THRESHOLDS.WEIGHTS;
+      const perStrokeScores = strokeResults.map((r) => {
+        const offPathPenalty = r.offPath > THRESHOLDS.OFFPATH_FAIL_RATIO ? 1 : r.offPath;
+        return clamp01(w.shape * r.shape + w.coverage * r.coverage - w.offPath * offPathPenalty + w.startEnd * r.startEnd + w.direction * r.direction);
+      });
+      strokeResults.forEach((r, i) => { r.perStrokeScore = perStrokeScores[i]; });
+      const avgStrokeScore = perStrokeScores.reduce((a, b) => a + b, 0) / perStrokeScores.length;
+      const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
+      let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
+      score = clamp01(score);
+
+      const assignmentDependentOk = minLengthOk && perStrokeFloorOk && positionGuardOk && completionGuardOk;
+      return { assignment: candAssignment, minLengthOk, perStrokeFloorOk, positionGuardOk, completionGuardOk, assignmentDependentOk, strokeResults, orderPenalty, spatialScore, score };
+    }
+
+    let chosen = evaluateForAssignment(assignment);
+    if (n >= 2) {
+      const idxAll = refFeatures.map((_, i) => i);
+      const allPerms = permutations(idxAll)
+        .map((perm) => { let c = 0; for (let i = 0; i < n; i++) c += costMatrix[i][perm[i]]; return { perm, cost: c }; })
+        .sort((a, b) => a.cost - b.cost);
+      const gap = allPerms.length > 1 ? allPerms[1].cost - allPerms[0].cost : Infinity;
+      if (gap < THRESHOLDS.ASSIGNMENT_AMBIGUITY_WINDOW && !chosen.assignmentDependentOk) {
+        const nearTiePerms = allPerms.filter((a) => a.cost <= allPerms[0].cost + THRESHOLDS.ASSIGNMENT_AMBIGUITY_WINDOW);
+        for (let k = 1; k < nearTiePerms.length; k++) {
+          const alt = evaluateForAssignment(nearTiePerms[k].perm);
+          if (alt.assignmentDependentOk) { chosen = alt; break; }
+        }
+      }
+    }
+
+    hardGate.minLength = chosen.minLengthOk;
     const hardGatePassed = hardGate.strokeCount && hardGate.minLength && hardGate.grossLocation && hardGate.absoluteGeometry;
 
-    const strokeResults = userFeatures.map((uf, i) => {
-      const j = assignment[i];
-      const rf = refFeatures[j];
-      const stats = bidirectionalStats(uf.intrinsicPoints, rf.intrinsicPoints);
-      const shapeScore = clamp01(1 - ((stats.meanUserToRef + stats.meanRefToUser) / 2) / THRESHOLDS.SHAPE_NORM);
-      const coverage = coverageRatio(rf.intrinsicPoints, uf.intrinsicPoints, THRESHOLDS.SHAPE_TOLERANCE);
-      const offPath = offPathRatio(uf.intrinsicPoints, rf.intrinsicPoints, THRESHOLDS.SHAPE_TOLERANCE);
-      const startEnd = startEndComponent(uf, rf);
-      const dir = directionComponent(uf, rf);
-      const lengthRatio = rf.length > 0 ? uf.length / rf.length : 1;
-      const structural = structuralDistance(uf.intrinsicPoints, rf.intrinsicPoints);
-      const positionMetric = strokePositionMetric(uf.absPoints, rf.absPoints, Math.hypot(charBBox.width, charBBox.height));
-      const completion = progressSpan(uf.absPoints, rf.absPoints);
-      return { matchedReferenceStroke: j, referenceLabel: rf.label, shape: shapeScore, coverage, offPath, startEnd, direction: dir.component, directionLabel: dir.label, lengthRatio, structuralDistance: structural, positionMetric, completion, cost: costMatrix[i][j] };
-    });
-
-    // Per-Stroke Position Guard(Phase T2-C'''): 他のstrokeが正しくても
-    // 1本だけ全く違う場所に描かれた場合を検出する(文字全体のcentroidだけでは
-    // 相殺されてしまう)。文字のbbox対角線で正規化したper-stroke指標。
-    const positionGuardOk = strokeResults.every((r) => r.positionMetric <= THRESHOLDS.STROKE_POSITION_MAX);
-
-    // Per-Stroke Completion Guard(Phase T2-C'''): stroke途中で止めた場合を
-    // 検出する(raw path lengthはノイズで水増しされうるため使わない)。
-    const completionGuardOk = strokeResults.every((r) => r.completion >= THRESHOLDS.STROKE_COMPLETION_MIN_SPAN);
-
-    // Relative Character Discrimination(Phase T2-C'''): T2-C''の絶対DTW
-    // hard gateを置き換える。opts.allCharacters/opts.targetChar(本番では
+    // Relative Character Discrimination(Phase T2-C'''): assignment-
+    // independent。opts.allCharacters/opts.targetChar(本番では
     // strokeData/選択中のkana)が渡された場合のみ有効。未指定時はpass扱い。
     const relativeDiscrimination = relativeCharacterDiscrimination(
       userFeatures.map((f) => f.intrinsicPoints),
@@ -2044,42 +2145,38 @@ const TracingEngine = (function () {
     );
     const characterDiscriminationOk = relativeDiscrimination ? relativeDiscrimination.pass : true;
 
-    const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(assignment);
-    const spatialScore = spatialAgreement(userFeatures, refFeatures, assignment);
-    const w = THRESHOLDS.WEIGHTS;
-    const perStrokeScores = strokeResults.map((r) => {
-      const offPathPenalty = r.offPath > THRESHOLDS.OFFPATH_FAIL_RATIO ? 1 : r.offPath;
-      return clamp01(w.shape * r.shape + w.coverage * r.coverage - w.offPath * offPathPenalty + w.startEnd * r.startEnd + w.direction * r.direction);
-    });
-    strokeResults.forEach((r, i) => { r.perStrokeScore = perStrokeScores[i]; });
-    const avgStrokeScore = perStrokeScores.reduce((a, b) => a + b, 0) / perStrokeScores.length;
+    // Self-Reflection Discrimination(Phase T3-C''): assignment-independent。
+    // `chosen.assignment`は使わず、対象文字自身の元referenceとmirror
+    // (水平/垂直)への平均DTW距離を独立比較する。
+    const selfReflection = selfReflectionDiscrimination(
+      userFeatures.map((f) => f.intrinsicPoints),
+      referenceStrokeDefs
+    );
+    const selfReflectionOk = selfReflection ? selfReflection.pass : true;
 
-    // Per-Stroke Quality Floor(Phase T2-B''): 文字全体の平均とは独立に、
-    // 各strokeの合成scoreがSTROKE_QUALITY_FLOORを下回っていないか見る。
-    const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
-    hardGate.strokeQualityFloor = perStrokeFloorOk;
-    hardGate.strokePosition = positionGuardOk;
-    hardGate.strokeCompletion = completionGuardOk;
+    hardGate.strokeQualityFloor = chosen.perStrokeFloorOk;
+    hardGate.strokePosition = chosen.positionGuardOk;
+    hardGate.strokeCompletion = chosen.completionGuardOk;
     hardGate.characterDiscrimination = characterDiscriminationOk;
     hardGate.characterDiscriminationDetail = relativeDiscrimination;
+    hardGate.selfReflection = selfReflectionOk;
+    hardGate.selfReflectionDetail = selfReflection;
 
-    const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
-    let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
-    score = clamp01(score);
-    const pass = hardGatePassed && perStrokeFloorOk && positionGuardOk && completionGuardOk
-      && characterDiscriminationOk && score >= THRESHOLDS.PASS_THRESHOLD;
+    const pass = hardGatePassed && chosen.assignmentDependentOk
+      && characterDiscriminationOk && selfReflectionOk && chosen.score >= THRESHOLDS.PASS_THRESHOLD;
 
     let reason = 'ok';
     if (!hardGatePassed) reason = 'hard_gate_failed';
-    else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
-    else if (!positionGuardOk) reason = 'stroke_position_failed';
-    else if (!completionGuardOk) reason = 'stroke_completion_failed';
+    else if (!chosen.perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
+    else if (!chosen.positionGuardOk) reason = 'stroke_position_failed';
+    else if (!chosen.completionGuardOk) reason = 'stroke_completion_failed';
     else if (!characterDiscriminationOk) reason = 'character_discrimination_failed';
-    else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
+    else if (!selfReflectionOk) reason = 'self_reflection_failed';
+    else if (chosen.score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
 
     return {
-      pass, score, reason,
-      hardGate, assignment, strokes: strokeResults, orderPenalty, spatialScore,
+      pass, score: chosen.score, reason,
+      hardGate, assignment: chosen.assignment, strokes: chosen.strokeResults, orderPenalty: chosen.orderPenalty, spatialScore: chosen.spatialScore,
     };
   }
 
