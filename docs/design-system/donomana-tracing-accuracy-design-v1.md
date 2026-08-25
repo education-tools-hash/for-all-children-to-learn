@@ -2076,3 +2076,235 @@ Known Limitation(ウ・ミの2/46文字、頻度10〜30%)はfalse reject
 **Phase T3-C = KATAKANA TRACING INDEPENDENTLY VALIDATED — READY
 FOR RELEASE REVIEW。** main merge/push/Production deployは
 行っていない。RC checkpointで停止する。
+
+---
+
+# Revision 16 — Phase T3-C': Reflection-Invariant Stroke Assignment
+Investigation
+
+## T3-C'.0 結論
+
+User Release Review の結果、ウ・ミの複数seed false reject頻度
+(10〜30%)は現時点でKnown Limitationとして受容するには高いと判断され、
+Production ReleaseはHOLDされた。本Phaseでは、絶対位置に依存しない
+「reflection-invariant」な特徴量(character-relative stroke extent)
+を用いた新候補を設計・検証したが、**理論的に反射不変であるはずの
+特徴量を使っても、なお同一の理由(Mirror Self-Confusionとの構造的
+衝突)で不採用**となった。3つの独立候補(T3-C: centroid位置・
+endpoint位置、T3-C': character-relative extent)すべてが同じ壁に
+突き当たったことから、**NO SAFE GENERALIZED ASSIGNMENT FIX FOUND**
+と結論する。あわせて、より広い文字群での頻度測定・実ブラウザでの
+再現性確認・再試行成功率推定を行い、User Release Decisionに必要な
+定量データを提供する。
+
+## T3-C'.1 Integrity Reproduction
+
+`golden-tests-katakana-independent46.js`をT3-Cから変更せず再実行し、
+完全一致を確認: ideal 46/46 PASS、cross-character FALSE_POSITIVE=
+0/806、single-bad-stroke false_positive=0/416、whole-character
+Mirror unexpected_pass=エ・ニ2件、Motor Accessibility(single-seed)
+458/460。
+
+## T3-C'.2 Ambiguity Distribution(全46文字)
+
+`analyze-ambiguity-distribution.js`で、全46文字×4種の入力
+(ideal/mild_wobble/moderate_wobble/uneven)について、best/second-best
+permutation costのgapを測定(2画以上の文字のみ、計168サンプル)。
+
+- **分布**: min=0.0000、p5=0.0010、p10=0.0034、p25=0.0257、
+  median=0.3505、max=0.6781。
+- **ウの順位**: moderate_wobble(gap=0.0007)は168件中**8番目**に
+  小さい — 決して唯一の外れ値ではない。
+- **ミの順位**: moderate_wobble(gap=0.0000、完全な同点)は
+  168件中**1番目**、ウより深刻。
+- **閾値ごとの該当文字数**: gap<0.002で5文字(ミ・ヨ・キ・ウ・ヲ)、
+  gap<0.01で11文字、gap<0.02で12文字(ミ・ヨ・キ・ウ・ヲ・シ・エ・
+  テ・ツ・モ・ニ・ケ)。
+
+**この事実は「ウだけの特殊な問題」ではないことを裏付ける。**
+
+## T3-C'.3 短い/近接strokeを持つ文字のInventory(自動抽出)
+
+Section 12のgap分布から自動抽出(character-specific ifなし):
+ミ・ヨ・キ・ウ・ヲ・シ・エ・テ・ツ・モ・ニ・ケ の12文字がambiguity
+threshold 0.02未満で該当。ただし実際に**Motor Accessibility上の
+false rejectへつながる**のは、これらのうちウ・ミ・テ(後述)のみ
+であることを多seed測定で確認した(他9文字は近接assignmentでも
+Position/Completion Guardをすり抜けない=実害なし)。
+
+## T3-C'.4 Reflection-Invariant Extent候補(Candidate E)
+
+### 特徴量設計
+
+`stroke bbox diagonal / character bbox diagonal`と
+`stroke arc length / character bbox diagonal`の2つの比率
+(character-relative extent)を用いる。**数学的に厳密な反射不変性**:
+reflection(水平/垂直mirror)は等長変換(isometry)であり、
+strokeのbbox width/height/diagonalもarc lengthも、reflectionの
+前後で**完全に不変**(centroid/endpointのような絶対位置情報とは
+異なり、値そのものが変化しない)。
+
+### Near-Tie戦略
+
+Section 7の指示に従い、shape-costのbest/second-best permutation
+gapが`AMBIGUITY_THRESHOLD`(データから較正、後述)未満の場合のみ
+extent costをsoft tie-breakerとして適用(常時ペナルティではない)。
+`EXTENT_TIE_WEIGHT=0.30`、`AMBIGUITY_THRESHOLD=0.005`
+(T3-C'.2の分布において、ウの全3ケース(0.0007〜0.0028)・ミの全3
+ケース(0.0000〜0.0001)を含み、恣意的な値ではなく実測分布から
+選定)。
+
+### 結果
+
+- ウ: mild_wobble 20 seed中**0/20**(完全解消、6/20→0/20)
+- ミ: mild_wobble 20 seed中**0/20**(完全解消、2/20→0/20)
+- **Mirror unexpected_pass: 2→3件**(エH・エV・ニH。新たにエVが
+  通過)
+
+### 不採用の理由(数値的根本原因)
+
+エのV-mirrorケースを詳細診断した結果:
+
+- **shape-costのみ(現行)**: best permutation=`[2,1,0]`
+  (cost=0.1077)、2nd best=`[0,1,2]`(cost=0.1088)、gap=0.0011。
+  `[2,1,0]`が採用されるが、これはPosition Guardを失敗させる
+  (score=0.606、reason=stroke_position_failed) — **つまり現行の
+  「不正確な」assignmentが、たまたまPosition Guardをトリガーして
+  Mirrorを防いでいた**。
+- **Candidate E適用後**: gap(0.0011)が`AMBIGUITY_THRESHOLD`
+  (0.005)未満のためextent tie-breakerが発動し、正しい(index的に
+  対応した)assignment`[0,1,2]`を選択。しかしreflectionされた
+  文字を正しくindex対応させても、intrinsic正規化されたshapeは
+  mirror前後で区別できず(Mirror Self-Confusionの本質)、かつ
+  この文字については**正しいassignmentのもとでもPosition Guardが
+  たまたま通ってしまう**(エの各strokeの重心が、垂直反転後も
+  文字bbox対角線の0.355以内に留まる、という文字固有の幾何学的
+  偶然)。結果としてPASSしてしまう。
+- **根本的な洞察**: 現行のMirror防御は「shape-onlyのassignmentが
+  たまたま混乱し、Position Guardを誤トリガーする」という**偶然の
+  副作用**に一部依存しており、assignmentを(どんな特徴量を使うに
+  せよ)より正確にすると、この偶然の防御が失われ、本来の
+  Mirror Self-Confusionという既知のgapが露呈する。
+
+## T3-C'.5 Threshold分離不可能性の追加確認
+
+エV-mirrorのgap(0.0011)は、ウのmoderate_wobble(0.0007)と
+uneven(0.0010)の**間**に位置する。ウの3ケース全てを捕捉できる
+どのthresholdも、必然的にエV-mirrorのgap(0.0011)も捕捉して
+しまう。逆にエを除外するthreshold(<0.0011)では、ウの
+moderate_wobble/unevenの少なくとも一部が捕捉されない。
+**分離可能なthreshold windowは存在しない**(T3-CのCandidate C/Dで
+確認された「安全域なし」と同じ結論に、異なる特徴量・異なる分析
+経路からも到達)。
+
+## T3-C'.6 採用/不採用
+
+**Candidate E(reflection-invariant extent、near-tie戦略)は
+不採用**。理由: Mirror unexpected_passが2→3件に増加(Section 10の
+絶対Gateに抵触)。3つの独立候補(centroid・endpoint・
+character-relative extent)がいずれも同一の構造的メカニズムで
+失敗したことから、**「assignment精度を上げること」自体が、
+現行のMirror Self-Confusion(既知の、意図的に対処範囲外とした
+limitation)との間に構造的な緊張関係を持つ**という一般的な結論に
+達した。
+
+## T3-C'.7 Motor Accessibility: single-seed / multi-seed
+
+- single-seed(T3-B/T3-C基準、seed 10/11): 460件中2失敗
+  (ウ moderate_wobble・uneven)
+- multi-seed(20 seed、mild/moderate/uneven×46文字、本Phase新規):
+  実際にfalse rejectへつながるのは**ウ・ミ・テの3文字のみ**
+  (他9文字の近接assignmentは実害なし)。
+
+## T3-C'.8 ウ frequency(Before/After)
+
+candidate不採用のため**変更なし**。実測頻度(本Phase測定):
+mild_wobble 6/20(30%)、moderate_wobble 9/20(45%)、
+uneven 2/20(10%)。
+
+## T3-C'.9 ミ frequency(Before/After)
+
+candidate不採用のため**変更なし**。実測頻度: mild_wobble 2/20(10%)、
+moderate_wobble 6/20(30%)、uneven 0/20(0%)。
+
+新規判明: **テ**もmoderate_wobbleで1/20(5%)の頻度でわずかに影響
+(T3-Bでは未報告)。
+
+## T3-C'.10-13 cross-character / scale・position・truncation / Mirror
+
+いずれもcandidate不採用によりengine無変更のため、T3-Cから
+**変化なし**: cross-character FALSE_POSITIVE=0/806、25%scale・
+position shift・truncation いずれもfalse_positive=0、Mirror
+unexpected_pass=エ・ニの2件(既知のまま、増加なし)。
+
+## T3-C'.14 Real Browser Reproducibility(新規)
+
+`test-u-realbrowser-repro.py`により、ウのmild_wobble既知失敗seed
+(4・6・11・16)の**厳密な**noisy point列をNode側(golden-traces.js)
+で生成し、Playwright実マウスイベントとして物理的に描画。**全4
+seedsで実ブラウザ上でも同一のassignment入れ替え([1,0,2])・
+同一のRETRY(stroke_completion_failed)を確認**。Node単体テストの
+artifactではなく、実際のマウス/タッチ操作で再現可能な問題である
+ことを確定的に証明した。
+
+## T3-C'.15 Classroom Impact / Retry成功率の推定
+
+- 対象: ウ・ミ・テの3文字(46文字中6.5%)。テは頻度5%と軽微。
+- 主要な懸念はウ(最大45%、moderate_wobble時)・ミ(最大30%、同)。
+- **再試行成功率の推定**: 各試行のノイズ実現がおおむね独立と
+  仮定した場合、ウ(45%失敗率)で2回連続失敗する確率は
+  約0.45²≈20%、3回連続失敗は約9%。つまり**大多数の子どもは
+  1〜2回の再試行で成功する**と推定される。ただし同一児童の
+  連続する試行間で運動特性が完全独立とは限らず(疲労・慣れ等の
+  相関がありうる)、これは近似値であることを明記する。
+- False Accept(誤って正解とする)は一切発生しない — 影響は
+  「もう一度なぞってみよう」という追加の手間のみ。
+
+## T3-C'.16 Performance
+
+Candidate E不採用のため`engine-katakana.js`は無変更。
+Before/After計測は不要(T3-B/T3-C baseline: 平均13.65ms・
+最大25.22msを維持)。
+
+## T3-C'.17 Hiragana Isolation
+
+`hiragana-learn.html`・`tools/tracing-poc/engine.js`は本Phaseで
+**無変更**(`git diff`で確認済み)。Candidate Eは
+`engine-katakana-candidate-e.js`という独立ファイルでのみ検証。
+
+## T3-C'.18 変更ファイル
+
+- 新規(調査専用、不採用候補の記録): `tools/tracing-poc/
+  analyze-ambiguity-distribution.js`・
+  `engine-katakana-candidate-e.js`・`test-u-realbrowser-repro.py`
+- 変更: `docs/design-system/donomana-tracing-accuracy-design-v1.md`
+  (Revision 16追記)
+- **`katakana-app.html`・`engine-katakana.js`・`hiragana-learn.html`・
+  `engine.js`は無変更**
+- main merge/push/Production deploy: なし
+
+## T3-C'.19 Known Limitations(更新)
+
+- Mirror Self-Confusion(エ・ニ、W5、2件)— 増加なし。
+- **ウ・ミ・テ: shape-cost near-tieに起因するassignment
+  swap/false reject**(3/46文字、6.5%)。ウ最大45%・ミ最大30%・
+  テ5%(いずれもmoderate_wobble時)。False Acceptなし、Real
+  Browserで再現性確認済み。3つの独立した一般化候補
+  (centroid位置・endpoint位置・character-relative extent、いずれも
+  反射不変性を検討済み)が、いずれも「assignment精度向上と
+  Mirror Self-Confusion防御の偶然の依存関係」という同一の構造的
+  理由で不採用となった。安全な一般化解は現時点のThree-Guard
+  Design architecture内には存在しないと判断する。
+
+## T3-C'.20 Final Release Recommendation
+
+Production Releaseの可否はUser Release Decisionに委ねる。本Phaseは
+「NO SAFE GENERALIZED ASSIGNMENT FIX FOUND」という調査結論と、
+判断に必要な定量データ(頻度・対象文字・実ブラウザ再現性・
+classroom impact推定・再試行成功率推定)を提供する。
+
+## T3-C'.21 Phase Status
+
+**Phase T3-C' = NO SAFE GENERALIZED ASSIGNMENT FIX — RETURNED FOR
+USER RELEASE DECISION。** main merge/push/Production deployは
+行っていない。RC checkpointで停止する。
