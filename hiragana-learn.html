@@ -2788,6 +2788,15 @@ function drawPilotSvgGuide(k, size) {
 }
 
 function clearTrace() {
+  // Phase T2-B'で発見: 「けす」ボタン(ユーザーが任意タイミングで押せる)経由の
+  // clearTraceは、以前はink(見た目)だけを消し、traceStrokes/traceStrokeCount
+  // をリセットしていなかった。次のstrokeが「消したはずの前のstroke」と
+  // 合算評価されてしまう実装バグのため、setTraceKana()と同じリセットをここでも行う。
+  traceStrokeCount = 0;
+  traceStrokes = [];
+  currentStrokePoints = [];
+  if (pilotRetryTimer) { clearTimeout(pilotRetryTimer); pilotRetryTimer = null; }
+  document.getElementById('retryJob').classList.remove('show');
   tracePCtx.clearRect(0,0,traceCanvas.width,traceCanvas.height);
   drawGuide(currentTraceKana);
 }
