@@ -2530,3 +2530,82 @@ false_positive 0を維持)。新規に生じた1件のambiguous residual
 **Phase T3-C'' = ASSIGNMENT AMBIGUITY SAFELY RESOLVED — READY FOR
 RELEASE REVIEW。** main merge/push/Production deployは行っていない。
 RC checkpointで停止する。
+
+---
+
+# Revision 18 — Phase T3-D: Special Residual Gate STOP
+
+## T3-D.0 結論
+
+Phase T3-D(Production Release)のSection 5「Special Residual
+Gate」において、ミ stroke#1 W3_truncated(score=0.744、test上
+"ambiguous"分類)を`katakana-app.html`本体でPlaywright実マウス駆動
+再現し、スクリーンショットで目視確認した結果、**中央のstroke(意図的に
+45%で打ち切ったstroke)がガイドの半分近く未着色のまま残っており、
+「明らかに不完全な入力」と判断した**。Section 5の指示
+(「利用者から見て明らかに不完全な入力が『じょうず！』になる状態なら
+STOPして報告する」)に従い、**本Phaseのmain統合・push・Production
+deployを行わずSTOPする**。
+
+## T3-D.1 再現結果(実測)
+
+`test-mi-residual-gate.py`で、`golden-tests-katakana-independent46.js`
+の該当fixtureと完全同一の点列(ミ・stroke#1・W3_truncated 45%)を
+`katakana-app.html`へ実マウスイベントとして描画:
+
+- badge: **PASS**、score=0.744、reason=ok
+- assignment: swap(matched: stroke#0→ref#1、stroke#1(truncated)→ref#0)
+- stroke#1(truncated)のcompletion=0.698、positionMetric=0.3055
+  (いずれもguard閾値を満たす)
+- console/page error: 0/0(実装自体は正常動作)
+- **スクリーンショット目視**: 中央strokeのガイドの約半分(右下側)が
+  未着色のまま残っている状態を確認
+  (`tools/tracing-poc/t3d-residual-gate-artifacts/
+  mi_w3_truncated_residual.png`)
+
+## T3-D.2 判断根拠
+
+この事象は、T3-C''で導入したMulti-Hypothesis Assignmentが、
+ミのstroke#0/#1(shape-cost上ほぼ同点、T3-C'のambiguity distribution
+分析でgap=0.0000〜0.0001と確認済み)という既知のnear-tie構造に対し、
+本来の対応(stroke#1(truncated)→ref#1)ではなく、より短い
+reference(ref#0)との対応を採用することで、Completion Guardの
+「stroke途中で止めた場合を検出する」という目的そのものを
+部分的にすり抜けている。これはT3-C''.15で「ambiguous」区分として
+記録された既知の事実だが、実際に`katakana-app.html`本体で目視した
+結果、数値上のscore(0.744)が示唆するよりも視覚的な未完成度が
+大きいと判断した。
+
+## T3-D.3 対応方針
+
+Algorithm Freeze(Section 3)の原則により、本Phase(Release Phase)
+内でMulti-Hypothesis Assignment・Completion Guard等のロジックを
+変更することはできない(新規algorithm investigationは別Phaseとする
+べき事項)。したがって:
+
+- 本Phaseでは`engine-katakana.js`・`katakana-app.html`を
+  一切変更していない(T3-C''のRC実装のまま)。
+- main merge・push・Production deployは実施していない。
+- この発見をUserへ報告し、次の対応方針
+  (a) Known Limitationとして受容しReleaseを続行するか、
+  (b) 追加のalgorithm investigation Phase(例: T3-C'''相当)を
+      設けてこのnear-tie exploitを個別に対処するか、
+  の判断を仰ぐ。
+
+## T3-D.4 変更ファイル
+
+- 新規(調査専用): `tools/tracing-poc/test-mi-residual-gate.py`・
+  `tools/tracing-poc/t3d-residual-gate-artifacts/
+  mi_w3_truncated_residual.png`・`mi-residual-report.json`
+- 設計文書: Revision 18追記
+- **`katakana-app.html`・`tools/tracing-poc/engine-katakana.js`・
+  `hiragana-learn.html`・`tools/tracing-poc/engine.js`は無変更**
+- main merge/push/Production deploy: **なし**
+
+## T3-D.5 Phase Status
+
+**Phase T3-D = STOPPED AT SPECIAL RESIDUAL GATE — RETURNED FOR
+USER DECISION。** Section 5で発見した視覚的に明らかな未完成
+strokeのPASS事例により、Section 6以降(multi-seed lock・Real
+Browser RC・Integration・Push・Production Deploy)には進んでいない。
+main / Production は変更されていない。
