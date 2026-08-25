@@ -1546,3 +1546,25 @@ Release Integrity Auditは説明できない差分0件で通過。Mirror
 Self-Confusionは安全な一般化手法が見つからず、Known Limitationとして
 正式記録。判定ロジックは無変更、全Regressionは完全に同一の結果を
 維持。main merge/push/Production deployは行っていない。
+
+---
+
+# Revision 12 — Phase T2-E: Production Release
+
+**Phase T2-E = HIRAGANA TRACING ACCURACY PRODUCTION RELEASED。**
+
+T2-D承認後、`fix/tracing-balance-calibration-t2c3`(T2-D checkpoint
+`ba4d9ddf1695f83e6167a6ffa474c61fcbc409c0`)を判定ロジック・閾値とも
+無変更のままoriginの`main`へfast-forward mergeし、pushした
+(`93cd85f..ba4d9dd`)。この後、CIの`generate.js`自動実行が
+`sitemap.xml`のlastmod更新のみを内容とする自動commit(`425384e`)を
+追加し、mainがそこへ前進(ローカル側もfast-forwardで追随)。同じ
+push上で、どのまな更新履歴(`MANUAL_CHANGELOG`)へ「「ひらがな
+まなぼう！」のなぞり判定を改善しました。」の1行を追加し、
+`node generate.js`で`index.html`を再生成(generate idempotency確認
+済み)。GitHub Pages Production(`https://donomana.jp/hiragana-learn.html`)
+への自動deployを確認済み。詳細な監査・Regression・Real Browser・
+Production確認結果は最終chat報告を参照。Mirror Self-Confusion
+(W5、7件)・す stroke#1 W3_truncated(ambiguous、1件)はRevision 11
+記載の通りKnown Limitationとして維持し、本Phaseでは一切変更して
+いない。
