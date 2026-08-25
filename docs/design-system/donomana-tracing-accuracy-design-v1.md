@@ -453,3 +453,114 @@ Playwright実行中、**console error 0件・page error 0件**。
 - 次フェーズでは、User Review(L1〜L10)の結果を踏まえ、Pilot対象文字の拡大
   または46文字全体へのロールアウト計画、および共通JSファイルへの切り出し
   (hiragana/katakana共有)を検討する。
+
+---
+
+# Revision 5 — Phase T2-B'' 結果(「あ」3画目 False Positive 修正)
+
+## T2-B''.0 User Review判定
+
+Phase T2-B' User実機確認: 「い」は期待通り。**「あ」は3画目をいい加減に
+書いても「じょうず！」に成功する False Positive を確認。**
+→ **T2-B' = PARTIAL PASS、T2-C(Full Rollout)= BLOCKED** として記録。
+
+## T2-B''.1 Root Cause(コード根拠付き)
+
+`evaluateCharacter()`の合否は、各strokeの合成score(`perStrokeScores[i]`)の
+**平均**(`avgStrokeScore`)にのみ依存しており、個々のstrokeが最低限
+「そのstrokeとして成立しているか」を単独ではチェックしていなかった。
+
+実際に1・2画目を理想的に描き、3画目だけを崩したPlaywright再現テストで実証:
+
+| 3画目のケース | badge(修正前) | stroke3 shape / coverage |
+|---|---|---|
+| 理想 | PASS | 1.00 / 1.00 |
+| **50%だけ描く** | **PASS(score 0.68)** | 0.55 / 0.42 |
+| **単純な直線に置き換え** | **PASS(score 0.742)** | 0.45 / 0.33 |
+| ジグザグ | PASS(score 0.761) | 0.56 / 0.47 |
+| ゆるい塊(loose blob) | PASS(score 0.765) | 0.71 / 0.84 |
+| Guideと無関係な長い線 | PASS(score 0.705) | 0.56 / 0.36 |
+
+3画目のcoverageが33〜47%しかなくても、1・2画目が完璧(score 1.0前後)なため
+平均が閾値0.60を上回り続ける。**「良い画が悪い画を相殺する」という仮説を
+定量的に確認**(Hard Gateはstroke数・最小長・粗位置のみを見ており、
+個々のstrokeの形状品質を見ていなかったため素通りしていた)。
+
+## T2-B''.2 Debug Output拡張
+
+`evaluateCharacter()`の各`strokes[i]`へ`perStrokeScore`を追加(`?tracingDebug=1`
+時のみUIへ表示)。通常UIには非表示のまま。
+
+## T2-B''.3 Per-Stroke Quality Floor — 設計と較正
+
+### 第一案(不採用): perStrokeScore(既存の重み付き合成値)にFloorを適用
+
+`STROKE_QUALITY_FLOOR=0.55`をperStrokeScore(shape+coverage-offPath+startEnd+direction
+の重み付き合計)に適用したところ、「あ」の全ケースは正しく分離できたが、
+**他の文字へ一般化すると失敗**することが判明(`calibrate-stroke-floor.js`):
+
+- い・こ・ま で「最終strokeを直線に置き換え」てもPASSのまま(perStrokeScore
+  0.58〜0.77で0.55を上回る)。「あ」1文字にだけ過適合していた
+  (Phase spec Section 6の警告通りの失敗パターン)。
+
+### 第二案(採用): min(shape, coverage) にFloorを適用
+
+`calibrate-stroke-floor-full.js`で、全5文字×全Motor Variation良好ケース
+(震え・位置ずれ・大きさ違い・sampling密度差・逆方向・逆筆順等)と、
+全5文字×全stroke位置の「直線代用」を総当たりで比較。
+
+**なぜperStrokeScoreではなくshape/coverageだけを見るか**: startEnd・
+directionは、始点と終点さえ一致していれば直線でも簡単に高得点になる
+(直線はどんな2点間でも「その2点を結ぶ最短経路」であり、始点終点の一致は
+自明)。一方shape/coverageは「経路の途中の形状を実際になぞったか」を直接
+測るため、この2つに絞ることでMotor Variationとの分離が大幅に改善する。
+
+| | 全良好ケースの最低値 | 「本来曲線が必要なstrokeを直線化」した場合 |
+|---|---|---|
+| perStrokeScore | 0.826 | 最大0.843(**分離失敗**) |
+| **min(shape, coverage)** | **0.921** | 「元々ほぼ直線のstroke」(あ1-2画目、ま1-2画目等)は0.93〜0.96のまま(直線化しても妥当な結果なので問題なし)。**実際に曲線が必要なstroke(あ3画目0.328、ま3画目0.594、こ2画目0.641)は明確に低い** |
+
+`STROKE_QUALITY_FLOOR = 0.80`(良好ケース最低0.921との間に十分なマージン)。
+
+**この指標の重要な性質**: 「元々ほぼ直線に近いreference stroke」(あ1・2画目、
+ま1・2画目、く唯一のstroke)は、直線で描いても妥当な再現なので高得点のまま
+維持される — これは緩すぎるのではなく正しい。一方「実際に曲線・輪を描く
+必要があるstroke」(あ3画目の大きな輪、ま3画目の輪、こ2画目のカーブ)を
+直線・ジグザグ・塊で誤魔化した場合は、そのstroke自身の形状評価だけで
+明確に検知される。**個別のcurvature検出ロジックを新設せずとも、既存の
+shape/coverage計算がこの区別を自然に内包していた。**
+
+## T2-B''.4 Regression結果
+
+- `node tools/tracing-poc/golden-tests.js`: **104 evaluations・93 strict checks・
+  失敗0**(修正前と完全に同一。Motor Variation・reversed direction/order・
+  「ニ」regressionいずれも無傷)。
+- `calibrate-stroke-floor.js`(全5文字、最終strokeを直線代用): **い・こ・あ・ま
+  全てpass=false(正しくRETRY)** に是正(く=1画文字のため対象外、別の観点で
+  別途検討)。理想traceは全5文字ともpass=true維持。
+- 「あ」3画目再現matrix(A1〜A11 + sloppy 3種、実ブラウザPlaywright実行):
+  理想・軽い震え・位置ずれ・逆方向 → PASS維持。**70%部分描画・50%部分描画・
+  直線代用・ジグザグ・ゆるい塊・Guide無関係の長い線・「途中で諦めた」風の
+  描画 → 全てRETRYに是正**(修正前は全てPASSしていた)。
+- `test-hiragana-pilot.py`(5文字full battery)・`test-realdevice-regression.py`
+  (非Pilot8文字・multi-touch・pointer capture・プライバシー・パフォーマンス)
+  を再実行し、**修正前と完全に同一の結果**であることを確認(console/page
+  error 0/0)。
+
+## T2-B''.5 変更ファイル・Production影響
+
+- 変更: `tools/tracing-poc/engine.js`(THRESHOLDS.STROKE_QUALITY_FLOOR追加、
+  Per-Stroke Quality Floorロジック追加、perStrokeScore露出)
+- 変更: `hiragana-learn.html`(同内容をインライン移植コピーへ同様に反映、
+  debug panel表示にperStrokeScore追加)
+- 新規: `tools/tracing-poc/test-a-stroke3-repro.py`、
+  `tools/tracing-poc/calibrate-stroke-floor.js`、
+  `tools/tracing-poc/calibrate-stroke-floor-full.js`
+- 無変更: `katakana-app.html`、Hard Gate(画数・最小長・粗位置)・
+  PASS_THRESHOLD(0.60)・Stroke Order/DirectionのSOFT方針は一切変更なし
+- main merge/push: なし
+
+## T2-B''.6 次のUser Review
+
+前回のLANプレビュー(同一worktree・同一URL、サーバー再起動不要)で、
+特に「あ」の3画目をわざと雑に描いて RETRY になることをご確認ください。

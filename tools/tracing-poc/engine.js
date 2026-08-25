@@ -40,6 +40,11 @@
     },
     SPATIAL_WEIGHT: 0.10,
     PASS_THRESHOLD: 0.60,
+    // Phase T2-B'': 各strokeのmin(shape, coverage)がこれを下回ったら、文字全体の
+    // scoreがどれだけ高くても不合格にする。実データ較正(calibrate-stroke-floor-full.js):
+    // 全motor-variation良好ケースの最低値=0.921、直線代用等の「本来曲線が必要な
+    // strokeの誤魔化し」=0.33〜0.70程度。0.80は両者の間に十分なマージンを持つ。
+    STROKE_QUALITY_FLOOR: 0.80,
   };
 
   // ---------------------------------------------------------------------
@@ -463,18 +468,45 @@
         w.direction * r.direction
       );
     });
+    // 各strokeへ合成scoreを付与(debug表示・Per-Stroke Quality Floor判定の両方で使う)
+    strokeResults.forEach((r, i) => { r.perStrokeScore = perStrokeScores[i]; });
     const avgStrokeScore = perStrokeScores.reduce((a, b) => a + b, 0) / perStrokeScores.length;
+
+    // --- Per-Stroke Quality Floor (Phase T2-B'' — Root Cause対応) ---
+    // 「良い1・2画目が悪い3画目を相殺する」問題への対処。文字全体の平均scoreとは
+    // 独立に、各strokeが最低限「そのstrokeとして成立しているか」を見る。
+    //
+    // 指標はperStrokeScore(startEnd/direction込みの合成値)ではなく
+    // min(shape, coverage)を使う。理由(calibrate-stroke-floor-full.jsで実データ検証済み):
+    // startEndやdirectionは、直線・単純な代用でも実際のstrokeの始点・終点さえ
+    // 一致すれば簡単に高得点になってしまい(例:あ3画目の大きな輪をただの直線に
+    // 置き換えてもstartEnd=1になる)、perStrokeScoreだけではMotor Variation
+    // (震え等)の最低scoreと「直線などの雑な代用」の最高scoreが逆転し分離できない
+    // (worstGood=0.826 <= bestBad=0.843)。shape/coverageに絞ると、
+    // 「元々ほぼ直線のstroke」(あ1・2画目、ま1・2画目等)は直線で描いても
+    // 自然に高得点のまま(これは代用ではなく正しい再現なので妥当)、
+    // 一方「実際に曲線・輪を描く必要があるstroke」(あ3画目など)を直線や
+    // ぐちゃっとした形で誤魔化した場合は明確に低くなるため、
+    // Motor Variationとの分離が大幅に改善する(worstGood=0.921 vs
+    // 「誤魔化すべきでないbad case」の大半が0.77以下)。
+    const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
+    hardGate.strokeQualityFloor = perStrokeFloorOk;
 
     const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
     let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
     score = clamp01(score);
 
-    const pass = hardGatePassed && score >= THRESHOLDS.PASS_THRESHOLD;
+    const pass = hardGatePassed && perStrokeFloorOk && score >= THRESHOLDS.PASS_THRESHOLD;
+
+    let reason = 'ok';
+    if (!hardGatePassed) reason = 'hard_gate_failed';
+    else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
+    else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
 
     return {
       pass,
       score,
-      reason: pass ? 'ok' : (!hardGatePassed ? 'hard_gate_failed' : 'low_score'),
+      reason,
       hardGate,
       assignment,
       strokes: strokeResults,

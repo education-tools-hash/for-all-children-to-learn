@@ -2327,6 +2327,10 @@ const TracingEngine = (function () {
     WEIGHTS: { shape: 0.40, coverage: 0.28, offPath: 0.14, startEnd: 0.10, direction: 0.08 },
     SPATIAL_WEIGHT: 0.10,
     PASS_THRESHOLD: 0.60,
+    // Phase T2-B'': 個々のstroke合成score(shape/coverage/offPath/startEnd/direction
+    // の重み付き合計)がこれを下回ったら、文字全体scoreが高くても不合格にする。
+    // 「良い画が悪い画を相殺する」false positive対策(あ・3画目で確認)。
+    STROKE_QUALITY_FLOOR: 0.80,
   };
 
   function tokenizeNumbers(str) {
@@ -2632,15 +2636,26 @@ const TracingEngine = (function () {
       const offPathPenalty = r.offPath > THRESHOLDS.OFFPATH_FAIL_RATIO ? 1 : r.offPath;
       return clamp01(w.shape * r.shape + w.coverage * r.coverage - w.offPath * offPathPenalty + w.startEnd * r.startEnd + w.direction * r.direction);
     });
+    strokeResults.forEach((r, i) => { r.perStrokeScore = perStrokeScores[i]; });
     const avgStrokeScore = perStrokeScores.reduce((a, b) => a + b, 0) / perStrokeScores.length;
+
+    // Per-Stroke Quality Floor(Phase T2-B''): 文字全体の平均とは独立に、
+    // 各strokeの合成scoreがSTROKE_QUALITY_FLOORを下回っていないか見る。
+    const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
+    hardGate.strokeQualityFloor = perStrokeFloorOk;
+
     const spatialWeight = userFeatures.length >= 2 ? THRESHOLDS.SPATIAL_WEIGHT : 0;
     let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
     score = clamp01(score);
-    const pass = hardGatePassed && score >= THRESHOLDS.PASS_THRESHOLD;
+    const pass = hardGatePassed && perStrokeFloorOk && score >= THRESHOLDS.PASS_THRESHOLD;
+
+    let reason = 'ok';
+    if (!hardGatePassed) reason = 'hard_gate_failed';
+    else if (!perStrokeFloorOk) reason = 'stroke_quality_floor_failed';
+    else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
 
     return {
-      pass, score,
-      reason: pass ? 'ok' : (!hardGatePassed ? 'hard_gate_failed' : 'low_score'),
+      pass, score, reason,
       hardGate, assignment, strokes: strokeResults, orderPenalty, spatialScore,
     };
   }
@@ -2946,7 +2961,7 @@ function updateTracingDebugPanel(result) {
   if (!TRACING_DEBUG) { el.style.display = 'none'; return; }
   el.style.display = 'block';
   if (!result) { el.textContent = `(${currentTraceKana}) waiting for ${(strokeData[currentTraceKana]||[]).length} strokes...`; return; }
-  el.textContent = JSON.stringify({ pass: result.pass, score: +result.score.toFixed(3), reason: result.reason, hardGate: result.hardGate, strokes: result.strokes.map(s => ({ shape: +s.shape.toFixed(2), coverage: +s.coverage.toFixed(2), offPath: +s.offPath.toFixed(2), startEnd: +s.startEnd.toFixed(2), dir: s.directionLabel, matched: s.matchedReferenceStroke })) }, null, 1);
+  el.textContent = JSON.stringify({ pass: result.pass, score: +result.score.toFixed(3), reason: result.reason, hardGate: result.hardGate, strokes: result.strokes.map(s => ({ shape: +s.shape.toFixed(2), coverage: +s.coverage.toFixed(2), offPath: +s.offPath.toFixed(2), startEnd: +s.startEnd.toFixed(2), dir: s.directionLabel, matched: s.matchedReferenceStroke, perStrokeScore: +s.perStrokeScore.toFixed(3) })) }, null, 1);
 }
 
 // Init trace
