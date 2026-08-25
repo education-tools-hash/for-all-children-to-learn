@@ -692,3 +692,149 @@ wrong trace generator使用) = **総計691 strict checks、失敗0**。
 代表13文字(Core 5 + Extended 8)を中心に、46文字一覧からも自由に
 確認いただけます。LANプレビューは同一方式(新規worktree用にサーバー
 再起動、URLは変更なし)。
+
+---
+
+# Revision 8 — Phase T2-C' 結果(Independent Negative Validation)— **STOP、T2-D未着手**
+
+## T2-C'.0 目的と結論
+
+T2-CのGolden Testは「Engine自身にscoreを問い合わせながらwrong traceを
+選ぶ」方式(`wrong-trace-generator.js`)を一部使用しており、calibration
+toolとしては有効だが独立したtest oracleとしては循環性がある。本Phaseでは
+**Engineのscore/pass/component scoreを一切参照せず、reference geometryのみ
+から機械的に生成した誤答**で検証を行った。
+
+**結論: 複数の重大なFalse Positiveを発見。Stop Conditionに該当するため、
+本Phaseでは`engine.js`/`hiragana-learn.html`を一切変更していない
+(実際にgit diffで確認済み、新規テストツールの追加のみ)。
+Phase T2-D(Production Readiness)には進まず、Root Causeの報告と
+User判断待ちとする。**
+
+## T2-C'.1 Independent Wrong Trace Families(実装)
+
+`tools/tracing-poc/independent-wrong-trace.js`。全てreference strokeの
+サンプル点(位置・bbox・始終点)のみから機械的に導出、`evaluateCharacter()`
+は生成過程で一切呼び出していない(git上のコード自体がこの制約を示す)。
+
+- W1 Perpendicular: strokeの弦方向に対し90度回転した直線
+- W2 Shifted: 文字全体bboxの55%分、stroke indexで決まる固定方向へ平行移動
+- W3 Truncated: 参照strokeの先頭45%のみ(固定比率)
+- W4 Zigzag: bbox対角線の30%振幅・10往復の固定zigzag
+- W5 Mirror: 文字全体を水平/垂直反転
+- W6 Wrong scale: strokeまたは文字全体を25%へ縮小
+- W7 Wrong stroke count: 既存`golden-traces.js`の画数不足/超過(re-use)
+
+## T2-C'.2 Single-Bad-Stroke結果(372件、W1-W4×93 stroke位置)
+
+**99件(26.6%)で予期しないPASS。** ただし手法別に極端な偏りがある:
+
+| 手法 | 予期しないPASS件数(93件中) |
+|---|---|
+| W1 Perpendicular | **0件** |
+| W4 Zigzag | **0件** |
+| W2 Shifted | 約48件 |
+| W3 Truncated(先頭45%) | 約51件 |
+
+**W1・W4は完全に有効**(直交線・zigzagはどのstrokeに対しても正しくRETRYを
+誘発する)。問題はW2(大きくずらす)とW3(45%で打ち切る)に集中している。
+
+## T2-C'.3 Whole-Character結果(230件、W5/W6/W7)
+
+**60件で予期しないPASS、うち51件が W6(25%縮小)。46文字中約41文字が
+「文字全体を25%サイズで描く」だけでPASSした。**
+
+### Root Cause: W6(極小スケール)
+
+`MIN_LENGTH_RATIO = 0.22`(Hard Gate B)は各strokeの**弧長比**のみを見る。
+25%均等縮小は弧長も正確に0.25倍になり、0.22を上回るためHard Gate Bを
+通過する。Intrinsic正規化(shape/coverage計算)はstroke自身のbboxで
+再スケールするため、縮小コピーは**intrinsic空間で理想traceと完全に同一**
+になり、shape=1.0, coverage=1.0のまま。**文字全体の絶対的な大きさ
+(Guideに対する相対サイズ)を見るHard Gateが存在しない**ことが根本原因。
+実ブラウザでも再現確認済み(「あ」を25%サイズで描画→PASS)。
+
+少数のW5(mirror)予期しないPASSも見られた(こ・そ・す・る・ろ・ね・の・
+ゆ・り等、水平または垂直反転どちらか一方)。これらは概ね
+単純な形状(loop/hookが少ない、または左右対称に近い)の文字。
+
+## T2-C'.4 Cross-Character Confusion結果(558 pairs)
+
+同画数同士の全pairを機械的に評価。**Clear Fail 312・Ambiguous 231・
+FALSE POSITIVE 15。**
+
+### FALSE POSITIVE一覧(score >= 0.60、実際にPASS)
+
+| 画数 | クラスタ |
+|---|---|
+| 1画 | そ ↔ る ↔ ろ (相互に6ペア全てFALSE POSITIVE) |
+| 2画 | ぬ ↔ め、ね ↔ れ、ね ↔ わ、わ ↔ れ、す ← よ |
+| 3画 | け ← は |
+
+**Root Cause**: そ/る/ろは全て「1画・大きく弧を描くloop」という
+KanjiVGパスの構造的ファミリーが酷似している(curvature比: そ3.20/
+る3.48/ろ2.72、いずれも「D: loop/large curve」グループ)。ぬ/ね/め/れ/わ
+クラスタは全て「短いほぼ直線の1画目+大きなloopの2画目」という
+同一の構造テンプレートを共有しており(inventory参照)、現行のshape/
+coverage(bidirectional intrinsic距離)だけでは、loopの大きさ・位置・
+向きの細かな違いを、他の類似文字から十分に区別できていない。
+
+実ブラウザで再現確認: **目標文字「そ」に対し、「る」の正しい形をそのまま
+描画 → 「🌟じょうず！🌟」**(スクリーンショットで、そ/るが視覚的に
+明確に異なる文字であることを確認済み)。
+
+### AMBIGUOUS(231件、score 0.45〜0.60、正しくRETRYだが僅差)
+
+大半が同上のような形状ファミリー内の近縁文字(は↔け、む↔お、
+ぬ↔ね↔わ↔と↔れ 等)。User Reviewの参考情報として一覧化(Artifact参照)。
+これらは現状RETRYを維持しており、緊急対応は不要と判断。
+
+## T2-C'.5 Positive Regression / Pilot Regression Lock
+
+**Motor Accessibility(全46文字×8ケース=368件): 失敗0。**
+**「い」「あ」Pilot Regression Lock(10ケース): 全てOK。**
+Independent Negative Testの追加によってthresholdを一切変更していない
+ため、既存の良好ケースへの影響はない(Section 8の要求通り)。
+
+## T2-C'.6 実ブラウザ確認(代表7文字: い・あ・き・た・も・う・の)
+
+理想トレース→PASS、W1(直交線)によるstroke破損→RETRY、を全7文字で確認
+(W1は0件の予期しないPASSだったため、確認用として選定)。
+**console error 0件・page error 0件。**
+
+## T2-C'.7 対応方針(本Phaseでは変更しない)
+
+Section 11「No Overfitting」の方針に従い、以下は**本Phaseでは実施しない**:
+
+- character-specific threshold(例: `if (kana==='そ') ...`)
+- pair-specific exception(そ/る/ろを特別扱いする分岐)
+- global floor/thresholdの安易な変更
+
+これらのRoot Causeは以下のいずれかへの構造的な追加によってのみ
+解決可能と考えられる(次Phase候補、User承認が必要):
+
+1. **絶対スケールを見るHard Gate**の新設(文字全体の描画サイズが
+   Guideに対して妥当な範囲かを、strokeごとの弧長比とは別に確認する)
+2. **Cross-strokeの相対配置精度向上**、またはloop系文字群における
+   形状弁別力の強化(現状のbidirectional intrinsic距離だけでなく、
+   例えば重心間の相対配置やstroke間の長さ比等を追加の判別要素とする)
+3. W2/W3で判明したGross Location Gate(現マージン45%)の妥当性の
+   再検討(過度に寛容な位置ずれ許容が、平行移動だけの「別位置での
+   正しい形」を通してしまう一因になっている可能性)
+
+## T2-C'.8 変更ファイル・Production影響
+
+- 変更: なし(`hiragana-learn.html`・`tools/tracing-poc/engine.js`は
+  完全に無変更、`git status`で確認済み)
+- 新規: `tools/tracing-poc/independent-wrong-trace.js`、
+  `tools/tracing-poc/golden-tests-independent46.js`、
+  `tools/tracing-poc/test-independent-realbrowser.py`
+- main merge/push: なし
+
+## T2-C'.9 Phase Status
+
+**Phase T2-C' = INDEPENDENT VALIDATION READY — WAITING FOR USER REVIEW**
+**ただし、Stop Conditionに複数該当(cross-character false positive、
+independent wrong traceの大量PASS)しているため、Phase T2-D
+(Production Readiness)には進まない。** Root Causeと対応方針候補
+(上記T2-C'.7)についてUserの判断を仰ぐ。
