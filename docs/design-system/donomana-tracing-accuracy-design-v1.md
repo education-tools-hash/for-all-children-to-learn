@@ -337,3 +337,119 @@ feature branch `feature/tracing-engine-poc-t2a` へcheckpoint commit
   低い・境界ケースが多い場合は再検討する。
 - それ以外の推奨事項(hiragana-learn.htmlのみ対象、46文字拡大は対象外等)は
   Revision 2から変更なし。
+
+---
+
+# Revision 4 — Phase T2-B 結果(Local Hiragana Integration Pilot)
+
+`hiragana-learn.html`(worktree `for-all-children-to-learn-t2b-tracing-pilot`,
+branch `feature/hiragana-tracing-pilot-t2b`, T2-A checkpoint`5298318`から分岐)へ、
+Tracing Engine PoCを初めて実画面統合。Production未反映・`katakana-app.html`無変更。
+
+## T2-B.1 Guide Source Unification(必須要件、達成)
+
+なぞりGuideを`fillText()`から、Pilot 5文字(い/く/こ/あ/ま)のみ
+`strokeData[k][].d`(KanjiVG SVG path)による直接描画へ変更。
+判定Reference(`TracingEngine.evaluateCharacter`)と**完全に同じ座標変換**
+(`PILOT_GUIDE_MARGIN`/`PILOT_GUIDE_SCALE`、KanjiVG 109基準)を共有するため、
+「見えている線=判定基準」を実現。非Pilot41文字は`fillText`ゴーストを無変更維持。
+
+実画面スクリーンショット(`tools/tracing-poc/pilot-review-artifacts/い_ideal.png`)で、
+理想トレースが新Guideの帯の中にほぼ完全に収まることを確認。T2-A'で判明した
+「いのcorridor coverage 50.9%」という懸念は、Guide自体をreferenceと同一
+sourceにしたことで解消(比較対象が一致したため数値自体が意味をなさなくなった、
+という形での解消)。
+
+## T2-B.2 実装アーキテクチャ
+
+- `tools/tracing-poc/engine.js`を、Production同様の単一自己完結HTMLという
+  リポジトリ規約に合わせ、`hiragana-learn.html`内へインライン移植
+  (「3.0 TRACING ENGINE」セクション、THRESHOLDSはPoC確定値のまま凍結)。
+  重複コードの懸念は残るため、将来katakana-app.htmlにも同様の統合を行う際は
+  共通JSファイルへの切り出しを推奨(Section 4「shared JS module」)。
+- 入力: 旧`mousedown/mousemove/mouseup/mouseleave` +
+  `touchstart/touchmove/touchend`の二重実装を廃止し、
+  **Pointer Events(`pointerdown/pointermove/pointerup/pointercancel`)へ統一**
+  (全46文字共通)。`setPointerCapture()`使用(例外はtry/catchで防御)。
+  同時多点入力は最初の1本のみ処理(`activePointerId`管理)。
+- Pilot文字判定: `traceStrokes.length >= expectedStrokeCount`に達した時点で
+  `TracingEngine.evaluateCharacter()`を呼び出す(超過分もHard Gate Aで
+  自然に弾かれる)。非Pilot文字は旧`traceStrokeCount >= length`ロジックを
+  完全に無変更で維持。
+- Raw stroke座標は`traceStrokes`(メモリのみ)に保持、localStorage等への
+  永続化なし。文字切替・RETRY確定時に破棄。
+- Debug overlay: `?tracingDebug=1`クエリパラメータでのみ表示(既定OFF)。
+
+## T2-B.3 RETRY UX
+
+新規`#retryJob`要素。「もういちど なぞってみよう」+「せんに そって
+なぞってみよう」。×・ブザー・赤い大きな失敗表示は不使用。RETRY判定後は
+ユーザーの線をしばらく(1.7秒)表示したままにしてからinkのみクリアし
+(Guideは残す)、同じ文字を再試行できる。次の文字へは自動遷移しない。
+成功時は既存の「🌟 じょうず！🌟」演出・`addLog`をそのまま維持。
+RETRYは`addLog`を呼ばない(Recordに記録されない)。
+
+## T2-B.4 実画面Regression結果(Playwright実マウス駆動、`#traceCanvas`への
+本物のpointer event経由)
+
+| ケース | 文字 | 結果 | score |
+|---|---|---|---|
+| 理想トレース | い | PASS | 0.873 |
+| 軽い震え | い | PASS | 0.854 |
+| 位置ずれ | い | PASS | 0.859 |
+| 大きさ違い | い | PASS | 0.859 |
+| **「ニ」型(横線2本)** | い | **RETRY** | **0.113** |
+| 縦線2本 | い | RETRY | 0.566 |
+| 極短stroke | い | RETRY | 0.326 (hard_gate_failed: minLength) |
+| 文字から離れた位置 | い | RETRY | 0.783 (hard_gate_failed: grossLocation) |
+| 逆筆順(形は正しい) | い | PASS | 0.753 |
+| 逆方向(形は正しい) | い | PASS | 0.873 |
+| 1画のみ(未完了) | い | フィードバックなし(待機) | - |
+| 理想/軽い震え | く・こ・あ・ま | 全てPASS | 0.844-0.873 |
+| 無関係な形(zigzag) | く・こ・あ・ま | 全てRETRY | 0.342-0.592 |
+| 非Pilot文字(か)に任意の3本線 | か | **PASS**(旧仕様通り) | - (score概念なし) |
+| pointerType='touch'合成イベント、いideal | い | PASS | - |
+
+**Section 25の必須regression(`evaluate("い", niTrace).pass === false`)を
+実画面で確認: SATISFIED。** `node tools/tracing-poc/golden-tests.js`
+(スタンドアロンPoC側)も再実行し104 evaluations・93 strict checks・失敗0を再確認
+(engine.jsは本Phaseで無変更のため結果は完全に同一)。
+
+## T2-B.5 Console/Page Error・Responsive・非Pilot回帰
+
+Playwright実行中、**console error 0件・page error 0件**。
+375×667/390×844/768×1024/1280×900の4viewportでGuide/canvas/フィードバックの
+レイアウト崩れなしを画像で確認(SVG Guideは`#traceCanvas,#traceGuide{max-width:100%;height:auto}`
+と`.trace-area>div{flex-wrap:wrap}`により既存のレスポンシブ機構をそのまま利用)。
+非Pilot文字(か)で任意の3本線を描いても旧仕様通りPASSすることを確認済み
+(Section31「残り41文字は既存挙動を維持」達成)。
+
+## T2-B.6 既知の限界・注意点
+
+- `setPointerCapture()`は、テストで使った**手動dispatchされた合成PointerEvent**
+  に対しては例外を投げる(ブラウザ側が「activeなpointerでない」と判断するため)。
+  実際のマウス操作・実タッチデバイスでは問題なく動作する(本物のpointerとして
+  ブラウザに認識されるため)。念のためtry/catchで防御済み。
+- こ・ま等、実際のstroke形状が単純な線に近い文字は、zigzag無関係形状に対しても
+  scoreがPASS閾値付近まで上がることがある(こ: 0.592、ぎりぎりRETRY)。
+  T2-A'から一貫した傾向で、バグではなく文字自体の形状特性。
+- 実タッチデバイス(実機)でのテストは未実施(Playwright touchscreen APIの制約上、
+  pointerType='touch'の合成dispatchによる検証のみ)。
+
+## T2-B.7 変更ファイル・Production影響
+
+- 変更: `hiragana-learn.html`(+533/-42行、`git diff --check`異常なし)
+- 新規: `tools/tracing-poc/test-hiragana-pilot.py`、
+  `tools/tracing-poc/pilot-review-artifacts/`(スクリーンショット・レポート)
+- 無変更: `katakana-app.html`、`tools/tracing-poc/engine.js`ほかT2-A成果物一式
+- main merge/push: なし。checkpoint commit詳細は最終報告を参照。
+
+## T2-B.8 T2-Bで得られた知見・次Phase(T2-C想定)への示唆
+
+- Guide Source Unificationにより、「見えている線をなぞれば判定基準に自然に
+  入る」という原則がPilot 5文字で成立した。
+- Pointer Events統一は全46文字の入力経路に影響する変更だが、非Pilot文字の
+  評価ロジック自体は完全に無変更のため、回帰は確認されなかった。
+- 次フェーズでは、User Review(L1〜L10)の結果を踏まえ、Pilot対象文字の拡大
+  または46文字全体へのロールアウト計画、および共通JSファイルへの切り出し
+  (hiragana/katakana共有)を検討する。
