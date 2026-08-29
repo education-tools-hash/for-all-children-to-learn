@@ -1493,6 +1493,59 @@
     </div>
   </section>
 
+<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Learning Record Foundation (Phase T5-B PoC) — shared localStorage-backed
+   activity-log read/write/normalize helpers common to Learning Record Standard v1.0
+   (docs/design-system/donomana-learning-record-standard-v1_0.md). Auto-injected by
+   generate.js — edit generate.js's buildLearningRecordFoundationJSHTML() instead of
+   this block directly. Each app keeps its own storage key and its own record shape;
+   this Foundation standardizes only the read/write/normalize/CSV mechanics, never
+   the app-specific payload fields. */
+function donomanaRecordReadLog(storageKey) {
+  try { var raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function donomanaRecordWriteLog(storageKey, log) {
+  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
+}
+function donomanaRecordAddLog(storageKey, entry) {
+  var log = donomanaRecordReadLog(storageKey);
+  log.push(entry);
+  donomanaRecordWriteLog(storageKey, log);
+  return log;
+}
+function donomanaRecordClearLog(storageKey) {
+  donomanaRecordWriteLog(storageKey, []);
+}
+// schemaVersion欠落 = legacy v1として扱う(Standard §9)。既存フィールドは書き換えない。
+function donomanaRecordNormalizeLegacy(entry) {
+  if (entry && typeof entry === 'object' && entry.schemaVersion == null) entry.schemaVersion = 1;
+  return entry;
+}
+// Standard Core Schemaに沿った新規recordを組み立てる(将来のnested payload移行用。
+// 既存2 Pilotの実データ形式は変更しない。関数として提供し単体テストのみ対象)。
+function donomanaRecordCreate(appId, activity, inputMethod, payload) {
+  return {
+    timestamp: new Date().toISOString(),
+    appId: appId,
+    activity: activity,
+    inputMethod: (typeof inputMethod === 'string') ? inputMethod : null,
+    schemaVersion: 1,
+    payload: payload || {}
+  };
+}
+// UTF-8 BOM付きCSV文字列を組み立てる(Standard §17)。rows: 2次元配列(先頭行=header)。
+// ダウンロードUI自体は各アプリの既存実装を維持し、統一しない。
+function donomanaRecordBuildCsv(rows) {
+  function esc(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return /["\,\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  var body = rows.map(function(r) { return r.map(esc).join(','); }).join('\n');
+  return '\uFEFF' + body;
+}
+</script>
+<!-- /learning-record-foundation-js -->
 <script>
 // ===== DATA =====
 const KANA = [
@@ -3379,11 +3432,12 @@ function bigCelebrate() {
 }
 
 // ===== RECORD =====
-var learningLog = [];
-try { learningLog = JSON.parse(localStorage.getItem('hiragana_log') || '[]'); } catch(e) { learningLog = []; }
+// Phase T5-B: I/O本体はDonomana Learning Record Foundation(generate.js注入)へ委譲。
+// storage key('hiragana_log')・record shape({time,type,data})・呼び出し側の契約は変更しない。
+var learningLog = donomanaRecordReadLog('hiragana_log');
 
 function saveLog() {
-  try { localStorage.setItem('hiragana_log', JSON.stringify(learningLog)); } catch(e) {}
+  donomanaRecordWriteLog('hiragana_log', learningLog);
 }
 
 function now() {
@@ -3394,7 +3448,7 @@ function now() {
 }
 
 function addLog(type, data) {
-  learningLog.push({ time: now(), type: type, data: data });
+  learningLog.push({ time: now(), type: type, data: data, schemaVersion: 1 });
   saveLog();
   const rec = document.getElementById('record');
   if (rec && rec.classList.contains('active')) updateRecordView();

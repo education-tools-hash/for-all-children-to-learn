@@ -1435,6 +1435,135 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 }
 
 // ============================================================
+//  Donomana Learning Record Foundation (Phase T5-B PoC)
+//  ・docs/design-system/donomana-learning-record-standard-v1_0.md の
+//    Storage API(readLog/writeLog/addLog/clearLog相当)・schemaVersion
+//    fallback・CSV組み立てのみを共有する。各アプリのstorage key・
+//    record schema(教材固有フィールド)はアプリ側に残す
+//    (Gaze Shared Foundationと同じく「契約は揃えるが実装は手書きを
+//    維持する」領域が中心。ここで共有するのはlocalStorage I/Oの
+//    メカニクスのみ)。
+//  ・対象アプリはLEARNING_RECORD_FOUNDATION_APPSに明示登録した場合のみ
+//    (全アプリ一括適用はしない。Phase T5-BはPilot 2本のみ: miru-hirogaru-app
+//    ・hiragana-learn)。
+// ============================================================
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn']);
+
+function buildLearningRecordFoundationJSHTML() {
+  return [
+    '<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->',
+    '<script>',
+    '/* Donomana Learning Record Foundation (Phase T5-B PoC) — shared localStorage-backed',
+    '   activity-log read/write/normalize helpers common to Learning Record Standard v1.0',
+    '   (docs/design-system/donomana-learning-record-standard-v1_0.md). Auto-injected by',
+    '   generate.js — edit generate.js\'s buildLearningRecordFoundationJSHTML() instead of',
+    '   this block directly. Each app keeps its own storage key and its own record shape;',
+    '   this Foundation standardizes only the read/write/normalize/CSV mechanics, never',
+    '   the app-specific payload fields. */',
+    'function donomanaRecordReadLog(storageKey) {',
+    '  try { var raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }',
+    '}',
+    'function donomanaRecordWriteLog(storageKey, log) {',
+    '  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}',
+    '}',
+    'function donomanaRecordAddLog(storageKey, entry) {',
+    '  var log = donomanaRecordReadLog(storageKey);',
+    '  log.push(entry);',
+    '  donomanaRecordWriteLog(storageKey, log);',
+    '  return log;',
+    '}',
+    'function donomanaRecordClearLog(storageKey) {',
+    '  donomanaRecordWriteLog(storageKey, []);',
+    '}',
+    '// schemaVersion欠落 = legacy v1として扱う(Standard §9)。既存フィールドは書き換えない。',
+    'function donomanaRecordNormalizeLegacy(entry) {',
+    '  if (entry && typeof entry === \'object\' && entry.schemaVersion == null) entry.schemaVersion = 1;',
+    '  return entry;',
+    '}',
+    '// Standard Core Schemaに沿った新規recordを組み立てる(将来のnested payload移行用。',
+    '// 既存2 Pilotの実データ形式は変更しない。関数として提供し単体テストのみ対象)。',
+    'function donomanaRecordCreate(appId, activity, inputMethod, payload) {',
+    '  return {',
+    '    timestamp: new Date().toISOString(),',
+    '    appId: appId,',
+    '    activity: activity,',
+    '    inputMethod: (typeof inputMethod === \'string\') ? inputMethod : null,',
+    '    schemaVersion: 1,',
+    '    payload: payload || {}',
+    '  };',
+    '}',
+    '// UTF-8 BOM付きCSV文字列を組み立てる(Standard §17)。rows: 2次元配列(先頭行=header)。',
+    '// ダウンロードUI自体は各アプリの既存実装を維持し、統一しない。',
+    'function donomanaRecordBuildCsv(rows) {',
+    '  function esc(v) {',
+    '    var s = (v === null || v === undefined) ? \'\' : String(v);',
+    '    return /["\\,\\n]/.test(s) ? \'"\' + s.replace(/"/g, \'""\') + \'"\' : s;',
+    '  }',
+    '  var body = rows.map(function(r) { return r.map(esc).join(\',\'); }).join(\'\\n\');',
+    '  return \'\\uFEFF\' + body;',
+    '}',
+    '</script>',
+    '<!-- /learning-record-foundation-js -->'
+  ].join('\n');
+}
+
+function injectLearningRecordFoundationToAppHtmls(apps) {
+  const jsStartMark = '<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->';
+  const jsEndMark   = '<!-- /learning-record-foundation-js -->';
+  const jsBlock = buildLearningRecordFoundationJSHTML();
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    if (!LEARNING_RECORD_FOUNDATION_APPS.has(app.filename)) continue;
+    const fname = `${app.filename}.html`;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      let html = original;
+
+      // 既存マーカーがあれば差し替え、なければ挿入する。
+      // -- Gaze Shared Foundationは「ファイル内最後の<script>タグ」をアンカーに
+      //    採用しているが、これは「共通chrome scriptは全アプリでアプリ本体script
+      //    より前に位置する」という前提に依存する。hiragana-learn.htmlで検証した
+      //    ところ、この前提はM11/M12 Multi-Input教材以外では成立しない(RECORD
+      //    scriptブロックの直後に独自のフルスクリーン共通scriptが続く構成のため、
+      //    「最後の<script>」がRECORDブロックより後ろに来て donomanaRecordReadLog
+      //    等が未定義のまま呼ばれるバグを本Phaseで発見・修正)。
+      //    そのためLearning Record Foundationは、各Pilotアプリが実際に
+      //    donomanaRecord*() を呼び出している最初の箇所を探し、その箇所を含む
+      //    <script>タグの直前へ挿入する(=呼び出しより確実に前に来る)。
+      const jsStartIdx = html.indexOf(jsStartMark);
+      if (jsStartIdx !== -1) {
+        const jsEndIdx = html.indexOf(jsEndMark, jsStartIdx);
+        if (jsEndIdx !== -1) html = html.slice(0, jsStartIdx) + jsBlock + html.slice(jsEndIdx + jsEndMark.length);
+      } else {
+        const usageIdx = html.indexOf('donomanaRecord');
+        const anchorScriptIdx = usageIdx !== -1 ? html.lastIndexOf('<script>', usageIdx) : -1;
+        const insertAt = anchorScriptIdx !== -1 ? anchorScriptIdx : html.lastIndexOf('<script>');
+        if (insertAt !== -1) {
+          html = html.slice(0, insertAt) + jsBlock + '\n' + html.slice(insertAt);
+        }
+      }
+
+      if (html !== original) {
+        fs.writeFileSync(filePath, html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname}`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n📊 Learning Record Foundation挿入(PoC対象アプリのみ): ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0) log.forEach(l => console.log(l));
+}
+
+// ============================================================
 //  ファビコン関連: 全ページの <head> に統一して挿入する
 //  ・サイトルート絶対パス指定 (/) なので
 //    どの階層のページからも同じファビコンが参照される
@@ -2258,6 +2387,12 @@ injectDesignTokensToAppHtmls(apps);
 //     登録したアプリのみへ挿入。SAFE TO SHARE分類の定数・純粋関数・CSSのみ対象
 //     (docs/design-system/donomana-gaze-accessibility-standard-v1_0.md §33.3-33.4)
 injectGazeSharedFoundationToAppHtmls(apps);
+
+// Donomana Learning Record Foundation(Phase T5-B PoC)をLEARNING_RECORD_FOUNDATION_APPSに
+//     登録したアプリのみへ挿入。readLog/writeLog/addLog/clearLog相当のI/Oメカニクスと
+//     schemaVersion fallback・CSV組み立てのみ共有する
+//     (docs/design-system/donomana-learning-record-standard-v1_0.md)
+injectLearningRecordFoundationToAppHtmls(apps);
 
 // 11. 個別アプリHTML(ルート直下の*.html)にcanonical/meta descriptionを一括挿入
 //     アプリ本体ページと詳細ページが同じ検索語で評価を分け合う(カニバリゼーション)のを防ぐため、
