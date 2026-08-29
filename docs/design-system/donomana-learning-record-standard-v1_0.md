@@ -381,8 +381,132 @@ T5-B結果を受け、Pilot expansionとして以下4本横断検証計画を提
 
 ---
 
+## Addendum（Phase T5-C）: Pilot Validation — 4本目検証結果
+
+Phase T5-Cで、Pilot 2本（miru-hirogaru-app・hiragana-learn、継続）に加え、directions-app・kyou-no-kirokuの2本を追加検証した。**directions-appはShared Foundationへ統合、kyou-no-kirokuは統合せず読み取り専用調査のみとした**（理由は§30.3参照）。本Phaseも全35アプリへの展開・Production Releaseは行っていない。
+
+### 30.1 Pilot C: directions-app — Shared Foundation統合
+
+既存`appLogs`スキーマ（`{ts, tsLocal, category, question, userAnswer, correctAnswer, result}`、`MAX_LOGS=500`件保持）はPilot Bと同型の「フラット活動ログ配列」であり、統合に適した構造だった。
+
+**採用方式**: `loadLogs()`/`saveLogs()`の内部実装を`donomanaRecordReadLog`/`WriteLog('appLogs', ...)`へ委譲し、呼び出し側シグネチャ・entry形状・`MAX_LOGS`件数上限ロジック（Foundation呼び出しの前段でapp-specific concernとして維持）は一切変更しなかった。`addLog()`が生成する新規entryにのみ`schemaVersion: 1`を追加した（Pilot Bのhiragana-learnと同じパターン）。既存の`filterLog()`/`renderLogs()`（Viewer）・`exportLogCSV()`（CSV）・`clearAllLogs()`（全削除）はコード変更なしで動作を維持した。
+
+- **inputMethod**: directions-appには`pointerdown`/`pointerType`等の入力方式判別コードが存在しないことをコード調査で確認した。Standard §5の「推測による記録は禁止」原則に従い、hiragana-learn（Pilot B）と同じ判断で**フィールド自体を追加しなかった**。
+- **マーカー注入アンカー**: T5-Bで確立した「最初の`donomanaRecord`使用箇所を含む`<script>`タグの直前」方式（`generate.js`の既存ロジックをそのまま利用、変更なし）で正しく注入されることを確認した。`LEARNING_RECORD_FOUNDATION_APPS`へ`'directions-app'`を追加しただけで、注入ロジック自体への変更は不要だった。
+- **冪等性**: `node generate.js`を2回連続実行し、2回目で追加差分が発生しないことを確認した。`sitemap.xml`の`lastmod`更新はworktree作成によるファイルmtime変化に由来する既知の副作用であり、T5-Cの意図した変更ではないが、実際に該当ファイルが変更された事実（T5-B'''コミット・T5-C本コミット）と整合するため許容した。
+- **重複記録なし**: legacy 1件を事前投入→実UIの回答操作を模した`addLog()`呼び出し1回→2件（+1件）をPlaywright実ブラウザで確認した。
+- **既存データ保持**: legacy entry（`schemaVersion`欠落）はreload後も無変更のまま読み込まれることを確認した。
+- **1レコードサイズ実測**: 202 bytes（新規entry、`schemaVersion`込み）。1000件概算 約197KB。
+
+### 30.2 Pilot D: kyou-no-kiroku — 読み取り専用調査（コード変更なし）
+
+**結論: 本Phaseでは Shared Foundation を統合しなかった。** `kyou-no-kiroku.html`への変更は一切行っていない。理由は以下の構造的非互換性による。
+
+#### 30.2.1 Storage Shape非互換性（Learner Architecture Boundary）
+
+`donomanaRecordReadLog`/`WriteLog(storageKey, log)`は「storageKeyの値そのものがJSON配列である」ことを前提とする設計である。しかし`kyounokiroku`キーの値は
+
+```js
+{ children: [...], records: [...], kimochiOptions: [...], a11y: {...} }
+```
+
+という**複合オブジェクト**であり、`records`配列単体がキーの値ではない。実際に検証したところ（自動テスト参照）、`donomanaRecordReadLog('kyounokiroku')`はこの複合オブジェクトをそのまま返す（配列ではない）ため、そのまま`donomanaRecordAddLog`等の配列操作系APIへ渡すと意図通りに動作しない。さらに`donomanaRecordWriteLog('kyounokiroku', records)`を誤って呼び出すと、**`children`/`kimochiOptions`/`a11y`を配列で上書きし破壊する**ことを自動テストで実証した（`test_foundation_4pilot.js`の`kyouBoundary`ケース）。
+
+これを解消するには (a) `records`を独立したstorage keyへ分離するmigration、または (b) Foundationへ「オブジェクト内の特定配列フィールドを読み書きする」新しいAPI（例: `donomanaRecordReadNestedLog(storageKey, arrayField)`）を追加する、のいずれかが必要になる。**どちらもT5-Cの明示的な制約（「無理にflat Learning Recordへ変換しない」「共通Learner Profile基盤を作らない」）に抵触するため、本Phaseでは実施しない。** T5-D以降の設計候補として保持する（§30.5参照）。
+
+#### 30.2.2 Learner Structure
+
+`records[]`の各要素は`childIndex`（`state.children`配列内のインデックス）と`childName`（保存時点の名前文字列コピー）の両方で子どもを参照する。コード調査（`deleteChild(i)`、`kyou-no-kiroku.html:2006-2011`）の結果、**子ども削除時に`records[]`の`childIndex`を再採番・削除する処理が存在しないことを確認した**。これは以下の実データ整合性問題を生む（既存実装の挙動であり、T5-Cで新規に発生させたものではない。修正はスコープ外として報告のみ行う）:
+
+- 子どもA（index 0）・子どもB（index 1）がいて、Bのrecordが複数ある状態でAを削除すると、`state.children`は`[B]`（index 0）に詰まるが、`state.records`のBのrecordは`childIndex: 1`のまま残り、**削除後は存在しないindex 1を参照する不整合recordになる**（`recordFilterChild`によるフィルタが機能しなくなる等の実害がありうる）。`childName`文字列は保存時点のコピーのため表示上の実害は限定的だが、`childIndex`ベースの機能（フィルタ）は影響を受ける。
+
+Standard Core Schemaは「learner reference」という概念自体を持たない（`appId`/`activity`/`inputMethod`/`timestamp`/`schemaVersion`のみ）ため、この構造をCoreへ格上げしない、という既存方針を維持した。
+
+#### 30.2.3 Name Required Issue（§13対応）
+
+`addChild()`（`kyou-no-kiroku.html:2065-2068`）を確認した結果:
+
+```js
+const name = document.getElementById('newChildName').value.trim();
+if (!name) { alert('なまえをいれてください'); return; }
+```
+
+入力欄のplaceholder（`kyou-no-kiroku.html:1687`）は`"なまえ（例：たろうさん）"`であり、コード上「本名（法的氏名）」を強制する仕組みはない（自由入力文字列で、フォーマット検証もない）。ただし、ラベル文言「なまえ」自体は保護者・支援者に「本名を入力すべき」という印象を与えうる曖昧さが残る。
+
+**改善候補（本Phaseでは未実装、設計候補として提示）**: placeholderを`"よびな（例：たろうさん、ニックネームでもOK）"`へ変更する、または入力欄の下に「本名でなくてもだいじょうぶです」という補助テキストを追加する。**T5-Cでは大規模Learner Profile redesignを行わない方針のため、この文言変更はUser承認を得た上でT5-D以降の別Stepとして実施することを推奨する。**
+
+#### 30.2.4 Privacy
+
+- `state.children[].photo`はbase64 data URI形式でlocalStorageへ直接保存されることをコード調査で確認した（`loadChildPhoto()`等）。外部アップロード・外部送信のコードは存在しない（`fetch`/`XMLHttpRequest`/外部`img src`をgrepしたが本アプリ内に該当なし）。
+- `saveState()`は`localStorage.setItem('kyounokiroku', ...)`のみで、送信先はlocalhost外に存在しない。
+- 削除: `confirmDeleteRecord()`（record単位削除）・`executeClearData()`（全record削除、`children`は保持）を確認した。`children`単体の削除は`deleteChild()`で可能。「子どもを削除すると紐づくrecordも消える」という統合削除機能は存在しない（§30.2.2の不整合と表裏一体の欠落）。
+
+### 30.3 なぜdirectionsは統合し、kyou-no-kirokuは統合しなかったか（設計判断の要約）
+
+| 観点 | directions-app | kyou-no-kiroku |
+|---|---|---|
+| Storage shape | フラット配列（`appLogs`） | 複合オブジェクト（`{children,records,...}`） |
+| Foundation API適合 | 適合（Pilot Bと同型） | 不適合（配列前提のAPIと衝突） |
+| 統合に必要な変更 | 内部実装の委譲のみ | Storage migration or 新API追加が必要 |
+| T5-Cでの判断 | **統合した** | **統合しなかった（読み取り専用調査のみ）** |
+
+この判断は「既存writerをFoundationへ委譲する設計を優先する」という指示と、「無理にflat Learning Recordへ変換しない」「共通Learner Profile基盤を作らない」という指示が、kyou-no-kirokuについては両立不可能であったため、後者（無理に変換・redesignしない）を優先した結果である。
+
+### 30.4 gaze-keyboard分類（read-only audit、コード変更なし）
+
+T5-Bで発見した`gaze_history_<profileId>`（発話内容そのものの自動保存）について、**A. Learning Record / B. Communication History / C. User Content**のいずれに分類すべきか評価した。
+
+**分類結果: B. Communication History**
+
+理由:
+- 記録の性質が「観察可能な活動記録」（Standard §2のOK例: 「5秒注視した」「3回取り組んだ」）ではなく、**利用者が実際に入力・確定した発話内容そのもの**である点でLearning Record（A）と本質的に異なる。
+- 明示的な「保存する」操作を利用者が行うわけではなく、8秒の入力停止で自動保存される点、また複数learner対応（`profile`単位）である点は、AAC（拡大代替コミュニケーション）用途における会話ログとしての性質を持つ。
+- 一方で、意図的に作成・保存する「作品」（お絵かき・予定表等のUser Content=C）とも異なり、対話の履歴という性質が強い。
+
+**追加調査（本Phaseで新規発見）**:
+- `updateUsageStats(txt)`（`gaze-keyboard.html:4075-4087`）は発話内容から単語頻度（`wordFreq`）・文字数（`dailyChars`）を`gaze_stats_<profileId>`キーへ集計保存している。個々の発話内容ほど機微ではないが、語彙使用の統計的指紋であり、これもCommunication History寄りの性質を持つ付随データとして分類に含める。
+- **プロファイル削除時のorphaned data**: `openProfileModal()`内のプロファイル削除処理（`gaze-keyboard.html:3999-4001`、`profiles = profiles.filter(...); saveProfiles(profiles);`）は、対応する`gaze_history_<profileId>`・`gaze_stats_<profileId>`キーを削除しないことを確認した。プロファイル削除後もlocalStorage内に発話履歴が孤立データとして残存し、UIからは（プロファイルチップが消えるため）到達不能になる。外部送信はないためPrivacy原則には反しないが、「利用者が削除したつもりのデータが端末に残る」という利用者の期待との乖離であり、修正候補としてT5-D以降へ持ち越す。**本Phaseではコードを変更しない。**
+- 外部送信: `fetch`/`XMLHttpRequest`/`navigator.sendBeacon`/`gtag`等を`gaze-keyboard.html`全体でgrepし、該当なしを確認した（既存T5-A/T5-B所見の再確認）。
+
+**本Standardへの統合方針**: 通常のLearning Record（Core Schema）へは統合しない。会話内容そのものを扱う性質上、独自のCommunication History Standard（Privacy要件がより厳格なもの）を将来別途策定することを推奨する。本Phaseではこの推奨のみ行い、実装は行わない。
+
+### 30.5 T5-D Proposal（更新）
+
+T5-Cの結果を踏まえ、T5-D「共通Record Viewer / CSV / Delete / Accessibility Standard」の検討範囲へ以下を追加する:
+
+- **共通Viewer/CSV/Delete/Accessibility**（既存提案どおり）: Switch Scan・keyboard操作・screen reader対応・record一覧の日付グループ化・app横断フィルタ・CSV統一・全削除導線の標準化。
+- **kyou-no-kiroku統合の設計候補**: (a) `records`を独立storage keyへ分離するmigration方式、または (b) Foundationに「オブジェクト内配列フィールド」を読み書きする新API（`donomanaRecordReadNestedLog`/`WriteNestedLog`相当）を追加する方式、のいずれかを比較検討する。
+- **kyou-no-kiroku Learner整合性修正**: 子ども削除時の`records[].childIndex`不整合の解消（cascade更新 or 削除、またはchildIndexではなく安定IDでの参照への変更）。
+- **kyou-no-kiroku名前ラベル文言候補**: 「なまえ」→「よびな」等への変更、User承認を得た上で実施。
+- **gaze-keyboardプロファイル削除時のorphaned data解消**: プロファイル削除時に対応する`gaze_history_*`/`gaze_stats_*`キーも削除する（User承認を得た上で実施）。
+- **Communication History Standard（新規）**: gaze-keyboardのような「発話内容そのものを保存する」教材向けの、Learning Record Standardより厳格なPrivacy要件を持つ別Standardの策定要否を検討する。
+
+### 30.6 Automated Tests（4-Pilot拡張）
+
+T5-BのFoundation単体テスト18件に加え、T5-Cでdirections-app固有シナリオ（legacy読み込み・追加・`MAX_LOGS`とFoundation書き込みの相互作用・削除・不正データfallback・存在しないkey）と、kyou-no-kiroku境界実証（複合オブジェクトキーへの誤適用が`children`/`kimochiOptions`/`a11y`を破壊することを実証するテスト）を追加し、**13件全てPASS**した（`generate.js`から`buildLearningRecordFoundationJSHTML()`を実コードとして動的抽出して実行、ハンドコピーではない）。Pilot A/Bの既存動作が無変更であることも同テストで再確認した。
+
+### 30.7 Real Browser（4-Pilot）
+
+Playwrightで4 Pilot（miru-hirogaru-app・hiragana-learn・directions-app・kyou-no-kiroku）を検証した。
+
+- directions-app: Foundation関数6種`typeof === 'function'`、legacy 1件→addLog後2件（重複なし）、reload後も2件保持、Viewer（`renderLogs()`）が2行描画、`MAX_LOGS`（500件）超過時の切り詰めがFoundation書き込み経由でも機能、`clearAllLogs()`で0件化。
+- kyou-no-kiroku: `donomanaRecordReadLog`等のFoundation関数が**注入されていないこと**（`typeof === 'undefined'`）を確認し、意図通りコード変更なしであることを実証した。既存`loadState`/`saveState`/`addChild`/`saveRecord`は無変更のまま関数として存在することを確認した。
+- hiragana-learn: T5-B'''のTracing Judgment Level回帰確認（`currentTracingLevel === 'standard'`、Foundation関数存在）を実施し、T5-Cが一切影響していないことを確認した。
+- miru-hirogaru-app: Foundation関数存在を再確認した。
+- 4 Pilotとも console error = 0、page error = 0。
+
+### 30.8 記録サイズ実測（追加）
+
+| アプリ | 平均record size（実測） | 1000件概算 |
+|---|---|---|
+| directions-app | 202 bytes | 約197 KB |
+| kyou-no-kiroku | 447 bytes（photoなし想定） | 約437 KB（photoを保存する子どもがいる場合、base64 photoデータが個々のchildエントリに数十〜数百KB加算されうる点に注意。records自体のサイズとは別軸） |
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v1.0 Draft/RC | 2026-08-29 | Phase T5-B。Pilot 2本（miru-hirogaru-app・hiragana-learn）でPoC実装・単体テスト18件・実ブラウザ検証・Privacy検証・容量実測を完了。全35アプリ対応は未完了。 |
+| v1.0 Draft/RC + Addendum | 2026-08-29 | Phase T5-C。directions-appをShared Foundationへ統合（Pilot C）。kyou-no-kirokuはStorage Shape非互換性のため統合せず読み取り専用調査に留めた（Pilot D）。gaze-keyboardをCommunication Historyとして分類。自動テスト13件・実ブラウザ検証（4 Pilot）完了。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
