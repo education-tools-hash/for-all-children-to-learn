@@ -1479,6 +1479,18 @@
           <button class="font-btn" onclick="changeScanSpeed(0.5)" tabindex="0">＋</button>
         </div>
       </div>
+      <div class="a11y-row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div class="a11y-label">✏️ なぞりの はんてい</div><div class="a11y-desc">なぞり書きの ごうかく判定の きびしさ（教員・支援者向け設定）</div></div>
+          <button type="button" onclick="resetTracingJudgmentLevel()" tabindex="0" style="background:none;border:none;color:#888;font-size:0.75rem;text-decoration:underline;cursor:pointer;padding:4px;white-space:nowrap">↺ リセット</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap" id="tracingLevelBtnGroup">
+          <button class="size-btn" data-level="easy" onclick="setTracingJudgmentLevel('easy')" tabindex="0">やさしく</button>
+          <button class="size-btn" data-level="standard" onclick="setTracingJudgmentLevel('standard')" tabindex="0">ひょうじゅん</button>
+          <button class="size-btn" data-level="precise" onclick="setTracingJudgmentLevel('precise')" tabindex="0">ていねいに</button>
+        </div>
+        <div style="font-size:0.78rem;color:#666;line-height:1.6" id="tracingLevelDesc"></div>
+      </div>
     </div>
     <div class="a11y-panel">
       <div style="font-weight:800;font-size:.92rem;margin-bottom:8px;color:var(--coral);">📋 このアプリについて</div>
@@ -1764,6 +1776,79 @@ function changeScanSpeed(d) {
   document.getElementById('scan-speed-display').textContent = (scanSpeed/1000).toFixed(1) + '秒';
   if (scanMode) { stopAutoScan(); startAutoScan(); }
 }
+
+// ===== Phase T5-B': Tracing Judgment Level =====
+// Metrics Engineの計算式(THRESHOLDS内のHard Safety・shape/coverage計算式)は一切変更せず、
+// TracingEngine.evaluateCharacter()のopts.judgmentProfileで4つのAdjustable値のみを
+// 上書きするJudgment Policy層。較正根拠はdocs/design-system/donomana-tracing-judgment-levels-v1.md参照。
+// "precise" = 現行Productionの値そのもの(THRESHOLDSと完全一致、defaultはprecise=無変更)。
+// Phase T5-B'': easyは「大まかに文字動作へ参加できたか」を重視するBeginner Forgiveness
+// Policy。standard/preciseは既存tolerantGuard(catastrophic==good、tolerance=0)のまま
+// 完全に不変。easyのみSTROKE_FAIL_TOLERANCE=1(1画までのgood未達を許容)・
+// STROKE_QUALITY_CATASTROPHIC_LENIENT/LENIENT_GATE(そのstrokeのcompletionも同時に
+// 下がっている＝素朴に短く描いただけと推定できる場合のみ、より緩いfloor catastrophicを
+// 適用。W4ジグザグ等completionを保ったまま形だけ崩す攻撃は対象外のまま)・ABS_POSITION_MAX
+// 緩和(ガイドからの位置ずれ許容)を追加。較正根拠・safety検証結果は
+// docs/design-system/donomana-tracing-judgment-levels-v1.mdを参照。
+const TRACING_JUDGMENT_PROFILES = {
+  easy: {
+    PASS_THRESHOLD: 0.45,
+    STROKE_QUALITY_FLOOR: 0.78, STROKE_QUALITY_CATASTROPHIC: 0.78,
+    STROKE_QUALITY_CATASTROPHIC_LENIENT: 0.65, STROKE_QUALITY_LENIENT_GATE: 0.75,
+    STROKE_POSITION_MAX: 0.32, STROKE_POSITION_CATASTROPHIC: 0.35,
+    STROKE_COMPLETION_MIN_SPAN: 0.60, STROKE_COMPLETION_CATASTROPHIC: 0.52,
+    ABS_POSITION_MAX: 0.65, STROKE_FAIL_TOLERANCE: 1,
+    // Phase T5-B''': Beginner Coarse Pass(通常easy判定がRETRYの場合のみ発火する
+    // フォールバック)。位置は評価せず(W2攻撃専用の安全網=相対位置チェックのみ残す)、
+    // per-stroke Quality Floor/Completionの許容本数をstroke数の半分まで拡大する。
+    // 較正根拠はdocs/design-system/donomana-tracing-judgment-levels-v1.md参照。
+    BEGINNER_COARSE: true,
+    COARSE_FAIL_TOLERANCE_RATIO: 0.5,
+    COARSE_PASS_THRESHOLD: 0.38,
+    COARSE_TOTAL_LENGTH_MIN: 0.35,
+    COARSE_RELATIVE_POSITION_MAX: 0.10,
+  },
+  standard: { PASS_THRESHOLD: 0.58, STROKE_QUALITY_FLOOR: 0.78, STROKE_POSITION_MAX: 0.30, STROKE_COMPLETION_MIN_SPAN: 0.46 },
+  precise:  { PASS_THRESHOLD: 0.60, STROKE_QUALITY_FLOOR: 0.80, STROKE_POSITION_MAX: 0.26, STROKE_COMPLETION_MIN_SPAN: 0.50 },
+};
+const TRACING_LEVEL_DESCRIPTIONS = {
+  easy: 'はじめてのなぞりにおすすめです。線が下書きから外れたり、形が少しくずれたりしても、大まかに書けていれば成功になります。',
+  standard: 'ひょうじゅん：多少のずれや揺れを受け入れながら判定します。',
+  precise: 'ていねいに：文字の形や線の完成度を、より丁寧に判定します（現在のProduction基準と同じです）。',
+};
+const TRACING_LEVEL_STORAGE_KEY = 'hiragana_tracing_level';
+// Phase T5-B''でRC確定: defaultをstandardへ変更(T5-B'時点はprecise=現行Production無変更を
+// defaultとしていたが、User Browser Review結果を受け「なぞりの判定」機能自体のdefaultを
+// standardとする方向がRCで確定した)。
+let currentTracingLevel = 'standard';
+try {
+  const savedLevel = localStorage.getItem(TRACING_LEVEL_STORAGE_KEY);
+  if (savedLevel && TRACING_JUDGMENT_PROFILES[savedLevel]) currentTracingLevel = savedLevel;
+} catch (e) {}
+
+function updateTracingLevelUI() {
+  document.querySelectorAll('#tracingLevelBtnGroup .size-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.level === currentTracingLevel);
+  });
+  const descEl = document.getElementById('tracingLevelDesc');
+  if (descEl) descEl.textContent = TRACING_LEVEL_DESCRIPTIONS[currentTracingLevel] || '';
+}
+function setTracingJudgmentLevel(level) {
+  if (!TRACING_JUDGMENT_PROFILES[level]) return;
+  currentTracingLevel = level;
+  try { localStorage.setItem(TRACING_LEVEL_STORAGE_KEY, level); } catch (e) {}
+  updateTracingLevelUI();
+  if (typeof donomanaAnnounceA11y === 'function') {
+    donomanaAnnounceA11y('なぞりの判定を' + (level === 'easy' ? 'やさしく' : level === 'standard' ? 'ひょうじゅん' : 'ていねいに') + 'にしました');
+  }
+}
+function resetTracingJudgmentLevel() {
+  currentTracingLevel = 'standard'; // T5-B''でRC確定: リセット先もdefaultと同じstandardへ
+  try { localStorage.removeItem(TRACING_LEVEL_STORAGE_KEY); } catch (e) {}
+  updateTracingLevelUI();
+  if (typeof donomanaAnnounceA11y === 'function') donomanaAnnounceA11y('なぞりの判定をリセットしました');
+}
+document.addEventListener('DOMContentLoaded', updateTracingLevelUI);
 
 // スキャン対象を取得（アクティブセクション内のtabindex="0"要素）
 function updateScanTargets() {
@@ -2651,7 +2736,10 @@ const TracingEngine = (function () {
   // Absolute Geometry Guard(Phase T2-C''): 文字全体の絶対スケール・位置。
   // 弧長比(pathLengthRatio)は震え等のノイズでジグザグ化し不当に膨張するため
   // gateには使わずdebug表示のみ(bbox対角線比のみが安定してスケールを捉える)。
-  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox) {
+  // absPositionMax省略時はTHRESHOLDS.ABS_POSITION_MAX(現行Production値)を使う。
+  // ABS_SCALE_MIN/MAXは全Level共通のHard Safetyのまま(引数化しない、extreme scale attackは
+  // easyでも必ずRETRYさせる要件のため)。
+  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox, absPositionMax) {
     const refDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
     const userAllPts = userFeatures.flatMap((f) => f.absPoints);
     const userBBox = computeBBox(userAllPts);
@@ -2664,7 +2752,7 @@ const TracingEngine = (function () {
     const userCentroid = centroidOf(userAllPts);
     const positionRatio = dist(userCentroid, refCentroid) / refDiag;
     const scaleOk = scaleRatio >= THRESHOLDS.ABS_SCALE_MIN && scaleRatio <= THRESHOLDS.ABS_SCALE_MAX;
-    const positionOk = positionRatio <= THRESHOLDS.ABS_POSITION_MAX;
+    const positionOk = positionRatio <= (absPositionMax != null ? absPositionMax : THRESHOLDS.ABS_POSITION_MAX);
     return { pass: scaleOk && positionOk, scaleRatio, pathLengthRatio, positionRatio, scaleOk, positionOk };
   }
 
@@ -2767,6 +2855,85 @@ const TracingEngine = (function () {
     opts = opts || {};
     const N = opts.samplePoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
 
+    // Phase T5-B'/T5-B'': Tracing Judgment Level (Metrics Engine / Judgment Policy分離)。
+    // opts.judgmentProfileが渡された場合のみ、Adjustable(motor-tolerance)な値を上書きする。
+    // それ以外の全定数(Hard Safety・metric計算式そのもの)はTHRESHOLDS固定のまま変更しない。
+    // opts.judgmentProfile省略時は挙動がProduction(precise)と完全に一致する
+    // (全既存呼び出し元・golden testに影響なし)。
+    // T5-B''でBeginner Forgiveness機構を追加: STROKE_FAIL_TOLERANCE本まではstrokeが
+    // "good"基準を下回っても即failにせず、"catastrophic"基準さえ超えていれば許容する
+    // (1本だけ大きく崩れた場合に、他のstrokeが十分書けている試行までRETRYになるのを防ぐ)。
+    // STROKE_FAIL_TOLERANCE省略時は0、CATASTROPHIC系省略時は対応するGOOD値と同一になるため、
+    // standard/preciseのように省略した場合は数学的に.every()と完全に同じ挙動になる
+    // (許容0本・catastrophic==good、で「1本もfailを許さない」に一致)。
+    // どの値がAdjustableかの根拠はdocs/design-system/donomana-tracing-judgment-levels-v1.mdを参照。
+    const jp = opts.judgmentProfile || {};
+    const T = {
+      PASS_THRESHOLD: jp.PASS_THRESHOLD != null ? jp.PASS_THRESHOLD : THRESHOLDS.PASS_THRESHOLD,
+      STROKE_QUALITY_FLOOR: jp.STROKE_QUALITY_FLOOR != null ? jp.STROKE_QUALITY_FLOOR : THRESHOLDS.STROKE_QUALITY_FLOOR,
+      STROKE_POSITION_MAX: jp.STROKE_POSITION_MAX != null ? jp.STROKE_POSITION_MAX : THRESHOLDS.STROKE_POSITION_MAX,
+      STROKE_COMPLETION_MIN_SPAN: jp.STROKE_COMPLETION_MIN_SPAN != null ? jp.STROKE_COMPLETION_MIN_SPAN : THRESHOLDS.STROKE_COMPLETION_MIN_SPAN,
+      ABS_POSITION_MAX: jp.ABS_POSITION_MAX != null ? jp.ABS_POSITION_MAX : THRESHOLDS.ABS_POSITION_MAX,
+      STROKE_FAIL_TOLERANCE: jp.STROKE_FAIL_TOLERANCE || 0,
+    };
+    T.STROKE_QUALITY_CATASTROPHIC = jp.STROKE_QUALITY_CATASTROPHIC != null ? jp.STROKE_QUALITY_CATASTROPHIC : T.STROKE_QUALITY_FLOOR;
+    T.STROKE_POSITION_CATASTROPHIC = jp.STROKE_POSITION_CATASTROPHIC != null ? jp.STROKE_POSITION_CATASTROPHIC : T.STROKE_POSITION_MAX;
+    T.STROKE_COMPLETION_CATASTROPHIC = jp.STROKE_COMPLETION_CATASTROPHIC != null ? jp.STROKE_COMPLETION_CATASTROPHIC : T.STROKE_COMPLETION_MIN_SPAN;
+    // T5-B'' easy較正で発見: 「shape/coverageが崩れている」原因は少なくとも2通りあり、
+    // (a) W4ジグザグ等の攻撃(completionはほぼ1.0のまま=最後まで描いている)と、
+    // (b) 素朴にstrokeを短く/雑に描いた初心者(completionも一緒に下がる)は、
+    // floor値の分布が重なり単一のcatastrophic値では安全に分離できないことを実測で確認した。
+    // そこで「completionも一緒に下がっている」場合に限り、より緩いcatastrophic
+    // (STROKE_QUALITY_CATASTROPHIC_LENIENT)を適用する。省略時はLENIENT_GATEが0のため
+    // 分岐が発火せず、standard/precise・省略時の挙動には一切影響しない。
+    T.STROKE_QUALITY_CATASTROPHIC_LENIENT = jp.STROKE_QUALITY_CATASTROPHIC_LENIENT != null ? jp.STROKE_QUALITY_CATASTROPHIC_LENIENT : T.STROKE_QUALITY_CATASTROPHIC;
+    T.STROKE_QUALITY_LENIENT_GATE = jp.STROKE_QUALITY_LENIENT_GATE || 0;
+    // Phase T5-B''': Beginner Coarse Pass関連(easyのみBEGINNER_COARSE=trueを設定)。
+    // 省略時BEGINNER_COARSE=falseのため、standard/preciseはこのブロックに一切到達しない。
+    T.BEGINNER_COARSE = jp.BEGINNER_COARSE === true;
+    T.COARSE_FAIL_TOLERANCE_RATIO = jp.COARSE_FAIL_TOLERANCE_RATIO != null ? jp.COARSE_FAIL_TOLERANCE_RATIO : 0;
+    T.COARSE_PASS_THRESHOLD = jp.COARSE_PASS_THRESHOLD != null ? jp.COARSE_PASS_THRESHOLD : T.PASS_THRESHOLD;
+    T.COARSE_TOTAL_LENGTH_MIN = jp.COARSE_TOTAL_LENGTH_MIN != null ? jp.COARSE_TOTAL_LENGTH_MIN : 0;
+    // W2(1画だけ他画と無関係な位置へずらす攻撃)専用の安全網。文字全体の平行移動には
+    // 反応しない相対位置指標(§コード内コメント参照)。既定値0.10は較正実測に基づく。
+    T.COARSE_RELATIVE_POSITION_MAX = jp.COARSE_RELATIVE_POSITION_MAX != null ? jp.COARSE_RELATIVE_POSITION_MAX : 0.10;
+
+    // Beginner Forgiveness評価: n本中、最大STROKE_FAIL_TOLERANCE本までは"good"基準未達でも
+    // 即failにしない(ただし"catastrophic"基準は1本たりとも超えてはならない)。単一画の文字は
+    // 比較対象がないため常にtolerance=0(平均化のしようがない)。cmp='gte'は「大きいほど良い」
+    // (completion等)、'lte'は「小さいほど良い」(position等)。
+    function tolerantGuard(results, valueFn, good, catastrophic, cmp, tolerance) {
+      const n = results.length;
+      const tol = Math.min(tolerance || 0, Math.max(0, n - 1));
+      let failCount = 0;
+      for (let i = 0; i < n; i++) {
+        const v = valueFn(results[i]);
+        const passCatastrophic = cmp === 'gte' ? v >= catastrophic : v <= catastrophic;
+        if (!passCatastrophic) return false;
+        const passGood = cmp === 'gte' ? v >= good : v <= good;
+        if (!passGood) failCount++;
+      }
+      return failCount <= tol;
+    }
+
+    // Per-Stroke Quality Floor専用のGuard: catastrophic基準をcompletionで動的に切り替える。
+    // completion < LENIENT_GATEの場合のみCATASTROPHIC_LENIENT(緩い方)を使う。
+    // LENIENT_GATE=0(省略時)なら常にfalseとなり、通常のCATASTROPHICのみを使う
+    // (=既存tolerantGuardと完全に同じ挙動、standard/preciseに影響なし)。
+    function floorGuardWithCompletionGate(results, T, tolerance) {
+      const n = results.length;
+      const tol = Math.min(tolerance || 0, Math.max(0, n - 1));
+      let failCount = 0;
+      for (let i = 0; i < n; i++) {
+        const r = results[i];
+        const floor = Math.min(r.shape, r.coverage);
+        const catastrophic = (r.completion < T.STROKE_QUALITY_LENIENT_GATE) ? T.STROKE_QUALITY_CATASTROPHIC_LENIENT : T.STROKE_QUALITY_CATASTROPHIC;
+        if (floor < catastrophic) return false;
+        if (floor < T.STROKE_QUALITY_FLOOR) failCount++;
+      }
+      return failCount <= tol;
+    }
+
     const refFeatures = referenceStrokeDefs.map((s) => {
       const { points, length } = sampleReferencePath(s.d, N);
       return Object.assign(extractStrokeFeatures(points, length), { label: s.label });
@@ -2788,7 +2955,7 @@ const TracingEngine = (function () {
     const grossLocationPerStroke = userFeatures.map((uf) => pointInExpandedBBox(uf.centroid, charBBox, THRESHOLDS.GROSS_LOCATION_MARGIN));
     hardGate.grossLocation = grossLocationPerStroke.every(Boolean);
 
-    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox);
+    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox, T.ABS_POSITION_MAX);
     hardGate.absoluteGeometry = absGeom.pass;
     hardGate.absoluteGeometryDetail = absGeom;
 
@@ -2824,11 +2991,11 @@ const TracingEngine = (function () {
     // Per-Stroke Position Guard(Phase T2-C'''): 他のstrokeが正しくても
     // 1本だけ全く違う場所に描かれた場合を検出する(文字全体のcentroidだけでは
     // 相殺されてしまう)。文字のbbox対角線で正規化したper-stroke指標。
-    const positionGuardOk = strokeResults.every((r) => r.positionMetric <= THRESHOLDS.STROKE_POSITION_MAX);
+    const positionGuardOk = tolerantGuard(strokeResults, (r) => r.positionMetric, T.STROKE_POSITION_MAX, T.STROKE_POSITION_CATASTROPHIC, 'lte', T.STROKE_FAIL_TOLERANCE);
 
     // Per-Stroke Completion Guard(Phase T2-C'''): stroke途中で止めた場合を
     // 検出する(raw path lengthはノイズで水増しされうるため使わない)。
-    const completionGuardOk = strokeResults.every((r) => r.completion >= THRESHOLDS.STROKE_COMPLETION_MIN_SPAN);
+    const completionGuardOk = tolerantGuard(strokeResults, (r) => r.completion, T.STROKE_COMPLETION_MIN_SPAN, T.STROKE_COMPLETION_CATASTROPHIC, 'gte', T.STROKE_FAIL_TOLERANCE);
 
     // Relative Character Discrimination(Phase T2-C'''): T2-C''の絶対DTW
     // hard gateを置き換える。opts.allCharacters/opts.targetChar(本番では
@@ -2852,7 +3019,7 @@ const TracingEngine = (function () {
 
     // Per-Stroke Quality Floor(Phase T2-B''): 文字全体の平均とは独立に、
     // 各strokeの合成scoreがSTROKE_QUALITY_FLOORを下回っていないか見る。
-    const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
+    const perStrokeFloorOk = floorGuardWithCompletionGate(strokeResults, T, T.STROKE_FAIL_TOLERANCE);
     hardGate.strokeQualityFloor = perStrokeFloorOk;
     hardGate.strokePosition = positionGuardOk;
     hardGate.strokeCompletion = completionGuardOk;
@@ -2863,7 +3030,7 @@ const TracingEngine = (function () {
     let score = avgStrokeScore * (1 - spatialWeight) + spatialScore * spatialWeight - orderPenalty;
     score = clamp01(score);
     const pass = hardGatePassed && perStrokeFloorOk && positionGuardOk && completionGuardOk
-      && characterDiscriminationOk && score >= THRESHOLDS.PASS_THRESHOLD;
+      && characterDiscriminationOk && score >= T.PASS_THRESHOLD;
 
     let reason = 'ok';
     if (!hardGatePassed) reason = 'hard_gate_failed';
@@ -2871,11 +3038,80 @@ const TracingEngine = (function () {
     else if (!positionGuardOk) reason = 'stroke_position_failed';
     else if (!completionGuardOk) reason = 'stroke_completion_failed';
     else if (!characterDiscriminationOk) reason = 'character_discrimination_failed';
-    else if (score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
+    else if (score < T.PASS_THRESHOLD) reason = 'low_score';
+
+    // ===== Phase T5-B''': Beginner Coarse Pass(easy専用フォールバック) =====
+    // 通常判定(pass)がfalseの場合のみ発火。Hard Safetyの核(strokeCount・minLength・
+    // ABS_SCALE攻撃防止・cross-character discrimination)はそのまま維持しつつ、
+    // 「絶対位置」(per-stroke・whole-character とも)は判定から完全に除外する(User要望
+    // 「下字から外れても判定OK」に対応)。ただし絶対位置を外すだけではW2(1画だけ他画とは
+    // 無関係な場所へずらす攻撃)がすり抜けることを実測で発見したため、代わりに「文字全体を
+    // 平行移動しても値が変わらない、相対位置」(各strokeのcentroidから文字全体重心を引いた値)
+    // をW2専用の安全網として追加した。実測: 大きなoffset/回転/wobbleの相対位置は最大0.049、
+    // W2攻撃(該当stroke)は最小0.146と、3倍以上のマージンで分離できることを確認済み
+    // (COARSE_RELATIVE_POSITION_MAX=0.10を採用)。
+    // per-stroke Quality Floor/Completionの許容本数はstroke数に応じて増やし、
+    // 「character-levelの大まかな参加度」で見る。新しい平滑化ロジックは追加せず、既存の
+    // tolerantGuard/floorGuardWithCompletionGate・avgStrokeScore(shape/coverage/offPath/
+    // startEnd/direction由来、絶対position非依存)をそのまま再利用する。
+    let coarsePass = false, coarseDetail = null;
+    if (T.BEGINNER_COARSE && !pass) {
+      const totalUserLength = userFeatures.reduce((a, f) => a + f.length, 0);
+      const totalRefLength = refFeatures.reduce((a, f) => a + f.length, 0) || 1e-6;
+      const totalLengthRatio = totalUserLength / totalRefLength;
+      const charBBoxDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
+      const userOverallCentroid = {
+        x: userFeatures.reduce((a, f) => a + f.centroid.x, 0) / userFeatures.length,
+        y: userFeatures.reduce((a, f) => a + f.centroid.y, 0) / userFeatures.length,
+      };
+      const refOverallCentroid = {
+        x: refFeatures.reduce((a, f) => a + f.centroid.x, 0) / refFeatures.length,
+        y: refFeatures.reduce((a, f) => a + f.centroid.y, 0) / refFeatures.length,
+      };
+      // 単画文字(strokeResults.length===1)では「他のstrokeとの相対位置」という概念自体が
+      // 成立しない(比較対象がなく、常にdx=dy=0になり無条件で安全判定されてしまう=W2attackが
+      // 素通りするバグを較正中に実測で発見)。単画文字ではabsolute position(通常easyで
+      // 較正済みのSTROKE_POSITION_CATASTROPHIC)へ安全にフォールバックする。
+      const relativePositionOk = strokeResults.length === 1
+        ? strokeResults[0].positionMetric <= T.STROKE_POSITION_CATASTROPHIC
+        : strokeResults.every((r, i) => {
+            const rf = refFeatures[assignment[i]];
+            const uf = userFeatures[i];
+            const dx = (uf.centroid.x - userOverallCentroid.x) - (rf.centroid.x - refOverallCentroid.x);
+            const dy = (uf.centroid.y - userOverallCentroid.y) - (rf.centroid.y - refOverallCentroid.y);
+            return Math.hypot(dx, dy) / charBBoxDiag <= T.COARSE_RELATIVE_POSITION_MAX;
+          });
+      const coarseHardSafety = hardGate.strokeCount && hardGate.minLength && absGeom.scaleOk
+        && characterDiscriminationOk && totalLengthRatio >= T.COARSE_TOTAL_LENGTH_MIN && relativePositionOk;
+      if (coarseHardSafety) {
+        // completion(progressSpan)は絶対座標(absPoints)基準のためoffsetの影響を受ける
+        // (shape/coverageはstroke内正規化=intrinsic座標のため無関係、再計算不要)。
+        // 文字全体の重心をreferenceへ揃えてから再計算した値をcoarse pass専用に使う
+        // (較正中、大きなoffsetがcompletion不足で誤ってRETRYになるバグとして発見・修正)。
+        const alignShiftX = refOverallCentroid.x - userOverallCentroid.x;
+        const alignShiftY = refOverallCentroid.y - userOverallCentroid.y;
+        const coarseStrokeResults = strokeResults.map((r, i) => {
+          const rf = refFeatures[assignment[i]];
+          const uf = userFeatures[i];
+          const shiftedAbs = uf.absPoints.map((p) => ({ x: p.x + alignShiftX, y: p.y + alignShiftY }));
+          return Object.assign({}, r, { completion: progressSpan(shiftedAbs, rf.absPoints) });
+        });
+        const n = coarseStrokeResults.length;
+        const coarseTolerance = Math.floor(n * T.COARSE_FAIL_TOLERANCE_RATIO);
+        const coarseFloorOk = floorGuardWithCompletionGate(coarseStrokeResults, T, coarseTolerance);
+        const coarseCompletionOk = tolerantGuard(coarseStrokeResults, (r) => r.completion, T.STROKE_COMPLETION_MIN_SPAN, T.STROKE_COMPLETION_CATASTROPHIC, 'gte', coarseTolerance);
+        coarsePass = coarseFloorOk && coarseCompletionOk && avgStrokeScore >= T.COARSE_PASS_THRESHOLD;
+        coarseDetail = { totalLengthRatio, relativePositionOk, coarseFloorOk, coarseCompletionOk, coarseTolerance, avgStrokeScore };
+      }
+    }
+    const finalPass = pass || coarsePass;
+    const finalReason = pass ? reason : (coarsePass ? 'ok_beginner_coarse' : reason);
 
     return {
-      pass, score, reason,
+      pass: finalPass, score, reason: finalReason,
       hardGate, assignment, strokes: strokeResults, orderPenalty, spatialScore,
+      acceptancePath: pass ? 'normal' : (coarsePass ? 'beginner_coarse' : 'none'),
+      coarseDetail,
     };
   }
 
@@ -3112,7 +3348,7 @@ function evaluateTraceAttempt(k) {
   const normalizedStrokes = traceStrokes.map(stroke =>
     stroke.map(p => canvasToNormalized(p.x, p.y))
   );
-  const result = TracingEngine.evaluateCharacter(normalizedStrokes, strokeData[k], { allCharacters: strokeData, targetChar: k });
+  const result = TracingEngine.evaluateCharacter(normalizedStrokes, strokeData[k], { allCharacters: strokeData, targetChar: k, judgmentProfile: TRACING_JUDGMENT_PROFILES[currentTracingLevel] });
   updateTracingDebugPanel(result);
 
   if (result.pass) {
@@ -3121,7 +3357,7 @@ function evaluateTraceAttempt(k) {
     speak('じょうず！');
     traceStrokeCount = 0;
     traceStrokes = [];
-    addLog('trace', {kana: k});
+    addLog('trace', {kana: k, tracingJudgmentLevel: currentTracingLevel});
   } else {
     showRetry();
   }

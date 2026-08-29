@@ -484,7 +484,7 @@
   // ---------------------------------------------------------------------
   // Absolute Geometry Guard (Phase T2-C'' — Root Cause A)
   // ---------------------------------------------------------------------
-  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox) {
+  function absoluteGeometryCheck(userFeatures, refFeatures, charBBox, absPositionMax) {
     const refDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
     const userAllPts = userFeatures.flatMap((f) => f.absPoints);
     const userBBox = computeBBox(userAllPts);
@@ -510,7 +510,7 @@
     // pushed pathLengthRatio to 1.74, which would have failed here and
     // broken a User-approved Motor Accessibility case. Kept as a debug-only
     // reported value, not gated on.
-    const positionOk = positionRatio <= THRESHOLDS.ABS_POSITION_MAX;
+    const positionOk = positionRatio <= (absPositionMax != null ? absPositionMax : THRESHOLDS.ABS_POSITION_MAX);
 
     return {
       pass: scaleOk && positionOk,
@@ -728,6 +728,62 @@
     opts = opts || {};
     const N = opts.samplePoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
 
+    // Phase T5-B': Tracing Judgment Level (Metrics Engine / Judgment Policy分離)。
+    // opts.judgmentProfileが渡された場合のみAdjustable(motor-tolerance)な4値を上書きする。
+    // Multi-Hypothesis Assignment Safety Guard・Self-Reflection Discrimination等の
+    // exploit-safety系は対象外(THRESHOLDS固定のまま)。opts.judgmentProfile省略時は
+    // Production(precise)と完全に一致する(golden-tests-katakana-independent46.jsの
+    // 既存呼び出しに影響なし)。katakana-app.htmlのインラインコピーと同一内容(手作業で同期)。
+    // 較正根拠はdocs/design-system/donomana-tracing-judgment-levels-v1.md参照。
+    const jp = opts.judgmentProfile || {};
+    const T = {
+      PASS_THRESHOLD: jp.PASS_THRESHOLD != null ? jp.PASS_THRESHOLD : THRESHOLDS.PASS_THRESHOLD,
+      STROKE_QUALITY_FLOOR: jp.STROKE_QUALITY_FLOOR != null ? jp.STROKE_QUALITY_FLOOR : THRESHOLDS.STROKE_QUALITY_FLOOR,
+      STROKE_POSITION_MAX: jp.STROKE_POSITION_MAX != null ? jp.STROKE_POSITION_MAX : THRESHOLDS.STROKE_POSITION_MAX,
+      STROKE_COMPLETION_MIN_SPAN: jp.STROKE_COMPLETION_MIN_SPAN != null ? jp.STROKE_COMPLETION_MIN_SPAN : THRESHOLDS.STROKE_COMPLETION_MIN_SPAN,
+      ABS_POSITION_MAX: jp.ABS_POSITION_MAX != null ? jp.ABS_POSITION_MAX : THRESHOLDS.ABS_POSITION_MAX,
+      STROKE_FAIL_TOLERANCE: jp.STROKE_FAIL_TOLERANCE || 0,
+    };
+    T.STROKE_QUALITY_CATASTROPHIC = jp.STROKE_QUALITY_CATASTROPHIC != null ? jp.STROKE_QUALITY_CATASTROPHIC : T.STROKE_QUALITY_FLOOR;
+    T.STROKE_POSITION_CATASTROPHIC = jp.STROKE_POSITION_CATASTROPHIC != null ? jp.STROKE_POSITION_CATASTROPHIC : T.STROKE_POSITION_MAX;
+    T.STROKE_COMPLETION_CATASTROPHIC = jp.STROKE_COMPLETION_CATASTROPHIC != null ? jp.STROKE_COMPLETION_CATASTROPHIC : T.STROKE_COMPLETION_MIN_SPAN;
+    T.STROKE_QUALITY_CATASTROPHIC_LENIENT = jp.STROKE_QUALITY_CATASTROPHIC_LENIENT != null ? jp.STROKE_QUALITY_CATASTROPHIC_LENIENT : T.STROKE_QUALITY_CATASTROPHIC;
+    T.STROKE_QUALITY_LENIENT_GATE = jp.STROKE_QUALITY_LENIENT_GATE || 0;
+    // Phase T5-B''': Beginner Coarse Pass関連(easyのみBEGINNER_COARSE=trueを設定)。
+    T.BEGINNER_COARSE = jp.BEGINNER_COARSE === true;
+    T.COARSE_FAIL_TOLERANCE_RATIO = jp.COARSE_FAIL_TOLERANCE_RATIO != null ? jp.COARSE_FAIL_TOLERANCE_RATIO : 0;
+    T.COARSE_PASS_THRESHOLD = jp.COARSE_PASS_THRESHOLD != null ? jp.COARSE_PASS_THRESHOLD : T.PASS_THRESHOLD;
+    T.COARSE_TOTAL_LENGTH_MIN = jp.COARSE_TOTAL_LENGTH_MIN != null ? jp.COARSE_TOTAL_LENGTH_MIN : 0;
+    T.COARSE_RELATIVE_POSITION_MAX = jp.COARSE_RELATIVE_POSITION_MAX != null ? jp.COARSE_RELATIVE_POSITION_MAX : 0.10;
+
+    function tolerantGuard(results, valueFn, good, catastrophic, cmp, tolerance) {
+      const n = results.length;
+      const tol = Math.min(tolerance || 0, Math.max(0, n - 1));
+      let failCount = 0;
+      for (let i = 0; i < n; i++) {
+        const v = valueFn(results[i]);
+        const passCatastrophic = cmp === 'gte' ? v >= catastrophic : v <= catastrophic;
+        if (!passCatastrophic) return false;
+        const passGood = cmp === 'gte' ? v >= good : v <= good;
+        if (!passGood) failCount++;
+      }
+      return failCount <= tol;
+    }
+
+    function floorGuardWithCompletionGate(results, T, tolerance) {
+      const n = results.length;
+      const tol = Math.min(tolerance || 0, Math.max(0, n - 1));
+      let failCount = 0;
+      for (let i = 0; i < n; i++) {
+        const r = results[i];
+        const floor = Math.min(r.shape, r.coverage);
+        const catastrophic = (r.completion < T.STROKE_QUALITY_LENIENT_GATE) ? T.STROKE_QUALITY_CATASTROPHIC_LENIENT : T.STROKE_QUALITY_CATASTROPHIC;
+        if (floor < catastrophic) return false;
+        if (floor < T.STROKE_QUALITY_FLOOR) failCount++;
+      }
+      return failCount <= tol;
+    }
+
     const refFeatures = referenceStrokeDefs.map((s) => {
       const { points, length } = sampleReferencePath(s.d, N);
       return Object.assign(extractStrokeFeatures(points, length), { label: s.label });
@@ -758,7 +814,7 @@
 
     // Absolute Geometry Guard (Phase T2-C''): character-level, independent
     // of per-stroke assignment, so it can run even before stroke matching.
-    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox);
+    const absGeom = absoluteGeometryCheck(userFeatures, refFeatures, charBBox, T.ABS_POSITION_MAX);
     hardGate.absoluteGeometry = absGeom.pass;
     hardGate.absoluteGeometryDetail = absGeom;
 
@@ -815,9 +871,9 @@
           positionMetric, completion, cost: costMatrix[i][j],
         };
       });
-      const positionGuardOk = strokeResults.every((r) => r.positionMetric <= THRESHOLDS.STROKE_POSITION_MAX);
-      const completionGuardOk = strokeResults.every((r) => r.completion >= THRESHOLDS.STROKE_COMPLETION_MIN_SPAN);
-      const perStrokeFloorOk = strokeResults.every((r) => Math.min(r.shape, r.coverage) >= THRESHOLDS.STROKE_QUALITY_FLOOR);
+      const positionGuardOk = tolerantGuard(strokeResults, (r) => r.positionMetric, T.STROKE_POSITION_MAX, T.STROKE_POSITION_CATASTROPHIC, 'lte', T.STROKE_FAIL_TOLERANCE);
+      const completionGuardOk = tolerantGuard(strokeResults, (r) => r.completion, T.STROKE_COMPLETION_MIN_SPAN, T.STROKE_COMPLETION_CATASTROPHIC, 'gte', T.STROKE_FAIL_TOLERANCE);
+      const perStrokeFloorOk = floorGuardWithCompletionGate(strokeResults, T, T.STROKE_FAIL_TOLERANCE);
 
       const orderPenalty = THRESHOLDS.ORDER_PENALTY_WEIGHT * orderPenaltyFor(candAssignment);
       const spatialScore = spatialAgreement(userFeatures, refFeatures, candAssignment);
@@ -833,7 +889,7 @@
       score = clamp01(score);
 
       const assignmentDependentOk = minLengthOk && perStrokeFloorOk && positionGuardOk && completionGuardOk;
-      return { assignment: candAssignment, minLengthOk, perStrokeFloorOk, positionGuardOk, completionGuardOk, assignmentDependentOk, strokeResults, orderPenalty, spatialScore, score };
+      return { assignment: candAssignment, minLengthOk, perStrokeFloorOk, positionGuardOk, completionGuardOk, assignmentDependentOk, strokeResults, orderPenalty, spatialScore, score, avgStrokeScore };
     }
 
     let chosen = evaluateForAssignment(assignment);
@@ -898,7 +954,7 @@
     hardGate.selfReflectionDetail = selfReflection;
 
     const pass = hardGatePassed && chosen.assignmentDependentOk
-      && characterDiscriminationOk && selfReflectionOk && chosen.score >= THRESHOLDS.PASS_THRESHOLD;
+      && characterDiscriminationOk && selfReflectionOk && chosen.score >= T.PASS_THRESHOLD;
 
     let reason = 'ok';
     if (!hardGatePassed) reason = 'hard_gate_failed';
@@ -907,17 +963,68 @@
     else if (!chosen.completionGuardOk) reason = 'stroke_completion_failed';
     else if (!characterDiscriminationOk) reason = 'character_discrimination_failed';
     else if (!selfReflectionOk) reason = 'self_reflection_failed';
-    else if (chosen.score < THRESHOLDS.PASS_THRESHOLD) reason = 'low_score';
+    else if (chosen.score < T.PASS_THRESHOLD) reason = 'low_score';
+
+    // Phase T5-B''': Beginner Coarse Pass(easy専用フォールバック)。
+    // hiragana-learn.html/katakana-app.htmlと同一設計(手作業で同期)。
+    let coarsePass = false, coarseDetail = null;
+    if (T.BEGINNER_COARSE && !pass) {
+      const totalUserLength = userFeatures.reduce((a, f) => a + f.length, 0);
+      const totalRefLength = refFeatures.reduce((a, f) => a + f.length, 0) || 1e-6;
+      const totalLengthRatio = totalUserLength / totalRefLength;
+      const charBBoxDiag = Math.hypot(charBBox.width, charBBox.height) || 1e-6;
+      const userOverallCentroid = {
+        x: userFeatures.reduce((a, f) => a + f.centroid.x, 0) / userFeatures.length,
+        y: userFeatures.reduce((a, f) => a + f.centroid.y, 0) / userFeatures.length,
+      };
+      const refOverallCentroid = {
+        x: refFeatures.reduce((a, f) => a + f.centroid.x, 0) / refFeatures.length,
+        y: refFeatures.reduce((a, f) => a + f.centroid.y, 0) / refFeatures.length,
+      };
+      // 単画文字では相対位置が成立しないためabsolute positionへフォールバック(較正中に
+      // レ等でW2attack素通りバグとして発見・修正)。
+      const relativePositionOk = chosen.strokeResults.length === 1
+        ? chosen.strokeResults[0].positionMetric <= T.STROKE_POSITION_CATASTROPHIC
+        : chosen.strokeResults.every((r, i) => {
+            const rf = refFeatures[chosen.assignment[i]];
+            const uf = userFeatures[i];
+            const dx = (uf.centroid.x - userOverallCentroid.x) - (rf.centroid.x - refOverallCentroid.x);
+            const dy = (uf.centroid.y - userOverallCentroid.y) - (rf.centroid.y - refOverallCentroid.y);
+            return Math.hypot(dx, dy) / charBBoxDiag <= T.COARSE_RELATIVE_POSITION_MAX;
+          });
+      const coarseHardSafety = hardGate.strokeCount && hardGate.minLength && absGeom.scaleOk
+        && characterDiscriminationOk && selfReflectionOk && totalLengthRatio >= T.COARSE_TOTAL_LENGTH_MIN && relativePositionOk;
+      if (coarseHardSafety) {
+        const alignShiftX = refOverallCentroid.x - userOverallCentroid.x;
+        const alignShiftY = refOverallCentroid.y - userOverallCentroid.y;
+        const coarseStrokeResults = chosen.strokeResults.map((r, i) => {
+          const rf = refFeatures[chosen.assignment[i]];
+          const uf = userFeatures[i];
+          const shiftedAbs = uf.absPoints.map((p) => ({ x: p.x + alignShiftX, y: p.y + alignShiftY }));
+          return Object.assign({}, r, { completion: progressSpan(shiftedAbs, rf.absPoints) });
+        });
+        const n = coarseStrokeResults.length;
+        const coarseTolerance = Math.floor(n * T.COARSE_FAIL_TOLERANCE_RATIO);
+        const coarseFloorOk = floorGuardWithCompletionGate(coarseStrokeResults, T, coarseTolerance);
+        const coarseCompletionOk = tolerantGuard(coarseStrokeResults, (r) => r.completion, T.STROKE_COMPLETION_MIN_SPAN, T.STROKE_COMPLETION_CATASTROPHIC, 'gte', coarseTolerance);
+        coarsePass = coarseFloorOk && coarseCompletionOk && chosen.avgStrokeScore >= T.COARSE_PASS_THRESHOLD;
+        coarseDetail = { totalLengthRatio, relativePositionOk, coarseFloorOk, coarseCompletionOk, coarseTolerance, avgStrokeScore: chosen.avgStrokeScore };
+      }
+    }
+    const finalPass = pass || coarsePass;
+    const finalReason = pass ? reason : (coarsePass ? 'ok_beginner_coarse' : reason);
 
     return {
-      pass,
+      pass: finalPass,
       score: chosen.score,
-      reason,
+      reason: finalReason,
       hardGate,
       assignment: chosen.assignment,
       strokes: chosen.strokeResults,
       orderPenalty: chosen.orderPenalty,
       spatialScore: chosen.spatialScore,
+      acceptancePath: pass ? 'normal' : (coarsePass ? 'beginner_coarse' : 'none'),
+      coarseDetail,
     };
   }
 
