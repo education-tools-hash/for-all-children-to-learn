@@ -1447,7 +1447,7 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 //    (全アプリ一括適用はしない。Phase T5-BはPilot 2本のみ: miru-hirogaru-app
 //    ・hiragana-learn)。
 // ============================================================
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku']);
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [

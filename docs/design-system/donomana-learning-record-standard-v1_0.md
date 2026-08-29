@@ -658,6 +658,193 @@ Playwrightで以下を検証した: 学習者3名（A/B/C、Cは写真付き）�
 
 ---
 
+## Addendum（Phase T5-E-A）: Learning Record Foundation Rollout — Group A（katakana-app / suji-manabou）
+
+T5-B〜T5-Dで確立したLearning Record Standard・Shared Foundation・UI Standardを、4 Pilot以外の既存Learning Recordアプリへ初めて横展開した。Group Aとして、hiragana-learnと同系統のlegacy schemaを持つ**katakana-app**・**suji-manabou**の2本を選定した。全17アプリ・全35アプリへの一括展開は行っていない。
+
+### 32.1 Group A選定理由
+
+katakana-app・suji-manabouはいずれもhiragana-learnと同じ「旧世代パターン」（`{time, type, data}`、`learningLog`変数、`now()`/`addLog()`/`saveLog()`の3関数構成）を持つことをコード監査で確認した。hiragana-learnが既にT5-B（Foundation導入）・T5-D（Delete Standard・Tracing Level表示）でReference Implementationとして実証済みであるため、同型2本への横展開はGroup A（最初のRollout）として最もリスクが低いと判断した。
+
+### 32.2 katakana-app Baseline Audit（実装確認）
+
+- storage key: `katakana_log`（`katakana-app.html:2965`で確認、推測なし）
+- record schema: `{time, type, data}`。T5-E-A以前は`schemaVersion`フィールドが存在しなかった（hiragana-learnはT5-Bで既に付与済みだったのに対し、katakana-appは未対応のまま残っていた差分）
+- activity types: `trace`（なぞり）・`quiz`（クイズ）・`match`（マッチング）— hiragana-learnと同一の3種
+- timestamp: `now()`が`toLocaleDateString('ja-JP') + ' ' + HH:MM`を返すja-JPロケール文字列（hiragana-learnと同一形式）
+- Viewer: 統計（なぞり文字数・クイズ正答率・マッチング回数・間違いまとめ）＋詳細ログ一覧。hiragana-learnとほぼ同一構造
+- CSV: 6列（日時・種類・もじ・こたえ・せいかい・せいかいのこたえ）、BOM+quote escape手動実装
+- clear/delete: **確認なし1クリック全削除**だった（`katakana-app.html`旧コード:「`// confirm はiframeで動作しない環境があるため省略`」というコメント付き）
+- inputMethod: フィールドなし（判定コードも存在しない）
+- tracing record: `addLog('trace', {kana: k, tracingJudgmentLevel: currentTracingLevel})`（`katakana-app.html:2523`）で、T3 Tracing EngineおよびT5-B'''のJudgment Levelが既に記録に反映されている
+- tracingJudgmentLevel: 記録される。ただし`donomanaRecordFormatTracingLevel()`による表示変換はT5-E-A以前は未実装（詳細ログにレベルラベルが出ていなかった）
+- schemaVersion: なし（後述、T5-E-Aで新規recordのみ付与）
+- localStorage load/save: `try/catch`で直接読み書き（Foundation未導入）
+
+### 32.3 suji-manabou Baseline Audit（実装確認）
+
+- storage key: `suji_log`（`suji-manabou.html:2203`で確認、推測なし）
+- record schema: `{time, type, data}`。katakana-app同様、`schemaVersion`はT5-E-A以前は存在しなかった
+- activity types: `trace`（`data.num`＝なぞった数字）・`match`（`data.difficulty`＝1〜5/1〜10/11〜20の難易度）。**`quiz`は存在しない**（hiragana-learn/katakana-appと構造は似ているが、教材固有のactivity種類は異なる。「hiragana/katakanaに合わせるため`quiz`を追加する」等の改変は行っていない）
+- timestamp: katakana-appと同一形式
+- Viewer: なぞり済み数字一覧・マッチング回数の簡易統計＋詳細ログ一覧
+- CSV: 4列（日時・種類・すうじ・くわしく）。hiragana/katakanaの6列構成とは列数・列名とも異なる。**無理に6列へ統一しなかった**（Standard §12「全アプリを16列等へ無理に固定しない」原則の実例）
+- clear/delete: **既にconfirm()付き**（`if (!confirm('きろくを すべて けしますか？')) return;`）。T5-D Standard適合済みであり、変更不要と判断した
+- inputMethod: フィールドなし
+- tracing record: **なし**。suji-manabouは`TracingEngine`/`currentTracingLevel`等のTracing Judgment Level機構を一切持たない（コード全体をgrepし該当なしを確認）。katakana-appに合わせて`tracingJudgmentLevel`を追加する等の改変は行っていない
+- schemaVersion: なし（後述、T5-E-Aで新規recordのみ付与）
+
+### 32.4 Group A Compatibility Matrix
+
+| 観点 | hiragana-learn（Reference） | katakana-app | suji-manabou |
+|---|---|---|---|
+| storage key | `hiragana_log` | `katakana_log` | `suji_log` |
+| record schema | `{time,type,data,schemaVersion}` | 同型（T5-E-Aで`schemaVersion`付与） | 同型（T5-E-Aで`schemaVersion`付与） |
+| activity種別 | trace/quiz/match | trace/quiz/match | trace/match（**quizなし**） |
+| Viewer構造 | 統計＋詳細ログ | 統計＋詳細ログ（同型） | 簡易統計＋詳細ログ |
+| CSV列数 | 6列 | 6列（同型） | **4列**（教材固有、統一せず） |
+| clear/delete | confirm()あり（T5-D対応済み） | **T5-E-Aでconfirm()追加** | 既にconfirm()あり（変更なし） |
+| timestamp形式 | ja-JPロケール文字列 | 同一 | 同一 |
+| Tracing機構 | T2/T3 Engine＋Judgment Levels | T3 Engine＋Judgment Levels | **なし**（該当機能自体が存在しない） |
+| inputMethod | フィールドなし | フィールドなし | フィールドなし |
+| Foundation導入状況（T5-E-A以前） | 導入済み（T5-B） | 未導入 | 未導入 |
+
+差分（quiz有無・CSV列数・Tracing機構有無）を実装前に把握した上で、**katakana-appとsuji-manabouを同一コードへ揃えることはせず、それぞれの既存の教材固有構造を維持したまま**Foundationのみを導入した。
+
+### 32.5 Foundation Integration
+
+katakana-app・suji-manabouとも、既存の`learningLog`変数・`saveLog()`/`addLog()`関数のシグネチャ・呼び出し箇所は一切変更せず、内部実装のみ委譲した（hiragana-learn・directions-appと同じ設計方針）。
+
+```js
+// Before（katakana-app / suji-manabou 共通の旧実装）
+var learningLog = [];
+try { learningLog = JSON.parse(localStorage.getItem('<key>_log') || '[]'); } catch(e) { learningLog = []; }
+function saveLog(){ try { localStorage.setItem('<key>_log', JSON.stringify(learningLog)); } catch(e) {} }
+
+// After
+var learningLog = donomanaRecordReadLog('<key>_log');
+function saveLog(){ donomanaRecordWriteLog('<key>_log', learningLog); }
+```
+
+`addLog()`本体（entry構築ロジック）は無変更。新規entryにのみ`schemaVersion: 1`を追加した（hiragana-learnと同じパターン）。
+
+**1操作→1 intended record**: 自動テスト（32.9節）で、`addLog()`1回の呼び出しに対し記録が正確に+1件になることを確認した（新しい並行loggerは追加していない）。
+
+### 32.6 Marker Injection / generate.js
+
+T5-B〜T5-Dで確立した「Foundation初回利用箇所を含む`<script>`タグの直前」アンカー方式（`generate.js`の既存ロジック）をそのまま使用した。`LEARNING_RECORD_FOUNDATION_APPS`へ`'katakana-app'`・`'suji-manabou'`を追加しただけで、アンカーロジック自体への変更は行っていない。挿入位置を`git diff`で確認し、`donomanaRecordReadLog`等の使用箇所（`learningLog`初期化）より確実に前に挿入されていることを確認した（ReferenceError再発なし）。
+
+### 32.7 Foundation API変更
+
+**なし。** 既存13関数（Data Foundation 9・UI Foundation 4）を無変更のまま使用した。Group A対応のためだけの新規API追加は行っていない（要求されなかった機能のみで対応可能だったため）。
+
+### 32.8 Legacy Record Preservation
+
+katakana_log・suji_logとも、以下のfixtureで読み込み互換を自動テスト・実ブラウザ双方で確認した:
+
+- record 0件（新規ユーザー想定） / 1件 / 複数件
+- `schemaVersion`欠落（旧record） / T5-E-A以降の新規recordのみ`schemaVersion: 1`
+- legacy timestamp（ja-JPロケール文字列、`toLocaleDateString`形式）
+- 不正なJSON文字列（malformed）→ `[]`へフォールバック（例外を投げない）
+
+いずれも**一括書き換えmigrationは行っていない**。既存recordは読み込み時・保存時とも無変更のまま保持される。
+
+### 32.9 schemaVersion
+
+新規recordのみ`schemaVersion: 1`を付与する方向とした（Standard §10のRoadmapに沿う）。既存recordへの遡及的付与・一括migrationは行っていない。
+
+### 32.10 Timestamp
+
+新規recordもISO 8601へは移行していない。既存Viewer（`entry.time`をそのまま表示用文字列として使用）・CSV（同様）との表示互換を優先し、hiragana-learnで確立した既存方針（Standard §16）をkatakana-app・suji-manabouでも踏襲した。
+
+### 32.11 katakana Tracing Isolation
+
+**Tracing判定ロジック（`TracingEngine`・`evaluateCharacter`・`absoluteGeometryCheck`・`tolerantGuard`・Multi-Hypothesis Assignment・Self-Reflection Discrimination・Monotonic Safety Guard・Relative Character Discrimination・Motor Accessibility較正）へは一切触れていない。** 変更したのは`learningLog`/`saveLog`/`addLog`/`clearRecord`/`updateRecordView`の記録関連コードのみであり、`git diff`でTracing Engine部分（`tools/tracing-poc/engine.js`・`engine-katakana.js`・katakana-app.html内のTracing判定コード本体）に差分がないことを確認した。公式Golden Test 4種を再実行し、全て回帰ゼロを確認した（32.20節）。
+
+### 32.12 Katakana Judgment Levels
+
+easy/standard/precise、default=standard、Reset=standardをすべて無変更のまま維持した。実ブラウザで`currentTracingLevel === 'standard'`（デフォルト）・`TRACING_JUDGMENT_PROFILES.precise`が`TracingEngine.THRESHOLDS`と完全一致（ゼロ回帰）することを再確認した。trace recordへの`tracingJudgmentLevel`保存は、実UIフロー（`setTracingJudgmentLevel('easy')` → `addLog('trace', ...)`）で1件だけ正しく記録されることを実ブラウザで確認した。legacy record（フィールド欠落）は表示崩れなし。
+
+### 32.13 Suji Record Semantics
+
+`trace.data.num`（なぞった数字）・`match.data.difficulty`（難易度）という教材固有のactivity構造を維持した。hiragana/katakanaの`kana`フィールドに合わせて改名する、`quiz`を追加する等の改変は一切行っていない。自動テストで`data.num`・`data.difficulty`の値が変更後も正しく保存されることを確認した。
+
+### 32.14 inputMethod
+
+katakana-app・suji-manabouとも、入力方式を正確に判定するコードは存在しないことをコード調査で確認した。Standard §5の「推測による記録は禁止」原則に従い、hiragana-learn・directions-appと同じ判断で**フィールド自体を追加しなかった**。
+
+### 32.15 Viewer
+
+katakana-app・suji-manabouとも既存Viewer（統計表示・詳細ログ一覧）のDOM構造・CSS・関数名を維持した。UI Foundation（`donomanaRecordFormatTracingLevel`）を詳細ログの1行に加算的に組み込んだ以外、情報を削る変更は行っていない。
+
+### 32.16 Tracing Level Display — Katakana
+
+`updateRecordView()`のtrace entry表示部分へ、`donomanaRecordFormatTracingLevel(entry.data.tracingJudgmentLevel)`を追加した。レベルが存在する場合のみラベル（やさしく/ひょうじゅん/ていねいに）を追記し、legacy record（フィールド欠落）では何も追記しない（`null`が返るため）。「unknown」等の不要な文言は出さない。実ブラウザで確認済み（32.19節）。
+
+### 32.17 Clear/Delete Safety
+
+**katakana-app**: 旧`clearRecord()`は確認なしの即時1クリック全削除だった。旧コード内コメント「`confirmはiframeで動作しない環境があるため省略`」を調査した結果、同ファイル内の別コメント（「`claude.ai iframe環境ではTTSにフォールバック`」）と合わせて考えると、この制約はClaude.ai上の開発時プレビューiframe環境固有のものであり、Production配信（donomana.jp、iframeなしの通常ページ）には該当しないと判断した。根拠として、同一パターンのUI・同時期に作られたsuji-manabouおよびdirections-app・hiragana-learn（T5-D後）が、いずれも`confirm()`を問題なく使用していることを確認した。T5-D Delete Standard（「即時1クリック全削除は禁止候補」）に従い、既存3アプリと同一の`confirm()`パターンを追加した。
+
+**suji-manabou**: 既に`confirm()`付きだったため変更していない。
+
+いずれもnative `confirm()`を採用した（既存directions-app/hiragana-learnとの整合を優先、custom confirm UIの新規構築は行っていない）。
+
+### 32.18 CSV Standard
+
+既存CSV情報（katakana-appの6列、suji-manabouの4列）を維持した。UTF-8 BOM・quote escapingは両アプリとも既存実装で既に満たされていることを確認した。共通CSV helper（`donomanaRecordBuildCsv`）への置換は行っていない（T5-C・T5-Dと同じ判断: 既存の動作実績あるコードへの無用な変更を避けるため）。
+
+### 32.19 Accessibility（Keyboard / Switch Scan / Touch）
+
+- **Keyboard**: 両アプリともnative buttonベースのViewer UIであり、変更なし。
+- **Switch Scan**: katakana-appの`buildScanItems()`は`button,[tabindex="0"]`という包括クエリ（Strategy B寄り）であり、CSV/削除ボタンは元々`<button>`要素のため、marker追加なしで候補に含まれていることを確認した。suji-manabouの`getScanTargets()`は`[tabindex="0"]`包括方式で、CSV/削除ボタンは元々`tabindex="0"`を持っていたため、同様にmarker追加不要だった。**directions-appのような`data-scan`欠落は、Group Aの2本には存在しなかった**（T5-Dで発見された問題はアプリ固有であり、Group Aへは横展開されていなかった）。
+- **Touch/Mobile**: 両アプリとも既存の共通ボタンスタイルを維持しており、target sizeの縮小は発生していない。
+
+### 32.20 Record Count / Retention
+
+katakana-app・suji-manabouとも、既存のRetention実装（件数上限等）は存在しなかった（無制限）。T5-E-Aで新しい一律`MAX_LOGS`等は導入していない（Standard §17のRECOMMENDED方針を維持）。
+
+### 32.21 Badge Audit
+
+`apps-data.json`を確認した結果、katakana-appは`"📊 きろく機能あり"`、suji-manabouは`"📊 きろく機能"`を既に保持しており、実装実態（永続Learning Record）と一致していることを確認した。**本Phaseでbadgeの変更は行っていない**（既に正しいため）。
+
+### 32.22 Automated Tests
+
+Node.js harness（`generate.js`から`buildLearningRecordFoundationJSHTML()`を実コードとして動的抽出）で、Group A固有シナリオ**21件全てPASS**した: katakana（legacy read・add・重複防止・reload・schemaVersion・tracingJudgmentLevel透過・CSV helper存在・clear・malformed fallback・非配列JSON扱い）9件、suji（legacy read・add・重複防止・activity構造保持・reload・clear・malformed fallback）7件、delete confirmation実装確認（katakana修正後/suji既存維持）2件。既存のT5-C' Composite Storage Adapterテスト36件・T5-D UI Foundationテスト31件も再実行し、全件PASSを再確認した（回帰なし）。
+
+### 32.23 Katakana Golden Tests
+
+公式Golden Test 4種を再実行し、全て回帰ゼロを確認した:
+
+- `golden-tests.js`: 93/93 strict checks PASS、mandatory ニ regression PASS
+- `golden-tests-full46.js`: ALL STRICT CHECKS PASSED
+- `golden-tests-independent46.js`（ひらがな）: Single-bad-stroke/Cross-character/Motor-accessibility false = 0、Pilot regression lock failures = 0
+- `golden-tests-katakana-independent46.js`: Motor Accessibility 460/460 PASS、Single-bad-stroke/Cross-character/Motor-accessibility false = 0
+
+`tools/tracing-poc/engine.js`・`engine-katakana.js`への差分は本Phaseでゼロであることを`git diff`で確認済み。
+
+### 32.24 Real Browser — katakana
+
+実ブラウザで以下を確認した: Foundation関数（Data・UI双方）の存在、`currentTracingLevel`デフォルト`standard`、`TRACING_JUDGMENT_PROFILES.precise`が`THRESHOLDS`と完全一致（ゼロ回帰）、legacy record読み込み、実UIフローでの新規trace record追加（`tracingJudgmentLevel: 'easy'`が正しく1件だけ記録される）、詳細ログでレベルラベル「やさしく」表示、legacy/新規record混在での表示崩れなし、reload永続化、`clearRecord()`のconfirm cancel/confirm両方の動作、CSVダウンロードのトリガー成功。**console error = 0、page error = 0。**
+
+### 32.25 Real Browser — suji
+
+実ブラウザで以下を確認した: Foundation関数の存在、legacy record読み込み、実UIフローでの新規record追加（`match`/`difficulty`構造が保持される）、Viewer表示、reload永続化、`clearRecord()`のconfirm cancel/confirm両方の動作（既存機能の再確認）、CSVダウンロードのトリガー成功。**console error = 0、page error = 0。**
+
+既存4 Pilot（hiragana-learn・directions-app・kyou-no-kiroku・miru-hirogaru-app）についても、Foundation関数の存在確認・console/page error = 0/0を再確認し、Group A追加による回帰がないことを確認した。
+
+### 32.26 generate Idempotency
+
+`node generate.js`を複数回連続実行し、2回目以降は「Learning Record Foundation挿入」処理が対象6アプリ全て「既に最新」となり、追加のdiffが発生しないことを確認した。
+
+### 32.27 Rollout Lessons（次Group向けの教訓）
+
+- **既存recordの`schemaVersion`有無はアプリごとに異なりうる**（hiragana-learnは既にT5-Bで付与済みだったが、katakana-app/suji-manabouは未対応のまま残っていた）。Foundation導入時は「新規recordにのみ付与」を機械的に徹底する必要がある。
+- **削除確認（confirm）の有無もアプリごとに異なりうる**（suji-manabouは既に対応済み、katakana-appは意図的な省略コメント付きで未対応）。個別に監査せず「hiragana-learnと同型だから同じ状態のはず」と仮定してはならない（本Phーズの§0/§14の指示通り）。
+- **教材固有のactivity構造（suji-manabouのquiz非対応、CSV列数の違い）を横展開時に統一しようとしない。** 差分を保った統合こそが「既存を壊さない」Foundationの本質。
+- **iframe関連の古いコードコメントは、Claude.ai開発時プレビュー環境固有の制約である可能性がある。** Production配信環境（iframeなしの通常ページ）での実際の動作を、同型の他アプリでの実績と突き合わせて判断すること。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
@@ -665,3 +852,4 @@ Playwrightで以下を検証した: 学習者3名（A/B/C、Cは写真付き）�
 | v1.0 Draft/RC | 2026-08-29 | Phase T5-B。Pilot 2本（miru-hirogaru-app・hiragana-learn）でPoC実装・単体テスト18件・実ブラウザ検証・Privacy検証・容量実測を完了。全35アプリ対応は未完了。 |
 | v1.0 Draft/RC + Addendum | 2026-08-29 | Phase T5-C。directions-appをShared Foundationへ統合（Pilot C）。kyou-no-kirokuはStorage Shape非互換性のため統合せず読み取り専用調査に留めた（Pilot D）。gaze-keyboardをCommunication Historyとして分類。自動テスト13件・実ブラウザ検証（4 Pilot）完了。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
 | v1.0 Draft/RC + Addendum 2 | 2026-08-29 | Phase T5-C'。Composite Storage Adapter（`donomanaRecordReadNestedCollection`/`WriteNestedCollection`）を新設し、kyou-no-kirokuを正式な4本目Pilotとして安全に統合。学習者削除後のrecord誤帰属を防ぐstable childId方式を導入し、既存の`childIndex`不整合バグを修正。自動テスト36件・実ブラウザ検証（A/B/C削除再現含む）完了。4 Pilot Foundation Validated確定。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
+| v1.0 Draft/RC + Addendum 3 | 2026-08-29 | Phase T5-E-A。4 Pilot以外への初のRollout（Group A: katakana-app・suji-manabou）。両アプリへFoundation委譲・schemaVersion付与を実施。katakana-appの削除確認欠落を修正、tracingJudgmentLevel表示を追加。suji-manabouは既存confirm()・教材固有activity構造（quiz非対応）を維持したまま統合。新規Foundation API追加なし。自動テスト21件・Katakana Golden Tests 4種・実ブラウザ検証（Group A + 既存4 Pilot回帰）完了。全17アプリ対応は未完了。 |
