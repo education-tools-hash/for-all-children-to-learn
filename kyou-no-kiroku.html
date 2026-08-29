@@ -1867,6 +1867,84 @@
   </div>
 </div>
 
+<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Learning Record Foundation (Phase T5-B PoC) — shared localStorage-backed
+   activity-log read/write/normalize helpers common to Learning Record Standard v1.0
+   (docs/design-system/donomana-learning-record-standard-v1_0.md). Auto-injected by
+   generate.js — edit generate.js's buildLearningRecordFoundationJSHTML() instead of
+   this block directly. Each app keeps its own storage key and its own record shape;
+   this Foundation standardizes only the read/write/normalize/CSV mechanics, never
+   the app-specific payload fields. */
+function donomanaRecordReadLog(storageKey) {
+  try { var raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function donomanaRecordWriteLog(storageKey, log) {
+  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
+}
+function donomanaRecordAddLog(storageKey, entry) {
+  var log = donomanaRecordReadLog(storageKey);
+  log.push(entry);
+  donomanaRecordWriteLog(storageKey, log);
+  return log;
+}
+function donomanaRecordClearLog(storageKey) {
+  donomanaRecordWriteLog(storageKey, []);
+}
+// schemaVersion欠落 = legacy v1として扱う(Standard §9)。既存フィールドは書き換えない。
+function donomanaRecordNormalizeLegacy(entry) {
+  if (entry && typeof entry === 'object' && entry.schemaVersion == null) entry.schemaVersion = 1;
+  return entry;
+}
+// Standard Core Schemaに沿った新規recordを組み立てる(将来のnested payload移行用。
+// 既存2 Pilotの実データ形式は変更しない。関数として提供し単体テストのみ対象)。
+function donomanaRecordCreate(appId, activity, inputMethod, payload) {
+  return {
+    timestamp: new Date().toISOString(),
+    appId: appId,
+    activity: activity,
+    inputMethod: (typeof inputMethod === 'string') ? inputMethod : null,
+    schemaVersion: 1,
+    payload: payload || {}
+  };
+}
+// UTF-8 BOM付きCSV文字列を組み立てる(Standard §17)。rows: 2次元配列(先頭行=header)。
+// ダウンロードUI自体は各アプリの既存実装を維持し、統一しない。
+function donomanaRecordBuildCsv(rows) {
+  function esc(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return /["\,\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  var body = rows.map(function(r) { return r.map(esc).join(','); }).join('\n');
+  return '\uFEFF' + body;
+}
+// Phase T5-C: Composite Storage Adapter — storageKeyの値がrecord配列そのものではなく
+// { records: [...], ...他のapp-specific property } のような複合objectの場合に、
+// 指定fieldだけを読み書きし、他のpropertyを完全に保持する(既知/未知を問わず)。
+// kyou-no-kiroku専用ではなく、同様の複合storage構造を持つ将来アプリでも再利用できる
+// 汎用primitiveとして提供する。array-basedのdonomanaRecordReadLog/WriteLogを
+// 複合objectのstorageKeyへ直接使わないこと(recordsだけの配列で他propertyを
+// 上書き破壊してしまう)。
+function donomanaRecordReadNestedCollection(storageKey, field) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = raw ? JSON.parse(raw) : null;
+    var arr = (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj[field] : undefined;
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function donomanaRecordWriteNestedCollection(storageKey, field, collection) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = null;
+    try { obj = raw ? JSON.parse(raw) : null; } catch (e2) { obj = null; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+    obj[field] = collection;
+    localStorage.setItem(storageKey, JSON.stringify(obj));
+  } catch (e) {}
+}
+</script>
+<!-- /learning-record-foundation-js -->
 <script>
 // ===== STATE =====
 let state = {
@@ -1899,17 +1977,22 @@ let scanBarTimer = null;
 let gazeTimers = {};
 
 // ===== LOAD / SAVE =====
+// Phase T5-C': kyounokirokuキーはchildren/records/kimochiOptions/a11yを含む複合objectであり、
+// donomanaRecordReadLog/WriteLog(配列専用)をそのまま使うとrecords以外を破壊する(T5-Cで実証済み)。
+// recordsフィールドだけはComposite Storage Adapter(donomanaRecordReadNestedCollection/
+// WriteNestedCollection)へ委譲し、children/kimochiOptions/a11yは既存のsaveState()のまま維持する。
 function loadState() {
   try {
     const s = localStorage.getItem('kyounokiroku');
     if (s) {
       const loaded = JSON.parse(s);
       state.children = loaded.children || [];
-      state.records = loaded.records || [];
       state.kimochiOptions = loaded.kimochiOptions || state.kimochiOptions;
       state.a11y = { ...state.a11y, ...(loaded.a11y || {}) };
     }
   } catch(e) {}
+  state.records = donomanaRecordReadNestedCollection('kyounokiroku', 'records');
+  migrateLearnerReferences();
 }
 
 function saveState() {
@@ -1921,6 +2004,41 @@ function saveState() {
       a11y: state.a11y,
     }));
   } catch(e) {}
+}
+
+function genId(prefix) {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// Phase T5-C' Critical Learner Integrity Audit対応: 子どもへ安定id、recordへchildId参照を
+// 一度だけ後方互換的に付与する(idempotent。既にchildIdがあるrecordはskip)。既存フィールド
+// (childIndex等)は削除・上書きしない。childNameスナップショットと現在children[childIndex].name
+// が一致する場合のみ高信頼で紐付ける。不一致(=過去のdeleteChildによるindexずれの疑い)や
+// 範囲外(=削除済み学習者のrecord)はchildIdを付与せず「不明」のまま保持する
+// (誤帰属より不明として保持することを優先する。§12 Ambiguous Migration STOP Gate相当の方針)。
+function migrateLearnerReferences() {
+  let changed = false;
+  state.children.forEach(c => {
+    if (!c.id) { c.id = genId('child'); changed = true; }
+  });
+  state.records.forEach(r => {
+    if (r.childId) return;
+    const idx = r.childIndex;
+    if (typeof idx === 'number' && idx >= 0 && idx < state.children.length) {
+      const candidate = state.children[idx];
+      if (candidate && candidate.name === r.childName) {
+        r.childId = candidate.id;
+        changed = true;
+      }
+      // name不一致: childIndexが別の子どもを指している可能性がある(過去のバグの痕跡)。
+      // 推測でchildIdを割り当てない。
+    }
+    // 範囲外: 削除済み学習者のrecord。同様にchildIdを付与しない。
+  });
+  if (changed) {
+    saveState();
+    donomanaRecordWriteNestedCollection('kyounokiroku', 'records', state.records);
+  }
 }
 
 // ===== SCREEN NAV =====
@@ -2073,10 +2191,12 @@ function addChild() {
     bgColor: newChildBgColor   || null,
   };
   if (editingChildIndex !== null) {
-    // 編集モード：上書き
+    // 編集モード：上書き(既存idは保持し、record側のchildId参照を壊さない)
+    childData.id = state.children[editingChildIndex].id || genId('child');
     state.children[editingChildIndex] = childData;
   } else {
     // 新規追加
+    childData.id = genId('child');
     state.children.push(childData);
   }
   editingChildIndex = null;
@@ -2262,10 +2382,12 @@ function clearVitalInputs() {
 }
 
 function saveRecord() {
+  const selectedChildObj = state.children[state.selectedChild];
   const record = {
     id: Date.now(),
     childIndex: state.selectedChild,
-    childName: state.children[state.selectedChild].name,
+    childId: selectedChildObj.id,
+    childName: selectedChildObj.name,
     date: new Date().toISOString(),
     kimochi: state.selectedKimochi,
     temp: document.getElementById('inputTemp').value,
@@ -2282,9 +2404,10 @@ function saveRecord() {
     seizureTypes: [...document.querySelectorAll('#seizureTypeGrid .seizure-type-btn.selected')].map(b => b.dataset.type),
     seizureNote: document.getElementById('inputSeizureNote').value.trim(),
     memo: document.getElementById('inputMemo').value.trim(),
+    schemaVersion: 1,
   };
   state.records.push(record);
-  saveState();
+  donomanaRecordWriteNestedCollection('kyounokiroku', 'records', state.records);
 
   const child = state.children[state.selectedChild];
   document.getElementById('celebrationMsg').textContent =
@@ -2304,19 +2427,22 @@ function renderRecords() {
   const filterDate = document.getElementById('recordFilterDate').value;
 
   // populate child filter
+  // Phase T5-C': array indexではなくchild.id(安定id)でfilterする。child削除で
+  // indexがずれても、他の子どものrecordを誤って表示することがない(Critical Learner
+  // Integrity Audit対応)。
   const sel = document.getElementById('recordFilterChild');
   const curVal = sel.value;
   sel.innerHTML = '<option value="">全員</option>';
-  state.children.forEach((c, i) => {
+  state.children.forEach((c) => {
     const opt = document.createElement('option');
-    opt.value = i;
+    opt.value = c.id;
     opt.textContent = c.name;
-    if (String(i) === curVal) opt.selected = true;
+    if (String(c.id) === curVal) opt.selected = true;
     sel.appendChild(opt);
   });
 
   let records = [...state.records].reverse();
-  if (filterChild !== '') records = records.filter(r => String(r.childIndex) === filterChild);
+  if (filterChild !== '') records = records.filter(r => String(r.childId) === filterChild);
   if (filterDate) records = records.filter(r => r.date.startsWith(filterDate));
 
   const list = document.getElementById('recordList');
@@ -2489,7 +2615,7 @@ function saveEditRecord() {
   r.seizureTypes    = [...document.querySelectorAll('#editSeizureTypeGrid .seizure-type-btn.selected')].map(b => b.dataset.type);
   r.seizureNote     = document.getElementById('editSeizureNote').value.trim();
   r.memo       = document.getElementById('editMemo').value.trim();
-  saveState();
+  donomanaRecordWriteNestedCollection('kyounokiroku', 'records', state.records);
   closeModal('modalEditRecord');
   renderRecords();
 }
@@ -2506,7 +2632,7 @@ function cancelDeleteRecord() {
 
 function confirmDeleteRecord() {
   state.records.splice(editingRecordIndex, 1);
-  saveState();
+  donomanaRecordWriteNestedCollection('kyounokiroku', 'records', state.records);
   closeModal('modalEditRecord');
   renderRecords();
 }
@@ -2719,7 +2845,7 @@ function cancelClearData() {
 
 function executeClearData() {
   state.records = [];
-  saveState();
+  donomanaRecordWriteNestedCollection('kyounokiroku', 'records', state.records);
   document.getElementById('clearDataConfirmArea').style.display = 'none';
   renderRecords();
 }

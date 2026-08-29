@@ -1447,7 +1447,7 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 //    (全アプリ一括適用はしない。Phase T5-BはPilot 2本のみ: miru-hirogaru-app
 //    ・hiragana-learn)。
 // ============================================================
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app']);
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [
@@ -1501,6 +1501,31 @@ function buildLearningRecordFoundationJSHTML() {
     '  }',
     '  var body = rows.map(function(r) { return r.map(esc).join(\',\'); }).join(\'\\n\');',
     '  return \'\\uFEFF\' + body;',
+    '}',
+    '// Phase T5-C: Composite Storage Adapter — storageKeyの値がrecord配列そのものではなく',
+    '// { records: [...], ...他のapp-specific property } のような複合objectの場合に、',
+    '// 指定fieldだけを読み書きし、他のpropertyを完全に保持する(既知/未知を問わず)。',
+    '// kyou-no-kiroku専用ではなく、同様の複合storage構造を持つ将来アプリでも再利用できる',
+    '// 汎用primitiveとして提供する。array-basedのdonomanaRecordReadLog/WriteLogを',
+    '// 複合objectのstorageKeyへ直接使わないこと(recordsだけの配列で他propertyを',
+    '// 上書き破壊してしまう)。',
+    'function donomanaRecordReadNestedCollection(storageKey, field) {',
+    '  try {',
+    '    var raw = localStorage.getItem(storageKey);',
+    '    var obj = raw ? JSON.parse(raw) : null;',
+    '    var arr = (obj && typeof obj === \'object\' && !Array.isArray(obj)) ? obj[field] : undefined;',
+    '    return Array.isArray(arr) ? arr : [];',
+    '  } catch (e) { return []; }',
+    '}',
+    'function donomanaRecordWriteNestedCollection(storageKey, field, collection) {',
+    '  try {',
+    '    var raw = localStorage.getItem(storageKey);',
+    '    var obj = null;',
+    '    try { obj = raw ? JSON.parse(raw) : null; } catch (e2) { obj = null; }',
+    '    if (!obj || typeof obj !== \'object\' || Array.isArray(obj)) obj = {};',
+    '    obj[field] = collection;',
+    '    localStorage.setItem(storageKey, JSON.stringify(obj));',
+    '  } catch (e) {}',
     '}',
     '</script>',
     '<!-- /learning-record-foundation-js -->'

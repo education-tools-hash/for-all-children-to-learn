@@ -504,9 +504,164 @@ Playwrightで4 Pilot（miru-hirogaru-app・hiragana-learn・directions-app・kyo
 
 ---
 
+## Addendum（Phase T5-C'）: Composite Storage Adapter / Learner Record Integrity
+
+Phase T5-C'で、T5-Cが「Storage Shape非互換性のため統合しない」と結論したkyou-no-kirokuについて、Composite Storageを安全に扱う境界設計（Composite Storage Adapter）を完成させ、**正式な4本目Pilotとして統合した**。同時に、T5-Aから存在していた未修正の`childIndex`データ整合性問題（学習者削除後のrecord誤帰属リスク）を発見・修正した。
+
+### 31.1 Exact Composite Schema（実装から確定）
+
+storage key: `kyounokiroku`（単一）。値は以下の複合object（`kyou-no-kiroku.html:1872-1893`が正本）:
+
+```js
+{
+  children: [ { name, emoji, photo, bgColor } ],   // T5-C'でidを追加(後述)
+  records:  [ { id, childIndex, childName, date, kimochi, temp, pulse, spo2,
+                condition, medication, toilet, water, waterTime, seizure,
+                seizureTime, seizureDuration, seizureTypes, seizureNote, memo } ],
+                // T5-C'でchildId・schemaVersionを新規recordへ追加(後述)
+  kimochiOptions: [ { emoji, label, color, image? } ],  // デフォルト6件
+  a11y: { hc, tts, scan, scanSpeed, gaze, fontsize?, gazeDwell?, gazeSize?, gazeColor? },
+}
+```
+
+- **load path**: `loadState()`（`kyou-no-kiroku.html:1907-1921`）。`state.selectedChild`/`selectedKimochi`/`selectedCondition`はメモリ内のみで**永続化されない**（`saveState()`の書き込み対象に含まれない）。
+- **save path（T5-C'変更後）**: `children`/`kimochiOptions`/`a11y`は既存の`saveState()`（4フィールドを毎回まとめて書く）のまま。`records`のみ新設のComposite Storage Adapter経由（後述）。
+- **clear/delete path**: `executeClearData()`（records全削除、childrenは保持）／`confirmDeleteRecord()`（record 1件削除）／`deleteChild(i)`（child 1件削除、対応recordは削除しない＝現状維持）。
+- **property defaults**: `kimochiOptions`未存在時は初期6件配列にフォールバック。`a11y`は`{...デフォルト, ...loaded.a11y}`でマージ（欠落キーのみデフォルト維持）。`children`/`records`は`|| []`。
+
+### 31.2 Destructive Reproduction（T5-Cの実証を再確認）
+
+T5-Cで実証した「array-based Foundation API（`donomanaRecordReadLog`/`WriteLog`）を`kyounokiroku`キーへ直接使うと`children`/`kimochiOptions`/`a11y`が破壊される」現象を、T5-C'でも独立したRegression Testとして再実装・再確認した（`destructiveRegressionGuard`テストケース、36件中の1件）。**今後この方式へ戻らないことを保証するテストとして永続的に保持する。**
+
+### 31.3 Adapter方式比較・採用方式
+
+| 選択肢 | 内容 | 評価 |
+|---|---|---|
+| A. Generic collection adapter interface | `donomanaRecordReadNestedCollection(storageKey, field)` / `WriteNestedCollection(storageKey, field, collection)`。fieldを引数化し、複合object内の指定fieldだけを読み書きする汎用primitive | **採用**。他の複合storage構造を持つ将来アプリにも再利用可能。Foundationをkyou-no-kiroku専用仕様で汚染しない |
+| B. kyou-no-kiroku app-level adapter | kyou-no-kiroku.html内だけに閉じたローカル関数として実装 | 不採用。再利用性がなく、他アプリが同じ問題に直面した際にコードが重複する |
+| C. Shared nested-property helper | Aと実質同一の設計（多階層path対応等の拡張は行わない） | Aとして採用（「将来使うかもしれない」複雑な汎用化はせず、今回必要な単純な1階層field指定のみ実装） |
+
+採用方式Aを`generate.js`の`buildLearningRecordFoundationJSHTML()`へ追加し、既存4関数（`donomanaRecordReadLog`等）と並ぶ形でFoundationスクリプトブロックへ含めた。既存の`LEARNING_RECORD_FOUNDATION_APPS`登録済み3アプリ（miru-hirogaru-app・hiragana-learn・directions-app）にも、ブロック更新により新規2関数が自動的に伝播した（純粋な追加のみで、既存4関数・既存app固有コードには一切変更なし。差分は`git diff`で確認済み）。
+
+### 31.4 Foundation API変更
+
+新規2関数を追加（既存7関数は無変更）:
+
+```js
+donomanaRecordReadNestedCollection(storageKey, field)              // → array
+donomanaRecordWriteNestedCollection(storageKey, field, collection) // → void
+```
+
+いずれも複合object全体を読み込み、指定fieldのみを更新して書き戻す。**既知・未知を問わずfield以外のpropertyを完全に保持する**（field以外のpropertyを列挙・再構築しないため、Foundationが関知しない将来のproperty追加にも安全）。
+
+### 31.5 採用したkyou-no-kiroku側統合
+
+`records`フィールドの読み書きのみをComposite Storage Adapterへ委譲した。`children`/`kimochiOptions`/`a11y`は既存`saveState()`のまま変更していない（学習者プロファイル・設定はLearning Record Standardの対象外という既存方針を維持）。
+
+- `loadState()`: `state.records = donomanaRecordReadNestedCollection('kyounokiroku', 'records')`
+- `saveRecord()`/`saveEditRecord()`/`confirmDeleteRecord()`/`executeClearData()`: `donomanaRecordWriteNestedCollection('kyounokiroku', 'records', state.records)`へ統一（従来の`saveState()`呼び出しを置き換え）
+- 新規recordに`schemaVersion: 1`を追加（Pilot B/Cと同じ既存パターン）
+- `inputMethod`: kyou-no-kirokuにも入力方式判別コードは存在しないため、追加していない（推測禁止の既存方針を維持）
+
+### 31.6 Critical Learner Integrity Audit — 正確な再現テスト
+
+T5-Cで発見した「child削除後の`childIndex`参照不整合」について、A/B/C 3 learnerでの正確な再現テストを自動テスト（`abcDeletionRepro`）と実ブラウザテストの両方で構築した。
+
+**再現手順**: A(index0)/B(index1)/C(index2)を作成、各々に1件ずつrecordを保存 → **Bを削除** → `state.children`は`[A, C]`（Cがindex1へ繰り上がる）。
+
+**旧ロジック（`childIndex`ベースのfilter）で起きていたこと**: 記録一覧画面で「Cで絞り込み」を選択すると、UIはCの新しいindex値（1）を送信する。旧filterは`r.childIndex === filterChild`で照合していたため、**Bのrecord（`childIndex: 1`のまま）がCのfilterに一致してしまう**ことを自動テストで実証した（`OLD_recordsForNewIndex1`ケース）。表示名自体は`r.childName`スナップショット（"B"のまま）を使うため画面上「Bの記録」と表示され続けるが、**「Cで絞り込む」という操作をした保護者・支援者に対し、実際にはBの記録がCの記録一覧に混入して見える**という実害があった。
+
+**新ロジック（`childId`ベースのfilter）での結果**: 同じ再現手順を実行した結果、Cでの絞り込みは**Cのrecordのみ**（1件）を返し、Bのrecordは混入しないことを自動テスト・実ブラウザテスト双方で確認した。Aの絞り込みも同様にAのrecordのみを返す。「全員」表示では3件全てが表示され、Bのrecordも引き続き「B」という正しい名前で表示される（displayは元々`childName`スナップショットを使っており、この点はbefore/afterで変化なし）。
+
+### 31.7 Learner Reference Strategy — 採否
+
+| 選択肢 | 内容 | 判断 |
+|---|---|---|
+| A. child削除時に全record childIndexを再計算 | 削除の都度、後続indexを持つ全recordの`childIndex`をシフトする | 不採用。すでに保存された全recordを毎回書き換える必要があり、リスクが高い上、shift演算自体にバグの余地がある |
+| **B. stable childIdを導入** | childへ不変の`id`、recordへ`childId`参照を追加。indexに依存しない | **採用**。既存`childIndex`は削除せず併存させ、legacy互換を確保した |
+| C. その他 | (検討したが具体案なし) | — |
+
+**stable ID採否: 採用した。** `genId(prefix)`（`kyou-no-kiroku.html`新設）で`prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8)`形式のid文字列を生成する。新規child作成時（`addChild()`）に付与し、child編集時は既存idを保持する。
+
+### 31.8 Migration — 既存データの後方互換的な移行
+
+`migrateLearnerReferences()`（`loadState()`から毎回呼ばれる、idempotent）が以下を行う:
+
+1. `id`を持たないchildへ`genId('child')`で新規id付与（初回ロード時のみ、以後は保持）。
+2. `childId`を持たないrecordについて、`childIndex`が現在の`children`配列の範囲内であり、かつ**`children[childIndex].name === record.childName`（保存時点のスナップショットと現在名が一致）の場合のみ**、そのchildの`id`を`childId`として付与する。
+3. 変更があった場合のみ`saveState()`（children）と`donomanaRecordWriteNestedCollection`（records）で永続化する（無変更時は書き込まない＝不要な保存回数増加を避ける）。
+
+既存の`childIndex`フィールドは一切削除・上書きしていない（legacy compatibility）。
+
+### 31.9 Ambiguous Migration STOP Gate
+
+T5-C'で最も重要な安全設計判断: **「`childIndex`が範囲内だが、`childName`スナップショットと現在その位置にいるchildの名前が一致しない」レコードは、どのchildへ属するか一意に判断できないと扱い、`childId`を推測で割り当てない。**
+
+これは「本Phase以前に既にdeleteChild()による混入バグの影響を受けた既存ユーザーデータ」を想定した設計である。範囲内だから安全というわけではなく、範囲内でも名前が食い違っていれば「過去のバグで別のchildを指すようになった痕跡」である可能性があり、その場合は現在その位置にいるchildへ誤って紐付けるのではなく、**`childId`を空のまま保持する**（自動テスト`ambiguousMigrationStopGate`で実証）。この結果、該当recordは「全員」表示では引き続き閲覧できるが、特定の子どもによる絞り込みでは表示されなくなる（＝安全側に倒す）。
+
+**限界の明記**: 本Phase以前に実際にProduction環境で`childIndex`ずれが発生していた場合、そのデータが「範囲内かつ名前一致」（=偶然にも移行時点で正しく見える）なのか「範囲内かつ名前一致だが実は既に別の観測できない経緯で誤って一致している」のかを、保存済みデータのみから完全に区別することは原理的に不可能である。今回の移行ロジックは「名前スナップショットとの突合」という利用可能な最善の手がかりを使っているが、100%の正しさを保証するものではない。この限界はUser Reviewへ明示的に報告する。
+
+### 31.10 Delete Semantics — 現状維持
+
+`deleteChild(i)`の削除時挙動（現状B: recordsは削除せず残す）を、本Phaseでは変更していない。stable ID化により「誤って別learnerへ記録が移ることは絶対に許容しない」という制約は満たされたため、削除時にrecordsも合わせて削除するか(A)、残すか(B)、ユーザーに選ばせるか(C)というUX方針の決定自体は、明示的な承認なしに本Phaseでは行わない。
+
+### 31.11 Name / Privacy Label（未実装、変更なし）
+
+T5-Cで提示した「なまえ」→「よびな」等の表示文言変更候補は、本Phaseの主目的（Storage/Data Integrity）と直接関係しないため実装していない。引き続きT5-D以降、User承認を得た上での検討候補とする。
+
+### 31.12 Personal Data Boundary
+
+Composite Storage Adapter導入によって新規の外部通信は一切発生しない（`donomanaRecordReadNestedCollection`/`WriteNestedCollection`は`localStorage`のみを扱う純粋関数）。`fetch`/`XMLHttpRequest`/GA送信のいずれも本Phaseの変更コードに含まれないことをコードレビューで確認した。
+
+### 31.13 Foundation Integration 要件チェック
+
+| 要件 | 結果 |
+|---|---|
+| existing data preserved | ✓ 自動テスト`preservationGuarantee`・`unknownPropertyPreservation`・実ブラウザで確認 |
+| new record preserved | ✓ |
+| schemaVersion compatibility | ✓ 新規recordのみ`schemaVersion:1`付与、legacy recordは無変更 |
+| duplicateなし | ✓ 実ブラウザで3件記録→3件のまま(重複なし)を確認 |
+| reload persistence | ✓ |
+| Viewer維持 | ✓ `renderRecords()`は既存の表示ロジックのまま、filter方式のみid化 |
+| export維持 | ✓ `exportCSV()`は無変更。実ブラウザでCSVダウンロードが例外なくトリガーされることを確認 |
+| delete behavior integrity | ✓ 誤帰属なしを実証（§31.6） |
+
+### 31.14 Record Size / Photo Separation
+
+T5-Cの実測（record 約447 bytes、photoは数十〜数百KB）を踏襲し、本Phaseでも両者を区別して評価した。photoは`children[].photo`（base64 data URI）であり、Learning Record（`records[]`）のサイズとは別物として扱う。Composite Storage Adapterはrecordsフィールドのみを操作するため、photoの読み書き経路には一切関与しない。
+
+### 31.15 Automated Tests（20項目チェックリスト）
+
+Node.js harness（`generate.js`から`buildLearningRecordFoundationJSHTML()`を、`kyou-no-kiroku.html`から`genId`/`migrateLearnerReferences`を実コードとして動的抽出、ハンドコピーではない）で **36件全てPASS**。
+
+1. composite read ✓ 2. record add ✓ 3. record write ✓ 4. reload ✓ 5. children preserved ✓ 6. options preserved ✓ 7. a11y preserved ✓ 8. photo preserved ✓ 9. unknown property preserved ✓ 10. legacy schema（6種のfixture: 0 child/1 child/複数child/photoあり/option変更済み/schemaVersionなし） ✓ 11. malformed data fallback（不正JSON・非object・非配列） ✓ 12. duplicate prevention ✓ 13. learner deletion ✓ 14. learner reference integrity（A/B/C再現） ✓ 15. multiple learners ✓ 16. export compatibility（実ブラウザ側で確認） ✓ 17. clear behavior ✓ + Ambiguous Migration STOP Gate 2件 + Destructive Regression Guard 2件。
+
+### 31.16 3 Pilot Regression / Tracing Regression
+
+miru-hirogaru-app・hiragana-learn・directions-appを実ブラウザで再確認した。Foundation関数（新規2関数含む）は正しく存在し、既存機能（directions-appのlegacy読み込み・追加・MAX_LOGS・削除、hiragana-learnの`currentTracingLevel === 'standard'`）に回帰がないことを確認した。`tools/tracing-poc/engine.js`/`engine-katakana.js`・`hiragana-learn.html`/`katakana-app.html`のTracing Judgment実装部分に本Phaseの差分は一切ない（`git diff`で確認）。公式Golden Test 4種（93/93・full46全PASS・independent46両文字体系ALL CLEAN）も再確認した。
+
+### 31.17 gaze-keyboard / Badge Semantics
+
+T5-Cの分類（Communication History）・判断（Foundationへ統合しない）を本Phaseでも維持した。コード変更は行っていない。Badge一括変更も行っていない。
+
+### 31.18 Real Browser（kyou-no-kiroku）
+
+Playwrightで以下を検証した: 学習者3名（A/B/C、Cは写真付き）作成 → 各1件ずつrecord保存（実UIフロー: きもち選択→たいちょう入力画面→「きろくする」ボタン） → reload → a11y設定・kimochiOptions・写真がすべて保持されていることを確認 → Bを削除 → filter dropdownが「全員/A/C」の3項目になることを確認 → Aで絞り込み→A 1件のみ、Cで絞り込み→C 1件のみ（Bは混入しない）、全員→3件（Bも引き続き正しく「B」と表示）を確認 → 再度reloadしても同じ状態を確認 → CSVエクスポートが例外なくダウンロードをトリガーすることを確認。**console error = 0、page error = 0。**
+
+### 31.19 User Data Safety Gate
+
+本Phase中、children消失・photo消失・option消失・a11y消失・records消失・learner誤帰属・duplicate records・malformed migration・外部送信のいずれも発生しなかった。STOPは発生しなかった。
+
+### 31.20 T5-D Entry Gate 判定
+
+**4th Pilot kyou-no-kirokuの安全統合が完了した。** T5-Cで保留していた「4 Pilot Foundation validated」の判定を、本Phaseをもって確定する。T5-Dへの移行条件（4th Pilot安全統合、または明確な理由による非対象の正式分類）のうち、前者を満たした。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v1.0 Draft/RC | 2026-08-29 | Phase T5-B。Pilot 2本（miru-hirogaru-app・hiragana-learn）でPoC実装・単体テスト18件・実ブラウザ検証・Privacy検証・容量実測を完了。全35アプリ対応は未完了。 |
 | v1.0 Draft/RC + Addendum | 2026-08-29 | Phase T5-C。directions-appをShared Foundationへ統合（Pilot C）。kyou-no-kirokuはStorage Shape非互換性のため統合せず読み取り専用調査に留めた（Pilot D）。gaze-keyboardをCommunication Historyとして分類。自動テスト13件・実ブラウザ検証（4 Pilot）完了。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
+| v1.0 Draft/RC + Addendum 2 | 2026-08-29 | Phase T5-C'。Composite Storage Adapter（`donomanaRecordReadNestedCollection`/`WriteNestedCollection`）を新設し、kyou-no-kirokuを正式な4本目Pilotとして安全に統合。学習者削除後のrecord誤帰属を防ぐstable childId方式を導入し、既存の`childIndex`不整合バグを修正。自動テスト36件・実ブラウザ検証（A/B/C削除再現含む）完了。4 Pilot Foundation Validated確定。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
