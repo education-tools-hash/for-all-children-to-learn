@@ -1581,6 +1581,68 @@ function donomanaRecordWriteNestedCollection(storageKey, field, collection) {
     localStorage.setItem(storageKey, JSON.stringify(obj));
   } catch (e) {}
 }
+// Phase T5-D: UI Foundation — Data Foundation(read/write/normalize/CSV)とは責務を分離した
+// 純粋な表示整形/grouping関数群(DOM操作なし、副作用なし)。Common Viewerの「Core表示」を
+// 構成する最小限のhelperのみを提供し、教材固有の要約文(例:「『あ』のなぞり」)は各アプリの
+// adapter責務のまま残す(Switch Scan共通仕様16.3節と同じ、helperはlifecycle/整形、
+// adapterはcontentという責務分離)。
+// timeValueはISO 8601・ja-JPロケール文字列("2026/8/29 19:28:18")・epoch msのいずれでも受け付け、解析できない場合は元の値をそのまま返す(値の欠落・空文字表示を防ぐ)。
+function donomanaRecordFormatDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return '';
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return (timeValue === null || timeValue === undefined) ? '' : String(timeValue);
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch (e) { return (timeValue === null || timeValue === undefined) ? '' : String(timeValue); }
+}
+// entriesを日付ごとにグループ化する(新しい日付が先頭、group内も新しい順)。getTimeFnを渡さない
+// 場合はentry.timeを使う。解析できないtimestampのentryは「日付不明」groupへ末尾でまとめる
+// (無視・削除はしない)。
+function donomanaRecordGroupByDate(entries, getTimeFn) {
+  function dateKey(d) {
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  var todayKey = dateKey(new Date());
+  var yesterdayKey = dateKey(new Date(Date.now() - 86400000));
+  var groups = {};
+  (entries || []).forEach(function (entry) {
+    var raw = getTimeFn ? getTimeFn(entry) : entry.time;
+    var d = new Date(raw);
+    var valid = !isNaN(d.getTime());
+    var key = valid ? dateKey(d) : '__unknown__';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ entry: entry, ms: valid ? d.getTime() : -1 });
+  });
+  var keys = Object.keys(groups).sort(function (a, b) {
+    if (a === '__unknown__') return 1;
+    if (b === '__unknown__') return -1;
+    return a < b ? 1 : (a > b ? -1 : 0);
+  });
+  return keys.map(function (key) {
+    var items = groups[key].slice().sort(function (a, b) { return b.ms - a.ms; });
+    var label = key === '__unknown__' ? '日付不明'
+      : key === todayKey ? 'きょう'
+      : key === yesterdayKey ? 'きのう'
+      : (function () { var p = key.split('-'); return parseInt(p[1], 10) + '/' + parseInt(p[2], 10); })();
+    return { dateLabel: label, entries: items.map(function (x) { return x.entry; }) };
+  });
+}
+// inputMethodを利用者向け日本語ラベルへ変換する(Standard Core Schema §5のenumのみ対応)。
+// 未知の値・null/undefinedはnullを返す。呼び出し側はnullのとき「不明」等を表示せず、
+// 非表示にすることを推奨する(推測禁止の既存方針を維持)。
+function donomanaRecordFormatInputMethod(inputMethod) {
+  var MAP = { touch: 'タッチ', gaze: '視線', switch: 'スイッチ', keyboard: 'キーボード', click: 'クリック' };
+  if (inputMethod === null || inputMethod === undefined) return null;
+  return MAP[inputMethod] || null;
+}
+// hiragana-learn/katakana-appのtracingJudgmentLevel(easy/standard/precise)を
+// 利用者向け日本語ラベルへ変換する。フィールド欠落(legacy record)・未知の値はnullを返す。
+function donomanaRecordFormatTracingLevel(level) {
+  var MAP = { easy: 'やさしく', standard: 'ひょうじゅん', precise: 'ていねいに' };
+  return MAP[level] || null;
+}
 </script>
 <!-- /learning-record-foundation-js -->
 <script>
@@ -3779,7 +3841,11 @@ function updateRecordView() {
         + ' <span style="font-weight:900;color:' + (ok ? '#2ECC71' : '#E74C3C') + '">' + (ok ? '✓' : '✗') + '</span>'
         + (!ok ? ' <span style="color:#999;font-size:0.8rem">(こたえ: ' + entry.data.correct_ans + ')</span>' : '');
     } else if (entry.type === 'trace') {
-      detail = '<span style="font-size:1rem;font-weight:900;margin:0 4px">' + entry.data.kana + '</span>なぞり ✓';
+      // Phase T5-D: tracingJudgmentLevelはlegacy recordでは欠落する。donomanaRecordFormatTracingLevel
+      // はその場合nullを返すため、levelLabelがnullなら何も追記しない(表示崩れを起こさない)。
+      var levelLabel = donomanaRecordFormatTracingLevel(entry.data.tracingJudgmentLevel);
+      detail = '<span style="font-size:1rem;font-weight:900;margin:0 4px">' + entry.data.kana + '</span>なぞり ✓'
+        + (levelLabel ? ' <span style="color:#999;font-size:0.8rem">(' + levelLabel + ')</span>' : '');
     } else {
       detail = 'マッチング クリア 🎉';
     }
@@ -3817,6 +3883,8 @@ function downloadCSV() {
 }
 
 function clearRecord() {
+  // Phase T5-D: Delete Standard(即時1クリック全削除は禁止候補)対応。誤操作防止のconfirmを追加。
+  if (!confirm('きろくをぜんぶけしますか？\n(この操作はもとに戻せません)')) return;
   learningLog = [];
   saveLog();
   updateRecordView();
