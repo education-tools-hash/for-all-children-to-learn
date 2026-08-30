@@ -257,7 +257,37 @@ Phase T5-E-D監査（Inventory Closure Gate）の時点で、`kimochi-board`を�
 - **`gaze_pred_freq`（予測変換学習データ）はProfile非依存のグローバル辞書として設計されている。** これは「本人が入力した語彙」という性質上Communication Historyに近いが、意図的に全Profile共有としている可能性がある（複数の子どもが同じ端末を使う想定で予測精度を上げるため、等）。本Phaseは「AI文章補完」機能への変更を明示的にスコープ外としているため（Phase T6-Aプロンプト§38）、この設計を変更しない。将来、Profile分離が必要と判断された場合は別Phaseで検討する
 - Profile削除・履歴全削除ボタンの44px touch target化、`profileModal`/`hrModal`のEscape対応（§17）
 - 既存の孤児データ（Production環境に既に存在する可能性のある削除済みProfile紐づきkey）の解消方針（§14）
-- `renderHistoryTab()`の`entry.innerHTML = ...${h.text}...`および`renderReportTab()`/`printReport()`の`${word}`/`${w}`が、ユーザー入力文字列をエスケープせず直接HTMLへ挿入している（`escapeChangelog()`のような既存のescape関数は使われていない）。History本文や予測変換で学習された単語にHTMLタグに解釈されうる文字列が含まれていた場合、格納型XSSの原因になりうる。**本Phase以前から存在する既存の実装であり、今回のCascade Delete修正では一切触れていないが、Privacy/Securityの観点から重要度が高いため、Future findingsとして明確に報告する。修正は本Phaseのスコープ外（§21 Communication UX Freeze）とし、別Phaseでの対応を推奨する**
+- ~~`renderHistoryTab()`等の格納型XSSリスク~~ → **Phase T6-A'で対策済み。詳細はAddendum（Phase T6-A'）参照。**
+
+---
+
+## Addendum（Phase T6-A'）: 表示安全性原則（格納型XSS対策）
+
+### 23. 表示安全性の原則（REQUIRED）
+
+**利用者入力をHTMLとして解釈してはならない。**
+
+Communication Historyを扱うアプリは、以下をすべてuntrusted text（信頼できない文字列）として扱い、HTML描画時に必ず安全化しなければならない（REQUIRED）。
+
+- Communication History本文（例: `gaze_history_<id>`の`text`）
+- Profile名
+- Statistics由来の語彙（例: `wordFreq`のキー）
+- 上記をExport・Print出力へ転記する場合も同様
+
+### 24. 安全化の優先順位
+
+1. **最優先: `textContent`による挿入、またはDOM要素として個別に生成する。** 固定のHTML構造（container・アイコン・ラベル等）と利用者文字列を分離し、利用者文字列側は`element.textContent = value`で設定する。HTMLとしてのパースが一切発生しないため、エスケープ漏れという失敗モード自体が存在しない
+2. **やむを得ずtemplate literalでHTML文字列を組み立てる場合のみ: 共有escape helperを通す。** `&`/`<`/`>`/`"`/`'`の5文字をエスケープする。app固有の責務に限定し、大規模なFoundation化はしない
+
+### 25. `gaze-keyboard`における実装（Phase T6-A'）
+
+`escapeHtml(str)`（HTML特殊文字5種のエスケープ）を新設し、固定HTML構造と動的値がtemplate literal内で密に混在せざるを得ない箇所（Print History/Report、Profile Row等）でのみ使用した。History本文・wordFreqの単語・Profile名の一覧表示・定型文（emoji/label）・予測変換候補は、いずれも該当span要素を空で生成した上で`textContent`により後から挿入する方式へ変更し、`escapeHtml`にも`textContent`にも依存せず安全な、DOM APIによる構造的な対策を優先した。
+
+対象外（安全と判断し変更なし）: アプリ内蔵の固定データ由来の表示（絵カード`AAC_CARDS`、スタンプ`STAMP_DATA`、リワードメッセージ`REWARD_MESSAGES`、Help panel `helpSections`等）、リッチエディタの`innerHTML`をそのまま印刷にコピーする`printRichContent()`（内部は`rtMakeSpan()`が`span.textContent`で1文字ずつ安全に構築したDOM構造のみで構成されているため）。
+
+### 26. Legacy Data
+
+保存済みの値自体は書き換えない。表示時に安全化する方式（§24）を採用したため、Phase T6-A以前からlocalStorageに既に保存されていたHTML風文字列を含むデータも、コード変更後は自動的に安全に表示される。実測（Phase T6-A' Final Report参照）: 悪意ある文字列を含むデータを事前にlocalStorageへ直接書き込んだ状態でアプリを起動・複数回reloadしても、常にプレーンテキストとして表示され、スクリプトは実行されないことを確認した。
 
 ---
 
@@ -266,3 +296,4 @@ Phase T5-E-D監査（Inventory Closure Gate）の時点で、`kimochi-board`を�
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v1.0 | 2026-08-30 | Phase T6-A。Communication History Standardを新規策定。gaze-keyboardのProfile削除・履歴全削除時のCascade Delete実装、Storage Inventory完全監査、Statistics（`wordFreq`）の機微性判断、将来検討事項（孤児データ・44px・Escape対応・XSSリスク）の記録。 |
+| v1.0 + Addendum | 2026-08-30 | Phase T6-A'。表示安全性原則（利用者入力をHTMLとして解釈しない、REQUIRED）を追記。gaze-keyboardの格納型XSSリスク（History本文・Profile名・wordFreq・定型文・予測変換候補が`innerHTML`へ無防備に挿入されていた10箇所）を、`textContent`優先＋最小限の`escapeHtml()`helperで対策。Stored XSS・Legacy Data・Multi-profile・reload後の安全性を実測確認。T6-AのCascade Delete機能・Gaze/Switch・Learning Recordはいずれも無変更・回帰ゼロ。 |

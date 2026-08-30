@@ -3070,7 +3070,11 @@ function renderPhrases(){
   phraseGrid.innerHTML='';
   phrases.forEach(p=>{
     const btn=document.createElement('div');btn.className='phrase-btn';
-    btn.innerHTML=`<span class="pemo">${p.emoji}</span><span>${p.label}</span>`;
+    // emoji・labelは「＋追加」で利用者が自由入力できるため、HTMLとして解釈させないよう
+    // textContentで挿入する（格納型XSS対策）。
+    const pemoSpan=document.createElement('span');pemoSpan.className='pemo';pemoSpan.textContent=p.emoji;
+    const plabelSpan=document.createElement('span');plabelSpan.textContent=p.label;
+    btn.appendChild(pemoSpan);btn.appendChild(plabelSpan);
     btn.appendChild(makeDwellRing());
     const act=()=>{
       rtAppendString(p.text);updateDisplay();showToast('💬 '+p.text);
@@ -3795,7 +3799,18 @@ function renderPredictions() {
       const btn = document.createElement('div');
       btn.className = 'pred-btn';
       const typeIcon = p.type === 'phrase' ? '💬' : p.type === 'next' ? '→' : '';
-      btn.innerHTML = `<span class="pw">${p.word}</span>${typeIcon ? `<span class="pr">${typeIcon}</span>` : ''}`;
+      // wordは「よく使う文」（利用者の自由入力）由来の候補を含みうるため、HTMLとして
+      // 解釈させないようtextContentで挿入する（格納型XSS対策）。
+      const pwSpan = document.createElement('span');
+      pwSpan.className = 'pw';
+      pwSpan.textContent = p.word;
+      btn.appendChild(pwSpan);
+      if (typeIcon) {
+        const prSpan = document.createElement('span');
+        prSpan.className = 'pr';
+        prSpan.textContent = typeIcon;
+        btn.appendChild(prSpan);
+      }
       btn.appendChild(makeDwellRing());
 
       const act = () => {
@@ -3881,7 +3896,10 @@ function renderProfileBar() {
     chip.className = 'profile-chip' + (p.id === currentProfileId ? ' active' : '');
     chip.style.borderColor = p.id === currentProfileId ? p.color : '';
     chip.style.background  = p.id === currentProfileId ? p.color + '22' : '';
-    chip.innerHTML = `<span class="p-avatar">${p.avatar}</span><span class="p-name" style="color:${p.id===currentProfileId?p.color:''}">${p.name}</span>`;
+    chip.innerHTML = `<span class="p-avatar">${p.avatar}</span><span class="p-name" style="color:${p.id===currentProfileId?p.color:''}"></span>`;
+    // Profile名は利用者の自由入力のため、HTMLとして解釈させないようtextContentで挿入する
+    // （格納型XSS対策）。
+    chip.querySelector('.p-name').textContent = p.name;
     chip.appendChild(makeDwellRing());
     const act = () => switchProfile(p.id);
     chip.addEventListener('click', act);
@@ -3987,11 +4005,14 @@ function renderProfList() {
     item.innerHTML = `
       <span class="pli-avatar">${p.avatar}</span>
       <div class="pli-info">
-        <div class="pli-name">${p.name}</div>
+        <div class="pli-name"></div>
         <div class="pli-stats">入力文字: ${stats.totalChars}字 / 使用日数: ${stats.days}日</div>
       </div>
       ${p.id !== 'default' ? `<button class="pli-del" data-id="${p.id}">削除</button>` : ''}
     `;
+    // Profile名は利用者の自由入力のため、HTMLとして解釈させないようtextContentで挿入する
+    // （格納型XSS対策）。
+    item.querySelector('.pli-name').textContent = p.name;
     list.appendChild(item);
   });
   list.querySelectorAll('.pli-del').forEach(btn => {
@@ -4105,6 +4126,20 @@ function deleteProfileCommunicationData(id) {
   try { localStorage.removeItem('gaze_prof_settings_' + id); } catch(e){}
 }
 
+// Communication History本文・Profile名・使用状況語彙等、利用者が自由入力できる文字列を
+// HTMLテンプレート内へ挿入する箇所でのみ使う最小限のescape helper。DOM生成
+// （textContent／document.createElement）で済む箇所ではこちらを優先し、固定HTML構造と
+// 動的値が同じtemplate literal内に混在せざるを得ない箇所でのみ用いる
+// （Donomana Communication History Standard v1.0 §26）。
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ==================== HISTORY & REPORT MODAL ====================
 let hrCurrentTab = 'history';
 
@@ -4144,7 +4179,7 @@ function renderHistoryTab(body) {
   toolbar.className = 'no-print';
   toolbar.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;';
   toolbar.innerHTML = `
-    <span style="font-size:.82rem;font-weight:700;color:var(--text-light);">📝 入力履歴 — ${getCurrentProfile().avatar} ${getCurrentProfile().name}（${hist.length}件）</span>
+    <span style="font-size:.82rem;font-weight:700;color:var(--text-light);">📝 入力履歴 — ${getCurrentProfile().avatar} ${escapeHtml(getCurrentProfile().name)}（${hist.length}件）</span>
     <button class="hist-btn no-print" id="histPrintBtn" style="margin-left:auto;">🖨️ 印刷</button>
     <button class="hist-btn no-print" id="histClearBtn">🗑️ 全削除</button>
   `;
@@ -4190,9 +4225,12 @@ function renderHistoryTab(body) {
       const time = new Date(h.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
       entry.innerHTML = `
         <span class="hist-time">${time}</span>
-        <span class="hist-text">${h.text.replace(/\n/g,'↵')}</span>
+        <span class="hist-text"></span>
         <span class="hist-chars">${h.chars}字</span>
       `;
+      // History本文は利用者の自由入力を含むため、HTMLとして解釈させないよう
+      // textContentで挿入する（innerHTML経由の格納型XSS対策）。
+      entry.querySelector('.hist-text').textContent = h.text.replace(/\n/g,'↵');
       // クリックで再利用
       const actions = document.createElement('div');
       actions.className = 'hist-actions no-print';
@@ -4227,7 +4265,7 @@ function printHistory() {
   const printArea = document.getElementById('printArea');
   let html_inner = `
     <div class="print-header">
-      <div class="print-title">${prof.avatar} ${prof.name} の入力履歴</div>
+      <div class="print-title">${prof.avatar} ${escapeHtml(prof.name)} の入力履歴</div>
       <div style="font-size:.8rem;color:#666;margin-top:4px;">印刷日: ${new Date().toLocaleString('ja-JP')}</div>
     </div>
   `;
@@ -4241,7 +4279,7 @@ function printHistory() {
     html_inner += `<div style="font-weight:700;margin:14px 0 6px;border-bottom:1px solid #ccc;padding-bottom:4px;">${date}</div>`;
     entries.forEach(h => {
       const time = new Date(h.ts).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
-      html_inner += `<div class="print-entry"><div class="print-time">${time}（${h.chars}字）</div><div class="print-text">${h.text}</div></div>`;
+      html_inner += `<div class="print-entry"><div class="print-time">${time}（${h.chars}字）</div><div class="print-text">${escapeHtml(h.text)}</div></div>`;
     });
   });
   html_inner += `<div style="margin-top:24px;padding-top:10px;border-top:1.5px solid #ccc;font-size:.78rem;color:#666;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
@@ -4263,7 +4301,7 @@ function renderReportTab(body) {
   // プロフィール表示
   const profRow = document.createElement('div');
   profRow.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:14px;border:2px solid var(--border);background:var(--key-bg);';
-  profRow.innerHTML = `<span style="font-size:2rem;">${prof.avatar}</span><div><div style="font-size:1rem;font-weight:800;color:var(--text);">${prof.name}</div><div style="font-size:.75rem;color:var(--text-light);">利用開始: ${new Date(prof.createdAt).toLocaleDateString('ja-JP')}</div></div>`;
+  profRow.innerHTML = `<span style="font-size:2rem;">${prof.avatar}</span><div><div style="font-size:1rem;font-weight:800;color:var(--text);">${escapeHtml(prof.name)}</div><div style="font-size:.75rem;color:var(--text-light);">利用開始: ${new Date(prof.createdAt).toLocaleDateString('ja-JP')}</div></div>`;
   body.appendChild(profRow);
 
   // サマリーカード
@@ -4338,10 +4376,13 @@ function renderReportTab(body) {
       row.className = 'tw-row';
       row.innerHTML = `
         <span class="tw-rank">${i+1}</span>
-        <span class="tw-word">${word}</span>
+        <span class="tw-word"></span>
         <div class="tw-bar-wrap"><div class="tw-bar" style="width:${(count/maxCount*100).toFixed(0)}%"></div></div>
         <span class="tw-count">${count}回</span>
       `;
+      // wordFreqのキーは利用者が実際に入力した語彙そのものなので、HTMLとして
+      // 解釈させないようtextContentで挿入する（格納型XSS対策）。
+      row.querySelector('.tw-word').textContent = word;
       topWords.appendChild(row);
     });
   }
@@ -4400,7 +4441,7 @@ function printReport() {
   const sorted = Object.entries(st.wordFreq).sort((a,b)=>b[1]-a[1]).slice(0,10);
   let inner = `
     <div class="print-header">
-      <div class="print-title">${prof.avatar} ${prof.name} の使用レポート</div>
+      <div class="print-title">${prof.avatar} ${escapeHtml(prof.name)} の使用レポート</div>
       <div style="font-size:.8rem;color:#666;margin-top:4px;">印刷日: ${new Date().toLocaleString('ja-JP')}</div>
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
@@ -4411,7 +4452,7 @@ function printReport() {
     </table>
     <div style="font-weight:900;margin-bottom:8px;">よく使った言葉 TOP10</div>
     <table style="width:100%;border-collapse:collapse;">
-      ${sorted.map(([w,c],i)=>`<tr><td style="padding:5px 8px;border:1px solid #ddd;">${i+1}位</td><td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">${w}</td><td style="padding:5px 8px;border:1px solid #ddd;">${c}回</td></tr>`).join('')}
+      ${sorted.map(([w,c],i)=>`<tr><td style="padding:5px 8px;border:1px solid #ddd;">${i+1}位</td><td style="padding:5px 8px;border:1px solid #ddd;font-weight:700;">${escapeHtml(w)}</td><td style="padding:5px 8px;border:1px solid #ddd;">${c}回</td></tr>`).join('')}
     </table>
   `;
   inner += `<div style="margin-top:24px;padding-top:10px;border-top:1.5px solid #ccc;font-size:.78rem;color:#666;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
