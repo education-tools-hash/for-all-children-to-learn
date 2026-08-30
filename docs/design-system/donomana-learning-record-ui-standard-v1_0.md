@@ -271,8 +271,85 @@ Badge Accuracy Reconciliation（21章）の一括修正、共通CSV Standardへ�
 
 ---
 
+## 29. CSV Date/Time Presentation（Phase T5-E-A'で確定）
+
+User Browser Reviewで、Learning Record CSVをMicrosoft Excelで開くと「日時」列が`#######`表示になる不具合が報告された。画像上の日本語文字列は正常表示のため、文字コード/BOMの文字化けではなく、Excelが日時文字列を日付/時刻値として自動認識し、CSVには列幅情報を保存できないため既定列幅（実測 約8.08文字幅）に収まらないことが原因と確認した。
+
+### 29.1 CSVの構造的limitation
+
+CSV形式そのものには列幅・セル書式・日付表示形式を保存する仕組みが存在しない。したがって「CSV側でA列の幅を広げる」方式では解決できない。解決は常にCSVの**内容（テキスト表現）側**で行う必要がある。
+
+### 29.2 内部timestampは無変更
+
+Learning Record内部（`localStorage`保存値）は引き続きISO 8601またはlegacy timestamp文字列のまま保持する。本Phaseでは以下を一切行っていない。
+
+- localStorage既存データの書き換え
+- timestamp migration
+- legacy recordの一括migration
+
+変更したのはCSV出力（presentation）専用の新設helper `donomanaRecordFormatCsvDateTime(timeValue)` と、各アプリのCSV builder内での呼び出し箇所のみである。
+
+### 29.3 日付・時刻の2列分離
+
+「日時」1列を「日付」列・「時刻」列の2列へ分離した。他のapp-specific列（種類・もじ・こたえ・レベル・対象・入力方法・子どもの名前 等）は無変更のまま維持し、全アプリを同一列構成へ無理に統一していない。
+
+### 29.4 採用format（実Excel検証により確定。ハイフン区切りでは不十分）
+
+`donomanaRecordFormatCsvDateTime(timeValue)`は次を返す純粋関数（DOM非依存）:
+
+```js
+{ date: "2026.08.30", time: "08:41:32" }
+```
+
+**日付はドット区切り（`YYYY.MM.DD`）、時刻はコロン区切り（`HH:mm:ss`）を採用する。** 当初はISO風のハイフン区切り（`YYYY-MM-DD`）を第一候補として実装したが、実Microsoft Excel（COM自動化による実機検証、`Workbooks.Open`でCSVを直接開く経路）で以下を確認し、**ハイフン区切り・スラッシュ区切り・漢字区切り（`2026年8月30日`）はいずれもExcelの自動日付認識に該当し、月または日が2桁になる日付（1年の大半）では変換後の表示幅が既定列幅を超えて結局`#######`になる**ことが判明したため、方針を変更した。
+
+| 候補 | Excelでの型認識 | 結果 |
+|---|---|---|
+| `2026-08-30`（ハイフン） | 日付値へ自動変換（`yyyy/m/d`） | 月/日が2桁だと`#######` |
+| `2026/08/30`（スラッシュ） | 日付値へ自動変換 | 同上 |
+| `2026年8月30日`（漢字） | 日付値へ自動変換（`yyyy"年"m"月"d"日"`） | 同上 |
+| `2026／08／30`（全角スラッシュ） | 日付値へ自動変換 | 同上 |
+| **`2026.08.30`（ドット）** | **自動変換されず、プレーンテキストのまま** | **常に全文表示、`#######`にならない** |
+| `08:41:32`（コロン時刻） | 時刻値へ自動変換（`h:mm:ss`） | 表示文字列は最大8文字（`23:59:59`）で既定列幅に収まるため`#######`にならない |
+
+時刻はコロン区切りのままでも実測上問題ないため、可読性を優先しコロン区切り（`HH:mm:ss`）を維持した。日付のみドット区切りへ変更している。
+
+### 29.5 Timezone
+
+`donomanaRecordFormatCsvDateTime()`は`donomanaRecordFormatDateTime()`と同じくローカル時刻basis（`Date`オブジェクトの`getFullYear`/`getMonth`/`getDate`/`getHours`/`getMinutes`/`getSeconds`）で整形する。ISO timestampがUTC（`Z`）であっても、CSV出力は既存Viewer表示と同じくローカル時刻に変換してから出力するため、UTCとJSTのずれによる新たな混乱は生じない。
+
+### 29.6 Legacy timestamp fallback
+
+対象6アプリの実装調査（`git log -p`によるtimestamp生成コードの変更履歴確認）の結果、各アプリの「日時」生成方式は導入以来一度も変更されていないことを確認した（インベントリは29.8参照）。ただし将来の破損データ・手動編集等に備え、`donomanaRecordFormatCsvDateTime()`は解析不能な値に対して以下のfallbackを行う。
+
+- 元の文字列を`date`フィールドへそのまま保持する（空白化しない）
+- 推測変換は行わない
+- `time`フィールドは空文字を返す
+
+### 29.7 CSV Injection Safety
+
+`donomanaRecordFormatCsvDateTime()`の出力（`YYYY.MM.DD`・`HH:mm:ss`、いずれも数字で始まる）はExcelのformulaとして解釈される先頭文字（`=`・`+`・`-`・`@`）を含まない。`="..."`のようなExcel formula表現によるworkaroundは採用していない。既存の各アプリCSV escape処理（ダブルクォート・カンマ・CR/LF）にも変更を加えていない。
+
+### 29.8 対象アプリ・実装inventory
+
+| アプリ | 元の「日時」raw value | 生成方式 |
+|---|---|---|
+| hiragana-learn | `entry.time`（`toLocaleDateString('ja-JP')`+`HH:mm`、秒なし） | legacyロケール文字列 |
+| katakana-app | 同上 | 同上 |
+| suji-manabou | 同上 | 同上 |
+| miru-hirogaru-app | `e.time`（`new Date().toISOString()`） | ISO 8601 UTC |
+| directions-app | `l.tsLocal`（`YYYY/MM/DD HH:mm:ss`、ローカル、秒あり） | ローカル文字列 |
+| kyou-no-kiroku | `r.date`（`new Date().toISOString()`） | ISO 8601 UTC |
+
+### 29.9 検証結果
+
+実CSV生成・実ブラウザ（Playwright制御Chromium）・実Microsoft Excel（COM自動化）による検証を6アプリ全てで実施し、いずれも`#######`が発生しないこと、日本語・絵文字・カンマ/クォート/改行を含むフィールドが崩れないこと、console/page errorが0件であることを確認した。詳細はPhase T5-E-A'の作業記録を参照。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v1.0 Draft/RC | 2026-08-29 | Phase T5-D。UI Foundation 4関数（日時整形・日付grouping・inputMethod/tracingJudgmentLevel日本語ラベル変換）を新設。hiragana-learnのDelete Standard違反（確認なし全削除）を修正。directions-appのSwitch Scan候補漏れ（記録画面8ボタン）を修正。4 Pilot実ブラウザ検証・自動テスト31件・回帰確認（Tracing Engine・Composite Storage）完了。Common Viewer Architectureを「UI Foundation + 各アプリadapter」に確定（独立Viewer/画一UIは不採用）。全17アプリ・全35アプリへの展開は未実施。 |
+| v1.0 Draft/RC | 2026-08-30 | Phase T5-E-A'。Learning Record CSVをExcelで開くと「日時」列が`#######`になる不具合を修正。CSV presentation専用のpure helper`donomanaRecordFormatCsvDateTime()`を新設し、「日時」1列を「日付」（`YYYY.MM.DD`）・「時刻」（`HH:mm:ss`）の2列へ分離。実Excel（COM自動化）検証により、ハイフン/スラッシュ/漢字区切りの日付はExcelの自動日付認識に該当し既定列幅を超えて`#######`になったままであることを発見し、Excelが自動変換しないドット区切りへ変更して解決を確認（29章）。対象6アプリ（hiragana-learn/katakana-app/suji-manabou/miru-hirogaru-app/directions-app/kyou-no-kiroku）全てで実CSV・実ブラウザ・実Excel検証完了、内部timestamp・既存CSV escape・Composite Storage・Tracing Engineへの回帰なし。 |

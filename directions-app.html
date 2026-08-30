@@ -1949,6 +1949,32 @@ function donomanaRecordFormatDateTime(timeValue) {
     return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   } catch (e) { return (timeValue === null || timeValue === undefined) ? '' : String(timeValue); }
 }
+// Phase T5-E-A': CSV Date/Time Excel Compatibility Fix — Excelは日時1列のCSV文字列を日付/時刻値
+// として自動認識するが、CSVには列幅情報を保存できないため既定列幅に収まらず「#######」表示に
+// なる(内部timestampやData Foundationのnormalize処理は無変更、CSV表示専用のpure helper)。
+// 日付・時刻の2列へ分離するだけでは不十分だった点に注意(実Excelで検証して判明): ハイフン
+// 区切り("2026-08-30")・スラッシュ区切り・漢字区切り("2026年8月30日")はいずれもExcelの自動
+// 日付認識に該当し、月または日が2桁の日付(1年の大半)では既定列幅を超えて結局#######に
+// なる。ドット区切り("2026.08.30")のみExcelの自動認識に該当せず常にプレーンテキストとして
+// 表示されることを実Excel COM検証で確認したため採用する。時刻(HH:MM:SS、コロン区切り)は
+// 自動的に時刻値へ変換されるが表示文字列が最大8文字("23:59:59")に収まり既定列幅を超えない
+// ことを確認済みのため、読みやすさを優先しコロン区切りのまま維持する。
+// timeValueはdonomanaRecordFormatDateTimeと同じくISO 8601・ja-JPロケール文字列・epoch ms・
+// Dateいずれも受け付ける。ローカル時刻basisで整形する(既存Viewerの表示・
+// donomanaRecordFormatDateTimeと同じlocal basisに揃え、UTCとの新たな時差混乱を作らない)。
+// 解析できない場合は元の文字列をdateへそのまま保持し(空白化・推測変換はしない)、timeは
+// 空文字を返す。
+function donomanaRecordFormatCsvDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return { date: '', time: '' };
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return { date: String(timeValue), time: '' };
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    var date = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
+    var time = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    return { date: date, time: time };
+  } catch (e) { return { date: (timeValue === null || timeValue === undefined) ? '' : String(timeValue), time: '' }; }
+}
 // entriesを日付ごとにグループ化する(新しい日付が先頭、group内も新しい順)。getTimeFnを渡さない
 // 場合はentry.timeを使う。解析できないtimestampのentryは「日付不明」groupへ末尾でまとめる
 // (無視・削除はしない)。
@@ -2829,15 +2855,19 @@ function donomanaRecordFormatTracingLevel(level) {
       alert('ログが ありません');
       return;
     }
-    const headers = ['日時', 'カテゴリ', '問題', '回答', '正解', '結果'];
-    const rows = state.logs.map(l => [
-      l.tsLocal,
-      CATEGORY_LABELS[l.category] || l.category,
-      l.question,
-      l.userAnswer,
-      l.correctAnswer,
-      l.result === 'correct' ? '○' : '×'
-    ]);
+    const headers = ['日付', '時刻', 'カテゴリ', '問題', '回答', '正解', '結果'];
+    const rows = state.logs.map(l => {
+      const dt = donomanaRecordFormatCsvDateTime(l.tsLocal);
+      return [
+        dt.date,
+        dt.time,
+        CATEGORY_LABELS[l.category] || l.category,
+        l.question,
+        l.userAnswer,
+        l.correctAnswer,
+        l.result === 'correct' ? '○' : '×'
+      ];
+    });
 
     const csvContent = [headers, ...rows].map(row =>
       row.map(csvEscape).join(',')
