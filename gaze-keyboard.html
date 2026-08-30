@@ -3996,10 +3996,12 @@ function renderProfList() {
   });
   list.querySelectorAll('.pli-del').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (confirm(profiles.find(p=>p.id===btn.dataset.id)?.name + ' を削除しますか？')) {
-        profiles = profiles.filter(p => p.id !== btn.dataset.id);
+      const targetId = btn.dataset.id;
+      if (confirm(profiles.find(p=>p.id===targetId)?.name + ' を削除しますか？\n（入力履歴・使用状況の記録もすべて削除されます）')) {
+        profiles = profiles.filter(p => p.id !== targetId);
         saveProfiles(profiles);
-        if (currentProfileId === btn.dataset.id) switchProfile('default');
+        deleteProfileCommunicationData(targetId);
+        if (currentProfileId === targetId) switchProfile('default');
         renderProfList();
         renderProfileBar();
       }
@@ -4094,6 +4096,15 @@ function getProfileStats(id) {
   } catch(e){ return { totalChars:0, days:0 }; }
 }
 
+// プロフィール削除時に、そのプロフィール専用のCommunication関連データ（入力履歴・
+// 使用状況統計・プロフィール別設定）をすべて削除する。指定したidのkeyのみを操作し、
+// 他プロフィールのkeyには一切触れない（Donomana Communication History Standard v1.0）。
+function deleteProfileCommunicationData(id) {
+  try { localStorage.removeItem('gaze_history_' + id); } catch(e){}
+  try { localStorage.removeItem('gaze_stats_' + id); } catch(e){}
+  try { localStorage.removeItem('gaze_prof_settings_' + id); } catch(e){}
+}
+
 // ==================== HISTORY & REPORT MODAL ====================
 let hrCurrentTab = 'history';
 
@@ -4141,8 +4152,9 @@ function renderHistoryTab(body) {
 
   document.getElementById('histPrintBtn').addEventListener('click', printHistory);
   document.getElementById('histClearBtn').addEventListener('click', () => {
-    if (confirm('入力履歴をすべて削除しますか？')) {
+    if (confirm('入力履歴をすべて削除しますか？\n（よく使った言葉などの使用状況の記録もあわせて削除されます）')) {
       saveHistory([]);
+      saveStats(initStats());
       renderHrModal('history');
       showToast('履歴を削除しました');
     }
@@ -5590,6 +5602,7 @@ const HELP_CONTENT = {
         { type:'step', num:1, text:'ヘッダー下のプロフィールバーで<strong>ユーザーを切り替え</strong>られます' },
         { type:'step', num:2, text:'ユーザーごとにテーマ・キーサイズ・定型文・履歴が<strong>別々に保存</strong>されます' },
         { type:'step', num:3, text:'＋ボタンで新しいユーザーを追加できます' },
+        { type:'tip',  text:'🔒 記録はすべて端末内にのみ保存され、外部には送信されません。ユーザーを削除すると、その入力履歴・使用状況の記録もあわせて削除され、元に戻せません。' },
       ]
     },
   ],

@@ -182,6 +182,8 @@ localStorage_has_result_key=false（記録関連キーなし）
 
 ## 6. `gaze-keyboard` 監査（Communication History、Learning Recordとしては非対象）
 
+> **Phase T6-A追記**: 本節で指摘したProfile削除時のorphaned dataおよび履歴全削除時の`gaze_stats_*`残存は、Phase T6-Aで正式なCommunication History Standard（`docs/design-system/donomana-communication-history-standard-v1_0.md`）を策定した上で修正済み。詳細は同文書を参照。
+
 ### 6.1 既存分類の再確認
 
 T5-C Addendumで確定した分類「**B. Communication History**」を`865976d`時点のコードで再検証し、**変更なしで妥当**と結論した。理由（既存文書と同一）: 記録内容が「観察可能な活動」ではなく利用者本人が実際に入力・確定した発話内容そのものであるため。
