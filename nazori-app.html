@@ -2628,13 +2628,27 @@ window.addEventListener('resize', () => {
 // =============================================
 let records = [];
 
-// window.storage API（アーティファクト対応）でロード
+// 記録に含まれるallChars/charは「練習する文字・言葉」欄への先生の自由入力
+// （最大20文字、名前・漢字OK）に由来するため、記録一覧表示でHTMLとして
+// 解釈させないよう使う（格納型XSS対策）。
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// localStorageへ保存する。以前は存在しないwindow.storage APIを呼んでおり、
+// try/catchで例外が握りつぶされるため記録が常にProductionで保存されない状態
+// だった（本関数はasync/awaitのシグネチャを維持し、呼び出し側は変更不要）。
+const RECORDS_KEY = 'nazori_records';
 async function loadRecords() {
   try {
-    const result = await window.storage.get('nazori_records');
-    if (result && result.value) {
-      records = JSON.parse(result.value);
-    }
+    const raw = localStorage.getItem(RECORDS_KEY);
+    records = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(records)) records = [];
   } catch(e) {
     records = [];
   }
@@ -2642,12 +2656,18 @@ async function loadRecords() {
 
 async function saveRecords() {
   try {
-    await window.storage.set('nazori_records', JSON.stringify(records));
+    localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
   } catch(e) {
     console.warn('saveRecords failed', e);
   }
 }
 
+// Date.now()のみだと、同一ミリ秒内に複数記録が作られた場合にidが衝突し、
+// 削除操作（id一致で除外）が意図せず複数件を巻き込むことがある（本Phaseで実測確認）。
+// ランダムサフィックスを付けて一意性を確保する。
+function makeRecordId() {
+  return Date.now().toString() + '_' + Math.random().toString(36).slice(2, 8);
+}
 function nowStr() {
   return new Date().toISOString();
 }
@@ -2725,7 +2745,7 @@ async function logDoneAction(char, page, mode) {
   sessionDoneCount++;
   const image = captureCanvas(mode);
   const entry = {
-    id:           Date.now().toString(),
+    id:           makeRecordId(),
     sessionId:    sessionId,
     timestamp:    nowStr(),
     mode:         'wide',
@@ -2742,7 +2762,7 @@ async function logDoneAction(char, page, mode) {
 // セッション完了：全文字画像をまとめて1件保存 ───────────────────
 async function logSessionComplete(mode) {
   const entry = {
-    id:           'session_' + Date.now().toString(),
+    id:           'session_' + makeRecordId(),
     sessionId:    sessionId,
     timestamp:    nowStr(),
     mode:         mode,
@@ -2814,8 +2834,8 @@ function renderRecordsList() {
           ? `<div class="rec-images-grid">
               ${rec.charImages.map(ci => `
                 <div class="rec-img-card">
-                  <img src="${ci.image}" alt="${ci.char}">
-                  <div class="rec-img-label">「${ci.char}」</div>
+                  <img src="${ci.image}" alt="${escapeHtml(ci.char)}">
+                  <div class="rec-img-label">「${escapeHtml(ci.char)}」</div>
                 </div>
               `).join('')}
              </div>`
@@ -2830,7 +2850,7 @@ function renderRecordsList() {
               </div>
               <div>
                 <div class="rec-header">
-                  <span class="rec-char-badge" style="background:#fff3cc;color:#b8860b; font-size:1.2rem;">「${rec.allChars}」完了</span>
+                  <span class="rec-char-badge" style="background:#fff3cc;color:#b8860b; font-size:1.2rem;">「${escapeHtml(rec.allChars)}」完了</span>
                   <span class="rec-meta">${dur}</span>
                 </div>
                 <div style="font-size:0.82rem;color:var(--ink-light); margin-top:4px;">
@@ -2856,7 +2876,7 @@ function renderRecordsList() {
           </div>
           <div class="rec-body">
             <div class="rec-header">
-              <span class="rec-char-badge wide">「${rec.allChars}」続けて書く</span>
+              <span class="rec-char-badge wide">「${escapeHtml(rec.allChars)}」続けて書く</span>
             </div>
             ${imgHtml}
           </div>

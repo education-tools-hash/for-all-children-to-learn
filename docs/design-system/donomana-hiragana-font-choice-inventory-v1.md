@@ -121,7 +121,12 @@
 
 これはコメント「window.storage API（アーティファクト対応）でロード」から、Claude.ai Artifacts環境向けに開発されたコードがそのまま移植され、通常のWeb環境向けの実装（`localStorage`等）に置き換えられていない既存の実装ミスと推測される。apps-data.jsonにこのアプリの「きろく機能あり」相当のbadgeが付いていないのは、結果的に正確な状態と言える。
 
-**本Phaseでは修正しない**（字体選択とは無関係、Scope Freeze対象）。別Phaseでの修正を推奨する。
+**Phase T6.5-A3で修正済み。** `window.storage.get/set` → `localStorage.getItem/setItem`へ置き換え（storage key `nazori_records`は維持、legacy dataはgit history上も一度も存在しなかったためmigration不要と確認）。修正の過程で追加発見・対応した事項:
+- 記録一覧表示（`renderRecordsList()`）が`rec.allChars`/`ci.char`（先生の自由入力文字列）を`innerHTML`へエスケープなしで挿入しており、記録が実際に保存されるようになったことで初めて現実的なリスクとなる格納型XSSが存在した。`escapeHtml()`を追加し対策済み
+- record `id`が`Date.now().toString()`のみで生成されており、同一ミリ秒内に複数記録が作られるとID衝突により削除操作が意図せず複数件を巻き込むことを実測で確認。ランダムサフィックスを追加し一意性を確保
+- 削除ボタン（`.record-delete-btn`）が実測25×32pxで44px未満。native button/keyboardは正常に機能しており記録機能自体は阻害しないため、既存Accessibility gapとして報告のみ行い本Phaseでは修正しない
+
+詳細はPhase T6.5-A3 Final Report参照。
 
 ### 8.2 `nazorin-print.html`のfont-familyスタックがWindows 11 24H2以降で機能しなくなっている可能性
 
@@ -132,7 +137,7 @@
 ## 9. 次のT6.5-A subphase候補
 
 1. ~~`nazorin-print.html`への同様の字体選択機能追加~~ → **Phase T6.5-A2で実施済み。§10参照。**
-2. **§8.1のnazori-app活動記録バグ修正**（`window.storage` → `localStorage`への置き換え、字体選択とは独立した別Phase。Phase T6.5-A3として提案）
+2. ~~§8.1のnazori-app活動記録バグ修正~~ → **Phase T6.5-A3で実施済み。§8.1参照。**
 3. ~~§8.2のWindows 11 24H2フォント名変更の実機確認~~ → **Phase T6.5-A2で実施済み。§10参照。**
 4. 「教科書体」候補の再検討（将来、適切なオープンソースフォントが見つかった場合）
 
@@ -199,3 +204,4 @@ UD Digi Kyokasho NP
 |---|---|---|
 | v1.0 | 2026-08-30 | Phase T6.5-A。Architecture Inventory完了（判定engineなし、Option A確定）。`nazori-app.html`へ3択の字体選択機能をPilot実装（表示のみ、localStorage永続化、44px/keyboard/aria-pressed対応）。`nazorin-print.html`は未実装（次subphase）。既存の`window.storage`バグ、Windows 11 24H2フォント名変更リスクを発見・記録。 |
 | v1.0 + Addendum | 2026-08-30 | Phase T6.5-A2。`nazorin-print.html`へ同様の3択字体選択をRollout（CSS変数`--guide-font`化、`.moji-cell`のみが実際の描画経路であることを確認、`svg text.svgmoji`は未使用の既存デッドCSSと判明）。Windows 11実機（ビルド26200）でWindows専用教科書体フォント名がリネームされ、既存font-familyスタックが実際にはBIZ UDPGothicへフォールバックしていることをCanvas幅測定で確定。「標準」は既存スタックをそのまま維持しBackward Compatibilityを優先。許可リスト方式でinvalid value対策を強化。印刷レイアウト・他モード（点つなぎ等）への回帰なしを確認。`nazori-app.html`（A1 Pilot）は無変更。 |
+| v1.0 + Addendum 2 | 2026-08-30 | Phase T6.5-A3。§8.1で報告した`nazori-app.html`の活動記録バグ（`window.storage`未定義APIによるsilent failure）を修正（`localStorage`へ置き換え、legacy migration不要と確認）。修正の過程で、記録が保存されるようになったことで初めて顕在化する格納型XSS（`allChars`/`char`の`innerHTML`直接挿入）と、record ID衝突による削除操作の不整合の2件を追加発見・修正。既存の削除ボタン44px未達は報告のみ（記録機能自体は阻害しないため本Phaseでは未修正）。字体選択（A1/A2）・T2判定エンジンへの回帰なし。 |
