@@ -1153,6 +1153,22 @@
 <div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
   <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
 </div>
+<!-- help-btn: Phase T6.5-B6 (Donomana Help / Usage Guide Standard v1.0 §5.1
+     Lock→Fullscreen→Help ordering — this app's Common Chrome has no
+     Fullscreen button generate.js-injected here, since it implements its
+     own in-page fullscreen toggle instead, so the cluster is Lock→Help
+     only). Added after the generate.js-owned Lock cluster (in DOM and
+     visually), at the same right:12px edge the cluster used to occupy; the
+     CSS below pushes that shared cluster out to right:64px (44px Help
+     width + 8px gap) so both clusters sit side by side without editing
+     generate.js's shared template. -->
+<style>
+  #donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
+  div:has(> #donomanaLockBtn){right:64px!important;}
+</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="modal-help" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
 <div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
 <script>
 (function(){
@@ -1278,6 +1294,42 @@
       <button class="pin-key del" onclick="pinDel()">⌫</button>
     </div>
     <p style="font-size:0.75rem;color:var(--text-dim)">デフォルト: 1234</p>
+  </div>
+</div>
+
+<!-- ===== つかいかたモーダル（Phase T6.5-B6） ===== -->
+<!-- #modal-pinと同じ.modal-bg/.modal・classList.add/remove('active')方式を
+     踏襲しつつ、既存モーダルには元々ないrole="dialog"・Escape・focus
+     trap・focus returnをHelpにだけ新規実装する（既存#modal-pinの挙動は
+     変更しない）。Help open/closeはbgmPlaying/composePlaying等のAudio
+     stateには一切触れない（Standard準拠：Help表示は学習ロジック・Audio
+     stateを変更しない）。 -->
+<div id="modal-help" class="modal-bg" role="dialog" aria-modal="true" aria-labelledby="help-modal-title">
+  <div class="modal" style="max-width:420px;text-align:left;max-height:80vh;overflow-y:auto">
+    <h2 id="help-modal-title" tabindex="-1" style="font-size:1.15rem;margin:0;color:var(--text);text-align:center">🎵 「おんがくあそび」の つかいかた</h2>
+    <div class="help-body" style="color:var(--text-dim);font-size:0.9rem;line-height:1.7;text-align:left">
+      <h3 style="color:var(--text);font-size:1rem;font-weight:800;margin:0 0 6px">このアプリについて</h3>
+      <p>ボタンやピアノけんばんで音を鳴らしたり、声や演奏を録音したり、じぶんでリズムを作ったりして楽しむ、音楽の教材です。正解・不正解を目的とする教材ではありません。</p>
+
+      <h3 style="color:var(--text);font-size:1rem;font-weight:800;margin:16px 0 6px;padding-top:10px;border-top:1px solid var(--surface2)">あそび方</h3>
+      <p>ホーム画面のボタンから、3つの活動を選べます。</p>
+      <h4 style="font-size:0.92rem;font-weight:700;color:var(--text);margin:10px 0 4px">🎹 えんそうする</h4>
+      <p>ドレミ順の大きなボタン、またはピアノけんばんを選んで音を鳴らせます。</p>
+      <h4 style="font-size:0.92rem;font-weight:700;color:var(--text);margin:10px 0 4px">🎤 ろくおんする</h4>
+      <p>声を録音する「こえ録音」、演奏をそのまま録音する「えんそう録音」から選んで録音できます。</p>
+      <h4 style="font-size:0.92rem;font-weight:700;color:var(--text);margin:10px 0 4px">🎼 つくるモード</h4>
+      <p>いろいろな楽器のトラックを組み合わせて、じぶんだけのリズムや曲を作れます。作った曲はWAVファイルとして書き出したり、URLで共有したりできます。</p>
+
+      <h3 style="color:var(--text);font-size:1rem;font-weight:800;margin:16px 0 6px;padding-top:10px;border-top:1px solid var(--surface2)">操作方法</h3>
+      <h4 style="font-size:0.92rem;font-weight:700;color:var(--text);margin:10px 0 4px">タッチ・マウス</h4>
+      <p>ボタンやけんばんをタップ・クリックして音を鳴らします。</p>
+      <h4 style="font-size:0.92rem;font-weight:700;color:var(--text);margin:10px 0 4px">スイッチアクセス</h4>
+      <p>「せんせいせってい」でスイッチアクセスをONにすると、1つのスイッチでボタンが順番に光る候補から選んだり、2つのスイッチで「つぎへ」「けってい」を操作したりできます。キーボードのスペースキー・Enterキーでも同じように動作を確認できます。</p>
+
+      <h3 style="color:var(--text);font-size:1rem;font-weight:800;margin:16px 0 6px;padding-top:10px;border-top:1px solid var(--surface2)">せんせいせってい</h3>
+      <p>ホーム画面の「⚙️ せんせいせってい」からPIN（初期値：1234）を入力すると、ボタンの数・音の種類・BGM・スイッチアクセス・誤操作防止など、児童ごとの設定を細かく調整できる画面を開けます。</p>
+    </div>
+    <button id="help-close-btn" onclick="closeHelp()" style="margin-top:4px;padding:12px;border:none;border-radius:999px;font-family:inherit;font-size:1rem;font-weight:800;color:#0f0e17;cursor:pointer;background:var(--accent2)">とじる</button>
   </div>
 </div>
 
@@ -2727,6 +2779,41 @@ let pinValue = '';
 const PIN_CORRECT = '1234';
 function showPinModal() { pinValue=''; updatePinDisplay(); document.getElementById('pin-error').classList.remove('visible'); document.getElementById('modal-pin').classList.add('active'); }
 function closePin() { document.getElementById('modal-pin').classList.remove('active'); pinValue=''; }
+
+// ===== つかいかたモーダル (Phase T6.5-B6) =====
+// #modal-pinと同じclassList.add/remove('active')方式をそのまま踏襲する。
+// #modal-pinには元々ないEscape・focus trap・focus returnはHelpにだけ
+// 新規実装し、既存#modal-pinの挙動は変更しない。openHelp/closeHelpは
+// bgmPlaying/composePlaying等のAudio stateには一切触れない。
+function helpOpen() { return document.getElementById('modal-help').classList.contains('active'); }
+function openHelp() {
+  document.getElementById('modal-help').classList.add('active');
+  document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded', 'true');
+  document.getElementById('help-modal-title').focus();
+}
+function closeHelp() {
+  document.getElementById('modal-help').classList.remove('active');
+  document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded', 'false');
+  document.getElementById('donomanaHelpBtn').focus();
+}
+document.getElementById('donomanaHelpBtn').addEventListener('click', openHelp);
+document.getElementById('modal-help').addEventListener('click', function(e) {
+  if (e.target === this) closeHelp();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && helpOpen()) closeHelp();
+});
+// フォーカストラップ（Tab/Shift+Tabでmodal-help外へ出さない）。タイトル
+// （tabindex="-1"）と「とじる」ボタンの2つだけの巡回のため、方向を問わず
+// first/lastどちらにいるかだけで折り返し先を決めればよい。
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Tab') return;
+  if (!helpOpen()) return;
+  const first = document.getElementById('help-modal-title');
+  const last = document.getElementById('help-close-btn');
+  if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+  else if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+});
 function pinInput(d) {
   if(pinValue.length>=4) return; pinValue+=d; updatePinDisplay();
   if(pinValue.length===4) {
@@ -2946,6 +3033,13 @@ function handleScanActivate(e) { e.stopPropagation(); activateCurrentScanItem();
 // handleScanActivateを一時解除してからclick()し直後に再登録する対処を含む)、いずれも
 // Phase25-AGの修正内容を一切後退させずそのまま維持する。
 function activateCurrentScanItem() {
+  // Phase T6.5-B6: while the つかいかた modal covers the screen, Space/Enter
+  // (handleScanKey/handle2ButtonKey both funnel here) must not also activate
+  // a background scan candidate underneath it (Donomana Help / Usage Guide
+  // Standard v1.0 §17 Switch isolation). #modal-pin has this same
+  // pre-existing gap (no isolation check here either); left as-is per the
+  // existing-app Freeze — only Help's own new surface is isolated.
+  if (typeof helpOpen === 'function' && helpOpen()) return;
   const btns=refreshSwitchScanItems(); if(!btns[scanIndex]) return;
   const btn=btns[scanIndex];
   // common chrome等の.sound-button以外の候補にはdataset.soundが存在しないため、
