@@ -277,6 +277,18 @@
   .setting-section { margin-bottom:18px; }
   .section-title { font-size:0.8rem; font-weight:900; color:var(--text-mid); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
 
+  /* Help modal (Phase T6.5-B4 — Donomana Help / Usage Guide Standard v1.0).
+     cup_game has no in-page settings panel to reuse (Settings itself is a
+     full modal overlay, not a Group 1/2-style .settings-panel), so Help
+     reuses the app's own .modal-overlay/.settings-modal/.modal-close-btn
+     classes as-is — its own established "settings display" convention. */
+  #helpTitle { margin-top:0; }
+  .help-body h3 { font-size:0.95rem; font-weight:900; color:var(--text-dark); margin:16px 0 6px; padding-top:10px; border-top:2px solid #f0e8d8; }
+  .help-body h3:first-of-type { margin-top:0; padding-top:0; border-top:none; }
+  .help-body h4 { font-size:0.88rem; font-weight:700; color:var(--text-dark); margin:10px 0 4px; }
+  .help-body p, .help-body li { font-size:0.85rem; color:var(--text-mid); line-height:1.7; }
+  .help-body ul { margin:4px 0; padding-left:1.3em; }
+
   .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f9f5ee; border-radius:16px; margin-bottom:7px; border:2px solid transparent; transition:border-color 0.2s; }
   .toggle-row:hover { border-color:#e8d5b0; }
   .toggle-row.dimmed { opacity:0.38; pointer-events:none; }
@@ -698,6 +710,21 @@
 <div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
   <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
 </div>
+<!-- help-btn: Phase T6.5-B4 (Donomana Help / Usage Guide Standard v1.0 §5.1
+     Lock→Fullscreen→Help ordering — this app's Common Chrome has no
+     Fullscreen button, so the cluster is Lock→Help only). Added after the
+     generate.js-owned Lock cluster (in DOM and visually), at the same
+     right:12px edge the cluster used to occupy; the CSS below pushes that
+     shared cluster out to right:64px (44px Help width + 8px gap) so both
+     clusters sit side by side without editing generate.js's shared
+     template. -->
+<style>
+  #donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
+  div:has(> #donomanaLockBtn){right:64px!important;}
+</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpOverlay" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
 <div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
 <script>
 (function(){
@@ -954,6 +981,42 @@
     </div>
 
     <button class="modal-close-btn" id="settingsCloseBtn">✅ とじる<div class="btn-dwell-bar"></div></button>
+  </div>
+</div>
+
+<!-- つかいかたモーダル（Phase T6.5-B4 — Donomana Help / Usage Guide Standard
+     v1.0）。この画面にはGroup 1/2のような.settings-panel相当が存在せず、
+     設定自体が.modal-overlay/.settings-modalの全画面modalなので、Helpも
+     同じ既存パターンをそのまま再利用する。 -->
+<div class="modal-overlay" id="helpOverlay">
+  <div class="settings-modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <h2 class="modal-title" id="helpTitle">「どこかな？カップゲーム」の つかいかた</h2>
+    <div class="help-body">
+      <h3>このアプリについて</h3>
+      <p>カップの中に人形を入れ、シャッフルしたあと、どのカップに入っているかを当てるゲームです。カップの動きを目で追う「追視」、人形の場所を覚える「短期記憶」、カップを注意深く見る「注視」を、楽しみながら育てます。</p>
+
+      <h3>あそび方</h3>
+      <p>「はじめる」を押すと、いずれかのカップに人形が入り、カップがシャッフルされます。シャッフルが終わったら、人形が入っていると思うカップを選んでください。当たり・はずれの結果が表示されたら、「つぎのゲーム！」で次のゲームに進めます。</p>
+      <p>「せってい」からカップの数（2・3・4）を選べます。まずは2カップ・ゆっくりの動きから始めて、慣れてきたらカップ数を増やしたり、動きを速くしたりすると、少しずつ難しくできます。</p>
+
+      <h3>操作方法</h3>
+      <h4>タッチ</h4>
+      <p>選びたいカップにタッチします。</p>
+      <h4>視線入力</h4>
+      <p>「せってい」の「👁 視線入力」をONにすると、カップを一定時間見つめるだけで選べます。Tobiiや見るマウスなど、視線でマウスカーソルを動かすソフトと組み合わせて使います。見つめる時間は「せってい」で調整できます。</p>
+      <h4>スイッチ</h4>
+      <p>「せってい」の「♿ スイッチスキャン」をONにすると、スペースキー（またはスイッチ）でカップが順番に光り、選びたいカップのところでスペースキーを押して選べます。「じどうスキャン」をOFFにすると、スペースキーで次へ進み、Enterキーで選ぶ2スイッチの操作にもできます。</p>
+
+      <h3>設定</h3>
+      <p>右下の「⚙️ アクセシビリティ設定」から、このアプリの詳しい設定を開けます。</p>
+      <ul>
+        <li><b>うごきをゆっくり</b>：シャッフルのアニメーションをゆっくりにする</li>
+        <li><b>タップエリアをひろく</b>：カップを大きくして押しやすくする</li>
+        <li><b>ハイコントラスト</b>：カップのふちを太くして見やすくする</li>
+        <li><b>カップのいろ・かくれるもの</b>：カップの色や、かくれる人形の見た目を変える</li>
+      </ul>
+    </div>
+    <button class="modal-close-btn" id="helpCloseBtn">✅ とじる<div class="btn-dwell-bar"></div></button>
   </div>
 </div>
 
@@ -1232,6 +1295,7 @@ function setupDwellButtons() {
     { id:'nextBtn',        cb: () => closeResult() },
     { id:'gearBtn',        cb: () => openSettings() },
     { id:'settingsCloseBtn', cb: () => closeSettings() },
+    { id:'helpCloseBtn',   cb: () => closeHelp() },
   ];
   map.forEach(({ id, cb }) => {
     const el = document.getElementById(id);
@@ -1253,6 +1317,26 @@ function setupDwellButtons() {
 // ========== 設定モーダル ==========
 function openSettings()  { buildColorGrid(); buildDollGrid(); document.getElementById('settingsOverlay').classList.add('show'); }
 function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
+
+// ========== つかいかたモーダル（Phase T6.5-B4 — Donomana Help / Usage
+// Guide Standard v1.0）。openSettings/closeSettingsと同じ.modal-overlay
+// classList.add/remove('show')方式をそのまま踏襲する。Settings自体には
+// Escape/focus returnが実装されていないが、Help StandardはこれらをREQUIRED
+// とするため、Help側にのみ新規に追加する（Settingsの既存挙動は変更しない）。
+function helpOpen() { return document.getElementById('helpOverlay').classList.contains('show'); }
+function openHelp() {
+  if (document.getElementById('settingsOverlay').classList.contains('show')) closeSettings();
+  document.getElementById('helpOverlay').classList.add('show');
+  document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded', 'true');
+}
+function closeHelp() {
+  document.getElementById('helpOverlay').classList.remove('show');
+  document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded', 'false');
+  document.getElementById('donomanaHelpBtn').focus();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && helpOpen()) closeHelp();
+});
 
 function applySettings() {
   useDwell        = document.getElementById('toggleDwell').checked;
@@ -1459,6 +1543,12 @@ function activateCurrentScanItem() {
 }
 
 document.addEventListener('keydown', e => {
+  // Phase T6.5-B4: while the つかいかた modal covers the screen, Space/Enter
+  // must not also operate the cup game underneath it (Donomana Help / Usage
+  // Guide Standard v1.0 §17 Switch isolation). Settings has this same
+  // pre-existing gap (no isolation check here either); left as-is per the
+  // Game Logic Freeze — only Help's own new surface is isolated.
+  if (helpOpen()) return;
   if (phase!=='guess'||!useScan) return;
   if (e.code==='Space') {
     e.preventDefault();
@@ -1589,6 +1679,9 @@ buildColorGrid();
 renderCups();
 setupDwellButtons();
 document.getElementById('shuffleDisplay').textContent = shuffleCount;
+document.getElementById('donomanaHelpBtn').addEventListener('click', function() {
+  helpOpen() ? closeHelp() : openHelp();
+});
 </script>
 </body>
 </html>
