@@ -403,3 +403,46 @@ UI文言をUser指定の文言（「はじめてのなぞりにおすすめで�
 | 版 | 日付 | 内容 |
 |---|---|---|
 | Addendum 2 | 2026-08-29 | Phase T5-B'''。Beginner Coarse Pass実装（character-level tolerance拡張・Position除外・相対位置安全網）。easy vs standard差を+3.95pt/+2.34ptへ拡大（T5-B''の+1.6pt/+0.7ptから）。単画文字のposition fallback・completion位置合わせ再計算という2件の重大バグを較正中に発見・修正。新規negative漏れゼロを維持 |
+
+---
+
+# Addendum 3（Phase T5-E-A''）: User-facing Disclosure + Help Standard Compliance
+
+## 34. 背景
+
+T5-B'〜B'''でapprovedされた3段階Judgment Policy（easy/standard/precise）は、`hiragana-learn.html`・`katakana-app.html`の`#settings`セクション（3ボタンUI）にのみ実装されており、`apps-data.json`（アプリ紹介ページ・SEO説明の元データ）には反映されていなかった。両アプリは`donomana-help-inventory-v1.md`上Group D（Helpなし）でもあった。本Phaseはこの2点のギャップを埋める。**Tracing Engine（`evaluateCharacter()`・`THRESHOLDS`・`TRACING_JUDGMENT_PROFILES`の数値・Hard Safety Guard）は一切変更していない。**
+
+## 35. apps-data.json Disclosure
+
+両アプリの「なぞり」feature descriptionを「じょうず判定つき」から「指でなぞって書く練習。『やさしく・ひょうじゅん・ていねいに』の3段階から、学習段階に合わせて判定のやさしさを選べます。」へ更新した（実際のUI名称と完全一致）。「判定を甘くする機能」等の能力評価的な表現は用いていない。hiragana-learnの`lesson.tips`にあった旧説明（「じょうず判定は参考程度に」、3段階判定導入前の名残で内容が陳腐化していた）を、3段階の使い分け案内へ更新した。katakana-appの`lesson.tips`（カタカナ語連想の既存tip）はそのまま維持し、3段階判定の案内を追記した。
+
+## 36. Help / Usage Guide Standard準拠
+
+`donomana-help-usage-guide-standard-v1_0.md`（Reference Implementation: `dotchiga-ii-app.html`）に準拠し、両アプリへ「つかいかた」を新設した。
+
+- **入口**: Common Chrome固定位置（`donomanaLockBtn`の隣、`top:64px`のクラスター）に`donomanaHelpBtn`を追加。generate.js所有の`lock-fs-btn`マーカーブロックの外側（DOM順で後ろ）に配置し、`div:has(> #donomanaLockBtn){right:64px!important}`でLockクラスターを押し出すことでLock→Help順を実現した（dotchiga-ii-app.htmlと同一手法）。generate.jsの共通テンプレート自体は変更していない。
+- **表示方式**: 両アプリの既存tab切替UI（`.tab-btn`/`.section.active`）をそのまま再利用し、Helpを新しい`.section#help`として追加した。tab-btn自体は既存の`settings`タブと同型の「非表示tab-btn + 別ボタンから`.click()`」方式（display:none、Common Chromeボタンからのみ到達）とし、新しいoverlay機構やLegacy modalは作っていない。
+- **内容構造**: h2（つかいかた）→h3（このアプリについて／学習のすすめ方／なぞり／操作方法／設定／記録）→h4（なぞりの3段階・操作方式ごと）。実装済みの活動・タブ名と一致させ、存在しない機能は書いていない。
+- **入力方式**: 実コード監査により両アプリともGaze実装なしを確認（`INPUT_METHOD_LABEL`等の定数に`gaze`キーが存在するのみで、実際のGaze入力コードは存在しない）。HelpにはTouch・Switch・Keyboardのみ記載した。
+- **Switch Scan Isolation**: 新しいisolation機構は作らず、既存の「`.section.active`のみをscan」という仕組みにそのまま乗せた。`donomanaHelpBtn`自体は`.section`外にあるため、`getScanTargets()`（hiragana-learn）・`buildScanItems()`（katakana-app）を最小限拡張し、常にscan候補の先頭へ含めた。Help表示中は`.section#help`のみがscan対象になり、背面の学習targetは自動的に除外される（実ブラウザで確認、§37参照）。Home/Lock等の既存Common Chromeボタンは元々この機構のscan対象外であり、本Phaseではそちらへ手を加えていない（既知の別課題として現状維持）。
+- **Focus管理**: Help open時は`helpTitle`（h2、`tabindex="-1"`）へfocus、close時（とじるボタン／Escape）は`donomanaHelpBtn`へfocus returnする。
+
+## 37. 検証結果
+
+実CSV/実ブラウザ検証と同じ厳密さで、Playwright制御Chromiumにより両アプリで以下を確認した。
+
+- Help button常時表示、44×44px、`aria-label`/`title`="つかいかた"、`aria-expanded`が開閉に応じてtrue/false
+- クリック・Enterキー双方でHelp open、Escape・とじるボタンでclose、focus移動・focus returnとも正常
+- 見出し階層（h2→h3→h4、レベル飛ばしなし）を実測で確認（h3×6、h4×6）
+- Switch Scan: `scanMode`有効時、Help表示中は候補が`[donomanaHelpBtn, helpCloseBtn]`のみ（背面の学習target除外）、close後は元のタブの全候補＋`donomanaHelpBtn`へ復帰することを実測で確認
+- Responsive: 375×667・375×812・390×844・768×1024・1280×900の全5viewportでHome/Lock/Help/A11yボタンの衝突なし（44px維持）
+- Tracing Regression: 公式Golden Test 4種（`golden-tests.js`・`golden-tests-full46.js`・`golden-tests-independent46.js`・`golden-tests-katakana-independent46.js`）全件ALL CLEAN / ALL STRICT CHECKS PASSED、Engine差分ゼロ
+- Learning Record / CSV Regression: trace record追加・Viewer表示・CSV出力（T5-E-A'のExcel互換フォーマット=日付`YYYY.MM.DD`+時刻`HH:mm:ss`、BOM維持）・削除確認ダイアログ・reload永続化を実ブラウザで再確認、全て回帰なし
+- console/page error: 両アプリとも0/0
+- `node generate.js`の2回連続実行でファイルhashが完全一致（idempotent）を確認
+
+## 38. 改訂履歴（Addendum 3）
+
+| 版 | 日付 | 内容 |
+|---|---|---|
+| Addendum 3 | 2026-08-30 | Phase T5-E-A''。apps-data.jsonへ3段階Judgment Policyの利用者向け説明を追記。hiragana-learn/katakana-appへDonomana Help / Usage Guide Standard v1.0準拠の「つかいかた」を新設（Group D→Group A）。Tracing Engine・Learning Record・CSV Excel互換への回帰ゼロを確認。RC、User Browser Review待ち |

@@ -735,6 +735,21 @@
 })();
 </script>
 <!-- /lock-fs-btn -->
+<!-- Phase T5-E-A'': Donomana Help / Usage Guide Standard v1.0 §5.1 Common Chrome Ordering
+     (Lock → Fullscreen → Help)。generate.jsが所有するlock-fs-btnブロックの内側は編集しない
+     (再生成で上書きされるため)。dotchiga-ii-app.html Reference Implementationと同じ手法で、
+     Helpを独立したwrapperとしてマーカーの外側(dom順で後ろ)に置き、
+     right:12px(Lockが以前占めていた位置)へ配置。CSSでLockのdivをright:64pxへ押し出すことで
+     [Lock] [Help] の並びを崩さずに実現する(generate.jsの共通テンプレート自体は変更しない)。
+     このアプリの#fs-btnは独自の全画面ボタン(inline)であり、注入されたdonomanaFsBtnは無効
+     (needFs=false)のため、実質 Lock → Help の2ボタン。 -->
+<style>
+  #donomanaHelpBtn:focus-visible { outline: 3px solid #00A99D; outline-offset: 2px; }
+  div:has(> #donomanaLockBtn) { right: 64px !important; }
+</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" tabindex="0" aria-label="つかいかた" aria-expanded="false" aria-controls="help" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
 <!-- home-btn: 自動挿入 (generate.js) -->
 <style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <a href="https://donomana.jp/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
@@ -763,6 +778,10 @@
   <button class="tab-btn"        data-tab="match">  <span class="tab-emoji">🎯</span>マッチング</button>
   <button class="tab-btn"        data-tab="settings"><span class="tab-emoji">⚙️</span>せってい</button>
   <button class="tab-btn" data-tab="record"><span class="tab-emoji">📊</span>きろく</button>
+  <!-- Phase T5-E-A'': Donomana Help / Usage Guide Standard v1.0。つかいかたタブは、Common Chrome
+       上部（Lock隣、donomanaHelpBtn）からのみ開く入口とし、既存settingsタブと同じ
+       「非表示tab-btn + 別ボタンから.click()」方式を踏襲する（既存tab切替の仕組みを一切変更しない）。 -->
+  <button class="tab-btn" data-tab="help"><span class="tab-emoji">❓</span>つかいかた</button>
 </nav>
 
 <main>
@@ -970,6 +989,74 @@
       <span style="font-size:.7rem;background:#E0F7FA;padding:3px 9px;border-radius:50px;color:#00897B;font-weight:700;">🎬 筆順アニメ</span>
       <span style="font-size:.7rem;background:#E0F7FA;padding:3px 9px;border-radius:50px;color:#00897B;font-weight:700;">📱 iPad対応</span>
     </div>
+  </div>
+</section>
+
+<!-- Phase T5-E-A'': Donomana Help / Usage Guide Standard v1.0 §9 Required Structure。
+     h2(このsectionのタイトル)→h3(大項目)→h4(小項目)の階層を守る。技術用語(judgmentProfile等)は
+     使わず、なぞりの3段階判定は「学習段階に応じて選べる機能」として説明する(§5 能力評価的な
+     表現の回避)。Gaze非実装のため入力方式にGazeは書かない(§11、実コード監査で確認済み)。
+     hiragana-learn.htmlのHelp実装と同一パターン(非表示tab-btn + Common Chrome入口)。 -->
+<style>
+  .tab-btn[data-tab="help"] { display: none !important; pointer-events: none !important; }
+  .help-body h3 { font-size: 1rem; font-weight: 900; margin: 20px 0 8px; color: #7b68d4; padding-top: 14px; border-top: 2px solid #F0F0F0; }
+  .help-body h3:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .help-body h4 { font-size: 0.9rem; font-weight: 700; margin: 12px 0 4px; color: #444; }
+  .help-body h4:first-of-type { margin-top: 4px; }
+  .help-body p { margin: 0 0 8px; font-size: 0.85rem; line-height: 1.75; color: #555; }
+  .help-body ul { margin: 0 0 8px; padding-left: 1.3em; font-size: 0.85rem; line-height: 1.75; color: #555; }
+  .help-body li { margin-bottom: 2px; }
+  #helpCloseBtn { display: block; width: 100%; min-height: 44px; margin-top: 12px; border: none; border-radius: 50px; background: #7b68d4; color: #fff; font-weight: 700; font-family: inherit; font-size: 0.95rem; cursor: pointer; }
+  #helpCloseBtn:focus-visible, .tab-btn[data-tab="help"]:focus-visible { outline: 3px solid #00A99D; outline-offset: 2px; }
+</style>
+<section id="help" class="section">
+  <div class="card help-body">
+    <h2 class="section-title" id="helpTitle" tabindex="-1">❓ つかいかた</h2>
+    <h3>このアプリについて</h3>
+    <p>「カタカナ まなぼう！」は、カタカナの読み・筆順・なぞり書き・クイズ・マッチング・記録を通して、カタカナの読み書きを楽しく練習できる教材です。正解の数を競うだけのアプリではなく、文字と音を結びつけながら、書く動きに慣れていくことを大切にしています。</p>
+
+    <h3>学習のすすめ方</h3>
+    <p>上のタブから、いつでも活動を切り替えられます。</p>
+    <ul>
+      <li>🔊 よみあげ：文字をタップすると声で読み上げます</li>
+      <li>✏️ ひつじゅん：書き順をアニメーションで確認します</li>
+      <li>👆 なぞり：指でなぞって書く練習をします</li>
+      <li>❓ クイズ：読み方を4択で答えます</li>
+      <li>🎯 マッチング：カタカナとひらがなの読み方を線でつなぎます</li>
+      <li>📊 きろく：取り組んだ内容を確認・書き出しできます</li>
+    </ul>
+
+    <h3>なぞり</h3>
+    <p>指でなぞって書く練習です。「⚙️ せってい」の「なぞりの はんてい」から、学習段階に合わせて判定のやさしさを3段階から選べます。</p>
+    <h4>やさしく</h4>
+    <p>はじめてのなぞりにおすすめです。線が下書きから外れたり、形が少しくずれたりしても、大まかに書けていれば成功になります。</p>
+    <h4>ひょうじゅん（はじめの設定）</h4>
+    <p>通常の学習向けです。多少のずれや揺れを受け入れながら、文字の形を判定します。</p>
+    <h4>ていねいに</h4>
+    <p>文字の形や線の完成度を、より丁寧に確認したいときに使います。</p>
+
+    <h3>操作方法</h3>
+    <h4>タッチ</h4>
+    <p>画面のボタンや文字を直接タップします。なぞりは指でなぞって描きます。</p>
+    <h4>スイッチ</h4>
+    <p>「⚙️ せってい」でスイッチスキャンをONにすると、選べる場所が順番に移動します。選びたいところでスペースキーまたはEnterキーを押してください。</p>
+    <h4>キーボード</h4>
+    <p>Tabキーで移動し、Enterキーまたはスペースキーで選べます。</p>
+
+    <h3>設定</h3>
+    <ul>
+      <li><b>なぞりの はんてい</b>：なぞり書きの判定のやさしさ（やさしく・ひょうじゅん・ていねいに）</li>
+      <li><b>もじを おおきく</b>：文字サイズの変更（4段階）</li>
+      <li><b>ハイコントラスト</b>：見やすい配色への切り替え</li>
+      <li><b>スイッチスキャン</b>：スペース/Enterキーで操作するモード</li>
+      <li><b>スキャンかんかく</b>：自動スキャンの速さ</li>
+      <li><b>じどう よみあげ</b>：タップしたときに自動で読み上げるかどうか</li>
+    </ul>
+
+    <h3>記録</h3>
+    <p>いつ・どの活動に取り組んだかを記録できます。「📊 きろく」から確認でき、CSVファイルとして書き出すこともできます。記録は、そのときの取り組みを振り返るためのものです。一度の記録だけから、力や得意・不得意を判断するものではありません。</p>
+
+    <button id="helpCloseBtn" type="button" tabindex="0">とじる</button>
   </div>
 </section>
 
@@ -1525,6 +1612,46 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     }
   });
 });
+
+// ===== HELP（Phase T5-E-A'': Donomana Help / Usage Guide Standard v1.0） =====
+// 「つかいかた」は既存のtab切替の仕組み（.tab-btn[data-tab="help"]、既存のsettingsタブと
+// 同じ非表示tab-btn方式）をそのまま再利用する。切替前のタブへ「とじる」/Escapeで戻れるよう
+// helpPreviousTabIdへ記憶する。新しいisolation機構は作らず、buildScanItems()が
+// .section.activeだけをscanする既存の仕組み（本ファイル上部）にそのまま乗る。
+(function () {
+  var helpBtn = document.getElementById('donomanaHelpBtn');
+  var helpTabBtn = document.querySelector('.tab-btn[data-tab="help"]');
+  var helpTitle = document.getElementById('helpTitle');
+  var helpCloseBtn = document.getElementById('helpCloseBtn');
+  if (!helpBtn || !helpTabBtn) return;
+  var helpPreviousTabId = 'read';
+
+  function isHelpActive() {
+    var active = document.querySelector('.section.active');
+    return !!active && active.id === 'help';
+  }
+  function openHelp() {
+    var active = document.querySelector('.section.active');
+    helpPreviousTabId = active ? active.id : 'read';
+    helpTabBtn.click();
+    helpBtn.setAttribute('aria-expanded', 'true');
+    if (helpTitle) helpTitle.focus({ preventScroll: true });
+  }
+  function closeHelp() {
+    var targetBtn = document.querySelector('.tab-btn[data-tab="' + helpPreviousTabId + '"]') ||
+      document.querySelector('.tab-btn[data-tab="read"]');
+    if (targetBtn) targetBtn.click();
+    helpBtn.setAttribute('aria-expanded', 'false');
+    helpBtn.focus();
+  }
+  helpBtn.addEventListener('click', function () {
+    if (isHelpActive()) closeHelp(); else openHelp();
+  });
+  if (helpCloseBtn) helpCloseBtn.addEventListener('click', closeHelp);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isHelpActive()) closeHelp();
+  });
+})();
 
 // ================================================================
 // 1. READ
@@ -3035,12 +3162,17 @@ function toggleScanMode(on){
 
 // buildScanItems: 候補取得ロジック（旧updateScanTargetsから抽出。判定条件・セレクタ・順序は無変更）
 function buildScanItems(){
+  // Phase T5-E-A'': donomanaHelpBtn（Common Chrome固定、.section外）をどのタブからでも
+  // scan候補へ含める（Help Standard §21相当）。Home/Lock等の既存Common Chromeボタンは
+  // 元々この関数のscan対象外であり（.section外のため）、本Phaseではそちらへ手を加えない。
+  const helpBtn = document.getElementById('donomanaHelpBtn');
+  const helpPrefix = helpBtn ? [helpBtn] : [];
   if(typeof currentTab !== 'undefined' && (currentTab === 'trace' || currentTab === 'stroke' || currentTab === 'record')){
-    return [];
+    return helpPrefix;
   }
   const active=document.querySelector('.section.active');
-  if(!active) return [];
-  return Array.from(active.querySelectorAll('button,[tabindex="0"]'));
+  if(!active) return helpPrefix;
+  return helpPrefix.concat(Array.from(active.querySelectorAll('button,[tabindex="0"]')));
 }
 
 // refreshSwitchScanItems: 旧updateScanTargetsの分岐・副作用（scanFocusIdxリセット・先頭focus）をそのまま保持

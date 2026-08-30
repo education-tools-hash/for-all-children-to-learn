@@ -3,6 +3,8 @@
 策定: Phase M12-D''''。`docs/design-system/donomana-help-usage-guide-standard-v1_0.md`のRollout計画（§21）の根拠資料。
 改訂: Phase M12-F（2026-08-23、Production Release）。「どっちがいい？」（dotchiga-ii-app.html）のProduction公開に伴い、Group A・Standard Reference Implementationとして表・集計へ追加（全34→全35アプリ）。策定時点（M12-D''''）の調査対象34アプリの記録はそのまま維持し、削除していない。既存34アプリのコードは本改訂でも変更していない。
 
+改訂2: Phase T5-E-A''（2026-08-30、RC）。`hiragana-learn.html`・`katakana-app.html`をGroup D（Helpなし）からGroup A（Help present, top-chrome entry, decent content）へロールアウトした。Common Chrome固定位置（Lock隣、donomanaHelpBtn）を入口とし、内容はこのアプリについて／学習のすすめ方／なぞり（3段階判定の説明含む）／操作方法（タッチ・スイッチ・キーボード）／設定／記録の6見出し（h2→h3→h4）で構成。実装詳細は`donomana-tracing-judgment-levels-v1.md`のAddendum 3を参照。User Browser Reviewの承認待ち（本Phaseの時点ではまだRC、Production未反映）。
+
 全35 Productionアプリ（`apps-data.json`記載）を対象に、既存の「使い方」実装状況を調査した。**既存Productionアプリのコードは一切変更していない**（調査のみ）。
 
 ## 分類基準
@@ -17,8 +19,8 @@
 
 | App | Help有無 | Entry位置 | Pattern | 内容量(該当カテゴリ) | Input説明 | Settings説明 | Record説明 | Accessibility | Standard status | Recommended action |
 |---|---|---|---|---|---|---|---|---|---|---|
-| hiragana-learn.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
-| katakana-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
+| hiragana-learn.html | Yes | top chrome（Lock隣、donomanaHelpBtn、Standard §5.1正式ordering準拠） | 既存tab切替（`.section#help`、非表示tab-btn方式、settingsタブと同型） | このアプリについて／学習のすすめ方／なぞり（3段階判定）／操作方法／設定／記録の6セクション、h2→h3→h4階層 | Yes（タッチ・スイッチ・キーボード） | Yes | Yes | native button, OK | Group A（T5-E-A''でRollout、RC・User Review待ち） | ほぼ準拠 |
+| katakana-app.html | Yes | top chrome（Lock隣、donomanaHelpBtn、Standard §5.1正式ordering準拠） | 既存tab切替（`.section#help`、非表示tab-btn方式、settingsタブと同型） | このアプリについて／学習のすすめ方／なぞり（3段階判定）／操作方法／設定／記録の6セクション、h2→h3→h4階層 | Yes（タッチ・スイッチ・キーボード） | Yes | Yes | native button, OK | Group A（T5-E-A''でRollout、RC・User Review待ち） | ほぼ準拠 |
 | nazori-app.html | Yes | header, top chrome（⚙️隣） | 素の`#helpModal`（`role=dialog`なし） | purpose, teacher-mode, print-worksheet, practice-mode。入力方式説明なし | No | Partial | Yes（簡潔） | native button, OK | Group A | 軽微改善: 入力方式説明追加、ARIA dialog role付与 |
 | nazorin-print.html | Yes | header tool row, top chrome | `#helpModal`, `role="dialog" aria-modal="true"` | purpose, 3-step flow, 5種印刷タイプ, 機能, 推奨設定, 印刷tips — 充実 | n/a（印刷ツール） | Yes | n/a（フォルダ説明あり） | native button, OK | Group A | ほぼ準拠 |
 | janken-app.html | Yes | home-menuボタン下部（top iconではない） | `.howto-overlay#howto-overlay`, `role="dialog" aria-modal="true"`, tab切替（教員/子ども） | purpose, flow, accessibility(switch/keyboard/tts/contrast/size), 注意事項 | Partial（switch, keyboard；gaze/touch明示なし） | Yes | Partial（簡潔） | native button, OK | Group B | entry位置をtop chromeへ移動 |
@@ -57,13 +59,13 @@
 
 Group分類は各アプリにつき1個のみ付与する（`Group B+C`は「入口・内容の両方に課題を持つ」ための**独立した複合カテゴリ**であり、`Group B`・`Group C`の内数ではない。matching-appは`Group B`・`Group C`いずれの件数にも含まれず、`Group B+C`としてのみ1回カウントする）。表の35行から機械的に再集計した結果は以下のとおりで、5カテゴリの合計は35アプリと一致する。
 
-- **Group A**（Help有・top chrome入口・内容十分、ほぼ準拠）: **15** — nazori-app, nazorin-print, okane-app, register-app, schedule-app, yomikaki-app, sst-app, kimochi-board, drawing-app, slideshow-sakusei, kyou-no-kiroku, scratch-app, gaze-keyboard, mogura-tataki, dotchiga-ii-app（うちokane-app/mogura-tataki/dotchiga-ii-appが特に模範的——dotchiga-ii-appはStandard自体のReference Implementation）
+- **Group A**（Help有・top chrome入口・内容十分、ほぼ準拠）: **17**（T5-E-A''でhiragana-learn・katakana-appが追加、15→17） — nazori-app, nazorin-print, okane-app, register-app, schedule-app, yomikaki-app, sst-app, kimochi-board, drawing-app, slideshow-sakusei, kyou-no-kiroku, scratch-app, gaze-keyboard, mogura-tataki, dotchiga-ii-app, hiragana-learn, katakana-app（うちokane-app/mogura-tataki/dotchiga-ii-appが特に模範的——dotchiga-ii-appはStandard自体のReference Implementation。hiragana-learn/katakana-appはT5-E-A''時点でRC・User Review待ち）
 - **Group B**（Help有だが入口が旧式・非持続。matching-appを含まない）: 4 — janken-app, tyushi, directions-app, time-timer
 - **Group C**（Help有だが内容不足。matching-appを含まない）: 2 — timetable-app, sugoroku-app
 - **Group B+C**（入口・内容両方に課題。B/Cいずれとも重複カウントしない独立カテゴリ）: 1 — matching-app
-- **Group D**（Helpなし）: 13 — hiragana-learn, katakana-app, shiritori2, tokei-app, cup_game, bosai-app, suji-manabou, ongaku-app, kurabeyou-app, katachi-awase-app, miru-hirogaru-app, mitsukete-touch-app, junban-miyou-app
+- **Group D**（Helpなし）: 11（T5-E-A''でhiragana-learn・katakana-appが離脱、13→11） — shiritori2, tokei-app, cup_game, bosai-app, suji-manabou, ongaku-app, kurabeyou-app, katachi-awase-app, miru-hirogaru-app, mitsukete-touch-app, junban-miyou-app
 
-**合計確認**: 15 + 4 + 2 + 1 + 13 = **35**（全Production app総数と一致）。
+**合計確認**: 17 + 4 + 2 + 1 + 11 = **35**（全Production app総数と一致）。
 
 ### 横断的な技術的所見
 
@@ -75,7 +77,7 @@ Group Aのアプリでも、多くのHelp modal/panelが`role="dialog" aria-moda
 2. **sugoroku-app.html（Group C）** — 唯一の「Help」がマス目・イベントの用語集のみ。ゲーム設定・オンラインモード・アクセシビリティについて説明が一切ない。
 3. **directions-app.html / matching-app.html（Group B / B+C）** — いずれも内容自体は良好だが、入口がホーム画面からしか到達できない（directions-app）、またはheader自体が存在しない（matching-app）。内容がほぼ既存のため低コストで高価値な改善。
 4. **tyushi.html / time-timer.html（Group B）** — 調査対象中最も内容が充実している（特にtyushiはgaze/switch/touch/gamepad入力の説明が模範的）にもかかわらず、入口が左下固定ボタンでtop chromeに含まれていない。構造的な移動だけで大きく改善する。
-5. **hiragana-learn.html / katakana-app.html（Group D）** — カタログ中でも利用頻度が高いと想定される「学習アプリ」の中核2本にHelpが皆無。他の13件のGroup Dアプリより優先すべき。
+5. ~~hiragana-learn.html / katakana-app.html（Group D）~~ — **Phase T5-E-A''で対応済み（Group D→Group A）。** カタログ中でも利用頻度が高いと想定される「学習アプリ」の中核2本にHelpを新設した。User Browser Review待ち。
 
 ## 本Phaseでの対応範囲
 
