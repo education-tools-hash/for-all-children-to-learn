@@ -64,7 +64,7 @@
 <meta name="description" content="ひらがな・カタカナ・名前・自由な文字のなぞり書きを練習できる無料Webアプリです。文字の大きさ・色・濃淡・練習回数を自由にカスタマイズでき、画面に直接なぞって書く「練習モード」と、A4印刷用ワークシートをPDF出力できる 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
 <!-- /seo-tags -->
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho:wght@400;700&family=Kosugi+Maru&family=Klee+One:wght@400;600&display=swap');
 
   :root {
     --sky: #e8f4fd;
@@ -1185,6 +1185,16 @@
         </div>
 
         <div class="setting-group">
+          <div class="setting-label">🔤 お手本の字体</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;" id="guideFontBtns">
+            <button class="btn btn-primary" data-font="BIZ UDPGothic" style="flex:1;min-width:80px;min-height:44px;padding:8px;font-size:0.85rem;" aria-pressed="true" onclick="setGuideFont('BIZ UDPGothic',this)"><span style="font-family:'BIZ UDPGothic',sans-serif;font-size:1.3rem;display:block;">あ</span>標準</button>
+            <button class="btn btn-secondary" data-font="Kosugi Maru" style="flex:1;min-width:80px;min-height:44px;padding:8px;font-size:0.85rem;" aria-pressed="false" onclick="setGuideFont('Kosugi Maru',this)"><span style="font-family:'Kosugi Maru',sans-serif;font-size:1.3rem;display:block;">あ</span>やさしい丸文字</button>
+            <button class="btn btn-secondary" data-font="Klee One" style="flex:1;min-width:80px;min-height:44px;padding:8px;font-size:0.85rem;" aria-pressed="false" onclick="setGuideFont('Klee One',this)"><span style="font-family:'Klee One',cursive;font-size:1.3rem;display:block;">あ</span>手書きふう</button>
+          </div>
+          <div style="font-size:0.78rem;color:var(--ink-light);margin-top:2px;">お手本の見た目だけが変わります。判定はありません。</div>
+        </div>
+
+        <div class="setting-group">
           <div class="setting-label">📐 ガイド線</div>
           <select id="guideLineSelect">
             <option value="cross">十字線</option>
@@ -1662,6 +1672,7 @@ const S = {
   brushSize: 12,
   fontSize: 88,
   fontWeight: 700,   // 200=細 400=普通 700=太 900=極太
+  fontFamily: 'BIZ UDPGothic',   // お手本の字体（表示のみ。正誤判定は行っていないため判定への影響はない）
   opacity: 22,
   guideStyle: 'box',
   cellSize: 300,
@@ -1672,6 +1683,19 @@ const S = {
   lastX: 0, lastY: 0,
   activeCanvas: null,
 };
+
+// お手本の字体は先生・学校ごとの継続的な環境設定という性質のため、他の練習設定
+// （文字・回数など毎回変わりうる設定）とは異なり再読み込み後も維持する。
+// 表示（canvas fillText）のみに影響し、正誤判定は行っていないため判定への影響はない。
+const GUIDE_FONT_KEY = 'nazori_guide_font';
+const GUIDE_FONT_DEFAULT = 'BIZ UDPGothic';
+function loadGuideFont() {
+  try { return localStorage.getItem(GUIDE_FONT_KEY) || GUIDE_FONT_DEFAULT; } catch(e) { return GUIDE_FONT_DEFAULT; }
+}
+function saveGuideFont(font) {
+  try { localStorage.setItem(GUIDE_FONT_KEY, font); } catch(e) {}
+}
+S.fontFamily = loadGuideFont();
 
 // キャンバスごとのストローク履歴 WeakMap
 // canvas → ImageData[] (各strokeEnd時のスナップショット)
@@ -2093,6 +2117,18 @@ function setFontWeight(w, btn) {
   renderTeacherGuide();
 }
 
+function setGuideFont(font, btn) {
+  S.fontFamily = font;
+  saveGuideFont(font);
+  document.querySelectorAll('#guideFontBtns button').forEach(b => {
+    b.className = 'btn btn-secondary';
+    b.setAttribute('aria-pressed', 'false');
+  });
+  btn.className = 'btn btn-primary';
+  btn.setAttribute('aria-pressed', 'true');
+  renderTeacherGuide();
+}
+
 function attachTeacherEvents() {
   const bind = (id, stateKey, display, onChange) => {
     const el = document.getElementById(id);
@@ -2107,6 +2143,15 @@ function attachTeacherEvents() {
   bind('repeatRange',  'repeatCount','repeatVal', null);
   document.getElementById('guideLineSelect').addEventListener('change', function() { S.guideStyle=this.value; renderTeacherGuide(); });
   document.getElementById('canvasSizeSelect').addEventListener('change', function() { S.cellSize=+this.value; syncSingleCanvas(); renderTeacherGuide(); });
+  // 保存済みのお手本の字体に合わせてボタンのアクティブ状態を初期化（既定=BIZ UDPGothicの場合はHTML側の初期状態のまま）
+  if (S.fontFamily !== GUIDE_FONT_DEFAULT) {
+    const savedBtn = document.querySelector(`#guideFontBtns button[data-font="${S.fontFamily}"]`);
+    if (savedBtn) {
+      document.querySelectorAll('#guideFontBtns button').forEach(b => { b.className = 'btn btn-secondary'; b.setAttribute('aria-pressed','false'); });
+      savedBtn.className = 'btn btn-primary';
+      savedBtn.setAttribute('aria-pressed','true');
+    }
+  }
   document.getElementById('charInput').addEventListener('input', renderTeacherGuide);
   document.getElementById('startPracticeBtn').addEventListener('click', startPractice);
 }
@@ -2134,7 +2179,7 @@ function drawGuideChar(ctx, s, char, color, fontSize, opacity) {
   ctx.save();
   ctx.globalAlpha = opacity/100;
   ctx.fillStyle = `rgb(${r},${g},${b})`;
-  ctx.font = `${S.fontWeight} ${Math.round(s*fontSize/100)}px "BIZ UDPGothic", sans-serif`;
+  ctx.font = `${S.fontWeight} ${Math.round(s*fontSize/100)}px "${S.fontFamily}", sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(char, s/2, s/2);
   ctx.restore();
@@ -3343,7 +3388,7 @@ async function drawWorksheetPages(doc, chars, opts) {
 
     // ゴースト文字（canvasSizeに比例したフォントサイズ）
     const fs = Math.round(canvasSize * fontSize);
-    ctx.font = `${fontWeight||700} ${fs}px "BIZ UDPGothic", sans-serif`;
+    ctx.font = `${fontWeight||700} ${fs}px "${S.fontFamily}", sans-serif`;
     ctx.fillStyle = `rgba(${r},${g},${b},${opacity})`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
