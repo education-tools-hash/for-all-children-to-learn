@@ -125,16 +125,71 @@
 
 ### 8.2 `nazorin-print.html`のfont-familyスタックがWindows 11 24H2以降で機能しなくなっている可能性
 
-§4参照。フォント名の変更（`"UD デジタル 教科書体 N-R"` → `"UD デジタル教科書体 N"`）により、既存のfont-familyスタックの先頭指定が最新Windows環境では一致しなくなっている可能性がある。実機検証はしていない（Windows 11 24H2環境がPhase内で用意できないため）。次のsubphaseでの確認を推奨する。
+§4参照。フォント名の変更（`"UD デジタル 教科書体 N-R"` → `"UD デジタル教科書体 N"`）により、既存のfont-familyスタックの先頭指定が最新Windows環境では一致しなくなっている可能性がある。**Phase T6.5-A2で実機確認済み。§10参照。**
 
 ---
 
 ## 9. 次のT6.5-A subphase候補
 
-1. **`nazorin-print.html`への同様の字体選択機能追加**（SVG `<text font-family>`ベースなので技術的には`nazori-app.html`より単純だが、印刷レイアウトへの影響確認が別途必要）
-2. **§8.1のnazori-app活動記録バグ修正**（`window.storage` → `localStorage`への置き換え、字体選択とは独立した別Phase）
-3. **§8.2のWindows 11 24H2フォント名変更の実機確認**
+1. ~~`nazorin-print.html`への同様の字体選択機能追加~~ → **Phase T6.5-A2で実施済み。§10参照。**
+2. **§8.1のnazori-app活動記録バグ修正**（`window.storage` → `localStorage`への置き換え、字体選択とは独立した別Phase。Phase T6.5-A3として提案）
+3. ~~§8.2のWindows 11 24H2フォント名変更の実機確認~~ → **Phase T6.5-A2で実施済み。§10参照。**
 4. 「教科書体」候補の再検討（将来、適切なオープンソースフォントが見つかった場合）
+
+---
+
+## 10. `nazorin-print.html` Pilot実装（Phase T6.5-A2）
+
+### 10.1 Windows 11 実機フォント名検証（実測、推測ではない）
+
+開発機（Windows 11、ビルド26200＝25H2、24H2以降に相当）で、`System.Drawing.Text.InstalledFontCollection`により実際にインストールされているフォントファミリー名を確認した。
+
+```
+UD Digi Kyokasho N
+UD Digi Kyokasho NK
+UD Digi Kyokasho NP
+```
+
+**既存の`nazorin-print.html`が指定していた`"UD デジタル 教科書体 N-R"`（日本語名）・`"UD Digi Kyokasho N-R"`（英語名、末尾"-R"付き）は、いずれもこの一覧に存在しない。** A1で懸念された「Windows 11 24H2でフォント名が変更された」という報道内容が、この実機で確定的に裏付けられた。
+
+`document.fonts.check()`はこの状況で`true`を返す（フォールバックチェーン全体としては解決可能なため）が、これは「意図したフォントが使えている」ことの証明にはならない。実際にどのフォントが選ばれているかは、Canvas `measureText()`による幅測定で確認した:
+
+| 指定 | 「あ」の描画幅（48pxフォントサイズ） |
+|---|---|
+| 既存font-familyスタック（`.moji-cell`のcomputed style） | 47.0390625px |
+| `"BIZ UDPGothic"`単体指定 | 47.0390625px（**一致**） |
+| `"UD Digi Kyokasho N"`（実在する正しい名前）単体指定 | 48px（不一致） |
+| `sans-serif`（総称フォント）単体指定 | 48px（不一致） |
+
+**結論: この実機（Windows 11 25H2）では、既存のfont-familyスタックは実際には教科書体ではなく、3番目の候補である`BIZ UDPGothic`（Google Fonts Web Font）にフォールバックしている。** 古いWindows環境（Windows 10 Fall Creators Update 〜 Windows 11 23H2）では教科書体が実際に使われていた可能性があるが、少なくとも24H2以降の主流環境では、意図されたWindows専用教科書体は既に使われなくなっている。
+
+### 10.2 「標準」の定義（Backward Compatibility）
+
+上記の実測を踏まえ、「標準」は**既存のfont-familyスタックをそのまま丸ごと維持する**方針とした（スタックの中身を書き換えたり、教科書体指定を削除したりしない）。これにより:
+
+- 万一まだ教科書体が使える環境（古いWindows）があれば、その利用者の見た目は変えない
+- 24H2以降の主流環境では、実測通り引き続きBIZ UDPGothicが使われる（今回のPilotで新規に変えたわけではなく、既存の実態がそのまま「標準」になる）
+
+### 10.3 実装
+
+- `.moji-cell`（ひらがなマスのDOM要素、実際の描画経路）と`svg text.svgmoji`（CSS定義はあるが実際に生成するJSコードは存在しない、未使用の既存ルール）の両方のfont-familyを`var(--guide-font, 既存スタック)`へCSS変数化
+- Google Fonts `<link>`にKosugi Maruを追加。Klee Oneは既にweight 600で読み込まれていたためweight 400を追加（既存の`nazori-app.html` Pilotと粒度を揃えるため）
+- 「ひらがな のせってい」パネル内、既存の`.chips`パターン（行選択チップ`kanaRows`・用紙の向き`orientChips`と同じUI部品）を再利用し「ひらがなの じたい」を追加。3ボタンとも実際のフォントでラベル「標準」「やさしい丸文字」「手書きふう」を自表示（新規プレビューUIは追加せず、A1と同じ手法）
+- **重要な実装上の注意点（本Phaseで発見・修正）**: 「標準」ボタン自身のラベルを`var(--guide-font, ...)`で描画すると、他の字体を選択した際に「標準」ボタンのラベル表示まで一緒に変わってしまう副作用があった。「標準」ボタンのfont-familyは固定のスタック値を直接指定し、CSS変数を参照しないよう修正した
+- 選択状態は`.chip.on`（既存パターン）と`aria-pressed`（新規追加）の両方で管理
+- Persistence: 新規key `nazorin_print_font`（`nazori-app.html`の`nazori_guide_font`とは別。アプリ間の設定共有という正式仕様がまだ存在しないため）。**許可リスト方式**（UIの3ボタンが実際に持つ`data-font`値のみを有効とする）を採用し、直接localStorageを書き換えられて任意の文字列（例: `javascript:alert(1)`）が入っていても、CSS変数へは反映せず安全に「標準」へfallbackすることを実測確認した
+
+### 10.4 検証結果
+
+- 3字体とも46文字・重点10文字を実レンダリングし、tofu・欠落・clippingなし
+- 拡大比較でKosugi Maru選択時の字形差（縦画の線端が角→丸に変化）を視覚的に確認
+- Persistence・Legacy（keyなし）・Invalid value（許可リスト外の値）はすべて安全にfallback
+- `@media print`エミュレーションでQRコード・スタンプ枠・名前欄等の既存レイアウトに崩れなし
+- `window.print()`呼び出し正常（stub経由で確認）
+- Network requestはGoogle Fonts静的アセットのみ、不審な追加通信なし
+- 44px/keyboard/aria-pressed/responsive(4サイズ)すべて実測PASS
+- 点つなぎ・線なぞり・すうじ・めいろの他モードへの回帰なし（diffで`.moji-cell`関連コードのみの変更であることを確認、実ブラウザでも各モード切替を確認）
+- `nazori-app.html`（A1 Pilot）は本Phaseで一切変更していない
 
 ---
 
@@ -143,3 +198,4 @@
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v1.0 | 2026-08-30 | Phase T6.5-A。Architecture Inventory完了（判定engineなし、Option A確定）。`nazori-app.html`へ3択の字体選択機能をPilot実装（表示のみ、localStorage永続化、44px/keyboard/aria-pressed対応）。`nazorin-print.html`は未実装（次subphase）。既存の`window.storage`バグ、Windows 11 24H2フォント名変更リスクを発見・記録。 |
+| v1.0 + Addendum | 2026-08-30 | Phase T6.5-A2。`nazorin-print.html`へ同様の3択字体選択をRollout（CSS変数`--guide-font`化、`.moji-cell`のみが実際の描画経路であることを確認、`svg text.svgmoji`は未使用の既存デッドCSSと判明）。Windows 11実機（ビルド26200）でWindows専用教科書体フォント名がリネームされ、既存font-familyスタックが実際にはBIZ UDPGothicへフォールバックしていることをCanvas幅測定で確定。「標準」は既存スタックをそのまま維持しBackward Compatibilityを優先。許可リスト方式でinvalid value対策を強化。印刷レイアウト・他モード（点つなぎ等）への回帰なしを確認。`nazori-app.html`（A1 Pilot）は無変更。 |

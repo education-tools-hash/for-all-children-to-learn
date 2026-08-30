@@ -65,7 +65,7 @@
 <!-- /seo-tags -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Klee+One:wght@600&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Klee+One:wght@400;600&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Kosugi+Maru&display=swap" rel="stylesheet">
 <style>
 :root{
   --desk:#F1F5EF;          /* やわらかい若葉色の机 */
@@ -233,7 +233,7 @@ input[type=range]{accent-color:var(--leaf);flex:1}
 .moji-cell{
   border:.45mm solid #888;position:relative;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  font-family:"UD デジタル 教科書体 N-R","UD Digi Kyokasho N-R","BIZ UDPGothic","BIZ UDGothic","Klee One",sans-serif;
+  font-family:var(--guide-font,"UD デジタル 教科書体 N-R","UD Digi Kyokasho N-R","BIZ UDPGothic","BIZ UDGothic","Klee One",sans-serif);
   font-weight:400;line-height:1;
   margin-right:1.5mm;
 }
@@ -249,7 +249,7 @@ input[type=range]{accent-color:var(--leaf);flex:1}
 .moji-cell.trace span{color:var(--tracecol,#BCC7D1)}
 .moji-cell.free span{visibility:hidden}
 svg text.svgmoji{
-  font-family:"UD デジタル 教科書体 N-R","UD Digi Kyokasho N-R","BIZ UDPGothic","BIZ UDGothic","Klee One",sans-serif;
+  font-family:var(--guide-font,"UD デジタル 教科書体 N-R","UD Digi Kyokasho N-R","BIZ UDPGothic","BIZ UDGothic","Klee One",sans-serif);
   font-weight:400;
 }
 /* ============ 印刷 ============ */
@@ -744,6 +744,13 @@ svg text.svgmoji{
           </select>
         </div>
         <p class="hint">大きなマスは のびのび安心して書けます。マスを大きくすると、入りきらない分のマスや文字は自動でへらして 1まいに収めます。</p>
+        <div class="grouplabel" style="font-size:.78rem;color:#7a8a94">ひらがなの じたい</div>
+        <div class="chips" id="kanaFontChips">
+          <button type="button" class="chip big on" data-font="" aria-pressed="true" style="min-height:44px;font-family:'UD デジタル 教科書体 N-R','UD Digi Kyokasho N-R','BIZ UDPGothic','BIZ UDGothic','Klee One',sans-serif;">標準</button>
+          <button type="button" class="chip big" data-font="'Kosugi Maru',sans-serif" aria-pressed="false" style="min-height:44px;font-family:'Kosugi Maru',sans-serif;">やさしい丸文字</button>
+          <button type="button" class="chip big" data-font="'Klee One',cursive" aria-pressed="false" style="min-height:44px;font-family:'Klee One',cursive;">手書きふう</button>
+        </div>
+        <p class="hint">お手本の見た目だけが変わります。</p>
         <div class="row"><label>なぞり文字の こさ</label>
           <select id="kanaDark">
             <option value="#9FADB8">しっかり（こいめ）</option>
@@ -1020,6 +1027,46 @@ $$("#orientChips .chip").forEach(c => c.addEventListener("click", () => {
   render();
 }));
 const isLandscape = () => $("#orientChips .chip.on").dataset.o === "l";
+
+/* ---------- ひらがなの字体 ----------
+   「標準」は既存のfont-familyフォールバックスタック（Windowsの教科書体があれば
+   それ、なければBIZ UDPGothic等）をそのまま維持する。表示のみに影響し、印刷・
+   PDF・SVGとも同じCSS変数を参照するため常に一致する（判定エンジンはそもそも
+   存在しない）。 */
+const KANA_FONT_KEY = "nazorin_print_font";
+// 許可リスト方式: UI（3ボタンのdata-font）が実際に設定しうる値だけを許可する。
+// 直接localStorageを書き換えられて未知の値が入っていても、標準へ安全にfallbackする。
+const KANA_FONT_ALLOWED = new Set($$("#kanaFontChips .chip").map(c => c.dataset.font));
+function applyKanaFont(value) {
+  if (value) document.documentElement.style.setProperty("--guide-font", value);
+  else document.documentElement.style.removeProperty("--guide-font");
+}
+function saveKanaFont(value) {
+  try { localStorage.setItem(KANA_FONT_KEY, value); } catch (e) {}
+}
+function loadKanaFont() {
+  try {
+    const v = localStorage.getItem(KANA_FONT_KEY) || "";
+    return KANA_FONT_ALLOWED.has(v) ? v : "";
+  } catch (e) { return ""; }
+}
+$$("#kanaFontChips .chip").forEach(c => c.addEventListener("click", () => {
+  $$("#kanaFontChips .chip").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-pressed", "false"); });
+  c.classList.add("on"); c.setAttribute("aria-pressed", "true");
+  applyKanaFont(c.dataset.font);
+  saveKanaFont(c.dataset.font);
+}));
+(function initKanaFont() {
+  const saved = loadKanaFont();
+  applyKanaFont(saved);
+  if (saved) {
+    const btn = $$("#kanaFontChips .chip").find(c => c.dataset.font === saved);
+    if (btn) {
+      $$("#kanaFontChips .chip").forEach(x => { x.classList.remove("on"); x.setAttribute("aria-pressed", "false"); });
+      btn.classList.add("on"); btn.setAttribute("aria-pressed", "true");
+    }
+  }
+})();
 
 /* すうじチップ 0-9 */
 const sujiChipsBox = $("#sujiChips");
