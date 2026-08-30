@@ -2026,7 +2026,9 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
-  { date: "2026-08-30", type: "update", text: "なぞり書きと学習記録の機能を改善しました。『ひらがな まなぼう！』『カタカナ まなぼう！』で、なぞり判定を『やさしく・ひょうじゅん・ていねいに』の3段階から選べるようにし、実際に書いた文字を学習記録から見返せるようにしました。あわせて、複数の教材で学習記録やCSV出力を改善しました。" },
+  { date: "2026-08-30", type: "update", text: "なぞり書きと学習記録の機能を改善しました。", details: [
+    "『ひらがな まなぼう！』『カタカナ まなぼう！』で、なぞり判定を『やさしく・ひょうじゅん・ていねいに』の3段階から選べるようにし、実際に書いた文字を学習記録から見返せるようにしました。あわせて、複数の教材で学習記録やCSV出力を改善しました。",
+  ], verbatim: true },
   { date: "2026-08-25", type: "update", text: "いくつかの教材のなぞり判定を改善しました。", details: [
     "「ひらがな まなぼう！」のなぞり判定を改善しました。",
     "「カタカナ まなぼう！」のなぞり判定を改善しました。",
@@ -2228,6 +2230,20 @@ function generateChangelog(apps) {
 
   return dateOrder.map(date => {
     const members = dateGroups[date];
+
+    // 明示的opt-out(`verbatim: true`): 通常はdetailsの各行を「先頭の「アプリ名」で
+    // 対象アプリを判定し、見出しを自動要約する」処理にかけるが、その日の唯一の
+    // 手動entryがこのフラグを持つ場合は、text/detailsをそのまま(見出しを自動生成で
+    // 上書きせず、detailsも破棄せず)使う。同日に他のentryが混在する場合は既存の
+    // 集約ロジックとの相互作用が未定義になるため、「その日の唯一のentryである」
+    // 場合のみ適用する。
+    if (members.length === 1 && members[0].verbatim) {
+      const m = members[0];
+      const details = Array.isArray(m.details) ? m.details.map(d => String(d).trim()).filter(Boolean) : [];
+      return details.length > 0
+        ? { date, type: m.type, text: m.text, details, updateCount: details.length }
+        : { date, type: m.type, text: m.text, updateCount: 1 };
+    }
 
     const appGroups = {}; // appId -> { releasedHere, updatedHere, updateType, updateLines }
     const appOrder = [];
