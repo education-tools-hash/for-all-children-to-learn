@@ -1054,11 +1054,42 @@
     </ul>
 
     <h3>記録</h3>
-    <p>いつ・どの活動に取り組んだかを記録できます。「📊 きろく」から確認でき、CSVファイルとして書き出すこともできます。記録は、そのときの取り組みを振り返るためのものです。一度の記録だけから、力や得意・不得意を判断するものではありません。</p>
+    <p>いつ・どの活動に取り組んだかを記録できます。「📊 きろく」から確認でき、CSVファイルとして書き出すこともできます。記録は、そのときの取り組みを振り返るためのものです。一度の記録だけから、力や得意・不得意を判断するものではありません。なぞりで書いた字は、成功したときの記録と一緒に保存されます。記録画面から、実際に書いた字を後から見返すことができます。お手本を重ねて確認することもできます。書いた字の記録はこの端末のブラウザ内に保存されます。</p>
 
     <button id="helpCloseBtn" type="button" tabindex="0">とじる</button>
   </div>
 </section>
+
+<!-- Phase T5-E-A''': Trace Sample Recording Pilot — Expanded View overlay。
+     「みる」ボタン(recordLog内、trace記録行)から開く。新しいmodal/overlay基盤は作らず、
+     既存Help panel(#help)と同じ非modal・固定position・Escape/close button/focus return
+     パターンを踏襲する(donomana-trace-sample-recording-v1.md §5)。Guide overlayは
+     recordのkanaからTracingEngine.sampleReferencePath()で都度再生成し、traceSampleと
+     同じ0..1(KanjiVG 109基準)空間のまま重ね描きする(位置・scaleの手動補正はしない、§2)。 -->
+<style>
+  #traceSampleViewer { position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #traceSampleViewer[hidden] { display: none; }
+  #traceSampleViewer .tsv-card { background: #fff; border-radius: 16px; padding: 20px; max-width: 380px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  #traceSampleTitle { margin: 0 0 4px; font-size: 1.1rem; }
+  #traceSampleMeta { font-size: 0.8rem; color: #888; margin-bottom: 10px; }
+  #traceSampleCanvas { width: 100%; aspect-ratio: 1; background: #FAFAFA; border-radius: 12px; border: 2px solid #EEE; display: block; }
+  .tsv-overlay-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.85rem; min-height: 44px; }
+  #traceSampleCloseBtn { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: none; border-radius: 50px; background: #7b68d4; color: #fff; font-weight: 700; font-family: inherit; font-size: 0.95rem; cursor: pointer; }
+  .trace-view-btn { min-height: 44px; min-width: 44px; padding: 4px 12px; border: 2px solid #7b68d4; border-radius: 20px; background: #fff; color: #7b68d4; font-weight: 700; font-size: 0.75rem; font-family: inherit; cursor: pointer; }
+  .trace-view-btn:focus-visible, #traceSampleCloseBtn:focus-visible, #traceSampleOverlayToggle:focus-visible { outline: 3px solid #00A99D; outline-offset: 2px; }
+</style>
+<div id="traceSampleViewer" role="dialog" aria-labelledby="traceSampleTitle" hidden>
+  <div class="tsv-card">
+    <h3 id="traceSampleTitle" tabindex="-1">「<span id="traceSampleKana"></span>」の 書いた字</h3>
+    <div id="traceSampleMeta"></div>
+    <canvas id="traceSampleCanvas" width="320" height="320"></canvas>
+    <label class="tsv-overlay-row">
+      <input type="checkbox" id="traceSampleOverlayToggle" tabindex="0">
+      お手本を重ねる
+    </label>
+    <button id="traceSampleCloseBtn" type="button" tabindex="0">とじる</button>
+  </div>
+</div>
 
 <!-- ===== きろく ===== -->
 <section id="record" class="section">
@@ -1631,6 +1662,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     return !!active && active.id === 'help';
   }
   function openHelp() {
+    // Phase T5-E-A''': Trace Sample Viewerと同時に開かない(§mutual exclusivity、dotchiga-ii-app.html
+    // のopenSettings()/openHelp()と同じ考え方)。closeTraceSampleViewer()は関数宣言のため、
+    // 定義順に関わらずここから呼び出せる(hoisting)。
+    if (typeof closeTraceSampleViewer === 'function') closeTraceSampleViewer();
     var active = document.querySelector('.section.active');
     helpPreviousTabId = active ? active.id : 'read';
     helpTabBtn.click();
@@ -2682,6 +2717,84 @@ function canvasToNormalized(px, py) {
   };
 }
 
+// ===== Phase T5-E-A''': Trace Sample Recording Pilot =====
+// PASSしたなぞりの実際のstrokeを軽量data(正規化座標+resampling+量子化)として記録する。
+// canvasToNormalized()と同じ0..1(KanjiVG 109基準)空間を使う — TracingEngine.sampleReferencePath()
+// が返すGuide参照点も同じ空間のため、Viewer側のGuide overlayは位置・scaleの補正を一切せずに
+// 重ね描きできる(donomana-trace-sample-recording-v1.md §2)。Tracing判定そのもの
+// (evaluateCharacter・THRESHOLDS等)には一切触れない。実測により24点/strokeを採用
+// (16点は曲線strokeで目に見える角張りが出る、32点は24点比で誤差改善が小さく容量が増えるだけ、
+// 詳細は同docの計測結果を参照)。hiragana-learn.htmlと同一実装。
+var TRACE_SAMPLE_VERSION = 1;
+var TRACE_SAMPLE_POINTS_PER_STROKE = 24;
+function traceSamplePathLength(points) {
+  var len = 0;
+  for (var i = 1; i < points.length; i++) len += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  return len;
+}
+// 弧長(arc-length)ベースの等間隔resampling。生pointerイベント点をそのまま全保存しない。
+function traceSampleResample(points, n) {
+  if (!points || points.length === 0) return [];
+  if (points.length === 1 || n <= 1) {
+    var flat = []; for (var i = 0; i < Math.max(n, 1); i++) flat.push(points[0]); return flat;
+  }
+  var total = traceSamplePathLength(points);
+  if (total === 0) { var same = []; for (var j = 0; j < n; j++) same.push(points[0]); return same; }
+  var step = total / (n - 1);
+  var out = [points[0]];
+  var acc = 0, segIdx = 0;
+  for (var k = 1; k < n - 1; k++) {
+    var target = step * k;
+    while (segIdx < points.length - 1) {
+      var segLen = Math.hypot(points[segIdx + 1].x - points[segIdx].x, points[segIdx + 1].y - points[segIdx].y);
+      if (acc + segLen >= target) {
+        var t = segLen === 0 ? 0 : (target - acc) / segLen;
+        out.push({
+          x: points[segIdx].x + (points[segIdx + 1].x - points[segIdx].x) * t,
+          y: points[segIdx].y + (points[segIdx + 1].y - points[segIdx].y) * t,
+        });
+        break;
+      }
+      acc += segLen; segIdx++;
+    }
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+// 0..1(範囲外はclamp)を0..1000整数へ量子化する。
+function traceSampleQuantize(v) {
+  var c = Math.max(0, Math.min(1, v));
+  return Math.round(c * 1000);
+}
+// normalizedStrokes: canvasToNormalized()の出力と同じ0..1空間のstroke配列({x,y}点列の配列)。
+// 戻り値はJSON化してApp-specific payloadへそのまま格納できる軽量structure。
+function buildTraceSample(normalizedStrokes) {
+  var strokes = normalizedStrokes.map(function (stroke) {
+    var resampled = traceSampleResample(stroke, TRACE_SAMPLE_POINTS_PER_STROKE);
+    var flat = [];
+    resampled.forEach(function (p) { flat.push(traceSampleQuantize(p.x), traceSampleQuantize(p.y)); });
+    return flat;
+  });
+  return { version: TRACE_SAMPLE_VERSION, coordinateSpace: 'normalized-1000', strokes: strokes };
+}
+// Malformed/legacy sampleでViewerを壊さないための検証(NaN・文字列・負値・範囲外・stroke欠落・
+// 未知versionを拒否)。無効な場合は「書いた字を見る」UI自体を出さず、record本体の閲覧は妨げない。
+function isValidTraceSample(sample) {
+  if (!sample || typeof sample !== 'object') return false;
+  if (sample.version !== 1) return false;
+  if (sample.coordinateSpace !== 'normalized-1000') return false;
+  if (!Array.isArray(sample.strokes) || sample.strokes.length === 0) return false;
+  for (var i = 0; i < sample.strokes.length; i++) {
+    var s = sample.strokes[i];
+    if (!Array.isArray(s) || s.length === 0 || s.length % 2 !== 0) return false;
+    for (var j = 0; j < s.length; j++) {
+      var v = s[j];
+      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1000) return false;
+    }
+  }
+  return true;
+}
+
 function drawGuide(k){
   const sz=traceGuide.width;
   traceGCtx.clearRect(0,0,sz,sz);
@@ -2811,9 +2924,12 @@ function evaluateTraceAttempt(k) {
     document.getElementById('goodJob').classList.add('show');
     celebrate();
     speak('じょうず！');
+    // Phase T5-E-A''': normalizedStrokesはリセット前のこの時点でのみ有効(traceStrokes自体は
+    // 下の行で空配列に戻る)。PASSした試行だけを保存する(MVP方針、RETRY試行は保存しない)。
+    var traceSample = buildTraceSample(normalizedStrokes);
     traceStrokeCount = 0;
     traceStrokes = [];
-    addLog('trace', {kana: k, tracingJudgmentLevel: currentTracingLevel});
+    addLog('trace', {kana: k, tracingJudgmentLevel: currentTracingLevel, traceSample: traceSample});
   } else {
     showRetry();
   }
@@ -3162,6 +3278,13 @@ function toggleScanMode(on){
 
 // buildScanItems: 候補取得ロジック（旧updateScanTargetsから抽出。判定条件・セレクタ・順序は無変更）
 function buildScanItems(){
+  // Phase T5-E-A''': Trace Sample Viewer表示中は、背面の学習target(.section内)をscan対象に
+  // せず、Viewer自身の操作対象(お手本トグル・とじるbutton、いずれもViewer内でtabindex="0")
+  // だけをscan候補にする(Help panelと同じisolation方針、§41)。
+  const tsViewer = document.getElementById('traceSampleViewer');
+  if (tsViewer && !tsViewer.hidden) {
+    return Array.from(tsViewer.querySelectorAll('[tabindex="0"]'));
+  }
   // Phase T5-E-A'': donomanaHelpBtn（Common Chrome固定、.section外）をどのタブからでも
   // scan候補へ含める（Help Standard §21相当）。Home/Lock等の既存Common Chromeボタンは
   // 元々この関数のscan対象外であり（.section外のため）、本Phaseではそちらへ手を加えない。
@@ -3276,6 +3399,21 @@ function now(){
 function addLog(type, data){
   learningLog.push({ time: now(), type: type, data: data, schemaVersion: 1 });
   saveLog();
+  // Phase T5-E-A''': traceSample付きrecordはサイズが増えるため、donomanaRecordWriteLog()が
+  // 容量不足等を無警告で握りつぶす(Foundation側の既存挙動、Foundation自体は変更しない)場合に
+  // 備え、実際に永続化されたかをここで検証してconsole warningを出す。アプリ本体の学習・
+  // PASS表示は妨げない(このcheckは表示より後に実行される、Storage失敗を理由に「もういちど」は
+  // 出さない)。
+  if (data && data.traceSample) {
+    try {
+      var persisted = JSON.parse(localStorage.getItem('katakana_log') || '[]');
+      if (persisted.length !== learningLog.length) {
+        console.warn('donomana: がくしゅうきろく(traceSample付き)の保存に失敗した可能性があります(端末の空き容量不足等)');
+      }
+    } catch (e) {
+      console.warn('donomana: がくしゅうきろくの保存確認に失敗しました', e);
+    }
+  }
   if(document.getElementById('record').classList.contains('active')) updateRecordView();
 }
 
@@ -3335,9 +3473,11 @@ function updateRecordView(){
     return;
   }
   var html2='';
-  learningLog.slice().reverse().forEach(function(entry){
+  learningLog.slice().reverse().forEach(function(entry, revIdx){
+    var idx = learningLog.length - 1 - revIdx; // 元のlearningLog配列でのindex(traceSample自体はinnerHTMLへ出さない)
     var icon = entry.type==='quiz'?'❓':entry.type==='trace'?'👆':'🎯';
     var detail='';
+    var traceViewBtn = '';
     if(entry.type==='quiz'){
       var ok = entry.data.correct;
       detail = '<span style="font-size:1rem;font-weight:900;margin:0 4px">'+entry.data.kana+'</span>'
@@ -3351,15 +3491,32 @@ function updateRecordView(){
       var levelLabel = donomanaRecordFormatTracingLevel(entry.data.tracingJudgmentLevel);
       detail = '<span style="font-size:1rem;font-weight:900;margin:0 4px">'+entry.data.kana+'</span>なぞり ✓'
         + (levelLabel ? ' <span style="color:#999;font-size:0.8rem">('+levelLabel+')</span>' : '');
+      // Phase T5-E-A''': traceSampleを持つ(=有効な)recordだけ「書いた字を見る」を出す。
+      // legacy record(traceSampleなし)は従来どおりの表示のまま(§15 絶対条件)。
+      if (isValidTraceSample(entry.data.traceSample)) {
+        traceViewBtn = '<button type="button" class="trace-view-btn" data-record-idx="' + idx + '" tabindex="0" aria-label="「' + entry.data.kana + '」の書いた字を見る" title="書いた字を見る">✏️ みる</button>';
+      }
     } else {
       detail = 'マッチング クリア 🎉';
     }
-    html2 += '<div style="padding:5px 6px;border-bottom:1px solid #F0F0F0;display:flex;align-items:center;gap:6px;">'
+    html2 += '<div style="padding:5px 6px;border-bottom:1px solid #F0F0F0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
       +'<span style="color:#bbb;font-size:0.75rem;white-space:nowrap">'+entry.time+'</span>'
-      +icon+' '+detail+'</div>';
+      +icon+' '+detail+traceViewBtn+'</div>';
   });
   logEl.innerHTML = html2;
 }
+// Phase T5-E-A''': event delegationでrecordLog内の「みる」clickを一括処理する
+// (updateRecordView()はrender毎に呼ばれるため、個別addEventListenerだとlistenerが積み重なる)。
+(function () {
+  var logEl = document.getElementById('recordLog');
+  if (!logEl) return;
+  logEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('.trace-view-btn');
+    if (!btn) return;
+    var idx = parseInt(btn.dataset.recordIdx, 10);
+    if (!isNaN(idx)) openTraceSampleViewer(idx);
+  });
+})();
 
 function downloadCSV(){
   var rows = [["\u65E5\u4ED8","\u6642\u523B","\u7A2E\u985E","\u3082\u3058","\u3053\u305F\u3048","\u305B\u3044\u304B\u3044","\u305B\u3044\u304B\u3044\u306E\u3053\u305F\u3048"]];
@@ -3397,6 +3554,96 @@ function clearRecord(){
   saveLog();
   updateRecordView();
 }
+
+// ===== Phase T5-E-A''': Trace Sample Viewer(Expanded View) =====
+// 既存Help panel(#help)と同じ非modal・固定position・Escape/close/focus returnパターン。
+// 新しいoverlay/modal基盤は作らず、buildScanItems()側の既存isolation機構(.section.active
+// のみscan)に「Viewer表示中はViewer自身の操作対象のみ」という条件を1つ追加するだけで済ませる。
+var traceSampleViewerEntry = null;
+function traceSampleViewerIsOpen() {
+  var el = document.getElementById('traceSampleViewer');
+  return !!el && !el.hidden;
+}
+// Guide(お手本)はrecordへ保存せず、kanaから毎回再生成する(§19)。TracingEngine.sampleReferencePath()
+// はGuide canvas(drawSvgGuide)と完全に同じ0..1(KanjiVG 109基準)空間を返すため、traceSampleと
+// 位置・scaleを合わせる特別な補正コードは不要(§20)。
+function renderTraceSampleCanvas(sample, kana, showGuide) {
+  var canvas = document.getElementById('traceSampleCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (showGuide && strokeData[kana]) {
+    strokeData[kana].forEach(function (stroke) {
+      var pts = TracingEngine.sampleReferencePath(stroke.d, 48).points;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(120,140,220,0.35)';
+      ctx.lineWidth = w * 0.075;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      pts.forEach(function (p, i) {
+        var x = p.x * w, y = p.y * h;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+  if (!isValidTraceSample(sample)) return;
+  // Phase T5-E-A''' §21: judgment用のintrinsic正規化形ではなく、canvas上の実際の位置関係
+  // (0..1000正規化absolute座標)をそのまま再現する。過度な平滑化・自動補正はしない(§40)。
+  sample.strokes.forEach(function (flat) {
+    ctx.save();
+    ctx.strokeStyle = '#7b68d4';
+    ctx.lineWidth = w * 0.045;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (var i = 0; i < flat.length; i += 2) {
+      var x = (flat[i] / 1000) * w, y = (flat[i + 1] / 1000) * h;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+var traceSampleViewerPrevFocus = null;
+function openTraceSampleViewer(idx) {
+  var entry = learningLog[idx];
+  if (!entry || entry.type !== 'trace' || !isValidTraceSample(entry.data.traceSample)) return;
+  var helpBtnEl = document.getElementById('donomanaHelpBtn');
+  var helpSection = document.getElementById('help');
+  if (helpSection && helpSection.classList.contains('active') && helpBtnEl) helpBtnEl.click(); // Help側との相互排他
+  traceSampleViewerEntry = entry;
+  traceSampleViewerPrevFocus = document.activeElement;
+  document.getElementById('traceSampleKana').textContent = entry.data.kana;
+  var levelLabel = donomanaRecordFormatTracingLevel(entry.data.tracingJudgmentLevel);
+  document.getElementById('traceSampleMeta').textContent = entry.time + (levelLabel ? '　' + levelLabel : '');
+  var overlayToggle = document.getElementById('traceSampleOverlayToggle');
+  overlayToggle.checked = false;
+  renderTraceSampleCanvas(entry.data.traceSample, entry.data.kana, false);
+  var viewer = document.getElementById('traceSampleViewer');
+  viewer.hidden = false;
+  if (scanMode) refreshSwitchScanItems();
+  document.getElementById('traceSampleTitle').focus({ preventScroll: true });
+}
+function closeTraceSampleViewer() {
+  var viewer = document.getElementById('traceSampleViewer');
+  if (!viewer || viewer.hidden) return;
+  viewer.hidden = true;
+  traceSampleViewerEntry = null;
+  if (scanMode) refreshSwitchScanItems();
+  if (traceSampleViewerPrevFocus && typeof traceSampleViewerPrevFocus.focus === 'function') {
+    traceSampleViewerPrevFocus.focus();
+  }
+}
+document.getElementById('traceSampleCloseBtn').addEventListener('click', closeTraceSampleViewer);
+document.getElementById('traceSampleOverlayToggle').addEventListener('change', function () {
+  if (!traceSampleViewerEntry) return;
+  renderTraceSampleCanvas(traceSampleViewerEntry.data.traceSample, traceSampleViewerEntry.data.kana, this.checked);
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && traceSampleViewerIsOpen()) closeTraceSampleViewer();
+});
 </script>
 
 <script>
