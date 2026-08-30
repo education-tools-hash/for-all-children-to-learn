@@ -287,6 +287,20 @@
   <button id="donomanaLockBtn" class="scannable" data-scan="1" aria-label="がめんをロック" title="がめんをロック（画面がうしろに戻るのをふせぎます）" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">🔓</button>
   <button id="donomanaFsBtn" class="scannable" data-scan="1" aria-label="全画面表示" title="全画面表示" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">⛶</button>
 </div>
+<!-- help-btn: Phase T6.5-B1 Pilot (Donomana Help / Usage Guide Standard v1.0
+     §5.1 Lock→Fullscreen→Help ordering). Added after the generate.js-owned
+     Lock/FS cluster (in DOM and visually), at the same right:12px edge the
+     cluster used to occupy; the CSS below pushes that shared cluster out to
+     right:64px (44px Help width + 8px gap) so both clusters sit side by
+     side without editing generate.js's shared template. -->
+<style>
+  #donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
+  div:has(> #donomanaLockBtn){right:64px!important;}
+</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpPanel" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
+<!-- /help-btn -->
 <div id="donomanaLockToast" role="alert" aria-live="assertive" style="position:fixed;top:112px;left:50%;transform:translateX(-50%) translateY(-10px);background:#c0392b;color:#fff;font-size:14px;font-weight:700;padding:10px 20px;border-radius:40px;box-shadow:0 4px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:100000;white-space:nowrap;"></div>
 <script>
 (function(){
@@ -475,6 +489,22 @@
     color: var(--dm-color-ink); font-weight: 900; cursor: pointer; font-family: inherit;
     font-size: var(--dm-font-size-body);
   }
+
+  /* ===== Help panel (Phase T6.5-B1 Pilot — Donomana Help / Usage Guide
+     Standard v1.0 §7/§22, ported from dotchiga-ii-app.html Reference
+     Implementation). Entry point lives in Common Chrome (see
+     #donomanaHelpBtn below), not inside Settings. Content reuses
+     .settings-panel's exact container so it needs no new visual
+     language ("形式は共通、内容は個別"). ===== */
+  .help-title { font-size: var(--dm-font-size-subheading); margin: 0 0 var(--dm-space-4); }
+  .help-body h3 {
+    font-size: var(--dm-font-size-body); font-weight: 900; margin: var(--dm-space-5) 0 var(--dm-space-2);
+    color: var(--dm-color-primary-dark,var(--dm-color-primary)); padding-top: var(--dm-space-3); border-top: 1px solid var(--dm-color-border);
+  }
+  .help-body h3:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .help-body h4 { font-size: var(--dm-font-size-body); font-weight: 700; margin: var(--dm-space-3) 0 var(--dm-space-1); }
+  .help-body p, .help-body li { font-size: var(--dm-font-size-body); line-height: 1.7; }
+  .help-body ul { margin: var(--dm-space-1) 0; padding-left: 1.4em; }
 
   /* ===== learning area ===== */
   .learn-area { text-align: center; }
@@ -738,6 +768,48 @@
       <div id="recordsStatus" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
     </div>
     <button id="settingsCloseBtn" class="settings-close-btn" tabindex="0">とじる</button>
+  </section>
+
+  <section id="helpPanel" class="settings-panel" hidden aria-labelledby="helpTitle">
+    <h2 class="help-title" id="helpTitle">「おおきい？ちいさい？くらべよう」の つかいかた</h2>
+    <div class="help-body">
+      <h3>このアプリについて</h3>
+      <p>大きい・小さい、長い・短いの違いを、見たり選んだりしながら学ぶ教材です。画面上部の「おおきい・ちいさい」「ながい・みじかい」から、くらべるテーマを選べます。タッチだけでなく、キーボード・スイッチスキャン・視線入力など、その子に合った方法で参加できます。</p>
+
+      <h3>活動の違い（4つのレベル）</h3>
+      <p>画面上部のボタンから、いつでもレベルを切り替えられます。</p>
+      <h4>レベル1：みてたのしむ</h4>
+      <p>形の大きさや長さが変わるようすを見たり、タップして手ごたえを楽しんだりする活動です。正解・不正解を問うものではありません。</p>
+      <h4>レベル2：みくらべる</h4>
+      <p>大きいものと小さいもの（または長いものと短いもの）を並べて表示します。どちらかを選ぶと「おおきいね」「ちいさいね」などのことばが音声と文字で伝わります。こちらも正解・不正解を判定する活動ではありません。</p>
+      <h4>レベル3：どっちかな？</h4>
+      <p>「おおきいほうは どっち？」などの問いに、2つから正しいほうを選ぶクイズ形式です。正解・不正解のフィードバックがあります。取り組む問題数（3・5・10問）を選べ、いま何問目かが画面に表示されます。</p>
+      <h4>レベル4：じゅんばん</h4>
+      <p>3つを見比べて、「おおきいじゅんに」「ながいじゅんに」など、順番に1つずつ選んで並べる活動です。レベル3と同じく、取り組む問題数を選べます。</p>
+
+      <h3>操作方法</h3>
+      <h4>タッチ</h4>
+      <p>選びたい形にタッチ（クリック）します。</p>
+      <h4>視線入力</h4>
+      <p>「せってい」で視線入力をONにすると、選びたい形を一定時間見つめるだけで選べます。見つめる時間や見やすさなども「せってい」で調整できます。</p>
+      <h4>スイッチ</h4>
+      <p>「せってい」でスイッチスキャンをONにすると、選べる場所が順番に移動します。選びたい場所でスイッチを入力してください。</p>
+      <h4>キーボード</h4>
+      <p>Tabキーで移動し、EnterキーまたはSpaceキーで選べます。</p>
+      <p>視線入力とスイッチスキャンは、同時にはONにできません。どちらか一方を選んでください。</p>
+
+      <h3>設定</h3>
+      <p>右下の「⚙️ アクセシビリティ設定」から、このアプリの詳しい設定を開けます。</p>
+      <ul>
+        <li><b>🔊 よみあげ／🎬 うごき</b>：問いかけや結果の読み上げ、見た目の動きのON/OFF</li>
+        <li><b>👁️ しせんにゅうりょく</b>：視線入力の細かい調整</li>
+        <li><b>🔘 スイッチスキャン</b>：スキャンかんかくの調整</li>
+      </ul>
+
+      <h3>記録</h3>
+      <p>右下の「⚙️ アクセシビリティ設定」の詳しい設定から、直近の学習の様子（テーマ・レベル・取り組んだ問題数・正解・どこで間違えたか）を確認でき、CSVファイルとして書き出すこともできます。記録は、そのときの取り組みを振り返るためのものです。一度の結果だけから、能力や理解度を判断するものではありません。</p>
+    </div>
+    <button id="helpCloseBtn" class="settings-close-btn" tabindex="0">とじる</button>
   </section>
 
   <section id="learnArea" class="learn-area">
@@ -1120,6 +1192,10 @@ var COMPARISON = {
 var settingsBtn = document.getElementById('settingsBtn');
 var settingsPanel = document.getElementById('settingsPanel');
 var settingsCloseBtn = document.getElementById('settingsCloseBtn');
+var helpBtn = document.getElementById('donomanaHelpBtn');
+var helpPanel = document.getElementById('helpPanel');
+var helpCloseBtn = document.getElementById('helpCloseBtn');
+var helpOpen = false;
 var recordsEmpty = document.getElementById('recordsEmpty');
 var recordsList = document.getElementById('recordsList');
 var recordsShowMoreBtn = document.getElementById('recordsShowMoreBtn');
@@ -1270,7 +1346,7 @@ function isVisibleEnabled(el) {
 }
 
 function commonChromeCandidates() {
-  var ids = ['donomanaA11yBtn', 'donomanaLockBtn', 'donomanaFsBtn', 'donomanaHomeBtn'];
+  var ids = ['donomanaA11yBtn', 'donomanaLockBtn', 'donomanaFsBtn', 'donomanaHelpBtn', 'donomanaHomeBtn'];
   var out = [];
   ids.forEach(function(id) {
     var el = document.getElementById(id);
@@ -1283,6 +1359,8 @@ function buildScanItems() {
   var items = [];
   if (settingsOpen) {
     items = Array.from(settingsPanel.querySelectorAll('[tabindex="0"]'));
+  } else if (helpOpen) {
+    items = Array.from(helpPanel.querySelectorAll('[tabindex="0"]'));
   } else if (level === 1) {
     items = [shape1, level1NextBtn];
   } else if (level === 2) {
@@ -1292,7 +1370,7 @@ function buildScanItems() {
   } else if (level === 4) {
     items = sessionComplete() ? [sessionRestartBtn] : (answered4 ? [] : unplacedLevel4Els());
   }
-  if (!settingsOpen) {
+  if (!settingsOpen && !helpOpen) {
     items = items.concat(levelBtns, conceptBtns, questionCountBtns);
     items.push(settingsBtn);
   }
@@ -1418,8 +1496,10 @@ function getGazeTargets() {
   // longer a visible gaze-reachable button to open it (that entry point is now
   // behind the common a11y panel's proxy, itself excluded from gaze). While
   // settings happens to be open (e.g. a touch user opened it with gaze still
-  // toggled on), gaze simply has no targets until it closes.
-  if (settingsOpen) return [];
+  // toggled on), gaze simply has no targets until it closes. Help (Phase
+  // T6.5-B1, Donomana Help / Usage Guide Standard v1.0 §16) isolates the
+  // same way — reading text is not a gaze-selectable activity either.
+  if (settingsOpen || helpOpen) return [];
   var items = [];
   if (level === 1) {
     items = [level1NextBtn]; // Level1: looking alone is enough; only "next" needs a decision
@@ -2427,6 +2507,7 @@ recordsConfirmDelete.addEventListener('click', function() {
    settings panel open/close (inline, non-modal; no Focus Trap)
 ===================================================================== */
 function openSettings() {
+  if (helpOpen) closeHelp();
   settingsOpen = true;
   settingsPanel.hidden = false;
   settingsBtn.setAttribute('aria-expanded', 'true');
@@ -2460,8 +2541,40 @@ settingsBtn.addEventListener('click', function() {
   if (settingsOpen) closeSettings(); else openSettings();
 });
 settingsCloseBtn.addEventListener('click', closeSettings);
+
+/* =====================================================================
+   Help panel (Phase T6.5-B1 Pilot — Donomana Help / Usage Guide Standard
+   v1.0 §25-§29, ported from dotchiga-ii-app.html). Mirrors
+   openSettings()/closeSettings() exactly (§22 "形式は共通") — same
+   non-modal isolation contract. §28: focus returns to the button that
+   opened it — donomanaHelpBtn itself is never CSS-hidden (unlike
+   settingsBtn), so no proxy-button indirection is needed here.
+===================================================================== */
+function openHelp() {
+  if (settingsOpen) closeSettings();
+  helpOpen = true;
+  helpPanel.hidden = false;
+  helpBtn.setAttribute('aria-expanded', 'true');
+  resetDwellState();
+  if (scanMode) refreshSwitchScanItems();
+}
+function closeHelp() {
+  helpOpen = false;
+  helpPanel.hidden = true;
+  helpBtn.setAttribute('aria-expanded', 'false');
+  resetDwellState();
+  if (scanMode) refreshSwitchScanItems();
+  else helpBtn.focus({ preventScroll: true });
+}
+helpBtn.addEventListener('click', function() {
+  if (helpOpen) closeHelp(); else openHelp();
+});
+helpCloseBtn.addEventListener('click', closeHelp);
+
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && settingsOpen) closeSettings();
+  if (e.key !== 'Escape') return;
+  if (settingsOpen) closeSettings();
+  else if (helpOpen) closeHelp();
 });
 
 /* =====================================================================
