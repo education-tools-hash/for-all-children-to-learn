@@ -124,7 +124,7 @@
 **Phase T6.5-A3で修正済み。** `window.storage.get/set` → `localStorage.getItem/setItem`へ置き換え（storage key `nazori_records`は維持、legacy dataはgit history上も一度も存在しなかったためmigration不要と確認）。修正の過程で追加発見・対応した事項:
 - 記録一覧表示（`renderRecordsList()`）が`rec.allChars`/`ci.char`（先生の自由入力文字列）を`innerHTML`へエスケープなしで挿入しており、記録が実際に保存されるようになったことで初めて現実的なリスクとなる格納型XSSが存在した。`escapeHtml()`を追加し対策済み
 - record `id`が`Date.now().toString()`のみで生成されており、同一ミリ秒内に複数記録が作られるとID衝突により削除操作が意図せず複数件を巻き込むことを実測で確認。ランダムサフィックスを追加し一意性を確保
-- 削除ボタン（`.record-delete-btn`）が実測25×32pxで44px未満。native button/keyboardは正常に機能しており記録機能自体は阻害しないため、既存Accessibility gapとして報告のみ行い本Phaseでは修正しない
+- ~~削除ボタン（`.record-delete-btn`）が実測25×32pxで44px未満~~ → **Phase T6.5-A3'で対応済み**（44×44px化。全件削除`#clearAllRecordsBtn`も高さ44pxへ拡大。共有クラス`.btn`/`.btn-secondary`は変更せず、意図せず高さが連動して変化した`#exportRecordsBtn`（CSV書き出し、非破壊的操作）には`align-self:flex-start`を追加して既存サイズへ復帰させた）
 
 詳細はPhase T6.5-A3 Final Report参照。
 
@@ -205,3 +205,4 @@ UD Digi Kyokasho NP
 | v1.0 | 2026-08-30 | Phase T6.5-A。Architecture Inventory完了（判定engineなし、Option A確定）。`nazori-app.html`へ3択の字体選択機能をPilot実装（表示のみ、localStorage永続化、44px/keyboard/aria-pressed対応）。`nazorin-print.html`は未実装（次subphase）。既存の`window.storage`バグ、Windows 11 24H2フォント名変更リスクを発見・記録。 |
 | v1.0 + Addendum | 2026-08-30 | Phase T6.5-A2。`nazorin-print.html`へ同様の3択字体選択をRollout（CSS変数`--guide-font`化、`.moji-cell`のみが実際の描画経路であることを確認、`svg text.svgmoji`は未使用の既存デッドCSSと判明）。Windows 11実機（ビルド26200）でWindows専用教科書体フォント名がリネームされ、既存font-familyスタックが実際にはBIZ UDPGothicへフォールバックしていることをCanvas幅測定で確定。「標準」は既存スタックをそのまま維持しBackward Compatibilityを優先。許可リスト方式でinvalid value対策を強化。印刷レイアウト・他モード（点つなぎ等）への回帰なしを確認。`nazori-app.html`（A1 Pilot）は無変更。 |
 | v1.0 + Addendum 2 | 2026-08-30 | Phase T6.5-A3。§8.1で報告した`nazori-app.html`の活動記録バグ（`window.storage`未定義APIによるsilent failure）を修正（`localStorage`へ置き換え、legacy migration不要と確認）。修正の過程で、記録が保存されるようになったことで初めて顕在化する格納型XSS（`allChars`/`char`の`innerHTML`直接挿入）と、record ID衝突による削除操作の不整合の2件を追加発見・修正。既存の削除ボタン44px未達は報告のみ（記録機能自体は阻害しないため本Phaseでは未修正）。字体選択（A1/A2）・T2判定エンジンへの回帰なし。 |
+| v1.0 + Addendum 3 | 2026-08-30 | Phase T6.5-A3'。§8.1で報告済みだったActivity Record削除ボタンの44px未達（個別削除25×32px、全件削除104×38px）を修正。個別削除は専用クラス`.record-delete-btn`を直接44px化、全件削除は`#clearAllRecordsBtn`をIDセレクタで個別対応。修正の過程で、flexコンテナのデフォルトstretch挙動により兄弟要素`#exportRecordsBtn`（CSV書き出し）の高さも意図せず44pxへ連動して変化していたことを発見し、`align-self:flex-start`で既存サイズへ復帰。keyboard・focus・Save/Reload/個別削除/全削除/ID一意性/XSS/字体3種/Print、いずれも回帰なしを実測確認。 |
