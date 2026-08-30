@@ -2698,6 +2698,33 @@ function formatTime(iso) {
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
+// CSV書き出し専用の日付・時刻整形（Phase T5 Learning Record CSVの
+// donomanaRecordFormatCsvDateTimeと同じ形式・local time basisに揃える）。
+// Excelが「1/9」等を日付へ自動変換する問題を、日付・時刻を分離しさらに
+// ドット区切り（2026.08.30）にすることで回避する。解析できない値は
+// そのまま文字列化して保持し、推測変換はしない。
+function formatCsvDateTime(iso) {
+  try {
+    if (iso === undefined || iso === null || iso === '') return { date: '', time: '' };
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return { date: String(iso), time: '' };
+    const p = n => n < 10 ? '0' + n : String(n);
+    return {
+      date: `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`,
+      time: `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+    };
+  } catch (e) {
+    return { date: (iso === undefined || iso === null) ? '' : String(iso), time: '' };
+  }
+}
+// CSV Formula Injection対策。「練習した文字」はcharInput（自由入力・最大20文字）に
+// 由来するため、値が=/+/-/@やタブ・改行で始まる場合、Excel等が数式として解釈しない
+// よう先頭に safe-quote を付与する（OWASP CSV Injection対策の標準手法）。
+function csvSafeCell(value) {
+  const s = (value === undefined || value === null) ? '' : String(value);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
 // セッション管理（練習開始〜終了の1セッション）
 let sessionId = null;
 let sessionStartTime = null;
@@ -2911,14 +2938,18 @@ function renderRecordsList() {
 function attachRecordEvents() {
   document.getElementById('exportRecordsBtn').addEventListener('click', () => {
     if (records.length === 0) { showToast('保存された記録がありません'); return; }
-    const header = ['日時','練習した文字（全体）','対象文字','回数','モード','活動内の進捗','セッションID'];
-    const rows = records.map(r => [
-      r.timestamp, r.allChars, r.char, r.isComplete ? '完了' : `${r.pageNo}/${r.totalPages}`,
-      r.mode === 'wide' ? '続けて書く' : r.isComplete ? '完了' : '一文字ずつ',
-      r.isComplete ? `${r.sessionDone}/${r.sessionTotal}` : `${r.sessionDone}/${r.sessionTotal}`,
-      r.sessionId
-    ].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`));
-    const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+    const header = ['日付','時刻','練習した文字','モード','取り組んだ文字数','全体の文字数','活動時間（分）'];
+    const dataRows = records.map(r => {
+      const dt = formatCsvDateTime(r.timestamp);
+      const modeLabel = r.mode === 'wide' ? '続けて書く' : '一文字ずつ';
+      const doneCount = (typeof r.sessionDone === 'number') ? r.sessionDone : '';
+      const totalCount = (typeof r.sessionTotal === 'number') ? r.sessionTotal : '';
+      const duration = (r.isComplete && typeof r.durationMin === 'number') ? r.durationMin : '';
+      return [dt.date, dt.time, csvSafeCell(r.allChars), modeLabel, doneCount, totalCount, duration];
+    });
+    const csv = [header, ...dataRows]
+      .map(row => row.map(v => `"${(v===undefined||v===null?'':v).toString().replace(/"/g,'""')}"`).join(','))
+      .join('\r\n');
     const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
     const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download=`なぞり書き記録_${todayStr()}.csv`; a.click();
