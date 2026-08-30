@@ -5,6 +5,8 @@
 
 改訂2: Phase T5-E-A''（2026-08-30、RC）。`hiragana-learn.html`・`katakana-app.html`をGroup D（Helpなし）からGroup A（Help present, top-chrome entry, decent content）へロールアウトした。Common Chrome固定位置（Lock隣、donomanaHelpBtn）を入口とし、内容はこのアプリについて／学習のすすめ方／なぞり（3段階判定の説明含む）／操作方法（タッチ・スイッチ・キーボード）／設定／記録の6見出し（h2→h3→h4）で構成。実装詳細は`donomana-tracing-judgment-levels-v1.md`のAddendum 3を参照。User Browser Reviewの承認待ち（本Phaseの時点ではまだRC、Production未反映）。
 
+改訂3: Phase T6.5-B1/B2（Local checkpoint、Production未反映・User Review未実施）。Group 1（`kurabeyou-app.html`・`katachi-awase-app.html`）をGroup D（Helpなし）からGroup A相当へロールアウトした。Common Chrome固定位置（Lock→Fullscreen→Helpの順、donomanaHelpBtn）を入口とし、内容はこのアプリについて／活動の違い（レベル別）／操作方法（タッチ・視線入力・スイッチ・キーボード）／設定／記録の5見出し（h2→h3→h4）で構成。Help表示は既存`openSettings()`/`closeSettings()`と同型の非modal in-page panel（`kurabeyou-app.html`は`.settings-panel`クラス、`katachi-awase-app.html`はID指定という既存アプリごとのCSS方針差をそのまま踏襲）。Gaze/Switch隔離・Escape・focus returnは既存Settings非modalパターンをそのまま流用し、新規隔離システムは発明していない。実装詳細は本Phase群のFinal Reportを参照（設計文書としての追補は本改訂のみ）。両アプリともfeature branch `feature/app-usage-guide-t65b`上のlocal checkpointであり、mainへのmerge/push/deployは未実施。次はGroup 2（`mitsukete-touch-app.html`・`junban-miyou-app.html`）を予定。
+
 全35 Productionアプリ（`apps-data.json`記載）を対象に、既存の「使い方」実装状況を調査した。**既存Productionアプリのコードは一切変更していない**（調査のみ）。
 
 ## 分類基準
@@ -48,8 +50,8 @@
 | gaze-keyboard.html | Yes | header-right, top chrome（📊/⛶/⚙️隣） | `#helpModal`（`role=dialog`なし）、4タブ（basic/gaze/features/word） | 視線入力専用タブ、機能タブ — 構成良好 | Yes（専用gazeタブ） | Likely（featuresタブ） | No（📊ボタンが別途あるのにHelp内に履歴タブなし） | native button, OK | Group A | 履歴・レポート機能の説明タブ追加 |
 | mogura-tataki.html | Yes | header hdr-right **かつ** home-hero-btns（top chrome入口2箇所） | `.panel#panHow`, `role="dialog" aria-modal="true"` | 目的, 難易度, target選択, タップ操作, gaze入力(機器バッジ), 全画面, 記録（明示）, 特殊モグラ種別、10ステップ | Yes（touch + gaze、機器別） | Yes | Yes（明示） | native button, OK | Group A | ほぼ準拠 — 調査対象中最良の実装例 |
 | ongaku-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
-| kurabeyou-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
-| katachi-awase-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
+| kurabeyou-app.html | Yes | top chrome（Lock→Fullscreen→Help、donomanaHelpBtn、Standard §5.1正式ordering準拠） | 既存`.settings-panel`パターン再利用のin-page panel（openSettings/closeSettingsと同型のopenHelp/closeHelp） | このアプリについて／活動の違い（レベル1-4）／操作方法／設定／記録の5セクション、h2→h3→h4階層 | Yes（タッチ・視線入力・スイッチ・キーボード） | Yes | Yes | native button, OK | Group A（T6.5-B1 Pilot、Local checkpointのみ・Production未反映） | ほぼ準拠 |
+| katachi-awase-app.html | Yes | top chrome（Lock→Fullscreen→Help、donomanaHelpBtn、Standard §5.1正式ordering準拠） | 素の`&lt;div id="helpPanel"&gt;`（ID指定styling、既存`#settingsPanel`と同方式）、openSettings/closeSettingsと同型のopenHelp/closeHelp | このアプリについて／活動の違い（レベル1-3）／操作方法（タップ・ドラッグ両対応の明記含む）／設定／記録の5セクション、h2→h3→h4階層 | Yes（タッチ・視線入力・スイッチ・キーボード） | Yes | Yes | native button, OK | Group A（T6.5-B2でRollout、Local checkpointのみ・Production未反映） | ほぼ準拠 |
 | miru-hirogaru-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
 | mitsukete-touch-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
 | junban-miyou-app.html | No | none | none | — | No | No | No | n/a | Group D | Help新規作成 |
@@ -59,13 +61,13 @@
 
 Group分類は各アプリにつき1個のみ付与する（`Group B+C`は「入口・内容の両方に課題を持つ」ための**独立した複合カテゴリ**であり、`Group B`・`Group C`の内数ではない。matching-appは`Group B`・`Group C`いずれの件数にも含まれず、`Group B+C`としてのみ1回カウントする）。表の35行から機械的に再集計した結果は以下のとおりで、5カテゴリの合計は35アプリと一致する。
 
-- **Group A**（Help有・top chrome入口・内容十分、ほぼ準拠）: **17**（T5-E-A''でhiragana-learn・katakana-appが追加、15→17） — nazori-app, nazorin-print, okane-app, register-app, schedule-app, yomikaki-app, sst-app, kimochi-board, drawing-app, slideshow-sakusei, kyou-no-kiroku, scratch-app, gaze-keyboard, mogura-tataki, dotchiga-ii-app, hiragana-learn, katakana-app（うちokane-app/mogura-tataki/dotchiga-ii-appが特に模範的——dotchiga-ii-appはStandard自体のReference Implementation。hiragana-learn/katakana-appはT5-E-A''時点でRC・User Review待ち）
+- **Group A**（Help有・top chrome入口・内容十分、ほぼ準拠）: **19**（T5-E-A''でhiragana-learn・katakana-appが追加、15→17；T6.5-B1/B2でkurabeyou-app・katachi-awase-appが追加、17→19） — nazori-app, nazorin-print, okane-app, register-app, schedule-app, yomikaki-app, sst-app, kimochi-board, drawing-app, slideshow-sakusei, kyou-no-kiroku, scratch-app, gaze-keyboard, mogura-tataki, dotchiga-ii-app, hiragana-learn, katakana-app, kurabeyou-app, katachi-awase-app（うちokane-app/mogura-tataki/dotchiga-ii-appが特に模範的——dotchiga-ii-appはStandard自体のReference Implementation。hiragana-learn/katakana-appはT5-E-A''時点でRC・User Review待ち。kurabeyou-app/katachi-awase-appはT6.5-B1/B2時点でLocal checkpointのみ・Production未反映）
 - **Group B**（Help有だが入口が旧式・非持続。matching-appを含まない）: 4 — janken-app, tyushi, directions-app, time-timer
 - **Group C**（Help有だが内容不足。matching-appを含まない）: 2 — timetable-app, sugoroku-app
 - **Group B+C**（入口・内容両方に課題。B/Cいずれとも重複カウントしない独立カテゴリ）: 1 — matching-app
-- **Group D**（Helpなし）: 11（T5-E-A''でhiragana-learn・katakana-appが離脱、13→11） — shiritori2, tokei-app, cup_game, bosai-app, suji-manabou, ongaku-app, kurabeyou-app, katachi-awase-app, miru-hirogaru-app, mitsukete-touch-app, junban-miyou-app
+- **Group D**（Helpなし）: 9（T5-E-A''でhiragana-learn・katakana-appが離脱、13→11；T6.5-B1/B2でkurabeyou-app・katachi-awase-appが離脱、11→9） — shiritori2, tokei-app, cup_game, bosai-app, suji-manabou, ongaku-app, miru-hirogaru-app, mitsukete-touch-app, junban-miyou-app
 
-**合計確認**: 17 + 4 + 2 + 1 + 11 = **35**（全Production app総数と一致）。
+**合計確認**: 19 + 4 + 2 + 1 + 9 = **35**（全Production app総数と一致）。
 
 ### 横断的な技術的所見
 
