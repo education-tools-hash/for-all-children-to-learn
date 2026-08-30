@@ -1693,8 +1693,17 @@ const S = {
 // 表示（canvas fillText）のみに影響し、正誤判定は行っていないため判定への影響はない。
 const GUIDE_FONT_KEY = 'nazori_guide_font';
 const GUIDE_FONT_DEFAULT = 'BIZ UDPGothic';
+// 許可リスト方式（nazorin-print.htmlと同じ思想）: UI（#guideFontBtnsの3ボタン）が
+// 実際に設定しうるdata-font値だけを許可する。直接localStorageを書き換えられて
+// 未知の値が入っていても、標準へ確実にfallbackする。
+const GUIDE_FONT_ALLOWED = new Set(
+  Array.from(document.querySelectorAll('#guideFontBtns button')).map(b => b.dataset.font)
+);
 function loadGuideFont() {
-  try { return localStorage.getItem(GUIDE_FONT_KEY) || GUIDE_FONT_DEFAULT; } catch(e) { return GUIDE_FONT_DEFAULT; }
+  try {
+    const v = localStorage.getItem(GUIDE_FONT_KEY) || GUIDE_FONT_DEFAULT;
+    return GUIDE_FONT_ALLOWED.has(v) ? v : GUIDE_FONT_DEFAULT;
+  } catch(e) { return GUIDE_FONT_DEFAULT; }
 }
 function saveGuideFont(font) {
   try { localStorage.setItem(GUIDE_FONT_KEY, font); } catch(e) {}
