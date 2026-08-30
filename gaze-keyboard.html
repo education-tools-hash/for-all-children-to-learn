@@ -1290,6 +1290,8 @@ body.hc .prof-avatar-opt.selected { border-color:#FFFF00; background:#333300; }
   padding:4px 10px; border-radius:8px; border:2px solid var(--key-delete-bd);
   background:var(--key-delete-bg); color:#991B1B; font-family:var(--font);
   font-size:.75rem; font-weight:700; cursor:pointer;
+  min-height:44px; min-width:44px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
 }
 
 /* ============================================================
@@ -1333,6 +1335,12 @@ body.hc .prof-avatar-opt.selected { border-color:#FFFF00; background:#333300; }
   padding:3px 9px; border-radius:7px; border:1.5px solid var(--border);
   background:var(--surface); font-family:var(--font); font-size:.72rem;
   font-weight:700; color:var(--text-light); cursor:pointer;
+}
+/* 「全削除」（破壊的操作）のみタッチ領域を44pxへ拡大。同じ.hist-btnクラスを共有する
+   再利用・コピー・印刷等の小さいボタンは対象外（意図的に既存サイズのまま維持）。 */
+#histClearBtn {
+  min-height:44px; min-width:44px;
+  display:inline-flex; align-items:center; justify-content:center;
 }
 .hist-btn:hover { background:var(--key-hover); }
 
@@ -3972,7 +3980,23 @@ function saveProfileSettings() {
 
 // Profile modal
 let selectedAvatar = '👦';
+// Profile modal focus復帰用：開く直前のactiveElementを保存し、閉鎖後に安全な復帰先へfocusする
+// （settingsModalの既存パターンを、inert制御なしの最小構成で再利用）
+let profileModalOpener = null;
+function isFocusReturnTarget(el) {
+  return el instanceof Element && el.isConnected && !el.disabled
+    && el.getClientRects().length > 0 && typeof el.focus === 'function';
+}
+function closeProfileModal() {
+  document.getElementById('profileModal').classList.add('hidden');
+  let target = profileModalOpener;
+  if (!isFocusReturnTarget(target)) target = document.getElementById('profileAddBtn');
+  profileModalOpener = null;
+  if (isFocusReturnTarget(target)) target.focus();
+}
+
 function openProfileModal() {
+  profileModalOpener = document.activeElement;
   selectedAvatar = '👦';
   document.getElementById('profNameIn').value = '';
   document.getElementById('profModalTitle').textContent = '👤 ユーザーを追加';
@@ -4045,12 +4069,17 @@ document.getElementById('profOk').addEventListener('click', () => {
   document.getElementById('profNameIn').value = '';
   showToast('👤 ' + name + ' を追加しました');
 });
-document.getElementById('profCancel').addEventListener('click', () => {
-  document.getElementById('profileModal').classList.add('hidden');
-});
+document.getElementById('profCancel').addEventListener('click', closeProfileModal);
 document.getElementById('profileModal').addEventListener('click', e => {
-  if (e.target === document.getElementById('profileModal'))
-    document.getElementById('profileModal').classList.add('hidden');
+  if (e.target === document.getElementById('profileModal')) closeProfileModal();
+});
+// Escapeで閉じる（settingsModalの既存パターンに倣う）
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const profileModal = document.getElementById('profileModal');
+  if (profileModal.classList.contains('hidden')) return;
+  e.preventDefault();
+  closeProfileModal();
 });
 
 // ==================== HISTORY ====================
@@ -4143,15 +4172,33 @@ function escapeHtml(str) {
 // ==================== HISTORY & REPORT MODAL ====================
 let hrCurrentTab = 'history';
 
+// History/Reportモーダル focus復帰用：profileModalと同じ最小構成のパターン
+let hrModalOpener = null;
+function closeHrModal() {
+  document.getElementById('hrModal').classList.add('hidden');
+  let target = hrModalOpener;
+  if (!isFocusReturnTarget(target)) target = document.getElementById('hrBtn');
+  hrModalOpener = null;
+  if (isFocusReturnTarget(target)) target.focus();
+}
+
 document.getElementById('hrBtn').addEventListener('click', () => {
+  hrModalOpener = document.activeElement;
   renderHrModal(hrCurrentTab);
   document.getElementById('hrModal').classList.remove('hidden');
 });
 addDwell(document.getElementById('hrBtn'), () => document.getElementById('hrBtn').click());
 
 document.getElementById('hrModal').addEventListener('click', e => {
-  if (e.target === document.getElementById('hrModal'))
-    document.getElementById('hrModal').classList.add('hidden');
+  if (e.target === document.getElementById('hrModal')) closeHrModal();
+});
+// Escapeで閉じる（settingsModal/profileModalの既存パターンに倣う）
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const hrModal = document.getElementById('hrModal');
+  if (hrModal.classList.contains('hidden')) return;
+  e.preventDefault();
+  closeHrModal();
 });
 
 document.querySelectorAll('.hr-tab').forEach(tab => {

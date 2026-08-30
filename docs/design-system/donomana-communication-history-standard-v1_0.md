@@ -208,11 +208,10 @@ Retentionポリシー自体の変更（Stats側への上限導入等）は本Pha
 
 Profile削除・履歴全削除のUIは、既存のネイティブ`<button>`要素と`confirm()`ダイアログをそのまま利用する（本Phaseでdialog UIの構造自体は変更していない）。確認事項と結果は`donomana-learning-record-remaining-apps-decision-v1.md`と同様の手法で実測した（Phase T6-A Final Report参照）。
 
-**本Phaseで新規に発見した既存の未対応事項（regressionではない）**:
-- `profileModal`・`hrModal`にはEscapeキーでの閉じる操作が実装されていない（既存の`settingsModal`専用Escapeハンドラの対象外）。本Phase以前から存在する実装であり、本Phaseのコード変更はこの挙動に影響していない
-- `.pli-del`（Profile削除ボタン）・`histClearBtn`（履歴全削除ボタン）の実測サイズはそれぞれ約48×24px・約76×23pxであり、44px touch target基準を高さ方向で満たしていない。既存のCSSによるものであり、本Phaseで変更していない
-
-いずれも将来のAccessibility改善候補として記録し、本Phaseでは修正しない（§21 Communication UX Freezeの範囲内）。
+**Phase T6-A''で対応済み**（当初はPhase T6-Aで「本Phaseで新規に発見した既存の未対応事項」として記録し、修正はスコープ外としていたが、後続のPhase T6-A''で独立した最小Accessibility修正として実施した）:
+- `profileModal`・`hrModal`にEscapeキーでの閉じる操作を追加。既存の`settingsModal`専用Escapeハンドラのパターン（`document.addEventListener('keydown', ...)`でmodal表示中のみ処理）をinert制御なしの最小構成で再利用し、新しい独自modal frameworkは作らなかった
+- 両モーダルとも、開いたトリガー要素を記録し、Escape・キャンセル・背景クリックいずれの経路で閉じても、そのトリガー（またはトリガーがDOM上安全に存在しない場合は`profileAddBtn`/`hrBtn`）へfocusを復帰させる処理を追加した
+- `.pli-del`（Profile削除ボタン）に`min-height:44px; min-width:44px`を追加（実測48×44px）。`histClearBtn`は同じ`.hist-btn`クラスを共有する印刷・再利用・コピー等の他ボタンへ影響しないよう、`#histClearBtn`のIDセレクタでのみ44px化した（実測76×44px、`histPrintBtn`等は既存サイズ約64.6×23pxのまま意図的に維持）
 
 ---
 
@@ -297,3 +296,4 @@ Communication Historyを扱うアプリは、以下をすべてuntrusted text（
 |---|---|---|
 | v1.0 | 2026-08-30 | Phase T6-A。Communication History Standardを新規策定。gaze-keyboardのProfile削除・履歴全削除時のCascade Delete実装、Storage Inventory完全監査、Statistics（`wordFreq`）の機微性判断、将来検討事項（孤児データ・44px・Escape対応・XSSリスク）の記録。 |
 | v1.0 + Addendum | 2026-08-30 | Phase T6-A'。表示安全性原則（利用者入力をHTMLとして解釈しない、REQUIRED）を追記。gaze-keyboardの格納型XSSリスク（History本文・Profile名・wordFreq・定型文・予測変換候補が`innerHTML`へ無防備に挿入されていた10箇所）を、`textContent`優先＋最小限の`escapeHtml()`helperで対策。Stored XSS・Legacy Data・Multi-profile・reload後の安全性を実測確認。T6-AのCascade Delete機能・Gaze/Switch・Learning Recordはいずれも無変更・回帰ゼロ。 |
+| v1.0 + Addendum 2 | 2026-08-30 | Phase T6-A''。§17で「既存の未対応事項」としていたProfile削除ボタン（48×24px）・履歴全削除ボタン（76×23px）の44px化、および`profileModal`/`hrModal`のEscape対応＋focus復帰を実施し、対応済みへ更新。`histClearBtn`は共有クラス`.hist-btn`の他ボタン（印刷・再利用・コピー）へ影響しないようIDセレクタで個別対応。XSS対策・Cascade Delete・Gaze/Switchはいずれも無変更・回帰ゼロを実測確認。 |
