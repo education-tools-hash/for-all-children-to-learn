@@ -991,6 +991,158 @@ kyou-no-kiroku.htmlは本Phaseで一切変更していない。`donomanaRecordRe
 
 ---
 
+## Addendum（Phase T5-E-C）: Learning Record Foundation Rollout — Group C（okane-app / sst-app）
+
+Group A・Bとは異なる系統の2本を対象とした。両アプリとも「既に永続的なLearning/Activity RecordとCSV機能を持つ」というbadge監査上の前提でPhase開始時点では想定されていたが、**実コード監査の結果、両アプリとも複数のstorage keyを持ち、そのうち一部だけがLearning Recordの定義に該当する**ことが判明した。「badgeが示す機能＝そのまま1つの配列」という仮定を置かず、個別に監査した。
+
+### 34.1 okane-app Baseline Audit
+
+- exact filename: `okane-app.html`
+- storage: **2つの別keyに分離**
+  - `okane_records`（`learningRecords`変数）: `Object.assign({}, RECORD_DEFAULTS, JSON.parse(...))`という**非配列のobject**。`{matchPlayed, matchPerfect, matchCorrectTotal, matchWrongTotal, shopCompleted, shopTotalSpent, shopInsufficientAttempts, learnReads, mondaiPlayed, mondaiCorrectTotal, mondaiWrongTotal, mondaiPerfect}`という**累積カウンタ**であり、個々の活動を時系列で記録するLearning Recordではない
+  - `okane_activity_log`（`activityLog`変数）: `{ts, type, detail}`のarray。`logActivity(type, detail)`で追記、**200件の既存retentionあり**（`if (activityLog.length > 200) activityLog = activityLog.slice(-200);`）。こちらが実際のActivity Record
+- record schema（`okane_activity_log`）: `{ts: ISO 8601文字列, type: 'match'|'shop'|'mondai'|'mistake'等, detail: 自由記述の日本語文字列}`
+- question/target・selected answer・correct/result・level: **構造化fieldとして存在しない**。`detail`は`type`ごとに異なる自由記述文字列（例:「5+3=8, せいかい」）で、既存実装を読み替えて構造化fieldを新設していない
+- inputMethod: フィールドなし（実装が存在しないため推測せず追加していない）
+- responseTime: フィールドなし
+- read/write/add: `activityLog`初期化行・`saveActivityLog()`・`logActivity()`の3点
+- retention: `logActivity()`内部に200件cap（既存のまま維持）
+- Viewer: `renderRecords()`相当（`records-modal`内、`activityLogBox`へ直近50件を新しい順で表示）。統計サマリー（`learningRecords`の各カウンタ）も同じモーダル内に表示
+- CSV: `exportRecordsCSV()`。**単純な1ヘッダー+data行のtableではなく、タイトル行・出力日時行・空行・「# サマリー」section(`learningRecords`統計)・空行・「# かつどうログ」section(`activityLog`本体)という複数section構成のレポート形式CSV**
+- delete: `resetRecords()`。native `confirm()`（「がくしゅうのきろくをリセットしますか？」）で`learningRecords`と`activityLog`の**両方を同時にリセット**する単一操作（record単位削除はなし、既存仕様のまま）
+- badge: `apps-data.json`で`"📊 学習記録CSV対応"`済み、実態と一致（変更不要）
+- Switch/Gaze/Keyboard/Touch: 実装済み（`appSettings.switchControl`/`appSettings.gaze`等）、本Phaseでは無変更
+- HelpのRecord説明: 既存Help modal内（`<h3>📊 きろく</h3>`）が「きろく」「CSVで書き出す」「Privacy（端末内保存のみ）」を正確に説明しており、修正不要と判断した
+
+### 34.2 sst-app Baseline Audit
+
+- exact filename: `sst-app.html`
+- storage: **3つの別key**
+  - `sst_activity_log_v1`（`activityLog`変数）: `{ts: epoch ms数値, type, lv, result}`のarray。`recordActivity(type, lv, result)`で追記。**30日の既存retentionあり**（`saveActivityLog()`内で`a.ts > Date.now() - 30日`によるfilter、保存の都度実行）
+  - `sst_week_badges_v1`（`weekBadges`変数）: 今週取得したバッジIDの配列（gamification state、Learning Recordではない）
+  - `sst_report_name_v1`（`reportName`変数）: レポートに表示する名前の設定文字列（Settings、Learning Recordではない）
+  - `sst_diary_entries_v1`（`diaryEntries`変数、別途）: 「きもち日記」機能の記録。**本Phase対象外**（34.6節参照）
+- lesson/scenario: `ACT_LABEL`定数で9種類の活動module（rp=ロールプレイ、wq=ことばクイズ、story=ソーシャルストーリー、branch=分岐ストーリー、diary=きもち日記、quiz=SSTクイズ、thermo=きもち温度計、breath=きもちを落ち着ける、photo=写真SST）
+- level: `lv`（活動によって意味が異なる。例:role-playのレベル、クイズのレベル等、教材固有）
+- selected response / result: `result`は活動ごとに全く異なる意味を持つ自由形式値（role-play=選んだ選択肢のlv、wq/story/breath=固定文字列'done'、quiz=正答率文字列'80%'等、diary=選んだ気持ちラベルの結合文字列（例:'うれしい+たのしい'）、branch=たどり着いたエンディングのlevel、thermo=選んだ温度の数値文字列）。**単純な正誤Quizとして扱っていない**（「正解/不正解」という概念自体が存在しない活動が大半のため、`correct`フィールドを新設していない）
+- voice input / browser speech service: 「きもち日記」機能でマイクボタン使用時のみブラウザ音声認識を使用（既存実装、本Phaseで確認したのみで変更なし）
+- Privacy disclosure: 既存Help内（`help-privacy-item`）に「名前・写真・日記・記録などすべてのデータはこの端末のブラウザ内（localStorage）にのみ保存されます。外部サーバーには送信されません」の明示あり、正確なため修正不要
+- read/write/add: `loadActivityLog()`・`saveActivityLog()`・`recordActivity()`の3点（`weekBadges`/`reportName`の読み書きは同じ`loadActivityLog()`関数内に同居しているが別concept、Foundation化対象は`activityLog`部分のみ）
+- retention: `saveActivityLog()`内部に30日filter（既存のまま維持）
+- Viewer/CSV: **`activityLog`自体を一覧表示・CSV書き出しするUIは存在しない**。`buildReport()`が`activityLog`を今週の日付範囲でfilterし、「今週のできたことレポート」という週次サマリー（バッジ・活動数等）を画面表示・共有(`shareReport()`)する用途にのみ使われている。CSV書き出しがあるのは別機能「きもち日記」（`downloadDiaryCSV()`）のみで、`activityLog`とは無関係
+- delete: `activityLog`専用の削除機能は存在しない（30日で自動的に古いものだけが除外される設計のまま）
+- badge: `apps-data.json`のsst-app badgesは「📔 複合感情・きもち日記（音声入力対応）」等、日記機能を指すもののみで、汎用的な「📊 きろく機能あり」は元々付与されておらず、不一致なし
+- HelpのRecord説明: 「今週のできたことレポート: 今週の活動をまとめたレポートを表示します」という既存説明が`activityLog`の実際の使われ方（週次レポートのみ、個別記録の一覧やCSVはない）と正確に一致しており、修正不要と判断した
+
+### 34.3 Learning Record Classification
+
+| データ | 分類 | 理由 |
+|---|---|---|
+| okane-app: `okane_activity_log` | **A（Learning/Activity Record）** | 時系列の活動ログ配列、Foundation統合対象 |
+| okane-app: `okane_records` | C（Settings的な集計状態） | 累積カウンタobject、配列ではない、Foundation対象外 |
+| sst-app: `sst_activity_log_v1` | **A（Learning/Activity Record）** | 時系列の活動ログ配列、Foundation統合対象 |
+| sst-app: `sst_week_badges_v1` | C（Settings/gamification state） | Foundation対象外 |
+| sst-app: `sst_report_name_v1` | C（Settings） | Foundation対象外 |
+| sst-app: `sst_diary_entries_v1` | **E（要個別Privacy評価、本Phase対象外）** | 音声入力を含みうる自由記述の個人的な記録。gaze-keyboardのCommunication History同様、Learning Record Foundationへの一括統合は適切でないと判断（34.6節） |
+
+Foundationへ統合したのは`okane_activity_log`・`sst_activity_log_v1`の2つの配列のみ。
+
+### 34.4 Compatibility Matrix
+
+| 観点 | okane-app | sst-app | miru-hirogaru-app（Reference） |
+|---|---|---|---|
+| Learning Record storage key | `okane_activity_log` | `sst_activity_log_v1` | `miru_hirogaru_log` |
+| 別途存在する非LR storage | `okane_records`（集計object） | `sst_week_badges_v1`・`sst_report_name_v1`・`sst_diary_entries_v1` | なし |
+| record schema | `{ts,type,detail}` | `{ts,type,lv,result}` | `{time,level,target,inputMethod,...}` |
+| timestamp形式 | ISO 8601文字列 | **epoch ms数値**（他アプリと異なる） | ISO 8601文字列 |
+| inputMethod | なし | なし | あり |
+| Viewer | あり（モーダル、直近50件） | **なし**（週次集計のみ） | あり |
+| CSV（LR対象データ） | あり（複数sectionのレポート形式） | **なし**（別機能の日記のみCSVあり） | あり |
+| delete | あり（native confirm、統計と同時リセット） | **なし** | あり |
+| retention | 200件（count-based） | 30日（time-based） | なし |
+| badge整合性 | 一致 | 該当badgeなし（不一致もなし） | 一致 |
+
+### 34.5 Group Split Gate 判定
+
+okane-appは非配列storage（`okane_records`）を持つが、これはFoundation対象の`okane_activity_log`とは**別のstorage key**であり、kyou-no-kirokuのような「1つのkey内にnested composite object」という構造とは異なる。単純に「Foundation対象は配列部分のみ、非配列部分は触れない」という判断で安全に対応でき、Composite Storage Adapter（`donomanaRecordReadNestedCollection`等）は不要だった。sst-appも同様に複数storage keyのうち配列1つだけが対象。**両アプリともT5-E-C1/C2への分割は不要**と判断し、単一Groupとして扱った。
+
+### 34.6 sst-app Diary — 意図的なスコープ外化
+
+`sst_diary_entries_v1`は、音声入力（ブラウザ音声認識）を経由しうる自由記述の個人的な記録であり、Foundation Audit文書がgaze-keyboardの`gaze_history_*`について指摘した「機微度が高いデータであり個別のPrivacy評価が必要」という所見と同種の性質を持つと判断した。本Phaseでは意図的に統合対象から外し、コードを一切変更していない。特定のCSV機能（`downloadDiaryCSV()`）は既存のまま動作することを回帰確認した（34.13節）。将来Diaryを何らかの記録基盤へ統合する場合は、本Phaseとは別のPrivacy評価を伴う専用Phaseとすべきと提案する。
+
+### 34.7 Foundation Integration
+
+```js
+// okane-app（Before）
+let activityLog = JSON.parse(localStorage.getItem('okane_activity_log') || '[]');
+function saveActivityLog() { localStorage.setItem('okane_activity_log', JSON.stringify(activityLog)); }
+function logActivity(type, detail) {
+  activityLog.push({ ts: new Date().toISOString(), type, detail });
+  if (activityLog.length > 200) activityLog = activityLog.slice(-200);
+  saveActivityLog();
+}
+
+// okane-app（After）
+let activityLog = donomanaRecordReadLog('okane_activity_log');
+function saveActivityLog() { donomanaRecordWriteLog('okane_activity_log', activityLog); }
+function logActivity(type, detail) {
+  activityLog.push({ ts: new Date().toISOString(), type, detail, schemaVersion: 1 });
+  if (activityLog.length > 200) activityLog = activityLog.slice(-200);
+  saveActivityLog();
+}
+```
+
+sst-appも同型（`loadActivityLog()`/`saveActivityLog()`/`recordActivity()`）。`saveActivityLog()`内の30日retention filterは既存のままFoundation委譲後の関数内に残した。`weekBadges`/`reportName`の読み書き（`loadActivityLog()`に同居）は直接localStorageのまま変更していない。**1操作→1 intended record**を両アプリで実ブラウザ確認した（34.13節）。parallel loggerは追加していない。
+
+### 34.8 Foundation API変更
+
+**なし。** 既存13関数のみ使用。新規API追加は行っていない。
+
+### 34.9 schemaVersion / Legacy Compatibility
+
+両アプリとも新規recordにのみ`schemaVersion: 1`を付与し、既存recordは無変更のまま保持することを実ブラウザで確認した。0件/1件/複数件・schemaVersion欠落・malformed JSON（`[]`へ安全にフォールバック）のfixtureで検証した。一括migrationは行っていない。
+
+### 34.10 inputMethod
+
+両アプリとも入力方式を判定するコードが存在しないため、フィールド自体を追加していない（推測禁止原則）。
+
+### 34.11 CSV Date/Time Excel Compatibility
+
+okane-appの`exportRecordsCSV()`は単純な1ヘッダーテーブルではなく複数sectionのレポート形式CSVであり、日時が2箇所に出現することを確認した: (1) 「しゅつりょくにちじ」という単一情報行(ラベル:値)、(2) 「# かつどうログ」section内の各activity行。
+
+**実Excel検証で重要な発見**: (1)の単一情報行について、既存`formatLogDate()`（スラッシュ区切り、日付+時刻を1セルに結合）をそのまま使うと、単独の日付・時刻それぞれと同様に**結合形式でもExcelの自動日時認識に該当し`#######`になる**ことを実測で確認した。一方、`donomanaRecordFormatCsvDateTime()`の`date`+`' '`+`time`（ドット区切り日付+コロン区切り時刻の結合、例:「2026.08.30 11:24:30」）はExcelに自動認識されず、プレーンテキストのまま表示されることを実Excelで確認した。(2)のactivity行は他アプリと同様、日付・時刻の2列（`YYYY.MM.DD`/`HH:mm:ss`）へ分離し、section内のローカルヘッダー行（「日付・時刻,しゅるい,ないよう」→「日付,時刻,しゅるい,ないよう」）も列数を合わせて更新した。`formatLogDate()`自体は画面表示（Viewer一覧）用に無変更のまま残した。
+
+sst-appの`sst_activity_log_v1`はCSV出力を持たないため、本項目は該当なし（34.2節）。
+
+### 34.12 Excel / CSV Injection検証
+
+okane-appの生成CSV（21行×4列、summary section + activity log section混在）を実Microsoft Excel（COM自動化）で検証し、**シート全体で`#######` = 0件**を確認した。日本語（「もんだい」「せいかい」等）・カンマ/クォート含みfieldのescaping（既存`csvEscape()`維持）とも正常。値が`=`・`+`・`-`・`@`で始まるformula workaroundは使用していない。sst-appは34.2節の理由によりCSV検証は該当なし。
+
+### 34.13 Automated / Real Browser Tests
+
+Playwright制御Chromiumで両アプリを実ブラウザ検証した: legacy record読み込み、`logActivity()`/`recordActivity()`による新規record追加（schemaVersion付与・legacy不変を確認）、reload永続化、retention動作（okane: 205件seed→200件へtrim、sst: 40日前entryが30日filterで正しく除外されることを確認）、malformed JSON fallback（クラッシュなし）、Viewer表示（okaneのみ、記録内容が正しく表示）、CSV export（okaneのみ、BOM・日付/時刻分離・複数section構造）、delete confirm/cancel（okaneのみ、native `confirm()`のdismiss/acceptとも正しく動作）、sst-appの`weekBadges`/`reportName`/`sst_diary_entries_v1`が本Phaseの変更によって一切影響を受けないことを確認。sst-appの`downloadDiaryCSV()`/`buildDiaryCSVContent()`関数が引き続き存在し呼び出し可能であることも確認した（回帰なし）。**console/page error = 0/0**（両アプリとも全シナリオ）。
+
+### 34.14 Accessibility / Mobile
+
+okane-appのCSV書き出しボタンについて、キーボードフォーカス（Tab相当のプログラム的focus）→Enterキーでのダウンロード発火を実ブラウザで確認した。375×667/390×844/768×1024の3viewportでボタンが表示・operableであることを確認したが、**ボタンの実測高さが41pxであり44px未満だった**（既存マークアップ・CSSであり、本Phaseで変更した箇所には含まれない。`git diff`でbutton/CSS差分がゼロであることを確認済み）。本Phaseのスコープ（Foundation統合・CSV日時修正のみ）を超える既存UIの touch target修正は行わず、次Phase以降の個別改善候補として記録する。sst-appの`sst_activity_log_v1`には専用Viewer/CSV/削除UIが存在しないため、該当項目なし。
+
+### 34.15 Record Size
+
+okane-app: 1record約105 bytes（1000件で約105KB）。sst-app: 1record約116 bytes（1000件で約116KB、実際は30日retentionにより長期的にこの規模まで蓄積しない）。いずれもtraceSampleを伴わないため、目標（2KB/record・2MB/1000件）を大幅に下回る。
+
+### 34.16 Previous Group Regression
+
+dotchiga-ii-app（T5-E-B/B'）・miru-hirogaru-app（Reference）で、record追加・CSVダウンロードが引き続き正常動作し、console/page error = 0/0であることを確認した。hiragana-learn（あ）・katakana-app（ア）で実際になぞりPASS→traceSample保存→Viewer確認を再実行し、Trace Sample Recording Pilotに回帰がないことを確認した。kyou-no-kiroku（Composite Storage、複数learner）でも record/children読み込み・CSV書き出しが正常動作することを確認した。公式Golden Test 4種を再実行し、全て回帰ゼロを確認した（Tracing Engineへの差分は本Phaseでゼロ）。
+
+### 34.17 Rollout Lessons
+
+- **badgeやFoundation Audit文書上「Learning Record + CSVを持つ」と分類されたアプリでも、実際には複数のstorage keyに分かれており、その一部だけがLearning Recordの定義に該当することがある。** okane-appの集計統計object（`okane_records`）・sst-appの週バッジ/レポート名/日記（3つの別key）がその実例。「配列を1つ見つけたらそれがLearning Record」と早合点せず、各keyの中身を個別に確認する必要がある。
+- **timestamp形式はISO文字列だけでなくepoch ms数値の場合もある**（sst-app）。`donomanaRecordFormatCsvDateTime()`は両方を受け付ける設計だったため追加対応は不要だったが、Foundation関数の入力形式の柔軟性が実際に活きた事例として記録する。
+- **CSVが必ずしも「1ヘッダー行+data行」の単純tableとは限らない。** okane-appのような複数sectionレポート形式CSVでは、日時が「data列」だけでなく「単一の情報行(ラベル:値)」としても出現しうる。両方の出現パターンについて個別にExcel互換性を検証する必要がある（結合形式の日時セルも、分割形式と同様にExcel自動認識の対象になることを本Phaseで新たに確認した）。
+- **Learning Record Foundationへ統合すべきでないデータもある。** sst-appの「きもち日記」（音声入力を含みうる自由記述）は、Foundation Audit文書がgaze-keyboardについて示した「機微度が高いデータの個別Privacy評価」という前例に倣い、意図的に統合しなかった。「同じアプリ内のデータだから同じ扱いにする」という短絡的判断を避けるべき。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
@@ -1000,3 +1152,4 @@ kyou-no-kiroku.htmlは本Phaseで一切変更していない。`donomanaRecordRe
 | v1.0 Draft/RC + Addendum 2 | 2026-08-29 | Phase T5-C'。Composite Storage Adapter（`donomanaRecordReadNestedCollection`/`WriteNestedCollection`）を新設し、kyou-no-kirokuを正式な4本目Pilotとして安全に統合。学習者削除後のrecord誤帰属を防ぐstable childId方式を導入し、既存の`childIndex`不整合バグを修正。自動テスト36件・実ブラウザ検証（A/B/C削除再現含む）完了。4 Pilot Foundation Validated確定。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
 | v1.0 Draft/RC + Addendum 3 | 2026-08-29 | Phase T5-E-A。4 Pilot以外への初のRollout（Group A: katakana-app・suji-manabou）。両アプリへFoundation委譲・schemaVersion付与を実施。katakana-appの削除確認欠落を修正、tracingJudgmentLevel表示を追加。suji-manabouは既存confirm()・教材固有activity構造（quiz非対応）を維持したまま統合。新規Foundation API追加なし。自動テスト21件・Katakana Golden Tests 4種・実ブラウザ検証（Group A + 既存4 Pilot回帰）完了。全17アプリ対応は未完了。 |
 | v1.0 Draft/RC + Addendum 4 | 2026-08-30 | Phase T5-E-B。Multi-Input sibling apps 5本（mitsukete-touch-app・junban-miyou-app・kurabeyou-app・katachi-awase-app・dotchiga-ii-app）をShared Foundationへ統合。Five-App Baseline Audit・Compatibility Matrix・Group Split Gate判定（分割不要）を実施。既存retentionロジック（LOG_MAX/200件）・delete confirm/cancel UI・教材固有semantics（success-only構造・inputMethod null/unknown差異）はすべて維持。T5-E-A'で確立したCSV Excel互換形式（日付/時刻分離）を5本に適用し実Excelで#######=0を確認。新規Foundation API追加なし。Trace Sample Recording Pilot（hiragana/katakana）・Tracing Engine・Composite Storage（kyou-no-kiroku）はいずれも無変更・回帰ゼロを確認。全17アプリ対応は未完了（残りはT5-E-C候補として提案）。 |
+| v1.0 Draft/RC + Addendum 5 | 2026-08-30 | Phase T5-E-C。okane-app・sst-appの2本をShared Foundationへ統合（Group C）。両アプリとも複数storage keyに分かれており、Learning Recordの定義に該当する配列部分（`okane_activity_log`・`sst_activity_log_v1`）のみを統合し、非配列の集計統計（`okane_records`）・gamification/設定state（`sst_week_badges_v1`・`sst_report_name_v1`）・Privacy機微度の高い自由記述記録（`sst_diary_entries_v1`、意図的にスコープ外化）はいずれも無変更のまま維持。okane-appの複数sectionレポート形式CSVへT5-E-A' Excel互換形式を適用し、単一情報行の結合日時セルもExcel自動認識対象になることを新たに実測で確認・対処。sst-appの`activityLog`には元々Viewer/CSV/削除UIが存在しないことを監査で確認、無理に新設せず。新規Foundation API追加なし。前Group（dotchiga-ii-app・miru-hirogaru-app）・Trace Sample Recording Pilot・Tracing Engine・Composite Storage（kyou-no-kiroku）はいずれも無変更・回帰ゼロを確認。 |

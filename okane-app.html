@@ -1256,6 +1256,172 @@
   <div id="mondaiArea"></div>
 </section>
 
+<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Learning Record Foundation (Phase T5-B PoC) — shared localStorage-backed
+   activity-log read/write/normalize helpers common to Learning Record Standard v1.0
+   (docs/design-system/donomana-learning-record-standard-v1_0.md). Auto-injected by
+   generate.js — edit generate.js's buildLearningRecordFoundationJSHTML() instead of
+   this block directly. Each app keeps its own storage key and its own record shape;
+   this Foundation standardizes only the read/write/normalize/CSV mechanics, never
+   the app-specific payload fields. */
+function donomanaRecordReadLog(storageKey) {
+  try { var raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function donomanaRecordWriteLog(storageKey, log) {
+  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
+}
+function donomanaRecordAddLog(storageKey, entry) {
+  var log = donomanaRecordReadLog(storageKey);
+  log.push(entry);
+  donomanaRecordWriteLog(storageKey, log);
+  return log;
+}
+function donomanaRecordClearLog(storageKey) {
+  donomanaRecordWriteLog(storageKey, []);
+}
+// schemaVersion欠落 = legacy v1として扱う(Standard §9)。既存フィールドは書き換えない。
+function donomanaRecordNormalizeLegacy(entry) {
+  if (entry && typeof entry === 'object' && entry.schemaVersion == null) entry.schemaVersion = 1;
+  return entry;
+}
+// Standard Core Schemaに沿った新規recordを組み立てる(将来のnested payload移行用。
+// 既存2 Pilotの実データ形式は変更しない。関数として提供し単体テストのみ対象)。
+function donomanaRecordCreate(appId, activity, inputMethod, payload) {
+  return {
+    timestamp: new Date().toISOString(),
+    appId: appId,
+    activity: activity,
+    inputMethod: (typeof inputMethod === 'string') ? inputMethod : null,
+    schemaVersion: 1,
+    payload: payload || {}
+  };
+}
+// UTF-8 BOM付きCSV文字列を組み立てる(Standard §17)。rows: 2次元配列(先頭行=header)。
+// ダウンロードUI自体は各アプリの既存実装を維持し、統一しない。
+function donomanaRecordBuildCsv(rows) {
+  function esc(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return /["\,\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  var body = rows.map(function(r) { return r.map(esc).join(','); }).join('\n');
+  return '\uFEFF' + body;
+}
+// Phase T5-C: Composite Storage Adapter — storageKeyの値がrecord配列そのものではなく
+// { records: [...], ...他のapp-specific property } のような複合objectの場合に、
+// 指定fieldだけを読み書きし、他のpropertyを完全に保持する(既知/未知を問わず)。
+// kyou-no-kiroku専用ではなく、同様の複合storage構造を持つ将来アプリでも再利用できる
+// 汎用primitiveとして提供する。array-basedのdonomanaRecordReadLog/WriteLogを
+// 複合objectのstorageKeyへ直接使わないこと(recordsだけの配列で他propertyを
+// 上書き破壊してしまう)。
+function donomanaRecordReadNestedCollection(storageKey, field) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = raw ? JSON.parse(raw) : null;
+    var arr = (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj[field] : undefined;
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function donomanaRecordWriteNestedCollection(storageKey, field, collection) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = null;
+    try { obj = raw ? JSON.parse(raw) : null; } catch (e2) { obj = null; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+    obj[field] = collection;
+    localStorage.setItem(storageKey, JSON.stringify(obj));
+  } catch (e) {}
+}
+// Phase T5-D: UI Foundation — Data Foundation(read/write/normalize/CSV)とは責務を分離した
+// 純粋な表示整形/grouping関数群(DOM操作なし、副作用なし)。Common Viewerの「Core表示」を
+// 構成する最小限のhelperのみを提供し、教材固有の要約文(例:「『あ』のなぞり」)は各アプリの
+// adapter責務のまま残す(Switch Scan共通仕様16.3節と同じ、helperはlifecycle/整形、
+// adapterはcontentという責務分離)。
+// timeValueはISO 8601・ja-JPロケール文字列("2026/8/29 19:28:18")・epoch msのいずれでも受け付け、解析できない場合は元の値をそのまま返す(値の欠落・空文字表示を防ぐ)。
+function donomanaRecordFormatDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return '';
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return (timeValue === null || timeValue === undefined) ? '' : String(timeValue);
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch (e) { return (timeValue === null || timeValue === undefined) ? '' : String(timeValue); }
+}
+// Phase T5-E-A': CSV Date/Time Excel Compatibility Fix — Excelは日時1列のCSV文字列を日付/時刻値
+// として自動認識するが、CSVには列幅情報を保存できないため既定列幅に収まらず「#######」表示に
+// なる(内部timestampやData Foundationのnormalize処理は無変更、CSV表示専用のpure helper)。
+// 日付・時刻の2列へ分離するだけでは不十分だった点に注意(実Excelで検証して判明): ハイフン
+// 区切り("2026-08-30")・スラッシュ区切り・漢字区切り("2026年8月30日")はいずれもExcelの自動
+// 日付認識に該当し、月または日が2桁の日付(1年の大半)では既定列幅を超えて結局#######に
+// なる。ドット区切り("2026.08.30")のみExcelの自動認識に該当せず常にプレーンテキストとして
+// 表示されることを実Excel COM検証で確認したため採用する。時刻(HH:MM:SS、コロン区切り)は
+// 自動的に時刻値へ変換されるが表示文字列が最大8文字("23:59:59")に収まり既定列幅を超えない
+// ことを確認済みのため、読みやすさを優先しコロン区切りのまま維持する。
+// timeValueはdonomanaRecordFormatDateTimeと同じくISO 8601・ja-JPロケール文字列・epoch ms・
+// Dateいずれも受け付ける。ローカル時刻basisで整形する(既存Viewerの表示・
+// donomanaRecordFormatDateTimeと同じlocal basisに揃え、UTCとの新たな時差混乱を作らない)。
+// 解析できない場合は元の文字列をdateへそのまま保持し(空白化・推測変換はしない)、timeは
+// 空文字を返す。
+function donomanaRecordFormatCsvDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return { date: '', time: '' };
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return { date: String(timeValue), time: '' };
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    var date = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
+    var time = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    return { date: date, time: time };
+  } catch (e) { return { date: (timeValue === null || timeValue === undefined) ? '' : String(timeValue), time: '' }; }
+}
+// entriesを日付ごとにグループ化する(新しい日付が先頭、group内も新しい順)。getTimeFnを渡さない
+// 場合はentry.timeを使う。解析できないtimestampのentryは「日付不明」groupへ末尾でまとめる
+// (無視・削除はしない)。
+function donomanaRecordGroupByDate(entries, getTimeFn) {
+  function dateKey(d) {
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  var todayKey = dateKey(new Date());
+  var yesterdayKey = dateKey(new Date(Date.now() - 86400000));
+  var groups = {};
+  (entries || []).forEach(function (entry) {
+    var raw = getTimeFn ? getTimeFn(entry) : entry.time;
+    var d = new Date(raw);
+    var valid = !isNaN(d.getTime());
+    var key = valid ? dateKey(d) : '__unknown__';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ entry: entry, ms: valid ? d.getTime() : -1 });
+  });
+  var keys = Object.keys(groups).sort(function (a, b) {
+    if (a === '__unknown__') return 1;
+    if (b === '__unknown__') return -1;
+    return a < b ? 1 : (a > b ? -1 : 0);
+  });
+  return keys.map(function (key) {
+    var items = groups[key].slice().sort(function (a, b) { return b.ms - a.ms; });
+    var label = key === '__unknown__' ? '日付不明'
+      : key === todayKey ? 'きょう'
+      : key === yesterdayKey ? 'きのう'
+      : (function () { var p = key.split('-'); return parseInt(p[1], 10) + '/' + parseInt(p[2], 10); })();
+    return { dateLabel: label, entries: items.map(function (x) { return x.entry; }) };
+  });
+}
+// inputMethodを利用者向け日本語ラベルへ変換する(Standard Core Schema §5のenumのみ対応)。
+// 未知の値・null/undefinedはnullを返す。呼び出し側はnullのとき「不明」等を表示せず、
+// 非表示にすることを推奨する(推測禁止の既存方針を維持)。
+function donomanaRecordFormatInputMethod(inputMethod) {
+  var MAP = { touch: 'タッチ', gaze: '視線', switch: 'スイッチ', keyboard: 'キーボード', click: 'クリック' };
+  if (inputMethod === null || inputMethod === undefined) return null;
+  return MAP[inputMethod] || null;
+}
+// hiragana-learn/katakana-appのtracingJudgmentLevel(easy/standard/precise)を
+// 利用者向け日本語ラベルへ変換する。フィールド欠落(legacy record)・未知の値はnullを返す。
+function donomanaRecordFormatTracingLevel(level) {
+  var MAP = { easy: 'やさしく', standard: 'ひょうじゅん', precise: 'ていねいに' };
+  return MAP[level] || null;
+}
+</script>
+<!-- /learning-record-foundation-js -->
 <script>
 // ==============================
 // SVG COIN GENERATOR
@@ -1542,10 +1708,15 @@ function saveRecords() { localStorage.setItem('okane_records', JSON.stringify(le
 function recordStat(key, amount=1) { learningRecords[key] = (learningRecords[key]||0) + amount; saveRecords(); }
 
 // ---- かつどうログ（CSV書き出し用） ----
-let activityLog = JSON.parse(localStorage.getItem('okane_activity_log') || '[]');
-function saveActivityLog() { localStorage.setItem('okane_activity_log', JSON.stringify(activityLog)); }
+// Phase T5-E-C: Donomana Learning Record Foundationへ委譲する(呼び出し側のシグネチャ・
+// entry形状・200件retentionは無変更)。学習の統計(learningRecords/okane_records、集計
+// カウンタのobjectでありLearning Record配列ではない)はFoundation対象外のまま
+// 直接localStorageで維持する(§8 既存semantics freeze)。新規recordにのみschemaVersion:1を
+// 付与する。
+let activityLog = donomanaRecordReadLog('okane_activity_log');
+function saveActivityLog() { donomanaRecordWriteLog('okane_activity_log', activityLog); }
 function logActivity(type, detail) {
-  activityLog.push({ ts: new Date().toISOString(), type, detail });
+  activityLog.push({ ts: new Date().toISOString(), type, detail, schemaVersion: 1 });
   if (activityLog.length > 200) activityLog = activityLog.slice(-200);
   saveActivityLog();
 }
@@ -1686,10 +1857,16 @@ function csvEscape(v) {
   const s = String(v ?? '');
   return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
 }
+// Phase T5-E-C: T5-E-A'で確立したExcel互換CSV日時形式(YYYY.MM.DD/HH:mm:ss、いずれも
+// Excelの自動日付認識に該当しないドット/コロン区切り)を適用する。既存donomanaRecordFormatCsvDateTime()
+// を再利用する(新規Foundation API追加なし)。旧formatLogDate()はスラッシュ区切りのため、単独でも
+// 日付・時刻結合でもExcelの自動認識対象になり#######の原因になる(実Excelで確認済み)。
+// formatLogDate()自体は画面表示用に残し、CSV出力箇所だけ置き換える。
 function exportRecordsCSV() {
   const lines = [];
+  const exportDt = donomanaRecordFormatCsvDateTime(new Date().toISOString());
   lines.push('おかねのおべんきょう - がくしゅうのきろく');
-  lines.push('しゅつりょくにちじ,' + formatLogDate(new Date().toISOString()));
+  lines.push('しゅつりょくにちじ,' + exportDt.date + ' ' + exportDt.time);
   lines.push('');
   lines.push('# サマリー');
   lines.push('こうもく,かいすう・きんがく');
@@ -1707,10 +1884,11 @@ function exportRecordsCSV() {
   lines.push(csvEscape('よみあげをきいたかいすう') + ',' + learningRecords.learnReads + 'かい');
   lines.push('');
   lines.push('# かつどうログ');
-  lines.push('日付・時刻,しゅるい,ないよう');
+  lines.push('日付,時刻,しゅるい,ないよう');
   activityLog.forEach(e => {
     const typeLabel = e.type==='match' ? 'マッチング' : e.type==='shop' ? 'おかいもの' : e.type==='mondai' ? 'もんだい' : e.type==='mistake' ? 'まちがい' : 'その他';
-    lines.push(csvEscape(formatLogDate(e.ts)) + ',' + csvEscape(typeLabel) + ',' + csvEscape(e.detail));
+    const dt = donomanaRecordFormatCsvDateTime(e.ts);
+    lines.push(csvEscape(dt.date) + ',' + csvEscape(dt.time) + ',' + csvEscape(typeLabel) + ',' + csvEscape(e.detail));
   });
 
   const csvContent = '\uFEFF' + lines.join('\r\n');
