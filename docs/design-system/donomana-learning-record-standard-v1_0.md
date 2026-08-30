@@ -1143,6 +1143,53 @@ dotchiga-ii-app（T5-E-B/B'）・miru-hirogaru-app（Reference）で、record追
 
 ---
 
+## Addendum（Phase T5-F）: Learning Record Program 正式Close
+
+- **Close日**: 2026-08-30
+- **Production baseline**: `865976d`
+- **監査checkpoint**: `64fbe3f`（`docs/design-system/donomana-learning-record-remaining-apps-decision-v1.md`、Phase T5-E-D）
+
+### Foundation coverage（`865976d`時点、用語を区別して記載）
+
+- Foundation統合済み Learning / Activity Record: **13本 / 35本**
+- Foundation未統合だが persistent Learning / Activity Recordあり: **1本 / 35本**（mogura-tataki）
+- → persistent Learning / Activity Recordあり（合計）: **14本 / 35本**
+- session-only（Learning Recordではない）: **2本 / 35本**（bosai-app・tokei-app）
+- Communication History（Learning Recordではない）: **1本 / 35本**（gaze-keyboard）
+- 記録なし: **18本 / 35本**
+
+上記3分類（persistent Learning Record・session-only・Communication History）を機械的に合算した参考値は17本/35本になるが、これは概念の異なる区分の合計であり「Learning Record対応率」という単一の集約指標としては扱わない（詳細は`donomana-learning-record-remaining-apps-decision-v1.md` §15参照）。
+
+### Completion条件（10項目、すべて達成）
+
+1. Learning Recordの定義確立（本文書§1-2）
+2. Learning Record Foundation確立（本文書§9 Record API）
+3. 適切なアプリへのFoundation展開（13/35アプリ、Production Release済み＝Phase T5-E-R1）
+4. Legacy互換確立（全統合アプリでlegacy compat確認済み）
+5. CSV Standard確立（Excel互換dot区切り形式、Phase T5-E-A'で確立・Production適用済み）
+6. Record UI Standard確立（`donomana-learning-record-ui-standard-v1_0.md`）
+7. User Contentとの境界確立（Foundation Audit文書で全35アプリ分類済み）
+8. Communication Historyとの境界確立（gaze-keyboard分類、Phase T5-E-Dで正式決定）
+9. session-onlyとの境界確立（bosai-app・tokei-appをB分類として明記）
+10. 残存アプリの正式方針決定（Phase T5-E-D）
+
+### Remaining workはpost-T5 backlogである
+
+以下はT5の未完了項目（Blocker）ではなく、T5 Close後の独立した将来改善Phase候補として管理する。実装しないことを理由にT5 Closeを妨げない。
+
+- mogura-tataki: Foundation統合候補
+- bosai-app: real persistent Learning Record導入候補
+- tokei-app: Learning Record導入候補
+- gaze-keyboard: Communication History Standard策定 + Data Lifecycle修正候補（プロファイル削除時のorphaned data、履歴全削除時の`gaze_stats_*`残存の2件を含む。Communication内容を含みうるため、post-T5 backlog中で優先度は最も高い）
+
+### 最終Status
+
+**Phase T5 = LEARNING RECORD FOUNDATION PROGRAM 正式完了 — CLOSED**
+
+以後、上記backlogは「T5の続き」として必須作業扱いしない。それぞれ独立した将来改善Phaseとして管理する。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
@@ -1153,3 +1200,4 @@ dotchiga-ii-app（T5-E-B/B'）・miru-hirogaru-app（Reference）で、record追
 | v1.0 Draft/RC + Addendum 3 | 2026-08-29 | Phase T5-E-A。4 Pilot以外への初のRollout（Group A: katakana-app・suji-manabou）。両アプリへFoundation委譲・schemaVersion付与を実施。katakana-appの削除確認欠落を修正、tracingJudgmentLevel表示を追加。suji-manabouは既存confirm()・教材固有activity構造（quiz非対応）を維持したまま統合。新規Foundation API追加なし。自動テスト21件・Katakana Golden Tests 4種・実ブラウザ検証（Group A + 既存4 Pilot回帰）完了。全17アプリ対応は未完了。 |
 | v1.0 Draft/RC + Addendum 4 | 2026-08-30 | Phase T5-E-B。Multi-Input sibling apps 5本（mitsukete-touch-app・junban-miyou-app・kurabeyou-app・katachi-awase-app・dotchiga-ii-app）をShared Foundationへ統合。Five-App Baseline Audit・Compatibility Matrix・Group Split Gate判定（分割不要）を実施。既存retentionロジック（LOG_MAX/200件）・delete confirm/cancel UI・教材固有semantics（success-only構造・inputMethod null/unknown差異）はすべて維持。T5-E-A'で確立したCSV Excel互換形式（日付/時刻分離）を5本に適用し実Excelで#######=0を確認。新規Foundation API追加なし。Trace Sample Recording Pilot（hiragana/katakana）・Tracing Engine・Composite Storage（kyou-no-kiroku）はいずれも無変更・回帰ゼロを確認。全17アプリ対応は未完了（残りはT5-E-C候補として提案）。 |
 | v1.0 Draft/RC + Addendum 5 | 2026-08-30 | Phase T5-E-C。okane-app・sst-appの2本をShared Foundationへ統合（Group C）。両アプリとも複数storage keyに分かれており、Learning Recordの定義に該当する配列部分（`okane_activity_log`・`sst_activity_log_v1`）のみを統合し、非配列の集計統計（`okane_records`）・gamification/設定state（`sst_week_badges_v1`・`sst_report_name_v1`）・Privacy機微度の高い自由記述記録（`sst_diary_entries_v1`、意図的にスコープ外化）はいずれも無変更のまま維持。okane-appの複数sectionレポート形式CSVへT5-E-A' Excel互換形式を適用し、単一情報行の結合日時セルもExcel自動認識対象になることを新たに実測で確認・対処。sst-appの`activityLog`には元々Viewer/CSV/削除UIが存在しないことを監査で確認、無理に新設せず。新規Foundation API追加なし。前Group（dotchiga-ii-app・miru-hirogaru-app）・Trace Sample Recording Pilot・Tracing Engine・Composite Storage（kyou-no-kiroku）はいずれも無変更・回帰ゼロを確認。 |
+| v1.0 Draft/RC + Addendum 6 | 2026-08-30 | Phase T5-F。Learning Record Foundation Programを正式Close。Foundation統合済み13/35・persistent-but-未統合1/35（mogura-tataki）・session-only 2/35・Communication History 1/35・記録なし18/35という区分を明示し、これらを機械的合算した「17/35」を単一の対応率として扱わないことを明記。T5完了条件10項目すべて達成を確認。mogura-tataki/bosai-app/tokei-app/gaze-keyboardへの残作業はT5のBlockerではなくpost-T5 backlogとして独立管理する方針を確定。Production コード変更なし（docsのみ）。 |

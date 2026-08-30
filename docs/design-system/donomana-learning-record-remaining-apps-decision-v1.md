@@ -333,16 +333,20 @@ T5-A/T5-B時点のConfirmed Inventory（baseline `afe74e9`）の分類自体（A
 
 ---
 
-## 15. Learning Record対応率（`865976d`時点）
+## 15. 記録関連機能の内訳（`865976d`時点）
 
-- **Foundation統合済み（`generate.js`の`LEARNING_RECORD_FOUNDATION_APPS`）**: **13本 / 35本**（miru-hirogaru-app・hiragana-learn・directions-app・kyou-no-kiroku・katakana-app・suji-manabou・mitsukete-touch-app・junban-miyou-app・kurabeyou-app・katachi-awase-app・dotchiga-ii-app・okane-app・sst-app）
+**用語の整理（重要）**: T5で確立した正式境界において、Learning Record（学習・活動記録） ≠ session-only（記録が永続しない） ≠ Communication History（発話内容そのものの記録）である。以下はこの境界を崩さない形で内訳を示す。「対応率」のような単一の集約率としては表現しない。
+
+- **Foundation統合済み Learning / Activity Record**: **13本 / 35本**（miru-hirogaru-app・hiragana-learn・directions-app・kyou-no-kiroku・katakana-app・suji-manabou・mitsukete-touch-app・junban-miyou-app・kurabeyou-app・katachi-awase-app・dotchiga-ii-app・okane-app・sst-app）
   - うち12本はflat array API、1本（kyou-no-kiroku）はComposite Storage Adapter経由
-- **何らかの学習記録機能を持つアプリ（B+C+C+D+D）**: 17本 / 35本（Foundation Audit文書と同数、分類区分に変化なし）
+- **Foundation未統合だが persistent Learning / Activity Recordあり**: **1本 / 35本**（mogura-tataki）
+- **→ persistent Learning / Activity Recordあり（上記2つの合計）**: **14本 / 35本**
+- **session-only**（Learning Recordではない。永続しないセッション状態）: **2本 / 35本**（bosai-app・tokei-app）
+- **Communication History**（Learning Recordではない。発話内容そのものの記録）: **1本 / 35本**（gaze-keyboard）
+- **記録なし**: **18本 / 35本**
+- 参考: 上記のうち「何らかのrecord / history / session記録があるアプリ」（persistent Learning Record 14 + session-only 2 + Communication History 1）は合計 **17本 / 35本** となるが、これは概念の異なる3分類を機械的に足し合わせた参考値であり、**「Learning Record対応率」とは呼ばない**。
 - **Viewerあり**: 15本（C+D 13本 + mogura-tataki + gaze-keyboard。bosai-appのteacher dashboardとtokei-appの結果画面はセッション限りのため「永続記録のViewer」としてはカウントしない）
 - **CSVあり（永続データ対象）**: 13本（C+D 13本のみ。mogura-tatakiはCSV無、gaze-keyboardは印刷のみ、bosai-app/tokei-appのCSVはセッション限りのスナップショットのため永続CSVとしてはカウントしない）
-- **session-only**: 2本（bosai-app・tokei-app）
-- **Communication History**: 1本（gaze-keyboard）
-- **完全に記録なし**: 18本
 
 ---
 
