@@ -845,6 +845,152 @@ Node.js harness（`generate.js`から`buildLearningRecordFoundationJSHTML()`を�
 
 ---
 
+## Addendum（Phase T5-E-B）: Learning Record Foundation Rollout — Group B（Multi-Input sibling apps）
+
+T5-E-Aに続く2回目のRolloutとして、miru-hirogaru-app（Multi-Input Reference、T5-B以来Foundation導入済み）と同型の「Multi-Input Foundation pattern」（`STORAGE_LOG_KEY`定数＋`readLog()`/`writeLog()`/`addLog()`の3関数構成、`inputMethod`フィールド統一済み）を持つ5本を対象とした: **mitsukete-touch-app・junban-miyou-app・kurabeyou-app・katachi-awase-app・dotchiga-ii-app**（実ファイル名はリポジトリから確認、推測なし）。T5-E-A'''で完成したTrace Sample Recording Pilot（hiragana-learn/katakana-app限定）はFreezeし、本Phaseでは横展開していない。
+
+### 33.1 Five-App Baseline Audit（実装確認）
+
+| 観点 | mitsukete-touch-app | junban-miyou-app | kurabeyou-app | katachi-awase-app | dotchiga-ii-app |
+|---|---|---|---|---|---|
+| storage key | `mitsukete_touch_log` | `junban_miyou_log` | `kurabeyou_log` | `katachi_log` | `dotchiga_ii_log` |
+| persistence | Local persistent | Local persistent | Local persistent | Local persistent | Local persistent |
+| record writer(旧) | `readLog/writeLog/addLog`（`donomanaRecordReadLog`と同型の素朴実装、retentionなし） | 同左（retentionなし） | `addLog`内で直接localStorage読み書き＋`LOG_MAX=200`retention、`readLog`は別途定義 | kurabeyouと同型（`LOG_MAX=200`） | `loadLog`/`addLog`、`addLog`内に200件固定retention |
+| schema(app-specific) | `{time,level,selectedPosition,itemRole,inputMethod,responseTime,dwellDuration,targetPosition,trialIndex}` | `{time,level,passenger,sequenceIndex,sequenceLength,inputMethod,responseTime,dwellDuration,trialIndex}` | `{time,concept,level,selected/prompt/firstSelected,correct,mistakeSelections,mistakes,responseTimeMs,questionIndex,questionTotal,inputMethod}`（level1〜4で構造が段階的に拡張） | `{time,level,concept,questionIndex,questionTotal,shape,expected,selected,correct,mistakes,mistakeSelections,responseTimeMs,inputMethod,shapeSize?}` | `{time,activity,category,pair,selectedChoice,selectedLabel,inputMethod,trialIndex,trialTotal,dwellDuration}` |
+| timestamp | `new Date().toISOString()`（ISO 8601 UTC） | 同左 | 同左 | 同左 | 同左 |
+| inputMethod | touch/gaze/switch等、実装済みの値のみ保存 | 同左 | touch/switch等 | touch等、**未追跡時は`'unknown'`文字列**（他4本は`null`、教材固有の既存差異、統一せず） | touch等 |
+| Viewer | `renderRecords()`、セッション要約＋一覧、show more pagination | 同左 | `renderRecords()`、level別に列を出し分け | 同左 | `renderRecordList()`、pagination |
+| CSV(旧) | `CSV_HEADERS`単一「日時」列、`formatRecordDateTimeFull()`手動実装 | 同左 | 同左（16列） | 同左（12列） | `RECORD_CSV_COLUMNS`英語キー名、`entry.time`を生ISO文字列のまま出力（他4本より状態が悪い） |
+| delete/clear | `#recordsDeleteBtn`/`#recordsConfirm`/`#recordsConfirmDelete`/`#recordsConfirmCancel`、confirm/cancel UI実装済み | 同左 | 同左 | 同左 | `#recordDeleteBtn`/`#recordConfirm`/`#recordConfirmBtn`/`#recordCancelBtn`（変数名は異なるが同一UIパターン、native `confirm()`不使用の独自confirm UI） |
+| retention | なし（無制限） | なし（無制限） | `LOG_MAX=200` | `LOG_MAX=200` | 200件固定 |
+| schemaVersion | なし（T5-E-Bで新規recordのみ付与） | 同左 | 同左 | 同左 | 同左 |
+| badge | `apps-data.json`で`📊 きろく機能あり`済み | 同左 | 同左 | 同左 | 同左 |
+| Foundation marker | 未導入（T5-E-Bで導入） | 未導入 | 未導入 | 未導入 | 未導入 |
+| Keyboard | native button ベース | 同左 | 同左 | 同左 | 同左 |
+| Touch | 実装済み | 実装済み | 実装済み | 実装済み | 実装済み |
+| Switch Scan | 実装済み（`buildScanItems`/`getScanTargets`系） | 実装済み | 実装済み | 実装済み | 実装済み（Settings内はscan対象外という既存仕様、T5-E-Bで変更せず） |
+| Gaze | 実装済み（dwell等） | 実装済み | 実装済み | 実装済み | 実装済み |
+| Helpとの干渉 | Helpなし（Group D、本Phase対象外） | Helpなし | Helpなし | Helpなし | **Help実装済み**（Standard Reference Implementation）。「記録」説明文はT5-E-B後も内容として正確なまま（CSV日時形式の技術詳細はHelpに書かれていないため修正不要） |
+
+### 33.2 Learning Record Classification
+
+5本とも **A（Learning / Activity Record）** に分類される。学習・活動の記録（いつ・どの活動に・どう取り組んだか）であり、B（ユーザー作成コンテンツ）・C（設定）・D（Communication History）・E（セッション限定state）のいずれにも該当しない。dotchiga-ii-appの「カスタム画像保存」（IndexedDB、Custom Choice機能）は学習記録ではなくコンテンツ保存であり、本Phaseのスコープ外として一切触れていない。
+
+### 33.3 Group Split Gate 判定
+
+5本とも array-based単純storage（`STORAGE_LOG_KEY`に配列そのものを保存）であり、kyou-no-kirokuのようなcomposite storage（`{children,records,...}`）・破壊的migrationリスク・非配列storage・曖昧なrecord意味論・特殊learner構造のいずれにも該当しないことをコード監査で確認した。**T5-E-B1/T5-E-B2への分割は不要と判断し、5本を単一Groupとして扱った。**
+
+### 33.4 Foundation Integration
+
+既存の`readLog`/`writeLog`/`addLog`（dotchiga-ii-appのみ`loadLog`）のシグネチャ・呼び出し箇所・entry形状は一切変更せず、内部実装のみFoundationへ委譲した（T5-C directions-app方式を踏襲）。
+
+```js
+// Before（mitsukete-touch-app / junban-miyou-app、retentionなしの単純型）
+function readLog() { try { var raw = localStorage.getItem(STORAGE_LOG_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
+function writeLog(log) { try { localStorage.setItem(STORAGE_LOG_KEY, JSON.stringify(log)); } catch (e) {} }
+function addLog(entry) { var log = readLog(); log.push(entry); writeLog(log); }
+
+// After
+function readLog() { return donomanaRecordReadLog(STORAGE_LOG_KEY); }
+function writeLog(log) { donomanaRecordWriteLog(STORAGE_LOG_KEY, log); }
+function addLog(entry) {
+  if (entry && entry.schemaVersion === undefined) entry.schemaVersion = 1;
+  donomanaRecordAddLog(STORAGE_LOG_KEY, entry);
+}
+```
+
+kurabeyou-app・katachi-awase-app・dotchiga-ii-appは`addLog()`内部に直接`LOG_MAX`（または200固定）のretention sliceロジックを持っていたため、Foundationの`donomanaRecordAddLog()`（retention非対応）へ単純委譲せず、`readLog()`+`donomanaRecordWriteLog()`を使ってretentionロジック自体は既存のままアプリ側に残した:
+
+```js
+// kurabeyou-app / katachi-awase-app（LOG_MAX retentionあり）
+function addLog(entry) {
+  if (entry && entry.schemaVersion === undefined) entry.schemaVersion = 1;
+  var log = readLog();
+  log.push(entry);
+  if (log.length > LOG_MAX) log = log.slice(log.length - LOG_MAX);
+  donomanaRecordWriteLog(STORAGE_LOG_KEY, log);
+}
+```
+
+全削除（`#recordsConfirmDelete`等のclickハンドラ）も、直接`localStorage.removeItem(STORAGE_LOG_KEY)`していた3本（kurabeyou-app・katachi-awase-app・dotchiga-ii-app）を`donomanaRecordClearLog(STORAGE_LOG_KEY)`へ委譲した（残り2本は既存の`writeLog([])`がそのままFoundation経由になるため変更不要）。
+
+**1操作→1 intended record**: 実ブラウザで`addLog()`1回の呼び出しに対しrecordが正確に+1件になることを5本全てで確認した（33.10節）。parallel loggerは追加していない。
+
+### 33.5 Marker Injection / generate.js
+
+T5-B〜T5-E-Aで確立した既存アンカーロジック（Foundation初回利用箇所を含む`<script>`タグ直前）をそのまま使用した。`LEARNING_RECORD_FOUNDATION_APPS`へ5アプリ名を追加しただけで、アンカーロジック自体・他の共通injector（lock-fs-btn/a11y-panel/home-btn等）には触れていない。`git diff`で、Foundation関数定義が各アプリの`STORAGE_LOG_KEY`初期化・最初の`donomanaRecordReadLog`呼び出しより確実に前に挿入されていることを確認した。`node generate.js`を複数回連続実行し、既に統合済みの6アプリ（hiragana-learn/katakana-app/suji-manabou/directions-app/kyou-no-kiroku/miru-hirogaru-app）が「既に最新」のまま追加diffを生まないことを確認した（既存Foundationアプリへの副作用ゼロ）。
+
+### 33.6 Foundation API変更
+
+**なし。** 既存13関数（Data Foundation 9・UI Foundation 4）を無変更のまま使用した。CSV日時整形には既存の`donomanaRecordFormatCsvDateTime()`（T5-E-A'で新設・User Approved）をそのまま再利用し、Group Bのためだけの新規API追加は行っていない。
+
+### 33.7 Legacy Compatibility / schemaVersion
+
+5本とも、以下を実ブラウザで確認した: `schemaVersion`欠落のlegacy recordが例外なく読み込める、malformed JSON（不正な文字列）が`[]`へ安全にフォールバックする、新規recordにのみ`schemaVersion: 1`が付与されlegacy recordは無変更のまま残る。一括migrationは行っていない。
+
+### 33.8 inputMethod
+
+5本とも既存コードが実際に記録している値（touch/gaze/switch等）のみをそのまま保存し、推測による新規追加は行っていない。katachi-awase-appの`currentInputMethod || 'unknown'`という文字列fallback（他4本は`null`）は教材固有の既存実装差異として維持し、統一しなかった。
+
+### 33.9 App-specific Semantics
+
+kurabeyou-appのlevel1〜4での段階的なfield拡張（level1:概念比較のみ→level4:順序当てクイズ）、katachi-awase-appの`shapeSize`（おおきさ概念のみ付与）、dotchiga-ii-appの`selectedLabel`（Custom Choice画像削除後もrecordの表示が壊れないための、選択時点の名前スナップショット）等、教材固有のsuccess-only構造・field命名を維持した。success-only教材（kurabeyou level1/2等）へ`correct=false`やmistake概念を新設していない。
+
+### 33.10 CSV Date/Time Excel Compatibility（T5-E-A' Standard適用）
+
+5本とも、既存CSVの「日時」単一列（`formatRecordDateTimeFull()`手動実装、または dotchiga-ii-appでは未整形の生ISO文字列）を、T5-E-A'で確立した`donomanaRecordFormatCsvDateTime()`による「日付」（`YYYY.MM.DD`）＋「時刻」（`HH:mm:ss`）の2列へ置き換えた。他の列（教材固有field）・BOM・既存escaping（ダブルクォート・カンマ・改行）は変更していない。**dotchiga-ii-appのみ列名が英語キー名（`date,time,activity,...`）であり日本語ヘッダーへ変更していない**（既存の列命名規約を維持、無関係なリファクタリングを避けるため）。
+
+実Microsoft Excel（COM自動化）で5本全ての生成CSVを検証し、`#######`が0件であることを確認した。カンマ・ダブルクォート含みfield（例:「みぎうえ,した」「りんご""みかん""」）・解析不能timestamp（fallback、元文字列保持）もあわせて実測・確認した（33.15節）。CSVのセルへtraceSample等の巨大JSON・base64を含めることは元々していない（Group Bはtrace sample自体を導入していないため該当なし）。
+
+### 33.11 Delete Safety
+
+5本とも監査の結果、**全てconfirm/cancel UIが既に実装済み**であることを確認した（`#recordsDeleteBtn`→`#recordsConfirm`→`#recordsConfirmDelete`/`#recordsConfirmCancel`という共通パターン、dotchiga-ii-appのみ変数名が異なるが同一UIパターン）。即時1クリック全削除は5本のいずれにも存在しなかった。**削除UI自体の変更は行っていない**（内部の削除処理のみFoundationへ委譲、33.4節）。
+
+### 33.12 Retention
+
+kurabeyou-app・katachi-awase-app・dotchiga-ii-appの既存retention（`LOG_MAX=200`／200固定）を実測で維持を確認した（33.16節）。mitsukete-touch-app・junban-miyou-appは元々無制限のままとした。一律の新しいMAX_LOGS等は導入していない（Standard §17のRECOMMENDED方針を維持）。
+
+### 33.13 Badge Audit
+
+5本とも`apps-data.json`で`📊 きろく機能あり`を既に保持しており、実装実態（永続Learning Record）と一致していることを`donomana-learning-record-foundation-audit-v1.md`§1で確認済み。本Phaseでbadgeの変更は行っていない。
+
+### 33.14 Gaze / Switch Scan Freeze
+
+Gaze設定（ON/OFF・dwell・progress・cooldown・target scale・spacing・entry grace・motion/speed）、Switch Scan（`data-scan`・`buildScanItems`/`getScanTargets`・highlight・activation・Escape）へは一切触れていない。変更したのは記録I/O（`readLog`/`writeLog`/`addLog`/`loadLog`）とCSV builder関数のみであり、記録Viewer自体のDOM構造・レンダリング関数は無変更のため、既存のscan candidate構成に影響しない。実ブラウザでswitch scan toggle・`buildScanItems()`/`getScanTargets()`呼び出しがエラーなく動作することを確認した（dotchiga-ii-appはSettings内が元々scan対象外という既存仕様のままで、これは本Phase以前からの設計であり回帰ではない）。
+
+### 33.15 Excel / CSV 検証結果
+
+実CSV生成→実Microsoft Excel（COM自動化）で5本全て検証: `#######` = 0件、日本語・カンマ含みfield・ダブルクォートエスケープ・解析不能timestampのfallback表示、いずれも正常。CSV injection対策（`="..."`等のformula workaround不使用）は既存のcsvEscape実装を維持し後退させていない。
+
+### 33.16 Automated / Real Browser Tests
+
+Playwright制御Chromiumによる実ブラウザ検証を5本全てで実施した: legacy record読み込み、`addLog()`によるrecord追加（schemaVersion付与・legacy record不変を確認）、reload永続化、Viewer render（`renderRecords()`/`renderRecordList()`、DOM構築エラーなし）、CSV export（BOM・日付/時刻分離）、削除confirm/cancel（3本を実際にクリック操作で確認、残り2本は共通パターンのコード一致により同等と判断）、retention cap維持（205件seed→200件へ正しくtrim、3本で確認）、Switch Scan toggle無エラー確認。**console/page error = 0/0**（全5本）。miru-hirogaru-app（Reference）もrecord追加・CSV・reloadを再確認し回帰なし。
+
+### 33.17 Trace Sample Pilot Isolation
+
+hiragana-learn.html・katakana-app.htmlは本Phaseで一切変更していない（`git diff`で確認）。traceSample schema・24 points/stroke resampling・quantization・「✏️ みる」・お手本overlay・validation・CSV除外・successful-only方針、いずれも無変更。Group Bの5アプリへtraceSampleは導入していない。実ブラウザで、あ（hiragana-learn）・ア（katakana-app）を実際になぞりPASS→traceSample保存→「✏️ みる」→拡大表示→お手本重ねを再確認し、全て回帰なしを確認した。
+
+### 33.18 Tracing Engine Isolation
+
+`evaluateCharacter`・`THRESHOLDS`・`TRACING_JUDGMENT_PROFILES`・Beginner Coarse Pass・Multi-Hypothesis Assignment・Self-Reflection Discrimination・Safety Guardは本Phaseで一切変更していない。`tools/tracing-poc/engine.js`・`engine-katakana.js`・hiragana-learn.html・katakana-app.htmlへの差分ゼロを`git diff`で確認済み。公式Golden Test 4種を再実行し、全て回帰ゼロを確認した。
+
+### 33.19 Composite Storage Isolation
+
+kyou-no-kiroku.htmlは本Phaseで一切変更していない。`donomanaRecordReadNestedCollection`/`WriteNestedCollection`・stable childId・record.childId、いずれも無変更。
+
+### 33.20 generate Idempotency
+
+`node generate.js`を複数回連続実行し、ファイルhashが完全一致することを確認した（対象5アプリ＋既存6 Foundationアプリの両方）。
+
+### 33.21 Rollout Lessons（次Group向けの教訓）
+
+- **retentionロジックが`addLog()`内部に直接埋め込まれているアプリでは、`donomanaRecordAddLog()`への単純委譲ができない。** `readLog()`+`donomanaRecordWriteLog()`の組み合わせでretentionを既存のままアプリ側に残す必要がある（kurabeyou-app・katachi-awase-app・dotchiga-ii-appで確認）。
+- **CSV日時の不具合の深刻度はアプリごとに異なりうる。** mitsukete-touch-app等は「読める1列文字列」を出していた一方、dotchiga-ii-appは生ISO文字列を無整形で出力しており、既存実装の完成度に差があった。「同じMulti-Input系列だから同じ状態」と仮定せず個別に監査する必要がある（本Phaseの§0で明示された方針どおり）。
+- **inputMethodのfallback値（`null` vs `'unknown'`文字列）はアプリごとに異なりうる。** 統一を試みず、既存の教材固有実装を維持すべき。
+- **delete confirm/cancel UIは、この系列（Multi-Input Foundation pattern）では5本中5本が既に実装済みだった。** T5-D以前の旧世代アプリ（katakana-app等）と異なり、M11/M12系列は当初からDelete Standardに近い実装を持っていた可能性が高い。次Groupでも個別確認は省略しないが、旧世代アプリほど問題が見つからない可能性を念頭に置くとよい。
+
+---
+
 ## 改訂履歴
 
 | 版 | 日付 | 内容 |
@@ -853,3 +999,4 @@ Node.js harness（`generate.js`から`buildLearningRecordFoundationJSHTML()`を�
 | v1.0 Draft/RC + Addendum | 2026-08-29 | Phase T5-C。directions-appをShared Foundationへ統合（Pilot C）。kyou-no-kirokuはStorage Shape非互換性のため統合せず読み取り専用調査に留めた（Pilot D）。gaze-keyboardをCommunication Historyとして分類。自動テスト13件・実ブラウザ検証（4 Pilot）完了。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
 | v1.0 Draft/RC + Addendum 2 | 2026-08-29 | Phase T5-C'。Composite Storage Adapter（`donomanaRecordReadNestedCollection`/`WriteNestedCollection`）を新設し、kyou-no-kirokuを正式な4本目Pilotとして安全に統合。学習者削除後のrecord誤帰属を防ぐstable childId方式を導入し、既存の`childIndex`不整合バグを修正。自動テスト36件・実ブラウザ検証（A/B/C削除再現含む）完了。4 Pilot Foundation Validated確定。全35アプリ対応・共通Viewer/CSV/Delete UI・Production Releaseは未着手のまま。 |
 | v1.0 Draft/RC + Addendum 3 | 2026-08-29 | Phase T5-E-A。4 Pilot以外への初のRollout（Group A: katakana-app・suji-manabou）。両アプリへFoundation委譲・schemaVersion付与を実施。katakana-appの削除確認欠落を修正、tracingJudgmentLevel表示を追加。suji-manabouは既存confirm()・教材固有activity構造（quiz非対応）を維持したまま統合。新規Foundation API追加なし。自動テスト21件・Katakana Golden Tests 4種・実ブラウザ検証（Group A + 既存4 Pilot回帰）完了。全17アプリ対応は未完了。 |
+| v1.0 Draft/RC + Addendum 4 | 2026-08-30 | Phase T5-E-B。Multi-Input sibling apps 5本（mitsukete-touch-app・junban-miyou-app・kurabeyou-app・katachi-awase-app・dotchiga-ii-app）をShared Foundationへ統合。Five-App Baseline Audit・Compatibility Matrix・Group Split Gate判定（分割不要）を実施。既存retentionロジック（LOG_MAX/200件）・delete confirm/cancel UI・教材固有semantics（success-only構造・inputMethod null/unknown差異）はすべて維持。T5-E-A'で確立したCSV Excel互換形式（日付/時刻分離）を5本に適用し実Excelで#######=0を確認。新規Foundation API追加なし。Trace Sample Recording Pilot（hiragana/katakana）・Tracing Engine・Composite Storage（kyou-no-kiroku）はいずれも無変更・回帰ゼロを確認。全17アプリ対応は未完了（残りはT5-E-C候補として提案）。 |

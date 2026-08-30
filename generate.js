@@ -1447,7 +1447,10 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 //    (全アプリ一括適用はしない。Phase T5-BはPilot 2本のみ: miru-hirogaru-app
 //    ・hiragana-learn)。
 // ============================================================
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou']);
+// Phase T5-E-B: Multi-Input sibling apps(miru-hirogaru-appと同型のFoundation未統合5本)を
+// 追加。既存writer(readLog/writeLog/addLog等)をFoundationのdonomanaRecordReadLog/WriteLog/
+// AddLog/ClearLogへ委譲する方式(directions-app方式)。Foundation API自体は追加していない。
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [
