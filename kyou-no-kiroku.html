@@ -1876,8 +1876,26 @@
    this block directly. Each app keeps its own storage key and its own record shape;
    this Foundation standardizes only the read/write/normalize/CSV mechanics, never
    the app-specific payload fields. */
+// Phase T7-H1: this function's own documented contract (Standard §9 —
+// "存在しない/壊れている場合は[]") already promised an array-or-[] return, but the
+// implementation only guarded a missing key and a JSON.parse failure — a storage
+// value that is valid JSON but NOT an array (e.g. {}, "hello", 123, true, null, an
+// object) parsed successfully and was returned as-is, silently breaking that
+// contract. donomanaRecordAddLog() (below) trusts this return value and calls
+// .push() on it directly with no guard of its own, so that gap surfaced there as
+// "log.push is not a function" (or a TypeError reading a property of null) instead
+// of here. Fixing the single point where raw storage is parsed — rather than adding
+// a second Array.isArray check in every caller — makes every caller (Add and any
+// direct Read caller across the 15 Foundation apps) safe at once, matching the
+// per-app defensive `Array.isArray(log) ? log : []` wrapper a few apps (e.g.
+// katachi-awase-app's own readLog()) already had to add locally for the same reason.
 function donomanaRecordReadLog(storageKey) {
-  try { var raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+  try {
+    var raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) { return []; }
 }
 function donomanaRecordWriteLog(storageKey, log) {
   try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
