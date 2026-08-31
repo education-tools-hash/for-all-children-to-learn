@@ -122,6 +122,26 @@
   .help-body ul { margin:4px 0; padding-left:1.3em; }
   .help-close-btn { display:block; width:100%; margin-top:16px; padding:12px; border:none; border-radius:50px; font-family:inherit; font-size:1rem; font-weight:900; color:#fff; cursor:pointer; background:linear-gradient(135deg,#74b9ff,#a29bfe); }
 
+  /* きろくモーダル（Phase T7-B Pilot B — Persistent Learning Record Foundation）。
+     .modal-backdrop/.help-modal/.help-body/.help-close-btnはhelpModalと共用する。 */
+  .record-history-open-btn { display:block; margin:6px auto 12px; background:none; border:2px solid #dfe6e9; color:#636e72; border-radius:50px; padding:8px 16px; font-family:inherit; font-size:0.85rem; font-weight:700; cursor:pointer; min-height:44px; }
+  .record-history-open-btn:hover { border-color:#74b9ff; color:#74b9ff; }
+  .record-history { max-height:40vh; overflow-y:auto; margin:6px 0; }
+  .record-history-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 4px; border-bottom:1px solid #edf1f0; }
+  .record-history-row:last-child { border-bottom:none; }
+  .record-history-main { display:flex; flex-wrap:wrap; gap:3px 10px; align-items:baseline; font-size:0.85rem; color:#3B4A54; }
+  .record-history-date { font-weight:700; }
+  .record-history-badge { color:#636e72; }
+  .record-history-score { font-weight:900; color:#00857B; }
+  .record-history-del { flex-shrink:0; min-width:44px; min-height:44px; border:none; background:none; color:#c0392b; font-size:1.1rem; cursor:pointer; border-radius:50%; }
+  .record-history-del:hover { background:rgba(192,57,43,0.1); }
+  .record-history-empty { text-align:center; color:#636e72; font-size:0.9rem; padding:20px 0; }
+  .record-history-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .record-action-btn { flex:1; min-width:120px; min-height:44px; border-radius:50px; font-family:inherit; font-size:0.85rem; font-weight:700; cursor:pointer; padding:10px 14px; border:2px solid #dfe6e9; background:#fff; color:#00857B; }
+  .record-action-btn:hover { border-color:#00A99D; }
+  .record-clear-btn { color:#c0392b; }
+  .record-clear-btn:hover { border-color:#c0392b; }
+
   /* NAV */
   nav { display:flex; justify-content:center; gap:10px; padding:20px 16px 16px; flex-wrap:wrap; }
   .tab-btn { background:white; border:3px solid transparent; border-radius:var(--dm-radius-pill); padding:12px 22px; font-family:inherit; font-size:clamp(0.9rem,2.5vw,1.15rem); font-weight:700; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 12px rgba(0,0,0,0.1); display:flex; align-items:center; gap:8px; }
@@ -833,6 +853,7 @@
   <div class="quiz-area">
     <div class="quiz-mode-select" id="quizModeSelect">
       <div class="quiz-mode-label">📋 もんだいのしゅるいをえらんでね！</div>
+      <button class="record-history-open-btn" id="openRecordHistoryBtn" aria-controls="recordModal" aria-expanded="false" onclick="openRecordHistory()">📚 これまでの きろくを みる</button>
       <div class="quiz-mode-btns">
         <button class="mode-btn active" id="modeBtn-read" onclick="selectQuizMode('read')">
           <span class="mode-icon">🕐→📝</span><span>よむもんだい</span>
@@ -1034,13 +1055,195 @@
       <p>右上の🔊ボタンで、効果音や読み上げのON/OFFを切り替えられます。</p>
 
       <h3>記録について</h3>
-      <p>「もんだいにちょうせん」で問題に取り組むと、「せんせいむけ きろく」から基本スコア・出題形式別の正答率・つまずき分析・問題ごとの詳細を確認でき、PNG保存・CSV書き出し・印刷もできます。この記録はこの回の取り組みだけを表示するもので、ホームに戻ったりページを閉じたりすると消えます。</p>
+      <p>「もんだいにちょうせん」で問題に取り組むと、「せんせいむけ きろく」から基本スコア・出題形式別の正答率・つまずき分析・問題ごとの詳細を確認でき、PNG保存・CSV書き出し・印刷もできます。この画面はこの回の取り組みだけを表示するもので、ホームに戻ったりページを閉じたりすると消えます。</p>
+      <p>1回分のもんだい（8問）を最後まで終えると、日時・むずかしさ・せいかい数などの記録がこの端末に保存されます。「もんだいにちょうせん」の最初の画面にある「📚 これまでの きろくを みる」から、過去の記録一覧の確認・記録ごとの削除・すべて削除・CSV書き出しができます。この記録はこの端末のブラウザに保存され、ページを閉じたり再度開いたりしても消えません（ブラウザのデータを消去した場合を除きます）。</p>
     </div>
     <button class="help-close-btn" id="helpCloseBtn">とじる</button>
   </div>
 </div>
 
+<!-- きろくモーダル（Phase T7-B Pilot B — Persistent Learning Record Foundation） -->
+<div class="modal-backdrop" id="recordModal" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle" inert aria-hidden="true">
+  <div class="help-modal">
+    <h2 id="recordModalTitle" tabindex="-1">📚 これまでの記録</h2>
+    <div class="help-body">
+      <div class="record-history" id="recordHistory"></div>
+      <div class="record-history-actions">
+        <button class="record-action-btn" id="recordHistoryCsvBtn" onclick="exportRecordHistoryCSV()">📄 CSVで書き出す</button>
+        <button class="record-action-btn record-clear-btn" id="recordHistoryClearBtn" onclick="clearRecordHistory()">🗑️ すべて削除</button>
+      </div>
+    </div>
+    <button class="help-close-btn" id="recordCloseBtn">とじる</button>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Learning Record Foundation (Phase T5-B PoC) — shared localStorage-backed
+   activity-log read/write/normalize helpers common to Learning Record Standard v1.0
+   (docs/design-system/donomana-learning-record-standard-v1_0.md). Auto-injected by
+   generate.js — edit generate.js's buildLearningRecordFoundationJSHTML() instead of
+   this block directly. Each app keeps its own storage key and its own record shape;
+   this Foundation standardizes only the read/write/normalize/CSV mechanics, never
+   the app-specific payload fields. */
+function donomanaRecordReadLog(storageKey) {
+  try { var raw = localStorage.getItem(storageKey); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function donomanaRecordWriteLog(storageKey, log) {
+  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
+}
+function donomanaRecordAddLog(storageKey, entry) {
+  var log = donomanaRecordReadLog(storageKey);
+  log.push(entry);
+  donomanaRecordWriteLog(storageKey, log);
+  return log;
+}
+function donomanaRecordClearLog(storageKey) {
+  donomanaRecordWriteLog(storageKey, []);
+}
+// schemaVersion欠落 = legacy v1として扱う(Standard §9)。既存フィールドは書き換えない。
+function donomanaRecordNormalizeLegacy(entry) {
+  if (entry && typeof entry === 'object' && entry.schemaVersion == null) entry.schemaVersion = 1;
+  return entry;
+}
+// Standard Core Schemaに沿った新規recordを組み立てる(将来のnested payload移行用。
+// 既存2 Pilotの実データ形式は変更しない。関数として提供し単体テストのみ対象)。
+function donomanaRecordCreate(appId, activity, inputMethod, payload) {
+  return {
+    timestamp: new Date().toISOString(),
+    appId: appId,
+    activity: activity,
+    inputMethod: (typeof inputMethod === 'string') ? inputMethod : null,
+    schemaVersion: 1,
+    payload: payload || {}
+  };
+}
+// UTF-8 BOM付きCSV文字列を組み立てる(Standard §17)。rows: 2次元配列(先頭行=header)。
+// ダウンロードUI自体は各アプリの既存実装を維持し、統一しない。
+function donomanaRecordBuildCsv(rows) {
+  function esc(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return /["\,\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  var body = rows.map(function(r) { return r.map(esc).join(','); }).join('\n');
+  return '\uFEFF' + body;
+}
+// Phase T5-C: Composite Storage Adapter — storageKeyの値がrecord配列そのものではなく
+// { records: [...], ...他のapp-specific property } のような複合objectの場合に、
+// 指定fieldだけを読み書きし、他のpropertyを完全に保持する(既知/未知を問わず)。
+// kyou-no-kiroku専用ではなく、同様の複合storage構造を持つ将来アプリでも再利用できる
+// 汎用primitiveとして提供する。array-basedのdonomanaRecordReadLog/WriteLogを
+// 複合objectのstorageKeyへ直接使わないこと(recordsだけの配列で他propertyを
+// 上書き破壊してしまう)。
+function donomanaRecordReadNestedCollection(storageKey, field) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = raw ? JSON.parse(raw) : null;
+    var arr = (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj[field] : undefined;
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function donomanaRecordWriteNestedCollection(storageKey, field, collection) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = null;
+    try { obj = raw ? JSON.parse(raw) : null; } catch (e2) { obj = null; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+    obj[field] = collection;
+    localStorage.setItem(storageKey, JSON.stringify(obj));
+  } catch (e) {}
+}
+// Phase T5-D: UI Foundation — Data Foundation(read/write/normalize/CSV)とは責務を分離した
+// 純粋な表示整形/grouping関数群(DOM操作なし、副作用なし)。Common Viewerの「Core表示」を
+// 構成する最小限のhelperのみを提供し、教材固有の要約文(例:「『あ』のなぞり」)は各アプリの
+// adapter責務のまま残す(Switch Scan共通仕様16.3節と同じ、helperはlifecycle/整形、
+// adapterはcontentという責務分離)。
+// timeValueはISO 8601・ja-JPロケール文字列("2026/8/29 19:28:18")・epoch msのいずれでも受け付け、解析できない場合は元の値をそのまま返す(値の欠落・空文字表示を防ぐ)。
+function donomanaRecordFormatDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return '';
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return (timeValue === null || timeValue === undefined) ? '' : String(timeValue);
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch (e) { return (timeValue === null || timeValue === undefined) ? '' : String(timeValue); }
+}
+// Phase T5-E-A': CSV Date/Time Excel Compatibility Fix — Excelは日時1列のCSV文字列を日付/時刻値
+// として自動認識するが、CSVには列幅情報を保存できないため既定列幅に収まらず「#######」表示に
+// なる(内部timestampやData Foundationのnormalize処理は無変更、CSV表示専用のpure helper)。
+// 日付・時刻の2列へ分離するだけでは不十分だった点に注意(実Excelで検証して判明): ハイフン
+// 区切り("2026-08-30")・スラッシュ区切り・漢字区切り("2026年8月30日")はいずれもExcelの自動
+// 日付認識に該当し、月または日が2桁の日付(1年の大半)では既定列幅を超えて結局#######に
+// なる。ドット区切り("2026.08.30")のみExcelの自動認識に該当せず常にプレーンテキストとして
+// 表示されることを実Excel COM検証で確認したため採用する。時刻(HH:MM:SS、コロン区切り)は
+// 自動的に時刻値へ変換されるが表示文字列が最大8文字("23:59:59")に収まり既定列幅を超えない
+// ことを確認済みのため、読みやすさを優先しコロン区切りのまま維持する。
+// timeValueはdonomanaRecordFormatDateTimeと同じくISO 8601・ja-JPロケール文字列・epoch ms・
+// Dateいずれも受け付ける。ローカル時刻basisで整形する(既存Viewerの表示・
+// donomanaRecordFormatDateTimeと同じlocal basisに揃え、UTCとの新たな時差混乱を作らない)。
+// 解析できない場合は元の文字列をdateへそのまま保持し(空白化・推測変換はしない)、timeは
+// 空文字を返す。
+function donomanaRecordFormatCsvDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return { date: '', time: '' };
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return { date: String(timeValue), time: '' };
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    var date = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
+    var time = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    return { date: date, time: time };
+  } catch (e) { return { date: (timeValue === null || timeValue === undefined) ? '' : String(timeValue), time: '' }; }
+}
+// entriesを日付ごとにグループ化する(新しい日付が先頭、group内も新しい順)。getTimeFnを渡さない
+// 場合はentry.timeを使う。解析できないtimestampのentryは「日付不明」groupへ末尾でまとめる
+// (無視・削除はしない)。
+function donomanaRecordGroupByDate(entries, getTimeFn) {
+  function dateKey(d) {
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  var todayKey = dateKey(new Date());
+  var yesterdayKey = dateKey(new Date(Date.now() - 86400000));
+  var groups = {};
+  (entries || []).forEach(function (entry) {
+    var raw = getTimeFn ? getTimeFn(entry) : entry.time;
+    var d = new Date(raw);
+    var valid = !isNaN(d.getTime());
+    var key = valid ? dateKey(d) : '__unknown__';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ entry: entry, ms: valid ? d.getTime() : -1 });
+  });
+  var keys = Object.keys(groups).sort(function (a, b) {
+    if (a === '__unknown__') return 1;
+    if (b === '__unknown__') return -1;
+    return a < b ? 1 : (a > b ? -1 : 0);
+  });
+  return keys.map(function (key) {
+    var items = groups[key].slice().sort(function (a, b) { return b.ms - a.ms; });
+    var label = key === '__unknown__' ? '日付不明'
+      : key === todayKey ? 'きょう'
+      : key === yesterdayKey ? 'きのう'
+      : (function () { var p = key.split('-'); return parseInt(p[1], 10) + '/' + parseInt(p[2], 10); })();
+    return { dateLabel: label, entries: items.map(function (x) { return x.entry; }) };
+  });
+}
+// inputMethodを利用者向け日本語ラベルへ変換する(Standard Core Schema §5のenumのみ対応)。
+// 未知の値・null/undefinedはnullを返す。呼び出し側はnullのとき「不明」等を表示せず、
+// 非表示にすることを推奨する(推測禁止の既存方針を維持)。
+function donomanaRecordFormatInputMethod(inputMethod) {
+  var MAP = { touch: 'タッチ', gaze: '視線', switch: 'スイッチ', keyboard: 'キーボード', click: 'クリック' };
+  if (inputMethod === null || inputMethod === undefined) return null;
+  return MAP[inputMethod] || null;
+}
+// hiragana-learn/katakana-appのtracingJudgmentLevel(easy/standard/precise)を
+// 利用者向け日本語ラベルへ変換する。フィールド欠落(legacy record)・未知の値はnullを返す。
+function donomanaRecordFormatTracingLevel(level) {
+  var MAP = { easy: 'やさしく', standard: 'ひょうじゅん', precise: 'ていねいに' };
+  return MAP[level] || null;
+}
+</script>
+<!-- /learning-record-foundation-js -->
 <script>
 // ============================================================
 // DIFFICULTY
@@ -1540,6 +1743,145 @@ document.addEventListener('keydown', e => {
   else if (document.activeElement === first) { e.preventDefault(); last.focus(); }
 });
 
+// ============================================================
+// きろくモーダル（Phase T7-B Pilot B — Persistent Learning Record
+// Foundation）。helpModalと同じinert切替方式を踏襲するが、モーダル内に
+// タイトル・削除ボタン(可変件数)・CSV・すべて削除・とじるの複数の
+// フォーカス可能要素が並ぶため、helpModal(要素2つのみ)のような
+// 方向を問わない単純な折り返しではなく、Shift+Tab/Tabを区別する
+// 標準的なfocus trapを実装する(first/lastの間はブラウザの自然な
+// Tab順に任せ、両端でのみ折り返す)。
+// ============================================================
+function openRecordHistory() {
+  renderRecordHistory();
+  const m = document.getElementById('recordModal');
+  m.classList.add('open');
+  m.removeAttribute('inert');
+  m.setAttribute('aria-hidden', 'false');
+  document.getElementById('openRecordHistoryBtn').setAttribute('aria-expanded', 'true');
+  document.getElementById('recordModalTitle').focus();
+}
+function closeRecordHistory() {
+  const m = document.getElementById('recordModal');
+  m.classList.remove('open');
+  m.setAttribute('inert', '');
+  m.setAttribute('aria-hidden', 'true');
+  document.getElementById('openRecordHistoryBtn').setAttribute('aria-expanded', 'false');
+  document.getElementById('openRecordHistoryBtn').focus();
+}
+document.getElementById('recordCloseBtn').addEventListener('click', closeRecordHistory);
+document.getElementById('recordModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeRecordHistory(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('recordModal').classList.contains('open')) closeRecordHistory();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const m = document.getElementById('recordModal');
+  if (!m.classList.contains('open')) return;
+  const first = document.getElementById('recordModalTitle');
+  const last = document.getElementById('recordCloseBtn');
+  if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+});
+
+// 1クイズセット完了ごとに1レコードとしてtokei_logへ保存する(セット単位、
+// T7-A inventoryドキュメントの推奨方針)。途中でホームに戻った場合は
+// showQuizFinal()に到達しないため記録されない(仕様)。inputMethodは
+// hiragana-learn方式(実際の入力方式を確実に判別するコードが存在しない
+// ため、推測を避けフィールド自体を持たない)を踏襲しnullを渡す。
+function saveQuizSessionRecord(correct, retried, avgTimeSecNum) {
+  const durationSec = Math.round((Date.now() - quizState.sessionStart) / 100) / 10;
+  const entry = donomanaRecordCreate('tokei-app', 'quiz', null, {
+    difficulty: difficulty,
+    mode: quizMode,
+    total: QUIZ_COUNT,
+    correct: correct,
+    retried: retried,
+    avgTimeSec: (typeof avgTimeSecNum === 'number') ? avgTimeSecNum : null,
+    durationSec: durationSec
+  });
+  const log = donomanaRecordAddLog('tokei_log', entry);
+  // セット単位の記録のため増加は緩やか。念のため上限のみ設ける(件数上限は
+  // RECOMMENDED、Standard §19)。
+  if (log.length > 200) donomanaRecordWriteLog('tokei_log', log.slice(log.length - 200));
+}
+
+function renderRecordHistory() {
+  const container = document.getElementById('recordHistory');
+  if (!container) return;
+  const log = donomanaRecordReadLog('tokei_log');
+  if (!Array.isArray(log) || log.length === 0) {
+    container.innerHTML = '<div class="record-history-empty">まだきろくがありません</div>';
+    return;
+  }
+  const modeNames = { read:'よむもんだい', set:'みつけるもんだい', both:'まぜまぜ' };
+  const diffNames = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
+  let html = '';
+  for (let i = log.length - 1; i >= 0; i--) {
+    const rec = log[i] || {};
+    const p = rec.payload || {};
+    const dateLabel = donomanaRecordFormatDateTime(rec.timestamp);
+    const diffLabel = diffNames[p.difficulty] || '—';
+    const modeLabel = modeNames[p.mode] || '—';
+    const scoreLabel = (typeof p.correct === 'number' && typeof p.total === 'number') ? `${p.correct} / ${p.total} もん` : '—';
+    html += `<div class="record-history-row">`
+      + `<div class="record-history-main">`
+      + `<span class="record-history-date">${dateLabel}</span>`
+      + `<span class="record-history-badge">${diffLabel}・${modeLabel}</span>`
+      + `<span class="record-history-score">${scoreLabel}</span>`
+      + `</div>`
+      + `<button class="record-history-del" onclick="deleteRecordEntry(${i})" aria-label="このきろくを削除">✕</button>`
+      + `</div>`;
+  }
+  container.innerHTML = html;
+}
+
+function deleteRecordEntry(idx) {
+  if (!confirm('このきろくを削除しますか？')) return;
+  const log = donomanaRecordReadLog('tokei_log');
+  if (!Array.isArray(log) || idx < 0 || idx >= log.length) return;
+  log.splice(idx, 1);
+  donomanaRecordWriteLog('tokei_log', log);
+  renderRecordHistory();
+}
+
+function clearRecordHistory() {
+  if (!confirm('すべてのきろくを削除しますか？')) return;
+  donomanaRecordClearLog('tokei_log');
+  renderRecordHistory();
+}
+
+function exportRecordHistoryCSV() {
+  const log = donomanaRecordReadLog('tokei_log');
+  const modeNames = { read:'よむもんだい', set:'みつけるもんだい', both:'まぜまぜ' };
+  const diffNames = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
+  const rows = [['日付','時刻','むずかしさ','もんだいのしゅるい','せいかい','もんだいすう','やりなおし','へいきんじかん(びょう)','かかった時間(びょう)']];
+  (Array.isArray(log) ? log : []).forEach(rec => {
+    const p = (rec && rec.payload) || {};
+    const dt = donomanaRecordFormatCsvDateTime(rec && rec.timestamp);
+    rows.push([
+      dt.date, dt.time,
+      diffNames[p.difficulty] || '',
+      modeNames[p.mode] || '',
+      (typeof p.correct === 'number') ? p.correct : '',
+      (typeof p.total === 'number') ? p.total : '',
+      (typeof p.retried === 'number') ? p.retried : '',
+      (typeof p.avgTimeSec === 'number') ? p.avgTimeSec : '',
+      (typeof p.durationSec === 'number') ? p.durationSec : ''
+    ]);
+  });
+  const csv = donomanaRecordBuildCsv(rows);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const now = new Date();
+  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  link.download = `tokei-kiroku-${ts}.csv`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function quizChangeDiff(d) {
   difficulty = d;
   // グローバルの難易度ボタンも同期
@@ -1787,9 +2129,10 @@ function buildTeacherPanel(correct) {
 
   // 平均回答時間(1回で正解した問題のみで計算)
   const validTimes = quizState.times.filter((t,i) => t>0 && quizState.attempts[i]===1);
-  const avgTime = validTimes.length > 0
-    ? (validTimes.reduce((a,b)=>a+b,0) / validTimes.length).toFixed(1)
-    : '—';
+  const avgTimeSecNum = validTimes.length > 0
+    ? Math.round((validTimes.reduce((a,b)=>a+b,0) / validTimes.length) * 10) / 10
+    : null;
+  const avgTime = avgTimeSecNum !== null ? avgTimeSecNum.toFixed(1) : '—';
 
   // Stats boxes
   document.getElementById('teacherStats').innerHTML = `
@@ -1890,6 +2233,9 @@ function buildTeacherPanel(correct) {
 
   // 子ども向けリザルト:とくい/もうすこしの時計を描画
   buildKidsResult(categories);
+
+  // T7-B Pilot B: Persistent Learning Record Foundationへ1レコード保存する
+  saveQuizSessionRecord(correct, retriedCount, avgTimeSecNum);
 }
 
 function buildKidsResult(categories) {

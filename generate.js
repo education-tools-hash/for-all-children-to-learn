@@ -1455,7 +1455,9 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // sst_diary_entries_v1〈きもち日記、音声入力を含みうる〉はPrivacy境界のため対象外)を追加。
 // Phase T7-B Pilot A: mogura-tataki(既存Legacy Persistent、flat array `mogura_v3`)を追加。
 // directions-app方式(既存writerをFoundationへ委譲、entry形状・60件ローリング上限は無変更)。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki']);
+// Phase T7-B Pilot B: tokei-app(session-only→persistent新設。新規storage key `tokei_log`、
+// 1クイズセット完了=1レコード。既存recordが存在しないためmigration概念自体が発生しない)。
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [
