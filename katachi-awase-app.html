@@ -197,6 +197,76 @@
   .shape-btn, .target-btn { transition: transform .15s; }
   body:not(.no-animation) .tap-pulse { transform: scale(1.08); }
 
+  /* =====================================================================
+     KAP-1: かたちでつくろう (puzzle concept). New shape kinds beyond the
+     existing circle/square/triangle: diamond (rotated square, symmetric
+     45° edges — a uniform box inset keeps the ::after ring visually even
+     all the way around, unlike the triangle's two different edge slopes
+     above) and semicircle (a 2:1 w:h box using the border-radius
+     shorthand's "/" horizontal-vertical-radius split, not clip-path —
+     simpler and crisp at any size). "Rectangle" needs no new shape kind:
+     it's shapeType 'square' rendered in a piece whose own w/h aren't
+     equal (see .puzzle-piece/.puzzle-target below); SHAPE_LABEL still
+     reads it as "しかく", which matches how a young child would name it.
+  ===================================================================== */
+  .shape-visual.shape-diamond { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); border-radius: 0; }
+  .target-btn .shape-visual.shape-diamond::after { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+  .shape-visual.shape-semicircle { border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+  .target-btn .shape-visual.shape-semicircle::after { border-radius: 50% 50% 0 0 / 100% 100% 0 0; }
+  .shape-visual.shape-trapezoid { clip-path: polygon(20% 100%, 80% 100%, 100% 0%, 0% 0%); border-radius: 0; }
+  .target-btn .shape-visual.shape-trapezoid::after { clip-path: polygon(20% 100%, 80% 100%, 100% 0%, 0% 0%); }
+
+  /* fixed, pattern-authored mirroring/rotation only (never user-driven — see
+     PUZZLE_PATTERNS piece.flip/piece.rotate; §22 explicitly allows a fixed rotation set
+     by the pattern author, forbids only interactive/user rotation) — applied as one
+     combined inline transform by pieceVisualTransform() below (not these classes, which
+     stay unused/available rather than risking an inline-vs-class transform conflict on
+     a piece that needs both) — lets one clip-path/border-radius definition (e.g. a
+     triangle that always points "up") cover a piece that needs to point down/left/right/
+     sideways in a specific picture. */
+  .shape-visual.flip-h { transform: scaleX(-1); }
+  .shape-visual.flip-v { transform: scaleY(-1); }
+
+  /* .puzzle-piece (tray)/.puzzle-target (board) opt out of the shared fixed
+     112/100/128px square sizing above — each pattern piece has its own w:h
+     aspect ratio (a roof is wider than it is tall, a window is small and
+     square, ...), set inline per-piece by JS (renderPuzzleBoard/
+     renderPuzzleTray). min-width/min-height:44px is a hard floor so a
+     visually-small decorative piece (e.g. a window) never becomes a
+     sub-44px hit target — the box can be forced larger than its % share
+     of the board while the shape-visual drawn inside it stays whatever
+     fraction of that box thepattern intends (same "small visual inside a
+     full-size hit box" idea .size-small already uses above). */
+  .shape-btn.puzzle-piece, .target-btn.puzzle-target {
+    width: auto; height: auto; min-width: 44px; min-height: 44px; padding: 4px;
+  }
+  #targetsTray.puzzle-board { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1 / 1; margin: var(--dm-space-2,8px) auto; background: var(--dm-color-surface,#fff); border-radius: var(--dm-radius-md,9px); border: 2px dashed var(--dm-color-border,#EDF1F0); display: block; }
+  #targetsTray.puzzle-board .target-btn.puzzle-target { position: absolute; }
+  #shapesTray.puzzle-tray-mode { min-height: 60px; }
+
+  /* completion motif animation — a short, gentle per-pattern flourish (never a jarring
+     bounce/shake), gated by both the existing animationEnabled toggle (no-animation class,
+     already used everywhere else in this file) and prefers-reduced-motion (design-tokens'
+     shared media query at the top of this file already zeroes all animation-duration to
+     0.01ms, which naturally neutralizes these too — no separate opt-out needed here). */
+  @keyframes puzzleSway { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(4deg); } }
+  @keyframes puzzleBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
+  @keyframes puzzleFlap { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(0.82); } }
+  @keyframes puzzleBloom { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  body:not(.no-animation) #targetsTray.motif-sway .puzzle-target.target-filled { animation: puzzleSway 1.6s ease-in-out infinite; transform-origin: 50% 100%; }
+  body:not(.no-animation) #targetsTray.motif-bob .puzzle-target.target-filled { animation: puzzleBob 1.8s ease-in-out infinite; }
+  body:not(.no-animation) #targetsTray.motif-flap .puzzle-target.target-filled { animation: puzzleFlap 1.1s ease-in-out infinite; }
+  body:not(.no-animation) #targetsTray.motif-bloom .puzzle-target.target-filled { animation: puzzleBloom .5s ease-out 1; }
+
+  .pattern-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: var(--dm-space-3,12px); margin: var(--dm-space-2,8px) 0; }
+  .pattern-card { min-height: 128px; padding: var(--dm-space-2,8px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .pattern-card:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: var(--dm-focus-offset,2px); }
+  .pattern-card-preview { width: 84px; height: 84px; position: relative; background: var(--dm-color-soft,#F6F9FA); border-radius: var(--dm-radius-sm,5px); overflow: hidden; }
+  .pattern-card-preview .preview-piece { position: absolute; }
+  .pattern-card-name { font-weight: 700; font-size: 0.9375rem; }
+  .pattern-card-meta { font-size: 0.75rem; color: var(--dm-color-sub,#5E6D78); }
+  .puzzle-back-btn { min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-4,16px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; margin-bottom: var(--dm-space-2,8px); }
+
   #sessionCompleteArea, #recordsEmpty { text-align: center; padding: var(--dm-space-6,24px); }
   #sessionCompleteArea h2 { font-size: var(--dm-font-size-subheading,1.25rem); }
   .primary-btn { min-height: 48px; padding: var(--dm-space-3,12px) var(--dm-space-6,24px); border-radius: var(--dm-radius-pill,999px); border: none; background: var(--dm-color-primary,#00A99D); color: #fff; font-size: 1.0625rem; font-weight: 700; cursor: pointer; }
@@ -591,6 +661,7 @@
   <div class="concept-row" id="conceptRow" role="group" aria-label="がくしゅうの しゅるい">
     <button class="concept-btn active" data-concept="shape" tabindex="0" aria-pressed="true">かたち</button>
     <button class="concept-btn" data-concept="size" tabindex="0" aria-pressed="false">おおきさ</button>
+    <button class="concept-btn" data-concept="puzzle" tabindex="0" aria-pressed="false">つくろう</button>
   </div>
 
   <div class="level-row" role="group" aria-label="レベル">
@@ -614,16 +685,31 @@
 
   <div id="feedbackText" aria-live="polite"></div>
 
+  <!-- KAP-1: pattern picker (concept='puzzle', no pattern chosen yet). Cards for the
+       currently-selected difficulty (level 1/2/3, reusing LEVEL_LABELS.puzzle). -->
+  <div id="patternPickerArea" hidden>
+    <div class="pattern-picker-grid" id="patternPickerGrid" role="group" aria-label="パズルをえらぶ"></div>
+  </div>
+
+  <!-- KAP-1: for concept='puzzle' with a pattern chosen, #targetsTray/#shapesTray are
+       reused as-is (not replaced) — renderPuzzleTask() below toggles #targetsTray into
+       an absolutely-positioned "board" via the .puzzle-board class (targets placed at
+       the pattern's own x/y/w/h, forming the picture) while #shapesTray keeps its
+       existing flex-tray layout for the .puzzle-piece pieces. Reusing the same two
+       elements — rather than separate containers — means Switch Scan/gaze (which read
+       shapesTray/targetsTray by id) work for puzzle mode with no changes of their own. -->
   <div id="playArea">
-    <div class="tray-label">ばしょ</div>
+    <button type="button" class="puzzle-back-btn" id="puzzleBackBtn" tabindex="0" hidden>← べつのパズルをえらぶ</button>
+    <div class="tray-label" id="targetsTrayLabel">ばしょ</div>
     <div class="tray" id="targetsTray"></div>
     <div class="tray-label">かたち</div>
     <div class="tray" id="shapesTray"></div>
   </div>
 
   <div id="sessionCompleteArea" hidden>
-    <h2>できたね！</h2>
+    <h2 id="sessionCompleteTitle">できたね！</h2>
     <button id="restartBtn" class="primary-btn" type="button" tabindex="0">もういちど</button>
+    <button id="puzzlePickAnotherBtn" class="primary-btn" type="button" tabindex="0" hidden>べつのパズル</button>
   </div>
 
   <div id="settingsPanel" hidden>
@@ -726,6 +812,8 @@
       <p>2つの形から選んで、それぞれの場所へ合わせます。取り組む問題数（3・5・10問）を選べ、いま何問目かが画面に表示されます。</p>
       <h4>レベル3：みっつ</h4>
       <p>まる・さんかく・しかくの3つを見分けて、それぞれの場所へ合わせます。レベル2と同じく、取り組む問題数を選べます。</p>
+      <h4>つくろう：かたちでつくろう</h4>
+      <p>いろとかたちを あわせて えを つくろう。色や形を見て、下絵の同じ場所へピースを合わせると、「おうち」や「さかな」などの絵が完成します。むずかしさは3段階（やさしい・ふつう・チャレンジ）から選べ、完成すると絵が少し動く楽しい演出があります。</p>
 
       <h3>操作方法</h3>
       <h4>タッチ</h4>
@@ -1011,6 +1099,12 @@ var recordsDeleteBtn = document.getElementById('recordsDeleteBtn');
 var recordsConfirm = document.getElementById('recordsConfirm');
 var recordsConfirmDelete = document.getElementById('recordsConfirmDelete');
 var recordsConfirmCancel = document.getElementById('recordsConfirmCancel');
+var playArea = document.getElementById('playArea');
+var patternPickerArea = document.getElementById('patternPickerArea');
+var patternPickerGrid = document.getElementById('patternPickerGrid');
+var puzzleBackBtn = document.getElementById('puzzleBackBtn');
+var sessionCompleteTitle = document.getElementById('sessionCompleteTitle');
+var puzzlePickAnotherBtn = document.getElementById('puzzlePickAnotherBtn');
 
 var STORAGE_SETTINGS_KEY = 'katachi_settings';
 var STORAGE_LOG_KEY = 'katachi_log';
@@ -1117,7 +1211,11 @@ function generateSizeTask(lvl) {
 // either way.
 var LEVEL_LABELS = {
   shape: { 1: 'ひとつ', 2: 'ふたつ', 3: 'みっつ' },
-  size: { 1: 'おなじ', 2: 'ちがう', 3: 'みっつ' }
+  size: { 1: 'おなじ', 2: 'ちがう', 3: 'みっつ' },
+  // KAP-1: puzzle concept reuses the existing level 1/2/3 buttons as its 3 difficulty
+  // tiers rather than inventing a separate difficulty control (§27/§51 — don't duplicate
+  // settings).
+  puzzle: { 1: 'やさしい', 2: 'ふつう', 3: 'チャレンジ' }
 };
 function updateLevelLabels() {
   levelBtns.forEach(function(b) {
@@ -1130,6 +1228,8 @@ function updateLevelLabels() {
 // of what they last selected (currentConcept is intentionally not persisted via
 // saveSettings()/loadSettings()).
 var currentConcept = 'shape';
+var currentPatternId = null; // KAP-1: which PUZZLE_PATTERNS entry is active (concept='puzzle' only)
+var puzzleStartedAt = null;  // KAP-1: Date.now() when the current puzzle task started, for durationMs
 var level = 1;
 var questionCount = 5;
 var ttsEnabled = true;
@@ -1236,9 +1336,230 @@ function generateTask(lvl) {
 }
 
 /* =====================================================================
+   KAP-1: かたちでつくろう (puzzle concept) — 20 original patterns, each a
+   small picture built from colored primitive shapes on a 0-100 x/100 y
+   normalized board (piece x/y = its own center; w/h = its own size, all
+   in the same 0-100 units). Unlike かたち/おおきさ, a puzzle piece's
+   correct target is a specific unique position in the picture, not "any
+   target of the same shape type" — two pieces are free to share the same
+   shape+color (e.g. two identical wheels) because matching here is by
+   piece.id, never by (shapeType,size) (see onTargetActivate below).
+   piece.flip ('h'|'v', optional): a fixed, pattern-authored mirror of the
+   shape-visual (§22 — never interactive/user rotation), so one shared
+   clip-path (e.g. a triangle that always points "up") can also serve as
+   e.g. a downward-pointing ice-cream cone or a tail pointing left.
+   No external asset/coordinate data was used — all 20 are original
+   compositions authored for this Phase. */
+SHAPE_LABEL.diamond = 'ひしがた';
+SHAPE_LABEL.semicircle = 'はんえん';
+SHAPE_LABEL.trapezoid = 'だいけい';
+var PUZZLE_COLOR = {
+  teal: '#00A99D', orange: '#F5A623', blue: '#4A8FD9', pink: '#D9639C', purple: '#8B6FD9',
+  green: '#7CB342', brown: '#B5804B', brown2: '#8C6742', yellow: '#FFC93C', red: '#EE6C7C',
+  sky: '#7FD1E8', cream: '#F3E3B3', stone: '#C9BBA8', dark: '#3B4A54'
+};
+// spoken/aria color name per PUZZLE_COLOR hex value (§55 — "あおい さんかく" needs both
+// color and shape since two pieces may share a shape+position-independent identity).
+var PUZZLE_COLOR_NAME = {};
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.teal] = 'みずいろ';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.orange] = 'オレンジいろ';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.blue] = 'あおい';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.pink] = 'ピンクいろ';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.purple] = 'むらさきいろ';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.green] = 'みどりいろ';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.brown] = 'ちゃいろの';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.brown2] = 'こげちゃいろの';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.yellow] = 'きいろい';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.red] = 'あかい';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.sky] = 'そらいろの';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.cream] = 'クリームいろの';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.stone] = 'いしいろの';
+PUZZLE_COLOR_NAME[PUZZLE_COLOR.dark] = 'くろい';
+var PUZZLE_PATTERNS = [
+  // ---- やさしい (3〜4ピース程度) ----
+  { id: 'house', name: 'おうち', difficulty: 1, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.blue, x: 50, y: 62, w: 42, h: 34 },
+    { id: 'p2', shape: 'triangle', color: PUZZLE_COLOR.red, x: 50, y: 34, w: 50, h: 30 },
+    { id: 'p3', shape: 'square', color: PUZZLE_COLOR.brown, x: 50, y: 78, w: 14, h: 20 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 66, y: 58, w: 12, h: 12 }
+  ] },
+  { id: 'flower', name: 'おはな', difficulty: 1, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.green, x: 50, y: 80, w: 8, h: 30 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 50, y: 46, w: 26, h: 26 },
+    { id: 'p3', shape: 'diamond', color: PUZZLE_COLOR.pink, x: 30, y: 46, w: 20, h: 20 },
+    { id: 'p4', shape: 'diamond', color: PUZZLE_COLOR.pink, x: 70, y: 46, w: 20, h: 20 }
+  ] },
+  { id: 'fish', name: 'さかな', difficulty: 1, motif: 'sway', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.blue, x: 44, y: 52, w: 46, h: 30 },
+    { id: 'p2', shape: 'triangle', color: PUZZLE_COLOR.teal, x: 76, y: 52, w: 24, h: 26, rotate: 90 },
+    { id: 'p3', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 40, y: 34, w: 16, h: 14 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.dark, x: 30, y: 46, w: 8, h: 8 }
+  ] },
+  { id: 'mushroom', name: 'きのこ', difficulty: 1, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'semicircle', color: PUZZLE_COLOR.red, x: 50, y: 42, w: 48, h: 26 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.cream, x: 50, y: 70, w: 22, h: 28 },
+    { id: 'p3', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 36, y: 36, w: 10, h: 10 }
+  ] },
+  { id: 'icecream', name: 'アイス', difficulty: 1, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.pink, x: 50, y: 38, w: 40, h: 40 },
+    { id: 'p2', shape: 'triangle', color: PUZZLE_COLOR.brown, x: 50, y: 72, w: 30, h: 34, flip: 'v' },
+    { id: 'p3', shape: 'diamond', color: PUZZLE_COLOR.teal, x: 62, y: 28, w: 8, h: 8 }
+  ] },
+  { id: 'rocket', name: 'ロケット', difficulty: 1, motif: 'bob', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.blue, x: 50, y: 52, w: 26, h: 40 },
+    { id: 'p2', shape: 'triangle', color: PUZZLE_COLOR.red, x: 50, y: 26, w: 26, h: 24 },
+    { id: 'p3', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 38, y: 74, w: 14, h: 18 },
+    { id: 'p4', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 62, y: 74, w: 14, h: 18 }
+  ] },
+  // ---- ふつう (5〜6ピース程度) ----
+  { id: 'butterfly', name: 'ちょうちょ', difficulty: 2, motif: 'flap', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.brown, x: 50, y: 50, w: 8, h: 50 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.purple, x: 30, y: 34, w: 28, h: 26 },
+    { id: 'p3', shape: 'circle', color: PUZZLE_COLOR.purple, x: 70, y: 34, w: 28, h: 26 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.pink, x: 34, y: 64, w: 20, h: 20 },
+    { id: 'p5', shape: 'circle', color: PUZZLE_COLOR.pink, x: 66, y: 64, w: 20, h: 20 }
+  ] },
+  { id: 'bird', name: 'ことり', difficulty: 2, motif: 'flap', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.orange, x: 44, y: 56, w: 40, h: 34 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.orange, x: 66, y: 36, w: 26, h: 26 },
+    { id: 'p3', shape: 'triangle', color: PUZZLE_COLOR.yellow, x: 82, y: 36, w: 12, h: 10, rotate: 90 },
+    { id: 'p4', shape: 'semicircle', color: PUZZLE_COLOR.brown, x: 38, y: 58, w: 22, h: 16 },
+    { id: 'p5', shape: 'circle', color: PUZZLE_COLOR.dark, x: 72, y: 32, w: 6, h: 6 },
+    { id: 'p6', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 22, y: 50, w: 16, h: 14, rotate: -90 }
+  ] },
+  { id: 'car', name: 'くるま', difficulty: 2, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.red, x: 50, y: 46, w: 60, h: 26 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.sky, x: 50, y: 28, w: 34, h: 18 },
+    { id: 'p3', shape: 'square', color: PUZZLE_COLOR.yellow, x: 50, y: 58, w: 54, h: 8 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.dark, x: 32, y: 64, w: 18, h: 18 },
+    { id: 'p5', shape: 'circle', color: PUZZLE_COLOR.dark, x: 68, y: 64, w: 18, h: 18 }
+  ] },
+  { id: 'boat', name: 'ふね', difficulty: 2, motif: 'bob', pieces: [
+    { id: 'p1', shape: 'trapezoid', color: PUZZLE_COLOR.brown, x: 50, y: 66, w: 56, h: 22 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.brown, x: 50, y: 40, w: 4, h: 36 },
+    { id: 'p3', shape: 'triangle', color: PUZZLE_COLOR.sky, x: 54, y: 34, w: 26, h: 32 },
+    { id: 'p4', shape: 'triangle', color: PUZZLE_COLOR.red, x: 62, y: 22, w: 10, h: 8, flip: 'h' },
+    { id: 'p5', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 36, y: 62, w: 10, h: 10 }
+  ] },
+  { id: 'train', name: 'きしゃ', difficulty: 2, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.blue, x: 44, y: 52, w: 50, h: 30 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.blue, x: 74, y: 40, w: 22, h: 26 },
+    { id: 'p3', shape: 'square', color: PUZZLE_COLOR.dark, x: 28, y: 30, w: 10, h: 20 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.dark, x: 32, y: 70, w: 14, h: 14 },
+    { id: 'p5', shape: 'circle', color: PUZZLE_COLOR.dark, x: 54, y: 70, w: 14, h: 14 },
+    { id: 'p6', shape: 'circle', color: PUZZLE_COLOR.sky, x: 74, y: 40, w: 10, h: 10 }
+  ] },
+  { id: 'umbrella', name: 'かさ', difficulty: 2, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'semicircle', color: PUZZLE_COLOR.red, x: 50, y: 46, w: 60, h: 30 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.brown, x: 50, y: 74, w: 6, h: 28 },
+    { id: 'p3', shape: 'semicircle', color: PUZZLE_COLOR.brown, x: 50, y: 88, w: 14, h: 10, flip: 'v' },
+    { id: 'p4', shape: 'triangle', color: PUZZLE_COLOR.yellow, x: 34, y: 44, w: 18, h: 22 },
+    { id: 'p5', shape: 'triangle', color: PUZZLE_COLOR.yellow, x: 66, y: 44, w: 18, h: 22, flip: 'h' }
+  ] },
+  { id: 'turtle', name: 'かめ', difficulty: 2, motif: 'sway', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.green, x: 50, y: 50, w: 48, h: 40 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.brown, x: 78, y: 50, w: 16, h: 16 },
+    { id: 'p3', shape: 'circle', color: PUZZLE_COLOR.brown, x: 28, y: 34, w: 13, h: 13 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.brown, x: 28, y: 66, w: 13, h: 13 },
+    { id: 'p5', shape: 'circle', color: PUZZLE_COLOR.brown, x: 70, y: 30, w: 13, h: 13 },
+    { id: 'p6', shape: 'circle', color: PUZZLE_COLOR.brown, x: 70, y: 70, w: 13, h: 13 }
+  ] },
+  { id: 'gift', name: 'プレゼント', difficulty: 2, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.purple, x: 50, y: 58, w: 48, h: 40 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.yellow, x: 50, y: 58, w: 10, h: 40 },
+    { id: 'p3', shape: 'square', color: PUZZLE_COLOR.yellow, x: 50, y: 46, w: 48, h: 10 },
+    { id: 'p4', shape: 'diamond', color: PUZZLE_COLOR.yellow, x: 42, y: 32, w: 16, h: 14 },
+    { id: 'p5', shape: 'diamond', color: PUZZLE_COLOR.yellow, x: 58, y: 32, w: 16, h: 14 }
+  ] },
+  // ---- チャレンジ (6〜8ピース程度) ----
+  { id: 'cat', name: 'ねこ', difficulty: 3, motif: 'sway', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.orange, x: 50, y: 70, w: 40, h: 36 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.orange, x: 50, y: 36, w: 34, h: 30 },
+    { id: 'p3', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 36, y: 20, w: 14, h: 16 },
+    { id: 'p4', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 64, y: 20, w: 14, h: 16 },
+    { id: 'p5', shape: 'semicircle', color: PUZZLE_COLOR.orange, x: 78, y: 76, w: 20, h: 30, flip: 'h' },
+    { id: 'p6', shape: 'circle', color: PUZZLE_COLOR.dark, x: 42, y: 34, w: 6, h: 6 },
+    { id: 'p7', shape: 'circle', color: PUZZLE_COLOR.dark, x: 58, y: 34, w: 6, h: 6 }
+  ] },
+  { id: 'dog', name: 'いぬ', difficulty: 3, motif: 'sway', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.brown, x: 50, y: 70, w: 42, h: 36 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.brown, x: 50, y: 36, w: 32, h: 28 },
+    { id: 'p3', shape: 'semicircle', color: PUZZLE_COLOR.brown2, x: 32, y: 26, w: 16, h: 20, flip: 'v' },
+    { id: 'p4', shape: 'semicircle', color: PUZZLE_COLOR.brown2, x: 68, y: 26, w: 16, h: 20, flip: 'v' },
+    { id: 'p5', shape: 'square', color: PUZZLE_COLOR.brown, x: 34, y: 92, w: 10, h: 16 },
+    { id: 'p6', shape: 'square', color: PUZZLE_COLOR.brown, x: 66, y: 92, w: 10, h: 16 },
+    { id: 'p7', shape: 'circle', color: PUZZLE_COLOR.dark, x: 50, y: 44, w: 8, h: 8 }
+  ] },
+  { id: 'robot', name: 'ロボット', difficulty: 3, motif: 'bob', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.blue, x: 50, y: 58, w: 40, h: 34 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.sky, x: 50, y: 26, w: 30, h: 24 },
+    { id: 'p3', shape: 'circle', color: PUZZLE_COLOR.red, x: 50, y: 10, w: 8, h: 8 },
+    { id: 'p4', shape: 'square', color: PUZZLE_COLOR.purple, x: 24, y: 56, w: 12, h: 22 },
+    { id: 'p5', shape: 'square', color: PUZZLE_COLOR.purple, x: 76, y: 56, w: 12, h: 22 },
+    { id: 'p6', shape: 'square', color: PUZZLE_COLOR.dark, x: 40, y: 88, w: 12, h: 16 },
+    { id: 'p7', shape: 'square', color: PUZZLE_COLOR.dark, x: 60, y: 88, w: 12, h: 16 },
+    { id: 'p8', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 50, y: 26, w: 10, h: 10 }
+  ] },
+  { id: 'airplane', name: 'ひこうき', difficulty: 3, motif: 'bob', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.sky, x: 44, y: 50, w: 54, h: 22 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.sky, x: 78, y: 50, w: 14, h: 14 },
+    { id: 'p3', shape: 'triangle', color: PUZZLE_COLOR.blue, x: 44, y: 30, w: 30, h: 20 },
+    { id: 'p4', shape: 'triangle', color: PUZZLE_COLOR.blue, x: 44, y: 70, w: 30, h: 20, flip: 'v' },
+    { id: 'p5', shape: 'triangle', color: PUZZLE_COLOR.red, x: 18, y: 40, w: 16, h: 18 },
+    { id: 'p6', shape: 'circle', color: PUZZLE_COLOR.dark, x: 50, y: 48, w: 8, h: 8 },
+    { id: 'p7', shape: 'square', color: PUZZLE_COLOR.dark, x: 88, y: 50, w: 4, h: 20 }
+  ] },
+  { id: 'castle', name: 'おしろ', difficulty: 3, motif: 'bloom', pieces: [
+    { id: 'p1', shape: 'square', color: PUZZLE_COLOR.stone, x: 24, y: 58, w: 20, h: 44 },
+    { id: 'p2', shape: 'square', color: PUZZLE_COLOR.stone, x: 76, y: 58, w: 20, h: 44 },
+    { id: 'p3', shape: 'square', color: PUZZLE_COLOR.stone, x: 50, y: 64, w: 36, h: 36 },
+    { id: 'p4', shape: 'triangle', color: PUZZLE_COLOR.red, x: 24, y: 30, w: 22, h: 20 },
+    { id: 'p5', shape: 'triangle', color: PUZZLE_COLOR.red, x: 76, y: 30, w: 22, h: 20 },
+    { id: 'p6', shape: 'triangle', color: PUZZLE_COLOR.red, x: 50, y: 40, w: 38, h: 18 },
+    { id: 'p7', shape: 'square', color: PUZZLE_COLOR.brown, x: 50, y: 80, w: 14, h: 20 },
+    { id: 'p8', shape: 'triangle', color: PUZZLE_COLOR.blue, x: 50, y: 18, w: 10, h: 10, flip: 'h' }
+  ] },
+  { id: 'owl', name: 'ふくろう', difficulty: 3, motif: 'flap', pieces: [
+    { id: 'p1', shape: 'circle', color: PUZZLE_COLOR.brown, x: 50, y: 58, w: 48, h: 44 },
+    { id: 'p2', shape: 'circle', color: PUZZLE_COLOR.brown, x: 50, y: 30, w: 36, h: 32 },
+    { id: 'p3', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 40, y: 28, w: 14, h: 14 },
+    { id: 'p4', shape: 'circle', color: PUZZLE_COLOR.yellow, x: 60, y: 28, w: 14, h: 14 },
+    { id: 'p5', shape: 'triangle', color: PUZZLE_COLOR.orange, x: 50, y: 36, w: 10, h: 10 },
+    { id: 'p6', shape: 'semicircle', color: PUZZLE_COLOR.brown2, x: 28, y: 60, w: 20, h: 30, flip: 'h' },
+    { id: 'p7', shape: 'semicircle', color: PUZZLE_COLOR.brown2, x: 72, y: 60, w: 20, h: 30 }
+  ] }
+];
+function getPuzzlePatternById(id) { return PUZZLE_PATTERNS.filter(function(p) { return p.id === id; })[0] || null; }
+function puzzlePatternsForDifficulty(diff) { return PUZZLE_PATTERNS.filter(function(p) { return p.difficulty === diff; }); }
+
+// canonical task shape for a chosen pattern — shapes are the (shuffled) draggable pieces,
+// targets are the picture's fixed silhouette slots. Reuses the exact same task fields
+// (selectedShapeId/placedShapeIds/mistakes/attemptsByShape/shapeStartedAt) as
+// generateTask()/generateSizeTask() so the whole existing state machine, drag, gaze, and
+// Switch Scan code works unmodified — only onTargetActivate's match rule and renderTask's
+// DOM layout are puzzle-aware (see below).
+function buildPuzzleTask(pattern) {
+  var shapeOrder = shuffleArray(pattern.pieces);
+  return {
+    level: pattern.difficulty,
+    puzzle: true,
+    patternId: pattern.id,
+    shapes: shapeOrder.map(function(p) { return { id: p.id, shapeType: p.shape, size: null, color: p.color, flip: p.flip || null, rotate: p.rotate || 0, w: p.w, h: p.h, placed: false }; }),
+    targets: pattern.pieces.map(function(p) { return { id: p.id, shapeType: p.shape, size: null, flip: p.flip || null, rotate: p.rotate || 0, x: p.x, y: p.y, w: p.w, h: p.h, filled: false }; }),
+    selectedShapeId: null,
+    placedShapeIds: [],
+    mistakes: [],
+    attemptsByShape: {},
+    shapeStartedAt: null,
+    startedAt: Date.now()
+  };
+}
+
+/* =====================================================================
    rendering
 ===================================================================== */
 function renderTask() {
+  if (currentConcept === 'puzzle') { renderPuzzleTask(); return; }
   shapesTray.innerHTML = '';
   targetsTray.innerHTML = '';
   if (!task) return;
@@ -1292,6 +1613,98 @@ function renderTask() {
   });
 }
 
+// KAP-1: same two-pass "targets then shapes" structure and identical event wiring as
+// renderTask() above (onShapeActivate/onTargetActivate/the 5 pointer handlers) — only
+// the DOM layout differs: targets are positioned absolutely (left/top/width/height, all
+// %, from the piece's own x/y/w/h) inside #targetsTray.puzzle-board so the un-filled
+// silhouette already reads as the picture, while #shapesTray keeps its normal flex tray.
+var PUZZLE_TRAY_UNIT_PX = 92; // tray-piece base size; see the width/height comment below
+// combined fixed rotate+flip transform for a piece's shape-visual (§22 — pattern-authored
+// only, applied once at render time, never interactive). Returns '' when neither is set,
+// so pieces that need neither never carry an empty transform attribute.
+function pieceVisualTransform(p) {
+  var parts = [];
+  if (p.rotate) parts.push('rotate(' + p.rotate + 'deg)');
+  if (p.flip === 'h') parts.push('scaleX(-1)');
+  else if (p.flip === 'v') parts.push('scaleY(-1)');
+  return parts.join(' ');
+}
+function puzzlePieceSpokenLabel(piece) {
+  var colorName = PUZZLE_COLOR_NAME[piece.color] || '';
+  var shapeName = SHAPE_LABEL[piece.shapeType] || piece.shapeType;
+  return colorName ? (colorName + ' ' + shapeName) : shapeName;
+}
+function renderPuzzleTask() {
+  shapesTray.innerHTML = '';
+  targetsTray.innerHTML = '';
+  targetsTray.classList.add('puzzle-board');
+  shapesTray.classList.add('puzzle-tray-mode');
+  if (!task) return;
+
+  task.targets.forEach(function(t) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'target-btn puzzle-target' + (t.filled ? ' target-filled' : '');
+    btn.tabIndex = 0;
+    btn.dataset.targetId = t.id;
+    btn.style.left = (t.x - t.w / 2) + '%';
+    btn.style.top = (t.y - t.h / 2) + '%';
+    btn.style.width = t.w + '%';
+    btn.style.height = t.h + '%';
+    btn.setAttribute('aria-label', puzzlePieceSpokenLabel(t) + ' を おくところ' + (t.filled ? '（おいた）' : ''));
+    var visual = document.createElement('div');
+    visual.className = 'shape-visual shape-' + t.shapeType;
+    var tTransform = pieceVisualTransform(t);
+    if (tTransform) visual.style.transform = tTransform;
+    if (t.filled) {
+      var filledShape = task.shapes.filter(function(s) { return s.id === t.id; })[0];
+      if (filledShape) visual.style.setProperty('--fill-color', filledShape.color);
+    }
+    var ring = document.createElement('div');
+    ring.className = 'gaze-dwell-ring';
+    btn.appendChild(visual);
+    btn.appendChild(ring);
+    btn.addEventListener('click', function() { onTargetActivate(t.id, currentInputMethod || 'click'); });
+    targetsTray.appendChild(btn);
+  });
+
+  task.shapes.forEach(function(s) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'shape-btn puzzle-piece' + (s.placed ? ' shape-placed' : '');
+    btn.tabIndex = 0;
+    btn.dataset.shapeId = s.id;
+    btn.setAttribute('aria-pressed', (task.selectedShapeId === s.id) ? 'true' : 'false');
+    btn.setAttribute('aria-label', puzzlePieceSpokenLabel(s));
+    btn.style.setProperty('--shape-color', s.color);
+    // Tray box keeps each piece's own w:h aspect ratio (so it still visually resembles
+    // its board silhouette) within a bounded px range; 26 is a "typical" mid-size piece
+    // unit chosen so an average piece renders close to PUZZLE_TRAY_UNIT_PX. The 44px
+    // floor is redundant with .puzzle-piece's CSS min-width/min-height (belt-and-braces),
+    // 132px keeps an oversized piece (e.g. a wide house body) from crowding the tray.
+    btn.style.width = clamp(Math.round(PUZZLE_TRAY_UNIT_PX * (s.w / 26)), 44, 132) + 'px';
+    btn.style.height = clamp(Math.round(PUZZLE_TRAY_UNIT_PX * (s.h / 26)), 44, 132) + 'px';
+    var visual = document.createElement('div');
+    visual.className = 'shape-visual shape-' + s.shapeType;
+    var sTransform = pieceVisualTransform(s);
+    if (sTransform) visual.style.transform = sTransform;
+    var ring = document.createElement('div');
+    ring.className = 'gaze-dwell-ring';
+    btn.appendChild(visual);
+    btn.appendChild(ring);
+    btn.addEventListener('click', function() {
+      if (suppressNextClick) { suppressNextClick = false; return; } // a real drag just completed via this same gesture
+      onShapeActivate(s.id, currentInputMethod || 'click');
+    });
+    btn.addEventListener('pointerdown', function(e) { onShapePointerDown(e, s.id); });
+    btn.addEventListener('pointermove', onShapePointerMove);
+    btn.addEventListener('pointerup', onShapePointerUp);
+    btn.addEventListener('pointercancel', onShapePointerCancel);
+    btn.addEventListener('lostpointercapture', onShapePointerLostCapture);
+    shapesTray.appendChild(btn);
+  });
+}
+
 function renderProgress() {
   if (!session) { progressArea.hidden = true; return; }
   progressArea.hidden = false;
@@ -1306,7 +1719,7 @@ function renderProgress() {
    waitingShape -> shapeSelected(waitingTarget) -> feedback -> waitingShape
    all shapes placed -> problemComplete -> next problem or sessionComplete
 ===================================================================== */
-function shouldShowQuestionCount() { return level === 2 || level === 3; }
+function shouldShowQuestionCount() { return currentConcept !== 'puzzle' && (level === 2 || level === 3); }
 
 function startProblem() {
   cancelActiveDrag();
@@ -1329,6 +1742,17 @@ function startLevel(n) {
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
   countRow.hidden = !shouldShowQuestionCount();
+  // KAP-1: puzzle's level 1/2/3 select a DIFFICULTY tier, not an immediately-generated
+  // problem — the next step is always the pattern picker (below), never startProblem().
+  if (currentConcept === 'puzzle') {
+    cancelActiveDrag();
+    task = null;
+    session = null;
+    renderProgress();
+    showPatternPicker();
+    saveSettings();
+    return;
+  }
   if (shouldShowQuestionCount()) {
     session = { total: questionCount, current: 0, startedAt: Date.now() };
   } else {
@@ -1338,6 +1762,141 @@ function startLevel(n) {
   startProblem();
   saveSettings();
 }
+
+/* =====================================================================
+   KAP-1: pattern picker / puzzle task lifecycle
+===================================================================== */
+function resetPuzzleAreas() {
+  targetsTray.innerHTML = '';
+  targetsTray.classList.remove('puzzle-board', 'motif-sway', 'motif-bob', 'motif-flap', 'motif-bloom');
+  shapesTray.innerHTML = '';
+  shapesTray.classList.remove('puzzle-tray-mode');
+  puzzleBackBtn.hidden = true;
+}
+function showPatternPicker() {
+  clearPendingFeedback();
+  task = null;
+  phase = 'waitingShape';
+  currentPatternId = null;
+  resetPuzzleAreas();
+  playArea.hidden = true;
+  sessionCompleteArea.hidden = true;
+  feedbackText.textContent = '';
+  renderPatternPickerGrid();
+  patternPickerArea.hidden = false;
+  if (scanMode) refreshSwitchScanItems();
+}
+// small self-drawn SVG-free preview: 2-4 of the pattern's own pieces, scaled into the
+// 84x84 card preview box with the same x/y/w/h percentages the real board uses — not an
+// external image (§40 — "20枚の外部画像を追加する方式は原則避ける").
+function buildPatternCardPreview(pattern) {
+  var wrap = document.createElement('div');
+  wrap.className = 'pattern-card-preview';
+  wrap.setAttribute('aria-hidden', 'true');
+  pattern.pieces.forEach(function(p) {
+    var el = document.createElement('div');
+    el.className = 'preview-piece shape-visual shape-' + p.shape;
+    var pvTransform = pieceVisualTransform(p);
+    if (pvTransform) el.style.transform = pvTransform;
+    el.style.left = (p.x - p.w / 2) + '%';
+    el.style.top = (p.y - p.h / 2) + '%';
+    el.style.width = p.w + '%';
+    el.style.height = p.h + '%';
+    el.style.background = p.color;
+    wrap.appendChild(el);
+  });
+  return wrap;
+}
+function renderPatternPickerGrid() {
+  patternPickerGrid.innerHTML = '';
+  puzzlePatternsForDifficulty(level).forEach(function(pattern) {
+    var card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'pattern-card';
+    card.tabIndex = 0;
+    card.dataset.patternId = pattern.id;
+    card.setAttribute('aria-label', pattern.name + ' の パズル（' + pattern.pieces.length + 'ピース）');
+    card.appendChild(buildPatternCardPreview(pattern));
+    var nameEl = document.createElement('div');
+    nameEl.className = 'pattern-card-name';
+    nameEl.textContent = pattern.name;
+    card.appendChild(nameEl);
+    var metaEl = document.createElement('div');
+    metaEl.className = 'pattern-card-meta';
+    metaEl.textContent = pattern.pieces.length + 'ピース';
+    card.appendChild(metaEl);
+    card.addEventListener('click', function() { choosePuzzlePattern(pattern.id); });
+    patternPickerGrid.appendChild(card);
+  });
+}
+function choosePuzzlePattern(patternId) {
+  var pattern = getPuzzlePatternById(patternId);
+  if (!pattern) return;
+  currentPatternId = patternId;
+  patternPickerArea.hidden = true;
+  playArea.hidden = false;
+  puzzleBackBtn.hidden = false;
+  startPuzzleTask(patternId);
+}
+function startPuzzleTask(patternId) {
+  var pattern = getPuzzlePatternById(patternId);
+  if (!pattern) return;
+  cancelActiveDrag();
+  clearPendingFeedback();
+  task = buildPuzzleTask(pattern);
+  phase = 'waitingShape';
+  feedbackText.textContent = '';
+  sessionCompleteArea.hidden = true;
+  puzzleStartedAt = Date.now();
+  resetDwellState();
+  renderTask();
+  if (scanMode) refreshSwitchScanItems();
+}
+// completion: keep the finished board visible with its motif animation for a short
+// celebration beat (§8-D — "穏やかで短いanimation"), log ONE record for the whole
+// puzzle (§46/§47 — never one entry per piece), then show the normal completion screen
+// with both "もういちど" (same pattern again) and "べつのパズル" (back to the picker).
+var PUZZLE_CELEBRATE_MS = 1800;
+function onPuzzleComplete() {
+  var pattern = getPuzzlePatternById(currentPatternId);
+  if (!pattern) return;
+  targetsTray.classList.add('motif-' + (pattern.motif || 'bloom'));
+  var durationMs = puzzleStartedAt ? (Date.now() - puzzleStartedAt) : null;
+  addLog({
+    time: new Date().toISOString(),
+    level: level,
+    concept: 'puzzle',
+    patternId: pattern.id,
+    patternName: pattern.name,
+    pieceCount: pattern.pieces.length,
+    correct: true,
+    durationMs: durationMs,
+    inputMethod: currentInputMethod || 'unknown'
+  });
+  feedbackText.textContent = 'できあがり！';
+  speak(pattern.name + ' が できあがったよ');
+  var capturedPatternId = currentPatternId;
+  feedbackTimeoutId = setTimeout(function() {
+    feedbackTimeoutId = null;
+    if (currentConcept !== 'puzzle' || currentPatternId !== capturedPatternId) return; // superseded
+    task = null;
+    phase = 'waitingShape';
+    resetPuzzleAreas();
+    playArea.hidden = true;
+    feedbackText.textContent = '';
+    sessionCompleteTitle.textContent = pattern.name + 'が できたね！';
+    puzzlePickAnotherBtn.hidden = false;
+    sessionCompleteArea.hidden = false;
+    resetDwellState();
+    if (scanMode) refreshSwitchScanItems();
+  }, effMs(PUZZLE_CELEBRATE_MS));
+}
+puzzleBackBtn.addEventListener('click', function() {
+  cancelActiveDrag();
+  clearPendingFeedback();
+  showPatternPicker();
+});
+puzzlePickAnotherBtn.addEventListener('click', function() { showPatternPicker(); });
 
 // Phase26-I3: switching concept always restarts at that concept's Level1 — startLevel()
 // already does the full safe reset this needs (cancelActiveDrag/clearPendingFeedback
@@ -1357,6 +1916,16 @@ function setConcept(concept) {
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
   updateLevelLabels();
+  currentPatternId = null;
+  // KAP-1: leaving 'puzzle' must restore #playArea (startLevel()'s puzzle branch hides it
+  // in favor of the pattern picker; every other concept expects it visible) and clear any
+  // leftover puzzle-board/puzzle-tray-mode classes/children — entering 'puzzle' below
+  // goes through startLevel(1) -> showPatternPicker(), which sets its own visibility.
+  if (concept !== 'puzzle') {
+    resetPuzzleAreas();
+    patternPickerArea.hidden = true;
+    playArea.hidden = false;
+  }
   startLevel(1);
 }
 
@@ -1436,7 +2005,14 @@ function onTargetActivate(targetId, inputMethod) {
   // when every id was a bare type string; that stops holding once composite type+size
   // ids exist. size is always null on both sides in the current "かたち" concept, so
   // this produces identical results to before.
-  if (target.shapeType === shape.shapeType && target.size === shape.size) {
+  // KAP-1: puzzle pieces match by unique piece id instead — a picture can legitimately
+  // contain two pieces that share the same shape+color (e.g. two identical wheels) but
+  // still each have exactly one correct position, which (shapeType,size) alone cannot
+  // distinguish (§19/§20 — position and identity both matter, not shape/color alone).
+  var isMatch = (currentConcept === 'puzzle')
+    ? (target.id === shape.id)
+    : (target.shapeType === shape.shapeType && target.size === shape.size);
+  if (isMatch) {
     handleCorrectPlacement(shape, targetId);
   } else {
     // Phase26-I3.1: pass a minimal {shapeType, size} snapshot rather than the whole
@@ -1654,7 +2230,11 @@ function handleCorrectPlacement(shape, targetId) {
   var target = task.targets.filter(function(t) { return t.id === targetId; })[0];
   if (target) target.filled = true;
 
-  if (level !== 1) {
+  // KAP-1: puzzle logs ONE record for the whole completed puzzle (onPuzzleComplete,
+  // below) rather than one per piece — never both, so this per-shape entry is skipped
+  // entirely for every puzzle difficulty (level 1 already skipped this for かたち/おおきさ
+  // too, as "free play"; puzzle's level 1/2/3 all skip it for a different reason).
+  if (currentConcept !== 'puzzle' && level !== 1) {
     var logEntry = {
       time: new Date().toISOString(),
       level: level,
@@ -1692,7 +2272,7 @@ function handleCorrectPlacement(shape, targetId) {
     if (task !== capturedTask) return;
     feedbackText.textContent = '';
     if (allPlaced) {
-      onProblemComplete();
+      if (currentConcept === 'puzzle') { onPuzzleComplete(); } else { onProblemComplete(); }
     } else {
       phase = 'waitingShape';
       resetDwellState();
@@ -1720,6 +2300,13 @@ function onSessionComplete() {
   shapesTray.innerHTML = '';
   targetsTray.innerHTML = '';
   feedbackText.textContent = '';
+  // KAP-1: reset back to the かたち/おおきさ defaults in case a previous puzzle
+  // completion (onPuzzleComplete) left these pointed at a pattern name / showing
+  // puzzlePickAnotherBtn — this function is never reached with concept='puzzle' itself
+  // (onPuzzleComplete is used instead) but a concept switch away from 'puzzle' does not
+  // otherwise touch sessionCompleteArea's own contents.
+  sessionCompleteTitle.textContent = 'できたね！';
+  puzzlePickAnotherBtn.hidden = true;
   sessionCompleteArea.hidden = false;
   resetDwellState();
   if (scanMode) refreshSwitchScanItems();
@@ -1732,7 +2319,19 @@ function clearPendingFeedback() {
 conceptBtns.forEach(function(b) { b.addEventListener('click', function() { setConcept(b.dataset.concept); }); });
 levelBtns.forEach(function(b) { b.addEventListener('click', function() { startLevel(Number(b.dataset.level)); }); });
 countBtns.forEach(function(b) { b.addEventListener('click', function() { setQuestionCount(Number(b.dataset.count)); }); });
-restartBtn.addEventListener('click', function() { startLevel(level); });
+restartBtn.addEventListener('click', function() {
+  // KAP-1: "もういちど" replays the SAME chosen pattern for puzzle (startLevel() would
+  // instead send the user back to the pattern picker, losing which pattern they just
+  // finished — see startLevel's puzzle branch).
+  if (currentConcept === 'puzzle' && currentPatternId) {
+    patternPickerArea.hidden = true;
+    playArea.hidden = false;
+    puzzleBackBtn.hidden = false;
+    startPuzzleTask(currentPatternId);
+  } else {
+    startLevel(level);
+  }
+});
 
 /* =====================================================================
    Switch Scan helper6 (donomana Switch Scan spec v1.8 contract)
@@ -1754,6 +2353,10 @@ function buildScanItems() {
     items = Array.from(settingsPanel.querySelectorAll('[tabindex="0"]'));
   } else if (helpPanel.hidden === false) {
     items = Array.from(helpPanel.querySelectorAll('[tabindex="0"]'));
+  } else if (!patternPickerArea.hidden) {
+    // KAP-1: pattern picker (concept='puzzle', no pattern chosen yet — task is still null
+    // here, so this must come before the `task` branch below).
+    items = Array.from(patternPickerGrid.querySelectorAll('.pattern-card'));
   } else if (task) {
     if (phase === 'waitingShape') {
       items = Array.from(shapesTray.querySelectorAll('.shape-btn:not(.shape-placed)'));
@@ -1766,8 +2369,11 @@ function buildScanItems() {
       items = Array.from(shapesTray.querySelectorAll('.shape-btn:not(.shape-placed)'))
         .concat(Array.from(targetsTray.querySelectorAll('.target-btn:not(.target-filled)')));
     } // feedback: 0 learning candidates
+    // KAP-1: "← べつのパズルをえらぶ" is always a valid Switch candidate while a puzzle is
+    // in play (any phase), same as it's always tap/keyboard-reachable.
+    if (!puzzleBackBtn.hidden) items = items.concat([puzzleBackBtn]);
   } else if (!sessionCompleteArea.hidden) {
-    items = [restartBtn];
+    items = puzzlePickAnotherBtn.hidden ? [restartBtn] : [restartBtn, puzzlePickAnotherBtn];
   }
   if (settingsPanel.hidden !== false && helpPanel.hidden !== false) {
     // conceptBtns live inside #conceptRow, which is `hidden` in production today —
@@ -2159,7 +2765,11 @@ function groupLogIntoSessions(log) {
   var lastQuestionIndex = null;
   log.forEach(function(entry) {
     var entryConcept = entry.concept || 'shape';
+    // KAP-1: a puzzle entry is already a complete, self-contained record (§46 — one entry
+    // = one finished puzzle, never one per piece like かたち/おおきさ), so it always starts
+    // its own session/display item rather than being merged with a neighboring one.
     var startsNew = !current || current.level !== entry.level || current.concept !== entryConcept ||
+      entryConcept === 'puzzle' ||
       (entry.questionIndex === 1 && lastQuestionIndex !== null && lastQuestionIndex !== 1);
     if (startsNew) { current = { level: entry.level, concept: entryConcept, entries: [] }; sessions.push(current); }
     current.entries.push(entry);
@@ -2191,6 +2801,20 @@ function sessionLevelName(sess) {
   return (LEVEL_LABELS[concept] && LEVEL_LABELS[concept][sess.level]) || ('レベル' + sess.level);
 }
 function summarizeSession(sess) {
+  // KAP-1: a puzzle "session" is always exactly the 1 entry onPuzzleComplete logged —
+  // かたち/おおきさ's "問題数／完了／まちがえた回数" framing (built from questionIndex/
+  // mistakes, neither of which a puzzle entry has) doesn't apply; show the pattern name,
+  // difficulty, piece count, and time taken instead.
+  if (sess.concept === 'puzzle') {
+    var pe = sess.entries[0] || {};
+    var diffName = sessionLevelName(sess);
+    var durationText = (typeof pe.durationMs === 'number') ? Math.round(pe.durationMs / 1000) + '秒' : '—';
+    return {
+      dateStr: pe.time ? formatRecordDate(pe.time) : '',
+      title: 'かたちでつくろう：' + (pe.patternName || pe.patternId || ''),
+      lines: ['むずかしさ：' + diffName + ' ／ ピース数：' + (pe.pieceCount != null ? pe.pieceCount : '—') + ' ／ かかった時間：' + durationText]
+    };
+  }
   var levelName = sessionLevelName(sess);
   var last = sess.entries[sess.entries.length - 1];
   var total = last ? last.questionTotal : null;
@@ -2203,6 +2827,7 @@ function summarizeSession(sess) {
   };
 }
 function sessionQuestionDetails(sess) {
+  if (sess.concept === 'puzzle') return []; // already a single complete record — nothing to expand
   var problems = groupEntriesByProblem(sess.entries);
   return problems.map(function(p) {
     var shapesText = p.shapes.map(function(e) {
@@ -2305,7 +2930,12 @@ recordsConfirmDelete.addEventListener('click', function() {
 // Phase26-I3: 'おおきさ' appended as a new 12th column, after the original 11. Existing column
 // order/positions are unchanged so any external tooling built against the old 11-column CSV
 // keeps working; the new column is simply blank for かたち-concept rows (no shapeSize recorded).
-var CSV_HEADERS = ['日付', '時刻', 'レベル', '問題番号', '問題数', '形', '正しい場所', '選択した場所', '正誤', '再試行回数', '間違えた内容', '反応時間ms', 'おおきさ'];
+// KAP-1: 'パズル名'/'かかった時間(秒)' appended as 14th/15th columns, same append-only
+// convention — blank on every かたち/おおきさ row. 利用者表示は内部concept値の
+// "puzzle" ではなく「かたちでつくろう」を使う(§50)。時間は分/秒混在で#######や
+// 誤変換のリスクがある単一「時間」列ではなく秒の素の数値のみにする(T5-E-A'の
+// Excel互換方針の延長)。
+var CSV_HEADERS = ['日付', '時刻', 'レベル', '問題番号', '問題数', '形', '正しい場所', '選択した場所', '正誤', '再試行回数', '間違えた内容', '反応時間ms', 'おおきさ', 'パズル名', 'かかった時間(秒)'];
 function csvEscape(value) {
   var s = (value === null || value === undefined) ? '' : String(value);
   if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
@@ -2318,8 +2948,20 @@ function buildRecordsCsvRows() {
   var rows = [CSV_HEADERS.slice()];
   readLog().forEach(function(e) {
     var entryConcept = e.concept || 'shape';
-    var levelName = (LEVEL_LABELS[entryConcept] && LEVEL_LABELS[entryConcept][e.level]) || ('レベル' + e.level);
     var dt = donomanaRecordFormatCsvDateTime(e.time);
+    if (entryConcept === 'puzzle') {
+      var diffName = (LEVEL_LABELS.puzzle && LEVEL_LABELS.puzzle[e.level]) || ('レベル' + e.level);
+      rows.push([
+        dt.date, dt.time, diffName,
+        '', '', '', '', '', // 問題番号/問題数/形/正しい場所/選択した場所 — puzzleには該当なし
+        e.correct ? 'せいかい' : 'まちがい',
+        '', '', '', '', // 再試行回数/間違えた内容/反応時間ms/おおきさ — puzzleには該当なし
+        e.patternName || e.patternId || '',
+        (typeof e.durationMs === 'number') ? Math.round(e.durationMs / 1000) : ''
+      ]);
+      return;
+    }
+    var levelName = (LEVEL_LABELS[entryConcept] && LEVEL_LABELS[entryConcept][e.level]) || ('レベル' + e.level);
     rows.push([
       dt.date,
       dt.time,
@@ -2340,7 +2982,8 @@ function buildRecordsCsvRows() {
         return typeof m === 'string' ? (SHAPE_LABEL[m] || m) : shapeSpokenLabel(m);
       }).join('、'),
       e.responseTimeMs,
-      e.shapeSize ? SIZE_LABEL[e.shapeSize] : ''
+      e.shapeSize ? SIZE_LABEL[e.shapeSize] : '',
+      '', '' // パズル名/かかった時間(秒) — かたち/おおきさには該当なし
     ]);
   });
   return rows;
