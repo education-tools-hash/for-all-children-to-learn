@@ -1463,8 +1463,14 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // ソロ/たいせん両モード対応、たいせんは個人名を含めずplayerCountのみ記録)・
 // shiritori2(新規storage key `shiritori2_log`、1セッション完了=1レコード。完走/「ん」で
 // 終わり早期終了の両方を正当な完了経路として記録)を追加。いずれも既存recordが存在しない
-// ためmigration概念自体が発生しない。T7-F時点ではLocal RCのみ、Production未反映。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2']);
+// ためmigration概念自体が発生しない。T7-F/T7-G完了、Production反映済み。
+// Phase T7-I Priority B: janken-app(新規storage key `janken_log`、クイズモード1セット完了=
+// 1レコード。たいせんモードは終了地点の無い連続プレイのためRecord対象外と判断)・
+// register-app(新規storage key `register_log`、お会計1回完了=1レコード。商品名は自由入力
+// のため保存せず、商品点数・合計金額・おあずかり・おつりのみ記録)を追加。cup_gameは
+// Inventoryの結果、終了地点の無い連続プレイでRecord Unitを自然に定義できないため今回は
+// 見送り(Local RCのみ、Production未反映)。
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [
