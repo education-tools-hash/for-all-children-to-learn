@@ -160,6 +160,13 @@
   .shape-btn { touch-action: none; }
   .shape-btn.dragging { opacity: .35; }
   .drag-proxy { transform: scale(1.08); box-shadow: 0 6px 16px rgba(0,0,0,.28); z-index: 1000; }
+  /* KAP-1' User Review Fix: the +8% scale above was obscuring the board's target
+     silhouette directly under the dragged piece ("選択した図形が大きくなり下絵が見えづ
+     らい" — measured 132x120 -> 142.56x138.24 before this fix). Puzzle pieces keep the
+     lifted box-shadow (an acceptable non-size selected/dragging cue per §6/§8) but not
+     the size change; かたち/おおきさ's drag-proxy is untouched (still scale(1.08) — this
+     selector only ever matches an element that also carries .puzzle-piece). */
+  .drag-proxy.puzzle-piece { transform: none; }
   .target-btn.drag-hover { outline: 3px dashed var(--dm-color-primary-dark,#00857B); outline-offset: 2px; }
 
   /* outline/silhouette rendering for un-filled targets: a box-shadow inset does not clip cleanly
@@ -262,6 +269,12 @@
   .pattern-card { min-height: 128px; padding: var(--dm-space-2,8px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .pattern-card:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: var(--dm-focus-offset,2px); }
   .pattern-card-preview { width: 84px; height: 84px; position: relative; background: var(--dm-color-soft,#F6F9FA); border-radius: var(--dm-radius-sm,5px); overflow: hidden; }
+  /* KAP-1' User Review Fix: おてほん(#puzzleSampleArea) — deliberately smaller than
+     #targetsTray.puzzle-board (max-width:420px) and placed above it, never overlapping
+     the board/tray so it can never block a target or piece; reuses the same
+     .pattern-card-preview box the pattern picker already uses, just centered here. */
+  #puzzleSampleArea { text-align: center; margin-bottom: var(--dm-space-2,8px); }
+  #puzzleSampleArea .pattern-card-preview { margin: 0 auto; border: 2px solid var(--dm-color-border,#EDF1F0); }
   .pattern-card-preview .preview-piece { position: absolute; }
   .pattern-card-name { font-weight: 700; font-size: 0.9375rem; }
   .pattern-card-meta { font-size: 0.75rem; color: var(--dm-color-sub,#5E6D78); }
@@ -700,6 +713,14 @@
        shapesTray/targetsTray by id) work for puzzle mode with no changes of their own. -->
   <div id="playArea">
     <button type="button" class="puzzle-back-btn" id="puzzleBackBtn" tabindex="0" hidden>← べつのパズルをえらぶ</button>
+    <!-- KAP-1' User Review Fix: reference-only display, never a Switch Scan/gaze/tap
+         target itself (§25) — a small preview of the completed picture, shown above the
+         board so it never covers targets/pieces. Toggled by #togglePuzzleSample below;
+         renderPuzzleSample() controls both its content and .hidden. -->
+    <div id="puzzleSampleArea" hidden aria-hidden="true">
+      <div class="tray-label">おてほん</div>
+      <div id="puzzleSamplePreview"></div>
+    </div>
     <div class="tray-label" id="targetsTrayLabel">ばしょ</div>
     <div class="tray" id="targetsTray"></div>
     <div class="tray-label">かたち</div>
@@ -722,6 +743,12 @@
     <div class="setting-row">
       <label for="toggleAnimation">アニメーション</label>
       <label class="toggle"><input type="checkbox" id="toggleAnimation" checked><span class="toggle-slider"></span></label>
+    </div>
+    <!-- KAP-1' User Review Fix: puzzle('かたちでつくろう')限定の設定。かたち/おおきさでは
+         setConcept()/openSettings()がこの行自体をhiddenにするため無関係のまま。 -->
+    <div class="setting-row" id="puzzleSampleSettingRow" hidden>
+      <label for="togglePuzzleSample">完成見本</label>
+      <label class="toggle"><input type="checkbox" id="togglePuzzleSample" checked><span class="toggle-slider"></span></label>
     </div>
     <div class="setting-row">
       <label for="toggleGaze">視線入力（ドウェル選択）</label>
@@ -813,7 +840,7 @@
       <h4>レベル3：みっつ</h4>
       <p>まる・さんかく・しかくの3つを見分けて、それぞれの場所へ合わせます。レベル2と同じく、取り組む問題数を選べます。</p>
       <h4>つくろう：かたちでつくろう</h4>
-      <p>いろとかたちを あわせて えを つくろう。色や形を見て、下絵の同じ場所へピースを合わせると、「おうち」や「さかな」などの絵が完成します。むずかしさは3段階（やさしい・ふつう・チャレンジ）から選べ、完成すると絵が少し動く楽しい演出があります。</p>
+      <p>いろとかたちを あわせて えを つくろう。色や形を見て、下絵の同じ場所へピースを合わせると、「おうち」や「さかな」などの絵が完成します。むずかしさは3段階（やさしい・ふつう・チャレンジ）から選べ、完成すると絵が少し動く楽しい演出があります。設定で「完成見本」の表示・非表示を切り替えられます。また、同じ形・同じ色のピースが2つ以上ある場合は、どちらを入れ替えて置いても正解になります。</p>
 
       <h3>操作方法</h3>
       <h4>タッチ</h4>
@@ -1105,6 +1132,10 @@ var patternPickerGrid = document.getElementById('patternPickerGrid');
 var puzzleBackBtn = document.getElementById('puzzleBackBtn');
 var sessionCompleteTitle = document.getElementById('sessionCompleteTitle');
 var puzzlePickAnotherBtn = document.getElementById('puzzlePickAnotherBtn');
+var puzzleSampleArea = document.getElementById('puzzleSampleArea');
+var puzzleSamplePreview = document.getElementById('puzzleSamplePreview');
+var puzzleSampleSettingRow = document.getElementById('puzzleSampleSettingRow');
+var togglePuzzleSample = document.getElementById('togglePuzzleSample');
 
 var STORAGE_SETTINGS_KEY = 'katachi_settings';
 var STORAGE_LOG_KEY = 'katachi_log';
@@ -1230,6 +1261,7 @@ function updateLevelLabels() {
 var currentConcept = 'shape';
 var currentPatternId = null; // KAP-1: which PUZZLE_PATTERNS entry is active (concept='puzzle' only)
 var puzzleStartedAt = null;  // KAP-1: Date.now() when the current puzzle task started, for durationMs
+var puzzleShowSample = true; // KAP-1' User Review Fix: 完成見本 ON/OFF, puzzle concept only, default ON (§17)
 var level = 1;
 var questionCount = 5;
 var ttsEnabled = true;
@@ -1281,7 +1313,8 @@ function saveSettings() {
     gazeEnabled: gazeEnabled, scanSpeed: scanSpeed,
     dwellDurationMs: dwellDurationMs, entryDelayMs: entryDelayMs, cooldownMs: cooldownMs,
     dwellProgressVisible: dwellProgressVisible, gazeTargetScalePct: gazeTargetScalePct,
-    targetSpacingWide: targetSpacingWide, motionSpeedLevel: motionSpeedLevel
+    targetSpacingWide: targetSpacingWide, motionSpeedLevel: motionSpeedLevel,
+    puzzleShowSample: puzzleShowSample
   };
   try { localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
 }
@@ -1297,6 +1330,9 @@ function loadSettings() {
     animationEnabled = (typeof s.animation === 'boolean') ? s.animation : true;
     gazeEnabled = (typeof s.gazeEnabled === 'boolean') ? s.gazeEnabled : false;
     scanSpeed = (typeof s.scanSpeed === 'number') ? s.scanSpeed : 1400;
+    // KAP-1' User Review Fix §23: invalid/missing/legacy (pre-KAP-1') value safely
+    // falls back to the documented default (ON), never throws/blanks.
+    puzzleShowSample = (typeof s.puzzleShowSample === 'boolean') ? s.puzzleShowSample : true;
     // Gaze Standard settings: existing saved objects predate these fields, so a
     // missing/malformed field always safely merges to its documented default
     // (no migration step needed).
@@ -1538,14 +1574,29 @@ function puzzlePatternsForDifficulty(diff) { return PUZZLE_PATTERNS.filter(funct
 // generateTask()/generateSizeTask() so the whole existing state machine, drag, gaze, and
 // Switch Scan code works unmodified — only onTargetActivate's match rule and renderTask's
 // DOM layout are puzzle-aware (see below).
+// KAP-1' User Review Fix §26-32: two pieces the child cannot visually tell apart
+// (identical shape/color/size/orientation) must be freely interchangeable, not locked
+// to whichever specific board position the pattern author happened to list them at.
+// matchKey captures exactly the attributes that affect appearance — shape, color, size
+// (w/h rounded, since sub-pixel authoring differences shouldn't split an otherwise-
+// identical pair into separate groups), and orientation (rotate normalized to 0-359,
+// flip as authored) — deliberately NOT piece.id (Identity ≠ Compatibility, §30).
+// Occupancy (§33) needs no extra code here: a target already stops being a candidate
+// for any input method the instant target.filled is true (buildScanItems/
+// getGazeTargets/CSS pointer-events all already filter on it), so two matchKey-equal
+// targets can never both accept the same or a second piece.
+function pieceMatchKey(p) {
+  var rot = ((p.rotate || 0) % 360 + 360) % 360;
+  return [p.shape, p.color, Math.round(p.w), Math.round(p.h), rot, p.flip || ''].join('|');
+}
 function buildPuzzleTask(pattern) {
   var shapeOrder = shuffleArray(pattern.pieces);
   return {
     level: pattern.difficulty,
     puzzle: true,
     patternId: pattern.id,
-    shapes: shapeOrder.map(function(p) { return { id: p.id, shapeType: p.shape, size: null, color: p.color, flip: p.flip || null, rotate: p.rotate || 0, w: p.w, h: p.h, placed: false }; }),
-    targets: pattern.pieces.map(function(p) { return { id: p.id, shapeType: p.shape, size: null, flip: p.flip || null, rotate: p.rotate || 0, x: p.x, y: p.y, w: p.w, h: p.h, filled: false }; }),
+    shapes: shapeOrder.map(function(p) { return { id: p.id, shapeType: p.shape, size: null, color: p.color, flip: p.flip || null, rotate: p.rotate || 0, w: p.w, h: p.h, matchKey: pieceMatchKey(p), placed: false }; }),
+    targets: pattern.pieces.map(function(p) { return { id: p.id, shapeType: p.shape, size: null, flip: p.flip || null, rotate: p.rotate || 0, x: p.x, y: p.y, w: p.w, h: p.h, matchKey: pieceMatchKey(p), filled: false }; }),
     selectedShapeId: null,
     placedShapeIds: [],
     mistakes: [],
@@ -1772,6 +1823,25 @@ function resetPuzzleAreas() {
   shapesTray.innerHTML = '';
   shapesTray.classList.remove('puzzle-tray-mode');
   puzzleBackBtn.hidden = true;
+  puzzleSampleArea.hidden = true;
+  puzzleSamplePreview.innerHTML = '';
+}
+// KAP-1' User Review Fix: おてほん(完成見本) — reference-only, built from the same
+// buildPatternCardPreview() the pattern picker cards already use (§20 — "見本サイズは
+// Puzzle Boardより小さい", reusing the 84x84 box rather than inventing a second size).
+// Toggled independently of task/placement state (§24) — never touches task/session/
+// puzzleStartedAt, only #puzzleSampleArea's own content and .hidden.
+function renderPuzzleSample() {
+  if (!puzzleShowSample || currentConcept !== 'puzzle' || !currentPatternId) {
+    puzzleSampleArea.hidden = true;
+    puzzleSamplePreview.innerHTML = '';
+    return;
+  }
+  var pattern = getPuzzlePatternById(currentPatternId);
+  if (!pattern) { puzzleSampleArea.hidden = true; return; }
+  puzzleSamplePreview.innerHTML = '';
+  puzzleSamplePreview.appendChild(buildPatternCardPreview(pattern));
+  puzzleSampleArea.hidden = false;
 }
 function showPatternPicker() {
   clearPendingFeedback();
@@ -1850,6 +1920,7 @@ function startPuzzleTask(patternId) {
   puzzleStartedAt = Date.now();
   resetDwellState();
   renderTask();
+  renderPuzzleSample();
   if (scanMode) refreshSwitchScanItems();
 }
 // completion: keep the finished board visible with its motif animation for a short
@@ -1917,6 +1988,7 @@ function setConcept(concept) {
   });
   updateLevelLabels();
   currentPatternId = null;
+  puzzleSampleSettingRow.hidden = (concept !== 'puzzle');
   // KAP-1: leaving 'puzzle' must restore #playArea (startLevel()'s puzzle branch hides it
   // in favor of the pattern picker; every other concept expects it visible) and clear any
   // leftover puzzle-board/puzzle-tray-mode classes/children — entering 'puzzle' below
@@ -2005,12 +2077,15 @@ function onTargetActivate(targetId, inputMethod) {
   // when every id was a bare type string; that stops holding once composite type+size
   // ids exist. size is always null on both sides in the current "かたち" concept, so
   // this produces identical results to before.
-  // KAP-1: puzzle pieces match by unique piece id instead — a picture can legitimately
-  // contain two pieces that share the same shape+color (e.g. two identical wheels) but
-  // still each have exactly one correct position, which (shapeType,size) alone cannot
-  // distinguish (§19/§20 — position and identity both matter, not shape/color alone).
+  // KAP-1' User Review Fix (superseding the original KAP-1 id-based rule): puzzle
+  // pieces match by matchKey (shape+color+size+orientation — "does this look the same
+  // as what belongs here", §26/§28), not by unique piece id. Two visually-identical
+  // pieces (e.g. two identical black squares) are now freely interchangeable between
+  // their two equivalent targets; a piece is still never correct in a target that looks
+  // different, and target.filled already keeps a piece from double-occupying a target
+  // once placed (§33 — no separate occupancy check needed here).
   var isMatch = (currentConcept === 'puzzle')
-    ? (target.id === shape.id)
+    ? (target.matchKey === shape.matchKey)
     : (target.shapeType === shape.shapeType && target.size === shape.size);
   if (isMatch) {
     handleCorrectPlacement(shape, targetId);
@@ -2076,7 +2151,11 @@ function createDragProxy(originalEl) {
   proxy.removeAttribute('id');
   proxy.removeAttribute('tabindex');
   proxy.setAttribute('aria-hidden', 'true');
-  proxy.className = 'shape-btn drag-proxy';
+  // KAP-1': preserve 'puzzle-piece' (lost otherwise, since every other class is dropped
+  // here) so the CSS below can cancel .drag-proxy's scale(1.08) specifically for puzzle
+  // pieces — かたち/おおきさ pieces never carry this class, so their drag-proxy className
+  // stays exactly 'shape-btn drag-proxy' (byte-for-byte what it was before), unaffected.
+  proxy.className = 'shape-btn drag-proxy' + (originalEl.classList.contains('puzzle-piece') ? ' puzzle-piece' : '');
   proxy.style.position = 'fixed';
   proxy.style.left = rect.left + 'px';
   proxy.style.top = rect.top + 'px';
@@ -2690,6 +2769,7 @@ function openSettings() {
   cancelActiveDrag();
   settingsPanel.hidden = false;
   settingsBtn.setAttribute('aria-expanded', 'true');
+  puzzleSampleSettingRow.hidden = (currentConcept !== 'puzzle'); // defensive re-sync (§22)
   renderRecords();
   if (scanMode) refreshSwitchScanItems();
 }
@@ -2742,6 +2822,14 @@ toggleAnimation.addEventListener('change', function() {
   animationEnabled = toggleAnimation.checked;
   document.body.classList.toggle('no-animation', !animationEnabled);
   saveSettings();
+});
+// KAP-1' User Review Fix §24: switching mid-puzzle only changes what's displayed —
+// placed pieces/progress/elapsed time/task are all untouched (renderPuzzleSample() only
+// rebuilds #puzzleSamplePreview's own content from the still-unchanged currentPatternId).
+togglePuzzleSample.addEventListener('change', function() {
+  puzzleShowSample = togglePuzzleSample.checked;
+  saveSettings();
+  renderPuzzleSample();
 });
 
 /* =====================================================================
@@ -3015,6 +3103,7 @@ loadSettings();
 toggleTts.checked = ttsEnabled;
 toggleAnimation.checked = animationEnabled;
 document.body.classList.toggle('no-animation', !animationEnabled);
+togglePuzzleSample.checked = puzzleShowSample;
 toggleScan.checked = false; // scanMode itself always starts OFF regardless of stored gazeEnabled
 scanSpeedRange.value = String(scanSpeed);
 countBtns.forEach(function(b) {
