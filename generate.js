@@ -1457,7 +1457,14 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // directions-app方式(既存writerをFoundationへ委譲、entry形状・60件ローリング上限は無変更)。
 // Phase T7-B Pilot B: tokei-app(session-only→persistent新設。新規storage key `tokei_log`、
 // 1クイズセット完了=1レコード。既存recordが存在しないためmigration概念自体が発生しない)。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app']);
+// Phase T7-D: nazori-app(既存Legacy Persistent `nazori_records`をFoundationへ委譲)・
+// bosai-app(session-only→persistent新設、新規storage key `bosai_log`)を追加。
+// Phase T7-F Priority A: matching-app(新規storage key `matching_log`、1ゲーム完了=1レコード。
+// ソロ/たいせん両モード対応、たいせんは個人名を含めずplayerCountのみ記録)・
+// shiritori2(新規storage key `shiritori2_log`、1セッション完了=1レコード。完走/「ん」で
+// 終わり早期終了の両方を正当な完了経路として記録)を追加。いずれも既存recordが存在しない
+// ためmigration概念自体が発生しない。T7-F時点ではLocal RCのみ、Production未反映。
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [
