@@ -3471,6 +3471,21 @@ window._fsMic=_fsMic;
 })();
 // Word・印刷：完全排他制御
 // dwell完了 → _dwellJustFired フラグをセット → click イベント側でスキップ
+//
+// Phase GK-HF1: the above comment only covered dwell-completes-BEFORE-click. The
+// opposite ordering (click fires first, while a dwell timer from an earlier
+// pointerenter is still silently ticking in the background) was not covered: a plain
+// mouse click always starts a dwell timer on pointerenter (the cursor has to enter
+// the button before it can be clicked), but a click does not itself cancel that
+// timer. If the animation hasn't been cancelled by a pointerleave by the time it
+// reaches dwellTime (1000ms after the ORIGINAL hover, not the click), startDwell's
+// requestAnimationFrame loop keeps running regardless of what happened via click, and
+// finishDwell()/dwellFn() fires independently later -- calling fn() a second,
+// delayed, unrequested time. This is what produced "1 click -> 2 Word downloads":
+// the visible download from the click, plus a phantom one ~1s afterward from the
+// stale timer. Cancelling any in-flight dwell for this element the moment a genuine
+// click has already handled the activation removes that dangling timer instead of
+// merely suppressing its effect.
 (()=>{
   function makeExclusiveBtn(el, fn) {
     if (!el) return;
@@ -3485,6 +3500,9 @@ window._fsMic=_fsMic;
     // click イベント：dwell が直前に発火していたらスキップ
     el.addEventListener('click', () => {
       if (dwellFired) { dwellFired = false; return; }
+      // GK-HF1: this click is the genuine activation -- cancel any dwell timer still
+      // running for this same element so it can't silently fire fn() again later.
+      if (dwellingEl === el) cancelDwell();
       fn();
     });
     addDwell(el, dwellFn);
@@ -5515,62 +5533,199 @@ function setupRichToolbar() {
 
 function updateToolbarState() {}
 
-// ==================== WORD ダウンロード ====================
+// ==================== WORD ダウンロード（genuine .docx） ====================
+// Phase GK-HF1: previously this produced an HTML file disguised as .doc
+// (application/msword MIME + legacy Word-HTML-import markup) — Word could open it,
+// but it was not a real Office Open XML package. This builds an actual, minimal, valid
+// .docx (a ZIP package containing WordprocessingML parts), entirely client-side with
+// no new dependency and no external request: a small hand-written ZIP writer (STORED/
+// uncompressed entries — no DEFLATE implementation needed for Word to accept them) plus
+// a direct DOM walk of richEditor's own div(paragraph)>span(run) structure into
+// <w:p>/<w:r> elements, preserving bold/italic/underline/font size/alignment exactly as
+// authored. No macros, no VBA, no external relationships, no remote content.
+
+// ── minimal ZIP writer (STORED entries only) ──
+function gkDocxCrc32(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) {
+    let c = (crc ^ bytes[i]) & 0xFF;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    crc = (crc >>> 8) ^ c;
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function gkBuildZip(files) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  files.forEach(f => {
+    const nameBytes = encoder.encode(f.name);
+    const data = f.data;
+    const crc = gkDocxCrc32(data);
+    const size = data.length;
+
+    const lfh = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(lfh.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true); // method 0 = stored
+    lv.setUint16(10, 0, true);
+    lv.setUint16(12, 0, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    lfh.set(nameBytes, 30);
+    localParts.push(lfh, data);
+
+    const localHeaderOffset = offset;
+    offset += lfh.length + data.length;
+
+    const cdh = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cdh.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, localHeaderOffset, true);
+    cdh.set(nameBytes, 46);
+    centralParts.push(cdh);
+  });
+
+  const centralSize = centralParts.reduce((a, p) => a + p.length, 0);
+  const centralOffset = offset;
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, centralOffset, true);
+  ev.setUint16(20, 0, true);
+
+  return new Blob([...localParts, ...centralParts, eocd], {
+    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+}
+
+// ── WordprocessingML body from richEditor's own div/span structure ──
+function gkXmlEscape(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&apos;' }[ch]));
+}
+function gkRemToHalfPoints(remStr) {
+  const rem = parseFloat(remStr) || 1.4;
+  const pt = rem * 12; // 1rem = 16px browser default, 1px = 0.75pt
+  return Math.max(2, Math.round(pt * 2)); // WordprocessingML w:sz is in half-points
+}
+function gkBuildDocumentBodyXml() {
+  const blocks = Array.from(richEditor.children).filter(el => el.tagName === 'DIV');
+  if (blocks.length === 0) {
+    const lines = (getEditorPlainText() || '').split('\n');
+    return lines.map(line => `<w:p><w:r><w:t xml:space="preserve">${gkXmlEscape(line)}</w:t></w:r></w:p>`).join('');
+  }
+  return blocks.map(block => {
+    const align = block.style.textAlign || 'left';
+    const jc = (align === 'center' || align === 'right') ? align : 'left';
+    const spans = Array.from(block.querySelectorAll('span'));
+    const runsXml = spans.map(span => {
+      const rPr = [];
+      if (span.style.fontWeight === 'bold') rPr.push('<w:b/>');
+      if (span.style.fontStyle === 'italic') rPr.push('<w:i/>');
+      if (span.style.textDecoration && span.style.textDecoration.indexOf('underline') !== -1) rPr.push('<w:u w:val="single"/>');
+      const sz = gkRemToHalfPoints(span.style.fontSize);
+      rPr.push('<w:sz w:val="' + sz + '"/>', '<w:szCs w:val="' + sz + '"/>');
+      const rPrXml = '<w:rPr>' + rPr.join('') + '</w:rPr>';
+      return '<w:r>' + rPrXml + '<w:t xml:space="preserve">' + gkXmlEscape(span.textContent) + '</w:t></w:r>';
+    }).join('');
+    return '<w:p><w:pPr><w:jc w:val="' + jc + '"/></w:pPr>' + runsXml + '</w:p>';
+  }).join('');
+}
+
 function downloadAsWord() {
-  const editorHtml = richEditor.innerHTML || '';
   const plainText = getEditorPlainText();
   if (!plainText.trim()) { showToast('文字を入力してください'); return; }
 
-  // WordのMHT形式（.doc）で出力
-  // Office Open XML形式に近いHTMLをWordが認識できる形式で生成
-  const wordHtml = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="UTF-8">
-<meta name=ProgId content=Word.Document>
-<meta name=Generator content="視線キーボード">
-<!--[if gte mso 9]>
-<xml>
-  <w:WordDocument>
-    <w:View>Print</w:View>
-    <w:Zoom>100</w:Zoom>
-    <w:DoNotOptimizeForBrowser/>
-  </w:WordDocument>
-</xml>
-<![endif]-->
-<style>
-  @page { size: A4; margin: 25mm; }
-  body {
-    font-family: "MS Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
-    font-size: 14pt;
-    line-height: 1.8;
-    color: #1A1A2E;
-  }
-  p { margin: 0 0 8pt; }
-</style>
-</head>
-<body>
-<div style="font-family:'MS Gothic','Hiragino Kaku Gothic ProN',sans-serif;font-size:14pt;line-height:1.8;">
-${editorHtml || '<p>' + plainText.replace(/\n/g, '</p><p>') + '</p>'}
-</div>
-<div style="margin-top:32pt;padding-top:8pt;border-top:1px solid #ccc;font-size:9pt;color:#666;">
-  <p>どのまな</p>
-  <p>https://donomana.jp/</p>
-</div>
-</body>
-</html>`;
+  const encoder = new TextEncoder();
+  const nowIso = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const bodyXml = gkBuildDocumentBodyXml();
+  const footerXml =
+    '<w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="CCCCCC"/></w:pBdr></w:pPr>' +
+    '<w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:color w:val="666666"/></w:rPr><w:t>どのまな</w:t></w:r></w:p>' +
+    '<w:p><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/><w:color w:val="666666"/></w:rPr><w:t>https://donomana.jp/</w:t></w:r></w:p>';
 
-  const blob = new Blob([wordHtml], {
-    type: 'application/msword;charset=utf-8'
-  });
+  const documentXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:body>' + bodyXml + footerXml +
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr>' +
+    '</w:body></w:document>';
+
+  const contentTypesXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
+    '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
+    '</Types>';
+
+  const rootRelsXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
+    '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
+    '</Relationships>';
+
+  const documentRelsXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+
+  const coreXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+    '<dc:title>視線キーボード</dc:title><dc:creator>どのまな</dc:creator><cp:lastModifiedBy>どのまな</cp:lastModifiedBy>' +
+    '<dcterms:created xsi:type="dcterms:W3CDTF">' + nowIso + '</dcterms:created>' +
+    '<dcterms:modified xsi:type="dcterms:W3CDTF">' + nowIso + '</dcterms:modified>' +
+    '</cp:coreProperties>';
+
+  const appXml =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>どのまな 視線キーボード</Application></Properties>';
+
+  const blob = gkBuildZip([
+    { name: '[Content_Types].xml', data: encoder.encode(contentTypesXml) },
+    { name: '_rels/.rels', data: encoder.encode(rootRelsXml) },
+    { name: 'docProps/core.xml', data: encoder.encode(coreXml) },
+    { name: 'docProps/app.xml', data: encoder.encode(appXml) },
+    { name: 'word/document.xml', data: encoder.encode(documentXml) },
+    { name: 'word/_rels/document.xml.rels', data: encoder.encode(documentRelsXml) },
+  ]);
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   const now = new Date();
   const ts = now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
-  a.download = '視線キーボード_' + ts + '.doc';
+  a.download = '視線キーボード_' + ts + '.docx';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
