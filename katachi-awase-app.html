@@ -272,9 +272,15 @@
   /* KAP-1' User Review Fix: おてほん(#puzzleSampleArea) — deliberately smaller than
      #targetsTray.puzzle-board (max-width:420px) and placed above it, never overlapping
      the board/tray so it can never block a target or piece; reuses the same
-     .pattern-card-preview box the pattern picker already uses, just centered here. */
-  #puzzleSampleArea { text-align: center; margin-bottom: var(--dm-space-2,8px); }
-  #puzzleSampleArea .pattern-card-preview { margin: 0 auto; border: 2px solid var(--dm-color-border,#EDF1F0); }
+     .pattern-card-preview box the pattern picker already uses, just centered here.
+     KAP-1'' User Review Fix: 84px read as too small for low-vision/restricted-field
+     users to compare against the board (§1-2) — sized per this file's own existing
+     3-tier breakpoint system (480px/800px/1024px, see below) instead of the pattern
+     picker's fixed 84px card thumbnail (that size is unchanged — §30, only the
+     in-activity sample grows). Mid tier (481-1023px, e.g. 768px) is set here as the
+     unqualified default; the two @media blocks below override it for mobile/desktop. */
+  #puzzleSampleArea { text-align: center; margin-bottom: var(--dm-space-3,12px); }
+  #puzzleSampleArea .pattern-card-preview { width: 160px; height: 160px; margin: 0 auto; border: 2px solid var(--dm-color-border,#EDF1F0); }
   .pattern-card-preview .preview-piece { position: absolute; }
   .pattern-card-name { font-weight: 700; font-size: 0.9375rem; }
   .pattern-card-meta { font-size: 0.75rem; color: var(--dm-color-sub,#5E6D78); }
@@ -339,6 +345,9 @@
   @media (max-width: 480px) {
     .shape-btn, .target-btn { width: 100px; height: 100px; min-width: 100px; min-height: 100px; }
     .tray { gap: var(--dm-space-4,16px); }
+    /* KAP-1'' User Review Fix: still clearly larger than the old fixed 84px, without
+       crowding the board/tray on the smallest supported screens (§3/§27/§28). */
+    #puzzleSampleArea .pattern-card-preview { width: 128px; height: 128px; }
   }
   /* .app's max-width:720px only centers content clear of the fixed left/right common buttons once
      the viewport is wide enough (~800px+); below that, .app's content edge still falls within the
@@ -365,6 +374,8 @@
     .app { max-width: 900px; }
     .shape-btn, .target-btn { width: 128px; height: 128px; min-width: 128px; min-height: 128px; }
     .tray { gap: var(--dm-space-7,32px); }
+    /* KAP-1'' User Review Fix §2/§24 — 150-180px target range. */
+    #puzzleSampleArea .pattern-card-preview { width: 176px; height: 176px; }
   }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
@@ -2339,8 +2350,16 @@ function handleCorrectPlacement(shape, targetId) {
   task.selectedShapeId = null;
   phase = 'feedback';
   var allPlaced = task.shapes.every(function(s) { return s.placed; });
+  // KAP-1'' User Review Fix §11-16: per-piece TTS ("ぴったり") is dropped for puzzle
+  // mode only (かたち/おおきさ are frozen — §21 — and keep speaking it exactly as
+  // before). #feedbackText's own aria-live="polite" region still announces "ぴったり！"
+  // to screen readers regardless of this concept split — §16 distinguishes "一般音声"
+  // (speak(), an audible voice) from "アクセシビリティ状態通知" (this element's existing
+  // aria-live, unrelated to speak() and never touched here) and asks to remove only the
+  // former. Multi-Input parity is automatic: every input method (touch/drag/gaze/
+  // switch/keyboard) already funnels through this one shared function.
   feedbackText.textContent = 'ぴったり！';
-  speak('ぴったり');
+  if (currentConcept !== 'puzzle') speak('ぴったり');
   resetDwellState();
   renderTask();
   if (scanMode) refreshSwitchScanItems();
