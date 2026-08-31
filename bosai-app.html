@@ -1749,7 +1749,7 @@
       </ul>
 
       <h3 style="color:#fff;font-size:15px;font-weight:800;margin:18px 0 6px;padding-top:12px;border-top:1px solid #37474F">記録について</h3>
-      <p>「きろく」タブは教師専用で、PIN（初期値：1234。設定で変更できます）を入力すると、その回の学習の様子を確認でき、CSVファイルとして書き出すこともできます。この記録は今の回だけを表示するもので、ページを閉じたり読み込み直したりすると消えます。</p>
+      <p>「きろく」タブは教師専用で、PIN（初期値：1234。設定で変更できます）を入力すると、これまでの学習の様子を確認でき、CSVファイルとして書き出すこともできます。記録はこの端末のブラウザに保存され、ページを閉じたり読み込み直したりしても消えません（ブラウザのデータを消去した場合を除きます）。記録は1件ずつ、またはまとめて削除できます。</p>
     </div>
     <button id="help-close-btn" onclick="closeHelp()" style="display:block;width:100%;margin-top:18px;padding:12px;border:none;border-radius:999px;font-family:inherit;font-size:15px;font-weight:800;color:#1C2833;cursor:pointer;background:#FFD600">とじる</button>
   </div>
@@ -2052,10 +2052,10 @@
           <div style="font-size:13px;color:#78909C" id="record-count-label">記録なし</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="exportCSV()" style="padding:10px 18px;background:linear-gradient(135deg,#43A047,#2E7D32);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.15)" aria-label="CSVでダウンロード">📥 CSV出力</button>
-          <button onclick="printReport()" style="padding:10px 18px;background:linear-gradient(135deg,#1565C0,#1976D2);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.15)" aria-label="印刷">🖨️ 印刷</button>
-          <button onclick="clearAllRecords()" style="padding:10px 18px;background:linear-gradient(135deg,#B71C1C,#C62828);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.15)" aria-label="記録を全削除">🗑️ 全削除</button>
-          <button onclick="lockTeacher()" style="padding:10px 14px;background:#546E7A;color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer" aria-label="ロック">🔒 ロック</button>
+          <button onclick="exportCSV()" style="padding:10px 18px;background:linear-gradient(135deg,#43A047,#2E7D32);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.15);min-height:44px" aria-label="CSVでダウンロード">📥 CSV出力</button>
+          <button onclick="printReport()" style="padding:10px 18px;background:linear-gradient(135deg,#1565C0,#1976D2);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.15);min-height:44px" aria-label="印刷">🖨️ 印刷</button>
+          <button onclick="clearAllRecords()" style="padding:10px 18px;background:linear-gradient(135deg,#B71C1C,#C62828);color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,0.15);min-height:44px" aria-label="記録を全削除">🗑️ 全削除</button>
+          <button onclick="lockTeacher()" style="padding:10px 14px;background:#546E7A;color:#fff;border:none;border-radius:999px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;min-height:44px" aria-label="ロック">🔒 ロック</button>
         </div>
       </div>
 
@@ -2127,6 +2127,190 @@
 
 </div>
 
+<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
+<script>
+/* Donomana Learning Record Foundation (Phase T5-B PoC) — shared localStorage-backed
+   activity-log read/write/normalize helpers common to Learning Record Standard v1.0
+   (docs/design-system/donomana-learning-record-standard-v1_0.md). Auto-injected by
+   generate.js — edit generate.js's buildLearningRecordFoundationJSHTML() instead of
+   this block directly. Each app keeps its own storage key and its own record shape;
+   this Foundation standardizes only the read/write/normalize/CSV mechanics, never
+   the app-specific payload fields. */
+// Phase T7-H1: this function's own documented contract (Standard §9 —
+// "存在しない/壊れている場合は[]") already promised an array-or-[] return, but the
+// implementation only guarded a missing key and a JSON.parse failure — a storage
+// value that is valid JSON but NOT an array (e.g. {}, "hello", 123, true, null, an
+// object) parsed successfully and was returned as-is, silently breaking that
+// contract. donomanaRecordAddLog() (below) trusts this return value and calls
+// .push() on it directly with no guard of its own, so that gap surfaced there as
+// "log.push is not a function" (or a TypeError reading a property of null) instead
+// of here. Fixing the single point where raw storage is parsed — rather than adding
+// a second Array.isArray check in every caller — makes every caller (Add and any
+// direct Read caller across the 15 Foundation apps) safe at once, matching the
+// per-app defensive `Array.isArray(log) ? log : []` wrapper a few apps (e.g.
+// katachi-awase-app's own readLog()) already had to add locally for the same reason.
+function donomanaRecordReadLog(storageKey) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    var parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) { return []; }
+}
+function donomanaRecordWriteLog(storageKey, log) {
+  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
+}
+function donomanaRecordAddLog(storageKey, entry) {
+  var log = donomanaRecordReadLog(storageKey);
+  log.push(entry);
+  donomanaRecordWriteLog(storageKey, log);
+  return log;
+}
+function donomanaRecordClearLog(storageKey) {
+  donomanaRecordWriteLog(storageKey, []);
+}
+// schemaVersion欠落 = legacy v1として扱う(Standard §9)。既存フィールドは書き換えない。
+function donomanaRecordNormalizeLegacy(entry) {
+  if (entry && typeof entry === 'object' && entry.schemaVersion == null) entry.schemaVersion = 1;
+  return entry;
+}
+// Standard Core Schemaに沿った新規recordを組み立てる(将来のnested payload移行用。
+// 既存2 Pilotの実データ形式は変更しない。関数として提供し単体テストのみ対象)。
+function donomanaRecordCreate(appId, activity, inputMethod, payload) {
+  return {
+    timestamp: new Date().toISOString(),
+    appId: appId,
+    activity: activity,
+    inputMethod: (typeof inputMethod === 'string') ? inputMethod : null,
+    schemaVersion: 1,
+    payload: payload || {}
+  };
+}
+// UTF-8 BOM付きCSV文字列を組み立てる(Standard §17)。rows: 2次元配列(先頭行=header)。
+// ダウンロードUI自体は各アプリの既存実装を維持し、統一しない。
+function donomanaRecordBuildCsv(rows) {
+  function esc(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return /["\,\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  var body = rows.map(function(r) { return r.map(esc).join(','); }).join('\n');
+  return '\uFEFF' + body;
+}
+// Phase T5-C: Composite Storage Adapter — storageKeyの値がrecord配列そのものではなく
+// { records: [...], ...他のapp-specific property } のような複合objectの場合に、
+// 指定fieldだけを読み書きし、他のpropertyを完全に保持する(既知/未知を問わず)。
+// kyou-no-kiroku専用ではなく、同様の複合storage構造を持つ将来アプリでも再利用できる
+// 汎用primitiveとして提供する。array-basedのdonomanaRecordReadLog/WriteLogを
+// 複合objectのstorageKeyへ直接使わないこと(recordsだけの配列で他propertyを
+// 上書き破壊してしまう)。
+function donomanaRecordReadNestedCollection(storageKey, field) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = raw ? JSON.parse(raw) : null;
+    var arr = (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj[field] : undefined;
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function donomanaRecordWriteNestedCollection(storageKey, field, collection) {
+  try {
+    var raw = localStorage.getItem(storageKey);
+    var obj = null;
+    try { obj = raw ? JSON.parse(raw) : null; } catch (e2) { obj = null; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) obj = {};
+    obj[field] = collection;
+    localStorage.setItem(storageKey, JSON.stringify(obj));
+  } catch (e) {}
+}
+// Phase T5-D: UI Foundation — Data Foundation(read/write/normalize/CSV)とは責務を分離した
+// 純粋な表示整形/grouping関数群(DOM操作なし、副作用なし)。Common Viewerの「Core表示」を
+// 構成する最小限のhelperのみを提供し、教材固有の要約文(例:「『あ』のなぞり」)は各アプリの
+// adapter責務のまま残す(Switch Scan共通仕様16.3節と同じ、helperはlifecycle/整形、
+// adapterはcontentという責務分離)。
+// timeValueはISO 8601・ja-JPロケール文字列("2026/8/29 19:28:18")・epoch msのいずれでも受け付け、解析できない場合は元の値をそのまま返す(値の欠落・空文字表示を防ぐ)。
+function donomanaRecordFormatDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return '';
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return (timeValue === null || timeValue === undefined) ? '' : String(timeValue);
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  } catch (e) { return (timeValue === null || timeValue === undefined) ? '' : String(timeValue); }
+}
+// Phase T5-E-A': CSV Date/Time Excel Compatibility Fix — Excelは日時1列のCSV文字列を日付/時刻値
+// として自動認識するが、CSVには列幅情報を保存できないため既定列幅に収まらず「#######」表示に
+// なる(内部timestampやData Foundationのnormalize処理は無変更、CSV表示専用のpure helper)。
+// 日付・時刻の2列へ分離するだけでは不十分だった点に注意(実Excelで検証して判明): ハイフン
+// 区切り("2026-08-30")・スラッシュ区切り・漢字区切り("2026年8月30日")はいずれもExcelの自動
+// 日付認識に該当し、月または日が2桁の日付(1年の大半)では既定列幅を超えて結局#######に
+// なる。ドット区切り("2026.08.30")のみExcelの自動認識に該当せず常にプレーンテキストとして
+// 表示されることを実Excel COM検証で確認したため採用する。時刻(HH:MM:SS、コロン区切り)は
+// 自動的に時刻値へ変換されるが表示文字列が最大8文字("23:59:59")に収まり既定列幅を超えない
+// ことを確認済みのため、読みやすさを優先しコロン区切りのまま維持する。
+// timeValueはdonomanaRecordFormatDateTimeと同じくISO 8601・ja-JPロケール文字列・epoch ms・
+// Dateいずれも受け付ける。ローカル時刻basisで整形する(既存Viewerの表示・
+// donomanaRecordFormatDateTimeと同じlocal basisに揃え、UTCとの新たな時差混乱を作らない)。
+// 解析できない場合は元の文字列をdateへそのまま保持し(空白化・推測変換はしない)、timeは
+// 空文字を返す。
+function donomanaRecordFormatCsvDateTime(timeValue) {
+  try {
+    if (timeValue === null || timeValue === undefined || timeValue === '') return { date: '', time: '' };
+    var d = (timeValue instanceof Date) ? timeValue : new Date(timeValue);
+    if (isNaN(d.getTime())) return { date: String(timeValue), time: '' };
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    var date = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
+    var time = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    return { date: date, time: time };
+  } catch (e) { return { date: (timeValue === null || timeValue === undefined) ? '' : String(timeValue), time: '' }; }
+}
+// entriesを日付ごとにグループ化する(新しい日付が先頭、group内も新しい順)。getTimeFnを渡さない
+// 場合はentry.timeを使う。解析できないtimestampのentryは「日付不明」groupへ末尾でまとめる
+// (無視・削除はしない)。
+function donomanaRecordGroupByDate(entries, getTimeFn) {
+  function dateKey(d) {
+    var p = function (n) { return n < 10 ? '0' + n : String(n); };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  var todayKey = dateKey(new Date());
+  var yesterdayKey = dateKey(new Date(Date.now() - 86400000));
+  var groups = {};
+  (entries || []).forEach(function (entry) {
+    var raw = getTimeFn ? getTimeFn(entry) : entry.time;
+    var d = new Date(raw);
+    var valid = !isNaN(d.getTime());
+    var key = valid ? dateKey(d) : '__unknown__';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ entry: entry, ms: valid ? d.getTime() : -1 });
+  });
+  var keys = Object.keys(groups).sort(function (a, b) {
+    if (a === '__unknown__') return 1;
+    if (b === '__unknown__') return -1;
+    return a < b ? 1 : (a > b ? -1 : 0);
+  });
+  return keys.map(function (key) {
+    var items = groups[key].slice().sort(function (a, b) { return b.ms - a.ms; });
+    var label = key === '__unknown__' ? '日付不明'
+      : key === todayKey ? 'きょう'
+      : key === yesterdayKey ? 'きのう'
+      : (function () { var p = key.split('-'); return parseInt(p[1], 10) + '/' + parseInt(p[2], 10); })();
+    return { dateLabel: label, entries: items.map(function (x) { return x.entry; }) };
+  });
+}
+// inputMethodを利用者向け日本語ラベルへ変換する(Standard Core Schema §5のenumのみ対応)。
+// 未知の値・null/undefinedはnullを返す。呼び出し側はnullのとき「不明」等を表示せず、
+// 非表示にすることを推奨する(推測禁止の既存方針を維持)。
+function donomanaRecordFormatInputMethod(inputMethod) {
+  var MAP = { touch: 'タッチ', gaze: '視線', switch: 'スイッチ', keyboard: 'キーボード', click: 'クリック' };
+  if (inputMethod === null || inputMethod === undefined) return null;
+  return MAP[inputMethod] || null;
+}
+// hiragana-learn/katakana-appのtracingJudgmentLevel(easy/standard/precise)を
+// 利用者向け日本語ラベルへ変換する。フィールド欠落(legacy record)・未知の値はnullを返す。
+function donomanaRecordFormatTracingLevel(level) {
+  var MAP = { easy: 'やさしく', standard: 'ひょうじゅん', precise: 'ていねいに' };
+  return MAP[level] || null;
+}
+</script>
+<!-- /learning-record-foundation-js -->
 <script>
 // ==================== SETTINGS MODAL ====================
 function openSettings() {
@@ -2987,18 +3171,56 @@ function lockTeacher() {
 }
 
 // ==================== RECORDS ====================
-let allRecords = [];
+// Phase T7-C: previously session-only (in-memory array, comment literally said so —
+// see the old saveRecords() body). Now persisted via the Learning Record Foundation
+// (donomanaRecordReadLog/AddLog/WriteLog/ClearLog, T7-H2-hardened against non-array
+// storage). New storage key — there was never a prior persisted format to preserve.
+const BOSAI_RECORDS_KEY = 'bosai_log';
+const BOSAI_MAX_RECORDS = 200; // text-only records (no embedded images), matches tokei-app's cap
+let allRecords = donomanaRecordReadLog(BOSAI_RECORDS_KEY);
 let sessionLog = [];
 let lastResultCardTexts = [];
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function saveRecords() {
-  // records kept in memory during this session
+  donomanaRecordWriteLog(BOSAI_RECORDS_KEY, allRecords);
+}
+
+// id stays numeric (existing inline onclick="toggleDetail(${r.id})" relies on an
+// unquoted numeric literal). A plain Date.now() can collide if two records are ever
+// created within the same millisecond; folding in a small counter avoids that without
+// changing the type.
+let bosaiIdCounter = 0;
+function makeBosaiRecordId() {
+  return Date.now() * 1000 + (bosaiIdCounter++ % 1000);
+}
+
+function addBosaiRecord(entry) {
+  allRecords = donomanaRecordAddLog(BOSAI_RECORDS_KEY, entry);
+  if (allRecords.length > BOSAI_MAX_RECORDS) {
+    allRecords = allRecords.slice(allRecords.length - BOSAI_MAX_RECORDS);
+    donomanaRecordWriteLog(BOSAI_RECORDS_KEY, allRecords);
+  }
+}
+
+function deleteBosaiRecord(id) {
+  allRecords = allRecords.filter(r => r.id !== id);
+  saveRecords();
+  renderTeacherDash();
 }
 
 function clearAllRecords() {
   if (!confirm('すべてのきろくをさくじょしますか？')) return;
   allRecords = [];
-  saveRecords();
+  donomanaRecordClearLog(BOSAI_RECORDS_KEY);
   renderTeacherDash();
 }
 
@@ -3015,8 +3237,7 @@ function recordResult(simType, log) {
   const now     = new Date();
   const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
-  allRecords.push({ id: Date.now(), kind: 'taiken', name, simType, correct, total, score, dateStr, log });
-  saveRecords();
+  addBosaiRecord({ id: makeBosaiRecordId(), kind: 'taiken', name, simType, correct, total, score, dateStr, timestamp: now.toISOString(), log });
   checkBadges(simType, score);
   if (nameEl) nameEl.value = '';
 }
@@ -3044,8 +3265,7 @@ function recordQuizResult() {
     };
   }).filter(Boolean);
 
-  allRecords.push({ id: Date.now(), kind: 'quiz', name, simType: 'quiz', correct, total, score, dateStr, log });
-  saveRecords();
+  addBosaiRecord({ id: makeBosaiRecordId(), kind: 'quiz', name, simType: 'quiz', correct, total, score, dateStr, timestamp: now.toISOString(), log });
   checkQuizBadge(score);
   renderTeacherDash();
 }
@@ -3102,7 +3322,8 @@ function renderTeacherDash() {
         <th style="padding:10px 12px;text-align:left">てんさい・もくひょう</th>
         <th style="padding:10px 12px;text-align:center">せいかい</th>
         <th style="padding:10px 12px;text-align:center">スコア</th>
-        <th style="padding:10px 12px;text-align:center;border-radius:0 8px 0 0">くわしく</th>
+        <th style="padding:10px 12px;text-align:center">くわしく</th>
+        <th style="padding:10px 12px;text-align:center;border-radius:0 8px 0 0">さくじょ</th>
       </tr>
     </thead>
     <tbody>`;
@@ -3120,7 +3341,7 @@ function renderTeacherDash() {
 
     html += `<tr style="background:${idx%2===0?'#fff':'#FAFAFA'};border-bottom:1px solid #ECEFF1">
       <td style="padding:10px 12px;color:#546E7A;white-space:nowrap">${r.dateStr}</td>
-      <td style="padding:10px 12px;font-weight:700">${r.name}</td>
+      <td style="padding:10px 12px;font-weight:700">${escapeHtml(r.name)}</td>
       <td style="padding:10px 12px;text-align:center">${kindBadge}</td>
       <td style="padding:10px 12px">${targetLabel}</td>
       <td style="padding:10px 12px;text-align:center">${r.correct} / ${r.total}</td>
@@ -3129,13 +3350,19 @@ function renderTeacherDash() {
       </td>
       <td style="padding:10px 12px;text-align:center">
         <button onclick="toggleDetail(${r.id})"
-          style="padding:5px 12px;border:2px solid #90CAF9;border-radius:999px;background:#E3F2FD;color:#1565C0;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer">
+          style="padding:5px 12px;border:2px solid #90CAF9;border-radius:999px;background:#E3F2FD;color:#1565C0;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;min-height:44px;min-width:44px">
           ▼ みる
+        </button>
+      </td>
+      <td style="padding:10px 12px;text-align:center">
+        <button onclick="if(confirm('この記録を削除しますか？'))deleteBosaiRecord(${r.id})" title="削除"
+          style="padding:5px 12px;border:2px solid #EF9A9A;border-radius:999px;background:#FFEBEE;color:#C62828;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;min-height:44px;min-width:44px">
+          ✕
         </button>
       </td>
     </tr>
     <tr id="detail-${r.id}" style="display:none;background:#F8FBFF">
-      <td colspan="7" style="padding:14px 18px">
+      <td colspan="8" style="padding:14px 18px">
         ${buildDetailHTML(r)}
       </td>
     </tr>`;
@@ -3176,32 +3403,46 @@ function toggleDetail(id) {
 }
 
 // ==================== CSV EXPORT ====================
+// Phase T7-C: rewritten onto Foundation CSV conventions. The previous version had
+// three real bugs, all fixed here: (1) date used "2026/08/31 14:23" -- a slash-
+// separated single column, exactly the format Excel auto-converts to a date/time
+// value unpredictably (the reason the dot-separated date + separate time columns
+// convention exists -- donomanaRecordFormatCsvDateTime); (2) no Formula Injection
+// escaping on the free-text teacher-entered name field; (3) every cell was
+// unconditionally quote-wrapped without escaping embedded quotes, so a name
+// containing a literal double-quote character would corrupt the CSV structure
+// (donomanaRecordBuildCsv escapes correctly). Quiz situation/answer text comes from
+// the app's own authored quizData, not user input, so it doesn't need Formula
+// Injection escaping.
+function bosaiCsvSafeCell(value) {
+  const s = (value === undefined || value === null) ? '' : String(value);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
 function exportCSV() {
   if (allRecords.length === 0) { alert('きろくがありません'); return; }
-  let csv = '\uFEFF日時,なまえ,種別,てんさい・もくひょう,せいかい,もんだいすう,スコア,';
   const maxQ = Math.max(...allRecords.map(r => r.log.length));
-  for(let i=1; i<=maxQ; i++) csv += `Q${i}もんだい,Q${i}かいとう,Q${i}せいご,`;
-  csv += '\n';
+  const header = ['日付', '時刻', 'なまえ', '種別', 'てんさい・もくひょう', 'せいかい', 'もんだいすう', 'スコア'];
+  for (let i = 1; i <= maxQ; i++) header.push('Q' + i + 'もんだい', 'Q' + i + 'かいとう', 'Q' + i + 'せいご');
 
-  allRecords.forEach(r => {
+  const rows = allRecords.map(r => {
+    const dt = donomanaRecordFormatCsvDateTime(r.timestamp);
     const kind  = r.kind === 'quiz' ? 'クイズ' : 'たいけん';
     const label = r.kind === 'quiz' ? 'ぼうさいクイズ' : (disasterLabels[r.simType] || r.simType);
-    let row = `"${r.dateStr}","${r.name}","${kind}","${label}",${r.correct},${r.total},${r.score}%,`;
-    for(let i=0; i<maxQ; i++) {
+    const row = [dt.date, dt.time, bosaiCsvSafeCell(r.name), kind, label, r.correct, r.total, r.score + '%'];
+    for (let i = 0; i < maxQ; i++) {
       const l = r.log[i];
-      if (l) row += `"${l.situation}","${l.chosen}","${l.correct?'○':'×'}",`;
-      else    row += ',,,';
+      row.push(l ? l.situation : '', l ? l.chosen : '', l ? (l.correct ? '○' : '×') : '');
     }
-    csv += row + '\n';
+    return row;
   });
 
+  const csv = donomanaRecordBuildCsv([header, ...rows]);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url; a.download = `bosai_records_${new Date().toISOString().slice(0,10)}.csv`;
   a.click(); URL.revokeObjectURL(url);
 }
-
 // ==================== PRINT ====================
 function printReport() {
   if (allRecords.length === 0) { alert('きろくがありません'); return; }
@@ -3216,7 +3457,7 @@ function printReport() {
     ).join('');
     return '<tr>' +
       '<td style="padding:6px 8px;white-space:nowrap">' + r.dateStr + '</td>' +
-      '<td style="padding:6px 8px;font-weight:bold">' + r.name + '</td>' +
+      '<td style="padding:6px 8px;font-weight:bold">' + escapeHtml(r.name) + '</td>' +
       '<td style="padding:6px 8px">' + (disasterEmoji[r.simType] || '') + ' ' + (disasterLabels[r.simType] || '') + '</td>' +
       '<td style="padding:6px 8px;text-align:center">' + r.correct + '/' + r.total + '</td>' +
       '<td style="padding:6px 8px;text-align:center;font-weight:bold">' + r.score + '%</td>' +

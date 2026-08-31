@@ -1457,7 +1457,7 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // directions-app方式(既存writerをFoundationへ委譲、entry形状・60件ローリング上限は無変更)。
 // Phase T7-B Pilot B: tokei-app(session-only→persistent新設。新規storage key `tokei_log`、
 // 1クイズセット完了=1レコード。既存recordが存在しないためmigration概念自体が発生しない)。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app']);
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app']);
 
 function buildLearningRecordFoundationJSHTML() {
   return [
