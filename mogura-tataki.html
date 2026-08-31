@@ -176,7 +176,7 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo','BIZ UDPGothic',sans-serif
 .home-ib{
   background:rgba(255,255,255,.18);border:none;
   color:#fff;font-size:clamp(.9rem,3vw,1.1rem);
-  width:clamp(30px,8vw,36px);height:clamp(30px,8vw,36px);border-radius:50%;
+  width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
   transition:all var(--tr);backdrop-filter:blur(4px);flex-shrink:0;
 }
@@ -1134,6 +1134,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
         </div>
         <div class="home-hero-btns">
           <button class="home-ib" id="homeHowBtn" aria-label="使い方" title="使い方">❓</button>
+          <button class="home-ib" id="homeRecBtn" aria-label="学習記録" title="学習記録">📊</button>
           <button class="home-ib" id="homeSetBtn" aria-label="設定" title="設定">⚙️</button>
         </div>
       </div>
@@ -2320,32 +2321,43 @@ function applySettings(){
 //  EVENT BINDINGS
 // ════════════════════════════════════
 
-// panel open helper
-function openPanel(id){document.getElementById(id).classList.add('on');}
+// panel open helper。T7-B': Home画面(homeHowBtn/homeRecBtn)とgame画面ヘッダー
+// (btnHow/btnRec)の2箇所から同じpanelを開けるようになったため、openerを
+// panel idごとに記憶し、閉じた時は実際に押したbuttonへfocus returnする
+// (固定IDへ無条件returnするとHome側から開いた場合にgame画面ヘッダー側の
+// (隠れている場合がある)buttonへ飛んでしまう問題を避ける)。
+const panelOpener = {};
+function openPanel(id,opener){document.getElementById(id).classList.add('on');if(opener)panelOpener[id]=opener;}
 function closePanel(id){document.getElementById(id).classList.remove('on');}
+function closePanelAndReturnFocus(id){
+  closePanel(id);
+  const opener=panelOpener[id];
+  if(opener&&typeof opener.focus==='function')opener.focus();
+}
 
 // header buttons
-document.getElementById('btnHow').addEventListener('click',()=>openPanel('panHow'));
-document.getElementById('btnRec').addEventListener('click',()=>{renderRecs();openPanel('panRec');});
-document.getElementById('btnSet').addEventListener('click',()=>openPanel('panSet'));
+document.getElementById('btnHow').addEventListener('click',()=>openPanel('panHow',document.getElementById('btnHow')));
+document.getElementById('btnRec').addEventListener('click',()=>{renderRecs();openPanel('panRec',document.getElementById('btnRec'));});
+document.getElementById('btnSet').addEventListener('click',()=>openPanel('panSet',document.getElementById('btnSet')));
 
-// home screen buttons (❓ ⚙️)
-document.getElementById('homeHowBtn').addEventListener('click',()=>openPanel('panHow'));
-document.getElementById('homeSetBtn').addEventListener('click',()=>openPanel('panSet'));
+// home screen buttons (❓ 📊 ⚙️)
+document.getElementById('homeHowBtn').addEventListener('click',()=>openPanel('panHow',document.getElementById('homeHowBtn')));
+document.getElementById('homeRecBtn').addEventListener('click',()=>{renderRecs();openPanel('panRec',document.getElementById('homeRecBtn'));});
+document.getElementById('homeSetBtn').addEventListener('click',()=>openPanel('panSet',document.getElementById('homeSetBtn')));
 
 // panel closes
-document.getElementById('clsHow').addEventListener('click',()=>closePanel('panHow'));
-document.getElementById('clsHow2').addEventListener('click',()=>closePanel('panHow'));
-document.getElementById('clsSet').addEventListener('click',()=>closePanel('panSet'));
-document.getElementById('clsSet2').addEventListener('click',()=>closePanel('panSet'));
-document.getElementById('clsRec').addEventListener('click',()=>{closePanel('panRec');document.getElementById('btnRec').focus();});
+document.getElementById('clsHow').addEventListener('click',()=>closePanelAndReturnFocus('panHow'));
+document.getElementById('clsHow2').addEventListener('click',()=>closePanelAndReturnFocus('panHow'));
+document.getElementById('clsSet').addEventListener('click',()=>closePanelAndReturnFocus('panSet'));
+document.getElementById('clsSet2').addEventListener('click',()=>closePanelAndReturnFocus('panSet'));
+document.getElementById('clsRec').addEventListener('click',()=>closePanelAndReturnFocus('panRec'));
 document.getElementById('clrRec').addEventListener('click',()=>{
   if(confirm('記録をすべて消しますか？')){donomanaRecordClearLog(SKEY);renderRecs();}
 });
 // Record panel限定のEscape close + focus return(T7-B Pilot A、既存panHow/panSetは変更しない)
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&document.getElementById('panRec').classList.contains('on')){
-    closePanel('panRec');document.getElementById('btnRec').focus();
+    closePanelAndReturnFocus('panRec');
   }
 });
 ['panSet','panRec','panHow'].forEach(id=>{

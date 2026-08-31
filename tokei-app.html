@@ -2311,27 +2311,41 @@ function exportResultCSV() {
   const modeNames = { read:'よむもんだい', set:'みつけるもんだい', both:'まぜまぜ' };
   const diffNames  = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
   const now = new Date();
-  const dateStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const correct = quizState.results.filter((r,i) => r===true && quizState.attempts[i]===1).length;
 
-  // BOM付きでExcel対応
-  let csv = '\uFEFF';
-  csv += `とけいアプリ セッション記録\n`;
-  csv += `日時,${dateStr}\n`;
-  csv += `モード,${modeNames[quizMode]}\n`;
-  csv += `難易度,${diffNames[difficulty]}\n`;
-  csv += `正解数(1回目),${correct}/${QUIZ_COUNT}\n`;
-  csv += `正答率(1回目),${Math.round(correct/QUIZ_COUNT*100)}%\n`;
-  csv += `\n`;
-  csv += `No.,出題時刻,種類,結果(◯=1回目/△=やり直し),試行回数,回答秒数\n`;
-  quizState.questions.forEach((q,i) => {
-    const mm = String(q.m).padStart(2,'0');
-    const res = (quizState.results[i]===true && quizState.attempts[i]===1) ? '◯'
-              : quizState.results[i]===true ? '△'
+  // T7-B' User Review Fix — Root Cause別に修正:
+  // (1) 単一「日時」列(例"2026/8/31 9:43")はExcelが日時値と認識するが
+  //     既定列幅に収まらず#######表示になる → 日付/時刻の2列へ分離
+  //     (donomanaRecordFormatCsvDateTime、T5-E-A'のExcel互換Standardを再利用)。
+  // (2) 「正解数(1回目)」の"5/8"形式はExcelが「5月8日」と自動変換する
+  //     → 「1回目で正解した数」「問題数」の数値2列へ分離。
+  // (3) 「種類」列(modeNames[quizState.types[i]])は、types配列の値が
+  //     'readClock'/'setClock'なのにmodeNamesのkeyが'read'/'set'/'both'
+  //     でしかないため常にundefinedだった既存バグ。有用な情報を持たない
+  //     ため列自体を削除する(保存schema・Record Viewerは無変更)。
+  const dt = donomanaRecordFormatCsvDateTime(now);
+  const pct = Math.round(correct / QUIZ_COUNT * 100);
+  const rows = [
+    ['とけいアプリ セッション記録'],
+    ['日付', dt.date],
+    ['時刻', dt.time],
+    ['モード', modeNames[quizMode] || ''],
+    ['難易度', diffNames[difficulty] || ''],
+    ['1回目で正解した数', correct],
+    ['問題数', QUIZ_COUNT],
+    ['正答率(1回目)', pct + '%'],
+    [],
+    ['No.', '出題時刻', '結果(◯=1回目正解/△=やり直し/×=不正解)', '試行回数', '回答秒数'],
+  ];
+  quizState.questions.forEach((q, i) => {
+    const mm = String(q.m).padStart(2, '0');
+    const res = (quizState.results[i] === true && quizState.attempts[i] === 1) ? '◯'
+              : quizState.results[i] === true ? '△'
               : '×';
     const sec = quizState.times[i] > 0 ? quizState.times[i] : '';
-    csv += `${i+1},${q.h}:${mm},${modeNames[quizState.types[i]]},${res},${quizState.attempts[i]},${sec}\n`;
+    rows.push([i + 1, `${q.h}:${mm}`, res, quizState.attempts[i], sec]);
   });
+  const csv = donomanaRecordBuildCsv(rows);
 
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
