@@ -390,3 +390,77 @@ Cloud sync／Login／Learner account／AI自動評価／個別支援計画生成
 - hiragana-learn/katakana-appの`traceSample`サイズ実測
 - kyou-no-kiroku個別ダッシュボード（Profile-level）
 - T10相当の「支援ヒント・教材推薦」（本Phaseでは明確に分離、Record事実と教師の解釈を混同しない）
+
+---
+
+## 26. Implementation Notes（Phase T8-B1、Normalization Contract確定）
+
+T8-B1で「21種類のRecordを、安全な共通Recordへ変換できる層」を実装した（Dashboard UIは未実装、Local RCのみ）。実装は本文書のDecision Log（§21）と矛盾しない。以下を実装で確定した内容として追記する。
+
+### 26.1 実装物
+
+- `assets/js/record-dashboard-foundation.js` — 21 Adapter Registry＋safe reader＋公開API本体。ブラウザ(`window.donomanaRecordDashboard`)とNode.js(`require`)の両方で動作するUMD風ラッパー。新規external dependencyなし。
+- `tools/record-dashboard-poc/fixtures.js` / `golden-tests.js` — 21本分のgolden fixture・破損storage matrix・cross-app failure isolation・XSS・personal-data leakage・performanceを検証するNode test harness（`tools/tracing-poc/`の既存慣習を踏襲）。`node tools/record-dashboard-poc/golden-tests.js`で実行、783件のcheckが全てPASS。
+
+### 26.2 公開API（§7想定どおり最小限）
+
+```
+donomanaRecordDashboard.getAdapters()               // 21 adapterの公開metadata一覧
+donomanaRecordDashboard.readAppRecords(appId, opts?) // 1app分の生entry配列を安全に読む(未normalize)
+donomanaRecordDashboard.normalizeRecord(appId, rec)  // 1件をNormalized Record Contractへ変換(失敗時null)
+donomanaRecordDashboard.collectRecords(opts?)        // 複数appを収集・正規化・ソートして返す(既定21本、kyou-no-kirokuは除外)
+```
+
+### 26.3 Normalized Record Contract（確定）
+
+```
+{
+  timestamp:    ISO 8601文字列 | null,
+  appId:        string,   // 常にAdapter Registry側のcanonical値(raw recordの自称appIdは無視、なりすまし対策)
+  appName:      string,
+  category:     string,
+  activity:     string,   // 判別不能時 'unknown'
+  summary:      string,   // plain text、HTML fragment禁止、自動評価語を含めない
+  metrics:      object,   // 存在するfieldのみ
+  inputMethod:  string | null,
+  privacyLevel: 'low' | 'medium' | 'high',
+  hasMedia:     boolean   // 画像等の実体は含めない
+}
+```
+
+### 26.4 appName/category戦略の決定（§9、A vs B比較の結論）
+
+**決定: A（Adapter Registryへ複製）**。apps-data.jsonから実行時取得する案(B)は、ブラウザ側でのfetch(同一originでも実行時networkが発生しT8-B1の「localStorage読み取り＋local static codeのみ」原則(§51)に反する)、またはビルド時embedには専用tooling追加が必要になり、いずれも「runtime dependencyを増やしすぎない」（§9原文）の基準に反する。21件のappName/category複製は小さく、実際に21本のRecord実装を行ってきたT7期の作業量と同等の許容範囲と判断した。
+
+### 26.5 storageKey実装時の確認結果
+
+21 storageKeyすべてを実コードから直接確認し、golden testで各app実ファイルへの参照存在も自動チェックしている（§65項目5の「registry/Foundation coverage一致」に加え、adapter定義とapp実装のドリフトも継続的に検出できる）。
+
+### 26.6 privacyLevelの具体化
+
+- **high**: kyou-no-kiroku（既定どおり）、**bosai-app**（`name`が毎レコード保存の専用自由入力fieldである実態を踏まえ、design doc §13の「Medium〜High要再検討候補」からhighへ確定）
+- **medium**: register-app、nazori-app（design doc §13どおり）
+- **low**: 残り17本
+
+### 26.7 Timeline既定summaryからの個人情報除外（§16/§43の具体化）
+
+- bosai-app: `name`（児童名）を一切summaryへ含めない
+- register-app: 商品名を含めない（件数・金額のみ）
+- nazori-app: `allChars`（練習文字、名前受容と実装コメントに明記）を含めない、達成数(sessionDone/sessionTotal)のみ
+- kyou-no-kiroku: childName・医療情報・自由記述を一切含めない汎用文のみ、metricsも意図的に空
+
+golden testの「Personal-data leakage」セクションで、上記3appへ共通markerを注入してもsummaryに一切現れないことを自動検証済み。
+
+### 26.8 診断設計（§55）
+
+`readAppRecords()`は「未使用アプリ(storage未設定)」を正常系（`errorType: null`）とし、「malformed JSON／valid non-array」等の実際の破損のみを`errorType`で区別する。`collectRecords()`はこれらを`errors: [{appId, errorType}]`として集約し、stack traceや生のJSON parseエラー文言を返さない（利用者向けにはT8-B2で「一部の記録を読み込めませんでした」等へ要約する想定）。
+
+### 26.9 性能実測
+
+21app×2000件（計42,000生entry）を合成データで処理して177〜309ms（実行環境依存）。21app×200件(200/app)比で入力10倍に対し処理時間は約10〜13倍で、病的なO(n²)は確認されなかった。
+
+### 26.10 未確定・T8-B2への引き継ぎ
+
+- kurabeyou-app／katachi-awase-appのlevel別詳細summary（現状は「正解/不正解」＋間違い回数の簡潔な文、level 2〜4の細かい選択内容は含めていない）
+- sst-appの`result`フィールドの内容種別が未確認のため、既定summaryから除外している（安全側判断、要再調査）
+- Dashboard UI・Timeline UI・横断CSV UI・Top page入口（T8-B1のscope外、次phase）
