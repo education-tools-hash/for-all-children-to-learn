@@ -1466,10 +1466,18 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // ためmigration概念自体が発生しない。T7-F/T7-G完了、Production反映済み。
 // Phase T7-I Priority B: janken-app(新規storage key `janken_log`、クイズモード1セット完了=
 // 1レコード。たいせんモードは終了地点の無い連続プレイのためRecord対象外と判断)・
-// register-app(新規storage key `register_log`、お会計1回完了=1レコード。商品名は自由入力
-// のため保存せず、商品点数・合計金額・おあずかり・おつりのみ記録)を追加。cup_gameは
+// register-app(新規storage key `register_log`、お会計1回完了=1レコード。当初は商品名を
+// 保存せず商品点数・合計金額・おあずかり・おつりのみ記録していた)を追加。cup_gameは
 // Inventoryの結果、終了地点の無い連続プレイでRecord Unitを自然に定義できないため今回は
 // 見送り(Local RCのみ、Production未反映)。
+// Phase T7-I' (User Review反映): 教師が授業後に振り返れるよう、janken-appはpayloadへ
+// `mistakes`(間違えた問題のみ、question/selected/correct)を追加(全問正解時は空配列。
+// 問題文・選択肢はアプリ固定データでPrivacy Low維持)。register-appはpayloadへ`items`
+// (会計確定時点のcartスナップショット、name/quantity/unitPrice/subtotal)を追加。商品名は
+// 教師の自由入力のため、今回からPrivacy classificationをLow→Medium相当として扱い、Help文言
+// も更新した。商品マスターは後から変更されうるため、CSV出力時に現在の商品マスターから名前を
+// 再取得せず、確定時点のsnapshotのみを参照する。両者ともschemaVersion:1のまま(v1 payload最終
+// 確定、不要なversion bumpはしない)。
 const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app']);
 
 function buildLearningRecordFoundationJSHTML() {

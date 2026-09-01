@@ -266,12 +266,14 @@
      そのまま使い、openModal/closeModal/setModalInertも新規実装しない。 */
   .record-open-btn{width:100%;min-height:44px;padding:12px;background:var(--surface);color:var(--primary);border:2.5px solid var(--primary);border-radius:16px;font-family:var(--font-family);font-size:calc(var(--font-size-base)*.95);font-weight:800;cursor:pointer;}
   .record-history{max-height:40vh;overflow-y:auto;margin:6px 0;}
-  .record-history-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 4px;border-bottom:1px solid var(--border);}
+  .record-history-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:10px 4px;border-bottom:1px solid var(--border);}
   .record-history-row:last-child{border-bottom:none;}
+  .record-history-content{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;}
   .record-history-main{display:flex;flex-wrap:wrap;gap:3px 10px;align-items:baseline;font-size:calc(var(--font-size-base)*.85);color:var(--text);}
   .record-history-date{font-weight:700;}
   .record-history-badge{color:var(--text-light);}
   .record-history-score{font-weight:900;color:var(--primary);}
+  .record-history-detail{font-size:calc(var(--font-size-base)*.78);color:var(--text-light);line-height:1.5;word-break:break-word;}
   .record-history-del{flex-shrink:0;min-width:44px;min-height:44px;border:none;background:none;color:var(--danger);font-size:1.1em;cursor:pointer;border-radius:50%;}
   .record-history-del:hover{background:rgba(192,57,43,0.1);}
   .record-history-empty{text-align:center;color:var(--text-light);font-size:calc(var(--font-size-base)*.9);padding:20px 0;}
@@ -760,7 +762,7 @@
 <div class="modal-overlay" id="record-modal" role="dialog" aria-modal="true" aria-labelledby="rmt">
   <div class="modal">
     <h2 class="modal-title" id="rmt">📊 きろく</h2>
-    <p style="font-size:calc(var(--font-size-base)*.85);color:var(--text-light);margin:0 0 10px">お会計が1回終わるたびに記録され、この端末に保存されます。商品名は記録に含まれません。</p>
+    <p style="font-size:calc(var(--font-size-base)*.85);color:var(--text-light);margin:0 0 10px">お会計が1回終わるたびに記録され、この端末に保存されます。購入した商品の名前も記録に含まれます。記録は外部へ送信されません。</p>
     <div class="record-history" id="record-history"></div>
     <div class="record-history-actions">
       <button class="record-action-btn" id="record-csv-btn">📄 CSVで書き出す</button>
@@ -1007,7 +1009,7 @@
       <div class="help-step"><div class="help-step-num">1</div><div><div class="help-step-title">🛒 商品をえらぶ</div><div class="help-step-desc">商品カードをタップするとカートに追加されます。何度もタップすると個数がふえます。</div><div class="help-img-box">🍪 タップ → 🛒 ＋１</div></div></div>
       <div class="help-step"><div class="help-step-num">2</div><div><div class="help-step-title">💰 お会計をする</div><div class="help-step-desc">「💰 お会計」ボタンをおして、数字ボタンでもらったお金を入力するとおつりが自動で計算されます。</div><div class="help-img-box">¥100 ＋ ¥200 ＝ <strong>¥300</strong></div></div></div>
       <div class="help-step"><div class="help-step-num">3</div><div><div class="help-step-title">🗑️ カートをリセット</div><div class="help-step-desc">お会計が終わると自動でリセットされます。まちがえたときは「🗑️ カートをリセット」で消せます。</div></div></div>
-      <div class="help-step"><div class="help-step-num">4</div><div><div class="help-step-title">📊 きろく</div><div class="help-step-desc">お会計が1回終わるたびに、商品点数・合計金額がこの端末に自動で記録されます（商品名は記録されません）。「📊 きろくをみる」から、あとから記録の一覧を見たり、CSVで書き出したりできます。</div></div></div>
+      <div class="help-step"><div class="help-step-num">4</div><div><div class="help-step-title">📊 きろく</div><div class="help-step-desc">お会計が1回終わるたびに、購入した商品の名前・数量・金額がこの端末に自動で記録されます。記録は外部へ送信されません。「📊 きろくをみる」から、あとから記録の一覧を見たり、CSVで書き出したりできます。</div></div></div>
     </div>
     <div class="help-panel" id="help-tab-edit" style="display:none;">
       <div class="help-step"><div class="help-step-num">1</div><div><div class="help-step-title">✏️ 編集モードにする</div><div class="help-step-desc">「✏️ 編集モード」ボタンをおすと、商品を追加・変更・削除できます。</div></div></div>
@@ -1420,21 +1422,47 @@ function clearCart(){ cart=[]; renderCart(); }
 //  きろく（Phase T7-I Priority B — Learning Record Foundation統合）
 //  payment-confirmのクリックは1回の会計につき1回だけ発火する通常のボタン
 //  クリックであり(startGame()型の繰り返し呼び出し経路が無い)、二重保存を
-//  防ぐための追加フラグは不要と判断した。商品名(自由入力)は保存しない
-//  (Privacy Minimalism)。inputMethodは数字ボタンのタップのみで確実な判別
-//  コードが無いためnull(推測禁止の原則)。
+//  防ぐための追加フラグは不要と判断した。inputMethodは数字ボタンのタップの
+//  みで確実な判別コードが無いためnull(推測禁止の原則)。
+//  Phase T7-I' (User Review反映): 商品名は教師の自由入力のため、会計確定
+//  時点のcart(name/qty/price)をitemsとしてRecordへsnapshot保存する。商品
+//  マスターは後から変更されうるため、CSV出力時に現在の商品マスターから
+//  名前を再取得せず、確定時点のsnapshotのみを参照する。商品名を含むため
+//  Privacy classificationはLow→Medium相当として扱う(Help文言も更新済み)。
 // ════════════════════════════════════
 const REGISTER_RECORD_KEY = 'register_log';
 const REGISTER_RECORD_MAX = 200;
-function saveRegisterRecord(itemCount, totalAmount, paymentReceivedAmount, change) {
+function saveRegisterRecord(itemCount, totalAmount, paymentReceivedAmount, change, items) {
   const entry = donomanaRecordCreate('register-app', 'checkout', null, {
     itemCount: itemCount,
     totalAmount: totalAmount,
     paymentReceived: paymentReceivedAmount,
-    change: change
+    change: change,
+    items: Array.isArray(items) ? items : []
   });
   const log = donomanaRecordAddLog(REGISTER_RECORD_KEY, entry);
   if (log.length > REGISTER_RECORD_MAX) donomanaRecordWriteLog(REGISTER_RECORD_KEY, log.slice(log.length - REGISTER_RECORD_MAX));
+}
+// CSV Formula Injection対策(nazori-app/bosai-appと同じローカルguard方式、Foundation未共通化)。
+// 商品名は教師の自由入力(product-modal)に由来するため、値が=/+/-/@やタブ・改行で始まる場合、
+// Excel等が数式として解釈しないよう先頭にsafe-quoteを付与する(OWASP CSV Injection対策)。
+function registerCsvSafeCell(value) {
+  const s = (value === undefined || value === null) ? '' : String(value);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+// 購入内容を1行テキストへ整形する(Section 12: 商品名×数量＋小計)。nameSafeFnで
+// 商品名(自由入力)に対する追加処理を差し込める(CSV=Formula Injection guard、
+// Viewer=HTMLエスケープ、と用途ごとに切り替える)。legacy record(itemsフィールド
+// 欠落)は空配列扱いで「なし」を返す(undefined/crash禁止、Section 18)。
+function formatRegisterItems(items, nameSafeFn) {
+  if (!Array.isArray(items) || items.length === 0) return 'なし';
+  const safe = typeof nameSafeFn === 'function' ? nameSafeFn : (v => v);
+  return items.map(it => {
+    const name = safe((it && it.name) || '');
+    const qty = (it && typeof it.quantity === 'number') ? it.quantity : '';
+    const subtotal = (it && typeof it.subtotal === 'number') ? it.subtotal.toLocaleString() : '';
+    return `${name}×${qty}（${subtotal}円）`;
+  }).join('／');
 }
 
 function renderRegisterRecords() {
@@ -1452,11 +1480,15 @@ function renderRegisterRecords() {
     const dateLabel = donomanaRecordFormatDateTime(rec.timestamp);
     const itemLabel = (typeof p.itemCount === 'number') ? `${p.itemCount}点` : '—';
     const totalLabel = (typeof p.totalAmount === 'number') ? `¥${p.totalAmount.toLocaleString()}` : '—';
+    const purchaseLabel = formatRegisterItems(p.items, esc);
     html += `<div class="record-history-row">`
+      + `<div class="record-history-content">`
       + `<div class="record-history-main">`
       + `<span class="record-history-date">${dateLabel}</span>`
       + `<span class="record-history-badge">${itemLabel}</span>`
       + `<span class="record-history-score">${totalLabel}</span>`
+      + `</div>`
+      + (purchaseLabel !== 'なし' ? `<div class="record-history-detail">🛒 ${purchaseLabel}</div>` : '')
       + `</div>`
       + `<button class="record-history-del" onclick="deleteRegisterRecord(${i})" aria-label="このきろくを削除">✕</button>`
       + `</div>`;
@@ -1481,12 +1513,13 @@ function clearRegisterRecords() {
 
 function exportRegisterRecordsCSV() {
   const log = donomanaRecordReadLog(REGISTER_RECORD_KEY);
-  const rows = [['日付', '時刻', '商品点数', '合計金額', 'おあずかり', 'おつり']];
+  const rows = [['日付', '時刻', '購入内容', '商品点数', '合計金額', 'おあずかり', 'おつり']];
   (Array.isArray(log) ? log : []).forEach(rec => {
     const p = (rec && rec.payload) || {};
     const dt = donomanaRecordFormatCsvDateTime(rec && rec.timestamp);
     rows.push([
       dt.date, dt.time,
+      formatRegisterItems(p.items, registerCsvSafeCell),
       (typeof p.itemCount === 'number') ? p.itemCount : '',
       (typeof p.totalAmount === 'number') ? p.totalAmount : '',
       (typeof p.paymentReceived === 'number') ? p.paymentReceived : '',
@@ -1678,7 +1711,8 @@ document.getElementById('payment-confirm').addEventListener('click',()=>{
   const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
   const change=parseInt(paymentReceived||'0')-total;
   const itemCount=cart.reduce((s,i)=>s+i.qty,0);
-  saveRegisterRecord(itemCount,total,parseInt(paymentReceived||'0'),change);
+  const items=cart.map(i=>({ name:i.name, quantity:i.qty, unitPrice:i.price, subtotal:i.price*i.qty }));
+  saveRegisterRecord(itemCount,total,parseInt(paymentReceived||'0'),change,items);
   clearCart(); closeModal('payment-modal'); showToast('🎉 ありがとうございました！'); playSound('success');
   if(settings.speechChange) speak(`おつりは、${change}円です。ありがとうございました`);
 });

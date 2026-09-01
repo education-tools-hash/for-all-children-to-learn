@@ -986,12 +986,14 @@
   .record-modal h2 { font-size:1.15rem; margin:0 0 10px; color:var(--dm-color-ink); }
   .record-modal-close-btn { display:block; width:100%; margin-top:16px; padding:12px; border:none; border-radius:var(--dm-radius-pill); font-family:inherit; font-size:1rem; font-weight:900; color:#fff; cursor:pointer; background:var(--dm-color-primary); min-height:44px; }
   .record-history { max-height:40vh; overflow-y:auto; margin:6px 0; }
-  .record-history-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 4px; border-bottom:1px solid var(--dm-color-border); }
+  .record-history-row { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:10px 4px; border-bottom:1px solid var(--dm-color-border); }
   .record-history-row:last-child { border-bottom:none; }
+  .record-history-content { display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; }
   .record-history-main { display:flex; flex-wrap:wrap; gap:3px 10px; align-items:baseline; font-size:0.85rem; color:var(--dm-color-ink); }
   .record-history-date { font-weight:700; }
   .record-history-badge { color:var(--dm-color-sub); }
   .record-history-score { font-weight:900; color:var(--dm-color-primary-dark); }
+  .record-history-detail { font-size:0.78rem; color:var(--dm-color-sub); line-height:1.5; word-break:break-word; }
   .record-history-del { flex-shrink:0; min-width:44px; min-height:44px; border:none; background:none; color:var(--dm-color-danger-text); font-size:1.1rem; cursor:pointer; border-radius:50%; }
   .record-history-del:hover { background:rgba(238,108,124,0.12); }
   .record-history-empty { text-align:center; color:var(--dm-color-sub); font-size:0.9rem; padding:20px 0; }
@@ -1541,7 +1543,7 @@
       </div>
       <div class="howto-section">
         <h3 class="howto-sec-title">📊 きろく</h3>
-        <p class="howto-text">クイズが1回終わるたびに、モード・正解数がこの端末に自動で記録されます。ホーム画面の「📊 きろくをみる」から、あとから記録の一覧を見たり、CSVで書き出したりできます。たいせんモードは記録の対象外です。</p>
+        <p class="howto-text">クイズが1回終わるたびに、モード・正解数・まちがえた問題の内容がこの端末に自動で記録されます。ホーム画面の「📊 きろくをみる」から、あとから記録の一覧を見たり、CSVで書き出したりできます。たいせんモードは記録の対象外です。</p>
       </div>
       <div class="howto-section">
         <h3 class="howto-sec-title">⚠️ 使用上の留意点</h3>
@@ -2118,7 +2120,7 @@ const MODE_LABEL = {
   both: '🌟 かちまけ まぜる！',
 };
 
-let quizList = [], quizIdx = 0, quizResults = [], quizMode = 'win';
+let quizList = [], quizIdx = 0, quizResults = [], quizMode = 'win', quizMistakes = [];
 
 function startQuiz(mode) {
   quizMode = mode;
@@ -2130,6 +2132,7 @@ function startQuiz(mode) {
   quizList = pool.sort(() => Math.random() - 0.5).slice(0, mode === 'both' ? 6 : 3);
   quizIdx = 0;
   quizResults = [];
+  quizMistakes = [];
   quizRecordSaved = false;
   document.getElementById('quiz-mode-badge').textContent = MODE_LABEL[mode];
   showScreen('quiz');
@@ -2189,6 +2192,12 @@ function answerQuiz(chosen, btn, allBtns) {
     allBtns.forEach(b => {
       if (b.textContent.includes(correctHand.name)) b.classList.add('correct');
     });
+    const chosenHand = HANDS.find(h => h.id === chosen);
+    quizMistakes.push({
+      question: q.q_text,
+      selected: chosenHand ? chosenHand.name : chosen,
+      correct: correctHand ? correctHand.name : q.answer
+    });
   }
 
   quizResults.push(correct);
@@ -2216,7 +2225,7 @@ function showQuizResult() {
   document.getElementById('quiz-feedback').className = 'quiz-feedback hidden';
   document.getElementById('quiz-progress').innerHTML = '';
   if (wins === total) { launchConfetti(); playWin(); }
-  saveQuizRecord(wins, total);
+  saveQuizRecord(wins, total, quizMistakes);
 }
 
 // ════════════════════════════════════
@@ -2229,12 +2238,28 @@ function showQuizResult() {
 const JANKEN_RECORD_KEY = 'janken_log';
 const JANKEN_RECORD_MAX = 200;
 let quizRecordSaved = false;
-function saveQuizRecord(correct, total) {
+function saveQuizRecord(correct, total, mistakes) {
   if (quizRecordSaved) return;
   quizRecordSaved = true;
-  const entry = donomanaRecordCreate('janken-app', 'quiz', null, { mode: quizMode, total: total, correct: correct });
+  const entry = donomanaRecordCreate('janken-app', 'quiz', null, {
+    mode: quizMode, total: total, correct: correct,
+    mistakes: Array.isArray(mistakes) ? mistakes : []
+  });
   const log = donomanaRecordAddLog(JANKEN_RECORD_KEY, entry);
   if (log.length > JANKEN_RECORD_MAX) donomanaRecordWriteLog(JANKEN_RECORD_KEY, log.slice(log.length - JANKEN_RECORD_MAX));
+}
+// まちがえた内容をCSV/Viewer共通の1行テキストへ整形する(Section 5/6)。
+// question/selected/correctはHANDS/QUIZ_WIN/QUIZ_LOSEの固定authored文字列のみに由来し、
+// 自由入力を含まない(Privacy Low維持、Section 4)。legacy record(mistakesフィールド欠落)は
+// 空配列扱いで「なし」を返す(Section 18、undefined/crash禁止)。
+function formatJankenMistakes(mistakes) {
+  if (!Array.isArray(mistakes) || mistakes.length === 0) return 'なし';
+  return mistakes.map(m => {
+    const q = (m && m.question) || '';
+    const sel = (m && m.selected) || '';
+    const cor = (m && m.correct) || '';
+    return `${q} → 回答：${sel}／正解：${cor}`;
+  }).join('｜');
 }
 
 function renderJankenRecords() {
@@ -2253,11 +2278,15 @@ function renderJankenRecords() {
     const dateLabel = donomanaRecordFormatDateTime(rec.timestamp);
     const modeLabel = modeNames[p.mode] || '—';
     const scoreLabel = (typeof p.correct === 'number' && typeof p.total === 'number') ? `${p.correct} / ${p.total} もん` : '—';
+    const mistakeLabel = formatJankenMistakes(p.mistakes);
     html += `<div class="record-history-row">`
+      + `<div class="record-history-content">`
       + `<div class="record-history-main">`
       + `<span class="record-history-date">${dateLabel}</span>`
       + `<span class="record-history-badge">${modeLabel}</span>`
       + `<span class="record-history-score">${scoreLabel}</span>`
+      + `</div>`
+      + (mistakeLabel !== 'なし' ? `<div class="record-history-detail">✏️ ${mistakeLabel}</div>` : '')
       + `</div>`
       + `<button class="record-history-del" onclick="deleteJankenRecord(${i})" aria-label="このきろくを削除">✕</button>`
       + `</div>`;
@@ -2283,7 +2312,7 @@ function clearJankenRecords() {
 function exportJankenRecordsCSV() {
   const log = donomanaRecordReadLog(JANKEN_RECORD_KEY);
   const modeNames = { win: 'かちのは どれ？', lose: 'まけるのは どれ？', both: 'どちらもまぜる' };
-  const rows = [['日付', '時刻', 'モード', 'せいかい', 'もんだいすう']];
+  const rows = [['日付', '時刻', 'モード', 'せいかい', 'もんだいすう', 'まちがえた内容']];
   (Array.isArray(log) ? log : []).forEach(rec => {
     const p = (rec && rec.payload) || {};
     const dt = donomanaRecordFormatCsvDateTime(rec && rec.timestamp);
@@ -2291,7 +2320,8 @@ function exportJankenRecordsCSV() {
       dt.date, dt.time,
       modeNames[p.mode] || '',
       (typeof p.correct === 'number') ? p.correct : '',
-      (typeof p.total === 'number') ? p.total : ''
+      (typeof p.total === 'number') ? p.total : '',
+      formatJankenMistakes(p.mistakes)
     ]);
   });
   const csv = donomanaRecordBuildCsv(rows);
