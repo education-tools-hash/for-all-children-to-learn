@@ -1543,13 +1543,30 @@ document.getElementById('record-open-btn').addEventListener('click', () => {
   openModal('record-modal');
   document.getElementById('record-open-btn').setAttribute('aria-expanded', 'true');
 });
-document.getElementById('record-modal-close-btn').addEventListener('click', () => {
+// Phase T7-I'': record-modalを閉じる経路(×ボタンクリック／Escape)を1つの
+// canonical関数へ集約。closeModal()自体はactive要素をblurするだけでfocus
+// を戻さないため、以前は×ボタンのclickハンドラにだけfocus-return処理が
+// 書かれており、Escapeで閉じるとfocusがbodyへ落ちていた(T7-J Browser
+// Release Gateで検出)。他モーダル(payment/help/product等)のclose処理・
+// focus設計には触れない(record-modalのみのスコープ)。
+function closeRecordModal() {
   closeModal('record-modal');
   document.getElementById('record-open-btn').setAttribute('aria-expanded', 'false');
   document.getElementById('record-open-btn').focus();
-});
+}
+document.getElementById('record-modal-close-btn').addEventListener('click', closeRecordModal);
 document.getElementById('record-csv-btn').addEventListener('click', exportRegisterRecordsCSV);
 document.getElementById('record-clear-btn').addEventListener('click', clearRegisterRecords);
+// record-modal限定のEscapeハンドラ。既存の汎用Escapeハンドラ(全.modal-overlay.active
+// をcloseModal()するだけ)より先に発火させる必要があるため、他のkeydownリスナーとは
+// 独立に働くcapture phaseで登録する(登録順に依存させない)。汎用ハンドラが後から
+// closeModal('record-modal')を呼んでも、既にactiveでなければ何もしないため無害。
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const m = document.getElementById('record-modal');
+  if (!m.classList.contains('active')) return;
+  closeRecordModal();
+}, true);
 // register-appの既存openModal/closeModalは背景を丸ごとinert化しないため、
 // 他の全モーダル(payment-modal/help-modal/product-modal)と同様、Tabで
 // モーダル外(record-open-btn等)へ抜けてしまう(既存の仕様、本Phaseでは
