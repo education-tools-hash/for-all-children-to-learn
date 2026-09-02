@@ -2069,6 +2069,7 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-09-02", type: "new", text: "先生・支援者向けの『学習のきろく』を公開しました。複数の教材に保存された学習記録を、1つの画面でまとめて振り返れます。" },
   { date: "2026-09-01", type: "update", text: "2つの教材に学習記録機能を追加しました。", details: [
     "『じゃんけん まなぼう！』に学習記録機能を追加し、間違えた内容を振り返れるようにしました。",
     "『はんばいかい レジ』に学習記録機能を追加し、購入した商品の内訳を振り返れるようにしました。",
@@ -2616,6 +2617,7 @@ const SITEMAP_STATIC_PAGES = [
   { url: 'about.html',             priority: 0.8, changefreq: 'monthly' },
   { url: 'philosophy.html',        priority: 0.8, changefreq: 'monthly' },
   { url: 'wizard.html',            priority: 0.8, changefreq: 'monthly' },
+  { url: 'learning-records.html',  priority: 0.7, changefreq: 'monthly' },
   { url: 'home-screen-guide.html', priority: 0.6, changefreq: 'monthly' },
   { url: 'terms.html',             priority: 0.5, changefreq: 'monthly' },
 ];
