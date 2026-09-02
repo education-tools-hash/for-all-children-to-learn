@@ -133,10 +133,44 @@ def snapshot_storage(page):
     return page.evaluate("(keys) => keys.map(k => [k, localStorage.getItem(k)])", keys)
 
 
+# Phase T9-B: learning-records.html now carries root-absolute PWA resource
+# links (<link rel="manifest" href="/site.webmanifest">,
+# <script src="/assets/js/pwa-register.js">) injected by generate.js. Under
+# this script's file:// loading (PAGE_URL = PAGE_PATH.as_uri()), an
+# absolute "/" path resolves to the filesystem root, not the repo root, so
+# both requests fail with a generic "Failed to load resource:
+# net::ERR_FILE_NOT_FOUND" console message that carries no URL. This is a
+# file://-testing artifact only — on real HTTP serving (donomana.jp, and
+# the T9-B tools/pwa-poc/pwa-realbrowser-test.py suite which serves over
+# http://127.0.0.1) both resources resolve correctly and that suite's own
+# PWA lifecycle tests show zero console errors. We identify the exact
+# known-benign failed requests via the `requestfailed` event (which does
+# carry the URL) and only then discount one matching generic console
+# message per such failure — any other ERR_FILE_NOT_FOUND (a real missing
+# asset) still counts as a failure.
+_FILE_PROTOCOL_KNOWN_PATHS = ("/site.webmanifest", "/assets/js/pwa-register.js")
+_GENERIC_RESOURCE_ERROR_TEXT = "Failed to load resource: net::ERR_FILE_NOT_FOUND"
+
+
 def new_page(context):
     page = context.new_page()
     errors = {"console_errors": [], "page_errors": []}
-    page.on("console", lambda msg: errors["console_errors"].append(msg.text) if msg.type == "error" else None)
+    state = {"known_benign_failures": 0}
+
+    def on_request_failed(request):
+        if request.url.startswith("file://") and request.url.endswith(_FILE_PROTOCOL_KNOWN_PATHS):
+            state["known_benign_failures"] += 1
+
+    def on_console(msg):
+        if msg.type != "error":
+            return
+        if msg.text == _GENERIC_RESOURCE_ERROR_TEXT and state["known_benign_failures"] > 0:
+            state["known_benign_failures"] -= 1
+            return
+        errors["console_errors"].append(msg.text)
+
+    page.on("requestfailed", on_request_failed)
+    page.on("console", on_console)
     page.on("pageerror", lambda exc: errors["page_errors"].append(str(exc)))
     return page, errors
 
