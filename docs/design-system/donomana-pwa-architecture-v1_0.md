@@ -569,3 +569,53 @@ hiragana-learn/katakana-app（cross-origin音声あり）は最初のpilotから
 ## 42. Production変更（§65）
 
 T9-A: docs-only。`service-worker.js`・`manifest`本番変更・`registerServiceWorker`・cache API書込み・navigation変更・Changelog追加・main merge・push・deployのいずれも行っていない。
+
+---
+
+## 43. Implementation Notes（Phase T9-B、Minimal Foundation + Visited-App Offline Pilot、Local RC）
+
+T9-Bで「PWA最小基盤 + Visited-App Offline Pilot」をLocal RCまで実装した。Production公開・main merge・pushは行っていない（本Phaseのスコープ外）。
+
+### 43.1 実装物
+
+- `site.webmanifest`（既存ファイルを更新） — `start_url:"/"`・`scope:"/"`を追加。`icons`/`theme_color`/`background_color`/`display`は既存のまま維持。maskable purposeは追加しない（§23の理由により、safe-zone未確認のicon-512.pngをそのまま転用しない判断を維持）。
+- `service-worker.js`（新規、repo root、scope `/`） — Pilot allowlist(`/`／`/learning-records.html`／`/janken-app.html`／`/tokei-app.html`)のnavigationのみNetwork First+runtime cache。それ以外のnavigationには一切介入しない。sub-resourceは要求元client URLがPilot allowlistの場合のみruntime cacheする(non-pilotページ由来のsub-resourceは`fetch(req)`をそのまま返すのみ)。`self.skipWaiting()`は`message`イベント経由でのみ実行(Controlled Update)。`localStorage`/`sessionStorage`/`indexedDB.deleteDatabase`は一切参照しない。
+- `offline.html`（新規） — 技術用語なしのoffline fallback。Home導線・再読み込みボタンを実装。
+- `assets/js/pwa-register.js`（新規） — SW登録＋Controlled Update UI（「新しいバージョンがあります」＋「更新する」ボタン、44px・keyboard操作可）。登録失敗時も例外を握りつぶし通常利用に影響しない。
+- `generate.js`拡張 — 冪等注入patternを再利用した2つの新規機構:
+  1. `PWA_MANIFEST_TARGET_FILES`(7ファイル: about.html/philosophy.html/terms.html/wizard.html/home-screen-guide.html/404.html/learning-records.html)へmanifest link + theme-colorのみを注入(T9-A §2.3で確認したgapの解消。既存の手書きfavicon linkとは重複させない別マーカー方式)。
+  2. `PWA_REGISTER_TARGET_FILES`(4ファイル: index.html/learning-records.html/janken-app.html/tokei-app.html)へService Worker登録scriptタグのみを注入(全35アプリへの個別貼付は行わない、§21)。
+- `tools/pwa-poc/manifest-tests.js` — Node単体テスト(71件): manifest JSON妥当性、service-worker.jsソース安全性(localStorage/eval/importScripts等の不在)、offline.html構造、pwa-register.js安全性、generate.js注入カバレッジ(manifest link/theme-color/登録scriptがそれぞれ対象ファイルに正確に1件のみ、非Pilotアプリには登録scriptが皆無)、apps-data.json(35のまま)・sitemap.xml(offline.html/service-worker.js/site.webmanifest不掲載)の非影響確認。
+- `tools/pwa-poc/pwa-realbrowser-test.py` — Playwright実ブラウザライフサイクルテスト(54件、詳細は§43.3)。
+
+### 43.2 既存メカニズムの再利用(§19/§57)
+
+`generate.js`が既に持っていた「マーカーコメントによる冪等注入」(`injectFavicon()`)と全く同じ設計の汎用helper`injectMarkedBlock()`/`injectMarkedBlockToFiles()`を切り出し、PWA関連の2つの注入(manifest link・SW登録script)に再利用した。個別HTMLへの手貼りは一切行っていない。
+
+### 43.3 検証結果サマリ
+
+- Node PWA静的テスト: **71/71 PASS**
+- 既存回帰(B1 Golden Tests 783/783・UI Golden Tests 58/58・Dashboard実ブラウザテスト49/49)は全PASS維持(dashboard-realbrowser-test.pyは、learning-records.htmlへ追加されたroot-absolute path資源(`/site.webmanifest`・`/assets/js/pwa-register.js`)がfile://読み込み環境でのみ発生させる既知の無害な`ERR_FILE_NOT_FOUND`を、`requestfailed`イベントで実URLを確認した上で除外するよう調整。Production相当のHTTP配信では発生しない)。
+- Playwright PWAライフサイクルテスト(`pwa-realbrowser-test.py`、**54/54 PASS**):
+  - **Storage Preservation(§0 最重要原則)**: localStorage 4key + IndexedDB 4db(schedule-app/matching-app/ongaku-app/dotchiga-ii-app)のfixtureが、register→install→activate→online訪問→offline再読込→offline中のRecord書込み→オンライン復帰→Service Worker v1→v2 update→kill switch(unregister+cache削除)の全工程を通じて**完全に保持される**ことを確認(各段階でbyte-for-byte/行単位の一致を検証)。
+  - Visited-app offline: learning-records.html/janken-app.html/tokei-app.htmlとも訪問後はoffline再読込で正常表示。learning-records.htmlはoffline状態でも既存Record・Detail modalが機能。
+  - Fresh/unvisited offline: 一度も訪問していないPilotページへのoffline初回アクセスはoffline.htmlへ正しくfallback(空白/エラー画面なし)。
+  - Non-pilot regression: matching-app/shiritori2/bosai-app/nazori-app/hiragana-learn/katakana-appの6本は、SW active状態でもonline時の挙動に変化なし、かつCacheStorageへ一切書き込まれない(No-op原則の実証)。
+  - Update flow: 新versionは`waiting`のまま留まり自動reloadなし。「更新する」明示操作後のみ`controllerchange`→reload(1回のみ)。
+  - Cache content audit: cache名は`donomana-`prefixのみ、`/tools/`・`/docs/`・非Pilot app HTML・blob/data URLはいずれも含まれない。
+  - Installability前提(§45): manifest fetch 200(`application/manifest+json`)・必須フィールド具備・SW registration(scope `/`, active)・secure context(`127.0.0.1`)を確認。**実際の「ホーム画面に追加」プロンプト(`beforeinstallprompt`)自体はブラウザ側のengagement heuristics依存のため、headless自動テストでは確認できていない(正直な申告、T9-C以降の実機確認事項)**。
+  - HTTP SHA-256: `service-worker.js`/`site.webmanifest`/`offline.html`/`learning-records.html`/`janken-app.html`/`tokei-app.html`の6ファイルすべてworktree⇔HTTP配信で一致。
+- `node generate.js`×3(index.html/sitemap.xml/learning-records.html): unexpected diff 0。
+
+### 43.4 既存の未修正事項(参考記録、対応せず)
+
+Injection Coverage監査中に、`kyou-no-kiroku.html`・`mogura-tataki.html`・`ongaku-app.html`の3アプリで`<meta name="theme-color">`が2重に存在することを発見した(手書きの独自theme-color + `injectFavicon()`による自動注入分)。**この3ファイルは本Phaseで一切変更していない既存の問題であり**、T9-Bのスコープ外として修正しない(大量のapp business logic変更を避ける方針、§69)。将来Phaseでの修正候補として記録する。
+
+### 43.5 未対応・Future Candidate(本Phaseでは対応しない)
+
+- Edge/iPad Safari等、Chromiumエンジン以外での実機確認(本Phaseの自動テストはPlaywright=Chromiumエンジンのみ。Edgeも同エンジンだが、ブランド別の実機確認は未実施)
+- 実際の「ホーム画面に追加」プロンプト表示の実機確認
+- Update Prompt表示中のfocus管理の精緻化(§53、キーボード操作自体は可能)
+- 静的asset(CSS/JS)のcontent-hash化・cache容量上限/eviction設計(design doc §9/§10、T9-C以降)
+- cross-origin音声(hiragana-learn/katakana-app)のcache戦略
+- theme-color重複(§43.4)の解消
