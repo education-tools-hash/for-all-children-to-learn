@@ -464,3 +464,55 @@ golden testの「Personal-data leakage」セクションで、上記3appへ共�
 - kurabeyou-app／katachi-awase-appのlevel別詳細summary（現状は「正解/不正解」＋間違い回数の簡潔な文、level 2〜4の細かい選択内容は含めていない）
 - sst-appの`result`フィールドの内容種別が未確認のため、既定summaryから除外している（安全側判断、要再調査）
 - Dashboard UI・Timeline UI・横断CSV UI・Top page入口（T8-B1のscope外、次phase）
+
+---
+
+## 27. Implementation Notes（Phase T8-B2、Supporter Dashboard MVP UI、Local RC）
+
+T8-B2で「学習のきろく」（`learning-records.html`）をLocal RCまで実装した。Production公開・Top page/app-intro/sitemap/nav/Changelogへの正式導線追加は行っていない（本Phaseのスコープ外、§8/§70）。
+
+### 27.1 実装物
+
+- `learning-records.html` — 独立ページ本体（`<meta name="robots" content="noindex, nofollow">`付き、Local RCの誤インデックス防止）。共通header/footerは`about.html`等既存の静的ページと同じトーン(design token)を踏襲しつつ、サイト標準navへは追加していない(§8)。
+- `assets/js/record-dashboard-ui.js` — DOM操作を含まない純粋関数層(filter/group/summary/CSV/表示ラベル)。T8-B1 Foundation本体(`record-dashboard-foundation.js`)は無変更(§5「B1の責務を壊さない」を遵守)。UMD風ラッパーで`assets/js/record-dashboard-foundation.js`と同じ実行環境(ブラウザ/Node.js)に対応。
+- `tools/record-dashboard-poc/ui-golden-tests.js` — UI純粋関数のNode単体テスト(58件)＋apps-data.json⇔Adapter Registry(21本)のMetadata Drift Test。
+- `tools/record-dashboard-poc/dashboard-realbrowser-test.py` — Playwright(既存`tools/make-mockups.py`/`tools/tracing-poc/test-*-realbrowser.py`と同じChromium)による実ブラウザ統合テスト(49件): empty/mixed-fixture/XSS非実行/個人情報非露出/破損storage分離/read-only証明/レスポンシブ/200%zoom/キーボード操作/アクセシビリティセマンティクス。
+
+### 27.2 Metadata Drift Testで判明した既存の表記ゆれ（新規バグではない）
+
+apps-data.jsonの`id`フィールドは通常filenameと同一だが、`dotchiga-ii-app`のみ`id:"dotchiga-ii"`／`filename:"dotchiga-ii-app"`で不一致。Adapter RegistryのappId(`dotchiga-ii-app`)は他20本と同様filenameと一致する設計のため、Metadata Drift Testのjoinキーは`filename`を正とした(`id`でjoinすると誤検知する)。generate.js側のLEARNING_RECORD_FOUNDATION_APPSも`dotchiga-ii-app`表記のため、Foundation全体としては一貫している。apps-data.json自体の修正は本Phaseのスコープ外。
+
+### 27.3 Activity表示ラベルの決定(§16、User Review指摘により確定)
+
+未知のactivityコードは「レベルN」パターン変換 → 該当なしなら**「その他の活動」という汎用日本語ラベル**を返す、という安全側フォールバックを採用する(初期実装では生コードをそのまま表示していたが、User Review前の確認で「教師に内部コードを見せない」というB1以来の原則(§16/§43)に反することが判明したため修正した。生コードのフォールバックは今後も採用しない)。
+
+実装時に以下を各appの実コードから直接確認し、日本語ラベルを追加した: janken-app(`win`/`lose`/`both`＝janken-app.html自身のmodeNames辞書と同じ表記)、okane-app(`shop`/`mondai`/`mistake`)、sst-app(`rp`＝ロールプレイ、実コードの`recordActivity('rp',...)`呼び出しで確認)、kurabeyou-app(`size`/`length`＝`comparisonMode`の実値)、mogura-tataki(`time`/`count`＝`G.mode`の実値)、nazori-app(`single`/`wide`＝実コードの`data-pmode`ボタン表記「一文字ずつ」「続けて書く」と対応)。それ以外の未網羅コードは「その他の活動」で表示する(§16の「第一候補」、将来Phaseで個別ラベルを追加する候補)。
+
+### 27.4 主要な設計判断(第一候補として決定したもの)
+
+| 項目 | 決定 |
+|---|---|
+| Initial Collection Limit(§12/§54) | `maxPerApp:50, limit:200`(Foundation `collectRecords()`へそのまま渡す) |
+| 期間filter既定値(§13) | 7日 |
+| 「全て表示」ボタン(§55) | **Deferred**。200件の初期上限でUser Reviewには十分と判断、必要になれば別Phaseで追加 |
+| Switch Scan(§49) | **Option B(keyboard-native、Switch ScanはFuture Enhancement)**。理由: (1)どのまな全体で共通Switch Scan基盤が存在しない(Phase4-2.5Aの既存調査結果)ため独自実装は「独自scan engine禁止」に抵触する、(2)Dashboard主対象が教師・支援者であり子ども向け教材と要件が異なる、(3)全操作がnative `<button>`/`<select>`でTab到達可能なため、keyboard操作の基本要件は満たしている |
+| CSV export対象(§32) | 現在表示中(filter適用後)のRecordのみ |
+| nazori等の画像(§27) | MVPでは`hasMedia`のバッジ表示のみ、実画像のlazy displayはDeferred |
+| kyou-no-kiroku(§24) | 別タブ/別ページを作らず、既定Timelineから除外するのみ(Foundationの`includeInDefaultTimeline:false`のまま) |
+
+### 27.5 検証結果サマリ
+
+- B1 Golden Tests: 783/783 PASS(無変更)。
+- UI Golden Tests(Node、純粋関数+Metadata Drift): 58/58 PASS(activity fallback修正確認を含む)。
+- Playwright実ブラウザテスト: 49/49 PASS(empty/mixed 21-app/XSS非実行/個人情報非露出/破損storage分離/read-only証明(localStorage前後一致)/レスポンシブ4viewport/200%zoom/キーボード操作・フォーカストラップ・フォーカス復帰/アクセシビリティセマンティクス/生activityコード非表示確認)。
+- Excel実測(Windows Excel COM): エクスポートCSVをExcelで開き、21行×7列、`HasFormula=False`(Formula Injection無効化を確認)、列ずれなし、EXCEL.EXEプロセスの残留なしを確認。
+- `node generate.js`を3回連続実行してもunexpected diff = 0(2026-09-01 Changelog形式・sitemap.xml・他21アプリファイルへの影響なし、`learning-records.html`はsitemap自動収集対象外であることも確認)。
+
+### 27.6 未対応・Future Candidate(本Phaseでは対応しない)
+
+- 「全て表示」ボタン(§55)
+- 画像記録(nazori-app等)の詳細ビューでのlazy display実装(§27)
+- kyou-no-kirokuの個別導線(別タブ/別ページ)(§24)
+- Switch Scan対応(§49、Decision B により将来Enhancement candidateへ)
+- activityコードの個別日本語ラベルの追加網羅(§16、未網羅コードは「その他の活動」で安全に表示されるが、個別の意味あるラベルはまだ一部のコードにしか付与していない)
+- 実際のスクリーンリーダー(NVDA/VoiceOver等)による読み上げ実機確認・Claude in Chromeでの確認は本Phaseでも未実施(このユーザー環境でセッションを通じて未接続のため、Playwright実ブラウザ+アクセシビリティツリー相当の検証で代替)
