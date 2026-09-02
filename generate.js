@@ -1774,6 +1774,100 @@ function injectFavicon(html) {
   return { html: newHtml, action: 'inserted' };
 }
 
+// ============================================================
+//  PWA(Phase T9-B): manifest/theme-color注入(静的ページ向け)
+//  ・about.html等は既に独自のfavicon <link>を手書きしているため、
+//    FAVICON_TAGS一式を重複挿入せず、manifest linkとtheme-colorだけを
+//    別マーカーで冪等注入する(docs/design-system/
+//    donomana-pwa-architecture-v1_0.md §2.3で確認したgapの解消)。
+// ============================================================
+const PWA_MANIFEST_TAGS = [
+  '<!-- pwa-manifest: 自動挿入 (generate.js) -->',
+  `<link rel="manifest" href="${BASE_PATH}/site.webmanifest">`,
+  `<meta name="theme-color" content="#00A99D">`,
+  '<!-- /pwa-manifest -->'
+].join('\n  ');
+
+// generate.jsの管理対象外(hand-authored)だが、manifest linkは持たせたい
+// 静的ページ。apps-data.json未登録のため、injectFaviconToAppHtmls()の
+// 対象(apps配列由来)には含まれない。
+const PWA_MANIFEST_TARGET_FILES = [
+  'about.html', 'philosophy.html', 'terms.html', 'wizard.html',
+  'home-screen-guide.html', '404.html', 'learning-records.html'
+];
+
+// Service Worker登録scriptタグ。全35アプリへの個別貼付は禁止(§21)のため、
+// Top + Pilot 3ページにのみ注入する。
+const PWA_REGISTER_TAGS = [
+  '<!-- pwa-register: 自動挿入 (generate.js) -->',
+  `<script src="${BASE_PATH}/assets/js/pwa-register.js" defer></script>`,
+  '<!-- /pwa-register -->'
+].join('\n  ');
+
+const PWA_REGISTER_TARGET_FILES = [
+  'index.html', 'learning-records.html', 'janken-app.html', 'tokei-app.html'
+];
+
+// マーカーコメントで囲んだblockを冪等注入する汎用helper(injectFavicon()と
+// 同じ方式)。startMark/endMarkが既にあれば置換、なければ</head>直前へ挿入。
+function injectMarkedBlock(html, tags, startMark, endMark) {
+  if (typeof html !== 'string') return { html, action: 'skipped' };
+  const startIdx = html.indexOf(startMark);
+  if (startIdx !== -1) {
+    const endIdx = html.indexOf(endMark, startIdx);
+    if (endIdx !== -1) {
+      const tail = endIdx + endMark.length;
+      const newHtml = html.slice(0, startIdx) + tags + html.slice(tail);
+      return { html: newHtml, action: 'replaced' };
+    }
+  }
+  const headEnd = html.indexOf('</head>');
+  if (headEnd === -1) return { html, action: 'no-head' };
+  const lineStart = html.lastIndexOf('\n', headEnd) + 1;
+  const indent = html.slice(lineStart, headEnd).match(/^\s*/)[0];
+  const insertion = indent + tags + '\n' + indent;
+  const newHtml = html.slice(0, headEnd) + insertion + html.slice(headEnd);
+  return { html: newHtml, action: 'inserted' };
+}
+
+// fileList(ルート直下のファイル名配列)へ、指定したマーカーblockを一括・
+// 冪等に注入する。apps-data.json由来ではなく、明示的なファイル名リストを
+// 直接扱う(静的ページ・Pilot登録のように対象が固定少数のケース向け)。
+function injectMarkedBlockToFiles(fileList, tags, startMark, endMark, label) {
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const fname of fileList) {
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) {
+      notFound++;
+      log.push(`  ⏭️  ${fname} (ファイルなし)`);
+      continue;
+    }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      const result = injectMarkedBlock(original, tags, startMark, endMark);
+      if (result.action === 'skipped' || result.action === 'no-head') {
+        skipped++;
+        log.push(`  ⚠️  ${fname} (${result.action})`);
+        continue;
+      }
+      if (result.html !== original) {
+        fs.writeFileSync(filePath, result.html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname} (${result.action})`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n📱 ${label}: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0) log.forEach(l => console.log(l));
+}
+
 // filename → themeClass のマッピング（app-intro.html のCSSに対応）
 const THEME_CLASS_MAP = {
   'hiragana-learn':   'theme-hiragana',
@@ -2598,6 +2692,23 @@ injectLearningRecordFoundationToAppHtmls(apps);
 //     アプリ本体ページと詳細ページが同じ検索語で評価を分け合う(カニバリゼーション)のを防ぐため、
 //     本体ページのcanonicalは詳細ページに向ける(検索評価を詳細ページへ統合する)
 injectSeoTagsToAppHtmls(apps);
+
+// PWA(Phase T9-B): 静的ページ(apps-data.json未登録)へmanifest link/
+// theme-colorを冪等注入する。docs/design-system/
+// donomana-pwa-architecture-v1_0.md §2.3で判明したgapの解消。
+injectMarkedBlockToFiles(
+  PWA_MANIFEST_TARGET_FILES, PWA_MANIFEST_TAGS,
+  '<!-- pwa-manifest: 自動挿入 (generate.js) -->', '<!-- /pwa-manifest -->',
+  '静的ページへのPWA manifest link注入'
+);
+
+// PWA(Phase T9-B): Service Worker登録scriptをTop + Pilot 3ページにのみ
+// 注入する。全35アプリへの個別貼付は禁止(§21)。
+injectMarkedBlockToFiles(
+  PWA_REGISTER_TARGET_FILES, PWA_REGISTER_TAGS,
+  '<!-- pwa-register: 自動挿入 (generate.js) -->', '<!-- /pwa-register -->',
+  'Pilotページへのservice worker登録script注入'
+);
 
 // 12. sitemap.xml を自動生成
 //     手動管理だとアプリ追加時に載せ忘れる(実際 ongaku-app / wizard が漏れていた)ため、
