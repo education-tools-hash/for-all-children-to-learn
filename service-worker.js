@@ -97,7 +97,7 @@ self.addEventListener('fetch', function (event) {
 
   if (req.mode === 'navigate') {
     if (isPilotPath(url.pathname)) {
-      event.respondWith(networkFirstNavigate(req));
+      networkFirstNavigate(event, req);
     }
     // Pilot対象外のnavigationには一切介入しない(§9/§10 No-op原則)。
     return;
@@ -113,31 +113,64 @@ self.addEventListener('fetch', function (event) {
 // offline/network失敗時はruntime cache→Shell cache→offline.htmlの順で
 // fallbackする(§13)。404/500等の非okレスポンスは正常教材としてcacheしない
 // (§14)。
-function networkFirstNavigate(req) {
-  return fetch(req)
-    .then(function (res) {
-      if (res && res.ok) {
-        var resClone = res.clone();
-        caches.open(RUNTIME_CACHE).then(function (cache) {
-          cache.put(req, resClone);
+//
+// T9-C''(cache lifetime micro-fix): navigation fetchは1回だけ実行し、その
+// 結果を2つの独立したExtendableEvent拡張へ橋渡しする。
+//   - event.respondWith(...): ページへのresponse配信(既存Network First
+//     +offline fallbackの挙動を完全維持。cache書込みの完了を待たない)。
+//   - event.waitUntil(...): runtime cacheへの書込み。ここへ登録することで、
+//     Service Worker仕様上「このFetchEventにはまだ保留中の作業がある」と
+//     正式に扱われ、response配信後もbrowserがcache書込み完了前にworkerを
+//     終了させない(以前の版は無保護のfire-and-forgetだったため、write未完了
+//     のままworkerが終了され得た)。
+// response bodyは一度しか読めないため、fetch結果が届いた直後に一度だけ
+// res.clone()し、以降は元responseをrespondWith側、cloneをcache書込み側へ
+// それぞれ渡す(二重fetch・二重読み込みを避ける)。
+function networkFirstNavigate(event, req) {
+  var networkFetch = fetch(req).then(function (res) {
+    var cacheable = !!(res && res.ok);
+    return { res: res, resForCache: cacheable ? res.clone() : null, cacheable: cacheable };
+  });
+
+  event.respondWith(
+    networkFetch
+      .then(function (result) {
+        return result.res;
+      })
+      .catch(function () {
+        return offlineFallbackForNavigate(req);
+      })
+  );
+
+  event.waitUntil(
+    networkFetch
+      .then(function (result) {
+        if (!result.cacheable) return; // non-okは従来どおりcacheしない(§14)
+        return caches.open(RUNTIME_CACHE).then(function (cache) {
+          return cache.put(req, result.resForCache);
         });
-      }
-      return res;
+      })
+      .catch(function () {
+        // ネットワーク失敗時はcacheする対象がないため何もしない(既存fallback
+        // はrespondWith側で別途処理済み)。cache書込み自体の失敗(quota超過等)
+        // もここで吸収し、navigation responseには一切影響させない(§6)。
+      })
+  );
+}
+
+function offlineFallbackForNavigate(req) {
+  return caches
+    .match(req, { cacheName: RUNTIME_CACHE })
+    .then(function (cached) {
+      if (cached) return cached;
+      return caches.match(req, { cacheName: SHELL_CACHE });
     })
-    .catch(function () {
-      return caches
-        .match(req, { cacheName: RUNTIME_CACHE })
-        .then(function (cached) {
-          if (cached) return cached;
-          return caches.match(req, { cacheName: SHELL_CACHE });
-        })
-        .then(function (cached) {
-          if (cached) return cached;
-          return caches.match('/offline.html', { cacheName: SHELL_CACHE });
-        })
-        .then(function (offlinePage) {
-          return offlinePage || new Response('Offline', { status: 503, statusText: 'Offline' });
-        });
+    .then(function (cached) {
+      if (cached) return cached;
+      return caches.match('/offline.html', { cacheName: SHELL_CACHE });
+    })
+    .then(function (offlinePage) {
+      return offlinePage || new Response('Offline', { status: 503, statusText: 'Offline' });
     });
 }
 
