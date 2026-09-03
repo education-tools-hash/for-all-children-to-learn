@@ -7,7 +7,32 @@
 
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const ROOT = path.join(__dirname, '..', '..');
+
+// T9-C6: REQUIRED_PRECACHE_URLS/PILOT_NAVIGABLE_PATHS etc. are now computed
+// (PILOT_PATHS.concat(...)) rather than hand-written literal arrays, so a
+// naive `/NAME = \[([^\]]*)\]/` regex no longer captures their real content.
+// Evaluate the real source in a throwaway sandbox and read the resulting
+// values instead (same technique as tools/pwa-poc/precache-contract-tests.js).
+function extractSwArrays(src) {
+  const ctx = {
+    console, addEventListener() {}, skipWaiting() {},
+    clients: { claim: () => Promise.resolve() },
+    fetch: () => Promise.reject(new Error('not used')),
+    caches: {}, location: { origin: 'https://example.test' }
+  };
+  ctx.self = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(src, ctx, { filename: 'service-worker.js' });
+  return {
+    pilotPaths: ctx.PILOT_PATHS,
+    pilotDetailPaths: ctx.PILOT_DETAIL_PATHS,
+    pilotNavigablePaths: ctx.PILOT_NAVIGABLE_PATHS,
+    required: ctx.REQUIRED_PRECACHE_URLS,
+    optional: ctx.OPTIONAL_PRECACHE_URLS
+  };
+}
 
 let pass = 0, fail = 0;
 function check(label, condition, detail) {
@@ -64,32 +89,49 @@ console.log('\n=== 2. service-worker.js source safety ===');
   })());
   check('fetch handler ignores non-GET requests', /req\.method !== 'GET'/.test(src));
   check('fetch handler ignores cross-origin requests', /url\.origin !== self\.location\.origin/.test(src));
-  // T9-C4: janken-app.html/tokei-app.html/learning-records.html are now
-  // INTENTIONALLY precached (Pilot Small App-Shell Precache, Pilot Offline
-  // Contract, docs §44). The guard this check exists for -- no Full Site
-  // Precache leaking a genuinely non-Pilot app page (e.g. matching-app.html)
-  // into any precache list -- still applies and is checked against BOTH
-  // REQUIRED_PRECACHE_URLS and OPTIONAL_PRECACHE_URLS.
+  // T9-C4: janken-app.html/tokei-app.html/learning-records.html, and (T9-C6)
+  // the two Pilot detail pages, are now INTENTIONALLY precached (Pilot Small
+  // App-Shell Precache + Offline Navigation Contract, docs §44/§46). The
+  // guard this check exists for -- no Full Site Precache leaking a
+  // genuinely non-Pilot app page or a non-Pilot app-details/*.html into any
+  // precache list -- still applies.
+  var swArrays = extractSwArrays(src);
   check('precache lists do not include non-Pilot app pages (no Full Site Precache, §11/docs §44)', (function () {
-    const required = src.match(/REQUIRED_PRECACHE_URLS = \[([^\]]*)\]/);
-    const optional = src.match(/OPTIONAL_PRECACHE_URLS = \[([^\]]*)\]/);
-    if (!required || !optional) return false;
-    const combined = required[1] + optional[1];
-    return !/matching-app\.html|hiragana-learn\.html|katakana-app\.html|bosai-app\.html|nazori-app\.html|shiritori2\.html/.test(combined);
+    var combined = swArrays.required.concat(swArrays.optional);
+    var nonPilotSample = ['/matching-app.html', '/hiragana-learn.html', '/katakana-app.html', '/bosai-app.html', '/nazori-app.html', '/shiritori2.html'];
+    return nonPilotSample.every(function (u) { return combined.indexOf(u) === -1; });
+  })());
+  check('precache lists do not include any NON-Pilot app-details/*.html (only the 2 required detail pages, §11/docs §46)', (function () {
+    var combined = swArrays.required.concat(swArrays.optional);
+    var detailUrls = combined.filter(function (u) { return u.indexOf('/app-details/') !== -1; });
+    var allowed = ['/app-details/janken-app-detail.html', '/app-details/tokei-app-detail.html'];
+    return detailUrls.every(function (u) { return allowed.indexOf(u) !== -1; });
   })());
   check('Pilot Small App-Shell Precache (T9-C4): all 4 Pilot pages ARE in REQUIRED_PRECACHE_URLS (Pilot Offline Contract, docs §44)', (function () {
-    const m = src.match(/REQUIRED_PRECACHE_URLS = \[([^\]]*)\]/);
-    if (!m) return false;
-    const list = m[1];
-    return ["'/'", "'/learning-records.html'", "'/janken-app.html'", "'/tokei-app.html'"].every((u) => list.indexOf(u) !== -1);
+    return ['/', '/learning-records.html', '/janken-app.html', '/tokei-app.html'].every(function (u) {
+      return swArrays.required.indexOf(u) !== -1;
+    });
   })());
-  check('PILOT_PATHS matches the T9-B allowlist exactly', (function () {
-    const m = src.match(/PILOT_PATHS = \[([^\]]*)\]/);
-    if (!m) return false;
-    const paths = m[1].match(/'([^']*)'/g).map(s => s.replace(/'/g, ''));
-    const expected = ['/', '/learning-records.html', '/janken-app.html', '/tokei-app.html'];
-    return paths.length === expected.length && expected.every(p => paths.includes(p));
+  check('Offline Navigation Contract (T9-C6): both Pilot detail pages ARE in REQUIRED_PRECACHE_URLS (docs §46)', (function () {
+    return ['/app-details/janken-app-detail.html', '/app-details/tokei-app-detail.html'].every(function (u) {
+      return swArrays.required.indexOf(u) !== -1;
+    });
   })());
+  check('REQUIRED_PRECACHE_URLS has no duplicate entries', new Set(swArrays.required).size === swArrays.required.length, swArrays.required);
+  check('PILOT_PATHS matches the T9-B allowlist exactly (unchanged by T9-C6 -- still means the 4 app pages themselves)', (function () {
+    var expected = ['/', '/learning-records.html', '/janken-app.html', '/tokei-app.html'];
+    return swArrays.pilotPaths.length === expected.length && expected.every(function (p) { return swArrays.pilotPaths.indexOf(p) !== -1; });
+  })());
+  check('PILOT_DETAIL_PATHS (T9-C6) matches exactly the 2 known Top->app-details hops', (function () {
+    var expected = ['/app-details/janken-app-detail.html', '/app-details/tokei-app-detail.html'];
+    return swArrays.pilotDetailPaths.length === expected.length && expected.every(function (p) { return swArrays.pilotDetailPaths.indexOf(p) !== -1; });
+  })());
+  check('PILOT_NAVIGABLE_PATHS (T9-C6 Source of Truth) is exactly PILOT_PATHS union PILOT_DETAIL_PATHS', (function () {
+    var union = swArrays.pilotPaths.concat(swArrays.pilotDetailPaths);
+    return swArrays.pilotNavigablePaths.length === union.length && union.every(function (p) { return swArrays.pilotNavigablePaths.indexOf(p) !== -1; });
+  })());
+  check('learning-records.html deliberately has NO detail-page hop (Top links it directly, docs §46.2)',
+    swArrays.pilotDetailPaths.indexOf('/app-details/learning-records-detail.html') === -1);
   check('non-ok navigation responses are not cached as valid (§14)', /res\.ok/.test(src));
 })();
 

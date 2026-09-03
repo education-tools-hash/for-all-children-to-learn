@@ -135,8 +135,15 @@ def main():
                    }"""
             )
             shell_entries = cache_dump.get("donomana-shell-v1", [])
-            check("8. all 9 Pilot precache URLs present in donomana-shell-v1 after close+relaunch",
-                  len(shell_entries) == 9, {"count": len(shell_entries), "entries": shell_entries})
+            # T9-C6 (Offline Navigation Contract) added the 2 Pilot detail
+            # pages to REQUIRED_PRECACHE_URLS: 7 (T9-C4) + 2 OPTIONAL + 2
+            # detail pages = 11. The authoritative membership/duplicate
+            # checks live in tools/pwa-poc/precache-contract-tests.js (which
+            # reads REQUIRED_PRECACHE_URLS/OPTIONAL_PRECACHE_URLS directly
+            # from the real SW source); this is just a total-count sanity
+            # check for "did close+relaunch lose anything at all."
+            check("8. all 11 Pilot precache URLs present in donomana-shell-v1 after close+relaunch",
+                  len(shell_entries) == 11, {"count": len(shell_entries), "entries": shell_entries})
 
             ctx2.set_offline(False)
             ctx2.close()

@@ -1,8 +1,9 @@
 /*
  * どのまな Service Worker — Minimal Foundation + Pilot Small App-Shell Precache
- * + First-Launch Offline Readiness Contract
+ * + First-Launch Offline Readiness Contract + Offline Navigation Contract
  * (Phase T9-B、T9-C''のevent.waitUntil hardening、T9-C4のPilot Offline
- * Contract、T9-C5のFirst-Launch Offline Readiness Contract)
+ * Contract、T9-C5のFirst-Launch Offline Readiness Contract、T9-C6の
+ * Offline Navigation Contract)
  *
  * 設計根拠: docs/design-system/donomana-pwa-architecture-v1_0.md
  *   - Offline Level B(Visited-app offline)。Full Site Precache禁止(§9/§11)。
@@ -31,11 +32,29 @@
  *   実際のcache完全性を返すのみで、ready/UI状態管理はpwa-register.js側の
  *   責務(このファイルはfixed timeoutの概念を一切持たない)。
  *
- * Pilot allowlist(この3ページ+トップのみ、他ページの挙動は変えない、§9/§10):
+ * Offline Navigation Contract(T9-C6):
+ *   「offline-ready」とは、単にPilotアプリ本体のHTMLがcache済みという意味
+ *   ではない。**利用者がTopから通常のUI導線(リンクをたどる操作)だけで実際に
+ *   その教材へ到達できること**を意味する。T9-C5実機Gate Aで、janken/tokeiは
+ *   readiness banner「準備完了」表示後もofflineで開けなかった -- 原因は
+ *   Top→教材本体の間に`/app-details/{app}-detail.html`という中間ページが
+ *   実在し(index.htmlのapp cardは教材本体ではなくdetail pageへlinkする)、
+ *   このdetail pageがPilot allowlist・precache双方の対象外だったため。
+ *   learning-records.htmlはTopから直接linkされ中間ページを持たないため、
+ *   この不具合の影響を受けなかった(§46.2参照)。
+ *   PILOT_DETAIL_PATHSとしてこの中間ページを明示的な集合とし、
+ *   PILOT_NAVIGABLE_PATHS(=PILOT_PATHS∪PILOT_DETAIL_PATHS)を、navigation
+ *   介入対象・REQUIRED_PRECACHE_URLSの両方が参照する単一のSource of Truth
+ *   とする(手書きの重複を避ける)。
+ *
+ * Pilot allowlist(この4ページ+トップのみ、他ページの挙動は変えない、§9/§10):
  *   /            (App Shell、既存トップページ)
  *   /learning-records.html
  *   /janken-app.html
  *   /tokei-app.html
+ * Pilot Detail(Top→教材本体への必須中間ページ、T9-C6):
+ *   /app-details/janken-app-detail.html
+ *   /app-details/tokei-app-detail.html
  *
  * 非Pilotページ(matching-app.html等)は、このService Workerが登録されていても
  * fetchをそのままネットワークへ素通しするだけで、cacheへの書込み・応答の
@@ -48,32 +67,47 @@ var SHELL_CACHE = 'donomana-shell-' + VERSION;
 var RUNTIME_CACHE = 'donomana-runtime-' + VERSION;
 var CACHE_PREFIX = 'donomana-';
 
-// Pilot Offline Contract(T9-C4)の対象asset。install完了時点でこの全件が
-// cacheされていなければ、install自体を失敗させる(下記install handler参照)。
-// Pilot 4ページ(トップ含む)+その専用JSのみ。他31アプリ・app-details・画像は
+// Network First + runtime cache対象のnavigation先(§9のPilot allowlist)。
+// 「Pilotページ」の意味そのもの(教材本体4ページ)は変更しない -- handleSubResource()
+// の「このsub-resourceはPilotページから読み込まれたか」判定は今後もこの4ページ
+// のみを基準にする(T9-C6で広げない、変更なし)。
+var PILOT_PATHS = ['/', '/learning-records.html', '/janken-app.html', '/tokei-app.html'];
+
+// T9-C6: Top(index.html)のapp cardはPilotアプリ本体ではなくdetail pageへ
+// linkする(generate.jsが生成するapp-details/*.html)。learning-records.html
+// はTopから直接linkされるため対象外(直接linkの教材が増えた場合のみ追記)。
+var PILOT_DETAIL_PATHS = ['/app-details/janken-app-detail.html', '/app-details/tokei-app-detail.html'];
+
+// Offline Navigation Contract(T9-C6)のSource of Truth: 「Topから通常のUI
+// 導線だけで実際に到達できる、offline対応が必要な全navigation先」。
+// navigation介入対象(下記isNavigablePilotPath)とREQUIRED_PRECACHE_URLSの
+// 両方がこの配列を直接参照し、手書きの重複を持たない。
+var PILOT_NAVIGABLE_PATHS = PILOT_PATHS.concat(PILOT_DETAIL_PATHS);
+
+function isPilotPath(pathname) {
+  return PILOT_PATHS.indexOf(pathname) !== -1;
+}
+
+function isNavigablePilotPath(pathname) {
+  return PILOT_NAVIGABLE_PATHS.indexOf(pathname) !== -1;
+}
+
+// Pilot Offline Contract(T9-C4)+Offline Navigation Contract(T9-C6)の対象
+// asset。install完了時点でこの全件がcacheされていなければ、install自体を
+// 失敗させる(下記install handler参照)。PILOT_NAVIGABLE_PATHS(教材本体4
+// ページ+必須detail中間ページ2件)+その専用JSのみ。他31アプリ・画像は
 // 一切含めない(Full Site Precacheではない、非Pilot isolationを維持)。
-var REQUIRED_PRECACHE_URLS = [
-  '/',
-  '/learning-records.html',
-  '/janken-app.html',
-  '/tokei-app.html',
+var REQUIRED_PRECACHE_URLS = PILOT_NAVIGABLE_PATHS.concat([
   '/assets/js/pwa-register.js',
   '/assets/js/record-dashboard-foundation.js',
   '/assets/js/record-dashboard-ui.js'
-];
+]);
 
 // offline.html/site.webmanifestはPilot Offline Contractの必須条件ではない
 // 付随asset(offline.htmlはPilotページ自体がSHELL_CACHEにprecacheされている
 // 限り実際には参照されない最終fallback、site.webmanifestはinstall/表示用)。
 // 従来どおり1件の失敗でinstall全体を失敗させないbest-effort(§45を維持)。
 var OPTIONAL_PRECACHE_URLS = ['/offline.html', '/site.webmanifest'];
-
-// Network First + runtime cache対象のnavigation先(§9のPilot allowlist)。
-var PILOT_PATHS = ['/', '/learning-records.html', '/janken-app.html', '/tokei-app.html'];
-
-function isPilotPath(pathname) {
-  return PILOT_PATHS.indexOf(pathname) !== -1;
-}
 
 // ────────────────────────────────────────────────────────────
 //  install: Pilot Offline Contract対象(REQUIRED)はatomicに全件成功させる
@@ -146,10 +180,10 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return; // cross-originはnative挙動へ任せる(§42)
 
   if (req.mode === 'navigate') {
-    if (isPilotPath(url.pathname)) {
+    if (isNavigablePilotPath(url.pathname)) {
       networkFirstNavigate(event, req);
     }
-    // Pilot対象外のnavigationには一切介入しない(§9/§10 No-op原則)。
+    // Pilot navigable対象外のnavigationには一切介入しない(§9/§10 No-op原則)。
     return;
   }
 

@@ -710,3 +710,64 @@ Standalone初回起動時のみ(`window.matchMedia('(display-mode: standalone)')
 ### 45.5 Controlled Updateとの整合
 
 新versionがwaitingになった場合の既存Controlled Update(§14/§23-26)は無変更。readiness banner(画面上部)とupdate banner(画面下部)は表示位置を分離しており、視覚的に競合しない。なお初回install(readiness banner対象)ではcontrollerが存在しないため構造上update bannerと同時に出ることはない(`showUpdatePrompt`はcontroller存在を前提とする既存ロジック)。
+
+---
+
+## 46. T9-C6追記: Offline Navigation Contract(Root Cause確定と再定義)
+
+### 46.1 iPad実機Gate A再FAIL
+
+T9-C5のreadiness banner「準備完了」表示後、実機Gate Aで再度force-quit→Wi-Fi OFF→cold startを行ったところ、Top・学習のきろくはPASSしたが、じゃんけん・とけいはFAILした。Safariは`https://.../app-details/janken-app-detail.html`に対し「インターネットに接続されていないため、このページをSafariで開くことができません」というブラウザネイティブのオフラインエラーを表示した(どのまな独自の`offline.html`ではない)。
+
+### 46.2 Root Cause
+
+**Top(`index.html`)のapp cardはPilotアプリ本体ではなく、`generate.js`が生成する`app-details/{app}-detail.html`(detail page)へlinkする。** detail pageには「▶ アプリをひらく →」という起動ボタンがあり、そこから初めてPilotアプリ本体(`{app}-app.html`)へ到達する。
+
+実際のnavigation path(Topからの実ユーザー導線、§46.3で全列挙):
+
+```
+Top(/) → app-details/janken-app-detail.html → janken-app.html
+Top(/) → app-details/tokei-app-detail.html  → tokei-app.html
+Top(/) → learning-records.html(detail page経由なし、直接link)
+```
+
+`app-details/janken-app-detail.html`/`app-details/tokei-app-detail.html`は、T9-C4/T9-C5時点の`PILOT_PATHS`(navigation介入対象)にも`REQUIRED_PRECACHE_URLS`(install時precache対象)にも含まれていなかった。そのためこれらのnavigationは、Service Workerが登録されていても一切介入されず(§9/§10のNo-op原則がPilot対象外ページ全般に適用される設計上、detail pageも「対象外」と誤って扱われていた)、ブラウザのnative fetchがそのままofflineで失敗していた。
+
+learning-records.htmlはTopから直接linkされ、中間detail pageを持たないため、この不具合の影響を受けなかった。これがjanken/tokeiのみ失敗し、Top/learning-recordsが成功した理由の全容である。
+
+### 46.3 実ユーザーnavigation path 完全列挙
+
+| Pilot | Topからのlink | 中間page | 最終URL |
+|---|---|---|---|
+| Top | (エントリポイントそのもの) | なし | `/` |
+| learning-records | `<a href="learning-records.html">`(直接) | なし | `/learning-records.html` |
+| janken | `<a class="app-card" href="app-details/janken-app-detail.html">` | `/app-details/janken-app-detail.html`の`<a href="../janken-app.html" class="launch-btn">` | `/janken-app.html` |
+| tokei | `<a class="app-card" href="app-details/tokei-app-detail.html">` | `/app-details/tokei-app-detail.html`の`<a href="../tokei-app.html" class="launch-btn">` | `/tokei-app.html` |
+
+**注記(調査で判明、対象外と確定)**: リポジトリ直下に`janken-app-detail.html`/`tokei-app-detail.html`という同名ファイルが存在するが(`app-details/`配下のものとは別ファイル)、これは旧構成の遺物であり、現行のどこからもlinkされていない(grep調査で確認済み)。Offline Navigation Contractの対象外。`app-intro.html`・`kurabeyou-app.html`・`wizard.html`もjanken/tokeiへの直接linkを持つが、これらはTop起点の主導線ではない非Pilotページであり、Pilot scopeを拡張しない方針(§9)により対象外とする。
+
+### 46.4 なぜ既存自動Gateが検知できなかったか(test gap)
+
+T9-C5の`readiness-realbrowser-test.py`(G/H)は、`page.goto()`で4つのPilot URL(`/`・`/learning-records.html`・`/janken-app.html`・`/tokei-app.html`)へ**直接**遷移できることだけを検証していた。これは「教材本体URLを直接開ける」ことの証明であり、「Topから実際にリンクをたどって到達できる」こととは別の主張である。detail pageという中間navigationの実在を、既存test群のどれも検証していなかった。
+
+T9-C6ではこの空白を埋めるため、`tools/pwa-poc/offline-navigation-realbrowser-test.py`を新設した。`page.goto()`でアプリ本体へ直接飛ぶことは一切せず、Topのapp card要素を`click()`→detail pageの起動ボタンを`click()`という、実際のuser navigationと同じ経路のみを使う。この新testを意図的に**T9-C6適用前のservice-worker.jsに対して実行し、実機と同じ失敗(janken/tokei detail pageで`chrome-error://chromewebdata/`)を再現できることを確認した上で**、修正を適用してPASSに転じることを確認した(推測でなく、再現→修正→再確認の手順を踏んだ)。
+
+### 46.5 Offline Navigation Contract(再定義)
+
+> fresh install後、一度もPilot教材またはそのdetail pageを訪問していなくても、readiness完了表示後にappを終了しoffline cold startした場合、Topから通常のUI導線(実際のリンク操作)を用いて全Pilotへ到達・起動できる。
+
+「offline-ready」とは、単にPilotアプリ本体のHTMLがcache済みという意味ではなく、**ユーザーが通常UIからPilotへ到達するnavigation chain全体(中間detail pageを含む)がoffline usableであること**を意味する。
+
+### 46.6 実装: Single Source of Truth化
+
+`PILOT_DETAIL_PATHS`(Top→教材本体への必須中間ページ、janken/tokeiの2件)を新設し、`PILOT_NAVIGABLE_PATHS = PILOT_PATHS.concat(PILOT_DETAIL_PATHS)`を、navigation介入対象(旧`isPilotPath`が担っていた判定を`isNavigablePilotPath`が新たに担う)と`REQUIRED_PRECACHE_URLS`の両方が直接参照する形にした(`REQUIRED_PRECACHE_URLS = PILOT_NAVIGABLE_PATHS.concat([専用JS...])`)。同じURL集合を複数箇所へ手書きし列挙し直す設計を避け、drift の可能性を構造的に排除した。
+
+`PILOT_PATHS`自体の意味(教材本体4ページ)は変更していない -- `handleSubResource()`の「このsub-resourceはPilotページ本体から読み込まれたか」判定は今後もこの4ページのみを基準にする(detail pageのicon/mockup画像を新たにruntime cache対象へ広げることはしない、§46.7)。
+
+`CHECK_OFFLINE_READY`は`REQUIRED_PRECACHE_URLS`をそのまま参照するコードを変更していない。配列の中身が自動的に拡張されたことで、「準備完了」の意味そのものがOffline Navigation Contractと自動的に一致する(手動での二重管理が発生しない)。
+
+### 46.7 Scopeの明確化(拡張しなかったもの)
+
+- detail page(`app-details/janken-app-detail.html`/`tokei-app-detail.html`)が参照する`assets/icons/{app}.png`・`assets/mockups/{app}.png`は、REQUIRED化しなかった(§44.6のTop画像issueと同種の既知のcosmetic課題として、別backlogのまま据え置く。画像が壊れてもnavigation自体は機能する)。
+- 他31アプリ・その他のPilot外detail pageは一切precache対象に追加していない(非Pilot isolationは無変更)。
+- `app-intro.html`・`kurabeyou-app.html`・`wizard.html`等、Top以外からjanken/tokeiへ到達する経路は、Pilot scope外として今回のContract対象に含めない(§46.3)。

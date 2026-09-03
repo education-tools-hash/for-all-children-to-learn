@@ -28,6 +28,25 @@ function stripComments(src) {
 const SW_CODE_ONLY = stripComments(SW_SRC);
 const REGISTER_CODE_ONLY = stripComments(REGISTER_SRC);
 
+// Read the REAL REQUIRED_PRECACHE_URLS/OPTIONAL_PRECACHE_URLS values (T9-C6:
+// these are computed via PILOT_PATHS.concat(...), not hand-written literal
+// arrays) so the C/D mocks below can never drift out of sync with the actual
+// contract (Single Source of Truth, same technique as manifest-tests.js /
+// precache-contract-tests.js).
+function extractPrecacheArrays() {
+  const ctx = {
+    console, addEventListener() {}, skipWaiting() {},
+    clients: { claim: () => Promise.resolve() },
+    fetch: () => Promise.reject(new Error('not used')),
+    caches: {}, location: { origin: 'https://example.test' }
+  };
+  ctx.self = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(SW_SRC, ctx, { filename: 'service-worker.js' });
+  return { required: ctx.REQUIRED_PRECACHE_URLS, optional: ctx.OPTIONAL_PRECACHE_URLS };
+}
+const { required: REAL_REQUIRED, optional: REAL_OPTIONAL } = extractPrecacheArrays();
+
 function loadSW({ cachesImpl }) {
   const listeners = {};
   const ctx = {
@@ -63,17 +82,13 @@ async function flush(ticks) {
 (async function () {
   console.log('=== C/D. CHECK_OFFLINE_READY correctness (required vs optional assets) ===');
   {
-    // All REQUIRED present, one OPTIONAL missing -> still offlineReady:true (D).
+    // All REQUIRED present, ALL OPTIONAL missing -> still offlineReady:true (D).
     // cache.match() is called with the raw REQUIRED_PRECACHE_URLS strings
     // (relative paths, e.g. '/'), matching real Cache API call sites in the
-    // SW's own install/message handlers -- so the mock keys relative paths too.
-    const shellStore = new Set([
-      '/', '/learning-records.html', '/janken-app.html', '/tokei-app.html',
-      '/assets/js/pwa-register.js',
-      '/assets/js/record-dashboard-foundation.js',
-      '/assets/js/record-dashboard-ui.js'
-      // note: /offline.html and /site.webmanifest (OPTIONAL) deliberately absent
-    ]);
+    // SW's own install/message handlers -- so the mock keys relative paths
+    // too. Derived from the REAL required list (not hand-copied) so this
+    // test can never silently drift out of sync with the actual contract.
+    const shellStore = new Set(REAL_REQUIRED);
     const listeners = loadSW({
       cachesImpl: {
         open: () => Promise.resolve({ match: (url) => Promise.resolve(shellStore.has(String(url)) ? {} : undefined) })
@@ -86,16 +101,10 @@ async function flush(ticks) {
       received.length === 1 && received[0].offlineReady === true, received);
   }
   {
-    // ONE required asset missing -> offlineReady:false (C).
-    const shellStore = new Set([
-      '/', '/learning-records.html',
-      // janken-app.html deliberately missing
-      '/tokei-app.html',
-      '/assets/js/pwa-register.js',
-      '/assets/js/record-dashboard-foundation.js',
-      '/assets/js/record-dashboard-ui.js',
-      '/offline.html', '/site.webmanifest'
-    ]);
+    // ONE required asset (janken-app.html) missing, everything else (incl.
+    // all OPTIONAL) present -> offlineReady:false (C). Derived from the real
+    // required/optional lists, minus one entry, so this can't drift either.
+    const shellStore = new Set(REAL_REQUIRED.filter((u) => u !== '/janken-app.html').concat(REAL_OPTIONAL));
     const listeners = loadSW({
       cachesImpl: {
         open: () => Promise.resolve({ match: (url) => Promise.resolve(shellStore.has(String(url)) ? {} : undefined) })

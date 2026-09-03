@@ -134,9 +134,16 @@ async function flush(ticks) {
     check(`3. non-Pilot ${url} is NOT in REQUIRED_PRECACHE_URLS`, required.indexOf(url) === -1);
     check(`3. non-Pilot ${url} is NOT in OPTIONAL_PRECACHE_URLS`, optional.indexOf(url) === -1);
   }
-  // app-details/ and assets/icons|mockups must never appear anywhere in precache (Full Site Precache guard).
+  // T9-C6 (Offline Navigation Contract): the 2 Pilot detail pages (the
+  // Top -> app-details/{app}-detail.html -> {app}.html hop) are now
+  // INTENTIONALLY required-precached -- but no OTHER app-details/*.html
+  // (the 33 non-Pilot ones) may ever appear (Full Site Precache guard).
   const allPrecache = required.concat(optional);
-  check('3. no app-details/* path in any precache list', !allPrecache.some((u) => u.indexOf('/app-details/') !== -1));
+  const ALLOWED_DETAIL_PAGES = ['/app-details/janken-app-detail.html', '/app-details/tokei-app-detail.html'];
+  check('3. only the 2 known Pilot detail pages appear in any precache list, never a non-Pilot app-details/*.html',
+    allPrecache.filter((u) => u.indexOf('/app-details/') !== -1).every((u) => ALLOWED_DETAIL_PAGES.includes(u)));
+  check('3. both Pilot detail pages ARE present in REQUIRED_PRECACHE_URLS (T9-C6 Offline Navigation Contract)',
+    ALLOWED_DETAIL_PAGES.every((u) => required.includes(u)));
   check('3. no assets/icons|mockups path in any precache list (image precache stays out of scope)', !allPrecache.some((u) => /assets\/(icons|mockups)\//.test(u)));
 
   console.log('\n=== 4. Install atomicity: ALL required + optional succeed -> install succeeds, every URL cached ===');
@@ -269,6 +276,8 @@ async function flush(ticks) {
       '/assets/js/pwa-register.js': 'assets/js/pwa-register.js',
       '/assets/js/record-dashboard-foundation.js': 'assets/js/record-dashboard-foundation.js',
       '/assets/js/record-dashboard-ui.js': 'assets/js/record-dashboard-ui.js',
+      '/app-details/janken-app-detail.html': 'app-details/janken-app-detail.html',
+      '/app-details/tokei-app-detail.html': 'app-details/tokei-app-detail.html',
       '/offline.html': 'offline.html',
       '/site.webmanifest': 'site.webmanifest'
     };
