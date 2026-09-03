@@ -375,20 +375,74 @@ def main():
 
             context.close()
 
-            # ── Phase 9: fresh/unvisited context, offline -> offline.html ──
-            print("\n=== 9. Fresh context, offline, UNVISITED pilot page ===")
+            # ── Phase 9: fresh/unvisited context, offline -> Pilot Offline Contract (T9-C4) ──
+            # Before T9-C4, an unvisited Pilot page had nothing in any cache and
+            # fell back to offline.html. Since T9-C4 (Pilot Small App-Shell
+            # Precache), Pilot pages + their required JS are precached during
+            # install, so this SAME scenario (SW installed via visiting '/'
+            # once, janken-app.html/learning-records.html NEVER visited) must
+            # now open the REAL app, not the fallback.
+            print("\n=== 9. Fresh context, offline, UNVISITED pilot page (Pilot Offline Contract, T9-C4) ===")
             context2 = browser.new_context()
             page2, errors2 = new_page(context2)
-            # register SW once online first (so a SW exists for this origin), but never visit janken-app.html
+            # register SW once online first (so a SW exists for this origin), but never visit janken-app.html/learning-records.html
             page2.goto(f"{BASE_URL}/")
-            page2.wait_for_timeout(500)
+            # Deterministic wait: navigator.serviceWorker.ready only resolves once
+            # the SW has reached 'activated', which cannot happen until the
+            # install handler's event.waitUntil() (our atomic required-precache
+            # Promise.all) has already settled. No fixed sleep needed.
+            page2.evaluate("async () => { await navigator.serviceWorker.ready; }")
             context2.set_offline(True)
+
             page2.goto(f"{BASE_URL}/janken-app.html")
             page2.wait_for_timeout(300)
             body2 = page2.locator("body").inner_text()
-            check("unvisited pilot page offline shows offline fallback (not blank/error)", "インターネットに接続できません" in body2)
-            check("offline fallback has a Home link", page2.locator('a[href="/"]').count() >= 1)
+            check("T9-C4: unvisited janken-app.html opens the REAL app offline (Pilot Offline Contract), not the fallback",
+                  "インターネットに接続できません" not in body2 and page2.locator("#donomanaA11yBtn").count() == 1)
+            pwa_register_js_status = page2.evaluate(
+                "() => fetch('/assets/js/pwa-register.js').then(r => r.status).catch(() => 'NETWORK_ERROR')"
+            )
+            check("T9-C4: janken-app.html's required pwa-register.js also resolves offline with zero prior visits",
+                  pwa_register_js_status == 200, pwa_register_js_status)
+
+            page2.goto(f"{BASE_URL}/learning-records.html")
+            page2.wait_for_timeout(300)
+            body2b = page2.locator("body").inner_text()
+            check("T9-C4: unvisited learning-records.html opens the REAL app offline, not the fallback",
+                  "インターネットに接続できません" not in body2b)
+            dashboard_js_statuses = page2.evaluate(
+                """() => Promise.all([
+                     fetch('/assets/js/record-dashboard-foundation.js').then(r => r.status).catch(() => 'NETWORK_ERROR'),
+                     fetch('/assets/js/record-dashboard-ui.js').then(r => r.status).catch(() => 'NETWORK_ERROR')
+                   ])"""
+            )
+            check("T9-C4: learning-records.html's required dashboard JS (both files) resolve offline with zero prior visits",
+                  dashboard_js_statuses == [200, 200], dashboard_js_statuses)
+
+            context2.set_offline(False)
             context2.close()
+
+            # ── Phase 9b: genuinely non-Pilot page gets ZERO SW involvement, even offline (isolation preserved) ──
+            # Non-Pilot navigations never reach event.respondWith() at all (No-op
+            # principle, §10) -- the SW never precaches/offline-falls-back for
+            # them, before or after T9-C4. Offline, this means the BROWSER's
+            # own native network error occurs (not our offline.html, which only
+            # ever applies to the Pilot fetch-handling path).
+            print("\n=== 9b. Fresh context, offline, UNVISITED non-Pilot page (must be unaffected, No-op §10) ===")
+            context2b = browser.new_context()
+            page2b, errors2b = new_page(context2b)
+            page2b.goto(f"{BASE_URL}/")
+            page2b.evaluate("async () => { await navigator.serviceWorker.ready; }")
+            context2b.set_offline(True)
+            try:
+                page2b.goto(f"{BASE_URL}/matching-app.html")
+                native_network_error = False
+            except Exception as e:
+                native_network_error = "ERR_INTERNET_DISCONNECTED" in str(e)
+            check("T9-C4: non-Pilot page is UNCHANGED by the precache expansion — SW never intervenes, native browser network error occurs offline (not our offline.html)",
+                  native_network_error)
+            context2b.set_offline(False)
+            context2b.close()
 
             # ── Phase 10: non-pilot online regression (SW active, no caching side effect) ──
             print("\n=== 10. Non-pilot app regression (SW active) ===")

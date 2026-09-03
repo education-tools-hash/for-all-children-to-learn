@@ -619,3 +619,58 @@ Injection Coverage監査中に、`kyou-no-kiroku.html`・`mogura-tataki.html`・
 - 静的asset(CSS/JS)のcontent-hash化・cache容量上限/eviction設計(design doc §9/§10、T9-C以降)
 - cross-origin音声(hiragana-learn/katakana-app)のcache戦略
 - theme-color重複(§43.4)の解消
+
+---
+
+## 44. T9-C4追記: Pilot Small App-Shell Precache（Runtime Cache raceの実機知見、§7の例外）
+
+**§7で決定した「Architecture B: App Shell + Runtime Cache」の全体方針は維持する**。Full Site Precache（全35アプリ＋全asset）は今回も採用しない。この節は§7の決定を上書きするものではなく、**Pilot(4ページ)に限定した例外**を追記するものである。
+
+### 44.1 実機知見: Runtime Cacheのrace
+
+T9-C''（iPad実機Re-Gate）で、Pilotページを「Top→learning-records→janken→tokei」の順にオンライン訪問した直後、iPad実機のApp SwitcherからHome Screen appをforce-quitし、Wi-Fi OFFで再起動したところ、**janken-app.html/tokei-app.htmlがofflineで開かなかった**（learning-records.html/Topは開いた）。
+
+T9-C''で`event.waitUntil()`によるruntime cache書込み保護（fire-and-forgetの解消）を実装済みだったが、それでも本事象は解消しなかった。T9-C'''調査（Playwright+Chromiumによる自動実験）で、**Chromium（WebKitより一般にService Worker実行に寛容とされるエンジン）ですら、「訪問直後にブラウザプロセスを閉じる」タイミングでは、waitUntilで保護していてもruntime cache書込みが完了しきらないページが発生しうる**ことを実証した（詳細はセッション記録を参照、本文書の改訂範囲外のため転記しない）。
+
+**結論**: `event.waitUntil()`保護は「タブを閉じる/ページを離れる」ケースのraceには有効だが、**「Home Screen appのApp Switcher force-quitによるプロセス終了」ケースのraceには対処できない**。これはruntime cache方式（訪問時にcache.putする設計そのもの）が本質的に抱える限界であり、実装の不備ではない。訪問からforce-quitまでの時間差が常に十分とは限らないため。
+
+### 44.2 Pilot Offline Contract
+
+上記知見を受け、Pilotに限り以下の契約を新設する：
+
+> **Pilotページは、PWAのService Worker installが正常完了した時点でoffline-readyである。ユーザーが各Pilotページを事前訪問したことをoffline利用の前提としない。**
+
+対象は既存のPilot allowlist(§9のPILOT_PATHS)と完全一致する4ページ:
+
+- `/`（Top）
+- `/learning-records.html`
+- `/janken-app.html`
+- `/tokei-app.html`
+
+および、これらが起動時に必要とする専用JS（`<script src>`によるsame-origin依存、Pilotページのresource graph調査で判明した必須subresourceのみ）:
+
+- `/assets/js/pwa-register.js`（4ページ共通）
+- `/assets/js/record-dashboard-foundation.js`（learning-records.html専用）
+- `/assets/js/record-dashboard-ui.js`（learning-records.html専用）
+
+この7件を`REQUIRED_PRECACHE_URLS`として、既存の`install`イベントハンドラでinstall時にprecacheする（`SHELL_CACHE`、§11の対象を拡張）。**非Pilot 31アプリ・app-details・画像(icons/mockups)はこれまでどおり一切precache対象に含めない**。非Pilotは引き続きRuntime Cache方針を完全に維持する（§9/§10、変更なし）。
+
+### 44.3 Install Atomicity
+
+`REQUIRED_PRECACHE_URLS`は**atomicに全件成功させる**（1件でも取得に失敗したらinstall全体を失敗させる、`Promise.all`をcatch無しで使用）。理由: §45（Failed Install対策）が前提としていた「1資産の失敗でinstall全体を失敗させない」best-effort方針を無条件にPilot必須assetへ適用すると、「installは成功したのにPilotがoffline-readyでない」という、Pilot Offline Contract自体と矛盾する状態が発生しうるため。
+
+失敗したinstallはブラウザが新SWを破棄し、既存の(または未installの)状態を維持したまま、次回の`navigator.serviceWorker.register()`呼び出し(=次回ページロード時)で自動的に再試行される。追加のretryロジックは実装していない(既存install/update contractを不必要に壊さない最小設計)。
+
+§45のbest-effort方針自体は**維持**する。`offline.html`・`site.webmanifest`はPilot Offline Contractの必須条件ではない付随assetとして`OPTIONAL_PRECACHE_URLS`に残し、従来どおり1件の失敗でinstall全体を失敗させない。
+
+### 44.4 Sub-resource fallbackの拡張
+
+`handleSubResource()`の offline fallback chain は元々`RUNTIME_CACHE`のみを確認していたが、これだと「一度もオンラインで読み込まれずRUNTIME_CACHEに存在しないPilot専用JS」(未訪問offline初回起動、Pilot Offline Contractが主に想定するシナリオ)がofflineで解決できない。`RUNTIME_CACHE`miss後に`SHELL_CACHE`も確認するよう1箇所拡張した(navigation側の`offlineFallbackForNavigate()`は元々`SHELL_CACHE`も確認していたため変更不要)。
+
+### 44.5 規模
+
+Pilot precache全体(REQUIRED 7件 + OPTIONAL 2件)の合計は約538KB(実測)。既存精査(§4)で却下された「Full Precache = 全35アプリ+全asset、46MB規模」とは2桁以上規模が異なり、§45(Failed Install対策)の趣旨(installするasset数を最小限に抑える)とも矛盾しない。
+
+### 44.6 既知の別issue(本Phaseでは対応せず)
+
+T9-C'''調査で、**Topページ自体の初回訪問時、35アプリ分のicon/mockup画像がruntime cacheされない**問題を発見した(SWが自分自身を登録したページの初回サブリソースを制御できないという仕様上の既知の挙動による)。これはjanken/tokei offline blockerとは別のRoot Causeであり、Pilot app-shell fixのscopeを広げないため、T9-C4では修正しない。将来Phaseのbacklog候補として記録する。

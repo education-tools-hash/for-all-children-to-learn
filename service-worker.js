@@ -1,12 +1,24 @@
 /*
- * どのまな Service Worker — Minimal Foundation + Visited-App Offline Pilot (Phase T9-B)
+ * どのまな Service Worker — Minimal Foundation + Pilot Small App-Shell Precache
+ * (Phase T9-B、T9-C''のevent.waitUntil hardening、T9-C4のPilot Offline Contract)
  *
  * 設計根拠: docs/design-system/donomana-pwa-architecture-v1_0.md
- *   - Offline Level B(Visited-app offline)。Full Precache禁止(§9/§11)。
- *   - Architecture B(App Shell + Runtime Cache)。
+ *   - Offline Level B(Visited-app offline)。Full Site Precache禁止(§9/§11)。
+ *     ※Pilotのみ例外としてinstall時precacheへ昇格(T9-C4、Pilot Small App
+ *       Shell)。35アプリ全体のFull Precacheとは規模・方針が異なる。
+ *   - Architecture B(App Shell + Runtime Cache)。非Pilotは引き続きRuntime
+ *     Cache中心(訪問時にのみcache)、変更なし。
  *   - HTML: Network First + offline fallback(§8/§13)。
  *   - Controlled Update: skipWaiting()を無条件実行しない(§14/§23-26)。
  *   - localStorage/IndexedDBには一切触れない(§17、Critical Constraint)。
+ *
+ * Pilot Offline Contract(T9-C4):
+ *   Pilotページは、Service Worker installが正常完了した時点でoffline-ready
+ *   である。利用者が各Pilotページを事前訪問したことをoffline利用の前提と
+ *   しない(T9-C''のiPad実機再検証で判明した、「訪問直後にHome Screen appを
+ *   force-quitするとruntime cache書込みが完了しきらないことがある」という
+ *   実機知見への対応。event.waitUntilによる保護だけでは、ページ訪問から
+ *   force-quitまでの時間差が十分でない場合のraceを解消できないため)。
  *
  * Pilot allowlist(この3ページ+トップのみ、他ページの挙動は変えない、§9/§10):
  *   /            (App Shell、既存トップページ)
@@ -25,9 +37,25 @@ var SHELL_CACHE = 'donomana-shell-' + VERSION;
 var RUNTIME_CACHE = 'donomana-runtime-' + VERSION;
 var CACHE_PREFIX = 'donomana-';
 
-// install時にprecacheする最小限のApp Shell(§11)。
-// 個別アプリ・app-details・画像等は一切含めない。
-var PRECACHE_URLS = ['/', '/offline.html', '/site.webmanifest'];
+// Pilot Offline Contract(T9-C4)の対象asset。install完了時点でこの全件が
+// cacheされていなければ、install自体を失敗させる(下記install handler参照)。
+// Pilot 4ページ(トップ含む)+その専用JSのみ。他31アプリ・app-details・画像は
+// 一切含めない(Full Site Precacheではない、非Pilot isolationを維持)。
+var REQUIRED_PRECACHE_URLS = [
+  '/',
+  '/learning-records.html',
+  '/janken-app.html',
+  '/tokei-app.html',
+  '/assets/js/pwa-register.js',
+  '/assets/js/record-dashboard-foundation.js',
+  '/assets/js/record-dashboard-ui.js'
+];
+
+// offline.html/site.webmanifestはPilot Offline Contractの必須条件ではない
+// 付随asset(offline.htmlはPilotページ自体がSHELL_CACHEにprecacheされている
+// 限り実際には参照されない最終fallback、site.webmanifestはinstall/表示用)。
+// 従来どおり1件の失敗でinstall全体を失敗させないbest-effort(§45を維持)。
+var OPTIONAL_PRECACHE_URLS = ['/offline.html', '/site.webmanifest'];
 
 // Network First + runtime cache対象のnavigation先(§9のPilot allowlist)。
 var PILOT_PATHS = ['/', '/learning-records.html', '/janken-app.html', '/tokei-app.html'];
@@ -37,19 +65,30 @@ function isPilotPath(pathname) {
 }
 
 // ────────────────────────────────────────────────────────────
-//  install: 最小Shellのみprecache。1件の失敗でinstall全体を
-//  失敗させないよう、addAllではなく個別catchで進める(§45)。
+//  install: Pilot Offline Contract対象(REQUIRED)はatomicに全件成功させる
+//  (1件でも失敗したらinstall全体を失敗させ、ブラウザに新SWを破棄させる。
+//  失敗したinstallは次回のnavigator.serviceWorker.register()呼び出しで
+//  自動的に再試行されるため、追加のretryロジックは不要)。これにより
+//  「installは成功したのにPilotがoffline-readyでない」状態を防ぐ。
+//  OPTIONAL(offline.html/site.webmanifest)は従来どおり個別catchで
+//  best-effort(§45を維持、1件の失敗でinstall全体を失敗させない)。
 // ────────────────────────────────────────────────────────────
 self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(SHELL_CACHE).then(function (cache) {
-      return Promise.all(
-        PRECACHE_URLS.map(function (url) {
+      var required = Promise.all(
+        REQUIRED_PRECACHE_URLS.map(function (url) {
+          return cache.add(url); // 意図的にcatchしない(Pilot Offline Contract)
+        })
+      );
+      var optional = Promise.all(
+        OPTIONAL_PRECACHE_URLS.map(function (url) {
           return cache.add(url).catch(function () {
             // 1資産の取得失敗でinstall全体を失敗させない(§45)
           });
         })
       );
+      return Promise.all([required, optional]);
     })
   );
   // 注意: ここで self.skipWaiting() を呼ばない(Controlled Update、§23/§24)。
@@ -205,7 +244,14 @@ function handleSubResource(event, req) {
         .catch(function () {
           return caches.match(req, { cacheName: RUNTIME_CACHE }).then(function (cached) {
             if (cached) return cached;
-            return fetch(req); // cacheにもなければ通常どおり失敗させる(偽装レスポンスを作らない)
+            // T9-C4: pwa-register.js/record-dashboard-*.jsはPilot Offline
+            // Contract対象としてSHELL_CACHEへprecacheされている。一度も
+            // オンラインで読み込まれずRUNTIME_CACHEに無い場合でも(未訪問
+            // offline初回起動)、ここでSHELL_CACHEを確認してから諦める。
+            return caches.match(req, { cacheName: SHELL_CACHE }).then(function (shellCached) {
+              if (shellCached) return shellCached;
+              return fetch(req); // どちらにも無ければ通常どおり失敗させる(偽装レスポンスを作らない)
+            });
           });
         });
     });

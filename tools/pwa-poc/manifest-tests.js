@@ -64,11 +64,24 @@ console.log('\n=== 2. service-worker.js source safety ===');
   })());
   check('fetch handler ignores non-GET requests', /req\.method !== 'GET'/.test(src));
   check('fetch handler ignores cross-origin requests', /url\.origin !== self\.location\.origin/.test(src));
-  check('PRECACHE_URLS does not include full app pages (no Full Precache, §11)', (function () {
-    const m = src.match(/PRECACHE_URLS = \[([^\]]*)\]/);
+  // T9-C4: janken-app.html/tokei-app.html/learning-records.html are now
+  // INTENTIONALLY precached (Pilot Small App-Shell Precache, Pilot Offline
+  // Contract, docs §44). The guard this check exists for -- no Full Site
+  // Precache leaking a genuinely non-Pilot app page (e.g. matching-app.html)
+  // into any precache list -- still applies and is checked against BOTH
+  // REQUIRED_PRECACHE_URLS and OPTIONAL_PRECACHE_URLS.
+  check('precache lists do not include non-Pilot app pages (no Full Site Precache, §11/docs §44)', (function () {
+    const required = src.match(/REQUIRED_PRECACHE_URLS = \[([^\]]*)\]/);
+    const optional = src.match(/OPTIONAL_PRECACHE_URLS = \[([^\]]*)\]/);
+    if (!required || !optional) return false;
+    const combined = required[1] + optional[1];
+    return !/matching-app\.html|hiragana-learn\.html|katakana-app\.html|bosai-app\.html|nazori-app\.html|shiritori2\.html/.test(combined);
+  })());
+  check('Pilot Small App-Shell Precache (T9-C4): all 4 Pilot pages ARE in REQUIRED_PRECACHE_URLS (Pilot Offline Contract, docs §44)', (function () {
+    const m = src.match(/REQUIRED_PRECACHE_URLS = \[([^\]]*)\]/);
     if (!m) return false;
     const list = m[1];
-    return !/janken-app\.html|tokei-app\.html|matching-app\.html/.test(list);
+    return ["'/'", "'/learning-records.html'", "'/janken-app.html'", "'/tokei-app.html'"].every((u) => list.indexOf(u) !== -1);
   })());
   check('PILOT_PATHS matches the T9-B allowlist exactly', (function () {
     const m = src.match(/PILOT_PATHS = \[([^\]]*)\]/);
