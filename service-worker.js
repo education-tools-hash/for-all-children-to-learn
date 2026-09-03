@@ -1,6 +1,8 @@
 /*
  * どのまな Service Worker — Minimal Foundation + Pilot Small App-Shell Precache
- * (Phase T9-B、T9-C''のevent.waitUntil hardening、T9-C4のPilot Offline Contract)
+ * + First-Launch Offline Readiness Contract
+ * (Phase T9-B、T9-C''のevent.waitUntil hardening、T9-C4のPilot Offline
+ * Contract、T9-C5のFirst-Launch Offline Readiness Contract)
  *
  * 設計根拠: docs/design-system/donomana-pwa-architecture-v1_0.md
  *   - Offline Level B(Visited-app offline)。Full Site Precache禁止(§9/§11)。
@@ -19,6 +21,15 @@
  *   force-quitするとruntime cache書込みが完了しきらないことがある」という
  *   実機知見への対応。event.waitUntilによる保護だけでは、ページ訪問から
  *   force-quitまでの時間差が十分でない場合のraceを解消できないため)。
+ *
+ * First-Launch Offline Readiness Contract(T9-C5):
+ *   「install途中でprocessが強制終了されてもoffline-ready」はWeb Platform上
+ *   保証不能(T9-C4 Gate Aの実機失敗で確認済み)。T9-C5はこれを認め、代わりに
+ *   「installが正常完了する前にforce-quitされた場合は、その旨を利用者(支援者
+ *   /教員)へ明確に伝え、待ってから持ち出してもらう」という製品契約へ転換
+ *   した。SW側はCHECK_OFFLINE_READYメッセージでREQUIRED_PRECACHE_URLSの
+ *   実際のcache完全性を返すのみで、ready/UI状態管理はpwa-register.js側の
+ *   責務(このファイルはfixed timeoutの概念を一切持たない)。
  *
  * Pilot allowlist(この3ページ+トップのみ、他ページの挙動は変えない、§9/§10):
  *   /            (App Shell、既存トップページ)
@@ -272,9 +283,39 @@ function resolveClientUrl(event) {
 // ────────────────────────────────────────────────────────────
 //  message: 利用者が明示的に更新を選んだ場合のみskipWaiting()を実行する
 //  (Controlled Update、§23-26)。自動では絶対に呼ばない。
+//
+//  T9-C5(First-Launch Offline Readiness Contract): CHECK_OFFLINE_READY は
+//  ページ側(pwa-register.js)がnavigator.serviceWorker.readyの解決後に
+//  念のため送る、REQUIRED_PRECACHE_URLS完全性の内部的な再確認クエリ。
+//  atomic install contract(T9-C4)により本来readyの時点で必ず全件揃って
+//  いるはずだが、readiness UIというユーザー可視の機能である以上、SW側の
+//  実データ(SHELL_CACHE)を直接確認してから「準備完了」を表示する
+//  (推測や別経路の状態に依存しない、Source of Truthを一つに保つ)。
 // ────────────────────────────────────────────────────────────
 self.addEventListener('message', function (event) {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    return;
+  }
+  if (event.data && event.data.type === 'CHECK_OFFLINE_READY') {
+    var respond = function (result) {
+      if (event.ports && event.ports[0]) event.ports[0].postMessage(result);
+    };
+    var check = caches
+      .open(SHELL_CACHE)
+      .then(function (cache) {
+        return Promise.all(
+          REQUIRED_PRECACHE_URLS.map(function (url) {
+            return cache.match(url).then(function (m) { return !!m; });
+          })
+        );
+      })
+      .then(function (results) {
+        respond({ offlineReady: results.every(function (r) { return r; }) });
+      })
+      .catch(function () {
+        respond({ offlineReady: false });
+      });
+    if (event.waitUntil) event.waitUntil(check);
   }
 });

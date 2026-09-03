@@ -674,3 +674,39 @@ Pilot precache全体(REQUIRED 7件 + OPTIONAL 2件)の合計は約538KB(実測)�
 ### 44.6 既知の別issue(本Phaseでは対応せず)
 
 T9-C'''調査で、**Topページ自体の初回訪問時、35アプリ分のicon/mockup画像がruntime cacheされない**問題を発見した(SWが自分自身を登録したページの初回サブリソースを制御できないという仕様上の既知の挙動による)。これはjanken/tokei offline blockerとは別のRoot Causeであり、Pilot app-shell fixのscopeを広げないため、T9-C4では修正しない。将来Phaseのbacklog候補として記録する。
+
+---
+
+## 45. T9-C5追記: First-Launch Offline Readiness Contract
+
+### 45.1 経緯
+
+T9-C4のPilot Offline Contract(「installが正常完了した時点でoffline-ready」)を実機Gate Aで再検証したところ、Standalone初回起動直後(install/precache完了を待たず)にforce-quitするとjanken/tokeiがofflineで開かなかった。これはT9-C4契約への違反ではなく、**Gate Aの手順自体がT9-C4契約の範囲外(install「完了前」の強制終了)を要求していた**ため。「install途中でprocessが強制終了されてもoffline-ready」はWeb Platform上保証不能(SW仕様上、install中のwaitUntilはprocess kill自体からの保護を提供しない)。
+
+T9-C5はこれを認め、**「ユーザーが待てばよい」から「どのまなが準備完了を正しく知らせる」へ契約を転換**した。
+
+### 45.2 Readiness Source of Truth
+
+`navigator.serviceWorker.ready`を基本のSource of Truthとする。T9-C4のinstall atomicity(REQUIRED_PRECACHE_URLSを1件でも失敗させたらinstall全体を失敗させる)により、`ready`が新規registrationについて解決する時点で、REQUIRED_PRECACHE_URLS全件のcacheは既に完了している(installが失敗した場合、readyはそもそも解決しない)。
+
+念のため、ready解決後にSW側へ`CHECK_OFFLINE_READY`メッセージを送り、`SHELL_CACHE`の実データを直接再確認してから「準備完了」を表示する(推測ではなく、SW側の実データを唯一のSource of Truthとして参照する)。
+
+### 45.3 SW install timing測定(実装前の実測)
+
+fresh browser profile・clean origin(localhost)で、first page load→register→install→active→ready resolveまでの時間を12回計測。register()呼び出しからready解決までの差分(ms):
+
+- median: 2.85ms
+- min: 1.7ms
+- max: 552.3ms
+
+localhost・理想的条件下でも最小-最大で約300倍の開きがあり、固定timeout値を製品仕様として採用しないことの実測根拠とした。
+
+### 45.4 UI設計
+
+Standalone初回起動時のみ(`window.matchMedia('(display-mode: standalone)')`または`navigator.standalone`で判定)、非侵襲的なbanner(`role="status"`、暗黙的に`aria-live="polite"`)を表示する。「準備中: オフラインでも使えるように準備しています…」→「準備完了: オフラインで使う準備ができました」。modalにしない・focusを奪わない・音を鳴らさない・自動reloadしない。準備完了表示は5秒後に自動的に消える(演出上のcosmeticな自動非表示であり、readiness判定そのものには使わない)。installが万一完了しない場合も、20秒後に静かに非表示にする(同様にcosmetic、実際のreadiness判定はいつ解決しても正しく反映される)。
+
+2回目以降の通常起動では表示しない。表示済みかどうかは`localStorage`の`donomana-pwa-readiness-notice-shown`キー(learner Recordの各key(`janken_log`等)とは完全に別、個人情報を含まない単純なbooleanマーカー)で管理する。SW version単位のscopingはせず、「一度でも確認・表示済みか」のみを管理する最小設計を採用した(SW version scopingを追加する複雑さに見合う実益が薄いと判断)。
+
+### 45.5 Controlled Updateとの整合
+
+新versionがwaitingになった場合の既存Controlled Update(§14/§23-26)は無変更。readiness banner(画面上部)とupdate banner(画面下部)は表示位置を分離しており、視覚的に競合しない。なお初回install(readiness banner対象)ではcontrollerが存在しないため構造上update bannerと同時に出ることはない(`showUpdatePrompt`はcontroller存在を前提とする既存ロジック)。
