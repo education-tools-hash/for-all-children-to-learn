@@ -146,6 +146,16 @@ function generateDetailHTML(app) {
   const badgesHTML = app.badges.map(b => `<span class="tag green">${b}</span>`).join('');
   // Phase PWA-GUIDE-2: apps-data.jsonのisOfflineReadyのみをSource of Truthとする
   const offlineTagHTML = app.isOfflineReady ? '<span class="tag green">📴 オフライン対応</span>' : '';
+  // Phase RECORD-NAV-1: LEARNING_RECORD_FOUNDATION_APPS(既存Source of Truth)のみ、
+  // 主導線(アプリをひらく)より後ろの補助位置に小さくリンクを添える。
+  // ?app=<id>によるinitial filterはlearning-records.html側では安全に実装できるが、
+  // offline時のcaches.match()がquery string込みの完全一致であるため(ignoreSearch
+  // 未指定)、Pilot(janken/tokei)からのoffline遷移がofflineFallbackへ落ちることを
+  // 実機確認した。service-worker.js変更は本Phaseのscope外のため、queryなしの
+  // 単純導線のみ採用する(RECORD-NAV-2 backlog候補、19章参照)。
+  const recordNavLinkHTML = LEARNING_RECORD_FOUNDATION_APPS.has(app.filename)
+    ? '<br>\n    <a href="../learning-records.html" class="back-link">📊 この教材の学習のきろくを見る</a>'
+    : '';
 
   const softwareHTML = app.software ? `
   <div class="software-alert">
@@ -475,7 +485,7 @@ ${jsonLdHTML}
     <p>アプリの内容を確認したら、さっそく使ってみましょう！</p>
     <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
     <br>
-    <a href="../app-intro.html" class="back-link">← アプリ一覧にもどる</a>
+    <a href="../app-intro.html" class="back-link">← アプリ一覧にもどる</a>${recordNavLinkHTML}
   </div>
 </main>
 </body>
@@ -1483,6 +1493,94 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // 確定、不要なversion bumpはしない)。
 const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app']);
 
+// ============================================================
+//  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線
+//  ・対象はLEARNING_RECORD_FOUNDATION_APPS(21本、上記と同一Set、新規flag追加なし)
+//  ・既存共通chrome(Home/全画面/ロック/A11y)と同じ「固定位置ボタン+マーカー冪等注入」
+//    パターンを踏襲。空いているbottom-left(Home=top-left, Lock/FS=top-right,
+//    A11y=bottom-right)へ配置し、既存chromeと重ならない。
+//  ・docs/design-system/donomana-switch-scan-spec-v1_0.md §5.2は「共通chromeを
+//    Switch Scan走査候補に含めることを推奨(R)」としており、既存Home/A11yボタンも
+//    class="scannable" data-scan="1"を持つ。本ボタンも同じ規約に従うことで、
+//    「新しい特別scanルールを作る」のではなく既存の確立された挙動へ合流させる。
+//  ・視覚的には教材本体の主活動ボタンより弱いtone(小さめpill、アイコン+短いラベル)
+//    とし、子どもの主操作(成功/失敗のCTA等)と混同されないようにする(先生・支援者向け)。
+// ============================================================
+const RECORD_NAV_HTML = [
+  '<!-- record-nav-btn: 自動挿入 (generate.js) -->',
+  '<style>#donomanaRecordNavBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
+  `<a href="${BASE_URL}/learning-records.html" id="donomanaRecordNavBtn" data-supporter-only="true" aria-label="学習のきろくを見る（先生・支援者向け）" title="学習のきろくを見る（先生・支援者向け）" style="position:fixed;bottom:16px;left:16px;z-index:99997;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,0.92);color:#00857B;font-family:'M PLUS Rounded 1c','Rounded Mplus 1c',sans-serif;font-size:13px;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📊 学習のきろく</a>`,
+  '<!-- /record-nav-btn -->'
+].join('\n');
+
+// HTML文字列に対して「学習のきろく」導線を冪等に注入/除去する(favicon/home-btnと同じマーカー方式)。
+// isTarget=falseの場合、既存の注入済みブロックがあれば除去する(対象からの除外にも対応)。
+function injectRecordNavButton(html, isTarget) {
+  if (typeof html !== 'string') return { html, action: 'skipped' };
+  const startMark = '<!-- record-nav-btn: 自動挿入 (generate.js) -->';
+  const endMark   = '<!-- /record-nav-btn -->';
+  const startIdx = html.indexOf(startMark);
+  if (!isTarget) {
+    if (startIdx === -1) return { html, action: 'not-applicable' };
+    const endIdx = html.indexOf(endMark, startIdx);
+    if (endIdx === -1) return { html, action: 'skipped' };
+    const newHtml = html.slice(0, startIdx) + html.slice(endIdx + endMark.length);
+    return { html: newHtml, action: 'removed' };
+  }
+  if (startIdx !== -1) {
+    const endIdx = html.indexOf(endMark, startIdx);
+    if (endIdx !== -1) {
+      const newHtml = html.slice(0, startIdx) + RECORD_NAV_HTML + html.slice(endIdx + endMark.length);
+      return { html: newHtml, action: 'replaced' };
+    }
+  }
+  const bodyMatch = html.match(/<body[^>]*>/);
+  if (!bodyMatch) return { html, action: 'no-body' };
+  const insertAt = bodyMatch.index + bodyMatch[0].length;
+  const newHtml = html.slice(0, insertAt) + '\n' + RECORD_NAV_HTML + html.slice(insertAt);
+  return { html: newHtml, action: 'inserted' };
+}
+
+function injectRecordNavButtonToAppHtmls(apps) {
+  const skipFiles = new Set(['index.html', 'app-intro.html', 'app-register.html']);
+  let updated = 0, skipped = 0, notFound = 0;
+  const log = [];
+  for (const app of apps) {
+    const fname = `${app.filename}.html`;
+    if (skipFiles.has(fname)) continue;
+    const filePath = `./${fname}`;
+    if (!fs.existsSync(filePath)) { notFound++; log.push(`  ⏭️  ${fname} (ファイルなし)`); continue; }
+    try {
+      const original = fs.readFileSync(filePath, 'utf-8');
+      const isTarget = LEARNING_RECORD_FOUNDATION_APPS.has(app.filename);
+      const result = injectRecordNavButton(original, isTarget);
+      if (result.action === 'skipped' || result.action === 'no-body' || result.action === 'not-applicable') {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (${result.action})`);
+        continue;
+      }
+      if (result.html !== original) {
+        fs.writeFileSync(filePath, result.html, 'utf-8');
+        updated++;
+        log.push(`  ✅ ${fname} (${result.action})`);
+      } else {
+        skipped++;
+        log.push(`  ⏭️  ${fname} (既に最新)`);
+      }
+    } catch (e) {
+      skipped++;
+      log.push(`  ❌ ${fname} (エラー: ${e.message})`);
+    }
+  }
+  console.log(`\n📊 個別アプリHTML への「学習のきろく」導線挿入: ${updated}件更新, ${skipped}件スキップ, ${notFound}件未発見`);
+  if (log.length > 0 && process.env.VERBOSE === '1') {
+    log.forEach(l => console.log(l));
+  } else if (log.length > 0) {
+    log.slice(0, 5).forEach(l => console.log(l));
+    if (log.length > 5) console.log(`  ... (他 ${log.length - 5} 件、VERBOSE=1 で全表示)`);
+  }
+}
+
 function buildLearningRecordFoundationJSHTML() {
   return [
     '<!-- learning-record-foundation-js: 自動挿入 (generate.js) -->',
@@ -2167,6 +2265,7 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-09-05", type: "new", text: "対応している教材から『学習のきろく』を開きやすくしました。" },
   { date: "2026-09-05", type: "new", text: "『オフラインで使うには』ページへの導線を分かりやすくしました。" },
   { date: "2026-09-05", type: "new", text: "オフラインで使う方法を分かりやすくご案内するページを追加しました。" },
   { date: "2026-09-05", type: "new", text: "特別支援教育やICT活用に関する『関連サイト』ページを追加しました。" },
@@ -2695,6 +2794,11 @@ injectGazeSharedFoundationToAppHtmls(apps);
 //     schemaVersion fallback・CSV組み立てのみ共有する
 //     (docs/design-system/donomana-learning-record-standard-v1_0.md)
 injectLearningRecordFoundationToAppHtmls(apps);
+
+// Phase RECORD-NAV-1: LEARNING_RECORD_FOUNDATION_APPS(上記と同一Set)のみへ
+//     「📊 学習のきろく」共通chrome導線を注入(既存Home/Lock/FS/A11yボタンと
+//     同じマーカー方式・同じSwitch Scan規約)
+injectRecordNavButtonToAppHtmls(apps);
 
 // 11. 個別アプリHTML(ルート直下の*.html)にcanonical/meta descriptionを一括挿入
 //     アプリ本体ページと詳細ページが同じ検索語で評価を分け合う(カニバリゼーション)のを防ぐため、
