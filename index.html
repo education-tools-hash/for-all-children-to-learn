@@ -93,7 +93,7 @@
   .header-inner nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 18px; flex: 1; }
   .header-inner nav a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; color: var(--ink-soft); text-decoration: none; font-weight: 700; font-size: 0.88rem; white-space: nowrap; }
   .header-inner nav a:hover { color: var(--teal); }
-  .header-inner nav a[aria-current="page"] { color: var(--teal); }
+  .header-inner nav a[aria-current="page"] { color: var(--teal); font-weight: 900; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
 
   /* ===== ヒーロー(ファーストビュー) ===== */
   .site-title { position: relative; overflow: hidden; text-align: center; width: 100%; padding: 56px 20px 48px; animation: fadeDown 0.6s ease both; }
@@ -946,6 +946,13 @@
   .a11y-reset:hover { border-color: #ccc; color: #666; }
 
   /* ハイコントラストモード */
+  /* Phase LINK-1'''(Settings Consistency Gate): 個別セレクタの列挙だけでは
+     guideline-box/changelog/contact/site-info/privacy/footer等、下層セクション
+     の可読性が担保できないことが判明したため、色トークン自体をbody.hc-mode配下で
+     再定義する。var(--paper)/var(--ink)等を使う全要素へ自動的に反映される
+     (--paperをtext colorに使っている箇所、--ink系をbackgroundに使っている箇所が
+     ないことは事前に確認済み)。 */
+  body.hc-mode { --paper: #111; --bg: #000; --line: #444; --ink: #fff; --ink-2: #ddd; --ink-soft: #ccc; --teal-tint: #0d2622; --teal-tint2: #0d2622; --orange-tint: #2a2010; --blue-tint: #0d1f2a; --coral-tint: #2a1016; }
   body.hc-mode { background: #000 !important; }
   body.hc-mode .app-card { background: #111; border: 3px solid #fff !important; }
   body.hc-mode .card-name { color: #fff !important; }
@@ -964,6 +971,34 @@
   body.hc-mode .header-inner nav a[aria-current="page"] { color: #fff; }
   body.hc-mode .brand { color: #fff; }
   body.hc-mode .hero-eyebrow { color: #ccc; }
+  /* Phase LINK-1'''(Settings Consistency Gate)追加分:
+     --ink/--ink-2をvar(--paper)等と違い「濃色グラデーション背景」として使っている
+     コンポーネント(元々白文字前提)は、--ink再定義の影響で背景まで白くなり
+     白文字が読めなくなっていた(white-on-white)。個別に背景を明示的に固定する。
+     同様に、literalに background:white を指定しているguideline-box/info-cardは
+     --paperトークンを使っていないため自動では暗転せず、中の子要素(color:var(--ink)
+     を使うstrong等)だけがhc-modeで白文字化し、白背景に白文字で読めなくなっていた
+     ため、背景側も揃えて暗転させる。 */
+  body.hc-mode .contact-header, body.hc-mode .intro-banner, body.hc-mode .catchcopy-block, body.hc-mode .firstvisit-wizard-btn { background: #111 !important; }
+  body.hc-mode .guideline-box, body.hc-mode .info-card { background: #111 !important; }
+  body.hc-mode .contact-header h2 { color: #fff !important; }
+  body.hc-mode .info-card-header h3 { color: #fff !important; }
+  body.hc-mode .guideline-title { color: #7FD6CE !important; }
+  body.hc-mode .guideline-box p { color: #ccc !important; }
+  body.hc-mode .info-card p { color: #ccc !important; }
+  /* .guideline-note/.info-noteは自己完結した薄色コールバック(常時明るい背景+
+     濃色文字)として設計されており、周囲がdark化しても単体で読みやすいまま
+     維持する意図のため、広いp選択より詳細度を上げて元の配色を復元する */
+  body.hc-mode .guideline-box p.guideline-note { color: #2D7A52 !important; }
+  body.hc-mode .info-card p.info-note { color: var(--teal) !important; }
+  body.hc-mode .contact-section, body.hc-mode .changelog-section, body.hc-mode .sns-share, body.hc-mode .privacy-section { background: #111 !important; }
+  body.hc-mode .form-input, body.hc-mode .form-select, body.hc-mode .form-textarea { background: #222 !important; color: #fff !important; }
+  body.hc-mode .form-input:focus, body.hc-mode .form-select:focus, body.hc-mode .form-textarea:focus { background: #222 !important; }
+  body.hc-mode .copyright-notice-text strong, body.hc-mode .copyright-notice-text p { color: #fff !important; }
+  body.hc-mode .privacy-body h4 { color: #7FD6CE !important; }
+  body.hc-mode .privacy-body p, body.hc-mode .privacy-body li { color: #ccc !important; }
+  body.hc-mode .privacy-toggle { color: #fff !important; }
+  body.hc-mode .changelog-month-group, body.hc-mode .changelog-details { background: #222 !important; color: #fff; }
 
   /* 文字サイズ */
   /* 文字サイズ — 大 */
@@ -976,6 +1011,8 @@
   body.font-large .site-tagline    { font-size: clamp(13px, 2.5vw, 16px) !important; }
   body.font-large p, body.font-large li { font-size: clamp(14px, 2.5vw, 16px) !important; }
   body.font-large .search-box input { font-size: clamp(16px, 3.2vw, 20px) !important; }
+  body.font-large h2, body.font-large h3 { font-size: 1.15em !important; }
+  body.font-large .header-inner nav a { font-size: 1.02rem !important; }
   /* 文字サイズ — 特大 */
   body.font-xlarge .card-name      { font-size: clamp(19px, 3.8vw, 25px) !important; }
   body.font-xlarge .card-desc      { font-size: clamp(13px, 2.5vw, 16px) !important; }
@@ -1783,8 +1820,10 @@
     </a>
     <nav aria-label="メイン">
       <a href="https://donomana.jp/" aria-current="page">アプリ</a>
+      <a href="learning-records.html">学習のきろく</a>
       <a href="philosophy.html">私たちの想い</a>
       <a href="about.html">本サイトについて</a>
+      <a href="related-sites.html">関連サイト</a>
     </nav>
     <!-- ⚙ アクセシビリティ設定ボタン -->
     <button class="a11y-btn" onclick="toggleA11yPanel()" aria-label="アクセシビリティ設定" aria-expanded="false" id="a11yBtn">
@@ -1979,6 +2018,12 @@
     <p>アプリをご利用の際は、お子さまの実態把握・ねらいの設定・指導案の検討を<strong>必ず行った上で</strong>ご活用ください。<br/>アプリはあくまでも「入り口」です。子どもの姿をよく見て、指導の工夫をしていただくことが大切です。</p>
     <p class="guideline-note">📌 授業・校内研修での利用はOKです。商用利用・改変・再配布は禁止しています。詳細は<a href="terms.html">ご利用にあたって（利用条件の一覧表）</a>をご確認ください。</p>
   </section>
+
+  <a class="about-banner" href="related-sites.html">
+    <span class="usage-banner-icon">🔗</span>
+    <span class="usage-banner-text">あわせてご覧いただきたいサイト<span class="usage-banner-sub">特別支援教育やICT活用、支援機器について、ぜひご覧いただきたいサイトをご紹介しています。</span></span>
+    <span class="usage-banner-arrow">›</span>
+  </a>
 
   <a href="learning-records.html" class="guide-banner">
     <span class="guide-banner-icon">📊</span>
@@ -2244,7 +2289,7 @@
 
 <script>
 const CHANGELOG = [
-  { date: "2026年9月5日", type: "new", text: "『学習のきろく』『じゃんけん』『とけい』を、ホーム画面からオフラインでも使えるようにしました。", updateCount: 1 },
+  { date: "2026年9月5日", type: "new", text: "サイトを改善しました", details: ["特別支援教育やICT活用に関する『関連サイト』ページを追加しました。","『学習のきろく』『じゃんけん』『とけい』を、ホーム画面からオフラインでも使えるようにしました。"], updateCount: 2 },
   { date: "2026年9月2日", type: "new", text: "先生・支援者向けの『学習のきろく』を公開しました。複数の教材に保存された学習記録を、1つの画面でまとめて振り返れます。", updateCount: 1 },
   { date: "2026年9月1日", type: "update", text: "2つの教材に学習記録機能を追加しました。", details: ["『じゃんけん まなぼう！』に学習記録機能を追加し、間違えた内容を振り返れるようにしました。","『はんばいかい レジ』に学習記録機能を追加し、購入した商品の内訳を振り返れるようにしました。"], updateCount: 2 },
   { date: "2026年8月31日", type: "update", text: "学習記録機能の改善と、新しいパズル遊びの追加をしました。", details: ["「もぐらたたき」で、ホーム画面から学習記録を確認できるようにしました。","「とけい」で、クイズの学習記録を保存して、あとから確認できるようにしました。","「とけい」の学習記録のCSV書き出しを、見やすい形式に改善しました。","「かたちをあわせよう」に、色や形を組み合わせて絵を完成させる新しい遊び方「かたちでつくろう」を追加しました。20種類のパズルを、タッチ・視線入力・スイッチなど、いろいろな操作方法で楽しめます。","学習記録の保存処理を改善しました。","「視線キーボード」のWord保存を改善しました。Wordファイルが重複して保存される問題を修正し、DOCX形式で保存できるようにしました。","「なぞり書き練習ツール」の学習記録機能を改善しました。「ぼうさいたんけんたい」では、記録を端末に保存して、あとから振り返れるようにしました。","「マッチング」と「しりとりあそび」に学習記録機能を追加しました。あそび終わるたびに記録が端末に保存され、あとから振り返ったり、CSVで書き出したりできます。"], updateCount: 8 },
@@ -2869,32 +2914,25 @@ function setScreenReader(enabled) {
   }
 }
 
-function onSpeakClick(e) {
-  const card = e.currentTarget.closest('.app-card');
-  if (card) { speak(card.dataset.name + '。' + card.dataset.tag); return; }
-  const tab = e.currentTarget.closest('.filter-tab');
-  if (tab) { speak(tab.textContent.trim()); return; }
-  const btn = e.currentTarget.closest('button, a');
-  if (btn) { speak(btn.textContent.trim()); return; }
+// Phase LINK-1'''(Settings Consistency Gate): 従来は.app-card/.filter-tab等の
+// 個別クラスだけを対象にしていたため、Global Header共通化後の他4ページでは
+// 「オンにしても何も起きない」状態だった。generate.jsの共通A11yパネル
+// (buildA11yPanelHTML)が29アプリへ配布している正式仕様(onGlobalSpeakClick、
+// クリックされたbutton/a/[role="button"]のaria-label/textContentを汎用的に
+// 読み上げる)と揃え、Global Header配下の全ページで同一の期待どおり動作する
+// ようにする。
+function onGlobalSpeakClick(e) {
+  if (e.target.closest('#a11yPanel, #a11yBtn')) return;
+  const el = e.target.closest('button, a, [role="button"]');
+  if (!el) return;
+  const text = (el.getAttribute('aria-label') || el.textContent || '').trim();
+  if (text) speak(text);
 }
-
 function attachSpeakListeners() {
-  document.querySelectorAll('.app-card, .filter-tab, .sns-btn, .a11y-opt').forEach(el => {
-    el.removeEventListener('click', onSpeakClick);
-    el.addEventListener('click', onSpeakClick);
-  });
-  // 入力フォーカス時にラベル読み上げ
-  document.querySelectorAll('input, select, textarea').forEach(el => {
-    el.addEventListener('focus', () => {
-      const label = el.closest('.form-group')?.querySelector('.form-label');
-      if (label) speak(label.textContent.trim());
-    });
-  });
+  document.addEventListener('click', onGlobalSpeakClick, true);
 }
 function detachSpeakListeners() {
-  document.querySelectorAll('.app-card, .filter-tab, .sns-btn, .a11y-opt').forEach(el => {
-    el.removeEventListener('click', onSpeakClick);
-  });
+  document.removeEventListener('click', onGlobalSpeakClick, true);
 }
 
 function resetA11y() {

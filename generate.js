@@ -1793,7 +1793,7 @@ const PWA_MANIFEST_TAGS = [
 // 対象(apps配列由来)には含まれない。
 const PWA_MANIFEST_TARGET_FILES = [
   'about.html', 'philosophy.html', 'terms.html', 'wizard.html',
-  'home-screen-guide.html', '404.html', 'learning-records.html'
+  'home-screen-guide.html', '404.html', 'learning-records.html', 'related-sites.html'
 ];
 
 // Service Worker登録scriptタグ。全35アプリへの個別貼付は禁止(§21)のため、
@@ -2163,6 +2163,7 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  { date: "2026-09-05", type: "new", text: "特別支援教育やICT活用に関する『関連サイト』ページを追加しました。" },
   { date: "2026-09-05", type: "new", text: "『学習のきろく』『じゃんけん』『とけい』を、ホーム画面からオフラインでも使えるようにしました。" },
   { date: "2026-09-02", type: "new", text: "先生・支援者向けの『学習のきろく』を公開しました。複数の教材に保存された学習記録を、1つの画面でまとめて振り返れます。" },
   { date: "2026-09-01", type: "update", text: "2つの教材に学習記録機能を追加しました。", details: [
@@ -2731,6 +2732,7 @@ const SITEMAP_STATIC_PAGES = [
   { url: 'wizard.html',            priority: 0.8, changefreq: 'monthly' },
   { url: 'learning-records.html',  priority: 0.7, changefreq: 'monthly' },
   { url: 'home-screen-guide.html', priority: 0.6, changefreq: 'monthly' },
+  { url: 'related-sites.html',     priority: 0.5, changefreq: 'monthly' },
   { url: 'terms.html',             priority: 0.5, changefreq: 'monthly' },
 ];
 
