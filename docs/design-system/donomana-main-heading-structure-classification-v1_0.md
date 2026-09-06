@@ -82,6 +82,13 @@ okane-app/tokei-appは既に`<section>`タグを使用しており、`<nav>`+`<s
 
 h1については、既にh1=1だったokane-app/yomikaki-app/mogura-tataki/ongaku-app/timetable-appは変更していない(heading cleanupのついで実施はしない、という本Phase方針どおり)。sugoroku-app/kyou-no-kirokuの2件のみ新規h1化した。両アプリともCSS上`font-weight`未指定/指定済みの差を確認し、UAデフォルトのh1太字化によるvisual diffが出ないよう対応済み(kyou-no-kirokuの`.app-title`は元々`font-weight:bold`指定済みのため対応不要、sugoroku-appの`.s-title`は`font-weight:400`を明示追加)。
 
+**AUDIT-35-FIX-3E-PWA実装結果(PWA Pilot対象2件)**: 残るjanken-app/tokei-appを実装し、Group B 9件すべてmain化完了。
+
+- **janken-app**: `#screen-title`〜`#screen-battle`(6画面)をmain化。この範囲に元々挟まっていた`#record-modal-backdrop`/`#howto-overlay`は、ongaku-appと同様に順序を変えずmainの子要素になる。h1は`#screen-title`内の既存可視タイトル`.title-text`(「じゃんけん<br>まなぼう！」)をタグ変換(`font-weight:700`指定済みのためUAデフォルト太字化の懸念なし)
+- **tokei-app**: `.difficulty-bar`〜4×`<section>`(sec1-4)をmain化。この範囲に含まれる`.scan-indicator`(switch scan中のみ表示のstatus text、`display:none`既定)は、`.difficulty-bar`と`<nav>`の間に位置し前後を切り離せないため、main内へ含めることとした(常時非表示のstatic textでlayout上の実害なし)。`<header>`(既存h1)はmain外。h1は既にh1=1のため無変更
+
+PWA Pilot対象という制約上、`tools/pwa-poc/`配下の全real-browser/static suiteおよび`tools/record-dashboard-poc/dashboard-realbrowser-test.py`を実装後に再実行し、Storage Preservation・Offline Navigation Contract(Top→detail page→app本体の実UI導線)・First-Launch Readiness・Update Lifecycle・non-Pilot isolationのいずれにも回帰がないことを確認した(詳細はPhase報告を参照。本docは境界判断の記録のみとし、検証ログの転記はしない)。
+
 ### Group C: 複雑・特殊構造で個別設計が必要(高リスク) — 4件
 
 - **sst-app**: `.scr`クラスの画面が30件以上(教員モード・生徒モード混在の巨大SPA)。単純な一括wrapping不可
@@ -159,3 +166,4 @@ PWA Pilot対象(janken-app, tokei-app, learning-records.html, Top)のうち、**
 | v1.0 | 2026-09-06 | Phase AUDIT-35-FIX-3A。全35アプリの`<main>`/heading構造分類の初版。h1欠落件数をAUDIT-35-1の20から18へ訂正(再検証による確定値)。 |
 | v1.0(改訂1) | 2026-09-06 | Phase AUDIT-35-FIX-3C。§5の「Group A候補(要implementation時再検証、確度中) — 3件」(tyushi/cup_game/kimochi-board)を個別実装可否調査のうえ解消。3件ともGroup A相当と確定し実装済み(tyushi・cup_gameは既存単一wrapperのdiv→main変換のみ、kimochi-boardは`#grid`単体のみをmain化し`.scan-bar`/`.hint`はCSS Grid実装上の安全上の理由でmain外に残す個別境界判断)。他章の分類・数値(Group B/C、directions-app等)は変更なし。 |
 | v1.0(改訂2) | 2026-09-06 | Phase AUDIT-35-FIX-3D。§5 Group B 9件のうちPWA Pilot対象2件(janken-app/tokei-app)を除く7件(okane-app/yomikaki-app/sugoroku-app/kyou-no-kiroku/mogura-tataki/ongaku-app/timetable-app)を実装。新規`<main>` wrapperを既存要素の前後へ挿入する方式(要素順序は変更せず)で全7件のmain化に成功。h1はsugoroku-app/kyou-no-kirokuの2件のみ新規化(他5件は既にh1=1のため無変更)。janken-app/tokei-appは今回もPWA専用Phaseへ引き続き分離、Group C・directions-appも無変更。 |
+| v1.0(改訂3) | 2026-09-06 | Phase AUDIT-35-FIX-3E-PWA。PWA Pilot対象の残り2件(janken-app/tokei-app)を実装し、Group B 9件全件のmain化が完了。janken-appは新規h1化も実施(h1欠落6→5)。既存PWA regression suite(tools/pwa-poc/全種・record-dashboard-poc)を全て再実行し回帰なしを確認。service-worker.js等PWAコア資産は無変更(実装中に発生したservice-worker.jsの見かけ上の差分はtools/pwa-poc/pwa-realbrowser-test.pyのUpdate Flowテストが検証用一時ファイルをWindows text-modeで書き戻す際の改行コード変更のみに起因する既知のテストスクリプト副作用と特定し、`git checkout --`でHEADと完全一致するLF版へ復元した。内容差分ではないためcommit対象に含めていない)。 |
