@@ -1079,7 +1079,7 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
 
 
 <!-- 対戦結果 -->
-<div id="vs-result-ov" role="dialog" aria-modal="true">
+<div id="vs-result-ov" role="dialog" aria-modal="true" aria-labelledby="vr-winner">
   <div class="vs-result-card">
     <div class="vs-crown" id="vr-crown">🏆</div>
     <div class="vs-winner-name" id="vr-winner"></div>
@@ -1095,10 +1095,10 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
 <div id="scan-bar"><span>🔍 スキャンモード</span><span>スペース・スイッチで決定</span></div>
 
 <!-- クリア -->
-<div id="clear-ov" role="dialog" aria-modal="true">
+<div id="clear-ov" role="dialog" aria-modal="true" aria-labelledby="clear-title">
   <div class="clear-card">
     <div class="clear-ic">🎉</div>
-    <div class="clear-ttl">クリア！</div>
+    <div class="clear-ttl" id="clear-title">クリア！</div>
     <div class="clear-st">
       じかん：<span class="clear-sv" id="c-time"></span><br>
       かいすう：<span class="clear-sv" id="c-moves"></span>回<br>
@@ -1995,7 +1995,7 @@ function showVsResult(){
     listEl.appendChild(row);
   });
 
-  $('vs-result-ov').classList.add('show');$('btn-vs-again').focus();
+  $('vs-result-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('btn-vs-again').focus();
   const msg=isDraw?'ひきわけ！':winners[0].name+'のかちでした！';
   ann(msg);speak(msg);
   saveMatchRecord('vs',{playerCount:vsPlayers.length});
@@ -2007,7 +2007,7 @@ function showClear(){
   $('c-time').textContent=fmtTime(secs);$('c-moves').textContent=moves;
   const p=LEVELS[curLevel].pairs;
   $('c-msg').textContent=moves<=p*2?'🌟 すごい！かんぺきなスコア！':moves<=p*3?'😊 よくできました！':'👏 クリア！またちょうせんしてね！';
-  $('clear-ov').classList.add('show');$('btn-again').focus();
+  $('clear-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('btn-again').focus();
   ann(`クリア！${moves}かい`);speak(`クリア！${moves}かいでクリアしました！`);
   saveMatchRecord('solo',{});
 }
@@ -2487,13 +2487,13 @@ document.querySelectorAll('.pc-btn').forEach(b=>{
   });
 });
 $('btn-vs-again').addEventListener('click',()=>{
-  $('vs-result-ov').classList.remove('show');
+  $('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
   // スコアリセット
   vsPlayers.forEach(p=>p.score=0);
   startGame();
 });
 $('btn-vs-back').addEventListener('click',()=>{
-  $('vs-result-ov').classList.remove('show');
+  $('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
   backToSel();
 });
 $('start-btn').addEventListener('click',()=>{
@@ -2510,8 +2510,8 @@ $('btn-retry').addEventListener('click',()=>{
   startGame();
 });
 $('btn-back').addEventListener('click',backToSel);
-$('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');startGame();});
-$('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');backToSel();});
+$('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();startGame();});
+$('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();backToSel();});
 document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;
   // Phase T6.5-B7: only Help's own focus-return is added here (Donomana
   // Help / Usage Guide Standard v1.0 §18); the other 4 modals closed by
@@ -2523,9 +2523,11 @@ document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanM
   if(howWasOpen){document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded','false');document.getElementById('donomanaHelpBtn').focus();}
   if(recordWasOpen){$('record-open-btn').setAttribute('aria-expanded','false');$('record-open-btn').focus();}
 }});
-// how-ov・settings-ov・edit-ov共通：背景（#hdr・#main）のinert切り替え。
-// 3モーダルのうちいずれか1件でも表示中であれば背景をinertのまま維持し、
-// 全て閉じたときだけ解除する（同時表示・多重の開閉経路があっても解除漏れ／誤解除を防ぐため）。
+// how-ov・settings-ov・edit-ov・record-ov・vs-result-ov・clear-ov共通：背景（#hdr・#main）のinert切り替え。
+// Phase AUDIT-35-FIX-1: vs-result-ov/clear-ovをAUDIT-35-1 finding F1の対応としてこのSource of
+// Truthリストへ追加(元は4モーダルのみ登録されており、対戦結果/クリア画面の2件が背景inert化・
+// Focus Trap双方から漏れていた)。6モーダルのうちいずれか1件でも表示中であれば背景をinertのまま
+// 維持し、全て閉じたときだけ解除する（同時表示・多重の開閉経路があっても解除漏れ／誤解除を防ぐため）。
 function setModalBackgroundInert(isInert){
   const header=document.getElementById('hdr');
   const main=document.getElementById('main');
@@ -2534,19 +2536,21 @@ function setModalBackgroundInert(isInert){
     if(main)main.inert=true;
     return;
   }
-  const stillOpen=['how-ov','settings-ov','edit-ov','record-ov'].some(id=>{const m=document.getElementById(id);return m&&m.classList.contains('show');});
+  const stillOpen=['how-ov','settings-ov','edit-ov','record-ov','vs-result-ov','clear-ov'].some(id=>{const m=document.getElementById(id);return m&&m.classList.contains('show');});
   if(stillOpen)return;
   if(header)header.inert=false;
   if(main)main.inert=false;
 }
-// how-ov・settings-ov・edit-ov共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
+// how-ov・settings-ov・edit-ov・record-ov・vs-result-ov・clear-ov共通：Focus Trap（Tab/Shift+Tabとも
+// モーダル外へ出さない）。Phase AUDIT-35-FIX-1でvs-result-ov/clear-ovをこのリストへ追加(理由は上記
+// setModalBackgroundInert()コメント参照、同一のリスト漏れが原因)。
 // スイッチスキャン中（scanMode）は自動タイマーによる対象移動とSpaceキーでの決定が既存の操作方式であり、
 // Tabキー自体をスキャン操作として専有してはいないが、キーボード用のFocus Trapとスキャン制御が
 // 同時に働くと挙動が読みにくくなるため、scanMode中はこのTrapを無効化する。
 document.addEventListener('keydown',e=>{
   if(e.key!=='Tab')return;
   if(scanMode)return;
-  const modal=['how-ov','settings-ov','edit-ov','record-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
+  const modal=['how-ov','settings-ov','edit-ov','record-ov','vs-result-ov','clear-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
   if(!modal)return;
   const focusables=Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
     .filter(el=>el.offsetParent!==null && !el.disabled);
