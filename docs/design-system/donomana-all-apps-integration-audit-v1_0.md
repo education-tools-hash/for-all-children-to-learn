@@ -1,4 +1,6 @@
 > **[AUDIT-35-ARCHIVE-1 注記]** 本文書はAUDIT-35初回監査(AUDIT-35-1)時点の記録であり、内容は無改変で保存している。ここに記載のfinding(F1〜F4)は後続のAUDIT-35-FIX-1〜FIX-3J・AUDIT-35-H1-DESIGN-1/IMPL-1/RELEASE-1により全件解消済み(AUDIT-35-CLOSE-GATE-1で確認)。現在値は`tools/main-heading-audit/`および`docs/design-system/donomana-main-heading-structure-classification-v1_0.md`を参照のこと。以下は当時のSource of Truthとして保存する。
+>
+> 原文中で参照される`tools/audit35-1/audit-results.json`は派生生成物のため保存対象外とし、`audit.js`と記載baselineから再生成可能。
 
 # どのまな 全35アプリ統合監査 v1.0
 
