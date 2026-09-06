@@ -1471,13 +1471,14 @@ body.hc .name-input{background:rgba(255,255,255,.08);}
 
     <div class="help-section-title" style="margin-top:18px">🎴 イベントのれい</div>
     <div class="help-ev-list">
-      <div class="help-ev"><span class="hev-ic">🎁</span><div><div class="hev-tt">プレゼント！</div><div class="hev-ds">さんますすすむ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🎁</span><div><div class="hev-tt">プレゼント！</div><div class="hev-ds"><ruby>3<rt aria-hidden="true">さん</rt></ruby>ますすすむ</div></div></div>
       <div class="help-ev"><span class="hev-ic">🍀</span><div><div class="hev-tt">よつばのクローバー！</div><div class="hev-ds">もういっかいさいころをふれる</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🚀</span><div><div class="hev-tt">ロケット発射！</div><div class="hev-ds">よんますすすむ</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🌈</span><div><div class="hev-tt">にじをみつけた！</div><div class="hev-ds">さんますすすむ</div></div></div>
-      <div class="help-ev"><span class="hev-ic">💤</span><div><div class="hev-tt">ねむってしまった…</div><div class="hev-ds">ふたますもどる</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🧊</span><div><div class="hev-tt">こおりですべった！</div><div class="hev-ds">さんますもどる</div></div></div>
-      <div class="help-ev"><span class="hev-ic">🌀</span><div><div class="hev-tt">たつまきにとばされた！</div><div class="hev-ds">スタートにもどる</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🚀</span><div><div class="hev-tt">ロケット発射！</div><div class="hev-ds"><ruby>4<rt aria-hidden="true">よん</rt></ruby>ますすすむ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🌈</span><div><div class="hev-tt">にじをみつけた！</div><div class="hev-ds"><ruby>3<rt aria-hidden="true">さん</rt></ruby>ますすすむ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🔄</span><div><div class="hev-tt">ぎゃくてん！</div><div class="hev-ds">1いのひとと ばしょをこうかん</div></div></div>
+      <div class="help-ev"><span class="hev-ic">💤</span><div><div class="hev-tt">ねむってしまった…</div><div class="hev-ds">いっかいおやすみ</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🧊</span><div><div class="hev-tt">こおりですべった！</div><div class="hev-ds"><ruby>3<rt aria-hidden="true">さん</rt></ruby>ますもどる</div></div></div>
+      <div class="help-ev"><span class="hev-ic">🌀</span><div><div class="hev-tt">たつまきにとばされた！</div><div class="hev-ds">スタートにもどる（1人1回まで）</div></div></div>
       <div class="help-ev"><span class="hev-ic">😴</span><div><div class="hev-tt">おひるねしちゃった</div><div class="hev-ds">いっかいおやすみ</div></div></div>
       <div class="help-ev"><span class="hev-ic">🎤</span><div><div class="hev-tt">じこしょうかい！</div><div class="hev-ds">すきなものを1つはなそう</div></div></div>
       <div class="help-ev"><span class="hev-ic">🤸</span><div><div class="hev-tt">からだをうごかそう！</div><div class="hev-ds">えらんだうごきをしよう</div></div></div>
@@ -1563,16 +1564,26 @@ const PD=[
 const DP={1:[5],2:[3,7],3:[3,5,7],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
 
 // ===== 豊富なイベント定義 =====
+// ds内の {数字|よみ} という記法は、表示時にrenderEvText()でruby要素へ変換され、
+// 読み上げ時にはspeakEvText()でよみ側だけの平文へ変換される（Hotfix: 数字+ルビ表示）。
 const EVL=[
-  {ic:'🎁',tt:'プレゼント！',ds:'さんますすすむ！',mv:3,cl:'c-adv'},
+  {ic:'🎁',tt:'プレゼント！',ds:'{3|さん}ますすすむ！',mv:3,cl:'c-adv'},
   {ic:'🍀',tt:'よつばのクローバー！',ds:'もういっかいさいころをふれる！',ex:'again',cl:'c-lucky'},
-  {ic:'🚀',tt:'ロケット発射！',ds:'よんますすすむ！',mv:4,cl:'c-adv'},
-  {ic:'🌈',tt:'にじをみつけた！',ds:'さんますすすむ！',mv:3,cl:'c-adv'},
+  {ic:'🚀',tt:'ロケット発射！',ds:'{4|よん}ますすすむ！',mv:4,cl:'c-adv'},
+  {ic:'🌈',tt:'にじをみつけた！',ds:'{3|さん}ますすすむ！',mv:3,cl:'c-adv'},
+  // Hotfix: 新規イベント「ぎゃくてん」。dsは仮の文言で、実際の表示直前にshowEv()側で
+  // 現在1位のプレイヤーとの入れ替え可否に応じて動的に上書きする（ev.ds自体は書き換えない、
+  // 表示用ローカル変数のみ変更。EVLは全プレイヤー・全ゲームで共有される定義のため）。
+  {ic:'🔄',tt:'ぎゃくてん！',ds:'1ばんのひとと ばしょをこうかん！',ex:'swap1st',cl:'c-lucky'},
 ];
 const EVU=[
-  {ic:'💤',tt:'ねむってしまった…',ds:'ふたますもどる',mv:-2,cl:'c-back'},
-  {ic:'🧊',tt:'こおりですべった！',ds:'さんますもどる',mv:-3,cl:'c-back'},
-  {ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',cl:'c-unlucky'},
+  // Hotfix: 「ねむってしまった…」は「おひるねしちゃった」と同じ1回休み(ex:'skip')契約に統一。
+  // 表示文言(tt)は既存のまま維持、clも実際の効果に合わせてc-skip（おやすみ系の見た目）へ変更。
+  {ic:'💤',tt:'ねむってしまった…',ds:'いっかいおやすみ',ex:'skip',cl:'c-skip'},
+  {ic:'🧊',tt:'こおりですべった！',ds:'{3|さん}ますもどる',mv:-3,cl:'c-back'},
+  // Hotfix: 「たつまきにとばされた！」は1プレイヤーにつき1試合1回までに制限(onceOnly)。
+  // 2回目以降はshowEv()側でスタートへ戻さず現在位置を維持する。
+  {ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',onceOnly:true,cl:'c-unlucky'},
   {ic:'😴',tt:'おひるねしちゃった',ds:'いっかいおやすみ',ex:'skip',cl:'c-skip'},
 ];
 const EVE=[
@@ -1830,14 +1841,15 @@ const EV_TYPES_FOR_CUSTOM=[
   // ── なし ──
   {group:'なし',      label:'なし（イベントなし）', ev:null},
   // ── ラッキー系 ──
-  {group:'ラッキー系', label:'🎁 プレゼント！（3マスすすむ）',   ev:{ic:'🎁',tt:'プレゼント！',ds:'さんますすすむ！',mv:3,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🎁 プレゼント！（3マスすすむ）',   ev:{ic:'🎁',tt:'プレゼント！',ds:'{3|さん}ますすすむ！',mv:3,cl:'c-adv'}},
   {group:'ラッキー系', label:'🍀 よつばのクローバー！（もう1かい）',ev:{ic:'🍀',tt:'よつばのクローバー！',ds:'もういっかいさいころをふれる！',ex:'again',cl:'c-lucky'}},
-  {group:'ラッキー系', label:'🚀 ロケット発射！（4マスすすむ）',  ev:{ic:'🚀',tt:'ロケット発射！',ds:'よんますすすむ！',mv:4,cl:'c-adv'}},
-  {group:'ラッキー系', label:'🌈 にじをみつけた！（3マスすすむ）',ev:{ic:'🌈',tt:'にじをみつけた！',ds:'さんますすすむ！',mv:3,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🚀 ロケット発射！（4マスすすむ）',  ev:{ic:'🚀',tt:'ロケット発射！',ds:'{4|よん}ますすすむ！',mv:4,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🌈 にじをみつけた！（3マスすすむ）',ev:{ic:'🌈',tt:'にじをみつけた！',ds:'{3|さん}ますすすむ！',mv:3,cl:'c-adv'}},
+  {group:'ラッキー系', label:'🔄 ぎゃくてん！（1いのひとと交換）',ev:{ic:'🔄',tt:'ぎゃくてん！',ds:'1ばんのひとと ばしょをこうかん！',ex:'swap1st',cl:'c-lucky'}},
   // ── アンラッキー系 ──
-  {group:'アンラッキー系', label:'💤 ねむってしまった…（2マスもどる）', ev:{ic:'💤',tt:'ねむってしまった…',ds:'ふたますもどる',mv:-2,cl:'c-back'}},
-  {group:'アンラッキー系', label:'🧊 こおりですべった！（3マスもどる）',ev:{ic:'🧊',tt:'こおりですべった！',ds:'さんますもどる',mv:-3,cl:'c-back'}},
-  {group:'アンラッキー系', label:'🌀 たつまきにとばされた！（スタートにもどる）',ev:{ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',cl:'c-unlucky'}},
+  {group:'アンラッキー系', label:'💤 ねむってしまった…（1かいおやすみ）', ev:{ic:'💤',tt:'ねむってしまった…',ds:'いっかいおやすみ',ex:'skip',cl:'c-skip'}},
+  {group:'アンラッキー系', label:'🧊 こおりですべった！（3マスもどる）',ev:{ic:'🧊',tt:'こおりですべった！',ds:'{3|さん}ますもどる',mv:-3,cl:'c-back'}},
+  {group:'アンラッキー系', label:'🌀 たつまきにとばされた！（スタートにもどる・1人1回）',ev:{ic:'🌀',tt:'たつまきにとばされた！',ds:'スタートにもどる',ex:'tostart',onceOnly:true,cl:'c-unlucky'}},
   {group:'アンラッキー系', label:'😴 おひるねしちゃった（1かいおやすみ）',ev:{ic:'😴',tt:'おひるねしちゃった',ds:'いっかいおやすみ',ex:'skip',cl:'c-skip'}},
   // ── アクティビティ系 ──
   {group:'アクティビティ系', label:'🎤 じこしょうかい！',  ev:{ic:'🎤',tt:'じこしょうかい！',ds:'すきなものを1つはなそう！ （はなしたら次のターンへ）',cl:'c-lucky'}},
@@ -1850,13 +1862,13 @@ const EV_TYPES_FOR_CUSTOM=[
   {group:'アクティビティ系', label:'🤝 てをつなごう！',    ev:{ic:'🤝',tt:'てをつなごう！',ds:'となりのひととあくしゅしよう！ （できたら次のターンへ）',cl:'c-lucky'}},
   {group:'アクティビティ系', label:'🎨 えをかいて！',      ev:{ic:'🎨',tt:'えをかいて！',ds:'すきなものをえにかいてみよう！ （かけたら次のターンへ）',cl:'c-lucky'}},
   // ── 移動数カスタム ──
-  {group:'移動（カスタム）', label:'⭐ 1マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'ひとますすすむ！',mv:1,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'⭐ 2マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'ふたますすすむ！',mv:2,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'⭐ 3マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'さんますすすむ！',mv:3,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'⭐ 4マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'よんますすすむ！',mv:4,cl:'c-adv'}},
-  {group:'移動（カスタム）', label:'💨 1マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'ひとますもどる',mv:-1,cl:'c-back'}},
-  {group:'移動（カスタム）', label:'💨 2マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'ふたますもどる',mv:-2,cl:'c-back'}},
-  {group:'移動（カスタム）', label:'💨 3マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'さんますもどる',mv:-3,cl:'c-back'}},
+  {group:'移動（カスタム）', label:'⭐ 1マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'{1|ひと}ますすすむ！',mv:1,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'⭐ 2マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'{2|ふた}ますすすむ！',mv:2,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'⭐ 3マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'{3|さん}ますすすむ！',mv:3,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'⭐ 4マスすすむ', ev:{ic:'⭐',tt:'すすむ！',ds:'{4|よん}ますすすむ！',mv:4,cl:'c-adv'}},
+  {group:'移動（カスタム）', label:'💨 1マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'{1|ひと}ますもどる',mv:-1,cl:'c-back'}},
+  {group:'移動（カスタム）', label:'💨 2マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'{2|ふた}ますもどる',mv:-2,cl:'c-back'}},
+  {group:'移動（カスタム）', label:'💨 3マスもどる', ev:{ic:'💨',tt:'もどる…',ds:'{3|さん}ますもどる',mv:-3,cl:'c-back'}},
 ];
 
 let editingCellIdx=-1;
@@ -2150,8 +2162,8 @@ const TYPE_DEFAULT_EV={
   'c-normal': null,
   'c-lucky':  {ic:'🍀',tt:'ラッキー！',ds:'もういっかいさいころをふれる！',ex:'again'},
   'c-unlucky':{ic:'💨',tt:'アンラッキー…',ds:'スタートにもどる',ex:'tostart'},
-  'c-adv':    {ic:'⭐',tt:'すすむ！',ds:'さんますすすむ！',mv:3},
-  'c-back':   {ic:'💤',tt:'もどる…',ds:'ふたますもどる',mv:-2},
+  'c-adv':    {ic:'⭐',tt:'すすむ！',ds:'{3|さん}ますすすむ！',mv:3},
+  'c-back':   {ic:'💤',tt:'もどる…',ds:'{2|ふた}ますもどる',mv:-2},
   'c-skip':   {ic:'😴',tt:'おやすみ…',ds:'いっかいおやすみ',ex:'skip'},
   'c-custom': null, // カスタムはsceSelectedEvをそのまま使う
 };
@@ -2362,11 +2374,11 @@ function startGame(){
     const nameEl=document.getElementById('name-input-'+i);
     if(nameEl && nameEl.value.trim()) playerNames[i]=nameEl.value.trim();
     const customName=playerNames[i]||PD[i].name;
-    players.push({...PD[i], name:customName, pos:0,done:false,skip:false,cpu:false});
+    players.push({...PD[i], name:customName, pos:0,done:false,skip:false,cpu:false,tornadoUsed:false});
   }
   const cpuAvs=['🤖','🦾','💻','🎮','🕹️','⚙️','🔩','🛸','🧠'];
   for(let i=0;i<nCpu&&players.length<10;i++){
-    players.push({name:'CPU'+(i+1),av:cpuAvs[i]||'🤖',pos:0,done:false,skip:false,cpu:true});
+    players.push({name:'CPU'+(i+1),av:cpuAvs[i]||'🤖',pos:0,done:false,skip:false,cpu:true,tornadoUsed:false});
   }
   ci=0;finOrd=[];gActive=true;rolling=false;
   turnCounts=players.map(()=>0);
@@ -2478,29 +2490,92 @@ async function moveP(idx,steps){
   else{rolling=false;await dl(700);nextTurn();}
 }
 
+// Hotfix: ds内の "{数字|よみ}" 記法を安全にDOM生成する（innerHTMLは使わない）。
+// 対象はEVL/EVU/EV_TYPES_FOR_CUSTOM/TYPE_DEFAULT_EVという開発者が用意した
+// 固定テンプレート文字列のみで、利用者入力を扱うことはない。
+const RUBY_RE=/\{([^|{}]+)\|([^|{}]+)\}/g;
+function renderEvText(el,str){
+  while(el.firstChild)el.removeChild(el.firstChild);
+  if(!str)return;
+  let last=0,m;RUBY_RE.lastIndex=0;
+  while((m=RUBY_RE.exec(str))){
+    if(m.index>last)el.appendChild(document.createTextNode(str.slice(last,m.index)));
+    const ruby=document.createElement('ruby');
+    ruby.appendChild(document.createTextNode(m[1]));
+    const rt=document.createElement('rt');
+    rt.setAttribute('aria-hidden','true'); // 読み上げの二重announceを避ける（speak()側でよみを別途読み上げる）
+    rt.textContent=m[2];
+    ruby.appendChild(rt);
+    el.appendChild(ruby);
+    last=RUBY_RE.lastIndex;
+  }
+  if(last<str.length)el.appendChild(document.createTextNode(str.slice(last)));
+}
+function speakEvText(str){return (str||'').replace(RUBY_RE,'$2');}
+
 function showEv(cell){
   return new Promise(res=>{
     const ev=cell.ev;
+    const p=players[ci];
+
+    // Hotfix: 「たつまきにとばされた！」は1プレイヤー1試合1回まで。2回目以降は
+    // スタートへ戻さず現在位置を維持する。判定はここで一度だけ行い、表示と
+    // 実際の適用(onclick内)の両方で同じ結果を使う。
+    const tornadoRepeat = ev.ex==='tostart' && ev.onceOnly && p.tornadoUsed;
+
+    // Hotfix: 「ぎゃくてん」の交換対象をここで一度だけ決定する。ゴール済みプレイヤーは
+    // 盤面上の位置移動対象外のため比較から除外する（既存のRecord/goal仕様に合わせる）。
+    // 「1位」は、既存のfinOrd（ゴール順）による順位表示が進行中プレイヤーには存在しない
+    // ため、このHotfix専用に「非ゴールかつpos最大、同率はplayers配列で先の方」という
+    // 最小限のルールで新規に決定する（新しい順位表示システムそのものは作らない）。
+    let swapTargetIdx=null;
+    if(ev.ex==='swap1st'){
+      let leaderIdx=ci;
+      players.forEach((pl,i)=>{ if(!pl.done && pl.pos>players[leaderIdx].pos) leaderIdx=i; });
+      if(leaderIdx!==ci) swapTargetIdx=leaderIdx;
+    }
+
+    // 表示文言の決定。ev自体(EVL/EVU等の共有定義)は書き換えず、ローカル変数のみ変更する。
+    let dispDs=ev.ds;
+    if(tornadoRepeat) dispDs='こんどは とばされなかった！';
+    else if(ev.ex==='swap1st'){
+      dispDs = swapTargetIdx!==null
+        ? `${players[swapTargetIdx].name}と ばしょをこうかん！`
+        : 'いま1ばん！ ぎゃくてんは おこらなかった';
+    }
+
     document.getElementById('evic').textContent=ev.ic||'📋';
-    document.getElementById('evtt').textContent=ev.tt;
-    document.getElementById('evds').textContent=ev.ds;
+    renderEvText(document.getElementById('evtt'),ev.tt);
+    renderEvText(document.getElementById('evds'),dispDs);
     document.getElementById('evmod').classList.add('on');
-    speak(ev.tt+'。'+ev.ds);
+    speak(ev.tt+'。'+speakEvText(dispDs));
     // オンライン：イベントをゲストに配信
     if(typeof broadcastToGuests!=='undefined' && isOnline && isHost){
-      broadcastToGuests({type:'show_event', ev:{ic:ev.ic,tt:ev.tt,ds:ev.ds}});
+      broadcastToGuests({type:'show_event', ev:{ic:ev.ic,tt:ev.tt,ds:dispDs}});
     }
-    if((ev.mv||0)>0||ev.ex==='again')luckySnd();
-    else if((ev.mv||0)<0||ev.ex==='skip'||ev.ex==='tostart')unlkSnd();
+    if((ev.mv||0)>0||ev.ex==='again'||(ev.ex==='swap1st'&&swapTargetIdx!==null))luckySnd();
+    else if((ev.mv||0)<0||ev.ex==='skip'||(ev.ex==='tostart'&&!tornadoRepeat))unlkSnd();
     document.getElementById('evok').onclick=async()=>{
       document.getElementById('evmod').classList.remove('on');
       // オンライン：イベントモーダルを閉じる
       if(typeof broadcastToGuests!=='undefined' && isOnline && isHost){
         broadcastToGuests({type:'close_event'});
       }
-      const p=players[ci];
-      if(ev.ex==='tostart'){p.pos=0;renderPieces();renderList();speak('スタートにもどった！');if(typeof broadcastSyncState!=='undefined')broadcastSyncState();}
-      else if((ev.mv||0)!==0){
+      if(ev.ex==='tostart'){
+        if(ev.onceOnly)p.tornadoUsed=true;
+        if(!tornadoRepeat){
+          p.pos=0;renderPieces();renderList();speak('スタートにもどった！');
+          if(typeof broadcastSyncState!=='undefined')broadcastSyncState();
+        }
+      } else if(ev.ex==='swap1st'){
+        if(swapTargetIdx!==null){
+          const other=players[swapTargetIdx];
+          const tmp=p.pos;p.pos=other.pos;other.pos=tmp;
+          renderPieces();renderList();
+          speak(`${p.name}と${other.name}がいれかわった！`);
+          if(typeof broadcastSyncState!=='undefined')broadcastSyncState();
+        }
+      } else if((ev.mv||0)!==0){
         const s=Math.abs(ev.mv);
         for(let i=0;i<s;i++){
           if(ev.mv>0&&p.pos<nC-1)p.pos++;
