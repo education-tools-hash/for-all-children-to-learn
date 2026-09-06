@@ -117,7 +117,9 @@ body構造は単一wrapper(`#app`/`.app`)で全て包まれており、**`<main>
 
 apps-data.jsonの`title`("ほうこうとばしょをまなぼう")と、現在の最初のh1テキスト("ほうこうと ばしょを まなぼう"、表記上のスペース差のみ)が一致することを確認済み。**新しい文言を作る必要はなく、既存の最初のh1をそのまま正式タイトルとして残せばよい**。
 
-## 8. App Title Source of Truth 照合(全35アプリ)
+**AUDIT-35-FIX-3F実装結果**: 上記の設計どおりに実装した。`<div class="app" id="app">`は単一wrapperのタグ変換のみで`<main>`化(新規wrapper追加なし)。h1は「ほうこうと ばしょを まなぼう」のみ維持し、学習トピック12件・UIパネル4件の計16件は全てh2へ統一(3A設計の「同一階層ならh2で統一してよい」を採用。各screenは`.screen.active`で排他的に表示され同時に共存しないため、トピック間で親子関係を新設する意味的根拠がないと判断)。既存のパネル内サブ見出し2件(「せんせいモード」画面内の「🔒 パスワードを入力してください」、「学習ログ」画面内の「カテゴリ別 正答率」)はh2→h3へ1段階シフトし、親のscreen見出しがh1→h2になったことと整合させた。
+
+CSS依存の実装時の発見: `.title-bar h1`(スクリーン見出し共通)に加えて`.card h2`(パネル内サブ見出し、`font-size:1.15em`)という**当初のgrepで見落としていたタグ修飾セレクタ**が実在し、素朴にh3へ変換すると「🔒 パスワードを入力してください」の見た目が変化することをbefore/after計測で検出した。両セレクタとも`h1, h2`/`h2, h3`を追加する形で拡張し、visual diff 0を実測で確認した。
 
 apps-data.jsonの`title`とpage `<title>`タグを全35アプリで突合。ほとんどのアプリで一致(表記ゆれのみ)。明確な乖離が見られたのは:
 
@@ -167,3 +169,4 @@ PWA Pilot対象(janken-app, tokei-app, learning-records.html, Top)のうち、**
 | v1.0(改訂1) | 2026-09-06 | Phase AUDIT-35-FIX-3C。§5の「Group A候補(要implementation時再検証、確度中) — 3件」(tyushi/cup_game/kimochi-board)を個別実装可否調査のうえ解消。3件ともGroup A相当と確定し実装済み(tyushi・cup_gameは既存単一wrapperのdiv→main変換のみ、kimochi-boardは`#grid`単体のみをmain化し`.scan-bar`/`.hint`はCSS Grid実装上の安全上の理由でmain外に残す個別境界判断)。他章の分類・数値(Group B/C、directions-app等)は変更なし。 |
 | v1.0(改訂2) | 2026-09-06 | Phase AUDIT-35-FIX-3D。§5 Group B 9件のうちPWA Pilot対象2件(janken-app/tokei-app)を除く7件(okane-app/yomikaki-app/sugoroku-app/kyou-no-kiroku/mogura-tataki/ongaku-app/timetable-app)を実装。新規`<main>` wrapperを既存要素の前後へ挿入する方式(要素順序は変更せず)で全7件のmain化に成功。h1はsugoroku-app/kyou-no-kirokuの2件のみ新規化(他5件は既にh1=1のため無変更)。janken-app/tokei-appは今回もPWA専用Phaseへ引き続き分離、Group C・directions-appも無変更。 |
 | v1.0(改訂3) | 2026-09-06 | Phase AUDIT-35-FIX-3E-PWA。PWA Pilot対象の残り2件(janken-app/tokei-app)を実装し、Group B 9件全件のmain化が完了。janken-appは新規h1化も実施(h1欠落6→5)。既存PWA regression suite(tools/pwa-poc/全種・record-dashboard-poc)を全て再実行し回帰なしを確認。service-worker.js等PWAコア資産は無変更(実装中に発生したservice-worker.jsの見かけ上の差分はtools/pwa-poc/pwa-realbrowser-test.pyのUpdate Flowテストが検証用一時ファイルをWindows text-modeで書き戻す際の改行コード変更のみに起因する既知のテストスクリプト副作用と特定し、`git checkout --`でHEADと完全一致するLF版へ復元した。内容差分ではないためcommit対象に含めていない)。 |
+| v1.0(改訂4) | 2026-09-06 | Phase AUDIT-35-FIX-3F。directions-appのh1過多(17件)を是正し、Group C 4件を除く全34アプリのmain欠落・h1欠落・h1過多を解消。`<div class="app" id="app">`を単一wrapperのタグ変換のみで`<main>`化。h1は「ほうこうと ばしょを まなぼう」のみ維持、学習トピック12件+UIパネル4件の計16件をh2へ、既存のパネル内サブ見出し2件をh2からh3へ1段階シフト。実装時に`.card h2`という当初未発見のタグ修飾CSSセレクタを検出し、`.card h2, .card h3`へ拡張してvisual diff 0を確保した。 |
