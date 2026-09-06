@@ -34,6 +34,7 @@ def main():
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         errs = []
         page.on("console", lambda m: errs.append(m.text) if m.type == "error" else None)
+        page.on("dialog", lambda d: d.accept())  # loadPreset()/deletePreset() use confirm()
         page.goto(BASE)
         page.wait_for_load_state("networkidle")
 
@@ -158,6 +159,68 @@ def main():
         new_game(page)
         reset_state = page.evaluate("players.map(p => p.tornadoUsed)")
         record("F8: new game resets tornadoUsed for all players", all(v is False for v in reset_state), str(reset_state))
+
+        # ================= G: gyakuten via the teacher-facing custom cell editor =================
+        print("\n=== G: gyakuten via custom cell editor (EV_TYPES_FOR_CUSTOM path) ===")
+        gyakuten_custom = page.evaluate("() => EV_TYPES_FOR_CUSTOM.find(e => e.ev && e.ev.ex === 'swap1st')")
+        record("G1: gyakuten registered in EV_TYPES_FOR_CUSTOM", gyakuten_custom is not None, str(gyakuten_custom))
+
+        # place it on board index 3 via the same code path the teacher UI's save button uses
+        page.evaluate("""(ev) => {
+            editingCellIdx = 3;
+            sceSelectedType = 'c-custom';
+            sceSelectedEv = ev;
+            document.getElementById('sce-text').value = '';
+            document.getElementById('sce-ok').click();
+        }""", gyakuten_custom["ev"])
+        page.wait_for_timeout(150)
+        cc_ev = page.evaluate("customCells[3] && customCells[3].event")
+        record("G2: customCells[3].event has ex:'swap1st' after saving via #sce-ok", cc_ev and cc_ev.get("ex") == "swap1st", str(cc_ev))
+
+        # start a game (buildBoard() must fold customCells into the generated board)
+        page.evaluate("() => { nP=2; nCpu=0; startGame(); }")
+        page.wait_for_timeout(200)
+        board_cell_ev = page.evaluate("board[3] && board[3].ev")
+        record("G3: board[3].ev carries ex:'swap1st' from the custom cell", board_cell_ev and board_cell_ev.get("ex") == "swap1st", str(board_cell_ev))
+
+        # fire it via the exact same showEv(cell) call moveP() would make, using the real board cell object
+        page.evaluate("() => { players[0].pos = 10; players[1].pos = 3; }")
+        page.evaluate("() => { ci = 1; showEv(board[3]); }")
+        page.wait_for_timeout(150)
+        ds_custom = page.eval_on_selector("#evds", "el => el.textContent")
+        page.click("#evok")
+        page.wait_for_timeout(150)
+        p0c, p1c = page.evaluate("[players[0].pos, players[1].pos]")
+        record("G4: swap fires identically via the custom-placed cell (positions swapped)", p0c == 3 and p1c == 10, f"p0={p0c} p1={p1c} ds={ds_custom}")
+
+        # self-already-1st path through the same custom cell
+        page.evaluate("() => { players[0].pos = 10; players[1].pos = 3; }")
+        page.evaluate("() => { ci = 0; showEv(board[3]); }")
+        page.wait_for_timeout(150)
+        ds_custom2 = page.eval_on_selector("#evds", "el => el.textContent")
+        record("G5: custom-placed cell also shows 'no swap' message for the leader", "おこらなかった" in ds_custom2, ds_custom2)
+        page.click("#evok")
+        page.wait_for_timeout(150)
+
+        # save/restore preset: does the customized gyakuten cell survive a save->clear->load cycle?
+        page.evaluate("() => { localStorage.removeItem('sugorokuCellPresets'); }")
+        preset_key = page.evaluate("typeof PRESET_KEY !== 'undefined' ? PRESET_KEY : null")
+        record("G6: PRESET_KEY constant found for preset storage", preset_key is not None, str(preset_key))
+        page.evaluate(f"""() => {{
+            const list = [];
+            const cellsToSave = {{}};
+            for (const k in customCells) {{ const c = customCells[k]; cellsToSave[k] = {{text:c.text,type:c.type,icon:c.icon,event:c.event}}; }}
+            list.unshift({{name:'テストほぞん', date:'2026/09/06', cells: cellsToSave}});
+            savePresets(list);
+        }}""")
+        page.evaluate("() => { customCells = {}; }")
+        cleared = page.evaluate("customCells[3]")
+        record("G7: customCells cleared before restore", cleared is None, str(cleared))
+        page.evaluate("() => { loadPreset(0); }")
+        page.wait_for_timeout(150)
+        restored_ev = page.evaluate("customCells[3] && customCells[3].event")
+        record("G8: gyakuten custom cell survives save/restore (loadPreset)", restored_ev and restored_ev.get("ex") == "swap1st", str(restored_ev))
+        page.evaluate("() => { localStorage.removeItem(PRESET_KEY); }")  # cleanup test data
 
         print("\n=== console/runtime ===")
         record("console error count == 0", len(errs) == 0, str(errs[:5]))
