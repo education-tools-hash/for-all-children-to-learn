@@ -91,10 +91,12 @@ PWA Pilot対象という制約上、`tools/pwa-poc/`配下の全real-browser/sta
 
 ### Group C: 複雑・特殊構造で個別設計が必要(高リスク) — 4件
 
-- **sst-app**: `.scr`クラスの画面が30件以上(教員モード・生徒モード混在の巨大SPA)。単純な一括wrapping不可
+- **sst-app**: `.scr`クラスの画面が30件以上(教員モード・生徒モード混在の巨大SPA)。単純な一括wrapping不可 → **AUDIT-35-FIX-3G-SSTで実装済み(下記)**
 - **scratch-app**: canvas中心のお絵かきツール、`#root`(canvas)+複数パネル
 - **gaze-keyboard**: AAC(拡大代替コミュニケーション)ボード、パネル多数・fullscreen専用領域あり
 - **drawing-app**: canvas+sidebar+toolbar群、Gaze設定パネルも混在。Group A候補としたが精査の結果Cへ再分類が妥当
+
+**AUDIT-35-FIX-3G-SST実装結果**: 「単純な一括wrapping不可」は画面数の多さ(26件の`.scr`)そのものではなく、`teacher-lock-modal`/`diary-export-modal`/`badge-modal`/`celebrate`(装飾オーバーレイ)が26画面の間に散在している点が理由と再確認した。既存順序を変えずに`#s-home`〜`#s-thermo`(全26画面)を新規`<main>`で連続wrapすることで、これら4件は結果的にmainの子要素になる(要素の並び替えは行っていない、AUDIT-35-FIX-3D/3E-PWAのongaku-app/janken-appと同じ扱い)。`.hdr`(既存h1候補`.hdr-title`含む)・`#bottom-back-bar`・`#help-modal`・`#screen-lock-overlay`・`#settings-modal`はmain開始位置より前にあり、そのままmain外を維持。h1は`.hdr-title`(「SST」、apps-data.json titleの一部と一致)を変換、新規文言追加なし。body/`.scr`とも`position:fixed`ではなく通常のblock/flow要素のため、wrapper追加によるlayout影響なし(`.celebrate`のみ`position:fixed`の装飾層で、fixedゆえに親要素に依存しないことを確認済み)。
 
 ## 6. h1欠落 18アプリの分類
 
@@ -170,3 +172,4 @@ PWA Pilot対象(janken-app, tokei-app, learning-records.html, Top)のうち、**
 | v1.0(改訂2) | 2026-09-06 | Phase AUDIT-35-FIX-3D。§5 Group B 9件のうちPWA Pilot対象2件(janken-app/tokei-app)を除く7件(okane-app/yomikaki-app/sugoroku-app/kyou-no-kiroku/mogura-tataki/ongaku-app/timetable-app)を実装。新規`<main>` wrapperを既存要素の前後へ挿入する方式(要素順序は変更せず)で全7件のmain化に成功。h1はsugoroku-app/kyou-no-kirokuの2件のみ新規化(他5件は既にh1=1のため無変更)。janken-app/tokei-appは今回もPWA専用Phaseへ引き続き分離、Group C・directions-appも無変更。 |
 | v1.0(改訂3) | 2026-09-06 | Phase AUDIT-35-FIX-3E-PWA。PWA Pilot対象の残り2件(janken-app/tokei-app)を実装し、Group B 9件全件のmain化が完了。janken-appは新規h1化も実施(h1欠落6→5)。既存PWA regression suite(tools/pwa-poc/全種・record-dashboard-poc)を全て再実行し回帰なしを確認。service-worker.js等PWAコア資産は無変更(実装中に発生したservice-worker.jsの見かけ上の差分はtools/pwa-poc/pwa-realbrowser-test.pyのUpdate Flowテストが検証用一時ファイルをWindows text-modeで書き戻す際の改行コード変更のみに起因する既知のテストスクリプト副作用と特定し、`git checkout --`でHEADと完全一致するLF版へ復元した。内容差分ではないためcommit対象に含めていない)。 |
 | v1.0(改訂4) | 2026-09-06 | Phase AUDIT-35-FIX-3F。directions-appのh1過多(17件)を是正し、Group C 4件を除く全34アプリのmain欠落・h1欠落・h1過多を解消。`<div class="app" id="app">`を単一wrapperのタグ変換のみで`<main>`化。h1は「ほうこうと ばしょを まなぼう」のみ維持、学習トピック12件+UIパネル4件の計16件をh2へ、既存のパネル内サブ見出し2件をh2からh3へ1段階シフト。実装時に`.card h2`という当初未発見のタグ修飾CSSセレクタを検出し、`.card h2, .card h3`へ拡張してvisual diff 0を確保した。 |
+| v1.0(改訂5) | 2026-09-06 | Phase AUDIT-35-FIX-3G-SST。Group C 4件のうちsst-appを実装(残るscratch-app/gaze-keyboard/drawing-appは個別Phase継続)。26画面(`.scr`)+散在する4件のmodal/装飾層を新規`<main>`で連続wrap、`.hdr-title`をh1化。「単純な一括wrapping不可」の実際の理由(modal散在)を再確認した上で、要素順序を変えない連続wrap方式で対応可能と判定・実装した。main missing 4→3、h1 missing 5→4。 |
