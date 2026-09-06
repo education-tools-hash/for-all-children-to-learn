@@ -52,13 +52,17 @@ nazori-app, nazorin-print, janken-app, shiritori2, okane-app, tokei-app, schedul
 
 `div[.#]main` / `div[.#]app` のようなタグ名修飾セレクタ、`closest('div')`、`querySelectorAll('div')`をこの10件全てでgrep確認し、**該当0件**。CSS/JS構造リスクは低いと判定。
 
-### Group A候補(要implementation時再検証、確度中) — 3件
+### Group A候補 → AUDIT-35-FIX-3Cで個別再確認・解消済み — 3件
 
-| app | 候補wrapper | 備考 |
+3A時点では「境界要再確認」としていたが、Phase AUDIT-35-FIX-3Cで実装可否を1アプリずつ個別調査し、全件で安全な境界を確定した(3件ともGroup A相当・実装済み)。
+
+| app | 採用wrapper | 境界確認の結論 |
 |---|---|---|
-| tyushi | `#stage` | game areaを包むが、周辺(`#help-overlay`等)との境界を要再確認 |
-| cup_game | `.container` | 同上 |
-| kimochi-board | `#grid` | カードグリッドのみで、`.top-bar`等が別途main相当か要判断 |
+| tyushi | `#stage` | `#stars`/`#screen-flash`/`#fx-layer`は全て`position:fixed;pointer-events:none`の装飾専用エフェクト層(初期状態で空div)であり、`#help-overlay`等のmodal同様main外が適切と確認。`#stage`単体が既存の完結したactivity wrapperであり、そのままdiv→main変換で対応可能(Priority A) |
+| cup_game | `.container` | title-area/HUD/settings/game-field/action-areaを含む唯一の既存wrapperで、周辺の`.bg-clouds`/`.stars-container`/`.gaze-cursor`は同じくposition:fixed;pointer-events:noneの装飾層と確認。div→main変換のみで対応可能(Priority A) |
+| kimochi-board | `#grid` | `.top-bar`(タイトル+設定ボタン)は他アプリの`#hdr`相当のheader chromeとして意味的にmain外が妥当。`.scan-bar`/`.hint`は常時表示の操作関連UIだが、`#grid`が`display:grid`のgrid containerであるため、これらを`<main>`内へ含めるには`#grid`の閉じタグをその後方へ移動する必要があり、その場合`.scan-bar`/`.hint`がgrid itemとして誤ってgrid配置ロジックに巻き込まれ重大なlayout破損を起こすことを検証で確認した。新規wrapper追加なしに安全な境界拡張はできないため、今回は`#grid`単体のみをmain化し(Priority A相当の最小変更)、`.scan-bar`/`.hint`をmain外に残す判断とした。`.top-bar`/`.scan-bar`/`.hint`をまとめて意味的にmain化する場合は新規wrapper追加(Group B相当)が必要であり、必要なら別Phaseで検討する |
+
+3件ともh1についても個別確認: tyushiは既存h1(`#help-overlay`内「✨ひかるボタン 使い方」)が既に1件存在し追加対象外(ページ本体には可視タイトルが存在しないため、新規h1は今回作成しない)。cup_game(`.title-main`)・kimochi-board(`.title`)は既存の静的可視タイトルをh1化した。両アプリとも当該class定義に`font-weight`が明示されておらず、UAデフォルトのh1太字(700)が適用され本来の見た目(400)からvisual diffが発生することをbefore/after計測で検出し、`font-weight:400`を明示追加して解消した(h1化に伴うUAスタイルシート対策の実例)。
 
 ### Group B: 複数の画面/セクションが並列し、新規wrapper追加が必要(中リスク) — 9件
 
@@ -141,3 +145,4 @@ PWA Pilot対象(janken-app, tokei-app, learning-records.html, Top)のうち、**
 | version | date | 内容 |
 |---|---|---|
 | v1.0 | 2026-09-06 | Phase AUDIT-35-FIX-3A。全35アプリの`<main>`/heading構造分類の初版。h1欠落件数をAUDIT-35-1の20から18へ訂正(再検証による確定値)。 |
+| v1.0(改訂1) | 2026-09-06 | Phase AUDIT-35-FIX-3C。§5の「Group A候補(要implementation時再検証、確度中) — 3件」(tyushi/cup_game/kimochi-board)を個別実装可否調査のうえ解消。3件ともGroup A相当と確定し実装済み(tyushi・cup_gameは既存単一wrapperのdiv→main変換のみ、kimochi-boardは`#grid`単体のみをmain化し`.scan-bar`/`.hint`はCSS Grid実装上の安全上の理由でmain外に残す個別境界判断)。他章の分類・数値(Group B/C、directions-app等)は変更なし。 |
