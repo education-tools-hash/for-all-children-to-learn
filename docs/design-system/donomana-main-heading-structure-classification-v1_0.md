@@ -70,6 +70,18 @@ okane-app(`<section>`×4)、tokei-app(`<section>`×4、**PWA Pilot対象**)、yo
 
 okane-app/tokei-appは既に`<section>`タグを使用しており、`<nav>`+`<section>`群を`<main>`で包む設計は比較的素直。他は`<div class="screen/section">`パターンで、新規`<main>`要素を追加してその中へ複数screenをまとめて移動する必要がある。
 
+**AUDIT-35-FIX-3D実装結果(PWA Pilot対象2件=janken-app/tokei-appを除く7件)**: 新規`<main>` wrapperを既存要素の前後に挿入する形(要素の並び順は変更せず、既存の兄弟要素をmainの子要素へ変える)で全7件を実装。
+
+- **okane-app**: `<nav>`〜4×`<section>`(learn/match/shop/mondai)をmain化。`<header>`(h1タイトル含む)はmain外(既存の他Group A/3Cアプリと同じhdr-outside-main境界)
+- **yomikaki-app**: `.tabs`〜`.wrap`(3×`<section class="pg">`)をmain化。`<header>`(ロゴのみ、h1は`#pg-guide`内)はmain外
+- **timetable-app**: `.tab-nav`〜5×`<section class="section">`をmain化。`.header`(h1タイトル含む)・`#fs-btn`はmain外
+- **mogura-tataki**: `.wrap`(GAME AREA)単体をmain化(Priority A相当、タグ変換のみ)。`role="dialog" aria-modal="true"`を持つ`#scrStart`/`#scrResult`はmodal相当としてmain外に残置
+- **kyou-no-kiroku**: `#screenChild`〜5×`.screen`+`<nav id="bottomNav">`をmain化。`<header>`(h1タイトル含む)・`#a11yPanel`・help modalはmain外、`#gazePointer`/`#scanBarContainer`は装飾/状態表示としてmain外
+- **ongaku-app**: `#screen-home`〜`#screen-compositions`(7画面)をmain化。この範囲に元々挟まっていた`#modal-pin`/`#modal-help`は、順序を変えずに結果的にmainの子要素になる(要素の並び替えは行っていない)
+- **sugoroku-app**: `#online-lobby`〜`#game`(6画面、`#dice-overlay`含む)をmain化。全画面とも`position:fixed;inset:0`のため、wrapper追加によるlayout上の影響なし。h1は`#setup`内の既存可視タイトル`.s-title`(「🎲 すごろく」)をタグ変換。直後の`tools/sugoroku-hotfix-test/test.py`(33件)で回帰なしを確認
+
+h1については、既にh1=1だったokane-app/yomikaki-app/mogura-tataki/ongaku-app/timetable-appは変更していない(heading cleanupのついで実施はしない、という本Phase方針どおり)。sugoroku-app/kyou-no-kirokuの2件のみ新規h1化した。両アプリともCSS上`font-weight`未指定/指定済みの差を確認し、UAデフォルトのh1太字化によるvisual diffが出ないよう対応済み(kyou-no-kirokuの`.app-title`は元々`font-weight:bold`指定済みのため対応不要、sugoroku-appの`.s-title`は`font-weight:400`を明示追加)。
+
 ### Group C: 複雑・特殊構造で個別設計が必要(高リスク) — 4件
 
 - **sst-app**: `.scr`クラスの画面が30件以上(教員モード・生徒モード混在の巨大SPA)。単純な一括wrapping不可
@@ -146,3 +158,4 @@ PWA Pilot対象(janken-app, tokei-app, learning-records.html, Top)のうち、**
 |---|---|---|
 | v1.0 | 2026-09-06 | Phase AUDIT-35-FIX-3A。全35アプリの`<main>`/heading構造分類の初版。h1欠落件数をAUDIT-35-1の20から18へ訂正(再検証による確定値)。 |
 | v1.0(改訂1) | 2026-09-06 | Phase AUDIT-35-FIX-3C。§5の「Group A候補(要implementation時再検証、確度中) — 3件」(tyushi/cup_game/kimochi-board)を個別実装可否調査のうえ解消。3件ともGroup A相当と確定し実装済み(tyushi・cup_gameは既存単一wrapperのdiv→main変換のみ、kimochi-boardは`#grid`単体のみをmain化し`.scan-bar`/`.hint`はCSS Grid実装上の安全上の理由でmain外に残す個別境界判断)。他章の分類・数値(Group B/C、directions-app等)は変更なし。 |
+| v1.0(改訂2) | 2026-09-06 | Phase AUDIT-35-FIX-3D。§5 Group B 9件のうちPWA Pilot対象2件(janken-app/tokei-app)を除く7件(okane-app/yomikaki-app/sugoroku-app/kyou-no-kiroku/mogura-tataki/ongaku-app/timetable-app)を実装。新規`<main>` wrapperを既存要素の前後へ挿入する方式(要素順序は変更せず)で全7件のmain化に成功。h1はsugoroku-app/kyou-no-kirokuの2件のみ新規化(他5件は既にh1=1のため無変更)。janken-app/tokei-appは今回もPWA専用Phaseへ引き続き分離、Group C・directions-appも無変更。 |
