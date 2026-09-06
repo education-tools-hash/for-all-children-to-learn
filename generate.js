@@ -932,7 +932,23 @@ function buildA11yPanelHTML(includeSR, appFilename) {
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
   const proxyHideCSS = proxy ? `<style>${proxy.selector}{${proxyHideDecl}}</style>` : '';
-  const proxyScriptHTML = proxy ? `
+  // Phase AUDIT-35-FIX-1E: opacity:0(hideWithDisplayNone非対象アプリ)はoriginalを視覚的に
+  // 隠しclickも塞ぐが、ネイティブkeyboard Tab順序からもaccessibility treeからも除外しない
+  // (display:none/visibility:hidden/tabindex=-1のみがそれを行う)。この結果、画面上どこにも
+  // 見えないボタンにTabが一瞬止まり、Enterで設定が開いてしまう「幽霊フォーカス」と、
+  // スクリーンリーダーへの重複した「設定」露出が発生していた(全35アプリ横断監査で20/31
+  // アプリが実機影響ありと確認、AUDIT-35-FIX-1D調査より)。display:noneへの統一は、まさに
+  // display:noneが選ばれなかった理由(隣接要素間の不自然な空白/白い帯)を21アプリへ
+  // 再導入するリスクがあるため採らず、tabindex=-1+aria-hiddenのみを追加する最小修正とする。
+  // tabindex=-1はscript経由のfocus()/click()を妨げない(下のoriginal.focus()呼び出しは
+  // 影響を受けない、実ブラウザで確認済み)。hideWithDisplayNone側は既にネイティブに
+  // 除外されているため対象外とする(重複適用を避ける)。
+  const proxyHardenFocusHTML = (proxy && !hideWithDisplayNone.has(appFilename)) ? `
+  document.querySelectorAll(${JSON.stringify(proxy.selector)}).forEach(function(el){
+    el.tabIndex = -1;
+    el.setAttribute('aria-hidden', 'true');
+  });` : '';
+  const proxyScriptHTML = proxy ? `${proxyHardenFocusHTML}
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
     // フォーカス可能条件の最小十分セット(Phase16.44-C横断調査で導出、Phase16.45-Bでdisplay/opacity判定を追加):
@@ -2265,10 +2281,11 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
-  { date: "2026-09-06", type: "update", text: "『マッチング』の操作性を改善しました。", details: [
-    "対戦結果・クリア画面でのキーボード操作を改善しました。",
-    "対戦結果・クリア画面でのスイッチ操作を改善しました。",
-    "せってい・カード編集画面でのキーボード操作をさらに改善しました。"
+  { date: "2026-09-06", type: "update", text: "キーボード操作の改善を行いました。", details: [
+    "一部の教材で、見えないボタンへ意図せずフォーカスが移動してしまう問題を修正しました。",
+    "『マッチング』の対戦結果・クリア画面でのキーボード操作を改善しました。",
+    "『マッチング』の対戦結果・クリア画面でのスイッチ操作を改善しました。",
+    "『マッチング』のせってい・カード編集画面でのキーボード操作をさらに改善しました。"
   ], verbatim: true },
   { date: "2026-09-05", type: "new", text: "対応している教材から『学習のきろく』を開きやすくしました。" },
   { date: "2026-09-05", type: "new", text: "『オフラインで使うには』ページへの導線を分かりやすくしました。" },

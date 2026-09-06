@@ -1,7 +1,9 @@
 # Real-browser (Playwright/Chromium) regression test for matching-app.html's
-# 6 modal dialogs' Focus Trap contract (AUDIT-35-FIX-1) and, since
-# AUDIT-35-FIX-1C, the settings-ov/edit-ov Focus Return contract. Requires a
-# local static server for the repo root, e.g.:
+# 6 modal dialogs' Focus Trap contract (AUDIT-35-FIX-1), the settings-ov/edit-ov
+# Focus Return contract (AUDIT-35-FIX-1C), and the SETTINGS_PROXY hidden-original
+# hardening (AUDIT-35-FIX-1E, generator-level - see tools/settings-proxy-focus-audit/
+# for the cross-app 31-app regression). Requires a local static server for the
+# repo root, e.g.:
 #   python -m http.server 8935 --bind 127.0.0.1
 # then: python tools/matching-modal-focus-trap/focus_trap_test.py
 import json
@@ -142,9 +144,10 @@ def test_existing_four(page):
     record("how-ov focus return to trigger unchanged", aid == 'donomanaHelpBtn', f"active={aid}")
 
     # settings-ov
-    # pre-existing #fs-btn overlap intercepts real pointer clicks on #btn-settings at this
-    # viewport (unrelated to Focus Trap fix; out of scope for this Phase, see report) ->
-    # dispatch the click via JS so the same listener still fires and modal logic is exercised.
+    # #btn-settings is the SETTINGS_PROXY-hidden original (opacity:0, pointer-events:none,
+    # and since AUDIT-35-FIX-1E also tabindex=-1/aria-hidden) - it is never a real pointer
+    # or Tab target, only reachable via donomanaA11yBtn -> donomanaSettingsProxy -> .click(),
+    # or directly via JS as done here to exercise the modal logic itself.
     page.evaluate("document.getElementById('btn-settings').click()")
     record("settings-ov opens", is_shown(page, 'settings-ov'))
     aid = active_id(page)
@@ -184,34 +187,40 @@ def test_existing_four(page):
 
 
 def test_settings_focus_return(page):
-    print("\n=== settings-ov Focus Return (AUDIT-35-FIX-1C) ===")
+    print("\n=== settings-ov Focus Return (AUDIT-35-FIX-1C, revised in FIX-1E) ===")
     page.evaluate("backToSel()")
+    # AUDIT-35-FIX-1E: the real-world opener is donomanaA11yBtn (donomanaSettingsProxy ->
+    # #btn-settings.click()), not #btn-settings itself - #btn-settings is a SETTINGS_PROXY-
+    # hidden internal target (opacity:0/pointer-events:none, and now tabindex=-1/aria-hidden
+    # too) that a real user never focuses. FIX-1C originally returned focus to #btn-settings;
+    # that target is no longer appropriate once it is aria-hidden (see report), so all 3
+    # close paths below now return to donomanaA11yBtn instead.
 
-    # close via close button -> returns to #btn-settings
+    # close via close button -> returns to donomanaA11yBtn
     page.evaluate("document.getElementById('btn-settings').click()")
     record("settings-ov opens (opener capture path)", is_shown(page, 'settings-ov'))
     page.evaluate("document.getElementById('btn-close-settings').click()")
     aid = active_id(page)
-    record("settings-ov close-button: focus returns to #btn-settings", aid == 'btn-settings', f"active={aid}")
+    record("settings-ov close-button: focus returns to donomanaA11yBtn", aid == 'donomanaA11yBtn', f"active={aid}")
 
-    # reopen, close via overlay click -> returns to #btn-settings
+    # reopen, close via overlay click -> returns to donomanaA11yBtn
     page.evaluate("document.getElementById('btn-settings').click()")
     page.evaluate("document.getElementById('settings-ov').click()")  # click the overlay itself (target === settings-ov)
     aid = active_id(page)
-    record("settings-ov overlay-click: focus returns to #btn-settings", aid == 'btn-settings', f"active={aid}")
+    record("settings-ov overlay-click: focus returns to donomanaA11yBtn", aid == 'donomanaA11yBtn', f"active={aid}")
 
-    # reopen, close via Escape -> returns to #btn-settings
+    # reopen, close via Escape -> returns to donomanaA11yBtn
     page.evaluate("document.getElementById('btn-settings').click()")
     page.keyboard.press('Escape')
     aid = active_id(page)
-    record("settings-ov Escape: focus returns to #btn-settings", aid == 'btn-settings', f"active={aid}")
+    record("settings-ov Escape: focus returns to donomanaA11yBtn", aid == 'donomanaA11yBtn', f"active={aid}")
 
     # reopen once more (stale-opener / repeat-open sanity check)
     page.evaluate("document.getElementById('btn-settings').click()")
     record("settings-ov reopens correctly after repeated open/close", is_shown(page, 'settings-ov'))
     page.evaluate("document.getElementById('btn-close-settings').click()")
     aid = active_id(page)
-    record("settings-ov focus-return still correct after repeated cycles", aid == 'btn-settings', f"active={aid}")
+    record("settings-ov focus-return still correct after repeated cycles", aid == 'donomanaA11yBtn', f"active={aid}")
 
 
 def test_edit_focus_return(page):
@@ -282,6 +291,46 @@ def test_edit_focus_return(page):
     page.evaluate("async () => { await dbDel('fixture-set-1'); await loadSets(); }")
 
 
+def test_settings_proxy_hidden_focus(page):
+    print("\n=== SETTINGS_PROXY hidden #btn-settings hardening (AUDIT-35-FIX-1E) ===")
+    page.evaluate("backToSel()")
+
+    state = page.evaluate("""() => {
+        const el = document.getElementById('btn-settings');
+        const cs = getComputedStyle(el);
+        return {opacity: cs.opacity, pointerEvents: cs.pointerEvents, tabIndex: el.tabIndex, ariaHidden: el.getAttribute('aria-hidden')};
+    }""")
+    record("#btn-settings stays invisible/unclickable (unchanged)", state['opacity'] == '0' and state['pointerEvents'] == 'none', str(state))
+    record("#btn-settings is excluded from native Tab order (tabIndex=-1)", state['tabIndex'] == -1, str(state))
+    record("#btn-settings is hidden from the accessibility tree (aria-hidden=true)", state['ariaHidden'] == 'true', str(state))
+
+    # Tab across the whole page a generous number of times; #btn-settings must never
+    # be the active element (it used to be, before this Phase).
+    page.evaluate("document.body.focus()")
+    hit_hidden = False
+    for _ in range(40):
+        page.keyboard.press('Tab')
+        if active_id(page) == 'btn-settings':
+            hit_hidden = True
+            break
+    record("Tab never lands on hidden #btn-settings across 40 presses", not hit_hidden)
+
+    # End-to-end programmatic proxy contract: donomanaA11yBtn -> donomanaSettingsProxy
+    # -> #btn-settings.click() must still open settings-ov correctly.
+    page.evaluate("document.getElementById('donomanaA11yBtn').click()")
+    panel_open = page.evaluate("document.getElementById('donomanaA11yPanel').style.display === 'block'")
+    record("donomanaA11yBtn opens the common a11y panel", panel_open)
+    proxy_exists = page.evaluate("!!document.getElementById('donomanaSettingsProxy')")
+    record("donomanaSettingsProxy exists inside the panel", proxy_exists)
+    page.evaluate("document.getElementById('donomanaSettingsProxy').click()")
+    record("proxy click opens settings-ov end-to-end", is_shown(page, 'settings-ov'))
+    aid = active_id(page)
+    record("proxy-opened settings-ov still gets correct initial focus", aid == 'settings-title', f"active={aid}")
+    page.evaluate("document.getElementById('btn-close-settings').click()")
+    aid = active_id(page)
+    record("closing proxy-opened settings-ov returns focus to donomanaA11yBtn", aid == 'donomanaA11yBtn', f"active={aid}")
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -297,6 +346,7 @@ def main():
         test_existing_four(page)
         test_settings_focus_return(page)
         test_edit_focus_return(page)
+        test_settings_proxy_hidden_focus(page)
 
         print("\n=== console/runtime ===")
         record("console error count == 0", len(console_errors) == 0, str(console_errors[:5]))

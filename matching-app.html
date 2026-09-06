@@ -799,6 +799,10 @@ body.high-contrast .vs-score-row.rank1{background:#332200;}
       donomanaAnnounceA11y(b.dataset.a11ySr === 'on' ? '読み上げ機能をオンにしました' : '読み上げ機能をオフにしました');
     }); });
     
+  document.querySelectorAll("#btn-settings").forEach(function(el){
+    el.tabIndex = -1;
+    el.setAttribute('aria-hidden', 'true');
+  });
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
     // フォーカス可能条件の最小十分セット(Phase16.44-C横断調査で導出、Phase16.45-Bでdisplay/opacity判定を追加):
@@ -2383,8 +2387,8 @@ function closeHowOv(){$('how-ov').classList.remove('show');document.getElementBy
 $('btn-close-how').addEventListener('click',closeHowOv);
 $('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov'))closeHowOv();});
 $('btn-settings').addEventListener('click',()=>{$('settings-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('settings-title').focus();});
-$('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus($('btn-settings'));});
-$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus($('btn-settings'));}});
+$('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus(document.getElementById('donomanaA11yBtn'));});
+$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus(document.getElementById('donomanaA11yBtn'));}});
 $('t-large').addEventListener('change',e=>{delegateToCommonFont(e.target.checked?'large':'normal');});
 $('t-hc').addEventListener('change',e=>{document.body.classList.toggle('high-contrast',e.target.checked);savePrefs();});
 $('t-rm').addEventListener('change',e=>{document.body.classList.toggle('reduce-motion',e.target.checked);savePrefs();});
@@ -2535,6 +2539,16 @@ document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanM
   // reachable from this shared Escape handler return focus consistently
   // (vs-result-ov/clear-ov intentionally excluded - closing them navigates
   // to a different screen, not back to the trigger, see AUDIT-35-FIX-1).
+  // Phase AUDIT-35-FIX-1E revision: settings-ov's return target was #btn-settings
+  // in FIX-1C, but #btn-settings is the SETTINGS_PROXY-hidden original (opacity:0,
+  // pointer-events:none) - no real user ever opens settings-ov by interacting with
+  // it directly, only via donomanaA11yBtn -> donomanaSettingsProxy -> #btn-settings
+  // .click(). Now that FIX-1E also makes #btn-settings tabindex=-1/aria-hidden,
+  // returning focus there would land the user on a target with no visible focus
+  // ring and no accessible name - worse than before. Return to donomanaA11yBtn
+  // (the actual, always-visible thing the user pressed) instead; donomanaSettingsProxy
+  // itself is not a valid target since donomanaA11yPanel is display:none by the time
+  // settings-ov is open (its own click handler hides the panel first).
   const howWasOpen=$('how-ov').classList.contains('show');
   const recordWasOpen=$('record-ov').classList.contains('show');
   const settingsWasOpen=$('settings-ov').classList.contains('show');
@@ -2542,7 +2556,7 @@ document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanM
   $('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');$('record-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
   if(howWasOpen){document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded','false');document.getElementById('donomanaHelpBtn').focus();}
   if(recordWasOpen){$('record-open-btn').setAttribute('aria-expanded','false');$('record-open-btn').focus();}
-  if(settingsWasOpen){donomanaReturnFocus($('btn-settings'));}
+  if(settingsWasOpen){donomanaReturnFocus(document.getElementById('donomanaA11yBtn'));}
   if(editWasOpen){donomanaReturnFocus(editOpener);editOpener=null;}
 }});
 // Phase AUDIT-35-FIX-1C: modal close後のfocus-return用ガード。how-ov/record-ovは常に単一の
