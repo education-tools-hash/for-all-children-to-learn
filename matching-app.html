@@ -2226,7 +2226,14 @@ function scanAct(){activateCurrentScanItem();}
 function resetModalScan(){refreshSwitchScanItems();}
 
 /* ── セット編集 ── */
+// Phase AUDIT-35-FIX-1C: edit-ovは#btn-add-set(新規作成)と、セットごとに動的生成される
+// [data-edit]ボタン(編集)の2種類のtriggerから開かれるため、固定要素を決め打ちできない。
+// openEdit()呼び出し時点のdocument.activeElementは、クリックハンドラから同期的に呼ばれる限り
+// 実際にクリックされたボタン自身になる(how-ov/record-ov/settings-ovのような単一固定triggerと
+// 同じ「openerを覚えてfocus復帰する」考え方を、動的triggerへ適用したもの)。
+let editOpener=null;
 function openEdit(id){
+  editOpener=document.activeElement;
   editId=id||null;const set=id?getSet(id):null;
   $('edit-title').textContent=id?'✏️ セットをへんしゅう':'📦 セットをつくる';
   $('edit-name').value=set?.name||'';
@@ -2301,7 +2308,13 @@ $('btn-save-set').addEventListener('click',async()=>{
   const uuid=(prevSet&&prevSet.uuid)||crypto.randomUUID(); // 既存idは維持、uuidのみ遅延付与
   const set={id:editId||('set_'+Date.now()),uuid,name,displayMode:editMode,cards:valid};
   await maybeRotateSetSnapshot(set.id,prevSet); // Layer2。失敗しても以下のLayer1保存は継続する
-  await dbPut(set);selSetId=set.id;$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();await loadSets();
+  await dbPut(set);selSetId=set.id;$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
+  // loadSets()がリスト再描画によりeditOpenerが指していた[data-edit]ボタン自体を作り直すため、
+  // 同じsetIdを持つ新しいノードを再取得してからfocusする(古い参照へfocus()しても無効)。
+  // 新規作成(元々のtriggerが#btn-add-set)の場合はeditOpener自身がそのまま有効。
+  await loadSets();
+  donomanaReturnFocus(document.querySelector('[data-edit="'+set.id+'"]')||editOpener);
+  editOpener=null;
 });
 
 /* ── 設定 ── */
@@ -2370,8 +2383,8 @@ function closeHowOv(){$('how-ov').classList.remove('show');document.getElementBy
 $('btn-close-how').addEventListener('click',closeHowOv);
 $('how-ov').addEventListener('click',e=>{if(e.target===$('how-ov'))closeHowOv();});
 $('btn-settings').addEventListener('click',()=>{$('settings-ov').classList.add('show');setModalBackgroundInert(true);resetModalScan();$('settings-title').focus();});
-$('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();});
-$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
+$('btn-close-settings').addEventListener('click',()=>{$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus($('btn-settings'));});
+$('settings-ov').addEventListener('click',e=>{if(e.target===$('settings-ov')){$('settings-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus($('btn-settings'));}});
 $('t-large').addEventListener('change',e=>{delegateToCommonFont(e.target.checked?'large':'normal');});
 $('t-hc').addEventListener('change',e=>{document.body.classList.toggle('high-contrast',e.target.checked);savePrefs();});
 $('t-rm').addEventListener('change',e=>{document.body.classList.toggle('reduce-motion',e.target.checked);savePrefs();});
@@ -2465,7 +2478,7 @@ function importSetsFile(e){
 $('btn-export-sets').addEventListener('click',exportSets);
 $('btn-import-sets').addEventListener('click',()=>$('import-sets-file').click());
 $('import-sets-file').addEventListener('change',importSetsFile);
-$('edit-ov').addEventListener('click',e=>{if(e.target===$('edit-ov')){$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();}});
+$('edit-ov').addEventListener('click',e=>{if(e.target===$('edit-ov')){$('edit-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();donomanaReturnFocus(editOpener);editOpener=null;}});
 document.querySelectorAll('.lvl-btn').forEach(b=>{b.addEventListener('click',()=>{selLevel=b.dataset.lv;document.querySelectorAll('.lvl-btn').forEach(x=>{x.style.opacity='.55';x.style.boxShadow='';});b.style.opacity='1';b.style.boxShadow='0 0 0 3px var(--primary)';updateStartBtn();});});
 
 /* ── 対戦モードイベント ── */
@@ -2516,16 +2529,30 @@ $('btn-back').addEventListener('click',backToSel);
 $('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();startGame();});
 $('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();backToSel();});
 document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;
-  // Phase T6.5-B7: only Help's own focus-return is added here (Donomana
-  // Help / Usage Guide Standard v1.0 §18); the other 4 modals closed by
-  // this same Escape handler keep their pre-existing no-focus-return
-  // behavior unchanged (Freeze).
+  // Phase T6.5-B7: Help's focus-return was added here first (Donomana Help /
+  // Usage Guide Standard v1.0 §18). Phase AUDIT-35-FIX-1C extends the same
+  // per-modal "was it open?" pattern to settings-ov/edit-ov so all 4 modals
+  // reachable from this shared Escape handler return focus consistently
+  // (vs-result-ov/clear-ov intentionally excluded - closing them navigates
+  // to a different screen, not back to the trigger, see AUDIT-35-FIX-1).
   const howWasOpen=$('how-ov').classList.contains('show');
   const recordWasOpen=$('record-ov').classList.contains('show');
+  const settingsWasOpen=$('settings-ov').classList.contains('show');
+  const editWasOpen=$('edit-ov').classList.contains('show');
   $('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');$('record-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
   if(howWasOpen){document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded','false');document.getElementById('donomanaHelpBtn').focus();}
   if(recordWasOpen){$('record-open-btn').setAttribute('aria-expanded','false');$('record-open-btn').focus();}
+  if(settingsWasOpen){donomanaReturnFocus($('btn-settings'));}
+  if(editWasOpen){donomanaReturnFocus(editOpener);editOpener=null;}
 }});
+// Phase AUDIT-35-FIX-1C: modal close後のfocus-return用ガード。how-ov/record-ovは常に単一の
+// 固定triggerを直接IDで参照してfocus()しているため元々このガードは不要だったが、edit-ovは
+// [data-edit]ボタン(セットごとに動的生成、保存後loadSets()で再描画されnodeが差し替わる)を
+// openerとして扱うため、要素がまだ存在し操作可能かを確認してから復帰させる。新しいfocus
+// 管理の仕組みを作るのではなく、既存の「opener.focus()」呼び出しに最小限のnullガードを足すだけ。
+function donomanaReturnFocus(el){
+  if(el && el.isConnected && !el.disabled) el.focus();
+}
 // how-ov・settings-ov・edit-ov・record-ov・vs-result-ov・clear-ov共通：背景（#hdr・#main）のinert切り替え。
 // Phase AUDIT-35-FIX-1: vs-result-ov/clear-ovをAUDIT-35-1 finding F1の対応としてこのSource of
 // Truthリストへ追加(元は4モーダルのみ登録されており、対戦結果/クリア画面の2件が背景inert化・

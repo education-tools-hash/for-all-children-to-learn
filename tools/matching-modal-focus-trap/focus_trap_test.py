@@ -1,6 +1,7 @@
 # Real-browser (Playwright/Chromium) regression test for matching-app.html's
-# 6 modal dialogs' Focus Trap contract (AUDIT-35-FIX-1). Requires a local
-# static server for the repo root, e.g.:
+# 6 modal dialogs' Focus Trap contract (AUDIT-35-FIX-1) and, since
+# AUDIT-35-FIX-1C, the settings-ov/edit-ov Focus Return contract. Requires a
+# local static server for the repo root, e.g.:
 #   python -m http.server 8935 --bind 127.0.0.1
 # then: python tools/matching-modal-focus-trap/focus_trap_test.py
 import json
@@ -182,6 +183,105 @@ def test_existing_four(page):
     record("edit-ov close restores background inert=false", not inert['hdr'] and not inert['main'], str(inert))
 
 
+def test_settings_focus_return(page):
+    print("\n=== settings-ov Focus Return (AUDIT-35-FIX-1C) ===")
+    page.evaluate("backToSel()")
+
+    # close via close button -> returns to #btn-settings
+    page.evaluate("document.getElementById('btn-settings').click()")
+    record("settings-ov opens (opener capture path)", is_shown(page, 'settings-ov'))
+    page.evaluate("document.getElementById('btn-close-settings').click()")
+    aid = active_id(page)
+    record("settings-ov close-button: focus returns to #btn-settings", aid == 'btn-settings', f"active={aid}")
+
+    # reopen, close via overlay click -> returns to #btn-settings
+    page.evaluate("document.getElementById('btn-settings').click()")
+    page.evaluate("document.getElementById('settings-ov').click()")  # click the overlay itself (target === settings-ov)
+    aid = active_id(page)
+    record("settings-ov overlay-click: focus returns to #btn-settings", aid == 'btn-settings', f"active={aid}")
+
+    # reopen, close via Escape -> returns to #btn-settings
+    page.evaluate("document.getElementById('btn-settings').click()")
+    page.keyboard.press('Escape')
+    aid = active_id(page)
+    record("settings-ov Escape: focus returns to #btn-settings", aid == 'btn-settings', f"active={aid}")
+
+    # reopen once more (stale-opener / repeat-open sanity check)
+    page.evaluate("document.getElementById('btn-settings').click()")
+    record("settings-ov reopens correctly after repeated open/close", is_shown(page, 'settings-ov'))
+    page.evaluate("document.getElementById('btn-close-settings').click()")
+    aid = active_id(page)
+    record("settings-ov focus-return still correct after repeated cycles", aid == 'btn-settings', f"active={aid}")
+
+
+def test_edit_focus_return(page):
+    print("\n=== edit-ov Focus Return (AUDIT-35-FIX-1C) ===")
+    page.evaluate("backToSel()")
+
+    # NOTE: these use real Playwright pointer clicks (page.click), not page.evaluate(...click()).
+    # openEdit()'s opener capture reads document.activeElement at call time; a real click focuses
+    # the element first (like an actual user), but a JS-synthesized .click() does not - using the
+    # synthetic form here would test an interaction pattern real users never produce.
+
+    # 1) #btn-add-set trigger, cancel via overlay click -> returns to #btn-add-set
+    page.click('#btn-add-set')
+    record("edit-ov opens from #btn-add-set", is_shown(page, 'edit-ov'))
+    page.evaluate("document.getElementById('edit-ov').click()")  # overlay click (target === edit-ov) - closing doesn't need real-focus semantics
+    aid = active_id(page)
+    record("edit-ov overlay-cancel from #btn-add-set: focus returns to #btn-add-set", aid == 'btn-add-set', f"active={aid}")
+
+    # 2) #btn-add-set trigger, cancel via Escape -> returns to #btn-add-set
+    page.click('#btn-add-set')
+    page.keyboard.press('Escape')
+    aid = active_id(page)
+    record("edit-ov Escape from #btn-add-set: focus returns to #btn-add-set", aid == 'btn-add-set', f"active={aid}")
+
+    # 3) seed a real custom set via the same dbPut()/loadSets() path the app itself uses,
+    #    so a real per-item [data-edit] trigger exists in the DOM (not simulated/guessed).
+    page.evaluate("""async () => {
+        await dbPut({id:'fixture-set-1', uuid:'fixture-uuid-1', name:'テストセット', displayMode:'img-text',
+          cards:[{label:'A',label2:'',imgDataUrl:null,emoji:'🍎'},{label:'B',label2:'',imgDataUrl:null,emoji:'🍌'}]});
+        await loadSets();
+    }""")
+    has_trigger = page.evaluate("!!document.querySelector('[data-edit=\"fixture-set-1\"]')")
+    record("fixture: [data-edit] trigger exists for seeded custom set", has_trigger)
+
+    # 4) open edit-ov FROM the dynamic [data-edit] button, cancel via Escape -> returns to
+    #    that SAME per-item button (not #btn-add-set) - this is the core FIX-1C contract:
+    #    dynamic opener capture, not a hardcoded fixed element.
+    page.click('[data-edit="fixture-set-1"]')
+    record("edit-ov opens from per-item [data-edit] button", is_shown(page, 'edit-ov'))
+    aid_name = active_id(page)
+    record("edit-ov initial focus unchanged (edit trigger path)", aid_name == 'edit-name', f"active={aid_name}")
+    page.keyboard.press('Escape')
+    aid = active_id(page)
+    record("edit-ov Escape from [data-edit]: focus returns to that same per-item button (not #btn-add-set)",
+           aid == 'fixture-set-1' or page.evaluate("document.activeElement.dataset.edit") == 'fixture-set-1',
+           f"active={aid} dataset={page.evaluate('document.activeElement.dataset.edit')}")
+
+    # 5) open FROM [data-edit], SAVE (triggers loadSets() re-render, destroying the original
+    #    node) -> focus must land on the NEWLY rendered [data-edit] node for the same set id,
+    #    not error out on the stale reference. This is the "invalid opener fallback" case.
+    page.click('[data-edit="fixture-set-1"]')
+    page.click('#btn-save-set')
+    page.wait_for_timeout(150)  # async dbPut()/loadSets() inside the save handler
+    aid = active_id(page)
+    dataset_edit = page.evaluate("document.activeElement && document.activeElement.dataset && document.activeElement.dataset.edit")
+    record("edit-ov save (existing set): focus returns to the re-rendered [data-edit] node, no error",
+           dataset_edit == 'fixture-set-1', f"active={aid} dataset-edit={dataset_edit}")
+    record("edit-ov save closed the modal", not is_shown(page, 'edit-ov'))
+
+    # 6) reopen sanity after the re-render churn above (stale opener must not linger)
+    page.click('#btn-add-set')
+    record("edit-ov reopens correctly after prior save/re-render cycle", is_shown(page, 'edit-ov'))
+    page.evaluate("document.getElementById('edit-ov').click()")
+    aid = active_id(page)
+    record("edit-ov opener correctly updated to #btn-add-set on next open (no stale opener)", aid == 'btn-add-set', f"active={aid}")
+
+    # cleanup the fixture set so it doesn't leak into other tests/manual review
+    page.evaluate("async () => { await dbDel('fixture-set-1'); await loadSets(); }")
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -195,6 +295,8 @@ def main():
         test_vs_result_ov(page)
         test_clear_ov(page)
         test_existing_four(page)
+        test_settings_focus_return(page)
+        test_edit_focus_return(page)
 
         print("\n=== console/runtime ===")
         record("console error count == 0", len(console_errors) == 0, str(console_errors[:5]))
