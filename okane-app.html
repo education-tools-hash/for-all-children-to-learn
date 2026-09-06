@@ -1165,7 +1165,7 @@
   <h1>💰 おかねのおべんきょう 💰</h1>
   <div class="header-tools">
     <button class="tool-btn" onclick="openHelpModal()">❔ つかいかた</button>
-    <button class="tool-btn" onclick="openRecordsModal()">📊 きろく</button>
+    <button class="tool-btn" id="records-open-btn" onclick="openRecordsModal()">📊 きろく</button>
     <button class="tool-btn" onclick="openSettingsModal()">⚙️ せってい</button>
   </div>
 </header>
@@ -1764,8 +1764,8 @@ function speakMoney(text) {
 function readMoney(name) { recordStat('learnReads'); speakMoney(name); }
 
 // ---- ヘルプモーダル ----
-function openHelpModal() { document.getElementById('helpModalOverlay').classList.add('active'); document.getElementById('help-modal-title').focus(); }
-function closeHelpModal() { document.getElementById('helpModalOverlay').classList.remove('active'); }
+function openHelpModal() { document.getElementById('helpModalOverlay').classList.add('active'); setModalBackgroundInert(true); document.getElementById('help-modal-title').focus(); }
+function closeHelpModal() { document.getElementById('helpModalOverlay').classList.remove('active'); setModalBackgroundInert(false); }
 
 // ---- せっていモーダル ----
 function openSettingsModal() {
@@ -1781,9 +1781,10 @@ function openSettingsModal() {
   updateSizeBtnUI();
   updateGazeColorUI();
   document.getElementById('settingsModalOverlay').classList.add('active');
+  setModalBackgroundInert(true);
   document.getElementById('settings-modal-title').focus();
 }
-function closeSettingsModal() { document.getElementById('settingsModalOverlay').classList.remove('active'); }
+function closeSettingsModal() { document.getElementById('settingsModalOverlay').classList.remove('active'); setModalBackgroundInert(false); }
 
 // ---- 文字サイズ ----
 // 独自の--ui-scale拡大は廃止し、共通A11yパネルのbody.style.zoom(標準100%/大125%/特大150%)へ一本化する。
@@ -1873,12 +1874,24 @@ function resetRecords() {
 }
 
 // ---- きろくモーダル ----
+// Phase POST-AUDIT-35-HARDEN-1: 起点(#records-open-btn、常設・単一の固定ボタン)をopen時に
+// 変数へ保持し、close時にDOM上へ存在しfocus可能な場合のみ復帰させる(register-appのrecord-modal/
+// record-open-btnと同型。同じregister-appのpmOpenerEl(product-modal側、BODY退行の既知未解決問題)
+// は参照実装にしない)。
+let recordsModalOpener = null;
 function openRecordsModal() {
+  recordsModalOpener = document.getElementById('records-open-btn');
   renderRecords();
   document.getElementById('recordsModalOverlay').classList.add('active');
+  setModalBackgroundInert(true);
   document.getElementById('records-modal-title').focus();
 }
-function closeRecordsModal() { document.getElementById('recordsModalOverlay').classList.remove('active'); }
+function closeRecordsModal() {
+  document.getElementById('recordsModalOverlay').classList.remove('active');
+  setModalBackgroundInert(false);
+  if (recordsModalOpener && recordsModalOpener.isConnected && !recordsModalOpener.disabled) recordsModalOpener.focus();
+  recordsModalOpener = null;
+}
 
 // ---- CSV書き出し ----
 function csvEscape(v) {
@@ -2276,29 +2289,56 @@ function openCustomModal() {
   document.getElementById('customImgInput').value='';
   document.getElementById('imgPreviewWrap').innerHTML=`<div style="font-size:36px">📷</div><div class="img-upload-hint">タップして写真をえらぶ</div>`;
   document.getElementById('customModalOverlay').classList.add('active');
+  setModalBackgroundInert(true);
   document.getElementById('custom-modal-title').focus();
 }
 function closeCustomModal() {
   document.getElementById('customModalOverlay').classList.remove('active');
+  setModalBackgroundInert(false);
 }
 // help/settings/records/custom共通：表示中の対象モーダルを1件だけ返す
 function activeOkaneModal(){
   return ['helpModalOverlay','settingsModalOverlay','recordsModalOverlay','customModalOverlay'].map(function(id){return document.getElementById(id);}).find(function(m){return m.classList.contains('active');});
 }
+// help/settings/records/custom共通：背景（header/main）のinert切り替え。
+// Phase POST-AUDIT-35-HARDEN-1: donomana-modal-accessibility-spec-v1_0.md(v1.1)のM要件、
+// matching-appのsetModalBackgroundInert()と同型(header/main以外の共通固定UI・A11yパネルは
+// header/mainの外に存在するため対象外のまま)。4モーダルのうちいずれか1件でも表示中であれば
+// 背景をinertのまま維持し、全て閉じたときだけ解除する。
+function setModalBackgroundInert(isInert){
+  const header=document.querySelector('header');
+  const main=document.querySelector('main');
+  if(isInert){
+    if(header)header.inert=true;
+    if(main)main.inert=true;
+    return;
+  }
+  const stillOpen=['helpModalOverlay','settingsModalOverlay','recordsModalOverlay','customModalOverlay'].some(function(id){var m=document.getElementById(id);return m&&m.classList.contains('active');});
+  if(stillOpen)return;
+  if(header)header.inert=false;
+  if(main)main.inert=false;
+}
 // help/settings/records/custom共通：Focus Trap（Tab/Shift+Tabともモーダル外へ出さない）。
 // records/customの動的内容にも追随できるよう、keydownのたびにDOMから候補を再取得する。
+// Phase POST-AUDIT-35-HARDEN-1: matching-appの実証済みパターンと同型のA11yパネル対応ガードを追加。
+// 共通A11yパネル表示中にフォーカスがパネル側(donomanaA11yBtn自身またはパネル内)にある場合は、
+// このFocus Trapで強制的にモーダル内へ戻さない(A11yパネル優先のEscape仕様と整合させる)。
 document.addEventListener('keydown',function(e){
   if(e.key!=='Tab')return;
   const modal=activeOkaneModal();
   if(!modal)return;
+  const active=document.activeElement;
+  const a11yBtn=document.getElementById('donomanaA11yBtn');
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel && a11yPanel.style.display==='block' && (active===a11yBtn || a11yPanel.contains(active)))return;
   const focusables=Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
     .filter(function(el){return el.offsetParent!==null && !el.disabled;});
   if(!focusables.length)return;
   const first=focusables[0],last=focusables[focusables.length-1];
   if(e.shiftKey){
-    if(document.activeElement===first || !modal.contains(document.activeElement)){e.preventDefault();last.focus();}
+    if(active===first || !modal.contains(active)){e.preventDefault();last.focus();}
   }else{
-    if(document.activeElement===last || !modal.contains(document.activeElement)){e.preventDefault();first.focus();}
+    if(active===last || !modal.contains(active)){e.preventDefault();first.focus();}
   }
 });
 // help/settings/records/custom共通：Escapeで対象モーダルを閉じる。
