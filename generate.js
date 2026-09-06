@@ -1849,7 +1849,7 @@ function injectLearningRecordFoundationToAppHtmls(apps) {
 //  ・サイトルート絶対パス指定 (/) なので
 //    どの階層のページからも同じファビコンが参照される
 // ============================================================
-const FAVICON_TAGS = [
+const FAVICON_TAGS_BASE = [
   '<!-- favicon: 自動挿入 (generate.js) -->',
   `<link rel="icon" href="${BASE_PATH}/favicon.ico" sizes="48x48">`,
   `<link rel="icon" type="image/svg+xml" href="${BASE_PATH}/favicon.svg">`,
@@ -1857,26 +1857,41 @@ const FAVICON_TAGS = [
   `<link rel="icon" type="image/png" sizes="16x16" href="${BASE_PATH}/favicon-16.png">`,
   `<link rel="apple-touch-icon" sizes="180x180" href="${BASE_PATH}/apple-touch-icon.png">`,
   `<link rel="manifest" href="${BASE_PATH}/site.webmanifest">`,
-  `<meta name="theme-color" content="#00A99D">`,
-  '<!-- /favicon -->'
-].join('\n  ');
+];
+const FAVICON_THEME_COLOR_TAG = `<meta name="theme-color" content="#00A99D">`;
+const FAVICON_TAGS = [...FAVICON_TAGS_BASE, FAVICON_THEME_COLOR_TAG, '<!-- /favicon -->'].join('\n  ');
+// Phase AUDIT-35-FIX-2: kyou-no-kiroku/mogura-tataki/ongaku-appは、このブロックが
+// 導入されるより前から独自のtheme-color(#4A4270/#0f0e17)をhead先頭付近に手書きしていた。
+// injectFavicon()は自分自身のマーカーに対してのみ冪等で、マーカー外の既存theme-colorの
+// 有無は見ていなかったため、実行するたびに2つ目のtheme-color(#00A99D)が残り続けていた
+// (3アプリで確認、他32アプリは重複なし)。テーマ色の値そのものは変えず、二重注入だけを
+// 解消するため、このtheme-color行のみを条件付きにする。
+const FAVICON_TAGS_NO_THEME_COLOR = [...FAVICON_TAGS_BASE, '<!-- /favicon -->'].join('\n  ');
 
 // HTML文字列に対してファビコンタグを冪等に注入する
 // ・既に挿入済みなら何もしない (同じマーカーで再挿入を防止)
 // ・既存の "<!-- favicon: 自動挿入" ブロックがあれば置き換え
 // ・なければ </head> 直前に挿入
+// ・自分自身のマーカーブロックの外に既にtheme-colorが手書きされている場合、
+//   このブロック側のtheme-colorは注入しない(二重防止、AUDIT-35-FIX-2)
 // 戻り値: { html, action: 'inserted'|'replaced'|'skipped'|'no-head' }
 function injectFavicon(html) {
   if (typeof html !== 'string') return { html, action: 'skipped' };
   const startMark = '<!-- favicon: 自動挿入 (generate.js) -->';
   const endMark   = '<!-- /favicon -->';
   const startIdx = html.indexOf(startMark);
+  const endIdxForStrip = startIdx !== -1 ? html.indexOf(endMark, startIdx) : -1;
+  const withoutOwnBlock = endIdxForStrip !== -1
+    ? html.slice(0, startIdx) + html.slice(endIdxForStrip + endMark.length)
+    : html;
+  const hasExternalThemeColor = /<meta\s+name=["']theme-color["']/i.test(withoutOwnBlock);
+  const tags = hasExternalThemeColor ? FAVICON_TAGS_NO_THEME_COLOR : FAVICON_TAGS;
   if (startIdx !== -1) {
     // 既存ブロックを置き換え
     const endIdx = html.indexOf(endMark, startIdx);
     if (endIdx !== -1) {
       const tail = endIdx + endMark.length;
-      const newHtml = html.slice(0, startIdx) + FAVICON_TAGS + html.slice(tail);
+      const newHtml = html.slice(0, startIdx) + tags + html.slice(tail);
       return { html: newHtml, action: 'replaced' };
     }
   }
@@ -1886,7 +1901,7 @@ function injectFavicon(html) {
   // インデント調整: </head> 行のインデントを取得
   const lineStart = html.lastIndexOf('\n', headEnd) + 1;
   const indent = html.slice(lineStart, headEnd).match(/^\s*/)[0];
-  const insertion = indent + FAVICON_TAGS + '\n' + indent;
+  const insertion = indent + tags + '\n' + indent;
   const newHtml = html.slice(0, headEnd) + insertion + html.slice(headEnd);
   return { html: newHtml, action: 'inserted' };
 }
