@@ -29,13 +29,15 @@
 | Severity | Tier1 | Tier2 | 累計 |
 |---|---|---|---|
 | P0 Critical | 0 | 0 | **0** |
-| P1 High | 0 | 1(TIER2-F3) | **1** |
+| P1 High | 0 | 1(TIER2-F3、cup_game分は解消済み・ongaku-app分がOPENのため件数維持) | **1** |
 | P2 Medium | 5(Finding単位) | 4(TIER2-F1, F2, F5, F6) | **9** |
 | P3 Low | Contrastの一部(個別評価待ち) | 1(TIER2-F4、15件) | Contrast系はいずれもTier分類基準で個別評価 |
 
 **AUDIT PILOT BLOCKING FINDING相当(P0操作不能)は29アプリ通じて0件。**
 
 Tier2で初めてP1 Highが計上された点が当初の最大の変化点だったが、TIER2-F6は実機Evidenceによる再評価でP2へ訂正されたため、**29アプリ累計で現存するP1はTIER2-F3(初期focus欠如)の1件のみ**となった。この訂正の経緯自体が、「broken referenceを検出した場合に影響範囲を実機検証なしで即断しない」という教訓としてTier3横展開へ引き継ぐべき事項である(`tier2-fix-backlog.md`のTier3横展開の推奨事項参照)。
+
+**[2026-09-07追記]** WCAG-JIS-FIX-P1-B-RELEASEでTIER2-F3のcup_game分(helpModal)をProduction反映(commit `a53f307`)。ongaku-app分(modal-pin/export/share)はTIER2-F2のrole="dialog"新規付与・Focus Trap実装と一体のため引き続きOPEN。**Finding全体としてはPARTIALLY RESOLVED、Severity P1は維持**(Finding件数としては1のまま。cup_game分の解消はFinding Family内の部分的進捗であり、Family全体のClose/降格根拠にはしない)。
 
 ---
 

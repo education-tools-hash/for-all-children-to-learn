@@ -9,7 +9,8 @@ Severity・工数感・依存関係に基づく優先順位案。**本Auditで�
 | Finding | 対象 | 推定工数 | 参照実装 | 状態 |
 |---|---|---|---|---|
 | TIER2-F6(broken aria-labelledby参照、Severity P1→**P2**訂正済み) | katachi-awase-app | 数分(不要属性の削除のみ) | なし(削除のみで解消) | **✅ 修正済み(RC commit e32c45e、branch `fix/katachi-awase-broken-aria-labelledby`)。main未反映** |
-| TIER2-F3(初期focus欠如) | cup_game(helpModal)・ongaku-app(modal-pin/export/share) | 各アプリ半日程度 | PILOT-F1/NEW-KNOWN-1の修正パターン(gaze-keyboard、HARDEN-2/3-RELEASEで実証済み) | 未着手 |
+| TIER2-F3(初期focus欠如、cup_game分) | cup_game(helpModal) | 実績: 半日 | PILOT-F1/NEW-KNOWN-1の修正パターン | **✅ 修正済み(commit `a53f307`、branch `fix/cup-game-help-modal-initial-focus`)。Production反映済み** |
+| TIER2-F3(初期focus欠如、ongaku-app分) | ongaku-app(modal-pin/export/share) | 2〜3日程度(TIER2-F2のrole="dialog"新規付与・Focus Trap実装と統合) | PILOT-F1パターンを踏襲するが単独実装は非推奨(WCAG-JIS-AUDIT-FIX-TRIAGE-1のOption F3-B判断) | **OPEN(未着手)。`FIX-P2-ONGAKU-MODAL`(仮称)としてTIER2-F2と統合実装を推奨** |
 | TIER2-F1(FT-1: A11yパネル例外欠如) | shiritori2・bosai-app・ongaku-app(modal-help) | 各アプリ半日程度(POST-AUDIT-35-HARDEN-1/3の実績ベース) | okane-app/matching-app/gaze-keyboard(settingsModal) |
 
 ## 優先度2(中規模・構造判断を伴う)
