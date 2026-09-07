@@ -102,6 +102,8 @@ gaze-keyboard profileModal/hrModalのFocus Trap欠如は、TIER1-F3(Finding Fami
 
 **WCAG-JIS-AUDIT-1-TIER1 = TIER1 AUDIT COMPLETE / READY FOR FIX TRIAGE**
 
+> **[WCAG-JIS-AUDIT-1-TIER1-RELEASE 注記]** このstatusは「Tier1の自動監査・Finding分類・Manual Review backlogの確定が完了した」ことを意味する。**NVDA/VoiceOver/Blue2/Tobii等を含む全Manual Accessibility Reviewが完了したことは意味しない**(`tier1-manual-review.md` A〜H、全項目未実施のまま)。特にtyushiは、TIER1-F1(既定状態でheadingが1件も到達不能)の実際のSR体感を確認する最優先Manual Review対象として保持する。
+
 ## 9. 推定Fix時間
 
 - 優先度1(TIER1-F1・F2): 合計2〜3日程度(5アプリ×半日〜1日)
