@@ -207,4 +207,15 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 - 両overlayともFocus Trap自体が元々存在しない(matrix既存記載どおり、TIER1-F3)ため、本Fixで新規のFocus Trapは実装していない(scope外)。Escapeで閉じる仕組みもscratch-app全体に元々存在しない(scope外、既知ギャップとして記録のみ)。
 - Responsive(390/768/1280)で確認、regression無し。200%zoomはテスト用ヘッドレスブラウザのビューポート制約でtxtEdOv triggerに到達できず未検証(Fix起因の問題ではない)。
 
-**[2026-09-08追記3]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`でProduction反映済み(commit `9db60be`、Production Validation PASS)。scratch-appの4モーダル(setOv/helpOv/txtEdOv/cov)全てTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。Batch 4(cup_game)・tyushi設計判断は未着手のまま。
+**[2026-09-08追記3]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`でProduction反映済み(commit `9db60be`、Production Validation PASS)。scratch-appの4モーダル(setOv/helpOv/txtEdOv/cov)全てTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。
+
+**[2026-09-08追記4] Batch 4(cup_game settingsOverlay)RC実装完了**。worktree `for-all-children-to-learn-wcag-jis-fix-family-d-batch-4`、branch `fix/family-d-cup-game-settings-restoration`。
+
+- pre-fix LEVEL-A再確認: `#settingsCloseBtn`クリックでBODY退行を再現(監査時点と同一)。
+- 実trigger(`#gearBtn`)は共通A11yパネルProxy構造(okane-app/matching-appのsettings-ovと同型)によりopacity:0/tabindex=-1化されており、`document.activeElement`ベースのopener追跡は隠し要素へ復帰するため不適。既存precedentに倣い可視の`donomanaA11yBtn`へ固定復帰する設計を採用。
+- close経路は`#settingsCloseBtn`クリックと、`openHelp()`によるアプリ内相互排他close(設定を開いたままヘルプを開くと自動で閉じる)の2経路のみ(背景クリック等の経路は存在しない)。両経路とも実機確認しLEVEL-A取得。相互排他close経路はopenHelp()自身の`helpTitle.focus()`で直後に上書きされ正しく合成される。
+- **Escapeキー自体がsettingsOverlayを閉じる仕組みを持たない**ことを再確認(監査時点と同一)。Focus Restoration Fixとは独立に修正可能と判断し(§13 Option A相当)、今回はEscape追加を行わずFocus Restorationのみ修正。既存の別Findingとして記録を維持。
+- settingsOverlay自体に`role`/`aria-modal`が設定されていないこと、Initial FocusがA11yパネルProxy側の汎用fallback機構により`dwellTimeSlider`(理想的でない非stableな着地点)になっていることも新たに確認したが、いずれもFAMILY-A/FAMILY-C領域の別Findingとして記録するに留め、本Batchでは修正していない。
+- Responsive(390/768/1280)で確認、regression無し。A11yパネル自身のEscape優先度(settingsOverlayとは別ロジック)にも影響なし。console/page errors 0件。
+
+Batch 4は`RC VALIDATED / READY FOR USER REVIEW`としてUser判断待ち。tyushi settings-panelの設計判断(`WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`候補)は未着手のまま。Batch 4完了・Production反映後、CONFIRMED FAILとして残る通常Fix対象は原則0件となる見込み(tyushiのSPECIAL HANDLING分を除く)。
