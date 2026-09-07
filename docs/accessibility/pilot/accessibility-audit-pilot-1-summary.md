@@ -1,5 +1,9 @@
 # Accessibility Audit Pilot-1 Summary
 
+> **[ACCESSIBILITY-AUDIT-PREP-2 注記]** 本文書§6で唯一未達だった「#6 Contrast Gate実行」は、後続Phase ACCESSIBILITY-AUDIT-PREP-2で`tools/accessibility-audit/contrast-check.py`の新規実装・Pilot 5アプリでの実証により解消済み(結果: `accessibility-audit-pilot-1-contrast-results.md`、Full Audit Entry Gate再判定: `donomana-wcag-jis-audit-plan-v1_0.md` §28)。本文書自体の記述は当時の記録として無変更で保存する。
+
+# Accessibility Audit Pilot-1 Summary
+
 - Phase: ACCESSIBILITY-AUDIT-PILOT-1
 - 目的: `donomana-wcag-jis-audit-plan-v1_0.md`で定義した監査方法を5代表アプリで実証し、本監査(全35アプリ)への横展開可否を評価する。
 - 本Pilotでは**Findingを発見してもコードを修正しない**(監査とFixを分離)。

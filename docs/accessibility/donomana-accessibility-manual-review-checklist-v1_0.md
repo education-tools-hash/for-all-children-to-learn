@@ -1,8 +1,8 @@
-# どのまな Accessibility Manual Review Checklist v1.0
+# どのまな Accessibility Manual Review Checklist v1.1
 
-- Phase: ACCESSIBILITY-AUDIT-PREP-1
+- Phase: ACCESSIBILITY-AUDIT-PREP-1(初版)/ ACCESSIBILITY-AUDIT-PREP-2(v1.1、Contrast節F追加)
 - 位置づけ: `donomana-wcag-jis-audit-plan-v1_0.md`の「Manual Only」「Automated + Manual確認」項目を、実施者(人間)がその場でチェックできる形式に落とし込んだもの。
-- 実施者: Claudeはスクリーンリーダー・実スイッチデバイス・視線入力デバイスを直接操作できないため、本チェックリストは**人間の実施者(ユーザーまたは支援者)が実施**し、結果をClaudeへ共有する運用を前提とする。
+- 実施者: Claudeはスクリーンリーダー・実スイッチデバイス・視線入力デバイスを直接操作できないため、本チェックリストは**人間の実施者(ユーザーまたは支援者)が実施**し、結果をClaudeへ共有する運用を前提とする。Contrast節(F)のみ、自動ツールをClaude/実施者いずれもが実行可能。
 
 ---
 
@@ -110,8 +110,26 @@
 
 ---
 
+## F. Contrast検証チェックリスト([v1.1]新設)
+
+**実施順序**: まず`tools/accessibility-audit/contrast-check.py`(ACCESSIBILITY-AUDIT-PREP-2で新規作成)を実行し、自動計算されたfail一覧を得る。その上で以下の観点をManualで確認する。
+
+| # | 項目 | OK/NG/N-A |
+|---|---|---|
+| 1 | 自動ツールのfail一覧を目視で確認し、デザイン上の意図(装飾的テキスト等、WCAGの対象外となりうる箇所)を除外する | |
+| 2 | 自動ツールが`backgroundUnreliable: true`(gradient/画像背景)としたNeeds Manual Review項目を、DevToolsのスポイト等で実際の背景色を確認しコントラスト比を実測する | |
+| 3 | focus indicator(フォーカスリング)自体のコントラストが3:1以上か | |
+| 4 | disabled state(操作不可表示)のコントラストが要件外であることを確認(WCAG上disabled要素は通常対象外だが、意図的にdisabledと分かる視覚差があるか) | |
+| 5 | selected/active state(選択中表示)が色だけに依存していないか(形状・アイコン等の併用) | |
+| 6 | error state(エラー表示)が色だけに依存していないか | |
+
+**既知の制約**: 自動ツールはテキスト要素の色コントラストのみを対象とし、UIコンポーネント境界線(WCAG 1.4.11 Non-text Contrast)は自動化されていない。#3〜#6は完全にManual。
+
+---
+
 ## 改訂履歴
 
 | version | date | 内容 |
 |---|---|---|
 | v1.0 | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PREP-1。NVDA/VoiceOver/Switch/Gaze/Touchの手動レビューチェックリスト初版作成。 |
+| v1.1 | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PREP-2。ACCESSIBILITY-AUDIT-PILOT-1でContrast Gateが未整備だった反省を踏まえ、F章(Contrast検証チェックリスト)を新設。`tools/accessibility-audit/contrast-check.py`(新規作成)の自動計算結果をベースにManualで最終確認する運用を明文化。 |

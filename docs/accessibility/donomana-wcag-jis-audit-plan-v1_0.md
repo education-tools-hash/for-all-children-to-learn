@@ -1,9 +1,10 @@
-# どのまな WCAG/JIS Accessibility Audit 計画 v1.0
+# どのまな WCAG/JIS Accessibility Audit 計画 v1.1
 
-- Phase: ACCESSIBILITY-AUDIT-PREP-1
+- Phase: ACCESSIBILITY-AUDIT-PREP-1(初版)/ ACCESSIBILITY-AUDIT-PREP-2(v1.1改訂)
 - 位置づけ: 本格的なWCAG 2.2 / JIS X 8341-3相当監査に**入る前の**準備・方法設計文書。本文書自体は適合性の判定を行わない。
-- Baseline: `main` = `origin/main` = `6939bca`
+- Baseline: `main` = `origin/main` = `6939bca`(初版時点)
 - 前提: AUDIT-35シリーズ(main/h1構造是正、監査証跡保全含む)およびPOST-AUDIT-35-HARDEN-1-RELEASE(okane-appモーダルアクセシビリティ強化)は完全Close済み。
+- v1.1改訂の根拠: ACCESSIBILITY-AUDIT-PILOT-1(5代表アプリでの方法論実証Pilot、Exit Gate判定=PILOT COMPLETE / METHOD REVISION REQUIRED BEFORE FULL AUDIT)の結果を反映。詳細は末尾の改訂履歴、および`docs/accessibility/pilot/`配下のPilot成果物4文書+`accessibility-audit-pilot-1-contrast-results.md`を参照。
 
 ---
 
@@ -57,6 +58,8 @@
 
 生成物: `tools/accessibility-audit/build-inventory.js`(再現可能スクリプト)・`tools/accessibility-audit/app-inventory.json`(生成結果)。
 
+**[v1.1追記] heading可視性判定の正しい条件(ACCESSIBILITY-AUDIT-PILOT-1で確認)**: 見出し(h1〜h6)がスクリーンリーダーの見出しナビゲーションで実際に到達可能かを実行時DOMで判定する際、`offsetParent !== null`のみ、または`aria-hidden`/`inert`祖先の不在のみ、いずれか単独の条件では誤判定が生じることをPilotで確認した。`opacity:0`+`inert`でモーダルを隠す実装(tokei-app等)は前者だけでは偽陽性(見える扱いになる)、`display:none`でモーダルを隠す実装(okane-app/matching-app等)は後者だけでは偽陽性を生む。**本監査での自動heading構造チェックは、`el.offsetParent !== null && !el.closest('[aria-hidden="true"]') && !el.closest('[inert]')`の両条件を必ず組み合わせること。**(実装例: `tools/accessibility-audit/pilot/browser-check.py`)
+
 ---
 
 ## 2. WCAG/JIS監査軸(汎用)
@@ -93,11 +96,11 @@ Perceivable / Operable / Understandable / Robustの4原則に沿い、以下を�
 
 | 分類 | 項目 |
 |---|---|
-| **A. Fully Automated** | duplicate id、`<main>`欠落、h1数、壊れたaria-labelledby/aria-controls、tabindex不整合、console/page error、基本的なTab遷移、モーダルopen/close、フォーカス復帰の一部(要素の存在・isConnected判定)、viewport別layout overflow、target sizeの寸法測定、`role="dialog"`等の静的構造走査 |
-| **B. Automated + Manual確認** | フォーカス順序の妥当性(自動で順序は取れるが「妥当か」は人が判断)、focus visible(自動でoutline有無は取れるが視認性は人が判断)、reflow(自動でoverflow検知、崩れの許容可否は人が判断)、コントラスト(自動計算+デザイン意図の確認)、aria-live(自動で発火検知、内容の分かりやすさは人が判断)、モーダルusability、動的フィードバック、キーボード等価性 |
-| **C. Manual Only** | NVDA/VoiceOverの実読み上げ、読み上げ順序の自然さ、Switch実機の操作感、Gaze dwellの操作感、Touch実指操作、アニメーションの体感、学習フィードバックの理解しやすさ |
+| **A. Fully Automated** | duplicate id、`<main>`欠落、h1数、壊れたaria-labelledby/aria-controls、tabindex不整合、console/page error、基本的なTab遷移、モーダルopen/close、**モーダルの初期フォーカス移動(open直後に`document.activeElement`がモーダル内かを直接判定可能。[v1.1]元はB分類だったが、ACCESSIBILITY-AUDIT-PILOT-1でPILOT-F1[gaze-keyboard]を実際にこの自動判定だけで検出できたためA分類へ格上げ)**、フォーカス復帰の一部(要素の存在・isConnected判定)、viewport別layout overflow、target sizeの寸法測定、`role="dialog"`等の静的構造走査、**[v1.1]コントラスト計算そのもの(`tools/accessibility-audit/contrast-check.py`で自動化、ただし背景がgradient/画像の場合は判定不能としてC分類へフォールバックする。下記B行および§16参照)** |
+| **B. Automated + Manual確認** | フォーカス順序の妥当性(自動で順序は取れるが「妥当か」は人が判断)、focus visible(自動でoutline有無は取れるが視認性は人が判断)、reflow(自動でoverflow検知、崩れの許容可否は人が判断)、**[v1.1]コントラスト(単色背景の場合は自動計算値をManualが最終確認。gradient/画像背景の場合は自動計算不能なためC分類の実質Manual Onlyとなる)**、aria-live(自動で発火検知、内容の分かりやすさは人が判断)、モーダルusability、動的フィードバック、キーボード等価性 |
+| **C. Manual Only** | NVDA/VoiceOverの実読み上げ、読み上げ順序の自然さ、Switch実機の操作感、Gaze dwellの操作感、Touch実指操作、アニメーションの体感、学習フィードバックの理解しやすさ、**[v1.1]gradient/画像背景要素のコントラスト実測**(自動ツールは判定不能、DevToolsスポイト等での目視実測が必要) |
 
-この3分類はAUDIT-35-1の「Explicit Limitations」節(実ブラウザ体感・SR・実スイッチ・視線入力を明示的に対象外とした)と整合させたものであり、新しい判断基準ではなく既存の運用を正式化したもの。
+この3分類はAUDIT-35-1の「Explicit Limitations」節(実ブラウザ体感・SR・実スイッチ・視線入力を明示的に対象外とした)と整合させたものであり、新しい判断基準ではなく既存の運用を正式化したもの。**[v1.1]** ACCESSIBILITY-AUDIT-PILOT-1の実証により、A/B/C分類自体も固定ではなく実証を通じて調整されるべきものであることが確認された(モーダル初期フォーカスのB→A格上げが実例)。
 
 ---
 
@@ -215,7 +218,16 @@ target size、spacing、accidental activation、drag、swipe、scroll干渉、mo
 
 ## 16. Contrast Gate
 
-text contrast、large text、UIコンポーネントコントラスト、focus indicatorコントラスト、disabled state、selected state、error state。自動ツール(例: 計算ベースのコントラスト比チェック)は一次スクリーニングとして使用し、**自動判定のみで最終適合判断はしない**(デザイントークン`--dm-color-*`の意図的な選択とその文脈での視認性は人が最終確認する)。
+text contrast、large text、UIコンポーネントコントラスト、focus indicatorコントラスト、disabled state、selected state、error state。自動ツールは一次スクリーニングとして使用し、**自動判定のみで最終適合判断はしない**(デザイントークン`--dm-color-*`の意図的な選択とその文脈での視認性は人が最終確認する)。
+
+**[v1.1] ツール確定**: `tools/accessibility-audit/contrast-check.py`(ACCESSIBILITY-AUDIT-PREP-2で新規作成)。axe-core等の外部ライブラリは導入せず、WCAG公式のrelative luminance/contrast ratio計算式をPlaywright経由で取得した`getComputedStyle()`の色情報に直接適用する(Production dependency非追加)。
+
+**判定ロジックと既知の限界(Pilot 5アプリでの実証で確認済み)**:
+- 通常テキスト4.5:1・大きいテキスト(24px以上、または19px以上でfont-weight700以上)3:1のWCAG AA閾値で判定
+- 祖先要素の`background-color`をalpha合成して実効背景色を算出(半透明の背景色ティントを正しく合成しないと誤判定が生じることをmatching-appの`.game-mode-btn.active`[`rgba(232,149,109,.08)`]で確認・修正済み)
+- **既知の限界**: `background-image`(`linear-gradient()`等)で表現された背景は自動判定できない(`getComputedStyle().backgroundColor`はgradientを反映しないため)。祖先に`background-image`を持つ要素は`backgroundUnreliable: true`としてPass/Fail判定から除外し、Needs Manual Reviewへ回す(okane-app/tokei-appのグラデーションヘッダーで実例確認)。本監査でこの割合が大きい場合、実pixelサンプリング方式への切り替えを検討する
+
+**Pilot実証結果**: `docs/accessibility/pilot/accessibility-audit-pilot-1-contrast-results.md`参照。5アプリ中4アプリで閾値未達を検出(matching-app 8件・okane-app 3件・gaze-keyboard 2件・timetable-app 3件、tokei-appは信頼できる判定範囲内では0件)。いずれも本Phaseでは修正せず、本監査のFinding Registerへ引き継ぐ。
 
 ---
 
@@ -224,11 +236,13 @@ text contrast、large text、UIコンポーネントコントラスト、focus i
 | 分類 | 定義 |
 |---|---|
 | **P0 Critical** | 操作不能、学習継続不能、重大なアクセシビリティ遮断 |
-| **P1 High** | 主要操作が特定入力方式で利用不可、keyboard trap、モーダル閉鎖不能、重要情報がSRで取得不能等 |
-| **P2 Medium** | 代替操作はあるが重大な使いづらさ、focus order不整合、不十分なラベル、reflow問題等 |
+| **P1 High** | 主要操作が特定入力方式で利用不可、keyboard trap、モーダル閉鎖不能、重要情報がSRで取得不能、**[v1.1標準化]モーダルopen時の初期フォーカス移動が完全に欠如している場合(SRユーザーへのダイアログ開始通知が実質的に失われるため)** 等 |
+| **P2 Medium** | 代替操作はあるが重大な使いづらさ、focus order不整合、不十分なラベル、reflow問題、**[v1.1]コントラスト比不足(通常テキスト4.5:1・大きいテキスト3:1未達、ただし完全に判読不能な組み合わせはP1へ格上げを検討)** 等 |
 | **P3 Low** | 軽微な構造・一貫性・説明不足 |
 
 追加タグ(Severityとは独立): `Technical Debt`(既知・原因特定済み)、`Enhancement`(適合ではなく改善提案)、`Needs Manual Review`(自動検出のみで確定できない)。
+
+**[v1.1追記] 初期フォーカス欠如のSeverity標準化の根拠**: ACCESSIBILITY-AUDIT-PILOT-1のPILOT-F1(gaze-keyboard設定モーダル)で、P1/P2の判断に揺れが生じた実例が発生した。「背景がinert化されているためTabで最終的にモーダルへ到達する可能性がある」ことを理由にP2寄りとも考えられたが、「フォーカス移動が起きないこと自体がSRユーザーへの通知欠如に直結する」ことを優先しP1で確定した。本監査でも同種の判断が発生しうるため、ここに標準として明文化する。
 
 ---
 
@@ -340,6 +354,38 @@ Findingは以下4軸すべてで追跡可能な構造とする(Finding register�
 - Tier 1横展開(12アプリ、Pilotの知見を適用): 1〜2週間規模
 - Tier 2/3横断監査(23アプリ、確立した方法論の反復適用): 1〜2週間規模
 - 総計: 数週間規模(既存見積りPOST-AUDIT-35-TRANSITION-1と同水準)
+- **[v1.1]** ACCESSIBILITY-AUDIT-PILOT-1での再見積り: 自動検証部分は「script開発1回→35アプリへほぼ線形コストで適用可能」と判明し数時間〜1日規模へ短縮見込み。実質的なクリティカルパスはSR/実機検証(人間の稼働時間依存)であり、Tier1/Tier2-3の見積り自体は変更なし。
+
+---
+
+## 27. Test Helper候補(ゲーム進行系modalへの到達手段、[v1.1]新設)
+
+ACCESSIBILITY-AUDIT-PILOT-1で、matching-appのvs-result-ov/clear-ov(対戦結果・クリア画面)は実プレイ進行が必要なため自動到達できず、Needs Manual Reviewとして除外した。本監査でも同種のアプリ(ゲーム性のある教材でのクリア/結果画面)が想定されるため、以下を検討事項として記録する(本Phaseでは設計のみ、実装しない)。
+
+- 候補: 各アプリの内部state変数(matching-appの`vsPlayers`配列等)を直接操作し、結果表示関数(`showVsResult()`等)を直接呼び出すテストヘルパーの追加
+- 懸念: アプリごとに内部実装が異なるため汎用化が難しく、Fully Automated化のコストがリターンに見合うか個別に判断が必要
+- 代替案: 該当モーダルはManual Reviewの範囲に留め、Automated範囲を「静的に到達可能なモーダル」に限定し続ける(Pilotの実施方針を維持)
+
+**判断は本監査開始時に個別アプリごとに行う。全アプリ一律の方針は定めない。**
+
+---
+
+## 28. Full Audit Entry Gate 再判定(ACCESSIBILITY-AUDIT-PREP-2時点、[v1.1]新設)
+
+ACCESSIBILITY-AUDIT-PILOT-1のExit Gate(15項目)のうち唯一未達だった「#6 Contrast Gate実行」を、本Phase(ACCESSIBILITY-AUDIT-PREP-2)で`tools/accessibility-audit/contrast-check.py`の新規作成・Pilot 5アプリでの実証により解消した。
+
+| # | Pilot Exit Gate項目(15項目) | PREP-2時点の状態 |
+|---|---|---|
+| 1〜5, 7〜15 | (Pilot summary参照、いずれもPilotで既に✅) | ✅ 変更なし |
+| 6 | Contrast Gate実行 | ✅ **解消**(`contrast-check.py`実装・Pilot 5アプリで実証、`docs/accessibility/pilot/accessibility-audit-pilot-1-contrast-results.md`参照) |
+
+**15項目中15項目クリア。**
+
+あわせて、§25(ACCESSIBILITY-AUDIT-PREP-1時点のEntry Gate、12項目)も全項目✅のまま維持されていることを再確認した(§25の内容は変更なし、歴史的記録として保持)。
+
+**ACCESSIBILITY-AUDIT-PREP-2 = READY FOR WCAG/JIS FULL AUDIT**
+
+ただし、Contrast Gate toolは「gradient/画像背景を判定不能として除外する」という既知の限界を持つ(§16参照)。本監査の初期(Tier1着手時)にこの除外率が実運用上問題になるレベルか再評価し、必要であれば実pixelサンプリング方式への切り替えを検討することを、Full Audit側の初期タスクとして引き継ぐ。
 
 ---
 
@@ -348,3 +394,4 @@ Findingは以下4軸すべてで追跡可能な構造とする(Finding register�
 | version | date | 内容 |
 |---|---|---|
 | v1.0 | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PREP-1。WCAG/JIS Accessibility Audit本体着手前の準備・方法設計として初版作成。Entry Gate判定 = READY FOR ACCESSIBILITY AUDIT PILOT。 |
+| v1.1 | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PREP-2。ACCESSIBILITY-AUDIT-PILOT-1の実証結果を反映: (1)heading可視性判定条件を`offsetParent`+`aria-hidden`/`inert`祖先除外の組み合わせへ正式化(§1)、(2)モーダル初期フォーカス確認をB→A(Fully Automated)へ格上げ(§4)、(3)Contrast Gate tool(`contrast-check.py`)を新規実装しPilot 5アプリで実証、gradient/画像背景の既知の限界を明記(§16)、(4)初期フォーカス欠如のSeverity(P1)を標準化(§17)、(5)ゲーム進行系modalのtest helper候補を検討事項として追加(§27新設)。Full Audit Entry Gateを再判定し15/15達成、判定 = READY FOR WCAG/JIS FULL AUDIT(§28新設)。 |
