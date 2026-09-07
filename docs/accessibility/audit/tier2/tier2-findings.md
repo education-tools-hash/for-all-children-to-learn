@@ -27,13 +27,15 @@
 
 ---
 
-## TIER2-F2(Finding Family: FT-2 — Modal Focus Trapが存在しない)
+## TIER2-F2(Finding Family: FT-2 — Modal Focus Trapが存在しない) — ongaku-app分はWCAG-JIS-FIX-MODAL-ONGAKU-1で解消
+
+> **[2026-09-07更新]** WCAG-JIS-FIX-MODAL-ONGAKU-1でongaku-app(modal-pin/export/share)分を`donomana-modal-accessibility-contract-v1_0.md`準拠で修正・commit `bdc1b4b`(Production未反映)。**ongaku-app分は TECHNICALLY RESOLVED、他3アプリ(hiragana-learn/katakana-app/cup_game)分は引き続きOPEN。Finding Family全体としてはPARTIALLY RESOLVED。**
 
 | 項目 | 内容 |
 |---|---|
 | Finding Family | FT-2: No Focus Trap implementation(TIER1-F3と同一Family) |
-| Apps | hiragana-learn(traceSampleViewer)・katakana-app(traceSampleViewer、共通実装)・cup_game(helpModal)・ongaku-app(modal-pin・modal-export・modal-share) |
-| Severity | **P2 Medium** |
+| Apps | hiragana-learn(traceSampleViewer、OPEN)・katakana-app(traceSampleViewer、共通実装、OPEN)・cup_game(helpModal、OPEN)・ongaku-app(modal-pin・modal-export・modal-share、✅**TECHNICALLY RESOLVED**) |
+| Severity | **P2 Medium**(維持。他3アプリ分が現存するため) |
 | WCAG観点 | Robust(dialogのrole/state expectation)、Operable 2.4.3 |
 | Input Mode | Keyboard |
 | Automated/Manual | Automated(コード全件grep、Tab-key handlerの不在を直接確認) |
@@ -48,15 +50,15 @@
 
 ---
 
-## TIER2-F3(Finding Family: Modal Initial Focus Missing) — WCAG-JIS-FIX-P1-Bでcup_game分解消
+## TIER2-F3(Finding Family: Modal Initial Focus Missing) — 全対象アプリ解消済み
 
-> **[2026-09-07更新]** WCAG-JIS-FIX-P1-B-RELEASEでcup_game分を修正・Production反映済み(commit `a53f307`)。ongaku-app分(modal-pin/export/share)は未着手のまま。**Finding全体としてはPARTIALLY RESOLVED、Severity P1を維持**(Closedとしない。理由は後述)。
+> **[2026-09-07更新]** WCAG-JIS-FIX-P1-B-RELEASEでcup_game分を修正・Production反映済み(commit `a53f307`)。**WCAG-JIS-FIX-MODAL-ONGAKU-1でongaku-app分(modal-pin/export/share)も修正・commit `bdc1b4b`(Production未反映)。Finding対象の全アプリがTECHNICALLY RESOLVEDとなったが、NVDA/VoiceOver Manual Validation Pendingのため完全Closedとはしない。**
 
 | 項目 | 内容 |
 |---|---|
 | Finding Family | Initial Focus Missing(Audit plan v1.1で「missing initial focus」はP1に標準化済みの基準を適用。新規Family名だが判定基準自体は既存のPILOT-F1/NEW-KNOWN-1と同型) |
-| Apps | cup_game(helpModal) — ✅ **TECHNICALLY RESOLVED**。ongaku-app(modal-pin・modal-export・modal-share) — **OPEN(未着手)** |
-| Severity | **P1 High**(維持。Audit plan v1.1標準:初期focus欠如はP1。cup_game分が解消してもFinding Family全体としてはongaku-app分が現存するため引き下げない) |
+| Apps | cup_game(helpModal) — ✅ **TECHNICALLY RESOLVED**(commit `a53f307`、Production反映済み)。ongaku-app(modal-pin・modal-export・modal-share) — ✅ **TECHNICALLY RESOLVED**(commit `bdc1b4b`、Production未反映) |
+| Severity | **P1 High**(維持。両アプリともTechnically Resolvedだが、Production未反映[ongaku-app分]およびNVDA/VoiceOver Manual Validation Pendingのため、正式Closeへの降格は次のRelease Phase以降の判断とする) |
 | WCAG観点 | Operable 2.4.3(フォーカス順序)、Perceivable 1.3.1 |
 | Input Mode | Keyboard, Screen Reader, Switch |
 | Automated/Manual | Automated(コード直接確認: open関数内に`.focus()`呼び出しが一切ないことを確認) |
@@ -64,10 +66,10 @@
 | Expected | モーダルを開いた瞬間、モーダル内(タイトル等)へフォーカスが移動する |
 | Actual(修正前) | cup_game.html:1331-1335(openHelp)、ongaku-app.html:2781(showPinModal)/4092(openExport相当)/5232(openShare相当)のいずれも`.focus()`呼び出しが存在せず、フォーカスはモーダルを開いたトリガーボタン上に留まったままになる |
 | 修正内容(cup_game) | `#helpTitle`(h2)に`tabindex="-1"`を追加、`openHelp()`末尾に`document.getElementById('helpTitle').focus();`を追加(PILOT-F1と同一パターン)。commit `a53f307`、branch `fix/cup-game-help-modal-initial-focus`。Dialog Semantic(role/aria-modal/aria-labelledby)・Escape・Focus Restoration・A11y Panel共存・Switch候補・Browser/Responsive Gate全PASSを確認 |
-| 未修正(ongaku-app) | modal-pin/modal-export/modal-shareはrole="dialog"自体が存在せずFocus Trap(TIER2-F2)とも一体のため、WCAG-JIS-AUDIT-FIX-TRIAGE-1のOption F3-B判断により今回は対象外のまま。TIER2-F2のongaku-app分と統合した別Phase(仮称`FIX-P2-ONGAKU-MODAL`)での実装を推奨 |
-| Evidence | cup_game.html(修正後)、`tools/accessibility-audit/tier2/`各種結果。ongaku-app分は元のコード該当行のまま変更なし |
+| 修正内容(ongaku-app) | `donomana-modal-accessibility-contract-v1_0.md`準拠でmodal-pin/modal-export/modal-shareへrole="dialog"・aria-modal・aria-labelledby・initial focus(title、tabindex="-1")・Focus Trap(端点循環型)・A11yパネル例外・Escape・Focus Restoration・背景inertを一括実装。commit `bdc1b4b`、branch `fix/ongaku-modal-accessibility-contract`(WCAG-JIS-FIX-MODAL-ONGAKU-1)。TIER2-F2のongaku-app分(Focus Trap欠如)も同時に解消。Regression Contract 14 Gate全PASSを確認、Production未反映 |
+| Evidence | cup_game.html(修正後、Production反映済み)、ongaku-app.html(修正後、Production未反映)、`tools/accessibility-audit/tier2/`各種結果 |
 | Known/New | New。ただし判定基準自体はPILOT-F1(gaze-keyboard、HARDEN-2-RELEASEで解消済み)と同型 |
-| Fix candidate(ongaku-app残分) | PILOT-F1/NEW-KNOWN-1の修正パターンを踏襲しつつ、role="dialog"新規付与・Focus Trap実装(TIER2-F2)と合わせて設計する必要がある |
+| Fix candidate | 全対象アプリで解消済みのため対応不要 |
 | Spec decision required | なし |
 | 横展開候補 | Tier3でも横断チェックを推奨。Tier1側にも同型の再点検余地がある可能性(本Auditでは対象外) |
 
@@ -162,13 +164,13 @@
 
 ## Severity集計
 
-> **[2026-09-07更新]** WCAG-JIS-FIX-P1-A-REVIEWでTIER2-F6をP1→P2へ再分類(実機Evidenceに基づく訂正、上記TIER2-F6参照)。WCAG-JIS-FIX-P1-B-RELEASEでTIER2-F3のcup_game分をTECHNICALLY RESOLVEDとしてProduction反映(commit `a53f307`)、ongaku-app分はOPENのまま。**TIER2-F3は件数上はP1のまま(Finding全体としてはPARTIALLY RESOLVED、ongaku-app分が現存するためSeverityは引き下げない)**。下表は更新後の値。
+> **[2026-09-07更新]** WCAG-JIS-FIX-P1-A-REVIEWでTIER2-F6をP1→P2へ再分類(実機Evidenceに基づく訂正、上記TIER2-F6参照)。WCAG-JIS-FIX-P1-B-RELEASEでTIER2-F3のcup_game分をTECHNICALLY RESOLVEDとしてProduction反映(commit `a53f307`)。**WCAG-JIS-FIX-MODAL-ONGAKU-1でTIER2-F3のongaku-app分、およびTIER2-F2のongaku-app分もTECHNICALLY RESOLVED(commit `bdc1b4b`、Production未反映)。** TIER2-F3は対象アプリ全てTechnically Resolvedとなったが、Production未反映分とNVDA/VoiceOver Manual Validation Pendingのため件数上はP1を維持。TIER2-F2は他3アプリ(hiragana-learn/katakana-app/cup_game)分が現存するためP2を維持。下表は更新後の値。
 
 | Severity | 件数 |
 |---|---|
 | P0 Critical | 0 |
-| P1 High | 1(TIER2-F3、うちcup_game分は解消済み・ongaku-app分がOPENのため件数としては維持) |
-| P2 Medium | 4(TIER2-F1, F2, F5, F6) |
+| P1 High | 1(TIER2-F3、全対象アプリTechnically Resolved。ongaku-app分はProduction未反映・Manual Validation Pendingのため件数維持) |
+| P2 Medium | 4(TIER2-F1, F2[ongaku-app分Technically Resolved・他3アプリOPEN], F5, F6) |
 | P3 Low | 1(TIER2-F4、Contrast 15件) |
 
 Technical Debt: 0。Spec Decision Required: 1(TIER1-F6への統合分)。Needs Manual Review: `tier2-manual-review.md`参照。Manual Validation Pending: TIER2-F6(NVDA/VoiceOverでのaccessible name実機確認)。
