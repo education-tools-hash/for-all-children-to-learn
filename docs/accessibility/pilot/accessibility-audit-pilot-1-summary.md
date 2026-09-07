@@ -124,9 +124,9 @@ Pilot 5アプリ(自動検証部分)の実施時間は概算で以下の通り(�
 
 15項目中14項目クリア、1項目(#6 Contrast Gate)が未実行。ただしこれは「Gateの設計自体が使えないか」ではなく「ツール未整備」という運用上のギャップであり、方法論としては明確(§Methodology Review B参照)。
 
-**ACCESSIBILITY-AUDIT-PILOT-1 = PILOT COMPLETE / READY FOR FULL AUDIT**
+**ACCESSIBILITY-AUDIT-PILOT-1 = PILOT COMPLETE / METHOD REVISION REQUIRED BEFORE FULL AUDIT**
 
-(条件: 本監査着手までにContrast自動測定ツールの準備を先行タスクとして実施すること)
+Pilotの失敗を意味するものではない。方法論の大部分(14/15項目)は5アプリで実証済みであり、Contrast Gateのみ整備が未了のため、Full Audit着手前に**ACCESSIBILITY-AUDIT-PREP-2**(Contrast tool整備 + Audit plan v1.1改訂)を挟むことを正式に要求する判定である。
 
 ---
 
@@ -153,4 +153,5 @@ Pilot 5アプリ(自動検証部分)の実施時間は概算で以下の通り(�
 
 | version | date | 内容 |
 |---|---|---|
-| v1.0 | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PILOT-1。5代表アプリでの方法論実証Pilot完了。Exit Gate判定 = PILOT COMPLETE / READY FOR FULL AUDIT。 |
+| v1.0 | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PILOT-1。5代表アプリでの方法論実証Pilot完了。Exit Gate判定 = PILOT COMPLETE / METHOD REVISION REQUIRED BEFORE FULL AUDIT(Contrast Gate未整備のためPREP-2を挟む)。 |
+| v1.0(訂正) | 2026-09-07 | Phase ACCESSIBILITY-AUDIT-PILOT-RELEASE-1。Exit Gate表記を実態(Contrast Gate未実行)に合わせて修正。Pilot自体の結論・Finding・Methodology Reviewの内容に変更はない。 |
