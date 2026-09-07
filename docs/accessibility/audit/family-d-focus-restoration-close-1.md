@@ -186,3 +186,13 @@ FAMILY-D(Focus Restoration)について、`WCAG-JIS-FINDING-INITIAL-RESTORE-1`�
 1. **register-app TIER1-F5の単独Fix Phase**(推奨: `WCAG-JIS-FIX-FAMILY-D-REGISTER-1`)。`pmOpenerEl`が退行する原因の実機再調査から開始し、本lineageで確立済みの`xxxOpener`+fallbackパターンが応用できるか検討する。
 2. §8の別Family findings(Escape機構欠如の横断調査、Pattern D5派生のProxy機構共通課題等)の扱いをUserと相談し、必要なら新規Finding登録・別Phase化する。
 3. Global Fix Triageの次候補選定(FAMILY-B/A/E/C/F/G/H/I、またはManual Validation)は、本Closure後にUserが優先順位を判断する。
+
+---
+
+## 15. 追記(2026-09-08、WCAG-JIS-FIX-FAMILY-D-REGISTER-1実施中)
+
+register-app TIER1-F5のRoot Causeを実機確認: product-modalの保存(Save)経路のみ、`closeModal()`直前に呼ばれる`renderProducts()`が商品グリッド全体(`.add-product-card`・各`.product-card`・editボタン含む)を再生成するため、`pmOpenerEl`が指す旧DOMノードがdisconnectedになりBODY退行していた(cancel/Escape経路は`renderProducts()`を呼ばないため元々正常)。`pmOpenerProductId`を追加保持し、disconnected時は再描画後の同一商品の`.product-card`(新規追加時は`.add-product-card`)へfallbackするRC Fixを実装、Browser ValidationでLEVEL-A確認済み(cancel/save/Escape/Responsive/Touch全PASS、FAMILY-J境界・console/page errorsとも regression無し)。
+
+RC作成中に**別Finding**を新規発見: `delete-modal`(同じregister-app内、専用のopener trackingを持たない一般`openModal`/`closeModal`のみ)もcancel経路でBODY退行することを実機確認(LEVEL-A)。これはTIER1-F5(product-modal限定)とは別のFindingであり、本Fix Phaseのscope外のため未着手のまま記録する。
+
+本Closure文書(§9 Residual Count、§12 Closure基準、§13 Final Status)の結論(FAMILY-D NOT FULLY CLOSED)はこの時点でも変わらない。register-appのFix自体がProduction反映されるまでは、本文書のstatusを更新しない。
