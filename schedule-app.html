@@ -1166,7 +1166,7 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
     <div class="modal-title" id="new-modal-title">📋 あたらしいスケジュール</div>
     <p style="font-size:0.85rem;color:var(--text2);margin-bottom:13px;">いまのスケジュールは「📂 ほぞん」タブに残ります。あたらしくはじめますか？</p>
     <div class="modal-acts">
-      <button class="btn btn-ghost" id="new-modal-cancel-btn" onclick="document.getElementById('new-modal').style.display='none'">キャンセル</button>
+      <button class="btn btn-ghost" id="new-modal-cancel-btn" onclick="closeNewModal()">キャンセル</button>
       <button class="btn btn-sky" onclick="createNew()">あたらしくつくる</button>
     </div>
   </div>
@@ -1228,7 +1228,7 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
     <input type="file" id="file-in" accept="image/*" style="display:none" onchange="handleImg(event)">
     <input type="file" id="cam-in" accept="image/*" capture="environment" style="display:none" onchange="handleImg(event)">
     <div class="modal-acts">
-      <button class="btn btn-ghost" onclick="document.getElementById('img-modal').style.display='none'">キャンセル</button>
+      <button class="btn btn-ghost" onclick="closeImgModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -2295,13 +2295,23 @@ async function deleteSaved(id){
 }
 
 // ===== NEW / EXPORT / IMPORT =====
-function showNewModal(){document.getElementById('new-modal').style.display='flex';document.getElementById('new-modal-cancel-btn').focus();}
+// FAMILY-D-BATCH-1: 「+あたらしく」ボタン(固定・常設、tabsとは独立した.hdr内)をopener
+// として保持する。confirm経路(createNew→switchTab)はタブ切替のみでfocusを設定しないため、
+// cancel/confirm/Escape/背景クリックいずれの経路でも同じopenerへ復帰させれば十分
+// (.hdrはswitchTab()が切り替えるcontent-*領域の外にあり、タブ切替後も常に存在・操作可能)。
+let newModalOpener = null;
+function showNewModal(){newModalOpener=document.activeElement;document.getElementById('new-modal').style.display='flex';document.getElementById('new-modal-cancel-btn').focus();}
+function closeNewModal(){
+  document.getElementById('new-modal').style.display='none';
+  if (newModalOpener && newModalOpener.isConnected && !newModalOpener.disabled) newModalOpener.focus();
+  newModalOpener = null;
+}
 async function createNew(){
   items=[];checks={};scheduleId=genId();scheduleName='きょうのよてい';
   document.getElementById('schedule-name').value=scheduleName;
   document.getElementById('hdr-title').textContent=scheduleName;
   renderEditor();renderViewer();
-  document.getElementById('new-modal').style.display='none';
+  closeNewModal();
   switchTab('editor');showToast('📋 あたらしくはじめます');
 }
 
@@ -2354,13 +2364,22 @@ function openImgModal(id){
   document.getElementById('img-modal').style.display='flex';
   document.getElementById('img-modal-title').focus();
 }
+// FAMILY-D-BATCH-1: 実際のtrigger(`.item-thumb`、tabindexなしのclick divで
+// SCAN_SELECTOR等の対象でもない)はfocus不能なうえ、clearItemImg/handleImg/setEmojiImg
+// はいずれもrenderEditor()でitem一覧DOMを再生成するためopener参照も保持できない。
+// 常設・focus可能な#tab-editor(このmodalが開けるのはeditor画面上のみ)へ復帰させる。
+function closeImgModal(){
+  document.getElementById('img-modal').style.display='none';
+  const fallback = document.getElementById('tab-editor');
+  if (fallback && fallback.isConnected && !fallback.disabled) fallback.focus();
+}
 function clearItemImg(){
   if(currentImgItemId!=null){
     updateField(currentImgItemId,'img','');
     renderEditor();
     if(activeTab==='viewer')renderViewer();
   }
-  document.getElementById('img-modal').style.display='none';
+  closeImgModal();
 }
 function handleImg(e){
   const file=e.target.files[0];if(!file)return;
@@ -2376,7 +2395,7 @@ function handleImg(e){
       updateField(currentImgItemId,'img',canvas.toDataURL('image/jpeg',.78));
       renderEditor();
       if(activeTab==='viewer')renderViewer();
-      document.getElementById('img-modal').style.display='none';
+      closeImgModal();
     };
     img.src=ev.target.result;
   };
@@ -2405,7 +2424,7 @@ function setEmojiImg(emoji){
   updateField(currentImgItemId,'img',canvas.toDataURL('image/png'));
   renderEditor();
   if(activeTab==='viewer')renderViewer();
-  document.getElementById('img-modal').style.display='none';
+  closeImgModal();
 }
 
 // ===== 読み上げ (Web Speech API) =====
@@ -2582,9 +2601,15 @@ function doPrint(){
   setTimeout(function(){window.print();},100);
 }
 
-// FAMILY-D-RESTORE-1: print-modalのみclosePrintModal()(opener復帰あり)へ分岐し、
-// new-modal/img-modalは本Fix対象外のため既存の直接display='none'のままとする。
-function bgClose(e,id){if(e.target.id===id){if(id==='print-modal'){closePrintModal();}else{document.getElementById(id).style.display='none';}}}
+// FAMILY-D-RESTORE-1/FAMILY-D-BATCH-1: 3モーダルとも専用close関数(opener/logical
+// replacement復帰あり)へ分岐する。
+function bgClose(e,id){
+  if(e.target.id!==id)return;
+  if(id==='print-modal'){closePrintModal();}
+  else if(id==='new-modal'){closeNewModal();}
+  else if(id==='img-modal'){closeImgModal();}
+  else{document.getElementById(id).style.display='none';}
+}
 // new-modal・print-modal・img-modal共通：表示中の対象モーダルを1件だけ返す。
 // 3モーダルは互いに排他的に開かれる想定だが、念のため配列の先頭から見つかった1件のみを対象とする。
 function activeScheduleModal(){
@@ -2638,9 +2663,11 @@ document.addEventListener('keydown',function(e){
   if(a11yPanel && a11yPanel.style.display==='block')return;
   const modal=activeScheduleModal();
   if(!modal)return;
-  // FAMILY-D-RESTORE-1: print-modalのみopener復帰ありのclosePrintModal()へ分岐。
-  // new-modal/img-modalは本Fix対象外のため既存の直接display='none'のままとする。
-  if(modal.id==='print-modal'){closePrintModal();}else{modal.style.display='none';}
+  // FAMILY-D-RESTORE-1/FAMILY-D-BATCH-1: 3モーダルとも専用close関数へ分岐。
+  if(modal.id==='print-modal'){closePrintModal();}
+  else if(modal.id==='new-modal'){closeNewModal();}
+  else if(modal.id==='img-modal'){closeImgModal();}
+  else{modal.style.display='none';}
 });
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
