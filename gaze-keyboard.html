@@ -2439,7 +2439,7 @@ body.is-fullscreen .profile-bar { max-width:100%; }
 <!-- PROFILE MODAL -->
 <div class="modal-overlay hidden" id="profileModal">
   <div class="prof-modal">
-    <div class="prof-modal-title" id="profModalTitle">👤 ユーザーを追加</div>
+    <div class="prof-modal-title" id="profModalTitle" tabindex="-1">👤 ユーザーを追加</div>
     <!-- avatar -->
     <div style="font-size:.8rem;font-weight:700;color:var(--text-light);">アイコンを選ぶ</div>
     <div class="prof-avatar-grid" id="profAvatarGrid"></div>
@@ -3278,6 +3278,12 @@ document.addEventListener('keydown',e=>{
   if(e.key!=='Tab')return;
   if(document.getElementById('settingsModal').classList.contains('hidden'))return;
   if(scanMode)return;
+  // F3-C修正: 共通A11yパネル表示中にフォーカスがパネル側(donomanaA11yBtn自身または
+  // パネル内)にある場合は、このFocus Trapで強制的にsettingsModal内へ戻さない
+  // (okane-app/matching-appで実証済みの条件式と同型)。
+  const a11yBtn=document.getElementById('donomanaA11yBtn');
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel&&a11yPanel.style.display==='block'&&(document.activeElement===a11yBtn||a11yPanel.contains(document.activeElement)))return;
   const modal=document.querySelector('#settingsModal .settings-modal');
   if(!modal)return;
   const focusables=Array.from(
@@ -4042,6 +4048,8 @@ function openProfileModal() {
   // user list
   renderProfList();
   document.getElementById('profileModal').classList.remove('hidden');
+  // F3-A修正: open時にmodal内部へinitial focusを移す(settingsModalの既存パターンと同型)。
+  document.getElementById('profModalTitle').focus();
 }
 
 function renderProfList() {
@@ -4211,6 +4219,11 @@ document.getElementById('hrBtn').addEventListener('click', () => {
   hrModalOpener = document.activeElement;
   renderHrModal(hrCurrentTab);
   document.getElementById('hrModal').classList.remove('hidden');
+  // F3-B修正: open時にmodal内部へinitial focusを移す。hrModalには専用title要素が
+  // 存在しない(#hrBodyは毎回renderHrModal()で再生成されるため不安定)ため、既存spec
+  // の優先順位2(最初の意味のある操作要素)に従い、常設・native focusableな現在の
+  // アクティブタブボタンへfocusする。
+  document.querySelector('#hrModal .hr-tab.active').focus();
 });
 addDwell(document.getElementById('hrBtn'), () => document.getElementById('hrBtn').click());
 
