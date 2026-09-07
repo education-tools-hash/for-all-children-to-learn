@@ -207,4 +207,4 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 - 両overlayともFocus Trap自体が元々存在しない(matrix既存記載どおり、TIER1-F3)ため、本Fixで新規のFocus Trapは実装していない(scope外)。Escapeで閉じる仕組みもscratch-app全体に元々存在しない(scope外、既知ギャップとして記録のみ)。
 - Responsive(390/768/1280)で確認、regression無し。200%zoomはテスト用ヘッドレスブラウザのビューポート制約でtxtEdOv triggerに到達できず未検証(Fix起因の問題ではない)。
 
-Batch 2は`RC VALIDATED / READY FOR USER REVIEW`としてUser判断待ち。Batch 4(cup_game)・tyushi設計判断は未着手のまま。
+**[2026-09-08追記3]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`でProduction反映済み(commit `9db60be`、Production Validation PASS)。scratch-appの4モーダル(setOv/helpOv/txtEdOv/cov)全てTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。Batch 4(cup_game)・tyushi設計判断は未着手のまま。
