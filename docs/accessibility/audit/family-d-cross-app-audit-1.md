@@ -187,3 +187,15 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 `WCAG-JIS-FAMILY-D-CROSS-APP-AUDIT-1 = RESIDUAL FINDINGS CLASSIFIED / READY FOR FIX BATCH DESIGN`
 
 一部(scratch-app txtEdOv/cov、schedule-app img-modal)はLEVEL-B止まりのため、Fix Batch実装時に改めて実機確認(LEVEL-A化)を行うことを推奨する。tyushi settings-panelは設計判断待ちのままNEEDS SPECIAL HANDLINGとして保留する。
+
+---
+
+## 17. Fix Batch進捗(2026-09-08追記)
+
+**Batch 1(schedule-app new-modal・img-modal)**: `WCAG-JIS-FIX-FAMILY-D-BATCH-1`でRC実装完了。worktree `for-all-children-to-learn-wcag-jis-fix-family-d-batch-1`、branch `fix/family-d-schedule-modal-restoration`。
+
+- new-modal: `newModalOpener`(`document.activeElement`、固定headerボタンのため状態遷移後も有効)をcancel/confirm(`createNew()`)/Escape/背景クリックの全経路に適用。Browser Validationで**LEVEL-A**取得(想定通りFAIL→PASSへ)。
+- img-modal: 実trigger(`.item-thumb`)がtabindexなしでfocus不能、かつ`renderEditor()`によるDOM再生成でopener参照も維持できないため、`#tab-editor`への固定fallbackを採用。Browser Validationで実UI経路(cancel/Escape/背景クリック/画像クリア/絵文字選択)から到達し**LEVEL-A**取得(監査時点のLEVEL-Bから格上げ)。
+- print-modal regressionなし、FAMILY-J境界(Shift+Tab)・Forward Tab・Responsive(390/768/1280)・200%zoom・console/page errorsいずれも確認、regression無し。
+
+Batch 1は`RC VALIDATED / READY FOR USER REVIEW`としてUser判断待ち。Batch 2(scratch-app)・Batch 3(scratch-app cov)・Batch 4(cup_game)・tyushi設計判断は未着手のまま。
