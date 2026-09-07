@@ -218,4 +218,6 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 - settingsOverlay自体に`role`/`aria-modal`が設定されていないこと、Initial FocusがA11yパネルProxy側の汎用fallback機構により`dwellTimeSlider`(理想的でない非stableな着地点)になっていることも新たに確認したが、いずれもFAMILY-A/FAMILY-C領域の別Findingとして記録するに留め、本Batchでは修正していない。
 - Responsive(390/768/1280)で確認、regression無し。A11yパネル自身のEscape優先度(settingsOverlayとは別ロジック)にも影響なし。console/page errors 0件。
 
-Batch 4は`RC VALIDATED / READY FOR USER REVIEW`としてUser判断待ち。tyushi settings-panelの設計判断(`WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`候補)は未着手のまま。Batch 4完了・Production反映後、CONFIRMED FAILとして残る通常Fix対象は原則0件となる見込み(tyushiのSPECIAL HANDLING分を除く)。
+**[2026-09-08追記5]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-4-RELEASE`でProduction反映済み(commit `1170a28`、Production Validation PASS)。cup_gameのsettingsOverlayがTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。
+
+これにより、本監査(§5)でCONFIRMED FAILとして確定していた5モーダル(cup_game settingsOverlay・schedule-app new-modal/img-modal・scratch-app txtEdOv/cov)は**全てProduction反映済みとなり、通常Fix対象としてのCONFIRMED FAILは原則0件**となった。残るのはtyushi settings-panel(§6、NEEDS SPECIAL HANDLING、設計判断保留、`WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`候補として未着手)のみ。
