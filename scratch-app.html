@@ -1209,7 +1209,22 @@ function onDone(){
   if(C.autoNext){setTimeout(()=>nextImg(),2200);}else{document.getElementById('cov').classList.add('on');document.getElementById('nxtBtn').focus();}
 }
 
-function nextImg(){document.getElementById('cov').classList.remove('on');cidx=(cidx+1)%items().length;drawUnder();fillScr();}
+// FAMILY-D-BATCH-2: covは正誤判定完了時に自動表示されるstate transition型overlayで、
+// 特定のtrigger要素から開くわけではない(document.activeElementベースのopener保持は
+// 意味を持たない)。closeCov()はcov自体が表示中だった場合のみ、常設・focus可能な
+// chgBtn(「したえをかえる」、covの機能[つぎのえ/もういちど]と文脈が近い)へ復帰させる。
+// C.autoNext=trueの自動遷移(covを一度も表示せずnextImg()が呼ばれる経路)では
+// wasOpen=falseとなり、既存の「focus操作なし」の挙動を変えない。
+function closeCov(){
+  const cov=document.getElementById('cov');
+  const wasOpen=cov.classList.contains('on');
+  cov.classList.remove('on');
+  if(wasOpen){
+    const fallback=document.getElementById('chgBtn');
+    if(fallback && fallback.isConnected && !fallback.disabled) fallback.focus();
+  }
+}
+function nextImg(){closeCov();cidx=(cidx+1)%items().length;drawUnder();fillScr();}
 
 function gpos(e){
   const r=cw.getBoundingClientRect(),sx=sc.width/r.width,sy=sc.height/r.height;
@@ -1505,7 +1520,15 @@ function drawComposite(ctx,W,H,cfg,photoImgObj){
 }
 
 // ---- エディタを開く ----
+// FAMILY-D-BATCH-2: txtEdOvはsetOv(せっていパネル)の上に開くnested overlay
+// (setOvはtxtEdOv表示中もclassList.add('on')のまま裏で開いたまま)。closeTxtEd()側に
+// focus復帰処理が無かったため、.spov系のCSS(opacity:0+pointer-events:noneのみで
+// display:noneにしない設計)と相まって、close後もtxtInput等の非表示要素にfocusが
+// 残留したまま(画面上どこにも見えるfocusが無い状態)になっていた。openerを保存し、
+// close時に有効なら復帰、無効ならsetOv内のnearby stable control(addTextBtn)へ。
+let txtEdOpener = null;
 function openTxtEd(startWithPhoto=false){
+  txtEdOpener = document.activeElement;
   // 毎回クリーンな状態で開く
   TXT.text='';
   TXT.fontSize=80;
@@ -1553,6 +1576,10 @@ function openTxtEd(startWithPhoto=false){
 }
 function closeTxtEd(){
   document.getElementById('txtEdOv').classList.remove('on');
+  const fallback = document.getElementById('addTextBtn');
+  const target = (txtEdOpener && txtEdOpener.isConnected && !txtEdOpener.disabled) ? txtEdOpener : fallback;
+  if (target && target.isConnected && !target.disabled) target.focus();
+  txtEdOpener = null;
 }
 
 // ---- 背景タブ切り替え ----
@@ -1746,8 +1773,8 @@ document.querySelectorAll('#rangeBtns .fbtn').forEach(b=>b.addEventListener('cli
 
 // 完成ボタン
 document.getElementById('nxtBtn').addEventListener('click',()=>{nextImg();tts('つぎのえ');});
-document.getElementById('rtyBtn').addEventListener('click',()=>{document.getElementById('cov').classList.remove('on');fillScr();tts('もういちど');});
-document.getElementById('clsBtn').addEventListener('click',()=>document.getElementById('cov').classList.remove('on'));
+document.getElementById('rtyBtn').addEventListener('click',()=>{closeCov();fillScr();tts('もういちど');});
+document.getElementById('clsBtn').addEventListener('click',()=>closeCov());
 
 // ヒント
 document.getElementById('hintClose').addEventListener('click',()=>document.getElementById('hintBar').style.display='none');
