@@ -1199,7 +1199,7 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
     </div>
 
     <div class="modal-acts">
-      <button class="btn btn-ghost" onclick="document.getElementById('print-modal').style.display='none'">とじる</button>
+      <button class="btn btn-ghost" onclick="closePrintModal()">とじる</button>
       <button class="btn btn-sky" onclick="doPrint()">🖨️ 印刷する</button>
     </div>
   </div>
@@ -2458,10 +2458,19 @@ function updateDateDisplay(){
 // ===== 印刷機能 =====
 var printLayout='card';
 
+// FAMILY-D-RESTORE-1: printModalOpenerをopen時に保持し、close時に有効なら復帰させる
+// (okane-appのrecordsModalOpenerと同型の最小差分。new-modal/img-modalは本Fixの対象外)。
+var printModalOpener = null;
 function showPrintModal(){
+  printModalOpener = document.activeElement;
   setPrintLayout('card');
   document.getElementById('print-modal').style.display='flex';
   document.getElementById('print-modal-title').focus();
+}
+function closePrintModal(){
+  document.getElementById('print-modal').style.display='none';
+  if (printModalOpener && printModalOpener.isConnected && !printModalOpener.disabled) printModalOpener.focus();
+  printModalOpener = null;
 }
 
 function setPrintLayout(layout){
@@ -2569,11 +2578,13 @@ function doPrint(){
     });
     frame.appendChild(wrap);
   }
-  document.getElementById('print-modal').style.display='none';
+  closePrintModal();
   setTimeout(function(){window.print();},100);
 }
 
-function bgClose(e,id){if(e.target.id===id)document.getElementById(id).style.display='none';}
+// FAMILY-D-RESTORE-1: print-modalのみclosePrintModal()(opener復帰あり)へ分岐し、
+// new-modal/img-modalは本Fix対象外のため既存の直接display='none'のままとする。
+function bgClose(e,id){if(e.target.id===id){if(id==='print-modal'){closePrintModal();}else{document.getElementById(id).style.display='none';}}}
 // new-modal・print-modal・img-modal共通：表示中の対象モーダルを1件だけ返す。
 // 3モーダルは互いに排他的に開かれる想定だが、念のため配列の先頭から見つかった1件のみを対象とする。
 function activeScheduleModal(){
@@ -2627,7 +2638,9 @@ document.addEventListener('keydown',function(e){
   if(a11yPanel && a11yPanel.style.display==='block')return;
   const modal=activeScheduleModal();
   if(!modal)return;
-  modal.style.display='none';
+  // FAMILY-D-RESTORE-1: print-modalのみopener復帰ありのclosePrintModal()へ分岐。
+  // new-modal/img-modalは本Fix対象外のため既存の直接display='none'のままとする。
+  if(modal.id==='print-modal'){closePrintModal();}else{modal.style.display='none';}
 });
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');

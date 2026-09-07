@@ -2512,10 +2512,16 @@ $('btn-vs-again').addEventListener('click',()=>{
   // スコアリセット
   vsPlayers.forEach(p=>p.score=0);
   startGame();
+  // FAMILY-D-RESTORE-1: startGame()はfocusを設定しないため、閉じたモーダルの
+  // openerが存在しない本ケースでは新しいcard-gridの最初のcardへ復帰させる。
+  donomanaReturnFocus($('card-grid').querySelector('.card'));
 });
 $('btn-vs-back').addEventListener('click',()=>{
   $('vs-result-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
   backToSel();
+  // FAMILY-D-RESTORE-1: backToSel()はfocusを設定しないため、選択画面の安定した
+  // controlであるstart-btnへ復帰させる(selSetId/selLevelは維持されるため有効)。
+  donomanaReturnFocus($('start-btn'));
 });
 $('start-btn').addEventListener('click',()=>{
   if(vsMode){
@@ -2531,8 +2537,8 @@ $('btn-retry').addEventListener('click',()=>{
   startGame();
 });
 $('btn-back').addEventListener('click',backToSel);
-$('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();startGame();});
-$('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();backToSel();});
+$('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();startGame();donomanaReturnFocus($('card-grid').querySelector('.card'));});
+$('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();backToSel();donomanaReturnFocus($('start-btn'));});
 document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;
   // Phase T6.5-B7: Help's focus-return was added here first (Donomana Help /
   // Usage Guide Standard v1.0 §18). Phase AUDIT-35-FIX-1C extends the same
@@ -2554,11 +2560,17 @@ document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanM
   const recordWasOpen=$('record-ov').classList.contains('show');
   const settingsWasOpen=$('settings-ov').classList.contains('show');
   const editWasOpen=$('edit-ov').classList.contains('show');
+  // FAMILY-D-RESTORE-1: clear-ov/vs-result-ovはstartGame()/backToSel()経由のボタン close
+  // では画面遷移するためこれまで復帰対象外とされていたが(AUDIT-35-FIX-1E)、Escapeで
+  // 閉じた場合は画面遷移が起きずgame-screenがそのまま表示され続けるため、他の4モーダル
+  // と同様に復帰処理が必要。game-screen上の常設control(btn-back)へ復帰させる。
+  const clearOrVsResultWasOpen=$('clear-ov').classList.contains('show')||$('vs-result-ov').classList.contains('show');
   $('settings-ov').classList.remove('show');$('edit-ov').classList.remove('show');$('clear-ov').classList.remove('show');$('how-ov').classList.remove('show');$('vs-result-ov').classList.remove('show');$('record-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();
   if(howWasOpen){document.getElementById('donomanaHelpBtn').setAttribute('aria-expanded','false');document.getElementById('donomanaHelpBtn').focus();}
   if(recordWasOpen){$('record-open-btn').setAttribute('aria-expanded','false');$('record-open-btn').focus();}
   if(settingsWasOpen){donomanaReturnFocus(document.getElementById('donomanaA11yBtn'));}
   if(editWasOpen){donomanaReturnFocus(editOpener);editOpener=null;}
+  if(clearOrVsResultWasOpen){donomanaReturnFocus($('btn-back'));}
 }});
 // Phase AUDIT-35-FIX-1C: modal close後のfocus-return用ガード。how-ov/record-ovは常に単一の
 // 固定triggerを直接IDで参照してfocus()しているため元々このガードは不要だったが、edit-ovは

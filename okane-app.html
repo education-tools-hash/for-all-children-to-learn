@@ -1764,8 +1764,11 @@ function speakMoney(text) {
 function readMoney(name) { recordStat('learnReads'); speakMoney(name); }
 
 // ---- ヘルプモーダル ----
-function openHelpModal() { document.getElementById('helpModalOverlay').classList.add('active'); setModalBackgroundInert(true); document.getElementById('help-modal-title').focus(); }
-function closeHelpModal() { document.getElementById('helpModalOverlay').classList.remove('active'); setModalBackgroundInert(false); }
+// FAMILY-D-RESTORE-1: openerをopen時に保持し、close時に有効なら復帰させる
+// (okane-appのrecordsModalOpener/matching-appのeditOpenerと同型の最小差分)。
+let helpModalOpener = null;
+function openHelpModal() { helpModalOpener = document.activeElement; document.getElementById('helpModalOverlay').classList.add('active'); setModalBackgroundInert(true); document.getElementById('help-modal-title').focus(); }
+function closeHelpModal() { document.getElementById('helpModalOverlay').classList.remove('active'); setModalBackgroundInert(false); if (helpModalOpener && helpModalOpener.isConnected && !helpModalOpener.disabled) helpModalOpener.focus(); helpModalOpener = null; }
 
 // ---- せっていモーダル ----
 function openSettingsModal() {
@@ -1784,7 +1787,13 @@ function openSettingsModal() {
   setModalBackgroundInert(true);
   document.getElementById('settings-modal-title').focus();
 }
-function closeSettingsModal() { document.getElementById('settingsModalOverlay').classList.remove('active'); setModalBackgroundInert(false); }
+// FAMILY-D-RESTORE-1: settingsModalOverlayのネイティブtrigger(onclick="openSettingsModal()")は
+// 共通A11yパネル自動挿入CSS(本ファイル626行目付近)によりopacity:0/pointer-events:none/aria-hidden化
+// されており、実際の到達経路は常にdonomanaA11yBtn -> donomanaSettingsProxy -> (隠されたoriginalへの
+// 委譲click)のみ。document.activeElementをopenerにすると隠しoriginal自身に復帰してしまい、視覚的な
+// フォーカスリングが無い要素へ飛ぶため、matching-appのsettings-ov(Phase AUDIT-35-FIX-1E)と同じ判断で
+// 実際にユーザーが押した可視のdonomanaA11yBtnへ固定で復帰させる。
+function closeSettingsModal() { document.getElementById('settingsModalOverlay').classList.remove('active'); setModalBackgroundInert(false); const a11yBtn = document.getElementById('donomanaA11yBtn'); if (a11yBtn && a11yBtn.isConnected && !a11yBtn.disabled) a11yBtn.focus(); }
 
 // ---- 文字サイズ ----
 // 独自の--ui-scale拡大は廃止し、共通A11yパネルのbody.style.zoom(標準100%/大125%/特大150%)へ一本化する。
@@ -2282,7 +2291,15 @@ function clearCart() { cart=[]; renderShopItems(); renderCart(); clearPayment();
 function getCartTotal() { return cart.reduce((s,c)=>s+c.item.price*c.qty,0); }
 
 // ---- カスタム商品モーダル ----
+// FAMILY-D-RESTORE-1: helpModalOpener/recordsModalOpenerと同型のopener保持を追加。
+// 実際のtrigger(.add-item-card、tabindexなしのonclick div、Switch/Gaze向けSCAN_SELECTOR/
+// GAZE_SELECTOR経由での操作が前提でネイティブfocus対象ではない)はdocument.activeElementに
+// ならないため、close時にcustomModalOpenerがfocus不能(tabIndex<0)な場合は#shop内の現在の
+// 難易度ボタン(常設・focus可能なnearby stable control)へfallbackする(Contract v1.1 fallback
+// 順位2-3に相当。.add-item-cardへtabindexを追加するSwitch/Gaze影響のある変更は本Fixでは行わない)。
+let customModalOpener = null;
 function openCustomModal() {
+  customModalOpener = document.activeElement;
   editingImgData = null;
   document.getElementById('customNameInput').value='';
   document.getElementById('customPriceInput').value='';
@@ -2295,6 +2312,10 @@ function openCustomModal() {
 function closeCustomModal() {
   document.getElementById('customModalOverlay').classList.remove('active');
   setModalBackgroundInert(false);
+  const openerFocusable = customModalOpener && customModalOpener.isConnected && !customModalOpener.disabled && customModalOpener.tabIndex >= 0;
+  const target = openerFocusable ? customModalOpener : document.querySelector('#shop .diff-btn.active');
+  if (target && target.isConnected && !target.disabled) target.focus();
+  customModalOpener = null;
 }
 // help/settings/records/custom共通：表示中の対象モーダルを1件だけ返す
 function activeOkaneModal(){
