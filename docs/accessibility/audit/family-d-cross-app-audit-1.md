@@ -220,4 +220,12 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 
 **[2026-09-08追記5]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-4-RELEASE`でProduction反映済み(commit `1170a28`、Production Validation PASS)。cup_gameのsettingsOverlayがTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。
 
-これにより、本監査(§5)でCONFIRMED FAILとして確定していた5モーダル(cup_game settingsOverlay・schedule-app new-modal/img-modal・scratch-app txtEdOv/cov)は**全てProduction反映済みとなり、通常Fix対象としてのCONFIRMED FAILは原則0件**となった。残るのはtyushi settings-panel(§6、NEEDS SPECIAL HANDLING、設計判断保留、`WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`候補として未着手)のみ。
+これにより、本監査(§5)でCONFIRMED FAILとして確定していた5モーダル(cup_game settingsOverlay・schedule-app new-modal/img-modal・scratch-app txtEdOv/cov)は**全てProduction反映済みとなり、通常Fix対象としてのCONFIRMED FAILは原則0件**となった。残るのはtyushi settings-panel(§6、NEEDS SPECIAL HANDLING、設計判断保留)のみ。
+
+**[2026-09-08追記6] `WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`完了**。詳細は[family-d-tyushi-design-1.md](family-d-tyushi-design-1.md)を参照。
+
+§6で「NEEDS SPECIAL HANDLING」としていたtyushi settings-panelは、実機調査の結果**`aria-modal`無し・backdrop無し・Focus Trap意図的不在・背景操作常時可能という一貫した非modal disclosure panel設計**であることが確認され、**FAMILY-D NOT APPLICABLE**として正式に判定確定した。Gaze/dwell設定を主UIの動きを見ながら並行調整する必要があるtyushiの特性上、非modal維持はむしろ適切な設計である。
+
+調査の過程で、A11yパネルProxyを再度介した2回目のトグルclose経路でのみ、非表示要素(`#settings-btn`)へfocusが残留する軽微な派生Finding(既存のPattern D5と同一Root Cause、P3、tyushi固有ではなくProxy機構自体の横断的改善候補)を新たに発見したが、これは本判定・本Family対象には含めない。
+
+**この結果、FAMILY-Dとして正式にFixすべき残存対象は0件となった。** ただしNVDA/VoiceOver/Blue2/Tobii実機によるManual Validationは全てPendingのままであり、「WCAG/JIS全体完了」とは扱わない。
