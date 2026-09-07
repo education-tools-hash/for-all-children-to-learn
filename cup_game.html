@@ -1320,7 +1320,18 @@ function setupDwellButtons() {
 
 // ========== 設定モーダル ==========
 function openSettings()  { buildColorGrid(); buildDollGrid(); document.getElementById('settingsOverlay').classList.add('show'); }
-function closeSettings() { document.getElementById('settingsOverlay').classList.remove('show'); }
+// FAMILY-D-BATCH-4: settingsOverlayのネイティブtrigger(#gearBtn)は共通A11yパネル
+// 自動挿入CSS(本ファイル498行目付近)によりopacity:0/pointer-events:none/tabindex=-1/
+// aria-hidden化されており、実際の到達経路は常にdonomanaA11yBtn -> donomanaSettingsProxy
+// -> (隠されたgearBtnへの委譲click)のみ。document.activeElementをopenerにすると隠し
+// gearBtn自身に復帰してしまい視覚的なフォーカスリングが無い要素へ飛ぶため、okane-appの
+// settingsModal・matching-appのsettings-ov(いずれも同型のA11yパネルProxy構造)と同じ判断で
+// 実際にユーザーが押した可視のdonomanaA11yBtnへ固定で復帰させる。
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('show');
+  const a11yBtn = document.getElementById('donomanaA11yBtn');
+  if (a11yBtn && a11yBtn.isConnected && !a11yBtn.disabled) a11yBtn.focus();
+}
 
 // ========== つかいかたモーダル（Phase T6.5-B4 — Donomana Help / Usage
 // Guide Standard v1.0）。openSettings/closeSettingsと同じ.modal-overlay
