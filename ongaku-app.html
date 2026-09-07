@@ -1254,7 +1254,7 @@
     <button class="btn-home" style="background:linear-gradient(135deg,#c77dff,#ff9f1c);color:#0f0e17;box-shadow:0 8px 32px rgba(199,125,255,0.4);" onclick="showScreen('compose')">
       <span class="icon">🎼</span> つくるモード
     </button>
-    <button class="btn-home btn-teacher" onclick="showPinModal()">
+    <button class="btn-home btn-teacher" id="btn-teacher-settings" onclick="showPinModal()">
       <span class="icon">⚙️</span> せんせいせってい
     </button>
     <button class="btn-home" id="btn-fullscreen"
@@ -1267,10 +1267,10 @@
 </div>
 
 <!-- ===== PIN MODAL ===== -->
-<div id="modal-pin" class="modal-bg">
+<div id="modal-pin" class="modal-bg" role="dialog" aria-modal="true" aria-labelledby="modal-pin-title">
   <div class="modal">
     <div style="font-size:2.5rem">🔑</div>
-    <h3>せんせいようせってい</h3>
+    <h3 id="modal-pin-title" tabindex="-1">せんせいようせってい</h3>
     <p>あんしょうばんごうをにゅうりょく<br>してください</p>
     <div class="pin-display" id="pin-display">
       <div class="pin-dot" id="pin-d0"></div>
@@ -1726,7 +1726,7 @@
     <div class="compose-save-bar">
       <input type="text" class="compose-name-input" id="compose-name" placeholder="さくひんのなまえ" maxlength="20">
       <button class="btn-save-compose" onclick="saveComposition()">💾 ほぞん</button>
-      <button class="btn-save-compose" style="background:linear-gradient(135deg,#c77dff,#4d96ff);" onclick="shareComposition()">🔗 きょうゆう</button>
+      <button class="btn-save-compose" id="btn-share-composition" style="background:linear-gradient(135deg,#c77dff,#4d96ff);" onclick="shareComposition()">🔗 きょうゆう</button>
       <button class="btn-save-compose" id="btn-export-wav" style="background:linear-gradient(135deg,#ff6b6b,#ff9f1c);" onclick="exportWav()">🎵 書き出し</button>
     </div>
   </div>
@@ -1765,10 +1765,10 @@
 </main>
 
 <!-- ===== EXPORT MODAL ===== -->
-<div id="modal-export" class="modal-bg">
+<div id="modal-export" class="modal-bg" role="dialog" aria-modal="true" aria-labelledby="export-title">
   <div class="modal" style="max-width:380px;">
     <div id="export-icon" style="font-size:2.5rem;text-align:center">🎵</div>
-    <h3 id="export-title" style="text-align:center">WAVファイルに書き出す</h3>
+    <h3 id="export-title" tabindex="-1" style="text-align:center">WAVファイルに書き出す</h3>
     <p id="export-desc" style="text-align:center;color:var(--text-dim);font-size:.93rem;">
       さくひんをおんがくファイルにします。<br>何ループ書き出しますか？
     </p>
@@ -1804,15 +1804,15 @@
 </div>
 
 <!-- ===== SHARE MODAL ===== -->
-<div id="modal-share" class="modal-bg">
+<div id="modal-share" class="modal-bg" role="dialog" aria-modal="true" aria-labelledby="modal-share-title">
   <div class="modal" style="max-width:420px;">
     <div style="font-size:2.5rem">🔗</div>
-    <h3>さくひんをきょうゆうする</h3>
+    <h3 id="modal-share-title" tabindex="-1">さくひんをきょうゆうする</h3>
     <p>このURLをともだちやせんせいに<br>おくろう！</p>
     <div style="background:var(--surface2);border-radius:14px;padding:12px 14px;word-break:break-all;font-size:0.78rem;color:var(--text-dim);max-height:80px;overflow-y:auto;line-height:1.5;" id="share-url-display">URLを生成中…</div>
     <button style="background:linear-gradient(135deg,var(--accent4),var(--accent5));border:none;color:white;font-family:inherit;font-size:1.1rem;font-weight:900;padding:16px;border-radius:var(--radius);cursor:pointer;width:100%;" onclick="copyShareUrl()">📋 URLをコピーする</button>
     <div id="share-copy-notice" style="display:none;text-align:center;color:var(--accent3);font-weight:700;font-size:0.9rem;">✅ コピーしました！</div>
-    <button class="btn-back" style="background:transparent;color:var(--text-dim);width:100%;text-align:center;" onclick="document.getElementById('modal-share').classList.remove('active')">とじる</button>
+    <button id="share-close-btn" class="btn-back" style="background:transparent;color:var(--text-dim);width:100%;text-align:center;" onclick="closeShareModal()">とじる</button>
   </div>
 </div>
 
@@ -2775,11 +2775,87 @@ function showScreen(name) {
   if(name!=='compose' && composePlaying) { stopCompose(); }
 }
 
+// ===== Modal Accessibility Contract適用(WCAG-JIS-FIX-MODAL-ONGAKU-1) =====
+// donomana-modal-accessibility-contract-v1_0.md準拠。modal-pin/modal-export/modal-shareの3件に
+// dialog semantics・initial focus・Focus Trap・Escape・focus restoration・背景inertを適用する。
+// modal-helpは対象外(既存の正常な実装[role/aria-modal/initial focus/Escape/restorationは実装済み]
+// を変更しない。A11yパネル例外[FAMILY-A]とFocus Trap[FAMILY-B]はmodal-help分として別Phase)。
+var ongakuModalOpenerEl = {};
+function ongakuModalIds() { return ['modal-pin', 'modal-export', 'modal-share']; }
+function ongakuOpenModalId() {
+  return ongakuModalIds().find(function (id) {
+    var m = document.getElementById(id);
+    return m && m.classList.contains('active');
+  }) || null;
+}
+// modal-pinは<main>の内側(screen-home等の兄弟)にあるため、<main>自体をinertにすると
+// modal-pin自身も操作不能になってしまう。背景と対象modalを兄弟要素として持つmain配下の
+// 各子要素を個別にinert化することでmodal-pin自身は除外する。modal-export/modal-shareは
+// <main>の外側(bodyの直接の子)にあるため、<main>全体をinertにするだけで背景を正しく
+// 抑制できる。3モーダルは異なる画面から開くため同時に開くことは想定しない。
+function ongakuSetBackgroundInert(isInert, modalId) {
+  var main = document.querySelector('main');
+  if (!main) return;
+  if (modalId === 'modal-pin') {
+    Array.from(main.children).forEach(function (child) {
+      if (child.id !== 'modal-pin') child.inert = isInert;
+    });
+  } else {
+    main.inert = isInert;
+  }
+}
+function ongakuOpenModalContract(modalId, titleId) {
+  ongakuModalOpenerEl[modalId] = document.activeElement;
+  ongakuSetBackgroundInert(true, modalId);
+  document.getElementById(titleId).focus();
+}
+function ongakuCloseModalContract(modalId) {
+  ongakuSetBackgroundInert(false, modalId);
+  var opener = ongakuModalOpenerEl[modalId];
+  if (opener && typeof opener.focus === 'function' && document.body.contains(opener) && opener.offsetParent !== null) {
+    opener.focus();
+  }
+  ongakuModalOpenerEl[modalId] = null;
+}
+// Focus Trap(端点循環型)。okane-app/matching-appで実証済みのA11yパネル対応ガード込みパターンと同型。
+// keydownのたびにDOMから候補を再取得するため、modal-exportのoptions/progress/doneの状態遷移にも
+// 追随できる(非表示状態のサブビュー内ボタンはoffsetParent===nullで自動的に除外される)。
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Tab') return;
+  var openId = ongakuOpenModalId();
+  if (!openId) return;
+  var modal = document.getElementById(openId);
+  var active = document.activeElement;
+  var a11yBtn = document.getElementById('donomanaA11yBtn');
+  var a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block' && (active === a11yBtn || a11yPanel.contains(active))) return;
+  var focusables = Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(function (el) { return el.offsetParent !== null && !el.disabled; });
+  if (!focusables.length) return;
+  var first = focusables[0], last = focusables[focusables.length - 1];
+  if (e.shiftKey) {
+    if (active === first || !modal.contains(active)) { e.preventDefault(); last.focus(); }
+  } else {
+    if (active === last || !modal.contains(active)) { e.preventDefault(); first.focus(); }
+  }
+});
+// Escape(A11yパネル優先。パネルが開いていればここでは何もしない)
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  var a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') return;
+  var openId = ongakuOpenModalId();
+  if (!openId) return;
+  if (openId === 'modal-pin') closePin();
+  else if (openId === 'modal-export') closeExportModal();
+  else if (openId === 'modal-share') closeShareModal();
+});
+
 // ===== PIN =====
 let pinValue = '';
 const PIN_CORRECT = '1234';
-function showPinModal() { pinValue=''; updatePinDisplay(); document.getElementById('pin-error').classList.remove('visible'); document.getElementById('modal-pin').classList.add('active'); }
-function closePin() { document.getElementById('modal-pin').classList.remove('active'); pinValue=''; }
+function showPinModal() { pinValue=''; updatePinDisplay(); document.getElementById('pin-error').classList.remove('visible'); document.getElementById('modal-pin').classList.add('active'); ongakuOpenModalContract('modal-pin', 'modal-pin-title'); }
+function closePin() { document.getElementById('modal-pin').classList.remove('active'); pinValue=''; ongakuCloseModalContract('modal-pin'); }
 
 // ===== つかいかたモーダル (Phase T6.5-B6) =====
 // #modal-pinと同じclassList.add/remove('active')方式をそのまま踏襲する。
@@ -4090,10 +4166,12 @@ function exportWav() {
   document.querySelectorAll('.loop-btn').forEach((b,i) => b.classList.toggle('active', i===0));
   updateExportDurationHint();
   document.getElementById('modal-export').classList.add('active');
+  ongakuOpenModalContract('modal-export', 'export-title');
 }
 
 function closeExportModal() {
   document.getElementById('modal-export').classList.remove('active');
+  ongakuCloseModalContract('modal-export');
 }
 
 async function startExport() {
@@ -5230,9 +5308,14 @@ function shareComposition() {
     document.getElementById('share-url-display').textContent = url;
     document.getElementById('share-copy-notice').style.display = 'none';
     document.getElementById('modal-share').classList.add('active');
+    ongakuOpenModalContract('modal-share', 'modal-share-title');
   } catch(e) {
     showToast('❌ URLのせいせいにしっぱいしました');
   }
+}
+function closeShareModal() {
+  document.getElementById('modal-share').classList.remove('active');
+  ongakuCloseModalContract('modal-share');
 }
 
 function copyShareUrl() {
