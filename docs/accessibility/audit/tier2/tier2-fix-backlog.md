@@ -6,10 +6,10 @@ Severity・工数感・依存関係に基づく優先順位案。**本Auditで�
 
 ## 優先度1(小規模・正解確立済み・横展開のみ)
 
-| Finding | 対象 | 推定工数 | 参照実装 |
-|---|---|---|---|
-| TIER2-F6(存在しないidへのaria-labelledby参照) | katachi-awase-app | 数分(不要属性の削除のみ) | なし(削除のみで解消) |
-| TIER2-F3(初期focus欠如) | cup_game(helpModal)・ongaku-app(modal-pin/export/share) | 各アプリ半日程度 | PILOT-F1/NEW-KNOWN-1の修正パターン(gaze-keyboard、HARDEN-2/3-RELEASEで実証済み) |
+| Finding | 対象 | 推定工数 | 参照実装 | 状態 |
+|---|---|---|---|---|
+| TIER2-F6(broken aria-labelledby参照、Severity P1→**P2**訂正済み) | katachi-awase-app | 数分(不要属性の削除のみ) | なし(削除のみで解消) | **✅ 修正済み(RC commit e32c45e、branch `fix/katachi-awase-broken-aria-labelledby`)。main未反映** |
+| TIER2-F3(初期focus欠如) | cup_game(helpModal)・ongaku-app(modal-pin/export/share) | 各アプリ半日程度 | PILOT-F1/NEW-KNOWN-1の修正パターン(gaze-keyboard、HARDEN-2/3-RELEASEで実証済み) | 未着手 |
 | TIER2-F1(FT-1: A11yパネル例外欠如) | shiritori2・bosai-app・ongaku-app(modal-help) | 各アプリ半日程度(POST-AUDIT-35-HARDEN-1/3の実績ベース) | okane-app/matching-app/gaze-keyboard(settingsModal) |
 
 ## 優先度2(中規模・構造判断を伴う)
@@ -35,7 +35,7 @@ Severity・工数感・依存関係に基づく優先順位案。**本Auditで�
 
 `tier2-manual-review.md`のA〜I各カテゴリの結果次第で、追加のFix Backlog項目が発生する可能性がある。特に以下は優先度が高い:
 
-- katachi-awase-appのスイッチスキャン設定トグルの実際の読み上げ結果(TIER2-F6の影響範囲確定)
+- katachi-awase-appのスイッチスキャン設定トグルのNVDA/VoiceOver実機読み上げ結果(TIER2-F6はChromium実機Evidenceで既にSeverity P2へ訂正・修正済みだが、他AT実装での差異有無はManual Validation Pendingのまま)
 - gradient背景10アプリのContrast実機確認結果(TIER2-F4の範囲が自動判定分[15件]より大幅に拡大する可能性)
 
 ## Tier3横展開の推奨事項

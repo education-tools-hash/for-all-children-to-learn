@@ -108,24 +108,26 @@
 
 ---
 
-## TIER2-F6(新規Finding: 存在しないidへのaria-labelledby参照によるスイッチスキャン設定の無名化)
+## TIER2-F6(Finding: スイッチスキャン設定の無効なaria-labelledby参照) — WCAG-JIS-FIX-P1-A-REVIEWで記述・Severity訂正済み
+
+> **[2026-09-07訂正]** 当初の記述「broken aria-labelledbyによりaccessible nameが欠落する」は、WCAG-JIS-FIX-P1A実装時のChromium DevTools Protocol実測(`Accessibility.getPartialAXTree`)により**再現しなかった**ことが判明した。Before/After比較の結果、Before時点でも`role=checkbox`・`name="スイッチスキャン"`が正しく算出されており、aria-labelledbyのname sourceは`invalid:true`と記録された上でChromiumは正しく`<label for>`のnative labelingへフォールバックしていた。以下は訂正後の内容(旧記述は本ファイルのgit履歴に残る)。
 
 | 項目 | 内容 |
 |---|---|
 | Finding Family | Broken ARIA Reference(新規。Tier1では0件だったため未確立だったFamily) |
 | App | katachi-awase-app |
-| Severity | **P1 High** |
-| WCAG観点 | Robust 4.1.2(名前・役割・値)、Perceivable 1.3.1(情報及び関係性) |
+| Severity | ~~P1 High~~ → **P2 Medium**(2026-09-07、WCAG-JIS-FIX-P1-A-REVIEWで再分類。Confirmed defectはbroken referenceそのものであり、accessible name欠落というNot confirmedな影響を根拠にしたP1判定は取り下げる) |
+| Tag | Manual Validation Pending(NVDA/VoiceOver等、Chromium以外のAT実装差異は未検証) |
+| WCAG観点 | Robust 4.1.2(名前・役割・値) — ただしaccessible nameの実害ではなく、無効な参照が存在すること自体がRobust要件への抵触 |
 | Input Mode | Screen Reader、スイッチスキャン利用者 |
-| Automated/Manual | Automated(構造監査で`brokenAriaRefs`検出、直接コード確認で実害を確認) |
-| Reproduction | katachi-awase-app.htmlの設定パネルでスクリーンリーダーにより「スイッチスキャン」トグルへフォーカスする |
-| Expected | `<label for="toggleScan">スイッチスキャン</label>`(katachi-awase-app.html:819)により「スイッチスキャン」という名前が読み上げられる |
-| Actual | `#toggleScan`に`aria-labelledby="scanLabel"`が付与されているが(katachi-awase-app.html:820)、id="scanLabel"を持つ要素はページ内に存在しない。アクセシブルネーム計算では存在する`<label for>`より`aria-labelledby`が優先されるため、参照先が解決できないchekcboxは**アクセシブルネームが空になる**可能性が高く、この設定が「まさにスイッチスキャン利用者向けの機能を有効化するトグルそのもの」であることを踏まえると影響度が高い |
-| Evidence | katachi-awase-app.html:818-820。`tools/accessibility-audit/tier2/static-audit-results.json`のkatachi-awase-app.brokenAriaRefs |
+| Automated/Manual | Automated(構造監査で`brokenAriaRefs`検出)。Chromium実機でのAccessible Name実測はWCAG-JIS-FIX-P1-Aで実施済み。NVDA/VoiceOver実機はManual Validation Pending |
+| Confirmed defect | `#toggleScan`に`aria-labelledby="scanLabel"`が存在し(katachi-awase-app.html:820、修正前)、id="scanLabel"を持つ要素はページ内に存在しない。**これはbroken ARIA referenceとして確定** |
+| Not confirmed(訂正) | 「accessible nameが空になる」「Switch/SR利用者がcontrol nameを取得できない」「Chromiumで操作識別不能になる」という当初の想定影響は、Chromium実測では**再現しなかった**。Chromiumのaccname算出は無効なaria-labelledby参照を検出すると次のソース(`labelwrapped`、既存の`<label for="toggleScan">`)へ正しくフォールバックし、Before/Afterとも`name="スイッチスキャン"`で同一だった |
+| Evidence | katachi-awase-app.html:818-820。`tools/accessibility-audit/tier2/static-audit-results.json`のkatachi-awase-app.brokenAriaRefs。CDP `Accessibility.getPartialAXTree`実測ログ(WCAG-JIS-FIX-P1-A実施時、Before/After比較) |
 | Known/New | New |
-| Fix candidate | 不要な`aria-labelledby="scanLabel"`属性を削除し、既存の`<label for="toggleScan">`のみに一本化する(1行修正で解消可能) |
+| Fix状態 | **修正済み(RC commit e32c45e、branch `fix/katachi-awase-broken-aria-labelledby`)**。不要な`aria-labelledby="scanLabel"`属性を削除し、既存の`<label for="toggleScan">`のみに一本化(1行修正)。Broken ARIA Gate 0件、Switch Scan候補数/順序完全一致(18件、差分0)、Keyboard/Touch/Browser/Responsive Gate全PASS、console/page error 0件を確認済み。**Severityが下がってもFixの妥当性・要否は変わらない**(無効な参照の除去自体はコード衛生上・他AT実装差異への防御として引き続き妥当) |
 | Spec decision required | なし |
-| 横展開候補 | 他アプリの`aria-labelledby`/`aria-describedby`等の全参照先が実在するか、Tier3でも同一チェックを推奨(本Auditのstatic-audit.jsでの自動検出手法は再利用可能) |
+| 横展開候補 | 他アプリの`aria-labelledby`/`aria-describedby`等の全参照先が実在するか、Tier3でも同一チェックを推奨(本Auditのstatic-audit.jsでの自動検出手法は再利用可能)。**ただし今回の教訓として、broken referenceを検出した場合は「影響=accessible name欠落」と即断せず、実機(CDP Accessibility.getPartialAXTree等)でのフォールバック挙動確認を横展開手順に追加することを推奨** |
 
 ---
 
@@ -156,13 +158,17 @@
 
 ## Severity集計
 
+> **[2026-09-07更新]** WCAG-JIS-FIX-P1-A-REVIEWでTIER2-F6をP1→P2へ再分類(実機Evidenceに基づく訂正、上記TIER2-F6参照)。下表は更新後の値。
+
 | Severity | 件数 |
 |---|---|
 | P0 Critical | 0 |
-| P1 High | 2(TIER2-F3, TIER2-F6) |
-| P2 Medium | 3(TIER2-F1, F2, F5) |
+| P1 High | 1(TIER2-F3) |
+| P2 Medium | 4(TIER2-F1, F2, F5, F6) |
 | P3 Low | 1(TIER2-F4、Contrast 15件) |
 
-Technical Debt: 0。Spec Decision Required: 1(TIER1-F6への統合分)。Needs Manual Review: `tier2-manual-review.md`参照。
+Technical Debt: 0。Spec Decision Required: 1(TIER1-F6への統合分)。Needs Manual Review: `tier2-manual-review.md`参照。Manual Validation Pending: TIER2-F6(NVDA/VoiceOverでのaccessible name実機確認)。
+
+TIER2-F6は**修正済み(RC commit e32c45e)**。katachi-awase-app.htmlの`aria-labelledby="scanLabel"`(broken reference)を削除し、既存の`<label for="toggleScan">`のみに一本化した。
 
 **AUDIT PILOT BLOCKING FINDING相当(P0操作不能)は0件。**

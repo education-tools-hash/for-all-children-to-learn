@@ -57,14 +57,16 @@
 | TIER2-F3 | Initial Focus Missing(新規Family) | cup_game・ongaku-app(3モーダル) | P1 |
 | TIER2-F4 | Contrast | cup_game・ongaku-app・kimochi-board・drawing-app・katachi-awase-app | P3 |
 | TIER2-F5 | Reflow Overflow(新規Family) | drawing-app | P2 |
-| TIER2-F6 | Broken ARIA Reference(新規Family) | katachi-awase-app | P1 |
+| TIER2-F6 | Broken ARIA Reference(新規Family) | katachi-awase-app | ~~P1~~→**P2**(2026-09-07訂正、修正済み) |
 | (統合) | Spec Decision Required(背景抑制方式、TIER1-F6拡張) | shiritori2(系统B)・hiragana-learn/katakana-app/bosai-app/cup_game/ongaku-app(系统D) | - |
 
 詳細は`tier2-findings.md`を参照。
 
 ## 4. P0/P1/P2/P3件数
 
-P0: 0 / P1: 2(TIER2-F3, F6) / P2: 3(TIER2-F1, F2, F5) / P3: 1(TIER2-F4、Contrast 15件)。**AUDIT PILOT BLOCKING FINDING相当は0件。**
+P0: 0 / P1: 1(TIER2-F3) / P2: 4(TIER2-F1, F2, F5, F6) / P3: 1(TIER2-F4、Contrast 15件)。**AUDIT PILOT BLOCKING FINDING相当は0件。**
+
+> **[2026-09-07更新]** TIER2-F6はWCAG-JIS-FIX-P1-A-REVIEWでP1→P2へ再分類(Chromium実機Evidenceでaccessible name欠落が再現しなかったため)。同Findingは既にRC commit e32c45eで修正済み。詳細は`tier2-findings.md`のTIER2-F6訂正セクション参照。
 
 Needs Manual Review: 9カテゴリ(`tier2-manual-review.md` A〜I)。Spec Decision Required: TIER1-F6への統合1件。
 
