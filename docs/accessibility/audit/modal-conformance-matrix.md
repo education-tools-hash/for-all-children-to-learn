@@ -63,7 +63,7 @@
 | FAMILY-A | A11yパネル例外 | 11 |
 | FAMILY-B | Focus Trap(Forward) | 8(ongaku-app pin/export/share分はFix済みのため除外) |
 | FAMILY-C | Initial Focus(非推奨パターン含む) | 6(register-app・scratch-app[パターン移行]、mogura-tataki・nazorin-print・tyushi。ongaku-app pin/export/shareはFix済みのため除外) |
-| FAMILY-D | Focus Restoration | 2(register-app・nazorin-print) |
+| FAMILY-D | Focus Restoration | **1(register-appのみ、TIER1-F5「pmOpenerEl退行」、Open)。[2026-09-08訂正] nazorin-printはWCAG-JIS-FAMILY-D-CROSS-APP-AUDIT-1でCONFIRMED PASSと判明したため除外。matching-app・okane-app・schedule-app・scratch-app・cup_game[settingsOverlay]は全てWCAG-JIS-FAMILY-D-CLOSE-1系列でProduction解消済み、tyushiはNOT APPLICABLE。詳細はfamily-d-focus-restoration-close-1.md参照** |
 | FAMILY-E | 背景抑制 | 13(系統B 5 + 系統C 1 + 系統D 7、ongaku-app pin/export/shareはFix済みのため除外) |
 | **FAMILY-J** | **Reverse Tab境界** | **0(全対象解消・Production反映済み。ongaku-app・matching-app・okane-app・schedule-app・gaze-keyboard[settingsModal]、time-timer/tokei-app/janken-appはCONFIRMED PASSで対象外に訂正。FAMILY-J = CLOSED)** |
 
