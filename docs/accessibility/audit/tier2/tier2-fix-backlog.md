@@ -10,7 +10,7 @@ Severity・工数感・依存関係に基づく優先順位案。**本Auditで�
 |---|---|---|---|---|
 | TIER2-F6(broken aria-labelledby参照、Severity P1→**P2**訂正済み) | katachi-awase-app | 数分(不要属性の削除のみ) | なし(削除のみで解消) | **✅ 修正済み(RC commit e32c45e、branch `fix/katachi-awase-broken-aria-labelledby`)。main未反映** |
 | TIER2-F3(初期focus欠如、cup_game分) | cup_game(helpModal) | 実績: 半日 | PILOT-F1/NEW-KNOWN-1の修正パターン | **✅ 修正済み(commit `a53f307`、branch `fix/cup-game-help-modal-initial-focus`)。Production反映済み** |
-| TIER2-F3(初期focus欠如、ongaku-app分) | ongaku-app(modal-pin/export/share) | 実績: 半日(共通実装のためTIER2-F2拡張分と合算) | `donomana-modal-accessibility-contract-v1_0.md`準拠でTIER2-F2拡張分と統合実装 | **✅ 修正済み(commit `edd6299`、branch `fix/ongaku-modal-accessibility-contract`、WCAG-JIS-FIX-MODAL-ONGAKU-1)。Production未反映** |
+| TIER2-F3(初期focus欠如、ongaku-app分) | ongaku-app(modal-pin/export/share) | 実績: 半日(共通実装のためTIER2-F2拡張分と合算) | `donomana-modal-accessibility-contract-v1_0.md`準拠でTIER2-F2拡張分と統合実装 | **✅ 修正済み・Production反映済み(commit `edd6299`、main HEAD `373b3d3`、WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASE)** |
 | TIER2-F1(FT-1: A11yパネル例外欠如) | shiritori2・bosai-app・ongaku-app(modal-help) | 各アプリ半日程度(POST-AUDIT-35-HARDEN-1/3の実績ベース) | okane-app/matching-app/gaze-keyboard(settingsModal) |
 
 ## 優先度2(中規模・構造判断を伴う)
@@ -18,7 +18,7 @@ Severity・工数感・依存関係に基づく優先順位案。**本Auditで�
 | Finding | 対象 | 推定工数 | 備考 |
 |---|---|---|---|
 | TIER2-F2(FT-2: Focus Trap欠如) | hiragana-learn・katakana-app・cup_game | 各アプリ1日程度、方式決定(TIER1-F6)が先行する方が望ましい | hiragana-learn/katakana-appは共通実装のため同時対応可能 |
-| TIER2-F2(FT-2拡張: ongaku-app modal-pin/export/share) | ongaku-app | 実績: 半日 | ✅ **修正済み(commit `edd6299`、WCAG-JIS-FIX-MODAL-ONGAKU-1)。Production未反映** |
+| TIER2-F2(FT-2拡張: ongaku-app modal-pin/export/share) | ongaku-app | 実績: 半日 | ✅ **修正済み・Production反映済み(commit `edd6299`、main HEAD `373b3d3`、WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASE)** |
 | TIER2-F5(Reflow/200%zoom overflow) | drawing-app | 半日〜1日程度 | `ResizeObserver`を`canvas-wrap`へ付与しCSS zoom変更でも`resize()`が再実行されるようにする方向で調査 |
 | TIER2-F4(Contrast) | kimochi-boardを中心に | デザイントークン単位の見直しが必要な場合、数日規模 | TIER1-F4と合流してデザインシステム側の対応を推奨 |
 

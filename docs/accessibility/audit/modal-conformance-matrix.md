@@ -27,7 +27,7 @@
 | bosai-app | ✅ | ✅ | ✅(Pattern1) | ✅(端点循環) | ✅**Sub-pattern α、構造的に非該当を確認** | ❌(TIER2-F1) | ✅ | ✅ | ❌(系統D) | |
 | cup_game(helpModal) | ✅ | ✅ | ✅(**Fix済み、commit a53f307**) | ❌(TIER2-F2) | — N/A(Trap自体なし) | — | ✅ | ✅ | ❌(系統D) | Initial FocusのみFAMILY-C先行修正済み |
 | ongaku-app(modal-help) | ✅ | ✅ | ✅(Pattern1) | ✅(端点循環) | ✅**Sub-pattern α、構造的に非該当を確認** | ❌(TIER2-F1) | ✅ | ✅ | ❌(系統D) | |
-| ongaku-app(modal-pin/export/share) | ✅**Fix済み(commit bdc1b4b)** | ✅**Fix済み** | ✅**Fix済み** | ✅**Fix済み(端点循環、動的focusables)** | ✅**Fix済み(commit 9eebca4、initial focus anchorを境界に含める形で実装。FAMILY-J発見の契機)** | ✅**Fix済み** | ✅**Fix済み** | ✅**Fix済み** | ✅**Fix済み(Plan B1 inert、main内側/外側の非対称構造に対応した2方式実装)** | **Production未反映。Reverse Tab境界を含むContract全項目PASSを達成した最初の実装** |
+| ongaku-app(modal-pin/export/share) | ✅**Fix済み(commit edd6299)** | ✅**Fix済み** | ✅**Fix済み** | ✅**Fix済み(端点循環、動的focusables)** | ✅**Fix済み(commit 891fd90、initial focus anchorを境界に含める形で実装。FAMILY-J発見の契機)** | ✅**Fix済み** | ✅**Fix済み** | ✅**Fix済み** | ✅**Fix済み(Plan B1 inert、main内側/外側の非対称構造に対応した2方式実装)** | **✅ Production反映済み(WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASE、commit `c8a5bd0`、main HEAD `373b3d3`)。Reverse Tab境界を含むContract全項目PASSを達成した最初の実装** |
 
 ---
 
@@ -45,7 +45,7 @@
 | Focus Restoration | 11(ongaku-app pin/export/share Fix済み含む) | 1(nazorin-print) | 1(register-app、TIER1-F5) | 5(未検証) |
 | 背景抑制(inert方式準拠) | 4(ongaku-app pin/export/share Fix済み含む) | 5(系統B) | 9(系統C+D) | 0 |
 
-**Contract全項目(Reverse Tab境界含む)でPASSしているのは、Production未反映のongaku-app(modal-pin/export/share、Fix済み)のみ。** matching-app・okane-appは従来「完全準拠」としていたが、Reverse Tab境界の新設によりPARTIALへ再評価した(v1.0時点の評価が誤りだったのではなく、v1.1で新たなGateが追加されたことによる)。18アプリ中17アプリが何らかのContract項目でFAIL/PARTIALを持つ。
+**Contract全項目(Reverse Tab境界含む)でPASSしているのは、Production反映済みのongaku-app(modal-pin/export/share、WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEでmain統合済み)のみ。** matching-app・okane-appは従来「完全準拠」としていたが、Reverse Tab境界の新設によりPARTIALへ再評価した(v1.0時点の評価が誤りだったのではなく、v1.1で新たなGateが追加されたことによる)。18アプリ中17アプリが何らかのContract項目でFAIL/PARTIALを持つ。
 
 **「未検証」の項目について**: Tier1監査時点ではEscape/Focus Restoration/A11yパネル例外を全モーダルで網羅的に確認しておらず、一部は「疑わしい場合のみ直接コード確認」という方式だったため、本Matrixの「未検証」欄はFAIL/PARTIALの可能性を排除するものではない。**FAMILY別Fix着手時に該当アプリを再確認することを推奨する。**
 
@@ -74,7 +74,7 @@
 | 2 | scratch-app | Initial Focus | helpModalがclose buttonへfocus(Pattern4、非推奨) | 同上 |
 | 3 | mogura-tataki | Accessible Name | `aria-label`直接指定(可視タイトルがあるのに`aria-labelledby`未使用) | FAMILY-B Fix時に`aria-labelledby`へ統一を推奨 |
 | 4 | nazorin-print | Focus Restoration | libModalのみ復帰実装、help/batchModalは未確認 | FAMILY-D調査対象に追加 |
-| 5(v1.1追加) | matching-app・okane-app・schedule-app・gaze-keyboard(settingsModal) | Reverse Tab境界(FAMILY-J) | 実機再現済み。initial focus直後の最初のShift+Tabでmodal外へfocusが漏れる | FAMILY-J Fix Phaseで境界判定にinitial focus anchorを追加(ongaku-appのFix実装[commit 9eebca4]をそのまま横展開可能) |
+| 5(v1.1追加) | matching-app・okane-app・schedule-app・gaze-keyboard(settingsModal) | Reverse Tab境界(FAMILY-J) | 実機再現済み。initial focus直後の最初のShift+Tabでmodal外へfocusが漏れる | FAMILY-J Fix Phaseで境界判定にinitial focus anchorを追加(ongaku-appのFix実装[commit 891fd90、Production反映済み]をそのまま横展開可能) |
 | 6(v1.1追加) | time-timer・tokei-app・janken-app | Reverse Tab境界(FAMILY-J、推定) | コードが上記4アプリと同型(`active===first`のみで境界判定)のため同一欠陥を持つと推定。実機未確認 | 実機確認後、#5と同一Fixを適用 |
 
 **これらは今回のContract確定作業で新たに判明した事実であり、既存のTIER1/TIER2 Finding Registerには含まれていなかった。次のGlobal Fix実装Phaseで正式Finding化するか、既存Family内の追加対象として扱うかをUser判断とする(本Phaseでは判断・修正しない)。**

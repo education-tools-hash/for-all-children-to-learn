@@ -21,7 +21,7 @@ Tier1・Tier2・Tier3の`*-fix-backlog.md`を統合し、Finding Family単位で
 |---|---|---|---|
 | TIER1-F3(FT-2) | mogura-tataki・scratch-app・nazorin-print・tyushi・gaze-keyboard(profileModal/hrModal) | 各1日、方式決定(TIER1-F6)先行が望ましい | Open |
 | TIER2-F2(FT-2) | hiragana-learn・katakana-app・cup_game | 各1日 | Open |
-| TIER2-F2(FT-2拡張)+TIER2-F3(Initial Focus、ongaku-app分) | ongaku-app(modal-pin/export/share) | 実績: 半日 | ✅ **修正済み(commit `edd6299`、WCAG-JIS-FIX-MODAL-ONGAKU-1、`donomana-modal-accessibility-contract-v1_0.md`準拠)。Production未反映** |
+| TIER2-F2(FT-2拡張)+TIER2-F3(Initial Focus、ongaku-app分) | ongaku-app(modal-pin/export/share) | 実績: 半日 | ✅ **修正済み・Production反映済み(commit `edd6299`、main HEAD `373b3d3`、WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASE、`donomana-modal-accessibility-contract-v1_0.md`準拠)** |
 | TIER2-F5(Reflow) | drawing-app | 半日〜1日 | ResizeObserver方式で調査 |
 | TIER3-F2(Reflow) | slideshow-sakusei | Spec Decision次第(維持なら0、再設計なら数日) | モバイル対応方針決定が先行 |
 | TIER1-F4/TIER2-F4/TIER3-F3(Contrast) | 全17アプリ(信頼できるfail合計77件) | デザイントークン単位の見直しが必要な場合、数日〜1週間規模 | yomikaki-appは単一トークン調整で一括改善の可能性 |
@@ -47,7 +47,7 @@ Tier1・Tier2・Tier3の`*-fix-backlog.md`を統合し、Finding Family単位で
 ## 推奨実装順序(Global)
 
 1. **即時(工数小・リスク小)**: TIER3-F1 → TIER1-F2/TIER2-F1(FT-1横展開、参照実装確立済み)
-2. **構造Fix(中規模)**: TIER1-F3/TIER2-F2(残り3アプリ、Focus Trap新規実装、TIER1-F6のSpec Decision確定後が望ましい)→ ongaku-app統合実装(✅WCAG-JIS-FIX-MODAL-ONGAKU-1で完了、Production未反映)→ TIER2-F5/TIER3-F2(Reflow、方針決定後)
+2. **構造Fix(中規模)**: TIER1-F3/TIER2-F2(残り3アプリ、Focus Trap新規実装、TIER1-F6のSpec Decision確定後が望ましい)→ ongaku-app統合実装(✅WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEでProduction反映済み)→ TIER2-F5/TIER3-F2(Reflow、方針決定後)
 3. **デザインシステム改修**: TIER1-F4/TIER2-F4/TIER3-F3(Contrast一括対応)
 4. **Spec Decision**: TIER1-F5・TIER1-F6・TIER3-F2のモバイル対応方針を先に確定し、それに依存する構造Fixへ着手
 

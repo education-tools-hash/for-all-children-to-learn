@@ -29,7 +29,7 @@
 
 ## TIER2-F2(Finding Family: FT-2 — Modal Focus Trapが存在しない) — ongaku-app分はWCAG-JIS-FIX-MODAL-ONGAKU-1で解消
 
-> **[2026-09-07更新]** WCAG-JIS-FIX-MODAL-ONGAKU-1でongaku-app(modal-pin/export/share)分を`donomana-modal-accessibility-contract-v1_0.md`準拠で修正・commit `edd6299`(Production未反映)。**ongaku-app分は TECHNICALLY RESOLVED、他3アプリ(hiragana-learn/katakana-app/cup_game)分は引き続きOPEN。Finding Family全体としてはPARTIALLY RESOLVED。**
+> **[2026-09-07更新]** WCAG-JIS-FIX-MODAL-ONGAKU-1でongaku-app(modal-pin/export/share)分を`donomana-modal-accessibility-contract-v1_0.md`準拠で修正し、WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEでcommit `edd6299`をmainへ統合済み(main HEAD `373b3d3`、**Production反映済み**)。**ongaku-app分は Production Evidence付きで TECHNICALLY RESOLVED、他3アプリ(hiragana-learn/katakana-app/cup_game)分は引き続きOPEN。Finding Family全体としてはPARTIALLY RESOLVED。**
 
 | 項目 | 内容 |
 |---|---|
@@ -52,13 +52,13 @@
 
 ## TIER2-F3(Finding Family: Modal Initial Focus Missing) — 全対象アプリ解消済み
 
-> **[2026-09-07更新]** WCAG-JIS-FIX-P1-B-RELEASEでcup_game分を修正・Production反映済み(commit `a53f307`)。**WCAG-JIS-FIX-MODAL-ONGAKU-1でongaku-app分(modal-pin/export/share)も修正・commit `edd6299`(Production未反映)。Finding対象の全アプリがTECHNICALLY RESOLVEDとなったが、NVDA/VoiceOver Manual Validation Pendingのため完全Closedとはしない。**
+> **[2026-09-07更新]** WCAG-JIS-FIX-P1-B-RELEASEでcup_game分を修正・Production反映済み(commit `a53f307`)。**WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEでongaku-app分(modal-pin/export/share)も修正・commit `edd6299`をmainへ統合済み(main HEAD `373b3d3`、Production反映済み)。Finding対象の全アプリがProduction Evidence付きでTECHNICALLY RESOLVEDとなったが、NVDA/VoiceOver Manual Validation Pendingのため完全Closedとはしない。**
 
 | 項目 | 内容 |
 |---|---|
 | Finding Family | Initial Focus Missing(Audit plan v1.1で「missing initial focus」はP1に標準化済みの基準を適用。新規Family名だが判定基準自体は既存のPILOT-F1/NEW-KNOWN-1と同型) |
-| Apps | cup_game(helpModal) — ✅ **TECHNICALLY RESOLVED**(commit `a53f307`、Production反映済み)。ongaku-app(modal-pin・modal-export・modal-share) — ✅ **TECHNICALLY RESOLVED**(commit `edd6299`、Production未反映) |
-| Severity | **P1 High**(維持。両アプリともTechnically Resolvedだが、Production未反映[ongaku-app分]およびNVDA/VoiceOver Manual Validation Pendingのため、正式Closeへの降格は次のRelease Phase以降の判断とする) |
+| Apps | cup_game(helpModal) — ✅ **TECHNICALLY RESOLVED**(commit `a53f307`、Production反映済み)。ongaku-app(modal-pin・modal-export・modal-share) — ✅ **TECHNICALLY RESOLVED**(commit `edd6299`、Production反映済み、main HEAD `373b3d3`) |
+| Severity | **P1 High**(維持。両アプリともProduction ReleaseによりTechnically Resolvedが確定したが、NVDA/VoiceOver Manual Validation Pendingが残るため、正式Closeへの降格はManual Review完了後の判断とする) |
 | WCAG観点 | Operable 2.4.3(フォーカス順序)、Perceivable 1.3.1 |
 | Input Mode | Keyboard, Screen Reader, Switch |
 | Automated/Manual | Automated(コード直接確認: open関数内に`.focus()`呼び出しが一切ないことを確認) |
@@ -66,8 +66,8 @@
 | Expected | モーダルを開いた瞬間、モーダル内(タイトル等)へフォーカスが移動する |
 | Actual(修正前) | cup_game.html:1331-1335(openHelp)、ongaku-app.html:2781(showPinModal)/4092(openExport相当)/5232(openShare相当)のいずれも`.focus()`呼び出しが存在せず、フォーカスはモーダルを開いたトリガーボタン上に留まったままになる |
 | 修正内容(cup_game) | `#helpTitle`(h2)に`tabindex="-1"`を追加、`openHelp()`末尾に`document.getElementById('helpTitle').focus();`を追加(PILOT-F1と同一パターン)。commit `a53f307`、branch `fix/cup-game-help-modal-initial-focus`。Dialog Semantic(role/aria-modal/aria-labelledby)・Escape・Focus Restoration・A11y Panel共存・Switch候補・Browser/Responsive Gate全PASSを確認 |
-| 修正内容(ongaku-app) | `donomana-modal-accessibility-contract-v1_0.md`準拠でmodal-pin/modal-export/modal-shareへrole="dialog"・aria-modal・aria-labelledby・initial focus(title、tabindex="-1")・Focus Trap(端点循環型)・A11yパネル例外・Escape・Focus Restoration・背景inertを一括実装。commit `edd6299`、branch `fix/ongaku-modal-accessibility-contract`(WCAG-JIS-FIX-MODAL-ONGAKU-1)。TIER2-F2のongaku-app分(Focus Trap欠如)も同時に解消。Regression Contract 14 Gate全PASSを確認、Production未反映 |
-| Evidence | cup_game.html(修正後、Production反映済み)、ongaku-app.html(修正後、Production未反映)、`tools/accessibility-audit/tier2/`各種結果 |
+| 修正内容(ongaku-app) | `donomana-modal-accessibility-contract-v1_0.md`準拠でmodal-pin/modal-export/modal-shareへrole="dialog"・aria-modal・aria-labelledby・initial focus(title、tabindex="-1")・Focus Trap(端点循環型)・A11yパネル例外・Escape・Focus Restoration・背景inertを一括実装。commit `edd6299`、branch `fix/ongaku-modal-accessibility-contract`(WCAG-JIS-FIX-MODAL-ONGAKU-1)。Reverse Tab境界修正(FAMILY-J対策、commit `891fd90`)込みでWCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEにてmain統合済み(main HEAD `373b3d3`)。TIER2-F2のongaku-app分(Focus Trap欠如)も同時に解消。Regression Contract 14 Gate全PASSを確認、**Production反映済み** |
+| Evidence | cup_game.html(修正後、Production反映済み)、ongaku-app.html(修正後、Production反映済み)、`tools/accessibility-audit/tier2/`各種結果 |
 | Known/New | New。ただし判定基準自体はPILOT-F1(gaze-keyboard、HARDEN-2-RELEASEで解消済み)と同型 |
 | Fix candidate | 全対象アプリで解消済みのため対応不要 |
 | Spec decision required | なし |
@@ -164,12 +164,12 @@
 
 ## Severity集計
 
-> **[2026-09-07更新]** WCAG-JIS-FIX-P1-A-REVIEWでTIER2-F6をP1→P2へ再分類(実機Evidenceに基づく訂正、上記TIER2-F6参照)。WCAG-JIS-FIX-P1-B-RELEASEでTIER2-F3のcup_game分をTECHNICALLY RESOLVEDとしてProduction反映(commit `a53f307`)。**WCAG-JIS-FIX-MODAL-ONGAKU-1でTIER2-F3のongaku-app分、およびTIER2-F2のongaku-app分もTECHNICALLY RESOLVED(commit `edd6299`、Production未反映)。** TIER2-F3は対象アプリ全てTechnically Resolvedとなったが、Production未反映分とNVDA/VoiceOver Manual Validation Pendingのため件数上はP1を維持。TIER2-F2は他3アプリ(hiragana-learn/katakana-app/cup_game)分が現存するためP2を維持。下表は更新後の値。
+> **[2026-09-07更新]** WCAG-JIS-FIX-P1-A-REVIEWでTIER2-F6をP1→P2へ再分類(実機Evidenceに基づく訂正、上記TIER2-F6参照)。WCAG-JIS-FIX-P1-B-RELEASEでTIER2-F3のcup_game分をTECHNICALLY RESOLVEDとしてProduction反映(commit `a53f307`)。**WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEでTIER2-F3のongaku-app分、およびTIER2-F2のongaku-app分もTECHNICALLY RESOLVEDとしてmainへ統合済み(commit `edd6299`、main HEAD `373b3d3`、Production反映済み)。** TIER2-F3は対象アプリ全てProduction Evidence付きでTechnically Resolvedとなったが、NVDA/VoiceOver Manual Validation Pendingのため件数上はP1を維持。TIER2-F2は他3アプリ(hiragana-learn/katakana-app/cup_game)分が現存するためP2を維持。下表は更新後の値。
 
 | Severity | 件数 |
 |---|---|
 | P0 Critical | 0 |
-| P1 High | 1(TIER2-F3、全対象アプリTechnically Resolved。ongaku-app分はProduction未反映・Manual Validation Pendingのため件数維持) |
+| P1 High | 1(TIER2-F3、全対象アプリProduction Evidence付きでTechnically Resolved。NVDA/VoiceOver Manual Validation Pendingのため件数維持) |
 | P2 Medium | 4(TIER2-F1, F2[ongaku-app分Technically Resolved・他3アプリOPEN], F5, F6) |
 | P3 Low | 1(TIER2-F4、Contrast 15件) |
 

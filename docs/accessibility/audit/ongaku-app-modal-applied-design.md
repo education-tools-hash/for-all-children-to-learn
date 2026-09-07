@@ -2,7 +2,7 @@
 
 `donomana-modal-accessibility-contract-v1_0.md`(v1.1)をongaku-appのmodal-pin/modal-export/modal-shareに適用した設計。
 
-> **[実装済み]** 本設計はWCAG-JIS-FIX-MODAL-ONGAKU-1(commit `bdc1b4b`)で実装され、追加でWCAG-JIS-MODAL-SPEC-DECISION-1-REVISIONの新Evidence(Initial Focus Title Reverse-Tab Escape)を受けてcommit `9eebca4`でReverse Tab境界を修正済み(Production未反映)。実装は§4で述べた「共通関数化」ではなく、`ongakuOpenModalContract()`/`ongakuCloseModalContract()`/`ongakuSetBackgroundInert()`の3関数分割方式を採用した(理由: modal-pinが`<main>`の内側、modal-export/modal-shareが`<main>`の外側という非対称なDOM構造が実装時に判明し、背景inertの適用方法を2パターンに分岐する必要があったため、単一の`attachModalContract()`より責務分割の方が明確だった)。
+> **[実装済み・Production反映済み]** 本設計はWCAG-JIS-FIX-MODAL-ONGAKU-1(commit `edd6299`)で実装され、追加でWCAG-JIS-MODAL-SPEC-DECISION-1-REVISIONの新Evidence(Initial Focus Title Reverse-Tab Escape)を受けてcommit `891fd90`でReverse Tab境界を修正済み。WCAG-JIS-FIX-MODAL-ONGAKU-1-RELEASEでmainへ統合済み(Production main HEAD `373b3d3`、Release時のRC commit `c8a5bd0`)。実装は§4で述べた「共通関数化」ではなく、`ongakuOpenModalContract()`/`ongakuCloseModalContract()`/`ongakuSetBackgroundInert()`の3関数分割方式を採用した(理由: modal-pinが`<main>`の内側、modal-export/modal-shareが`<main>`の外側という非対称なDOM構造が実装時に判明し、背景inertの適用方法を2パターンに分岐する必要があったため、単一の`attachModalContract()`より責務分割の方が明確だった)。
 
 参照実装: 同一ファイル内の`modal-help`(role/aria-modal/初期focus/Escape/復帰は実装済み、A11yパネル例外[FAMILY-A]とFocus Trap[FAMILY-B]のみ未実装。**Focus Trapは実は"Sub-pattern α"[title自身をfirst変数とする2要素巡回]で実装済みであることが本Revisionで判明し、Reverse Tab境界問題の対象外であることを確認済み**)。
 
