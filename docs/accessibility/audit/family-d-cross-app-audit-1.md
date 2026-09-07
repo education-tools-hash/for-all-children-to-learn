@@ -198,4 +198,13 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 - img-modal: 実trigger(`.item-thumb`)がtabindexなしでfocus不能、かつ`renderEditor()`によるDOM再生成でopener参照も維持できないため、`#tab-editor`への固定fallbackを採用。Browser Validationで実UI経路(cancel/Escape/背景クリック/画像クリア/絵文字選択)から到達し**LEVEL-A**取得(監査時点のLEVEL-Bから格上げ)。
 - print-modal regressionなし、FAMILY-J境界(Shift+Tab)・Forward Tab・Responsive(390/768/1280)・200%zoom・console/page errorsいずれも確認、regression無し。
 
-**[2026-09-08追記]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-1-RELEASE`でProduction反映済み(commit `29e7669`、Production Validation PASS)。schedule-appの3モーダル(print-modal/new-modal/img-modal)全てTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。Batch 2(scratch-app txtEdOv)・Batch 3(scratch-app cov)・Batch 4(cup_game)・tyushi設計判断は未着手のまま。
+**[2026-09-08追記]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-1-RELEASE`でProduction反映済み(commit `29e7669`、Production Validation PASS)。schedule-appの3モーダル(print-modal/new-modal/img-modal)全てTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。
+
+**[2026-09-08追記2] Batch 2(scratch-app txtEdOv・cov)RC実装完了**。worktree `for-all-children-to-learn-wcag-jis-fix-family-d-batch-2`、branch `fix/family-d-scratch-restoration`。
+
+- **txtEdOv**: 監査時点のLEVEL-Bから**LEVEL-A**へ格上げ。実UI到達経路が当初想定と異なり判明 — 実trigger(`addTextBtn`/`addImgBtn2`)は`setOv`(せっていパネル)内にあり、txtEdOvは**setOv上のnested overlay**(setOvはtxtEdOv表示中も開いたまま)。さらに`.spov`系CSSが`opacity:0;pointer-events:none`のみでdisplay:noneにしない設計のため、旧実装ではclose後もtxtInput等の**非表示要素にfocusが残留**するという、BODY退行より発見しにくい形の実害を確認(cancel/背景クリックいずれも実機確認)。`txtEdOpener`(open時の`document.activeElement`)+`addTextBtn`固定fallbackで解消。
+- **cov**: 監査時点のLEVEL-Bから**LEVEL-A**へ格上げ。正誤判定完了時の自動表示overlayで特定openerを持たないため、`chgBtn`(「したえをかえる」、covの機能と文脈が近い常設ボタン)への固定fallbackを採用。nxtBtn/rtyBtn/clsBtnの3経路全てで実機確認。`C.autoNext=true`時(cov自体を表示せずnextImg()が呼ばれる既存経路)には影響しないことも確認(wasOpenガード)。
+- 両overlayともFocus Trap自体が元々存在しない(matrix既存記載どおり、TIER1-F3)ため、本Fixで新規のFocus Trapは実装していない(scope外)。Escapeで閉じる仕組みもscratch-app全体に元々存在しない(scope外、既知ギャップとして記録のみ)。
+- Responsive(390/768/1280)で確認、regression無し。200%zoomはテスト用ヘッドレスブラウザのビューポート制約でtxtEdOv triggerに到達できず未検証(Fix起因の問題ではない)。
+
+Batch 2は`RC VALIDATED / READY FOR USER REVIEW`としてUser判断待ち。Batch 4(cup_game)・tyushi設計判断は未着手のまま。
