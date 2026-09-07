@@ -1,9 +1,10 @@
-# donomana Modal Accessibility Contract v1.0
+# donomana Modal Accessibility Contract v1.1
 
 WCAG-JIS-AUDIT-1(Tier1+Tier2+Tier3、35アプリ)およびWCAG-JIS-AUDIT-GLOBAL-FIX-TRIAGE-1で確立したFinding Family(FAMILY-A〜E)を統合し、今後の全Modal Fixで使用する正式Contractを定義する。
 
 - 本Contractは`donomana-modal-accessibility-spec-v1_0.md`(v1.1)§21の未決定事項6・13番等を正式決定するものであり、既存specを置き換える。
 - 適用範囲: `role="dialog"`で実装される、またはすべきapp固有のオーバーレイ/モーダル。ネイティブ`window.confirm()`/`alert()`/`prompt()`は対象外(§9参照)。
+- **v1.1(2026-09-07)**: WCAG-JIS-FIX-MODAL-ONGAKU-1実装検証中に新Evidence(Initial Focus Title Reverse-Tab Escape、FAMILY-J)を発見し、§3(Focus Trap)を改訂。詳細は末尾の改訂履歴を参照。
 
 ---
 
@@ -36,7 +37,7 @@ Modal open直後、必ずmodal内部の意味のある要素へfocusを移動す
 | Pattern 1(Title tabindex=-1 + focus) | matching-app・okane-app・time-timer・tokei-app・janken-app・schedule-app・gaze-keyboard(全モーダル、HARDEN1-3で統一済み)・hiragana-learn・katakana-app(traceSampleViewer)・shiritori2・bosai-app・cup_game(helpModal、Fix済み)・ongaku-app(modal-help) |
 | Pattern 3(最初のfocusable control) | register-app(全8モーダル、`openModal()`共通関数で`el.querySelector('button,input,[tabindex]')`を使用) — **非推奨パターンとして移行対象** |
 | Pattern 4(close buttonへfocus) | scratch-app(`openHelp()`) — **非推奨パターンとして移行対象** |
-| Pattern None(Initial Focus欠如) | mogura-tataki・nazorin-print・tyushi・ongaku-app(modal-pin/export/share) |
+| Pattern None(Initial Focus欠如) | mogura-tataki・nazorin-print・tyushi(ongaku-appのmodal-pin/export/shareはWCAG-JIS-FIX-MODAL-ONGAKU-1でPattern 1へ移行済み) |
 
 **register-appとscratch-appは、Focus Trap自体は一部実装されている/されていないに関わらず、Initial Focusパターンとして非推奨(Pattern 3/4)に分類される。これはTier1完了時点では「Initial Focus Missing」がFinding Familyとして未確立だったため見落とされていた新規事実であり、本Contract確定時に新たに判明した。** FAMILY-B/A Fix実施時にあわせてPattern 1へ統一することを推奨(§19参照)。
 
@@ -50,10 +51,88 @@ Modal表示中、Tab/Shift+Tabがmodal内部で循環すること(REQUIRED)。
 
 | 方式 | 内容 | 該当 | 評価 |
 |---|---|---|---|
-| 端点循環型(端点判定してfirst/lastへ折り返す) | `if(active===last){first.focus()}else if(active===first){last.focus()}` | matching-app・okane-app・time-timer・tokei-app・janken-app・schedule-app・shiritori2・bosai-app・cup_game(Fix後もTrap自体は未実装のため実際はN/A)・ongaku-app(modal-help、Trap未実装のためN/A) | シンプルで実装済み実績多数。**REQUIRED方式として採用** |
-| Focus Trap自体が存在しない | Tab-key handlerが皆無 | mogura-tataki・scratch-app・nazorin-print・tyushi・hiragana-learn・katakana-app・cup_game・ongaku-app(modal-help/pin/export/share) | 8アプリ・11モーダルが該当(FAMILY-B対象) |
+| 端点循環型(端点判定してfirst/lastへ折り返す) | `if(active===last){first.focus()}else if(active===first){last.focus()}` | matching-app・okane-app・time-timer・tokei-app・janken-app・schedule-app・shiritori2・bosai-app・ongaku-app(modal-help、modal-pin/export/share) | シンプルで実装済み実績多数。**REQUIRED方式として採用** |
+| Focus Trap自体が存在しない | Tab-key handlerが皆無 | mogura-tataki・scratch-app・nazorin-print・tyushi・hiragana-learn・katakana-app・cup_game・gaze-keyboard(profileModal/hrModal) | 8アプリ・8モーダルが該当(FAMILY-B対象) |
 
 **決定: 端点循環型をREQUIRED実装方式として採用する。** register-appの`openModal()`共通ヘルパーで確認された`el.querySelector('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')`による`focusables`配列生成ロジックは、端点循環型の実装にそのまま転用可能な既存資産として評価する。
+
+> **[v1.1訂正]** v1.0時点では「cup_game・ongaku-app(modal-help/pin/export/share)は全てFocus Trap未実装」と記載していたが、直接コード確認によりこれは誤りだったことが判明した。**ongaku-app(modal-help)・bosai-app・shiritori2は元々Focus Trapを実装済み**(§3.1参照、いずれもtitle要素自身を`first`変数として直接使う2要素巡回設計)。cup_gameとongaku-app(modal-pin/export/share、v1.0確定時点)はFocus Trap未実装のままだったが、後者はWCAG-JIS-FIX-MODAL-ONGAKU-1で解消済み。上表は訂正済みの値。
+
+---
+
+## 3.1 Focus Trap境界の実装サブパターンと新Evidence(v1.1で追加)
+
+端点循環型には、実装の詳細が異なる2つのサブパターンが存在することが、WCAG-JIS-FIX-MODAL-ONGAKU-1実装時の検証で判明した。
+
+| サブパターン | `first`変数の実体 | 該当 |
+|---|---|---|
+| **Sub-pattern α(title=first直接代入)** | `const first = document.getElementById('...-title')`のように、tabindex="-1"のtitle要素自身を`first`として直接使う(モーダル内の巡回対象がtitleと閉じるボタンの2つだけの設計) | bosai-app・shiritori2・ongaku-app(modal-help) |
+| **Sub-pattern β(動的querySelectorAllで`[tabindex="-1"]`除外)** | `Array.from(modal.querySelectorAll('button,input,...:not([tabindex="-1"])'))`でtitleを含まない「本物のfocusable要素」のリストを動的取得し、`focusables[0]`を`first`とする | okane-app・matching-app・gaze-keyboard(settingsModal)・schedule-app・time-timer・tokei-app・janken-app |
+
+### 新Failure Mode: Initial Focus Title Reverse-Tab Escape
+
+**定義**: Sub-pattern βの実装では、initial focus(§2)がtitle要素(`tabindex="-1"`)に置かれるが、titleは`focusables`配列に含まれない(`:not([tabindex="-1"])`で明示的に除外されるため)。この状態でユーザーが一度もTabを押さずに**最初にShift+Tabを押すと**、境界判定`active===first`が成立せず(`active`はtitle、`first`は別の要素)、`e.preventDefault()`が呼ばれないため、ブラウザの標準Shift+Tab処理がそのまま実行され、**フォーカスがmodal外(背景の共通chromeボタン等)へ漏れる**。
+
+**根本原因**: Sub-pattern βの境界判定が「巡回対象として登録されているfocusable要素の集合」のみを見ており、「現在実際にfocusされている要素(initial focus anchorとしてのtitle)」を境界の一部として扱っていなかったため。
+
+**実ブラウザ再現結果(3アプリ代表、全て再現)**:
+
+| App | Modal | 初期focus | Shift+Tab後のactiveElement | modal内か |
+|---|---|---|---|---|
+| okane-app | help-modal-overlay | `help-modal-title` | (モーダル外の要素) | ❌外 |
+| matching-app | how-ov | `how-title` | `fs-btn`(フルスクリーンボタン) | ❌外 |
+| gaze-keyboard | settingsModal | `settingsModalTitle` | `donomanaA11yBtn` | ❌外 |
+| schedule-app | print-modal | `print-modal-title` | (モーダル外の要素) | ❌外(§3.1追加確認、防御ロジックがあっても再現) |
+
+schedule-appは他アプリと異なり`if(modal.contains(active)){...return;}`という追加の防御的分岐を持つが、title要素はmodalのDOM子孫であるため`modal.contains(active)`は真と判定され、そのブロック内で`active===first`が成立せず何もしないまま`return`する。**結果として同じ漏れが発生することを実機で確認した**。既存の防御ロジックはこの失敗モードに対して無力である。
+
+**Sub-pattern αが影響を受けない理由**: title自体が`first`変数の実体であるため、`active===first`の判定はtitleにフォーカスがある状態で正しく真になり、境界判定は最初から正しく機能する。
+
+### 新Contract要件(REQUIRED)
+
+Focus Trap実装は、**「現在の初期focusアンカー(initial focus anchor)」を境界判定に含めなければならない。**
+
+```js
+// 推奨アルゴリズム(疑似コード)
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Tab') return;
+  if (A11yパネルが開いていて、activeがパネル内またはトリガーボタン) return; // §4
+  const modal = 現在開いているmodal;
+  if (!modal) return;
+  const initialFocusAnchor = document.getElementById(modal.getAttribute('aria-labelledby')); // §2のtitle等
+  const focusables = Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(el => el.offsetParent !== null && !el.disabled);
+  if (!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey) {
+    // ★ v1.1追加: initialFocusAnchorも境界に含める
+    if (active === first || active === initialFocusAnchor || !modal.contains(active)) {
+      e.preventDefault(); last.focus();
+    }
+  } else {
+    if (active === last || !modal.contains(active)) {
+      e.preventDefault(); first.focus();
+    }
+  }
+});
+```
+
+**Forward Tab(Tab)側の仕様**: 変更なし。`last → first`(最初の意味のある操作要素)への循環を維持する。titleは通常のTab順序には含めないため、Forward方向でtitleへ戻ることは意図的に設計しない。
+
+**Reverse Tab(Shift+Tab)側の仕様(v1.1で追加)**: `active === first` **または** `active === initialFocusAnchor` **または** `!modal.contains(active)` のいずれかが真であれば、`last`(最後の意味のある操作要素)へ循環させる。
+
+### Defensive Recovery(防御的回収)の位置づけ
+
+modal表示中に何らかの理由でfocusが既にmodal外へ出てしまっていた場合の回収ロジック(schedule-appの`!modal.contains(active)`分岐相当)は、**RECOMMENDED**(REQUIREDではない)とする。理由: 上記のReverse Tab境界修正を正しく実装していれば、通常の操作フローでfocusがmodal外へ出ることは発生しないため、Defensive Recoveryは「万一の保険」の位置づけに留まる。ただし実装コストが小さいため、新規実装時は含めることを推奨する。
+
+### Dynamic Focusables(動的取得)の要件
+
+modal-exportのように状態遷移(進捗表示等)でfocusable要素が変化するモーダルでは、`focusables`配列を**keydownのたびにDOMから再取得すること**をREQUIREDとする(open時に固定配列を作らない)。`offsetParent!==null`によるフィルタと組み合わせることで、非表示中のサブビュー内ボタンは自動的に除外される。WCAG-JIS-FIX-MODAL-ONGAKU-1のongaku-app(modal-export)実装で採用済み。
+
+### A11yパネルとの整合
+
+上記アルゴリズムの「A11yパネルが開いていれば干渉しない」ガード(§4)は、Reverse Tab境界の修正と独立して機能する。initialFocusAnchorの判定はA11yパネルガードの**後**に評価するため、A11yパネル操作中に本チェックが誤発火することはない。
 
 ---
 
@@ -213,7 +292,9 @@ Modal表示中のGazeについて:
 | Dialog semantics(role/aria-modal) | REQUIRED |
 | Accessible name(aria-labelledby優先) | REQUIRED |
 | Initial Focus(Title優先) | REQUIRED |
-| Focus Trap(端点循環型) | REQUIRED |
+| Focus Trap(端点循環型、initial focus anchorを境界に含む。v1.1で明確化) | REQUIRED |
+| Defensive Recovery(既に漏れた場合の回収) | RECOMMENDED |
+| Dynamic Focusables(keydownごとの再取得) | REQUIRED(状態遷移を持つモーダルのみ) |
 | A11yパネル例外 | REQUIRED |
 | Escape(優先順位付き) | REQUIRED |
 | Focus Restoration(フォールバック順位付き) | REQUIRED |
@@ -225,10 +306,15 @@ Modal表示中のGazeについて:
 | Native confirm()置換 | NOT REQUIRED(現時点でFix対象外) |
 | Focus stack汎化(§12) | OPTIONAL |
 
-**REQUIRED項目は8つ(適用対象アプリの入力方式に応じてSwitch/Gazeが加算)。全て未決のまま残った項目はない。**
+**REQUIRED項目は10つ(適用対象アプリの入力方式に応じてSwitch/Gazeが加算)。全て未決のまま残った項目はない。**
+
+## 14. 未決事項(v1.1時点)
+
+**なし。** v1.1改訂により生じた新たな未決事項はない。Reverse Tab境界の修正はREQUIRED、Defensive RecoveryはRECOMMENDEDとして明確に分離しており、Contract確定を妨げる曖昧さは残っていない。
 
 ## 改訂履歴
 
 | version | date | 内容 |
 |---|---|---|
+| v1.1 | 2026-09-07 | WCAG-JIS-FIX-MODAL-ONGAKU-1実装検証中に発見した新Evidence(Initial Focus Title Reverse-Tab Escape)を反映。§3にFocus Trap境界サブパターン分析(Sub-pattern α/β)と新Contract要件(initial focus anchorをReverse Tab境界に含める)を追加。§13にDefensive Recovery(RECOMMENDED)・Dynamic Focusables(REQUIRED)を追加。§1・§2・§3の現状分類データを直接コード確認で訂正(bosai-app/shiritori2/ongaku-app[modal-help]は元々Focus Trap実装済みだった等)。 |
 | v1.0 | 2026-09-07 | Phase WCAG-JIS-MODAL-SPEC-DECISION-1。donomana-modal-accessibility-spec-v1_0.md §21の未決定事項6・13番等を正式決定。 |
