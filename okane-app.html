@@ -2335,8 +2335,13 @@ document.addEventListener('keydown',function(e){
     .filter(function(el){return el.offsetParent!==null && !el.disabled;});
   if(!focusables.length)return;
   const first=focusables[0],last=focusables[focusables.length-1];
+  // FAMILY-J対策(donomana-modal-accessibility-contract-v1_0.md v1.1準拠): initial focusは
+  // tabindex="-1"のtitle要素(aria-labelledby参照先)に置かれるためfocusablesに含まれず、
+  // active===firstのみの判定ではopen直後最初のShift+Tabでmodal外へ漏れる(Initial Focus
+  // Title Reverse-Tab Escape)。initialFocusAnchorも境界に含める。
+  const initialFocusAnchor=document.getElementById(modal.getAttribute('aria-labelledby'));
   if(e.shiftKey){
-    if(active===first || !modal.contains(active)){e.preventDefault();last.focus();}
+    if(active===first || active===initialFocusAnchor || !modal.contains(active)){e.preventDefault();last.focus();}
   }else{
     if(active===last || !modal.contains(active)){e.preventDefault();first.focus();}
   }
