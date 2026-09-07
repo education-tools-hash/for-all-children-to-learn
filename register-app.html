@@ -1625,10 +1625,17 @@ document.getElementById('product-modal-cancel').addEventListener('click',()=>clo
 // 商品編集モーダル専用のフォーカス管理（他のモーダルには影響しない）
 // ・開く直前にフォーカスしていた要素を覚えておき、閉じたら（保存/キャンセル/Escape/背景クリックいずれでも）そこへ戻す
 // ・モーダル内でTabキーが外へ漏れないよう、最初と最後の要素で循環させる
+// TIER1-F5是正: 保存(Save)経路のみ、closeModal()の直前にrenderProducts()が商品グリッド全体
+// (add-product-card・各商品のedit/deleteボタン含む)を再生成するため、pmOpenerElが指していた
+// 旧DOMノードが破棄されてdisconnectedになり、復帰処理の`document.body.contains(el)`判定に
+// 落ちてBODY退行していた(cancel/Escapeはrender Products()を呼ばないため元々問題なし)。
+// open時のeditingProductIdを合わせて保持し、opener disconnected時は再描画後の同一位置の
+// 要素(編集対象商品のeditボタん、または新規追加ならadd-product-card)を再取得してfallbackする。
 (function(){
   const pmModal=document.getElementById('product-modal');
   if(!pmModal) return;
   let pmOpenerEl=null;
+  let pmOpenerProductId=null;
   function pmFocusables(){
     return Array.from(pmModal.querySelectorAll('button,input,[tabindex]'))
       .filter(el=>el.offsetParent!==null && !el.disabled);
@@ -1649,9 +1656,23 @@ document.getElementById('product-modal-cancel').addEventListener('click',()=>clo
     const isActive=pmModal.classList.contains('active');
     if(isActive && !pmOpenerEl){
       pmOpenerEl=document.activeElement;
+      pmOpenerProductId=editingProductId;
     } else if(!isActive && pmOpenerEl){
-      const el=pmOpenerEl; pmOpenerEl=null;
-      setTimeout(()=>{ if(el && document.body.contains(el)) el.focus(); },0);
+      const el=pmOpenerEl, productId=pmOpenerProductId;
+      pmOpenerEl=null; pmOpenerProductId=null;
+      setTimeout(()=>{
+        let target = (el && document.body.contains(el)) ? el : null;
+        if(!target){
+          // 編集対象商品のeditボタン自体は.edit-overlay(hover/focus-within時のみdisplay:flex)配下で
+          // 通常非表示のためfocus()が効かない。常時visible・tabindex="0"の親カード自体を対象にする
+          // (フォーカスするとCSSの:focus-withinで自然にeditボタンも表示される)。
+          target = productId
+            ? document.querySelector('.product-card[data-id="'+productId+'"]')
+            : document.querySelector('.add-product-card');
+        }
+        if(!target) target = document.getElementById('edit-mode-btn');
+        if(target) target.focus();
+      },0);
     }
   }).observe(pmModal,{attributes:true,attributeFilter:['class']});
 })();
