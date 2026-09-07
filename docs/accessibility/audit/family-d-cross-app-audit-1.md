@@ -198,4 +198,4 @@ Blue2実機・Tobii実機によるManual Validationは全てPending。
 - img-modal: 実trigger(`.item-thumb`)がtabindexなしでfocus不能、かつ`renderEditor()`によるDOM再生成でopener参照も維持できないため、`#tab-editor`への固定fallbackを採用。Browser Validationで実UI経路(cancel/Escape/背景クリック/画像クリア/絵文字選択)から到達し**LEVEL-A**取得(監査時点のLEVEL-Bから格上げ)。
 - print-modal regressionなし、FAMILY-J境界(Shift+Tab)・Forward Tab・Responsive(390/768/1280)・200%zoom・console/page errorsいずれも確認、regression無し。
 
-Batch 1は`RC VALIDATED / READY FOR USER REVIEW`としてUser判断待ち。Batch 2(scratch-app)・Batch 3(scratch-app cov)・Batch 4(cup_game)・tyushi設計判断は未着手のまま。
+**[2026-09-08追記]** User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-BATCH-1-RELEASE`でProduction反映済み(commit `29e7669`、Production Validation PASS)。schedule-appの3モーダル(print-modal/new-modal/img-modal)全てTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。Batch 2(scratch-app txtEdOv)・Batch 3(scratch-app cov)・Batch 4(cup_game)・tyushi設計判断は未着手のまま。
