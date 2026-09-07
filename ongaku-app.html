@@ -2820,6 +2820,9 @@ function ongakuCloseModalContract(modalId) {
 // Focus Trap(端点循環型)。okane-app/matching-appで実証済みのA11yパネル対応ガード込みパターンと同型。
 // keydownのたびにDOMから候補を再取得するため、modal-exportのoptions/progress/doneの状態遷移にも
 // 追随できる(非表示状態のサブビュー内ボタンはoffsetParent===nullで自動的に除外される)。
+// 追加のバグ修正: titleはtabindex="-1"のためfocusables[]から除外されており、初期focus直後(まだ
+// 一度もTabを押していない状態)でShift+Tabを押すとactive===firstが成立せずtrapから漏れてしまう
+// 既知の問題を、okane-app/matching-appとの比較検証で新規発見した。titleもfirst相当として扱う。
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Tab') return;
   var openId = ongakuOpenModalId();
@@ -2829,12 +2832,13 @@ document.addEventListener('keydown', function (e) {
   var a11yBtn = document.getElementById('donomanaA11yBtn');
   var a11yPanel = document.getElementById('donomanaA11yPanel');
   if (a11yPanel && a11yPanel.style.display === 'block' && (active === a11yBtn || a11yPanel.contains(active))) return;
+  var titleEl = document.getElementById(modal.getAttribute('aria-labelledby'));
   var focusables = Array.from(modal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
     .filter(function (el) { return el.offsetParent !== null && !el.disabled; });
   if (!focusables.length) return;
   var first = focusables[0], last = focusables[focusables.length - 1];
   if (e.shiftKey) {
-    if (active === first || !modal.contains(active)) { e.preventDefault(); last.focus(); }
+    if (active === first || active === titleEl || !modal.contains(active)) { e.preventDefault(); last.focus(); }
   } else {
     if (active === last || !modal.contains(active)) { e.preventDefault(); first.focus(); }
   }
