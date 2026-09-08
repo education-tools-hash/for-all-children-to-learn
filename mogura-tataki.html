@@ -501,6 +501,10 @@ input[type=file]{display:none}
 .tog input:checked+.ts{background:var(--primary)}
 .hc .tog input:checked+.ts{background:var(--accent2)}
 .tog input:checked+.ts::before{transform:translateX(22px)}
+/* .tog inputはopacity:0;width:0;height:0のため、outlineが直接付いても
+   視認できない。隣接する.ts(可視トラック本体)へfocus-visible時の
+   outlineを転送することで、Tabフォーカス位置を視覚的に示す。 */
+.tog input:focus-visible+.ts{outline:3px solid var(--accent2);outline-offset:2px}
 
 /* range */
 .rw{display:flex;align-items:center;gap:6px}
@@ -2463,7 +2467,10 @@ function moguraA11yClusterFocusables(a11yPanel){
   const before=['donomanaRecordNavBtn','donomanaLockBtn'].map(id=>document.getElementById(id));
   const a11yBtn=document.getElementById('donomanaA11yBtn');
   const panelItems=Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'));
-  const after=['donomanaHomeBtn','btnHow','btnRec','btnFS'].map(id=>document.getElementById(id));
+  // mogura固有ボタン(btnHow/btnRec/btnFS)はクラスタに含めない。
+  // Batch-5(tyushi)の実装と同型: 共通A11yパネル+共通ツールバーのみで循環し、
+  // アプリ固有のヘッダーボタンへは越境しない。
+  const after=['donomanaHomeBtn'].map(id=>document.getElementById(id));
   const list=[...before, a11yBtn, ...panelItems, ...after].filter(Boolean);
   return list.filter(isVisible);
 }
