@@ -225,3 +225,36 @@ User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE`でP
 - Manual AT Validation(NVDA/VoiceOver/Blue2/Tobii)の完了 — 引き続きPending。
 - Modal Accessibilityの全Family(A/B/E/F/G/H/I等)の完了。
 - **register-appのdelete-modal別Finding(TIER1-F5には含まれない、未登録の新規発見)の解消** — 別途Fix Phase化が必要。
+
+---
+
+## 17. 再訂正(2026-09-08、WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1実施 — 重要な分類訂正)
+
+§16でFAMILY-D CLOSEDと更新した直後に、register-appのdelete-modal別Finding(§16末尾で「未登録」としていたもの)の扱いを再検討した。
+
+**重要な分類訂正**: このFindingは、TIER1-F5(product-modal限定)には含まれないが、**Focus Restoration failure(close後のBODY focus退行)であるためFAMILY-D外ではない**。単なる「別Family」ではなく、**新規のFAMILY-D residual Finding**として正式に扱う。
+
+正式Finding ID: **`TIER1-F5B`**(global-fix-triage-1.mdへ新規登録、TIER1-F5と兄弟関係の別Finding)。
+
+### 再訂正後のResidual Count
+
+| 区分 | 件数 | 内訳 |
+|---|---|---|
+| 既存global-fix-triage登録済みFAMILY-D Finding(Production基準) | **0** | TIER1-F5はProduction解消済み |
+| **新規発見FAMILY-D Finding(TIER1-F5B、Production基準)** | **1** | register-app delete-modal。`WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1`でRC実装済み・User Review Approved、Production未反映 |
+
+### 再訂正後のFinal Status
+
+**`WCAG-JIS-FAMILY-D-CLOSE-1 = FAMILY-D TECHNICAL REMEDIATION COMPLETE / CLOSED`という§16の結論を、本追記により再度PENDINGへ差し戻す。**
+
+**`WCAG-JIS-FAMILY-D-CLOSE-1 = REOPENED / NEW RESIDUAL FOUND (TIER1-F5B, register-app delete-modal, RC pending Production)`**
+
+意味するもの:
+- FAMILY-D(Focus Restoration)には、TIER1-F5Bという新規発見の未Production反映Findingが1件存在する。
+- §16のCLOSED宣言は、この新規Finding発見前の時点では正確だったが、その後の同一Fix Phase内でのRC検証中に新たなFindingが見つかったため、現時点では不正確になった。
+
+意味しないもの:
+- §16の記述を虚偽・誤りとして削除すること(履歴として保持する、その時点では正しかった判断)。
+- TIER1-F5(product-modal)自体が再びOpenになったこと(TIER1-F5はProduction解消済みのまま変更なし)。
+
+TIER1-F5BがProduction反映され、Production Validationが完了した時点で、`WCAG-JIS-FAMILY-D-CLOSE-2`(または本文書のさらなる追記)にて再度Closureを宣言する。
