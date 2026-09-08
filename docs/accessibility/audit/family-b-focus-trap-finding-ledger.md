@@ -637,3 +637,36 @@ RC1〜RC3は一貫して「A11yパネル+共通toolbar(`donomanaHomeBtn`等)を1
 - FAMILY-B Production residual count: 9件のまま変わらず(Production未反映のため)
 - RC candidate count: 5件(TIER1-F3-j・k・l・m・n)、変わらず
 - User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
+
+---
+
+## 28. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-RELEASE完了
+
+RC4(§27)についてUser Browser Reviewを再実施したところ、**User Approved**を得た。
+
+> A11y Panelを開いた状態でTab / Shift+Tabを繰り返しても、ホーム・学習の記録・画面ロック・つかいかた・きろく・全画面等へフォーカスが移らないことを確認しました。詳細設定を閉じた後のフォーカス復帰、Visible Focus、通常操作にも問題ありません。視線入力OFF時のdisabled-state不整合はSeparate Findingとして継続します。
+
+### Release手順
+
+1. baseline再確認: `origin/main`は引き続き`58799c6`(drift無し)。
+2. mainのworktree(`C:/Users/jerry/Documents/GitHub/for-all-children-to-learn`)で`git merge --ff-only fix/family-b-mogura-focus-trap`を実行、`58799c6`→`9f8fb59`へfast-forward。
+3. `git push origin main`実施。
+4. CI確認(`git fetch origin`+`git rev-parse origin/main`、WebFetch不使用): push後30秒待機で`origin/main`が`9f8fb59`→`400f661`(`github-actions[bot]`による`自動生成：アプリページを更新`、`sitemap.xml`のみの通常差分)へ進行していることを確認、CI正常完了。
+5. ローカルmainを`git merge --ff-only origin/main`で`400f661`へ追従。
+
+### Production反映内容
+
+- `TIER1-F3-j`(`scrStart`)・`TIER1-F3-k`(`scrResult`)・`TIER1-F3-l`(`panSet`)・`TIER1-F3-m`(`panRec`)・`TIER1-F3-n`(`panHow`)の5 Finding全てが**✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**。
+- FAMILY-B Production residual count: **9→4に減少**(残るのは他アプリ由来の4 Findingのみ)。
+- RC candidate count: 0(全てProduction反映済みのため)。
+
+### 未解決事項(継続、Production未対応)
+
+- **panSet内のdisabled-state設計不整合**(`dwT`/`togCur`/`dwTol`、視線入力OFF時Tab到達可能): 既存taxonomy(FAMILY-A/B/C/D/E/I)に合致せず、UNCLASSIFIED/NEEDS OWNER DECISIONとして継続記録。今回のRelease対象外。
+- `scrStart`/`scrResult`のFocus Restoration欠如(FAMILY-D候補)、Initial Focus欠如(FAMILY-C)、`panSet`背景クリック閉じ経路のFocus Restorationなし(既存挙動): いずれも§24〜§27から継続、今回のRelease対象外。
+
+### 更新後の状態
+
+- `TIER1-F3-j`〜`n` = **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(commit `9f8fb59`、CI自動コミット`400f661`)
+- FAMILY-B Production residual count: **4件**
+- worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-6`)・branch(`fix/family-b-mogura-focus-trap`)・投資調査branch(`investigate/wcag-jis-finding-initial-restore-1`, `c6930d9`)は本Release作業では削除・変更せず維持。cleanupはUser指示を待って別途実施。
