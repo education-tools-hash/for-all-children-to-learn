@@ -2359,10 +2359,32 @@ function applySettings(){
 const panelOpener = {};
 function openPanel(id,opener){document.getElementById(id).classList.add('on');if(opener)panelOpener[id]=opener;}
 function closePanel(id){document.getElementById(id).classList.remove('on');}
+// [Batch-6-RC2是正] panSetはA11yパネルProxy構造(#btnSet・#homeSetBtnはopacity:0
+// !important;pointer-events:none !important;tabIndex=-1;aria-hidden=trueで常時
+// 非表示)経由でのみ到達可能なため、donomanaSettingsProxyのクリックハンドラが
+// original(=btnSetまたはhomeSetBtn)を`.click()`することでopenPanelが呼ばれ、
+// panelOpener['panSet']に常時不可視の要素が記録されてしまっていた(panHow/panRec
+// はhomeHowBtn/homeRecBtnが可視のため問題なし)。この状態でpanSetを閉じると
+// focusが不可視要素へ落ち、そこから次のTabで(Batch-6で新規追加したoutside-focus
+// -guardが働き)scrStart内へ強制送還されるため、Userには「設定を閉じたら
+// 突然ゲーム画面のボタンに飛んだ」という予期しない遷移に見えていた
+// (User Browser Review指摘の実態、Root Cause C。fix前は単に背景ヘッダー内を
+// 彷徨うだけでmodal内には入らなかったが、その状態も「操作不能」であり
+// 改善とは言えない)。openerが実際に可視・フォーカス可能かを検証し、
+// 不可視ならdonomanaA11yBtn(常時可視)へフォールバックする。
+function isMoguraFocusReturnTarget(el){
+  if(!(el instanceof Element) || !el.isConnected || el.disabled) return false;
+  if(el.getClientRects().length===0) return false;
+  const cs=getComputedStyle(el);
+  if(cs.visibility==='hidden'||cs.display==='none') return false;
+  if(Number.parseFloat(cs.opacity)===0) return false;
+  return true;
+}
 function closePanelAndReturnFocus(id){
   closePanel(id);
   const opener=panelOpener[id];
-  if(opener&&typeof opener.focus==='function')opener.focus();
+  const target=isMoguraFocusReturnTarget(opener)?opener:document.getElementById('donomanaA11yBtn');
+  if(target&&typeof target.focus==='function')target.focus();
 }
 
 // header buttons
