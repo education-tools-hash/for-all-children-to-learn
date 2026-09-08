@@ -183,8 +183,8 @@ FAMILY-D(Focus Restoration)について、`WCAG-JIS-FINDING-INITIAL-RESTORE-1`�
 
 ## 14. Next Audit Work
 
-1. **register-app TIER1-F5の単独Fix Phase**(推奨: `WCAG-JIS-FIX-FAMILY-D-REGISTER-1`)。`pmOpenerEl`が退行する原因の実機再調査から開始し、本lineageで確立済みの`xxxOpener`+fallbackパターンが応用できるか検討する。
-2. §8の別Family findings(Escape機構欠如の横断調査、Pattern D5派生のProxy機構共通課題等)の扱いをUserと相談し、必要なら新規Finding登録・別Phase化する。
+1. §8の別Family findings(Escape機構欠如の横断調査、Pattern D5派生のProxy機構共通課題等)の扱いをUserと相談し、必要なら新規Finding登録・別Phase化する。
+2. **register-appのdelete-modal別Finding**(§16参照)の単独Fix Phase化をUserと相談する。
 3. Global Fix Triageの次候補選定(FAMILY-B/A/E/C/F/G/H/I、またはManual Validation)は、本Closure後にUserが優先順位を判断する。
 
 ---
@@ -195,4 +195,33 @@ register-app TIER1-F5のRoot Causeを実機確認: product-modalの保存(Save)�
 
 RC作成中に**別Finding**を新規発見: `delete-modal`(同じregister-app内、専用のopener trackingを持たない一般`openModal`/`closeModal`のみ)もcancel経路でBODY退行することを実機確認(LEVEL-A)。これはTIER1-F5(product-modal限定)とは別のFindingであり、本Fix Phaseのscope外のため未着手のまま記録する。
 
-本Closure文書(§9 Residual Count、§12 Closure基準、§13 Final Status)の結論(FAMILY-D NOT FULLY CLOSED)はこの時点でも変わらない。register-appのFix自体がProduction反映されるまでは、本文書のstatusを更新しない。
+---
+
+## 16. 最終追記(2026-09-08、WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE完了)
+
+User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE`でProduction反映済み(commit `b71cbfb`、Production Validation PASS)。register-app product-modal(TIER1-F5)がTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。
+
+### 訂正後のResidual Count
+
+| 区分 | 件数 | 内訳 |
+|---|---|---|
+| 本lineageのCONFIRMED FAIL残存 | 0 | (§9のまま、変更なし) |
+| **FAMILY-D全体(global-fix-triage-1.md基準)の残存Open** | **0** | register-app TIER1-F5もProduction解消済み |
+| **register-appの別Finding(TIER1-F5には含まれない、未登録)** | **1** | delete-modal(cancel経路でBODY退行、LEVEL-A確認、未着手) |
+
+### 訂正後のClosure基準判定
+
+§12の最後の基準(「FAMILY-D全体のresidual = 0」)は、register-app TIER1-F5のProduction反映により**PASSへ更新**する。
+
+### 訂正後のFinal Status
+
+**`WCAG-JIS-FAMILY-D-CLOSE-1 = FAMILY-D TECHNICAL REMEDIATION COMPLETE / CLOSED`**(§13の結論を本追記により更新)
+
+意味するもの:
+- global-fix-triage-1.md記載の全FAMILY-D Finding(TIER1-F5含む)が、Production反映またはNOT APPLICABLE判定により解消済み。
+
+意味しないもの(§13と同様、変更なし):
+- WCAG/JIS全体の完了。
+- Manual AT Validation(NVDA/VoiceOver/Blue2/Tobii)の完了 — 引き続きPending。
+- Modal Accessibilityの全Family(A/B/E/F/G/H/I等)の完了。
+- **register-appのdelete-modal別Finding(TIER1-F5には含まれない、未登録の新規発見)の解消** — 別途Fix Phase化が必要。
