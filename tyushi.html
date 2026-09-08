@@ -1445,6 +1445,39 @@ document.querySelectorAll('.chip').forEach(btn=>{
     if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') closeHelp();
   });
 
+  // TIER1-F3-g是正: help-overlayにはFocus Trapが一切無く、Tab/Shift+Tabで背景
+  // (lock-btn・donomanaA11yBtn等)へ即座に脱出していた(実機確認)。open-state判定は
+  // 既存Escapeハンドラと同じ`overlay.style.display !== 'none'`を用いる(このoverlay
+  // は#help-overlay.openクラスではなくstyle.displayを直接操作するアーキテクチャの
+  // ため、CSSクラス判定ではなくこれに合わせる)。settings-panel(非modal、別UI)には
+  // 一切手を加えない。document-levelのkeydown listenerを採用(要素直付けだと
+  // outside-focus-guardが発火しないため、他Batchと同じ設計方式)。
+  // 実機確認で発覚した問題の是正: help-overlay表示中に共通A11yパネルを開いた場合、
+  // A11yパネル内でのTabがhelp-overlay側のTrapに奪われてしまっていた(A11yパネルは
+  // z-indexでhelp-overlayより上に表示されるため見た目上operableに見えるが、
+  // focusはhelp-overlay内へ強制送還されていた)。他app(okane-app/matching-app/
+  // gaze-keyboard settingsModal等)の既存Trapと同型のA11yパネル競合回避条件式を追加。
+  function helpOverlayFocusables() {
+    return Array.from(overlay.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+      .filter(el => el.offsetParent !== null && !el.disabled);
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    if (!overlay || overlay.style.display === 'none') return;
+    const a11yBtn = document.getElementById('donomanaA11yBtn');
+    const a11yPanel = document.getElementById('donomanaA11yPanel');
+    if (a11yPanel && a11yPanel.style.display === 'block' && (document.activeElement === a11yBtn || a11yPanel.contains(document.activeElement))) return;
+    const items = helpOverlayFocusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey) {
+      if (active === first || !overlay.contains(active)) { e.preventDefault(); last.focus(); }
+    } else {
+      if (active === last || !overlay.contains(active)) { e.preventDefault(); first.focus(); }
+    }
+  });
+
   tabBtns.forEach(tab => {
     tab.addEventListener('click', () => {
       tabBtns.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
