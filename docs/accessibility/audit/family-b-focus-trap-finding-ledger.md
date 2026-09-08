@@ -32,8 +32,8 @@
 | # | Finding ID | App | File | UI/Modal ID | UI classification | Modal Contract Applicable | FAMILY-B Applicable | Evidence Level | Forward Tab | Reverse Tab | Immediate Shift+Tab | Outside Focus Escape | Pattern | Priority | Status | Fix Batch | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | TIER1-F3-a | register-app | register-app.html | `delete-modal` | Modal Dialog | YES | YES | **LEVEL-A** | **PASS**(15回連続TabでもDOM外へ脱出せず、`delete-cancel`⇄`delete-confirm`間で正しく循環。pre-fix: 10回Tabで`fullscreen-btn`へ脱出) | **PASS**(15回連続Shift+Tabでも脱出せず。pre-fix: 10回Shift+Tabで`share-btn`へ脱出) | **PASS**(`delete-confirm`へ正しくwrap。pre-fix: 背景`record-open-btn`へ即座に脱出) | **PASS**(activeElementをmodal外に強制した状態からTab/Shift+Tabいずれでもmodal内へ復帰することを確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-1-RELEASE`, commit `a012cfa`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 1 | Focus Restoration(TIER1-F5B)はProduction解決済み、Trapのみ残存していた。Fixはdocument-levelのkeydown listener(dmModal要素直付けでは outside-focus-guard発火不可なため、record-modal(既存)と同一方式を採用)+ 既存product-modalと同じfocusable算出/端点wrapロジック。cancel/Escape/confirm(境界削除含む)のRestorationおよびproduct-modal自体への regression無しをbrowser検証済み(RC・Production両方で再確認) |
-| 2 | TIER2-F2-a | cup_game | cup_game.html | `settingsOverlay` | Modal Dialog(role/aria-modal無し、別Finding) | YES(実質modal) | YES | **LEVEL-A** | 29回目のTabでBODYへ脱出 | 偶然内部に留まる(`toggleDwell`) | 偶然PASS(forward側でFAIL確定) | FAIL(forward) | B1 | P2 | CONFIRMED FAIL | Batch 3(A11yパネルProxy構造) | A11yパネルProxy経由が唯一の到達経路 |
-| 3 | TIER2-F2-b | cup_game | cup_game.html | `helpOverlay`(helpModal) | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`startBtn`へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 3 | |
+| 2 | TIER2-F2-a | cup_game | cup_game.html | `settingsOverlay` | Modal Dialog(role/aria-modal無し、別Finding) | YES(実質modal) | YES | **LEVEL-A**(2026-09-09実機再確認、Forward Tab#1で即座にBODY外へ脱出を確定) | **PASS**(15回連続Tabで脱出せず。pre-fix: Tab#1で即座に脱出) | **PASS**(15回連続Shift+Tabで脱出せず) | **PASS**(`settingsCloseBtn`へ正しくwrap) | **PASS**(`donomanaA11yBtn`から強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-7`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-7`, branch `fix/family-b-tier2-focus-trap`。Production未反映) | Batch 7(Fix実装は今回が初めて。旧記載「Batch 3」の由来は不明、Note欄で確認できず) | A11yパネルProxy経由が唯一の到達経路。Initial Focus欠如(既存FAMILY-C Finding、今回修正せず)。custom toggle(`toggleDwell`等)のVisible Focus問題を新規発見、Separate Finding候補として記録(今回修正せず) |
+| 3 | TIER2-F2-b | cup_game | cup_game.html | `helpOverlay`(helpModal) | Modal Dialog(内側`#helpModal`に`role="dialog" aria-modal="true"`developer明示) | YES | YES | **LEVEL-A**(2026-09-09実機再確認、Forward Tab#2でBODY外へ・Reverse Shift+Tab#1で即座に脱出を確定) | **PASS**(15回連続Tabで脱出せず。pre-fix: Tab#2で脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: Shift+Tab#1で即座に脱出) | **PASS**(`helpCloseBtn`へ正しくwrap) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-7`。Production未反映) | Batch 7(Fix実装は今回が初めて) | 既存Initial Focus(`helpTitle`)・Focus Restoration(`donomanaHelpBtn`)・Escapeともregressionなしを実機確認。修正実装中に`tabindex="-1"`のInitial Focus anchorをfocusables境界計算から除外する際の設計上の教訓を2点発見(詳細は§29参照) |
 | 4 | TIER1-F3-b | scratch-app | scratch-app.html | `txtEdOv` | Modal Dialog(setOv上のnested overlay) | YES | YES | **LEVEL-A** | **PASS**(25回連続Tabで脱出せず。pre-fix: 25回目までに`hintClose`[モーダル外]へ脱出、旧報告時点では19回目で`photoInp`へ脱出) | **PASS**(25回連続Shift+Tabで脱出せず。pre-fix: `co`[モーダル外]へ脱出) | **PASS**(`txtBgCustom`等、モーダル内に留まる。pre-fix と同じく偶然PASSだったがforward/reverse両方PASSしたことを新たに確認) | **PASS**(chgBtnへ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-2-RELEASE`, commit `fb13634`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 2 | Focus Restorationは`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`で解決済み。今回はTrapのみ追加、txtEdOpener/closeTxtEd()には一切手を加えていない。Cancel/Save経路ともBODY退行無しを再確認(Save経路は`closeTxtEd()`後に`closeSet()`が`setBtn.focus()`を上書きする既存挙動があるが、これはorigin/mainと同一のpre-existing挙動でBODY退行ではない、RC・Production両方で再確認) |
 | 5 | TIER1-F3-c | scratch-app | scratch-app.html | `cov` | 状態遷移型completion overlay | YES | YES | **LEVEL-A** | **PASS**(10回連続Tabで脱出せず。pre-fix: `LABEL`要素[モーダル外]へ脱出) | **PASS**(明示テストで脱出せず) | **PASS**(`clsBtn`へ正しくwrap。pre-fix: 背景`<a>`要素へ即座に脱出) | **PASS**(chgBtnへ強制focusした状態から復帰確認は同一document listenerで担保) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-2-RELEASE`, commit `fb13634`) | Batch 2 | 同上。closeCov()経由のRestoration(nxtBtn/rtyBtn/clsBtn全経路で`chgBtn`)を再確認、regression無し(RC・Production両方で再確認) |
 | 6 | TIER1-F3-d | nazorin-print | nazorin-print.html | `helpModal` | Modal Dialog | YES | YES | **LEVEL-A** | **PASS**(20回連続Tabで脱出せず、単一focusable[`btnHelpClose`]自身へ循環。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnHelpClose`自身に留まる。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3-RELEASE`, commit `4da35d9`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 3(注: Ledger当初案の「Batch 4」から実行順で3番目のBatchとして実施。同一3 Finding、番号相違のみ) | |
@@ -42,8 +42,8 @@
 | 9 | TIER1-F3-g | tyushi | tyushi.html | `help-overlay` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず、`help-close`⇄`.htab`間で正しく循環。pre-fix: 15回目までに背景`donomanaA11yBtn`[モーダル外]へ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaA11yBtn`へ脱出) | **PASS**(help-btn[opener]からのShift+Tabは`help-close`へ、DOM順序上偶然PASSしていたが今回明示的に保証。pre-fix: 偶然PASSだったがForward側でFAIL確定) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-5-RELEASE`, commit `26217f6`。RC1はUser Browser ReviewでA11yパネル共存回帰がFAILし、RC2で再修正、RC2をUser Browser Review Approved後にProduction Validation実機再確認PASS済み。詳細は§22(RC2修正)・§23(Release)参照) | Batch 5(注: Ledger当初案の「Batch 1」から実行順で5番目のBatchとして実施。同一Finding、番号相違のみ) | settings-panelとは別UI(§6参照、混同しない)、settings-panelには一切手を加えていない。**[別Finding発見・今回Fixせず]** `closeHelp()`にfocus復帰処理が一切無く、close後にactiveElementがBODYへ退行することを実機確認(新規FAMILY-D候補、既存Ledgerに未記録だった)。RC2・Production Validationいずれでも同一挙動が維持されており悪化していないことを確認済み。**[RC1で発見・RC1修正が不十分と判明・RC2で正式修正]** §22参照 |
 | 10 | TIER1-F3-h | gaze-keyboard | gaze-keyboard.html | `profileModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.prof-modal`にはsettingsModalの`.settings-modal`と異なり`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。旧Ledgerの「YES」は結果として妥当だが根拠となるARIA属性の有無を未確認のまま記載していた。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず、`profModalTitle`⇄`profCancel`間で正しく循環。pre-fix: 20回目までに背景`rtClear`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`profCancel`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4-RELEASE`, commit `f070ca1`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 4 | hrModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた。Initial Focus(`#profModalTitle`、tabindex="-1")はFAMILY-J対応のanchor境界処理が必要(settingsModal既存Trapと同型) |
 | 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.hr-modal`も同様に`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`btnCopy`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`histClearBtn`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4-RELEASE`, commit `f070ca1`) | Batch 4 | 同上。Initial Focusは常設focusableな`.hr-tab.active`自体のためanchor特別扱い不要。履歴/レポートタブ切替による動的DOM再構築後もTrap維持を実機確認(RC・Production両方で再確認) |
-| 12 | TIER2-F2-c | hiragana-learn | hiragana-learn.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | katakana-appと共通実装(コード共有、ファイルは別) |
-| 13 | TIER2-F2-d | katakana-app | katakana-app.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | hiragana-learnと共通実装 |
+| 12 | TIER2-F2-c | hiragana-learn | hiragana-learn.html | `traceSampleViewer` | Modal Dialog(`role="dialog" aria-labelledby`、aria-modal無しは別Finding) | YES | YES | **LEVEL-A**(2026-09-09実機再確認によりLEVEL-Bから昇格、Forward Tab#3でBODY外へ・Reverse Shift+Tab#1で即座に脱出を確定) | **PASS**(15回連続Tabで脱出せず。pre-fix: Tab#3で脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: Shift+Tab#1で即座に脱出) | **PASS**(`traceSampleCloseBtn`へ正しくwrap) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-7`。Production未反映) | Batch 7(Fix実装は今回が初めて) | katakana-appと共通実装(コード共有、ファイルは別、Fixも個別に同一実装を追加)。既存Initial Focus(`traceSampleTitle`)・Focus Restoration(`traceSampleViewerPrevFocus`)・Escapeともregressionなしを実機確認。`tabindex="-1"`要素の扱いに関する設計上の教訓を2点発見(詳細は§29参照) |
+| 13 | TIER2-F2-d | katakana-app | katakana-app.html | `traceSampleViewer` | Modal Dialog(同上) | YES | YES | **LEVEL-A**(2026-09-09実機再確認によりLEVEL-Bから昇格、hiragana-learnと同一パターンで脱出を確定) | **PASS**(15回連続Tabで脱出せず。pre-fix: Tab#3で脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: Shift+Tab#1で即座に脱出) | **PASS**(`traceSampleCloseBtn`へ正しくwrap) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-7`。Production未反映) | Batch 7(Fix実装は今回が初めて) | hiragana-learnと共通実装(Fixも個別に同一実装を追加)。既存Initial Focus・Focus Restoration・Escapeともregressionなしを実機確認 |
 | 14 | TIER1-F3-j | mogura-tataki | mogura-tataki.html | `scrStart` | Modal Dialog(`.screen`、`position:fixed;inset:0`のフルスクリーンoverlay、`role="dialog" aria-modal="true"`。ゲームプレイ用UI[`<main class="wrap">`、常設DOM]の上に被さるホーム画面で、初期ロード時から`on`付与、他に閉じた状態の背景画面が無い点が他4要素と異なるが、`<main>`を実質的に遮断するtrue modalとしてContract適用可能と再確認) | YES(developer自身が明示的にdialog/aria-modal指定) | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 15回目までに背景DIV[モーダル外]へ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 偶然`btnStart`へ留まっていたがforward側でFAIL確定) | **PASS**(`btnStart`へ正しく留まる。pre-fix: 同じく偶然PASSだったがforward側FAIL確定) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RELEASE`, commit `9f8fb59`、CI自動コミット`400f661`。RC1→RC2→RC3→RC4を経てUser Browser Review Approved、Production Release完了。詳細は§24〜§28参照)[2026-09-09 docs-only correction: RC2表記のまま更新漏れだった箇所を最新状態へ修正] | Batch 6(注: Ledger当初案の「Batch 7」から実行順で6番目のBatchとして実施。同一Finding、番号相違のみ) | Initial Focus欠如(activeElement=BODY)を実機確認、既存FAMILY-C Finding(今回修正せず)。5要素まとめて単一document-level listenerで処理(詳細は§24参照) |
 | 15 | TIER1-F3-k | mogura-tataki | mogura-tataki.html | `scrResult` | 同上(`.screen`)。ゲーム終了時に`<main>`を遮断する結果画面 | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(`btnHomeR`へ正しくwrap。pre-fix: 背景DIVへ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RELEASE`, commit `9f8fb59`、CI自動コミット`400f661`)[2026-09-09 docs-only correction] | Batch 6 | Initial Focus欠如(BODY)を実機確認、既存FAMILY-C Finding(今回修正せず)。closeボタン無し(「もういちど」「ホームにもどる」ボタンで次画面へ遷移)、既存Focus Restoration欠如(FAMILY-D候補、§24参照) |
 | 16 | TIER1-F3-l | mogura-tataki | mogura-tataki.html | `panSet` | Modal Dialog(`.panel`、同様のフルスクリーンoverlay)。既存`openPanel`/`closePanelAndReturnFocus`共通関数で開閉、Focus Restoration実装済み(openerへ復帰) | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`fsL`[文字サイズボタン]へ脱出) | **PASS**(`clsSet2`へ正しくwrap。pre-fix: 背景`donomanaRecordNavBtn`へ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RELEASE`, commit `9f8fb59`、CI自動コミット`400f661`)[2026-09-09 docs-only correction] | Batch 6 | 実trigger(`#homeSetBtn`・`#btnSet`)はA11yパネルProxy構造で常時非表示(`opacity:0 !important;pointer-events:none !important;tabIndex=-1;aria-hidden=true`)、`donomanaSettingsProxy`経由でのみ到達可能(既存の別app[okane-app等]と同型パターン)。**[RC2で追加修正]** `donomanaSettingsProxy`クリック時に隠しtrigger(`btnSet`)が`.click()`され、`panelOpener['panSet']`に不可視要素が記録される既存の構造上、panSetを閉じるとfocusが不可視要素へ落ち、Batch-6で新規追加したoutside-focus-guardによりscrStart内へ強制送還される(User Browser Review指摘の実態、詳細は§25参照)。`closePanelAndReturnFocus`にopener可視性検証を追加し、不可視の場合は`donomanaA11yBtn`へフォールバックするよう修正、実機確認済み。背景クリックで閉じる経路(`closePanel`のみ)はFocus Restoration自体が発生しない既存挙動のため今回変更せず(別Finding) |
@@ -670,3 +670,78 @@ RC4(§27)についてUser Browser Reviewを再実施したところ、**User App
 - `TIER1-F3-j`〜`n` = **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(commit `9f8fb59`、CI自動コミット`400f661`)
 - FAMILY-B Production residual count: **4件**
 - worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-6`)・branch(`fix/family-b-mogura-focus-trap`)・投資調査branch(`investigate/wcag-jis-finding-initial-restore-1`, `c6930d9`)は本Release作業では削除・変更せず維持。cleanupはUser指示を待って別途実施。
+
+---
+
+## 29. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-CLOSE / WCAG-JIS-FIX-FAMILY-B-BATCH-7: cleanup・残存4件の再同定とRC実装
+
+### Batch-6 cleanup
+
+`origin/main`(`a5edd83`)を再確認したところ、§3個別Findingテーブルの`TIER1-F3-j`〜`n`のStatusセルがRC2表記のまま更新漏れになっていたことを発見し、docs-only correction(commit `7b784f5`)で是正した(内容は§28までの記録と一致、Statusセルの表記のみの訂正)。
+
+`fix/family-b-mogura-focus-trap`がmainへfully mergedであることを確認(`git merge-base --is-ancestor`)、worktree/branch双方に未保存差分がないことを確認したうえで、worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-6`)とローカルbranchを削除した。remote branchは存在しないことを確認(このプロジェクトはfeature branchをリモートにpushせず、mainへの直接pushのみで運用)。投資調査branch(`investigate/wcag-jis-finding-initial-restore-1`, `c6930d9`)は未変更のまま維持を確認した。
+
+最新`origin/main`(`7b784f5`)から新規worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-7`)・branch(`fix/family-b-tier2-focus-trap`)を作成した。
+
+### TIER2-F2-a〜d 再同定(現在のProductionコードで再確認、旧Ledger記述を鵜呑みにせず)
+
+| Finding | App | Element | 実態 |
+|---|---|---|---|
+| TIER2-F2-a | cup_game.html | `settingsOverlay` | `.modal-overlay`(position:fixed;inset:0)。内側`.settings-modal`にrole/aria-modal無し(既存、別Finding)。`donomanaSettingsProxy`ではなくネイティブ`gearBtn`+共通A11yパネルProxyから到達 |
+| TIER2-F2-b | cup_game.html | `helpOverlay` | 外側`.modal-overlay`にrole無し、内側`#helpModal`に`role="dialog" aria-modal="true"`(developer明示)。`donomanaHelpBtn`から到達 |
+| TIER2-F2-c | hiragana-learn.html | `traceSampleViewer` | `role="dialog" aria-labelledby`(aria-modal無し、別Finding)。`hidden`属性で開閉。記録一覧から個別サンプルを開いた際に表示 |
+| TIER2-F2-d | katakana-app.html | `traceSampleViewer` | hiragana-learnと完全に同一実装(コード差分は色・コメントのみ、`diff`で確認済み) |
+
+4件ともTab/Shift+Tab用のkeydownリスナーが実装コード上に一切存在しないこと(grep+目視で確認)、実機(Playwright/Chromium)でForward 15回・Reverse 15回・immediate Shift+Tab・forced outside focusのいずれかで確定的にmodal外へ脱出することを確認し、**LEVEL-A**へ昇格した。
+
+### Root Cause分類
+
+4件共通で **B1: Tab handler完全欠如**。Forward/Reverse boundary不足・outside-focus guard不足はいずれもこの単一原因から派生。
+
+- Initial Focus: TIER2-F2-aのみ欠如(既存FAMILY-C Finding、今回修正せず)。b/c/dは実装済み(`helpTitle`/`traceSampleTitle`への`tabindex="-1"`+`.focus()`)。
+- Focus Restoration: 4件とも実装済み(a: `donomanaA11yBtn`固定復帰、b: `donomanaHelpBtn`、c/d: `traceSampleViewerPrevFocus`)、regressionなしを確認。
+- Escape: a(settingsOverlay)のみ未実装(既存の意図的設計、コードコメントに明記、別Finding)。b/c/dは実装済み、regressionなしを確認。
+- Background Suppression: 4件とも未実装(既存、別Finding、他Batchと同様の状態)。
+- Visible Focus: TIER2-F2-aの`toggleDwell`等5トグル(`.toggle-switch input{opacity:0;width:0;height:0}`)に`:focus-visible`スタイルが定義されておらず、mogura-tataki RC3で発見したのと同型のVISIBLE FOCUS問題を確認した。b/c/dの該当コントロール(`traceSampleOverlayToggle`等)は`:focus-visible`定義済みで問題なし。今回は**Separate Finding候補として記録するに留め、修正しない**(FAMILY-Bのスコープ外、重大なUser Review阻害の兆候なし)。
+- A11y Panel coexistence: 3アプリとも共通A11yパネル(`donomanaA11yPanel`、`generate.js`の`buildA11yPanelHTML()`による全アプリ共通自動挿入)自体にstrict containmentが実装されておらず、修正前はmodal内から自然にA11yパネル領域・共通ツールバーへ流出することを確認した。
+
+### Batch grouping判断
+
+4件は同一Root Cause(B1)・類似DOM構造(`.modal-overlay`ラッパー+内側card、または`hidden`属性の全画面dialog)・同一Trap architecture(mogura-tataki FAMILY-B-BATCH-6で確立した「document-level keydown + 現在openのtop overlay優先順位判定 + A11yパネルstrict containment分岐」がそのまま適用可能)・dynamic riskいずれも低・A11yパネルcoexistence状況も同型(3アプリとも共通A11yパネル自体にcontainmentなし)であることを確認し、**Batch分割せず単一Batch-7で処理可能**と判断した。
+
+### RC Fix Architecture
+
+mogura-tataki(FAMILY-B-BATCH-6-RC4)で確立したarchitectureを、共通`generate.js`(A11yパネル自動挿入コード自体)には一切手を加えず、各アプリファイル内にローカルに実装した:
+
+- `cup_game.html`: `CUPGAME_MODAL_IDS=['helpOverlay','settingsOverlay']`優先順位配列、`cupGameTrapFocusables()`、`cupGameCurrentTopModal()`、`cupGameA11yPanelFocusables()`(`donomanaA11yBtn`+パネル内部要素のみでstrict containment)、単一document-level keydownリスナー。
+- `hiragana-learn.html`/`katakana-app.html`: `traceSampleViewerFocusables()`、`traceSampleA11yPanelFocusables()`、同型のkeydownリスナー(1modalのみのシンプル版)。katakana-appはhiragana-learnと同一コードを個別に追加(既存のコード共有方針を維持しつつ、Tab処理はコピーで対応)。
+
+**実装中に新規発見した設計上の教訓(2点、いずれも修正済み)**:
+
+1. **hidden-but-in-selector問題**: `querySelectorAll('[tabindex]')`は`tabindex="-1"`(Initial Focus専用アンカー、Tabキーのシーケンシャルナビゲーション対象外というブラウザ標準仕様)も無条件にマッチしてしまう。これをfocusablesリストから除外せずfirst/lastの境界計算に含めると、Reverse方向でcontainer外へ脱出する不具合が実機で発生した(`helpTitle`/`traceSampleTitle`で確認)。`el.tabIndex !== -1`のフィルタを追加して解消した。
+2. **Initial Focus anchor自体がactiveElementになるケースの境界判定漏れ**: 1の対処でtabindex=-1要素をfocusablesから除外すると、今度はInitial Focus直後(activeElementがtabindex=-1要素)の状態でShift+Tabを押した際、`items.indexOf(active)===-1`となり境界条件(`active===first`等)に一致せずブラウザネイティブ処理に委譲されてcontainer外へ脱出する不具合が新たに発生した。`items.indexOf(active)===-1`(container内だがfocusablesに無い=Initial Focus anchor)の場合も境界相当として扱うよう判定条件を拡張して解消した。
+
+**mogura-tataki(TIER1-F3-j〜n)への影響確認**: `moguraTrapFocusables()`には同型のフィルタ漏れが理論上存在するが、対象5modalにはInitial Focus実装自体が元々欠如していた(§24で記録済み、既存FAMILY-C Finding)ため、tabindex=-1要素を持つmodalが無く実害は発生していない。Production側は今回変更せず、**将来Initial Focusを追加実装する際に同じ罠に注意する必要がある、という設計上の教訓としてのみ**ここに記録する(Separate Finding化はしない、潜在的リスクの申し送り)。
+
+### Post-fix検証結果(全項目実機確認)
+
+- **Forward Tab x15 / Reverse Shift+Tab x15**(4件): 全てPASS(修正1回目でReverse方向のFAILを検出、上記2点の追加修正で全PASSに解消)。
+- **immediate Shift+Tab**: 4件ともPASS(container内の最後の要素へ正しくwrap)。
+- **forced outside focus**(`donomanaA11yBtn`から強制focus): 4件ともTab/Shift+Tabいずれもmodal内へ正しく復帰。
+- **A11y Panel strict containment**: 4件とも、A11yパネルOPEN中はForward/Reverse x15いずれもmodal内へ一切戻らず、`donomanaA11yBtn`+パネル内部要素のみで完結することを確認。A11yパネルclose後は次のTabでmodal Trapが即座に復帰することを確認。
+- **Escape/Focus Restoration regression**: 4件ともregressionなし(a:既存Escape未実装のまま変更なし、b/c/d:既存Escape実装がそのまま機能)。
+- **Responsive**(390×844/768×1024/1280×900): 4件×3viewport、全12ケースPASS。
+- **Touch**: `toggleDwell`のtap toggle、`donomanaHelpBtn`/`helpCloseBtn`のtap open/close、`startBtn`のtapによるゲーム本来操作、いずれもregressionなし。
+- **Console/page errors**: 全テストを通じて0件。
+- **Static Validation**: `git diff --check`エラーなし、ID重複なし、変更は3ファイルで新規関数追加+既存keydownリスナーの直後への追記のみ、既存コードの変更は境界判定条件の拡張2点のみ(上記教訓1・2の修正)。
+
+### disabled-state Separate Finding(mogura panSet)
+
+`dwT`/`togCur`/`dwTol`には一切触れていない。Batch-7の変更ファイル(`cup_game.html`/`hiragana-learn.html`/`katakana-app.html`)は`mogura-tataki.html`と無関係であり、そもそも触れる経路がない。
+
+### 更新後の状態
+
+- `TIER2-F2-a`〜`d` = **FIXED IN RC / USER REVIEW PENDING**(worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-7`, branch `fix/family-b-tier2-focus-trap`。Production未反映)
+- FAMILY-B Production residual count: **4件のまま変わらず**(Production未反映のため)
+- RC candidate count: 4件(TIER2-F2-a・b・c・d)
+- User Browser Review待ち。Production Release/main merge/cleanupは未実施。
