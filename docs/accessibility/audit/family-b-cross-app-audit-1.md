@@ -192,3 +192,22 @@ CONFIRMED FAIL 12件(9アプリ)が存在するため、`NO TECHNICAL REMEDIATIO
 ## 19. Recommended Next Phase
 
 Fix Batch 1〜4のいずれかをUser判断で選定し、`WCAG-JIS-FIX-FAMILY-B-BATCH-N`として着手することを推奨する。ただしFix Batch開始は本Phaseでは自動化しない。
+
+---
+
+## 20. 正規化による訂正(2026-09-08、WCAG-JIS-FAMILY-B-LEDGER-NORMALIZE-1)
+
+**重要な訂正**: 本文書§6の「CONFIRMED FAIL 12件」という集計、および§10「B1=10件・B7=1件(合計11件)」というPattern内訳には、以下の構造的な欠陥があったことが後続の正規化Phaseで判明した:
+
+1. nazorin-print行が`batchModal`・`libModal`の2つの独立したDOM要素(いずれも`role="dialog" aria-modal="true"`)を1行に束ねていた。
+2. gaze-keyboard行が`profileModal`・`hrModal`の2つの独立した要素を1行に束ねていた。
+3. mogura-tataki行は「screen/panelベースの独自アーキテクチャ」と曖昧に記載されていたが、実際には`scrStart`・`scrResult`・`panSet`・`panRec`・`panHow`という**5つの独立した`role="dialog" aria-modal="true"`要素**が存在し、コード確認の結果いずれもTab keydown処理を持たない(B1パターン)ことが判明した。
+4. §10の「11件中10件」という記述自体も、§6の表の行数(12)と矛盾する単純な計算ミスだった。
+
+**正規化後の正式な数値は、`docs/accessibility/audit/family-b-focus-trap-finding-ledger.md`を唯一のSource of Truthとする。**
+
+- CONFIRMED FAIL: **18件**(本文書の12件から6件増加。nazorin-print+1、gaze-keyboard+1、mogura-tataki+4)
+- Pattern: **B1=18件、B7=0件**(mogura-tatakiも精査の結果B1と判明したため、B7という区分自体が不要になった)
+- Evidence Level: LEVEL-A=6件、LEVEL-B=12件、LEVEL-C=0件
+
+本文書(§1〜§19)の記述は、その時点で得られていたEvidenceに基づく調査記録として削除せず保持する。以降のFix Batch着手・進捗管理は、本文書ではなく`family-b-focus-trap-finding-ledger.md`を基準とすること。

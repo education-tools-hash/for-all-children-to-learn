@@ -1,0 +1,180 @@
+# FAMILY-B Focus Trap Finding Ledger
+
+**目的**: `WCAG-JIS-FAMILY-B-CROSS-APP-AUDIT-1`の最終報告に生じた集計不整合(CONFIRMED FAIL=12件と書きながらPattern内訳がB1=10+B7=1=11件しかない、nazorin-print/gaze-keyboardが複数modalを1行に束ねていた、hiragana-learn/katakana-app/mogura-tatakiのmodal名が具体化されていなかった)を正規化する。**1 Finding = 1 Ledger Row**を徹底し、以降このLedgerを唯一の集計基準(Single Source of Truth)とする。
+
+**Phase種別**: docs-only正規化。Production app codeの変更は一切行っていない。
+
+---
+
+## 1. 正規化の方針
+
+- 1行 = 1 app内の1 modal/screen/panel/overlay インスタンス に対するFAMILY-B判定。
+- 同一appに複数の対象UIがある場合(nazorin-print、gaze-keyboard、mogura-tataki等)、必ず行を分割する。
+- CONFIRMED PASSは「Fix不要な参照実装」であり本来Findingではないため、Ledgerの主対象はCONFIRMED FAIL・N/A・SPECIAL HANDLING・NEEDS MORE EVIDENCEとする。PASSはapp単位の一覧として§4に別掲するに留める(全PASSモーダルを1つずつ行分割することは本Phaseのscopeを超えるため行わない)。
+
+---
+
+## 2. 12件/11件不整合のRoot Cause(確定)
+
+`family-b-cross-app-audit-1.md`の§6表は以下の2つの構造的欠陥を持っていた:
+
+1. **bundling誤り**: nazorin-print行が「batchModal・libModal」の2 modalを1行に、gaze-keyboard行が「profileModal・hrModal」の2 modalを1行に、それぞれ束ねていた。表は12行だったが、真のmodal数は12行のうち2行が2modal分を含むため**14 modal相当**だった。
+2. **単純な計算ミス**: §10の文章で「11件中10件がこのパターン」と書いたが、表の行数(12)と矛盾する単純な書き間違いだった(B1=10行+B7=1行=11行だが、実際の表は12行あり、この時点で既に1行分どこかで数え漏れが発生していた)。
+
+本Ledgerでは、上記2つの欠陥をすべて解消し、mogura-tataki(旧: 1行で「screen/panelベース独自UI」と曖昧に記載)・hiragana-learn/katakana-app(旧: 「(該当modal)」と未特定)も含めて、実コード確認により全対象を具体的なmodal ID単位まで特定した。
+
+**結果、正規化後のCONFIRMED FAIL総数は18件(旧報告の12件から6件増加)。** 増加分の内訳: nazorin-print +1(batchModal/libModalを2行に分割したことによる純増1)、gaze-keyboard +1(profileModal/hrModalを2行に分割したことによる純増1)、mogura-tataki +4(旧1行→実際は5つの独立したdialog要素が存在することが判明、純増4)。
+
+---
+
+## 3. Finding Ledger(CONFIRMED FAIL / N/A / SPECIAL HANDLING)
+
+| # | Finding ID | App | File | UI/Modal ID | UI classification | Modal Contract Applicable | FAMILY-B Applicable | Evidence Level | Forward Tab | Reverse Tab | Immediate Shift+Tab | Outside Focus Escape | Pattern | Priority | Status | Fix Batch | Notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | TIER1-F3-a | register-app | register-app.html | `delete-modal` | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`record-open-btn`へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 1 | Focus Restoration(TIER1-F5B)はProduction解決済み、Trapのみ残存 |
+| 2 | TIER2-F2-a | cup_game | cup_game.html | `settingsOverlay` | Modal Dialog(role/aria-modal無し、別Finding) | YES(実質modal) | YES | **LEVEL-A** | 29回目のTabでBODYへ脱出 | 偶然内部に留まる(`toggleDwell`) | 偶然PASS(forward側でFAIL確定) | FAIL(forward) | B1 | P2 | CONFIRMED FAIL | Batch 3(A11yパネルProxy構造) | A11yパネルProxy経由が唯一の到達経路 |
+| 3 | TIER2-F2-b | cup_game | cup_game.html | `helpOverlay`(helpModal) | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`startBtn`へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 3 | |
+| 4 | TIER1-F3-b | scratch-app | scratch-app.html | `txtEdOv` | Modal Dialog(setOv上のnested overlay) | YES | YES | **LEVEL-A** | 19回目のTabで`photoInp`(モーダル外)へ脱出 | 偶然内部に留まる(`txtBgCustom`) | 偶然PASS(forward側でFAIL確定) | FAIL(forward) | B1 | P2 | CONFIRMED FAIL | Batch 2 | Focus Restorationは`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`で解決済み |
+| 5 | TIER1-F3-c | scratch-app | scratch-app.html | `cov` | 状態遷移型completion overlay | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`<a>`要素へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 2 | 同上 |
+| 6 | TIER1-F3-d | nazorin-print | nazorin-print.html | `helpModal` | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`SECTION`要素へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 4 | |
+| 7 | TIER1-F3-e | nazorin-print | nazorin-print.html | `batchModal` | Modal Dialog | YES | YES | LEVEL-B(コード確認: ファイル全体でTab keydown処理が皆無、helpModalと同一構造) | 未確認 | 未確認 | 未確認 | 未確認 | B1(推定) | P2 | CONFIRMED FAIL | Batch 4 | helpModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた |
+| 8 | TIER1-F3-f | nazorin-print | nazorin-print.html | `libModal` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1(推定) | P2 | CONFIRMED FAIL | Batch 4 | 同上 |
+| 9 | TIER1-F3-g | tyushi | tyushi.html | `help-overlay` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 1 | settings-panelとは別UI(§6参照、混同しない) |
+| 10 | TIER1-F3-h | gaze-keyboard | gaze-keyboard.html | `profileModal` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、NEW-KNOWN-3) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 5 | hrModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた |
+| 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 5 | 同上 |
+| 12 | TIER2-F2-c | hiragana-learn | hiragana-learn.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | katakana-appと共通実装(コード共有、ファイルは別) |
+| 13 | TIER2-F2-d | katakana-app | katakana-app.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | hiragana-learnと共通実装 |
+| 14 | TIER1-F3-j | mogura-tataki | mogura-tataki.html | `scrStart` | Modal Dialog(`.screen`、`position:fixed;inset:0`のフルスクリーンoverlay、`role="dialog" aria-modal="true"`) | YES(developer自身が明示的にdialog/aria-modal指定) | YES | LEVEL-B(コード確認: ファイル全体でTab keydown処理が皆無) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 7(個別設計要) | 旧「screen/panelベース独自アーキテクチャ、深掘り要」を本Ledgerで5要素に分解・特定 |
+| 15 | TIER1-F3-k | mogura-tataki | mogura-tataki.html | `scrResult` | 同上(`.screen`) | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 7 | |
+| 16 | TIER1-F3-l | mogura-tataki | mogura-tataki.html | `panSet` | Modal Dialog(`.panel`、同様のフルスクリーンoverlay) | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 7 | |
+| 17 | TIER1-F3-m | mogura-tataki | mogura-tataki.html | `panRec` | 同上(`.panel`) | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 7 | |
+| 18 | TIER1-F3-n | mogura-tataki | mogura-tataki.html | `panHow` | 同上(`.panel`) | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 7 | |
+| — | — | tyushi | tyushi.html | `settings-panel` | Non-modal Disclosure Panel | **NO(`WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`で確定)** | **NOT APPLICABLE** | LEVEL-A | N/A | N/A | N/A(背景へ自然に抜ける、意図的設計) | N/A | N/A | N/A | **NOT APPLICABLE** | — | help-overlay(#9)とは別UI、混同禁止 |
+
+**CONFIRMED FAIL総数: 18件**(全てPattern B1、全てPriority P2)。
+**NOT APPLICABLE: 1件**(tyushi settings-panel)。
+**SPECIAL HANDLING: 0件**(mogura-tatakiは調査の結果、Modal Contract適用対象かつPattern B1と判定できたため、独立したSPECIAL HANDLING区分は不要と判断。ただし個別要素数が多く実機未検証のため、Fix Batch 7として個別設計配慮を残す)。
+**NEEDS MORE EVIDENCE: 0件**。
+
+---
+
+## 4. CONFIRMED PASS(参照実装、app単位一覧・Finding化しない)
+
+| App | 対象modal |
+|---|---|
+| register-app | product-modal |
+| matching-app | 全モーダル(how-ov/settings-ov/record-ov/edit-ov/clear-ov/vs-result-ov) |
+| time-timer | 全モーダル |
+| okane-app | 全モーダル |
+| schedule-app | 全モーダル |
+| janken-app | 全モーダル |
+| tokei-app | 全モーダル |
+| gaze-keyboard | settingsModal |
+| shiritori2 | 全モーダル |
+| bosai-app | 全モーダル |
+| ongaku-app | modal-help・modal-pin/export/share |
+
+**11アプリ、Focus Trap実装済み。** これらはFindingではないため個別modal単位への分解は行わない(既にFAMILY-J Regression Gate等で個別実機確認済み、参照実装として安定している)。
+
+---
+
+## 5. Evidence Level集計(Ledger基準)
+
+| Level | 件数 | 内訳 |
+|---|---|---|
+| **LEVEL-A** | **6** | register-app(delete-modal)、cup_game(settingsOverlay・helpOverlay)、scratch-app(txtEdOv・cov)、nazorin-print(helpModal) |
+| **LEVEL-B** | **12** | nazorin-print(batchModal・libModal)、tyushi(help-overlay)、gaze-keyboard(profileModal・hrModal)、hiragana-learn(traceSampleViewer)、katakana-app(traceSampleViewer)、mogura-tataki(scrStart・scrResult・panSet・panRec・panHow) |
+| **LEVEL-C** | **0** | — |
+
+**合計18件、LEVEL-A + LEVEL-B = 18で一致。**
+
+---
+
+## 6. Pattern集計(Ledger基準)
+
+| Pattern | 件数 | 内訳 |
+|---|---|---|
+| B1(Trap完全欠如) | **18** | 全件 |
+| B2(Forward boundary破損のみ) | 0 | — |
+| B3(Reverse boundary破損のみ) | 0 | — |
+| B4(Initial anchor reverse escape) | 0 | — |
+| B5(Dynamic focusables stale) | 0 | — |
+| B6(A11yパネル相互作用起因) | 0 | — |
+| B7(独自アーキテクチャ) | **0**(調査の結果、mogura-tatakiもB1と判明したため訂正) | — |
+
+**全18件がPrimary PatternとしてB1に分類される。旧報告の「B1=10、B7=1」は誤りであり、正しくは「B1=18、B7=0」である。**
+
+---
+
+## 7. Priority集計
+
+| Priority | 件数 |
+|---|---|
+| P1 | 0 |
+| **P2** | **18**(全件) |
+| P3 | 0 |
+
+---
+
+## 8. Test Methodology訂正(modal-regression-test-contract.mdへの反映推奨)
+
+本監査で判明した重要な方法論上の教訓:
+
+> **immediate Shift+Tab(open直後、一度もTabを押さない状態でのShift+Tab)だけでFocus Trap PASSと判定してはならない。**
+
+cup_game(settingsOverlay)・scratch-app(txtEdOv)の2件は、immediate Shift+Tabの時点ではDOM順序の偶然により内部に留まったが、Forward Tabを最後まで進めると(19〜29回目)モーダル外へ脱出した。これは、reverse方向の初期挙動だけを見て「Focus Trapが機能している」と誤判定する典型的な失敗パターンである。
+
+**Focus Trap PASSの正式定義(今後の全監査で適用)**:
+1. Forward boundary wrap(lastFocusable→firstFocusable)
+2. Reverse boundary wrap(firstFocusable/initialFocusAnchor→lastFocusable)
+3. Immediate Shift+Tab(open直後、modal外へ逃げない)
+4. 上記いずれもmodal外へのfocus escapeが一切無いこと
+
+**この4条件全てを満たさない限りPASSとしない。** 一部だけ満たす場合はCONFIRMED FAILとする(部分的PASSという中間区分は設けない、これは既存Contract v1.1の「REQUIRED」という位置付けと整合する)。
+
+`modal-regression-test-contract.md`への反映は、次回の当該Fix Batch実施時にRegression Gate手順として明記することを推奨する(本Phaseではdocs-only正規化のみのため、当該ファイルの直接編集は見送り、推奨事項として記録するに留める)。
+
+---
+
+## 9. Fix Batch Plan(再設計版)
+
+Evidence LevelとA11yパネルProxy構造の有無、実装の類似性に基づき再設計:
+
+| Batch | 対象 | Evidence Level | 理由 |
+|---|---|---|---|
+| **Batch 1(最優先候補)** | register-app(delete-modal)、tyushi(help-overlay) | LEVEL-A / LEVEL-B | delete-modalはLEVEL-A・scope最小・Restoration解決済み・User Review容易。tyushiは単独UIで影響範囲小 |
+| **Batch 2** | scratch-app(txtEdOv・cov) | LEVEL-A(2件とも) | 同一app、Focus Restoration解決済み、Trap欠如箇所が明確 |
+| **Batch 3(A11yパネルProxy構造あり)** | cup_game(settingsOverlay・helpOverlay) | LEVEL-A(2件とも) | 同一app、A11yパネルEscape優先度との整合を同時に設計する必要があり単独Batchとする |
+| **Batch 4** | nazorin-print(helpModal・batchModal・libModal) | LEVEL-A 1件+LEVEL-B 2件 | 同一app、3modal共通の実装パターンが強く推定される |
+| **Batch 5** | gaze-keyboard(profileModal・hrModal) | LEVEL-B(2件とも) | 同一app、NEW-KNOWN-3の既存文脈を踏まえた個別確認が必要 |
+| **Batch 6** | hiragana-learn・katakana-app(traceSampleViewer) | LEVEL-B(2件とも) | 2app共通実装、同時対応が自然 |
+| **Batch 7(個別設計要、最後に着手推奨)** | mogura-tataki(scrStart・scrResult・panSet・panRec・panHow) | LEVEL-B(5件とも、実機未検証) | 5要素と対象数が多く、`.screen`/`.panel`という2種類の独自CSS構造を持つため、他Batchの実装パターンがそのまま適用できるか個別に設計検討してから着手する |
+
+**推奨着手順序: Batch 1 → 2 → 3 → 4 → 5 → 6 → 7。** ただし実際の着手順序はUser判断による。
+
+---
+
+## 10. Separate Findings(FAMILY-B以外、本Ledgerでは記録のみ)
+
+| Finding | 対象 | Family |
+|---|---|---|
+| Escapeキーで閉じる仕組みが存在しない | cup_game(settingsOverlay)、scratch-app(全modal共通)、tyushi(settings-panel) | 未分類(Escape機構) |
+| role/aria-modal欠如 | cup_game(settingsOverlay) | FAMILY-A寄り |
+| Initial Focus非理想着地 | cup_game(settingsOverlay)、tyushi | FAMILY-C |
+| 背景抑制(inert)欠如 | 複数アプリ | FAMILY-E |
+
+いずれも今回修正しない。
+
+---
+
+## 11. Manual Validation Pending
+
+NVDA・VoiceOver・Blue2実機・Tobii実機は引き続きPending。本Ledger作成でも実施していない。
+
+---
+
+## 12. Final Status
+
+`WCAG-JIS-FAMILY-B-LEDGER-NORMALIZE-1 = FINDING LEDGER NORMALIZED / READY FOR FIX`
+
+CONFIRMED FAIL 18件が確定した。Fix Batch実装は本Phaseでは開始しない。
