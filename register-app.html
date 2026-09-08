@@ -1744,6 +1744,44 @@ document.getElementById('delete-confirm').addEventListener('click',()=>{
 });
 document.getElementById('delete-cancel').addEventListener('click',()=>closeModal('delete-modal'));
 
+// FAMILY-D新規Finding是正: delete-modalはopener trackingが一切無く、closeModal()の
+// 「document.activeElement.blur()」により全close経路(cancel/confirm/Escape共通)でBODY退行
+// していた。実trigger(delete button)は.edit-overlay配下でhover/focus-within時のみ表示され
+// 直接focus()しても視覚的に認識できないため、product-modalのFix(WCAG-JIS-FIX-FAMILY-D-
+// REGISTER-1)と同じ考え方で常設・可視の親.product-cardを対象にする。confirm(実際に削除
+// された場合)は対象商品自体がDOMから消えるため、open時点でのproducts配列内indexを保持し、
+// 再描画後の同じindex位置(=繰り上がった次カード)、無ければ最後のカード、グリッドが空なら
+// .add-product-card、それも無ければ#edit-mode-btnへのlogical replacementで復帰する。
+(function(){
+  const dmModal=document.getElementById('delete-modal');
+  if(!dmModal) return;
+  let dmDeletingId=null, dmDeletingIndex=-1;
+  new MutationObserver(()=>{
+    const isActive=dmModal.classList.contains('active');
+    if(isActive && dmDeletingId===null){
+      dmDeletingId=deletingProductId;
+      dmDeletingIndex=products.findIndex(p=>p.id===deletingProductId);
+    } else if(!isActive && dmDeletingId!==null){
+      const id=dmDeletingId, idx=dmDeletingIndex;
+      dmDeletingId=null; dmDeletingIndex=-1;
+      setTimeout(()=>{
+        let target=document.querySelector('.product-card[data-id="'+id+'"]');
+        if(!target){
+          const cards=document.querySelectorAll('.product-card');
+          if(cards.length){
+            const i=Math.min(Math.max(idx,0),cards.length-1);
+            target=cards[i];
+          } else {
+            target=document.querySelector('.add-product-card');
+          }
+        }
+        if(!target) target=document.getElementById('edit-mode-btn');
+        if(target) target.focus();
+      },0);
+    }
+  }).observe(dmModal,{attributes:true,attributeFilter:['class']});
+})();
+
 // ============================================================
 //  PAYMENT
 // ============================================================
