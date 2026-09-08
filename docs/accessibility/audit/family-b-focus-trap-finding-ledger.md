@@ -36,9 +36,9 @@
 | 3 | TIER2-F2-b | cup_game | cup_game.html | `helpOverlay`(helpModal) | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`startBtn`へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 3 | |
 | 4 | TIER1-F3-b | scratch-app | scratch-app.html | `txtEdOv` | Modal Dialog(setOv上のnested overlay) | YES | YES | **LEVEL-A** | **PASS**(25回連続Tabで脱出せず。pre-fix: 25回目までに`hintClose`[モーダル外]へ脱出、旧報告時点では19回目で`photoInp`へ脱出) | **PASS**(25回連続Shift+Tabで脱出せず。pre-fix: `co`[モーダル外]へ脱出) | **PASS**(`txtBgCustom`等、モーダル内に留まる。pre-fix と同じく偶然PASSだったがforward/reverse両方PASSしたことを新たに確認) | **PASS**(chgBtnへ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-2-RELEASE`, commit `fb13634`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 2 | Focus Restorationは`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`で解決済み。今回はTrapのみ追加、txtEdOpener/closeTxtEd()には一切手を加えていない。Cancel/Save経路ともBODY退行無しを再確認(Save経路は`closeTxtEd()`後に`closeSet()`が`setBtn.focus()`を上書きする既存挙動があるが、これはorigin/mainと同一のpre-existing挙動でBODY退行ではない、RC・Production両方で再確認) |
 | 5 | TIER1-F3-c | scratch-app | scratch-app.html | `cov` | 状態遷移型completion overlay | YES | YES | **LEVEL-A** | **PASS**(10回連続Tabで脱出せず。pre-fix: `LABEL`要素[モーダル外]へ脱出) | **PASS**(明示テストで脱出せず) | **PASS**(`clsBtn`へ正しくwrap。pre-fix: 背景`<a>`要素へ即座に脱出) | **PASS**(chgBtnへ強制focusした状態から復帰確認は同一document listenerで担保) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-2-RELEASE`, commit `fb13634`) | Batch 2 | 同上。closeCov()経由のRestoration(nxtBtn/rtyBtn/clsBtn全経路で`chgBtn`)を再確認、regression無し(RC・Production両方で再確認) |
-| 6 | TIER1-F3-d | nazorin-print | nazorin-print.html | `helpModal` | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`SECTION`要素へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 4 | |
-| 7 | TIER1-F3-e | nazorin-print | nazorin-print.html | `batchModal` | Modal Dialog | YES | YES | LEVEL-B(コード確認: ファイル全体でTab keydown処理が皆無、helpModalと同一構造) | 未確認 | 未確認 | 未確認 | 未確認 | B1(推定) | P2 | CONFIRMED FAIL | Batch 4 | helpModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた |
-| 8 | TIER1-F3-f | nazorin-print | nazorin-print.html | `libModal` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1(推定) | P2 | CONFIRMED FAIL | Batch 4 | 同上 |
+| 6 | TIER1-F3-d | nazorin-print | nazorin-print.html | `helpModal` | Modal Dialog | YES | YES | **LEVEL-A** | **PASS**(20回連続Tabで脱出せず、単一focusable[`btnHelpClose`]自身へ循環。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnHelpClose`自身に留まる。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-3`, branch `fix/family-b-nazorin-print-focus-trap`。Production未反映) | Batch 3(注: Ledger当初案の「Batch 4」から実行順で3番目のBatchとして実施。同一3 Finding、番号相違のみ) | |
+| 7 | TIER1-F3-e | nazorin-print | nazorin-print.html | `batchModal` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(30回連続Tab[動的に追加された一覧項目含む]で脱出せず。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnBatchPrint`へ正しくwrap。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3`。Production未反映) | Batch 3 | helpModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた。一覧(`#batchList`)は動的生成のため毎keydownでfocusable再取得、項目追加・削除後もTrap維持を実機確認 |
+| 8 | TIER1-F3-f | nazorin-print | nazorin-print.html | `libModal` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnLibDelFolder`へ正しくwrap。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3`。Production未反映) | Batch 3 | 同上。フォルダ/セット一覧(`#libFolderList`/`#libSets`)も動的生成、同様に確認済み |
 | 9 | TIER1-F3-g | tyushi | tyushi.html | `help-overlay` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 1 | settings-panelとは別UI(§6参照、混同しない) |
 | 10 | TIER1-F3-h | gaze-keyboard | gaze-keyboard.html | `profileModal` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、NEW-KNOWN-3) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 5 | hrModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた |
 | 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 5 | 同上 |
@@ -82,11 +82,11 @@
 
 | Level | 件数 | 内訳 |
 |---|---|---|
-| **LEVEL-A** | **6** | register-app(delete-modal)、cup_game(settingsOverlay・helpOverlay)、scratch-app(txtEdOv・cov)、nazorin-print(helpModal) |
-| **LEVEL-B** | **12** | nazorin-print(batchModal・libModal)、tyushi(help-overlay)、gaze-keyboard(profileModal・hrModal)、hiragana-learn(traceSampleViewer)、katakana-app(traceSampleViewer)、mogura-tataki(scrStart・scrResult・panSet・panRec・panHow) |
+| **LEVEL-A** | **8**(2026-09-08、`WCAG-JIS-FIX-FAMILY-B-BATCH-3`でnazorin-print batchModal・libModalを実機確認によりLEVEL-Bから昇格。旧6件) | register-app(delete-modal)、cup_game(settingsOverlay・helpOverlay)、scratch-app(txtEdOv・cov)、nazorin-print(helpModal・batchModal・libModal) |
+| **LEVEL-B** | **10**(旧12件、上記2件がLEVEL-Aへ移動) | tyushi(help-overlay)、gaze-keyboard(profileModal・hrModal)、hiragana-learn(traceSampleViewer)、katakana-app(traceSampleViewer)、mogura-tataki(scrStart・scrResult・panSet・panRec・panHow) |
 | **LEVEL-C** | **0** | — |
 
-**合計18件、LEVEL-A + LEVEL-B = 18で一致。**
+**合計18件、LEVEL-A + LEVEL-B = 18で一致(継続)。**
 
 ---
 
@@ -237,3 +237,22 @@ User Browser Review Approved(「FAMILY-B Batch2 User Browser Review: 問題あ�
 - **FAMILY-B Production残存件数: 17件 → 15件**(TIER1-F3-b・TIER1-F3-cが解消、残り15件は未着手)
 - 投資調査branch `investigate/wcag-jis-finding-initial-restore-1`(`c6930d9`)は本Releaseでも変更なし
 - worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-2`・branch `fix/family-b-scratch-focus-trap`はcleanup済み(fully merged後に削除)
+
+---
+
+## 17. [2026-09-08追記] WCAG-JIS-FIX-FAMILY-B-BATCH-3 進捗
+
+`TIER1-F3-d`(nazorin-print `helpModal`)・`TIER1-F3-e`(`batchModal`)・`TIER1-F3-f`(`libModal`)を`WCAG-JIS-FIX-FAMILY-B-BATCH-3`でFix RC実装完了。詳細は§3の該当行を参照。
+
+- Status: 3 Finding全て = **FIXED IN RC / USER REVIEW PENDING**(Production未反映)
+- worktree: `for-all-children-to-learn-wcag-jis-fix-family-b-batch-3`
+- branch: `fix/family-b-nazorin-print-focus-trap`
+- Finding ID / 実装DOM IDの照合結果: Ledger記載の`helpModal`/`batchModal`/`libModal`は最新Production(nazorin-print.html)と完全一致、齟齬なし。3 modalとも`role="dialog" aria-modal="true"`かつネイティブ`hidden`属性で開閉(`.hidden=false/true`)、既存Escapeハンドラ実装済み(`document.addEventListener("keydown", e => { if (e.key === "Escape" && !xxxModal.hidden) closeXxx(); })`)、閉じるとopener(`btnHelp`/`btnBatch`/`btnLibrary`)へ復帰する既存Restorationも実装済み(FAMILY-D非該当・現状維持)。
+- Pre-fix Evidence(実機確認): 3 modalとも同一パターンでCONFIRMED FAIL — immediate Shift+Tabで背景`SECTION`要素へ即座に脱出、20回連続Forward Tabで背景`BUTTON`へ脱出、20回連続Reverse Shift+Tabで背景`btnBatch`へ脱出。batchModal・libModalはLedger上旧LEVEL-B(コード確認のみ)だったが、本Phaseの実機テストにより**LEVEL-Aへ昇格**(§5のEvidence Level集計を8/10に更新)。
+- Fix architecture: 3 modal共通の単一document-level keydown listenerを新規追加。「今どのmodalが表示中か(ネイティブ`hidden`属性で判定: `!helpModal.hidden`→`!batchModal.hidden`→`!libModal.hidden`の優先順)」を判定し、該当modalのみfocusableを毎回再取得してendpoint/outside-focus wrapする設計(register-app/scratch-app Fix[Batch 1/2]と同じdocument-level方式)。3 modal間の相互干渉が無いこと(helpModal異常終了状態からbatchModalを開いてもhelpModal側Trapが誤発火しない)、listener多重登録が起きないこと(open/close 3回サイクル後もpreventDefault発火回数が1のまま)を実機確認済み。
+- batchModal(`#batchList`)・libModal(`#libFolderList`/`#libSets`)は一覧が動的生成されるため、項目追加・削除後もfocusable再取得によりTrapが正しく維持されることを実機確認(3件追加→30回Tab未脱出→1件削除→Tab継続で依然containment維持)。
+- **FAMILY-B Production residual count: 15件のまま変わらず**(Production未反映のため)
+- **RC candidate count: 3件**(TIER1-F3-d・TIER1-F3-e・TIER1-F3-f)
+- Focus Restoration(FAMILY-D非該当領域、現状維持)・Escape(既存実装、変更なし)・A11yパネル(regressionなし、実機確認済み)いずれも問題なし。
+- 備考: Ledger§3・§9(旧設計時点のFix Batch Plan)では本3 Findingを「Batch 4」と記載していたが、実際のPhase実行順序では本Phase(3番目に実行されたFix Batch)が該当する。対象Finding自体(TIER1-F3-d/e/f)に相違はなく、Batch番号の呼称のみの相違である。
+- User Browser Review待ち。Production Release/main merge/cleanupは未実施。
