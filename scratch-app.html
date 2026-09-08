@@ -1582,6 +1582,37 @@ function closeTxtEd(){
   txtEdOpener = null;
 }
 
+// TIER1-F3-b/c是正: txtEdOv・covにはFocus Trapが一切無く、Tab/Shift+Tabで
+// 背景要素(hintClose・色スウォッチ・下絵カード・<a>等)へ脱出していた(Cross-App
+// Audit実機確認: txtEdOvはforward Tab、covはimmediate Shift+Tabで脱出)。
+// document-levelのkeydownで「今どちらのmodalが開いているか」を判定し、開いて
+// いる方のみfocusableを毎回再取得してendpoint/outside-focus wrapする(要素直付け
+// listenerだとactiveElementが既にmodal外にある場合に発火しないため、register-app
+// delete-modal Fix[WCAG-JIS-FIX-FAMILY-B-BATCH-1]と同じdocument-level方式を採用)。
+// txtEdOvとcovが同時に開くことは無いが、念のため排他的にどちらか一方のみ処理する
+// (else ifで両立を防止、二重登録も避けるため単一listenerに統合)。
+function scratchTrapFocusables(container){
+  return Array.from(container.querySelectorAll('button,input,[tabindex]'))
+    .filter(el=>el.offsetParent!==null && !el.disabled);
+}
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Tab') return;
+  const txtEdOv=document.getElementById('txtEdOv');
+  const cov=document.getElementById('cov');
+  let modal=null;
+  if(txtEdOv.classList.contains('on')) modal=txtEdOv;
+  else if(cov.classList.contains('on')) modal=cov;
+  if(!modal) return;
+  const items=scratchTrapFocusables(modal);
+  if(!items.length) return;
+  const first=items[0], last=items[items.length-1];
+  if(e.shiftKey){
+    if(document.activeElement===first || !modal.contains(document.activeElement)){ e.preventDefault(); last.focus(); }
+  } else {
+    if(document.activeElement===last || !modal.contains(document.activeElement)){ e.preventDefault(); first.focus(); }
+  }
+});
+
 // ---- 背景タブ切り替え ----
 function setBgTab(type){
   const isPhoto=(type==='photo');
