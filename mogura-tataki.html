@@ -2394,6 +2394,89 @@ document.addEventListener('keydown',e=>{
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');});
 });
 
+// TIER1-F3-j~n是正: scrStart/scrResult/panSet/panRec/panHowにはFocus Trapが
+// 一切無く、Tab/Shift+Tabで背景(ゲーム画面ヘッダーのbtnHow等・共通ツールバー)
+// へ即座に脱出していた(実機確認)。5要素はいずれも同一の開閉機構
+// (classList.add/remove('on')、.screen.on/.panel.onでdisplay:flexに切替)を
+// 持つため、「現在開いているトップmodal」を判定する単一のdocument-level
+// keydown listenerで共通処理する。優先順位は前面(.panel、z-index:300)を
+// 背面(.screen、z-index:200)より優先(ホーム画面からhomeHowBtn等でpanHow等を
+// 開いた場合、scrStartが開いたままpanHowが前面に重なるケースがあるため)。
+// panel同士(panSet/panRec/panHow)・screen同士(scrStart/scrResult)はいずれも
+// 排他的にしか開かない設計。
+//
+// [A11yパネル共存対策、Batch-5(tyushi)の教訓を最初から反映]
+// 実機確認の結果、A11yパネルは自身にFocus Trapを持たず、パネル内最後の
+// focusable(donomanaA11yReset)からのForward TabはdonomanaHomeBtn→ゲーム画面
+// ヘッダー(btnHow→btnRec→btnFS)を経てmogura自身のmodal内へ、Reverse Shift+Tab
+// はdonomanaLockBtn→donomanaRecordNavBtn→BODY→modal内へ、それぞれ数回で
+// 侵入してしまうことを実機確認した(forward 23回、reverse 3回で到達)。単純に
+// modal Trapをskipするだけでは不十分なため、A11yパネルOPEN中は「A11yパネル+
+// 共通ツールバークラスタ」自体にローカルなラップ処理を適用し、mogura側modal
+// (および他の背景要素)へ流出しないようにする。共通A11yパネル実装自体は
+// 変更しない(tyushi.htmlローカル修正と同じ方針をmogura-tataki.htmlにも適用)。
+const MOGURA_MODAL_IDS = ['panHow','panRec','panSet','scrResult','scrStart'];
+function moguraTrapFocusables(container){
+  return Array.from(container.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+    .filter(el=>el.offsetParent!==null && !el.disabled);
+}
+function moguraCurrentTopModal(){
+  for(const id of MOGURA_MODAL_IDS){
+    const el=document.getElementById(id);
+    if(el && el.classList.contains('on')) return el;
+  }
+  return null;
+}
+function moguraA11yClusterFocusables(a11yPanel){
+  // donomanaA11yBtn/donomanaHomeBtn/donomanaLockBtnはposition:fixedのため
+  // offsetParentが常にnullになる(Chromiumの既知の仕様)。getClientRects()+
+  // computed styleベースの可視性判定(Batch-5で確立した対処と同型)を用いる。
+  const isVisible=el=>{
+    if(!el||el.disabled) return false;
+    if(el.hasAttribute('hidden')) return false;
+    if(el.getClientRects().length===0) return false;
+    const cs=getComputedStyle(el);
+    return cs.display!=='none' && cs.visibility!=='hidden';
+  };
+  const before=['donomanaRecordNavBtn','donomanaLockBtn'].map(id=>document.getElementById(id));
+  const a11yBtn=document.getElementById('donomanaA11yBtn');
+  const panelItems=Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'));
+  const after=['donomanaHomeBtn','btnHow','btnRec','btnFS'].map(id=>document.getElementById(id));
+  const list=[...before, a11yBtn, ...panelItems, ...after].filter(Boolean);
+  return list.filter(isVisible);
+}
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Tab') return;
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel && a11yPanel.style.display==='block'){
+    const clusterItems=moguraA11yClusterFocusables(a11yPanel);
+    if(!clusterItems.length) return;
+    const cFirst=clusterItems[0], cLast=clusterItems[clusterItems.length-1];
+    const cActive=document.activeElement;
+    const inCluster=clusterItems.includes(cActive);
+    const modal=moguraCurrentTopModal();
+    if(e.shiftKey){
+      if(inCluster && cActive===cFirst){ e.preventDefault(); cLast.focus(); }
+      else if(!inCluster && modal && modal.contains(cActive)){ e.preventDefault(); cLast.focus(); }
+    } else {
+      if(inCluster && cActive===cLast){ e.preventDefault(); cFirst.focus(); }
+      else if(!inCluster && modal && modal.contains(cActive)){ e.preventDefault(); cFirst.focus(); }
+    }
+    return;
+  }
+  const modal=moguraCurrentTopModal();
+  if(!modal) return;
+  const items=moguraTrapFocusables(modal);
+  if(!items.length) return;
+  const first=items[0], last=items[items.length-1];
+  const active=document.activeElement;
+  if(e.shiftKey){
+    if(active===first || !modal.contains(active)){ e.preventDefault(); last.focus(); }
+  } else {
+    if(active===last || !modal.contains(active)){ e.preventDefault(); first.focus(); }
+  }
+});
+
 // mode / time / count / diff / holes
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('[data-mode]').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
