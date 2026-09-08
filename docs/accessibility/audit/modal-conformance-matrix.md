@@ -39,7 +39,7 @@
 | Dialog Semantics | 17(ongaku-app pin/export/share Fix済み含む) | 1(mogura-tataki) | 0 | 0 |
 | Accessible Name | 17 | 0 | 0 | 1(scratch-app未検証) |
 | Initial Focus | 12(ongaku-app pin/export/share Fix済み含む) | 2(register-app・scratch-app) | 4(mogura-tataki・nazorin-print・tyushi・gaze-keyboard[profileModal/hrModalのTrap側は別軸]) | 0 |
-| Focus Trap(Forward) | 10(ongaku-app pin/export/share Fix済み含む) | 0 | 8(register-appを除く旧FT-1/FT-2対象) | 0 |
+| Focus Trap(Forward) | **12**(register-app[product-modalのみ]・matching-app・time-timer・okane-app・schedule-app・janken-app・tokei-app・gaze-keyboard[settingsModal]・shiritori2・bosai-app・ongaku-app[modal-help]・ongaku-app[pin/export/share]) | 0 | **10**(mogura-tataki・scratch-app・nazorin-print・tyushi[help-overlay]・gaze-keyboard[profileModal/hrModal]・hiragana-learn・katakana-app・cup_game[helpModal]・**cup_game[settingsOverlay、2026-09-08新規登録]**・**register-app[delete-modal、2026-09-08新規登録]**) | **1**(tyushi[settings-panel]、非modal確定によりN/A) |
 | **Reverse Tab境界(v1.1新設)** | **12(register-app・shiritori2・bosai-app・ongaku-app[modal-help]・time-timer・tokei-app・janken-app、いずれも構造的に非該当と実機確認済み。ongaku-app[pin/export/share]・matching-app・okane-app・schedule-app・gaze-keyboard[settingsModal]は全てProduction反映済み)** | 0 | 0(WCAG-JIS-FIX-FAMILY-J-1-RELEASEで全件Production解消) | 6(Trap自体がないため非該当のアプリ) |
 | A11yパネル例外 | 4 | 0 | 11 | 3(未検証) |
 | Escape | 13(ongaku-app pin/export/share Fix済み含む) | 0 | 0 | 5(未検証) |
@@ -61,7 +61,7 @@
 | Family | Contract項目 | 対象アプリ数(FAIL+PARTIAL) |
 |---|---|---|
 | FAMILY-A | A11yパネル例外 | 11 |
-| FAMILY-B | Focus Trap(Forward) | 8(ongaku-app pin/export/share分はFix済みのため除外) |
+| FAMILY-B | Focus Trap(Forward) | **10(2026-09-08、WCAG-JIS-FAMILY-B-CROSS-APP-AUDIT-1で再集計。cup_game[settingsOverlay]・register-app[delete-modal]を新規登録、ongaku-app pin/export/share分はFix済みのため除外。詳細はfamily-b-cross-app-audit-1.md参照)** |
 | FAMILY-C | Initial Focus(非推奨パターン含む) | 6(register-app・scratch-app[パターン移行]、mogura-tataki・nazorin-print・tyushi。ongaku-app pin/export/shareはFix済みのため除外) |
 | FAMILY-D | Focus Restoration | **0(Production残存0件)。[2026-09-08追記] register-app delete-modal(TIER1-F5B)もWCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1-RELEASE(commit `3282b02`)でProduction解消済み。global-fix-triage-1.md登録済みFinding(TIER1-F5・TIER1-F5B)は全て解消。詳細はfamily-d-focus-restoration-close-1.md参照** |
 | FAMILY-E | 背景抑制 | 13(系統B 5 + 系統C 1 + 系統D 7、ongaku-app pin/export/shareはFix済みのため除外) |
