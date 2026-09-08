@@ -2454,9 +2454,9 @@ function moguraCurrentTopModal(){
   return null;
 }
 function moguraA11yClusterFocusables(a11yPanel){
-  // donomanaA11yBtn/donomanaHomeBtn/donomanaLockBtnはposition:fixedのため
-  // offsetParentが常にnullになる(Chromiumの既知の仕様)。getClientRects()+
-  // computed styleベースの可視性判定(Batch-5で確立した対処と同型)を用いる。
+  // donomanaA11yBtnはposition:fixedのためoffsetParentが常にnullになる
+  // (Chromiumの既知の仕様)。getClientRects()+computed styleベースの
+  // 可視性判定(Batch-5で確立した対処と同型)を用いる。
   const isVisible=el=>{
     if(!el||el.disabled) return false;
     if(el.hasAttribute('hidden')) return false;
@@ -2464,14 +2464,14 @@ function moguraA11yClusterFocusables(a11yPanel){
     const cs=getComputedStyle(el);
     return cs.display!=='none' && cs.visibility!=='hidden';
   };
-  const before=['donomanaRecordNavBtn','donomanaLockBtn'].map(id=>document.getElementById(id));
+  // RC4: strict focus containment。donomanaA11yBtn(トリガー自身)+
+  // パネル内部の要素のみで構成する。donomanaHomeBtn/donomanaRecordNavBtn/
+  // donomanaLockBtn等の共通toolbar、およびmogura固有ボタンは一切含めない
+  // (User Browser ReviewでA11y Panel OPEN中にホーム/学習の記録/画面ロックへ
+  // フォーカスが移動するとFAILされたため、クラスタ拡張自体を廃止した)。
   const a11yBtn=document.getElementById('donomanaA11yBtn');
   const panelItems=Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'));
-  // mogura固有ボタン(btnHow/btnRec/btnFS)はクラスタに含めない。
-  // Batch-5(tyushi)の実装と同型: 共通A11yパネル+共通ツールバーのみで循環し、
-  // アプリ固有のヘッダーボタンへは越境しない。
-  const after=['donomanaHomeBtn'].map(id=>document.getElementById(id));
-  const list=[...before, a11yBtn, ...panelItems, ...after].filter(Boolean);
+  const list=[a11yBtn, ...panelItems].filter(Boolean);
   return list.filter(isVisible);
 }
 document.addEventListener('keydown', e=>{
@@ -2483,13 +2483,12 @@ document.addEventListener('keydown', e=>{
     const cFirst=clusterItems[0], cLast=clusterItems[clusterItems.length-1];
     const cActive=document.activeElement;
     const inCluster=clusterItems.includes(cActive);
-    const modal=moguraCurrentTopModal();
+    // RC4: strict containment。クラスタ外にactiveElementがある場合は
+    // (modal内かどうかを問わず)常にfirst/lastへ強制送還する。
     if(e.shiftKey){
-      if(inCluster && cActive===cFirst){ e.preventDefault(); cLast.focus(); }
-      else if(!inCluster && modal && modal.contains(cActive)){ e.preventDefault(); cLast.focus(); }
+      if(!inCluster || cActive===cFirst){ e.preventDefault(); cLast.focus(); }
     } else {
-      if(inCluster && cActive===cLast){ e.preventDefault(); cFirst.focus(); }
-      else if(!inCluster && modal && modal.contains(cActive)){ e.preventDefault(); cFirst.focus(); }
+      if(!inCluster || cActive===cLast){ e.preventDefault(); cFirst.focus(); }
     }
     return;
   }
