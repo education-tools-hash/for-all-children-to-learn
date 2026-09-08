@@ -44,11 +44,11 @@
 | 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.hr-modal`も同様に`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`btnCopy`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`histClearBtn`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4-RELEASE`, commit `f070ca1`) | Batch 4 | 同上。Initial Focusは常設focusableな`.hr-tab.active`自体のためanchor特別扱い不要。履歴/レポートタブ切替による動的DOM再構築後もTrap維持を実機確認(RC・Production両方で再確認) |
 | 12 | TIER2-F2-c | hiragana-learn | hiragana-learn.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | katakana-appと共通実装(コード共有、ファイルは別) |
 | 13 | TIER2-F2-d | katakana-app | katakana-app.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | hiragana-learnと共通実装 |
-| 14 | TIER1-F3-j | mogura-tataki | mogura-tataki.html | `scrStart` | Modal Dialog(`.screen`、`position:fixed;inset:0`のフルスクリーンoverlay、`role="dialog" aria-modal="true"`。ゲームプレイ用UI[`<main class="wrap">`、常設DOM]の上に被さるホーム画面で、初期ロード時から`on`付与、他に閉じた状態の背景画面が無い点が他4要素と異なるが、`<main>`を実質的に遮断するtrue modalとしてContract適用可能と再確認) | YES(developer自身が明示的にdialog/aria-modal指定) | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 15回目までに背景DIV[モーダル外]へ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 偶然`btnStart`へ留まっていたがforward側でFAIL確定) | **PASS**(`btnStart`へ正しく留まる。pre-fix: 同じく偶然PASSだったがforward側FAIL確定) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-6`, branch `fix/family-b-mogura-focus-trap`。Production未反映) | Batch 6(注: Ledger当初案の「Batch 7」から実行順で6番目のBatchとして実施。同一Finding、番号相違のみ) | Initial Focus欠如(activeElement=BODY)を実機確認、既存FAMILY-C Finding(今回修正せず)。5要素まとめて単一document-level listenerで処理(詳細は§24参照) |
-| 15 | TIER1-F3-k | mogura-tataki | mogura-tataki.html | `scrResult` | 同上(`.screen`)。ゲーム終了時に`<main>`を遮断する結果画面 | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(`btnHomeR`へ正しくwrap。pre-fix: 背景DIVへ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6`。Production未反映) | Batch 6 | Initial Focus欠如(BODY)を実機確認、既存FAMILY-C Finding(今回修正せず)。closeボタン無し(「もういちど」「ホームにもどる」ボタンで次画面へ遷移)、既存Focus Restoration欠如(FAMILY-D候補、§24参照) |
-| 16 | TIER1-F3-l | mogura-tataki | mogura-tataki.html | `panSet` | Modal Dialog(`.panel`、同様のフルスクリーンoverlay)。既存`openPanel`/`closePanelAndReturnFocus`共通関数で開閉、Focus Restoration実装済み(openerへ復帰) | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`fsL`[文字サイズボタン]へ脱出) | **PASS**(`clsSet2`へ正しくwrap。pre-fix: 背景`donomanaRecordNavBtn`へ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6`。Production未反映) | Batch 6 | 実trigger(`#homeSetBtn`・`#btnSet`)はA11yパネルProxy構造で常時非表示(`opacity:0 !important;pointer-events:none !important;tabIndex=-1;aria-hidden=true`)、`donomanaSettingsProxy`経由でのみ到達可能(既存の別app[okane-app等]と同型パターン)。背景クリックで閉じる経路は`closePanel`のみでFocus Restorationなし(既存挙動、今回変更せず) |
-| 17 | TIER1-F3-m | mogura-tataki | mogura-tataki.html | `panRec` | 同上(`.panel`)。学習記録パネル、`panRec`限定でEscape close実装済み | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaA11yBtn`へ脱出) | **PASS**(`clrRec`へ正しくwrap。pre-fix: 背景`homeHowBtn`へ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6`。Production未反映) | Batch 6 | 既存panRec限定Escapeクローズ(T7-B Pilot A)・Focus Restoration(openerへ復帰)ともregressionなしを実機確認 |
-| 18 | TIER1-F3-n | mogura-tataki | mogura-tataki.html | `panHow` | 同上(`.panel`)。使い方パネル | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景BUTTONへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaLockBtn`へ脱出) | **PASS**(`clsHow2`へ正しくwrap。pre-fix: 背景DIVへ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6`。Production未反映) | Batch 6 | 既存Focus Restoration(openerへ復帰)regressionなしを実機確認 |
+| 14 | TIER1-F3-j | mogura-tataki | mogura-tataki.html | `scrStart` | Modal Dialog(`.screen`、`position:fixed;inset:0`のフルスクリーンoverlay、`role="dialog" aria-modal="true"`。ゲームプレイ用UI[`<main class="wrap">`、常設DOM]の上に被さるホーム画面で、初期ロード時から`on`付与、他に閉じた状態の背景画面が無い点が他4要素と異なるが、`<main>`を実質的に遮断するtrue modalとしてContract適用可能と再確認) | YES(developer自身が明示的にdialog/aria-modal指定) | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 15回目までに背景DIV[モーダル外]へ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 偶然`btnStart`へ留まっていたがforward側でFAIL確定) | **PASS**(`btnStart`へ正しく留まる。pre-fix: 同じく偶然PASSだったがforward側FAIL確定) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **FIXED IN RC2 / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC2`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-6`, branch `fix/family-b-mogura-focus-trap`。Production未反映。RC1はUser Browser Reviewで指摘ありRC2で再検証・追加修正済み、詳細は§25参照) | Batch 6(注: Ledger当初案の「Batch 7」から実行順で6番目のBatchとして実施。同一Finding、番号相違のみ) | Initial Focus欠如(activeElement=BODY)を実機確認、既存FAMILY-C Finding(今回修正せず)。5要素まとめて単一document-level listenerで処理(詳細は§24参照) |
+| 15 | TIER1-F3-k | mogura-tataki | mogura-tataki.html | `scrResult` | 同上(`.screen`)。ゲーム終了時に`<main>`を遮断する結果画面 | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(`btnHomeR`へ正しくwrap。pre-fix: 背景DIVへ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC2 / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC2`。Production未反映) | Batch 6 | Initial Focus欠如(BODY)を実機確認、既存FAMILY-C Finding(今回修正せず)。closeボタン無し(「もういちど」「ホームにもどる」ボタンで次画面へ遷移)、既存Focus Restoration欠如(FAMILY-D候補、§24参照) |
+| 16 | TIER1-F3-l | mogura-tataki | mogura-tataki.html | `panSet` | Modal Dialog(`.panel`、同様のフルスクリーンoverlay)。既存`openPanel`/`closePanelAndReturnFocus`共通関数で開閉、Focus Restoration実装済み(openerへ復帰) | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`fsL`[文字サイズボタン]へ脱出) | **PASS**(`clsSet2`へ正しくwrap。pre-fix: 背景`donomanaRecordNavBtn`へ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC2 / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC2`。Production未反映) | Batch 6 | 実trigger(`#homeSetBtn`・`#btnSet`)はA11yパネルProxy構造で常時非表示(`opacity:0 !important;pointer-events:none !important;tabIndex=-1;aria-hidden=true`)、`donomanaSettingsProxy`経由でのみ到達可能(既存の別app[okane-app等]と同型パターン)。**[RC2で追加修正]** `donomanaSettingsProxy`クリック時に隠しtrigger(`btnSet`)が`.click()`され、`panelOpener['panSet']`に不可視要素が記録される既存の構造上、panSetを閉じるとfocusが不可視要素へ落ち、Batch-6で新規追加したoutside-focus-guardによりscrStart内へ強制送還される(User Browser Review指摘の実態、詳細は§25参照)。`closePanelAndReturnFocus`にopener可視性検証を追加し、不可視の場合は`donomanaA11yBtn`へフォールバックするよう修正、実機確認済み。背景クリックで閉じる経路(`closePanel`のみ)はFocus Restoration自体が発生しない既存挙動のため今回変更せず(別Finding) |
+| 17 | TIER1-F3-m | mogura-tataki | mogura-tataki.html | `panRec` | 同上(`.panel`)。学習記録パネル、`panRec`限定でEscape close実装済み | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景DIVへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaA11yBtn`へ脱出) | **PASS**(`clrRec`へ正しくwrap。pre-fix: 背景`homeHowBtn`へ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC2 / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC2`。Production未反映) | Batch 6 | 既存panRec限定Escapeクローズ(T7-B Pilot A)・Focus Restoration(openerへ復帰、常に可視の`homeRecBtn`/`btnRec`が記録されるため`panSet`のような不可視opener問題は無い)ともregressionなしを実機確認 |
+| 18 | TIER1-F3-n | mogura-tataki | mogura-tataki.html | `panHow` | 同上(`.panel`)。使い方パネル | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず。pre-fix: 背景BUTTONへ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaLockBtn`へ脱出) | **PASS**(`clsHow2`へ正しくwrap。pre-fix: 背景DIVへ即座に脱出) | **PASS**(強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC2 / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC2`。Production未反映) | Batch 6 | 既存Focus Restoration(openerへ復帰、常に可視の`homeHowBtn`/`btnHow`が記録されるため`panSet`のような不可視opener問題は無い)regressionなしを実機確認 |
 | — | — | tyushi | tyushi.html | `settings-panel` | Non-modal Disclosure Panel | **NO(`WCAG-JIS-FAMILY-D-TYUSHI-DESIGN-1`で確定)** | **NOT APPLICABLE** | LEVEL-A | N/A | N/A | N/A(背景へ自然に抜ける、意図的設計) | N/A | N/A | N/A | **NOT APPLICABLE** | — | help-overlay(#9)とは別UI、混同禁止 |
 
 **CONFIRMED FAIL総数: 18件**(全てPattern B1、全てPriority P2)。
@@ -419,3 +419,71 @@ User Browser Review Approved(「FAMILY-B BATCH-5 RC2 User Browser Review：問�
 - Touch/Responsive(390×844・768×1024・1280×900): 各viewportで3パネル(panHow/panRec/panSet)のTab containment、`scrStart`のTab containmentとタップでのゲーム開始、いずれもPASS。
 - Console/page errors: 0件。
 - User Browser Review待ち。Production Release/main merge/cleanupは未実施。
+
+---
+
+## 25. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC2: User Browser Review指摘とRC2修正
+
+**RC1(§24)はUser Browser Reviewで以下2点の指摘を受けた。** §24の記述はRC1時点での実機確認結果であり削除・書き換えず、以下に実態とRC2での対処を追記する。
+
+### User Browser Review指摘
+
+1. A11y Panelを開いた状態でTabを続けると、mogura-tataki側へフォーカスが戻る。
+2. A11y Panel内でTab操作した際、写真上グレーアウトしている設定項目を含め、「選択できない/到達できない/Tab対象として不自然」と感じるコントロールが多数ある。
+
+### 重要な前提整理: 「A11y Panel」の指す対象
+
+写真で言及された項目(ハイコントラスト・文字の大きさ・視線入力[ドウェル]・ドウェル時間・視線カーソル表示・ドウェル安定化・効果音)を実コードと照合した結果、**共通A11yパネル(`donomanaA11yPanel`)にはこれらの項目が一切存在しない**(共通パネルの内容は「表示モード」「文字の大きさ」「選択・タップの読み上げ」の3項目のみ、全て常時enabledのボタン)。一方、mogura-tataki独自の`panSet`(設定パネル、今回のFAMILY-B対象=`TIER1-F3-l`)の内容が写真の項目と完全一致した。これは、Userが実際に問題視した対象が、共通A11yパネル自体よりも、**A11yパネル経由(`donomanaA11yBtn`→`donomanaSettingsProxy`)で到達する`panSet`(アプリ設定パネル)**である可能性が高いことを示す。以降、両方について個別に実機再現・検証した。
+
+### 実機再現(fresh pageで3回×forward/reverse、共通A11yパネル自体)
+
+`donomanaA11yPanel`を開いた状態でForward Tab 40回・Reverse Shift+Tab 40回を3セットずつ実施したが、いずれもmogura側modalへの侵入は再現しなかった(RC1で実装したA11yパネル+共通ツールバークラスタのラップ処理は健全に機能している)。
+
+### 実機再現(panSetを実際のUserフローで開いてTab連打)
+
+`donomanaA11yBtn`→`donomanaSettingsProxy`クリック(またはキーボードのみでTab+Enter)で`panSet`を開き、Tab 20〜30回を実施したが、panSet自体のTrap内でも脱出は再現しなかった。
+
+### 真のRoot Cause発見: panSetを閉じた「後」の1手
+
+上記2つの直接テストでは再現しなかったため、`panSet`を開いて→閉じて→Tabを押す、という一連の自然な操作フローを再現したところ、以下を確認した:
+
+1. `donomanaSettingsProxy`のクリックハンドラは、実際には`#btnSet`(ゲーム画面ヘッダー内、`opacity:0 !important;pointer-events:none !important;tabIndex=-1;aria-hidden=true`で常時不可視)を`.click()`することで`panSet`を開いており、この結果`panelOpener['panSet'] = btnSet`(不可視要素)が記録される(mogura-tataki既存の`openPanel`/`closePanelAndReturnFocus`機構の挙動、Batch-6以前から存在)。
+2. `panSet`を閉じる(`clsSet`/`clsSet2`クリック)と、`closePanelAndReturnFocus('panSet')`が`btnSet.focus()`を呼び、`document.activeElement`が不可視の`btnSet`になる。
+3. この状態で次にTabを押すと、**Batch-6 RC1で新規追加したoutside-focus-guard**が「activeElementがmodal(scrStart)の外にある」と正しく検知し、`scrStart`内の最初のfocusable要素(`homeHowBtn`)へ1回のTabで強制送還する。
+
+**この最後の一手が「A11y Panelを開いた状態でTabを続けるとmogura-tataki側へフォーカスが戻る」というUser報告の実態と判断する。** Fix前(Production `origin/main`)の同一シナリオを直接比較したところ、Fix前は`btnSet→btnFS→DIV→DIV→...`と背景ヘッダー内を彷徨うだけで`scrStart`内には入らなかった(`in_scrStart=False`)。Fix後(RC1)は`btnSet→homeHowBtn`と1回のTabで明確に`scrStart`内へ移動する(`in_scrStart=True`)。
+
+### Root Cause分離
+
+- **Root Cause A(mogura側Focus Trap/cluster処理の誤り)**: 該当なし。scrStart/scrResult/panSet/panRec/panHowそれぞれのTrap、およびA11yパネル+共通ツールバークラスタのラップ処理は、いずれも実機で健全に機能していることを再確認した。
+- **Root Cause B(A11yパネル内のfocusable/disabled状態の設計不整合)**: `panSet`内の`dwT`(ドウェル時間range)・`togCur`(視線カーソル表示checkbox)・`dwTol`(ドウェル安定化range)の3コントロールが、視線入力OFF時に親要素(`dwRow1`/`dwRow2`/`dwRow3`)の`style="opacity:.4"`のみで視覚的にグレーアウトされ、`disabled`属性も`tabindex="-1"`も一切設定されていないことを確認した(Tab到達可能・Enter/Space/矢印キーでの操作も可能なまま)。これは「視覚的disabledなのにTabでfocusされる」(disabled-state設計問題、Phase spec§4のパターンA)に該当する。視線入力ON/OFF切替前後でTab順序自体は変化しない(一貫している)ことも確認した。**これはmogura-tataki独自の`panSet`実装の問題であり、共通A11yパネル(`donomanaA11yPanel`)側の問題ではない**(共通A11yパネル自体には disabled/グレーアウトされたコントロールは一切存在しない)。既存のFinding Family taxonomy(FAMILY-A/B/C/D/E/I)のいずれにも正確には合致しないため、新Familyを勝手に作らず、**Separate Finding候補(仮称: disabled-state/keyboard operability設計)として記録し、今回のFAMILY-B Batchには含めない**。
+- **Root Cause C(新規発見、今回RC2で対応)**: `panSet`の`panelOpener`記録が不可視要素(`btnSet`)を指してしまう既存の構造(Batch-6以前から存在)と、Batch-6で新規追加したoutside-focus-guardが組み合わさることで、User体験として「予期しない場所への強制移動」を生んでいた。これは「Root Cause A自体の欠陥」ではないが、**「Aが原因でUser操作を壊している部分」に該当する**(Fix前は単に背景を彷徨うだけだったのが、Fixが追加したoutside-focus-guardによって、より積極的かつ唐突な遷移に変わってしまった)。Phase spec§14「今回の修正で悪化しないこと」に照らし、RC2で対応する。
+
+### RC2 Fix Architecture
+
+`closePanelAndReturnFocus`関数に、`panelOpener[id]`が実際に可視・フォーカス可能な要素かどうかを検証する`isMoguraFocusReturnTarget()`を追加し、不可視(disabled/非connected/クライアント矩形なし/`visibility:hidden`/`display:none`/`opacity:0`のいずれか)の場合は、常時可視の`donomanaA11yBtn`へフォールバックするよう変更した。これは`openPanel`/`proxyBtn`のクリックハンドラ自体(共通A11yコード)には一切手を加えず、mogura-tataki側の復帰先検証ロジックのみをローカルに追加するもので、FAMILY-B(Focus Trap)Batchのスコープ内(Trap実装と直接相互作用する不具合の是正)として位置づける。`panHow`/`panRec`は元々openerが可視要素(`homeHowBtn`/`homeRecBtn`)のため、この変更による影響はない(実機確認済み、既存どおり`homeHowBtn`/`homeRecBtn`へ復帰)。
+
+### RC2再検証結果(全項目実機確認)
+
+- `panSet`を`donomanaSettingsProxy`経由で開いて`clsSet`で閉じた後: `activeElement`が`donomanaA11yBtn`(可視、opacity=1)に正しく着地することを確認。そこから次のTabで`scrStart`内(`homeHowBtn`)へ移動するのは、outside-focus-guardの意図した正しい動作。
+- `panHow`/`panRec`(homeHowBtn/homeRecBtn経由): Focus Restorationが従来どおり(regressionなし)であることを確認。
+- 共通A11yパネル(`donomanaA11yPanel`)自体を開いた状態でのForward/Reverse Tab: 40回連続で再度regressionなしを確認。
+- 5modal(scrStart/scrResult/panSet/panRec/panHow)の基本Trap(Forward 15回・Reverse 15回・immediate Shift+Tab・outside-focus-guard): §24から変化なし、全てPASSを再確認。
+- A11yパネル3-cycle(OPEN→Tab確認→CLOSE→modal Trap確認)・listener多重登録なし: 再確認済み。
+- 視線入力ON/OFF切替前後のTab順序: `dwT`→`togCur`→`dwTol`→`togSnd`で一貫、切替による到達可能性の変化なし(Root Cause Bとして記録、今回修正せず)。
+- Touch/Responsive(390×844・768×1024・1280×900): 再確認、全てPASS。
+- Console/page errors: 0件。
+
+### Separate Finding(記録のみ、今回のBatchに含めない)
+
+- **panSet内のdisabled-state設計不整合**(Root Cause B): `dwT`/`togCur`/`dwTol`が視線入力OFF時にTab到達可能・操作可能なまま。候補Family: 既存taxonomy(FAMILY-A/B/C/D/E/I)のいずれにも正確には合致しないため、新Family名の正式決定はプロジェクトオーナーの判断を仰ぐ。
+- (§24から継続)`scrStart`/`scrResult`のFocus Restoration欠如(FAMILY-D候補)。
+- (§24から継続)Initial Focus欠如(FAMILY-C)。
+- (§24から継続)`panSet`背景クリック閉じ経路のFocus Restorationなし(既存挙動)。
+
+### 更新後の状態
+
+- `TIER1-F3-j`〜`n` = **FIXED IN RC2 / USER REVIEW PENDING**
+- FAMILY-B Production residual count: 9件のまま変わらず(Production未反映のため)
+- RC candidate count: 5件(TIER1-F3-j・k・l・m・n)、変わらず
+- User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
