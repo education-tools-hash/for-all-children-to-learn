@@ -579,3 +579,61 @@ JSで`btnHow`(クラスタ外・かつどのmodalにも属さない`.hdr`内要�
 - FAMILY-B Production residual count: 9件のまま変わらず(Production未反映のため)
 - RC candidate count: 5件(TIER1-F3-j・k・l・m・n)、変わらず
 - User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
+
+---
+
+## 27. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC4: User Browser Review再FAILとStrict Focus Containment実装
+
+**RC3(§26)はUser Browser Reviewで再度FAILし、以下の指摘を受けた。** §24〜§26の記述は各RC時点での実機確認結果であり削除・書き換えず、以下に実態とRC4での対処を追記する。
+
+### User Browser Review指摘(RC3)
+
+右下の共通「アクセシビリティ設定」を開いた状態でTabをゆっくり繰り返すと、「ホーム」「学習の記録」「画面ロック」へフォーカスが移動することを確認。この挙動はNGとされ、**A11y Panel OPEN中は共通A11y Panel内部のfocusable controlsだけでTab/Shift+Tabを循環させ、共通toolbarやmogura側UIへは一切移動させない**という、RC1〜RC3のクラスタ設計(A11yパネル+共通ツールバーをまとめて循環させる方式、tyushiと同型)自体を否定する、より厳格な設計要求が示された。
+
+### 再現結果(実機)
+
+`donomanaA11yBtn`クリック後のForward Tabを追跡したところ、Tab#9で`donomanaA11yReset`(パネル内最後の項目)に到達した後、Tab#10で`donomanaHomeBtn`(ホーム)、Tab#11で`donomanaRecordNavBtn`(学習の記録)、Tab#12で`donomanaLockBtn`(画面ロック)へ順に移動し、Tab#13でようやく`donomanaA11yBtn`へ戻ってwrapすることを確認した。これはRC1で実装した`moguraA11yClusterFocusables()`の`before=['donomanaRecordNavBtn','donomanaLockBtn']`・`after=['donomanaHomeBtn']`によるクラスタ拡張そのものの挙動であり、RC3では一切変更していなかった箇所である(RC3はmogura固有ボタンの除外とVisible Focus問題のみ対処し、共通toolbar自体はクラスタに残したまま統一していた)。
+
+### RC3までのfocus modelの問題点
+
+RC1〜RC3は一貫して「A11yパネル+共通toolbar(`donomanaHomeBtn`等)を1つの循環グループとして扱う」設計(tyushiの実装を参考にした設計)を採用していたが、今回のUser Reviewでこの設計方針自体が明確に否定された。tyushiの実装(`git show origin/main:tyushi.html`で確認済み)も同型の設計であり、tyushi自体は今回のBatch対象外だが、将来的に同じ指摘を受ける可能性がある点は別途留意する。
+
+### RC4 Strict Containment Architecture
+
+`moguraA11yClusterFocusables()`を以下のとおり変更した:
+
+- `before`(`donomanaRecordNavBtn`/`donomanaLockBtn`)・`after`(`donomanaHomeBtn`)の配列を完全に削除。
+- クラスタは`donomanaA11yBtn`(トリガー自身、DOM構造上`donomanaA11yPanel`の外側の兄弟要素だが、除外リストに明記されていないため維持)+ `donomanaA11yPanel`内部の全focusable要素(`donomanaSettingsProxy`→[表示モード2項目]→[文字サイズ3項目]→[読み上げ2項目]→`donomanaA11yReset`の計7項目)の計8項目のみで構成する。
+- outside-focus-guard条件も単純化: 従来は`!inCluster && modal && modal.contains(cActive)`(「現在開いているtop modal内」に限定)だったが、RC4では`!inCluster`のみを条件とし、クラスタ外にactiveElementがある場合は(modalに属するか否かを問わず)常にfirst/lastへ強制送還するよう変更した。これにより、RC3のFinal Reportで「Separate Finding候補」として記録していたoutside-focus-guardの制約(クラスタ外・かつどのmodalにも属さない要素へJS等でフォーカスが移った場合にガードされない問題)も同時に解消された。
+
+`mogura-tataki.html`内のJSのみで完結し、共通A11y実装(`donomanaA11yPanel`/`openPanel`/`closePanel`等)には一切手を加えていない。
+
+### RC4検証結果(全項目実機確認)
+
+- **Forward Tab x30**: `donomanaA11yBtn→donomanaSettingsProxy→[パネル内7項目]→donomanaA11yReset→(wrap)donomanaA11yBtn`の8項目で完全に循環、`donomanaHomeBtn`/`donomanaRecordNavBtn`/`donomanaLockBtn`/`btnHow`/`btnRec`/`btnFS`への遷移は30回中ゼロ。
+- **Reverse Shift+Tab x30**: 同様に8項目で完全に循環、禁止要素への遷移ゼロ。
+- **outside-focus-guard**: JSで`donomanaHomeBtn`・`btnHow`(いずれもクラスタ外・かつどのmodalにも属さない要素)へ強制フォーカスした後、Tabで`donomanaA11yBtn`(cFirst)へ、Shift+Tabで`donomanaA11yReset`(cLast)へ、それぞれ正しく強制送還されることを確認(RC3で残っていた制約が解消)。
+- **immediate Shift+Tab**: パネルを開いた直後(`donomanaA11yBtn`にactive)でShift+Tabを押すと`donomanaA11yReset`(cLast)へ正しく移動することを確認。
+- **panSet連携**: `donomanaA11yBtn`→「このアプリの詳細設定を開く」経由でpanSetを開いた際、`donomanaA11yPanel`が正しく`display:none`に戻ること(二重所有なし)、panSet自身のTab循環(`clsSet→togHC→...→sizeR→[speedChips×5]`)がpanSet専用Trapで機能すること、panSetを閉じた後`donomanaA11yBtn`(可視要素、RC2のフォールバック機構)へ復帰し、続くTabで`scrStart`のTrap(`homeHowBtn→homeRecBtn→...`)が正常に復帰することを確認、regressionなし。
+- **Visible Focus regression**: RC3で追加した`.tog input:focus-visible+.ts`によるoutline表示(3px)が、`togHC`/`togDw`/`togCur`/`togSnd`/`togRm`の全5トグルで維持されていることを確認。
+- **disabled-state Separate Finding**: `dwT`/`togCur`/`dwTol`の視線入力OFF時Tab到達可能問題は変更なし、RC4の合否とは分離して継続。
+- **5modal Focus Trap regression**(Forward 15回・Reverse 15回、`scrStart`/`panHow`/`panRec`/`panSet`/`scrResult`): 全てPASS、regressionなし。
+- **Responsive(390×844/768×1024/1280×900)**: A11yパネルOPEN状態でのForward Tab x15、3 viewportとも禁止要素への遷移ゼロ、PASS。
+- **Touch**: A11yパネルのtapでのopen/close、panSet内`togHC`のtapでのtoggle、`btnStart`のtapでのゲーム開始、いずれもregressionなし。
+- **Console/page errors**: 全テストを通じて0件。
+- **Static Validation**: `git diff --check`で空白等のエラーなし、変更は`moguraA11yClusterFocusables()`関数本体とkeydownリスナー内のoutside-focus-guard条件式のみで、意図しない差分・重複ID・重複listenerの追加なし。
+
+### Separate Finding(記録のみ、今回のBatchに含めない、変更なし)
+
+- (§25・§26から継続)**panSet内のdisabled-state設計不整合**(Root Cause B): 既存taxonomyのいずれにも正確には合致せず、UNCLASSIFIED/NEEDS OWNER DECISIONとして記録。
+- **[RC4で解消]** §26で新規記録した「A11yパネルクラスタのoutside-focus-guard制約」は、RC4のstrict containment実装により解消されたため、Separate Findingとしては取り下げる。
+- (§25・§26から継続)`scrStart`/`scrResult`のFocus Restoration欠如(FAMILY-D候補)。
+- (§25・§26から継続)Initial Focus欠如(FAMILY-C)。
+- (§25・§26から継続)`panSet`背景クリック閉じ経路のFocus Restorationなし(既存挙動)。
+
+### 更新後の状態
+
+- `TIER1-F3-j`〜`n` = **FIXED IN RC4 / USER REVIEW PENDING**
+- FAMILY-B Production residual count: 9件のまま変わらず(Production未反映のため)
+- RC candidate count: 5件(TIER1-F3-j・k・l・m・n)、変わらず
+- User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
