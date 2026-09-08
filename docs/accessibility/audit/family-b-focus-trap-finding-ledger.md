@@ -40,8 +40,8 @@
 | 7 | TIER1-F3-e | nazorin-print | nazorin-print.html | `batchModal` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(30回連続Tab[動的に追加された一覧項目含む]で脱出せず。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnBatchPrint`へ正しくwrap。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3-RELEASE`, commit `4da35d9`) | Batch 3 | helpModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた。一覧(`#batchList`)は動的生成のため毎keydownでfocusable再取得、項目追加・削除後もTrap維持を実機確認(RC・Production両方で再確認) |
 | 8 | TIER1-F3-f | nazorin-print | nazorin-print.html | `libModal` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnLibDelFolder`へ正しくwrap。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3-RELEASE`, commit `4da35d9`) | Batch 3 | 同上。フォルダ/セット一覧(`#libFolderList`/`#libSets`)も動的生成、同様に確認済み(RC・Production両方で再確認) |
 | 9 | TIER1-F3-g | tyushi | tyushi.html | `help-overlay` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 1 | settings-panelとは別UI(§6参照、混同しない) |
-| 10 | TIER1-F3-h | gaze-keyboard | gaze-keyboard.html | `profileModal` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、NEW-KNOWN-3) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 5 | hrModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた |
-| 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 5 | 同上 |
+| 10 | TIER1-F3-h | gaze-keyboard | gaze-keyboard.html | `profileModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.prof-modal`にはsettingsModalの`.settings-modal`と異なり`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。旧Ledgerの「YES」は結果として妥当だが根拠となるARIA属性の有無を未確認のまま記載していた。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず、`profModalTitle`⇄`profCancel`間で正しく循環。pre-fix: 20回目までに背景`rtClear`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`profCancel`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-4`, branch `fix/family-b-gaze-keyboard-focus-trap`。Production未反映) | Batch 4 | hrModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた。Initial Focus(`#profModalTitle`、tabindex="-1")はFAMILY-J対応のanchor境界処理が必要(settingsModal既存Trapと同型) |
+| 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.hr-modal`も同様に`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`btnCopy`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`histClearBtn`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態から復帰確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4`。Production未反映) | Batch 4 | 同上。Initial Focusは常設focusableな`.hr-tab.active`自体のためanchor特別扱い不要。履歴/レポートタブ切替による動的DOM再構築後もTrap維持を実機確認 |
 | 12 | TIER2-F2-c | hiragana-learn | hiragana-learn.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | katakana-appと共通実装(コード共有、ファイルは別) |
 | 13 | TIER2-F2-d | katakana-app | katakana-app.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(同上) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | hiragana-learnと共通実装 |
 | 14 | TIER1-F3-j | mogura-tataki | mogura-tataki.html | `scrStart` | Modal Dialog(`.screen`、`position:fixed;inset:0`のフルスクリーンoverlay、`role="dialog" aria-modal="true"`) | YES(developer自身が明示的にdialog/aria-modal指定) | YES | LEVEL-B(コード確認: ファイル全体でTab keydown処理が皆無) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 7(個別設計要) | 旧「screen/panelベース独自アーキテクチャ、深掘り要」を本Ledgerで5要素に分解・特定 |
@@ -82,8 +82,8 @@
 
 | Level | 件数 | 内訳 |
 |---|---|---|
-| **LEVEL-A** | **8**(2026-09-08、`WCAG-JIS-FIX-FAMILY-B-BATCH-3`でnazorin-print batchModal・libModalを実機確認によりLEVEL-Bから昇格。旧6件) | register-app(delete-modal)、cup_game(settingsOverlay・helpOverlay)、scratch-app(txtEdOv・cov)、nazorin-print(helpModal・batchModal・libModal) |
-| **LEVEL-B** | **10**(旧12件、上記2件がLEVEL-Aへ移動) | tyushi(help-overlay)、gaze-keyboard(profileModal・hrModal)、hiragana-learn(traceSampleViewer)、katakana-app(traceSampleViewer)、mogura-tataki(scrStart・scrResult・panSet・panRec・panHow) |
+| **LEVEL-A** | **10**(2026-09-08、`WCAG-JIS-FIX-FAMILY-B-BATCH-4`でgaze-keyboard profileModal・hrModalを実機確認によりLEVEL-Bから昇格。直前は8件[`WCAG-JIS-FIX-FAMILY-B-BATCH-3`でnazorin-print batchModal・libModalを昇格]、当初6件) | register-app(delete-modal)、cup_game(settingsOverlay・helpOverlay)、scratch-app(txtEdOv・cov)、nazorin-print(helpModal・batchModal・libModal)、gaze-keyboard(profileModal・hrModal) |
+| **LEVEL-B** | **8**(直前は10件、上記2件がLEVEL-Aへ移動。当初12件) | tyushi(help-overlay)、hiragana-learn(traceSampleViewer)、katakana-app(traceSampleViewer)、mogura-tataki(scrStart・scrResult・panSet・panRec・panHow) |
 | **LEVEL-C** | **0** | — |
 
 **合計18件、LEVEL-A + LEVEL-B = 18で一致(継続)。**
@@ -270,3 +270,24 @@ User Browser Review Approved(「FAMILY-B Batch3 User Browser Review: 問題あ�
 - **FAMILY-B Production残存件数: 15件 → 12件**(TIER1-F3-d・e・fが解消、残り12件は未着手)
 - 投資調査branch `investigate/wcag-jis-finding-initial-restore-1`(`c6930d9`)は本Releaseでも変更なし
 - worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-3`・branch `fix/family-b-nazorin-print-focus-trap`はcleanup済み(fully merged後に削除)
+
+---
+
+## 19. [2026-09-08追記] WCAG-JIS-FIX-FAMILY-B-BATCH-4 進捗
+
+`TIER1-F3-h`(gaze-keyboard `profileModal`)・`TIER1-F3-i`(`hrModal`)を`WCAG-JIS-FIX-FAMILY-B-BATCH-4`でFix RC実装完了。詳細は§3の該当行を参照。
+
+- Status: 2 Finding全て = **FIXED IN RC / USER REVIEW PENDING**(Production未反映)
+- worktree: `for-all-children-to-learn-wcag-jis-fix-family-b-batch-4`
+- branch: `fix/family-b-gaze-keyboard-focus-trap`
+- **[重要・Modal Contract Applicable分類の訂正]** コード確認の結果、`profileModal`/`hrModalの内側コンテナ`(`.prof-modal`/`.hr-modal`)には、同じgaze-keyboard内の`settingsModal`の内側コンテナ(`.settings-modal`)と異なり`role="dialog" aria-modal="true"`が一切付与されていないことが判明した(grepで確認、ファイル全体で該当属性の動的付与も無し)。旧Ledger・旧modal-conformance-matrixはこの2 modalの「Dialog Semantics」を✅(PASS)、「Modal Contract Applicable」を単純に「YES」と記載していたが、これはARIA属性の有無を直接確認せずに記載されていたものであり、**厳密には誤りだった**。ただし両UIは全画面固定オーバーレイ・`.hidden`クラスによる開閉・専用のopen/close route・既存Initial Focus/Escape/Focus Restorationを備えた、実質的に機能する modal であるため、Batch 3のcup_game `settingsOverlay`(role/aria-modal無しだが実質modal)と同一の前例に倣い、**「YES(実質modal)」へ訂正した上でFocus Trap Fixを継続**した(STOPして報告のみに留めることはしなかった)。ARIA属性欠如そのものは今回のFocus Trap scope外の別Finding として記録し、修正していない。
+- Pre-fix Evidence(実機確認、両modalとも同一パターンでCONFIRMED FAIL): immediate Shift+Tabで背景BUTTON要素へ即座に脱出、20回連続Forward Tabで背景要素(profileModal: `rtClear`、hrModal: `btnCopy`、いずれも背景の他機能ボタン)へ脱出、20回連続Reverse Shift+Tabで背景`rtAlignL`へ脱出、強制outside-focus状態からのTab/Shift+Tabいずれも脱出したまま復帰せず。旧LEVEL-B(コード確認のみ)だったが、本Phaseの実機テストにより**両方ともLEVEL-Aへ昇格**(§5のEvidence Level集計をLEVEL-A 10/LEVEL-B 8に更新)。
+- Fix architecture: 同じgaze-keyboard内に既存する`settingsModal`のFocus Trap実装(document-level keydown、Switch Scanモード中は無効化、A11yパネル表示中は競合回避、outside-focus-guard、FAMILY-J対応のinitial focus anchor境界処理)と同一設計思想を、profileModal/hrModal共通の単一document-level listenerとして実装。settingsModalのTrapとは別のlistener(既存Trapのコードは一切変更していない)。profileModalの`aria-labelledby`が存在しないため、initial focus anchor(`#profModalTitle`)はsettingsModalのような動的取得ではなく直接IDで参照。hrModalはinitial focusが常設focusableな`.hr-tab.active`自体のためanchor特別扱い不要。
+- Switch Scan bypass: `scanMode=true`の状態でTabを押すと、Trapが早期returnしブラウザ標準のTab遷移(`profModalTitle`→`profNameIn`)がそのまま発生することを実機確認、settingsModal既存Trapと同じ振る舞いを踏襲。
+- Gaze/Dwell regression: `addDwell`は`pointerenter`/`pointerleave`/`pointercancel`/`pointermove`のみに依存しており、今回追加したkeydown('Tab')専用listenerとイベント種別が完全に独立していることをコード確認。実機でも`pointerenter`ディスパッチ時に`dwelling`クラスが正常に付与されることを確認、regression無し。
+- Dynamic focusables: profileModalの`#profList`(プロフィール追加・削除で動的に増減)、hrModalの`#hrBody`(履歴⇔レポートタブ切替で`renderHrModal()`により毎回再構築)いずれも、項目変化後もfocusable再取得によりTrapが正しく維持されることを実機確認(15回連続Tabでcontainment維持)。
+- 別途観察(Separate Finding扱い、今回Fixしない): profileModal表示中にA11yパネルを開いた状態で1回Escapeを押すと、A11yパネルとprofileModalの両方が同時に閉じる(それぞれ独立したdocument-level Escapeリスナーが同一keydownイベントで両方発火するため)。最終的なfocusは`profileAddBtn`へ正しく復帰しBODY退行はないため実害は無いが、Escapeの「優先順位」としては1段階ずつ閉じる方が直感的である可能性がある。この挙動は本Fix前から存在しており(diffにEscape関連の変更なし、git diffで確認済み)、今回のFocus Trap追加によって新規発生したものではない。
+- **FAMILY-B Production residual count: 12件のまま変わらず**(Production未反映のため)
+- **RC candidate count: 2件**(TIER1-F3-h・TIER1-F3-i)
+- Focus Restoration(FAMILY-D非該当領域、現状維持)・既存Escape(変更なし)・A11yパネル(regressionなし、実機確認済み)いずれも問題なし。
+- User Browser Review待ち。Production Release/main merge/cleanupは未実施。
