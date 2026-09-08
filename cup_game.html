@@ -1354,6 +1354,80 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && helpOpen()) closeHelp();
 });
 
+// FAMILY-B-BATCH-7: settingsOverlay/helpOverlayともTab/Shift+TabのFocus Trapが
+// 皆無だったため(TIER2-F2-a/b)、mogura-tataki(FAMILY-B-BATCH-6)で確立した
+// 「現在openのtop overlayを優先順位判定するdocument-level keydown listener」
+// と同一architectureを新規実装する。helpOverlayがsettingsOverlayより後に
+// openできる(openHelp()内でsettings側を閉じるため実際には排他的)ため、
+// 配列の並びで優先順位を表現する。
+const CUPGAME_MODAL_IDS = ['helpOverlay', 'settingsOverlay'];
+function cupGameTrapFocusables(container) {
+  // helpTitle等のtabindex="-1"はInitial Focus専用アンカーで、Tabキーでの
+  // シーケンシャルナビゲーション対象外(ブラウザ標準仕様)。[tabindex]セレクタは
+  // 属性値を問わず一致するため、tabIndex===-1の要素をfirst/lastの境界計算に
+  // 混入させるとReverse方向でcontainer外へ脱出する不具合になる(実機で確認)。
+  return Array.from(container.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+    .filter(el => el.offsetParent !== null && !el.disabled && el.tabIndex !== -1);
+}
+function cupGameCurrentTopModal() {
+  for (const id of CUPGAME_MODAL_IDS) {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains('show')) return el;
+  }
+  return null;
+}
+// donomanaA11yBtnはposition:fixedのためoffsetParentが常にnullになる
+// (Chromiumの既知の仕様)。getClientRects()+computed styleベースの
+// 可視性判定(mogura-tataki FAMILY-B-BATCH-6と同型)を用いる。
+// A11yパネルOPEN中はPanel自身のfocusableだけで循環するstrict containment
+// (mogura FAMILY-B-BATCH-6-RC4で確立した最終方針)とし、modal側Trapの
+// focus ownershipを奪わない。
+function cupGameA11yPanelFocusables(a11yPanel) {
+  const isVisible = el => {
+    if (!el || el.disabled) return false;
+    if (el.hasAttribute('hidden')) return false;
+    if (el.getClientRects().length === 0) return false;
+    const cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden';
+  };
+  const a11yBtn = document.getElementById('donomanaA11yBtn');
+  const panelItems = Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'));
+  return [a11yBtn, ...panelItems].filter(Boolean).filter(isVisible);
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') {
+    const items = cupGameA11yPanelFocusables(a11yPanel);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    const active = document.activeElement;
+    const inCluster = items.includes(active);
+    if (e.shiftKey) {
+      if (!inCluster || active === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (!inCluster || active === last) { e.preventDefault(); first.focus(); }
+    }
+    return;
+  }
+  const modal = cupGameCurrentTopModal();
+  if (!modal) return;
+  const items = cupGameTrapFocusables(modal);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  const active = document.activeElement;
+  // activeがmodal内にあるがfocusablesから除外したtabindex="-1"要素
+  // (helpTitle等のInitial Focus anchor)の場合、items.indexOf===-1になり
+  // ブラウザのネイティブTab/Shift+Tabに処理を委ねてしまうとmodal外へ脱出する
+  // ため、この場合も境界(first/last)相当として扱う。
+  const notInItems = items.indexOf(active) === -1;
+  if (e.shiftKey) {
+    if (active === first || !modal.contains(active) || notInItems) { e.preventDefault(); last.focus(); }
+  } else {
+    if (active === last || !modal.contains(active) || notInItems) { e.preventDefault(); first.focus(); }
+  }
+});
+
 function applySettings() {
   useDwell        = document.getElementById('toggleDwell').checked;
   showGazeCursor  = document.getElementById('toggleGazeCursor').checked;

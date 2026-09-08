@@ -4320,6 +4320,74 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape' && traceSampleViewerIsOpen()) closeTraceSampleViewer();
 });
 
+// FAMILY-B-BATCH-7: traceSampleViewerにTab/Shift+TabのFocus Trapが皆無だった
+// ため(TIER2-F2-c)、mogura-tataki(FAMILY-B-BATCH-6)で確立したarchitectureを
+// 新規実装する。
+function traceSampleViewerFocusables() {
+  // traceSampleTitleのtabindex="-1"はInitial Focus専用アンカーで、Tabキーでの
+  // シーケンシャルナビゲーション対象外(ブラウザ標準仕様)。[tabindex]セレクタは
+  // 属性値を問わず一致するため、tabIndex===-1の要素をfirst/lastの境界計算に
+  // 混入させるとReverse方向でcontainer外へ脱出する不具合になる(実機で確認)。
+  var viewer = document.getElementById('traceSampleViewer');
+  return Array.prototype.filter.call(
+    viewer.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'),
+    function (el) { return el.offsetParent !== null && !el.disabled && el.tabIndex !== -1; }
+  );
+}
+// A11yパネルOPEN中はPanel自身のfocusableだけで循環するstrict containment
+// (mogura FAMILY-B-BATCH-6-RC4で確立した最終方針)とし、modal側Trapの
+// focus ownershipを奪わない。donomanaA11yBtnはposition:fixedのため
+// offsetParentが常にnullになる(Chromiumの既知の仕様)ため、getClientRects()+
+// computed styleベースの可視性判定を用いる。
+function traceSampleA11yPanelFocusables(a11yPanel) {
+  function isVisible(el) {
+    if (!el || el.disabled) return false;
+    if (el.hasAttribute('hidden')) return false;
+    if (el.getClientRects().length === 0) return false;
+    var cs = getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden';
+  }
+  var a11yBtn = document.getElementById('donomanaA11yBtn');
+  var panelItems = Array.prototype.slice.call(
+    a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]')
+  );
+  var list = a11yBtn ? [a11yBtn].concat(panelItems) : panelItems;
+  return list.filter(isVisible);
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Tab') return;
+  var a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') {
+    var aItems = traceSampleA11yPanelFocusables(a11yPanel);
+    if (!aItems.length) return;
+    var aFirst = aItems[0], aLast = aItems[aItems.length - 1];
+    var aActive = document.activeElement;
+    var aInCluster = aItems.indexOf(aActive) !== -1;
+    if (e.shiftKey) {
+      if (!aInCluster || aActive === aFirst) { e.preventDefault(); aLast.focus(); }
+    } else {
+      if (!aInCluster || aActive === aLast) { e.preventDefault(); aFirst.focus(); }
+    }
+    return;
+  }
+  if (!traceSampleViewerIsOpen()) return;
+  var items = traceSampleViewerFocusables();
+  if (!items.length) return;
+  var first = items[0], last = items[items.length - 1];
+  var active = document.activeElement;
+  var viewer = document.getElementById('traceSampleViewer');
+  // activeがviewer内にあるがfocusablesから除外したtabindex="-1"要素
+  // (traceSampleTitle等のInitial Focus anchor)の場合、items.indexOf===-1
+  // になりブラウザのネイティブTab/Shift+Tabに処理を委ねてしまうとviewer外へ
+  // 脱出するため、この場合も境界(first/last)相当として扱う。
+  var notInItems = items.indexOf(active) === -1;
+  if (e.shiftKey) {
+    if (active === first || !viewer.contains(active) || notInItems) { e.preventDefault(); last.focus(); }
+  } else {
+    if (active === last || !viewer.contains(active) || notInItems) { e.preventDefault(); first.focus(); }
+  }
+});
+
 // タブ切り替え時にきろくを更新
 document.addEventListener('DOMContentLoaded', function() {
   const recordBtn = document.querySelector('[data-tab="record"]');
