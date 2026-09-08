@@ -487,3 +487,95 @@ User Browser Review Approved(「FAMILY-B BATCH-5 RC2 User Browser Review：問�
 - FAMILY-B Production residual count: 9件のまま変わらず(Production未反映のため)
 - RC candidate count: 5件(TIER1-F3-j・k・l・m・n)、変わらず
 - User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
+
+---
+
+## 26. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-RC3: User Browser Review再FAILとkeyboard focus model完全再調査・RC3修正
+
+**RC2(§25)はUser Browser Reviewで再度FAILし、以下3点の指摘を受けた。** §24・§25の記述はRC1/RC2時点での実機確認結果であり削除・書き換えず、以下に実態とRC3での完全な再調査・対処を追記する。今回はUser指示により「推測でFixを追加せず、まずkeyboard focus modelを完全に再調査すること」を厳守し、全項目を実DOM(Playwright/Chromium実機)で確認した。
+
+### User Browser Review指摘(RC2)
+
+1. 共通「アクセシビリティ設定」を開いた状態でTabを続けると、ホーム・つかいかた等mogura側・共通ツールバー側の項目へフォーカスが移動する。
+2. Tab順序上に「全画面」等が含まれるように見えるが、実際の画面上には対応するボタンが表示されていないケースがある。
+3. 「このアプリの詳細設定を開く」からpanSetを開きTabキーで移動すると、ハイコントラスト・視線入力等の画面上操作可能に見えるコントロールの一部にTabでフォーカスできない一方、視線入力OFF時に視覚的disabledに見える項目(ドウェル時間・視線カーソル表示・ドウェル安定化)へTabで到達・操作できる。
+
+### 完全なTab順序トレース(実機、Forward/Reverse各35回)
+
+共通A11yパネル(`donomanaA11yBtn`クリック直後)からのForward Tab 35回・Reverse Shift+Tab 35回を実施し、以下16項目からなる完全なTab順序を確定した:
+
+`donomanaA11yBtn`→`donomanaSettingsProxy`→[表示モード2項目]→[文字サイズ3項目]→[読み上げ2項目]→`donomanaA11yReset`→`donomanaHomeBtn`→`btnHow`→`btnRec`→`btnFS`→`donomanaRecordNavBtn`→`donomanaLockBtn`→(wrap)
+
+35回とも正しく循環しmogura側modalへの侵入自体は発生しなかった(RC1/RC2で確立したクラスタのラップ処理自体は健全)が、**このクラスタの構成メンバー選定自体に誤りがあった**ことが下記の比較調査で判明した。
+
+### Root Cause最終分類
+
+#### Root Cause A(再定義・確定): A11yパネルクラスタへのmogura固有ボタン誤含有
+
+`git show origin/main:tyushi.html`でBatch-5(tyushi)の実際の実装を確認したところ、tyushiの`a11yClusterFocusables()`は`donomanaA11yBtn`+[パネル内]+`donomanaHomeBtn`のみで構成され、**アプリ固有のヘッダーボタンは一切含まれていなかった**。
+
+対して`mogura-tataki.html`の`moguraA11yClusterFocusables()`(RC1で新規実装)は、
+```js
+const after=['donomanaHomeBtn','btnHow','btnRec','btnFS'].map(id=>document.getElementById(id));
+```
+と、mogura固有の`btnHow`(つかいかた)/`btnRec`(記録)/`btnFS`(全画面)まで誤ってクラスタに含めていた。「RC1でそう実装したから」という理由以外に正当化根拠はなく、**これがUser確認1(Tabを続けるとホーム・つかいかた等mogura側・共通ツールバー側へフォーカスが移動する)の直接原因**と確定した。
+
+#### HIDDEN BUT FOCUSABLE実証(Root Cause Aの症状、User確認2の原因)
+
+`scrStart`はページロード直後からデフォルトで`class="screen on"`(z-index:200)であり、`.hdr`(z-index:100)内の`btnHow`/`btnRec`/`btnFS`はCSS的には`display:flex;visibility:visible;opacity:1`だが、`document.elementFromPoint()`で実視認性を確認したところ、以下の通り**実際には`scrStart`に完全に覆われて視覚的に不可視**であることを確定的に証明した(標準的なdisplay/visibility/opacity/getClientRectsチェックでは検知不能):
+
+```json
+{"id":"btnHow","rect":{"w":36,"h":36},"elementAtPoint":"scrStart","isElementItselfOnTop":false}
+{"id":"btnRec","rect":{"w":44,"h":44},"elementAtPoint":"scrStart","isElementItselfOnTop":false}
+{"id":"btnFS","rect":{"w":36,"h":36},"elementAtPoint":"scrStart","isElementItselfOnTop":false}
+```
+
+これらがクラスタに含まれていたため、「画面上に見えないボタン(全画面等)」がTab順序に現れるというUser確認2が発生していた。Root Cause Aの修正(クラスタから除外)により自動的に解消される。
+
+#### Visible Focus問題(新規分類、User確認3前半の原因)
+
+実機フロー(`donomanaA11yBtn`→「このアプリの詳細設定を開く」→panSet)でTab到達性を検証した結果、**panSet内の全12コントロール(`togHC`/`fsN`/`fsL`/`fsX`/`togDw`/`dwT`/`togCur`/`dwTol`/`togSnd`/`togRm`/`sizeR`/speedChips×5/`clsSet2`)は技術的には全てTab到達できている**ことを確認した(`donomanaA11yPanel`は正しく`display:none`に戻っており、二重パネル干渉もないことを確認済み)。
+
+しかし`togHC`/`togDw`/`togCur`/`togSnd`/`togRm`(`.tog input`パターンのトグルswitch、5項目とも同一HTML構造`<label class="tog"><input type="checkbox" id="...">​<span class="ts"></span></label>`)は、CSS上`.tog input{opacity:0;width:0;height:0}`のため`getBoundingClientRect()`が`{w:0,h:0}`となる。CSSソースを確認したところ、`.ts::before`と`.tog input:checked+.ts`系のセレクタのみが存在し、**`:focus`/`:focus-visible`関連のセレクタが一切存在しなかった**。つまりフォーカス自体は正しく`input`要素に当たっているが、視覚的フィードバック(focus indicator)が構造的に皆無であった。これは仕様書が明記する通り**「Focus Trap問題」ではなく「VISIBLE FOCUS問題」**であり、ユーザー体感としては「Tabを押しても何も反応がない=フォーカスできない」に見えていたと判断した。
+
+#### Root Cause B(継続、変更なし・User確認3後半の原因)
+
+`dwT`(ドウェル時間range)/`togCur`(視線カーソル表示checkbox)/`dwTol`(ドウェル安定化range)は、視線入力OFF時に親要素`opacity:.4`のみでグレーアウトされ、`disabled`属性・`aria-disabled`・`tabindex="-1"`のいずれも未設定でTab到達・操作可能なまま(§25 Root Cause Bと同一、変化なし)。これがUser確認3後半(視覚的disabledに見える項目へTabで到達・操作できる)の原因であり、§25で確立した方針どおり**Separate Finding継続**とする。
+
+#### 新規発見: A11yパネルクラスタのoutside-focus-guard制約(Separate Finding候補、RC3スコープ外)
+
+JSで`btnHow`(クラスタ外・かつどのmodalにも属さない`.hdr`内要素)へ強制フォーカスした後にTabを押すと、outside-focus-guardが働かずDOM順の次要素(`btnRec`)へ進むことを確認した。`git show origin/main:tyushi.html`で確認したところ、tyushiの同等ロジックも`!inCluster && overlay.contains(cActive)`という同一条件であり、**tyushiには`.hdr`のような複数ヘッダーボタン要素が存在しないため表面化していなかった設計限界**であると判明した。通常のTabキー操作のみでは(RC3修正後のクラスタで)この状態に到達すること自体が発生しない(Forward/Reverse各30回で確認、下記)ため、キーボードのみのUser操作では影響しない。外部要因(ブラウザ拡張機能等)による人工的なフォーカス移動でのみ顕在化するエッジケースであり、**RC3のスコープ外・Separate Finding候補(UNCLASSIFIED、A11yパネルクラスタのoutside-focus-guard強化)として記録する**。
+
+### RC3 Fix Architecture(mogura-tataki.html内のみ、共通A11y実装は無変更)
+
+1. **Root Cause A修正**: `moguraA11yClusterFocusables()`の`after`配列から`btnHow`/`btnRec`/`btnFS`を除外し、`['donomanaHomeBtn']`のみに変更(tyushiと同型のクラスタ構成に統一)。
+2. **Visible Focus問題修正**: `.tog input:focus-visible+.ts{outline:3px solid var(--accent2);outline-offset:2px}`をCSSに追加。`.tog input`自体は`opacity:0;width:0;height:0`で視認不能なため、隣接する可視トラック本体`.ts`側へoutlineを転送する設計とした。既存の`:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}`(652行目、他のA11y focus indicatorと同じ配色)との一貫性を保った。
+
+いずれも`mogura-tataki.html`内のJS/CSSのみで完結し、`donomanaA11yPanel`/`openPanel`/`closePanel`等の共通A11y実装には一切手を加えていない。
+
+### RC3検証結果(全項目実機確認)
+
+- **A11yパネルクラスタForward/Reverse各30回**: mogura固有ボタン(`btnHow`/`btnRec`/`btnFS`)への越境=PASS(混入なし)、`donomanaA11yBtn`→`donomanaSettingsProxy`→[パネル内7項目]→`donomanaA11yReset`→`donomanaHomeBtn`→`donomanaRecordNavBtn`→`donomanaLockBtn`→(wrap)の11項目クラスタで完全に自己完結することを確認。
+- **HIDDEN BUT FOCUSABLE解消確認**: `scrStart`がデフォルトで開いた状態(ページロード直後、実際のUser体験と同一条件)でA11yパネルForward Tab 20回を実施し、`btnHow`/`btnRec`/`btnFS`がTab順序に一切出現しないことを確認(修正前は視覚的に不可視のこれら3要素がクラスタに含まれていた)。
+- **Visible Focus解消確認**: `togHC`/`togDw`/`togCur`/`togSnd`/`togRm`の5トグル全てにfocusした際、隣接`.ts`要素の`outlineWidth`が`3px`(`outline:"rgb(255, 217, 61) solid 3px"`)になることを実機確認、`togHC.matches(':focus-visible')`が`true`であることも確認。
+- **panSet Tab順序退行なし**: `clsSet→togHC→fsN→fsL→fsX→togDw→dwT→togCur→dwTol→togSnd→togRm→sizeR→[speedChips×5]→clsSet2→(wrap)`、RC3修正前後で完全に同一順序であることを確認(Visible Focus修正はCSSのみのためTab順序に影響しないことを裏付け)。
+- **5modal Focus Trap regression再確認**(Forward 15回・Reverse 15回、`scrStart`/`panHow`/`panRec`/`panSet`/`scrResult`の全5要素): 全てPASS、mogura側/背景要素への脱出なし。
+- **Responsive(390×844/768×1024/1280×900)**: panSet内`sizeR`(スクロールが必要な位置)までTabで到達した際、3 viewportとも`getBoundingClientRect()`がviewport内に収まっている(ブラウザの自動scrollIntoViewが機能)ことを確認。
+- **Touch regression**: `togHC`のタップでchecked状態がtoggleすること、`btnStart`のタップでゲーム開始(`scrStart.on`がfalseに遷移)することを確認、regressionなし。
+- **Console/page errors**: 全テストを通じて0件。
+- **Static Validation**: `git diff --check`で空白等のエラーなし、変更は2箇所(CSS 4行追加・JS `after`配列1行変更相当)のみで意図しない差分なし。
+
+### Separate Finding(記録のみ、今回のBatchに含めない)
+
+- (§25から継続)**panSet内のdisabled-state設計不整合**(Root Cause B): `dwT`/`togCur`/`dwTol`が視線入力OFF時にTab到達可能・操作可能なまま。既存taxonomy(FAMILY-A/B/C/D/E/I)のいずれにも正確には合致せず、新Family名の正式決定はプロジェクトオーナーの判断を仰ぐ(UNCLASSIFIED/NEEDS OWNER DECISION)。
+- **(RC3で新規発見)A11yパネルクラスタのoutside-focus-guard制約**: クラスタ外・かつどのmodalにも属さない要素(`.hdr`内ヘッダーボタン等)へ外部要因でフォーカスが移動した場合、次のTabでガードされずDOM順の次要素へ進んでしまう。tyushiにも同型の制約があり(overlay内のみをガード対象とする設計)、通常のキーボード操作では発生しない。候補Family: 既存taxonomyには合致せず、UNCLASSIFIED/NEEDS OWNER DECISIONとして記録。
+- (§25から継続)`scrStart`/`scrResult`のFocus Restoration欠如(FAMILY-D候補)。
+- (§25から継続)Initial Focus欠如(FAMILY-C)。
+- (§25から継続)`panSet`背景クリック閉じ経路のFocus Restorationなし(既存挙動)。
+
+### 更新後の状態
+
+- `TIER1-F3-j`〜`n` = **FIXED IN RC3 / USER REVIEW PENDING**
+- FAMILY-B Production residual count: 9件のまま変わらず(Production未反映のため)
+- RC candidate count: 5件(TIER1-F3-j・k・l・m・n)、変わらず
+- User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
