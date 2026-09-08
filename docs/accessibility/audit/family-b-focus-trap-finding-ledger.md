@@ -39,7 +39,7 @@
 | 6 | TIER1-F3-d | nazorin-print | nazorin-print.html | `helpModal` | Modal Dialog | YES | YES | **LEVEL-A** | **PASS**(20回連続Tabで脱出せず、単一focusable[`btnHelpClose`]自身へ循環。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnHelpClose`自身に留まる。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3-RELEASE`, commit `4da35d9`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 3(注: Ledger当初案の「Batch 4」から実行順で3番目のBatchとして実施。同一3 Finding、番号相違のみ) | |
 | 7 | TIER1-F3-e | nazorin-print | nazorin-print.html | `batchModal` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(30回連続Tab[動的に追加された一覧項目含む]で脱出せず。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnBatchPrint`へ正しくwrap。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3-RELEASE`, commit `4da35d9`) | Batch 3 | helpModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた。一覧(`#batchList`)は動的生成のため毎keydownでfocusable再取得、項目追加・削除後もTrap維持を実機確認(RC・Production両方で再確認) |
 | 8 | TIER1-F3-f | nazorin-print | nazorin-print.html | `libModal` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`BUTTON`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`btnBatch`へ脱出) | **PASS**(`btnLibDelFolder`へ正しくwrap。pre-fix: 背景`SECTION`要素へ即座に脱出) | **PASS**(`btnShuffle`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-3-RELEASE`, commit `4da35d9`) | Batch 3 | 同上。フォルダ/セット一覧(`#libFolderList`/`#libSets`)も動的生成、同様に確認済み(RC・Production両方で再確認) |
-| 9 | TIER1-F3-g | tyushi | tyushi.html | `help-overlay` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず、`help-close`⇄`.htab`間で正しく循環。pre-fix: 15回目までに背景`donomanaA11yBtn`[モーダル外]へ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaA11yBtn`へ脱出) | **PASS**(help-btn[opener]からのShift+Tabは`help-close`へ、DOM順序上偶然PASSしていたが今回明示的に保証。pre-fix: 偶然PASSだったがForward側でFAIL確定) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-5`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-5`, branch `fix/family-b-tyushi-help-focus-trap`。Production未反映) | Batch 5(注: Ledger当初案の「Batch 1」から実行順で5番目のBatchとして実施。同一Finding、番号相違のみ) | settings-panelとは別UI(§6参照、混同しない)、settings-panelには一切手を加えていない。**[別Finding発見・今回Fixせず]** `closeHelp()`にfocus復帰処理が一切無く、close後にactiveElementがBODYへ退行することを実機確認(新規FAMILY-D候補、既存Ledgerに未記録だった)。**[実装中に発見・修正済み]** 初期実装では共通A11yパネルとの競合回避条件式が無く、help-overlay表示中にA11yパネルを開いてTabを押すとA11yパネル内のfocusがhelp-overlay側Trapに強制送還される regressionが実機で確認されたため、他app(gaze-keyboard settingsModal等)と同型のA11yパネル競合回避条件式を追加して解消 |
+| 9 | TIER1-F3-g | tyushi | tyushi.html | `help-overlay` | Modal Dialog | YES | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(15回連続Tabで脱出せず、`help-close`⇄`.htab`間で正しく循環。pre-fix: 15回目までに背景`donomanaA11yBtn`[モーダル外]へ脱出) | **PASS**(15回連続Shift+Tabで脱出せず。pre-fix: 背景`donomanaA11yBtn`へ脱出) | **PASS**(help-btn[opener]からのShift+Tabは`help-close`へ、DOM順序上偶然PASSしていたが今回明示的に保証。pre-fix: 偶然PASSだったがForward側でFAIL確定) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **FIXED IN RC2 / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-5-RC2`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-5`, branch `fix/family-b-tyushi-help-focus-trap`。Production未反映。RC1はUser Browser ReviewでA11yパネル共存回帰がFAILし、RC2で再修正・再検証済み。詳細は§22参照) | Batch 5(注: Ledger当初案の「Batch 1」から実行順で5番目のBatchとして実施。同一Finding、番号相違のみ) | settings-panelとは別UI(§6参照、混同しない)、settings-panelには一切手を加えていない。**[別Finding発見・今回Fixせず]** `closeHelp()`にfocus復帰処理が一切無く、close後にactiveElementがBODYへ退行することを実機確認(新規FAMILY-D候補、既存Ledgerに未記録だった)。RC2でも同一挙動が維持されており悪化していないことを確認済み。**[RC1で発見・RC1修正が不十分と判明・RC2で正式修正]** §22参照 |
 | 10 | TIER1-F3-h | gaze-keyboard | gaze-keyboard.html | `profileModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.prof-modal`にはsettingsModalの`.settings-modal`と異なり`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。旧Ledgerの「YES」は結果として妥当だが根拠となるARIA属性の有無を未確認のまま記載していた。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず、`profModalTitle`⇄`profCancel`間で正しく循環。pre-fix: 20回目までに背景`rtClear`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`profCancel`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態からTab/Shift+Tabいずれでもmodal内へ復帰) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4-RELEASE`, commit `f070ca1`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 4 | hrModalと兄弟関係の独立DOM要素、以前は誤って1行に統合されていた。Initial Focus(`#profModalTitle`、tabindex="-1")はFAMILY-J対応のanchor境界処理が必要(settingsModal既存Trapと同型) |
 | 11 | TIER1-F3-i | gaze-keyboard | gaze-keyboard.html | `hrModal` | Modal Dialog | **YES(実質modal。[2026-09-08訂正] 内側コンテナ`.hr-modal`も同様に`role="dialog" aria-modal="true"`が付与されていないことをコード確認で発見。ARIA欠如自体は別Finding、今回scope外)** | YES | **LEVEL-A(実機確認により旧LEVEL-Bから昇格)** | **PASS**(20回連続Tabで脱出せず。pre-fix: 20回目までに背景`btnCopy`[モーダル外]へ脱出) | **PASS**(20回連続Shift+Tabで脱出せず。pre-fix: 背景`rtAlignL`へ脱出) | **PASS**(`histClearBtn`へ正しくwrap。pre-fix: 背景`BUTTON`へ即座に脱出) | **PASS**(`donomanaA11yBtn`へ強制focusした状態から復帰確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-4-RELEASE`, commit `f070ca1`) | Batch 4 | 同上。Initial Focusは常設focusableな`.hr-tab.active`自体のためanchor特別扱い不要。履歴/レポートタブ切替による動的DOM再構築後もTrap維持を実機確認(RC・Production両方で再確認) |
 | 12 | TIER2-F2-c | hiragana-learn | hiragana-learn.html | `traceSampleViewer` | Modal Dialog | YES | YES | LEVEL-B(既存Production docs記録踏襲、コード未変更) | 未確認 | 未確認 | 未確認 | 未確認 | B1 | P2 | CONFIRMED FAIL | Batch 6 | katakana-appと共通実装(コード共有、ファイルは別) |
@@ -324,3 +324,58 @@ User Browser Review Approved(「FAMILY-B Batch4 User Browser Review: 問題あ�
 - **RC candidate count: 1件**(TIER1-F3-g)
 - Escape(既存実装、変更なし)は問題なし。settings-panelへのregressionなし(実機確認済み、A11yプロキシ経由の正規フローで確認)。
 - User Browser Review待ち。Production Release/main merge/cleanupは未実施。
+
+---
+
+## 22. [2026-09-08追記] WCAG-JIS-FIX-FAMILY-B-BATCH-5-RC2: User Browser Review FAILとRC2修正
+
+**RC1(§21)はUser Browser ReviewでFAILし、正式判定は`WCAG-JIS-FIX-FAMILY-B-BATCH-5 = USER REVIEW FAILED / RC REVISION REQUIRED`となった。** §21の記述はRC1時点での認識(A11yパネル競合回避条件式で解消したと判断)であり、これ自体は削除・書き換えず、以下に不十分だった実態とRC2での正式修正を追記する。
+
+### User Browser Reviewで報告された実症状
+
+「使い方」(`#help-overlay`)を開いた状態でA11yパネルを開き、A11yパネル内をTabで移動すること自体は可能だが、Tabを続けると最終的にhelp-overlay側へフォーカスが強制的に戻る、というもの。
+
+### 実機再現(RC2着手時)
+
+再現手順どおりに実機再現し、正確な遷移を記録した:
+
+- A11yパネルを開く(`donomanaA11yBtn`→`donomanaSettingsProxy`→パネル内チェックボックス/ボタン群→`donomanaA11yReset`まで、Tab#1〜#9)
+- Tab#10: `donomanaA11yReset`(パネル内最後)→`donomanaHomeBtn`(パネル外・help-overlay外の共通ツールバーボタン)。この時点で`donomanaA11yPanel.style.display`はまだ`'block'`(パネルは開いたまま)
+- Tab#11: `donomanaHomeBtn`→help-overlay内のBUTTON要素。**ここでUser報告のとおりhelp-overlayへ強制送還される。**
+
+### Root Cause(RC1の何が不十分だったか)
+
+RC1のガード条件式は`a11yPanel.style.display==='block' && (document.activeElement===a11yBtn || a11yPanel.contains(document.activeElement))`だった。この条件は**activeElementが「A11yボタン自身」または「パネルのDOM内部」のいずれかである場合のみ**help-overlay Trapをskipする設計であり、Tab#10でactiveElementが`donomanaHomeBtn`(パネルのDOM外、かつA11yボタン自身でもない)に移った瞬間に条件が成立しなくなり、Trapが再度介入していた。
+
+さらに調査の結果、問題の本質はガード条件式の書き方ではなく、**「A11yパネル自身はTab#10のようにパネル外の共通ツールバー(`donomanaHomeBtn`)へ抜ける設計になっている」**ことにあった。help-overlay側のTrapを単純にskipするだけでは、A11yパネル+共通ツールバーという一塊のクラスタを抜けた後、素のDOM順序(A11yパネル関連要素の直後にhelp-overlayが位置する)により、ブラウザの標準Tab遷移がそのままhelp-overlay内へ入り込んでしまう。これは「help-overlay側Trapの誤動作」ではなく「A11yパネル関連クラスタ自体がself-containedでない」ことに起因する。
+
+### RC2 Fix Architecture
+
+Modal Accessibility Contract v1.1のEscape priority(A11y Panel > Nested overlay > Main modal)と同じ「focus ownership」の考え方に基づき、2段階の設計に変更した:
+
+1. **help-overlay自身のTrap無効化**: 引き続き`a11yPanel.style.display==='block'`の間はhelp-overlay自身の端点wrap/outside-focus-guardを完全にskipする(RC1から維持)。
+2. **[新規] A11yパネル関連クラスタへのローカルTrap付与**: 共通A11yパネル実装自体(生成済みの共通コード)は変更せず、tyushi.htmlのhelp-overlay用listener内に限定して、A11yパネルOPEN中は`[donomanaA11yBtn, ...パネル内focusables, donomanaHomeBtn]`という「A11yパネル関連クラスタ」のリストを都度計算し、その最後の要素(`donomanaHomeBtn`)からのForward Tabは先頭(`donomanaA11yBtn`)へ、先頭からのReverse Shift+Tabは最後(`donomanaHomeBtn`)へラップする。これによりA11yパネルOPEN中はクラスタ内で閉じたループとなり、help-overlay(および他の背景要素)へ一切流出しなくなる。パネルがCLOSEDに戻れば次のTabから通常のhelp-overlay Trapへ自動復帰する(状態を保持しない、毎keydown判定のため)。
+
+### 実装中に追加で発見・修正した副次バグ
+
+上記クラスタ実装の初版では、`donomanaA11yBtn`・`donomanaHomeBtn`がいずれも`position:fixed`であるため`el.offsetParent`が常に`null`になる(Chromiumの既知の仕様: `position:fixed`要素は`offsetParent`を持たない)ことに気づかず、`offsetParent!==null`ベースの可視性判定を使ったところ、この2要素が誤って「非表示」としてクラスタから除外されてしまい、クラスタがA11yパネル内部の要素だけでループする(`donomanaHomeBtn`・`donomanaA11yBtn`へは到達不能になる)という不完全な状態になっていた。`getClientRects().length>0`+`getComputedStyle`ベースの可視性判定(gaze-keyboard settingsModal等の既存Trapと同型)に置き換えて解消し、Forward/Reverse Tabでクラスタ全体(A11yボタン→パネル内→ホームボタン→ラップ)を正しく循環することを実機確認した。
+
+### RC2再検証結果(全項目実機確認)
+
+- A11yパネル関連クラスタでのForward Tab 20回連続・Reverse Shift+Tab 20回連続: いずれもhelp-overlayへ一切脱出せず、クラスタ内で正しく循環(PASS)
+- A11yパネルを`donomanaA11yBtn`の再クリック(toggle close、Escapeではない)で閉じた後: help-overlay自身のTrapが正常復帰(Forward 15回・Reverse 15回・outside-focus-guardいずれもPASS)
+- A11yパネルのOPEN→Tab確認→CLOSE→help Trap確認を3サイクル実施: listener多重登録なし(`preventDefault`発火回数が常に1)、stale stateなし、Trap復帰失敗なし
+- 通常のhelp-overlay Trap regression(A11yパネルCLOSED状態): Forward Tab 15回・Reverse Shift+Tab 15回・immediate Shift+Tab・forced outside focus+Tab/Shift+Tab・3 tab pane(staff/child/home)切替後のTab、いずれも背景へ脱出せずPASS(RC1から変化なし)
+- Escape regression: **Escapeを1回押すとA11yパネルとhelp-overlayの両方が同時に閉じることを確認した**(それぞれ独立したdocument-level Escapeリスナーが同一keydownイベントで両方発火するため、2段階のEscape priorityにはなっていない)。この挙動はRC1・RC2いずれでも共通コードのEscape実装は一切変更していないため、**既存の事前挙動であり、今回のTab-trap修正とは独立**。仕様上望ましいかは別途検討の余地があるが、本Phaseでは「Escapeロジック自体は変更しない」との指示どおり一切手を加えていない。
+- Focus Restoration既知Finding(`closeHelp()`のBODY退行): RC2でも同一挙動を確認、悪化していないことを確認(§21の記載から変化なし)
+- Initial Focus既知Finding: 変更なし
+- settings-panel: A11yプロキシ経由の正規フローで開閉・Tab操作を確認、regressionなし
+- Touch/Responsive(390×844・768×1024・1280×900): 各viewportでA11yパネルのopen/tab/close、help-overlay自身のTrap復帰を確認、いずれもPASS
+- Console/page errors: 0件
+
+### 更新後の状態
+
+- `TIER1-F3-g` = **FIXED IN RC2 / USER REVIEW PENDING**
+- FAMILY-B Production residual count: 10件のまま変わらず(Production未反映のため)
+- RC candidate count: 1件(TIER1-F3-g)、変わらず
+- User Browser Review再実施待ち。Production Release/main merge/cleanupは未実施。
