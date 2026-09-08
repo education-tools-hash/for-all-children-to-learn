@@ -1558,6 +1558,37 @@ $("#btnLibClose").addEventListener("click", closeLib);
 libModal.addEventListener("click", e => { if (e.target === libModal) closeLib(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !libModal.hidden) closeLib(); });
 
+/* TIER1-F3-d/e/f是正: helpModal/batchModal/libModalにはFocus Trapが一切無く、
+   Tab/Shift+Tabで背景(SECTION要素・btnBatch等)へ即座に脱出していた(実機確認:
+   immediate Shift+Tab/Forward Tab/Reverse Tabいずれも即座に脱出)。document-level
+   のkeydownで「今どのmodalが表示中か([hidden]属性で判定)」を判定し、該当modalの
+   みfocusableを毎回再取得してendpoint/outside-focus wrapする(要素直付けlistener
+   だとactiveElementが既にmodal外にある場合に発火しないため、register-app/
+   scratch-app Fix[Batch 1/2]と同じdocument-level方式を採用)。3 modalは同時に
+   開かない前提だが、念のため排他的にどれか1つのみ処理する(二重登録防止のため
+   単一listenerに統合)。batchModal/libModalは一覧が動的生成されるため、
+   focusableはkeydownごとに再取得する。 */
+function nazorinTrapFocusables(container){
+  return Array.from(container.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+    .filter(el=>el.offsetParent!==null && !el.disabled);
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  let modal = null;
+  if (!helpModal.hidden) modal = helpModal;
+  else if (!batchModal.hidden) modal = batchModal;
+  else if (!libModal.hidden) modal = libModal;
+  if (!modal) return;
+  const items = nazorinTrapFocusables(modal);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey) {
+    if (document.activeElement === first || !modal.contains(document.activeElement)) { e.preventDefault(); last.focus(); }
+  } else {
+    if (document.activeElement === last || !modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  }
+});
+
 function shuffleSettings(){
   if (state.mode === "ten") {
     const sel = $("#tenShape");
