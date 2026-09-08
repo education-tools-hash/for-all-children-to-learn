@@ -1756,6 +1756,29 @@ document.getElementById('delete-cancel').addEventListener('click',()=>closeModal
   const dmModal=document.getElementById('delete-modal');
   if(!dmModal) return;
   let dmDeletingId=null, dmDeletingIndex=-1;
+  // TIER1-F3-a是正: delete-modalにはFocus Trapが一切無く、Tab/Shift+Tabで背景
+  // (record-open-btn等)へ即座に脱出していた。focusable算出・端点wrapの考え方は
+  // 同じregister-app内のproduct-modal(行1643-1654)を踏襲するが、listenerは
+  // dmModal要素ではなくdocumentに付与する(record-modal, 行1585と同一方式)。
+  // dmModal要素へのkeydown listenerだとイベントバブリングの都合上、activeElement
+  // が既にmodal外にある状態(outside-focus-guardが必要な場面そのもの)では
+  // イベントがdmModalへ届かず発火しないため、それでは要件を満たせない。
+  function dmFocusables(){
+    return Array.from(dmModal.querySelectorAll('button,input,[tabindex]'))
+      .filter(el=>el.offsetParent!==null && !el.disabled);
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Tab') return;
+    if(!dmModal.classList.contains('active')) return;
+    const items=dmFocusables();
+    if(!items.length) return;
+    const first=items[0], last=items[items.length-1];
+    if(e.shiftKey){
+      if(document.activeElement===first || !dmModal.contains(document.activeElement)){ e.preventDefault(); last.focus(); }
+    } else {
+      if(document.activeElement===last || !dmModal.contains(document.activeElement)){ e.preventDefault(); first.focus(); }
+    }
+  });
   new MutationObserver(()=>{
     const isActive=dmModal.classList.contains('active');
     if(isActive && dmDeletingId===null){
