@@ -1452,21 +1452,72 @@ document.querySelectorAll('.chip').forEach(btn=>{
   // ため、CSSクラス判定ではなくこれに合わせる)。settings-panel(非modal、別UI)には
   // 一切手を加えない。document-levelのkeydown listenerを採用(要素直付けだと
   // outside-focus-guardが発火しないため、他Batchと同じ設計方式)。
-  // 実機確認で発覚した問題の是正: help-overlay表示中に共通A11yパネルを開いた場合、
-  // A11yパネル内でのTabがhelp-overlay側のTrapに奪われてしまっていた(A11yパネルは
-  // z-indexでhelp-overlayより上に表示されるため見た目上operableに見えるが、
-  // focusはhelp-overlay内へ強制送還されていた)。他app(okane-app/matching-app/
-  // gaze-keyboard settingsModal等)の既存Trapと同型のA11yパネル競合回避条件式を追加。
+  // [RC2是正・第1段] RC1のA11yパネル競合回避条件式(activeElementがa11yBtn自身または
+  // panel内部にある場合のみskip)はUser Browser Reviewで不十分と判明した。正しい設計
+  // は「A11yパネルがOPENである間はkeyboard focus ownershipをhelp-overlayが奪わない」
+  // という基準(Modal Contract v1.1のEscape priority: A11y Panel > Nested overlay >
+  // Main modalと同じ考え方)。A11yパネル自身のtoggle実装(行546)が使う
+  // `panel.style.display==='block'`を正式なopen判定として用い、OPEN中は無条件で
+  // help-overlay自身の端点wrap/outside-focus-guardをskipする。
+  // [RC2是正・第2段] 上記だけでは不十分なことが実機再現で判明した: A11yパネルは
+  // 自身にFocus Trapを持たず、パネル内最後のfocusable(donomanaA11yReset)からの
+  // Tabは意図的にdonomanaHomeBtn(共通ツールバー、A11yパネルのDOM外)へ抜ける設計に
+  // なっている。help-overlay側Trapを単にskipするだけでは、donomanaHomeBtnから
+  // さらにTabした際、DOM順序上たまたま次に位置するhelp-overlay内部へブラウザの
+  // 素のTab遷移がそのまま入り込んでしまう(help-overlay自身のTrapの問題ではなく、
+  // 素のDOM順序がA11yパネル関連クラスタの直後にhelp-overlayを配置しているために
+  // 発生する)。共通A11yパネル実装自体は変更できない(scope外)ため、tyushi.html
+  // ローカルの対処として、A11yパネルOPEN中はa11yBtn→パネル内focusables→
+  // donomanaHomeBtnという「A11yパネル関連クラスタ」自体にこの場でだけ端点wrapを
+  // 適用し、help-overlay(および他の背景要素)へ絶対に流出しないようにする。
+  // パネルがCLOSEDに戻れば(style.displayが'block'以外になれば)次のTabから
+  // 通常のhelp-overlay Trapが自動的に再開する(状態を保持しない、毎keydown判定)。
   function helpOverlayFocusables() {
     return Array.from(overlay.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
       .filter(el => el.offsetParent !== null && !el.disabled);
   }
+  function a11yClusterFocusables(a11yPanel) {
+    const a11yBtn = document.getElementById('donomanaA11yBtn');
+    const homeBtn = document.getElementById('donomanaHomeBtn');
+    // donomanaA11yBtn/donomanaHomeBtnはposition:fixedのためoffsetParentが常にnullに
+    // なる(Chromiumの既知の仕様、position:fixed要素はoffsetParentを持たない)。
+    // offsetParentベースの判定ではこの2要素が誤って「非表示」扱いされ、クラスタから
+    // 除外されてしまうため、getClientRects().length>0 + computed styleベースの判定
+    // (gaze-keyboard settingsModal既存Trap等と同型)を用いる。
+    const isVisible = el => {
+      if (!el || el.disabled) return false;
+      if (el.hasAttribute('hidden')) return false;
+      if (el.getClientRects().length === 0) return false;
+      const cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden';
+    };
+    const panelItems = Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+      .filter(isVisible);
+    const list = [];
+    if (isVisible(a11yBtn)) list.push(a11yBtn);
+    list.push(...panelItems);
+    if (isVisible(homeBtn)) list.push(homeBtn);
+    return list;
+  }
   document.addEventListener('keydown', e => {
     if (e.key !== 'Tab') return;
     if (!overlay || overlay.style.display === 'none') return;
-    const a11yBtn = document.getElementById('donomanaA11yBtn');
     const a11yPanel = document.getElementById('donomanaA11yPanel');
-    if (a11yPanel && a11yPanel.style.display === 'block' && (document.activeElement === a11yBtn || a11yPanel.contains(document.activeElement))) return;
+    if (a11yPanel && a11yPanel.style.display === 'block') {
+      const clusterItems = a11yClusterFocusables(a11yPanel);
+      if (!clusterItems.length) return;
+      const cFirst = clusterItems[0], cLast = clusterItems[clusterItems.length - 1];
+      const cActive = document.activeElement;
+      const inCluster = clusterItems.includes(cActive);
+      if (e.shiftKey) {
+        if (inCluster && cActive === cFirst) { e.preventDefault(); cLast.focus(); }
+        else if (!inCluster && overlay.contains(cActive)) { e.preventDefault(); cLast.focus(); }
+      } else {
+        if (inCluster && cActive === cLast) { e.preventDefault(); cFirst.focus(); }
+        else if (!inCluster && overlay.contains(cActive)) { e.preventDefault(); cFirst.focus(); }
+      }
+      return;
+    }
     const items = helpOverlayFocusables();
     if (!items.length) return;
     const first = items[0], last = items[items.length - 1];
