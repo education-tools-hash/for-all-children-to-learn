@@ -31,7 +31,7 @@
 
 | # | Finding ID | App | File | UI/Modal ID | UI classification | Modal Contract Applicable | FAMILY-B Applicable | Evidence Level | Forward Tab | Reverse Tab | Immediate Shift+Tab | Outside Focus Escape | Pattern | Priority | Status | Fix Batch | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | TIER1-F3-a | register-app | register-app.html | `delete-modal` | Modal Dialog | YES | YES | **LEVEL-A** | **[RC] PASS**(15回連続TabでもDOM外へ脱出せず、`delete-cancel`⇄`delete-confirm`間で正しく循環。pre-fix: 10回Tabで`fullscreen-btn`へ脱出) | **[RC] PASS**(15回連続Shift+Tabでも脱出せず。pre-fix: 10回Shift+Tabで`share-btn`へ脱出) | **[RC] PASS**(`delete-confirm`へ正しくwrap。pre-fix: 背景`record-open-btn`へ即座に脱出) | **[RC] PASS**(activeElementをmodal外に強制した状態からTab/Shift+Tabいずれでもmodal内へ復帰することを確認) | B1 | P2 | **FIXED IN RC / USER REVIEW PENDING**(`WCAG-JIS-FIX-FAMILY-B-BATCH-1`, worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-1`, branch `fix/family-b-register-delete-focus-trap`。Production未反映、Production residual countは維持) | Batch 1 | Focus Restoration(TIER1-F5B)はProduction解決済み、Trapのみ残存していた。Fixはdocument-levelのkeydown listener(dmModal要素直付けでは outside-focus-guard発火不可なため、record-modal(既存)と同一方式を採用)+ 既存product-modalと同じfocusable算出/端点wrapロジック。cancel/Escape/confirm(境界削除含む)のRestorationおよびproduct-modal自体への regression無しをbrowser検証済み |
+| 1 | TIER1-F3-a | register-app | register-app.html | `delete-modal` | Modal Dialog | YES | YES | **LEVEL-A** | **PASS**(15回連続TabでもDOM外へ脱出せず、`delete-cancel`⇄`delete-confirm`間で正しく循環。pre-fix: 10回Tabで`fullscreen-btn`へ脱出) | **PASS**(15回連続Shift+Tabでも脱出せず。pre-fix: 10回Shift+Tabで`share-btn`へ脱出) | **PASS**(`delete-confirm`へ正しくwrap。pre-fix: 背景`record-open-btn`へ即座に脱出) | **PASS**(activeElementをmodal外に強制した状態からTab/Shift+Tabいずれでもmodal内へ復帰することを確認) | B1 | P2 | **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(`WCAG-JIS-FIX-FAMILY-B-BATCH-1-RELEASE`, commit `a012cfa`。User Browser Review Approved、Production Validation実機再確認PASS済み) | Batch 1 | Focus Restoration(TIER1-F5B)はProduction解決済み、Trapのみ残存していた。Fixはdocument-levelのkeydown listener(dmModal要素直付けでは outside-focus-guard発火不可なため、record-modal(既存)と同一方式を採用)+ 既存product-modalと同じfocusable算出/端点wrapロジック。cancel/Escape/confirm(境界削除含む)のRestorationおよびproduct-modal自体への regression無しをbrowser検証済み(RC・Production両方で再確認) |
 | 2 | TIER2-F2-a | cup_game | cup_game.html | `settingsOverlay` | Modal Dialog(role/aria-modal無し、別Finding) | YES(実質modal) | YES | **LEVEL-A** | 29回目のTabでBODYへ脱出 | 偶然内部に留まる(`toggleDwell`) | 偶然PASS(forward側でFAIL確定) | FAIL(forward) | B1 | P2 | CONFIRMED FAIL | Batch 3(A11yパネルProxy構造) | A11yパネルProxy経由が唯一の到達経路 |
 | 3 | TIER2-F2-b | cup_game | cup_game.html | `helpOverlay`(helpModal) | Modal Dialog | YES | YES | **LEVEL-A** | 未実施(reverse側で確定) | 背景`startBtn`へ即座に脱出 | FAIL | FAIL | B1 | P2 | CONFIRMED FAIL | Batch 3 | |
 | 4 | TIER1-F3-b | scratch-app | scratch-app.html | `txtEdOv` | Modal Dialog(setOv上のnested overlay) | YES | YES | **LEVEL-A** | 19回目のTabで`photoInp`(モーダル外)へ脱出 | 偶然内部に留まる(`txtBgCustom`) | 偶然PASS(forward側でFAIL確定) | FAIL(forward) | B1 | P2 | CONFIRMED FAIL | Batch 2 | Focus Restorationは`WCAG-JIS-FIX-FAMILY-D-BATCH-2-RELEASE`で解決済み |
@@ -192,3 +192,17 @@ CONFIRMED FAIL 18件が確定した。Fix Batch実装は本Phaseでは開始し�
 - **RC candidate count: 1件**(TIER1-F3-aのみ)
 - 本Batchは`tyushi(help-overlay, TIER1-F3-g)`を含まない。Phase指示により明示的にregister-app delete-modal単独スコープとした(前Phase報告の「register-app + tyushiはいずれもLEVEL-A」という記述はEvidenceの粒度が異なる可能性があり、tyushi分は別途扱う)。
 - User Browser Review待ち。Production Release/main merge/cleanupは未実施。
+
+---
+
+## 14. [2026-09-08追記] WCAG-JIS-FIX-FAMILY-B-BATCH-1-RELEASE完了
+
+User Browser Review Approved(「FAMILY-B Batch1 User Browser Review: 問題ありません。User Approvedです。」)を受け、Production Releaseを実施した。
+
+- `main = origin/main = a012cfa`へfast-forward merge・push完了
+- CI(`generate`ワークフロー)による自動コミットは発生せず(register-app.htmlはapps-data.json駆動の生成対象外のため想定通り)
+- Production Validationとしてマージされたmainのコンテンツをそのまま配信するローカルサーバ(port 9105)上で実機再テストを実施し、RC時と同一の全項目(Forward/Reverse boundary wrap・immediate Shift+Tab・outside-focus-guard・cancel/Escape/confirm restoration・product-modal無regression)がPASSすることを確認
+- `TIER1-F3-a`のStatusを**FIXED IN RC / USER REVIEW PENDING**から**✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(commit `a012cfa`)へ更新(§3該当行)
+- **FAMILY-B Production残存件数: 18件 → 17件**(TIER1-F3-aのみ解消、残り17件は未着手)
+- 投資調査branch `investigate/wcag-jis-finding-initial-restore-1`(`c6930d9`)は本Releaseでも変更なし
+- worktree `for-all-children-to-learn-wcag-jis-fix-family-b-batch-1`・branch `fix/family-b-register-delete-focus-trap`はcleanup済み(fully merged後に削除)
