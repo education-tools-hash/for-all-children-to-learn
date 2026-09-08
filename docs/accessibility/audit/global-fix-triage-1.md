@@ -17,7 +17,7 @@ Source of Truth: `all-35-apps-accessibility-audit-summary.md`・`all-35-apps-acc
 | TIER2-F2 | FAMILY-B | P2 | 4 | hiragana-learn・katakana-app・cup_game・ongaku-app(modal-pin/export/share、role自体も欠如) | Open | - | あり(ongaku-app分) | 部分的 |
 | TIER2-F3 | FAMILY-C | P1 | 2 | cup_game(✅解消済み)・ongaku-app(Open) | **Partially Resolved** | - | ongaku-app分はFAMILY-Bと一体 | cup_gameはあり(適用済み)、ongaku-appは単独パターン不可 |
 | TIER1-F5 | FAMILY-D | P2 | 1 | register-app(product-modal) | ✅ **Technically Resolved(WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE、commit `b71cbfb`、Production Validation PASS)** | - | あり(Modal Accessibility Contract v1.1で正式要件確定済み) | 適用済み(`pmOpenerProductId`追加+disconnected時の同一商品再取得fallback) |
-| TIER1-F5B[2026-09-08新規登録] | FAMILY-D | P2 | 1 | register-app(delete-modal) | 🟡 **RC実装済み・User Review待ち(WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1、Production未反映)** | - | あり(TIER1-F5と同一Contract) | 適用済み(`dmDeletingId`+`dmDeletingIndex`保持。cancel/Escapeは同一`.product-card`、confirm削除後は再描画後の同一index位置のカードへlogical replacement。TIER1-F5のRC検証中に新規発見、product-modalとは別のFinding) |
+| TIER1-F5B[2026-09-08新規登録] | FAMILY-D | P2 | 1 | register-app(delete-modal) | ✅ **Technically Resolved(WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1-RELEASE、commit `3282b02`、Production Validation PASS)** | - | あり(TIER1-F5と同一Contract) | 適用済み(`dmDeletingId`+`dmDeletingIndex`保持。cancel/Escapeは同一`.product-card`、confirm削除後は再描画後の同一index位置のカードへlogical replacement。TIER1-F5のRC検証中に新規発見、product-modalとは別のFinding) |
 | TIER1-F6 | FAMILY-E | (Spec) | 18 | 全app固有モーダル保有アプリ(4系統) | Open | - | あり(実装方式統一要否) | N/A(方針決定が前提) |
 | TIER1-F4 | FAMILY-F | P2〜P3 | 8 | register-app・matching-app・time-timer・mogura-tataki・okane-app・nazorin-print・schedule-app・gaze-keyboard | Open | あり(gradient等) | デザイントークン方針 | 部分的(トークン単位) |
 | TIER2-F4 | FAMILY-F | P3 | 5 | cup_game・ongaku-app・kimochi-board・drawing-app・katachi-awase-app | Open | あり | 同上 | 同上 |
@@ -34,12 +34,11 @@ Source of Truth: `all-35-apps-accessibility-audit-summary.md`・`all-35-apps-acc
 | 状態 | Finding | 件数 |
 |---|---|---|
 | ✅ Closed | TIER1-F1 | 1 |
-| ✅ Technically Resolved | TIER2-F6・**TIER1-F5[2026-09-08追加、WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE]** | 2 |
-| 🟢 **RC実装済み・User Review待ち(Production未反映)[2026-09-08新規]** | **TIER1-F5B(WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1、TIER1-F5のRC検証中に新規発見)** | 1 |
+| ✅ Technically Resolved | TIER2-F6・TIER1-F5[WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE]・**TIER1-F5B[2026-09-08追加、WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1-RELEASE]** | 3 |
 | 🟡 Partially Resolved | TIER2-F3(cup_game分のみ解消) | 1 |
 | 🔴 Open(未着手) | TIER1-F2,F3,F4,F6 / TIER2-F1,F2,F4,F5 / TIER3-F1,F2,F3 | 11 |
 
-**解消済みFindingをFix backlogへ再度入れない**(§5準拠)。TIER2-F3はcup_game分を再修正対象にせず、ongaku-app分のみを以降のFAMILY-B/Cの対象として扱う。**TIER1-F5(register-app product-modal)はTechnically Resolved化したが、register-app内のdelete-modalに同型の別Finding(未登録、TIER1-F5には含まれない)が残っていることに注意**(詳細はfamily-d-focus-restoration-close-1.md参照)。
+**解消済みFindingをFix backlogへ再度入れない**(§5準拠)。TIER2-F3はcup_game分を再修正対象にせず、ongaku-app分のみを以降のFAMILY-B/Cの対象として扱う。**register-appのproduct-modal(TIER1-F5)・delete-modal(TIER1-F5B)はいずれもProduction解消済み**(詳細はfamily-d-focus-restoration-close-1.md参照)。
 
 ---
 

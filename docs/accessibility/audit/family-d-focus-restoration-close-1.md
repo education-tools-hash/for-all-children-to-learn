@@ -258,3 +258,31 @@ User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-REGISTER-1-RELEASE`でP
 - TIER1-F5(product-modal)自体が再びOpenになったこと(TIER1-F5はProduction解消済みのまま変更なし)。
 
 TIER1-F5BがProduction反映され、Production Validationが完了した時点で、`WCAG-JIS-FAMILY-D-CLOSE-2`(または本文書のさらなる追記)にて再度Closureを宣言する。
+
+---
+
+## 18. 最終Closure(2026-09-08、WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1-RELEASE完了)
+
+User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-D-REGISTER-DELETE-1-RELEASE`でProduction反映済み(commit `3282b02`、Production Validation PASS)。register-app delete-modal(TIER1-F5B)がTECHNICALLY RESOLVED / PRODUCTION REFLECTEDとなった。
+
+### 最終Residual Count
+
+| 区分 | 件数 | 内訳 |
+|---|---|---|
+| **FAMILY-D全体(global-fix-triage-1.md登録済み全Finding、Production基準)の残存Open** | **0** | TIER1-F5・TIER1-F5Bともに解消済み |
+
+### 最終Final Status
+
+**`WCAG-JIS-FAMILY-D-CLOSE-1 = FAMILY-D TECHNICAL REMEDIATION COMPLETE / CLOSED`**(§17のREOPENED状態を、本追記により再度CLOSEDへ更新)
+
+意味するもの:
+- global-fix-triage-1.md記載の全FAMILY-D Finding(TIER1-F5・TIER1-F5B含む)が、Production反映またはNOT APPLICABLE判定により解消済み。
+- §16→§17→§18という3段階の訂正履歴(CLOSED→REOPENED→CLOSED)は、いずれもその時点で得られていたEvidenceに基づく正確な判断であり、全て保持する。
+
+意味しないもの(§13・§16と同様、変更なし):
+- WCAG/JIS全体の完了。
+- Manual AT Validation(NVDA/VoiceOver/Blue2/Tobii)の完了 — 引き続きPending。
+- Modal Accessibilityの全Family(A/B/E/F/G/H/I等)の完了。
+- §8に記録した別Family findings(Escape機構欠如、role/aria-modal欠如、delete-modalのFocus Trap欠如等)の解消。
+
+今後、同種の「Fixの過程で新たなFAMILY-D Finding候補が見つかる」ケースが再発する可能性はゼロではないが、現時点で認識している範囲では、FAMILY-Dの技術的remediationは完了している。
