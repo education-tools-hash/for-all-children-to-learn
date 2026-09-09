@@ -972,6 +972,45 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     var btn = document.getElementById('donomanaA11yBtn');
     var panel = document.getElementById('donomanaA11yPanel');
     if (!btn || !panel) return;
+    // WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: 共通A11yパネル自体のkeyboard
+    // behavior用helper(donomana-a11y-panel-keyboard-contract-v1_0.md準拠)。
+    // window経由で公開し、各アプリ固有スクリプト(Pilot対象)から呼び出せるようにする。
+    // 定義自体は全35アプリへ共通反映されるが、実際にTab/Shift+Tabのcontainmentを
+    // 発火させる(trapA11yPanelFocusを呼び出す)かどうかはPilotアプリ側の個別実装に
+    // 委ねる(helperの存在とfeature activationを分離、Non-Pilotアプリの挙動は不変)。
+    function donomanaA11yElFocusable(el){
+      if (!el || el.disabled) return false;
+      if (el.hasAttribute('hidden')) return false;
+      if (el.getClientRects().length === 0) return false;
+      var cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden';
+    }
+    function getA11yPanelFocusables(panelEl){
+      return Array.prototype.filter.call(
+        panelEl.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'),
+        donomanaA11yElFocusable
+      );
+    }
+    function trapA11yPanelFocus(e){
+      if (e.key !== 'Tab' || panel.style.display !== 'block') return false;
+      var items = getA11yPanelFocusables(panel);
+      if (!items.length) return false;
+      var first = items[0], last = items[items.length - 1];
+      var active = document.activeElement;
+      var inPanel = items.indexOf(active) !== -1;
+      if (e.shiftKey) {
+        if (!inPanel || active === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (!inPanel || active === last) { e.preventDefault(); first.focus(); }
+      }
+      return true;
+    }
+    function restoreA11yPanelFocus(){
+      if (donomanaA11yElFocusable(btn)) btn.focus();
+    }
+    window.getA11yPanelFocusables = getA11yPanelFocusables;
+    window.trapA11yPanelFocus = trapA11yPanelFocus;
+    window.restoreA11yPanelFocus = restoreA11yPanelFocus;
     btn.addEventListener('click', function(e){
       e.stopPropagation();
       var open = panel.style.display === 'block';
@@ -987,7 +1026,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
       }
     });
     document.addEventListener('keydown', function(e){
-      if (e.key === 'Escape' && panel.style.display === 'block') btn.click();
+      // WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: 旧btn.click()による
+      // 合成クリックはbtn自体へfocusを移動させないため、Panel内部(opener以外)に
+      // focusがある状態でEscapeを押すとdocument.activeElementがBODYへ落ちる
+      // (mogura-tatakiで実機確認済み、共通層コードが原因の35アプリ共通の構造的
+      // リスク)。close処理を直接実行したうえでrestoreA11yPanelFocus()により
+      // openerへ明示的にfocusを戻す。
+      if (e.key === 'Escape' && panel.style.display === 'block') {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+        restoreA11yPanelFocus();
+      }
     });
     all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){
       applyContrast(b.dataset.a11yContrast);
@@ -2457,50 +2507,14 @@ function moguraCurrentTopModal(){
   }
   return null;
 }
-function moguraA11yClusterFocusables(a11yPanel){
-  // donomanaA11yBtnはposition:fixedのためoffsetParentが常にnullになる
-  // (Chromiumの既知の仕様)。getClientRects()+computed styleベースの
-  // 可視性判定(Batch-5で確立した対処と同型)を用いる。
-  const isVisible=el=>{
-    if(!el||el.disabled) return false;
-    if(el.hasAttribute('hidden')) return false;
-    if(el.getClientRects().length===0) return false;
-    const cs=getComputedStyle(el);
-    return cs.display!=='none' && cs.visibility!=='hidden';
-  };
-  // POSTRELEASE-HOTFIX-1: 正式仕様(どのまな共通A11y Panel Contract)に適合させ、
-  // donomanaA11yBtn(トリガー自身)もクラスタから除外し、Panel内部の要素のみで
-  // strict containmentする。donomanaHomeBtn/donomanaRecordNavBtn/
-  // donomanaLockBtn等の共通toolbar、およびmogura固有ボタンは元々含めていない
-  // (RC4で除外済み、User Browser ReviewでA11y Panel OPEN中にホーム/学習の記録/
-  // 画面ロックへフォーカスが移動するとFAILされたため)。donomanaA11yBtn自体の
-  // 除外は、User報告(browser chromeへのTab escape)の実証調査(3環境×実際の
-  // Microsoft Edgeで再現せず、Root Cause特定不可)を受けたものではなく、正式
-  // 仕様が定める「Panel OPEN中はPanel内部のvisible/enabled/focusable controls
-  // だけで循環する」への適合として実施する。Panel自体は既存のEscapeキー処理
-  // (共通自動挿入コード、989行目付近)で引き続き閉じられるため、キーボードのみ
-  // での操作性は維持される。
-  const panelItems=Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'));
-  return panelItems.filter(isVisible);
-}
+// WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: mogura-tataki(POSTRELEASE-HOTFIX-1、
+// Production `77085ca`)はReference Implementation(opener除外済み、Panel内部要素のみで
+// strict containment)だったため、ローカルの`moguraA11yClusterFocusables`はそのまま共通層
+// (generate.js)のtrapA11yPanelFocus()と等価な実装だった。共通helperへ置き換えることで
+// 重複実装を解消し、Family C(cup_game等)へも同一の正しい実装を反映できるようにする。
 document.addEventListener('keydown', e=>{
   if(e.key!=='Tab') return;
-  const a11yPanel=document.getElementById('donomanaA11yPanel');
-  if(a11yPanel && a11yPanel.style.display==='block'){
-    const clusterItems=moguraA11yClusterFocusables(a11yPanel);
-    if(!clusterItems.length) return;
-    const cFirst=clusterItems[0], cLast=clusterItems[clusterItems.length-1];
-    const cActive=document.activeElement;
-    const inCluster=clusterItems.includes(cActive);
-    // RC4: strict containment。クラスタ外にactiveElementがある場合は
-    // (modal内かどうかを問わず)常にfirst/lastへ強制送還する。
-    if(e.shiftKey){
-      if(!inCluster || cActive===cFirst){ e.preventDefault(); cLast.focus(); }
-    } else {
-      if(!inCluster || cActive===cLast){ e.preventDefault(); cFirst.focus(); }
-    }
-    return;
-  }
+  if(window.trapA11yPanelFocus && window.trapA11yPanelFocus(e)) return;
   const modal=moguraCurrentTopModal();
   if(!modal) return;
   const items=moguraTrapFocusables(modal);
