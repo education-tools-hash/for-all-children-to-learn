@@ -2468,15 +2468,20 @@ function moguraA11yClusterFocusables(a11yPanel){
     const cs=getComputedStyle(el);
     return cs.display!=='none' && cs.visibility!=='hidden';
   };
-  // RC4: strict focus containment。donomanaA11yBtn(トリガー自身)+
-  // パネル内部の要素のみで構成する。donomanaHomeBtn/donomanaRecordNavBtn/
-  // donomanaLockBtn等の共通toolbar、およびmogura固有ボタンは一切含めない
-  // (User Browser ReviewでA11y Panel OPEN中にホーム/学習の記録/画面ロックへ
-  // フォーカスが移動するとFAILされたため、クラスタ拡張自体を廃止した)。
-  const a11yBtn=document.getElementById('donomanaA11yBtn');
+  // POSTRELEASE-HOTFIX-1: 正式仕様(どのまな共通A11y Panel Contract)に適合させ、
+  // donomanaA11yBtn(トリガー自身)もクラスタから除外し、Panel内部の要素のみで
+  // strict containmentする。donomanaHomeBtn/donomanaRecordNavBtn/
+  // donomanaLockBtn等の共通toolbar、およびmogura固有ボタンは元々含めていない
+  // (RC4で除外済み、User Browser ReviewでA11y Panel OPEN中にホーム/学習の記録/
+  // 画面ロックへフォーカスが移動するとFAILされたため)。donomanaA11yBtn自体の
+  // 除外は、User報告(browser chromeへのTab escape)の実証調査(3環境×実際の
+  // Microsoft Edgeで再現せず、Root Cause特定不可)を受けたものではなく、正式
+  // 仕様が定める「Panel OPEN中はPanel内部のvisible/enabled/focusable controls
+  // だけで循環する」への適合として実施する。Panel自体は既存のEscapeキー処理
+  // (共通自動挿入コード、989行目付近)で引き続き閉じられるため、キーボードのみ
+  // での操作性は維持される。
   const panelItems=Array.from(a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'));
-  const list=[a11yBtn, ...panelItems].filter(Boolean);
-  return list.filter(isVisible);
+  return panelItems.filter(isVisible);
 }
 document.addEventListener('keydown', e=>{
   if(e.key!=='Tab') return;
