@@ -2881,8 +2881,14 @@ document.getElementById('donomanaHelpBtn').addEventListener('click', openHelp);
 document.getElementById('modal-help').addEventListener('click', function(e) {
   if (e.target === this) closeHelp();
 });
+// FAMILY-K/K3是正: 同じongaku-app内のmodal-pin/export/shareは既にA11yパネル確認
+// を実装済みだが(§Escape優先処理参照)、modal-helpにはこの確認が欠落していた。
+// 共通A11yパネルが開いている間はA11yパネル側のEscapeを優先し、ここでは何もしない。
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && helpOpen()) closeHelp();
+  if (e.key !== 'Escape' || !helpOpen()) return;
+  const a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') return;
+  closeHelp();
 });
 // フォーカストラップ（Tab/Shift+Tabでmodal-help外へ出さない）。タイトル
 // （tabindex="-1"）と「とじる」ボタンの2つだけの巡回のため、方向を問わず

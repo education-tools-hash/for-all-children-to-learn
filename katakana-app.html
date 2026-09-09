@@ -3664,8 +3664,14 @@ document.getElementById('traceSampleOverlayToggle').addEventListener('change', f
   if (!traceSampleViewerEntry) return;
   renderTraceSampleCanvas(traceSampleViewerEntry.data.traceSample, traceSampleViewerEntry.data.kana, this.checked);
 });
+// FAMILY-K/K3是正: 共通A11yパネルが開いている間はA11yパネル側のEscapeを優先し、
+// ここでは何もしない(gaze-keyboard settingsModal等の既存正解Patternと同型)。
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && traceSampleViewerIsOpen()) closeTraceSampleViewer();
+  if (e.key !== 'Escape') return;
+  if (!traceSampleViewerIsOpen()) return;
+  var a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') return;
+  closeTraceSampleViewer();
 });
 
 // FAMILY-B-BATCH-7: traceSampleViewerにTab/Shift+TabのFocus Trapが皆無だった

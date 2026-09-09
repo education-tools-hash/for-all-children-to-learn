@@ -2411,10 +2411,14 @@ document.getElementById('clrRec').addEventListener('click',()=>{
   if(confirm('記録をすべて消しますか？')){donomanaRecordClearLog(SKEY);renderRecs();}
 });
 // Record panel限定のEscape close + focus return(T7-B Pilot A、既存panHow/panSetは変更しない)
+// FAMILY-K/K3是正: 共通A11yパネルが開いている間はA11yパネル側のEscapeを優先し、
+// ここでは何もしない(gaze-keyboard settingsModal等の既存正解Patternと同型)。
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('panRec').classList.contains('on')){
-    closePanelAndReturnFocus('panRec');
-  }
+  if(e.key!=='Escape')return;
+  if(!document.getElementById('panRec').classList.contains('on'))return;
+  const a11yPanel=document.getElementById('donomanaA11yPanel');
+  if(a11yPanel&&a11yPanel.style.display==='block')return;
+  closePanelAndReturnFocus('panRec');
 });
 ['panSet','panRec','panHow'].forEach(id=>{
   document.getElementById(id).addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');});

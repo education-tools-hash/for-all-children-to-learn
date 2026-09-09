@@ -1485,8 +1485,13 @@ function closeSettings() {
 }
 // settingsScrim は pointer-events:none の純粋な視覚演出のため、クリックでは閉じない
 // （背景操作を遮断しないことを優先し、閉じる手段はEscapeと明示的なボタンに限定する）
+// FAMILY-K/K3是正: 共通A11yパネルが開いている間はA11yパネル側のEscapeを優先し、
+// ここでは何もしない(gaze-keyboard settingsModal等の既存正解Patternと同型)。
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && isSettingsOpen()) closeSettings();
+  if (e.key !== 'Escape' || !isSettingsOpen()) return;
+  const a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') return;
+  closeSettings();
 });
 
 function applyContrast() {
@@ -2032,8 +2037,14 @@ document.getElementById('record-modal-close-btn').addEventListener('click', clos
 document.getElementById('record-csv-btn').addEventListener('click', exportShiritoriRecordsCSV);
 document.getElementById('record-clear-btn').addEventListener('click', clearShiritoriRecords);
 document.getElementById('record-modal-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeShiritoriRecordModal(); });
+// FAMILY-K/K3是正: 共通A11yパネルが開いている間はA11yパネル側のEscapeを優先し、
+// ここでは何もしない(gaze-keyboard settingsModal等の既存正解Patternと同型)。
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('record-modal-backdrop').classList.contains('open')) closeShiritoriRecordModal();
+  if (e.key !== 'Escape') return;
+  if (!document.getElementById('record-modal-backdrop').classList.contains('open')) return;
+  const a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block') return;
+  closeShiritoriRecordModal();
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Tab') return;
