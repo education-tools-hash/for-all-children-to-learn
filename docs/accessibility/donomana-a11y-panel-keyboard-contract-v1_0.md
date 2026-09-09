@@ -1,10 +1,10 @@
-# donomana A11y Panel Keyboard Contract v0.9 (DRAFT)
+# donomana A11y Panel Keyboard Contract v0.9.1 (DRAFT)
 
 `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`(全35アプリ横断監査)で確立した、共通A11yパネル(`donomanaA11yBtn`/`donomanaA11yPanel`、`generate.js`が全35アプリへ自動注入)のkeyboard behaviorに関する正式Contract候補。
 
-- 前Phase: `WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1`(mogura-tataki、Production final `77085ca`)。
+- 前Phase: `WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1`(mogura-tataki、Production final `77085ca`)。GLOBAL-1 docs release(Production final `12c00da`)を経て、GLOBAL-1A Pilot実装(mogura-tataki・tyushi・cup_game・schedule-app・gaze-keyboard)がRC完了(§12参照)。
 - 本Contractは`donomana-modal-accessibility-contract-v1_0.md`(v1.1、app固有modalが対象)を補完するものであり、対象は共通A11yパネル自体のkeyboard behaviorに限定する。app固有modal自身のFocus Trap/Initial Focus/Escape Focus Restorationは引き続き`donomana-modal-accessibility-contract-v1_0.md`が正とする。
-- **本ステータス: DRAFT v0.9。Pilot実装・User Approval前は正式v1.0としない(§26参照条件)。**
+- **本ステータス: DRAFT v0.9.1。GLOBAL-1A Pilot RC完了、User Browser Review待ち。全35アプリへの横展開(GLOBAL-1B〜1D)完了前は正式v1.0としない(§26参照条件)。**
 - 適用範囲: `donomanaA11yPanel`/`donomanaA11yBtn`(共通A11yパネル)のTab/Shift+Tab循環、Escape close、Focus Restoration、Modal Coexistence、Visible Focus、Hidden/Disabled Controls。
 
 ---
@@ -62,9 +62,17 @@ Outside-focus (Shift+Tab):  任意の外部要素 → last internal focusable
 
 mogura-tataki(`moguraA11yClusterFocusables`、commit `ddbeba7`、Production `77085ca`)を本Contract §3のReference Implementationとする。ただし§13(Reference Implementation化の注意)のとおり、コードをそのままcopy/pasteせず、reusable behaviorのみを移植すること。
 
+### 3.4 GLOBAL-1A実装結果(共通helper化、Production未反映)
+
+Owner Decision(a)により、mogura-tataki(Reference)・tyushi(Family B)・cup_game(Family C)・schedule-app(Family C variant)・gaze-keyboard(Family D-1)の5アプリをPilotとし、共通層(`generate.js`)に`getA11yPanelFocusables(panelEl)`・`trapA11yPanelFocus(e)`・`restoreA11yPanelFocus()`を追加、`window`経由で公開した(§12 Common helper参照)。各Pilotアプリは自前の(またはgaze-keyboardの場合は新規追加の)Tabキーlistenerから`window.trapA11yPanelFocus(e)`を呼び出す形へ委譲し、mogura-tataki/tyushi/cup_gameの既存ローカルcluster関数(`moguraA11yClusterFocusables`/`a11yClusterFocusables`/`cupGameA11yPanelFocusables`)は削除した。
+
+実機検証(5アプリ共通、Microsoft Edge、port 9201): Forward Tab 30回・Reverse Shift+Tab 30回・immediate Shift+Tab・outside-focus-guard(Tab/Shift+Tab)を実施し、**5アプリ全てで完全に同一の結果**(`donomanaSettingsProxy`から`donomanaA11yReset`までの8要素のみで循環、opener/toolbar/browser chromeへの遷移ゼロ)を確認した。tyushi・schedule-appについては、Pre-fix investigationで「自前modal(help-overlay/schedule 3modal)が同時に開いていないとA11yパネルのcontainmentが発火しない」という追加の構造的欠陥を新規発見し(Owner Decision(c)の対象、§14・§16参照)、A11yパネルの判定をTabキーlistenerの最上位・無条件へ移動する形で併せて是正した。修正後、A11yパネル単独openでもcontainmentが正しく発火することを実機確認した。
+
+共通helper(3関数の定義)自体は`node generate.js`実行により**全35アプリへ反映される**が、Tab containmentを実際に発火させるlistenerはPilot 5アプリにのみ追加されており、Non-Pilot 30アプリの挙動(Family D、containment無し)は不変であることを確認した(§31)。Production未反映、User Browser Review待ち。
+
 ---
 
-## 4. Close Restoration — REQUIRED(候補、既存共通実装との不整合あり)
+## 4. Close Restoration — REQUIRED **[GLOBAL-1Aで共通層実装済み、Production未反映]**
 
 A11yパネルを次のいずれかの方法で閉じた場合、focusは**opener(`donomanaA11yBtn`)へ復帰する**ことを原則とする。BODYへのfocus lossは禁止。
 
@@ -88,6 +96,23 @@ Escape処理は`btn.click()`(合成クリック)のみで、明示的なfocus復
 **この共通実装は`generate.js`側の単一実装であり、全35アプリに等しく適用される。個別アプリ側のカスタムcluster実装(mogura-tataki/tyushi/cup_game/katakana-app/hiragana-learn/schedule-app)もA11yパネル自体のEscape処理を上書きしておらず、共通の`btn.click()`委譲に依存している。したがって本問題は35アプリ全てに共通する構造的リスクであり、mogura-tataki固有ではない(§14参照)。**
 
 本Contractでは、共通層のEscape処理に明示的な`btn.focus()`(またはopener要素への`.focus()`)呼び出しを追加することをREQUIRED候補とする。ただし今回のPhaseでは調査・設計のみに留め、実装しない。
+
+### GLOBAL-1A実装結果(2026-09-09、worktree `for-all-children-to-learn-a11y-panel-global-1a`、branch `fix/a11y-panel-global-pilot-1a`)
+
+Owner Decision(b)により、共通層(`generate.js`)のEscape処理を以下へ変更した:
+
+```js
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' && panel.style.display === 'block') {
+    panel.style.display = 'none';
+    btn.setAttribute('aria-expanded', 'false');
+    panel.setAttribute('aria-hidden', 'true');
+    restoreA11yPanelFocus();
+  }
+});
+```
+
+`btn.click()`による合成クリック委譲をやめ、close処理を直接実行したうえで`restoreA11yPanelFocus()`(`donomanaA11yElFocusable(btn)`が真の場合のみ`btn.focus()`)を呼び出す。`node generate.js`実行により**全35アプリ**へ自動反映され(`injectA11yPanelToAppHtmls`による再注入)、Pilot 5アプリ(mogura-tataki・tyushi・cup_game・schedule-app・gaze-keyboard)で実機確認した結果、Panel内部の任意の深さ(3 Tab後、または`donomanaA11yReset`から直接)からEscapeを押しても、`document.activeElement`が確実に`donomanaA11yBtn`へ復帰することを確認した(5アプリ全て同一結果、BODY退行ゼロ)。この修正は共通層のみの変更でありapp固有DOM構造に依存しないため、Pilot対象外の30アプリにも同一の修正が反映されている(§31 Common helper regression参照、機能面ではEscape restorationはPilot限定ではなく全35アプリ共通のFixとして扱う)。
 
 ---
 
@@ -182,3 +207,4 @@ A11yパネルのfocus containment変更は、Switch ScanのTab sequence依存・
 ## 改訂履歴
 
 - **v0.9(2026-09-09、DRAFT)**: `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`初版。mogura-tataki(POSTRELEASE-HOTFIX-1、Production `77085ca`)をReference Implementation候補とし、35アプリ横断監査結果に基づき起草。Pilot実装・User Approval前のためv1.0へは未昇格。
+- **v0.9.1(2026-09-09、DRAFT)**: `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A`(Owner Approved、Pilot 5アプリ)実装結果を反映。§3.4(共通helper化、Strict Containment)・§4(Escape Focus Restoration実装結果)を追記。tyushi/schedule-appで新規発見した「自前modal同時open時のみA11yパネルcontainmentが発火する」構造的欠陥の是正結果も記録。Production未反映(worktree `for-all-children-to-learn-a11y-panel-global-1a`、branch `fix/a11y-panel-global-pilot-1a`)、User Browser Review待ちのためv1.0へは未昇格。

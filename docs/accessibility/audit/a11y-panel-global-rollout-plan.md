@@ -1,6 +1,6 @@
-# A11y Panel Global Rollout Plan(案、未着手)
+# A11y Panel Global Rollout Plan
 
-`WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`の監査結果(`a11y-panel-global-conformance-matrix.md`)を踏まえた、安全な横展開アーキテクチャとBatch構成の設計案。**本ファイルはPlanであり、実装・Production変更は一切含まない。**
+`WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`の監査結果(`a11y-panel-global-conformance-matrix.md`)を踏まえた、安全な横展開アーキテクチャとBatch構成の設計案。§9(GLOBAL-1A実装結果)追記以前の内容はPlan(未着手時点)、§9以降はGLOBAL-1A Pilot実装のRC結果を記録する。**Production変更(merge/push/release)はまだ行っていない。**
 
 ---
 
@@ -142,6 +142,73 @@ document.addEventListener('keydown', function (e) {
 
 ---
 
-## 8. Stop
+## 8. Stop(GLOBAL-1 Owner Review時点)
 
 本Planは調査・設計・Batch案の提示までとする。Pilot実装・全アプリ修正・Production merge/push/release/cleanup・FAMILY-B Batch-7(既にRELEASE済みのため該当なし、次のFAMILY-B関連Batchがあれば同様)は、本Phaseでは一切開始しない。Owner Reviewを待つ。
+
+---
+
+## 9. GLOBAL-1A実装結果(2026-09-09、Owner Approved後)
+
+Owner Decision(a)(b)(c)(d)により、Pilot 5アプリ(mogura-tataki・tyushi・cup_game・schedule-app・gaze-keyboard)への実装、およびEscape Focus Restorationの共通層修正を実施した。worktree `for-all-children-to-learn-a11y-panel-global-1a`、branch `fix/a11y-panel-global-pilot-1a`(`origin/main`@`12c00da`から作成、drift無し)。
+
+### 実装内容
+
+- **共通層(`generate.js`)**: `getA11yPanelFocusables(panelEl)`・`trapA11yPanelFocus(e)`・`restoreA11yPanelFocus()`を`buildA11yPanelHTML`のDOMContentLoadedコールバック内に追加し、`window`経由で公開(§2の設計案どおり、既存helper[`donomanaIsFocusable`等]との重複なし、命名衝突なしを確認)。Escapeハンドラを`btn.click()`委譲から直接close+`restoreA11yPanelFocus()`呼び出しへ変更(全35アプリ共通、`node generate.js`実行で反映)。
+- **mogura-tataki**: 既存の`moguraA11yClusterFocusables`(Reference実装、既にopener/toolbar除外済み)を削除し、`window.trapA11yPanelFocus(e)`への委譲に置換(重複実装の解消)。
+- **tyushi**: 既存の`a11yClusterFocusables`(opener+toolbar含む、Family B)を削除し、`window.trapA11yPanelFocus(e)`への委譲に置換。加えて、A11yパネル判定がhelp-overlay(`overlay.style.display==='none'`)open時のみ発火する構造的欠陥を発見・是正(判定をTabキーlistener最上位・無条件へ移動)。
+- **cup_game**: 既存の`cupGameA11yPanelFocusables`(opener含む、コメント/実装矛盾、Family C)を削除し、`window.trapA11yPanelFocus(e)`への委譲に置換。
+- **schedule-app**: 既存のA11yパネル分岐(opener含む、`activeScheduleModal()`が非nullの場合のみ発火する構造的欠陥、Owner Decision(c)対象)を削除し、Tabキーlistener最上位で`window.trapA11yPanelFocus(e)`を無条件呼び出す形へ是正。
+- **gaze-keyboard**: 既存実装はguard-only(containment自体なし、Family D-1)だったため、新規に`if(scanMode)return; window.trapA11yPanelFocus(e);`という専用listenerを追加(Switch Scan動作中は既存settingsModal Trapと同様に無効化)。既存のsettingsModal/profileModal/hrModalのguard節はそのまま維持(相互に非干渉)。
+
+### Pre-fix / Post-fix実機検証(Microsoft Edge、5アプリ共通)
+
+Forward Tab 30回・Reverse Shift+Tab 30回・immediate Shift+Tab・outside-focus-guard(Tab/Shift+Tab)・Escape restoration(Panel内部3 Tab後・`donomanaA11yReset`から直接の両方)を実施し、**5アプリ全てで完全に同一の結果**を得た:
+
+- Forward/Reverse 30回: opener(`donomanaA11yBtn`)・common toolbar(`donomanaHomeBtn`/`donomanaRecordNavBtn`/`donomanaLockBtn`/`donomanaFsBtn`)・browser chromeへの遷移ゼロ。Panel内部8要素(`donomanaSettingsProxy`〜`donomanaA11yReset`)のみで循環。
+- immediate Shift+Tab: `donomanaA11yBtn`→`donomanaA11yReset`(Panel内最後の項目)。
+- outside-focus-guard: `document.body.focus()`後のTabで`donomanaSettingsProxy`(Panel内最初の項目)へ強制送還。
+- Escape restoration: Panel内部の任意の深さからEscapeを押しても`document.activeElement`が`donomanaA11yBtn`へ確実に復帰(BODY退行ゼロ)。
+- Console/page errors: 全アプリ・全ケースで0件。
+
+### Modal Coexistence実機検証
+
+- tyushi: help-overlay単独・A11yパネル単独(help-overlay閉状態)・両方同時openの3パターンを検証、いずれもcontainmentが正しく発火(旧構造的欠陥の解消を確認)。
+- cup_game: helpModal単独・helpModal+A11yパネル同時openを検証、優先順位分岐が正常動作。
+- schedule-app: A11yパネル単独open(3modalいずれも非open)でcontainmentが正しく発火することを確認(Owner Decision(c)で指摘された既知バグの解消)。
+- gaze-keyboard: settingsModal(`donomanaSettingsProxy`経由の実フロー)+A11yパネル同時open、A11yパネル単独openの両方を検証、優先順位分岐が正常動作。
+- mogura-tataki: 既存の5modal(scrStart等)との優先順位分岐に回帰なし。
+
+### Responsive / Touch実機検証
+
+5アプリ×3viewport(390×844/768×1024/1280×900)、Touch環境ではtouchscreen tap APIでA11yパネルをopenし、Forward Tab 8回でopenerへの遷移ゼロを確認。全15ケースPASS、Console/page errors 0件。
+
+### Visible Focus regression
+
+5アプリのdiffに`:focus-visible`関連CSSへの変更が含まれないことを確認(`git diff`でカウント0件)。既存のVisible Focus実装(mogura-tatakiの`.tog input:focus-visible+.ts`等)への影響なし。
+
+### Switch / Gaze影響
+
+gaze-keyboardの新規listenerには`if(scanMode)return;`ガードを追加し、既存のSwitch Scan Tab Trap無効化パターン(settingsModal Trap)と同一の設計思想を踏襲した。Gaze/dwellロジック(pointerイベント系)自体には一切触れていない。**実機(Tobii/Switchデバイス)による検証は未実施であり、SWITCH REAL DEVICE REQUIRED / GAZE REAL DEVICE REQUIREDとしてUser Real Device Gateへ回す。**
+
+### Static Validation
+
+`git diff --check`エラーなし。変更ファイルは意図した6ファイル(`generate.js`+Pilot 5アプリ)のみ、`node generate.js`実行後も`app-details/`・`index.html`・`apps-data.json`・`sitemap.xml`への意図しない差分はゼロ(確認済み)。ID重複なし(5アプリとも)。`node --check generate.js`構文エラーなし。
+
+### disabled-state Separate Findings(維持、変更なし)
+
+mogura-tataki・scratch-app・time-timerの3件は、GLOBAL-1A scopeに含めず、コード変更を一切行っていない(Owner Decision(d)どおり)。
+
+### Escape Priority(§25)との整合
+
+tyushi/schedule-appの是正は、A11yパネルのcontainment判定をTabキーlistenerの最上位に移動しただけであり、Escapeキーの優先順位(共通層のEscapeハンドラが引き続き最優先)には触れていない。既知の同時close問題(A11yパネルとapp固有modalが1回のEscapeで同時に閉じる等)は本Pilotのscope外であり、発見・修正の対象としていない(scope expansion回避)。
+
+### FAMILY-B残件
+
+FAMILY-B Production residual count: **4のまま維持**(Owner Decision §34どおり、Production未反映のため変更なし)。
+
+### Formal Status
+
+**WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A = PILOT RC VALIDATED / READY FOR USER REVIEW**
+
+Pilot 5アプリ全てで、Strict Containment・Escape Focus Restoration・Modal Coexistence・Visible Focus regression・Responsive・Touch・Console/Static Validationが完全にPASSした。Switch/Gaze実機検証のみ未実施(Real Device Gate)。User Browser Reviewを待つ。Approvalなしでmerge/push/Production Release/cleanup/GLOBAL-1B/1C/1D/FAMILY-B Batch-7は開始しない。
