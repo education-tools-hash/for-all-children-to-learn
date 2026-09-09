@@ -801,4 +801,68 @@ FAMILY-B(Focus Trap)は正規化された18 Finding全てがTECHNICALLY RESOLVED
 - `TIER2-F2-a`〜`d` = **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(commit `24dd18e`)
 - `TIER2-F2`(Parent) = **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED / CLOSED**
 - FAMILY-B(Focus Trap)Production residual count: **0**(正規化された18件全て解消)
+
+## 31. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1: User報告(browser chromeへのTab escape)の実証調査とA11yパネルcluster定義の正式仕様適合
+
+### 発端
+
+`WCAG-JIS-FIX-FAMILY-B-BATCH-6-RELEASE`(§28、reported baseline `a5edd83`)がProduction Releaseされた後、UserがEdgeでmogura-tataki.htmlを直接開き(`file:///C:/Users/jerry/Documents/GitHub/for-all-children-to-learn/mogura-tataki.html`)、「A11y Panel OPEN中にTab循環の途中から毎回ブラウザ上部UI(アドレスバー等のbrowser chrome)へフォーカスが抜ける」という現象を報告した。原因未確定のまま推測で修正せず、まず実証することが指示された。
+
+### baseline確認
+
+- `git fetch origin` → `origin/main` = `4c3c01b`(reported `a5edd83`より進行済み。FAMILY-B-BATCH-7-RELEASE(`24dd18e`、§30)を経て、その後FAMILY-K(K3)のdocsコミットまで進んでいた。FAMILY-K側はmogura-tataki.htmlと無関係)。
+- `4c3c01b`をSource of Truthとして採用。
+- User報告のfile://環境(`for-all-children-to-learn`直下のmogura-tataki.html)を`git diff origin/main -- mogura-tataki.html`で比較 → **差分ゼロ、完全一致**を確認。Userの再現環境は最新origin/main版そのものであり、ローカル改変やstaleなキャッシュではないことを確定した。
+
+### 3環境×実際のMicrosoft Edgeでの再現試行(実証)
+
+worktree `for-all-children-to-learn-mogura-a11y-hotfix-1`(branch `fix/mogura-a11y-panel-strict-internal-containment`、`origin/main`@`4c3c01b`から作成、drift無し)で、`playwright`の`chromium.launch(channel='msedge', headless=False)`により実際のMicrosoft Edgeを起動し、以下を実施:
+
+- **A. file://**(`for-all-children-to-learn/mogura-tataki.html`)、**B. localhost**(port 9198のローカルサーバー)、**C. Production**(`https://donomana.jp/mogura-tataki.html`)の3環境。
+- Forward Tab最大60回・Reverse Shift+Tab最大35回、高速連打(0ms間隔)、outside-focus-guard(`donomanaA11yBtn`/`btnHow`等クラスタ外要素へ強制focus後のTab/Shift+Tab)、immediate Shift+Tab(開いた直後の初手)。
+- keydownハンドラの内部動作を一時debug instrumentation(`Event.prototype.preventDefault`・`HTMLElement.prototype.focus`のmonkey-patchによる読み取り専用ログ、最終製品には残さない)で実測。
+
+**結果: 3環境全てで、いずれのバリエーションでも「browser chromeへのescape」は一度も再現しなかった。** 実測ログは、境界要素(`donomanaA11yReset`)でのみ`preventDefault()`が発火し、`focus()`の呼び出し先も設計通り(`cFirst`=`donomanaA11yBtn`)であることを示した。`grep -n "'Tab'"`でTabキー判定を行うkeydownリスナーが2481行目(修正前)の1箇所のみであることも確認し、リスナー競合の可能性を排除した。
+
+### 正式仕様との差異の発見とUser確認
+
+実証では再現しなかった一方、本Hotfix仕様書§6-7が定める正式Target Model(「Panel OPEN中はPanel内部のvisible/enabled/focusable controlsだけで循環し、`donomanaA11yBtn`自身は循環対象外」)と、現行RC4実装(`donomanaA11yBtn`をクラスタに含む)の間に差異があることを発見した。Root Cause未確定のままこの適合を実施すべきかをUserにAskUserQuestionで確認し、「正式仕様への適合を実施(推奨)」の承認を得た。
+
+### 実装内容(commit予定、1ファイル変更)
+
+`mogura-tataki.html`の`moguraA11yClusterFocusables`関数から`donomanaA11yBtn`をクラスタ構成対象外とし、A11yパネル(`donomanaA11yPanel`)内部の可視・有効なfocusable要素のみを返すよう変更した。`donomanaHomeBtn`/`donomanaRecordNavBtn`/`donomanaLockBtn`等の共通toolbarおよびmogura固有ボタンは元々RC4で除外済みのため変更なし。パネル自体は既存のEscapeキー処理(共通自動挿入コード、989行目付近、`btn.click()`)で引き続き閉じられるため、キーボードのみでの操作性は維持される。`git diff --check`で静的検証済み(13行追加/8行削除、空白エラーなし)。
+
+### Post-fix検証結果(全項目実機確認、port 9198のローカルサーバー)
+
+- **A11y Panel regression**(Forward Tab x30・Reverse Shift+Tab x30・immediate Shift+Tab・outside-focus-guard×2方向): 全てPASS。Tab押下後のシーケンスは`donomanaSettingsProxy`から始まりPanel内部8要素のみで循環し、`donomanaA11yBtn`への遷移はTab#1以降一度も発生しないことを確認(初回テストスクリプトの判定ロジックが「クリック直後でまだ`donomanaA11yBtn`にfocusが残っている初期状態」を誤ってFORBIDDENチェックに含めていたための誤判定を検出・訂正した上で再確認)。
+- **5modal regression**(`scrStart`/`scrResult`/`panSet`/`panRec`/`panHow`、Forward/Reverse各15回+outside-focus-guard): 全5 modal・全ケースPASS(containment維持)。A11yパネル自身のTab処理はこの5modal Trapとは同一keydownリスナー内で排他分岐しており(A11yパネルOPEN時は必ず早期`return`)、今回の変更(クラスタ構成のみ)は5modal側のロジックに一切触れていないため、構造的にも regression が起きないことをコードレベルで確認した上で実機検証した。
+- **panSet連携確認**: A11yパネル→`donomanaSettingsProxy`クリック→panSet遷移の実際のUser操作フローを検証。`donomanaSettingsProxy`のclickハンドラがA11yパネルを`display:none`にしてからpanSetを開くため、二重focus ownershipは発生しない。また意図的にpanSetを開いたままA11yパネルを独立して開くケース(coexistence)でも、A11yパネルOPEN中はA11yパネルのクラスタ内だけでTabが完結し(Forward x10 PASS)、背景のpanSetへ流出しないことを確認。
+- **Visible Focus regression**: `git diff origin/main -- mogura-tataki.html`で確認した差分は`moguraA11yClusterFocusables`関数のみであり、`.tog input:focus-visible+.ts`等のVisible Focus CSSには一切触れていない。
+- **Responsive**(390×844/768×1024/1280×900): 3viewport全てでA11yパネルopen(390/768はtouchscreen.tap、1280はclick)→Forward x10で`donomanaA11yBtn`等への遷移ゼロ、outside tap/clickでのclose、game start tapが正常動作することを確認。
+- **Touch**: 上記Responsive検証内でtouchscreen APIによるtap操作(A11yパネルopen/close、game start)を実施、全てPASS。
+- **Console/page errors**: 全テストを通じて0件(JS構文エラーが無いことの間接確認を兼ねる)。
+- **Static Validation**: `git diff --check`エラーなし、ID重複なし(`grep -o 'id="[^"]*"' | sort | uniq -d`で空)、変更は1ファイル(`mogura-tataki.html`)のみ。
+- **disabled-state Separate Finding**(`dwT`/`togCur`/`dwTol`): `git diff origin/main -- mogura-tataki.html | grep -E "dwT|togCur|dwTol"`で該当箇所の差分なしを確認、今回も変更していない。
+
+### 既存の別問題の再発見・再確認(今回のスコープ外、Separate Finding、変更なし)
+
+Escape close後のfocus挙動を追加検証したところ、以下を確認した:
+- A11yパネルを開いた直後(Tabを一度も押していない状態、`donomanaA11yBtn`自身にfocusが残っている)でEscapeを押すと、`btn.click()`の副作用として`donomanaA11yBtn`へfocusが戻る(偶然の一致であり、設計されたfocus restorationではない)。
+- 一方、Tabで一度でもPanel内部へfocusを移動させた後(例: 3回Tab後、または`donomanaA11yReset`へ直接focus)にEscapeを押すと、`document.activeElement`は`BODY`へ落ちる。共通A11yパネル自体(`generate.js`自動挿入コード、989-991行目)のEscape処理には`btn.click()`のみでfocus復帰処理が無いため。
+- これはmogura-tataki固有の問題ではなく共通A11yパネル実装自体の既存問題であり、今回のHotfixで新規発生させたものではないことを実機で確認した(§10「Separate Findings」に記録済みの範囲、または新規のFocus Restoration欠如系Finding候補として今回追記)。本Hotfixのスコープ外のため変更しない。
+
+### Global rollout候補調査(コード検索のみ、今回は修正しない)
+
+`donomanaA11yPanel`関連キーワードを持つ36ファイル中、独自のkeydownリスナーでA11yパネルのTab循環を制御するfocus containment実装本体を持つのは以下2ファイル(+今回対応したmogura-tataki.html):
+
+- **`tyushi.html`**(`a11yClusterFocusables`関数): `donomanaA11yBtn`に加え`donomanaHomeBtn`(共通toolbar要素)もクラスタに含む設計。コード中のコメントに「Tabは意図的に`donomanaHomeBtn`へ抜ける設計」と明記されており、mogura-tataki修正前よりも乖離が大きい。
+- **`cup_game.html`**(`cupGameA11yPanelFocusables`関数): `donomanaA11yBtn`を含む(toolbar要素は含まない)。コメントは「Panel自身のfocusableだけで循環するstrict containment」と書かれているが実装は`a11yBtn`自身を除外しておらず、コメントと実装が矛盾している。
+
+両ファイルを、将来の独立Phase`WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`の調査対象候補として記録する。今回のHotfix中には一切変更しない。
+
+### Formal Status
+
+**RC VALIDATED / READY FOR USER REVIEW**
+
+User報告現象は3環境×実際のMicrosoft Edgeで徹底的に再現を試みたが一度も再現せず、Root Causeは特定できなかった(file://固有の問題、Production固有の問題のいずれとも断定できない)。一方、調査の過程で発見した正式仕様(Formal Contract)とRC4実装の差異について、Userの承認を得た上で正式仕様への適合修正を実施し、全RC検証項目(A11y Panel regression・5modal regression・panSet連携・Visible Focus・Responsive・Touch・Console/Static Validation)がPASSした。User Browser Reviewを待つ。Approvalなしでmerge/push/Production Release/cleanup/次Phase開始はしない。
 - worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-7`)・branch(`fix/family-b-tier2-focus-trap`)・投資調査branch(`investigate/wcag-jis-finding-initial-restore-1`, `c6930d9`)は本Release作業では削除・変更せず維持。cleanupは本Phase内で別途実施予定。
