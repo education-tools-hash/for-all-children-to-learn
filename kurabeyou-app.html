@@ -169,6 +169,45 @@
     var btn = document.getElementById('donomanaA11yBtn');
     var panel = document.getElementById('donomanaA11yPanel');
     if (!btn || !panel) return;
+    // WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: 共通A11yパネル自体のkeyboard
+    // behavior用helper(donomana-a11y-panel-keyboard-contract-v1_0.md準拠)。
+    // window経由で公開し、各アプリ固有スクリプト(Pilot対象)から呼び出せるようにする。
+    // 定義自体は全35アプリへ共通反映されるが、実際にTab/Shift+Tabのcontainmentを
+    // 発火させる(trapA11yPanelFocusを呼び出す)かどうかはPilotアプリ側の個別実装に
+    // 委ねる(helperの存在とfeature activationを分離、Non-Pilotアプリの挙動は不変)。
+    function donomanaA11yElFocusable(el){
+      if (!el || el.disabled) return false;
+      if (el.hasAttribute('hidden')) return false;
+      if (el.getClientRects().length === 0) return false;
+      var cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden';
+    }
+    function getA11yPanelFocusables(panelEl){
+      return Array.prototype.filter.call(
+        panelEl.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'),
+        donomanaA11yElFocusable
+      );
+    }
+    function trapA11yPanelFocus(e){
+      if (e.key !== 'Tab' || panel.style.display !== 'block') return false;
+      var items = getA11yPanelFocusables(panel);
+      if (!items.length) return false;
+      var first = items[0], last = items[items.length - 1];
+      var active = document.activeElement;
+      var inPanel = items.indexOf(active) !== -1;
+      if (e.shiftKey) {
+        if (!inPanel || active === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (!inPanel || active === last) { e.preventDefault(); first.focus(); }
+      }
+      return true;
+    }
+    function restoreA11yPanelFocus(){
+      if (donomanaA11yElFocusable(btn)) btn.focus();
+    }
+    window.getA11yPanelFocusables = getA11yPanelFocusables;
+    window.trapA11yPanelFocus = trapA11yPanelFocus;
+    window.restoreA11yPanelFocus = restoreA11yPanelFocus;
     btn.addEventListener('click', function(e){
       e.stopPropagation();
       var open = panel.style.display === 'block';
@@ -184,7 +223,18 @@
       }
     });
     document.addEventListener('keydown', function(e){
-      if (e.key === 'Escape' && panel.style.display === 'block') btn.click();
+      // WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: 旧btn.click()による
+      // 合成クリックはbtn自体へfocusを移動させないため、Panel内部(opener以外)に
+      // focusがある状態でEscapeを押すとdocument.activeElementがBODYへ落ちる
+      // (mogura-tatakiで実機確認済み、共通層コードが原因の35アプリ共通の構造的
+      // リスク)。close処理を直接実行したうえでrestoreA11yPanelFocus()により
+      // openerへ明示的にfocusを戻す。
+      if (e.key === 'Escape' && panel.style.display === 'block') {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+        restoreA11yPanelFocus();
+      }
     });
     all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){
       applyContrast(b.dataset.a11yContrast);
