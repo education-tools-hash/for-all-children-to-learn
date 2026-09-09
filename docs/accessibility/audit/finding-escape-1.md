@@ -712,3 +712,66 @@ K1(Escape mechanism missing)・cup_game settingsOverlay(K1)・role/aria-modal欠
 **`WCAG-JIS-FIX-FAMILY-K-BATCH-1 = RC READY / WAITING FOR USER BROWSER REVIEW`**
 
 Production Releaseへは進まず、User Browser Reviewを待つ。
+
+---
+
+## 29. [WCAG-JIS-FIX-FAMILY-K-BATCH-1-RELEASE追記] Production Release完了
+
+User Browser Review Approved後、`WCAG-JIS-FIX-FAMILY-K-BATCH-1`のRC(commit `967432f`app fix・`aab8e22`docs)を`git merge --ff-only`でProductionへ反映した。
+
+### 29.1 Release手順
+
+1. Release開始時baseline再確認: `main = origin/main = 5ef50eb`(drift無し)。
+2. RC branch(`fix/family-k-escape-priority-batch-1`)の履歴・diffを再確認、K3以外の混入(K1/role/aria-modal/Focus Trap/Initial Focus/Focus Restoration/Visible Focus/リファクタ)が無いことを11ファイル全件の差分表示で確認。
+3. `git merge --ff-only fix/family-k-escape-priority-batch-1`で`5ef50eb`→`aab8e22`へfast-forward。
+4. `git push origin main`実施。
+5. CI確認: push後、`sitemap.xml`のみのCI自動コミット`bfd0f3d`(11アプリ分のlastmod更新、意図した正常な生成差分)を確認。
+6. ローカルmainを`git merge --ff-only origin/main`で`bfd0f3d`へ追従。
+
+### 29.2 Production反映確認
+
+`grep -c "FAMILY-K/K3是正"`でProduction上の11ファイル全てに修正コメントが存在することを確認(mogura-tataki×1、janken-app×2、tokei-app×2、gaze-keyboard×2、hiragana-learn×1、katakana-app×1、nazorin-print×3、shiritori2×2、bosai-app×1、cup_game×1、ongaku-app×1)。
+
+### 29.3 Production HEAD上でのK3再検証(17件全件)
+
+§28で使用したbrowser validation scriptをProduction HEAD(`bfd0f3d`)に対して再実行した。
+
+**Case A(modalのみ)・Case B(A11yパネル共存8ステップ)**: 17件全てPASS(RC検証時と完全に同一の結果)。Escape#1でA11yパネルのみclose、Escape#2でmodal close+正しいopenerへFocus Restoration、を実クリックで再確認。console/page errors 0件。
+
+### 29.4 Regression再確認(代表5対象)
+
+Forward Tab 15回・Reverse Shift+Tab 15回・immediate Shift+Tab: mogura-tataki panRec・gaze-keyboard hrModal・hiragana-learn traceSampleViewer・cup_game helpModalは全てPASS(regressionなし)。
+
+**既知のpre-existing issue再確認**: janken-app howto-overlay(Focus Trap欠如)・gaze-keyboard profileModal(A11yパネル共存時のstrict containment失敗)は、Production HEAD上でもRC検証時と完全に同一の症状が再現することを確認した。これらは今回のK3差分と無関係であることが二重に(RC時のPre-K3比較、Release後のProduction再確認)確定した。§28.6のSeparate Finding記録は変更しない。
+
+### 29.5 Touch / Responsive / 200%zoom / Multi-input
+
+Touch(mogura-tataki panRec Case B再確認、cup_game helpModal close button操作)・Responsive(375×667/390×844/768×1024/1280×900、horizontal overflowなし)・200%zoom、全てPASS。gaze-keyboardの`pointermove`(dwell)リスナー数がRelease前後で1件のまま変化なし(Gaze/dwellへの影響なし)。console/page errors 0件。
+
+### 29.6 Docs最終更新
+
+K3対象17件について、`modal-conformance-matrix.md`の該当セルを`RC FIXED / LOCAL VERIFIED`から`✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED`へ更新した(commit `967432f`参照)。`global-fix-triage-1.md`のTIER1-F7ステータスも更新した。
+
+### 29.7 Separate Finding維持(変更なし)
+
+以下は今回のReleaseに一切含まれていない、引き続き未解決のまま維持する: janken-app howto-overlay Focus Trap欠如、gaze-keyboard profileModal strict containment失敗、K1(Escape mechanism missing)群全て、cup_game settingsOverlay role/aria-modal、Visible Focus、aria-labelledby関連、K6(nazori-app passcodeModal・kyou-no-kiroku modalCelebration)、A11yパネルProxy focus残留、その他既存Separate Finding。
+
+### 29.8 FAMILY-K / BATCH-K1状態
+
+- **K3 = ✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(17件全て)
+- **BATCH-K1 = CLOSED**
+- **FAMILY-K = OPEN**(K1・K6が残存するため、Family全体はCloseしない)
+
+### 29.9 Production/investigation branch保全確認
+
+`main = origin/main = bfd0f3d`。`investigate/wcag-jis-finding-escape-1`(HEAD `8193073`)・`investigate/wcag-jis-finding-initial-restore-1`(HEAD `457f113`)ともに本Release作業中一切変更していない。
+
+### 29.10 次Phase
+
+`WCAG-JIS-FIX-FAMILY-K-BATCH-2`(対象: K1 Escape mechanism missing)を推奨する。対象数が多いため、既存architecture確立済みアプリ群(mogura-tataki・scratch-app・cup_game等)を最初のBatchとし、新規発見6アプリ(sst-app等)は§27.4の方針どおりFocus Trap同時確認が必要な別Batchとする。K6(nazori-app passcodeModal・kyou-no-kiroku modalCelebration)はまだ触らない。
+
+### 29.11 最終Status
+
+**`WCAG-JIS-FIX-FAMILY-K-BATCH-1-RELEASE = PRODUCTION RELEASED / CLOSED`**
+
+`FAMILY-K = OPEN`を維持する(K1・K6が残存)。
