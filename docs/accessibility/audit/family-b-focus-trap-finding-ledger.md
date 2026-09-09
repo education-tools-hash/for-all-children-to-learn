@@ -801,6 +801,7 @@ FAMILY-B(Focus Trap)は正規化された18 Finding全てがTECHNICALLY RESOLVED
 - `TIER2-F2-a`〜`d` = **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED**(commit `24dd18e`)
 - `TIER2-F2`(Parent) = **✅ TECHNICALLY RESOLVED / PRODUCTION REFLECTED / CLOSED**
 - FAMILY-B(Focus Trap)Production residual count: **0**(正規化された18件全て解消)
+- worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-7`)・branch(`fix/family-b-tier2-focus-trap`)・投資調査branch(`investigate/wcag-jis-finding-initial-restore-1`, `c6930d9`)は本Release作業では削除・変更せず維持。cleanupは本Phase内で別途実施予定。
 
 ## 31. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1: User報告(browser chromeへのTab escape)の実証調査とA11yパネルcluster定義の正式仕様適合
 
@@ -865,4 +866,69 @@ Escape close後のfocus挙動を追加検証したところ、以下を確認し
 **RC VALIDATED / READY FOR USER REVIEW**
 
 User報告現象は3環境×実際のMicrosoft Edgeで徹底的に再現を試みたが一度も再現せず、Root Causeは特定できなかった(file://固有の問題、Production固有の問題のいずれとも断定できない)。一方、調査の過程で発見した正式仕様(Formal Contract)とRC4実装の差異について、Userの承認を得た上で正式仕様への適合修正を実施し、全RC検証項目(A11y Panel regression・5modal regression・panSet連携・Visible Focus・Responsive・Touch・Console/Static Validation)がPASSした。User Browser Reviewを待つ。Approvalなしでmerge/push/Production Release/cleanup/次Phase開始はしない。
-- worktree(`for-all-children-to-learn-wcag-jis-fix-family-b-batch-7`)・branch(`fix/family-b-tier2-focus-trap`)・投資調査branch(`investigate/wcag-jis-finding-initial-restore-1`, `c6930d9`)は本Release作業では削除・変更せず維持。cleanupは本Phase内で別途実施予定。
+
+## 32. [2026-09-09追記] WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1-RELEASE完了
+
+§31のRC(app commit `2d82957`・docs commit `ddbeba7`)についてUser Browser Reviewを実施したところ、「A11y Panel OPEN中、Panel内部でTab/Shift+Tabが循環し、ブラウザUIへ抜けないことをUser環境で確認済み」との**User Approved**を得た。
+
+### Release前確認
+
+- `git fetch origin` → `origin/main` = `4c3c01b`(hotfix branch `fix/mogura-a11y-panel-strict-internal-containment`のbase点と完全一致、drift無し)。
+- `git diff origin/main...fix/mogura-a11y-panel-strict-internal-containment`で差分を確認 → `mogura-tataki.html`のstrict internal containment修正(§31記載どおり)とdocs追記(§31本文)のみ。予期しないapp code変更なし。
+- User Approved対象のapp commit(`2d82957`)・docs commit(`ddbeba7`)と、branch先端が一致していることを確認。
+
+### Release手順
+
+1. mainのworktree(`C:/Users/jerry/Documents/GitHub/for-all-children-to-learn`)で`git merge --ff-only fix/mogura-a11y-panel-strict-internal-containment`を実行、`4c3c01b`→`ddbeba7`へfast-forward(driftが無かったため単純なfast-forwardを採用)。
+2. `git push origin main`実施、成功。
+3. CI確認: push直後および10秒間隔×12回(計約120秒)のポーリングで`git fetch origin`+`git rev-parse origin/main`を実行したが、`origin/main`に変化なし。今回の変更は`apps-data.json`のスキーマ変更を伴わないため`generate.js`の出力に差分が生じず、CI auto-commitはスキップ(§30のBatch-7 Releaseと同型の正常挙動)と判断した。
+4. Production final HEAD = **`ddbeba7`**(app commitとdocs commitの2件で構成、追加のCI auto-commitなし)。
+
+### Productionコード確認
+
+`git show origin/main:mogura-tataki.html`で`moguraA11yClusterFocusables`関数を直接確認し、`donomanaA11yBtn`がクラスタ構成対象外となっており、`panelItems`(Panel内部のvisible/enabled focusable要素)のみを返す実装がProduction HEADに反映されていることを確認した。
+
+### Production実機検証(`https://donomana.jp/mogura-tataki.html`、実際のMicrosoft Edge)
+
+- **デプロイ済みソース確認**: `moguraA11yClusterFocusables.toString()`に`POSTRELEASE-HOTFIX-1`マーカーが含まれることを確認(GitHub Pagesへの反映完了を確認)。
+- **Forward Tab x30 / Reverse Shift+Tab x30**: いずれもTab#1以降、`donomanaA11yBtn`・Home・学習の記録・画面ロック・つかいかた・きろく・全画面・app固有UI・browser chromeへの遷移は**ゼロ**。Panel内部(`donomanaSettingsProxy`〜`donomanaA11yReset`の8要素)のみで正しく循環することを確認。
+- **5modal regression**(代表項目): `scrStart`(Forward/Reverse x10)、`panHow`(Forward x10・immediate Shift+Tab・outside-focus-guard)、`panRec`(Forward x10)、`panSet`(Forward x10)、いずれもcontainment維持でPASS。
+- **panSet連携**: A11yパネルを開いた状態(`display:block`)から`donomanaSettingsProxy`をクリック → A11yパネルが`display:none`へ切り替わり、二重focus ownershipなく`panSet`が正常に開くことを確認(実際のUser操作フロー)。`panSet`close後のactiveElementは`donomanaA11yBtn`(既存挙動、regressionなし)。
+- **Visible Focus**: 実際のTabキー操作で`panSet`内のtoggle(`togHC`)まで到達し、`:focus-visible`が正しく発火(`matchesFocusVisible: true`)、`outline-style: solid`が適用されることを確認。RC3で追加したVisible FocusがProductionで維持されている。
+- **Console/page errors**: 全テストを通じて0件。
+
+### Separate Findings保持(今回もResolved扱いしない)
+
+- `panSet`(mogura-tataki)内のdisabled-state設計不整合(`dwT`/`togCur`/`dwTol`): 変更なし。
+- 共通A11yパネルをEscapeで閉じた際、Panel内部深くにfocusがある場合に`activeElement`がBODYへ落ちる既存Focus Restoration問題: 変更なし(§31で再確認済み)。
+- `tyushi.html`/`cup_game.html`のA11y Panel containment実装差異: 変更なし(§31で調査記録済み、Global rollout候補)。
+
+### FAMILY-B Production residual count
+
+今回のHotfixは、既にResolved扱いだったmoguraの仕様整合Hotfixであるため、**FAMILY-B(Focus Trap)Production residual countは4のまま変更しない**(§29〜30時点の集計とは別軸。§30時点の「18件全て解消」はTIER1-F3-j〜n・TIER2-F2-a〜dの正規化Ledger基準であり、今回のPOSTRELEASE-HOTFIX-1はそのうち既にTECHNICALLY RESOLVED済みの`TIER1-F3-j`〜`n`(mogura-tataki側)に対する仕様整合の追加修正であって、新規Findingの解消ではないため、residual countの増減は発生しない)。
+
+### 次Phase候補(今回は開始しない)
+
+`WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`を正式提案する。目的は全アプリにおけるA11y Panel keyboard behaviorの監査・統一。正式Contract候補は以下の7項目:
+
+1. A11y Panel OPEN中はPanel内部だけでTab/Shift+Tab strict containment
+2. Panel外toolbar/app UI/background modalへ移動しない
+3. hidden/disabled controlsをTab対象にしない
+4. custom controlsにVisible Focusを保証
+5. EscapeでPanelを閉じた場合、A11y openerへfocus restoration
+6. Panel close後、元のmodal/page側Focus Trapまたは通常Tab orderへ正常復帰
+7. 新規アプリも最初からこのContractへ準拠
+
+調査対象候補(§31で特定済み): `tyushi.html`(`donomanaA11yBtn`+`donomanaHomeBtn`を含み乖離大)、`cup_game.html`(`donomanaA11yBtn`を含みコメントと実装が矛盾)。今回のRelease作業ではこのPhaseを開始しない。
+
+### cleanup
+
+Production validationが全てPASSしたため、worktree(`for-all-children-to-learn-mogura-a11y-hotfix-1`)・branch(`fix/mogura-a11y-panel-strict-internal-containment`)のcleanup可否を確認する。cleanup実施はドキュメント記録後、本Phase内で別途実施する。investigation branch(`investigate/wcag-jis-finding-initial-restore-1`, `457f113`)・(`investigate/wcag-jis-finding-escape-1`, `8193073`)は本Release作業では削除・変更しない。
+
+### 更新後の状態(Release後)
+
+- `mogura-tataki.html`の`moguraA11yClusterFocusables`(`donomanaA11yBtn`除外) = **✅ PRODUCTION RELEASED / CLOSED**(commit `ddbeba7`)
+- Formal status: **WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1 = PRODUCTION RELEASED / CLOSED**
+- FAMILY-B(Focus Trap)Production residual count: **4**(変更なし、§30時点の正規化Ledger集計とは別軸)
+- Separate Findings(disabled-state不整合・Escape focus restoration欠如・tyushi/cup_game containment差異)は全て未解決のまま継続。
+- 次Phase候補`WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`を提案済み、未着手。
