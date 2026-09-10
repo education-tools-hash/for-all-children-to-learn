@@ -1632,6 +1632,7 @@ body.dark .diary-intro{background:#2A1A24;color:#F8BBD0;}
 }
 .branch-choice-btn:active{transform:scale(.98);}
 .branch-choice-btn:disabled{cursor:default;}
+.branch-choice-lv{margin-right:6px;}
 
 /* 結末画面 */
 .branch-ending{
@@ -5146,6 +5147,7 @@ let quizSpeechGen = 0;
 let currentStoryIdx = 0;
 let currentStoryPage = 0;
 let storySpeechGen = 0; // go()や画面遷移のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ(ことばクイズ/SSTクイズと同じ考え方)
+let branchSpeechGen = 0; // 分岐ストーリー用。go()や場面遷移のたびに増やし、古い(遅延)よみあげ・古い場面遷移が後から発火するのを防ぐ
 let breathTimer = null;
 let breathRunning = false;
 
@@ -5206,6 +5208,7 @@ function go(id){
   wqSpeechGen++; // 画面遷移時、ことばクイズの予約済み遅延読み上げを無効化する
   quizSpeechGen++; // 画面遷移時、SSTクイズの予約済み遅延読み上げを無効化する
   storySpeechGen++; // 画面遷移時、ソーシャルストーリーの予約済み遅延読み上げを無効化する
+  branchSpeechGen++; // 画面遷移時、分岐ストーリーの予約済み遅延読み上げ・場面遷移を無効化する
   stopSpeak();
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.getElementById(id).classList.add('on');
@@ -6879,6 +6882,7 @@ function importData(code){
       applyWQTeacherEdits(); // インポート直後の同一セッションでも、ことばクイズの個別フィードバックを即時反映する
       applyQZTeacherEdits(); // インポート直後の同一セッションでも、SSTクイズの個別フィードバックを即時反映する
       applySTTeacherEdits(); // インポート直後の同一セッションでも、ソーシャルストーリーの個別フィードバックを即時反映する
+      applyBRTeacherEdits(); // インポート直後の同一セッションでも、分岐ストーリーの個別フィードバックを即時反映する
       imported.push('既存問題の編集内容');
     }
     if(data.p && Array.isArray(data.p)){
@@ -7391,15 +7395,15 @@ function buildEditList(){
       const nodeKeys = Object.keys(story.nodes);
       const nodesHtml = nodeKeys.map(nk=>{
         const node = story.nodes[nk];
-        const txtKey = `br_${currentEditLv}_${bi}_${nk}_txt`;
+        const txtKey = `${story.id}_${nk}_txt`;
         const txtVal = teacherEdits[txtKey]!==undefined ? teacherEdits[txtKey] : (node.txt||'');
         const choicesHtml = node.choices.map((c,ci)=>{
-          const cKey = `br_${currentEditLv}_${bi}_${nk}_c${ci}`;
+          const cKey = `${story.id}_${nk}_${c.id}`;
           const cVal = teacherEdits[cKey]!==undefined ? teacherEdits[cKey] : c.txt;
           let endingHtml = '';
           if(c.ending){
-            const etKey = `br_${currentEditLv}_${bi}_${nk}_c${ci}_etitle`;
-            const edKey = `br_${currentEditLv}_${bi}_${nk}_c${ci}_edesc`;
+            const etKey = `${story.id}_${nk}_${c.id}_etitle`;
+            const edKey = `${story.id}_${nk}_${c.id}_edesc`;
             const etVal = teacherEdits[etKey]!==undefined ? teacherEdits[etKey] : (c.ending.title||'');
             const edVal = teacherEdits[edKey]!==undefined ? teacherEdits[edKey] : (c.ending.desc||'');
             endingHtml = `
@@ -7640,18 +7644,19 @@ function applySTTeacherEdits(){
 }
 
 // ── 分岐ストーリー編集 ────────────────────────────────────
+// txtKey/cKeyはstory.id(配列位置に依存しない安定ID)+ノードキー(nk、object keyなので既に安定)+choice.id で構成する。
 function saveEditBranch(lv,bi){
   const story = BRANCH_STORIES[lv][bi];
   Object.keys(story.nodes).forEach(nk=>{
     const node = story.nodes[nk];
-    const txtKey = `br_${lv}_${bi}_${nk}_txt`;
+    const txtKey = `${story.id}_${nk}_txt`;
     if(teacherEdits[txtKey]!==undefined) node.txt = teacherEdits[txtKey];
-    node.choices.forEach((c,ci)=>{
-      const cKey = `br_${lv}_${bi}_${nk}_c${ci}`;
+    node.choices.forEach(c=>{
+      const cKey = `${story.id}_${nk}_${c.id}`;
       if(teacherEdits[cKey]!==undefined) c.txt = teacherEdits[cKey];
       if(c.ending){
-        const etKey = `br_${lv}_${bi}_${nk}_c${ci}_etitle`;
-        const edKey = `br_${lv}_${bi}_${nk}_c${ci}_edesc`;
+        const etKey = `${story.id}_${nk}_${c.id}_etitle`;
+        const edKey = `${story.id}_${nk}_${c.id}_edesc`;
         if(teacherEdits[etKey]!==undefined) c.ending.title = teacherEdits[etKey];
         if(teacherEdits[edKey]!==undefined) c.ending.desc  = teacherEdits[edKey];
       }
@@ -7660,20 +7665,52 @@ function saveEditBranch(lv,bi){
   saveTeacherData(); showEditSaved();
 }
 
+// 個別編集(新仕様)のみをリセットする。保存済みteacherEditsの削除だけでなく、既にメモリ上でmutateされている
+// BRANCH_STORIES側の値も既定へ戻す(これをしないと、リロードするまでリセットが実際のゲーム画面に反映されない)。
 function resetEditBranch(lv,bi){
   const story = BRANCH_STORIES[lv][bi];
+  const defaults = BRANCH_STORIES_DEFAULTS[lv][bi];
   Object.keys(story.nodes).forEach(nk=>{
     const node = story.nodes[nk];
-    delete teacherEdits[`br_${lv}_${bi}_${nk}_txt`];
+    const defNode = defaults.nodes[nk];
+    delete teacherEdits[`${story.id}_${nk}_txt`];
+    node.txt = defNode.txt;
     node.choices.forEach((c,ci)=>{
-      delete teacherEdits[`br_${lv}_${bi}_${nk}_c${ci}`];
+      delete teacherEdits[`${story.id}_${nk}_${c.id}`];
+      c.txt = defNode.choices[ci].txt;
       if(c.ending){
-        delete teacherEdits[`br_${lv}_${bi}_${nk}_c${ci}_etitle`];
-        delete teacherEdits[`br_${lv}_${bi}_${nk}_c${ci}_edesc`];
+        delete teacherEdits[`${story.id}_${nk}_${c.id}_etitle`];
+        delete teacherEdits[`${story.id}_${nk}_${c.id}_edesc`];
+        c.ending.title = defNode.choices[ci].ending.title;
+        c.ending.desc  = defNode.choices[ci].ending.desc;
       }
     });
   });
   saveTeacherData(); buildEditList(); showEditReset();
+}
+// 保存済みのteacherEdits(場面説明・選択肢文・結末タイトル/説明)を、ページ読み込み直後のBRANCH_STORIESへ反映する。
+// これがないと、教員編集はリロード後にゲーム本編へ反映されず編集画面上でしか見えない状態になる
+// (ことばクイズ/SSTクイズ/ソーシャルストーリーと同じ既知不具合の修正)。
+function applyBRTeacherEdits(){
+  Object.keys(BRANCH_STORIES).forEach(lv=>{
+    (BRANCH_STORIES[lv]||[]).forEach(story=>{
+      Object.keys(story.nodes).forEach(nk=>{
+        const node = story.nodes[nk];
+        const txtKey = `${story.id}_${nk}_txt`;
+        if(teacherEdits[txtKey]!==undefined) node.txt = teacherEdits[txtKey];
+        node.choices.forEach(c=>{
+          const cKey = `${story.id}_${nk}_${c.id}`;
+          if(teacherEdits[cKey]!==undefined) c.txt = teacherEdits[cKey];
+          if(c.ending){
+            const etKey = `${story.id}_${nk}_${c.id}_etitle`;
+            const edKey = `${story.id}_${nk}_${c.id}_edesc`;
+            if(teacherEdits[etKey]!==undefined) c.ending.title = teacherEdits[etKey];
+            if(teacherEdits[edKey]!==undefined) c.ending.desc  = teacherEdits[edKey];
+          }
+        });
+      });
+    });
+  });
 }
 
 function showEditSaved(){
@@ -8295,134 +8332,135 @@ function fallbackCopyDiary(content){
 const BRANCH_STORIES = {
   1:[
     {
-      title:'放課後、誰と帰る？', icon:'🎒',
+      id:'br_1_01', title:'放課後、誰と帰る？', icon:'🎒',
       start:'n1',
       nodes:{
         n1:{ico:'🏫',txt:'学校が終わりました。一人の友達が「一緒に帰ろう」と声をかけてくれました。でも別の友達とも約束していたか気になります。',
           choices:[
-            {txt:'「一緒に帰ろう！」とすぐに答える',level:'best',next:'n2a'},
-            {txt:'「ちょっと確認するね」と言って、約束を確認する',level:'good',next:'n2b'},
-            {txt:'何も言わずに、ついていく',level:'try',next:'n2c'},
+            {id:'c1',txt:'「一緒に帰ろう！」とすぐに答える',level:'best',next:'n2a'},
+            {id:'c2',txt:'「ちょっと確認するね」と言って、約束を確認する',level:'good',next:'n2b'},
+            {id:'c3',txt:'何も言わずに、ついていく',level:'try',next:'n2c'},
           ]},
         n2a:{ico:'😊',txt:'友達と楽しく帰り道を歩きました。途中で「今日学校どうだった？」と聞かれました。',
           choices:[
-            {txt:'「楽しかったよ！〇〇が面白かった」と話す',level:'best',ending:{level:'best',title:'楽しい帰り道！',desc:'友達と気持ちよく会話できて、楽しい帰り道になりました。自分から声をかけたり、話したりすることで、友情が深まっていきます。'}},
-            {txt:'「うん、まあ」とだけ言う',level:'try',ending:{level:'good',title:'静かな帰り道',desc:'短い返事でも、一緒に歩く時間は大切な時間です。少しずつ話せるようになるといいね。'}},
+            {id:'c1',txt:'「楽しかったよ！〇〇が面白かった」と話す',level:'best',ending:{level:'best',title:'楽しい帰り道！',desc:'友達と気持ちよく会話できて、楽しい帰り道になりました。自分から声をかけたり、話したりするのも仲良くなる方法の一つだね。'}},
+            {id:'c2',txt:'「うん、まあ」とだけ言う',level:'try',ending:{level:'good',title:'静かな帰り道',desc:'短い返事でも、一緒に歩く時間は大切な時間です。少しずつ話せるようになるといいね。'}},
           ]},
         n2b:{ico:'🤔',txt:'確認したら、約束していた友達は「今日は別の用事があるから大丈夫」と言ってくれました。',
           choices:[
-            {txt:'「ありがとう！じゃあ一緒に帰ろう」と伝える',level:'best',ending:{level:'best',title:'みんな気持ちよく解決！',desc:'確認したことで、誰も困らない選択ができました。これが「思いやりのある行動」です。'}},
+            {id:'c1',txt:'「ありがとう！じゃあ一緒に帰ろう」と伝える',level:'best',ending:{level:'best',title:'みんな気持ちよく解決！',desc:'確認したことで、誰も困らない選択ができました。これが「思いやりのある行動」です。'}},
           ]},
         n2c:{ico:'😟',txt:'ついていったものの、実は別の友達と約束していたことを思い出しました。',
           choices:[
-            {txt:'「ごめん、実は約束があったんだ」と今から伝える',level:'good',ending:{level:'good',title:'気づいて伝えられた',desc:'途中でも気づいて伝えられたのは良いことです。次は先に確認できるといいね。'}},
-            {txt:'そのまま黙って帰る',level:'try',ending:{level:'try',title:'約束を忘れてしまった',desc:'約束していた友達が心配しているかもしれません。次は先に「約束があるか確認する」を試してみよう。'}},
+            {id:'c1',txt:'「ごめん、実は約束があったんだ」と今から伝える',level:'good',ending:{level:'good',title:'気づいて伝えられた',desc:'途中でも気づいて伝えられたのは良いことです。次は先に確認できるといいね。'}},
+            {id:'c2',txt:'そのまま黙って帰る',level:'try',ending:{level:'try',title:'約束を忘れてしまった',desc:'約束していた友達が心配しているかもしれません。次は先に「約束があるか確認する」を試してみよう。'}},
           ]},
       }
     },
     {
-      title:'消しゴムを忘れた', icon:'✏️',
+      id:'br_1_02', title:'消しゴムを忘れた', icon:'✏️',
       start:'n1',
       nodes:{
         n1:{ico:'😱',txt:'授業中、消しゴムを忘れたことに気づきました。となりの席に友達がいます。',
           choices:[
-            {txt:'「消しゴム貸してくれる？」と小声で聞く',level:'best',next:'n2a'},
-            {txt:'我慢して、間違えたところはそのままにする',level:'try',next:'n2b'},
-            {txt:'先生に「消しゴットを忘れました」と伝える',level:'good',next:'n2c'},
+            {id:'c1',txt:'「消しゴム貸してくれる？」と小声で聞く',level:'best',next:'n2a'},
+            {id:'c2',txt:'我慢して、間違えたところはそのままにする',level:'try',next:'n2b'},
+            {id:'c3',txt:'先生に「消しゴムを忘れました」と伝える',level:'good',next:'n2c'},
           ]},
         n2a:{ico:'😊',txt:'友達が「いいよ」と貸してくれました。',
           choices:[
-            {txt:'「ありがとう！」と伝えて、使い終わったら返す',level:'best',ending:{level:'best',title:'助け合いができた！',desc:'お願いも、お礼も両方できました。これが友達との良い関係を作る力です。'}},
+            {id:'c1',txt:'「ありがとう！」と伝えて、使い終わったら返す',level:'best',ending:{level:'best',title:'助け合いができた！',desc:'お願いも、お礼も両方できました。これが友達との良い関係を作る力です。'}},
           ]},
         n2b:{ico:'😣',txt:'間違えたところを消せないまま、授業が進んでいきます。',
           choices:[
-            {txt:'我慢を続ける',level:'try',ending:{level:'try',title:'ちょっと困ったまま',desc:'我慢するのも一つの方法だけど、聞いたり伝えたりすればもっと楽になれるよ。次は声をかけてみよう。'}},
+            {id:'c1',txt:'我慢を続ける',level:'try',ending:{level:'try',title:'ちょっと困ったまま',desc:'我慢するのも一つの方法だけど、聞いたり伝えたりすればもっと楽になれるよ。次は声をかけてみよう。'}},
           ]},
         n2c:{ico:'👩‍🏫',txt:'先生が「貸してあげる人いる？」とクラスに聞いてくれました。',
           choices:[
-            {txt:'貸してくれた人に「ありがとうございます」と言う',level:'best',ending:{level:'best',title:'先生に伝えて解決！',desc:'困ったことを先生に伝えるのも、立派な解決方法です。'}},
+            {id:'c1',txt:'貸してくれた人に「ありがとうございます」と言う',level:'best',ending:{level:'best',title:'先生に伝えて解決！',desc:'困ったことを先生に伝えるのも、立派な解決方法です。'}},
           ]},
       }
     },
   ],
   2:[
     {
-      title:'グループ発表の準備', icon:'📊',
+      id:'br_2_01', title:'グループ発表の準備', icon:'📊',
       start:'n1',
       nodes:{
         n1:{ico:'👥',txt:'グループ発表の準備をしています。一人が「俺がぜんぶやるから大丈夫」と言って、一人で進めようとしています。',
           choices:[
-            {txt:'「みんなで分担しよう」と提案する',level:'best',next:'n2a'},
-            {txt:'「ありがとう」と言って、お任せする',level:'try',next:'n2b'},
-            {txt:'何も言わずに見ている',level:'try',next:'n2c'},
+            {id:'c1',txt:'「みんなで分担しよう」と提案する',level:'best',next:'n2a'},
+            {id:'c2',txt:'「ありがとう」と言って、お任せする',level:'try',next:'n2b'},
+            {id:'c3',txt:'何も言わずに見ている',level:'try',next:'n2c'},
           ]},
         n2a:{ico:'🤝',txt:'提案したら、みんなが「それがいいね」と賛成してくれました。役割分担が始まります。',
           choices:[
-            {txt:'自分の得意なことを担当すると伝える',level:'best',ending:{level:'best',title:'チームワークが生まれた！',desc:'声をかけたことで、みんなが協力する空気が生まれました。これがリーダーシップの第一歩です。'}},
+            {id:'c1',txt:'自分の得意なことを担当すると伝える',level:'best',ending:{level:'best',title:'チームワークが生まれた！',desc:'声をかけたことで、みんなが協力する空気が生まれました。これがリーダーシップの第一歩です。'}},
           ]},
         n2b:{ico:'😐',txt:'発表の日、一人で全部やった子が大変そうにしています。',
           choices:[
-            {txt:'「手伝うことある？」と今からでも声をかける',level:'good',ending:{level:'good',title:'遅くても声をかけられた',desc:'途中からでも手伝おうとする気持ちは大切です。次は最初から分担を提案できるといいね。'}},
-            {txt:'そのまま見ている',level:'try',ending:{level:'try',title:'一人に負担が集中した',desc:'一人だけが頑張る状況は、チームとしては良くありません。次は「分担しよう」と声をかけてみよう。'}},
+            {id:'c1',txt:'「手伝うことある？」と今からでも声をかける',level:'good',ending:{level:'good',title:'遅くても声をかけられた',desc:'途中からでも手伝おうとする気持ちは大切です。次は最初から分担を提案できるといいね。'}},
+            {id:'c2',txt:'そのまま見ている',level:'try',ending:{level:'try',title:'一人に負担が集中した',desc:'一人だけが頑張る状況になってしまったね。次は「分担しよう」と声をかけてみよう。'}},
           ]},
         n2c:{ico:'😶',txt:'発表当日、グループの出来があまり良くありませんでした。',
           choices:[
-            {txt:'「次はみんなで準備しよう」と話し合う',level:'good',ending:{level:'good',title:'反省を次に活かそう',desc:'結果は残念だったけど、振り返って次に活かそうとする姿勢は大切です。'}},
+            {id:'c1',txt:'「次はみんなで準備しよう」と話し合う',level:'good',ending:{level:'good',title:'反省を次に活かそう',desc:'思うような結果にならなかったけど、振り返って次に活かそうとする姿勢は大切です。'}},
           ]},
       }
     },
     {
-      title:'SNSで見た悪口', icon:'📱',
+      id:'br_2_02', title:'SNSで見た悪口', icon:'📱',
       start:'n1',
       nodes:{
         n1:{ico:'😟',txt:'SNSのグループで、クラスの誰かの悪口が書かれているのを見つけました。',
           choices:[
-            {txt:'信頼できる大人（先生や親）に相談する',level:'best',next:'n2a'},
-            {txt:'そのグループから黙って抜ける',level:'good',next:'n2b'},
-            {txt:'「それはやめよう」とグループ内で発言する',level:'good',next:'n2c'},
+            {id:'c1',txt:'信頼できる大人（先生や親）に相談する',level:'best',next:'n2a'},
+            {id:'c2',txt:'そのグループから黙って抜ける',level:'good',next:'n2b'},
+            {id:'c3',txt:'「それはやめよう」とグループ内で発言する',level:'good',next:'n2c'},
           ]},
         n2a:{ico:'👩‍🏫',txt:'相談したら、先生が「教えてくれてありがとう」と言って対応してくれました。',
           choices:[
-            {txt:'安心して、結果を待つ',level:'best',ending:{level:'best',title:'適切に対応できた！',desc:'一人で抱え込まず、大人に相談できたのは素晴らしい判断です。これがトラブルを大きくしない方法です。'}},
+            {id:'c1',txt:'安心して、結果を待つ',level:'best',ending:{level:'best',title:'適切に対応できた！',desc:'一人で抱え込まず、大人に相談できたのは素晴らしい判断です。これがトラブルを大きくしない方法です。'}},
           ]},
         n2b:{ico:'😌',txt:'グループから抜けたことで、自分は悪口に関わらずに済みました。',
           choices:[
-            {txt:'それで満足する',level:'good',ending:{level:'good',title:'自分の身は守れた',desc:'自分が関わらない選択は正しい判断です。もし誰かが傷ついているなら、大人に伝えるとさらに良いね。'}},
+            {id:'c1',txt:'それで満足する',level:'good',ending:{level:'good',title:'自分の身は守れた',desc:'自分が関わらない選択も一つの方法です。もし誰かが傷ついているなら、大人に伝えるとさらに良いね。'}},
           ]},
         n2c:{ico:'😬',txt:'発言したら、一部の人から「うるさい」と言われてしまいました。',
           choices:[
-            {txt:'気にせず、それでも正しいと思ったことを伝えた自分を認める',level:'best',ending:{level:'best',title:'勇気のある発言だった',desc:'反発があっても、正しいことを言うのは勇気が必要です。それでも言えたことはとても立派です。'}},
+            {id:'c1',txt:'気にせず、それでも正しいと思ったことを伝えた自分を認める',level:'best',ending:{level:'best',title:'勇気のある発言だった',desc:'反発があっても、正しいことを言うのは勇気が必要です。それでも言えたことはとても立派です。'}},
           ]},
       }
     },
   ],
   3:[
     {
-      title:'実習先での判断', icon:'🏭',
+      id:'br_3_01', title:'実習先での判断', icon:'🏭',
       start:'n1',
       nodes:{
         n1:{ico:'🏭',txt:'現場実習中、指示された作業のやり方に少し疑問を感じました。このまま続けるか迷っています。',
           choices:[
-            {txt:'「確認してもいいですか？」と担当者に聞く',level:'best',next:'n2a'},
-            {txt:'自分の判断でやり方を変えてしまう',level:'try',next:'n2b'},
-            {txt:'疑問を感じつつ、指示通り続ける',level:'good',next:'n2c'},
+            {id:'c1',txt:'「確認してもいいですか？」と担当者に聞く',level:'best',next:'n2a'},
+            {id:'c2',txt:'自分の判断でやり方を変えてしまう',level:'try',next:'n2b'},
+            {id:'c3',txt:'疑問を感じつつ、指示通り続ける',level:'good',next:'n2c'},
           ]},
         n2a:{ico:'👍',txt:'担当者が「いい質問だね」と言って、丁寧に説明してくれました。',
           choices:[
-            {txt:'説明を聞いて、納得して作業を進める',level:'best',ending:{level:'best',title:'信頼関係が生まれた！',desc:'疑問を言葉にして確認したことで、職場での信頼が深まりました。これが「報告・連絡・相談」の力です。'}},
+            {id:'c1',txt:'説明を聞いて、納得して作業を進める',level:'best',ending:{level:'best',title:'信頼関係が生まれた！',desc:'疑問を言葉にして確認したことで、職場での信頼が深まりました。これが「報告・連絡・相談」の力です。'}},
           ]},
         n2b:{ico:'😬',txt:'やり方を変えてしまったあと、担当者から「これは違う方法だよ」と指摘されました。',
           choices:[
-            {txt:'「すみません、次から確認します」と謝る',level:'good',ending:{level:'good',title:'失敗から学べた',desc:'失敗しても、そこから学んで次に活かせるのは大切な力です。次は変える前に確認しよう。'}},
+            {id:'c1',txt:'「すみません、次から確認します」と謝る',level:'good',ending:{level:'good',title:'失敗から学べた',desc:'失敗しても、そこから学んで次に活かせるのは大切な力です。次は変える前に確認しよう。'}},
           ]},
         n2c:{ico:'😐',txt:'指示通り進めましたが、後から「実はこうした方がよかった」と気づきました。',
           choices:[
-            {txt:'休憩時間に「さっきの作業について聞きたいことがあります」と伝える',level:'good',ending:{level:'good',title:'後からでも伝えられた',desc:'タイミングを逃しても、後から伝える姿勢は立派です。次は気づいたときに伝えてみよう。'}},
+            {id:'c1',txt:'休憩時間に「さっきの作業について聞きたいことがあります」と伝える',level:'good',ending:{level:'good',title:'後からでも伝えられた',desc:'タイミングを逃しても、後から伝える姿勢は立派です。次は気づいたときに伝えてみよう。'}},
           ]},
       }
     },
   ],
 };
+const BRANCH_STORIES_DEFAULTS = JSON.parse(JSON.stringify(BRANCH_STORIES));
 
 let currentBranchIdx = 0;
 let currentBranchPath = []; // 通過したノード履歴（表示用）
@@ -8447,11 +8485,16 @@ function startBranch(idx){
   currentBranchIdx = idx;
   currentBranchPath = [];
   const story = BRANCH_STORIES[currentLv][idx];
-  renderBranchNode(story.start, story);
+  // go()もbranchSpeechGenを増やすため、renderBranchNode()より先にgo()を呼ぶ
+  // (renderBranchNode()を先に呼ぶと、その直後のgo()が世代カウンタを再度進めてしまい、
+  //  renderBranchNode()が予約した読み上げが「古い世代」と誤判定されて発火しなくなる)。
   go('s-branch');
+  renderBranchNode(story.start, story);
 }
 
 function renderBranchNode(nodeKey, story){
+  branchSpeechGen++;
+  const myBranchGen = branchSpeechGen;
   const node = story.nodes[nodeKey];
   const stepNum = currentBranchPath.length + 1;
 
@@ -8465,7 +8508,8 @@ function renderBranchNode(nodeKey, story){
       </div>
       <div class="branch-choices" id="branch-choices">
         ${node.choices.map((c,i)=>`
-          <button class="branch-choice-btn" onclick="chooseBranch(${i})">${c.txt}</button>`).join('')}
+          <button class="branch-choice-btn" onclick="chooseBranch(${i})">
+            <span class="branch-choice-lv" aria-hidden="true">${c.level==='best'?'🌟':c.level==='good'?'🙂':'💪'}</span>${c.txt}</button>`).join('')}
       </div>
     </div>`;
 
@@ -8473,7 +8517,10 @@ function renderBranchNode(nodeKey, story){
   window._currentBranchNode = node;
   window._currentBranchStory = story;
 
-  setTimeout(()=>autoSpeak(()=>speak(node.txt)), 300);
+  setTimeout(()=>{
+    if(branchSpeechGen!==myBranchGen) return; // 次の場面/別画面へ既に移動済みなら読み上げない
+    autoSpeak(()=>speak(node.txt));
+  }, 300);
 }
 
 function speakBranchNode(){
@@ -8485,10 +8532,12 @@ function chooseBranch(choiceIdx){
   const node  = window._currentBranchNode;
   const story = window._currentBranchStory;
   const choice = node.choices[choiceIdx];
+  const myBranchGen = branchSpeechGen;
 
   currentBranchPath.push(choice.txt);
 
-  // ボタンを無効化して選んだものを強調
+  // ボタンを無効化して選んだものを強調。色だけに頼らず、アイコン(🌟/🙂/💪、選択肢ボタン内に既に表示済み)でも
+  // best/good/tryを区別できるようにしている(色のみでの判別に依存しない、観点K)。
   document.querySelectorAll('.branch-choice-btn').forEach((b,i)=>{
     b.disabled = true;
     if(i===choiceIdx){
@@ -8500,6 +8549,7 @@ function chooseBranch(choiceIdx){
   });
 
   setTimeout(()=>{
+    if(branchSpeechGen!==myBranchGen) return; // 別画面へ既に移動済みなら、古い場面遷移を発火させない
     if(choice.ending){
       renderBranchEnding(choice.ending);
     } else if(choice.next){
@@ -8509,6 +8559,8 @@ function chooseBranch(choiceIdx){
 }
 
 function renderBranchEnding(ending){
+  branchSpeechGen++;
+  const myBranchGen = branchSpeechGen;
   const ico   = ending.level==='best' ? '🌟' : ending.level==='good' ? '😊' : '💪';
   const cls   = 'ending-' + ending.level;
 
@@ -8530,7 +8582,10 @@ function renderBranchEnding(ending){
 
   if(ending.level === 'best'){ confetti(); awardBadge('branch_master'); }
   recordActivity('branch', currentLv, ending.level);
-  setTimeout(()=>autoSpeak(()=>speak(ending.title + '。' + ending.desc)), 300);
+  setTimeout(()=>{
+    if(branchSpeechGen!==myBranchGen) return; // 次の場面/別画面へ既に移動済みなら読み上げない
+    autoSpeak(()=>speak(ending.title + '。' + ending.desc));
+  }, 300);
 }
 
 // ============================================================
@@ -9203,6 +9258,7 @@ loadTeacherData();
 applyWQTeacherEdits();
 applyQZTeacherEdits();
 applySTTeacherEdits();
+applyBRTeacherEdits();
 loadActivityLog();
 loadAIGenerated();
 syncCustomToScenes();
