@@ -410,6 +410,8 @@ body.dark .voice-select{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
 .result-box.lv-result-try{background:linear-gradient(135deg,#F5F5F5,#EEEEEE);}
 .quiz-opt.lv-best{background:#FFF9E6;border-color:#F1C40F;color:#7A5200;}
 .quiz-opt.lv-best .num{background:#F1C40F;color:#7A5200;}
+.quiz-opt.lv-good{background:#E8F5E9;border-color:var(--gr);color:#1A7A42;}
+.quiz-opt.lv-good .num{background:var(--gr);color:#fff;}
 .quiz-opt.lv-try{background:#F5F5F5;border-color:#9E9E9E;color:#555;}
 .quiz-opt.lv-try .num{background:#9E9E9E;color:#fff;}
 .story-a-btn.lv-best{background:#FFF9E6;border-color:#F1C40F;color:#7A5200;}
@@ -418,6 +420,7 @@ body.dark .voice-select{background:#1E2D4A;color:#E8E8E8;border-color:#2A3A55;}
 .wq-btn.lv-good{background:#E8F5E9;border-color:var(--gr);color:#1A7A42;}
 .wq-btn.lv-try{background:#F5F5F5;border-color:#9E9E9E;color:#555;}
 .quiz-fb.try{border-left:4px solid #9E9E9E;}
+.quiz-fb.good{border-left:4px solid var(--gr);}
 .wq-fb.try{border-left:4px solid #9E9E9E;}
 .wq-fb.good{border-left:4px solid var(--gr);}
 
@@ -4792,86 +4795,239 @@ const STORIES = {
 // ============================================================
 // QUIZ DATA
 // ============================================================
+// ── ok と tier の役割(ことばクイズのSST-PRIORITY-1シリーズと同じ契約) ──────────────
+// choices[].ok は「正解/不正解」の内部フラグ(得点・バッジ判定用)として残しているが、子ども向けの評価はokを直接見せない。
+// choices[].tier（ok:falseの選択肢のみ持つ。指定が無ければ'good'）が、子ども向け評価のSource of Truthである。
+//   - tierOf(c) = c.ok ? 'best' : (c.tier==='try' ? 'try' : 'good')  ※answerQuiz内で計算
+//   - ok:false は「不正解」を意味しない。goodは「不正解」として表示・読み上げ・記録してはいけない。
+//   - 得点(currentQuizScore)は tier!=='try' のとき加算する(best/goodはどちらも「不適切ではない」ため)。
+//   - best=🌟なるほど！ / good(目的未達だが不適切でない)=🙂 接頭辞なし / try(他者への実害を伴う行動、3件のみ)=💪 接頭辞なし
 const QUIZZES = {
   1:[
-    {ico:'👋',q:'友達に会ったとき、何をするといいかな？',
-     opts:['「おはよう！」とあいさつする','相手がこちらに気づくまで待つ','うなずくだけで通り過ぎる'],ans:0,
-     fb:'自分からあいさつすると、友達も嬉しくなるよ。目を見て言えるともっといいね！'},
-    {ico:'🙏',q:'友達に消しゴムを借りたとき、返すときに何て言う？',
-     opts:['「ありがとう！」','「はい、返す」とだけ言って渡す','黙って机に置く'],ans:0,
-     fb:'返すときも「ありがとう」が大切。借りたときと返すとき、両方言えると完璧だよ。'},
-    {ico:'😢',q:'友達が泣いているとき、どうするのがいいかな？',
-     opts:['「どうしたの？大丈夫？」と声をかける','先生を呼びに行く','様子を見ながらそっとしておく'],ans:0,
-     fb:'まず「大丈夫？」と声をかけることが大切。先生を呼ぶのも状況によっては大切だよ。'},
-    {ico:'🎯',q:'授業中に先生が話しているとき、どうする？',
-     opts:['静かに聞く','小声で友達と話す','ノートに落書きをして待つ'],ans:0,
-     fb:'先生の話を聞くことは、みんなのためになる大切なことだよ。'},
-    {ico:'🚪',q:'職員室に入るとき、どうする？',
-     opts:['ノックして「失礼します」と言ってから入る','ドアが開いていたらそのまま入る','先生が出てくるまでドアの前で待つ'],ans:0,
-     fb:'ノックして「失礼します」は、相手を大切にするマナーだよ。'},
-    {ico:'🍽',q:'食事のとき、最初に何て言う？',
-     opts:['「いただきます！」','準備できたらすぐ食べ始める','みんながそろうまで何も言わずに待つ'],ans:0,
-     fb:'「いただきます」は食べ物や作ってくれた人への大切な感謝の言葉だよ。'},
-    {ico:'🎒',q:'廊下でぶつかったとき、何て言う？',
-     opts:['「ごめんなさい！大丈夫？」','「ごめん」とだけ言う','恥ずかしくて何も言えない'],ans:0,
-     fb:'「ごめんなさい」と「大丈夫？」の両方が言えると一番優しいよ。「ごめん」だけでも大切な一歩！'},
-    {ico:'✋',q:'友達から「やめて」と言われたら、どうするのが正しいかな？',
-     opts:['何をしていてもすぐにストップする','「なんで？」と理由を聞いてからやめる','「これくらいいいじゃん」と続ける'],ans:0,
-     fb:'「やめて」と言われたらまず止めることが大切。理由を聞くのはその後でいいよ。'},
+    {id:'qz_1_01',ico:'👋',q:'友達に会ったとき、何をするといいかな？',
+     choices:[
+       {id:'c1',txt:'「おはよう！」とあいさつする',ok:true,
+        fb:'自分から「おはよう」と挨拶できたね。'},
+       {id:'c2',txt:'相手がこちらに気づくまで待つ',ok:false,tier:'good',
+        fb:'気づくのを待っていたんだね。自分から先に「おはよう」と声をかけてみるのも一つの方法だよ。'},
+       {id:'c3',txt:'うなずくだけで通り過ぎる',ok:true,
+        fb:'うなずいて挨拶を伝えたね。声に出して「おはよう」と言う方法もあるよ。'},
+     ]},
+    {id:'qz_1_02',ico:'🙏',q:'友達に消しゴムを借りたとき、返すときに何て言う？',
+     choices:[
+       {id:'c1',txt:'「ありがとう！」',ok:true,
+        fb:'「ありがとう」と伝えて返せたね。'},
+       {id:'c2',txt:'「はい、返す」とだけ言って渡す',ok:false,tier:'good',
+        fb:'「はい、返す」と伝えられたね。「ありがとう」も付け加えると、気持ちがより伝わりやすいよ。'},
+       {id:'c3',txt:'黙って机に置く',ok:false,tier:'good',
+        fb:'机に置いて返せたんだね。声に出して「ありがとう」と伝える方法もあるよ。'},
+     ]},
+    {id:'qz_1_03',ico:'😢',q:'友達が泣いているとき、どうするのがいいかな？',
+     choices:[
+       {id:'c1',txt:'「どうしたの？大丈夫？」と声をかける',ok:true,
+        fb:'「どうしたの？大丈夫？」と声をかけられたね。'},
+       {id:'c2',txt:'先生を呼びに行く',ok:true,
+        fb:'先生を呼びに行けたね。'},
+       {id:'c3',txt:'様子を見ながらそっとしておく',ok:false,tier:'good',
+        fb:'そっと見守っていたんだね。声をかけたり、先生に伝えたりする方法もあるよ。'},
+     ]},
+    {id:'qz_1_04',ico:'🎯',q:'授業中に先生が話しているとき、どうする？',
+     choices:[
+       {id:'c1',txt:'静かに聞く',ok:true,
+        fb:'静かに先生の話を聞けたね。'},
+       {id:'c2',txt:'小声で友達と話す',ok:false,tier:'good',
+        fb:'友達と話したい気持ちがあったんだね。先生が話しているときは、後で話す時間を作るといいよ。'},
+       {id:'c3',txt:'ノートに落書きをして待つ',ok:false,tier:'good',
+        fb:'ノートに書きながら待っていたんだね。大事なところを書き留めながら聞く方法もあるよ。'},
+     ]},
+    {id:'qz_1_05',ico:'🚪',q:'職員室に入るとき、どうする？',
+     choices:[
+       {id:'c1',txt:'ノックして「失礼します」と言ってから入る',ok:true,
+        fb:'ノックして「失礼します」と言ってから入れたね。'},
+       {id:'c2',txt:'ドアが開いていたらそのまま入る',ok:false,tier:'good',
+        fb:'扉が開いていたから入ったんだね。「失礼します」の一言や、ノックをしてから入るともっと丁寧だよ。'},
+       {id:'c3',txt:'先生が出てくるまでドアの前で待つ',ok:false,tier:'good',
+        fb:'先生が出てくるのを待っていたんだね。ノックをして声をかけると、早く伝えられるよ。'},
+     ]},
+    {id:'qz_1_06',ico:'🍽',q:'食事の前に、最初にすることは？',
+     choices:[
+       {id:'c1',txt:'「いただきます！」',ok:true,
+        fb:'「いただきます」と言えたね。'},
+       {id:'c2',txt:'準備できたらすぐ食べ始める',ok:false,tier:'good',
+        fb:'早く食べたい気持ちがあったんだね。「いただきます」の一言も添えてみよう。'},
+       {id:'c3',txt:'みんながそろうまで何も言わずに待つ',ok:false,tier:'good',
+        fb:'みんなを待てたんだね。「いただきます」の一言も添えてみよう。'},
+     ]},
+    {id:'qz_1_07',ico:'🎒',q:'廊下でぶつかったとき、何て言う？',
+     choices:[
+       {id:'c1',txt:'「ごめんなさい！大丈夫？」',ok:true,
+        fb:'「ごめんなさい」と謝って、相手の様子も聞けたね。'},
+       {id:'c2',txt:'「ごめん」とだけ言う',ok:true,
+        fb:'「ごめん」と謝れたね。'},
+       {id:'c3',txt:'恥ずかしくて何も言えない',ok:false,tier:'good',
+        fb:'恥ずかしくて言えなかったんだね。うなずいたり、会釈をしたりする方法もあるよ。'},
+     ]},
+    {id:'qz_1_08',ico:'✋',q:'友達から「やめて」と言われたら、どうするのが正しいかな？',
+     choices:[
+       {id:'c1',txt:'何をしていてもすぐにストップする',ok:true,
+        fb:'すぐに止められたね。'},
+       {id:'c2',txt:'「なんで？」と理由を聞いてからやめる',ok:false,tier:'try',
+        fb:'理由が気になったんだね。でも「やめて」と言われたら、まず行動を止めてから聞くようにしよう。'},
+       {id:'c3',txt:'「これくらいいいじゃん」と続ける',ok:false,tier:'try',
+        fb:'続けてしまったんだね。「やめて」と言われたら、まずは行動を止めよう。'},
+     ]},
   ],
   2:[
-    {ico:'💬',q:'友達が悲しそうにしているとき、まず何をする？',
-     opts:['「どうしたの？」と話を聞く','「つらかったね」と受け止める','「元気出して！」と励ます'],ans:0,
-     fb:'まず直接「どうしたの？」と話を聞くのが一番。「つらかったね」と受け止めるのも大切な言葉だよ。'},
-    {ico:'⏰',q:'約束の時間に遅れてしまいました。どうする？',
-     opts:['「ごめん、遅れた！〇〇があって…」とすぐ伝える','「渋滞してた」とだけ言う','「少しくらいいいじゃん」と思う'],ans:0,
-     fb:'遅れたらすぐ謝って理由を伝えよう。それが信頼関係を守る方法だよ。'},
-    {ico:'🧠',q:'怒りを感じたとき、まず最初にすることは？',
-     opts:['深呼吸して少し落ち着く','その場ですぐ気持ちを伝える','部屋を出て一人になる'],ans:0,
-     fb:'怒りを感じたらまず深呼吸。6秒待つと怒りが和らいで冷静に話せるよ。'},
-    {ico:'📣',q:'グループで話し合い中、自分の意見を言いたい。どうする？',
-     opts:['「少し聞いてほしいんだけど…」と切り出す','話が終わるまでずっと待ってから言う','「ちょっとちょっと！」と話を止める'],ans:0,
-     fb:'前置きの言葉で穏やかに話に入れるよ。待ちすぎると言えなくなることもあるよ。'},
-    {ico:'😤',q:'友達にいやなことを言われた。どう返す？',
-     opts:['「それは嫌だった、やめてほしい」と伝える','笑って流す','「そっちこそ！」と言い返す'],ans:0,
-     fb:'笑って流すより、自分の気持ちをきちんと伝える方がお互いのためになるよ。'},
-    {ico:'🎯',q:'頼まれた仕事ができなかったとき、どうする？',
-     opts:['「ごめん、できなかった。次は〜する」と正直に伝える','「やったんだけど上手くいかなかった」とだけ言う','相手が気づくまで黙っている'],ans:0,
-     fb:'できなかったことを正直に伝えて、次の対策まで言えると信頼される人になれるよ。'},
-    {ico:'👁',q:'みんなが静かにしているとき、友達が話しかけてきた。どうする？',
-     opts:['小声で「ちょっと待って、後で話そう」と伝える','小声で返事してしまう','友達を見て「しー」とジェスチャーする'],ans:0,
-     fb:'ジェスチャーも伝わることがあるけど、「後で話そう」と一言言う方が確実だよ。'},
-    {ico:'💡',q:'自分のミスを指摘されたとき、どうする？',
-     opts:['「ありがとう、気をつけます」と受け止める','「そうだったんだ…」と落ち込む','「でも〜だから仕方なかった」と説明する'],ans:0,
-     fb:'落ち込む気持ちはわかるよ。でも「ありがとう」と受け止めると、次に活かせるよ。'},
+    {id:'qz_2_01',ico:'💬',q:'友達が悲しそうにしているとき、まず何をする？',
+     choices:[
+       {id:'c1',txt:'「どうしたの？」と話を聞く',ok:true,
+        fb:'「どうしたの？」と話を聞けたね。'},
+       {id:'c2',txt:'「つらかったね」と受け止める',ok:true,
+        fb:'「つらかったね」と気持ちを受け止められたね。'},
+       {id:'c3',txt:'「元気出して！」と励ます',ok:false,tier:'good',
+        fb:'元気づけようとしたんだね。まず「どうしたの？」「つらかったね」と気持ちを聞いてから励ますと、もっと伝わりやすいよ。'},
+     ]},
+    {id:'qz_2_02',ico:'⏰',q:'約束の時間に遅れてしまいました。どうする？',
+     choices:[
+       {id:'c1',txt:'「ごめん、遅れた！〇〇があって…」とすぐ伝える',ok:true,
+        fb:'謝って、理由も伝えられたね。'},
+       {id:'c2',txt:'「渋滞してた」とだけ言う',ok:false,tier:'good',
+        fb:'遅れた理由を伝えられたね。「ごめん」の一言も添えると、気持ちがより伝わりやすいよ。'},
+       {id:'c3',txt:'「少しくらいいいじゃん」と思う',ok:false,tier:'good',
+        fb:'気にしていなかったんだね。相手は待っている間、心配しているかもしれないよ。遅れそうなときは連絡できるといいね。'},
+     ]},
+    {id:'qz_2_03',ico:'🧠',q:'怒りを感じたとき、まず最初にすることは？',
+     choices:[
+       {id:'c1',txt:'深呼吸して少し落ち着く',ok:true,
+        fb:'深呼吸して少し落ち着けたね。'},
+       {id:'c2',txt:'その場ですぐ気持ちを伝える',ok:false,tier:'good',
+        fb:'その場で気持ちを伝えようとしたんだね。少し落ち着いてから伝えると、より話しやすくなることもあるよ。'},
+       {id:'c3',txt:'部屋を出て一人になる',ok:true,
+        fb:'部屋を出て一人になれたんだね。安全な場所で気持ちを落ち着けるのも良い方法だよ。'},
+     ]},
+    {id:'qz_2_04',ico:'📣',q:'グループで話し合い中、自分の意見を言いたい。どうする？',
+     choices:[
+       {id:'c1',txt:'「少し聞いてほしいんだけど…」と切り出す',ok:true,
+        fb:'「少し聞いてほしいんだけど」と切り出せたね。'},
+       {id:'c2',txt:'話が終わるまでずっと待ってから言う',ok:true,
+        fb:'話が終わるまで待ってから、自分の意見を言えたね。'},
+       {id:'c3',txt:'「ちょっとちょっと！」と話を止める',ok:true,
+        fb:'「ちょっとちょっと！」と声をかけて、話す機会を作れたね。'},
+     ]},
+    {id:'qz_2_05',ico:'😤',q:'友達にいやなことを言われた。どう返す？',
+     choices:[
+       {id:'c1',txt:'「それは嫌だった、やめてほしい」と伝える',ok:true,
+        fb:'「それは嫌だった、やめてほしい」と伝えられたね。'},
+       {id:'c2',txt:'笑って流す',ok:false,tier:'good',
+        fb:'笑って流したんだね。それも一つの対処法だよ。嫌な気持ちが続くときは、「やめてほしい」と伝えたり、大人に相談したりする方法もあるよ。'},
+       {id:'c3',txt:'「そっちこそ！」と言い返す',ok:false,tier:'try',
+        fb:'言い返したくなったんだね。ただ、言い返すとけんかが大きくなってしまうこともあるよ。「それは嫌だった」と自分の気持ちを伝えてみよう。'},
+     ]},
+    {id:'qz_2_06',ico:'🎯',q:'頼まれた仕事ができなかったとき、どうする？',
+     choices:[
+       {id:'c1',txt:'「ごめん、できなかった。次は〜する」と正直に伝える',ok:true,
+        fb:'できなかったことを伝えて、次にどうするかも伝えられたね。'},
+       {id:'c2',txt:'「やったんだけど上手くいかなかった」とだけ言う',ok:true,
+        fb:'うまくいかなかったことを伝えられたね。'},
+       {id:'c3',txt:'相手が気づくまで黙っている',ok:false,tier:'good',
+        fb:'黙っていたんだね。早めに伝えると、一緒に対策を考えられるよ。'},
+     ]},
+    {id:'qz_2_07',ico:'👁',q:'みんなが静かにしているとき、友達が話しかけてきた。どうする？',
+     choices:[
+       {id:'c1',txt:'小声で「ちょっと待って、後で話そう」と伝える',ok:true,
+        fb:'小声で「後で話そう」と伝えられたね。'},
+       {id:'c2',txt:'小声で返事してしまう',ok:false,tier:'good',
+        fb:'小声で返事したんだね。会話が続きそうなときは、「後で話そう」と伝えると静かな時間を守れるよ。'},
+       {id:'c3',txt:'友達を見て「しー」とジェスチャーする',ok:true,
+        fb:'「しー」のジェスチャーで、静かにしてほしいことを伝えられたね。'},
+     ]},
+    {id:'qz_2_08',ico:'💡',q:'自分のミスを指摘されたとき、どうする？',
+     choices:[
+       {id:'c1',txt:'「ありがとう、気をつけます」と受け止める',ok:true,
+        fb:'指摘を受け止めて、次に気をつけると伝えられたね。'},
+       {id:'c2',txt:'「そうだったんだ…」と落ち込む',ok:true,
+        fb:'落ち込む気持ちも自然だよ。少し気持ちが落ち着いたら、次に気をつけることを考えてみよう。'},
+       {id:'c3',txt:'「でも〜だから仕方なかった」と説明する',ok:false,tier:'good',
+        fb:'事情を伝えたかったんだね。まずは「気をつけます」と受け止めてから、事情も伝えてみよう。'},
+     ]},
   ],
   3:[
-    {ico:'🏫',q:'クラスに自分と全然違う考えの子がいます。どう思うといいかな？',
-     opts:['「そういう考えもあるんだな」と面白く思う','「自分とは違うな」とだけ思う','なるべく関わらないようにする'],ans:0,
-     fb:'違う考えを面白いと思えると、いろんな人と仲良くなれるよ。「自分とは違うな」と思うのも自然な感情だよ。'},
-    {ico:'💬',q:'友達と意見が違ったとき、どう言う？',
-     opts:['「ぼくはこう思うんだけど、どうかな？」と伝える','「ぼくは違うと思う」とだけ言う','なんとなく合わせる'],ans:0,
-     fb:'自分の意見を「どうかな？」と聞く形で伝えると、相手も意見が言いやすくなるよ。'},
-    {ico:'👂',q:'友達が悩みを話しているとき、どうするといいかな？',
-     opts:['うなずきながら最後まで聞く','話の途中でアドバイスする','「わかるわかる」と自分の話を始める'],ans:0,
-     fb:'まず最後まで聞くのが大切。うなずくと「聞いてるよ」が伝わるよ。アドバイスは話を聞いてからにしよう。'},
-    {ico:'😤',q:'友達と意見がぶつかったとき、どうする？',
-     opts:['お互いの話をちゃんと聞いてから考える','先生に相談して決めてもらう','どちらかが我慢して終わりにする'],ans:0,
-     fb:'お互いの話を聞くのが一番。先生に相談するのも一つの方法だよ。どちらかだけが我慢するのは長続きしないよ。'},
-    {ico:'😔',q:'悩んでいることがあるとき、どうするといいかな？',
-     opts:['信頼できる人に話してみる','少しだけ友達に相談してみる','一人で全部抱え込む'],ans:0,
-     fb:'信頼できる大人や友達に話すと、気持ちが楽になるよ。一人で全部抱え込まないで！'},
-    {ico:'🌟',q:'発表で失敗した友達に、どう声をかける？',
-     opts:['「緊張したよね。よく頑張ったよ」と言う','「次があるよ！」と励ます','「気にしなくていいよ」と言う'],ans:0,
-     fb:'「緊張したよね」と気持ちに寄り添えると一番だよ。「次があるよ」も優しい言葉。「気にしなくていい」は相手が少し寂しく感じることもあるよ。'},
-    {ico:'🎭',q:'グループ発表で自分だけ違うやり方を提案したい。どう言う？',
-     opts:['「みんなとは違うかもしれないけど、こんな方法はどうかな？」','「ぼくの意見は違う」とだけ言う','空気を読んで黙っておく'],ans:0,
-     fb:'「違うかもしれないけど」という前置きで言いやすくなるよ。黙ってしまうと自分の意見が伝わらないよ。'},
-    {ico:'🤝',q:'けんかした後、仲直りしたい。どうする？',
-     opts:['落ち着いてから「さっきはごめんね」と声をかける','相手が先に謝るまで待つ','何もなかったようにふるまう'],ans:0,
-     fb:'自分から「ごめんね」と言えるのがとても大切な勇気だよ。落ち着いてからの方がうまく話せるよ。'},
-  ]
+    {id:'qz_3_01',ico:'🏫',q:'クラスに自分と全然違う考えの子がいます。どう思うといいかな？',
+     choices:[
+       {id:'c1',txt:'「そういう考えもあるんだな」と面白く思う',ok:true,
+        fb:'違いを面白く思えたね。'},
+       {id:'c2',txt:'「自分とは違うな」とだけ思う',ok:true,
+        fb:'「自分とは違うな」と気づけたね。'},
+       {id:'c3',txt:'なるべく関わらないようにする',ok:false,tier:'good',
+        fb:'距離を置くことを選んだんだね。違う考えに興味を持ってみると、新しい発見があるかもしれないよ。'},
+     ]},
+    {id:'qz_3_02',ico:'💬',q:'友達と意見が違ったとき、どう言う？',
+     choices:[
+       {id:'c1',txt:'「ぼくはこう思うんだけど、どうかな？」と伝える',ok:true,
+        fb:'自分の考えを、相手にも聞く形で伝えられたね。'},
+       {id:'c2',txt:'「ぼくは違うと思う」とだけ言う',ok:true,
+        fb:'「違うと思う」と、自分の考えを伝えられたね。'},
+       {id:'c3',txt:'なんとなく合わせる',ok:false,tier:'good',
+        fb:'合わせることを選んだんだね。自分の考えがあるときは、「ぼくはこう思う」と伝えてみるのも大切だよ。'},
+     ]},
+    {id:'qz_3_03',ico:'👂',q:'友達が悩みを話しているとき、どうするといいかな？',
+     choices:[
+       {id:'c1',txt:'うなずきながら最後まで聞く',ok:true,
+        fb:'最後まで話を聞けたね。'},
+       {id:'c2',txt:'話の途中でアドバイスする',ok:false,tier:'good',
+        fb:'力になりたくてアドバイスしたんだね。まず最後まで聞いてから伝えると、相手はもっと安心できるよ。'},
+       {id:'c3',txt:'「わかるわかる」と自分の話を始める',ok:false,tier:'good',
+        fb:'自分も似た経験があると伝えたかったんだね。まずは最後まで友達の話を聞いてみよう。'},
+     ]},
+    {id:'qz_3_04',ico:'😤',q:'友達と意見がぶつかったとき、どうする？',
+     choices:[
+       {id:'c1',txt:'お互いの話をちゃんと聞いてから考える',ok:true,
+        fb:'お互いの話を聞いてから考えられたね。'},
+       {id:'c2',txt:'先生に相談して決めてもらう',ok:true,
+        fb:'先生に相談して決めてもらうことにしたんだね。'},
+       {id:'c3',txt:'どちらかが我慢して終わりにする',ok:false,tier:'good',
+        fb:'どちらかが我慢して終わらせようとしたんだね。両方の気持ちが大事にされる方法も考えてみよう。'},
+     ]},
+    {id:'qz_3_05',ico:'😔',q:'悩んでいることがあるとき、どうするといいかな？',
+     choices:[
+       {id:'c1',txt:'信頼できる人に話してみる',ok:true,
+        fb:'信頼できる人に話してみられたね。'},
+       {id:'c2',txt:'少しだけ友達に相談してみる',ok:true,
+        fb:'友達に少し相談できたね。'},
+       {id:'c3',txt:'一人で全部抱え込む',ok:false,tier:'good',
+        fb:'一人で抱えていたんだね。つらいときは、少しだけでも誰かに話してみると気持ちが楽になることがあるよ。'},
+     ]},
+    {id:'qz_3_06',ico:'🌟',q:'発表で失敗した友達に、どう声をかける？',
+     choices:[
+       {id:'c1',txt:'「緊張したよね。よく頑張ったよ」と言う',ok:true,
+        fb:'「緊張したよね」と気持ちに寄り添って、頑張りを認められたね。'},
+       {id:'c2',txt:'「次があるよ！」と励ます',ok:true,
+        fb:'「次があるよ」と励ませたね。'},
+       {id:'c3',txt:'「気にしなくていいよ」と言う',ok:false,tier:'good',
+        fb:'「気にしなくていいよ」と励まそうとしたんだね。「緊張したよね」と気持ちに触れてから伝えると、もっと安心してもらえることもあるよ。'},
+     ]},
+    {id:'qz_3_07',ico:'🎭',q:'グループ発表で自分だけ違うやり方を提案したい。どう言う？',
+     choices:[
+       {id:'c1',txt:'「みんなとは違うかもしれないけど、こんな方法はどうかな？」',ok:true,
+        fb:'「こんな方法はどうかな？」と提案できたね。'},
+       {id:'c2',txt:'「ぼくの意見は違う」とだけ言う',ok:true,
+        fb:'「意見は違う」と伝えられたね。'},
+       {id:'c3',txt:'自分の意見は言わずに黙っておく',ok:false,tier:'good',
+        fb:'自分の意見を言わずにいたんだね。「こんな方法はどうかな？」と一言添えてみるのもいいよ。'},
+     ]},
+    {id:'qz_3_08',ico:'🤝',q:'けんかした後、仲直りしたい。どうする？',
+     choices:[
+       {id:'c1',txt:'落ち着いてから、自分から声をかけてみる',ok:true,
+        fb:'落ち着いてから、自分から声をかけられたね。'},
+       {id:'c2',txt:'相手が先に謝るまで待つ',ok:false,tier:'good',
+        fb:'相手から声をかけてくれるのを待っていたんだね。自分から声をかけてみるのもいいよ。'},
+       {id:'c3',txt:'何もなかったようにふるまう',ok:false,tier:'good',
+        fb:'何もなかったことにしようとしたんだね。気になっているなら、落ち着いたときに声をかけてみると、すっきりすることもあるよ。'},
+     ]},
+  ],
 };
+// 教員編集の「リセット」で選択肢ごとのfbを既定文言へ戻すためのスナップショット(WORD_QUIZ_DEFAULTSと同じ役割)。
+const QUIZZES_DEFAULTS = JSON.parse(JSON.stringify(QUIZZES));
 
 // ============================================================
 // STATE
@@ -4887,6 +5043,9 @@ let wqSpeechGen = 0;
 let currentQuizIdx = 0;
 let currentQuizScore = 0;
 let currentQuizAnswered = false;
+// 次の問題や別画面へ移動した後に、前の問題/前の回答の遅延読み上げ(setTimeout)が
+// 遅れて発火して古い内容を読み上げないようにするための世代カウンタ(ことばクイズのwqSpeechGenと同じ考え方)。
+let quizSpeechGen = 0;
 let currentStoryIdx = 0;
 let currentStoryPage = 0;
 let breathTimer = null;
@@ -4947,6 +5106,7 @@ function bottomBack(){
 function go(id){
   if(screenLocked && id !== document.querySelector('.scr.on')?.id) return;
   wqSpeechGen++; // 画面遷移時、ことばクイズの予約済み遅延読み上げを無効化する
+  quizSpeechGen++; // 画面遷移時、SSTクイズの予約済み遅延読み上げを無効化する
   stopSpeak();
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.getElementById(id).classList.add('on');
@@ -5399,8 +5559,10 @@ function showQuizQ(){
   document.getElementById('q-sc').textContent=`⭐ ${currentQuizScore}`;
   document.getElementById('q-prog').style.width=`${(currentQuizIdx/qs.length)*100}%`;
   currentQuizAnswered=false;
-  // 選択肢をシャッフル（正解インデックスも追跡）
-  quizShuffled = shuffle(q.opts.map((o,i)=>({txt:o, isAns:i===q.ans})));
+  // 選択肢をシャッフル。各選択肢は独立のfb/tierを持つオブジェクトのまま渡す(配列インデックスに依存しない)。
+  quizShuffled = shuffle(q.choices.map((c,i)=>({...c, origIdx:i})));
+  quizSpeechGen++;
+  const myQuizGen = quizSpeechGen;
   document.getElementById('q-body').innerHTML=`
     <div class="spk-row"><button class="spk-btn" onclick="toggleSpeakQuiz(${currentQuizIdx})">🔊 よみあげ</button></div>
     <div class="quiz-qbox">
@@ -5408,34 +5570,58 @@ function showQuizQ(){
       <div class="quiz-qtxt">${q.q}</div>
     </div>
     <div class="quiz-opts">
-      ${quizShuffled.map((o,i)=>`
+      ${quizShuffled.map((c,i)=>`
         <button class="quiz-opt" onclick="answerQuiz(${i})">
-          <span class="num">${i+1}</span>${o.txt}
+          <span class="num">${i+1}</span>${c.txt}
         </button>`).join('')}
     </div>
     <div class="quiz-fb" id="q-fb"></div>`;
-  setTimeout(()=>autoSpeak(()=>speakQuizQ(currentQuizIdx)), 400);
+  setTimeout(()=>{
+    if(quizSpeechGen!==myQuizGen) return; // 次の問題/別画面へ既に移動済みなら読み上げない
+    autoSpeak(()=>speakQuizQ(currentQuizIdx));
+  }, 400);
 }
+// ok:true→best。ok:falseはtier('try'指定が無ければ'good')で子ども向け評価を決める(QUIZZES冒頭のコメント参照)。
+function quizTierOf(c){ return c.ok ? 'best' : (c.tier==='try' ? 'try' : 'good'); }
 function answerQuiz(ci){
   if(currentQuizAnswered) return;
   currentQuizAnswered=true;
   const qs=QUIZZES[currentLv]||[];
   const q=qs[currentQuizIdx];
-  const ok=quizShuffled[ci].isAns;
-  if(ok) currentQuizScore++;
+  const chosen=quizShuffled[ci];
+  const myQuizGen = quizSpeechGen;
+  const tier=quizTierOf(chosen);
+  if(tier!=='try') currentQuizScore++; // best/goodはどちらも「不適切ではない」ため加点する
   const btns=document.querySelectorAll('.quiz-opt');
   btns.forEach((b,i)=>{
     b.disabled=true;
-    if(quizShuffled[i].isAns) b.classList.add('lv-best');
-    else b.classList.add('lv-try');
+    const t=quizTierOf(quizShuffled[i]);
+    b.classList.add(t==='best' ? 'lv-best' : t==='try' ? 'lv-try' : 'lv-good');
+    // 色だけに頼らず、文字でも選んだ答え・他の使える方法を区別する(best/goodの違いを正解/不正解に見せない)
+    if(i===ci){
+      b.classList.add('quiz-chosen');
+      b.insertAdjacentHTML('beforeend', '<span class="wq-mark" style="display:block;font-size:12px;opacity:.85;margin-top:4px;">👉 あなたの答え</span>');
+    } else if(t==='best'){
+      b.insertAdjacentHTML('beforeend', '<span class="wq-mark" style="display:block;font-size:12px;opacity:.85;margin-top:4px;">✅ べつの答え方の例</span>');
+    } else if(t==='good'){
+      b.insertAdjacentHTML('beforeend', '<span class="wq-mark" style="display:block;font-size:12px;opacity:.85;margin-top:4px;">💡 こんな方法もあるよ</span>');
+    }
   });
   const fb=document.getElementById('q-fb');
-  fb.className='quiz-fb '+(ok?'ok':'try')+' on';
-  fb.innerHTML=(ok?'🌟 なるほど！ ':'💪 ちょっと違ったね。')+q.fb+
+  fb.className='quiz-fb '+(tier==='best'?'ok':tier==='try'?'try':'good')+' on';
+  const chosenMsg = chosen.fb || '';
+  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${chosen.txt}」</div>`;
+  // good/tryには「ちょっと違ったね」等の誤りを示す接頭辞をつけない。返答本文だけで伝える。
+  const icon = tier==='best' ? '🌟 ' : tier==='try' ? '💪 ' : '🙂 ';
+  const opener = tier==='best' ? 'なるほど！　' : '';
+  fb.innerHTML=yourAnswerLine+icon+opener+chosenMsg+
     `<button class="quiz-next" onclick="currentQuizIdx++;showQuizQ()">${currentQuizIdx+1<qs.length?'つぎへ':'結果を見る'}</button>`;
-  if(ok) confetti();
+  if(tier==='best') confetti();
   document.getElementById('q-sc').textContent=`⭐ ${currentQuizScore}`;
-  setTimeout(()=>autoSpeak(()=>speak((ok?'なるほど！　':'ちょっと違ったね。　')+q.fb)), 200);
+  setTimeout(()=>{
+    if(quizSpeechGen!==myQuizGen) return; // 次の問題/別画面へ既に移動済みなら読み上げない
+    autoSpeak(()=>speak('あなたのこたえは、'+chosen.txt+'。　'+opener+chosenMsg));
+  }, 200);
 }
 function showQuizFin(){
   const qs=QUIZZES[currentLv]||[];
@@ -5444,7 +5630,8 @@ function showQuizFin(){
   fin.classList.add('on');
   const pct=Math.round((currentQuizScore/qs.length)*100);
   const ico=pct===100?'🏆':pct>=75?'🌟':pct>=50?'😊':'💪';
-  const msg=pct===100?'全問正解！すごい！！':'たくさんの問題ができたね。間違えた問題も、なぜそうなるか考えてみよう。';
+  // 得点はbest/good(tryでない)を加点する仕様のため、100%未満は必ずしも「間違えた」ことを意味しない。
+  const msg=pct===100?'全部の問題で、良い方法を選べたね！':'いろいろな方法を考えられたね。他の答え方も見てみよう。';
   document.getElementById('qf-ico').textContent=ico;
   document.getElementById('qf-title').textContent='クイズおわり！';
   document.getElementById('qf-sc').textContent=`${currentQuizScore} / ${qs.length}`;
@@ -5772,7 +5959,7 @@ function speakQuizQ(idx){
   const qs=QUIZZES[currentLv]||[];
   const q=qs[idx];
   if(!q) return;
-  const optsToRead = quizShuffled.length ? quizShuffled.map(o=>o.txt) : q.opts;
+  const optsToRead = quizShuffled.length ? quizShuffled.map(o=>o.txt) : q.choices.map(c=>c.txt);
   const parts=[
     q.q,
     ...optsToRead.map((o,i)=>`${i+1}ばん。${o}`)
@@ -6573,6 +6760,7 @@ function importData(code){
     if(data.e && typeof data.e === 'object'){
       Object.assign(teacherEdits, data.e);
       applyWQTeacherEdits(); // インポート直後の同一セッションでも、ことばクイズの個別フィードバックを即時反映する
+      applyQZTeacherEdits(); // インポート直後の同一セッションでも、SSTクイズの個別フィードバックを即時反映する
       imported.push('既存問題の編集内容');
     }
     if(data.p && Array.isArray(data.p)){
@@ -7121,12 +7309,27 @@ function buildEditList(){
   } else if(currentEditTab==='qz'){
     const qs = QUIZZES[currentEditLv]||[];
     html = qs.map((q,qi)=>{
-      const fbKey = `qz_${currentEditLv}_${qi}_fb`;
-      const fbVal = teacherEdits[fbKey]!==undefined ? teacherEdits[fbKey] : (q.fb||'');
+      // 選択肢ごとの個別フィードバック編集(現行仕様)
+      const choiceHtml = q.choices.map((c,ci)=>{
+        const key = `${q.id}_${c.id}_fb`;
+        const val = teacherEdits[key]!==undefined ? teacherEdits[key] : (c.fb||'');
+        return `<div class="teacher-edit-field">
+          <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${c.txt}」への返答</label>
+          <textarea data-key="${key}" oninput="storeEdit(this)">${val}</textarea>
+        </div>`;
+      }).join('');
+      // 旧仕様(質問単位で全選択肢に共通の解説)の編集が残っている場合のみ、参考表示する。自動的に選択肢へコピーはしない。
+      const legacyKey = `qz_${currentEditLv}_${qi}_fb`;
+      const hasLegacy = teacherEdits[legacyKey]!==undefined;
+      const legacyHtml = hasLegacy ? `<div class="teacher-edit-field" style="opacity:.7">
+          <label>⚠️ 旧形式の共通フィードバック（保存済み・現在は使用されません）</label>
+          <div style="font-size:12px;">${teacherEdits[legacyKey]}</div>
+          <button class="te-reset-btn" onclick="clearLegacyQZEdit(${currentEditLv},${qi})" style="margin-top:6px;">旧データを削除</button>
+        </div>` : '';
       return `<div class="teacher-edit-scene">
         <div class="teacher-edit-scene-title">❓ ${q.q}</div>
-        <div class="teacher-edit-field"><label>💡 解説フィードバック</label>
-          <textarea data-key="${fbKey}" oninput="storeEdit(this)">${fbVal}</textarea></div>
+        ${choiceHtml}
+        ${legacyHtml}
         <div class="teacher-edit-save-row">
           <button class="te-save-btn" onclick="saveEditQZ(${currentEditLv},${qi})">💾 保存</button>
           <button class="te-reset-btn" onclick="resetEditQZ(${currentEditLv},${qi})">リセット</button>
@@ -7206,15 +7409,45 @@ function applyWQTeacherEdits(){
   });
 }
 
+// 新仕様の編集キーはq.id(問題を挿入・並べ替えても変わらない安定ID)と選択肢のc.idを使う。
+// lv/qiは配列参照(QUIZZES[lv][qi])のためだけに使い、キーの組み立てには使わない。
+// legacyキー(qz_${lv}_${qi}_fb、質問単位で全選択肢共通)だけは、旧仕様がもともと配列位置キーだったため、そのまま踏襲する。
 function saveEditQZ(lv,qi){
   const q = QUIZZES[lv][qi];
-  const fbKey=`qz_${lv}_${qi}_fb`;
-  if(teacherEdits[fbKey]!==undefined) q.fb = teacherEdits[fbKey];
+  q.choices.forEach((c)=>{
+    const key = `${q.id}_${c.id}_fb`;
+    if(teacherEdits[key]!==undefined) c.fb = teacherEdits[key];
+  });
   saveTeacherData(); showEditSaved();
 }
+// 個別選択肢編集(新仕様)のみをリセットする。旧形式の共通フィードバック編集は消さない(clearLegacyQZEditで個別に削除)。
+// 保存済みteacherEditsの削除だけでなく、既にメモリ上でmutateされているQUIZZES側のfbも既定文言へ戻す
+// (これをしないと、リロードするまでリセットが実際のゲーム画面に反映されない)。
 function resetEditQZ(lv,qi){
-  delete teacherEdits[`qz_${lv}_${qi}_fb`];
+  const q = QUIZZES[lv][qi];
+  const defaults = QUIZZES_DEFAULTS[lv][qi];
+  q.choices.forEach((c,ci)=>{
+    delete teacherEdits[`${q.id}_${c.id}_fb`];
+    c.fb = defaults.choices[ci].fb;
+  });
   saveTeacherData(); buildEditList(); showEditReset();
+}
+// 旧仕様(質問単位で全選択肢共通の解説)の保存データだけを削除する。個別選択肢の編集には触れない。
+function clearLegacyQZEdit(lv,qi){
+  delete teacherEdits[`qz_${lv}_${qi}_fb`];
+  saveTeacherData(); buildEditList();
+}
+// 保存済みのteacherEdits(個別選択肢fb)を、ページ読み込み直後のQUIZZESへ反映する。
+// これがないと、教員編集はリロード後にゲーム本編へ反映されず編集画面上でしか見えない状態になる(ことばクイズと同じ既知不具合の修正)。
+function applyQZTeacherEdits(){
+  Object.keys(QUIZZES).forEach(lv=>{
+    (QUIZZES[lv]||[]).forEach((q)=>{
+      q.choices.forEach((c)=>{
+        const key = `${q.id}_${c.id}_fb`;
+        if(teacherEdits[key]!==undefined) c.fb = teacherEdits[key];
+      });
+    });
+  });
 }
 
 // ── ソーシャルストーリー編集 ──────────────────────────────
@@ -8812,6 +9045,7 @@ updateBadgeHomeBtn();
 loadPhotoScenes();
 loadTeacherData();
 applyWQTeacherEdits();
+applyQZTeacherEdits();
 loadActivityLog();
 loadAIGenerated();
 syncCustomToScenes();
