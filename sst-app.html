@@ -4402,6 +4402,17 @@ Object.assign(SCENES, SCENES_EXTRA);
 // ============================================================
 // 各選択肢は個別の fb（フィードバック）を持つ。ok_msg/ng_msg は旧仕様(質問単位で正解/不正解に共通文言を出していた頃)の名残で、
 // 教員編集画面での「旧データ」互換表示にのみ使う。実際の出題(answerWQ)はchoices[].fbのみを参照する。
+//
+// ── ok と tier の役割(SST-PRIORITY-1Dで確定) ──────────────────
+// choices[].ok は「正解/不正解」の内部フラグとして残しているが、子ども向けの評価はokを直接見せない。
+// choices[].tier（ok:falseの選択肢のみ持つ。'try'指定が無ければ'good'）が、子ども向け評価のSource of Truthである。
+//   - tierOf(c) = c.ok ? 'best' : (c.tier==='try' ? 'try' : 'good')  ※answerWQ内で計算
+//   - ok:false は「不正解」を意味しない。goodは「不正解」として表示・読み上げ・記録してはいけない。
+//   - best(35件)=😊よかったよ！ / good(16件、目的未達だが不適切でない・援助要請が難しい)=🙂 / try(3件、他者への実害を伴う行動)=💪
+//   - good・tryのどちらも「ちょっと違うかも」等の誤りを示す接頭辞は付けない(chosen.fbの本文だけで伝える)。
+//   - okを残しているのは既存の教員編集データ(旧ok_msg/ng_msg)・バッジ判定コードとの互換性のため。
+//   - 将来ことばクイズの学習記録・分析機能を追加する場合は、okではなくtierを参照して「不正解」集計をしないこと
+//     (現時点ではrecordActivity('wq',...)は完了時1回のみで選択単位の記録を持たないため、移行対象はまだ存在しない)。
 const WORD_QUIZ = {
   1:[
     {id:'wq_1_01',emoji:'🍰',sit:'誕生日に友達からプレゼントをもらいました。',q:'何て言う？',
@@ -4420,7 +4431,7 @@ const WORD_QUIZ = {
        {id:'c1',ico:'🙋',txt:'「先生、おかわりしてもいいですか？」',ok:true,
         fb:'おかわりしてよいか、先生に聞いたね。先生の返事を待とう。'},
        {id:'c2',ico:'👀',txt:'先生の様子を見ながら、自分でよそってしまう',ok:false,tier:'try',
-        fb:'おかわりを自分でよそったんだね。給食はみんなの分が決まっているから、先に「おかわりしてもいいですか？」と聞いてから取ろう。'},
+        fb:'おかわりを自分でよそったんだね。この場面では、取る前に先生に「おかわりしてもいいですか？」と聞こう。'},
        {id:'c3',ico:'🤫',txt:'「あのー…」と言いかけて、やっぱり止める',ok:false,tier:'good',
         fb:'「あのー」と声をかけたね。「おかわりしたい」と短く伝えてもいいよ。カードを見せる方法もあるよ。'}
      ],
@@ -4455,7 +4466,7 @@ const WORD_QUIZ = {
        {id:'c2',ico:'😐',txt:'「ちょっと頭が痛いです…」とだけ言う',ok:true,
         fb:'頭が痛いことを伝えたね。その一言で大丈夫。話しにくいときは、痛いところを指してもいいよ。'},
        {id:'c3',ico:'😶',txt:'授業が終わるまで我慢する',ok:false,tier:'good',
-        fb:'がまんしていたんだね、つらかったね。話すのが難しいときは、痛いところを指さす、カードを見せる、近くの人に伝えてもらう、どの方法でも先生に届くよ。'}
+        fb:'がまんしていたんだね、つらかったね。話すのが難しいときは、痛いところを指さしたり、カードを見せたり、近くの人に手伝ってもらったりしてもいいよ。'}
      ],
      ok_msg:'ちゃんと先生に伝えられたね！体が辛いときは我慢しないで言おう。',
      ng_msg:'「頭が痛い」と伝えるのも大切な一歩！次は「保健室に行ってもいいですか？」まで続けよう。我慢してしまうと、どんどん辛くなるよ。'},
@@ -5227,12 +5238,16 @@ function answerWQ(ci){
     b.disabled=true;
     const t = tierOf(wqShuffled[i]);
     b.classList.add(t==='best' ? 'lv-best' : t==='try' ? 'lv-try' : 'lv-good');
-    // 色だけに頼らず、文字でも「あなたの答え」と「べつの正解例」を区別する
+    // 色だけに頼らず、文字でも選んだ答え・他の使える方法を区別する。
+    // best/goodの違いを「正解／不正解」に見せないよう、両方とも中立的な「別の方法」ラベルを付ける
+    // (best=✅、good=💡と印は変えるが、どちらも咎める意味は持たせない。tryには付けない=行動の変更が必要なため)。
     if(i===ci){
       b.classList.add('wq-chosen');
       b.insertAdjacentHTML('beforeend', '<span class="wq-mark" style="display:block;font-size:12px;opacity:.85;margin-top:4px;">👉 あなたの答え</span>');
     } else if(t==='best'){
       b.insertAdjacentHTML('beforeend', '<span class="wq-mark" style="display:block;font-size:12px;opacity:.85;margin-top:4px;">✅ べつの答え方の例</span>');
+    } else if(t==='good'){
+      b.insertAdjacentHTML('beforeend', '<span class="wq-mark" style="display:block;font-size:12px;opacity:.85;margin-top:4px;">💡 こんな方法もあるよ</span>');
     }
   });
   const ok=chosen.ok;
