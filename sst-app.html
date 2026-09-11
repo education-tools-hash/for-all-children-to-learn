@@ -5423,7 +5423,7 @@ function answerRP(ci,sceneIdx){
   const chosen=rpShuffled[ci];
   const lv=chosen.level||'try';
   const myRpGen=rpSpeechGen;
-  const btns=document.querySelectorAll('.ch-btn');
+  const btns=document.getElementById('rp-content').querySelectorAll('.ch-btn');
   btns.forEach((b,i)=>{
     b.disabled=true;
     const l=rpShuffled[i].level||'try';
@@ -6738,7 +6738,7 @@ let qrScanInterval = null;
 let qrCanvasCtx = null;
 
 function buildShareScreen(){
-  document.getElementById('share-custom-count').textContent = teacherCustomScenes.length;
+  document.getElementById('share-custom-count').textContent = teacherCustomScenes.length + photoScenes.length;
   document.getElementById('share-code-area').style.display  = 'none';
   document.getElementById('import-code-msg').textContent    = '';
   document.getElementById('import-code-input').value        = '';
@@ -6753,11 +6753,14 @@ function generateShareCode(){
   if(includeCustom && teacherCustomScenes.length){
     payload.c = teacherCustomScenes.map(s=>({...s, img:null}));
   }
+  if(includeCustom && photoScenes.length){
+    payload.p = photoScenes.map(s=>({...s, img:null})); // 画像は共有コードに含めない(サイズ肥大化を防ぐ、既存のcと同じ方針)
+  }
   if(includeEdits && Object.keys(teacherEdits).length){
     payload.e = teacherEdits;
   }
 
-  if(!payload.c && !payload.e){
+  if(!payload.c && !payload.p && !payload.e){
     alert('共有できるデータがありません。\nオリジナル問題を作るか、既存問題を編集してから共有してください。');
     return;
   }
@@ -6777,7 +6780,7 @@ function generateShareCode(){
   generateQR(code);
 
   // コード件数を表示
-  const cnt = (payload.c?.length||0) + (payload.e ? 1 : 0);
+  const cnt = (payload.c?.length||0) + (payload.p?.length||0) + (payload.e ? 1 : 0);
   document.getElementById('share-code-box').title = `データ ${cnt} 件を含むコード`;
 
   setTimeout(()=> area.scrollIntoView({behavior:'smooth', block:'start'}), 100);
