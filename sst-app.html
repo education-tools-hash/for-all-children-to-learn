@@ -5151,6 +5151,7 @@ let currentStoryPage = 0;
 let storySpeechGen = 0; // go()や画面遷移のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ(ことばクイズ/SSTクイズと同じ考え方)
 let branchSpeechGen = 0; // 分岐ストーリー用。go()や場面遷移のたびに増やし、古い(遅延)よみあげ・古い場面遷移が後から発火するのを防ぐ
 let rpSpeechGen = 0; // ロールプレイ用。go()や回答のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ
+let photoSpeechGen = 0; // 写真で練習用。go()や回答のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ
 let breathTimer = null;
 let breathRunning = false;
 
@@ -5213,6 +5214,7 @@ function go(id){
   storySpeechGen++; // 画面遷移時、ソーシャルストーリーの予約済み遅延読み上げを無効化する
   branchSpeechGen++; // 画面遷移時、分岐ストーリーの予約済み遅延読み上げ・場面遷移を無効化する
   rpSpeechGen++; // 画面遷移時、ロールプレイの予約済み遅延読み上げを無効化する
+  photoSpeechGen++; // 画面遷移時、写真で練習の予約済み遅延読み上げを無効化する
   stopSpeak();
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.getElementById(id).classList.add('on');
@@ -7988,7 +7990,8 @@ function startPhotoPlay(id){
     </div>`;
   go('s-photo-play');
   // 自動読み上げ
-  setTimeout(()=>autoSpeak(()=>speakPhotoScene(id)), 400);
+  const myPhotoGen = photoSpeechGen;
+  setTimeout(()=>{ if(photoSpeechGen!==myPhotoGen) return; autoSpeak(()=>speakPhotoScene(id)); }, 400);
 }
 
 function speakPhotoScene(id){
@@ -8008,7 +8011,7 @@ function answerPhotoPlay(ci, id){
   const chosen = photoPlayShuffled[ci];
   const lv = chosen.level || 'try';
 
-  document.querySelectorAll('.ch-btn').forEach((b,i)=>{
+  document.getElementById('photo-play-content').querySelectorAll('.ch-btn').forEach((b,i)=>{
     b.disabled = true;
     const l = photoPlayShuffled[i].level || 'try';
     if(l==='best') b.classList.add('lv-best');
@@ -8017,8 +8020,8 @@ function answerPhotoPlay(ci, id){
 
   const rb = document.getElementById('photo-play-result');
   const ico   = lv==='best' ? '🌟' : '💪';
-  const title = lv==='best' ? 'すばらしい！' : 'よく考えたね！';
-  const fbMsg = lv==='best' && s.fb ? s.fb : (lv==='best' ? 'とても上手な対応だよ！' : 'いろんな方法があるよ。いちばん良い答えも見てみよう！');
+  const title = lv==='best' ? 'すばらしい！' : '一緒に考えてみよう';
+  const fbMsg = lv==='best' && s.fb ? s.fb : (lv==='best' ? 'とても良い方法だね！' : 'いろんな方法があるよ。いちばん良い方法も見てみよう！');
 
   rb.className = 'result-box lv-result-' + lv + ' on';
   rb.innerHTML = `
@@ -8030,7 +8033,8 @@ function answerPhotoPlay(ci, id){
   if(lv==='best') confetti();
   rb.scrollIntoView({behavior:'smooth', block:'start'});
   recordActivity('photo', 0, lv);
-  setTimeout(()=>autoSpeak(()=>speak(title + '　' + fbMsg)), 300);
+  const myPhotoGen = photoSpeechGen;
+  setTimeout(()=>{ if(photoSpeechGen!==myPhotoGen) return; autoSpeak(()=>speak(title + '　' + fbMsg)); }, 300);
 }
 
 // ============================================================
