@@ -1385,6 +1385,9 @@ body.dark .teacher-edit-field textarea{background:#1E2D4A;color:#E8E8E8;border-c
   outline:none;transition:border-color .2s;
 }
 .photo-choice-input:focus{border-color:var(--or);}
+.tce-choice-fb-row{margin:2px 0 6px 34px;}
+.tce-choice-fb-label{display:block;font-size:0.75rem;color:var(--sub);margin-bottom:4px;}
+.tce-choice-fb{min-height:44px;font-size:0.875rem;}
 
 .photo-save-btn{
   width:100%;min-height:56px;
@@ -3121,13 +3124,25 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
           <input type="radio" name="tce-best" value="0" checked class="photo-radio">
           <input type="text" class="photo-choice-input tce-choice" placeholder="選択肢1（いちばん良い答え）" maxlength="40">
         </div>
+        <div class="tce-choice-fb-row">
+          <label class="tce-choice-fb-label" for="tce-choice-fb-0">選択肢1へのメッセージ（任意）</label>
+          <input type="text" class="photo-edit-input tce-choice-fb" id="tce-choice-fb-0" placeholder="空欄でもOK。例：その方法を選んだね" maxlength="60">
+        </div>
         <div class="photo-choice-row">
           <input type="radio" name="tce-best" value="1" class="photo-radio">
           <input type="text" class="photo-choice-input tce-choice" placeholder="選択肢2（まあまあ良い答え）" maxlength="40">
         </div>
+        <div class="tce-choice-fb-row">
+          <label class="tce-choice-fb-label" for="tce-choice-fb-1">選択肢2へのメッセージ（任意）</label>
+          <input type="text" class="photo-edit-input tce-choice-fb" id="tce-choice-fb-1" placeholder="空欄でもOK。例：その方法を選んだね" maxlength="60">
+        </div>
         <div class="photo-choice-row">
           <input type="radio" name="tce-best" value="2" class="photo-radio">
           <input type="text" class="photo-choice-input tce-choice" placeholder="選択肢3（よくある行動）" maxlength="40">
+        </div>
+        <div class="tce-choice-fb-row">
+          <label class="tce-choice-fb-label" for="tce-choice-fb-2">選択肢3へのメッセージ（任意）</label>
+          <input type="text" class="photo-edit-input tce-choice-fb" id="tce-choice-fb-2" placeholder="空欄でもOK。例：その方法を選んだね" maxlength="60">
         </div>
       </div>
     </div>
@@ -3142,8 +3157,8 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     </div>
 
     <div class="photo-edit-section">
-      <div class="photo-edit-label">⑧ フィードバック（任意）</div>
-      <input type="text" class="photo-edit-input" id="tce-fb-good-input" placeholder="例：上手に声をかけられたね！" maxlength="50">
+      <div class="photo-edit-label">⑧ 💡 ポイント（任意・選んだ答えに関わらず表示されます）</div>
+      <input type="text" class="photo-edit-input" id="tce-fb-good-input" placeholder="例：この場面ではこんな方法もあるね" maxlength="50">
     </div>
 
     <button class="photo-save-btn" onclick="saveCustomScene()">💾 保存する</button>
@@ -5435,11 +5450,14 @@ function answerRP(ci,sceneIdx){
   const ico = lv==='best'?'🌟':lv==='good'?'😊':'💪';
   // best以外は「できたね/考えたね」のような達成断定にしない(選んだ選択肢を押しただけで実際にできたと断定しないため)。
   const title = lv==='best'?'すばらしい！':lv==='good'?'こんな方法もあるね':'一緒に考えてみよう';
+  // custom scenario(教員オリジナル問題)はchoice.fbを持たない旧データが存在しうるため、
+  // built-in(常にfb有り)の表示を変えない安全なfallbackを用意する(観点C/Dの達成断定・内心断定にならない表現)。
+  const descFb = chosen.fb || (lv==='best'?'とても良い方法だね！':lv==='good'?'こんな方法もあるね。':'いろんな方法があるよ。');
   rb.className='result-box lv-result-'+lv+' on';
   rb.innerHTML=`
     <div class="res-ico">${ico}</div>
     <div class="res-title">${title}</div>
-    <div class="res-desc">${chosen.fb}</div>
+    <div class="res-desc">${descFb}</div>
     <div class="res-tip"><div class="res-tip-h">💡 ポイント</div>${s.tip}</div>
     <button class="action-btn btn-next" onclick="go('s-scene-list')">ほかのシーンへ</button>`;
   if(lv==='best') { confetti(); checkRPBadge(); }
@@ -5447,7 +5465,7 @@ function answerRP(ci,sceneIdx){
   rb.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>{
     if(rpSpeechGen!==myRpGen) return; // 次のシーン/別画面へ既に移動済みなら読み上げない
-    autoSpeak(()=>speak(title+'　'+chosen.fb));
+    autoSpeak(()=>speak(title+'　'+descFb));
   }, 300);
 }
 
@@ -7143,6 +7161,7 @@ function openCustomEdit(id){
   tcePhotoData = null;
   document.getElementById('tce-title').textContent = id ? '✏️ 問題を編集する' : '✏️ 問題を作る';
   const inputs = document.querySelectorAll('.tce-choice');
+  const fbInputs = document.querySelectorAll('.tce-choice-fb');
   const radios = document.querySelectorAll('input[name="tce-best"]');
   const lvRadios = document.querySelectorAll('input[name="tce-lv"]');
 
@@ -7161,6 +7180,7 @@ function openCustomEdit(id){
     document.getElementById('tce-fb-good-input').value = s.fbGood||'';
     s.choices.forEach((c,i)=>{
       if(inputs[i]) inputs[i].value = c.txt;
+      if(fbInputs[i]) fbInputs[i].value = c.fb||''; // 旧形式(fbなし)は空欄表示、保存時にfallbackが安全に補う
       if(radios[i]) radios[i].checked = (c.level==='best');
     });
     lvRadios.forEach(r=>{ r.checked = (parseInt(r.value)===s.lv); });
@@ -7177,6 +7197,7 @@ function openCustomEdit(id){
     ['tce-title-input','tce-icon-input','tce-sit-input','tce-thought-input','tce-fb-good-input']
       .forEach(id=>{ document.getElementById(id).value=''; });
     inputs.forEach(i=>i.value='');
+    fbInputs.forEach(i=>i.value='');
     radios[0].checked = true;
     lvRadios[0].checked = true;
   }
@@ -7191,6 +7212,7 @@ function saveCustomScene(){
   const thought = document.getElementById('tce-thought-input').value.trim();
   const fbGood  = document.getElementById('tce-fb-good-input').value.trim();
   const inputs  = document.querySelectorAll('.tce-choice');
+  const fbInputs= document.querySelectorAll('.tce-choice-fb');
   const radios  = document.querySelectorAll('input[name="tce-best"]');
   const lvRadios= document.querySelectorAll('input[name="tce-lv"]');
   const msg     = document.getElementById('tce-save-msg');
@@ -7207,7 +7229,8 @@ function saveCustomScene(){
   for(let i=0;i<3;i++){
     const txt = inputs[i]?.value.trim();
     if(!txt){ alert(`選択肢${i+1}を入力してください`); return; }
-    choices.push({ txt, level: i===bestIdx?'best':'try' });
+    const fb = fbInputs[i]?.value.trim() || '';
+    choices.push({ txt, level: i===bestIdx?'best':'try', fb });
   }
 
   const scene = {
