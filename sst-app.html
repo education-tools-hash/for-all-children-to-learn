@@ -8756,14 +8756,19 @@ function selectPhraseCat(key){
 function renderPhraseList(){
   const cat = PHRASES[currentPhraseCat];
   const el  = document.getElementById('phrase-list');
-  el.innerHTML = cat.list.map((txt,i)=>`
-    <div class="phrase-item" onclick="speakPhrase('${txt.replace(/'/g,"\\'")}')">
+  el.innerHTML = cat.list.map((txt,i)=>{
+    const esc = txt.replace(/'/g,"\\'");
+    return `
+    <div class="phrase-item" role="button" tabindex="0" aria-label="読み上げる：${txt}"
+      onclick="speakPhrase('${esc}')"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();speakPhrase('${esc}');}">
       <span class="phrase-item-ico">${cat.ico}</span>
       <div class="phrase-item-text">${txt}</div>
       <div class="phrase-item-actions">
-        <button class="phrase-action-btn" onclick="event.stopPropagation();copyPhrase('${txt.replace(/'/g,"\\'")}')" aria-label="コピー">📋</button>
+        <button class="phrase-action-btn" onclick="event.stopPropagation();copyPhrase('${esc}')" aria-label="コピー">📋</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function speakPhrase(txt){
