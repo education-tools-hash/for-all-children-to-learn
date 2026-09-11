@@ -3592,6 +3592,7 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
           <input type="range" class="thermo-vslider" id="thermo-slider"
             min="0" max="10" value="0"
             orient="vertical"
+            aria-label="いまのきもちの強さ（0から10）"
             oninput="updateThermo(this.value)">
         </div>
 
@@ -5167,6 +5168,7 @@ let storySpeechGen = 0; // go()や画面遷移のたびに増やし、古い(遅
 let branchSpeechGen = 0; // 分岐ストーリー用。go()や場面遷移のたびに増やし、古い(遅延)よみあげ・古い場面遷移が後から発火するのを防ぐ
 let rpSpeechGen = 0; // ロールプレイ用。go()や回答のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ
 let photoSpeechGen = 0; // 写真で練習用。go()や回答のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ
+let thermoSpeechGen = 0; // きもち温度計用。go()やスライダー操作のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ
 let breathTimer = null;
 let breathRunning = false;
 
@@ -5230,6 +5232,7 @@ function go(id){
   branchSpeechGen++; // 画面遷移時、分岐ストーリーの予約済み遅延読み上げ・場面遷移を無効化する
   rpSpeechGen++; // 画面遷移時、ロールプレイの予約済み遅延読み上げを無効化する
   photoSpeechGen++; // 画面遷移時、写真で練習の予約済み遅延読み上げを無効化する
+  thermoSpeechGen++; // 画面遷移時、きもち温度計の予約済み遅延読み上げを無効化する
   stopSpeak();
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
   document.getElementById(id).classList.add('on');
@@ -9014,15 +9017,15 @@ const THERMO_LEVELS = [
     coping_title:'😐 少しもやもやしているね',
     coping:[
       { ico:'🌬️', title:'深呼吸してみよう',        desc:'すーっと息を吸って、ゆっくり吐いてみよう。' },
-      { ico:'🚶', title:'少し歩く',                 desc:'その場を少し離れて、歩くと気持ちが変わるよ。' },
-      { ico:'💬', title:'気持ちを誰かに話す',        desc:'「ちょっともやもやしてる」と一言言えると楽になるよ。' },
+      { ico:'🚶', title:'少し歩く',                 desc:'その場を少し離れて、歩くと気持ちが変わることもあるよ。' },
+      { ico:'💬', title:'気持ちを誰かに話す',        desc:'「ちょっともやもやしてる」と一言言えると、楽になることもあるよ。' },
     ]},
   { min:4,  max:5,  face:'😟', name:'イライラしてる',  color:'#E67E22', bg:'#FFF3E0',
     coping_title:'😟 イライラしてきているね',
     coping:[
-      { ico:'🧘', title:'6秒待つ',                  desc:'怒りのピークは6秒。深呼吸しながら1〜6まで数えよう。' },
+      { ico:'🧘', title:'6秒待つ',                  desc:'深呼吸しながら1〜6まで数えてみよう。少し時間をおくと、気持ちが変わることもあるよ。' },
       { ico:'🧊', title:'冷たい水で手を洗う',        desc:'冷たさに集中すると、気持ちがリセットされやすいよ。' },
-      { ico:'✏️', title:'気持ちを紙に書く',          desc:'今のイライラを紙に書くと、少し頭がすっきりするよ。' },
+      { ico:'✏️', title:'気持ちを紙に書く',          desc:'今のイライラを紙に書くと、少し頭がすっきりすることもあるよ。' },
       { ico:'👂', title:'信頼できる人に話す',         desc:'先生や友達に「イライラしてる」と伝えてみよう。' },
     ]},
   { min:6,  max:7,  face:'😡', name:'かなりイライラ',  color:'#E74C3C', bg:'#FDECEB',
@@ -9031,7 +9034,7 @@ const THERMO_LEVELS = [
       { ico:'🚶', title:'その場を離れる',             desc:'「少し待って」と言って、安全な場所に移動しよう。' },
       { ico:'🌬️', title:'ゆっくり深呼吸を3回',       desc:'鼻から4秒吸って、口から8秒かけて吐き出そう。' },
       { ico:'🎵', title:'落ち着く音楽を聴く',          desc:'ヘッドフォンで好きな音楽を聴いて、体の力を抜こう。' },
-      { ico:'🖐',  title:'5・4・3・2・1法',            desc:'見えるもの5つ、さわれるもの4つ…と数えると落ち着くよ。' },
+      { ico:'🖐',  title:'5・4・3・2・1法',            desc:'見えるもの5つ、さわれるもの4つ…と数えると、落ち着くこともあるよ。' },
     ]},
   { min:8,  max:9,  face:'🤬', name:'もう限界に近い',  color:'#C0392B', bg:'#FFEBEE',
     coping_title:'🤬 とても辛い状態だね',
@@ -9039,7 +9042,7 @@ const THERMO_LEVELS = [
       { ico:'🆘', title:'すぐ先生や大人に伝えて！',   desc:'「助けてほしい」と言っていい。一人で抱えないで。' },
       { ico:'🚶', title:'安全な場所に移動する',        desc:'クールダウンできる静かな場所に行こう。' },
       { ico:'🌬️', title:'大きく深呼吸を繰り返す',     desc:'呼吸を整えることだけに集中してみよう。' },
-      { ico:'💤', title:'横になって休む',              desc:'体を休めると、少しずつ気持ちが落ち着いてくるよ。' },
+      { ico:'💤', title:'横になって休む',              desc:'体を休めると、少しずつ気持ちが落ち着いてくることもあるよ。' },
     ]},
   { min:10, max:10, face:'💥', name:'もう爆発しそう！', color:'#8E0000', bg:'#FFCDD2',
     coping_title:'💥 今すぐ助けを求めてね',
@@ -9059,6 +9062,10 @@ function getThermoLevel(val){
 function updateThermo(val){
   val = parseInt(val);
   const lv = getThermoLevel(val);
+
+  // スクリーンリーダー向けに、数値だけでなくレベル名も読み上げられるようにする
+  const sliderEl = document.getElementById('thermo-slider');
+  if(sliderEl) sliderEl.setAttribute('aria-valuetext', val + '、' + lv.name);
 
   // 温度計ビジュアル更新
   const pct = (val / 10) * 100;
@@ -9096,10 +9103,22 @@ function updateThermo(val){
   ccard.classList.add('show');
   ccard.style.borderLeft = `5px solid ${lv.color}`;
 
-  // 音声
+  // 音声(呼吸法機能のspeakBreath()は生成番号ガードを持たないため使わず、
+  // きもち温度計専用の最小限ガード付き読み上げを別途用意する。共有speakBreath()自体は無変更)
   if(val > 0 && cfg.autoSpeak){
-    speakBreath(lv.name + '。レベル' + val + '。' + lv.coping_title.replace(/[🆘😊😐😟😡🤬💥]/g,''));
+    thermoSpeechGen++;
+    speakThermoValue(lv.name + '。レベル' + val + '。' + lv.coping_title.replace(/[🆘😊😐😟😡🤬💥]/g,''), thermoSpeechGen);
   }
+}
+function speakThermoValue(text, myGen){
+  if(!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP'; u.rate = 0.85; u.pitch = 0.95; u.volume = 1;
+  setTimeout(()=>{
+    if(thermoSpeechGen !== myGen) return; // 次の値変更/別画面へ既に移動済みなら読み上げない
+    window.speechSynthesis.speak(u);
+  }, 60);
 }
 
 function recordThermo(){
