@@ -5464,7 +5464,19 @@ function answerRP(ci,sceneIdx){
     <div class="res-tip"><div class="res-tip-h">💡 ポイント</div>${s.tip}</div>
     <button class="action-btn btn-next" onclick="go('s-scene-list')">ほかのシーンへ</button>`;
   if(lv==='best') { confetti(); checkRPBadge(); }
-  recordActivity('rp', currentLv, lv);
+  // Phase SST-RECORD-DETAIL-RP-PILOT-1: built-in roleplayのみdetail snapshotを付与する
+  // (docs/design-system/donomana-sst-record-detail-contract-v1_0.md §14)。
+  // custom(currentLv==='custom')は教員自由記述を含みうるためDecision 4により対象外のまま、
+  // 既存の3引数呼び出し(detailなし)を維持する(Privacy境界、answerRP()自体はbuilt-in/custom共通のまま無変更)。
+  const rpDetail = (currentLv === 'custom') ? undefined : {
+    detailSchemaVersion: 1,
+    type: 'roleplay_choice',
+    scenario: { id: s.id, title: s.title, situation: s.sit },
+    choices: rpShuffled.map(c => ({ id: c.id, text: c.txt, level: c.level })),
+    selected: { id: chosen.id, text: chosen.txt, level: lv },
+    custom: false
+  };
+  recordActivity('rp', currentLv, lv, rpDetail);
   rb.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(()=>{
     if(rpSpeechGen!==myRpGen) return; // 次のシーン/別画面へ既に移動済みなら読み上げない
