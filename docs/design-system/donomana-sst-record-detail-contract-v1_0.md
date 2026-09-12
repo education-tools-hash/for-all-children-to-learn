@@ -352,21 +352,24 @@ Record UI・CSVでは「正解」「不正解」「間違い」を使わない�
 
 ---
 
-## 15. Decision 11 — CSV Contract（確定）
+## 15. Decision 11 — CSV Contract（確定、Amendment 1適用済み）
 
 現状`activityLog`にはCSV機能自体が存在しないため、本節は新規機能の設計提案である。
 
-### 15.1 列構成（Roleplay Pilot最低列）
+> **Amendment 1（2026-09-12、Phase SST-RECORD-DETAIL-CONTRACT-CSV8-AMEND-1）**: User Approved実装（Phase SST-RECORD-DETAIL-CSV-QUESTION-COLUMN-1、checkpoint `712f24b`）に合わせ、下表を7列から8列へ更新した。追加列「問題文」は新規snapshotではなく、§14.2で既に確定していた`detail.scenario.situation`をCSV出力時に読み出すのみであり、Record Detail Schema・Foundation・Roleplay producer・Viewerのいずれにも変更はない。詳細は§15.5参照。
 
-| 列名 | 内容 |
-|---|---|
-| 日時 | `donomanaRecordFormatCsvDateTime()`相当（epoch ms対応済み、Excel互換） |
-| 教材 | `ACT_LABEL[type].name` |
-| モード | `type`（内部ID、教員向けには教材名列で十分なため補助的） |
-| 場面 | `scenario.title` |
-| 提示された選択肢 | `choices[]`を1セルへflatten（下記15.2） |
-| 選んだ回答 | `selected.text` |
-| 教材内区分 | `selected.level` |
+### 15.1 列構成（Roleplay Pilot最低列、8列）
+
+| # | 列名 | 内容 |
+|---|---|---|
+| 1 | 日時 | `donomanaRecordFormatCsvDateTime()`相当（epoch ms対応済み、Excel互換） |
+| 2 | 教材 | `ACT_LABEL[type].name` |
+| 3 | モード | `type`（内部ID、教員向けには教材名列で十分なため補助的） |
+| 4 | 場面 | `scenario.title` |
+| 5 | 問題文 | `scenario.situation`（§14.2で既に確定済みのsnapshotフィールドをCSVへ追加出力。新規snapshotではない） |
+| 6 | 提示された選択肢 | `choices[]`を1セルへflatten（下記15.2） |
+| 7 | 選んだ回答 | `selected.text` |
+| 8 | 教材内区分 | `selected.level` |
 
 ### 15.2 choices flatten方式
 
@@ -378,11 +381,15 @@ Record UI・CSVでは「正解」「不正解」「間違い」を使わない�
 
 ### 15.3 legacy compatibility
 
-`detail`を持たないlegacy recordは、「提示された選択肢」「選んだ回答」「教材内区分」列を**空欄**として出力する（存在しないデータを推測で埋めない）。legacy recordのexport自体を妨げない。
+`detail`を持たないlegacy recordは、「問題文」「提示された選択肢」「選んだ回答」「教材内区分」列を**空欄**として出力する（存在しないデータを推測で埋めない）。legacy recordのexport自体を妨げない。`detail`はあるが`scenario.situation`が存在しない旧形式のrecordについても、「問題文」列のみ空欄とし、他列は通常通り出力する（例外を発生させない）。
 
 ### 15.4 detail JSON列（任意、補助的）
 
 生JSONを1列として併記する案は許容するが、**JSON列だけを教員向けCSVの唯一の詳細表現にしてはならない**。人間可読な列（15.1）を必ず主とする。
+
+### 15.5 custom Roleplayの扱い（Amendment 1で再確認）
+
+custom Roleplay（`currentLv==='custom'`）は§7（Decision 4）によりPrivacy Review未了のため`detail`自体を持たない。したがって「問題文」列を含む`detail`由来の全列が空欄となり、Privacy Boundaryは維持される。本Amendmentはこの既存境界を変更しない。
 
 ---
 
@@ -555,6 +562,8 @@ detail折りたたみdefault状態 / 展開 / 折りたたみ / `aria-expanded`�
 
 legacy行のexport / detail付き行のexport / 混在export / カンマ含みテキストのエスケープ / ダブルクォート含みテキストのエスケープ / 改行含みテキストのエスケープ / 絵文字を含む選択肢文言 / 日本語文言 / choices flattenの区切り文字が壊れないこと / 選んだ回答列の正しさ / malformed CSVが生成されないこと
 
+**Amendment 1（問題文列）で追加実施・PASS確認済み（Phase SST-RECORD-DETAIL-CSV-QUESTION-COLUMN-1、31/31 PASS）**: 8列ヘッダー構成・問題文列の実データ内容 / 既存保存済みrecordが再実施なしで問題文を表示すること（historical compatibility） / legacy recordでの問題文列空欄 / custom Roleplayでの問題文列空欄（Privacy Boundary） / `scenario.situation`欠落時の問題文列空欄（例外なし） / 問題文内のカンマ・ダブルクォート・改行・絵文字を含むRFC4180エスケープ / 実ファイルダウンロードでのBOM・8列ヘッダー検証 / Viewer・Foundation・Roleplay producer回帰0件
+
 ---
 
 ## 22. Implementation Roadmap（確定）
@@ -633,3 +642,4 @@ Record Detail / snapshot / selected choice / presented choices / 教材内区分
 |---|---|---|
 | v1.0 Draft | 2026-09-12 | Phase SST-RECORD-DETAIL-DESIGN-1。初版。sst-app.html(`239ee3d`)の実コード調査に基づく設計。実装なし。 |
 | **v1.0 Final** | 2026-09-12 | Phase SST-RECORD-DETAIL-DESIGN-FINALIZE-1。User Design Reviewの14 Decisionを確定し、Draftの未決事項を解消。11活動整理・呼吸contract追加・snapshot policy確定・schemaVersion方針確定・Roleplay Pilot schema確定・custom RP Privacy defer・実装ロードマップ確定。**実装は引き続き行っていない。** |
+| v1.0 Amendment 1 | 2026-09-12 | Phase SST-RECORD-DETAIL-CONTRACT-CSV8-AMEND-1。User Approved実装（checkpoint `712f24b`）に合わせ、§15 CSV Contractを7列から8列へ更新（5列目「問題文」＝既存`scenario.situation`snapshotを追加出力）。§21.4 Test Contractへ検証結果を追記。Record Detail Schema・Foundation・Roleplay producer・Viewerへの変更は0件。major version bumpなし（docs-only、Product code変更0件）。 |
