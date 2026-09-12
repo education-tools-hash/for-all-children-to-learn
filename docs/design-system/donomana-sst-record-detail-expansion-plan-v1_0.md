@@ -594,7 +594,9 @@ Option Cは、v1 Contract Decision 9（§13）で分岐ストーリーの`route`
 
 tier集計はカウントであり、既存のクイズスコア表示（%）と同じく「観察された選択の集計」であって能力診断ではないため、v1 Contract §19の原則に反しない。
 
-### 17.8 CSV Mapping（確定、Option A採用・Option BはUser判断待ち）
+### 17.8 CSV Mapping（Draft、§17.14により上書き確定）
+
+> **Superseded（2026-09-12、Phase SST-RECORD-DETAIL-WAVE2-DESIGN-FINALIZE-1）**: 本節はDesign Review初回ドラフト時点（Option A: 5列すべて空欄、CSVでは個々の回答を確認不可）の記述であり、履歴としてそのまま残す。User Reviewの結果、**CSVだけを見て学習内容を確認できることを重視する**という明示的なフィードバックにより、この方針は不採用となった。正式なCSV Mapping決定は**§17.14**を参照。
 
 分岐ストーリーの`route`と同じ理由（複数値を単一列の意味に押し込まない）により、以下を既定（Option A）として採用する。
 
@@ -612,15 +614,15 @@ Option C採用により、Viewerカード数は既存のまま増加しない。
 
 ### 17.10 CSV Volume Risk 評価
 
-Option C採用によりCSV行数は既存のまま増加しない（1セッション=1行を維持）。Option Bを採用した場合の行数増加リスク（1クイズ実施で最大10行程度）は、Option A/C採用により回避される。
+> **Update（§17.14反映後）**: CSV**行数**はOption C採用により既存のまま増加しない（1セッション=1行を維持、これは変更なし）。一方で§17.14のCSV Final Decisionにより、各セル（問題文・提示された選択肢・選んだ回答・教材内区分）の**文字数**は問題数に比例して伸びる（1問あたり数十文字程度、典型的な5〜10問セッションで数百文字程度）。これはRFC4180準拠の既存`donomanaRecordBuildCsv()`がセル内の改行・カンマ・引用符を含む長文をそのまま正しく扱えることを前提とし、新規エスケープ実装は書き起こさない（v1 Contract §15.2を継続）。行数・列数は一切変化しない。
 
-### 17.11 Decision Matrix（総括）
+### 17.11 Decision Matrix（総括、§17.14反映）
 
 | Activity | Current record | Candidate detail | Recommended timing | Viewer impact | CSV impact | Risk | Decision |
 |---|---|---|---|---|---|---|---|
-| ことばクイズ | 完了時1回 | answers[]集計 | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | カード数変化なし、展開でtier集計→問題別詳細 | 行数変化なし、既存5列は空欄 | 低 | 確定 |
+| ことばクイズ | 完了時1回 | answers[]集計 | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | カード数変化なし、展開でtier集計→問題別詳細 | 行数・列数変化なし、既存5列内へQ1/Q2…形式で全問集約（§17.14） | 低 | 確定 |
 | SSTクイズ | 完了時1回 | answers[]集計（4値tier維持） | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | 同上 | 同上 | 低 | 確定 |
-| ソーシャルストーリー | 完了時1回 | answers[]集計（0件許容） | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | カード数変化なし、質問ページがある場合のみ展開ボタン | 行数変化なし、既存5列は空欄 | 低 | 確定 |
+| ソーシャルストーリー | 完了時1回 | answers[]集計（0件許容） | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | カード数変化なし、質問ページがある場合のみ展開ボタン | 行数・列数変化なし、質問ページがある場合のみQ1/Q2…形式で集約、0件時は5列とも空欄（§17.14） | 低 | 確定 |
 
 ### 17.12 Test Contract（Wave 2実装時の最低要件）
 
@@ -639,9 +641,92 @@ Option C採用によりCSV行数は既存のまま増加しない（1セッシ�
 11. Privacy境界（custom Roleplay・写真で練習に本Wave2の変更が波及しないこと）
 12. console/page error 0
 
+**§17.14 CSV Final Decision反映後の追加項目**:
+
+13. CSV単体（Viewerを見ずに）で、実施した全問題の問題文・提示された選択肢・選んだ回答・教材内区分を確認できること
+14. `answers[]`配列のインデックス順とCSV内のQ番号（Q1,Q2,...）が1:1で対応すること
+15. Q番号がactivity種別をまたいで独立していること（ことばクイズのQ1とSSTクイズのQ1は別record・別行であり混同されない）
+16. 提示された選択肢セル内で、Q番号区切り文字（｜）と選択肢区切り文字（・）が異なり、実データ（選択肢文言）に偶然｜や・が含まれていてもQ境界の判読を妨げないこと（RFC4180パーサーでの実復元テストを含む）
+17. ソーシャルストーリーで質問ページ0件の場合、5列（場面を除く）が実際に空文字列になること（Qブロックを1件も生成しないこと）
+18. 各セルに改行・カンマ・二重引用符・絵文字を含む問題文/選択肢が混在しても、`donomanaRecordBuildCsv()`の既存RFC4180エスケープでCSV全体が壊れないこと
+19. 10問以上の長いクイズでもCSVの行数・列数が変化しないこと（セル文字数のみ増加）
+
 ### 17.13 Contract Amendment 判定: A. NO CONTRACT AMENDMENT REQUIRED
 
 **理由**: v1 Contract Decision 1（§4）が明示的に保留していたのは「記録**タイミング**（完了時1回 → 問題/ページごとに変更するか）」の判断であり、本Design Reviewはこれを**変更しないこと**を正式決定した（Option C採用、既存の唯一のrecordActivity呼び出し・既存タイミングを完全維持）。追加したのは既存`detail`フィールド（v1 Contract §11-12で既に拡張可能と定義済み）へのaggregate配列であり、Decision 1の文言そのものとは矛盾しない。したがってContract v1.0本体の文言変更は不要。本節（§17）をExpansion Plan文書へのWave 2 Design Decisionとして追加することで足りる。
+
+**§17.14のCSV Final Decisionもこの判定に影響しない**: 既存8列の意味（日時/教材/モード/場面/問題文/提示された選択肢/選んだ回答/教材内区分）そのものは一切変更せず、各セルへ書き込む文字列の組み立て方（Q番号付き集約）を変えるだけであり、列の追加・削除・意味の転用（例: 教材内区分をaction等の別概念へ転用）のいずれにも該当しない。したがって列単位のContract変更判断も不要のまま。
+
+### 17.14 CSV Mapping — Wave 2 Final Decision（User確定、Phase SST-RECORD-DETAIL-WAVE2-DESIGN-FINALIZE-1）
+
+§17.8のOption A（5列空欄）はUser Reviewにより不採用となった。User feedbackの要旨: 「Roleplay CSVに問題文列を追加した経緯（CSV Question Column Phase）と同じ理由で、CSVだけを見て学習内容を確認できることを重視したい」。これを受け、**新規列を追加せず、既存8列の中へ1セッション分の全問を集約する**方式を正式なFinal Decisionとして確定する。
+
+#### 17.14.1 正式方針
+
+- 1セッション = 1 record = 1 CSV row を維持（§17.5 Record Count Semanticsは無変更）
+- `answers[]`配列のschemaも無変更（§17.1-17.3のschema draftをそのまま使用、CSV出力ロジックのみで集約する）
+- Q番号は`answers[]`のインデックス順に`Q1`, `Q2`, ... を機械的に割り当てる（`question.id`ではなくインデックスベース。理由: teacher向け表示としては出現順の通し番号の方が直感的であり、`id`は元データの内部識別子に過ぎないため）
+- 区切り文字: **Q番号間は`｜`**（既存の選択肢flatten方式で既に使われている全角縦棒をそのまま踏襲）、**1問内の複数選択肢間は`・`**（Q境界と選択肢境界を視覚的に区別するため、新しい区切り文字を1種類だけ追加する）
+- 新規CSVエスケープ実装は書き起こさない。集約後の文字列を既存`donomanaRecordBuildCsv(rows)`へそのまま渡すだけで、改行・カンマ・二重引用符を含む長い集約文字列も既存のRFC4180実装がそのまま正しく処理する
+
+#### 17.14.2 列ごとの組み立て方
+
+| 列 | 内容 | ことばクイズ／SSTクイズ | ソーシャルストーリー |
+|---|---|---|---|
+| 場面 | セッション識別（モード名またはセッション名） | `Lv${currentLv} 全${answers.length}問`（教材名列と重複しないよう、教材名そのものではなくレベル+問題数を採用） | `story.title`（既存のRoleplay/分岐と同じ「作品名」の扱いをそのまま踏襲） |
+| 問題文 | `Q${n}: ${question}｜Q${n+1}: ...` | `question.prompt`（ことばクイズ）/ `question.text`（SSTクイズ） | `prompt.text`（質問ページのみ、pageIndex順） |
+| 提示された選択肢 | `Q${n}: ①choice1・②choice2・③choice3｜Q${n+1}: ...` | `choices[]`を既存のマーク（①②③）+`・`区切りでflatten、Q単位を`｜`で連結 | 同左 |
+| 選んだ回答 | `Q${n}: ${selected.text}｜Q${n+1}: ...` | `selected.text` | `selected.text` |
+| 教材内区分 | `Q${n}: ${selected.level}｜Q${n+1}: ...` | `selected.level`（クイズは4値、ことばクイズ/ストーリーは3値、そのまま出力） | `selected.level` |
+
+ソーシャルストーリーで`answers.length===0`（質問ページが1つもないストーリー）の場合、上記4列（場面を除く）はすべて**空文字列**とする。Qブロックを1つも持たない空集約結果を無理に生成しない。
+
+#### 17.14.3 実データ例（ことばクイズ、3問セッション）
+
+```
+場面:             Lv1 全3問
+問題文:           Q1: 誕生日に友達からプレゼントをもらいました。何て言う？｜Q2: 給食のときに「おかわりしてもいいか」聞きたいです。どんな言い方がいい？｜Q3: 廊下でぶつかってしまいました。何て言う？
+提示された選択肢: Q1: ①「ありがとう！うれしい！」・②「わあ、すごい！」と言ってすぐ開ける・③（にっこり笑ってうなずく）｜Q2: ①「先生、おかわりしてもいいですか？」・②先生の様子を見ながら、自分でよそってしまう・③「あのー…」と言いかけて、やっぱり止める｜Q3: ①「ごめんなさい！大丈夫でしたか？」・②「あ！」と言ってびっくりして立ち止まる・③...
+選んだ回答:       Q1: 「ありがとう！うれしい！」｜Q2: 「先生、おかわりしてもいいですか？」｜Q3: 「ごめんなさい！大丈夫でしたか？」
+教材内区分:       Q1: best｜Q2: best｜Q3: best
+```
+
+#### 17.14.4 実データ例（ソーシャルストーリー、質問ページ1件のみ）
+
+```
+場面:             はじめての学校
+問題文:           Q1: 友達に「ここいいよ」と言われたら、何て答えるといいかな？
+提示された選択肢: Q1: ①「ありがとう！よろしくね！」・②「ありがとう」とだけ言う・③恥ずかしくてうなずく
+選んだ回答:       Q1: 「ありがとう！よろしくね！」
+教材内区分:       Q1: best
+```
+
+質問ページが0件のストーリーでは、問題文／提示された選択肢／選んだ回答／教材内区分の4列はすべて空文字列（場面列の`story.title`のみ出力される）。
+
+#### 17.14.5 実装時の組み立てイメージ（設計仕様、Wave 2実装Phaseでの実装対象）
+
+```js
+// 設計仕様のイメージ。Wave 2実装Phaseで実コードへ反映する(本Phaseでは実装しない)。
+function buildQAggregatedCell(answers, extractFn){
+  return answers.map((a, i) => `Q${i+1}: ${extractFn(a)}`).join('｜');
+}
+
+// 問題文列
+buildQAggregatedCell(detail.answers, a => a.question.prompt || a.question.text);
+// 提示された選択肢列
+buildQAggregatedCell(detail.answers, a =>
+  a.choices.map((c, ci) => (marks[ci]||(ci+1)+'.') + c.text).join('・'));
+// 選んだ回答列
+buildQAggregatedCell(detail.answers, a => a.selected.text);
+// 教材内区分列
+buildQAggregatedCell(detail.answers, a => a.selected.level);
+```
+
+このヘルパーは既存`donomanaRecordBuildCsv()`を置き換えない。既存ヘルパーへ渡す**1セルぶんの文字列を組み立てるだけ**の追加ロジックであり、CSV全体のエスケープ責務は引き続き既存ヘルパーが担う。
+
+#### 17.14.6 Viewerへの影響
+
+§17.7 Viewer Mappingは変更しない。Viewerは引き続きtier集計サマリー＋展開後の問題別リスト（progressive disclosure）を使う。CSVとViewerは同じ`answers[]`データを、それぞれの媒体に適した形（CSV=Qn番号付き集約文字列、Viewer=構造化されたカード/リストのDOM）で独立に描画するだけであり、データソースは完全に共通（§17.1-17.3のschema）である。
 
 ---
 
@@ -651,3 +736,4 @@ Option C採用によりCSV行数は既存のまま増加しない（1セッシ�
 |---|---|---|
 | v1.0 Draft | 2026-09-12 | Phase SST-RECORD-DETAIL-EXPANSION-DESIGN-1。初版。sst-app.html(`6cf0db1`)の実コード調査に基づく設計。実装なし。 |
 | v1.0 Wave 2 Review | 2026-09-12 | Phase SST-RECORD-DETAIL-WAVE2-DESIGN-REVIEW-1。§14 Open Decision 1を解決し、§17としてことばクイズ／SSTクイズ／ソーシャルストーリーの記録タイミング・detail schema・Viewer/CSV mapping・Test Contractを正式決定（Option C: 既存完了recordへのaggregate detail付加、記録タイミング変更なし）。teacherEditsの編集範囲に関するPrivacy Boundary明確化（§17.0.1）を追加。Contract v1.0 Amendment不要と判定。実装は行っていない。 |
+| v1.0 Wave 2 Finalize | 2026-09-12 | Phase SST-RECORD-DETAIL-WAVE2-DESIGN-FINALIZE-1。User ReviewによりCSV Mapping（§17.8のOption A: 5列空欄）を不採用とし、§17.14として「新規列を追加せず、既存8列内へQ1/Q2…形式で1セッション分の全問を集約する」方式を正式Final Decisionとして確定。record timing・1セッション=1record・answers[] schema・Viewer方針はいずれも変更なし（§17.1-17.7は無変更）。§17.9-17.13を§17.14との整合のため更新。Contract v1.0 Amendment判定（不要）は維持。実装は行っていない。 |
