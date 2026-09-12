@@ -968,6 +968,13 @@ body.dark .bottom-back-btn{
 .report-detail-choices{list-style:none;margin:6px 0 0;padding-left:0;display:flex;flex-direction:column;gap:6px;font-size:0.8125rem;line-height:1.5;}
 .report-detail-choice.is-selected{font-weight:700;color:#7A5200;}
 .report-detail-tier{font-size:0.75rem;color:var(--sub);font-weight:700;margin-top:10px;}
+/* Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: ことばクイズ/SSTクイズ/ソーシャルストーリーの
+   問題ごとQ&Aリスト(単一値のreport-detail-choices/tierでは表現できない複数問集約のため専用クラス化) */
+.report-detail-qa-list{list-style:none;margin:6px 0 0;padding-left:0;display:flex;flex-direction:column;gap:8px;font-size:0.8125rem;line-height:1.5;}
+.report-detail-qa-item{background:#F5F5F5;border-radius:8px;padding:8px 10px;}
+.report-detail-qa-q{font-weight:700;}
+.report-detail-qa-a{color:var(--sub);margin-top:2px;}
+.report-detail-qa-tier{font-size:0.6875rem;color:var(--sub);font-weight:700;margin-top:4px;}
 
 /* バッジ */
 .report-badges-row{
@@ -5193,6 +5200,11 @@ const QUIZZES_DEFAULTS = JSON.parse(JSON.stringify(QUIZZES));
 let currentLv = 1;
 let currentWQIdx = 0;
 let currentWQAnswered = false;
+// Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: セッション内で回答したQuestionのsnapshotを
+// 蓄積するaccumulator(donomana-sst-record-detail-expansion-plan-v1_0.md §17.1)。buildWordQuiz()の
+// currentWQIdx===0地点でresetし、answerWQ()でpushし、既存の唯一のcompletion recordActivity()呼び出し
+// へdetail.answersとしてそのまま付加する(新しいrecordActivity呼び出しは追加しない)。
+let currentWQAnswers = [];
 // 次の問題や別画面へ移動した後に、前の問題/前の回答の遅延読み上げ(setTimeout)が
 // 遅れて発火して古い内容を読み上げないようにするための世代カウンタ。
 // buildWordQuiz()呼び出しとgo()(画面遷移)のたびに進み、予約済みのspeak呼び出しは
@@ -5201,11 +5213,18 @@ let wqSpeechGen = 0;
 let currentQuizIdx = 0;
 let currentQuizScore = 0;
 let currentQuizAnswered = false;
+// Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: ことばクイズのcurrentWQAnswersと同じ役割
+// (donomana-sst-record-detail-expansion-plan-v1_0.md §17.2)。buildQuiz()の冒頭でresetする。
+let currentQuizAnswers = [];
 // 次の問題や別画面へ移動した後に、前の問題/前の回答の遅延読み上げ(setTimeout)が
 // 遅れて発火して古い内容を読み上げないようにするための世代カウンタ(ことばクイズのwqSpeechGenと同じ考え方)。
 let quizSpeechGen = 0;
 let currentStoryIdx = 0;
 let currentStoryPage = 0;
+// Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: 埋め込み質問に回答したページのsnapshotを
+// 蓄積するaccumulator(donomana-sst-record-detail-expansion-plan-v1_0.md §17.3)。startStory()でreset。
+// 質問が無いページはpushされない(answers:[]を正式許容、§17.3/§23)。
+let currentStoryAnswers = [];
 let storySpeechGen = 0; // go()や画面遷移のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ(ことばクイズ/SSTクイズと同じ考え方)
 let branchSpeechGen = 0; // 分岐ストーリー用。go()や場面遷移のたびに増やし、古い(遅延)よみあげ・古い場面遷移が後から発火するのを防ぐ
 let rpSpeechGen = 0; // ロールプレイ用。go()や回答のたびに増やし、古い(遅延)よみあげが後から発火するのを防ぐ
@@ -5535,6 +5554,9 @@ function answerRP(ci,sceneIdx){
 function buildWordQuiz(){
   const qs=WORD_QUIZ[currentLv]||[];
   if(!qs.length){document.getElementById('wq-content').innerHTML='<div style="padding:30px;text-align:center;color:var(--sub)">準備中</div>';return;}
+  // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: セッション開始(初回entry/「もう一度」retry、
+  // いずれもcurrentWQIdx=0を経由してからここへ来る)のたびにaccumulatorをresetする(§17.1)。
+  if(currentWQIdx===0) currentWQAnswers=[];
   if(currentWQIdx>=qs.length){
     document.getElementById('wq-content').innerHTML=`
       <div style="text-align:center;padding:40px 20px;">
@@ -5543,7 +5565,9 @@ function buildWordQuiz(){
         <div style="font-size:15px;color:var(--sub);margin-bottom:20px;">${qs.length}問クリアしたよ！</div>
         <button class="action-btn btn-next" onclick="currentWQIdx=0;buildWordQuiz()">もう一度</button>
       </div>`;
-    confetti(); checkWQBadge(); recordActivity('wq', currentLv, 'done'); return;
+    confetti(); checkWQBadge();
+    recordActivity('wq', currentLv, 'done', {detailSchemaVersion:1, type:'word_quiz_session', answers: currentWQAnswers.slice()});
+    return;
   }
   const q=qs[currentWQIdx];
   currentWQAnswered=false;
@@ -5584,6 +5608,14 @@ function answerWQ(ci){
   //   'try'  = 他者への実害・権利侵害を伴う行動(A1の3件) → 誤りだと責める言葉は使わず、行動そのものへの具体的な次の一手を示す
   // (レビュー資料の分類A1/A3/Bはこの2値へ集約している。子ども向け画面にA1/A3/B/Cという表示は出さない。)
   function tierOf(c){ return c.ok ? 'best' : (c.tier==='try' ? 'try' : 'good'); }
+  // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: 回答確定のsemantic finalization pointは
+  // ここ(currentWQAnsweredガード直後)の1箇所のみ。新しいrecordActivity呼び出しは追加せず、
+  // セッション内accumulatorへ今回の回答snapshotをpushするだけ(§17.1)。
+  currentWQAnswers.push({
+    question: { id: q.id, situation: q.sit, prompt: q.q },
+    choices: wqShuffled.map(c => ({ id: c.id, text: c.txt, level: tierOf(c) })),
+    selected: { id: chosen.id, text: chosen.txt, level: tierOf(chosen) }
+  });
   const btns=document.querySelectorAll('.wq-btn');
   btns.forEach((b,i)=>{
     b.disabled=true;
@@ -5640,6 +5672,9 @@ function buildStoryList(){
 function startStory(idx){
   currentStoryIdx=idx;
   currentStoryPage=0;
+  // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: ストーリー開始のたびに必ず通る唯一の入口
+  // でaccumulatorをresetする(§17.3)。別storyへ移動しても前storyの回答は混入しない。
+  currentStoryAnswers=[];
   buildStoryReader();
   go('s-story');
   const gen=storySpeechGen;
@@ -5655,6 +5690,11 @@ function buildStoryReader(){
     // 選択肢をシャッフル。各選択肢は独立のfb/tierを持つオブジェクトのまま渡す(配列インデックスに依存しない)。
     const shuffledChoices = p.choices ? shuffle(p.choices.map((c,ci)=>({...c, origIdx:ci}))) : [];
     if(p.choices) p._shuffled = shuffledChoices;
+    // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: p._shuffledと同じタイミングでp._answeredも
+    // resetする。pはSTORIESの実データへの参照であり、resetしないと同じstoryを再度開いたとき
+    // 前回セッションのp._answered=trueが残り、新しいセッションで回答してもaccumulatorへpush
+    // されなくなってしまう(§17.3、accumulator resetの一部として扱う)。
+    if(p.q) p._answered = false;
 
     const qBlock=p.q?`
       <div class="story-q">
@@ -5683,8 +5723,20 @@ function storyTierOf(c){ return c.ok ? 'best' : (c.tier==='try' ? 'try' : 'good'
 function answerStory(pageIdx,ci){
   const story=(STORIES[currentLv]||[])[currentStoryIdx];
   const p=story.pages[pageIdx];
+  // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: ことばクイズ/SSTクイズのcurrentXAnsweredと
+  // 同じ役割の同期ガード。既存のdisabled-button方式(DOM状態依存)だけに頼らず、p._answeredという
+  // 同期JS変数チェックでaccumulatorへの二重pushを確実に防ぐ(§17.3、§27 duplicate prevention)。
+  if(p._answered) return;
+  p._answered=true;
   const chosen=p._shuffled[ci];
   const tier=storyTierOf(chosen);
+  // 埋め込み質問に回答した事実のみをsnapshotする(閲覧だけでは記録しない、§17.3)。
+  currentStoryAnswers.push({
+    pageIndex: pageIdx,
+    prompt: { text: p.q },
+    choices: p._shuffled.map(c => ({ id: c.id, text: c.txt, level: storyTierOf(c) })),
+    selected: { id: chosen.id, text: chosen.txt, level: tier }
+  });
   const btns=document.querySelectorAll(`#sp-${pageIdx} .story-a-btn`);
   btns.forEach((b,i)=>{
     b.disabled=true;
@@ -5719,7 +5771,10 @@ function storyNav(dir){
   const next=document.getElementById('sp-'+currentStoryPage);
   if(next){ next.classList.add('on'); next.scrollIntoView({behavior:'smooth',block:'start'}); }
   // 最終ページに達したらバッジ付与
-  if(currentStoryPage===total-1){ checkStoryBadge(); recordActivity('story', currentLv, 'done'); }
+  if(currentStoryPage===total-1){
+    checkStoryBadge();
+    recordActivity('story', currentLv, 'done', {detailSchemaVersion:1, type:'social_story_completion', story:{id:story.id, title:story.title}, answers: currentStoryAnswers.slice()});
+  }
   const gen=storySpeechGen;
   setTimeout(()=>{ if(gen===storySpeechGen) autoSpeak(()=>speakStoryPage(currentStoryPage)); }, 300);
 }
@@ -5728,6 +5783,9 @@ function storyNav(dir){
 // QUIZ
 // ============================================================
 function buildQuiz(){
+  // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: buildQuiz()はセッション開始/retry時に
+  // 1回だけ呼ばれるため、ここでaccumulatorをresetすれば前セッションの回答が混入しない(§17.2)。
+  currentQuizAnswers=[];
   const qs=QUIZZES[currentLv]||[];
   const content=document.getElementById('quiz-content');
   const fin=`
@@ -5792,6 +5850,14 @@ function answerQuiz(ci){
   const chosen=quizShuffled[ci];
   const myQuizGen = quizSpeechGen;
   const tier=quizTierOf(chosen);
+  // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: currentQuizAnsweredガード直後が唯一の
+  // semantic finalization point。support等の4値levelはそのまま保持し、他activityへ合わせて
+  // 変換しない(§17.2)。
+  currentQuizAnswers.push({
+    question: { id: q.id, text: q.q },
+    choices: quizShuffled.map(c => ({ id: c.id, text: c.txt, level: quizTierOf(c) })),
+    selected: { id: chosen.id, text: chosen.txt, level: tier }
+  });
   // 得点はtierからの暗黙推定ではなく、選択肢データのcredit値の厳密一致(true)でのみ判定する。
   // credit欠落・null・文字列等の異常値は===trueでfalseになるため、実行時に誤って加点されることはない。
   if(chosen.credit === true) currentQuizScore++;
@@ -5846,7 +5912,7 @@ function showQuizFin(){
   document.getElementById('qf-sc').textContent=`${currentQuizScore} / ${qs.length}`;
   document.getElementById('qf-msg').textContent=msg;
   if(pct>=75){ confetti(80); checkQuizBadge(); }
-  recordActivity('quiz', currentLv, pct+'%');
+  recordActivity('quiz', currentLv, pct+'%', {detailSchemaVersion:1, type:'sst_quiz_session', answers: currentQuizAnswers.slice()});
 }
 
 // ============================================================
@@ -6718,8 +6784,58 @@ function buildDetailRecordList(weekLog){
     let expandLabel = '提示された選択肢';
     let expandItemsHtml = '';
     let tierText = '';
+    let customBodyHtml = ''; // Wave 2: 問題ごとのQ&Aリストなど、genericな<ol>+tierText枠に収まらない詳細表示用
 
-    if(d.type === 'branch_ending'){
+    // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: ことばクイズ/SSTクイズ共通のtier集計と、
+    // 問題ごとのQ&Aリスト(customBodyHtml)を組み立てるヘルパー(donomana-sst-record-detail-
+    // expansion-plan-v1_0.md §17.7)。answersが空でもcrashしない。
+    function buildQuizSessionSummaryAndBody(answers, tierLabels){
+      const counts = {};
+      answers.forEach(a=>{ const lv=(a.selected&&a.selected.level)||''; counts[lv]=(counts[lv]||0)+1; });
+      const summary = tierLabels.filter(t=>counts[t]).map(t=>`${t} ${counts[t]}`).join('／');
+      const qaHtml = answers.map((a,qi)=>{
+        const qText = (a.question && (a.question.prompt || a.question.text)) || '';
+        const selText = (a.selected && a.selected.text) || '';
+        const selLevel = (a.selected && a.selected.level) || '';
+        return `<li class="report-detail-qa-item">
+          <div class="report-detail-qa-q">Q${qi+1}: ${qText}</div>
+          <div class="report-detail-qa-a">選んだ回答: ${selText}</div>
+          ${selLevel ? `<div class="report-detail-qa-tier">教材内区分：${selLevel}</div>` : ''}
+        </li>`;
+      }).join('');
+      return { summary, qaHtml };
+    }
+
+    if(d.type === 'word_quiz_session' || d.type === 'sst_quiz_session'){
+      const answers = Array.isArray(d.answers) ? d.answers : [];
+      const tierLabels = d.type === 'sst_quiz_session' ? ['best','good','support','try'] : ['best','good','try'];
+      const { summary, qaHtml } = buildQuizSessionSummaryAndBody(answers, tierLabels);
+      resultLabel = `全${answers.length}問`;
+      resultText = summary || '（回答なし）';
+      if(qaHtml){
+        expandLabel = '問題ごとの記録';
+        customBodyHtml = `<ol class="report-detail-qa-list">${qaHtml}</ol>`;
+      }
+    } else if(d.type === 'social_story_completion'){
+      const storyTitle = (d.story && d.story.title) || '';
+      resultLabel = '完了';
+      resultText = storyTitle ? `「${storyTitle}」を読み終えたよ` : '読み終えたよ';
+      const answers = Array.isArray(d.answers) ? d.answers : [];
+      if(answers.length){
+        const qaHtml = answers.map((a,qi)=>{
+          const qText = (a.prompt && a.prompt.text) || '';
+          const selText = (a.selected && a.selected.text) || '';
+          const selLevel = (a.selected && a.selected.level) || '';
+          return `<li class="report-detail-qa-item">
+            <div class="report-detail-qa-q">Q${qi+1}: ${qText}</div>
+            <div class="report-detail-qa-a">選んだ回答: ${selText}</div>
+            ${selLevel ? `<div class="report-detail-qa-tier">教材内区分：${selLevel}</div>` : ''}
+          </li>`;
+        }).join('');
+        expandLabel = '質問ページごとの記録';
+        customBodyHtml = `<ol class="report-detail-qa-list">${qaHtml}</ol>`;
+      }
+    } else if(d.type === 'branch_ending'){
       sceneTitle = (d.scenario && d.scenario.title) || '';
       resultLabel = 'たどりついたエンディング';
       resultText = (d.ending && d.ending.title) || '';
@@ -6764,12 +6880,15 @@ function buildDetailRecordList(weekLog){
       ${sceneTitle ? `<div class="report-detail-scene">「${sceneTitle}」</div>` : ''}
       <div class="report-detail-sel-label">${resultLabel}</div>
       <div class="report-detail-sel-text">${resultText}</div>
-      ${expandItemsHtml ? `
+      ${(expandItemsHtml || customBodyHtml) ? `
       <button type="button" class="report-detail-toggle" aria-expanded="false" aria-controls="${uid}" onclick="toggleReportDetail(this,'${uid}')">詳細を見る ▾</button>
       <div class="report-detail-body" id="${uid}" hidden>
+        ${customBodyHtml ? `
+        <div class="report-detail-choices-label">${expandLabel}</div>
+        ${customBodyHtml}` : `
         <div class="report-detail-choices-label">${expandLabel}</div>
         <ol class="report-detail-choices">${expandItemsHtml}</ol>
-        ${tierText ? `<div class="report-detail-tier">教材内区分：${tierText}</div>` : ''}
+        ${tierText ? `<div class="report-detail-tier">教材内区分：${tierText}</div>` : ''}`}
       </div>` : ''}
     </div>`;
   }).join('');
@@ -6837,6 +6956,12 @@ function shareReport(){
 // 新しいsnapshot保存は行わず、既にrecord Detail Foundation実装時から保存されている
 // detail.scenario.situationをそのままCSVへ出力するだけ(record schema変更0、migration不要、
 // 過去に保存済みのrecordでもsituationがあればそのまま出力される)。
+// Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: 複数問をQ1/Q2/...形式で1セルへ集約するヘルパー。
+// 既存donomanaRecordBuildCsv()のエスケープ責務は変えない。渡す1セルぶんの文字列を組み立てるだけ
+// (donomana-sst-record-detail-expansion-plan-v1_0.md §17.14)。
+function buildQAggregatedCell(answers, extractFn){
+  return answers.map((a,i)=>`Q${i+1}: ${extractFn(a)}`).join('｜');
+}
 function buildReportCsvContent(weekLog){
   const marks = ['①','②','③','④','⑤','⑥'];
   const rows = [['日時','教材','モード','場面','問題文','提示された選択肢','選んだ回答','教材内区分']];
@@ -6862,6 +6987,28 @@ function buildReportCsvContent(weekLog){
       // 教材内区分はaction(spoken/copied)へ転用しない(空欄のまま)
     } else if(d && d.type === 'breathing_activity'){
       tier = d.completionStatus || '';
+    } else if(d && (d.type === 'word_quiz_session' || d.type === 'sst_quiz_session')){
+      // Phase SST-RECORD-DETAIL-WAVE2-IMPLEMENTATION-1: §17.14 CSV Final Decision。
+      // 新規列は追加せず、既存5列へQ1/Q2/...形式で1セッション分の全問を集約する。
+      const answers = Array.isArray(d.answers) ? d.answers : [];
+      scene = `Lv${a.lv} 全${answers.length}問`;
+      question = buildQAggregatedCell(answers, x => (x.question && (x.question.prompt || x.question.text)) || '');
+      choicesStr = buildQAggregatedCell(answers, x => Array.isArray(x.choices)
+        ? x.choices.map((c,ci)=>(marks[ci]||(ci+1)+'.')+c.text).join('・') : '');
+      selectedText = buildQAggregatedCell(answers, x => (x.selected && x.selected.text) || '');
+      tier = buildQAggregatedCell(answers, x => (x.selected && x.selected.level) || '');
+    } else if(d && d.type === 'social_story_completion'){
+      scene = (d.story && d.story.title) || '';
+      const answers = Array.isArray(d.answers) ? d.answers : [];
+      if(answers.length){
+        question = buildQAggregatedCell(answers, x => (x.prompt && x.prompt.text) || '');
+        choicesStr = buildQAggregatedCell(answers, x => Array.isArray(x.choices)
+          ? x.choices.map((c,ci)=>(marks[ci]||(ci+1)+'.')+c.text).join('・') : '');
+        selectedText = buildQAggregatedCell(answers, x => (x.selected && x.selected.text) || '');
+        tier = buildQAggregatedCell(answers, x => (x.selected && x.selected.level) || '');
+      }
+      // 質問ページが0件の場合、question/choicesStr/selectedText/tierは初期値の空文字列のまま
+      // (Qブロックを1つも持たない空集約結果を無理に生成しない、§17.3/§17.14)。
     } else {
       scene = (d && d.scenario && d.scenario.title) || '';
       question = (d && d.scenario && d.scenario.situation) || '';
