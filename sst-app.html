@@ -5308,7 +5308,7 @@ function go(id){
     buildDiaryFacePicker();
     renderDiaryLog();
   }
-  if(id==='s-breath') setTimeout(()=>{ awardBadge('breath'); recordActivity('breath',0,'done'); }, 1000);
+  if(id==='s-breath') setTimeout(()=>{ awardBadge('breath'); recordActivity('breath',0,'done',{detailSchemaVersion:1,type:'breathing_activity',activityTitle:'きもちを落ち着ける',completionStatus:'done'}); }, 1000);
   if(id==='s-photo'){ loadPhotoScenes(); buildPhotoList(); }
   if(id==='s-teacher-custom') buildCustomList();
   if(id==='s-teacher-edit'){
@@ -5408,6 +5408,9 @@ function showED(i){
   const d=document.getElementById('edetail');
   d.classList.add('on');
   d.scrollIntoView({behavior:'smooth',block:'start'});
+  // Phase SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1: カードを選んだ操作事実のみを記録する。
+  // 「この子はこの感情である」という診断的記録にはしない(donomana-sst-record-detail-expansion-plan-v1_0.md §4.7)。
+  recordActivity('emotion', 0, e.name, {detailSchemaVersion:1, type:'emotion_selection', selected:{label:e.name, face:e.face}});
 }
 function closeED(){ document.getElementById('edetail').classList.remove('on'); }
 
@@ -6511,6 +6514,8 @@ const ACT_LABEL = {
   thermo: { ico:'🌡️', name:'きもち温度計' },
   breath: { ico:'🌈', name:'きもちを落ち着ける' },
   photo:  { ico:'📷', name:'写真SST' },
+  emotion:{ ico:'😊', name:'きもちカード' },
+  phrase: { ico:'🗣️', name:'フレーズ集' },
 };
 
 // Phase T5-E-C: activityLog(ACTIVITY_LOG_KEY='sst_activity_log_v1')のI/OのみDonomana
@@ -6697,31 +6702,74 @@ function buildDetailRecordList(weekLog){
     return;
   }
   titleEl.style.display='';
+  const marks = ['①','②','③','④','⑤','⑥'];
   el.innerHTML = withDetail.map((a,i)=>{
     const info = ACT_LABEL[a.type]||{ico:'📌',name:a.type};
     const d = a.detail;
-    const sel = d.selected||{};
-    const choices = Array.isArray(d.choices) ? d.choices : [];
-    const marks = ['①','②','③','④','⑤','⑥'];
-    const choicesHtml = choices.map((c,ci)=>{
-      const isSel = (sel.id!=null && c.id!=null) ? (c.id===sel.id) : (c.text===sel.text);
-      return `<li class="report-detail-choice${isSel?' is-selected':''}">${marks[ci]||(ci+1)+'.'} ${c.text}</li>`;
-    }).join('');
-    const sceneTitle = d.scenario && d.scenario.title ? d.scenario.title : '';
     const uid = 'rdet-'+a.ts+'-'+i;
+
+    // Phase SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1: detail.typeごとに表示内容を分岐する。
+    // roleplay_choice(既存)の表示は完全に無変更。新規4typeはそれぞれ固有のsummary/detail構成を
+    // 持つため、共通templateへ渡す値(sceneTitle/resultLabel/resultText/expandLabel/expandItemsHtml/
+    // tierText)をtype別に計算する(donomana-sst-record-detail-expansion-plan-v1_0.md §7 Viewer Mapping)。
+    let sceneTitle = '';
+    let resultLabel = '選んだ回答';
+    let resultText = '';
+    let expandLabel = '提示された選択肢';
+    let expandItemsHtml = '';
+    let tierText = '';
+
+    if(d.type === 'branch_ending'){
+      sceneTitle = (d.scenario && d.scenario.title) || '';
+      resultLabel = 'たどりついたエンディング';
+      resultText = (d.ending && d.ending.title) || '';
+      expandLabel = 'たどった道';
+      const route = Array.isArray(d.route) ? d.route : [];
+      expandItemsHtml = route.map((step,ri)=>`<li class="report-detail-choice">${marks[ri]||(ri+1)+'.'} ${step}</li>`).join('');
+      tierText = (d.ending && d.ending.level) || '';
+    } else if(d.type === 'emotion_selection'){
+      const sel = d.selected || {};
+      resultLabel = '選んだカード';
+      resultText = (sel.face ? sel.face+' ' : '') + (sel.label||'');
+    } else if(d.type === 'phrase_action'){
+      sceneTitle = d.phrase || '';
+      resultLabel = '実行した操作';
+      resultText = d.action === 'copied' ? '📋 コピーしました' : '🔊 読み上げました';
+      const cat = (typeof PHRASES !== 'undefined' && PHRASES[d.category]) ? PHRASES[d.category] : null;
+      const catName = cat ? cat.name.replace(/^[^\s]+\s/,'') : (d.category||'');
+      if(catName){
+        expandLabel = 'カテゴリ';
+        expandItemsHtml = `<li class="report-detail-choice">${catName}</li>`;
+      }
+    } else if(d.type === 'breathing_activity'){
+      resultLabel = '状態';
+      resultText = d.completionStatus === 'done' ? '完了' : (d.completionStatus||'');
+    } else {
+      // roleplay_choice、および未知typeへの安全なフォールバック(既存動作を完全維持)
+      const sel = d.selected||{};
+      const choices = Array.isArray(d.choices) ? d.choices : [];
+      sceneTitle = d.scenario && d.scenario.title ? d.scenario.title : '';
+      resultText = sel.text||'';
+      expandItemsHtml = choices.map((c,ci)=>{
+        const isSel = (sel.id!=null && c.id!=null) ? (c.id===sel.id) : (c.text===sel.text);
+        return `<li class="report-detail-choice${isSel?' is-selected':''}">${marks[ci]||(ci+1)+'.'} ${c.text}</li>`;
+      }).join('');
+      tierText = sel.level||'';
+    }
+
     return `
     <div class="report-detail-card">
       <div class="report-detail-ts">${donomanaRecordFormatDateTime(a.ts)}</div>
       <div class="report-detail-mode"><span>${info.ico}</span>${info.name}</div>
       ${sceneTitle ? `<div class="report-detail-scene">「${sceneTitle}」</div>` : ''}
-      <div class="report-detail-sel-label">選んだ回答</div>
-      <div class="report-detail-sel-text">${sel.text||''}</div>
-      ${choicesHtml ? `
+      <div class="report-detail-sel-label">${resultLabel}</div>
+      <div class="report-detail-sel-text">${resultText}</div>
+      ${expandItemsHtml ? `
       <button type="button" class="report-detail-toggle" aria-expanded="false" aria-controls="${uid}" onclick="toggleReportDetail(this,'${uid}')">詳細を見る ▾</button>
       <div class="report-detail-body" id="${uid}" hidden>
-        <div class="report-detail-choices-label">提示された選択肢</div>
-        <ol class="report-detail-choices">${choicesHtml}</ol>
-        ${sel.level ? `<div class="report-detail-tier">教材内区分：${sel.level}</div>` : ''}
+        <div class="report-detail-choices-label">${expandLabel}</div>
+        <ol class="report-detail-choices">${expandItemsHtml}</ol>
+        ${tierText ? `<div class="report-detail-tier">教材内区分：${tierText}</div>` : ''}
       </div>` : ''}
     </div>`;
   }).join('');
@@ -6796,12 +6844,32 @@ function buildReportCsvContent(weekLog){
     const info = ACT_LABEL[a.type]||{ico:'📌',name:a.type};
     const dt = donomanaRecordFormatCsvDateTime(a.ts);
     const d = a.detail;
-    const scene = (d && d.scenario && d.scenario.title) || '';
-    const question = (d && d.scenario && d.scenario.situation) || '';
-    const choicesStr = (d && Array.isArray(d.choices))
-      ? d.choices.map((c,i)=>(marks[i]||(i+1)+'.')+c.text).join('｜') : '';
-    const selectedText = (d && d.selected && d.selected.text) || '';
-    const tier = (d && d.selected && d.selected.level) || '';
+    let scene = '', question = '', choicesStr = '', selectedText = '', tier = '';
+    // Phase SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1: 新規4typeを既存7列(問題文含め8列)の意味を
+    // 変えずにマッピングする(donomana-sst-record-detail-expansion-plan-v1_0.md §8 CSV Mapping、
+    // User判断: 分岐ストーリーのrouteは列へ転用しない/フレーズ集の教材内区分はaction転用しない)。
+    if(d && d.type === 'branch_ending'){
+      scene = (d.scenario && d.scenario.title) || '';
+      selectedText = (d.ending && d.ending.title) || '';
+      tier = (d.ending && d.ending.level) || '';
+      // 提示された選択肢・問題文は出力しない(routeはViewerの「くわしいきろく」でのみ確認可能)
+    } else if(d && d.type === 'emotion_selection'){
+      selectedText = (d.selected && d.selected.label) || '';
+    } else if(d && d.type === 'phrase_action'){
+      const cat = (typeof PHRASES !== 'undefined' && PHRASES[d.category]) ? PHRASES[d.category] : null;
+      scene = cat ? cat.name.replace(/^[^\s]+\s/,'') : (d.category || '');
+      selectedText = d.phrase || '';
+      // 教材内区分はaction(spoken/copied)へ転用しない(空欄のまま)
+    } else if(d && d.type === 'breathing_activity'){
+      tier = d.completionStatus || '';
+    } else {
+      scene = (d && d.scenario && d.scenario.title) || '';
+      question = (d && d.scenario && d.scenario.situation) || '';
+      choicesStr = (d && Array.isArray(d.choices))
+        ? d.choices.map((c,i)=>(marks[i]||(i+1)+'.')+c.text).join('｜') : '';
+      selectedText = (d && d.selected && d.selected.text) || '';
+      tier = (d && d.selected && d.selected.level) || '';
+    }
     rows.push([dt.date+' '+dt.time, info.name, a.type, scene, question, choicesStr, selectedText, tier]);
   });
   return donomanaRecordBuildCsv(rows);
@@ -8816,7 +8884,19 @@ function renderBranchEnding(ending){
     </div>`;
 
   if(ending.level === 'best'){ confetti(); awardBadge('branch_master'); }
-  recordActivity('branch', currentLv, ending.level);
+  // Phase SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1: 1エンディング到達=1record(既存記録タイミング
+  // を変更しない)。currentBranchPathは選択のたびに実行時計算済みのため、そのままrouteとして複写する
+  // (新規idは発明しない、donomana-sst-record-detail-expansion-plan-v1_0.md §4.4/§9)。
+  {
+    const branchStory = window._currentBranchStory;
+    recordActivity('branch', currentLv, ending.level, {
+      detailSchemaVersion: 1,
+      type: 'branch_ending',
+      scenario: { title: branchStory ? branchStory.title : '' },
+      route: currentBranchPath.slice(),
+      ending: { title: ending.title, desc: ending.desc, level: ending.level }
+    });
+  }
   setTimeout(()=>{
     if(branchSpeechGen!==myBranchGen) return; // 次の場面/別画面へ既に移動済みなら読み上げない
     autoSpeak(()=>speak(ending.title + '。' + ending.desc));
@@ -8926,11 +9006,16 @@ function renderPhraseList(){
   }).join('');
 }
 
+// Phase SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1: TTS実行とコピー実行は別のmeaningful actionとして
+// それぞれ記録する(donomana-sst-record-detail-expansion-plan-v1_0.md §4.9)。カテゴリを開いた・
+// フレーズを眺めただけでは記録しない(閲覧のみでの大量record生成を防止)。
 function speakPhrase(txt){
   speak(txt);
+  recordActivity('phrase', 0, 'spoken', {detailSchemaVersion:1, type:'phrase_action', category:currentPhraseCat, phrase:txt, action:'spoken'});
 }
 
 function copyPhrase(txt){
+  recordActivity('phrase', 0, 'copied', {detailSchemaVersion:1, type:'phrase_action', category:currentPhraseCat, phrase:txt, action:'copied'});
   const showToast = ()=>{
     const t = document.createElement('div');
     t.className = 'phrase-copy-toast';
