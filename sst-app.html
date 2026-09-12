@@ -6486,8 +6486,14 @@ function saveReportName(){
   localStorage.setItem(REPORT_NAME_KEY, reportName);
 }
 
-function recordActivity(type, lv, result){
-  activityLog.push({ ts: Date.now(), type, lv: lv||0, result: result||'done', schemaVersion: 1 });
+// Phase SST-RECORD-DETAIL-FOUNDATION-1: optional detail extension(docs/design-system/
+// donomana-sst-record-detail-contract-v1_0.md §11-13)。detailが渡された場合のみ
+// recordへ追加し、渡されない場合は従来通りのlegacy shapeのまま(detail:nullや
+// detail:{}を自動付与しない)。producer側(answerRP()等)への接続は本Phase対象外。
+function recordActivity(type, lv, result, detail){
+  const record = { ts: Date.now(), type, lv: lv||0, result: result||'done', schemaVersion: 1 };
+  if (detail !== undefined) record.detail = detail;
+  activityLog.push(record);
   saveActivityLog();
 }
 
