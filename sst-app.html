@@ -6785,19 +6785,24 @@ function shareReport(){
 // 新規エスケープ実装は書き起こさない。detailを持たないlegacy recordも出力対象に含め、
 // 該当列は空欄とする(存在しないデータを推測で埋めない、§15.3)。教材内区分は「正解/不正解」等の
 // 評価語ではなく既存levelの値をそのまま出す(§34、教材内区分表現)。
+// Phase SST-RECORD-DETAIL-CSV-QUESTION-COLUMN-1: ユーザー要望により「問題文」列を追加。
+// 新しいsnapshot保存は行わず、既にrecord Detail Foundation実装時から保存されている
+// detail.scenario.situationをそのままCSVへ出力するだけ(record schema変更0、migration不要、
+// 過去に保存済みのrecordでもsituationがあればそのまま出力される)。
 function buildReportCsvContent(weekLog){
   const marks = ['①','②','③','④','⑤','⑥'];
-  const rows = [['日時','教材','モード','場面','提示された選択肢','選んだ回答','教材内区分']];
+  const rows = [['日時','教材','モード','場面','問題文','提示された選択肢','選んだ回答','教材内区分']];
   weekLog.forEach(a=>{
     const info = ACT_LABEL[a.type]||{ico:'📌',name:a.type};
     const dt = donomanaRecordFormatCsvDateTime(a.ts);
     const d = a.detail;
     const scene = (d && d.scenario && d.scenario.title) || '';
+    const question = (d && d.scenario && d.scenario.situation) || '';
     const choicesStr = (d && Array.isArray(d.choices))
       ? d.choices.map((c,i)=>(marks[i]||(i+1)+'.')+c.text).join('｜') : '';
     const selectedText = (d && d.selected && d.selected.text) || '';
     const tier = (d && d.selected && d.selected.level) || '';
-    rows.push([dt.date+' '+dt.time, info.name, a.type, scene, choicesStr, selectedText, tier]);
+    rows.push([dt.date+' '+dt.time, info.name, a.type, scene, question, choicesStr, selectedText, tier]);
   });
   return donomanaRecordBuildCsv(rows);
 }
