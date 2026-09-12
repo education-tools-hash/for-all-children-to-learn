@@ -1034,6 +1034,15 @@ body.dark .bottom-back-btn{
 .report-share-btn:active{transform:scale(.97);}
 .report-share-hint{font-size:0.8125rem;color:var(--sub);text-align:center;}
 
+/* Phase SST-RECORD-DETAIL-CSV-PILOT-1 */
+.report-csv-btn{
+  width:100%;min-height:48px;margin-top:6px;
+  background:#fff;border:2px solid #DDDDDD;border-radius:24px;
+  font-family:inherit;font-size:0.875rem;font-weight:700;color:var(--sub);
+  cursor:pointer;transition:all .15s;
+}
+.report-csv-btn:active{transform:scale(.97);}
+
 /* ダークモード */
 body.dark .report-card,
 body.dark .report-name-row{background:#16213E;}
@@ -3331,6 +3340,8 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     <div class="report-actions">
       <button class="report-share-btn" onclick="shareReport()">📤 レポートを共有する</button>
       <div class="report-share-hint">スクリーンショットを撮って先生・おうちの方に見せよう</div>
+      <!-- Phase SST-RECORD-DETAIL-CSV-PILOT-1: contract §15を実装 -->
+      <button class="report-csv-btn" onclick="downloadReportCSV()">📄 今週のきろくをCSVで書き出す</button>
     </div>
 
     <div class="teacher-notice">
@@ -6767,6 +6778,38 @@ function shareReport(){
   } else {
     alert('このブラウザでは共有機能が使えません。\nスクリーンショットを撮って共有してください。');
   }
+}
+
+// Phase SST-RECORD-DETAIL-CSV-PILOT-1: donomana-sst-record-detail-contract-v1_0.md §15を実装。
+// 既存Foundation helper(donomanaRecordBuildCsv/donomanaRecordFormatCsvDateTime)をそのまま利用し、
+// 新規エスケープ実装は書き起こさない。detailを持たないlegacy recordも出力対象に含め、
+// 該当列は空欄とする(存在しないデータを推測で埋めない、§15.3)。教材内区分は「正解/不正解」等の
+// 評価語ではなく既存levelの値をそのまま出す(§34、教材内区分表現)。
+function buildReportCsvContent(weekLog){
+  const marks = ['①','②','③','④','⑤','⑥'];
+  const rows = [['日時','教材','モード','場面','提示された選択肢','選んだ回答','教材内区分']];
+  weekLog.forEach(a=>{
+    const info = ACT_LABEL[a.type]||{ico:'📌',name:a.type};
+    const dt = donomanaRecordFormatCsvDateTime(a.ts);
+    const d = a.detail;
+    const scene = (d && d.scenario && d.scenario.title) || '';
+    const choicesStr = (d && Array.isArray(d.choices))
+      ? d.choices.map((c,i)=>(marks[i]||(i+1)+'.')+c.text).join('｜') : '';
+    const selectedText = (d && d.selected && d.selected.text) || '';
+    const tier = (d && d.selected && d.selected.level) || '';
+    rows.push([dt.date+' '+dt.time, info.name, a.type, scene, choicesStr, selectedText, tier]);
+  });
+  return donomanaRecordBuildCsv(rows);
+}
+
+function downloadReportCSV(){
+  const { mon, sun } = getWeekRange();
+  const startTs = mon.setHours(0,0,0,0);
+  const endTs   = new Date(sun).setHours(23,59,59,999);
+  const weekLog = activityLog.filter(a => a.ts >= startTs && a.ts <= endTs).sort((a,b)=>a.ts-b.ts);
+  const content = buildReportCsvContent(weekLog);
+  const dateStr = new Date().toISOString().slice(0,10);
+  downloadFile(content, `SSTきろく_${dateStr}.csv`, 'text/csv;charset=utf-8');
 }
 
 // ============================================================
