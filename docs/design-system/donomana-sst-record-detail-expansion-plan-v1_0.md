@@ -393,7 +393,7 @@ detail: {
 
 ## 14. Open Decisions（未決事項）
 
-1. ことばクイズ／SSTクイズ／ソーシャルストーリーの記録タイミングを「完了時のみ」から「問題/ページごと」へ変更するか（Wave 2着手前に必須の判断）
+1. ~~ことばクイズ／SSTクイズ／ソーシャルストーリーの記録タイミングを「完了時のみ」から「問題/ページごと」へ変更するか（Wave 2着手前に必須の判断）~~ → **解決済み（§17、Phase SST-RECORD-DETAIL-WAVE2-DESIGN-REVIEW-1）**: 記録タイミングは変更せず、既存の完了record1件へaggregate detail（`answers[]`）を追加する方式（Option C）を正式採用
 2. 分岐ストーリーCSVでの`route`表現方式（案A: 選択肢列へ転用 / 案B: CSVには出さずViewerのみ）
 3. フレーズ集CSVでの「教材内区分」列を`action`(spoken/copied)へ転用するか
 4. 写真で練習をDeferredのままにするか、custom Roleplayとは別扱いで先に進めるか（Privacy Review次第）
@@ -432,8 +432,222 @@ detail: {
 
 ---
 
+## 17. Wave 2 Design Review Decision（確定、Phase SST-RECORD-DETAIL-WAVE2-DESIGN-REVIEW-1）
+
+Production `61b8574`時点のsst-app.html実コードを再調査し、§14 Open Decision 1（ことばクイズ／SSTクイズ／ソーシャルストーリーの記録タイミング再設計要否）を正式に解決する。
+
+### 17.0 コード実態の再確認（今回追加調査）
+
+| 活動 | 現状record呼び出し | 選択(`answer*()`)時のrecord | 既存の重複防止 |
+|---|---|---|---|
+| ことばクイズ | `buildWordQuiz()`内、`currentWQIdx>=qs.length`到達時に1回のみ | **0件**（`answerWQ(ci)`はUIフィードバックのみ、recordActivity呼び出しなし） | `currentWQAnswered`フラグ（同一問題の二重回答をUI側で防止） |
+| SSTクイズ | `showQuizFin()`内、全問終了時に1回のみ | **0件**（`answerQuiz(ci)`も同様にUIのみ） | `currentQuizAnswered`フラグ |
+| ソーシャルストーリー | `storyNav(dir)`内、`currentStoryPage===total-1`到達時に1回のみ | **0件**（`answerStory(pageIdx,ci)`も同様にUIのみ） | 回答後に選択肢`<button>`を`disabled=true`（UI側で二重回答防止） |
+
+3活動とも、**個々の選択そのものは現在いかなる形でも記録されていない**。既存recordは「完了した」という事実1件のみを保持する。
+
+### 17.0.1 Privacy Boundary 明確化（重要な発見、分類変更なし）
+
+調査の過程で、`teacherEdits`（教員による既存問題編集機能）が以下の範囲まで対応していることを確認した。
+
+| 対象 | teacherEditsで編集可能な範囲 |
+|---|---|
+| ロールプレイ（built-in） | 選択肢文言（`c.txt`）・返答文（`c.fb`）・ヒント（`s.tip`） |
+| 分岐ストーリー（Wave 1で既にRelease済み） | ノード文（`node.txt`）・選択肢文言・結末タイトル/説明（`ending.title`/`desc`） |
+| ソーシャルストーリー | ページ本文（`p.txt`）・埋め込み質問文（`p.q`）・選択肢への返答（`c.fb`） |
+| ことばクイズ | 選択肢への返答（`c.fb`）のみ（選択肢文言自体は編集不可、§4.1の記載どおり） |
+| SSTクイズ | 同上（未調査だが`wq`と同一パターンと推定、実装時に再確認） |
+
+**結論: 分類は変更しない。** `teacherEdits`は「あらかじめ用意された固定件数の項目を、フィールド単位で教員が差し替える」機能であり、**新規の自由記述scene/選択肢を無制限に作成できる`teacherCustomScenes`（custom Roleplay）・`photoScenes`（写真で練習）とは性質が異なる**。ロールプレイの選択肢文言編集は既にv1 Contractでbuilt-inとして「低リスク」承認済みであり、Wave 1の分岐ストーリーも同一の`teacherEdits`機構を持ったまま「低リスク」としてProduction Release済みである。ソーシャルストーリーのページ本文・質問文編集は、これらと同一の性質（固定件数・フィールド単位編集）を持つため、既存の承認済みパターンと整合させ、**引き続き低リスクに分類する**。
+
+この発見は既存Wave 1の承認を覆すものではないが、§4.3（旧調査）がこの編集範囲まで具体的に調べていなかったため、Separate Findingとして最終報告に明記する。
+
+### 17.1 ことばクイズ — Design Decision
+
+**分類: KEEP EXISTING COMPLETION TIMING + ADD AGGREGATE DETAIL**（記録タイミング変更なし、既存の唯一の呼び出しへdetailを追加するのみ）
+
+- 新しいfinalization pointは追加しない。`buildWordQuiz()`内の既存呼び出し1箇所が引き続き唯一のrecordActivity呼び出し地点。
+- `answerWQ(ci)`内（既存の`currentWQAnswered`ガードの直後、UIフィードバック処理と同じ場所）で、回答内容をセッション内accumulator配列へpushする。新しい重複防止機構は不要（既存ガードにそのまま相乗り）。
+- accumulatorのreset位置: `buildWordQuiz()`内、`currentWQIdx===0`のとき（初回entry・「もう一度」retryのいずれも`currentWQIdx=0`を経由してから`buildWordQuiz()`を呼ぶため、この1箇所のresetで両ケースを正しく処理できる）。
+
+Schema draft:
+
+```js
+detail: {
+  detailSchemaVersion: 1,
+  type: 'word_quiz_session',
+  answers: [
+    {
+      question: { id: 'wq_1_01', situation: '誕生日に友達からプレゼントをもらいました。', prompt: '何て言う？' },
+      choices: [
+        { id: 'c1', text: '「ありがとう！うれしい！」', level: 'best' },
+        { id: 'c2', text: '「わあ、すごい！」と言ってすぐ開ける', level: 'best' },
+        { id: 'c3', text: '（にっこり笑ってうなずく）', level: 'best' }
+      ],
+      selected: { id: 'c1', text: '「ありがとう！うれしい！」', level: 'best' }
+    }
+    // ... 回答した問題の数だけ続く
+  ]
+}
+```
+
+`question.situation`は`q.sit`、`question.prompt`は`q.q`のsnapshot（両方とも実データに存在するフィールドをそのまま複写、片方へ統合しない）。`level`は既存`tierOf()`の出力（`best`|`good`|`try`）をそのまま使う。
+
+### 17.2 SSTクイズ — Design Decision
+
+**分類: KEEP EXISTING COMPLETION TIMING + ADD AGGREGATE DETAIL**（ことばクイズと同型の方針）
+
+- `showQuizFin()`内の既存呼び出し1箇所を維持。
+- `answerQuiz(ci)`内（`currentQuizAnswered`ガード直後）でaccumulatorへpush。
+- accumulator reset位置: `buildQuiz()`内（ことばクイズと異なり、`buildQuiz()`はセッション開始/retry時に1回だけ呼ばれ、以降は`showQuizQ()`が問題ごとの再描画を担当するため、`buildQuiz()`冒頭でのresetのみで十分）。
+
+Schema draft:
+
+```js
+detail: {
+  detailSchemaVersion: 1,
+  type: 'sst_quiz_session',
+  answers: [
+    {
+      question: { id: 'qz_1_01', text: '友達に会ったとき、何をするといいかな？' },
+      choices: [
+        { id: 'c1', text: '「おはよう！」とあいさつする', level: 'best' },
+        { id: 'c2', text: '相手がこちらに気づくまで待つ', level: 'good' },
+        { id: 'c3', text: 'うなずくだけで通り過ぎる', level: 'best' }
+      ],
+      selected: { id: 'c1', text: '「おはよう！」とあいさつする', level: 'best' }
+    }
+  ]
+}
+```
+
+**ことばクイズとは意図的に統一しない点**: SSTクイズの`question`は`text`1フィールドのみ（`sit`相当のデータが存在しないため）。`level`は`quizTierOf()`の出力で`best`|`good`|`support`|`try`の**4値**（ことばクイズ/ソーシャルストーリーの3値とは異なる）。`support`は「正解ではないが許容される代替手段」を表す既存の子ども向け語彙であり、新しい意味付けは行わない。
+
+### 17.3 ソーシャルストーリー — Design Decision
+
+**分類: KEEP EXISTING COMPLETION TIMING + ADD AGGREGATE DETAIL**
+
+- `storyNav(dir)`内、最終ページ到達時の既存呼び出し1箇所を維持。
+- `answerStory(pageIdx,ci)`内でaccumulatorへpush（既存の「回答後に選択肢を`disabled`にする」処理により、同一ページへの二重回答はUI上防止済み）。
+- accumulator reset位置: `startStory(idx)`内（ストーリー開始のたびに必ず通る唯一の入口）。
+- ページに埋め込み質問(`p.q`)が無い場合、そのページはaccumulatorへ何も追加しない。1ストーリーに質問ページが0件のケースを正式に許容する（`answers: []`）。
+- 「ページを閲覧しただけ」では記録しない（§11の懸念どおり）。埋め込み質問に**回答した**ページのみ`answers[]`に含まれる。
+
+Schema draft:
+
+```js
+detail: {
+  detailSchemaVersion: 1,
+  type: 'social_story_completion',
+  story: { id: 'st_1_01', title: 'はじめての学校' },
+  answers: [
+    {
+      pageIndex: 3,
+      prompt: { text: '友達に「ここいいよ」と言われたら、何て答えるといいかな？' },
+      choices: [
+        { id: 'c1', text: '「ありがとう！よろしくね！」', level: 'best' },
+        { id: 'c2', text: '「ありがとう」とだけ言う', level: 'best' },
+        { id: 'c3', text: '恥ずかしくてうなずく', level: 'best' }
+      ],
+      selected: { id: 'c1', text: '「ありがとう！よろしくね！」', level: 'best' }
+    }
+  ]
+}
+```
+
+`pageIndex`を識別子として使う（ページ自体に安定IDが存在しないため、§10 Snapshot Policyの「IDがない場合はtext snapshot」原則どおり）。途中離脱（最終ページ未到達）の場合、既存動作と同じく**完了record自体が作られないため、その回のembedded回答も記録されない**。これは新しい欠損ではなく、既存の「完了時にのみrecordする」設計をそのまま踏襲した結果であることを明記する。
+
+### 17.4 なぜ Option C（completion recordへのaggregate付加）を採用するか
+
+3活動共通で、以下3案を比較した。
+
+| 案 | 内容 | record件数 | duplicate risk | CSV/Viewer影響 |
+|---|---|---|---|---|
+| A. 拡張なし | 既存completion recordのみ、detail追加なし | 変化なし | なし | 変化なし（ただし個々の回答は一切残らない） |
+| B. 選択肢ごとに別record | 1選択=1detail record（completion recordとは別） | **セッションあたり大幅増加**（例: 5問クイズで問題5件+完了1件=6件） | 新しいfinalization point×3を追加する必要があり、入力方式ごとの検証コストが増える | CSV行数・Viewerカード数が急増、§24/§25の懸念に直結 |
+| **C. completion recordへaggregate（採用）** | 既存の唯一の呼び出しはそのまま、detailに`answers[]`を追加 | **変化なし**（既存と同じ1セッション=1record） | **新しいfinalization pointを追加しない**（既存の1箇所のみ） | CSV行数・Viewerカード数とも変化なし |
+
+Option Cは、v1 Contract Decision 9（§13）で分岐ストーリーの`route`集約に対して既に採用・Production承認済みの「1完了record、その中に複数選択の履歴を含める」という設計をそのまま踏襲したものであり、新しいパターンの発明ではない。record件数・duplicate riskの両面でOption Bより明確に優れるため、Option Cを正式決定として採用する。
+
+### 17.5 Record Count Semantics（確定）
+
+3活動とも、**Wave 2実装後もrecord件数は現状と完全に同一のまま変化しない**。1回のクイズ実施・1回のストーリー完読につき、既存どおり正確に1件のrecordが生成される。「クイズ1問=1record」という増加は発生しない。
+
+### 17.6 Semantic Language（確定）
+
+新規に導入する表示語彙:
+
+- 「回答した問題」「回答したページ」（quiz/story detail展開部の見出し）
+- 「問題文」（既存語彙を流用、`question.text`/`question.prompt`相当）
+- 「選んだ回答」「提示された選択肢」「教材内区分」（既存語彙をそのまま流用）
+
+禁止語彙（v1 Contract §19を継承、再確認）: 「正解」「不正解」「理解できた」「能力がある」「感情状態である」等の自動推定・診断表現は使用しない。クイズのスコア（`pct+'%'`）は既存のまま「つかえる方法ポイント」という既存の非診断的な語彙で表示され続け、本Design Reviewでは変更しない。
+
+### 17.7 Viewer Mapping（確定）
+
+既存`buildDetailRecordList()`の`detail.type`分岐へ、以下3ケースを追加する（Wave 1で確立したprogressive disclosureパターンをそのまま踏襲）。
+
+| Activity | 常時表示（サマリー行） | 詳細表示（展開後、`answers.length>0`のときのみボタン表示） |
+|---|---|---|
+| ことばクイズ／SSTクイズ | 教材名＋「全${answers.length}問中: best ${n}／good ${n}／try ${n}」等のtier集計（SSTクイズは`support`も加算） | 問題ごとの「問題文」「選んだ回答」「教材内区分」のリスト |
+| ソーシャルストーリー | 教材名＋「「${story.title}」を読み終えたよ」（`answers.length===0`なら完了のみ表示、追加詳細なし） | 質問ページごとの「問題文」「選んだ回答」「教材内区分」のリスト（`answers.length>0`の場合のみ） |
+
+tier集計はカウントであり、既存のクイズスコア表示（%）と同じく「観察された選択の集計」であって能力診断ではないため、v1 Contract §19の原則に反しない。
+
+### 17.8 CSV Mapping（確定、Option A採用・Option BはUser判断待ち）
+
+分岐ストーリーの`route`と同じ理由（複数値を単一列の意味に押し込まない）により、以下を既定（Option A）として採用する。
+
+| Activity | 場面 | 問題文 | 提示された選択肢 | 選んだ回答 | 教材内区分 |
+|---|---|---|---|---|---|
+| ことばクイズ／SSTクイズ／ソーシャルストーリー（Option A、既定） | 空欄 | 空欄 | 空欄 | 空欄 | 空欄 |
+
+個々の問題への回答はCSVには出力せず、Viewerの「くわしいきろく」でのみ確認できる（分岐ストーリーのrouteと同じ扱い）。
+
+**Option B（列の意味転用、実装前にUser判断が必要）**: 「教材内区分」列にtier集計サマリー文字列（例: `best:4/good:1`）を出力する案。既存の「1回答のlevel」という列の意味を「セッション全体の集計」へ拡張することになるため、フレーズ集の`action`列転用のときと同様、**実装Phase開始前にUser判断を仰ぐ**。本Design ReviewではOption Aを推奨し、列追加は今回も提案しない。
+
+### 17.9 UI Clutter Risk 評価
+
+Option C採用により、Viewerカード数は既存のまま増加しない。展開後のリストが長くなる懸念（例: 10問クイズ）については、Wave 2実装時に「N件以上は先頭M件+『他N件を見る』」等のtruncation案を検討する余地があるが、**本Design Reviewでは実装しない**（将来課題として記録するのみ）。
+
+### 17.10 CSV Volume Risk 評価
+
+Option C採用によりCSV行数は既存のまま増加しない（1セッション=1行を維持）。Option Bを採用した場合の行数増加リスク（1クイズ実施で最大10行程度）は、Option A/C採用により回避される。
+
+### 17.11 Decision Matrix（総括）
+
+| Activity | Current record | Candidate detail | Recommended timing | Viewer impact | CSV impact | Risk | Decision |
+|---|---|---|---|---|---|---|---|
+| ことばクイズ | 完了時1回 | answers[]集計 | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | カード数変化なし、展開でtier集計→問題別詳細 | 行数変化なし、既存5列は空欄 | 低 | 確定 |
+| SSTクイズ | 完了時1回 | answers[]集計（4値tier維持） | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | 同上 | 同上 | 低 | 確定 |
+| ソーシャルストーリー | 完了時1回 | answers[]集計（0件許容） | KEEP EXISTING TIMING + ADD AGGREGATE DETAIL | カード数変化なし、質問ページがある場合のみ展開ボタン | 行数変化なし、既存5列は空欄 | 低 | 確定 |
+
+### 17.12 Test Contract（Wave 2実装時の最低要件）
+
+共通（v1 Contract §21・Wave 1 Test Contractを継承）:
+
+1. 1セッション完了 = exactly 1 record（既存と同数、増加しないことを確認）
+2. mouse/keyboard/switchいずれの入力でも同一detail形状（既存の`currentWQAnswered`/`currentQuizAnswered`/disabled-button機構に相乗りするため新規finalization pointは0件であることを確認）
+3. accumulator resetが正しいタイミング（初回entry・retryの両方）で発火し、前回セッションの回答が混入しないこと
+4. snapshot integrity（日本語・記号を含む問題文/選択肢文言のsave→reload完全一致）
+5. `answers[]`の要素数が実際に回答した問題数と一致すること
+6. ソーシャルストーリーで質問ページ0件のストーリーが`answers:[]`で正常に完了record化されること
+7. ソーシャルストーリーで途中離脱時、record自体が作られないこと（既存動作の継続、新規欠損ではないことの確認）
+8. legacy/Wave1/mixed compatibility（既存record種別との共存）
+9. Viewer回帰0（Roleplay/分岐/きもちカード/フレーズ/呼吸の表示が無変更）
+10. CSV回帰0（既存8列・既存行数ルールを維持）
+11. Privacy境界（custom Roleplay・写真で練習に本Wave2の変更が波及しないこと）
+12. console/page error 0
+
+### 17.13 Contract Amendment 判定: A. NO CONTRACT AMENDMENT REQUIRED
+
+**理由**: v1 Contract Decision 1（§4）が明示的に保留していたのは「記録**タイミング**（完了時1回 → 問題/ページごとに変更するか）」の判断であり、本Design Reviewはこれを**変更しないこと**を正式決定した（Option C採用、既存の唯一のrecordActivity呼び出し・既存タイミングを完全維持）。追加したのは既存`detail`フィールド（v1 Contract §11-12で既に拡張可能と定義済み）へのaggregate配列であり、Decision 1の文言そのものとは矛盾しない。したがってContract v1.0本体の文言変更は不要。本節（§17）をExpansion Plan文書へのWave 2 Design Decisionとして追加することで足りる。
+
+---
+
 ## 変更履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | v1.0 Draft | 2026-09-12 | Phase SST-RECORD-DETAIL-EXPANSION-DESIGN-1。初版。sst-app.html(`6cf0db1`)の実コード調査に基づく設計。実装なし。 |
+| v1.0 Wave 2 Review | 2026-09-12 | Phase SST-RECORD-DETAIL-WAVE2-DESIGN-REVIEW-1。§14 Open Decision 1を解決し、§17としてことばクイズ／SSTクイズ／ソーシャルストーリーの記録タイミング・detail schema・Viewer/CSV mapping・Test Contractを正式決定（Option C: 既存完了recordへのaggregate detail付加、記録タイミング変更なし）。teacherEditsの編集範囲に関するPrivacy Boundary明確化（§17.0.1）を追加。Contract v1.0 Amendment不要と判定。実装は行っていない。 |
