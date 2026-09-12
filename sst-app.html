@@ -944,6 +944,31 @@ body.dark .bottom-back-btn{
   padding:12px 0;line-height:1.7;
 }
 
+/* Phase SST-RECORD-DETAIL-VIEWER-PILOT-1: くわしいきろく(Progressive Disclosure) */
+.report-detail-list{padding:6px 16px 12px;display:flex;flex-direction:column;gap:10px;}
+.report-detail-card{
+  background:#FAFAFA;border:1px solid #EEEEEE;border-radius:12px;
+  padding:12px 14px;
+}
+.report-detail-ts{font-size:0.6875rem;color:var(--sub);font-weight:700;}
+.report-detail-mode{font-size:0.875rem;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:6px;}
+.report-detail-scene{font-size:0.8125rem;color:var(--sub);margin-top:2px;}
+.report-detail-sel-label{font-size:0.6875rem;color:var(--sub);font-weight:700;margin-top:10px;}
+.report-detail-sel-text{font-size:0.875rem;font-weight:700;margin-top:2px;line-height:1.5;}
+.report-detail-toggle{
+  display:inline-flex;align-items:center;gap:4px;
+  min-height:36px;padding:0 14px;margin-top:10px;
+  background:#fff;border:2px solid #DDDDDD;border-radius:20px;
+  font-family:inherit;font-size:0.75rem;font-weight:700;color:var(--sub);
+  cursor:pointer;transition:all .2s;
+}
+.report-detail-toggle[aria-expanded="true"]{border-color:#3498DB;color:#2E6FB0;}
+.report-detail-body{margin-top:10px;padding-top:10px;border-top:1px dashed #DDDDDD;}
+.report-detail-choices-label{font-size:0.6875rem;color:var(--sub);font-weight:700;}
+.report-detail-choices{list-style:none;margin:6px 0 0;padding-left:0;display:flex;flex-direction:column;gap:6px;font-size:0.8125rem;line-height:1.5;}
+.report-detail-choice.is-selected{font-weight:700;color:#7A5200;}
+.report-detail-tier{font-size:0.75rem;color:var(--sub);font-weight:700;margin-top:10px;}
+
 /* バッジ */
 .report-badges-row{
   display:flex;flex-wrap:wrap;gap:10px;
@@ -3277,6 +3302,12 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
 
       <div class="report-section-title">🎯 やったこと</div>
       <div class="report-activity-list" id="report-activity-list"></div>
+
+      <!-- Phase SST-RECORD-DETAIL-VIEWER-PILOT-1: detailを持つrecordのみ表示。
+           detail無しrecordは対象外(既存アクティビティ別表示はこれまで通り無変更)。
+           detail保有recordが0件の週はセクションごと非表示にする。 -->
+      <div class="report-section-title" id="report-detail-title" style="display:none;">📝 くわしいきろく</div>
+      <div class="report-detail-list" id="report-detail-list"></div>
 
       <div class="report-section-title" id="report-badges-title">🏅 今週とったバッジ</div>
       <div class="report-badges-row" id="report-badges-row"></div>
@@ -6577,6 +6608,9 @@ function buildReport(){
   // アクティビティ別
   buildActivityList(weekLog);
 
+  // Phase SST-RECORD-DETAIL-VIEWER-PILOT-1: detailを持つrecordのみの詳細一覧
+  buildDetailRecordList(weekLog);
+
   // バッジ
   buildReportBadges(thisWeekBadges);
 
@@ -6635,6 +6669,61 @@ function buildActivityList(weekLog){
         <div class="report-act-count">${cnt}回</div>
       </div>`;
     }).join('');
+}
+
+// Phase SST-RECORD-DETAIL-VIEWER-PILOT-1: donomana-sst-record-detail-contract-v1_0.md §8を実装。
+// 独立した新規画面は作らず、既存の週次レポート(s-report)へ
+// summary(選んだ回答)+detail disclosure(提示された選択肢/教材内区分)を追加する。
+// detailを持たないrecord(現時点ではbuilt-in Roleplay以外の全て)は対象外とし、
+// 既存のアクティビティ別表示・他セクションは一切変更しない。
+function buildDetailRecordList(weekLog){
+  const titleEl = document.getElementById('report-detail-title');
+  const el = document.getElementById('report-detail-list');
+  const withDetail = weekLog.filter(a=>a.detail).sort((a,b)=>b.ts-a.ts);
+  if(!withDetail.length){
+    titleEl.style.display='none';
+    el.innerHTML='';
+    return;
+  }
+  titleEl.style.display='';
+  el.innerHTML = withDetail.map((a,i)=>{
+    const info = ACT_LABEL[a.type]||{ico:'📌',name:a.type};
+    const d = a.detail;
+    const sel = d.selected||{};
+    const choices = Array.isArray(d.choices) ? d.choices : [];
+    const marks = ['①','②','③','④','⑤','⑥'];
+    const choicesHtml = choices.map((c,ci)=>{
+      const isSel = (sel.id!=null && c.id!=null) ? (c.id===sel.id) : (c.text===sel.text);
+      return `<li class="report-detail-choice${isSel?' is-selected':''}">${marks[ci]||(ci+1)+'.'} ${c.text}</li>`;
+    }).join('');
+    const sceneTitle = d.scenario && d.scenario.title ? d.scenario.title : '';
+    const uid = 'rdet-'+a.ts+'-'+i;
+    return `
+    <div class="report-detail-card">
+      <div class="report-detail-ts">${donomanaRecordFormatDateTime(a.ts)}</div>
+      <div class="report-detail-mode"><span>${info.ico}</span>${info.name}</div>
+      ${sceneTitle ? `<div class="report-detail-scene">「${sceneTitle}」</div>` : ''}
+      <div class="report-detail-sel-label">選んだ回答</div>
+      <div class="report-detail-sel-text">${sel.text||''}</div>
+      ${choicesHtml ? `
+      <button type="button" class="report-detail-toggle" aria-expanded="false" aria-controls="${uid}" onclick="toggleReportDetail(this,'${uid}')">詳細を見る ▾</button>
+      <div class="report-detail-body" id="${uid}" hidden>
+        <div class="report-detail-choices-label">提示された選択肢</div>
+        <ol class="report-detail-choices">${choicesHtml}</ol>
+        ${sel.level ? `<div class="report-detail-tier">教材内区分：${sel.level}</div>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// トグルボタン自身にfocusを残したまま開閉する(詳細領域への強制移動をしない)。
+// aria-expandedのみで状態を伝え、過剰なaria-live通知は追加しない(Accessibility Contract §8.1)。
+function toggleReportDetail(btn, id){
+  const body = document.getElementById(id);
+  const willExpand = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', String(willExpand));
+  body.hidden = !willExpand;
+  btn.textContent = willExpand ? '詳細をとじる ▴' : '詳細を見る ▾';
 }
 
 function buildReportBadges(ids){
