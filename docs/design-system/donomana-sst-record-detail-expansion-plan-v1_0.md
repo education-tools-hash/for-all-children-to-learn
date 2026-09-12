@@ -7,6 +7,8 @@
 - 契機: ROLEPLAY RECORD DETAIL v1の正式Close時に、ユーザーから「他10活動への横展開・custom Roleplay対応・共通learning-records.html統合は、利用開始後の別Phaseとして扱う」という明示的な先送り指示があり、その「別Phase」の設計を先行して整理する。
 - 変更ファイル: 本ドキュメントのみ。`sst-app.html`・`generate.js`・Foundation API・localStorage schema・Viewer・CSVのいずれも本Phaseで変更していない（Production機能コード変更 0件）。
 
+> **Implementation status note（追記、2026-09-12、Phase SST-RECORD-DETAIL-EXPANSION-DESIGN-RELEASE-1）**: 上記「Status: DESIGN ONLY DRAFT」「Implementation: NOT STARTED」は本文書起草時点（baseline `6cf0db1`）の記述であり、履歴としてそのまま保持する。その後、本文書が§6でWave 1として整理した4活動（分岐ストーリー・感情カード・フレーズ集・呼吸活動）は実装・実ブラウザ検証を経てProduction Release済み（Phase `SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1` / `SST-RECORD-DETAIL-WAVE1-RELEASE-1`、checkpoint `61b8574`）。きもち温度計は本文書§6の「対象外（既に完結）」の結論どおり今回も対象外のまま。本文書はWave 2（ことばクイズ・SSTクイズ・ソーシャルストーリー）および写真で練習・custom RoleplayのPrivacy Reviewの設計根拠として引き続き有効である。この注記の追加以外、Activity Matrix・Wave分類・Open Decisions・Test Contractを含む本文書の内容は一切変更していない。
+
 ---
 
 ## 0. 関連文書
