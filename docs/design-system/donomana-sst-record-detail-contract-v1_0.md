@@ -1,7 +1,8 @@
 # どのまな SST Learning Record Detail Contract（Version 1.0）
 
 - **Status: FINAL DESIGN CONTRACT v1.0**
-- **Implementation: NOT YET IMPLEMENTED**
+- **Implementation: PRODUCTION RELEASED / V1 COMPLETE**（2026-09-13追記。Foundation・built-in Roleplay・Viewer・CSVに加え、Wave 1（分岐ストーリー／感情カード／フレーズ集／呼吸）・Wave 2（ことばクイズ／SSTクイズ／ソーシャルストーリー）までのRecord Detail v1がすべてProduction Release済み。詳細はExpansion Plan文書および各Release Phaseの記録を参照。Photo Practice・custom Roleplayのdetail化、common learning-records.html統合は本v1の対象外のままDeferred/Open Decisionとして残っている。共有speak()/stopSpeak()層の既知タイマー競合はRecord Detail v1のscope外の既存debtとして残存する。）
+- Production baseline: `d3dab6e`
 - 発行: 2026年9月（Phase SST-RECORD-DETAIL-DESIGN-1 draft → Phase SST-RECORD-DETAIL-DESIGN-FINALIZE-1で確定）
 - 位置づけ: **本仕様は既存Learning Record Foundation標準を拡張するSST固有の詳細記録仕様であり、既存標準を置き換えるものではない。** `donomana-learning-record-standard-v1_0.md`（Core Schema・Storage・Foundation API）と`donomana-learning-record-ui-standard-v1_0.md`（Viewer・CSV・Delete・Accessibility）を継承し、両Standardが未整備のまま残していた「教材が提示した内容・利用者が選んだ内容そのもののsnapshot記録」という領域のみを、sst-app固有のoptional extensionとして定義する。両Standard自体はいずれも変更しない。
 - 契機: 実ユーザーからの要望「各実施項目の記録について、日付、項目など記録できることはありがたい。その上でもし可能であれば、ロールプレイでの選択肢と選択した回答の記録までできると尚ありがたい。」
