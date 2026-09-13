@@ -189,7 +189,7 @@ Forward Tab 30回・Reverse Shift+Tab 30回・immediate Shift+Tab・outside-focu
 
 ### Switch / Gaze影響
 
-gaze-keyboardの新規listenerには`if(scanMode)return;`ガードを追加し、既存のSwitch Scan Tab Trap無効化パターン(settingsModal Trap)と同一の設計思想を踏襲した。Gaze/dwellロジック(pointerイベント系)自体には一切触れていない。**実機(Tobii/Switchデバイス)による検証は未実施であり、SWITCH REAL DEVICE REQUIRED / GAZE REAL DEVICE REQUIREDとしてUser Real Device Gateへ回す。**
+gaze-keyboardの新規listenerには`if(scanMode)return;`ガードを追加し、既存のSwitch Scan Tab Trap無効化パターン(settingsModal Trap)と同一の設計思想を踏襲した。Gaze/dwellロジック(pointerイベント系)自体には一切触れていない。**実機(Tobii/Switchデバイス)によるUser Real Device Gateを実施し、Blue2(Switch)・Tobii(Gaze)ともPASS。GLOBAL-1A Pilot 5アプリのStrict Containment/Escape Focus Restorationについて実機由来の新規回帰は0件。** gaze-keyboard/schedule-appの既存Switch Scan関連の別findingは`donomana-a11y-panel-keyboard-contract-v1_0.md`§9(Separate Findings、PRE-EXISTING/NON-BLOCKING)を参照。本Pilotのcontainment実装が原因ではなく、修正はしていない。
 
 ### Static Validation
 
@@ -209,6 +209,12 @@ FAMILY-B Production residual count: **4のまま維持**(Owner Decision §34ど�
 
 ### Formal Status
 
-**WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A = PILOT RC VALIDATED / READY FOR USER REVIEW**
+**WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A = PRODUCTION RELEASED / USER REVIEW COMPLETE / BLUE2 VERIFIED / TOBII VERIFIED / GLOBAL-1A COMPLETE**
 
-Pilot 5アプリ全てで、Strict Containment・Escape Focus Restoration・Modal Coexistence・Visible Focus regression・Responsive・Touch・Console/Static Validationが完全にPASSした。Switch/Gaze実機検証のみ未実施(Real Device Gate)。User Browser Reviewを待つ。Approvalなしでmerge/push/Production Release/cleanup/GLOBAL-1B/1C/1D/FAMILY-B Batch-7は開始しない。
+Pilot 5アプリ全てで、Strict Containment・Escape Focus Restoration・Modal Coexistence・Visible Focus regression・Responsive・Touch・Console/Static Validationが完全にPASSした。User Browser Review PASS、Blue2 Real Device Gate PASS、Tobii Real Device Gate PASS。Production baseline `837d454`。New regression 0。
+
+**Separate Findings(PRE-EXISTING / NOT CAUSED BY GLOBAL-1B / NON-BLOCKING、今回未修正)**:
+- `gaze-keyboard.html`: A11yパネルを開いてもBlue2 Scan対象がキーボード側に残り、パネル内をスキャンできない。
+- `schedule-app.html`: 1スイッチ設定で「みる」画面のScanが2番目で停止し、3番目以降へ進まない。
+
+GLOBAL-1B/1C/1D(残り30アプリへの横展開)・FAMILY-B Batch-7は本Phaseでは開始しない。次のRollout判断はUser Approval待ち。

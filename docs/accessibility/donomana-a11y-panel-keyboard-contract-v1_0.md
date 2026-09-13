@@ -4,7 +4,7 @@
 
 - 前Phase: `WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1`(mogura-tataki、Production final `77085ca`)。GLOBAL-1 docs release(Production final `12c00da`)を経て、GLOBAL-1A Pilot実装(mogura-tataki・tyushi・cup_game・schedule-app・gaze-keyboard)がRC完了(§12参照)。
 - 本Contractは`donomana-modal-accessibility-contract-v1_0.md`(v1.1、app固有modalが対象)を補完するものであり、対象は共通A11yパネル自体のkeyboard behaviorに限定する。app固有modal自身のFocus Trap/Initial Focus/Escape Focus Restorationは引き続き`donomana-modal-accessibility-contract-v1_0.md`が正とする。
-- **本ステータス: DRAFT v0.9.1。GLOBAL-1A Pilot RC完了、User Browser Review待ち。全35アプリへの横展開(GLOBAL-1B〜1D)完了前は正式v1.0としない(§26参照条件)。**
+- **本ステータス: DRAFT v0.9.1。GLOBAL-1A Production Released(User Browser Review PASS / Blue2 Real Device Gate PASS / Tobii Real Device Gate PASS、Production baseline `837d454`)。全35アプリへの横展開(GLOBAL-1B〜1D)は未着手のため、§26参照条件(正式v1.0への昇格条件)は依然として満たされておらず、今回もDRAFTのまま維持する。**
 - 適用範囲: `donomanaA11yPanel`/`donomanaA11yBtn`(共通A11yパネル)のTab/Shift+Tab循環、Escape close、Focus Restoration、Modal Coexistence、Visible Focus、Hidden/Disabled Controls。
 
 ---
@@ -62,17 +62,17 @@ Outside-focus (Shift+Tab):  任意の外部要素 → last internal focusable
 
 mogura-tataki(`moguraA11yClusterFocusables`、commit `ddbeba7`、Production `77085ca`)を本Contract §3のReference Implementationとする。ただし§13(Reference Implementation化の注意)のとおり、コードをそのままcopy/pasteせず、reusable behaviorのみを移植すること。
 
-### 3.4 GLOBAL-1A実装結果(共通helper化、Production未反映)
+### 3.4 GLOBAL-1A実装結果(共通helper化、Production Released `837d454`)
 
 Owner Decision(a)により、mogura-tataki(Reference)・tyushi(Family B)・cup_game(Family C)・schedule-app(Family C variant)・gaze-keyboard(Family D-1)の5アプリをPilotとし、共通層(`generate.js`)に`getA11yPanelFocusables(panelEl)`・`trapA11yPanelFocus(e)`・`restoreA11yPanelFocus()`を追加、`window`経由で公開した(§12 Common helper参照)。各Pilotアプリは自前の(またはgaze-keyboardの場合は新規追加の)Tabキーlistenerから`window.trapA11yPanelFocus(e)`を呼び出す形へ委譲し、mogura-tataki/tyushi/cup_gameの既存ローカルcluster関数(`moguraA11yClusterFocusables`/`a11yClusterFocusables`/`cupGameA11yPanelFocusables`)は削除した。
 
 実機検証(5アプリ共通、Microsoft Edge、port 9201): Forward Tab 30回・Reverse Shift+Tab 30回・immediate Shift+Tab・outside-focus-guard(Tab/Shift+Tab)を実施し、**5アプリ全てで完全に同一の結果**(`donomanaSettingsProxy`から`donomanaA11yReset`までの8要素のみで循環、opener/toolbar/browser chromeへの遷移ゼロ)を確認した。tyushi・schedule-appについては、Pre-fix investigationで「自前modal(help-overlay/schedule 3modal)が同時に開いていないとA11yパネルのcontainmentが発火しない」という追加の構造的欠陥を新規発見し(Owner Decision(c)の対象、§14・§16参照)、A11yパネルの判定をTabキーlistenerの最上位・無条件へ移動する形で併せて是正した。修正後、A11yパネル単独openでもcontainmentが正しく発火することを実機確認した。
 
-共通helper(3関数の定義)自体は`node generate.js`実行により**全35アプリへ反映される**が、Tab containmentを実際に発火させるlistenerはPilot 5アプリにのみ追加されており、Non-Pilot 30アプリの挙動(Family D、containment無し)は不変であることを確認した(§31)。Production未反映、User Browser Review待ち。
+共通helper(3関数の定義)自体は`node generate.js`実行により**全35アプリへ反映される**が、Tab containmentを実際に発火させるlistenerはPilot 5アプリ(mogura-tataki・tyushi・cup_game・schedule-app・gaze-keyboard)にのみ追加されており、Non-Pilot 30アプリの挙動(Family D、containment無し)は不変であることを確認した(§31)。**Production Released(Production baseline `837d454`)。User Browser Review PASS、Blue2 Real Device Gate PASS、Tobii Real Device Gate PASS。**
 
 ---
 
-## 4. Close Restoration — REQUIRED **[GLOBAL-1Aで共通層実装済み、Production未反映]**
+## 4. Close Restoration — REQUIRED **[GLOBAL-1Aで共通層実装済み、Production Released `837d454`]**
 
 A11yパネルを次のいずれかの方法で閉じた場合、focusは**opener(`donomanaA11yBtn`)へ復帰する**ことを原則とする。BODYへのfocus lossは禁止。
 
@@ -180,6 +180,17 @@ A11yパネルのfocus containment変更は、Switch ScanのTab sequence依存・
 - Gaze(視線入力)対応: 15/35アプリ(okane-app・tyushi・cup_game・kimochi-board・drawing-app・kyou-no-kiroku・scratch-app・gaze-keyboard・mogura-tataki・kurabeyou-app・katachi-awase-app・miru-hirogaru-app・mitsukete-touch-app・junban-miyou-app・dotchiga-ii-app)。
 - A11yパネルのstrict containment実装(mogura-tataki Reference)は、Switch Scan・Gaze/dwellの実装(pointerイベント系・独立したscan-focus管理)とは別レイヤーで動作するため、Tabキーによるcontainmentの変更自体はSwitch Scanのスキャン順序・Gaze dwell targetには影響しない設計が可能と考えられる(mogura-tataki Hotfixでの実機確認で、Switch/Gaze固有の回帰は確認されていない)。ただしGaze対応15アプリ・Switch対応28アプリへの横展開時は、個別に回帰確認が必要(§21)。
 
+### GLOBAL-1A Real Device Gate結果
+
+Blue2(Switch)・Tobii(Gaze)実機によるUser Real Device Gateを実施し、いずれもPASS。GLOBAL-1A Pilot 5アプリのStrict Containment・Escape Focus Restorationについて、実機由来の新規回帰(New regression)は0件。
+
+**Separate Findings(PRE-EXISTING / NOT CAUSED BY GLOBAL-1B / NON-BLOCKING、本Contractでは未修正のまま維持)**:
+
+- `gaze-keyboard.html`: A11yパネルを開いてもBlue2 Scan対象がキーボード側に残り、パネル内をスキャンできない。
+- `schedule-app.html`: 1スイッチ設定で「みる」画面のScanが2番目で停止し、3番目以降へ進まない。
+
+いずれも本ContractのStrict Containment/Escape Focus Restoration実装が原因ではなく、既存のSwitch Scan実装側の別軸の問題として記録するのみで、修正は行わない。
+
 ---
 
 ## 10. Test Contract(Regression Test必須項目)
@@ -208,3 +219,4 @@ A11yパネルのfocus containment変更は、Switch ScanのTab sequence依存・
 
 - **v0.9(2026-09-09、DRAFT)**: `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`初版。mogura-tataki(POSTRELEASE-HOTFIX-1、Production `77085ca`)をReference Implementation候補とし、35アプリ横断監査結果に基づき起草。Pilot実装・User Approval前のためv1.0へは未昇格。
 - **v0.9.1(2026-09-09、DRAFT)**: `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A`(Owner Approved、Pilot 5アプリ)実装結果を反映。§3.4(共通helper化、Strict Containment)・§4(Escape Focus Restoration実装結果)を追記。tyushi/schedule-appで新規発見した「自前modal同時open時のみA11yパネルcontainmentが発火する」構造的欠陥の是正結果も記録。Production未反映(worktree `for-all-children-to-learn-a11y-panel-global-1a`、branch `fix/a11y-panel-global-pilot-1a`)、User Browser Review待ちのためv1.0へは未昇格。
+- **v0.9.1 Status Update(2026-09-13、DOCS-FINALIZE-1、実態反映のみ)**: GLOBAL-1AのProduction Release完了(Production baseline `837d454`)、User Browser Review PASS、Blue2/Tobii Real Device Gate PASSを本文Status行・§3.4末尾へ反映。§9へGLOBAL-1A Real Device Gate結果と、gaze-keyboard/schedule-appの既存Switch Scan関連Separate Findings(PRE-EXISTING / NON-BLOCKING、未修正)を追記。全35アプリへの横展開(GLOBAL-1B〜1D)は引き続き未着手のため、v1.0への昇格条件(§26)は満たされておらず、バージョン番号・DRAFT表記は変更していない。Product code変更0、docs-onlyのstatus finalization。
