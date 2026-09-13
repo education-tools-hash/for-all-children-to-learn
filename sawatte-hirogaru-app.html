@@ -88,6 +88,14 @@
   .setting-group h2 { font-size: 1.0625rem; margin: 0 0 var(--dm-space-3,12px); color: var(--dm-color-ink,#3B4A54); }
   .choice-row { display: flex; flex-wrap: wrap; gap: var(--dm-space-2,8px); }
   .choice-btn { min-height: 52px; flex: 1 1 auto; min-width: 120px; padding: var(--dm-space-2,8px) var(--dm-space-3,12px); border-radius: var(--dm-radius-md,9px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+  /* effectWidthChoiceRow's 5 short labels fit one row at a narrower min-width —
+     kept as its own row style rather than shrinking .choice-btn globally, so
+     Mode/Intensity's longer labels (e.g. "ひかり＋おと") don't get cramped.
+     Reduces total Teacher Settings page height, which otherwise pushed this
+     5th settings row down into the fixed bottom Record-nav/A11y button zone
+     (found via Playwright screenshot review during this fix). */
+  #effectWidthChoiceRow { gap: 5px; flex-wrap: nowrap; }
+  #effectWidthChoiceRow .choice-btn { min-width: 0; flex: 1 1 0; padding: var(--dm-space-2,8px) 2px; font-size: 0.75rem; gap: 2px; }
   .choice-btn[aria-pressed="true"] { background: var(--dm-color-primary,#00A99D); border-color: var(--dm-color-primary,#00A99D); color: #fff; }
   .choice-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
   .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--dm-space-3,12px); padding: var(--dm-space-2,8px) 0; }
@@ -449,6 +457,12 @@
       </div>
 
       <div class="setting-group">
+        <h2>エフェクトの 太さ</h2>
+        <div class="choice-row" id="effectWidthChoiceRow" role="group" aria-label="エフェクトの太さをえらぶ"></div>
+        <p class="hint">波紋・光・スワイプのあとの太さや大きさが変わります。大きく太い反応の方が、自分の操作との関係に気づきやすい子どももいます。</p>
+      </div>
+
+      <div class="setting-group">
         <div class="toggle-row">
           <label for="soundToggle">🔊 おと</label>
           <span class="switch"><input type="checkbox" id="soundToggle"><span class="track"></span><span class="thumb"></span></span>
@@ -696,7 +710,26 @@ var INTENSITY_PRESETS = {
   strong:   { rippleScale: 1.25, particleCount: 10, particleSpeed: 1.25, rippleDurationMs: 520, brightness: 1.15, audioGain: 0.9,  audioMinIntervalMs: 60  }
 };
 
-var settings = { mode: 'light_sound', intensity: 'standard', soundEnabled: true, gazeEnabled: false };
+// User Review Fix: "エフェクトの太さ" is an independent axis from Reaction
+// Intensity — Intensity is about how *energetic* the stimulus feels (speed/
+// brightness/particle count/loudness); Effect Width is purely how *big/broad*
+// the visual footprint is (ripple/glow radius, particle spread, swipe trail
+// width), for children who notice the touch→change link more easily from a
+// larger visual reaction. The two multiply together, not replace each other.
+var EFFECT_WIDTHS = [
+  { id: 'very-thin',  icon: '⚬', label: '極細' },
+  { id: 'thin',       icon: '○', label: '細い' },
+  { id: 'normal',     icon: '◎', label: 'ふつう' },
+  { id: 'thick',      icon: '◉', label: '太い' },
+  { id: 'very-thick', icon: '⬤', label: '極太' }
+];
+// Scale multiplier applied to ripple/glow radius, particle radius and particle
+// travel distance together (13章 Visual Feedback: object size / particle
+// density). Chosen so very-thin still reads clearly (never near-invisible)
+// and very-thick never approaches covering the whole Interactive Surface.
+var EFFECT_WIDTH_SCALE = { 'very-thin': 0.45, 'thin': 0.7, 'normal': 1.0, 'thick': 1.45, 'very-thick': 2.0 };
+
+var settings = { mode: 'light_sound', intensity: 'standard', effectWidth: 'normal', soundEnabled: true, gazeEnabled: false };
 function loadSettings(){
   try {
     var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
@@ -705,6 +738,7 @@ function loadSettings(){
     if (parsed && typeof parsed === 'object') {
       if (MODES.some(function(m){return m.id === parsed.mode;})) settings.mode = parsed.mode;
       if (INTENSITY_PRESETS[parsed.intensity]) settings.intensity = parsed.intensity;
+      if (EFFECT_WIDTH_SCALE[parsed.effectWidth]) settings.effectWidth = parsed.effectWidth;
       if (typeof parsed.soundEnabled === 'boolean') settings.soundEnabled = parsed.soundEnabled;
       if (typeof parsed.gazeEnabled === 'boolean') settings.gazeEnabled = parsed.gazeEnabled;
     }
@@ -733,6 +767,7 @@ function showScreen(name){
 ===================================================================== */
 var modeRow = document.getElementById('modeChoiceRow');
 var intensityRow = document.getElementById('intensityChoiceRow');
+var effectWidthRow = document.getElementById('effectWidthChoiceRow');
 
 function renderChoiceRow(container, items, currentId, onPick){
   container.innerHTML = '';
@@ -748,8 +783,10 @@ function renderChoiceRow(container, items, currentId, onPick){
 }
 function refreshModeRow(){ renderChoiceRow(modeRow, MODES, settings.mode, function(id){ settings.mode = id; saveSettings(); refreshModeRow(); }); }
 function refreshIntensityRow(){ renderChoiceRow(intensityRow, INTENSITIES, settings.intensity, function(id){ settings.intensity = id; saveSettings(); refreshIntensityRow(); }); }
+function refreshEffectWidthRow(){ renderChoiceRow(effectWidthRow, EFFECT_WIDTHS, settings.effectWidth, function(id){ settings.effectWidth = id; saveSettings(); refreshEffectWidthRow(); }); }
 refreshModeRow();
 refreshIntensityRow();
+refreshEffectWidthRow();
 
 var soundToggle = document.getElementById('soundToggle');
 var gazeToggle = document.getElementById('gazeToggle');
@@ -912,6 +949,10 @@ function visualParams(){
   };
 }
 function maxVisualReactions(){ return prefersReducedMotion ? 18 : 40; }
+// User Review Fix: independent "エフェクトの太さ" multiplier applied to
+// radius/reach only (ripple+glow radius, particle radius, particle travel
+// distance) — never to particle count, which stays Reaction Intensity's job.
+function currentEffectWidthScale(){ return EFFECT_WIDTH_SCALE[settings.effectWidth] || 1; }
 
 function resizeCanvas(){
   var rect = surfaceEl.getBoundingClientRect();
@@ -935,33 +976,37 @@ function spawnReaction(obj){
 
 function spawnBurst(x, y, scale){
   var p = visualParams();
+  var w = currentEffectWidthScale();
+  var lw = 2.5 * Math.sqrt(w);
   var color = pickColor();
   var now = performance.now();
-  spawnReaction({ kind: 'ripple', x: x, y: y, color: color, born: now, life: p.rippleDurationMs, maxR: 70 * p.rippleScale * scale });
+  spawnReaction({ kind: 'ripple', x: x, y: y, color: color, born: now, life: p.rippleDurationMs, maxR: 70 * p.rippleScale * scale * w, lineWidth: lw });
   var count = Math.max(1, Math.round(p.particleCount * scale));
   for (var i = 0; i < count; i++) {
     var angle = (Math.PI * 2 * i / count) + (Math.random() * 0.6 - 0.3);
-    var speed = (60 + Math.random() * 100) * p.particleSpeed;
+    var speed = (60 + Math.random() * 100) * p.particleSpeed * w;
     spawnReaction({
       kind: 'particle', x: x, y: y, color: color, born: now, life: 550 + Math.random() * 250,
-      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: (3 + Math.random() * 3) * Math.min(1.3, scale)
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: (3 + Math.random() * 3) * Math.min(1.3, scale) * w
     });
   }
 }
 function spawnTrail(x, y){
   var p = visualParams();
+  var w = currentEffectWidthScale();
   var color = pickColor();
   var now = performance.now();
-  spawnReaction({ kind: 'ripple', x: x, y: y, color: color, born: now, life: p.rippleDurationMs * 0.6, maxR: 32 * p.rippleScale });
+  spawnReaction({ kind: 'ripple', x: x, y: y, color: color, born: now, life: p.rippleDurationMs * 0.6, maxR: 32 * p.rippleScale * w, lineWidth: 2 * Math.sqrt(w) });
   for (var i = 0; i < 2; i++) {
     var angle = Math.random() * Math.PI * 2;
-    var speed = (30 + Math.random() * 50) * p.particleSpeed;
-    spawnReaction({ kind: 'particle', x: x, y: y, color: color, born: now, life: 380 + Math.random() * 180, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 2 + Math.random() * 2 });
+    var speed = (30 + Math.random() * 50) * p.particleSpeed * w;
+    spawnReaction({ kind: 'particle', x: x, y: y, color: color, born: now, life: 380 + Math.random() * 180, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: (2 + Math.random() * 2) * w });
   }
 }
 function spawnMinimalPulse(x, y){
   var now = performance.now();
-  spawnReaction({ kind: 'pulse', x: x, y: y, color: pickColor(), born: now, life: 420, maxR: 20 * visualParams().rippleScale });
+  var w = currentEffectWidthScale();
+  spawnReaction({ kind: 'pulse', x: x, y: y, color: pickColor(), born: now, life: 420, maxR: 20 * visualParams().rippleScale * w, lineWidth: 2 * Math.sqrt(w) });
 }
 
 var renderRafId = null;
@@ -982,7 +1027,7 @@ function renderLoop(){
       ctx2d.arc(r.x, r.y, radius, 0, Math.PI * 2);
       ctx2d.strokeStyle = r.color;
       ctx2d.globalAlpha = Math.min(1, alpha) * 0.85;
-      ctx2d.lineWidth = 2.5;
+      ctx2d.lineWidth = r.lineWidth || 2.5;
       ctx2d.stroke();
       var grad = ctx2d.createRadialGradient(r.x, r.y, 0, r.x, r.y, radius);
       grad.addColorStop(0, r.color);
@@ -1203,7 +1248,8 @@ function finalizeSession(){
     swipeCount: session.swipeCount,
     inputMethods: Array.from(session.inputMethods),
     soundEnabled: settings.soundEnabled,
-    intensity: settings.intensity
+    intensity: settings.intensity,
+    effectWidth: settings.effectWidth
   };
   var entry = donomanaRecordCreate('sawatte-hirogaru-app', 'session', null, payload);
   donomanaRecordAddLog(STORAGE_LOG_KEY, entry);
@@ -1218,6 +1264,7 @@ function formatDuration(ms){
 }
 var MODE_LABEL = {}; MODES.forEach(function(m){ MODE_LABEL[m.id] = m.icon + ' ' + m.label; });
 var INTENSITY_LABEL = {}; INTENSITIES.forEach(function(i){ INTENSITY_LABEL[i.id] = i.icon + ' ' + i.label; });
+var EFFECT_WIDTH_LABEL = {}; EFFECT_WIDTHS.forEach(function(e){ EFFECT_WIDTH_LABEL[e.id] = e.icon + ' ' + e.label; });
 
 function showSummary(payload){
   var list = document.getElementById('summaryList');
@@ -1233,6 +1280,7 @@ function showSummary(payload){
   addRow('スワイプした かいすう', payload.swipeCount + ' かい');
   addRow('つかった モード', MODE_LABEL[payload.mode] || payload.mode);
   addRow('しげきの つよさ', INTENSITY_LABEL[payload.intensity] || payload.intensity);
+  addRow('エフェクトの 太さ', EFFECT_WIDTH_LABEL[payload.effectWidth] || payload.effectWidth);
   var methodLabels = payload.inputMethods.map(function(m){ return donomanaRecordFormatInputMethod(m) || m; }).join('・');
   addRow('つかった そうさ', methodLabels || '（なし）');
   showScreen('summary');
