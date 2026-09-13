@@ -1,10 +1,10 @@
 # どのまな 新規教材「さわってひろがる」Design Contract v1.0（DRAFT）
 
-- 版: v1.0（DRAFT、起草）
-- 起草日: 2026-09-13（Phase `SAWATTE-HIROGARU-DESIGN-1`）
-- 状態: **DRAFT / User Design Review待ち。実装は未着手。**
+- 版: v1.0（DRAFT、起草 → Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`でBlocking Open Decisions確定）
+- 起草日: 2026-09-13（Phase `SAWATTE-HIROGARU-DESIGN-1`）／改訂: 2026-09-13（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`、Gaze・Switch・Reaction Mode・Audio Architecture・Record Schema等の残存設計判断を確定）
+- 状態: **DRAFT / Design Finalized（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`でBlocking Open Decisions 0を確認）。実装は未着手、User ApprovalありでImplementation Phaseへ進む。**
 - 位置づけ: `docs/design-system/donomana-new-app-development-standard-v1_0.md`（v1.7、以下「New App Standard」）の下位文書。New App Standardの各章（REQUIRED/CONDITIONAL項目）と矛盾する場合は常にNew App Standardを優先し、本書側を見直す。`docs/multi-input/multi-input-program-design-v1.md`（v1.3、以下「Multi-Input Program」）の設計哲学（Semantic Activation API・Error Philosophy・Records Philosophy等）を可能な限り継承する。
-- Product code変更: 0件（本Phaseはdesign docsのみ）。
+- Product code変更: 0件（`SAWATTE-HIROGARU-DESIGN-1`・`SAWATTE-HIROGARU-DESIGN-FINALIZE-1`ともdesign docsのみ）。
 
 ---
 
@@ -137,21 +137,35 @@ New App Standard §3 Stage 0「既存アプリ重複調査」に従い、`apps-d
 
 ## 6. Interaction Model / Core Interaction Principle
 
-**最重要原則**: この教材では「どこを触ったか」よりも「触ったこと自体」に意味を持たせる。画面の大部分をInteractive Surfaceとし、Tap / Touch / Swipeのいずれでも反応する。小さいbuttonを正確に押すことを要求しない。
+**最重要原則**: この教材では「どこを触ったか」よりも「触ったこと自体」に意味を持たせる。画面の大部分をInteractive Surfaceとし、Tap / Touch / Swipeのいずれでも反応する。小さいbuttonを正確に押すことを要求しない。**成功/失敗・正解/不正解・得点は設けない**（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で正式確定、3章「正誤の有無: なし」を教材全体のCore Principleとして再確認。Gaze・Switch等どの入力方式を使っても、この原則は変わらない）。
 
 New App Standard 原則5「One physical input = one activation」・原則11「Physical diversity, semantic unity」・Multi-Input Program §7.1「Semantic Activation API」の思想を継承し、以下の単一の意味的処理へ全入力方式を合流させる。
 
 ```
 Touch tap / touch-hold / swipe
-Gaze dwell completion（OPTION、20章）
-Switch scan → activation（21章）
-Keyboard Space/Enter（22章）
+Gaze dwell completion（OPTIONAL INPUT・MVP INCLUDED・DEFAULT OFF、20章）
+Switch 1 press → activation（Switch Scanは使わない、21章）
+Keyboard Space/Enter（22章、Switchと同一の物理入力経路を共有）
         ↓
    semantic action:  triggerReaction(x, y, inputMethod, kind)
                       kind: 'tap' | 'swipe'
 ```
 
 教材のロジック（何が起きるか＝どのReaction Modeがどう反応するか）は`triggerReaction()`一箇所に集約し、入力方式ごとにロジックを複製しない（49.2章 Existing Semantic Logic Reuse）。
+
+### Reaction Layer Architecture（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で追加、38章さかなつり共有候補と連動）
+
+`triggerReaction()`の内部責務を以下の層へ分離する（設計方針のみ、実装はImplementation Phase）。
+
+```
+input（Touch/Swipe/Gaze/Switch/Keyboard、7章）
+  → semantic activation（triggerReaction(x, y, inputMethod, kind)）
+    → reaction controller（どのMode・どのIntensityで反応するかを決定、16・23章）
+      → visual renderer（13章）
+      → audio renderer（14章）
+```
+
+app-specific logic（「さわってひろがる」固有のMode定義等）とshared-capable layer（visual/audio rendererの基盤部分）は分離するが、**過剰な共通ライブラリ化を先行しない**（実装が「さわってひろがる」単体で完結することを優先し、「さかなつり」との共有は38章のとおり着手時に個別評価する）。
 
 ---
 
@@ -165,8 +179,8 @@ CoreはTouch/Swipeだが、どのまな共通方針との整合を以下のよ�
 | Mouse | **REQUIRED（Core、Touchと同一扱い）** | Pointer Events統一（12章） |
 | Swipe | **REQUIRED（Core）** | 9章参照 |
 | Keyboard | REQUIRED（開発・支援者操作・アクセシビリティ入力として維持、対象児童の主入力としては想定しない。Multi-Input Program §8.4と同じ位置づけ） | 22章参照 |
-| Switch | CONDITIONAL（採用、MVPに含める） | 21章参照、1 press = 1 reaction |
-| Gaze | CONDITIONAL（採用、MVPではOPTION/OFF既定を検討、20章） | dwellで光が広がる、Touch/Swipeの主目的を壊さない設計とする |
+| Switch | **MVP INCLUDED（FINAL DECISION）** | 21章参照、1 press = 1 reaction、Switch Scanは実装しない |
+| Gaze | **OPTIONAL INPUT / MVP INCLUDED / DEFAULT OFF（FINAL DECISION）** | dwell成立→1 reaction、Touch/Swipeを模倣しない（擬似Swipeは実装しない）、20章 |
 
 ---
 
@@ -191,6 +205,14 @@ Swipe時は、単なるTapと異なる反応を検討する。候補: 指の軌�
 
 `drawing-app.html`のフリーハンド描画実装（`startDraw`/`moveDraw`/`endDraw`、`drawCanvas`への`pointerdown`/`pointermove`/`pointerup`/`pointercancel`/`pointerleave`、`{passive:false}`で`e.preventDefault()`しスクロールを防止）を、画面全体をキャンバスとする本教材のReference Implementation候補とする。ただしdrawing-appは「マウスは視線ドウェルエンジンが担当し、キャンバスへの直接pointerdownは無視する」という同教材固有の分岐（`isTouchOrPen(e)`）を持つため、本教材ではこの分岐をそのまま流用せず、Mouse/TouchともにCore入力として扱う設計に置き換える（7章）。
 
+### Finalized Swipe Behavior（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+- 基本フロー: `pointerdown` → `pointermove` → `pointerup`/`pointercancel`
+- 短いSwipe: 軌跡上へreactionを生成して終了
+- 長いSwipe: `pointermove`が続く間、continuous reactionを維持
+- 画面端（Interactive Surface境界）: `pointerup`相当として安全に終了する（境界を超えた入力を例外扱いしない）
+- 成功/失敗の判定は行わない（6章のCore Principleと同一）
+
 ---
 
 ## 10. Long Press
@@ -206,6 +228,13 @@ Swipe時は、単なるTapと異なる反応を検討する。候補: 指の軌�
 - **既定は複数touchを許可し、各touch pointごとに独立したReactionを出す**（1本指=1反応、2本指以上でも「触れたこと」自体を否定しない設計。miru-hirogaru-app等の離散button方式とは異なり、本教材は面全体が反応対象であるため、複数点同時接触自体は自然な操作として扱う）
 - ただし`drawing-app.html`の「2本指以上はピンチ操作とみなして描画キャンセル」（`touchstart`で`e.touches.length >= 2`ならendDraw）のような、**意図しないpalm contact・多点接触による過剰な同時Reaction発生**を抑制する仕組みは、Reaction Cooldown（17章）とあわせて検討する
 - accidental drag（誤って画面をなぞってしまう動き）は、Swipe自体が本教材の正規入力であるため「誤操作」として区別しない（9章）
+
+### Finalized Safety Caps（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+- concurrent visual reactions（同時に描画されるparticle/波紋等）に上限を設ける（具体的な上限数は実装時のパフォーマンス実測で確定、29・33章）
+- audio trigger rateに上限を設ける（14章 Audio Overlap/Cooldownと連動）
+- palm contact・多点接触は失敗扱いにせず、上限を超えた分のtouchは無視する（ペナルティなし、feedback省略のみ）
+- 「触れたのに反応しない」体感をなるべく避けるため、上限は必要最小限に留める。上限方式は14章と同じvoice stealing思想（新しい入力への反応を優先）を踏襲する
 
 ---
 
@@ -249,13 +278,31 @@ New App Standard §49.1「Pointer Events Drag Pattern」に準拠し、Pointer E
 
 `generate.js`内の`speak(text)`（875行目付近）は**TTS専用**（`window.speechSynthesis`ベース、`srEnabled`/`SR_SKIP_APPS`で制御）であり、効果音（chime等）の共通再生helperではない。効果音の共通Web Audio APIヘルパーは現時点でリポジトリ内に存在しない（`generate.js`内を検索した限り確認できなかった）。**本教材の効果音実装は既存共通層の流用ではなく新規実装**になる（Multi-Input Program §9の「音の役割はreinforcement/cue/completionのいずれかを明確化」方針に従う）。
 
-### Audio Overlap Policy
+### Audio Engine — FINAL DECISION（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
 
-連打時に音が破綻しないこと。既存`speak()`が「呼び出し毎に`speechSynthesis.cancel()`してから発話する」多重発話防止パターンを持つのと同様、効果音側も同時再生数の上限またはvoice stealing（新しい音が古い音を打ち切る）方式を検討する（17章 Reaction Cooldownと連動）。
+Web Audio APIを正式採用する（`HTMLAudioElement`のpool方式は不採用）。判断根拠:
 
-### iOS Safari Audio Autoplay制約
+| 観点 | Web Audio API | HTMLAudioElement pool |
+|---|---|---|
+| Latency | 低い（`AudioBufferSourceNode`は事前デコード済みbufferを即再生） | 要素ごとにdecode/再生準備のオーバーヘッドがあり不安定 |
+| iPad Safari | 単一`AudioContext`をUser Gesture後に`resume()`すれば以降は安定動作（既知パターン） | 同時再生数に事実上の実装依存の上限があり、iOS Safariでは特に不安定になりやすい |
+| Simultaneous sounds | `AudioBufferSourceNode`を都度生成し複数`GainNode`経由でmixできる | pool数を超える同時再生の制御が煩雑 |
+| Volume | `GainNode`で一元管理 | 要素ごとの`.volume`管理が煩雑 |
+| Preload | 起動時に効果音を`decodeAudioData()`でbufferへ事前デコード | `<audio preload>`はブラウザ依存で信頼性が低い |
+| Cleanup | `AudioBufferSourceNode`は再生完了で自動GC対象 | pool要素の使い回し管理が必要 |
 
-最初のUser Gesture後にAudioContextをunlockする設計が必要（一般的なWeb Audio APIの既知制約。リポジトリ内に既存の参照実装は見つからなかったため、本教材が初めての実装例になる）。
+実装方針（Design段階の確定、実装はImplementation Phase）: 単一`AudioContext`を最初のUser Gesture（`pointerdown`/`keydown`等）で`resume()`しunlock、効果音は起動時に`decodeAudioData()`で事前デコードしbufferとして保持、再生ごとに新規`AudioBufferSourceNode`を生成しGainNode経由で出力する。リポジトリ内に既存の参照実装は見つからなかったため、本教材が初めての実装例になる（38章 さかなつり共有候補の最初の候補）。
+
+### Audio Overlap Policy / Cooldown — 初期値（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+連打時に音が破綻しないこと。Visual reactionとAudio reactionは同一cooldownにしない（Visualは高レスポンス優先でcooldown無し、Audioのみ短いminimum intervalを設ける、17章）。
+
+- Audio trigger間隔の初期値: **80ms**（同一音源の連続再生を抑制する最小間隔の目安値）
+- 許容調整範囲: 40ms〜150ms（実装前PoCで体感確認しながら調整可）
+- 同時再生数の上限: 実装時のパフォーマンス実測で確定（33章 Test Matrix「Performance: rapid reaction」で検証）
+- 上限方式: voice stealing（新しい音が最も古い音を打ち切る）を基本方針とする（新しい入力への反応を常に優先する、6章のCore Principleと整合）
+
+固定値は実装前PoCで調整可能な初期値として扱い、最終値は実装Phaseで確定する。既存`speak()`が「呼び出し毎に`speechSynthesis.cancel()`してから発話する」多重発話防止パターンを持つのと同様の思想（新しい発話/再生を優先する）を効果音側でも踏襲する。
 
 ---
 
@@ -284,33 +331,45 @@ Multi-Input Program §9「振動は『可』だが必須にはしない（デバ
 
 ## 16. Reaction Modes
 
-| Mode | 内容 |
-|---|---|
-| A — ひかり | 触れると色・光・波紋が広がる |
-| B — おと | 触れる場所・動きに応じて音が鳴る |
-| C — ひかり + おと | 視覚+聴覚を同時に返す |
-| D — スワイプ | 指の動きに沿って光・粒子・音が広がる |
-| E — ゆっくり | 刺激を弱く・長く提示（`prefers-reduced-motion`との関係は29章） |
+| Mode | 内容 | MVP |
+|---|---|---|
+| A — ひかり | 触れると色・光・波紋・particle等が広がる | **MVP必須** |
+| B — おと | 触れると音が鳴る。視覚的な最低限のfeedbackは残してよい（無音状態にはしない） | **MVP必須** |
+| C — ひかり + おと | 視覚+聴覚を同時に返す | **MVP必須** |
+| D — スワイプ | Pointer trajectoryに沿ってVisual reactionが広がる。Audioもmovement（速度・軌跡長）に応じて変化させてよい | **MVP必須（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）** |
 
-名称は上記のまま採用可能（ひらがな表記は既存教材群の「みるとひろがる」「みつけてタッチ」等と表記トーンが一致する）。MVPスコープは36章で確定する。
+**Mode E「ゆっくり」は独立モードとして廃止し、「Reaction Intensity」設定へ統合する（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定、23章）。** 名称は上記のまま採用可能（ひらがな表記は既存教材群の「みるとひろがる」「みつけてタッチ」等と表記トーンが一致する）。MVP最終スコープは36章で確定する。
+
+### Reaction Intensity（旧Mode E相当、Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）
+
+候補: **やさしい／ふつう／はっきり**（既存どのまなUIの表記トーンに合わせた3段階）。
+
+「やさしい」の最低限の効果（29章のReduced Motion/Performance検証対象）:
+
+- animation speedを遅くする
+- brightnessを下げる
+- particle densityを下げる
+- audioを柔らかく・発生頻度を下げる（14章のAudio Overlap Cooldownとも連動）
+
+`prefers-reduced-motion`との関係は29章（Performance/Reduced Motion）を参照。OSレベル設定とアプリ内Reaction Intensity設定の両方を実装時にコード側で確認する。
 
 ---
 
 ## 17. Reaction Cooldown / Cause-and-Effect Latency
 
-### Cooldown
+### Cooldown — FINAL方針（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
 
 連続入力時、以下を目的にReaction発生を制御する。
 
-- excessive audio overlap防止（14章）
-- animation overload防止
+- excessive audio overlap防止（14章、初期値80ms・許容範囲40〜150ms）
+- animation overload防止（11章 concurrent visual reactions上限と連動）
 - rapid accidental contact対応（11章のMulti-Touch policyと連動）
 
-Multi-Input Program §8.6「Multi-Input Conflict対策」のactivation lock（300〜500ms）を参考にしつつ、本教材は「反応そのものが目的」であるため、**反応が遅く感じるほどcooldownしない**ことを優先原則とする（quiz型教材のactivation lockより短い値を検討する）。
+**Visual reactionにはcooldownを設けない**（高レスポンス優先）。**Audio reactionのみ**14章の初期値でcooldownを設ける。Multi-Input Program §8.6「Multi-Input Conflict対策」のactivation lock（300〜500ms）はquiz型教材向けの値であり、本教材は「反応そのものが目的」であるため採用しない（quiz型より明確に短い、14章の値を正式値とする）。
 
-### Latency
+### Latency — 品質要件（FINAL）
 
-入力→反応までのlatencyは「即時体感レベル」を品質要件とする。固定ms値の要否は実装時に体感確認しながら決定する（後続Implementation Phaseで確定、本書では数値を先取りしない）。
+入力→反応までのlatencyは、**「ユーザーが自分の操作結果と認識できる即時性」**を必須の品質要件とする。過度なdebounceは禁止する。固定ms値そのものは実装前PoCで体感確認しながら決定する（後続Implementation Phaseで確定するが、本書では14章のAudio初期値80msを参考値として引き継ぐ）。
 
 ---
 
@@ -333,6 +392,18 @@ Multi-Input Program §8.6「Multi-Input Conflict対策」のactivation lock（30
 
 これらはCSS（`touch-action`, `overscroll-behavior`, `user-select:none`等）による**緩和**は可能だが、OSジェスチャーの完全な無効化はWeb側の権限を超える。本教材のInteractive Surfaceでは、CSSレベルの緩和（`touch-action: none`でpull-to-refresh/pinch-zoomの一部を抑制、`user-select:none`でtext selection抑制）を実装時に検討するが、**限界がある旨をHelp/Usage Guide（8.1章相当）に明記する**方針とする。
 
+### Finalized Mitigation Scope（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+適用範囲は**Interactive Surfaceのみ**（Teacher Settings等の通常UI領域には適用しない）。
+
+- `touch-action: none`（pinch-zoom・pull-to-refresh・スクロールの一部を抑制）
+- `user-select: none`（text selection抑制）
+- `-webkit-touch-callout: none`等によるcontext menu抑制
+- `overscroll-behavior: contain`によるoverscroll mitigation
+- double tap zoomは`touch-action: none`が既定で抑制する範囲に含まれるため追加実装は不要（実機確認で個別検証、34章）
+
+OSレベルgesture（edge swipeによるアプリ切替等）はWeb側の権限を超えるため完全には防げない、という限界は変更せず維持する（Help/Usage Guideへの明記方針も維持）。
+
 ### Fullscreen
 
 `generate.js`の`donomanaFsBtn`（1241〜1254行目）は`document.documentElement.requestFullscreen()`（+`webkitRequestFullscreen`/`mozRequestFullScreen`フォールバック）を呼び出す共通実装であり、新規アプリは`generate.js`注入のみで自動的に利用できる（New App Standard §8 common chrome）。iPad Safari特有の既知制約に関する既存docsの明示的な記述は本調査の範囲では見つからなかったため、断定を避け、**後続の実機検証（34章 Real Device Gate）で確認すべき事項**として保留する。
@@ -347,17 +418,19 @@ New App Standard §7「設定入口一本化」・§8「common chrome」に従�
 
 A11yパネル自体のkeyboard containment（`window.trapA11yPanelFocus(e)`等）は`generate.js`側の共通実装をそのまま利用し、独自実装を作らない（`donomana-a11y-panel-keyboard-contract-v1_0.md`参照、GLOBAL-1Aで5 Pilotアプリへ導入済み。本教材をPilot対象に含めるかは別途判断、Deferred扱い・37章）。
 
-最低限確認する項目（New App Standard §37）: font scale／high contrast／focus visible／aria／keyboard／touch／Switch／gaze（採用時）／reduced motion。
+最低限確認する項目（New App Standard §37）: font scale／high contrast／focus visible／aria／keyboard／touch／Switch（MVP採用、21章）／gaze（MVP採用・DEFAULT OFF、20章）／reduced motion。
 
 ---
 
-## 20. Gaze
+## 20. Gaze — FINAL DECISION（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+**Classification: OPTIONAL INPUT / MVP INCLUDED / DEFAULT OFF。**
 
 `docs/design-system/donomana-gaze-accessibility-standard-v1_0.md`（v1.0 改訂5、確定）を正式参照する。同文書はMulti-Input Pilot 3教材を根拠にdwell時間調整・dwell進捗表示・再選択防止・entry delay等のREQUIRED項目を定める。
 
-視線入力では「注視すると反応（dwellで光が広がる）」をOPTIONとして検討する。ただしTouch/Swipe教材の主目的を壊さないよう、ON/OFF可能にする（Gaze Accessibility Standard §0 Decision B「視線入力ON/OFFはREQUIREDのまま維持する」に準拠）。
+設計: **dwell成立 → 1 reaction**。Touch/Swipeを模倣しない（Gazeでの擬似Swipeは実装しない、6章のCore Principleを維持する唯一の設計）。Gaze ONの場合でも成功/失敗・得点は設けない（6章と同一原則）。既定値はOFFとし、Touch/Swipe教材としてのCore Interactionを損なわないことを優先する（Gaze Accessibility Standard §0 Decision B「視線入力ON/OFFはREQUIREDのまま維持する」に準拠）。
 
-### 採用する場合の必須項目（Gaze Accessibility Standard §6/§8/dwell safety checklist準拠）
+### 採用時の必須項目（Gaze Accessibility Standard §6/§8/dwell safety checklist準拠）
 
 - 大きなtarget・target間隔（本教材は面全体がtargetのため、この制約自体は緩和される可能性が高い。実装時に個別確認）
 - dwell progress・dwell cancel・minimum dwell
@@ -367,21 +440,39 @@ A11yパネル自体のkeyboard containment（`window.trapA11yPanelFocus(e)`等�
 
 ### Switch Scanとの関係
 
-Gaze Accessibility Standard §0 Decision A「GazeとSwitch Scanは相互排他にしない」に従い、共通activation gate（6章の`triggerReaction()`）で二重発火を防止する設計とする。
-
-**本書段階での判断**: Gazeを採用するか、MVPではOFF固定にするかは、Touch/Swipe面全体反応というCore Interactionとの適合性を実装後に検証してから最終決定する（36章 MVP Scopeで暫定判断、後続Design Finalize Phaseで確定）。
+Gaze Accessibility Standard §0 Decision A「GazeとSwitch Scanは相互排他にしない」に従い、共通activation gate（6章の`triggerReaction()`）で二重発火を防止する設計とする。本教材はそもそもSwitch Scanを実装しない（21章）ため、この排他制御はGaze dwellとSwitch press（Keyboard Space/Enter経由）の二重発火防止という意味で適用する。
 
 ---
 
-## 21. Switch Scan
+## 21. Switch — FINAL DECISION（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
 
-`docs/design-system/donomana-switch-scan-spec-v1_0.md`（v1.8、21アプリRollout完了）を正式参照する。
+**Classification: MVP INCLUDED。Switch Scanは実装しない。**
 
-Switchでは「1 press = 1 reaction」というCause & Effectモードを検討する。Blue2等で利用可能にする価値は高い（本教材の対象児童像そのものがSwitch入力の主要ユーザー層と重なるため）。**SwipeそのものをSwitchへ無理に模倣しない**（Switchは離散的な1押下=1反応の入力方式であり、連続的なSwipe軌跡表現とは性質が異なる。Switch入力時はReaction Mode A/B/C相当の単発反応に限定する設計を基本とする）。
+New App Standard §12がhelper6（`buildScanItems()`/`refreshSwitchScanItems()`/`startSwitchScan()`/`stopSwitchScan()`/`activateCurrentScanItem()`/`clearScanHighlight()`）の採用を求めるのは、**複数の離散選択肢を順番にscanして選ぶ**教材向けである。本教材には選ぶべき離散選択肢が存在しない（6章のCore Principle「どこを触ったか」より「触ったこと自体」）ため、helper6によるSwitch Scanメカニズムは対象外とする。
 
-新規アプリはhelper6（`buildScanItems()`/`refreshSwitchScanItems()`/`startSwitchScan()`/`stopSwitchScan()`/`activateCurrentScanItem()`/`clearScanHighlight()`）を最初から採用する（New App Standard §12）。Interactive Surface自体をSwitch Scan候補に含めるか、専用の「1回押すと反応する」ボタンを別途設けるかは、後続Implementation Phaseで実機検証しながら決定する（本書では両案を残し確定しない）。
+### 方式: Switch = Keyboard Space/Enterと同一の物理入力経路
 
-新規アプリ向けの完全なチェックリストは、Switch Scan仕様書v1.8 §19.22.14をそのまま使う（本書での複製はしない）。
+`docs/design-system/donomana-switch-scan-spec-v1_0.md`（v1.8、21アプリRollout完了）§7.2/§7.3が定める既存の共有規約に基づく。
+
+- Space＝決定操作の必須要件（M1）
+- Enter＝決定操作の推奨要件（R3、外部スイッチ機器がSpace／Enterいずれかをキーボードイベントとして送出する場合に備え両方を受け付ける）
+- `nazori-app`の既存ヘルプ文言「外付けスイッチはスペースキーに対応させてください」が示すとおり、Blue2等の外部スイッチ機器は一般に**キーボードのSpace/Enterキー押下として送出される**（switch-scan-spec-v1_0.md §7.2/§7.3、nazori-appの既存修正事例で実証済みの既存事実）。
+
+したがって本教材のSwitch対応は、**22章のKeyboard semantic activation（Space/Enter → 1 reaction）をそのまま利用するだけで成立する**。Switch専用の新規イベントハンドラは実装しない（New App Standardが求めるhelper6も対象外のため導入しない）。**SwipeそのものをSwitchへ無理に模倣しない**（Switchは離散的な1押下=1反応の入力方式であり、連続的なSwipe軌跡表現とは性質が異なる。Switch入力時はReaction Mode A/B/C相当の単発反応に限定する）。
+
+### Reaction位置 — FINAL DECISION
+
+Switch press（＝Space/Enter押下）によるreactionは、**画面中央の固定点を起点とする**。
+
+判断根拠: Touch/Swipeは接触位置にreactionが出ることで「ここに触れた→ここが変化した」という直接的な因果関係を示せるが、Switchには接触位置という概念がない。対象児童（Switch入力が主要な入力手段になりやすい層）には視覚的な追視・視野の制約を伴うケースも多いため、reaction出現位置を毎回変える安全なpseudo-random方式よりも、**常に同じ場所（中央）に出現する固定点方式の方が、因果関係の学習という核心目的に対して予測可能性が高く安全**と判断した。「ひろがる」という教材のidentityは、中央を起点として画面の広い範囲へ放射状に広がる大きめのreaction（Touch/Tap時より広い到達範囲）で表現し、位置のランダム性ではなく大きさ・広がりで「ひろがる」感を出す。
+
+### Test Matrixとの関係
+
+Switch Scan固有のtest項目（scan順序・highlight等）は本教材には適用されない。Switch入力のtest項目は「Blue2で1 press = 1 reaction」（33・34章）のみで足りる。
+
+### 命名・a11yラベルに関する残課題（NON-BLOCKING）
+
+既存35アプリの`a11y[]`フィールドは「🔘 スイッチスキャン対応」という表記で統一されているが、本教材はScanを行わないため、この表記をそのまま流用すると実装と齟齬が生じる。新しいラベル文言（例:「🔘 スイッチ対応（1回の操作で反応）」）の要否は、31章の`apps-data.json`記入時（Implementation Phase）に確定する。Blocking判断ではない。
 
 ---
 
@@ -389,13 +480,15 @@ Switchでは「1 press = 1 reaction」というCause & Effectモードを検討�
 
 Space/Enter等で1 reactionを発生させる代替入力を検討する。New App Standard §11・Multi-Input Program §8.4と同じ位置づけ（開発・支援者操作・アクセシビリティ入力として維持、対象児童の主入力としては想定しない）。native interactive element（focus可能な単一のInteractive Surface要素、または明示的な「ためしにおす」ボタン）を用意し、同一操作へ複数`keydown` handlerを追加しない。
 
+**Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定**: この経路は21章のSwitch入力（Blue2等の外部スイッチ機器がSpace/Enterとして送出）と完全に共有する。Switch向けの別実装は行わない。
+
 ---
 
 ## 23. Settings UI / Teacher Setup / Simple Mode
 
 ### Settings UI
 
-A11yパネルとは別に教材固有設定が必要か整理する。候補: Reaction mode／Sound ON-OFF／Background／Reaction speed／Reaction intensity／object density。設定項目を増やしすぎない（New App Standard 原則7「User-facing simplicity」）。
+A11yパネルとは別に教材固有設定が必要か整理する。候補: Reaction mode／Sound ON-OFF／Reaction Intensity（やさしい／ふつう／はっきり、16章で確定）／object density。設定項目を増やしすぎない（New App Standard 原則7「User-facing simplicity」）。BackgroundとReaction speedは独立設定項目にせず、Reaction Intensityへ統合する（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）。
 
 ### Simple Mode
 
@@ -421,17 +514,27 @@ A11yパネルとは別に教材固有設定が必要か整理する。候補: Re
 
 Phase §30の指示どおり、**個々のtouch座標は保存しない**。1 session = 1 recordを基本とする（New App Standard §22.1 Record Session Grouping「1操作 = 1 sessionとは限らない。教材として意味のある学習単位でsessionをgroupingする」、Multi-Input Program §11.3「開始→一連のtrial→終了を1セッションとする」と同一方針）。
 
-detail候補（座標を含まない事実のみ）:
+**Session Counting（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）**: Tap/Swipeの個々のイベントをRecord Foundationへ都度書き込まない。Activity中はメモリ上でaggregate（カウント集計）のみ行い、「おわる」等のsession finalization時に下記Record Schemaで1件のみを書き込む（大量ログの防止）。
 
-- duration（session継続時間）
-- tapCount
-- swipeCount
-- totalInteractions
-- activeTime
-- selectedMode（16章のReaction Mode）
-- soundOn
-- reactionIntensity
-- inputMethod（23章のNew App Standard §23「観測事実優先」原則、Switchだったはずと推測しない）
+### Record Schema — FINAL（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+`donomanaRecordCreate(appId, activity, inputMethod, payload)`の`payload`部分（座標を含まない事実のみ）を以下のとおり確定する。
+
+```
+{
+  detailSchemaVersion: 1,
+  mode: "light" | "sound" | "light_sound" | "swipe",   // 16章のReaction Mode A/B/C/D
+  durationMs: number,                                    // session継続時間
+  totalInteractions: number,
+  tapCount: number,
+  swipeCount: number,
+  inputMethods: string[],                                // 実際に使われた入力方式の観測事実（複数可）。"switchだったはず"と推測しない（New App Standard §23「観測事実優先」原則）
+  soundEnabled: boolean,
+  intensity: "gentle" | "standard" | "strong"             // 16章のReaction Intensity（やさしい/ふつう/はっきり）
+}
+```
+
+field naming（`durationMs`等のcamelCase・Ms/Countサフィックス）は既存`donomana-sst-record-detail-contract-v1_0.md`のdetail命名規約に合わせる。実装時、既存フィールド名との衝突がないことを個別確認する。
 
 CSV要否は、記録機能を持つ教材では原則REQUIRED候補（New App Standard §26）。`donomanaRecordBuildCsv()`（UTF-8 BOM付き）を再利用し、独自CSV実装を作らない。
 
@@ -486,11 +589,11 @@ CSV要否は、記録機能を持つ教材では原則REQUIRED候補（New App S
 
 ### Performance
 
-大量particle等による低性能iPadでのframe dropを避ける。Low/Standardのような設定要否は実装時のパフォーマンス実測で判断する（本書では先取りしない）。
+大量particle等による低性能iPadでのframe dropを避ける。11章のconcurrent visual reactions上限と合わせて対応する。Low/Standardのような専用パフォーマンス設定を追加するか、Reaction Intensity（16章）の「やさしい」で兼ねるかは、実装時のパフォーマンス実測で判断する（NON-BLOCKING、36章参照）。
 
 ### Reduced Motion
 
-`generate.js`の`buildDesignTokensHTML()`が全アプリへ`prefers-reduced-motion`対応（`animation-duration:0.01ms !important`等）を自動注入する（New App Standard §15）。本教材の目的自体が動きのfeedbackを含むため、完全停止ではなく**Reaction Mode E「ゆっくり」への切替、または刺激強度を穏やかにする方式**を設計する。OSレベルの設定とアプリ内トグル（23章のReaction intensity設定）の両方をコード側で確認する。
+`generate.js`の`buildDesignTokensHTML()`が全アプリへ`prefers-reduced-motion`対応（`animation-duration:0.01ms !important`等）を自動注入する（New App Standard §15）。本教材の目的自体が動きのfeedbackを含むため、完全停止ではなく**Reaction Intensity「やさしい」（旧Mode E相当、16章で確定）への自動切替、または刺激強度を穏やかにする方式**を設計する。OSレベルの設定とアプリ内Reaction Intensity設定の両方を実装時にコード側で確認する。
 
 ---
 
@@ -522,50 +625,58 @@ New App Standard §39に従い、実装Phaseで`apps-data.json`へ`id`/`filename
 
 ---
 
-## 32. Design Mock Structure
+## 32. Design Mock Structure（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`でFlow確定）
 
 ```
-Start（「はじめる」のみのSimple Start、26章）
+Start画面
   ↓
-Teacher Settings（Reaction Mode / Sound / Intensity、Activity中はhiddenで完全隔離）
+Teacher Settings（必要な場合のみ。Reaction Mode / Sound / Reaction Intensity、23章。
+                  Activity中はhiddenで完全隔離）
+  ↓
+「はじめる」
   ↓
 Activity Surface（画面の大部分がInteractive Surface。Home/Settings/Fullscreen/A11y/Exit/Helpは
-                  誤作動防止のためSurfaceから分離した専用領域に配置、9章）
+                  誤作動防止のためSurfaceから分離した専用領域に配置、9・18章）
   ↓
-End Summary（「おわる」→ duration/tapCount/swipeCount等の事実のみを表示、27章）
+「おわる」
+  ↓
+Session Summary（duration/tapCount/swipeCount等の事実のみを表示）→ Record書き込み
+                 （24章、1 session = 1 recordをここで確定）
 ```
 
 ---
 
-## 33. Test Matrix（後続Implementation用）
+## 33. Test Matrix（後続Implementation用、Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）
 
-- Tap
-- Swipe
-- long touch
-- rapid taps
-- multi-touch
-- rotate（Portrait/Landscape）
-- fullscreen
-- screen lock（18章の限界を踏まえた範囲内）
-- sound ON/OFF
-- record（座標非保存の確認を含む）
-- offline（Pilot allowlist外の既定挙動確認、28章）
-- keyboard
-- switch（採用時）
-- gaze（採用時）
+**Touch**: tap／repeated tap／drag／swipe／interrupted swipe（9章、途中終了は失敗扱いしない）／multi-touch（11章の安全上限確認を含む）／long touch／rotate（Portrait/Landscape）
+
+**Audio**: ON／OFF／rapid interaction／overlap control（14章の初期値80ms・許容範囲40〜150ms確認）
+
+**Input**: mouse／keyboard／Blue2（21章、Switch=Keyboard Space/Enter経路の確認）／gaze dwell（20章、DEFAULT OFF確認を含む）
+
+**UI**: portrait／landscape／fullscreen／screen lock（18章のFinalized Mitigation Scope範囲内）／settings（Teacher Setup/Simple Mode、23章）
+
+**Record**: one session one record（24章）／zero coordinate storage／legacy compatibility（既存Learning Record Foundationとの互換）
+
+**Performance**: rapid reaction（cooldown/上限の実効性確認）／low-end device（29章、frame drop確認）／cleanup after reaction（AudioBufferSourceNode/particleの解放確認）
+
+**Offline**: Pilot allowlist外の既定挙動確認（28章）
 
 ---
 
-## 34. Real Device Gate（後続Phase）
+## 34. Real Device Gate（後続Phase、Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確認項目を確定）
 
 最低限、以下を検討する。
 
-- iPad（Safari、Fullscreen/Audio Autoplay/Vibration非対応の実機確認）
-- Windows touch device or mouse
-- Blue2（Switch、採用時）
-- Tobii（Gaze、採用時）
+**iPad（Safari）**: Touch／Swipe／Audio（Audio Engine unlock、14章）／Fullscreen／Screen Lock（18章のFinalized Mitigation Scope）／Portrait・Landscape
 
-機能対応Inputのみ検証する（採用しない入力方式のReal Device Gateは不要）。
+**Windows**: Mouse／Keyboard
+
+**Blue2**: 1 press = 1 reaction（21章のSwitch=Keyboard Space/Enter経路の実機確認）
+
+**Tobii Eye Tracker 5**: Gaze ON時、dwell = reaction（20章、DEFAULT OFFからの明示的ON操作を含む）
+
+Gaze・SwitchともMVP INCLUDEDに確定した（5・6章）ため、両方とも本Gate対象に含める。
 
 ---
 
@@ -582,56 +693,82 @@ End Summary（「おわる」→ duration/tapCount/swipeCount等の事実のみ�
 
 ---
 
-## 36. MVP Scope
+## 36. MVP Scope — FINAL（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）
 
-初回Releaseで欲張りすぎない。以下を中心とする。
+**IN**:
 
-- Tap / Touch / Swipe
-- Light reaction（Mode A）／Sound reaction（Mode B）／Light+Sound（Mode C）
-- intensity設定
+- Touch／Tap／Swipe
+- Mouse／Pointer（Touchと同一のCore扱い）
+- Keyboard semantic trigger（Space/Enter）
+- Switch 1 press = 1 reaction（Switch Scanは実装しない、21章）
+- Gaze dwell（OPTIONAL INPUT、DEFAULT OFF、20章）
+- Reaction Mode A（ひかり）／B（おと）／C（ひかり+おと）／D（スワイプ）— 4モードともMVP必須（16章）
+- Reaction Intensity（やさしい／ふつう／はっきり、16章。旧Mode E相当）
 - sound ON/OFF
-- screen lock／fullscreen（18章の限界明記込み）
-- records（session単位、座標非保存）
-- basic A11y（common A11yパネルのみ、独自UIなし）
+- screen lock（18章のFinalized Mitigation Scope込み）
+- fullscreen
+- common A11y Panel（独自UIなし）
+- session record（1 session = 1 record、24章の確定schema）
+- responsive layout（Portrait/Landscape、30章）
 
-**MVPで確定判断を要する残課題（後続Design Finalize Phaseで決定）**:
+**OUT / Deferred**（37章）:
 
-- Gaze採用可否（20章）
-- Switch Scan候補にInteractive Surface自体を含めるか、専用ボタンにするか（21章）
-- Mode D（スワイプ専用演出）／Mode E（ゆっくり）をMVPに含めるか、37章のDeferredへ回すか
-- Reaction Cooldownの具体的なms値
+- vibration
+- custom uploaded audio
+- custom themes（26章のVisual Theme Scope、初回は1〜3テーマに限定）
+- collaborative mode
+- two-step tasks
+- PWA Offline Pilot
+- advanced teacher analytics
+- raw coordinates（Privacy、25章により恒久的に対象外）
+- Switch Scan（helper6メカニズム自体、21章により恒久的に対象外——将来的な離散選択肢型サブモードを追加する場合のみ再検討）
+
+**Blocking Open Decisions: 0**。
+
+**Non-blocking残課題**（実装時に確定、いずれもImplementation開始を妨げない）:
+
+- concurrent visual reactions／同時再生数の具体的な上限値（11・14章、実装時パフォーマンス実測）
+- Reaction Latency固定ms値の要否（17章、実装前PoC）
+- Low/Standardパフォーマンス設定の要否（29章、実機実測）
+- Activity中のHome離脱時のsession扱い（27章）
+- a11yラベル文言（21章末尾）
+- Viewer/CSV等の記録閲覧UI詳細（24章、既存Learning Record Foundation UIをそのまま使うか個別検討）
 
 ---
 
 ## 37. Deferred（Future Expansion）
 
-MVP後の候補。MVPへ混入させない。
+MVP後の候補。MVPへ混入させない。**恒久的に対象外**（Privacy・Core Principleにより将来も追加しない）の項目とは区別する——raw coordinates（25章Privacy）とSwitch Scanメカニズム自体（21章）は「Deferred」ではなく「対象外」である（36章参照）。
 
 - 振動（Android限定のOPTIONAL演出、15章）
 - custom sound
-- custom visual theme（複数Visual Themes: ひかり／ほし／みず／シャボン玉／はな／にじ／おと。28章のPWA同様、初回Releaseではテーマ数を絞ってよい）
+- custom visual theme（26章のVisual Theme Scope参照）
 - cause/effect sequence（二段階以上の因果連鎖）
 - two-step interaction
 - collaborative mode
 - PWA Offline Pilot allowlistへの追加（28章）
 - GLOBAL-1A A11yパネルkeyboard containment（`donomana-a11y-panel-keyboard-contract-v1_0.md`）のPilot対象への追加
 
+### Visual Theme Scope — FINAL（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）
+
+初回Release向けのVisual Themeは**最低1・最大3**に絞る（候補: ひかり／ほし／みず／シャボン玉）。「大量の低品質theme」より「少数の高品質theme」を優先する。MVP最優先候補は「ひかり」（16章Mode A/C/Dの基礎ビジュアルと直接統合できるため実装コストが最小）。ほし／みず／シャボン玉の採用可否・優先順位は実装Phase着手時に品質基準（13章 Visual Feedbackの基準を満たすか）で判断する（NON-BLOCKING）。
+
 ---
 
-## 38. 「さかなつり」との共通基盤
+## 38. 「さかなつり」との共通基盤（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で正式記録）
 
 リポジトリ内を検索した結果、「さかなつり」「sakana」に関する既存ファイル・docsは**0件**（本調査時点で未着手の完全な新規教材）。
 
-次に制作予定の「さかなつり」と共有できる可能性がある基盤（本教材の設計・調査で判明した既存共通層）:
+次に制作予定の「さかなつり」と共有できる可能性がある基盤として、以下を正式に記録する（6章のReaction Layer Architectureと連動）:
 
-- audio（14章で判明したとおり、効果音の共通helperは現状存在しない。本教材で新規実装する効果音レイヤーが「さかなつり」とも共有できる最初の候補になりうる）
-- fullscreen／screen lock（generate.js共通実装、18章）
-- record（Learning Record Foundation、24章）
-- 共通A11y Panel（19章）
-- input helper（Semantic Activation API思想、6章。ただし本教材固有の`triggerReaction()`実装がそのまま「さかなつり」へ転用できるかは、「さかなつり」自体の教育設計が定まってから判断する）
-- animation layer（Reaction Mode描画層、16章。particle/波紋等の描画手法が共有候補になりうる）
+- **Audio Reaction Layer**（14章のWeb Audio API方式。効果音の共通helperは現状存在せず、本教材が最初の実装例になる）
+- **screen lock**（18章、`setLock()`の共通実装）
+- **fullscreen**（18章、`donomanaFsBtn`の共通実装）
+- **session record**（24章、Learning Record Foundation＋1 session = 1 recordの記録粒度パターン）
+- **input normalization**（6章のSemantic Activation API思想。Touch/Swipe/Gaze/Switch/Keyboardを単一の意味的処理へ合流させる設計そのもの）
+- **animation lifecycle**（6章のReaction Layer Architecture、particle/波紋等の描画→cleanupのライフサイクル管理）
 
-いずれも「さかなつり」の設計着手時に改めて評価する（本書では確定しない）。
+**重要な原則（Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`で確定）**: 「さわってひろがる」の実装を「さかなつり」都合で複雑化しない。上記はいずれも「さかなつり」の設計着手時に改めて評価する候補であり、本教材の実装スコープ・スケジュール・シンプルさを、まだ存在しない「さかなつり」の要件のために先取りして変更しない。
 
 ---
 
@@ -650,3 +787,4 @@ MVP後の候補。MVPへ混入させない。
 ## 改訂履歴
 
 - **v1.0（DRAFT、2026-09-13、Phase `SAWATTE-HIROGARU-DESIGN-1`）**: 初版起草。既存アプリ（miru-hirogaru-app／mitsukete-touch-app／junban-miyou-app／drawing-app／kimochi-board）のTouch/Pointer実装、Gaze Accessibility Standard v1.0、Switch Scan仕様書v1.8、Multi-Input Program v1.3、New App Standard v1.7、Learning Record Foundation、共通A11yパネル、Screen Lock/Fullscreen実装、PWA Pilot allowlist方式、Vibration API使用実績（2件）を実コード確認した上で起草。Product code変更0件。
+- **v1.0 Finalize（DRAFT維持、2026-09-13、Phase `SAWATTE-HIROGARU-DESIGN-FINALIZE-1`）**: User Design Review PASS後、実装前に残っていた設計判断を確定。Gaze＝OPTIONAL INPUT/MVP INCLUDED/DEFAULT OFF（20章）、Switch＝MVP INCLUDED・Switch Scanは実装せずKeyboard Space/Enterと同一経路を共有（既存`donomana-switch-scan-spec-v1_0.md`§7.2/§7.3のM1/R3規約・`nazori-app`の既存事例に基づく、21章）、Switch reaction位置は画面中央固定点（21章）、Mode D（スワイプ）をMVP必須化・旧Mode E「ゆっくり」を独立モードから廃止しReaction Intensity（やさしい/ふつう/はっきり）へ統合（16章）、Audio EngineをWeb Audio API採用と決定・Audio Cooldown初期値80ms（許容40〜150ms）を設定（14章）、Multi-touch安全上限方針を追加（11章）、Record Schemaをdetail fieldレベルで確定（24章）、Visual Theme Scopeを最大3テーマに確定（37章）、Reaction Layer Architectureを追加（6章）、さかなつり共有候補を正式記録（38章）。Blocking Open Decisions 0を確認。Product code変更0件、docs-onlyのFinalize。
