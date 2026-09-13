@@ -118,7 +118,10 @@
   #activitySurface { position: absolute; inset: 0; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: contain; outline: none; cursor: pointer; }
   #activitySurface:focus-visible { box-shadow: inset 0 0 0 4px rgba(255,255,255,0.35); }
   #reactionCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  #activityHint { position: absolute; top: 72px; left: 0; right: 0; color: rgba(255,255,255,0.78); font-size: 1rem; font-weight: 700; text-align: center; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 6px rgba(0,0,0,0.5); transition: opacity 600ms ease; }
+  /* top:116 clears the Lock/Fullscreen/Help cluster's bottom edge (y=108),
+     which the User Review Fix 2 Help button addition widened — re-found via
+     Playwright screenshot review after adding that button. */
+  #activityHint { position: absolute; top: 116px; left: 0; right: 0; color: rgba(255,255,255,0.78); font-size: 1rem; font-weight: 700; text-align: center; white-space: nowrap; pointer-events: none; text-shadow: 0 1px 6px rgba(0,0,0,0.5); transition: opacity 600ms ease; }
   /* #endBtn is a SIBLING of #activitySurface (not a descendant) placed in the free
      gap between the common Home (top-left) and Lock/Fullscreen (top-right) chrome
      buttons — not at the bottom, where it collided with the common Record-nav /
@@ -129,11 +132,36 @@
      imprecise touch to hit by accident, without needing a confirmation step. */
   #endBtn { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 20; min-height: 44px; padding: var(--dm-space-2,8px) var(--dm-space-5,20px); border-radius: var(--dm-radius-pill,999px); border: none; background: rgba(255,255,255,0.92); color: var(--dm-color-ink,#3B4A54); font-size: 0.9375rem; font-weight: 700; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
   #endBtn:focus-visible { outline: var(--dm-focus-width,3px) solid #fff; outline-offset: 3px; }
+  /* User Review Fix 2: "先生の設定" is reachable from Activity too, placed as a
+     second sibling pill next to #endBtn in the same free top-center gap (kept
+     compact — icon only — so both fit at 390px width; verified via screenshot). */
+  #openTeacherSettingsFromActivityBtn { position: absolute; top: 12px; left: 50%; transform: translateX(-50%) translateX(-84px); z-index: 20; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.92); color: var(--dm-color-ink,#3B4A54); font-size: 1.125rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  #openTeacherSettingsFromActivityBtn:focus-visible { outline: var(--dm-focus-width,3px) solid #fff; outline-offset: 3px; }
 
   @media (max-width: 480px) {
     .app-title { font-size: 1.5rem; }
     .lead { font-size: 1.1875rem; }
   }
+
+  /* ---- Teacher Settings modal / Help overlay (shared overlay pattern) ----
+     Both sit well below the common chrome's z-index (99997-99999) so Home /
+     Lock / Fullscreen / Help / A11y remain usable and visually on top while
+     either overlay is open (verified via Playwright — A11y stays clickable
+     and, per the A11y Panel Keyboard Contract's coexistence rule, takes
+     priority over this app's own Tab/Escape handling when it is open). */
+  .overlay-backdrop { position: fixed; inset: 0; background: rgba(10,25,30,0.55); z-index: 500; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+  .overlay-backdrop[hidden] { display: none; }
+  @media (min-height: 700px) { .overlay-backdrop { align-items: center; padding: 20px; } }
+  .overlay-panel { position: relative; background: #fff; border-radius: 18px 18px 0 0; max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 28px 20px 32px; }
+  @media (min-height: 700px) { .overlay-panel { border-radius: 18px; max-height: 82vh; } }
+  .overlay-title { font-size: 1.25rem; margin: 0 0 var(--dm-space-4,16px); text-align: center; color: var(--dm-color-primary-dark,#00857B); }
+  .overlay-close-btn { min-height: 44px; min-width: 44px; padding: var(--dm-space-2,8px) var(--dm-space-5,20px); border-radius: var(--dm-radius-pill,999px); border: 2px solid var(--dm-color-border,#EDF1F0); background: #fff; font-size: 0.9375rem; font-weight: 700; cursor: pointer; display: block; margin: var(--dm-space-5,20px) auto 0; }
+  .overlay-close-btn:focus-visible { outline: var(--dm-focus-width,3px) solid var(--dm-focus-color,#00A99D); outline-offset: 2px; }
+  .help-body h3 { font-size: 1.0625rem; margin: var(--dm-space-5,20px) 0 var(--dm-space-2,8px); color: var(--dm-color-primary-dark,#00857B); }
+  .help-body h3:first-child { margin-top: 0; }
+  .help-body h4 { font-size: 0.9375rem; margin: var(--dm-space-3,12px) 0 var(--dm-space-1,4px); }
+  .help-body p, .help-body li { font-size: 0.9375rem; line-height: 1.7; color: var(--dm-color-ink,#3B4A54); }
+  .help-body ul { padding-left: 1.2em; margin: var(--dm-space-1,4px) 0; }
 </style>
 <!-- favicon: 自動挿入 (generate.js) -->
   <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -430,6 +458,25 @@
 <style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <a href="https://donomana.jp/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
 <!-- /home-btn -->
+<!-- Donomana Help / Usage Guide Standard v1.0 §5/§5.1: REQUIRED position is
+     the same fixed top operating row as Lock/Fullscreen, REQUIRED ordering
+     is "Lock -> Fullscreen -> Help" (Help closest to the screen edge). This
+     is a hand-authored Reference-Implementation-style button (generate.js
+     does not yet have a shared Help injector, per that Standard §21-22) —
+     placed OUTSIDE the lock-fs-btn marker block (editing between those
+     markers would be silently overwritten by the next `node generate.js`
+     run, since it replaces that block wholesale). The CSS rule below pushes
+     the generate.js-owned Lock/FS cluster from its default right:12px out
+     to right:64px (44px Help width + 8px gap), so the two clusters sit side
+     by side with a matching gap and no overlap, without editing generate.js
+     itself (mirrors dotchiga-ii-app.html's Reference Implementation). -->
+<style>
+  #donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
+  div:has(> #donomanaLockBtn){right:64px!important;}
+</style>
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpOverlay" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
 <div class="app-root">
 
   <section id="startScreen" class="screen">
@@ -441,48 +488,12 @@
     </div>
   </section>
 
-  <section id="teacherScreen" class="screen" hidden>
-    <div class="panel-wrap">
-      <h1 class="app-title" style="font-size:1.5rem;">せんせい用 せってい</h1>
-
-      <div class="setting-group">
-        <h2>はんのう モード</h2>
-        <div class="choice-row" id="modeChoiceRow" role="group" aria-label="はんのうモードをえらぶ"></div>
-        <p class="hint">「スワイプ」は、ゆびをすべらせたときの ひかりの ひろがりかたが とくべつになります。</p>
-      </div>
-
-      <div class="setting-group">
-        <h2>しげきの つよさ</h2>
-        <div class="choice-row" id="intensityChoiceRow" role="group" aria-label="しげきのつよさをえらぶ"></div>
-      </div>
-
-      <div class="setting-group">
-        <h2>エフェクトの 太さ</h2>
-        <div class="choice-row" id="effectWidthChoiceRow" role="group" aria-label="エフェクトの太さをえらぶ"></div>
-        <p class="hint">波紋・光・スワイプのあとの太さや大きさが変わります。大きく太い反応の方が、自分の操作との関係に気づきやすい子どももいます。</p>
-      </div>
-
-      <div class="setting-group">
-        <div class="toggle-row">
-          <label for="soundToggle">🔊 おと</label>
-          <span class="switch"><input type="checkbox" id="soundToggle"><span class="track"></span><span class="thumb"></span></span>
-        </div>
-        <div class="toggle-row">
-          <label for="gazeToggle">👁️ しせん入力（ためす）</label>
-          <span class="switch"><input type="checkbox" id="gazeToggle"><span class="track"></span><span class="thumb"></span></span>
-        </div>
-        <p class="hint">しせん入力をONにすると、マウス／視線入力デバイスの位置を一定時間見つめ続けることで反応が起きます（タッチ・スイッチの操作をさまたげません）。</p>
-      </div>
-
-      <button id="closeTeacherSettingsBtn" class="secondary-btn" type="button">◀️ もどる</button>
-    </div>
-  </section>
-
   <section id="activityScreen" class="screen" hidden>
     <div id="activitySurface" tabindex="0" role="application" aria-label="さわってあそぶ場所。タッチ・マウス・スペースキー・エンターキーで反応します。">
       <canvas id="reactionCanvas"></canvas>
       <div id="activityHint">さわってみてね</div>
     </div>
+    <button id="openTeacherSettingsFromActivityBtn" type="button" aria-label="先生の設定" title="先生の設定">⚙️</button>
     <button id="endBtn" type="button">⏹️ おわる</button>
   </section>
 
@@ -495,6 +506,109 @@
     </div>
   </section>
 
+</div>
+
+<!-- Teacher Settings modal (Phase SAWATTE-HIROGARU-USER-REVIEW-FIX-2): a true
+     dialog (role="dialog" aria-modal="true") per the explicit request in that
+     Phase, reachable from both Start ("⚙️ せんせい用 せってい") and Activity
+     ("⚙️" next to おわる) — unlike Help below, which follows the established
+     non-modal Help/Usage Guide Standard pattern instead. Opening it while
+     Activity is visible isolates the Interactive Surface underneath (§5 of
+     that Phase): teacherModalOpen gates pointer/keyboard/gaze reaction
+     firing in the JS below, exactly like the existing A11y-panel isolation
+     convention, rather than inventing a second mechanism. -->
+<div id="teacherModalBackdrop" class="overlay-backdrop" hidden>
+  <div id="teacherModal" class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
+    <h1 class="overlay-title" id="teacherModalTitle" tabindex="-1">せんせい用 せってい</h1>
+
+    <div class="setting-group">
+      <h2>はんのう モード</h2>
+      <div class="choice-row" id="modeChoiceRow" role="group" aria-label="はんのうモードをえらぶ"></div>
+      <p class="hint">「スワイプ」は、ゆびをすべらせたときの ひかりの ひろがりかたが とくべつになります。</p>
+    </div>
+
+    <div class="setting-group">
+      <h2>しげきの つよさ</h2>
+      <div class="choice-row" id="intensityChoiceRow" role="group" aria-label="しげきのつよさをえらぶ"></div>
+    </div>
+
+    <div class="setting-group">
+      <h2>エフェクトの 太さ</h2>
+      <div class="choice-row" id="effectWidthChoiceRow" role="group" aria-label="エフェクトの太さをえらぶ"></div>
+      <p class="hint">波紋・光・スワイプのあとの太さや大きさが変わります。大きく太い反応の方が、自分の操作との関係に気づきやすい子どももいます。</p>
+    </div>
+
+    <div class="setting-group">
+      <h2>エフェクト音</h2>
+      <div class="choice-row" id="effectSoundChoiceRow" role="group" aria-label="エフェクト音をえらぶ"></div>
+    </div>
+
+    <div class="setting-group">
+      <div class="toggle-row">
+        <label for="soundToggle">🔊 おと</label>
+        <span class="switch"><input type="checkbox" id="soundToggle"><span class="track"></span><span class="thumb"></span></span>
+      </div>
+      <div class="toggle-row">
+        <label for="gazeToggle">👁️ しせん入力（ためす）</label>
+        <span class="switch"><input type="checkbox" id="gazeToggle"><span class="track"></span><span class="thumb"></span></span>
+      </div>
+      <p class="hint">しせん入力をONにすると、マウス／視線入力デバイスの位置を一定時間見つめ続けることで反応が起きます（タッチ・スイッチの操作をさまたげません）。</p>
+    </div>
+
+    <button id="closeTeacherSettingsBtn" class="overlay-close-btn" type="button">◀️ もどる</button>
+  </div>
+</div>
+
+<!-- Help overlay (Donomana Help / Usage Guide Standard v1.0). Deliberately
+     NOT a Tab-trapping dialog: the Standard's own REQUIRED accessibility
+     list (§15) omits Focus Trap, and its Reference Implementation
+     (dotchiga-ii-app.html's #helpPanel) has none either — matching that
+     established pattern (per this Phase's §12 "既存の実装パターンへ合わせる、
+     独自UIを新設しない") rather than the stronger true-modal treatment used
+     for Teacher Settings above. It still gets Escape-to-close, opener focus
+     restoration, and full isolation from the Activity Surface underneath. -->
+<div id="helpOverlay" class="overlay-backdrop" hidden>
+  <section class="overlay-panel" aria-labelledby="helpTitle">
+    <h1 class="overlay-title" id="helpTitle" tabindex="-1">「さわってひろがる」の つかいかた</h1>
+    <div class="help-body">
+      <h3>このアプリについて</h3>
+      <p>「さわってひろがる」は、画面にさわったり、指をすべらせたりすると、光や音がすぐに広がる教材です。正しい場所を押す必要はありません。「さわったこと」「うごかしたこと」自体に、光や音の変化が返ってきます。正解・不正解や点数はありません。</p>
+
+      <h3>基本の あそびかた</h3>
+      <p>「はじめる」を押すと、画面の大部分がさわれる場所になります。どこにタッチ・クリックしても、すぐに光や音が広がります。指でなぞると、なぞった線に沿って光や音が変化します。途中で指を離しても失敗にはなりません。「おわる」を押すと、取り組んだ内容のふりかえりが表示されます。</p>
+
+      <h3>操作方法</h3>
+      <h4>タッチ・マウス</h4>
+      <p>画面をタップ・クリックするか、指やマウスをすべらせてください。</p>
+      <h4>キーボード</h4>
+      <p>Spaceキー または Enterキーを押すと、画面の中央で1回反応します。</p>
+      <h4>スイッチ</h4>
+      <p>外部スイッチをキーボードのSpace／Enterに対応させると、キーボードと同じように、押すたびに画面の中央で1回反応します。（順番に選択肢を移動するスキャン操作ではありません。）</p>
+      <h4>視線入力</h4>
+      <p>「先生の設定」で視線入力をONにすると、見つめた場所を一定時間見つめ続けることで反応します（既定はOFFです）。</p>
+
+      <h3>先生の設定</h3>
+      <p>「⚙️」ボタンから、開始前でも活動中でも設定を開けます（活動中は一時的に止まり、設定を閉じると続きから再開します）。</p>
+      <ul>
+        <li><b>はんのうモード</b>：ひかり／おと／ひかり＋おと／スワイプ、見せたい反応を選べます</li>
+        <li><b>しげきのつよさ</b>：やさしい／ふつう／はっきり、反応の速さや明るさ・音の大きさが変わります</li>
+        <li><b>エフェクトの太さ</b>：極細〜極太の5段階、波紋や光・粒子の大きさが変わります</li>
+        <li><b>エフェクト音</b>：反応するときの音の種類を選べます</li>
+        <li><b>おと</b>：音のON/OFF</li>
+        <li><b>しせん入力</b>：視線入力のON/OFF</li>
+      </ul>
+
+      <h3>きろく</h3>
+      <p>取り組んだ時間・さわった回数・スワイプした回数・使った操作方法などの事実だけを記録します。指でさわった場所そのもの（座標）は記録しません。記録は、そのときの取り組みを振り返るためのもので、一度の記録だけから好みや能力を判断するものではありません。</p>
+
+      <h3>おわりかた</h3>
+      <p>活動中の「⏹️ おわる」を押すと、ふりかえり画面が表示されます。</p>
+
+      <h3>ご注意</h3>
+      <p>スマートフォンやタブレットのOSの操作（画面の端からのスワイプでアプリが切り替わる等）は、この教材だけでは完全に防げない場合があります。</p>
+    </div>
+    <button id="helpCloseBtn" class="overlay-close-btn" type="button">とじる</button>
+  </section>
 </div>
 
 <!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
@@ -729,7 +843,21 @@ var EFFECT_WIDTHS = [
 // and very-thick never approaches covering the whole Interactive Surface.
 var EFFECT_WIDTH_SCALE = { 'very-thin': 0.45, 'thin': 0.7, 'normal': 1.0, 'thick': 1.45, 'very-thick': 2.0 };
 
-var settings = { mode: 'light_sound', intensity: 'standard', effectWidth: 'normal', soundEnabled: true, gazeEnabled: false };
+// User Review Fix 2 §6: the 6 selectable ids only (kept here, ahead of
+// loadSettings() below, since the full SOUND_PRESETS oscillator-building
+// object lives with the rest of the Audio Engine further down the file —
+// loadSettings() runs immediately at load time, before that later `var`
+// assignment would exist, so validation here must not depend on it).
+var EFFECT_SOUNDS = [
+  { id: 'soft',      icon: '💠', label: 'やわらかい電子音' },
+  { id: 'sparkle',   icon: '✨', label: 'キラキラ' },
+  { id: 'pop',       icon: '🫧', label: 'ポン' },
+  { id: 'drop',      icon: '💧', label: '水滴' },
+  { id: 'bell',      icon: '🔔', label: 'ベル' },
+  { id: 'xylophone', icon: '🎼', label: '木琴' }
+];
+
+var settings = { mode: 'light_sound', intensity: 'standard', effectWidth: 'normal', effectSound: 'soft', soundEnabled: true, gazeEnabled: false };
 function loadSettings(){
   try {
     var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
@@ -739,6 +867,7 @@ function loadSettings(){
       if (MODES.some(function(m){return m.id === parsed.mode;})) settings.mode = parsed.mode;
       if (INTENSITY_PRESETS[parsed.intensity]) settings.intensity = parsed.intensity;
       if (EFFECT_WIDTH_SCALE[parsed.effectWidth]) settings.effectWidth = parsed.effectWidth;
+      if (EFFECT_SOUNDS.some(function(s){return s.id === parsed.effectSound;})) settings.effectSound = parsed.effectSound;
       if (typeof parsed.soundEnabled === 'boolean') settings.soundEnabled = parsed.soundEnabled;
       if (typeof parsed.gazeEnabled === 'boolean') settings.gazeEnabled = parsed.gazeEnabled;
     }
@@ -754,7 +883,6 @@ loadSettings();
 ===================================================================== */
 var screens = {
   start: document.getElementById('startScreen'),
-  teacher: document.getElementById('teacherScreen'),
   activity: document.getElementById('activityScreen'),
   summary: document.getElementById('summaryScreen')
 };
@@ -763,11 +891,12 @@ function showScreen(name){
 }
 
 /* =====================================================================
-   Teacher Settings UI
+   Teacher Settings UI (shared by the modal's two entry points)
 ===================================================================== */
 var modeRow = document.getElementById('modeChoiceRow');
 var intensityRow = document.getElementById('intensityChoiceRow');
 var effectWidthRow = document.getElementById('effectWidthChoiceRow');
+var effectSoundRow = document.getElementById('effectSoundChoiceRow');
 
 function renderChoiceRow(container, items, currentId, onPick){
   container.innerHTML = '';
@@ -784,9 +913,11 @@ function renderChoiceRow(container, items, currentId, onPick){
 function refreshModeRow(){ renderChoiceRow(modeRow, MODES, settings.mode, function(id){ settings.mode = id; saveSettings(); refreshModeRow(); }); }
 function refreshIntensityRow(){ renderChoiceRow(intensityRow, INTENSITIES, settings.intensity, function(id){ settings.intensity = id; saveSettings(); refreshIntensityRow(); }); }
 function refreshEffectWidthRow(){ renderChoiceRow(effectWidthRow, EFFECT_WIDTHS, settings.effectWidth, function(id){ settings.effectWidth = id; saveSettings(); refreshEffectWidthRow(); }); }
+function refreshEffectSoundRow(){ renderChoiceRow(effectSoundRow, EFFECT_SOUNDS, settings.effectSound, function(id){ settings.effectSound = id; saveSettings(); refreshEffectSoundRow(); }); }
 refreshModeRow();
 refreshIntensityRow();
 refreshEffectWidthRow();
+refreshEffectSoundRow();
 
 var soundToggle = document.getElementById('soundToggle');
 var gazeToggle = document.getElementById('gazeToggle');
@@ -795,8 +926,105 @@ gazeToggle.checked = settings.gazeEnabled;
 soundToggle.addEventListener('change', function(){ settings.soundEnabled = soundToggle.checked; saveSettings(); });
 gazeToggle.addEventListener('change', function(){ settings.gazeEnabled = gazeToggle.checked; saveSettings(); setGazeEnabled(settings.gazeEnabled); });
 
-document.getElementById('openTeacherSettingsBtn').addEventListener('click', function(){ showScreen('teacher'); });
-document.getElementById('closeTeacherSettingsBtn').addEventListener('click', function(){ showScreen('start'); });
+/* =====================================================================
+   Teacher Settings modal — true dialog semantics (role="dialog"
+   aria-modal), per this Phase's explicit §4 request. Reusable from two
+   openers (Start's button and Activity's button); focus always returns to
+   whichever one opened it. Follows the repo's established endpoint-cyclic
+   Focus Trap pattern (register-app's product-modal / donomana-modal-
+   accessibility-contract-v1_0.md §3), including the v1.1 fix of treating
+   the Initial Focus anchor (the title) as a valid Reverse-Tab boundary,
+   and the §5 Escape Priority Contract rule that the common A11y panel
+   always takes precedence when it is open.
+===================================================================== */
+var teacherModalBackdrop = document.getElementById('teacherModalBackdrop');
+var teacherModal = document.getElementById('teacherModal');
+var teacherModalTitle = document.getElementById('teacherModalTitle');
+var teacherModalOpen = false;
+var teacherModalOpener = null;
+var teacherModalPausedActivity = false;
+
+function a11yPanelIsOpen(){
+  var p = document.getElementById('donomanaA11yPanel');
+  return !!(p && p.style.display === 'block');
+}
+function teacherModalFocusables(){
+  return Array.from(teacherModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(function(el){ return el.offsetParent !== null && !el.disabled; });
+}
+function openTeacherModal(opener, fromActivity){
+  if (helpOpen) closeHelp();
+  teacherModalOpener = opener;
+  teacherModalPausedActivity = !!fromActivity;
+  if (fromActivity) stopAllPointersAndGlides();
+  teacherModalOpen = true;
+  teacherModalBackdrop.hidden = false;
+  setTimeout(function(){ teacherModalTitle.focus(); }, 0);
+}
+function closeTeacherModal(){
+  teacherModalOpen = false;
+  teacherModalBackdrop.hidden = true;
+  if (teacherModalOpener && document.body.contains(teacherModalOpener)) teacherModalOpener.focus();
+  teacherModalOpener = null;
+}
+// Bound to document (not teacherModalBackdrop) — matching register-app's
+// established pattern (§3 Reference Implementation) — because focus can
+// legitimately move OUTSIDE the modal's own DOM subtree while it is still
+// open (e.g. onto the common A11y button), and a keydown fired there would
+// never bubble through an element that isn't its ancestor. Found via
+// Playwright: a second Escape press right after closing the A11y panel
+// (whose own Escape handling took priority on the first press) went
+// nowhere because focus had moved to #donomanaA11yBtn, a sibling of this
+// modal rather than a descendant.
+document.addEventListener('keydown', function(e){
+  if (!teacherModalOpen) return;
+  if (a11yPanelIsOpen()) return; // §5 Escape Priority Contract: A11y panel wins while open
+  if (e.key === 'Escape') { e.preventDefault(); closeTeacherModal(); return; }
+  if (e.key !== 'Tab') return;
+  var focusables = teacherModalFocusables();
+  if (!focusables.length) return;
+  var first = focusables[0], last = focusables[focusables.length - 1];
+  var active = document.activeElement;
+  if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && (active === first || active === teacherModalTitle)) { e.preventDefault(); last.focus(); }
+});
+document.getElementById('openTeacherSettingsBtn').addEventListener('click', function(e){ openTeacherModal(e.currentTarget, false); });
+document.getElementById('openTeacherSettingsFromActivityBtn').addEventListener('click', function(e){ openTeacherModal(e.currentTarget, true); });
+document.getElementById('closeTeacherSettingsBtn').addEventListener('click', closeTeacherModal);
+
+/* =====================================================================
+   Help overlay — non-modal per the established Donomana Help / Usage
+   Guide Standard (its own REQUIRED list omits Focus Trap, and its
+   Reference Implementation dotchiga-ii-app.html has none either). Same
+   Escape/opener-restoration/A11y-priority/Activity-isolation treatment as
+   the Teacher modal, without the Tab-containment loop.
+===================================================================== */
+var helpOverlay = document.getElementById('helpOverlay');
+var helpTitle = document.getElementById('helpTitle');
+var helpBtn = document.getElementById('donomanaHelpBtn');
+var helpOpen = false;
+function openHelp(){
+  if (teacherModalOpen) closeTeacherModal();
+  helpOpen = true;
+  helpOverlay.hidden = false;
+  helpBtn.setAttribute('aria-expanded', 'true');
+  setTimeout(function(){ helpTitle.focus(); }, 0);
+}
+function closeHelp(){
+  helpOpen = false;
+  helpOverlay.hidden = true;
+  helpBtn.setAttribute('aria-expanded', 'false');
+  helpBtn.focus();
+}
+helpBtn.addEventListener('click', function(){ helpOpen ? closeHelp() : openHelp(); });
+document.getElementById('helpCloseBtn').addEventListener('click', closeHelp);
+// Bound to document, not helpOverlay — same reasoning as the Teacher modal
+// above (focus can be on a common-chrome sibling like #donomanaA11yBtn).
+document.addEventListener('keydown', function(e){
+  if (!helpOpen) return;
+  if (a11yPanelIsOpen()) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeHelp(); }
+});
 
 /* =====================================================================
    Audio Engine — Web Audio API (Design Contract §14 FINAL DECISION).
@@ -844,6 +1072,131 @@ function freqForX(xRatio){
   return SCALE_HZ[idx];
 }
 
+// User Review Fix 2 §6-9: 6 selectable Effect Sound presets (EFFECT_SOUNDS
+// ids declared earlier, alongside the other settings arrays), all pure Web
+// Audio API synthesis (no external audio files, no network dependency, per
+// this Phase's §8/§20). Each preset supplies its own discrete-tone graph
+// (tap/dwell/switch/keyboard) and a simple {oscType, filterFreq} used for
+// the continuous swipe glide (kept simpler than the one-shot envelope,
+// since a glide is inherently continuous rather than a fixed-duration
+// shape). Tuned for classroom repeat-listening (§9): sine/triangle only
+// (never a raw square/sawtooth "buzzer"), lowpass/highpass-filtered,
+// short durations (140-650ms), no envelope value ever exceeds ~0.26 before
+// the shared Intensity gain scale is applied.
+var SOUND_PRESETS = {
+  soft: {
+    glide: { oscType: 'sine', filterFreq: 2200 },
+    playTone: function(ctx, dest, freq, gainScale, t0){
+      var osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 2600;
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      var peak = 0.22 * gainScale;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42);
+      osc.connect(filter); filter.connect(gain); gain.connect(dest);
+      osc.start(t0); osc.stop(t0 + 0.45);
+      return [osc];
+    }
+  },
+  sparkle: {
+    glide: { oscType: 'sine', filterFreq: 5000 },
+    playTone: function(ctx, dest, freq, gainScale, t0){
+      var osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'highpass'; filter.frequency.value = 800;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq * 2.2, t0 + 0.09);
+      var peak = 0.18 * gainScale;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+      osc.connect(filter); filter.connect(gain); gain.connect(dest);
+      osc.start(t0); osc.stop(t0 + 0.28);
+      return [osc];
+    }
+  },
+  pop: {
+    glide: { oscType: 'sine', filterFreq: 1800 },
+    playTone: function(ctx, dest, freq, gainScale, t0){
+      var osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 1800;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq * 1.4, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.6, t0 + 0.07);
+      var peak = 0.26 * gainScale;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
+      osc.connect(filter); filter.connect(gain); gain.connect(dest);
+      osc.start(t0); osc.stop(t0 + 0.16);
+      return [osc];
+    }
+  },
+  drop: {
+    glide: { oscType: 'sine', filterFreq: 1600 },
+    playTone: function(ctx, dest, freq, gainScale, t0){
+      var osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 1600;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq * 1.8, t0);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.85, t0 + 0.16);
+      var peak = 0.22 * gainScale;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.32);
+      osc.connect(filter); filter.connect(gain); gain.connect(dest);
+      osc.start(t0); osc.stop(t0 + 0.34);
+      return [osc];
+    }
+  },
+  bell: {
+    glide: { oscType: 'sine', filterFreq: 5200 },
+    playTone: function(ctx, dest, freq, gainScale, t0){
+      var gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 5200;
+      var peak = 0.16 * gainScale;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.62);
+      filter.connect(gain); gain.connect(dest);
+      var oscs = [];
+      [1, 2.01, 2.98].forEach(function(mult, i){
+        var osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = freq * mult;
+        var voiceGain = ctx.createGain(); voiceGain.gain.value = i === 0 ? 1 : 0.35;
+        osc.connect(voiceGain); voiceGain.connect(filter);
+        osc.start(t0); osc.stop(t0 + 0.65);
+        oscs.push(osc);
+      });
+      return oscs;
+    }
+  },
+  xylophone: {
+    glide: { oscType: 'triangle', filterFreq: 3200 },
+    playTone: function(ctx, dest, freq, gainScale, t0){
+      var osc = ctx.createOscillator(), gain = ctx.createGain(), filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = 3200;
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      var overtone = ctx.createOscillator();
+      overtone.type = 'sine'; overtone.frequency.value = freq * 4;
+      var overtoneGain = ctx.createGain();
+      overtoneGain.gain.setValueAtTime(0.12 * gainScale, t0);
+      overtoneGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+      var peak = 0.24 * gainScale;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+      osc.connect(filter); filter.connect(gain); gain.connect(dest);
+      overtone.connect(overtoneGain); overtoneGain.connect(dest);
+      osc.start(t0); osc.stop(t0 + 0.3);
+      overtone.start(t0); overtone.stop(t0 + 0.06);
+      return [osc, overtone];
+    }
+  }
+};
+function currentSoundPreset(){ return SOUND_PRESETS[settings.effectSound] || SOUND_PRESETS.soft; }
+
 // Discrete tone (tap / dwell / switch / keyboard). Rate-limited (§14 cooldown,
 // 40-150ms adjustable range) so a burst of near-simultaneous triggers cannot
 // flood the audio graph; independent of the concurrent-voice cap above.
@@ -857,23 +1210,10 @@ function playTone(freq){
   if (!ctx) return;
   unlockAudioContext();
   var t0 = ctx.currentTime;
-  var osc = ctx.createOscillator();
-  var gain = ctx.createGain();
-  var filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 2600;
-  osc.type = 'triangle';
-  osc.frequency.value = freq;
-  var peak = 0.22 * currentIntensity().audioGain;
-  gain.gain.setValueAtTime(0, t0);
-  gain.gain.linearRampToValueAtTime(peak, t0 + 0.008);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.42);
-  osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
-  osc.start(t0);
-  osc.stop(t0 + 0.45);
-  var voice = { stop: function(){ try { osc.stop(); } catch (e) {} } };
+  var oscs = currentSoundPreset().playTone(ctx, masterGain, freq, currentIntensity().audioGain, t0);
+  var voice = { stop: function(){ oscs.forEach(function(o){ try { o.stop(); } catch (e) {} }); } };
   registerVoice(voice);
-  osc.addEventListener('ended', function(){ unregisterVoice(voice); try { osc.disconnect(); filter.disconnect(); gain.disconnect(); } catch (e) {} });
+  oscs[oscs.length - 1].addEventListener('ended', function(){ unregisterVoice(voice); });
 }
 
 // Continuous glide tone for an in-progress swipe (one per active pointer),
@@ -887,12 +1227,13 @@ function startGlide(pointerId, freq){
   if (!ctx) return;
   unlockAudioContext();
   var t0 = ctx.currentTime;
+  var glideCfg = currentSoundPreset().glide;
   var osc = ctx.createOscillator();
   var gain = ctx.createGain();
   var filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
-  filter.frequency.value = 2200;
-  osc.type = 'sine';
+  filter.frequency.value = glideCfg.filterFreq;
+  osc.type = glideCfg.oscType;
   osc.frequency.setValueAtTime(freq, t0);
   gain.gain.setValueAtTime(0, t0);
   gain.gain.linearRampToValueAtTime(0.16 * currentIntensity().audioGain, t0 + 0.03);
@@ -1076,8 +1417,14 @@ function recordInteraction(inputMethod, kind){
 // x,y are surface-local CSS-pixel coordinates, or null for a location-less
 // input (Switch/Keyboard) which always reacts at the fixed center point —
 // §21 FINAL DECISION: predictability over positional variety for that input.
+// §5 of this Phase: Teacher Settings / Help isolate the Activity Surface
+// exactly like the existing common A11y-panel-open guard elsewhere in the
+// repo — one boolean check reused at every entry point, not a second
+// parallel isolation mechanism.
+function overlaysOpen(){ return teacherModalOpen || helpOpen; }
+
 function triggerReaction(x, y, inputMethod, kind){
-  if (screens.activity.hidden) return;
+  if (screens.activity.hidden || overlaysOpen()) return;
   var rect = surfaceEl.getBoundingClientRect();
   var isFixedPoint = (x === null || x === undefined);
   var px = isFixedPoint ? rect.width / 2 : x;
@@ -1113,6 +1460,7 @@ function localXY(e){
 }
 
 surfaceEl.addEventListener('pointerdown', function(e){
+  if (overlaysOpen()) return;
   unlockAudioContext();
   var ids = Object.keys(activePointers);
   if (ids.length >= MAX_ACTIVE_POINTERS) return; // extra touch ignored, no penalty (§11/§16)
@@ -1122,6 +1470,7 @@ surfaceEl.addEventListener('pointerdown', function(e){
   triggerReaction(pos.x, pos.y, pointerInputMethod(e), 'tap');
 });
 surfaceEl.addEventListener('pointermove', function(e){
+  if (overlaysOpen()) return;
   var p = activePointers[e.pointerId];
   if (!p) return;
   var pos = localXY(e);
@@ -1167,6 +1516,7 @@ surfaceEl.addEventListener('keydown', function(e){
   if (e.key !== ' ' && e.key !== 'Spacebar' && e.key !== 'Enter') return;
   e.preventDefault();
   if (e.repeat) return; // §21: repeat keydown must not cause a runaway of reactions
+  if (overlaysOpen()) return;
   unlockAudioContext();
   triggerReaction(null, null, 'keyboard', 'direct');
 });
@@ -1184,7 +1534,7 @@ var gazeX = null, gazeY = null, gazeLastFireAt = 0, gazeRafId = null;
 function onGazeMove(e){ gazeX = e.clientX; gazeY = e.clientY; }
 function gazeTick(){
   if (!settings.gazeEnabled) { gazeRafId = null; return; }
-  if (gazeX !== null && !screens.activity.hidden) {
+  if (gazeX !== null && !screens.activity.hidden && !overlaysOpen()) {
     var now = performance.now();
     if (now - gazeLastFireAt >= GAZE_DWELL_MS) {
       gazeLastFireAt = now;
@@ -1234,10 +1584,13 @@ function startSession(){
   surfaceEl.focus();
 }
 
-function finalizeSession(){
-  if (!session) return null;
+function stopAllPointersAndGlides(){
   Object.keys(activePointers).forEach(function(pid){ if (activePointers[pid].isSwipe) stopGlide(pid); });
   activePointers = {};
+}
+function finalizeSession(){
+  if (!session) return null;
+  stopAllPointersAndGlides();
   var durationMs = Date.now() - session.startTime;
   var payload = {
     detailSchemaVersion: 1,
@@ -1249,7 +1602,8 @@ function finalizeSession(){
     inputMethods: Array.from(session.inputMethods),
     soundEnabled: settings.soundEnabled,
     intensity: settings.intensity,
-    effectWidth: settings.effectWidth
+    effectWidth: settings.effectWidth,
+    effectSound: settings.effectSound
   };
   var entry = donomanaRecordCreate('sawatte-hirogaru-app', 'session', null, payload);
   donomanaRecordAddLog(STORAGE_LOG_KEY, entry);
@@ -1265,6 +1619,7 @@ function formatDuration(ms){
 var MODE_LABEL = {}; MODES.forEach(function(m){ MODE_LABEL[m.id] = m.icon + ' ' + m.label; });
 var INTENSITY_LABEL = {}; INTENSITIES.forEach(function(i){ INTENSITY_LABEL[i.id] = i.icon + ' ' + i.label; });
 var EFFECT_WIDTH_LABEL = {}; EFFECT_WIDTHS.forEach(function(e){ EFFECT_WIDTH_LABEL[e.id] = e.icon + ' ' + e.label; });
+var EFFECT_SOUND_LABEL = {}; EFFECT_SOUNDS.forEach(function(s){ EFFECT_SOUND_LABEL[s.id] = s.icon + ' ' + s.label; });
 
 function showSummary(payload){
   var list = document.getElementById('summaryList');
@@ -1281,6 +1636,7 @@ function showSummary(payload){
   addRow('つかった モード', MODE_LABEL[payload.mode] || payload.mode);
   addRow('しげきの つよさ', INTENSITY_LABEL[payload.intensity] || payload.intensity);
   addRow('エフェクトの 太さ', EFFECT_WIDTH_LABEL[payload.effectWidth] || payload.effectWidth);
+  addRow('エフェクト音', EFFECT_SOUND_LABEL[payload.effectSound] || payload.effectSound);
   var methodLabels = payload.inputMethods.map(function(m){ return donomanaRecordFormatInputMethod(m) || m; }).join('・');
   addRow('つかった そうさ', methodLabels || '（なし）');
   showScreen('summary');
