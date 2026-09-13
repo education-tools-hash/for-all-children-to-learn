@@ -1557,7 +1557,7 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // も更新した。商品マスターは後から変更されうるため、CSV出力時に現在の商品マスターから名前を
 // 再取得せず、確定時点のsnapshotのみを参照する。両者ともschemaVersion:1のまま(v1 payload最終
 // 確定、不要なversion bumpはしない)。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app']);
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app']);
 
 // ============================================================
 //  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線
