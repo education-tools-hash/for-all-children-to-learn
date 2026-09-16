@@ -20,7 +20,7 @@
 | appId | Record Foundation | App-local Detail | App-local Rich Viz | Common Adapter | Common Detail | Common Viz | CSV(共通7列) | Parity Status | Notes |
 |---|---|---|---|---|---|---|---|---|---|
 | sawatte-hirogaru-app | ✅ | ✅ あり（操作回数/タップ/スワイプ内訳・モード・しげき設定等、本Phaseの直接検証対象） | ✅ あり（Trace Viewer、traceSchemaVersion:1） | ❌ 未登録 | — | — | — | **NOT INTEGRATED** | `SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1`のReference Implementation対象（Contract §20） |
-| sst-app | ✅ | ✅ あり（`donomana-sst-record-detail-contract-v1_0.md`: 場面/選択肢/選んだ回答/教材内区分） | — (該当なし) | ✅ | ❌ Summary相当のみ（`e.type`+`metrics.level`のみ、場面/選択肢は未読込） | N/A | ✅ | **SUMMARY ONLY**（App-local Detailは既にあるがCommon未反映） | `SST-COMMON-RECORD-DETAIL-PARITY-AUDIT-1`対象（Contract §21）。Category E「Common Detail不足」の実例 |
+| sst-app | ✅ | ✅ あり（8 detail type実測確認済み: roleplay_choice/branch_ending/emotion_selection/phrase_action/breathing_activity/word_quiz_session/sst_quiz_session/social_story_completion。`buildDetailRecordList()`＝「今週のレポート」内「くわしいきろく」、週スコープ限定） | — (該当なし、Rich Visualization NOT APPLICABLE) | ✅ | ❌ Summary相当のみ（`e.type`+`metrics.level`のみ、`e.detail`未読込、実測再確認） | N/A | ✅ | **SUMMARY ONLY**（App-local Detailは既にあるがCommon未反映） | Audit完了: `docs/records/sst-common-record-detail-parity-audit-v1_0.md`（`SST-COMMON-RECORD-DETAIL-PARITY-AUDIT-1`）。Category E「Common Detail不足」の実例。次Phase: `SST-COMMON-RECORD-DETAIL-INTEGRATION-1`（User Approval待ち） |
 | hiragana-learn | ✅ | 未監査 | ✅ あり（`data.traceSample`、Adapterのhas Media判定で確認） | ✅ | ❌ Summary相当のみ | ❌「このMVPでは表示していません」固定文言でブロック | ✅ | **PARTIAL** | Trace/Drawing系App、Rollout順位3（Contract §22） |
 | katakana-app | ✅ | 未監査 | ✅ あり（同上） | ✅ | ❌ | ❌ 同上 | ✅ | **PARTIAL** | 同上 |
 | suji-manabou | ✅ | 未監査 | ✅ あり（同上） | ✅ | ❌ | ❌ 同上 | ✅ | **PARTIAL** | 同上 |
