@@ -437,6 +437,20 @@ Phase26-C6.2の教訓を正式化する。
 
 ---
 
+## 24.1 共通「学習の記録」への連携（REQUIRED・記録機能を持つ教材）
+
+`donomana-learning-record-cross-app-detail-contract-v1_0.md`（Phase `LEARNING-RECORD-CROSS-APP-DETAIL-CONTRACT-1`）が定めるAPP-LOCAL/COMMON RECORD PARITY PRINCIPLEに従う。Record機能を実装する場合、以下を同一Phaseまたは直後の必須Phaseとして設計すること。
+
+1. 保存schema（Foundation record準拠、§5〜§20）
+2. App-local summary/detail
+3. 共通`learning-records.html`「学習の記録」へのSummary + Detail（Level 2）連携
+4. 保存済みRich Visualization（軌跡・画像等）がある場合はLevel 3連携
+5. CSV parity
+
+「App内だけ実装して共通『学習の記録』への連携をしない」状態は、本Standard違反として扱う。詳細な必須要件・Parity Level定義・Adapter Architectureは同Contractを参照する。
+
+---
+
 ## 25. 複数件UI Validation（REQUIRED・複数件をrenderするUI全般）
 
 複数件をrenderするUIは、**1件で動作してもPASSにしない。** 最低5件以上を同時表示して検証する。

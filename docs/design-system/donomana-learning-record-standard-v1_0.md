@@ -19,6 +19,7 @@
 | `donomana-storage-architecture-v2_0.md` | 独立（コンテンツ保存・バックアップ層。学習記録は扱わない） |
 | `docs/multi-input/multi-input-program-design-v1.md` §11・§22 | 本Standardの実証的土台（M11/M12 Multi-Input Foundationの既存Records Philosophy） |
 | `donomana-privacy-analytics-consistency-v1.md`（T4） | 本Standardのprivacy原則はT4の確立方針と矛盾しない |
+| `donomana-learning-record-cross-app-detail-contract-v1_0.md`（Phase `LEARNING-RECORD-CROSS-APP-DETAIL-CONTRACT-1`） | 本文書が定義するCore Schema（§5、Foundation record）を唯一のSource of Truthとして、App-local記録とCommon「学習の記録」の詳細表示parityを規定する拡張Contract |
 
 ---
 
