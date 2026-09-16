@@ -802,7 +802,11 @@ const HOME_BTN_SKIP_APPS = new Set(['scratch-app']); // 既に独自のヘッダ
 const HOME_BTN_HTML = [
   '<!-- home-btn: 自動挿入 (generate.js) -->',
   '<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
-  `<a href="${BASE_URL}/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>`,
+  // 相対パス(/)を使う: BASE_URLの絶対URLだとローカル開発サーバー/ブランチ環境から
+  // クリックすると本番donomana.jpへ離脱してしまう(SST-COMMON-RECORD-DETAIL-FIX-1、
+  // ローカル検証中に「学習のきろく」ボタン経由で本番へ遷移し記録が反映されないように
+  // 見えた不具合の根本原因)。本番はサイトルート配信(BASE_PATH='')のため挙動は同じ。
+  `<a href="/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>`,
   '<!-- /home-btn -->'
 ].join('\n');
 
@@ -1576,7 +1580,11 @@ const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-
 const RECORD_NAV_HTML = [
   '<!-- record-nav-btn: 自動挿入 (generate.js) -->',
   '<style>#donomanaRecordNavBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>',
-  `<a href="${BASE_URL}/learning-records.html" id="donomanaRecordNavBtn" data-supporter-only="true" aria-label="学習のきろくを見る（先生・支援者向け）" title="学習のきろくを見る（先生・支援者向け）" style="position:fixed;bottom:16px;left:16px;z-index:99997;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,0.92);color:#00857B;font-family:'M PLUS Rounded 1c','Rounded Mplus 1c',sans-serif;font-size:13px;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📊 学習のきろく</a>`,
+  // 相対パス(/learning-records.html)を使う理由はhome-btnと同じ(SST-COMMON-RECORD-
+  // DETAIL-FIX-1)。このボタンがまさに「学習の記録」への導線であるため、絶対URLの
+  // せいで本番へ離脱すると、ローカル/ブランチで書いた記録が一切見えない(別オリジン
+  // のためlocalStorageも空)という、記録機能そのものが壊れて見える不具合になる。
+  `<a href="/learning-records.html" id="donomanaRecordNavBtn" data-supporter-only="true" aria-label="学習のきろくを見る（先生・支援者向け）" title="学習のきろくを見る（先生・支援者向け）" style="position:fixed;bottom:16px;left:16px;z-index:99997;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,0.92);color:#00857B;font-family:'M PLUS Rounded 1c','Rounded Mplus 1c',sans-serif;font-size:13px;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📊 学習のきろく</a>`,
   '<!-- /record-nav-btn -->'
 ].join('\n');
 

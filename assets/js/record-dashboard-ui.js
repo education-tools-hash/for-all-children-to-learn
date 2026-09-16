@@ -57,8 +57,21 @@
     'shop': 'おかいもの',
     'mondai': 'もんだい',
     'mistake': 'まちがいさがし',
-    // sst-app: e.type(sst-app.html実コードでrecordActivity('rp',...)を確認済み)
+    // sst-app: e.type(sst-app.html実コードでACT_LABEL定義・recordActivity()
+    // 呼び出しを確認済み、SST-COMMON-RECORD-DETAIL-INTEGRATION-1・
+    // docs/records/sst-common-record-detail-parity-audit-v1_0.md §2)。
+    // 'quiz'は既存(43行目)のhiragana-learn等と共有の汎用「クイズ」ラベルを
+    // 流用する(Audit §25 non-blocking、実害なしのため今回は変更しない)。
     'rp': 'ロールプレイ',
+    'wq': 'ことばクイズ',
+    'story': 'ソーシャルストーリー',
+    'branch': '分岐ストーリー',
+    'diary': 'きもち日記',
+    'thermo': 'きもち温度計',
+    'breath': 'きもちを落ち着ける',
+    'photo': '写真SST',
+    'emotion': 'きもちカード',
+    'phrase': 'フレーズ集',
     // kurabeyou-app: e.concept(kurabeyou-app.html実コードでcomparisonMode='size'|'length'を確認済み)
     'size': 'おおきさ くらべ',
     'length': 'ながさ くらべ',

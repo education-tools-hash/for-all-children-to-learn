@@ -645,6 +645,17 @@
     }
   });
 
+  // SST_ACT_NAME: CSV「教材」列・summary補完用の教材名のみの複製
+  // (SST-COMMON-RECORD-DETAIL-INTEGRATION-1)。sst-app.html自身のACT_LABEL
+  // (アイコン付き)とは独立に、Common側はnameのみを持つ(Contract §9 Shared
+  // Formatter方針、各fileが自分の分を持つ既存慣習)。
+  var SST_ACT_LABEL = {
+    rp: { name: 'ロールプレイ' }, wq: { name: 'ことばクイズ' }, story: { name: 'ソーシャルストーリー' },
+    branch: { name: '分岐ストーリー' }, diary: { name: 'きもち日記' }, quiz: { name: 'SSTクイズ' },
+    thermo: { name: 'きもち温度計' }, breath: { name: 'きもちを落ち着ける' }, photo: { name: '写真SST' },
+    emotion: { name: 'きもちカード' }, phrase: { name: 'フレーズ集' }
+  };
+
   registerAdapter({
     appId: 'sst-app',
     appName: 'SST ソーシャルスキルトレーニング',
@@ -653,8 +664,10 @@
     structure: 'flat',
     privacyLevel: 'low',
     includeInDefaultTimeline: true,
-    // {ts(epoch ms), type, lv, result, schemaVersion}。resultの内容種別が未確認
-    // のため、既定summaryには含めない(user-entered strings safe、§16/§43)。
+    // {ts(epoch ms), type, lv, result, schemaVersion, detail?}。detailは
+    // 8種類のdetail.typeを持つ任意field(SST-COMMON-RECORD-DETAIL-
+    // PARITY-AUDIT-1で実測確認済み)。resultの内容種別が未確認のため、
+    // 既定summaryには含めない(user-entered strings safe、§16/§43)。
     normalize: function (e) {
       var summary = 'SSTの活動に取り組みました';
       if (typeof e.type === 'string' && e.type) summary += '（' + e.type + '）';
@@ -668,6 +681,34 @@
         inputMethod: null,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(SST-COMMON-RECORD-DETAIL-INTEGRATION-1、
+    // Cross-App Detail Contract §8.1)。実体はassets/js/sst-record-detail.js
+    // (App-localの「くわしいきろく」と共有、重複実装禁止)。
+    getDetails: function (e) {
+      return (typeof donomanaSstRecordDetail !== 'undefined') ? donomanaSstRecordDetail.getDetailRows(e) : [];
+    },
+    // richVisualizationは実装しない(Audit §15、NOT APPLICABLE——SSTは画像・
+    // 軌跡等の可視化データを一切保存しない)。
+    //
+    // CSV Parity(Audit §12/§31-35)。App-localの「今週のきろくをCSVで書き出す」
+    // (週スコープ)と同じ8列・同じrow builderで、Common側は全期間(storage
+    // retentionの範囲内)を対象にする(Sawatteと同じscopeの非対称性、
+    // Audit §7と同型の理由——Foundation recordへのより忠実なアクセス)。
+    getCsvActions: function () {
+      if (typeof donomanaSstRecordDetail === 'undefined') return [];
+      var D = donomanaSstRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 くわしいきろくをCSVで保存',
+          filenamePrefix: 'sst-kiroku-kuwashii',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords, SST_ACT_LABEL); },
+          disabled: function (rawRecords) {
+            return !(rawRecords || []).some(function (r) { return D.isValidDetail(r && r.detail); });
+          }
+        }
+      ];
     }
   });
 
