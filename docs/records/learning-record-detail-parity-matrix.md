@@ -1,57 +1,71 @@
 # Learning Record Detail Parity Matrix
 
 - 根拠Contract: `docs/design-system/donomana-learning-record-cross-app-detail-contract-v1_0.md`
-- Baseline checkpoint: `fc2fb0a`
-- 実測日: Phase `LEARNING-RECORD-CROSS-APP-DETAIL-CONTRACT-1`
-- 本文書は**生きた文書**。実装（§20〜22のRollout）が進むたびに該当行を更新する。
+- Baseline checkpoint（本更新時点）: `400e08c`
+- 実測日: Phase `LEARNING-RECORD-DETAIL-PARITY-AUDIT-ALL-1`（前回実測: `LEARNING-RECORD-CROSS-APP-DETAIL-CONTRACT-1`、`fc2fb0a`時点）
+- 本文書は**生きた文書**。実装（Rollout Batch）が進むたびに該当行を更新する。
+- 本更新で解消したこと: 前回「未監査」だった17アプリ全件のApp-local実コードを実測し、`未監査`列を撤廃した。`sawatte-hirogaru-app`（Reference Implementation、`SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1`）・`sst-app`（`SST-COMMON-RECORD-DETAIL-INTEGRATION-1`）は既にProduction Releaseされ、`CONFORMANT_L3`/`CONFORMANT_L2`へ更新した。
 
 ## 凡例
 
-**Parity Status**: `CONFORMANT`（Level 2、Rich Visualization保有ならLevel 3も充足） / `PARTIAL`（Level 2の一部のみ、またはLevel 3未対応） / `SUMMARY ONLY`（Level 1のみ） / `NOT INTEGRATED`（Foundation対応だがCommon Adapter未登録） / `NOT APPLICABLE`
+**Status語彙**（本更新でPhase指定の語彙へ統一）:
 
-**列の実測方法**:
-- Record Foundation / Common Summary / Common Detail / Common Visualization / CSV共通列: `assets/js/record-dashboard-foundation.js`・`record-dashboard-ui.js`・`learning-records.html`のコードを本Phaseで直接確認（確定情報）。
-- App-local Detail / App-local Rich Visualization: 本Phaseで個別に確認できたApp（さわってひろがる・SST・hiragana-learn/katakana-app/suji-manabou/nazori-app・kurabeyou-app）のみ確定情報。**残りのAppは未監査**（§Notesに明記、`LEARNING-RECORD-DETAIL-PARITY-AUDIT-ALL-1`で確認予定）。
+- `CONFORMANT_L2`: Level 2（Detail Parity）を満たす。Rich Visualization対象外のApp。
+- `CONFORMANT_L3`: Level 2 + Level 3（Rich Visualization Parity）の両方を満たす。
+- `PARTIAL`: 保存済みRich Visualizationデータ（`hasMedia:true`相当）はCommon Adapterが検知できているが、Level 2・Level 3のいずれもCommonへ反映されていない（App-localには両方存在する）。
+- `SUMMARY_ONLY`: Level 1（Summary）のみ。Rich Visualizationデータ自体を持たない、またはApp-local側にもDetailがほぼない。
+- `NOT_INTEGRATED`: Foundation record対応だがCommon Adapter未登録（本更新時点で該当0件）。
+- `NOT_APPLICABLE`: Privacy境界により意図的にCommon既定Timelineから除外されている（`kyou-no-kiroku`のみ、Required Levelの対象外）。
+
+**Required Level**（Cross-App Detail Contract §4.1確定ルール）: 全Foundation対応AppはLevel 2必須。保存済みRich Visualizationデータ（trace/image等）を持つAppはLevel 3も必須。`kyou-no-kiroku`はPrivacy例外（Contract §2.2）によりRequired Level対象外。
+
+**列の実測方法**: 全22アプリについて、Common側（`record-dashboard-foundation.js`のRECORD_ADAPTERS定義を実コードで完全読了）・App-local側（各アプリHTMLの記録保存・表示・CSVコードを個別に実測）の両方を本Phaseで直接確認した実測値。推測・未確認欄は存在しない。
 
 ---
 
 ## Record Foundation対応 22アプリ
 
-| appId | Record Foundation | App-local Detail | App-local Rich Viz | Common Adapter | Common Detail | Common Viz | CSV(共通7列) | Parity Status | Notes |
-|---|---|---|---|---|---|---|---|---|---|
-| sawatte-hirogaru-app | ✅ | ✅ あり（操作回数/タップ/スワイプ内訳・モード・しげき設定等、本Phaseの直接検証対象） | ✅ あり（Trace Viewer、traceSchemaVersion:1） | ❌ 未登録 | — | — | — | **NOT INTEGRATED** | `SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1`のReference Implementation対象（Contract §20） |
-| sst-app | ✅ | ✅ あり（8 detail type実測確認済み: roleplay_choice/branch_ending/emotion_selection/phrase_action/breathing_activity/word_quiz_session/sst_quiz_session/social_story_completion。`buildDetailRecordList()`＝「今週のレポート」内「くわしいきろく」、週スコープ限定） | — (該当なし、Rich Visualization NOT APPLICABLE) | ✅ | ❌ Summary相当のみ（`e.type`+`metrics.level`のみ、`e.detail`未読込、実測再確認） | N/A | ✅ | **SUMMARY ONLY**（App-local Detailは既にあるがCommon未反映） | Audit完了: `docs/records/sst-common-record-detail-parity-audit-v1_0.md`（`SST-COMMON-RECORD-DETAIL-PARITY-AUDIT-1`）。Category E「Common Detail不足」の実例。次Phase: `SST-COMMON-RECORD-DETAIL-INTEGRATION-1`（User Approval待ち） |
-| hiragana-learn | ✅ | 未監査 | ✅ あり（`data.traceSample`、Adapterのhas Media判定で確認） | ✅ | ❌ Summary相当のみ | ❌「このMVPでは表示していません」固定文言でブロック | ✅ | **PARTIAL** | Trace/Drawing系App、Rollout順位3（Contract §22） |
-| katakana-app | ✅ | 未監査 | ✅ あり（同上） | ✅ | ❌ | ❌ 同上 | ✅ | **PARTIAL** | 同上 |
-| suji-manabou | ✅ | 未監査 | ✅ あり（同上） | ✅ | ❌ | ❌ 同上 | ✅ | **PARTIAL** | 同上 |
-| nazori-app | ✅ | 未監査 | ✅ あり（`e.image`、Adapterで確認） | ✅ | ❌ | ❌ 同上 | ✅ | **PARTIAL** | 同上 |
-| kurabeyou-app | ✅ | ✅ あり（`appendRecordDetailToggle()`、New App Standard §24 Reference Implementation） | — (該当なし、hasMedia:false) | ✅ | ❌ Summary相当のみ | N/A | ✅ | **SUMMARY ONLY** | App-local Detail UIの参照実装だが、Common側には未反映 |
-| katachi-awase-app | ✅ | 未監査（detail関連コード多数、要個別確認） | — (該当なし、hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | Global Audit対象 |
-| janken-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | Global Audit対象 |
-| register-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| tokei-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| matching-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| shiritori2 | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| directions-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| mitsukete-touch-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| junban-miyou-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| dotchiga-ii-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| miru-hirogaru-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | Pilot A（`donomana-learning-record-standard-v1_0.md`）だが本Contractの意味でのLevel 2は未対応 |
-| okane-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| mogura-tataki | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| bosai-app | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | 同上 |
-| kyou-no-kiroku | ✅ | 未監査 | — (hasMedia:false) | ✅ | ❌ | N/A | ✅ | **SUMMARY ONLY** | Pilot D（read-onlyでFoundation統合せずと`donomana-learning-record-standard-v1_0.md` §30.2に記載）。Adapter自体は存在（固定summaryのみ） |
+| appId | appName | Foundation | App-local Summary | App-local Detail | Rich Viz (App-local) | Common Summary | Common Detail (L2) | Common Viz (L3) | CSV (App-local / Common) | Required Level | Current Level | Status | Risk | Recommended Phase |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| sawatte-hirogaru-app | さわってひろがる | ✅ | ✅ | ✅ | ✅ tap/swipe軌跡 | ✅ | ✅ | ✅ | ✅ / ✅（2種） | L2+L3 | L3 | **CONFORMANT_L3** | — | 完了（Reference Implementation） |
+| sst-app | SST ソーシャルスキルトレーニング | ✅ | ✅ | ✅（週次レポート、8 detail type） | N/A（保存データなし） | ✅ | ✅ | N/A | ✅ / ✅（1種） | L2 | L2 | **CONFORMANT_L2** | — | 完了（Reference Implementation） |
+| hiragana-learn | ひらがな まなぼう！ | ✅ | ✅ | ✅✅（traceSampleのcanvas再生ビューア、お手本重ね表示付き） | ✅ stroke point（`{version:1, coordinateSpace:'normalized-1000', strokes:[[x,y,...]]}`） | ✅ | ❌ | ❌（hasMedia bool のみ） | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | HIGH（新規renderer必要、お手本重ね表示の扱い要決定） | Batch A |
+| katakana-app | カタカナ まなぼう！ | ✅ | ✅ | ✅✅（hiragana-learnと同一実装） | ✅ 同上 | ✅ | ❌ | ❌ | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | HIGH（hiragana-learnと同時実装が合理的） | Batch A |
+| suji-manabou | すうじ まなぼう！ | ✅ | ✅ | ❌（trace描画はライブ中のみ、保存されない） | NOT_APPLICABLE（保存データ自体が存在しない） | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW | Batch C |
+| nazori-app | なぞり書き練習ツール | ✅ | ✅ | ✅✅（履歴一覧に実PNG画像をインライン表示） | ✅ base64 PNG dataURL | ✅ | ❌ | ❌（hasMedia bool のみ） | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | LOW-MEDIUM（`<img>`表示のみで済む、canvas演算不要。一覧prefetch厳禁を要順守） | Batch A（最優先候補） |
+| kurabeyou-app | おおきい？ちいさい？くらべよう | ✅ | ✅ | ✅✅（`appendRecordDetailToggle()`、問題ごとの詳細展開） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW（既存detail生成関数を流用可能） | Batch B（高優先） |
+| katachi-awase-app | かたちをあわせよう | ✅ | ✅ | ✅✅（同一パターンの`appendRecordDetailToggle()`） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW-MEDIUM | Batch B |
+| directions-app | ほうこうとばしょをまなぼう | ✅ | ✅ | ✅✅（常時全件テーブル表示、問題文/回答/正解） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW（1entry=1問のフラット構造、集約ロジック不要。全App中最も実装が単純） | Batch B（最優先候補） |
+| janken-app | じゃんけん まなぼう！ | ✅ | ✅ | ✅（`mistakes[]`、問題ごとの選択/正解） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW-MEDIUM | Batch B |
+| register-app | はんばいかい レジ | ✅ | ✅ | ✅（`items[]`、購入内訳） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | MEDIUM（商品名は自由入力・medium privacy、既存CSVエスケープ実装を踏襲すれば解消可） | Batch B |
+| bosai-app | ぼうさいたんけんたい | ✅ | ✅（教員PINゲート） | ✅✅（`buildDetailHTML()`、状況/選択/正誤/正解/解説を問題ごとに展開） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | MEDIUM（`name`除外を厳守。`log[]`自体はレガシー未防御=`Array.isArray`guard無し、実装時に追加要） | Batch B |
+| mitsukete-touch-app | どこかな？みーつけた！ | ✅ | ✅（セッション集約: `groupIntoSessions`/`summarizeSession`） | ⚠️セッション集約のみ、per-trial fieldはCSVのみ | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | MEDIUM（Common側は生entry単位、App-local側はセッション単位——粒度の不一致自体が要設計判断） | Batch B/C |
+| junban-miyou-app | じゅんばんにみよう | ✅ | ✅（同上パターン） | ⚠️同上 | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | MEDIUM（同上） | Batch B/C |
+| miru-hirogaru-app | みるとひろがる | ✅ | ✅（セッション集約） | ⚠️同上パターン | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW-MEDIUM | Batch C |
+| dotchiga-ii-app | どっちがいい？ | ✅ | ✅ | ⚠️一覧に4項目（時刻/活動/選択/入力方法）、category等はCSVのみ | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW | Batch C |
+| tokei-app | とけい | ✅ | ✅ | ❌（1行要約のみ、per-question detailは元々存在しない） | N/A | ✅（`retried`/`avgTimeSec`は既に`metrics`経由でCommon表示済み） | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1（実質ほぼ充足） | **SUMMARY_ONLY** | LOW（追加実装の価値小） | Batch C（低優先） |
+| matching-app | マッチング | ✅ | ✅ | ❌（1行要約のみ） | N/A | ✅（pairs/moves/durationSecのみ、level/displayMode/usedCustomSet/playerCountは未反映） | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW | Batch C |
+| shiritori2 | しりとりあそび | ✅ | ✅ | ❌（1行要約のみ、個々の単語は設計上保存しない） | N/A | ✅（score/maxStreak/chainLengthは既に`metrics`経由でCommon表示済み、`outcome`のみ未反映） | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1（実質ほぼ充足） | **SUMMARY_ONLY** | LOW | Batch C（低優先） |
+| okane-app | おかねのおべんきょう | ✅ | ✅（直近50件、教員向け自然文をそのまま表示） | ⚠️App-local自体が既にApp-authored自然文1行（Common summaryと実質同一情報源） | N/A | ✅（`e.detail`をそのままsummaryへ使用、既に高い一致度） | ❌ | N/A | ✅（2セクション構成） / 共通7列のみ | L2 | L1（実質最も僅差） | **SUMMARY_ONLY** | LOW（最小工数で近似Conformant化できる候補） | Batch C（最優先候補） |
+| mogura-tataki | もぐらたたき | ✅ | ✅ | ❌（画面表示は4項目のみ、`fumbles`/`combo`/`time`/`goal`/`holes`はApp-local自身も一切表示しない） | N/A | ✅ | ❌ | N/A | ❌（App-local CSV自体が存在しない、22アプリ中唯一） / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW（Common側の追加Gapは僅少。ただしlegacy防御コードなし=別リスク） | Batch C |
+| kyou-no-kiroku | きょうのきろく | ✅ | ✅（教員PINゲート） | ✅✅（vitals/発作detail/memoをカード表示、編集モーダルあり） | N/A | ✅（`includeInDefaultTimeline:false`、既定Timelineから意図的除外） | N/A | N/A | ✅ / N/A（既定Timeline除外のためCommon CSVにも出現しない） | **NOT_APPLICABLE**（Privacy例外、Contract §2.2） | — | **NOT_APPLICABLE** | — | 対象外（既存Privacy設計を維持） |
 
 ---
 
 ## 集計
 
 - Record Foundation対応: **22アプリ**
-- Common Adapter登録済み: **21アプリ**（sawatte-hirogaru-appのみ未登録 = NOT INTEGRATED）
-- Common Detail（Level 2）を満たすアプリ: **0アプリ**
-- Common Visualization（Level 3）を満たすアプリ: **0アプリ**
-- Parity Status内訳: NOT INTEGRATED ×1 / SUMMARY ONLY ×17 / PARTIAL ×4（hasMedia:trueを返しうるがCommon側で未表示） / CONFORMANT ×0
+- Common Adapter登録済み: **22アプリ**（前回未登録だった`sawatte-hirogaru-app`を含め全件登録済み）
+- `CONFORMANT_L2`: **1アプリ**（sst-app）
+- `CONFORMANT_L3`: **1アプリ**（sawatte-hirogaru-app）
+- `PARTIAL`: **3アプリ**（hiragana-learn・katakana-app・nazori-app、いずれもhasMedia:true相当を持つがCommon側Level2/3が未実装）
+- `SUMMARY_ONLY`: **16アプリ**
+- `NOT_INTEGRATED`: **0アプリ**
+- `NOT_APPLICABLE`: **1アプリ**（kyou-no-kiroku、Privacy例外）
+- Rich Visualization Required（Level 3対象）: **4アプリ**（sawatte-hirogaru-app［完了］・hiragana-learn・katakana-app・nazori-app）。3種類の異なるRich Visualizationスキーマが存在する（詳細は`docs/records/learning-record-detail-parity-audit-all-v1_0.md` §7）ため、`record-trace-renderer.js`（sawatte専用schema）を他3アプリへそのまま流用することはできない。
+- App-local CSV: **21/22アプリで存在**（`mogura-tataki`のみApp-local CSV自体が存在しない、22アプリ中唯一）
+- Legacy防御コードの明確な欠落（実測で確認、別リスクとして記録）: **mogura-tataki**（NaN/fallback未実装）・**bosai-app**（`log[]`への`Array.isArray`guardなし）・**kyou-no-kiroku**（`formatDate()`に`isNaN`guardなし）
 
-## Non-blocking: 未監査アプリの扱い
+## Non-blocking: 本更新で解消した事項
 
-17アプリ（App-local Detail列が「未監査」のもの）は、本Phaseでは個別のApp-localコードを読み込んでいない。Common側の事実（Adapter定義・hasMedia判定）のみ確定情報として記載した。個別App-local UIの詳細監査は、Contract §22 Global Rollout Planのステップ4/5（`LEARNING-RECORD-DETAIL-PARITY-AUDIT-ALL-1`）で実施する。これは本Contractの意図的なスコープ限定であり、抜け漏れではない（Contract §35 Priorityの段階的ロールアウト方針どおり）。
+前回版の「17アプリ未監査」はすべて本Phaseで実コード監査を完了し、上表へ反映した。未監査欄は本文書に存在しない。
