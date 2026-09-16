@@ -776,6 +776,137 @@
     }
   });
 
+  // SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1(Cross-App Detail
+  // Contract Reference Implementation): さわってひろがるは
+  // donomanaRecordCreate()の正規Core Schema({timestamp, appId, activity,
+  // inputMethod, schemaVersion, payload})をそのまま使う唯一のadapter
+  // (finalizeSession()実コード確認済み。他20 adapterは歴史的経緯で ts/type
+  // 等の短縮key形式を個別に読む、§35既存コメント参照)。normalize()はこの
+  // 正規shapeに沿ってe.timestamp/e.payloadを直接読む。
+  //
+  // getDetails/richVisualization/getCsvActionsはCross-App Detail Contract
+  // §8.1で確定したAdapter拡張(既存normalize()は無変更、任意fieldとして追加)。
+  // ラベル変換・CSV行生成の実体はassets/js/sawatte-hirogaru-record-detail.js
+  // (App-localと共有、重複実装禁止・Contract §9/§34)、trace検証・canvas
+  // 描画の実体はassets/js/record-trace-renderer.js(同じくApp-localと共有、
+  // Contract §10)。このFoundation moduleは元々DOM操作を持たない設計
+  // (ファイル冒頭コメント)だが、richVisualization.renderのみ、Contract §8.1
+  // で確定した「App-local Viewerと共有するDOM描画関数」という例外的責務を
+  // 持つ(Common Detail側のUI骨格はlearning-records.html側が組み立て、この
+  // 関数はその中の1要素としてcanvasを追加するだけに留める)。
+  registerAdapter({
+    appId: 'sawatte-hirogaru-app',
+    appName: 'さわってひろがる',
+    category: '認知支援',
+    storageKey: 'sawatte_hirogaru_log',
+    structure: 'flat',
+    privacyLevel: 'low',
+    includeInDefaultTimeline: true,
+    normalize: function (e) {
+      var payload = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+      var D = (typeof donomanaSawatteHirogaruRecordDetail !== 'undefined') ? donomanaSawatteHirogaruRecordDetail : null;
+      return {
+        timestamp: toIsoTimestamp(e && e.timestamp),
+        activity: (typeof payload.mode === 'string' && payload.mode) ? payload.mode : 'unknown',
+        summary: D ? D.summaryText(payload) : 'さわってひろがるに取り組みました',
+        metrics: {},
+        inputMethod: null,
+        hasMedia: !!(D && D.isValidTrace(payload.trace))
+      };
+    },
+    // Level 2: Detail Parity(Cross-App Detail Contract §19の必須field)。
+    getDetails: function (e) {
+      var payload = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+      return (typeof donomanaSawatteHirogaruRecordDetail !== 'undefined') ? donomanaSawatteHirogaruRecordDetail.getDetailRows(payload) : [];
+    },
+    // Level 3: Rich Visualization Parity(Contract §5/§10/§20-30)。
+    richVisualization: {
+      supports: function (e) {
+        var payload = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+        return (typeof donomanaSawatteHirogaruRecordDetail !== 'undefined') && donomanaSawatteHirogaruRecordDetail.isValidTrace(payload.trace);
+      },
+      // target: 呼び出し側(learning-records.html)が用意したcontainer要素。
+      // canvasを1つ追加し、App-localと同じdonomanaRecordTraceRenderer.render()
+      // で描画する(Contract §10: 別描画ロジックを作らない)。凡例・カウント
+      // text・trimmed注記はtext fallbackとして必ず併設する(Contract §12/§29、
+      // canvas-only表示の禁止)。
+      render: function (target, e) {
+        if (!target || typeof document === 'undefined') return;
+        var payload = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+        var trace = payload.trace;
+        var D = donomanaSawatteHirogaruRecordDetail;
+        var R = donomanaRecordTraceRenderer;
+        if (!R || !R.isValidTrace(trace)) return;
+        var counts = R.describeCounts(trace);
+
+        var canvas = document.createElement('canvas');
+        canvas.style.width = '100%';
+        canvas.style.height = '220px';
+        canvas.style.display = 'block';
+        canvas.style.borderRadius = '12px';
+        canvas.setAttribute('role', 'img');
+        canvas.setAttribute('aria-label', '操作の軌跡。タップ' + counts.tapCount + '回、スワイプ' + counts.swipeCount + '回の位置を示す図');
+        target.appendChild(canvas);
+
+        // rich-viz-hint: Common Detail側(learning-records.html)で定義するCSS
+        // class名。App-localの`.hint`クラスとは独立(このrender()自体はまだ
+        // App-local Trace Viewerからは呼ばれていない。App-local側は既存の
+        // 静的markup(#traceViewerCounts等)を使い続ける、§26 Safety rule)。
+        var legend = document.createElement('p');
+        legend.className = 'rich-viz-hint';
+        legend.textContent = '● タップ　― スワイプ';
+        target.appendChild(legend);
+
+        var countsText = document.createElement('p');
+        countsText.className = 'rich-viz-hint';
+        countsText.textContent = 'タップ ' + counts.tapCount + '回／スワイプ ' + counts.swipeCount + '回／操作 ' + (payload.totalInteractions || 0) + '回／活動時間 ' + (D ? D.formatDuration(payload.durationMs || 0) : '');
+        target.appendChild(countsText);
+
+        if (counts.trimmed) {
+          var trimmedNote = document.createElement('p');
+          trimmedNote.className = 'rich-viz-hint';
+          trimmedNote.textContent = '操作が多かったため、軌跡は一部を間引いて表示しています。';
+          target.appendChild(trimmedNote);
+        }
+
+        // canvas.clientWidth/Heightが確定するのはlayout後のため、App-local
+        // Trace Viewerと同じくrequestAnimationFrameで描画を1フレーム遅らせる。
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(function () { R.render(canvas, trace); });
+        } else {
+          R.render(canvas, trace);
+        }
+      }
+    },
+    // CSV Parity(Contract §11/§31-35)。Common Detailから、App-localの
+    // 「📄 きろくをCSVで保存」「🖊 軌跡CSVを保存」と同じ意味・同じ列構成の
+    // CSVを、同じrow builder関数で生成する(重複実装禁止)。rawRecordsは
+    // 呼び出し側がreadAppRecords('sawatte-hirogaru-app')で渡す(このapp全体の
+    // ログ。App-local側もセッション単体ではなくログ全体をCSV化するのと同じ
+    // scope、§12 semantics一致)。
+    getCsvActions: function () {
+      var D = donomanaSawatteHirogaruRecordDetail;
+      if (!D) return [];
+      return [
+        {
+          id: 'summary',
+          label: '📄 きろくをCSVで保存',
+          filenamePrefix: 'sawatte-hirogaru-kiroku',
+          buildRows: function (rawRecords) { return D.buildSummaryCsvRows(rawRecords); }
+        },
+        {
+          id: 'trace',
+          label: '🖊 軌跡CSVを保存',
+          filenamePrefix: 'sawatte-hirogaru-kiseki',
+          buildRows: function (rawRecords) { return D.buildTraceCsvRows(rawRecords); },
+          disabled: function (rawRecords) {
+            return !(rawRecords || []).some(function (r) { return D.isValidTrace(r && r.payload && r.payload.trace); });
+          }
+        }
+      ];
+    }
+  });
+
   registerAdapter({
     appId: 'kyou-no-kiroku',
     appName: 'きょうのきろく',
@@ -925,11 +1056,58 @@
     };
   }
 
+  // ────────────────────────────────────────────────────────────
+  //  Level 2/3 passthrough(SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1、
+  //  Cross-App Detail Contract §8.1)。上記4関数はdataのみを返す設計を維持する
+  //  (ファイル冒頭方針)が、以下の3関数のみ、adapter定義に含まれる任意の
+  //  getDetails/richVisualization/getCsvActionsをそのまま呼び出す薄い
+  //  passthroughとして例外的に追加する。adapter未定義・未対応の場合は常に
+  //  安全な既定値(空配列/false/no-op)を返し、呼び出し側(learning-records.html)
+  //  はfeature-detectする必要がない。renderRichVisualizationのみDOMへ書き込む
+  //  (Contract §8.1で確定したApp-local Viewerとの共有描画関数のための、この
+  //  module唯一のDOM例外)。個々のadapter実装がthrowしてもcollectRecords()と
+  //  同様に隔離し、呼び出し元全体を落とさない。
+  // ────────────────────────────────────────────────────────────
+
+  function getRecordDetails(appId, rawRecord) {
+    var adapter = RECORD_ADAPTERS[appId];
+    if (!adapter || typeof adapter.getDetails !== 'function') return [];
+    try {
+      var rows = adapter.getDetails(rawRecord);
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) { return []; }
+  }
+
+  function supportsRichVisualization(appId, rawRecord) {
+    var adapter = RECORD_ADAPTERS[appId];
+    if (!adapter || !adapter.richVisualization || typeof adapter.richVisualization.supports !== 'function') return false;
+    try { return adapter.richVisualization.supports(rawRecord) === true; } catch (e) { return false; }
+  }
+
+  function renderRichVisualization(appId, target, rawRecord) {
+    var adapter = RECORD_ADAPTERS[appId];
+    if (!adapter || !adapter.richVisualization || typeof adapter.richVisualization.render !== 'function') return;
+    try { adapter.richVisualization.render(target, rawRecord); } catch (e) {}
+  }
+
+  function getCsvActions(appId) {
+    var adapter = RECORD_ADAPTERS[appId];
+    if (!adapter || typeof adapter.getCsvActions !== 'function') return [];
+    try {
+      var actions = adapter.getCsvActions();
+      return Array.isArray(actions) ? actions : [];
+    } catch (e) { return []; }
+  }
+
   return {
     VERSION: VERSION,
     getAdapters: getAdapters,
     readAppRecords: readAppRecords,
     collectRecords: collectRecords,
-    normalizeRecord: normalizeRecord
+    normalizeRecord: normalizeRecord,
+    getRecordDetails: getRecordDetails,
+    supportsRichVisualization: supportsRichVisualization,
+    renderRichVisualization: renderRichVisualization,
+    getCsvActions: getCsvActions
   };
 });

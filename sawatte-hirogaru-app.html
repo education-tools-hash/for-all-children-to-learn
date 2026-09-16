@@ -920,6 +920,9 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1): trace schema validation/canvas rendering and Sawatte label/CSV logic live in these two files so App-local and Common Detail render the same data through the same code, not two re-implementations (Cross-App Detail Contract §10/§34). -->
+<script src="assets/js/record-trace-renderer.js"></script>
+<script src="assets/js/sawatte-hirogaru-record-detail.js"></script>
 <script>
 (function(){
 'use strict';
@@ -1242,27 +1245,12 @@ var traceViewerLastFocused = null;
 // the traceSchemaVersion check itself. A record whose trace fails this
 // check displays normally except the "軌跡を見る" button is disabled —
 // the record itself (date/mode/counts) is never hidden.
+// SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1: delegates to the
+// shared assets/js/record-trace-renderer.js so App-local and Common
+//「学習の記録」validate the exact same trace schema (Cross-App Detail
+// Contract §10/§27), instead of re-implementing this check twice.
 function isValidSawatteTrace(trace){
-  if (!trace || typeof trace !== 'object') return false;
-  if (trace.traceSchemaVersion !== 1) return false;
-  if (!Array.isArray(trace.taps) || !Array.isArray(trace.swipes)) return false;
-  if (trace.taps.length % 3 !== 0) return false;
-  function validFlat(arr){
-    for (var i = 0; i < arr.length; i++) {
-      var v = arr[i];
-      if (typeof v !== 'number' || !isFinite(v)) return false;
-      if (i % 3 !== 2 && (v < 0 || v > 1000)) return false; // x/y: 0-1000 quantized
-      if (i % 3 === 2 && v < 0) return false; // t: elapsed ms, never negative
-    }
-    return true;
-  }
-  if (!validFlat(trace.taps)) return false;
-  for (var s = 0; s < trace.swipes.length; s++) {
-    var stroke = trace.swipes[s];
-    if (!Array.isArray(stroke) || stroke.length === 0 || stroke.length % 3 !== 0) return false;
-    if (!validFlat(stroke)) return false;
-  }
-  return true;
+  return donomanaRecordTraceRenderer.isValidTrace(trace);
 }
 
 function anyRecordHasTrace(log){
@@ -1384,48 +1372,12 @@ document.addEventListener('keydown', function(e){
 // canvas, tap=dot/ripple, swipe=soft trail polyline, faint start→end
 // gradient (never a complex rainbow gradient), Activity-distinct calm
 // palette so it is never confused with the live Activity effects.
-function traceCanvasAlphaForT(t, minT, maxT){
-  if (maxT === minT) return 0.75;
-  return 0.35 + 0.55 * ((t - minT) / (maxT - minT));
-}
+// SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1: canvas drawing moved
+// to the shared assets/js/record-trace-renderer.js (Cross-App Detail
+// Contract §10/§22) so App-local and Common「学習の記録」draw taps/swipes
+// through the same function, not two copies of the same geometry/alpha math.
 function renderTraceCanvas(trace){
-  var cssW = traceCanvas.clientWidth, cssH = traceCanvas.clientHeight;
-  if (!cssW || !cssH) return;
-  var dpr = window.devicePixelRatio || 1;
-  traceCanvas.width = Math.round(cssW * dpr);
-  traceCanvas.height = Math.round(cssH * dpr);
-  var ctx = traceCanvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, cssW, cssH);
-
-  function toXY(qx, qy){ return [(qx / 1000) * cssW, (qy / 1000) * cssH]; }
-
-  var minT = Infinity, maxT = -Infinity;
-  for (var i = 2; i < trace.taps.length; i += 3) { minT = Math.min(minT, trace.taps[i]); maxT = Math.max(maxT, trace.taps[i]); }
-  trace.swipes.forEach(function(stroke){ for (var j = 2; j < stroke.length; j += 3) { minT = Math.min(minT, stroke[j]); maxT = Math.max(maxT, stroke[j]); } });
-  if (!isFinite(minT)) { minT = 0; maxT = 0; }
-
-  trace.swipes.forEach(function(stroke){
-    var n = stroke.length / 3;
-    for (var idx = 0; idx < n - 1; idx++) {
-      var i0 = idx * 3, i1 = (idx + 1) * 3;
-      var p1 = toXY(stroke[i0], stroke[i0 + 1]);
-      var p2 = toXY(stroke[i1], stroke[i1 + 1]);
-      var a = traceCanvasAlphaForT(stroke[i0 + 2], minT, maxT);
-      ctx.strokeStyle = 'rgba(120,220,210,' + a.toFixed(2) + ')';
-      ctx.lineWidth = 4; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
-    }
-  });
-
-  for (var m = 0; m < trace.taps.length; m += 3) {
-    var pt = toXY(trace.taps[m], trace.taps[m + 1]);
-    var ta = traceCanvasAlphaForT(trace.taps[m + 2], minT, maxT);
-    ctx.beginPath(); ctx.fillStyle = 'rgba(255,214,120,' + ta.toFixed(2) + ')';
-    ctx.arc(pt[0], pt[1], 7, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.strokeStyle = 'rgba(255,214,120,' + (ta * 0.6).toFixed(2) + ')'; ctx.lineWidth = 2;
-    ctx.arc(pt[0], pt[1], 13, 0, Math.PI * 2); ctx.stroke();
-  }
+  donomanaRecordTraceRenderer.render(traceCanvas, trace);
 }
 function openTraceViewer(trace, payload, triggerBtn){
   traceViewerLastFocused = triggerBtn || null;
@@ -1447,71 +1399,27 @@ function closeTraceViewer(){
 closeTraceViewerBtn.addEventListener('click', closeTraceViewer);
 
 /* =====================================================================
-   Summary CSV / Trace CSV (Design Contract §20-23). Both reuse the shared
-   Foundation `donomanaRecordBuildCsv` (BOM + comma/quote/newline escaping)
-   unmodified — no new CSV helper. Formula-injection cell escaping is not
-   needed: every field here is either a number or a fixed internal enum
-   string, never free text (Design Contract §23.1).
+   Summary CSV / Trace CSV (Design Contract §20-23). Row-building itself
+   (SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1) now lives in the
+   shared assets/js/sawatte-hirogaru-record-detail.js, loaded by both this
+   page and learning-records.html「学習の記録」(Cross-App Detail Contract
+   §11/§34: same CSV row builder, not two re-implementations). CSV string
+   encoding still goes through the shared Foundation `donomanaRecordBuildCsv`
+   (BOM + comma/quote/newline escaping) unmodified below — no new CSV
+   helper. Formula-injection cell escaping is not needed: every field here
+   is either a number or a fixed internal enum string, never free text
+   (Design Contract §23.1).
 ===================================================================== */
-var CSV_HEADER_SUMMARY = ['日付', '時刻', '教材', 'モード', '活動時間（秒）', '操作回数', 'タップ回数', 'スワイプ回数', '操作方法', '音', '刺激の強さ', 'エフェクトの太さ', '効果音', '軌跡記録'];
-var CSV_HEADER_TRACE = ['日付', '時刻', 'セッションID', '操作番号', '種類', '点番号', 'X座標（相対位置）', 'Y座標（相対位置）', '経過ミリ秒'];
+var CSV_HEADER_SUMMARY = donomanaSawatteHirogaruRecordDetail.CSV_HEADER_SUMMARY;
+var CSV_HEADER_TRACE = donomanaSawatteHirogaruRecordDetail.CSV_HEADER_TRACE;
 
-function csvDateTimeParts(timestamp){
-  if (!timestamp) return { date: '', time: '' };
-  var d = new Date(timestamp);
-  if (isNaN(d.getTime())) return { date: '', time: '' };
-  var p = function(n){ return n < 10 ? '0' + n : String(n); };
-  return { date: d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()), time: p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) };
-}
 function buildSummaryCsvRows(log){
-  var rows = [CSV_HEADER_SUMMARY.slice()];
-  log.forEach(function(entry){
-    var payload = (entry && entry.payload && typeof entry.payload === 'object') ? entry.payload : {};
-    var dt = csvDateTimeParts(entry.timestamp);
-    var methodLabels = Array.isArray(payload.inputMethods) ? payload.inputMethods.map(function(m){ return donomanaRecordFormatInputMethod(m) || m; }).join('・') : '';
-    rows.push([
-      dt.date, dt.time, 'さわってひろがる',
-      MODE_LABEL[payload.mode] || payload.mode || '',
-      (typeof payload.durationMs === 'number') ? Math.round(payload.durationMs / 1000) : '',
-      (typeof payload.totalInteractions === 'number') ? payload.totalInteractions : '',
-      (typeof payload.tapCount === 'number') ? payload.tapCount : '',
-      (typeof payload.swipeCount === 'number') ? payload.swipeCount : '',
-      methodLabels,
-      (typeof payload.soundEnabled === 'boolean') ? (payload.soundEnabled ? 'ON' : 'OFF') : '',
-      INTENSITY_LABEL[payload.intensity] || payload.intensity || '',
-      EFFECT_WIDTH_LABEL[payload.effectWidth] || payload.effectWidth || '',
-      EFFECT_SOUND_LABEL[payload.effectSound] || payload.effectSound || '',
-      isValidSawatteTrace(payload.trace) ? 'あり' : 'なし'
-    ]);
-  });
-  return rows;
+  return donomanaSawatteHirogaruRecordDetail.buildSummaryCsvRows(log);
 }
 // legacy/OFF/malformed-trace records are skipped entirely (no zero-filled
 // rows, Design Contract §21/§39 — malformed trace never breaks the export).
 function buildTraceCsvRows(log){
-  var rows = [CSV_HEADER_TRACE.slice()];
-  log.forEach(function(entry, entryIdx){
-    var payload = (entry && entry.payload && typeof entry.payload === 'object') ? entry.payload : {};
-    if (!isValidSawatteTrace(payload.trace)) return;
-    var dt = csvDateTimeParts(entry.timestamp);
-    // CSV-only join key (Design Contract §22): not a new stored field.
-    var sessionId = (entry.timestamp || ('session' + entryIdx)) + '_' + entryIdx;
-    var trace = payload.trace;
-    var interactionIndex = 0;
-    for (var i = 0; i < trace.taps.length; i += 3) {
-      interactionIndex++;
-      rows.push([dt.date, dt.time, sessionId, interactionIndex, 'タップ', 1, (trace.taps[i] / 1000).toFixed(3), (trace.taps[i + 1] / 1000).toFixed(3), trace.taps[i + 2]]);
-    }
-    trace.swipes.forEach(function(stroke){
-      interactionIndex++;
-      var pointIndex = 0;
-      for (var j = 0; j < stroke.length; j += 3) {
-        pointIndex++;
-        rows.push([dt.date, dt.time, sessionId, interactionIndex, 'スワイプ', pointIndex, (stroke[j] / 1000).toFixed(3), (stroke[j + 1] / 1000).toFixed(3), stroke[j + 2]]);
-      }
-    });
-  });
-  return rows;
+  return donomanaSawatteHirogaruRecordDetail.buildTraceCsvRows(log);
 }
 function downloadSawatteCsv(rows, filenamePrefix){
   var csv = donomanaRecordBuildCsv(rows);
@@ -2264,10 +2172,12 @@ function finalizeSession(){
   return payload;
 }
 
+// SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1: delegates to the
+// shared assets/js/sawatte-hirogaru-record-detail.js so App-local and
+// Common「学習の記録」format durations identically (Cross-App Detail
+// Contract §9).
 function formatDuration(ms){
-  var totalSec = Math.round(ms / 1000);
-  var m = Math.floor(totalSec / 60), s = totalSec % 60;
-  return m > 0 ? (m + 'ふん' + s + 'びょう') : (s + 'びょう');
+  return donomanaSawatteHirogaruRecordDetail.formatDuration(ms);
 }
 var MODE_LABEL = {}; MODES.forEach(function(m){ MODE_LABEL[m.id] = m.icon + ' ' + m.label; });
 var INTENSITY_LABEL = {}; INTENSITIES.forEach(function(i){ INTENSITY_LABEL[i.id] = i.icon + ' ' + i.label; });

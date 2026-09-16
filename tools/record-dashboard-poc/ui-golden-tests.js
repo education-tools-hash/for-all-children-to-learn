@@ -19,7 +19,7 @@ function check(label, condition, detail) {
   else { fail++; console.log('  [FAIL]', label, detail !== undefined ? ('— ' + JSON.stringify(detail)) : ''); }
 }
 
-console.log('=== 1. Metadata Drift: apps-data.json <-> Adapter Registry(21本) ===');
+console.log('=== 1. Metadata Drift: apps-data.json <-> Adapter Registry(22本) ===');
 (function () {
   const appsDataPath = path.join(__dirname, '..', '..', 'apps-data.json');
   const appsData = JSON.parse(fs.readFileSync(appsDataPath, 'utf8'));
@@ -33,7 +33,7 @@ console.log('=== 1. Metadata Drift: apps-data.json <-> Adapter Registry(21本) =
   appsList.forEach(function (a) { byId[a.filename] = a; });
 
   const adapters = foundation.getAdapters();
-  check('Adapter Registry has 21 entries', adapters.length === 21, adapters.length);
+  check('Adapter Registry has 22 entries', adapters.length === 22, adapters.length);
 
   let nameDrift = [];
   let categoryDrift = [];
@@ -45,8 +45,8 @@ console.log('=== 1. Metadata Drift: apps-data.json <-> Adapter Registry(21本) =
     if (appData.category !== a.category) categoryDrift.push({ appId: a.appId, appsData: appData.category, registry: a.category });
   });
   check('every Foundation appId exists in apps-data.json', missingInAppsData.length === 0, missingInAppsData);
-  check('appName matches apps-data.json title for all 21', nameDrift.length === 0, nameDrift);
-  check('category matches apps-data.json category for all 21', categoryDrift.length === 0, categoryDrift);
+  check('appName matches apps-data.json title for all 22', nameDrift.length === 0, nameDrift);
+  check('category matches apps-data.json category for all 22', categoryDrift.length === 0, categoryDrift);
 })();
 
 console.log('\n=== 2. activityLabel() ===');

@@ -4,7 +4,7 @@
 // Usage: node tools/record-dashboard-poc/golden-tests.js
 //
 // donomanaRecordDashboard(assets/js/record-dashboard-foundation.js)の
-// 21 Adapterを、実Production schemaに基づくgolden fixture・破損storage
+// 22 Adapterを、実Production schemaに基づくgolden fixture・破損storage
 // matrix・cross-app failure isolation・XSS・personal-data leakage・
 // performanceの各観点で検証する。新規external dependencyなし(Node標準機能のみ)。
 
@@ -52,17 +52,17 @@ function buildFullStorage() {
 }
 
 // ────────────────────────────────────────────────────────────
-section('1. Registry coverage: Foundation Set 21 == Adapter Registry 21');
+section('1. Registry coverage: Foundation Set 22 == Adapter Registry 22');
 // ────────────────────────────────────────────────────────────
 {
   const generateJs = fs.readFileSync(path.join(REPO_ROOT, 'generate.js'), 'utf8');
   const m = generateJs.match(/LEARNING_RECORD_FOUNDATION_APPS\s*=\s*new Set\(\[([^\]]*)\]\)/);
   check('LEARNING_RECORD_FOUNDATION_APPS found in generate.js', !!m);
   const foundationIds = m ? eval('[' + m[1] + ']') : [];
-  check('Foundation Set size is 21', foundationIds.length === 21, 'actual=' + foundationIds.length);
+  check('Foundation Set size is 22', foundationIds.length === 22, 'actual=' + foundationIds.length);
 
   const adapterIds = dash.getAdapters().map(a => a.appId);
-  check('Adapter Registry size is 21', adapterIds.length === 21, 'actual=' + adapterIds.length);
+  check('Adapter Registry size is 22', adapterIds.length === 22, 'actual=' + adapterIds.length);
 
   const missingFromAdapters = foundationIds.filter(id => !adapterIds.includes(id));
   const extraInAdapters = adapterIds.filter(id => !foundationIds.includes(id));
@@ -83,7 +83,8 @@ section('2. storageKey cross-check against real app source files');
     'kurabeyou-app': 'kurabeyou-app.html', 'katachi-awase-app': 'katachi-awase-app.html',
     'dotchiga-ii-app': 'dotchiga-ii-app.html', 'miru-hirogaru-app': 'miru-hirogaru-app.html',
     'okane-app': 'okane-app.html', 'sst-app': 'sst-app.html', 'mogura-tataki': 'mogura-tataki.html',
-    'nazori-app': 'nazori-app.html', 'bosai-app': 'bosai-app.html', 'kyou-no-kiroku': 'kyou-no-kiroku.html'
+    'nazori-app': 'nazori-app.html', 'bosai-app': 'bosai-app.html', 'kyou-no-kiroku': 'kyou-no-kiroku.html',
+    'sawatte-hirogaru-app': 'sawatte-hirogaru-app.html'
   };
   dash.getAdapters().forEach(a => {
     const filePath = path.join(REPO_ROOT, FILE_MAP[a.appId]);
@@ -102,13 +103,13 @@ section('2. storageKey cross-check against real app source files');
 }
 
 // ────────────────────────────────────────────────────────────
-section('3. All 21 golden fixtures normalize without crashing (contract check)');
+section('3. All 22 golden fixtures normalize without crashing (contract check)');
 // ────────────────────────────────────────────────────────────
 {
   const storage = buildFullStorage();
   const result = dash.collectRecords({ storage: storage, includeSeparateDomains: true, maxPerApp: 50 });
   check('collectRecords() did not throw and returned records/errors/meta', !!(result && result.records && result.errors && result.meta));
-  check('21 golden fixtures -> 21 normalized records (includeSeparateDomains:true)', result.records.length === 21, 'actual=' + result.records.length);
+  check('22 golden fixtures -> 22 normalized records (includeSeparateDomains:true)', result.records.length === 22, 'actual=' + result.records.length);
   check('0 read/normalize errors on clean golden fixtures', result.errors.length === 0, JSON.stringify(result.errors));
 
   const seenAppIds = new Set();
@@ -129,7 +130,7 @@ section('3. All 21 golden fixtures normalize without crashing (contract check)')
     check(`${label}: timestamp is ISO string or null`, r.timestamp === null || (typeof r.timestamp === 'string' && !isNaN(Date.parse(r.timestamp))));
     check(`${label}: normalized object has no raw payload/data/log leaking through`, !('payload' in r) && !('data' in r) && !('log' in r));
   });
-  check('all 21 appIds present in output', seenAppIds.size === 21, [...seenAppIds].sort().join(','));
+  check('all 22 appIds present in output', seenAppIds.size === 22, [...seenAppIds].sort().join(','));
 }
 
 // ────────────────────────────────────────────────────────────
@@ -139,7 +140,7 @@ section('4. kyou-no-kiroku default exclusion');
   const storage = buildFullStorage();
   const withoutSeparate = dash.collectRecords({ storage: storage, maxPerApp: 50 });
   check('default collectRecords() excludes kyou-no-kiroku', !withoutSeparate.records.some(r => r.appId === 'kyou-no-kiroku'));
-  check('default collectRecords() still returns the other 20', withoutSeparate.records.length === 20, 'actual=' + withoutSeparate.records.length);
+  check('default collectRecords() still returns the other 21', withoutSeparate.records.length === 21, 'actual=' + withoutSeparate.records.length);
 
   const withSeparate = dash.collectRecords({ storage: storage, includeSeparateDomains: true, maxPerApp: 50 });
   check('includeSeparateDomains:true includes kyou-no-kiroku', withSeparate.records.some(r => r.appId === 'kyou-no-kiroku'));
@@ -202,7 +203,7 @@ section('7. Corrupt entry inside an otherwise-valid array (per-entry isolation)'
 section('8. Cross-app failure isolation (1 app malformed, 1 non-array, rest valid)');
 // ────────────────────────────────────────────────────────────
 {
-  const storage = buildFullStorage(); // all 21 valid
+  const storage = buildFullStorage(); // all 22 valid
   // janken-appを破壊
   const jkMeta = dash.getAdapters().find(a => a.appId === 'janken-app');
   storage.setItem(jkMeta.storageKey, '{not valid json');
@@ -211,8 +212,8 @@ section('8. Cross-app failure isolation (1 app malformed, 1 non-array, rest vali
   storage.setItem(rgMeta.storageKey, '{}');
 
   const result = dash.collectRecords({ storage: storage, includeSeparateDomains: true, maxPerApp: 50 });
-  check('collectRecords does not throw when 2/21 apps are corrupted', !!result);
-  check('19 of 21 apps still collected (1 record each)', result.records.length === 19, 'actual=' + result.records.length);
+  check('collectRecords does not throw when 2/22 apps are corrupted', !!result);
+  check('20 of 22 apps still collected (1 record each)', result.records.length === 20, 'actual=' + result.records.length);
   check('janken-app and register-app are absent from records', !result.records.some(r => r.appId === 'janken-app' || r.appId === 'register-app'));
   check('errors array reports both corrupted apps', result.errors.some(e => e.appId === 'janken-app') && result.errors.some(e => e.appId === 'register-app'), JSON.stringify(result.errors));
   check('NOT "1app破損でDashboard全体0件" (records.length > 0)', result.records.length > 0);
@@ -365,7 +366,9 @@ section('16. Read-only guarantee (no write APIs, storage untouched)');
   check('module source contains no .setItem( call', src.indexOf('.setItem(') === -1);
   check('module source contains no .removeItem( call', src.indexOf('.removeItem(') === -1);
   check('module source contains no .clear() call', /\.clear\(\)/.test(src) === false);
-  check('public API surface is exactly the 4 documented functions + VERSION', Object.keys(dash).sort().join(',') === 'VERSION,collectRecords,getAdapters,normalizeRecord,readAppRecords');
+  // SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1: +4 Level 2/3
+  // passthrough functions (Cross-App Detail Contract §8.1), read-only same as the rest.
+  check('public API surface is exactly the 8 documented functions + VERSION', Object.keys(dash).sort().join(',') === 'VERSION,collectRecords,getAdapters,getCsvActions,getRecordDetails,normalizeRecord,readAppRecords,renderRichVisualization,supportsRichVisualization');
 }
 
 // ────────────────────────────────────────────────────────────
@@ -382,7 +385,7 @@ section('17. Performance (synthetic large datasets, no pathological blowup)');
     });
     return storage;
   }
-  const small = synthStorage(200); // 200 x 21 apps = 4200 raw records (rolling-cap representative)
+  const small = synthStorage(200); // 200 x 22 apps = 4400 raw records (rolling-cap representative)
   const t0 = Date.now();
   const r1 = dash.collectRecords({ storage: small, includeSeparateDomains: true, maxPerApp: 200 });
   const t1 = Date.now();

@@ -187,6 +187,18 @@ footer a{color:#7FD6CE; font-weight:700}
 .media-badge{display:inline-block; margin-top:6px; font-size:.76rem; font-weight:700; color:var(--ink-soft);
   background:var(--cream); border-radius:999px; padding:3px 12px}
 
+/* Level 2/3 Detail Parity (SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1,
+   Cross-App Detail Contract §10/§12/§39): rich visualization + per-record CSV
+   actions rendered inside the detail modal by adapter-provided extensions. */
+.rich-viz{margin-top:14px}
+.rich-viz canvas{width:100%; max-width:100%; background:var(--cream); border:1.5px solid var(--line); border-radius:12px}
+.rich-viz-hint{font-size:.8rem; color:var(--ink-soft); font-weight:500; margin:6px 0 0; text-align:center}
+.detail-csv-actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+.detail-csv-actions button{min-height:40px; padding:8px 16px; border-radius:999px; border:1.5px solid var(--teal);
+  background:var(--paper); color:var(--teal-dark); font-weight:700; font-size:.82rem}
+.detail-csv-actions button:hover{background:var(--teal-tint)}
+.detail-csv-actions button:disabled{opacity:.5; cursor:not-allowed}
+
 @media (max-width:760px){
   .filter-grid{grid-template-columns:1fr 1fr}
   .summary-grid{grid-template-columns:1fr}
@@ -374,6 +386,9 @@ footer a{color:#7FD6CE; font-weight:700}
   <p class="footer-copy">&copy; どのまな（donomana.jp）— 旧称: すべての子どもの学びのためのデジタル教材</p>
 </footer>
 
+<!-- Sawatte Reference Implementation (SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1): these two files are also loaded by sawatte-hirogaru-app.html, so App-local and Common Detail share the exact same trace validation/canvas rendering and label/CSV logic (Cross-App Detail Contract §10/§34). Loaded before record-dashboard-foundation.js so its adapter's optional getDetails/richVisualization/getCsvActions can reference these globals when called. -->
+<script src="assets/js/record-trace-renderer.js"></script>
+<script src="assets/js/sawatte-hirogaru-record-detail.js"></script>
 <script src="assets/js/record-dashboard-foundation.js"></script>
 <script src="assets/js/record-dashboard-ui.js"></script>
 <script>
@@ -503,6 +518,35 @@ footer a{color:#7FD6CE; font-weight:700}
     return row;
   }
 
+  // Normalized recordはraw sourceを保持しない(Normalized Record Contract、
+  // record-dashboard-foundation.js冒頭)。Level 2/3/CSVはraw recordを必要と
+  // するため、同じappId内でnormalizeRecord()結果のtimestampが一致するraw
+  // entryを引き当てる(FOUNDATION.normalizeRecord()を再利用、appごとの生
+  // timestamp fieldの違いを個別に知る必要がない)。
+  function findRawRecord(record) {
+    var read = FOUNDATION.readAppRecords(record.appId);
+    var raw = (read && Array.isArray(read.rawRecords)) ? read.rawRecords : [];
+    for (var i = 0; i < raw.length; i++) {
+      var n = FOUNDATION.normalizeRecord(record.appId, raw[i]);
+      if (n && n.timestamp === record.timestamp) return raw[i];
+    }
+    return null;
+  }
+
+  function downloadCommonAppCsv(rows, filenamePrefix) {
+    var csv = UI.buildCsv(rows);
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    var now = new Date();
+    var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+    var ts = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes());
+    link.download = filenamePrefix + '-' + ts + '.csv';
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function openDetailModal(record, triggerEl) {
     lastFocusedBeforeModal = triggerEl;
     var dt = UI.formatDisplayDateTime(record.timestamp);
@@ -521,8 +565,46 @@ footer a{color:#7FD6CE; font-weight:700}
       el.detailModalBody.appendChild(detailRow(m.label, String(m.value)));
     });
 
+    // Level 2/3/CSV Parity(Cross-App Detail Contract §8.1、
+    // SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1)。adapterが
+    // getDetails/richVisualization/getCsvActionsを提供する場合のみ追加表示
+    // する。未対応App(既存21本)はraw record参照自体を試みないため、
+    // 挙動・表示は従来のままで変化しない(§17 backward compatibility)。
+    var rawRecord = findRawRecord(record);
+
+    var detailRows = rawRecord ? FOUNDATION.getRecordDetails(record.appId, rawRecord) : [];
+    detailRows.forEach(function (d) {
+      el.detailModalBody.appendChild(detailRow(d.label, String(d.value)));
+    });
+
     if (record.hasMedia) {
-      el.detailModalBody.appendChild(make('span', 'media-badge', '画像記録あり（このMVPでは表示していません）'));
+      if (rawRecord && FOUNDATION.supportsRichVisualization(record.appId, rawRecord)) {
+        var vizWrap = make('div', 'rich-viz');
+        el.detailModalBody.appendChild(vizWrap);
+        FOUNDATION.renderRichVisualization(record.appId, vizWrap, rawRecord);
+      } else {
+        el.detailModalBody.appendChild(make('span', 'media-badge', '画像記録あり（このMVPでは表示していません）'));
+      }
+    }
+
+    if (rawRecord) {
+      var csvActions = FOUNDATION.getCsvActions(record.appId);
+      if (csvActions.length > 0) {
+        var csvActionsRow = make('div', 'detail-csv-actions');
+        csvActions.forEach(function (action) {
+          var btn = make('button', null, action.label);
+          btn.type = 'button';
+          var rawAll = (FOUNDATION.readAppRecords(record.appId).rawRecords) || [];
+          var isDisabled = (typeof action.disabled === 'function') && action.disabled(rawAll);
+          if (isDisabled) { btn.disabled = true; btn.setAttribute('aria-disabled', 'true'); }
+          btn.addEventListener('click', function () {
+            if (btn.disabled) return;
+            downloadCommonAppCsv(action.buildRows(rawAll), action.filenamePrefix || (record.appId + '-kiroku'));
+          });
+          csvActionsRow.appendChild(btn);
+        });
+        el.detailModalBody.appendChild(csvActionsRow);
+      }
     }
 
     el.detailModal.hidden = false;

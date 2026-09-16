@@ -68,6 +68,12 @@
     // nazori-app: e.mode(nazori-app.html実コードでdata-pmode="single"|"wide"のボタン表記と対応)
     'single': '一文字ずつ',
     'wide': '続けて書く',
+    // sawatte-hirogaru-app: payload.mode(sawatte-hirogaru-app.html自身のMODES配列と
+    // 同じ日本語表記に揃える、SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1、§16と同型)
+    'light': 'ひかり',
+    'sound': 'おと',
+    'light_sound': 'ひかり＋おと',
+    'swipe': 'スワイプ',
     'unknown': '活動'
   };
 

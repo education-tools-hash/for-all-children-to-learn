@@ -77,6 +77,21 @@ var GOLDEN = {
     kimochi: 'にこにこ', temp: 36.5, pulse: 80, spo2: 98, condition: 'よい', medication: '', toilet: '',
     water: 200, waterTime: '', seizure: false, seizureTime: '', seizureDuration: '', seizureTypes: [],
     seizureNote: '', memo: '', schemaVersion: 1
+  },
+  // sawatte-hirogaru-app: SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1で
+  // 追加(22本目)。finalizeSession()実コード確認済みのdonomanaRecordCreate()
+  // 正規Core Schema形状({timestamp, appId, activity, inputMethod,
+  // schemaVersion, payload})をそのまま使う唯一のfixture(他20appはts/type等の
+  // 短縮key形式)。trace fieldを含めて Level 3 Rich Visualization経路も検証する。
+  'sawatte-hirogaru-app': {
+    timestamp: '2026-09-16T03:12:45.000Z', appId: 'sawatte-hirogaru-app', activity: 'session',
+    inputMethod: null, schemaVersion: 1,
+    payload: {
+      detailSchemaVersion: 1, mode: 'light_sound', durationMs: 12345,
+      totalInteractions: 4, tapCount: 2, swipeCount: 2, inputMethods: ['touch'],
+      soundEnabled: true, intensity: 'standard', effectWidth: 'normal', effectSound: 'soft',
+      trace: { traceSchemaVersion: 1, pointLimit: 500, trimmed: false, taps: [100, 200, 50, 300, 400, 150], swipes: [[10, 20, 10, 15, 25, 20, 20, 30, 30]] }
+    }
   }
 };
 
