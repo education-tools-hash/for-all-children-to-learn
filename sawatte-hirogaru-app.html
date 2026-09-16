@@ -624,6 +624,15 @@
         <span class="switch"><input type="checkbox" id="gazeToggle"><span class="track"></span><span class="thumb"></span></span>
       </div>
       <p class="hint">しせん入力をONにすると、マウス／視線入力デバイスの位置を一定時間見つめ続けることで反応が起きます（タッチ・スイッチの操作をさまたげません）。</p>
+      <div class="toggle-row">
+        <label for="traceToggle">📈 操作の軌跡を記録</label>
+        <span class="switch"><input type="checkbox" id="traceToggle"><span class="track"></span><span class="thumb"></span></span>
+      </div>
+      <p class="hint">タッチやスワイプした画面内のだいたいの位置を、あとから「きろくをみる」で見返せるようにします。ONにしたときだけ保存され、視線を使った反応の位置は保存しません（初期設定はOFFです）。記録はこの端末の中だけに保存され、どのまなのサーバーへ送信されることはありません。</p>
+    </div>
+
+    <div class="setting-group" style="text-align:center;">
+      <button id="openRecordViewerBtn" class="secondary-btn" type="button">📋 きろくをみる</button>
     </div>
 
     <button id="closeTeacherSettingsBtn" class="overlay-close-btn" type="button">◀️ もどる</button>
@@ -667,10 +676,12 @@
         <li><b>エフェクト音</b>：反応するときの音の種類を選べます</li>
         <li><b>おと</b>：音のON/OFF</li>
         <li><b>しせん入力</b>：視線入力のON/OFF</li>
+        <li><b>操作の軌跡を記録</b>：ON/OFF（初期設定はOFF）。ONにすると、タッチ・スワイプした位置を「きろく」にあわせて記録します</li>
       </ul>
 
       <h3>きろく</h3>
-      <p>取り組んだ時間・さわった回数・スワイプした回数・使った操作方法などの事実だけを記録します。指でさわった場所そのもの（座標）は記録しません。記録は、そのときの取り組みを振り返るためのもので、一度の記録だけから好みや能力を判断するものではありません。</p>
+      <p>取り組んだ時間・さわった回数・スワイプした回数・使った操作方法などの事実を記録します。「せんせい用せってい」の「操作の軌跡を記録」をONにした場合のみ、タッチ・スワイプした画面内のだいたいの位置（相対位置）もあわせて端末内に保存されます。OFF（初期設定）のときは位置の情報は保存されません。視線を使った反応の位置は、設定にかかわらず保存しません。記録はこの端末のブラウザ内だけに保存され、どのまなのサーバーへ送信されることはありません。記録は、そのときの取り組みを振り返るためのもので、一度の記録だけから好みや能力を判断するものではありません。</p>
+      <p>「せんせい用せってい」の「📋 きろくをみる」から、過去の記録の一覧や、操作の軌跡（記録がある場合）を確認できます。記録の一覧はCSVファイルとして保存でき、軌跡の記録がある場合は軌跡だけをまとめた別のCSVも保存できます。</p>
 
       <h3>おわりかた</h3>
       <p>活動中の「⏹️ おわる」を押すと、ふりかえり画面が表示されます。</p>
@@ -680,6 +691,49 @@
     </div>
     <button id="helpCloseBtn" class="overlay-close-btn" type="button">とじる</button>
   </section>
+</div>
+
+<!-- Record Viewer modal (Trace Record Implementation Phase, Design Contract
+     §15): a true dialog, reached only via Teacher Settings' "📋 きろくをみる"
+     button — a single funnel, matching this app's existing settings-entry
+     unification rather than adding a second visible/hidden entry point.
+     Lists this app's own past sessions read directly from
+     `sawatte_hirogaru_log`. The common `learning-records.html` dashboard is
+     intentionally NOT used here (Design Contract §2.4/§15: it has no
+     adapter for this app yet, and its own detail modal already defers rich
+     per-record content — "このMVPでは表示していません" — even for the
+     already-shipped hiragana/katakana trace feature). Reuses the same
+     overlay-backdrop/overlay-panel styling and the same endpoint-cyclic
+     Focus Trap pattern as Teacher Settings above, including the mandatory
+     trapA11yPanelFocus delegation and outside-focus-guard. -->
+<div id="recordViewerBackdrop" class="overlay-backdrop" hidden>
+  <div id="recordViewerModal" class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="recordViewerTitle">
+    <h1 class="overlay-title" id="recordViewerTitle" tabindex="-1">きろくをみる</h1>
+    <p class="hint" id="recordViewerEmptyState" hidden>まだ きろくが ありません。</p>
+    <ul class="summary-list" id="recordViewerList" style="margin-bottom:16px;"></ul>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:8px;">
+      <button id="downloadSummaryCsvBtn" class="secondary-btn" type="button">📄 きろくをCSVで保存</button>
+      <button id="downloadTraceCsvBtn" class="secondary-btn" type="button">🖊 軌跡CSVを保存</button>
+    </div>
+    <p class="hint" id="traceCsvDisabledNote" style="text-align:center;" hidden>軌跡の記録があるきろくがありません。</p>
+    <button id="closeRecordViewerBtn" class="overlay-close-btn" type="button">◀️ もどる</button>
+  </div>
+</div>
+
+<!-- Trace Canvas Viewer overlay: non-modal, reusing the Help overlay's
+     established non-modal pattern above (Design Contract §15 — Escape/
+     close button/opener focus-return, no Tab trap of its own). Opens ON TOP
+     of the Record Viewer modal for a single record at a time (on-demand
+     canvas render only — never all records at once, Phase §23). -->
+<div id="traceViewerBackdrop" class="overlay-backdrop" hidden style="z-index:600;">
+  <div id="traceViewerPanel" class="overlay-panel" aria-labelledby="traceViewerTitle">
+    <h1 class="overlay-title" id="traceViewerTitle" tabindex="-1">操作の軌跡</h1>
+    <p class="hint" id="traceViewerTrimmedNote" style="text-align:center;" hidden>操作が多かったため、軌跡は一部を間引いて表示しています。</p>
+    <canvas id="traceCanvas" role="img" aria-label="この活動でタッチ・スワイプした位置の軌跡" style="width:100%; aspect-ratio:16/10; background:#0c2732; border-radius:12px; display:block;"></canvas>
+    <p class="hint" style="text-align:center;">● タップ　― スワイプ</p>
+    <p class="hint" id="traceViewerCounts" style="text-align:center;"></p>
+    <button id="closeTraceViewerBtn" class="overlay-close-btn" type="button">とじる</button>
+  </div>
 </div>
 
 <!-- learning-record-foundation-js: 自動挿入 (generate.js) -->
@@ -933,7 +987,10 @@ var EFFECT_SOUNDS = [
   { id: 'xylophone', icon: '🎼', label: '木琴' }
 ];
 
-var settings = { mode: 'light_sound', intensity: 'standard', effectWidth: 'normal', effectSound: 'soft', soundEnabled: true, gazeEnabled: false };
+// traceEnabled: Trace Record Contract §12 FINAL DECISION — default OFF. A
+// missing/legacy settings object (existing users, `loadSettings()` below)
+// therefore also defaults to OFF, never silently opts an existing user in.
+var settings = { mode: 'light_sound', intensity: 'standard', effectWidth: 'normal', effectSound: 'soft', soundEnabled: true, gazeEnabled: false, traceEnabled: false };
 function loadSettings(){
   try {
     var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
@@ -946,6 +1003,7 @@ function loadSettings(){
       if (EFFECT_SOUNDS.some(function(s){return s.id === parsed.effectSound;})) settings.effectSound = parsed.effectSound;
       if (typeof parsed.soundEnabled === 'boolean') settings.soundEnabled = parsed.soundEnabled;
       if (typeof parsed.gazeEnabled === 'boolean') settings.gazeEnabled = parsed.gazeEnabled;
+      if (typeof parsed.traceEnabled === 'boolean') settings.traceEnabled = parsed.traceEnabled;
     }
   } catch (e) {}
 }
@@ -997,10 +1055,13 @@ refreshEffectSoundRow();
 
 var soundToggle = document.getElementById('soundToggle');
 var gazeToggle = document.getElementById('gazeToggle');
+var traceToggle = document.getElementById('traceToggle');
 soundToggle.checked = settings.soundEnabled;
 gazeToggle.checked = settings.gazeEnabled;
+traceToggle.checked = settings.traceEnabled;
 soundToggle.addEventListener('change', function(){ settings.soundEnabled = soundToggle.checked; saveSettings(); });
 gazeToggle.addEventListener('change', function(){ settings.gazeEnabled = gazeToggle.checked; saveSettings(); setGazeEnabled(settings.gazeEnabled); });
+traceToggle.addEventListener('change', function(){ settings.traceEnabled = traceToggle.checked; saveSettings(); });
 
 /* =====================================================================
    Teacher Settings modal — true dialog semantics (role="dialog"
@@ -1042,6 +1103,7 @@ function teacherModalFocusables(){
 }
 function openTeacherModal(){
   if (helpOpen) closeHelp();
+  if (recordViewerOpen) closeRecordViewer();
   if (!screens.activity.hidden) stopAllPointersAndGlides();
   teacherModalOpen = true;
   teacherModalBackdrop.hidden = false;
@@ -1124,6 +1186,7 @@ var helpBtn = document.getElementById('donomanaHelpBtn');
 var helpOpen = false;
 function openHelp(){
   if (teacherModalOpen) closeTeacherModal();
+  if (recordViewerOpen) closeRecordViewer();
   helpOpen = true;
   helpOverlay.hidden = false;
   helpBtn.setAttribute('aria-expanded', 'true');
@@ -1143,6 +1206,332 @@ document.addEventListener('keydown', function(e){
   if (!helpOpen) return;
   if (a11yPanelIsOpen()) return;
   if (e.key === 'Escape') { e.preventDefault(); closeHelp(); }
+});
+
+/* =====================================================================
+   Record Viewer / Trace Viewer (Trace Record Implementation Phase,
+   Design Contract v1.0). Record Viewer is a true dialog reached only via
+   Teacher Settings' "📋 きろくをみる" button (single funnel — no second
+   Activity-mid-screen button). Trace Viewer is a non-modal overlay
+   (reusing the Help pattern above) that layers ON TOP of Record Viewer for
+   one record at a time, on-demand render only.
+===================================================================== */
+var recordViewerBackdrop = document.getElementById('recordViewerBackdrop');
+var recordViewerModal = document.getElementById('recordViewerModal');
+var recordViewerTitle = document.getElementById('recordViewerTitle');
+var recordViewerList = document.getElementById('recordViewerList');
+var recordViewerEmptyState = document.getElementById('recordViewerEmptyState');
+var openRecordViewerBtn = document.getElementById('openRecordViewerBtn');
+var closeRecordViewerBtn = document.getElementById('closeRecordViewerBtn');
+var downloadSummaryCsvBtn = document.getElementById('downloadSummaryCsvBtn');
+var downloadTraceCsvBtn = document.getElementById('downloadTraceCsvBtn');
+var traceCsvDisabledNote = document.getElementById('traceCsvDisabledNote');
+var recordViewerOpen = false;
+
+var traceViewerBackdrop = document.getElementById('traceViewerBackdrop');
+var traceViewerTitle = document.getElementById('traceViewerTitle');
+var traceCanvas = document.getElementById('traceCanvas');
+var traceViewerTrimmedNote = document.getElementById('traceViewerTrimmedNote');
+var traceViewerCounts = document.getElementById('traceViewerCounts');
+var closeTraceViewerBtn = document.getElementById('closeTraceViewerBtn');
+var traceViewerOpen = false;
+var traceViewerLastFocused = null;
+
+// Legacy Compatibility / Malformed Trace Handling (Design Contract §11):
+// field-presence + shape validation, no version-number branching beyond
+// the traceSchemaVersion check itself. A record whose trace fails this
+// check displays normally except the "軌跡を見る" button is disabled —
+// the record itself (date/mode/counts) is never hidden.
+function isValidSawatteTrace(trace){
+  if (!trace || typeof trace !== 'object') return false;
+  if (trace.traceSchemaVersion !== 1) return false;
+  if (!Array.isArray(trace.taps) || !Array.isArray(trace.swipes)) return false;
+  if (trace.taps.length % 3 !== 0) return false;
+  function validFlat(arr){
+    for (var i = 0; i < arr.length; i++) {
+      var v = arr[i];
+      if (typeof v !== 'number' || !isFinite(v)) return false;
+      if (i % 3 !== 2 && (v < 0 || v > 1000)) return false; // x/y: 0-1000 quantized
+      if (i % 3 === 2 && v < 0) return false; // t: elapsed ms, never negative
+    }
+    return true;
+  }
+  if (!validFlat(trace.taps)) return false;
+  for (var s = 0; s < trace.swipes.length; s++) {
+    var stroke = trace.swipes[s];
+    if (!Array.isArray(stroke) || stroke.length === 0 || stroke.length % 3 !== 0) return false;
+    if (!validFlat(stroke)) return false;
+  }
+  return true;
+}
+
+function anyRecordHasTrace(log){
+  return log.some(function(entry){
+    return isValidSawatteTrace(entry && entry.payload && entry.payload.trace);
+  });
+}
+
+function formatRecordDateTime(timestamp){
+  if (!timestamp) return '日付不明';
+  var d = new Date(timestamp);
+  if (isNaN(d.getTime())) return '日付不明';
+  var p = function(n){ return n < 10 ? '0' + n : String(n); };
+  return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function renderRecordViewerList(){
+  var log = donomanaRecordReadLog(STORAGE_LOG_KEY);
+  var records = log.slice().reverse(); // newest first
+  recordViewerList.innerHTML = '';
+  recordViewerEmptyState.hidden = records.length > 0;
+  records.forEach(function(entry){
+    var payload = (entry && typeof entry === 'object' && entry.payload && typeof entry.payload === 'object') ? entry.payload : {};
+    var li = document.createElement('li');
+    li.style.flexDirection = 'column';
+    li.style.alignItems = 'stretch';
+    li.style.gap = '4px';
+
+    var top = document.createElement('div');
+    top.style.display = 'flex'; top.style.justifyContent = 'space-between'; top.style.width = '100%';
+    top.appendChild(Object.assign(document.createElement('span'), { textContent: formatRecordDateTime(entry.timestamp) }));
+    top.appendChild(Object.assign(document.createElement('b'), { textContent: MODE_LABEL[payload.mode] || payload.mode || '' }));
+    li.appendChild(top);
+
+    var methodLabels = Array.isArray(payload.inputMethods)
+      ? payload.inputMethods.map(function(m){ return donomanaRecordFormatInputMethod(m) || m; }).join('・')
+      : '';
+    var detail = document.createElement('span');
+    detail.style.fontSize = '0.85rem'; detail.style.color = 'var(--dm-color-sub,#5E6D78)'; detail.style.fontWeight = '500';
+    detail.textContent = formatDuration(payload.durationMs || 0) + '／タップ' + (payload.tapCount || 0) + '回／スワイプ' + (payload.swipeCount || 0) + '回' + (methodLabels ? '／' + methodLabels : '');
+    li.appendChild(detail);
+
+    var hasValidTrace = isValidSawatteTrace(payload.trace);
+    var traceRow = document.createElement('div');
+    traceRow.style.display = 'flex'; traceRow.style.alignItems = 'center'; traceRow.style.gap = '8px'; traceRow.style.marginTop = '2px';
+    var traceState = document.createElement('span');
+    traceState.style.fontSize = '0.8rem'; traceState.style.color = 'var(--dm-color-sub,#5E6D78)'; traceState.style.fontWeight = '500';
+    traceState.textContent = '軌跡記録: ' + (hasValidTrace ? 'あり' : 'なし');
+    traceRow.appendChild(traceState);
+    var traceBtn = document.createElement('button');
+    traceBtn.type = 'button'; traceBtn.className = 'secondary-btn';
+    traceBtn.style.minHeight = '36px'; traceBtn.style.fontSize = '0.8rem'; traceBtn.style.padding = '4px 14px';
+    traceBtn.textContent = '🖊 操作の軌跡を見る';
+    traceBtn.disabled = !hasValidTrace;
+    if (!hasValidTrace) traceBtn.setAttribute('aria-disabled', 'true');
+    traceBtn.addEventListener('click', function(){ if (!traceBtn.disabled) openTraceViewer(payload.trace, payload, traceBtn); });
+    traceRow.appendChild(traceBtn);
+    li.appendChild(traceRow);
+
+    recordViewerList.appendChild(li);
+  });
+
+  var hasAnyTrace = anyRecordHasTrace(log);
+  downloadTraceCsvBtn.disabled = !hasAnyTrace;
+  if (!hasAnyTrace) downloadTraceCsvBtn.setAttribute('aria-disabled', 'true'); else downloadTraceCsvBtn.removeAttribute('aria-disabled');
+  traceCsvDisabledNote.hidden = hasAnyTrace;
+}
+
+function recordViewerFocusables(){
+  return Array.from(recordViewerModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(function(el){ return el.offsetParent !== null && !el.disabled; });
+}
+function openRecordViewer(){
+  if (helpOpen) closeHelp();
+  closeTeacherModal(); // single funnel: leaving Teacher Settings to open Record Viewer
+  if (!screens.activity.hidden) stopAllPointersAndGlides();
+  renderRecordViewerList();
+  recordViewerOpen = true;
+  recordViewerBackdrop.hidden = false;
+  setTimeout(function(){ recordViewerTitle.focus(); }, 0);
+}
+function closeRecordViewer(){
+  if (traceViewerOpen) closeTraceViewer();
+  recordViewerOpen = false;
+  recordViewerBackdrop.hidden = true;
+  (document.getElementById('donomanaA11yBtn') || teacherSettingsBtn).focus();
+}
+openRecordViewerBtn.addEventListener('click', openRecordViewer);
+closeRecordViewerBtn.addEventListener('click', closeRecordViewer);
+// Escape priority (§5 Escape Priority Contract, extended): A11y panel > Trace
+// Viewer > Record Viewer, matching the existing Teacher-modal/Help pattern.
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  if (a11yPanelIsOpen()) return;
+  if (traceViewerOpen) { e.preventDefault(); closeTraceViewer(); return; }
+  if (!recordViewerOpen) return;
+  e.preventDefault(); closeRecordViewer();
+});
+// Tab containment — identical structure to the Teacher modal's own handler
+// above (same outside-focus-guard fix from the A11y containment Phase).
+// Skipped while Trace Viewer is open (non-modal, no trap of its own,
+// layered on top — matching how Teacher modal already stands down while
+// the A11y panel is open).
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Tab') return;
+  if (window.trapA11yPanelFocus && window.trapA11yPanelFocus(e)) return;
+  if (!recordViewerOpen || traceViewerOpen) return;
+  var focusables = recordViewerFocusables();
+  if (!focusables.length) return;
+  var first = focusables[0], last = focusables[focusables.length - 1];
+  var active = document.activeElement;
+  var insideModal = recordViewerModal.contains(active) || active === recordViewerTitle;
+  if (!insideModal) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; }
+  if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && (active === first || active === recordViewerTitle)) { e.preventDefault(); last.focus(); }
+});
+
+// Trace Canvas rendering (Design Contract §15.1/§25): on-demand only, one
+// canvas, tap=dot/ripple, swipe=soft trail polyline, faint start→end
+// gradient (never a complex rainbow gradient), Activity-distinct calm
+// palette so it is never confused with the live Activity effects.
+function traceCanvasAlphaForT(t, minT, maxT){
+  if (maxT === minT) return 0.75;
+  return 0.35 + 0.55 * ((t - minT) / (maxT - minT));
+}
+function renderTraceCanvas(trace){
+  var cssW = traceCanvas.clientWidth, cssH = traceCanvas.clientHeight;
+  if (!cssW || !cssH) return;
+  var dpr = window.devicePixelRatio || 1;
+  traceCanvas.width = Math.round(cssW * dpr);
+  traceCanvas.height = Math.round(cssH * dpr);
+  var ctx = traceCanvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  function toXY(qx, qy){ return [(qx / 1000) * cssW, (qy / 1000) * cssH]; }
+
+  var minT = Infinity, maxT = -Infinity;
+  for (var i = 2; i < trace.taps.length; i += 3) { minT = Math.min(minT, trace.taps[i]); maxT = Math.max(maxT, trace.taps[i]); }
+  trace.swipes.forEach(function(stroke){ for (var j = 2; j < stroke.length; j += 3) { minT = Math.min(minT, stroke[j]); maxT = Math.max(maxT, stroke[j]); } });
+  if (!isFinite(minT)) { minT = 0; maxT = 0; }
+
+  trace.swipes.forEach(function(stroke){
+    var n = stroke.length / 3;
+    for (var idx = 0; idx < n - 1; idx++) {
+      var i0 = idx * 3, i1 = (idx + 1) * 3;
+      var p1 = toXY(stroke[i0], stroke[i0 + 1]);
+      var p2 = toXY(stroke[i1], stroke[i1 + 1]);
+      var a = traceCanvasAlphaForT(stroke[i0 + 2], minT, maxT);
+      ctx.strokeStyle = 'rgba(120,220,210,' + a.toFixed(2) + ')';
+      ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
+    }
+  });
+
+  for (var m = 0; m < trace.taps.length; m += 3) {
+    var pt = toXY(trace.taps[m], trace.taps[m + 1]);
+    var ta = traceCanvasAlphaForT(trace.taps[m + 2], minT, maxT);
+    ctx.beginPath(); ctx.fillStyle = 'rgba(255,214,120,' + ta.toFixed(2) + ')';
+    ctx.arc(pt[0], pt[1], 7, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle = 'rgba(255,214,120,' + (ta * 0.6).toFixed(2) + ')'; ctx.lineWidth = 2;
+    ctx.arc(pt[0], pt[1], 13, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+function openTraceViewer(trace, payload, triggerBtn){
+  traceViewerLastFocused = triggerBtn || null;
+  traceViewerOpen = true;
+  traceViewerBackdrop.hidden = false;
+  traceViewerTrimmedNote.hidden = !trace.trimmed;
+  var tapN = trace.taps.length / 3, swipeN = trace.swipes.length;
+  traceViewerCounts.textContent = 'タップ ' + tapN + '回／スワイプ ' + swipeN + '回／操作 ' + (payload.totalInteractions || 0) + '回／活動時間 ' + formatDuration(payload.durationMs || 0);
+  setTimeout(function(){ traceViewerTitle.focus(); }, 0);
+  requestAnimationFrame(function(){ renderTraceCanvas(trace); });
+}
+function closeTraceViewer(){
+  traceViewerOpen = false;
+  traceViewerBackdrop.hidden = true;
+  if (traceViewerLastFocused && typeof traceViewerLastFocused.focus === 'function') traceViewerLastFocused.focus();
+  else recordViewerTitle.focus();
+  traceViewerLastFocused = null;
+}
+closeTraceViewerBtn.addEventListener('click', closeTraceViewer);
+
+/* =====================================================================
+   Summary CSV / Trace CSV (Design Contract §20-23). Both reuse the shared
+   Foundation `donomanaRecordBuildCsv` (BOM + comma/quote/newline escaping)
+   unmodified — no new CSV helper. Formula-injection cell escaping is not
+   needed: every field here is either a number or a fixed internal enum
+   string, never free text (Design Contract §23.1).
+===================================================================== */
+var CSV_HEADER_SUMMARY = ['日付', '時刻', '教材', 'モード', '活動時間（秒）', '操作回数', 'タップ回数', 'スワイプ回数', '操作方法', '音', '刺激の強さ', 'エフェクトの太さ', '効果音', '軌跡記録'];
+var CSV_HEADER_TRACE = ['日付', '時刻', 'セッションID', '操作番号', '種類', '点番号', 'X座標（相対位置）', 'Y座標（相対位置）', '経過ミリ秒'];
+
+function csvDateTimeParts(timestamp){
+  if (!timestamp) return { date: '', time: '' };
+  var d = new Date(timestamp);
+  if (isNaN(d.getTime())) return { date: '', time: '' };
+  var p = function(n){ return n < 10 ? '0' + n : String(n); };
+  return { date: d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()), time: p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) };
+}
+function buildSummaryCsvRows(log){
+  var rows = [CSV_HEADER_SUMMARY.slice()];
+  log.forEach(function(entry){
+    var payload = (entry && entry.payload && typeof entry.payload === 'object') ? entry.payload : {};
+    var dt = csvDateTimeParts(entry.timestamp);
+    var methodLabels = Array.isArray(payload.inputMethods) ? payload.inputMethods.map(function(m){ return donomanaRecordFormatInputMethod(m) || m; }).join('・') : '';
+    rows.push([
+      dt.date, dt.time, 'さわってひろがる',
+      MODE_LABEL[payload.mode] || payload.mode || '',
+      (typeof payload.durationMs === 'number') ? Math.round(payload.durationMs / 1000) : '',
+      (typeof payload.totalInteractions === 'number') ? payload.totalInteractions : '',
+      (typeof payload.tapCount === 'number') ? payload.tapCount : '',
+      (typeof payload.swipeCount === 'number') ? payload.swipeCount : '',
+      methodLabels,
+      (typeof payload.soundEnabled === 'boolean') ? (payload.soundEnabled ? 'ON' : 'OFF') : '',
+      INTENSITY_LABEL[payload.intensity] || payload.intensity || '',
+      EFFECT_WIDTH_LABEL[payload.effectWidth] || payload.effectWidth || '',
+      EFFECT_SOUND_LABEL[payload.effectSound] || payload.effectSound || '',
+      isValidSawatteTrace(payload.trace) ? 'あり' : 'なし'
+    ]);
+  });
+  return rows;
+}
+// legacy/OFF/malformed-trace records are skipped entirely (no zero-filled
+// rows, Design Contract §21/§39 — malformed trace never breaks the export).
+function buildTraceCsvRows(log){
+  var rows = [CSV_HEADER_TRACE.slice()];
+  log.forEach(function(entry, entryIdx){
+    var payload = (entry && entry.payload && typeof entry.payload === 'object') ? entry.payload : {};
+    if (!isValidSawatteTrace(payload.trace)) return;
+    var dt = csvDateTimeParts(entry.timestamp);
+    // CSV-only join key (Design Contract §22): not a new stored field.
+    var sessionId = (entry.timestamp || ('session' + entryIdx)) + '_' + entryIdx;
+    var trace = payload.trace;
+    var interactionIndex = 0;
+    for (var i = 0; i < trace.taps.length; i += 3) {
+      interactionIndex++;
+      rows.push([dt.date, dt.time, sessionId, interactionIndex, 'タップ', 1, (trace.taps[i] / 1000).toFixed(3), (trace.taps[i + 1] / 1000).toFixed(3), trace.taps[i + 2]]);
+    }
+    trace.swipes.forEach(function(stroke){
+      interactionIndex++;
+      var pointIndex = 0;
+      for (var j = 0; j < stroke.length; j += 3) {
+        pointIndex++;
+        rows.push([dt.date, dt.time, sessionId, interactionIndex, 'スワイプ', pointIndex, (stroke[j] / 1000).toFixed(3), (stroke[j + 1] / 1000).toFixed(3), stroke[j + 2]]);
+      }
+    });
+  });
+  return rows;
+}
+function downloadSawatteCsv(rows, filenamePrefix){
+  var csv = donomanaRecordBuildCsv(rows);
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  var now = new Date();
+  var p = function(n){ return n < 10 ? '0' + n : String(n); };
+  var ts = now.getFullYear() + p(now.getMonth() + 1) + p(now.getDate()) + '_' + p(now.getHours()) + p(now.getMinutes());
+  link.download = filenamePrefix + '-' + ts + '.csv';
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+downloadSummaryCsvBtn.addEventListener('click', function(){
+  downloadSawatteCsv(buildSummaryCsvRows(donomanaRecordReadLog(STORAGE_LOG_KEY)), 'sawatte-hirogaru-kiroku');
+});
+downloadTraceCsvBtn.addEventListener('click', function(){
+  if (downloadTraceCsvBtn.disabled) return;
+  downloadSawatteCsv(buildTraceCsvRows(donomanaRecordReadLog(STORAGE_LOG_KEY)), 'sawatte-hirogaru-kiseki');
 });
 
 /* =====================================================================
@@ -1533,11 +1922,27 @@ var session = null; // {startTime, tapCount, swipeCount, totalInteractions, inpu
 // (keyboard/switch) here — swipe counting happens inline in the pointermove
 // handler (a swipe is a continuation of an already-counted tap-down, not a
 // separate triggerReaction call; see spawnTrail/updateGlide call sites).
+// FIX (SAWATTE-HIROGARU-TRACE-RECORD-FIX-1 §6-8 / USER-REVIEW-1-RETRY):
+// tapCount and swipeCount are decided exclusively by
+// classifyPointerInteraction, for Touch/Mouse pointer gestures only (called
+// once per gesture, at gesture end, from endPointer/stopAllPointersAndGlides)
+// — mirroring how commitTraceStroke already resolves the same tap-vs-swipe
+// ambiguity for the trace buffer. Gaze dwell and Keyboard/Switch presses
+// ('dwell'/'direct') only ever reach totalInteractions/inputMethods here:
+// per Design Contract §20/§21 they are reactions, never taps or swipes, so
+// they must not touch tapCount/swipeCount (kind is otherwise unused).
 function recordInteraction(inputMethod, kind){
   if (!session) return;
   session.inputMethods.add(inputMethod);
   session.totalInteractions++;
-  session.tapCount++;
+}
+// Classifies one completed pointer gesture exactly once (§7 "classified
+// exactly once"). p.isSwipe is only ever set true in pointermove once the
+// movement threshold is crossed, so by gesture end it reflects the final
+// shape regardless of how the gesture started.
+function classifyPointerInteraction(p){
+  if (!session || !p) return;
+  if (p.isSwipe) session.swipeCount++; else session.tapCount++;
 }
 
 // x,y are surface-local CSS-pixel coordinates, or null for a location-less
@@ -1547,7 +1952,7 @@ function recordInteraction(inputMethod, kind){
 // exactly like the existing common A11y-panel-open guard elsewhere in the
 // repo — one boolean check reused at every entry point, not a second
 // parallel isolation mechanism.
-function overlaysOpen(){ return teacherModalOpen || helpOpen; }
+function overlaysOpen(){ return teacherModalOpen || helpOpen || recordViewerOpen || traceViewerOpen; }
 
 function triggerReaction(x, y, inputMethod, kind){
   if (screens.activity.hidden || overlaysOpen()) return;
@@ -1574,10 +1979,67 @@ function triggerReaction(x, y, inputMethod, kind){
    the synthetic-click double-fire class of bug is structurally impossible;
    Design Contract §12).
 ===================================================================== */
-var activePointers = {}; // pointerId -> {startX,startY,lastX,lastY,isSwipe,lastTrailAt}
+var activePointers = {}; // pointerId -> {startX,startY,lastX,lastY,isSwipe,lastTrailAt,traceStroke,traceLastAt,traceLastQX,traceLastQY}
 var MAX_ACTIVE_POINTERS = 5;
 var SWIPE_THRESHOLD_PX = 8;
 var TRAIL_MIN_INTERVAL_MS = 40;
+
+/* =====================================================================
+   Trace capture (Design Contract §4/§6-10). traceBuffer is null whenever
+   Trace Recording is OFF or no session is active — its very absence is
+   what keeps this structurally zero-cost and zero-risk when the teacher
+   has not opted in. Hooked ONLY into the Touch/Mouse pointer handlers
+   below (never into triggerReaction(), which Gaze/Keyboard/Switch also
+   pass through) so Gaze-coordinate exclusion is structural, not a runtime
+   condition that could regress (§7 of this Phase / Design Contract §3).
+===================================================================== */
+var TRACE_POINT_INTERVAL_MS = 50;
+var TRACE_POINT_DIST_RATIO = 0.03; // fraction of the surface diagonal, normalized space
+var TRACE_COARSEN_INTERVAL_MS = 100; // after the soft cap (Design Contract §15)
+var TRACE_COARSEN_DIST_RATIO = 0.06;
+var TRACE_SOFT_CAP = 500;
+var TRACE_HARD_CAP = 1000;
+var traceBuffer = null; // {taps:[flat x,y,t...], swipes:[[flat x,y,t...],...], totalPoints, trimmed}
+
+function newTraceBuffer(){ return { taps: [], swipes: [], totalPoints: 0, trimmed: false }; }
+function traceCanAddPoint(){
+  if (!traceBuffer) return false;
+  if (traceBuffer.totalPoints >= TRACE_HARD_CAP) { traceBuffer.trimmed = true; return false; }
+  return true;
+}
+function traceSamplingParams(){
+  var coarsen = traceBuffer.totalPoints >= TRACE_SOFT_CAP;
+  return { intervalMs: coarsen ? TRACE_COARSEN_INTERVAL_MS : TRACE_POINT_INTERVAL_MS, distRatio: coarsen ? TRACE_COARSEN_DIST_RATIO : TRACE_POINT_DIST_RATIO };
+}
+// Normalizes to the Activity Surface's CURRENT bounding rect, then quantizes
+// to a 0-1000 integer (Design Contract §4) — never a raw CSS-pixel value.
+function traceQuantize(pos, rect){
+  var nx = Math.max(0, Math.min(1, rect.width ? pos.x / rect.width : 0));
+  var ny = Math.max(0, Math.min(1, rect.height ? pos.y / rect.height : 0));
+  return [Math.round(nx * 1000), Math.round(ny * 1000)];
+}
+// Commits one pointer's in-progress trace stroke into the session buffer.
+// finalPos (optional): the actual pointerup position, appended bypassing
+// the sampling gate but never the hard cap (§13 "swipe end pointは可能な
+// 限り必ず保存" — "possible" bows to the hard cap, which already signals
+// trimmed:true). Called from both a normal pointerup/pointercancel AND from
+// session-end cleanup of any still-active pointer (finalPos omitted there,
+// §Capture Test Matrix "短時間で中断されたswipe" — never silently discard
+// an interrupted stroke's already-captured points).
+function commitTraceStroke(p, finalPos){
+  if (!p || !p.traceStroke) return;
+  if (p.isSwipe && finalPos && traceCanAddPoint()) {
+    var rect = surfaceEl.getBoundingClientRect();
+    var qEnd = traceQuantize(finalPos, rect);
+    if (qEnd[0] !== p.traceLastQX || qEnd[1] !== p.traceLastQY) {
+      p.traceStroke.push(qEnd[0], qEnd[1], Date.now() - session.startTime);
+      traceBuffer.totalPoints++;
+    }
+  }
+  if (p.isSwipe) traceBuffer.swipes.push(p.traceStroke);
+  else traceBuffer.taps.push(p.traceStroke[0], p.traceStroke[1], p.traceStroke[2]);
+  p.traceStroke = null;
+}
 
 function pointerInputMethod(e){ return e.pointerType === 'mouse' ? 'click' : 'touch'; }
 function localXY(e){
@@ -1592,7 +2054,19 @@ surfaceEl.addEventListener('pointerdown', function(e){
   if (ids.length >= MAX_ACTIVE_POINTERS) return; // extra touch ignored, no penalty (§11/§16)
   try { surfaceEl.setPointerCapture(e.pointerId); } catch (err) {}
   var pos = localXY(e);
-  activePointers[e.pointerId] = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, isSwipe: false, lastTrailAt: 0 };
+  var pState = { startX: pos.x, startY: pos.y, lastX: pos.x, lastY: pos.y, isSwipe: false, lastTrailAt: 0, traceStroke: null, traceLastAt: 0, traceLastQX: 0, traceLastQY: 0 };
+  activePointers[e.pointerId] = pState;
+  // §8: trace capture is limited to touch/mouse pointerTypes only (pen is
+  // undefined in the Design Contract, so it is not added here rather than
+  // guessed in).
+  if (traceBuffer && (e.pointerType === 'touch' || e.pointerType === 'mouse') && traceCanAddPoint()) {
+    var rect0 = surfaceEl.getBoundingClientRect();
+    var q0 = traceQuantize(pos, rect0);
+    pState.traceStroke = [q0[0], q0[1], Date.now() - session.startTime];
+    pState.traceLastAt = performance.now();
+    pState.traceLastQX = q0[0]; pState.traceLastQY = q0[1];
+    traceBuffer.totalPoints++;
+  }
   triggerReaction(pos.x, pos.y, pointerInputMethod(e), 'tap');
 });
 surfaceEl.addEventListener('pointermove', function(e){
@@ -1602,11 +2076,30 @@ surfaceEl.addEventListener('pointermove', function(e){
   var pos = localXY(e);
   var dx = pos.x - p.startX, dy = pos.y - p.startY;
   if (!p.isSwipe && Math.sqrt(dx * dx + dy * dy) > SWIPE_THRESHOLD_PX) {
-    p.isSwipe = true;
-    session && session.swipeCount++;
+    p.isSwipe = true; // final tap-vs-swipe classification happens once at gesture end (classifyPointerInteraction)
     if (settings.mode !== 'light') startGlide(e.pointerId, freqForX(pos.x / surfaceEl.getBoundingClientRect().width));
   }
   p.lastX = pos.x; p.lastY = pos.y;
+  // Trace sampling (Design Contract §9/§15): independent of the visual
+  // trail's own TRAIL_MIN_INTERVAL_MS throttle — a hybrid time-OR-distance
+  // gate, coarsened automatically past the soft cap. Distance is measured
+  // in the same normalized 0..1000 space the points are stored in, so
+  // "3% of the surface diagonal" reduces to a constant in quantized units
+  // regardless of the surface's actual pixel size (Design Contract §7).
+  if (p.isSwipe && p.traceStroke && traceCanAddPoint()) {
+    var traceParams = traceSamplingParams();
+    var traceNow = performance.now();
+    var traceRect = surfaceEl.getBoundingClientRect();
+    var traceQ = traceQuantize(pos, traceRect);
+    var traceQDx = traceQ[0] - p.traceLastQX, traceQDy = traceQ[1] - p.traceLastQY;
+    var traceQDist = Math.sqrt(traceQDx * traceQDx + traceQDy * traceQDy);
+    var traceDistThresholdQ = traceParams.distRatio * 1000 * Math.SQRT2;
+    if (traceNow - p.traceLastAt >= traceParams.intervalMs || traceQDist >= traceDistThresholdQ) {
+      p.traceStroke.push(traceQ[0], traceQ[1], Date.now() - session.startTime);
+      p.traceLastAt = traceNow; p.traceLastQX = traceQ[0]; p.traceLastQY = traceQ[1];
+      traceBuffer.totalPoints++;
+    }
+  }
   if (!p.isSwipe) return;
   var now = performance.now();
   if (now - p.lastTrailAt < TRAIL_MIN_INTERVAL_MS) return;
@@ -1623,6 +2116,8 @@ function endPointer(e){
   var p = activePointers[e.pointerId];
   if (!p) return;
   if (p.isSwipe) stopGlide(e.pointerId);
+  classifyPointerInteraction(p);
+  if (traceBuffer) commitTraceStroke(p, localXY(e));
   delete activePointers[e.pointerId];
 }
 surfaceEl.addEventListener('pointerup', endPointer);
@@ -1700,6 +2195,7 @@ function showActivityHint(){ hintEl.style.opacity = '1'; }
 ===================================================================== */
 function startSession(){
   session = { startTime: Date.now(), tapCount: 0, swipeCount: 0, totalInteractions: 0, inputMethods: new Set() };
+  traceBuffer = settings.traceEnabled ? newTraceBuffer() : null; // reset every session, never carries over (§46)
   activePointers = {};
   reactions = [];
   showActivityHint();
@@ -1711,15 +2207,30 @@ function startSession(){
 }
 
 function stopAllPointersAndGlides(){
-  Object.keys(activePointers).forEach(function(pid){ if (activePointers[pid].isSwipe) stopGlide(pid); });
+  Object.keys(activePointers).forEach(function(pid){
+    var p = activePointers[pid];
+    if (p.isSwipe) stopGlide(pid);
+    classifyPointerInteraction(p);
+    // §Capture Test Matrix "短時間で中断されたswipe": commit whatever this
+    // interrupted stroke already captured rather than discarding it
+    // silently (no pointerup position available here, so no end-point
+    // append — just the points already sampled).
+    if (traceBuffer) commitTraceStroke(p, null);
+  });
   activePointers = {};
 }
+// Rolling cap (§19 of this Phase / Design Contract §10.3): matches
+// okane-app.html's own established pattern verbatim (read via the shared
+// Foundation primitive, trim the in-memory array, write back via the same
+// primitive) — donomanaRecordAddLog() itself is the shared 22-app
+// Foundation helper and is not modified, so this stays entirely app-local.
+var RECORD_LOG_CAP = 200;
 function finalizeSession(){
   if (!session) return null;
-  stopAllPointersAndGlides();
+  stopAllPointersAndGlides(); // also commits any still-active trace strokes (§Capture Test Matrix)
   var durationMs = Date.now() - session.startTime;
   var payload = {
-    detailSchemaVersion: 1,
+    detailSchemaVersion: 1, // unchanged — trace is an independently-versioned optional nested field (§18)
     mode: settings.mode,
     durationMs: durationMs,
     totalInteractions: session.totalInteractions,
@@ -1731,9 +2242,25 @@ function finalizeSession(){
     effectWidth: settings.effectWidth,
     effectSound: settings.effectSound
   };
+  // Trace OFF, or ON with zero captured points: omit the field entirely
+  // (never an empty/null placeholder — §17, Legacy Compatibility is judged
+  // purely by field presence).
+  if (traceBuffer && (traceBuffer.taps.length > 0 || traceBuffer.swipes.length > 0)) {
+    payload.trace = {
+      traceSchemaVersion: 1,
+      pointLimit: TRACE_HARD_CAP,
+      trimmed: traceBuffer.trimmed,
+      taps: traceBuffer.taps,
+      swipes: traceBuffer.swipes
+    };
+  }
   var entry = donomanaRecordCreate('sawatte-hirogaru-app', 'session', null, payload);
-  donomanaRecordAddLog(STORAGE_LOG_KEY, entry);
+  var log = donomanaRecordReadLog(STORAGE_LOG_KEY);
+  log.push(entry);
+  if (log.length > RECORD_LOG_CAP) log = log.slice(-RECORD_LOG_CAP);
+  donomanaRecordWriteLog(STORAGE_LOG_KEY, log);
   session = null;
+  traceBuffer = null;
   return payload;
 }
 
@@ -1757,7 +2284,8 @@ function showSummary(payload){
     list.appendChild(li);
   }
   addRow('とりくんだ じかん', formatDuration(payload.durationMs));
-  addRow('さわった かいすう', payload.totalInteractions + ' かい');
+  addRow('そうさした かいすう', payload.totalInteractions + ' かい');
+  addRow('タップした かいすう', payload.tapCount + ' かい');
   addRow('スワイプした かいすう', payload.swipeCount + ' かい');
   addRow('つかった モード', MODE_LABEL[payload.mode] || payload.mode);
   addRow('しげきの つよさ', INTENSITY_LABEL[payload.intensity] || payload.intensity);
