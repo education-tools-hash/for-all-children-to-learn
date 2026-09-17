@@ -1162,6 +1162,8 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1): detailロジック・CSV行の構築ロジックはこの1ファイルにのみ実装し、App-localの「きろく」詳細展開/CSVとCommon Detailが同じ関数から同じ結果を得る(Cross-App Detail Contract §11/§34)。 -->
+<script src="assets/js/kurabeyou-record-detail.js"></script>
 <script>
 'use strict';
 
@@ -2485,49 +2487,11 @@ function level4OrderValuesText(entry, orderIds) {
   }).join('→');
 }
 
-// Phase T5-E-B: T5-E-A'で確立したExcel互換CSV日時形式(日付=YYYY.MM.DD、時刻=HH:mm:ss)を
-// Learning Record Foundationの既存donomanaRecordFormatCsvDateTime()で適用する
-// (旧formatRecordDateTimeFull()の単一「日時」列はExcelで#######になる不具合があった)。
+// 行構築はassets/js/kurabeyou-record-detail.jsへ委譲した(learning-records.html
+// の共通「学習の記録」と同一のCSV行を、2箇所で別々に実装しない、
+// LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1、Cross-App Detail Contract §11/§34)。
 function buildRecordsCsvRows() {
-  var rows = [CSV_HEADERS.slice()];
-  readLog().forEach(function(e) {
-    var row = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
-    var dt = donomanaRecordFormatCsvDateTime(e.time);
-    row[0] = dt.date;
-    row[1] = dt.time;
-    row[2] = RECORDS_CONCEPT_NAME[e.concept] || e.concept || '';
-    row[3] = RECORDS_LEVEL_NAME[e.level] || ('レベル' + e.level);
-    row[4] = (typeof e.questionIndex === 'number') ? e.questionIndex : '';
-    row[5] = (typeof e.questionTotal === 'number') ? e.questionTotal : '';
-
-    if (e.level === 3) {
-      var cfg3 = COMPARISON[e.concept];
-      row[6] = cfg3 ? (e.prompt === cfg3.moreLabel ? cfg3.promptMore : cfg3.promptLess) : '';
-      row[7] = RECORDS_SELECTED_TEXT[e.prompt] || e.prompt || '';
-      row[8] = RECORDS_SELECTED_TEXT[e.firstSelected] || RECORDS_SELECTED_TEXT[e.selected] || e.firstSelected || '';
-      row[9] = RECORDS_SELECTED_TEXT[e.selected] || e.selected || '';
-      row[10] = (e.correct === true) ? 'せいかい' : (e.correct === false ? 'まちがい' : '');
-      row[11] = (e.mistakeSelections && e.mistakeSelections.length) ? e.mistakeSelections.length : (typeof e.mistakes === 'number' ? e.mistakes : '');
-      row[12] = (e.mistakeSelections && e.mistakeSelections.length) ? e.mistakeSelections.map(function(m) { return RECORDS_SELECTED_TEXT[m] || m; }).join('、') : '';
-      row[13] = (typeof e.responseTimeMs === 'number') ? e.responseTimeMs : '';
-    } else if (e.level === 4) {
-      row[11] = (typeof e.mistakes === 'number') ? e.mistakes : '';
-      row[12] = (e.mistakeDetails && e.mistakeDetails.length && e.items) ? e.mistakeDetails.map(function(m) {
-        var selIt = e.items.filter(function(x) { return x.id === m.selectedId; })[0];
-        var expIt = e.items.filter(function(x) { return x.id === m.expectedId; })[0];
-        return m.step + '番目:' + (selIt ? selIt.value : '?') + '→本来' + (expIt ? expIt.value : '?');
-      }).join('／') : '';
-      row[13] = (typeof e.responseTimeMs === 'number') ? e.responseTimeMs : '';
-      row[14] = (RECORDS_ORDER_NAME[e.concept] && RECORDS_ORDER_NAME[e.concept][e.order]) || '';
-      row[15] = level4OrderValuesText(e, e.correctOrder);
-      row[16] = level4OrderValuesText(e, e.selectedOrder);
-    } else if (e.level === 2) {
-      row[9] = RECORDS_SELECTED_TEXT[e.selected] || e.selected || '';
-    }
-
-    rows.push(row);
-  });
-  return rows;
+  return donomanaKurabeyouRecordDetail.buildDetailCsvRows(readLog());
 }
 
 function downloadRecordsCsv() {

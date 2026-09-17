@@ -538,6 +538,26 @@
         inputMethod: im,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1、
+    // Cross-App Detail Contract §8.1)。実体はassets/js/kurabeyou-record-detail.js
+    // (App-localの「きろく」詳細展開・CSVと共有、重複実装禁止)。
+    getDetails: function (e) {
+      return (typeof donomanaKurabeyouRecordDetail !== 'undefined') ? donomanaKurabeyouRecordDetail.getDetailRows(e) : [];
+    },
+    // richVisualizationは実装しない(Matrix、NOT APPLICABLE——kurabeyou-appは
+    // 画像・軌跡等の可視化データを一切保存しない)。
+    getCsvActions: function () {
+      if (typeof donomanaKurabeyouRecordDetail === 'undefined') return [];
+      var D = donomanaKurabeyouRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 きろくをCSVで保存',
+          filenamePrefix: 'kurabeyou-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 
@@ -587,6 +607,26 @@
         inputMethod: im,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1、
+    // Cross-App Detail Contract §8.1)。実体はassets/js/katachi-awase-record-
+    // detail.js(App-localの「きろく」詳細展開・CSVと共有、重複実装禁止)。
+    getDetails: function (e) {
+      return (typeof donomanaKatachiAwaseRecordDetail !== 'undefined') ? donomanaKatachiAwaseRecordDetail.getDetailRows(e) : [];
+    },
+    // richVisualizationは実装しない(Matrix、NOT APPLICABLE——katachi-awase-app
+    // は画像・軌跡等の可視化データを一切保存しない)。
+    getCsvActions: function () {
+      if (typeof donomanaKatachiAwaseRecordDetail === 'undefined') return [];
+      var D = donomanaKatachiAwaseRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 きろくをCSVで保存',
+          filenamePrefix: 'katachi-awase-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 

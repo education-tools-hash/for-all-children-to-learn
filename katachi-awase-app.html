@@ -1172,6 +1172,8 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1): detailロジック・CSV行の構築ロジックはこの1ファイルにのみ実装し、App-localの「きろく」詳細展開/CSVとCommon Detailが同じ関数から同じ結果を得る(Cross-App Detail Contract §11/§34)。 -->
+<script src="assets/js/katachi-awase-record-detail.js"></script>
 <script>
 /* =====================================================================
    basic elements / canonical settings state
@@ -3120,52 +3122,11 @@ function csvEscape(value) {
   if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
   return s;
 }
-// Phase T5-E-B: T5-E-A'で確立したExcel互換CSV日時形式(日付=YYYY.MM.DD、時刻=HH:mm:ss)を
-// Learning Record Foundationの既存donomanaRecordFormatCsvDateTime()で適用する
-// (旧formatRecordDateTimeFull()の単一「日時」列はExcelで#######になる不具合があった)。
+// 行構築はassets/js/katachi-awase-record-detail.jsへ委譲した(learning-records.html
+// の共通「学習の記録」と同一のCSV行を、2箇所で別々に実装しない、
+// LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1、Cross-App Detail Contract §11/§34)。
 function buildRecordsCsvRows() {
-  var rows = [CSV_HEADERS.slice()];
-  readLog().forEach(function(e) {
-    var entryConcept = e.concept || 'shape';
-    var dt = donomanaRecordFormatCsvDateTime(e.time);
-    if (entryConcept === 'puzzle') {
-      var diffName = (LEVEL_LABELS.puzzle && LEVEL_LABELS.puzzle[e.level]) || ('レベル' + e.level);
-      rows.push([
-        dt.date, dt.time, diffName,
-        '', '', '', '', '', // 問題番号/問題数/形/正しい場所/選択した場所 — puzzleには該当なし
-        e.correct ? 'せいかい' : 'まちがい',
-        '', '', '', '', // 再試行回数/間違えた内容/反応時間ms/おおきさ — puzzleには該当なし
-        e.patternName || e.patternId || '',
-        (typeof e.durationMs === 'number') ? Math.round(e.durationMs / 1000) : ''
-      ]);
-      return;
-    }
-    var levelName = (LEVEL_LABELS[entryConcept] && LEVEL_LABELS[entryConcept][e.level]) || ('レベル' + e.level);
-    rows.push([
-      dt.date,
-      dt.time,
-      levelName,
-      e.questionIndex, e.questionTotal,
-      SHAPE_LABEL[e.shape] || e.shape,
-      SHAPE_LABEL[e.expected] || e.expected,
-      SHAPE_LABEL[e.selected] || e.selected,
-      e.correct ? 'せいかい' : 'まちがい',
-      e.mistakes,
-      // Phase26-I3.1: mistakeSelections entries are {shapeType, size} objects going
-      // forward (see handleWrongPlacement) so size-aware labels reuse shapeSpokenLabel()
-      // — the same helper TTS/aria-label already use, no new label logic. Pre-I3.1
-      // records still hold plain shapeType strings (an おおきさ concept could only have
-      // existed since I3, so any pre-I3.1 mistakeSelections is unambiguously "かたち"
-      // and never needed a size label anyway); both forms are handled here.
-      (e.mistakeSelections || []).map(function(m) {
-        return typeof m === 'string' ? (SHAPE_LABEL[m] || m) : shapeSpokenLabel(m);
-      }).join('、'),
-      e.responseTimeMs,
-      e.shapeSize ? SIZE_LABEL[e.shapeSize] : '',
-      '', '' // パズル名/かかった時間(秒) — かたち/おおきさには該当なし
-    ]);
-  });
-  return rows;
+  return donomanaKatachiAwaseRecordDetail.buildDetailCsvRows(readLog());
 }
 function downloadRecordsCsv() {
   var log = readLog();

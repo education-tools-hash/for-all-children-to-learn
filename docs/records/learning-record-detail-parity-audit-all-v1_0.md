@@ -597,3 +597,17 @@ Batch B Pilot（§12参照）として`directions-app`をLevel 2実装した（T
 - この実装は§50で予告した**Simple L2 Reference**として、Matrix上に記録した（Matrix該当行参照）。Batch B/Cの他Simple/Detail-only App実装時、同じ「App固有shared module + getDetails()/getCsvActions()のみ追加、normalize()は無変更」というパターンをそのまま踏襲できる。
 
 **Production Release済み**（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`、User Browser Review PASS・User Approved後）。`directions-app`は`CONFORMANT_L2`・Simple Level 2 Production Referenceとして確定した。次のBatch B候補（kurabeyou-app・katachi-awase-app）は別Phaseとして着手する。
+
+---
+
+## 22. Implementation Checkpoint Note（`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`）
+
+Batch B（§12参照）として`kurabeyou-app`・`katachi-awase-app`をLevel 2実装した（Technical validation PASS、User Browser Review待ち、Product未commit）。
+
+- Worktree: `for-all-children-to-learn-learning-record-kurabeyou-katachi-detail1` / Branch: `feature/learning-record-kurabeyou-katachi-detail-1`
+- 実装方式: directions-appと同じB「App-specific shared module」パターン。`assets/js/kurabeyou-record-detail.js`・`assets/js/katachi-awase-record-detail.js`をそれぞれ新規作成し、対応するApp-local HTML（`buildRecordsCsvRows()`の行構築部分のみ委譲、既存出力は無変更）と`learning-records.html`（Common Adapterの`getDetails()`/`getCsvActions()`）の両方から読み込む。
+- **粒度の判断（本Phaseの新規発見）**: 両App-localの「きろく」画面はraw log entryをセッション単位（同じlevel/conceptの連続、`groupLogIntoSessions()`）へ集約して表示するが、実データはkurabeyou-appのLevel3/4が「1つの完了した問題 = 1 raw entry」、katachi-awase-appが「1つの配置したshape = 1 raw entry」（またはpuzzleは1つの完成パズル全体）であり、CSVも既にraw entry単位で出力していた。Common Detail（1 raw entry = 1 Common record card、既存の全App共通アーキテクチャ）はこのentry単位の粒度をそのまま使えば足り、App-localのセッション集約表示を再現する必要はないと判断した（情報の欠落がないため、Contract上のGapには該当しない）。
+- kurabeyou-app実装中に、CSVのpure-extraction対象コードには存在しなかった新規の防御漏れ（`prompt`欠落legacyレコードで存在しない質問文を推測生成してしまう）を発見し、新規`getDetailRows()`側でのみ修正した（CSV側は既存出力をbyte-identicalに保つため無変更のまま）。
+- ACTIVITY_LABELSの追加は不要だった（`concept`値の`size`/`length`/`shape`/`puzzle`はすべて既存ラベルで充足済み。`kurabeyou-app`と`katachi-awase-app`はいずれも`size`という同じactivityコード文字列を共有するが、既存の「クイズ」コード衝突と同型のnon-blocking判断を踏襲した）。
+- 実App操作（kurabeyou: Level2×2+Level3、katachi: shape/size/puzzle各1件）でE2E検証し、App-local「きろく」の詳細展開テキスト・Common Detail modal・両CSVが完全に一致することを実測確認した。
+- 既存5スイート（816+58+67+41+27件）はFAIL 0のまま、新規`kurabeyou-common-detail-golden-tests.js`（30件）・`katachi-awase-common-detail-golden-tests.js`（31件）を追加した。
