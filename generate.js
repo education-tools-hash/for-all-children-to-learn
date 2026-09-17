@@ -2355,20 +2355,24 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
-  { date: "2026-09-18", type: "update", text: "「ほうこうとばしょをまなぼう」の学習記録を詳しく確認できるようになりました。", details: [
-    "問題の内容を確認できるようになりました。",
-    "子どもが選んだ回答を確認できます。",
-    "正解の内容を確認できます。",
-    "結果を確認できます。",
-    "アプリ内の記録と共通の「学習の記録」で、同じ内容を確認できます。",
-    "詳しい記録をCSV形式で保存できます。"
-  ], verbatim: true },
   { date: "2026-09-17", type: "update", text: "SSTの学習記録を『学習の記録』から詳しく確認できるようになりました。", details: [
     "ロールプレイやことばクイズなど、SSTの詳しい記録を共通の「学習の記録」画面からも確認できるようになりました。",
     "場面・問題文・提示された選択肢・選んだ回答・教材内区分などを表示します。",
     "SSTの詳しい記録をCSV形式で保存できるようになりました。",
     "アプリ内の記録と共通の「学習の記録」で、同じ内容を確認できます。",
     "「学習の記録」やホーム画面への移動をより確実にしました。"
+  ], verbatim: true },
+  // CHANGELOG-DATE-SAME-DAY-ENTRY-1: SSTと同じ2026-09-17。以前は同日2件目の
+  // verbatim entryをgenerateChangelog()が正しく扱えず(1calendar date=1item前提)、
+  // 未来日付の09-18へ回避的にずらしていた。generateChangelog()側の修正(verbatim
+  // entryは同日に何件あっても個別itemのまま返す)により、正しい実施日へ戻す。
+  { date: "2026-09-17", type: "update", text: "「ほうこうとばしょをまなぼう」の学習記録を詳しく確認できるようになりました。", details: [
+    "問題の内容を確認できるようになりました。",
+    "子どもが選んだ回答を確認できます。",
+    "正解の内容を確認できます。",
+    "結果を確認できます。",
+    "アプリ内の記録と共通の「学習の記録」で、同じ内容を確認できます。",
+    "詳しい記録をCSV形式で保存できます。"
   ], verbatim: true },
   { date: "2026-09-16", type: "update", text: "「さわってひろがる」の学習記録を詳しく確認できるようになりました。", details: [
     "タップした回数・スワイプした回数など、操作の内容を詳しく記録できるようになりました。",
@@ -2611,28 +2615,37 @@ function generateChangelog(apps) {
 
   const TYPE_PRIORITY = ['new', 'update', 'design', 'fix'];
 
-  return dateOrder.map(date => {
+  // CHANGELOG-DATE-SAME-DAY-ENTRY-1: 1 calendar date = 1 visible changelog "item"という
+  // 旧Phase26-D2の前提を緩和する。renderChangelog()/changelogItemHTML()(index.html)は
+  // 元々1つの<ul>へ任意個のitemを描画できる汎用実装であり(月単位でグループ化するだけで、
+  // 1日=1itemという制約はDOM/CSS側には無い)、この制約は本関数(generateChangelog)側にのみ
+  // 存在していた。`verbatim: true`の手動entryは、他のentryと同日であっても実プロダクト
+  // 意味・見出し・detailsを一切混ぜてはならない独立した内容のため、同日に何件あっても
+  // 各々を個別のitemとして返す(1件のときの既存出力と完全に同じ形——単一entry日の後方
+  // 互換性はここで保たれる)。verbatimでないentry(自動release/手動update文言の混在)は、
+  // 引き続き既存のアプリ名寄せ集約ロジックで1つのitemへまとめる(複数entry日の既存挙動を
+  // 完全維持)。
+  return dateOrder.flatMap(date => {
     const members = dateGroups[date];
+    const verbatimMembers = members.filter(m => m.verbatim);
+    const nonVerbatimMembers = members.filter(m => !m.verbatim);
 
-    // 明示的opt-out(`verbatim: true`): 通常はdetailsの各行を「先頭の「アプリ名」で
-    // 対象アプリを判定し、見出しを自動要約する」処理にかけるが、その日の唯一の
-    // 手動entryがこのフラグを持つ場合は、text/detailsをそのまま(見出しを自動生成で
-    // 上書きせず、detailsも破棄せず)使う。同日に他のentryが混在する場合は既存の
-    // 集約ロジックとの相互作用が未定義になるため、「その日の唯一のentryである」
-    // 場合のみ適用する。
-    if (members.length === 1 && members[0].verbatim) {
-      const m = members[0];
+    const verbatimItems = verbatimMembers.map(m => {
       const details = Array.isArray(m.details) ? m.details.map(d => String(d).trim()).filter(Boolean) : [];
       return details.length > 0
         ? { date, type: m.type, text: m.text, details, updateCount: details.length }
         : { date, type: m.type, text: m.text, updateCount: 1 };
+    });
+
+    if (nonVerbatimMembers.length === 0) {
+      return verbatimItems;
     }
 
     const appGroups = {}; // appId -> { releasedHere, updatedHere, updateType, updateLines }
     const appOrder = [];
     const siteItems = []; // { text } — アプリを安全に特定できない/アプリ横断の変更
 
-    members.forEach(m => {
+    nonVerbatimMembers.forEach(m => {
       if (m.sourceAppId) {
         // automatic release entry: アプリは確定済み
         if (!appGroups[m.sourceAppId]) {
@@ -2742,14 +2755,17 @@ function generateChangelog(apps) {
       text = clauses.length > 0 ? clauses.join('し、') + 'しました' : '更新しました';
     }
 
-    const types = members.map(m => m.type);
+    const types = nonVerbatimMembers.map(m => m.type);
     const primaryType = TYPE_PRIORITY.find(t => types.includes(t)) || types[0];
 
     // 単独のsite項目1件だけの日は、見出し自体がその内容そのものなので、同じ文を
     // もう一度「詳細」として展開させる意味のないトグルを出さない(details省略)。
-    return isTrivialSingleSiteItem
+    const mergedItem = isTrivialSingleSiteItem
       ? { date, type: primaryType, text, updateCount }
       : { date, type: primaryType, text, details: dedupedDetailLines, updateCount };
+    // verbatim entry(独立item)を先に、非verbatimの集約結果をあとに置く(同日混在は
+    // 現状のMANUAL_CHANGELOGには存在しないが、両者の意味を混ぜないための決定的な順序)。
+    return [...verbatimItems, mergedItem];
   });
 }
 
