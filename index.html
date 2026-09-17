@@ -497,8 +497,16 @@
   .changelog-month-count { font-size: 11px; font-weight: 700; color: #aaa; }
   .changelog-month-arrow { margin-left: auto; font-size: 10px; color: #bbb; transition: transform 0.2s ease; }
   .changelog-month-arrow.open { transform: rotate(180deg); }
-  .changelog-month-body { display: none; list-style: none; margin: 0; padding: 0 14px 12px; flex-direction: column; gap: 10px; }
+  .changelog-month-body { display: none; list-style: none; margin: 0; padding: 0 14px 12px; flex-direction: column; gap: 16px; }
   .changelog-month-body.open { display: flex; }
+
+  /* 同日の複数entryをまとめる日付グループ（CHANGELOG-SAME-DAY-VISUAL-
+     GROUPING-1）。日付見出しは常時表示・開閉なし、各entryのみ独立して
+     開閉する。 */
+  .changelog-date-group { list-style: none; }
+  .changelog-date-heading { padding: 0 0 6px; border-bottom: 1px solid #ece8e0; margin-bottom: 8px; }
+  .changelog-date-group .changelog-date { font-size: 12px; }
+  .changelog-date-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
   /* 修正箇所の内訳（クリックで開く） */
   .changelog-item.has-details { flex-wrap: wrap; }
@@ -2656,7 +2664,6 @@ function escapeChangelog(s) {
 function changelogItemHTML(item) {
   const hasDetails = Array.isArray(item.details) && item.details.length > 0;
   const head = `
-    <span class="changelog-date">${escapeChangelog(item.date)}</span>
     <span class="changelog-badge ${item.type}">${labelForType(item.type)}</span>`;
 
   if (!hasDetails) {
@@ -2694,6 +2701,25 @@ function toggleChangelogDetails(btn) {
   if (list) list.classList.toggle('open', !open);
 }
 
+// 同日に複数entryがある場合、日付見出しを1回だけ表示しその下へ各entryを
+// 独立のまま並べる(CHANGELOG-SAME-DAY-VISUAL-GROUPING-1)。CHANGELOG-DATE-
+// SAME-DAY-ENTRY-1で確立した「同日複数entryは独立データのまま保持する」
+// 仕様はそのまま維持し、これは表示側のグルーピングのみ。日付グループ自体の
+// 開閉は設けず(既存の月グループ開閉 + 各entry独立開閉のみで足りるため、
+// 3段階のtoggleにしてUXを複雑にしない)、常に展開表示する。
+function changelogDateGroupHTML(dateItems) {
+  const date = dateItems[0].date;
+  return `
+    <li class="changelog-date-group">
+      <div class="changelog-date-heading" role="heading" aria-level="4">
+        <span class="changelog-date">${escapeChangelog(date)}</span>
+      </div>
+      <ul class="changelog-date-items">
+        ${dateItems.map(changelogItemHTML).join('')}
+      </ul>
+    </li>`;
+}
+
 function renderChangelog() {
   const list = document.getElementById('changelogList');
 
@@ -2710,7 +2736,17 @@ function renderChangelog() {
     map[key].items.push(item);
   });
 
-  list.innerHTML = groups.map((g, i) => `
+  list.innerHTML = groups.map((g, i) => {
+    // 月グループ内をさらに同一日付(item.date)単位でグループ化。source order
+    // を維持するため、Map(挿入順を保持)で日付ごとにitemsを集める。
+    const byDate = new Map();
+    g.items.forEach(item => {
+      if (!byDate.has(item.date)) byDate.set(item.date, []);
+      byDate.get(item.date).push(item);
+    });
+    const dateGroupsHTML = [...byDate.values()].map(changelogDateGroupHTML).join('');
+
+    return `
     <li class="changelog-month-group">
       <button class="changelog-month-header" onclick="toggleChangelogMonth(this)">
         <span class="changelog-month-label">${g.key}</span>
@@ -2718,10 +2754,10 @@ function renderChangelog() {
         <span class="changelog-month-arrow ${i === 0 ? 'open' : ''}">▼</span>
       </button>
       <ul class="changelog-month-body ${i === 0 ? 'open' : ''}">
-        ${g.items.map(changelogItemHTML).join('')}
+        ${dateGroupsHTML}
       </ul>
-    </li>
-  `).join('');
+    </li>`;
+  }).join('');
 }
 
 function toggleChangelogMonth(btn) {
