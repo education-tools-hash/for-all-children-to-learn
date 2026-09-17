@@ -49,6 +49,13 @@
     'care-log': 'きろく',
     'taiken': '体験活動',
     'preference': '好みの選択',
+    // directions-app: e.category(directions-app.html自身のCATEGORY_LABELS辞書と
+    // 同じ日本語表記に揃える、LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1、§16と同型)。
+    // 'quiz'は既存(43行目)の汎用「クイズ」ラベルを流用する(SST §25と同じnon-blocking判断、
+    // directions-appの「なんばんめ」カテゴリもクイズ形式のため実害なし)。
+    'dir': 'どっちかな',
+    'compass': 'ほうがく',
+    'practice': 'はいち',
     // janken-app: payload.mode(janken-app.html自身のmodeNames辞書と同じ日本語表記に揃える、§16)
     'win': 'かちのは どれ？',
     'lose': 'まけるのは どれ？',

@@ -2100,6 +2100,8 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1): detailロジック・CSV行の構築ロジックはこの1ファイルにのみ実装し、App-localの「学習ログ」テーブル/CSVとCommon Detailが同じ関数から同じ結果を得る(Cross-App Detail Contract §11/§34)。 -->
+<script src="assets/js/directions-record-detail.js"></script>
 <script>
   // ==== State ====
   // Phase18.29-B: 共通A11yパネルのDOMContentLoaded初期化(a11y-panelブロック)が
@@ -2931,21 +2933,12 @@ function donomanaRecordFormatTracingLevel(level) {
       alert('ログが ありません');
       return;
     }
-    const headers = ['日付', '時刻', 'カテゴリ', '問題', '回答', '正解', '結果'];
-    const rows = state.logs.map(l => {
-      const dt = donomanaRecordFormatCsvDateTime(l.tsLocal);
-      return [
-        dt.date,
-        dt.time,
-        CATEGORY_LABELS[l.category] || l.category,
-        l.question,
-        l.userAnswer,
-        l.correctAnswer,
-        l.result === 'correct' ? '○' : '×'
-      ];
-    });
+    // 行構築はassets/js/directions-record-detail.jsへ委譲した(learning-records.html
+    // の共通「学習の記録」と同一のCSV行を、2箇所で別々に実装しない、
+    // LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1、Cross-App Detail Contract §11/§34)。
+    const rows = donomanaDirectionsRecordDetail.buildDetailCsvRows(state.logs);
 
-    const csvContent = [headers, ...rows].map(row =>
+    const csvContent = rows.map(row =>
       row.map(csvEscape).join(',')
     ).join('\r\n');
 

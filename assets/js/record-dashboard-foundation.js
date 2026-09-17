@@ -384,6 +384,29 @@
         inputMethod: null,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1、
+    // Cross-App Detail Contract §8.1)。実体はassets/js/directions-record-
+    // detail.js(App-localの「学習ログ」テーブル・CSVと共有、重複実装禁止)。
+    getDetails: function (e) {
+      return (typeof donomanaDirectionsRecordDetail !== 'undefined') ? donomanaDirectionsRecordDetail.getDetailRows(e) : [];
+    },
+    // richVisualizationは実装しない(Audit全体Matrix、NOT APPLICABLE——
+    // directions-appは画像・軌跡等の可視化データを一切保存しない)。
+    //
+    // CSV Parity。App-localの「CSVでダウンロード」(exportLogCSV、全期間)と
+    // 同じ7列・同じrow builderで生成する。
+    getCsvActions: function () {
+      if (typeof donomanaDirectionsRecordDetail === 'undefined') return [];
+      var D = donomanaDirectionsRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 学習ログをCSVで保存',
+          filenamePrefix: 'directions-gakushu-log',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 

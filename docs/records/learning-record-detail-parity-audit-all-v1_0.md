@@ -582,3 +582,16 @@ Pre-existing FAIL: **0件**。本Auditは実装を一切行っていないため
 - [x] Blocking Decisions 0（§18）
 - [x] Docs only（Product変更0件、`git status`で確認）
 - [x] Production unchanged（`origin/main = 400e08c`のまま、push/merge/deploy未実施）
+
+---
+
+## 21. Implementation Checkpoint Note（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`）
+
+Batch B Pilot（§12参照）として`directions-app`をLevel 2実装した（Technical validation PASS、User Browser Review待ち、Product未commit）。
+
+- Worktree: `for-all-children-to-learn-learning-record-directions-detail1` / Branch: `feature/learning-record-directions-detail-1`
+- 実装方式: §13 Shared Formatter戦略で判定したB「App-specific shared module」パターンを採用。`assets/js/directions-record-detail.js`を新規作成し、`directions-app.html`（`exportLogCSV()`の行構築部分のみ委譲、既存出力は無変更）と`learning-records.html`（Common Adapterの`getDetails()`/`getCsvActions()`）の両方から読み込む。
+- `record-dashboard-ui.js`の`ACTIVITY_LABELS`へ`dir`/`compass`/`practice`の3ラベルを追加（従来「その他の活動」にfallbackしていた既存の表示欠落を解消、副次的な改善）。
+- 実App操作2パターン（クイズ・どっちかな、いずれも実際の不正解ケース）でE2E検証し、App-local「学習ログ」テーブル・Common Detail modal・両CSVが完全に一致することを実測確認した。
+- 既存4スイート（816+58+67+41件）はFAIL 0のまま、新規`directions-common-detail-golden-tests.js`（27件）を追加した。
+- この実装は§50で予告した**Simple L2 Reference**として、Matrix上に記録した（Matrix該当行参照）。Batch B/Cの他Simple/Detail-only App実装時、同じ「App固有shared module + getDetails()/getCsvActions()のみ追加、normalize()は無変更」というパターンをそのまま踏襲できる。
