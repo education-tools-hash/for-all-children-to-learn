@@ -1373,6 +1373,9 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-HIRAGANA-KATAKANA-1): trace検証・canvas描画・Detail行・CSV行の構築ロジックはこの2ファイルにのみ実装し、App-localの「くわしいきろく」trace viewer/CSVとCommon Detail/Rich Visualizationが同じ関数から同じ結果を得る。 -->
+<script src="assets/js/kana-record-trace-renderer.js"></script>
+<script src="assets/js/kana-record-detail.js"></script>
 <script>
 // ================================================================
 // DATA
@@ -2850,22 +2853,11 @@ function buildTraceSample(normalizedStrokes) {
   });
   return { version: TRACE_SAMPLE_VERSION, coordinateSpace: 'normalized-1000', strokes: strokes };
 }
-// Malformed/legacy sampleでViewerを壊さないための検証(NaN・文字列・負値・範囲外・stroke欠落・
-// 未知versionを拒否)。無効な場合は「書いた字を見る」UI自体を出さず、record本体の閲覧は妨げない。
+// 検証ロジック本体はassets/js/kana-record-trace-renderer.jsへ委譲した
+// (learning-records.htmlの「学習の記録」Common Rich Visualizationと同じ
+// 検証、Cross-App Detail Contract §10/§34、重複実装禁止)。
 function isValidTraceSample(sample) {
-  if (!sample || typeof sample !== 'object') return false;
-  if (sample.version !== 1) return false;
-  if (sample.coordinateSpace !== 'normalized-1000') return false;
-  if (!Array.isArray(sample.strokes) || sample.strokes.length === 0) return false;
-  for (var i = 0; i < sample.strokes.length; i++) {
-    var s = sample.strokes[i];
-    if (!Array.isArray(s) || s.length === 0 || s.length % 2 !== 0) return false;
-    for (var j = 0; j < s.length; j++) {
-      var v = s[j];
-      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1000) return false;
-    }
-  }
-  return true;
+  return donomanaKanaRecordTraceRenderer.isValidTraceSample(sample);
 }
 
 function drawGuide(k){
@@ -3592,19 +3584,10 @@ function updateRecordView(){
 })();
 
 function downloadCSV(){
-  var rows = [["\u65E5\u4ED8","\u6642\u523B","\u7A2E\u985E","\u3082\u3058","\u3053\u305F\u3048","\u305B\u3044\u304B\u3044","\u305B\u3044\u304B\u3044\u306E\u3053\u305F\u3048"]];
-  var h = ["\u65E5\u4ED8","\u6642\u523B","\u7A2E\u985E","\u3082\u3058","\u3053\u305F\u3048","\u305B\u3044\u304B\u3044","\u305B\u3044\u304B\u3044\u306E\u3053\u305F\u3048"];
-  learningLog.forEach(function(entry){
-    var dt = donomanaRecordFormatCsvDateTime(entry.time);
-    if(entry.type==="quiz"){
-      rows.push([dt.date,dt.time,"\u30AF\u30A4\u30BA",entry.data.kana,entry.data.answer,
-        entry.data.correct?"\u25CB":"\u00D7",entry.data.correct_ans]);
-    } else if(entry.type==="trace"){
-      rows.push([dt.date,dt.time,"\u306A\u305E\u308A",entry.data.kana,"","\u25CB",""]);
-    } else if(entry.type==="match"){
-      rows.push([dt.date,dt.time,"\u30DE\u30C3\u30C1\u30F3\u30B0","","","\u25CB",""]);
-    }
-  });
+  // Row building delegated to assets/js/kana-record-detail.js (shared with
+  // learning-records.html's Common Detail/CSV, same function/same result;
+  // avoids duplicating this logic in two places).
+  var rows = donomanaKanaRecordDetail.buildDetailCsvRows(learningLog);
   var lines = rows.map(function(r){
     return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(",");
   });
@@ -3645,7 +3628,7 @@ function renderTraceSampleCanvas(sample, kana, showGuide) {
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   var w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
+  donomanaKanaRecordTraceRenderer.clearCanvas(canvas);
   if (showGuide && strokeData[kana]) {
     strokeData[kana].forEach(function (stroke) {
       var pts = TracingEngine.sampleReferencePath(stroke.d, 48).points;
@@ -3662,22 +3645,10 @@ function renderTraceSampleCanvas(sample, kana, showGuide) {
       ctx.restore();
     });
   }
-  if (!isValidTraceSample(sample)) return;
-  // Phase T5-E-A''' §21: judgment用のintrinsic正規化形ではなく、canvas上の実際の位置関係
-  // (0..1000正規化absolute座標)をそのまま再現する。過度な平滑化・自動補正はしない(§40)。
-  sample.strokes.forEach(function (flat) {
-    ctx.save();
-    ctx.strokeStyle = '#7b68d4';
-    ctx.lineWidth = w * 0.045;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (var i = 0; i < flat.length; i += 2) {
-      var x = (flat[i] / 1000) * w, y = (flat[i + 1] / 1000) * h;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  });
+  // stroke描画本体はassets/js/kana-record-trace-renderer.jsへ委譲した(Common
+  // Rich Visualizationと同じ描画、Phase T5-E-A''' §21/§40の座標変換・平滑化
+  // しない方針は同moduleへそのまま移植済み)。
+  donomanaKanaRecordTraceRenderer.drawStrokes(canvas, sample, { strokeColor: '#7b68d4' });
 }
 var traceSampleViewerPrevFocus = null;
 function openTraceSampleViewer(idx) {

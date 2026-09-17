@@ -398,6 +398,9 @@ footer a{color:#7FD6CE; font-weight:700}
 <script src="assets/js/katachi-awase-record-detail.js"></script>
 <!-- LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1: also loaded by nazori-app.html, same reason as above (App-local「活動記録」image display/CSV share this file's getDetailRows/renderRichVisualization/buildDetailCsvRows with the nazori-app adapter below). -->
 <script src="assets/js/nazori-record-detail.js"></script>
+<!-- LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-HIRAGANA-KATAKANA-1: also loaded by hiragana-learn.html/katakana-app.html, same reason as above (App-local「くわしいきろく」trace viewer/CSV share these files' isValidTraceSample/render/getDetailRows/buildDetailCsvRows with the adapters below). Untimed handwriting stroke schema, distinct from Sawatte's timed tap/swipe trace above. -->
+<script src="assets/js/kana-record-trace-renderer.js"></script>
+<script src="assets/js/kana-record-detail.js"></script>
 <script src="assets/js/record-dashboard-foundation.js"></script>
 <script src="assets/js/record-dashboard-ui.js"></script>
 <script>
@@ -532,9 +535,21 @@ footer a{color:#7FD6CE; font-weight:700}
   // するため、同じappId内でnormalizeRecord()結果のtimestampが一致するraw
   // entryを引き当てる(FOUNDATION.normalizeRecord()を再利用、appごとの生
   // timestamp fieldの違いを個別に知る必要がない)。
+  // rawIndex修正(LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-HIRAGANA-
+  // KATAKANA-1): timestamp文字列一致による検索は、同じtimestampを持つ複数
+  // raw recordが存在する場合に誤った(常に最初に一致した)recordを返して
+  // いた。hiragana-learn/katakana-appのtimestampは分単位(秒を持たない)の
+  // ため、同じ分内に複数練習すると実際に衝突する(実機E2Eで再現確認)。
+  // collectRecords()が付与するrawIndex(そのappのrawRecords全体における
+  // absolute index)があれば、それをO(1)で直接参照する。rawIndexが無い
+  // (古いバージョンのFOUNDATION等、想定外のケース)場合のみ、従来の
+  // timestamp一致検索へfallbackする。
   function findRawRecord(record) {
     var read = FOUNDATION.readAppRecords(record.appId);
     var raw = (read && Array.isArray(read.rawRecords)) ? read.rawRecords : [];
+    if (typeof record.rawIndex === 'number' && record.rawIndex >= 0 && record.rawIndex < raw.length) {
+      return raw[record.rawIndex];
+    }
     for (var i = 0; i < raw.length; i++) {
       var n = FOUNDATION.normalizeRecord(record.appId, raw[i]);
       if (n && n.timestamp === record.timestamp) return raw[i];

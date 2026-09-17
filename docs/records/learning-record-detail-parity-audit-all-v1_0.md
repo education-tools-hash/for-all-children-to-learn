@@ -10,6 +10,7 @@
 
 **更新履歴（本文書はv1.0時点のAudit結果を保持するが、以下の実装進捗を追記する）**:
 - `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`: `nazori-app`をLevel 2 + Level 3実装（実装完了、User Review待ち、Product未commit）。§7で計画されていた「rendererなしで`<img>`表示のみで足りる」という方針どおりに実装した。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照（本文書は更新しない、生きた文書ではない）。
+- `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-HIRAGANA-KATAKANA-1`: `hiragana-learn`・`katakana-app`をLevel 2 + Level 3実装（実装完了、User Review待ち、Product未commit）。§8で計画されていたnazori優先→hiragana/katakana同時実装（新規stroke renderer）の方針どおりに実施し、両App実コード確認でtraceSample schemaがbyte-identicalだったため1組の共有moduleで実装した（Canvas Stroke Reference）。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照。
 
 ---
 

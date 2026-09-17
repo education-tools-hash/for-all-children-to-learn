@@ -449,8 +449,116 @@
       }
     };
   }
-  registerAdapter(makeTraceQuizAdapter('hiragana-learn', 'ひらがな まなぼう！', 'hiragana_log', 'ひらがな'));
-  registerAdapter(makeTraceQuizAdapter('katakana-app', 'カタカナ まなぼう！', 'katakana_log', 'カタカナ'));
+  // hiragana-learn / katakana-appはLevel 2 Detail + Level 3 Canvas Trace
+  // Visualization(Phase LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-
+  // HIRAGANA-KATAKANA-1)実装のため、makeTraceQuizAdapter()の呼び出しから
+  // 独立したregisterAdapter()へ切り出す(normalize()のロジックは無変更の
+  // pure extraction)。suji-manabouはtraceSampleを保存しない
+  // (NOT_APPLICABLE、Matrix既存判定どおり)ため、makeTraceQuizAdapter()の
+  // 呼び出しのまま一切変更しない(スコープ外App、§5)。
+  function makeKanaAdapter(appId, appName, storageKey, label) {
+    return {
+      appId: appId,
+      appName: appName,
+      category: '学習アプリ',
+      storageKey: storageKey,
+      structure: 'flat',
+      privacyLevel: 'low',
+      includeInDefaultTimeline: true,
+      normalize: function (e) {
+        var type = e.type;
+        var data = e.data || {};
+        var summary, metrics = {};
+        if (type === 'trace') {
+          var target = data.kana || data.num || '';
+          summary = target ? ('「' + target + '」をなぞる練習をしました') : (label + 'のなぞり練習をしました');
+        } else if (type === 'quiz') {
+          var isCorrect = data.correct === true;
+          summary = data.kana ? ('「' + data.kana + '」の問題に' + (isCorrect ? '正解' : '不正解')) : ((isCorrect ? '問題に正解しました' : '問題に不正解でした'));
+          metrics.correct = isCorrect;
+        } else if (type === 'match') {
+          summary = label + 'のマッチング練習をしました';
+          if (typeof data.difficulty === 'string') summary += '（' + data.difficulty + '）';
+        } else {
+          summary = label + 'の学習に取り組みました';
+        }
+        // hasMedia修正(Phase LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-
+        // HIRAGANA-KATAKANA-1で発見): 旧実装は`!!data.traceSample`のみを見て
+        // おり、壊れた/legacyなtraceSampleでもhasMedia:trueと誤判定していた
+        // (nazori-appのhasMediaバグと同種)。donomanaKanaRecordDetail.
+        // hasAnyValidTrace()は実在性+妥当性チェックを行う。
+        var D = (typeof donomanaKanaRecordDetail !== 'undefined') ? donomanaKanaRecordDetail : null;
+        return {
+          timestamp: toIsoTimestamp(e.time),
+          activity: (typeof type === 'string') ? type : 'unknown',
+          summary: summary,
+          metrics: metrics,
+          inputMethod: null,
+          hasMedia: !!(D && D.hasAnyValidTrace(e))
+        };
+      },
+      // Level 2: Detail Parity。実体はassets/js/kana-record-detail.js
+      // (App-localの「くわしいきろく」と共有、重複実装禁止)。
+      getDetails: function (e) {
+        return (typeof donomanaKanaRecordDetail !== 'undefined') ? donomanaKanaRecordDetail.getDetailRows(e) : [];
+      },
+      // Level 3: Rich Visualization Parity。hiragana-learn/katakana-appは
+      // untimed handwriting stroke trace(0..1000正規化・24点/stroke)を保存
+      // しており、さわってひろがるのtimed tap/swipe trace(record-trace-
+      // renderer.js)とはschemaも意味も異なるため転用しない。専用の
+      // assets/js/kana-record-trace-renderer.jsで描画する(Canvas Trace
+      // Level 3 Reference候補)。お手本ガイド線はKanjiVG stroke path master
+      // data + TracingEngine依存のためCommon側では描画しない(Root
+      // Investigationで確認・報告済みの技術判断、保存済みstrokeの形状・
+      // 本数・相対位置は保持される)。
+      richVisualization: {
+        supports: function (e) {
+          return (typeof donomanaKanaRecordDetail !== 'undefined') && donomanaKanaRecordDetail.supportsRichVisualization(e);
+        },
+        render: function (target, e) {
+          if (typeof donomanaKanaRecordTraceRenderer === 'undefined' || typeof donomanaKanaRecordDetail === 'undefined') return;
+          if (!donomanaKanaRecordDetail.hasAnyValidTrace(e)) return;
+          var sample = e.data.traceSample;
+          var counts = donomanaKanaRecordTraceRenderer.describeCounts(sample);
+          var canvas = document.createElement('canvas');
+          canvas.width = 320;
+          canvas.height = 320;
+          canvas.style.width = '100%';
+          canvas.style.height = 'auto';
+          canvas.style.aspectRatio = '1';
+          canvas.style.display = 'block';
+          canvas.style.borderRadius = '12px';
+          canvas.style.background = '#FAFAFA';
+          canvas.setAttribute('role', 'img');
+          canvas.setAttribute('aria-label', (e.data.kana ? '「' + e.data.kana + '」の' : '') + 'なぞった線。' + counts.strokeCount + '画分の記録');
+          target.appendChild(canvas);
+          donomanaKanaRecordTraceRenderer.render(canvas, sample, { strokeColor: appId === 'katakana-app' ? '#7b68d4' : '#4A6FA5' });
+
+          var countText = document.createElement('p');
+          countText.className = 'rich-viz-hint';
+          countText.textContent = counts.strokeCount + '画のなぞり記録';
+          target.appendChild(countText);
+        }
+      },
+      // CSV Parity。App-localの「CSVでダウンロード」と同じ7列・同じrow
+      // builderで生成する(実測byte-identical)。traceデータはCSVに含めない
+      // (App-local既存CSVも含まない)。
+      getCsvActions: function () {
+        if (typeof donomanaKanaRecordDetail === 'undefined') return [];
+        var D = donomanaKanaRecordDetail;
+        return [
+          {
+            id: 'detail',
+            label: '📄 ' + label + 'のきろくをCSVで保存',
+            filenamePrefix: appId + '-gakushu-kiroku',
+            buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+          }
+        ];
+      }
+    };
+  }
+  registerAdapter(makeKanaAdapter('hiragana-learn', 'ひらがな まなぼう！', 'hiragana_log', 'ひらがな'));
+  registerAdapter(makeKanaAdapter('katakana-app', 'カタカナ まなぼう！', 'katakana_log', 'カタカナ'));
   registerAdapter(makeTraceQuizAdapter('suji-manabou', 'すうじ まなぼう！', 'suji_log', 'すうじ'));
 
   registerAdapter({
@@ -1178,9 +1286,23 @@
       // storageは古い順にpushされている前提(全21appでlog.push(entry)方式を確認済み)。
       // 末尾N件が直近N件になる。
       var raw = (maxPerApp > 0) ? readResult.rawRecords.slice(-maxPerApp) : readResult.rawRecords;
-      raw.forEach(function (rawRecord) {
+      // rawIndex修正(Phase LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-
+      // HIRAGANA-KATAKANA-1で発見): learning-records.htmlのfindRawRecord()は
+      // 「同じtimestamp文字列を持つ最初のraw recordを返す」実装だった。
+      // hiragana-learn/katakana-appのentry.timeは秒を持たない分単位の文字列
+      // (`toLocaleDateString + HH:MM`)のため、同じ分内に複数練習すると
+      // timestampが衝突し、Common DetailとRich Visualizationが誤った
+      // recordのデータを表示してしまう(実機E2Eで再現確認)。normalizedへ
+      // readResult.rawRecords(sliceする前の全件配列)内でのabsolute index
+      // を持たせることで、findRawRecord()がtimestamp一致ではなくO(1)の
+      // index参照で正しいraw recordを一意に特定できるようにする(既存の
+      // normalize()契約({timestamp,activity,summary,metrics,inputMethod,
+      // hasMedia})は無変更、追加fieldのみでbackward compatible)。
+      var rawIndexOffset = readResult.rawRecords.length - raw.length;
+      raw.forEach(function (rawRecord, rawIdx) {
         var normalized = normalizeOneEntry(adapter, rawRecord);
         if (normalized) {
+          normalized.rawIndex = rawIndexOffset + rawIdx;
           records.push(normalized);
         } else {
           errors.push({ appId: appId, errorType: 'invalid-entry' });

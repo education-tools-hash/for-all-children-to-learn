@@ -1860,6 +1860,9 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-HIRAGANA-KATAKANA-1): trace検証・canvas描画・Detail行・CSV行の構築ロジックはこの2ファイルにのみ実装し、App-localの「くわしいきろく」trace viewer/CSVとCommon Detail/Rich Visualizationが同じ関数から同じ結果を得る。 -->
+<script src="assets/js/kana-record-trace-renderer.js"></script>
+<script src="assets/js/kana-record-detail.js"></script>
 <script>
 // ===== DATA =====
 const KANA = [
@@ -3617,22 +3620,11 @@ function buildTraceSample(normalizedStrokes) {
   });
   return { version: TRACE_SAMPLE_VERSION, coordinateSpace: 'normalized-1000', strokes: strokes };
 }
-// Malformed/legacy sampleでViewerを壊さないための検証(NaN・文字列・負値・範囲外・stroke欠落・
-// 未知versionを拒否)。無効な場合は「書いた字を見る」UI自体を出さず、record本体の閲覧は妨げない。
+// 検証ロジック本体はassets/js/kana-record-trace-renderer.jsへ委譲した
+// (learning-records.htmlの「学習の記録」Common Rich Visualizationと同じ
+// 検証、Cross-App Detail Contract §10/§34、重複実装禁止)。
 function isValidTraceSample(sample) {
-  if (!sample || typeof sample !== 'object') return false;
-  if (sample.version !== 1) return false;
-  if (sample.coordinateSpace !== 'normalized-1000') return false;
-  if (!Array.isArray(sample.strokes) || sample.strokes.length === 0) return false;
-  for (var i = 0; i < sample.strokes.length; i++) {
-    var s = sample.strokes[i];
-    if (!Array.isArray(s) || s.length === 0 || s.length % 2 !== 0) return false;
-    for (var j = 0; j < s.length; j++) {
-      var v = s[j];
-      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1000) return false;
-    }
-  }
-  return true;
+  return donomanaKanaRecordTraceRenderer.isValidTraceSample(sample);
 }
 
 function drawGuide(k) {
@@ -4246,18 +4238,10 @@ function updateRecordView() {
 })();
 
 function downloadCSV() {
-  var rows = [["日付","時刻","種類","もじ","こたえ","せいかい","せいかいのこたえ"]];
-  learningLog.forEach(function(entry) {
-    var dt = donomanaRecordFormatCsvDateTime(entry.time);
-    if (entry.type === "quiz") {
-      rows.push([dt.date,dt.time,"クイズ",entry.data.kana,entry.data.answer,
-        entry.data.correct ? "○" : "×", entry.data.correct_ans]);
-    } else if (entry.type === "trace") {
-      rows.push([dt.date,dt.time,"なぞり",entry.data.kana,"","○",""]);
-    } else if (entry.type === "match") {
-      rows.push([dt.date,dt.time,"マッチング","","","○",""]);
-    }
-  });
+  // 行構築はassets/js/kana-record-detail.jsへ委譲した(learning-records.html
+  // の「学習の記録」Common Detail/CSVと同じ関数・同じ結果、Cross-App Detail
+  // Contract §11/§34、重複実装禁止)。
+  var rows = donomanaKanaRecordDetail.buildDetailCsvRows(learningLog);
   var lines = rows.map(function(r) {
     return r.map(function(cell) { return '"' + String(cell).replace(/"/g,'""') + '"'; }).join(",");
   });
@@ -4297,7 +4281,7 @@ function renderTraceSampleCanvas(sample, kana, showGuide) {
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   var w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
+  donomanaKanaRecordTraceRenderer.clearCanvas(canvas);
   if (showGuide && strokeData[kana]) {
     strokeData[kana].forEach(function (stroke) {
       var pts = TracingEngine.sampleReferencePath(stroke.d, 48).points;
@@ -4314,22 +4298,10 @@ function renderTraceSampleCanvas(sample, kana, showGuide) {
       ctx.restore();
     });
   }
-  if (!isValidTraceSample(sample)) return;
-  // Phase T5-E-A''' §21: judgment用のintrinsic正規化形ではなく、canvas上の実際の位置関係
-  // (0..1000正規化absolute座標)をそのまま再現する。過度な平滑化・自動補正はしない(§40)。
-  sample.strokes.forEach(function (flat) {
-    ctx.save();
-    ctx.strokeStyle = '#4A6FA5';
-    ctx.lineWidth = w * 0.045;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (var i = 0; i < flat.length; i += 2) {
-      var x = (flat[i] / 1000) * w, y = (flat[i + 1] / 1000) * h;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.restore();
-  });
+  // stroke描画本体はassets/js/kana-record-trace-renderer.jsへ委譲した(Common
+  // Rich Visualizationと同じ描画、Phase T5-E-A''' §21/§40の座標変換・平滑化
+  // しない方針は同moduleへそのまま移植済み)。
+  donomanaKanaRecordTraceRenderer.drawStrokes(canvas, sample, { strokeColor: '#4A6FA5' });
 }
 var traceSampleViewerPrevFocus = null;
 function openTraceSampleViewer(idx) {

@@ -19,6 +19,10 @@ const REPO_ROOT = path.join(__dirname, '..', '..');
 // globalへセットする(sst/directions/kurabeyou/katachi/sawatteの各専用golden
 // test fileと同じ方式)。
 global.donomanaNazoriRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'nazori-record-detail.js'));
+// hiragana-learn/katakana-appのadapterも同じ構成でkana-record-detail.js/
+// kana-record-trace-renderer.jsへ委譲する。
+global.donomanaKanaRecordTraceRenderer = require(path.join(REPO_ROOT, 'assets', 'js', 'kana-record-trace-renderer.js'));
+global.donomanaKanaRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'kana-record-detail.js'));
 const dash = require(path.join(REPO_ROOT, 'assets', 'js', 'record-dashboard-foundation.js'));
 const { FakeStorage, GOLDEN, CORRUPT_RAW_VALUES, XSS_STRINGS, LEAK_MARKER } = require('./fixtures.js');
 
