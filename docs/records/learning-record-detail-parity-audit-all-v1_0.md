@@ -11,7 +11,7 @@
 **更新履歴（本文書はv1.0時点のAudit結果を保持するが、以下の実装進捗を追記する）**:
 - `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`: `nazori-app`をLevel 2 + Level 3実装（実装完了、User Review待ち、Product未commit）。§7で計画されていた「rendererなしで`<img>`表示のみで足りる」という方針どおりに実装した。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照（本文書は更新しない、生きた文書ではない）。
 - `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-HIRAGANA-KATAKANA-1`: `hiragana-learn`・`katakana-app`をLevel 2 + Level 3実装（実装完了、User Review待ち、Product未commit）。§8で計画されていたnazori優先→hiragana/katakana同時実装（新規stroke renderer）の方針どおりに実施し、両App実コード確認でtraceSample schemaがbyte-identicalだったため1組の共有moduleで実装した（Canvas Stroke Reference）。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照。
-- `LEARNING-RECORD-DETAIL-PARITY-SIMPLE-BATCH-1`: `okane-app`・`tokei-app`・`shiritori2`をLevel 2実装（実装完了、User Review待ち、Product未commit）。Root Investigationで、3AppともApp-local保存schemaが本Auditの想定より単純（session-aggregate中心、per-question detailなし）であることを確認し、実際に追加したfieldは最小限（tokei-app/shiritori2は既存metrics経路で大半充足、okane-appはDetail追加なし・CSV parityのみ）。3Appは互いにschemaが異なるため独立した3つのshared moduleとして実装した。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照。
+- `LEARNING-RECORD-DETAIL-PARITY-SIMPLE-BATCH-1` / `-PRODUCTION-RELEASE-1`: `okane-app`・`tokei-app`・`shiritori2`をLevel 2実装しProduction Releaseした（User Approved・Production Live）。Root Investigationで、3AppともApp-local保存schemaが本Auditの想定より単純（session-aggregate中心、per-question detailなし）であることを確認し、実際に追加したfieldは最小限（tokei-app/shiritori2は既存metrics経路で大半充足、okane-appはDetail追加なし・CSV parityのみ）。3Appは互いにschemaが異なるため独立した3つのshared moduleとして実装した。User Browser Review時にCommon一覧のactivity badge表示不備（tokei-appのmode='both'がjanken-appと衝突、shiritori2のnumeric modeが汎用表示に縮退）も発見・修正済み。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照。
 
 ---
 
