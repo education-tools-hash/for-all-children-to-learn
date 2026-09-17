@@ -1,10 +1,10 @@
 # Learning Record Detail Parity Matrix
 
 - 根拠Contract: `docs/design-system/donomana-learning-record-cross-app-detail-contract-v1_0.md`
-- Baseline checkpoint（本更新時点）: `6e649ac`（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`、Production稼働中）
-- 実測日: Phase `LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`（前回実測: `LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`、`6e649ac`時点）
+- Baseline checkpoint（本更新時点）: `3ce7e48`（`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-PRODUCTION-RELEASE-1`、Production稼働中）
+- 実測日: Phase `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`（前回実測: `LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`、`6e649ac`時点）
 - 本文書は**生きた文書**。実装（Rollout Batch）が進むたびに該当行を更新する。
-- 本更新で解消したこと: `kurabeyou-app`・`katachi-awase-app`をLevel 2実装した（Batch B、`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`、Technical validation PASS、User Browser Review待ち、Product未commit）。`sawatte-hirogaru-app`・`sst-app`・`directions-app`の3アプリは引き続きProduction稼働中（変化なし）。
+- 本更新で解消したこと: `nazori-app`をLevel 2 + Level 3実装した（`LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`、Technical validation PASS、User Browser Review待ち、Product未commit）。Rich Visualizationは`<img>`ベースの「Raster Image Reference」実装で、Sawatteの座標/軌跡ベース「Interactive Trace Reference」とは意図的に別系統として扱う（将来のhiragana/katakana「Polyline Canvas Reference」とも別系統、3系統は統合しない）。付随して、旧nazori adapterの`hasMedia`判定が'single'モードのcharImages-only recordを検知できていなかった既存バグを発見・修正した。`kurabeyou-app`・`katachi-awase-app`はこのPhaseの前にProduction Release済み（変化なし）。
 
 ## 凡例
 
@@ -32,7 +32,7 @@
 | hiragana-learn | ひらがな まなぼう！ | ✅ | ✅ | ✅✅（traceSampleのcanvas再生ビューア、お手本重ね表示付き） | ✅ stroke point（`{version:1, coordinateSpace:'normalized-1000', strokes:[[x,y,...]]}`） | ✅ | ❌ | ❌（hasMedia bool のみ） | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | HIGH（新規renderer必要、お手本重ね表示の扱い要決定） | Batch A |
 | katakana-app | カタカナ まなぼう！ | ✅ | ✅ | ✅✅（hiragana-learnと同一実装） | ✅ 同上 | ✅ | ❌ | ❌ | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | HIGH（hiragana-learnと同時実装が合理的） | Batch A |
 | suji-manabou | すうじ まなぼう！ | ✅ | ✅ | ❌（trace描画はライブ中のみ、保存されない） | NOT_APPLICABLE（保存データ自体が存在しない） | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW | Batch C |
-| nazori-app | なぞり書き練習ツール | ✅ | ✅ | ✅✅（履歴一覧に実PNG画像をインライン表示） | ✅ base64 PNG dataURL | ✅ | ❌ | ❌（hasMedia bool のみ） | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | LOW-MEDIUM（`<img>`表示のみで済む、canvas演算不要。一覧prefetch厳禁を要順守） | Batch A（最優先候補） |
+| nazori-app | なぞり書き練習ツール | ✅ | ✅ | ✅✅（履歴一覧に実PNG画像をインライン表示） | ✅ base64 PNG dataURL | ✅ | ✅（`getDetails()`: 画像記録の有無・枚数。mode/sessionDone/sessionTotal/durationMinは既存のactivity/metrics経路で既にCommonへ表示済みだったため重複行を追加せず） | ✅（`<img>`ベースRaster Image Reference実装、`record-trace-renderer.js`（Sawatteの座標/軌跡schema用）は転用せず新規共有module化。Detail modal内でのon-demand renderのみ、一覧prefetchなし） | ✅ / ✅（1種、`assets/js/nazori-record-detail.js`共有、App-local/Common byte-identical、画像はCSVに含めない） | L2+L3 | L2+L3 | **CONFORMANT_L3**（実装完了・`LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`・Technical validation PASS・User Browser Review待ち・Product未commit。付随修正: 旧`hasMedia: !!e.image`が'single'モードのcharImages-only recordを検知できていなかった既存バグを本Phaseで発見・修正） | LOW（`<img>`表示のみで済む、canvas演算不要） | User Review待ち → `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-PRODUCTION-RELEASE-1` |
 | kurabeyou-app | おおきい？ちいさい？くらべよう | ✅ | ✅ | ✅✅（`appendRecordDetailToggle()`、問題ごとの詳細展開） | N/A | ✅ | ✅（`getDetails()`: 問題/正解/最初の選択/最終選択/正誤/再試行回数/間違えた内容/反応時間/並べる方向/正しい順序/実際の選択順序、level別） | N/A | ✅ / ✅（1種、`assets/js/kurabeyou-record-detail.js`共有、App-local/Common byte-identical） | L2 | L2 | **CONFORMANT_L2**（実装完了・`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`・Technical validation PASS・User Browser Review待ち・Product未commit） | LOW（実績どおり、既存detail生成関数のロジックを1 raw entry単位へ移植） | User Review待ち → `LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-PRODUCTION-RELEASE-1` |
 | katachi-awase-app | かたちをあわせよう | ✅ | ✅ | ✅✅（同一パターンの`appendRecordDetailToggle()`） | N/A | ✅ | ✅（`getDetails()`: concept別(shape/size/puzzle)、レベル/形/正しい場所/選択した場所/正誤/再試行回数/間違えた内容/反応時間/おおきさ、またはむずかしさ/パズル名/正誤/かかった時間） | N/A | ✅ / ✅（1種、`assets/js/katachi-awase-record-detail.js`共有、App-local/Common byte-identical） | L2 | L2 | **CONFORMANT_L2**（実装完了・`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`・Technical validation PASS・User Browser Review待ち・Product未commit） | LOW-MEDIUM（実績どおり、3 concept分岐を安全に実装） | User Review待ち → `LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-PRODUCTION-RELEASE-1` |
 | directions-app | ほうこうとばしょをまなぼう | ✅ | ✅ | ✅✅（常時全件テーブル表示、問題文/回答/正解） | N/A | ✅ | ✅（`getDetails()`: 問題/回答/正解/結果） | N/A | ✅ / ✅（1種、`assets/js/directions-record-detail.js`共有、App-local/Common byte-identical） | L2 | L2 | **CONFORMANT_L2**（Production Released・`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`・User Approved） | LOW（実績: 1entry=1問のフラット構造、集約ロジック不要で最短実装。**Simple L2 Reference確定**——Batch B/Cの他Simple Appはこのパターンを参照可能） | 完了（Simple Level 2 Production Reference） |
@@ -56,17 +56,18 @@
 
 - Record Foundation対応: **22アプリ**
 - Common Adapter登録済み: **22アプリ**（前回未登録だった`sawatte-hirogaru-app`を含め全件登録済み）
-- `CONFORMANT_L2`: **4アプリ**（sst-app・directions-app［いずれもProduction Released］・kurabeyou-app・katachi-awase-app［実装完了、User Review待ち、Product未commit——push/merge/deployされるまでは実質SUMMARY_ONLYのまま本番稼働している点に注意］）
-- `CONFORMANT_L3`: **1アプリ**（sawatte-hirogaru-app）
-- `PARTIAL`: **3アプリ**（hiragana-learn・katakana-app・nazori-app、いずれもhasMedia:true相当を持つがCommon側Level2/3が未実装）
+- `CONFORMANT_L2`: **4アプリ**（sst-app・directions-app・kurabeyou-app・katachi-awase-app［いずれもProduction Released］）
+- `CONFORMANT_L3`: **2アプリ**（sawatte-hirogaru-app［Production Released］・nazori-app［実装完了、User Review待ち、Product未commit——push/merge/deployされるまでは実質PARTIALのまま本番稼働している点に注意］）
+- `PARTIAL`: **2アプリ**（hiragana-learn・katakana-app、いずれもhasMedia:true相当を持つがCommon側Level2/3が未実装）
 - `SUMMARY_ONLY`: **13アプリ**
 - `NOT_INTEGRATED`: **0アプリ**
 - `NOT_APPLICABLE`: **1アプリ**（kyou-no-kiroku、Privacy例外）
-- Rich Visualization Required（Level 3対象）: **4アプリ**（sawatte-hirogaru-app［完了］・hiragana-learn・katakana-app・nazori-app）。3種類の異なるRich Visualizationスキーマが存在する（詳細は`docs/records/learning-record-detail-parity-audit-all-v1_0.md` §7）ため、`record-trace-renderer.js`（sawatte専用schema）を他3アプリへそのまま流用することはできない。
+- Rich Visualization Required（Level 3対象）: **4アプリ**（sawatte-hirogaru-app［完了］・nazori-app［完了、User Review待ち］・hiragana-learn・katakana-app）。3種類の異なるRich Visualizationスキーマが存在する（詳細は`docs/records/learning-record-detail-parity-audit-all-v1_0.md` §7）: Sawatte=座標/軌跡ベースの Interactive Trace Reference、nazori=保存済みraster画像をそのまま表示するRaster Image Reference、hiragana/katakana=将来のPolyline Canvas Reference（未実装）。3系統は互いに転用不可・意図的に別実装として扱う。
 - App-local CSV: **21/22アプリで存在**（`mogura-tataki`のみApp-local CSV自体が存在しない、22アプリ中唯一）
 - Legacy防御コードの明確な欠落（実測で確認、別リスクとして記録）: **mogura-tataki**（NaN/fallback未実装）・**bosai-app**（`log[]`への`Array.isArray`guardなし）・**kyou-no-kiroku**（`formatDate()`に`isNaN`guardなし）
 - **Simple L2 Reference（Production確定）**: `directions-app`（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`）— 1entry=1問のフラットschema・App固有shared module（`assets/js/directions-record-detail.js`、SST/Sawatteと同型パターン）・`getDetails()`+`getCsvActions()`の最小実装例。Batch B/Cの他Simple/Detail-only Appの実装時に参照可能。
-- **Detail-toggle Reference（実装完了、User Review待ち）**: `kurabeyou-app`・`katachi-awase-app`（`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-1`）— 既存App-local`appendRecordDetailToggle()`が生成する情報量を、1 raw entry = 1 Common record cardの粒度へ移植する実装パターン。session集約UIを持つApp（App-localは複数entryをセッション表示するが、Common側は個々のentry単位で表示する）で「粒度の違いはOKで、情報の欠落がなければ十分」という判断の初適用例。
+- **Detail-toggle Reference（Production確定）**: `kurabeyou-app`・`katachi-awase-app`（`LEARNING-RECORD-DETAIL-PARITY-KURABEYOU-KATACHI-PRODUCTION-RELEASE-1`）— 既存App-local`appendRecordDetailToggle()`が生成する情報量を、1 raw entry = 1 Common record cardの粒度へ移植する実装パターン。session集約UIを持つApp（App-localは複数entryをセッション表示するが、Common側は個々のentry単位で表示する）で「粒度の違いはOKで、情報の欠落がなければ十分」という判断の初適用例。
+- **Raster Image Reference（実装完了、User Review待ち）**: `nazori-app`（`LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`）— 保存済みraster画像（PNG dataURL）をそのまま`<img>`で表示するだけのRich Visualization実装パターン。座標/軌跡データからcanvasへ再描画するSawatteの Interactive Trace Reference（座標演算が必要）とは別系統であり、hiragana/katakana用の将来のPolyline Canvas Referenceとも別系統（3系統は統合しない）。画像はvalidation（許可prefix・MIME限定）を通過したものだけ表示し、CSVには含めない（App-local既存CSVと同じ扱い）。
 
 ## Non-blocking: 本更新で解消した事項
 

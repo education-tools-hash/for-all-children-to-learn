@@ -8,6 +8,9 @@
 - Branch: `audit/learning-record-detail-parity-all-1`
 - Production: `origin/main = 400e08c`（本Phaseでは無変更）
 
+**更新履歴（本文書はv1.0時点のAudit結果を保持するが、以下の実装進捗を追記する）**:
+- `LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-NAZORI-1`: `nazori-app`をLevel 2 + Level 3実装（実装完了、User Review待ち、Product未commit）。§7で計画されていた「rendererなしで`<img>`表示のみで足りる」という方針どおりに実装した。最新状況は`docs/records/learning-record-detail-parity-matrix.md`を参照（本文書は更新しない、生きた文書ではない）。
+
 ---
 
 ## 0. 関連文書

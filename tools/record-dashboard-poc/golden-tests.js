@@ -13,6 +13,12 @@ const fs = require('fs');
 const path = require('path');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
+// nazori-appのadapterはgetDetails/richVisualization/hasMediaの実体を
+// assets/js/nazori-record-detail.jsへ委譲するため(他のApp-specific shared
+// moduleと同じ構成)、Node実行時はブラウザのUMD global登録を模してrequire前に
+// globalへセットする(sst/directions/kurabeyou/katachi/sawatteの各専用golden
+// test fileと同じ方式)。
+global.donomanaNazoriRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'nazori-record-detail.js'));
 const dash = require(path.join(REPO_ROOT, 'assets', 'js', 'record-dashboard-foundation.js'));
 const { FakeStorage, GOLDEN, CORRUPT_RAW_VALUES, XSS_STRINGS, LEAK_MARKER } = require('./fixtures.js');
 

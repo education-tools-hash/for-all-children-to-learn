@@ -819,7 +819,8 @@
     privacyLevel: 'medium',
     includeInDefaultTimeline: true,
     // legacy shape: {id, timestamp(ISO), allChars, mode, sessionDone,
-    //  sessionTotal, durationMin, isComplete, image(canvas dataURL|null)}
+    //  sessionTotal, durationMin, isComplete, image(canvas dataURL|null),
+    //  charImages([{char,image}]|undefined)}
     normalize: function (e) {
       var summary;
       if (typeof e.sessionDone === 'number' && typeof e.sessionTotal === 'number') {
@@ -831,14 +832,60 @@
       if (typeof e.sessionDone === 'number') metrics.sessionDone = e.sessionDone;
       if (typeof e.sessionTotal === 'number') metrics.sessionTotal = e.sessionTotal;
       if (typeof e.durationMin === 'number') metrics.durationMin = e.durationMin;
+      // hasMedia修正(Phase LEARNING-RECORD-TRACE-VISUALIZATION-PARITY-
+      // NAZORI-1で発見): 旧実装は`!!e.image`のみを見ており、'single'モードの
+      // セッション完了entry(画像はcharImages[]のみに入り、トップレベル
+      // `image`を持たない)を常にhasMedia:falseと誤判定していた。
+      // donomanaNazoriRecordDetail.hasAnyValidImage()は両shapeを検証込みで
+      // 判定する(SawatteのD.isValidTrace()と同型の「実在性+妥当性」チェック)。
+      var D = (typeof donomanaNazoriRecordDetail !== 'undefined') ? donomanaNazoriRecordDetail : null;
       return {
         timestamp: toIsoTimestamp(e.timestamp),
         activity: (typeof e.mode === 'string' && e.mode) ? e.mode : 'trace',
         summary: summary,
         metrics: metrics,
         inputMethod: null,
-        hasMedia: !!e.image
+        hasMedia: !!(D && D.hasAnyValidImage(e))
       };
+    },
+    // Level 2: Detail Parity。'mode'/'sessionDone'/'sessionTotal'/
+    // 'durationMin'は既にactivity/metrics経由でCommon Detailへ表示済みのため
+    // (record-dashboard-ui.jsのACTIVITY_LABELS/METRIC_LABELS)、ここでは
+    // 既存経路でカバーされない「画像記録の有無・枚数」のみを追加する
+    // (Matrix Gap定義の最小差分方針、重複行を増やさない)。
+    getDetails: function (e) {
+      return (typeof donomanaNazoriRecordDetail !== 'undefined') ? donomanaNazoriRecordDetail.getDetailRows(e) : [];
+    },
+    // Level 3: Rich Visualization Parity。nazori-appはraster image(PNG
+    // dataURL)保存のみで、座標/軌跡データを持たない。したがってSawatteの
+    // record-trace-renderer.js(座標→canvas描画)は転用せず、保存済み画像を
+    // そのまま<img>表示する「Raster Image Reference」実装とする(Sawatte=
+    // Interactive Trace Referenceとは別系統、将来のhiragana/katakana
+    // Polyline Canvas Referenceとも別系統——3系統は意図的に統合しない)。
+    richVisualization: {
+      supports: function (e) {
+        return (typeof donomanaNazoriRecordDetail !== 'undefined') && donomanaNazoriRecordDetail.supportsRichVisualization(e);
+      },
+      render: function (target, e) {
+        if (typeof donomanaNazoriRecordDetail === 'undefined') return;
+        donomanaNazoriRecordDetail.renderRichVisualization(target, e);
+      }
+    },
+    // CSV Parity。App-localの「CSVでダウンロード」(exportRecordsBtn)と同じ
+    // 7列・同じrow builderで生成する。画像データはCSVに含めない(App-local
+    // 既存CSVも画像を含まない——画像の閲覧はRich Visualization actionの
+    // 責務として分離済み)。
+    getCsvActions: function () {
+      if (typeof donomanaNazoriRecordDetail === 'undefined') return [];
+      var D = donomanaNazoriRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 なぞり書き記録をCSVで保存',
+          filenamePrefix: 'nazori-gakushu-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 
