@@ -1,10 +1,10 @@
 # Learning Record Detail Parity Matrix
 
 - 根拠Contract: `docs/design-system/donomana-learning-record-cross-app-detail-contract-v1_0.md`
-- Baseline checkpoint（本更新時点）: `13cfd34`（Audit checkpoint、`400e08c` + docs）
-- 実測日: Phase `LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`（前回実測: `LEARNING-RECORD-DETAIL-PARITY-AUDIT-ALL-1`、`400e08c`時点）
+- Baseline checkpoint（本更新時点）: `03da4c3`（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`実装checkpoint、User Approved）
+- 実測日: Phase `LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`（前回実測: `LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`、`03da4c3`時点）
 - 本文書は**生きた文書**。実装（Rollout Batch）が進むたびに該当行を更新する。
-- 本更新で解消したこと: `LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`（Batch B Pilot）で`directions-app`をLevel 2実装した。Technical validation完了、User Browser Review待ち（Product未commit）。`sawatte-hirogaru-app`・`sst-app`は既にProduction Release済み（`CONFORMANT_L3`/`CONFORMANT_L2`のまま変化なし）。
+- 本更新で解消したこと: `directions-app`のLevel 2実装（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`、User Browser Review PASS・User Approved）を`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`でProduction Releaseした。`sawatte-hirogaru-app`・`sst-app`・`directions-app`の3アプリが`CONFORMANT_L3`/`CONFORMANT_L2`/`CONFORMANT_L2`としてProduction稼働中。
 
 ## 凡例
 
@@ -35,7 +35,7 @@
 | nazori-app | なぞり書き練習ツール | ✅ | ✅ | ✅✅（履歴一覧に実PNG画像をインライン表示） | ✅ base64 PNG dataURL | ✅ | ❌ | ❌（hasMedia bool のみ） | ✅ / 共通7列のみ | L2+L3 | L1 | **PARTIAL** | LOW-MEDIUM（`<img>`表示のみで済む、canvas演算不要。一覧prefetch厳禁を要順守） | Batch A（最優先候補） |
 | kurabeyou-app | おおきい？ちいさい？くらべよう | ✅ | ✅ | ✅✅（`appendRecordDetailToggle()`、問題ごとの詳細展開） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW（既存detail生成関数を流用可能） | Batch B（高優先） |
 | katachi-awase-app | かたちをあわせよう | ✅ | ✅ | ✅✅（同一パターンの`appendRecordDetailToggle()`） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW-MEDIUM | Batch B |
-| directions-app | ほうこうとばしょをまなぼう | ✅ | ✅ | ✅✅（常時全件テーブル表示、問題文/回答/正解） | N/A | ✅ | ✅（`getDetails()`: 問題/回答/正解/結果） | N/A | ✅ / ✅（1種、`assets/js/directions-record-detail.js`共有、App-local/Common byte-identical） | L2 | L2 | **CONFORMANT_L2**（実装完了・`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`・Technical validation PASS・User Browser Review待ち・Product未commit） | LOW（実績: 1entry=1問のフラット構造、集約ロジック不要で最短実装。**Simple L2 Reference候補**——Batch B/Cの他Simple Appはこのパターンを参照可能） | User Review待ち → `LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1` |
+| directions-app | ほうこうとばしょをまなぼう | ✅ | ✅ | ✅✅（常時全件テーブル表示、問題文/回答/正解） | N/A | ✅ | ✅（`getDetails()`: 問題/回答/正解/結果） | N/A | ✅ / ✅（1種、`assets/js/directions-record-detail.js`共有、App-local/Common byte-identical） | L2 | L2 | **CONFORMANT_L2**（Production Released・`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`・User Approved） | LOW（実績: 1entry=1問のフラット構造、集約ロジック不要で最短実装。**Simple L2 Reference確定**——Batch B/Cの他Simple Appはこのパターンを参照可能） | 完了（Simple Level 2 Production Reference） |
 | janken-app | じゃんけん まなぼう！ | ✅ | ✅ | ✅（`mistakes[]`、問題ごとの選択/正解） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | LOW-MEDIUM | Batch B |
 | register-app | はんばいかい レジ | ✅ | ✅ | ✅（`items[]`、購入内訳） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | MEDIUM（商品名は自由入力・medium privacy、既存CSVエスケープ実装を踏襲すれば解消可） | Batch B |
 | bosai-app | ぼうさいたんけんたい | ✅ | ✅（教員PINゲート） | ✅✅（`buildDetailHTML()`、状況/選択/正誤/正解/解説を問題ごとに展開） | N/A | ✅ | ❌ | N/A | ✅ / 共通7列のみ | L2 | L1 | **SUMMARY_ONLY** | MEDIUM（`name`除外を厳守。`log[]`自体はレガシー未防御=`Array.isArray`guard無し、実装時に追加要） | Batch B |
@@ -56,16 +56,16 @@
 
 - Record Foundation対応: **22アプリ**
 - Common Adapter登録済み: **22アプリ**（前回未登録だった`sawatte-hirogaru-app`を含め全件登録済み）
-- `CONFORMANT_L2`: **2アプリ**（sst-app［Production］・directions-app［実装完了、User Review待ち、Product未commit——push/merge/deployされるまでは実質SUMMARY_ONLYのまま本番稼働している点に注意］）
+- `CONFORMANT_L2`: **2アプリ**（sst-app・directions-app、いずれもProduction Released）
 - `CONFORMANT_L3`: **1アプリ**（sawatte-hirogaru-app）
 - `PARTIAL`: **3アプリ**（hiragana-learn・katakana-app・nazori-app、いずれもhasMedia:true相当を持つがCommon側Level2/3が未実装）
-- `SUMMARY_ONLY`: **15アプリ**（Production上はdirections-appも含めるとまだ16アプリ相当）
+- `SUMMARY_ONLY`: **15アプリ**
 - `NOT_INTEGRATED`: **0アプリ**
 - `NOT_APPLICABLE`: **1アプリ**（kyou-no-kiroku、Privacy例外）
 - Rich Visualization Required（Level 3対象）: **4アプリ**（sawatte-hirogaru-app［完了］・hiragana-learn・katakana-app・nazori-app）。3種類の異なるRich Visualizationスキーマが存在する（詳細は`docs/records/learning-record-detail-parity-audit-all-v1_0.md` §7）ため、`record-trace-renderer.js`（sawatte専用schema）を他3アプリへそのまま流用することはできない。
 - App-local CSV: **21/22アプリで存在**（`mogura-tataki`のみApp-local CSV自体が存在しない、22アプリ中唯一）
 - Legacy防御コードの明確な欠落（実測で確認、別リスクとして記録）: **mogura-tataki**（NaN/fallback未実装）・**bosai-app**（`log[]`への`Array.isArray`guardなし）・**kyou-no-kiroku**（`formatDate()`に`isNaN`guardなし）
-- **Simple L2 Reference**: `directions-app`（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-1`）— 1entry=1問のフラットschema・App固有shared module（`assets/js/directions-record-detail.js`、SST/Sawatteと同型パターン）・`getDetails()`+`getCsvActions()`の最小実装例。Batch B/Cの他Simple/Detail-only Appの実装時に参照可能。
+- **Simple L2 Reference（Production確定）**: `directions-app`（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`）— 1entry=1問のフラットschema・App固有shared module（`assets/js/directions-record-detail.js`、SST/Sawatteと同型パターン）・`getDetails()`+`getCsvActions()`の最小実装例。Batch B/Cの他Simple/Detail-only Appの実装時に参照可能。
 
 ## Non-blocking: 本更新で解消した事項
 

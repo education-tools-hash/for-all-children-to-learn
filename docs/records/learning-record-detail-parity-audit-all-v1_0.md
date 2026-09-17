@@ -595,3 +595,5 @@ Batch B Pilot（§12参照）として`directions-app`をLevel 2実装した（T
 - 実App操作2パターン（クイズ・どっちかな、いずれも実際の不正解ケース）でE2E検証し、App-local「学習ログ」テーブル・Common Detail modal・両CSVが完全に一致することを実測確認した。
 - 既存4スイート（816+58+67+41件）はFAIL 0のまま、新規`directions-common-detail-golden-tests.js`（27件）を追加した。
 - この実装は§50で予告した**Simple L2 Reference**として、Matrix上に記録した（Matrix該当行参照）。Batch B/Cの他Simple/Detail-only App実装時、同じ「App固有shared module + getDetails()/getCsvActions()のみ追加、normalize()は無変更」というパターンをそのまま踏襲できる。
+
+**Production Release済み**（`LEARNING-RECORD-DETAIL-PARITY-DIRECTIONS-PRODUCTION-RELEASE-1`、User Browser Review PASS・User Approved後）。`directions-app`は`CONFORMANT_L2`・Simple Level 2 Production Referenceとして確定した。次のBatch B候補（kurabeyou-app・katachi-awase-app）は別Phaseとして着手する。
