@@ -282,12 +282,53 @@
       if (typeof p.durationSec === 'number') metrics.durationSec = p.durationSec;
       return {
         timestamp: toIsoTimestamp(r.timestamp),
-        activity: (typeof p.mode === 'string') ? p.mode : ((typeof p.difficulty === 'string') ? p.difficulty : 'unknown'),
+        // Semantic Summary Gate修正(Phase LEARNING-RECORD-DETAIL-PARITY-
+        // SIMPLE-BATCH-1): 旧実装は`p.mode`の生値をそのままactivityへ渡して
+        // いた。record-dashboard-ui.jsのACTIVITY_LABELSは全App共有のflatな
+        // key空間のため、mode:'both'がjanken-appの'both'('どちらもまぜる')
+        // と衝突し、一覧badge/Detail/CSVの「活動」列に誤ったlabelが実表示
+        // されていた(実機で再現確認済み)。'read'/'set'は未定義のため
+        // UNMAPPED_FALLBACK('その他の活動')となり、意味を伝えられていな
+        // かった。App IDで一意な名前空間(`tokei-`prefix)を付与し、
+        // ACTIVITY_LABELSへ対応entryを追加(既存key上書きなし、janken等の
+        // 既存表示は無影響)。未知のmode文字列は従来どおり生値のまま渡し、
+        // UNMAPPED_FALLBACKによる安全側表示を維持する。
+        activity: (function () {
+          var m = p.mode;
+          if (typeof m === 'string' && m) {
+            return (m === 'read' || m === 'set' || m === 'both') ? ('tokei-' + m) : m;
+          }
+          return (typeof p.difficulty === 'string') ? p.difficulty : 'unknown';
+        })(),
         summary: summary,
         metrics: metrics,
         inputMethod: (typeof r.inputMethod === 'string') ? r.inputMethod : null,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(Phase LEARNING-RECORD-DETAIL-PARITY-SIMPLE-
+    // BATCH-1)。total/correct/retried/avgTimeSec/durationSecは既に上記
+    // metrics経由でCommonへ表示済みのため、ここではその経路でカバーされ
+    // ない「むずかしさ」「もんだいのしゅるい」のみを追加する(重複行を
+    // 増やさない、nazori-app等と同じ最小差分方針)。実体は
+    // assets/js/tokei-record-detail.js(App-localの「きろく」表示と共有、
+    // 重複実装禁止)。
+    getDetails: function (e) {
+      return (typeof donomanaTokeiRecordDetail !== 'undefined') ? donomanaTokeiRecordDetail.getDetailRows(e) : [];
+    },
+    // CSV Parity。App-localの「CSVでダウンロード」と同じ9列・同じrow
+    // builderで生成する(実測byte-identical)。
+    getCsvActions: function () {
+      if (typeof donomanaTokeiRecordDetail === 'undefined') return [];
+      var D = donomanaTokeiRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 とけいのきろくをCSVで保存',
+          filenamePrefix: 'tokei-gakushu-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 
@@ -350,12 +391,46 @@
       if (typeof p.durationSec === 'number') metrics.durationSec = p.durationSec;
       return {
         timestamp: toIsoTimestamp(r.timestamp),
-        activity: (typeof p.mode === 'string') ? p.mode : 'unknown',
+        // Semantic Summary Gate修正(Phase LEARNING-RECORD-DETAIL-PARITY-
+        // SIMPLE-BATCH-1): 旧実装は`typeof p.mode==='string'`を前提として
+        // いたが、shiritori2.htmlの実際のpayload.modeは常にnumber
+        // (もんすう設定値、shiritori2.html:1981実測)のため、この条件は
+        // 常にfalseとなり、activityは常に'unknown'固定だった。
+        // ACTIVITY_LABELS.unknown='活動'(汎用語)が表示され、実際に何問
+        // モードで取り組んだかが一覧badge/Detail/CSVのどこにも一切
+        // 反映されていなかった(実機で再現確認済み)。App IDで一意な名前
+        // 空間(`shiritori2-Nmon`)を付与し、activityLabel()側に既存の
+        // 'level-N'パターンと同型の正規表現fallbackを追加した(Nは任意の
+        // 問題数に対応、10/20/30固定ではなく将来のUI変更にも耐える)。
+        activity: (typeof p.mode === 'number' && isFinite(p.mode) && p.mode > 0) ? ('shiritori2-' + p.mode + 'mon') : ((typeof p.mode === 'string' && p.mode) ? p.mode : 'unknown'),
         summary: summary,
         metrics: metrics,
         inputMethod: (typeof r.inputMethod === 'string') ? r.inputMethod : null,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(Phase LEARNING-RECORD-DETAIL-PARITY-SIMPLE-
+    // BATCH-1)。total/correct/score/maxStreak/chainLength/durationSecは
+    // 既に上記metrics経由でCommonへ表示済みのため、ここではその経路で
+    // カバーされない「もんすうモード」「けっか」のみを追加する(重複行を
+    // 増やさない)。実体はassets/js/shiritori2-record-detail.js
+    // (App-localの「きろく」表示と共有、重複実装禁止)。
+    getDetails: function (e) {
+      return (typeof donomanaShiritori2RecordDetail !== 'undefined') ? donomanaShiritori2RecordDetail.getDetailRows(e) : [];
+    },
+    // CSV Parity。App-localの「CSVでダウンロード」と同じ9列・同じrow
+    // builderで生成する(実測byte-identical)。
+    getCsvActions: function () {
+      if (typeof donomanaShiritori2RecordDetail === 'undefined') return [];
+      var D = donomanaShiritori2RecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 しりとりのきろくをCSVで保存',
+          filenamePrefix: 'shiritori2-gakushu-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 
@@ -813,6 +888,32 @@
         inputMethod: null,
         hasMedia: false
       };
+    },
+    // Level 2: Detail Parity(Phase LEARNING-RECORD-DETAIL-PARITY-SIMPLE-
+    // BATCH-1)。Root Investigationで確認した結果、detail以外に金額・回答・
+    // 正解を個別保持するfieldがそもそも存在しない(okane-app.html:1796-1799、
+    // App-local自身の「かつどうログ」CSVも日付/時刻/しゅるい/ないようの
+    // 4列のみ)。detail文字列から推測・逆算しないため(§5.4 No Invented
+    // Semantics)、getDetails()は意図的に空配列を返す(既にsummary/activity
+    // としてLevel 1で表示済みのため、Detail欄への追加行は不要)。実体は
+    // assets/js/okane-record-detail.js。
+    getDetails: function (e) {
+      return (typeof donomanaOkaneRecordDetail !== 'undefined') ? donomanaOkaneRecordDetail.getDetailRows(e) : [];
+    },
+    // CSV Parity。App-localの「かつどうログ」exportと同じ4列・同じrow
+    // builderで生成する(実測byte-identical)。「# サマリー」sectionは
+    // 非Foundation storageのため対象外(既存コメントと同じ判断)。
+    getCsvActions: function () {
+      if (typeof donomanaOkaneRecordDetail === 'undefined') return [];
+      var D = donomanaOkaneRecordDetail;
+      return [
+        {
+          id: 'detail',
+          label: '📄 おかねのきろくをCSVで保存',
+          filenamePrefix: 'okane-gakushu-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
     }
   });
 

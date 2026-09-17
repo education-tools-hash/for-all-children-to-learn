@@ -94,7 +94,14 @@
     'sound': 'おと',
     'light_sound': 'ひかり＋おと',
     'swipe': 'スワイプ',
-    'unknown': '活動'
+    'unknown': '活動',
+    // tokei-app: e.mode(tokei-app.html自身のmodeNames辞書と同じ日本語表記に
+    // 揃える、Phase LEARNING-RECORD-DETAIL-PARITY-SIMPLE-BATCH-1 Semantic
+    // Summary Gate修正)。App ID名前空間付きkeyのため、既存の'both'
+    // (janken-app、62行目)とは衝突しない。
+    'tokei-read': 'よむもんだい',
+    'tokei-set': 'みつけるもんだい',
+    'tokei-both': 'まぜまぜ'
   };
 
   // マッピングにない内部コードは、教師にプログラム変数名をそのまま見せないため
@@ -107,6 +114,12 @@
     if (Object.prototype.hasOwnProperty.call(ACTIVITY_LABELS, code)) return ACTIVITY_LABELS[code];
     var m = /^level-(.+)$/.exec(code);
     if (m) return 'レベル' + m[1];
+    // shiritori2-app: e.mode(number)をApp ID名前空間付きで受け取り、"N問"へ
+    // 変換する(既存の'level-N'パターンと同型のfallback、Phase LEARNING-
+    // RECORD-DETAIL-PARITY-SIMPLE-BATCH-1 Semantic Summary Gate修正)。
+    // 10/20/30に限定せず任意の問題数に対応する。
+    var sm = /^shiritori2-(\d+)mon$/.exec(code);
+    if (sm) return sm[1] + '問モード';
     return UNMAPPED_FALLBACK;
   }
 

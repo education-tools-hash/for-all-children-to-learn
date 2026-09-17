@@ -1500,6 +1500,8 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-DETAIL-PARITY-SIMPLE-BATCH-1): Detail行・CSV行の構築ロジックはこの1ファイルにのみ実装し、App-localの「きろく」表示/CSVとCommon Detail/CSVが同じ関数から同じ結果を得る。 -->
+<script src="assets/js/okane-record-detail.js"></script>
 <script>
 // ==============================
 // SVG COIN GENERATOR
@@ -1984,11 +1986,10 @@ function exportRecordsCSV() {
   lines.push(csvEscape('よみあげをきいたかいすう') + ',' + learningRecords.learnReads + 'かい');
   lines.push('');
   lines.push('# かつどうログ');
-  lines.push('日付,時刻,しゅるい,ないよう');
-  activityLog.forEach(e => {
-    const typeLabel = e.type==='match' ? 'マッチング' : e.type==='shop' ? 'おかいもの' : e.type==='mondai' ? 'もんだい' : e.type==='mistake' ? 'まちがい' : 'その他';
-    const dt = donomanaRecordFormatCsvDateTime(e.ts);
-    lines.push(csvEscape(dt.date) + ',' + csvEscape(dt.time) + ',' + csvEscape(typeLabel) + ',' + csvEscape(e.detail));
+  // 行構築はassets/js/okane-record-detail.jsへ委譲した(learning-records.html
+  // の「学習の記録」Common Detail/CSVと同じ関数・同じ結果、重複実装禁止)。
+  donomanaOkaneRecordDetail.buildDetailCsvRows(activityLog).forEach(row => {
+    lines.push(row.map(csvEscape).join(','));
   });
 
   const csvContent = '\uFEFF' + lines.join('\r\n');

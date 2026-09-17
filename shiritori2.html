@@ -1287,6 +1287,8 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-DETAIL-PARITY-SIMPLE-BATCH-1): Detail行・CSV行の構築ロジックはこの1ファイルにのみ実装し、App-localの「きろく」表示/CSVとCommon Detail/CSVが同じ関数から同じ結果を得る。 -->
+<script src="assets/js/shiritori2-record-detail.js"></script>
 <script>
 // ── 単語データ ──────────────────────────────────────────────
 const words = [
@@ -2037,22 +2039,10 @@ function clearShiritoriRecords() {
 
 function exportShiritoriRecordsCSV() {
   const log = donomanaRecordReadLog(RECORD_KEY);
-  const outcomeNames = { completed: 'クリア', trap: 'んでおわった' };
-  const rows = [['日付','時刻','もんすうモード','せいかい','もんだいすう','スコア','さいだいれんぞく','けっか','かかった時間(びょう)']];
-  (Array.isArray(log) ? log : []).forEach(rec => {
-    const p = (rec && rec.payload) || {};
-    const dt = donomanaRecordFormatCsvDateTime(rec && rec.timestamp);
-    rows.push([
-      dt.date, dt.time,
-      (typeof p.mode === 'number') ? p.mode : '',
-      (typeof p.correct === 'number') ? p.correct : '',
-      (typeof p.total === 'number') ? p.total : '',
-      (typeof p.score === 'number') ? p.score : '',
-      (typeof p.maxStreak === 'number') ? p.maxStreak : '',
-      outcomeNames[p.outcome] || '',
-      (typeof p.durationSec === 'number') ? p.durationSec : ''
-    ]);
-  });
+  // 行構築はassets/js/shiritori2-record-detail.jsへ委譲した
+  // (learning-records.htmlの「学習の記録」Common Detail/CSVと同じ関数・
+  // 同じ結果、重複実装禁止)。
+  const rows = donomanaShiritori2RecordDetail.buildDetailCsvRows(Array.isArray(log) ? log : []);
   const csv = donomanaRecordBuildCsv(rows);
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);

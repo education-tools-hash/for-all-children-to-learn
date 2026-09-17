@@ -23,6 +23,11 @@ global.donomanaNazoriRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js',
 // kana-record-trace-renderer.jsへ委譲する。
 global.donomanaKanaRecordTraceRenderer = require(path.join(REPO_ROOT, 'assets', 'js', 'kana-record-trace-renderer.js'));
 global.donomanaKanaRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'kana-record-detail.js'));
+// okane-app/tokei-app/shiritori2のadapterも同じ構成で、それぞれ独立した
+// 小さなshared moduleへ委譲する(schemaが異なるため1つに統合しない)。
+global.donomanaOkaneRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'okane-record-detail.js'));
+global.donomanaTokeiRecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'tokei-record-detail.js'));
+global.donomanaShiritori2RecordDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'shiritori2-record-detail.js'));
 const dash = require(path.join(REPO_ROOT, 'assets', 'js', 'record-dashboard-foundation.js'));
 const { FakeStorage, GOLDEN, CORRUPT_RAW_VALUES, XSS_STRINGS, LEAK_MARKER } = require('./fixtures.js');
 

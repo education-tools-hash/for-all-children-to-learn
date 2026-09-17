@@ -1321,6 +1321,8 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- Shared with learning-records.html「学習の記録」(LEARNING-RECORD-DETAIL-PARITY-SIMPLE-BATCH-1): Detail行・CSV行の構築ロジックはこの1ファイルにのみ実装し、App-localの「きろく」表示/CSVとCommon Detail/CSVが同じ関数から同じ結果を得る。 -->
+<script src="assets/js/tokei-record-detail.js"></script>
 <script>
 // ============================================================
 // DIFFICULTY
@@ -1942,23 +1944,9 @@ function clearRecordHistory() {
 
 function exportRecordHistoryCSV() {
   const log = donomanaRecordReadLog('tokei_log');
-  const modeNames = { read:'よむもんだい', set:'みつけるもんだい', both:'まぜまぜ' };
-  const diffNames = { easy:'やさしい', normal:'ふつう', hard:'むずかしい' };
-  const rows = [['日付','時刻','むずかしさ','もんだいのしゅるい','せいかい','もんだいすう','やりなおし','へいきんじかん(びょう)','かかった時間(びょう)']];
-  (Array.isArray(log) ? log : []).forEach(rec => {
-    const p = (rec && rec.payload) || {};
-    const dt = donomanaRecordFormatCsvDateTime(rec && rec.timestamp);
-    rows.push([
-      dt.date, dt.time,
-      diffNames[p.difficulty] || '',
-      modeNames[p.mode] || '',
-      (typeof p.correct === 'number') ? p.correct : '',
-      (typeof p.total === 'number') ? p.total : '',
-      (typeof p.retried === 'number') ? p.retried : '',
-      (typeof p.avgTimeSec === 'number') ? p.avgTimeSec : '',
-      (typeof p.durationSec === 'number') ? p.durationSec : ''
-    ]);
-  });
+  // 行構築はassets/js/tokei-record-detail.jsへ委譲した(learning-records.html
+  // の「学習の記録」Common Detail/CSVと同じ関数・同じ結果、重複実装禁止)。
+  const rows = donomanaTokeiRecordDetail.buildDetailCsvRows(Array.isArray(log) ? log : []);
   const csv = donomanaRecordBuildCsv(rows);
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
