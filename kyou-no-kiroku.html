@@ -1967,8 +1967,6 @@ function donomanaRecordReadLog(storageKey) {
 // donomanaRecordNotifySaveFailure()が自動的に利用者へ通知する(視覚+スクリーンリーダー)。
 // 既存key/schema/呼び出し方は一切変更しない(戻り値を見ない既存呼び出し元は今まで通り
 // 動作する。Root Cause: docs/records/learning-record-storage-capacity-audit-v1_0.md §4)。
-// kyou-no-kirokuの実際の保存(saveState())はこのhelperを経由しないnested object全体
-// 書き込みのため、本体はこのfileの別箇所(saveState())で個別にhardeningする。
 var __donomanaLastSaveResult = { ok: true, reason: null };
 function donomanaRecordLastSaveResult() { return __donomanaLastSaveResult; }
 function donomanaRecordClassifySaveError(e) {
@@ -2060,10 +2058,10 @@ function donomanaRecordReadNestedCollection(storageKey, field) {
     return Array.isArray(arr) ? arr : [];
   } catch (e) { return []; }
 }
+// Phase LEARNING-RECORD-STORAGE-SAVE-SAFETY-1: setItem失敗をsilentに握りつぶさない。
+// 戻り値はdonomanaRecordLastSaveResult()と同じ{ok,reason}形式(呼び出し元が既存のまま
+// 戻り値を使わなくても壊れない)。失敗時はdonomanaRecordNotifySaveFailure()が自動通知する。
 function donomanaRecordWriteNestedCollection(storageKey, field, collection) {
-  // Phase LEARNING-RECORD-STORAGE-SAVE-SAFETY-1: setItem失敗をsilentに握りつぶさない。
-  // 戻り値はdonomanaRecordLastSaveResult()と同じ{ok,reason}形式(呼び出し元が既存のまま
-  // 戻り値を使わなくても壊れない)。失敗時はdonomanaRecordNotifySaveFailure()が自動通知する。
   try {
     var raw = localStorage.getItem(storageKey);
     var obj = null;
