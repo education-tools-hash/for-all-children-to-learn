@@ -575,6 +575,27 @@ footer a{color:#7FD6CE; font-weight:700}
     URL.revokeObjectURL(url);
   }
 
+  // Phase LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: JSON download, parallel
+  // to downloadCommonAppCsv above. Read-only (§27 of the phase spec) — never
+  // writes/deletes/mutates localStorage, only reads via
+  // FOUNDATION.getBackupAction()'s buildBackup(). Learner name is never used
+  // in the filename (§20 of the phase spec — only a generic app-id prefix +
+  // timestamp), even though it may appear inside the JSON content itself for
+  // apps that store free-text fields (out of scope to redact per-field here).
+  function downloadCommonAppBackup(backupObj, filenamePrefix) {
+    var json = JSON.stringify(backupObj, null, 2);
+    var blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    var now = new Date();
+    var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+    var ts = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes());
+    link.download = filenamePrefix + '-' + ts + '.json';
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function openDetailModal(record, triggerEl) {
     lastFocusedBeforeModal = triggerEl;
     var dt = UI.formatDisplayDateTime(record.timestamp);
@@ -632,6 +653,26 @@ footer a{color:#7FD6CE; font-weight:700}
           csvActionsRow.appendChild(btn);
         });
         el.detailModalBody.appendChild(csvActionsRow);
+      }
+
+      // Phase LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: additive, separate
+      // from the CSV actions above (Cross-App Contract-style opt-in via
+      // FOUNDATION.getBackupAction(); most apps return null and render
+      // nothing, so existing apps are unaffected — §17 backward
+      // compatibility, matching the CSV/Detail/RichViz passthrough pattern).
+      var backupAction = FOUNDATION.getBackupAction(record.appId);
+      if (backupAction) {
+        var backupActionsRow = make('div', 'detail-csv-actions');
+        var backupBtn = make('button', null, backupAction.label);
+        backupBtn.type = 'button';
+        var rawAllForBackup = (FOUNDATION.readAppRecords(record.appId).rawRecords) || [];
+        backupBtn.addEventListener('click', function () {
+          downloadCommonAppBackup(backupAction.buildBackup(rawAllForBackup), backupAction.filenamePrefix);
+        });
+        backupActionsRow.appendChild(backupBtn);
+        var backupHint = make('p', 'rich-viz-hint', 'CSVには画像・なぞった線・軌跡データは含まれません。それらも保存したい場合は完全バックアップをご利用ください。');
+        backupActionsRow.appendChild(backupHint);
+        el.detailModalBody.appendChild(backupActionsRow);
       }
     }
 

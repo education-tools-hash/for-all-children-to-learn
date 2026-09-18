@@ -383,7 +383,11 @@ section('16. Read-only guarantee (no write APIs, storage untouched)');
   check('module source contains no .clear() call', /\.clear\(\)/.test(src) === false);
   // SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1: +4 Level 2/3
   // passthrough functions (Cross-App Detail Contract §8.1), read-only same as the rest.
-  check('public API surface is exactly the 8 documented functions + VERSION', Object.keys(dash).sort().join(',') === 'VERSION,collectRecords,getAdapters,getCsvActions,getRecordDetails,normalizeRecord,readAppRecords,renderRichVisualization,supportsRichVisualization');
+  // LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: +1 getBackupAction (opt-in
+  // Full Backup passthrough) — still read-only, still never calls
+  // setItem/removeItem/clear (see the 3 checks immediately above, which
+  // already cover this function's source too).
+  check('public API surface is exactly the 9 documented functions + VERSION', Object.keys(dash).sort().join(',') === 'VERSION,collectRecords,getAdapters,getBackupAction,getCsvActions,getRecordDetails,normalizeRecord,readAppRecords,renderRichVisualization,supportsRichVisualization');
 }
 
 // ────────────────────────────────────────────────────────────

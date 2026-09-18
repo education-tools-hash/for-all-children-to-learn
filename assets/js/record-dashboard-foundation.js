@@ -538,6 +538,10 @@
       category: '学習アプリ',
       storageKey: storageKey,
       structure: 'flat',
+      // Phase LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: 既存CSV
+      // (getCsvActions参照)はtraceSample(なぞった線のstroke座標)を含まない。
+      // Full Backupはrecordをそのまま保持するためstroke pointsも失わない。
+      supportsFullBackup: true,
       privacyLevel: 'low',
       includeInDefaultTimeline: true,
       normalize: function (e) {
@@ -1023,6 +1027,10 @@
     category: '学習アプリ',
     storageKey: 'nazori_records',
     structure: 'flat',
+    // Phase LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: CSVは画像を含まない
+    // (getCsvActions参照)。PNG画像がrecord中で最もサイズが大きく失われやすい
+    // dataのため、Full Backup対象の第一優先(監査 §2)。
+    supportsFullBackup: true,
     // charInput(→allChars)は「自由入力・名前/漢字OK」と実装コメントで明記されて
     // いるため、既定summaryには練習文字そのものを含めない(§16/§43)。
     privacyLevel: 'medium',
@@ -1160,6 +1168,11 @@
     category: '認知支援',
     storageKey: 'sawatte_hirogaru_log',
     structure: 'flat',
+    // Phase LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: 既存の軌跡CSV
+    // (getCsvActions参照)はtap/swipeの全座標点を含むほぼ完全な情報だが、
+    // trimmed/pointLimit/traceSchemaVersionの3 fieldはCSV化されず失われる
+    // (監査 §14)。Full Backupはrecordをそのまま保持するためこれらも失わない。
+    supportsFullBackup: true,
     privacyLevel: 'low',
     includeInDefaultTimeline: true,
     normalize: function (e) {
@@ -1473,6 +1486,44 @@
     } catch (e) { return []; }
   }
 
+  // Phase LEARNING-RECORD-STORAGE-BACKUP-HARDENING-1: CSV export (above) is
+  // deliberately a human-readable Summary/Detail/Trace view and, for Nazori
+  // (raster image)/Hiragana-Katakana (canvas stroke trace)/Sawatte (timed
+  // interaction trace), never included the media/trace data itself — this is
+  // a genuine, audited gap (docs/records/learning-record-storage-backup-
+  // hardening-v1_0.md), not a bug in the CSV builders, which intentionally
+  // stay human-readable. "Full Backup" is a *separate, additive* export kind:
+  // the exact raw record array as persisted (already 100% lossless by
+  // construction, since it is not re-derived/re-formatted at all), wrapped in
+  // a small versioned envelope so a future restore path has a stable,
+  // parseable format to target. Opt-in per adapter via `supportsFullBackup:
+  // true` (only the 4 apps this phase's audit covers) rather than silently
+  // enabled for all 22 — read-only operation (§27 of the phase spec): this
+  // never writes, deletes, or mutates storage.
+  var BACKUP_FORMAT_VERSION = 1;
+
+  function getBackupAction(appId) {
+    var adapter = RECORD_ADAPTERS[appId];
+    if (!adapter || adapter.supportsFullBackup !== true) return null;
+    return {
+      id: 'full-backup',
+      label: '💾 完全バックアップを書き出す（画像・軌跡を含む）',
+      filenamePrefix: appId + '-full-backup',
+      buildBackup: function (rawRecords) {
+        var records = Array.isArray(rawRecords) ? rawRecords : [];
+        return {
+          backupFormatVersion: BACKUP_FORMAT_VERSION,
+          exportedAt: new Date().toISOString(),
+          appId: adapter.appId,
+          appName: adapter.appName,
+          storageKey: adapter.storageKey,
+          recordCount: records.length,
+          records: records
+        };
+      }
+    };
+  }
+
   return {
     VERSION: VERSION,
     getAdapters: getAdapters,
@@ -1482,6 +1533,7 @@
     getRecordDetails: getRecordDetails,
     supportsRichVisualization: supportsRichVisualization,
     renderRichVisualization: renderRichVisualization,
-    getCsvActions: getCsvActions
+    getCsvActions: getCsvActions,
+    getBackupAction: getBackupAction
   };
 });
