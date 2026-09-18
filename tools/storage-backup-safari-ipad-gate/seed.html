@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Full Backup Gate — synthetic fixture seeder（実機検証専用・非公開ツール）</title>
+<!--
+  LEARNING-RECORD-STORAGE-BACKUP-SAFARI-IPAD-GATE-1 実機検証専用ページ。
+
+  このページの唯一の役割: 同一origin(このworktreeをLANサーバーで開いた場合)の
+  localStorageへ、4つのtest-only synthetic recordを書き込む/削除するだけ。
+  「完全バックアップ」ボタン自体はここには無い — 実際のCommon UI
+  (learning-records.html、このworktreeの承認待ちBackup Hardening実装そのもの)
+  を実機で操作することが本Gateの目的であり、ここでロジックを再実装しない
+  (実装の忠実性を保つため)。
+
+  安全上の注意:
+  - donomana.jp上では絶対に開かない(下記スクリプトが動作を拒否する)。
+  - 書き込むkeyはnazori_records/hiragana_log/katakana_log/sawatte_hirogaru_log
+    の4つのみ(このGateの対象そのもの)。他のkeyには一切触れない。
+  - localStorage.clear()は使わない。cleanupはこの4 keyの個別removeItemのみ。
+  - 学習者名などの実データは使わない(全て合成fixture)。
+-->
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    margin: 0; padding: 16px; padding-bottom: 64px;
+    background: #F7F8FA; color: #222; line-height: 1.6;
+  }
+  h1 { font-size: 1.1rem; margin: 0 0 4px; }
+  .warn { background: #FFF4E5; border: 2px solid #F3B35A; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; margin: 10px 0; }
+  .card { background: #fff; border: 2px solid #E3E7EA; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  button { display: block; width: 100%; min-height: 48px; margin: 8px 0; padding: 10px 14px; border-radius: 10px; border: 2px solid #00A99D; background: #fff; color: #00857B; font-size: 0.95rem; font-weight: 700; font-family: inherit; cursor: pointer; }
+  button.primary { background: #00A99D; color: #fff; }
+  button.danger { border-color: #C0392B; color: #C0392B; }
+  a.navlink { display: block; text-align: center; min-height: 48px; line-height: 48px; margin: 8px 0; border-radius: 10px; background: #3A7AB0; color: #fff; text-decoration: none; font-weight: 700; }
+  .log { background: #10161A; color: #B7F5C2; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.75rem; white-space: pre-wrap; word-break: break-all; border-radius: 10px; padding: 10px; max-height: 240px; overflow-y: auto; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <h1>🧪 Full Backup Gate — synthetic fixture seeder</h1>
+  <p style="font-size:0.85rem;color:#666;">LEARNING-RECORD-STORAGE-BACKUP-SAFARI-IPAD-GATE-1 実機検証専用ページ（donomana.jpの一部ではありません）</p>
+
+  <div class="warn">
+    ⚠️ このページを <b>donomana.jp 上では絶対に開かないでください</b>。<br>
+    必ずこのworktreeをLANサーバーで開いたURL（例: <code>http://（PCのIPアドレス）:8971/tools/storage-backup-safari-ipad-gate/seed.html</code>）から開いてください。<br>
+    現在のURL: <code id="curUrl"></code>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">① synthetic fixtureを作成する</h2>
+    <p style="font-size:0.85rem;">Nazori・ひらがな・カタカナ・さわってひろがるの4 appへ、テスト専用の合成recordを1件ずつ書き込みます（実際の学習者データは一切使いません）。</p>
+    <button id="btnSeed" class="primary">4つのsynthetic fixtureを作成する</button>
+    <div id="seedLog" class="log"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">② 実際の「学習の記録」画面を開く</h2>
+    <p style="font-size:0.85rem;">ここから先は、実際にProductionへリリース予定のCommon UI（このworktreeの承認待ち実装そのもの）を操作します。このページに「完全バックアップ」ボタンはありません。</p>
+    <a class="navlink" href="../../learning-records.html">学習の記録を開く →</a>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">③ テストデータの後片付け</h2>
+    <p style="font-size:0.85rem;">この4 key以外には触れません（localStorage.clear()は使いません）。</p>
+    <button id="btnCleanup" class="danger">4つのsynthetic fixtureを削除する</button>
+  </div>
+
+<script>
+'use strict';
+
+if (/(^|\.)donomana\.jp$/i.test(location.hostname)) {
+  document.body.innerHTML = '<div class="warn" style="font-size:1rem;">⚠️ このページは donomana.jp 上では実行できません。安全のため停止しました。</div>';
+  throw new Error('Safety abort: refusing to run the Backup Gate seeder on the Production origin.');
+}
+document.getElementById('curUrl').textContent = location.href;
+
+var logEl = document.getElementById('seedLog');
+function log(line) { logEl.textContent += line + '\n'; }
+
+// 実際にcanvasへ描画してtoDataURL()する — captureCanvas()(nazori-app.html)と
+// 同じ経路(合成の固定文字列ではなく、実際にこの端末のcanvas実装が生成する
+// 本物のPNG Data URL)。実機のPNGエンコーダ差異もそのまま拾える。
+function makeRealPng(size) {
+  var c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  var ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, size, size);
+  ctx.lineWidth = Math.max(4, size / 20); ctx.lineCap = 'round'; ctx.strokeStyle = '#2255cc';
+  ctx.beginPath();
+  ctx.moveTo(size * 0.2, size * 0.2);
+  ctx.quadraticCurveTo(size * 0.8, size * 0.1, size * 0.5, size * 0.5);
+  ctx.quadraticCurveTo(size * 0.2, size * 0.9, size * 0.8, size * 0.8);
+  ctx.stroke();
+  return c.toDataURL('image/png');
+}
+
+document.getElementById('btnSeed').addEventListener('click', function () {
+  var t = function (mins) { return new Date(Date.now() - mins * 60000).toISOString(); };
+
+  var nazoriImg = makeRealPng(300);
+  localStorage.setItem('nazori_records', JSON.stringify([
+    { id: 'gate1', sessionId: 'gateS1', timestamp: t(60), mode: 'wide', allChars: 'あ', charCount: 1, sessionDone: 1, sessionTotal: 1, image: nazoriImg }
+  ]));
+
+  function stroke24() {
+    var flat = [];
+    for (var i = 0; i < 24; i++) flat.push(Math.floor(Math.random() * 1000), Math.floor(Math.random() * 1000));
+    return flat;
+  }
+  localStorage.setItem('hiragana_log', JSON.stringify([
+    { time: new Date(Date.now() - 40 * 60000).toLocaleDateString('ja-JP') + ' 10:00', type: 'trace', data: { kana: 'あ', tracingJudgmentLevel: 'easy', traceSample: { version: 1, coordinateSpace: 'normalized-1000', strokes: [stroke24(), stroke24()] } }, schemaVersion: 1 }
+  ]));
+  localStorage.setItem('katakana_log', JSON.stringify([
+    { time: new Date(Date.now() - 35 * 60000).toLocaleDateString('ja-JP') + ' 10:00', type: 'trace', data: { kana: 'ア', tracingJudgmentLevel: 'standard', traceSample: { version: 1, coordinateSpace: 'normalized-1000', strokes: [stroke24(), stroke24()] } }, schemaVersion: 1 }
+  ]));
+
+  var taps = [], swipes = [];
+  for (var i = 0; i < 6; i++) taps.push(Math.floor(Math.random() * 1000), Math.floor(Math.random() * 1000), 50 + i * 20);
+  swipes.push([100, 100, 10, 200, 200, 60, 300, 300, 120]);
+  localStorage.setItem('sawatte_hirogaru_log', JSON.stringify([
+    { timestamp: t(20), appId: 'sawatte-hirogaru-app', activity: 'reaction', inputMethod: 'touch', schemaVersion: 1, payload: { startTime: 1, durationMs: 8000, totalInteractions: 3, tapCount: 2, swipeCount: 1, inputMethods: ['touch'], trace: { traceSchemaVersion: 1, pointLimit: 1000, trimmed: false, taps: taps, swipes: swipes } } }
+  ]));
+
+  log('作成しました:');
+  log('- nazori_records: 1件（PNG Data URL長 ' + nazoriImg.length + '文字、実canvas描画）');
+  log('- hiragana_log: 1件（2 stroke）');
+  log('- katakana_log: 1件（2 stroke）');
+  log('- sawatte_hirogaru_log: 1件（trace: taps=' + taps.length / 3 + '点, swipes=1本）');
+  log('\n次は②「学習の記録を開く」から実際のFull Backupボタンを操作してください。');
+});
+
+document.getElementById('btnCleanup').addEventListener('click', function () {
+  ['nazori_records', 'hiragana_log', 'katakana_log', 'sawatte_hirogaru_log'].forEach(function (k) {
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
+  log('4 keyのtest fixtureを削除しました。');
+});
+</script>
+</body>
+</html>
