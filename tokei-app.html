@@ -1167,8 +1167,51 @@ function donomanaRecordReadLog(storageKey) {
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) { return []; }
 }
+// Phase LEARNING-RECORD-STORAGE-SAVE-SAFETY-1: setItem失敗(QuotaExceededError等)を
+// silentに握りつぶさない。呼び出し元はdonomanaRecordWriteLog()の戻り値、または
+// donomanaRecordLastSaveResult()で直近の書き込み結果を判定できる。失敗時は
+// donomanaRecordNotifySaveFailure()が自動的に利用者へ通知する(視覚+スクリーンリーダー)。
+// 既存key/schema/呼び出し方は一切変更しない(戻り値を見ない既存呼び出し元は今まで通り
+// 動作する。Root Cause: docs/records/learning-record-storage-capacity-audit-v1_0.md §4)。
+var __donomanaLastSaveResult = { ok: true, reason: null };
+function donomanaRecordLastSaveResult() { return __donomanaLastSaveResult; }
+function donomanaRecordClassifySaveError(e) {
+  var name = e && e.name;
+  var code = (e && typeof e.code === 'number') ? e.code : null;
+  if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014) return 'quota';
+  if (name === 'SecurityError') return 'security';
+  return 'unknown';
+}
+function donomanaRecordNotifySaveFailure() {
+  var msg = '学習の記録を保存できませんでした。端末の保存容量やブラウザの設定をご確認ください。';
+  try {
+    var el = document.getElementById('donomanaRecordSaveFailureBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'donomanaRecordSaveFailureBanner';
+      el.setAttribute('role', 'alert');
+      el.setAttribute('aria-live', 'assertive');
+      el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#8a1c1c;color:#fff;font-size:14px;font-weight:700;line-height:1.5;padding:10px 18px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:100000;text-align:center;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(donomanaRecordNotifySaveFailure._t);
+    donomanaRecordNotifySaveFailure._t = setTimeout(function () { el.style.display = 'none'; }, 6000);
+  } catch (e) {}
+  if (typeof window.donomanaAnnounce === 'function') {
+    try { window.donomanaAnnounce(msg, { priority: 'assertive' }); } catch (e2) {}
+  }
+}
 function donomanaRecordWriteLog(storageKey, log) {
-  try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {}
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(log));
+    __donomanaLastSaveResult = { ok: true, reason: null };
+  } catch (e) {
+    __donomanaLastSaveResult = { ok: false, reason: donomanaRecordClassifySaveError(e) };
+    donomanaRecordNotifySaveFailure();
+  }
+  return __donomanaLastSaveResult;
 }
 function donomanaRecordAddLog(storageKey, entry) {
   var log = donomanaRecordReadLog(storageKey);
