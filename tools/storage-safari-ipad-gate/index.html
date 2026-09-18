@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>どのまな Storage Gate テスト（実機検証専用・非公開ツール）</title>
+<!--
+  LEARNING-RECORD-STORAGE-SAFARI-IPAD-GATE-1 準備用の実機検証専用ページ。
+
+  安全上の注意（必ず守ること）:
+  - このページは Production の donomana.jp とは無関係の、完全に独立したテスト
+    origin から開くこと（localhost / LAN上のテストサーバー等）。donomana.jp
+    上にこのファイルをデプロイしない・リンクしない。
+  - 本Production appのどのファイルからも参照されない(tools/配下、audit/test専用)。
+  - 使用する localStorage key は下記 TEST_KEY 1つのみで、実際のRecord
+    Foundationが使う22個のkey（janken_log, tokei_log, nazori_records 等）とは
+    一切重複しない専用のtest-only keyを使う。
+  - 「実際にquotaを使い切るまで書き込む」テスト(Real Quota Fill Probe)は、この
+    専用test originだけに影響する。donomana.jp上のデータには絶対に触れない。
+-->
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    margin: 0; padding: 16px; padding-bottom: 64px;
+    background: #F7F8FA; color: #222; line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+  }
+  h1 { font-size: 1.15rem; margin: 0 0 4px; }
+  h2 { font-size: 1rem; margin: 24px 0 8px; padding-top: 8px; border-top: 2px solid #E3E7EA; }
+  .warn { background: #FFF4E5; border: 2px solid #F3B35A; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; margin: 10px 0; }
+  .card { background: #fff; border: 2px solid #E3E7EA; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  button {
+    display: block; width: 100%; min-height: 48px; margin: 8px 0; padding: 10px 14px;
+    border-radius: 10px; border: 2px solid #00A99D; background: #fff; color: #00857B;
+    font-size: 0.95rem; font-weight: 700; font-family: inherit; cursor: pointer;
+  }
+  button.primary { background: #00A99D; color: #fff; }
+  button.danger { border-color: #C0392B; color: #C0392B; }
+  button:active { opacity: 0.7; }
+  .log {
+    background: #10161A; color: #B7F5C2; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem; white-space: pre-wrap; word-break: break-all;
+    border-radius: 10px; padding: 10px; max-height: 260px; overflow-y: auto; margin-top: 8px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  td, th { border: 1px solid #E3E7EA; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #F0F2F4; width: 40%; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
+  .ok { background: #E3F8E8; color: #1E8449; }
+  .ng { background: #FDEDEC; color: #C0392B; }
+  #donomanaRecordSaveFailureBanner { }
+</style>
+</head>
+<body>
+  <h1>🧪 どのまな Storage Gate テスト</h1>
+  <p style="font-size:0.85rem;color:#666;">LEARNING-RECORD-STORAGE-SAFARI-IPAD-GATE-1 実機検証専用ページ（このページは donomana.jp の一部ではありません）</p>
+
+  <div class="warn">
+    ⚠️ このページを <b>donomana.jp 上では絶対に開かないでください</b>。<br>
+    必ずテスト用の別URL（例: <code>http://（お使いのパソコンのIPアドレス）:8899/</code>）から開いてください。<br>
+    現在このページを開いているURLは下に自動表示されます。「donomana.jp」と表示された場合は、すぐにページを閉じてください。
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">① 現在の環境情報（自動取得）</h2>
+    <table id="envTable"></table>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">② navigator.storage.estimate()</h2>
+    <button id="btnEstimate">容量の目安を取得する</button>
+    <div id="estimateResult" class="log" style="display:none;"></div>
+    <p style="font-size:0.78rem;color:#666;">※この数値は localStorage 専用の容量ではなく、Cache/IndexedDB等も含む origin 全体のおおよその目安です。localStorage の実際の上限とは解釈しないでください。</p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">③ Case A：ふつうの保存テスト</h2>
+    <button id="btnSaveNormal" class="primary">テスト記録を1件保存する</button>
+    <button id="btnCheckPersist">保存されているか確認する（reload後にも使う）</button>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">④ Case B-1〜B-3：保存失敗を疑似的に再現（安全・一瞬で終わる）</h2>
+    <p style="font-size:0.85rem;">実際のcode(donomanaRecordWriteLog等、Production appと同じロジック)を使い、<b>この画面の中だけで</b> setItem が失敗したふりをします。実データは書き込まれません。3種類のエラーをそれぞれ試してください。</p>
+    <button id="btnSimulateQuota">B-1: QuotaExceededError を再現する</button>
+    <button id="btnSimulateSecurity">B-2: SecurityError を再現する</button>
+    <button id="btnSimulateUnknown">B-3: 不明なエラー(InvalidStateError)を再現する</button>
+    <button id="btnRecoveryCheck" class="primary">↳ 直後に「回復テスト」＝ふつうの保存をもう一度試す</button>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">⑤ Real Quota Fill Probe：実際にquotaを使い切るテスト（時間がかかる・任意）</h2>
+    <p style="font-size:0.85rem;">このtest originだけに、少しずつ大きくなるデータを書き込み、実際に <code>QuotaExceededError</code> が起きるか確認します。256KBずつ増やし、最大でも約100MBで自動停止します。<b>途中でいつでも「中止」できます。</b></p>
+    <button id="btnQuotaFill">実quotaテストを開始する</button>
+    <button id="btnQuotaStop" class="danger">中止する</button>
+    <div id="quotaProgress" style="font-size:0.85rem;"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">⑥ テストデータの後片付け</h2>
+    <p style="font-size:0.85rem;">このページが使うテスト専用キーだけを削除します（Production appのデータには触れません）。</p>
+    <button id="btnCleanup" class="danger">テストデータを削除する</button>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;border-top:none;padding-top:0;">📋 結果ログ（この内容をコピーして報告してください）</h2>
+    <div id="log" class="log"></div>
+    <button id="btnCopyLog">ログをコピーする</button>
+  </div>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Safety guard: refuse to run any test action if this page was somehow opened
+// on the real Production origin.
+// ---------------------------------------------------------------------------
+if (/(^|\.)donomana\.jp$/i.test(location.hostname)) {
+  document.body.innerHTML = '<div class="warn" style="font-size:1rem;">⚠️ このページは donomana.jp 上では実行できません。安全のため停止しました。</div>';
+  throw new Error('Safety abort: refusing to run the Storage Gate test tool on the Production origin.');
+}
+
+var TEST_KEY = 'donomana_safari_ipad_gate_test_v1'; // dedicated test-only key, never collides with any real Record Foundation key
+
+function nowStr() { return new Date().toLocaleString('ja-JP'); }
+
+var logEl = document.getElementById('log');
+function log(line) {
+  logEl.textContent += '[' + nowStr() + '] ' + line + '\n';
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ---------------------------------------------------------------------------
+// Verbatim copy of the Production save-safety helpers (from the 22 Record
+// Foundation app files, Phase LEARNING-RECORD-STORAGE-SAVE-SAFETY-1), pointed
+// at TEST_KEY only, so this page exercises the EXACT same failure-handling
+// logic real users would hit, on the real device/browser under test.
+// ---------------------------------------------------------------------------
+var __donomanaLastSaveResult = { ok: true, reason: null };
+function donomanaRecordLastSaveResult() { return __donomanaLastSaveResult; }
+function donomanaRecordClassifySaveError(e) {
+  var name = e && e.name;
+  var code = (e && typeof e.code === 'number') ? e.code : null;
+  if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014) return 'quota';
+  if (name === 'SecurityError') return 'security';
+  return 'unknown';
+}
+function donomanaRecordNotifySaveFailure() {
+  var msg = '学習の記録を保存できませんでした。端末の保存容量やブラウザの設定をご確認ください。';
+  try {
+    var el = document.getElementById('donomanaRecordSaveFailureBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'donomanaRecordSaveFailureBanner';
+      el.setAttribute('role', 'alert');
+      el.setAttribute('aria-live', 'assertive');
+      el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:92vw;background:#8a1c1c;color:#fff;font-size:14px;font-weight:700;line-height:1.5;padding:10px 18px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.35);z-index:100000;text-align:center;';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(donomanaRecordNotifySaveFailure._t);
+    donomanaRecordNotifySaveFailure._t = setTimeout(function () { el.style.display = 'none'; }, 6000);
+  } catch (e) {}
+  log('Save Safety notification shown: "' + msg + '"');
+}
+function donomanaRecordWriteLog(storageKey, value) {
+  try {
+    localStorage.setItem(storageKey, value);
+    __donomanaLastSaveResult = { ok: true, reason: null };
+  } catch (e) {
+    __donomanaLastSaveResult = { ok: false, reason: donomanaRecordClassifySaveError(e), errorName: e && e.name, errorMessage: e && e.message };
+    donomanaRecordNotifySaveFailure();
+  }
+  return __donomanaLastSaveResult;
+}
+
+// ---------------------------------------------------------------------------
+// ① Environment info
+// ---------------------------------------------------------------------------
+function renderEnv() {
+  var isStandalone = (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  var rows = [
+    ['現在のURL (origin)', location.origin + location.pathname],
+    ['User-Agent', navigator.userAgent],
+    ['画面サイズ', screen.width + ' x ' + screen.height + ' (dpr=' + (window.devicePixelRatio || 1) + ')'],
+    ['Home Screen / PWA (standalone)として起動', isStandalone ? 'はい' : 'いいえ（通常のSafariタブ）'],
+    ['オンライン状態', navigator.onLine ? 'オンライン' : 'オフライン'],
+    ['localStorage が使えるか', (function () { try { var k = '__probe__'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return 'はい'; } catch (e) { return 'いいえ (' + (e && e.name) + ')'; } })()],
+  ];
+  var html = '';
+  rows.forEach(function (r) { html += '<tr><th>' + r[0] + '</th><td>' + r[1] + '</td></tr>'; });
+  document.getElementById('envTable').innerHTML = html;
+  log('環境情報を取得しました。上の表と、下記の手順書の記録欄に転記してください。');
+}
+renderEnv();
+
+// ---------------------------------------------------------------------------
+// On load: report whether a record from a PREVIOUS visit is still present
+// (this is the reload/tab-close/browser-restart/device-restart persistence check).
+// ---------------------------------------------------------------------------
+(function reportExistingOnLoad() {
+  try {
+    var existing = localStorage.getItem(TEST_KEY);
+    if (existing) {
+      log('前回保存したテストデータが見つかりました（persistence OK の可能性）: ' + existing.slice(0, 120));
+    } else {
+      log('前回保存したテストデータは見つかりませんでした（まだ保存していないか、消えています）。');
+    }
+  } catch (e) {
+    log('起動時チェックでエラー: ' + e);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// ② navigator.storage.estimate()
+// ---------------------------------------------------------------------------
+document.getElementById('btnEstimate').addEventListener('click', function () {
+  var out = document.getElementById('estimateResult');
+  out.style.display = 'block';
+  if (!navigator.storage || !navigator.storage.estimate) {
+    out.textContent = 'この端末/ブラウザでは navigator.storage.estimate() が使えません。';
+    log('navigator.storage.estimate(): 未対応');
+    return;
+  }
+  navigator.storage.estimate().then(function (e) {
+    var text = 'quota: ' + e.quota + ' bytes (約' + (e.quota / 1048576).toFixed(1) + 'MB)\nusage: ' + e.usage + ' bytes (約' + (e.usage / 1048576).toFixed(2) + 'MB)';
+    out.textContent = text;
+    log('navigator.storage.estimate() -> ' + text.replace(/\n/g, ' / '));
+  }).catch(function (err) {
+    out.textContent = 'エラー: ' + err;
+    log('navigator.storage.estimate() エラー: ' + err);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ③ Case A: normal save + persistence check
+// ---------------------------------------------------------------------------
+document.getElementById('btnSaveNormal').addEventListener('click', function () {
+  var payload = JSON.stringify({ savedAt: nowStr(), note: 'Storage Gate Case A test record' });
+  var result = donomanaRecordWriteLog(TEST_KEY, payload);
+  log('Case A 保存結果: ok=' + result.ok + (result.ok ? '' : ' reason=' + result.reason));
+});
+document.getElementById('btnCheckPersist').addEventListener('click', function () {
+  try {
+    var v = localStorage.getItem(TEST_KEY);
+    log(v ? ('確認結果: 保存されています -> ' + v) : '確認結果: 見つかりません（保存されていない、または消えています）');
+  } catch (e) {
+    log('確認中にエラー: ' + e);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ④ Case B-1/B-2/B-3: synthetic (in-page-only) failure injection — never touches
+// real data. TEST_KEY's actually-persisted value is untouched by these (setItem
+// throwing means the previous value for that key is left exactly as it was —
+// this is what "Case A record still intact after a synthetic failure" verifies).
+// ---------------------------------------------------------------------------
+function simulateFailure(label, errorName, errorMessage) {
+  var orig = Storage.prototype.setItem;
+  Storage.prototype.setItem = function () { throw new DOMException(errorMessage, errorName); };
+  try {
+    var result = donomanaRecordWriteLog(TEST_KEY, JSON.stringify({ savedAt: nowStr() }));
+    log(label + ' 疑似失敗の結果: ok=' + result.ok + ' reason=' + result.reason + ' errorName=' + result.errorName + '（上に赤い通知バナーが表示されていれば正常です）');
+  } finally {
+    Storage.prototype.setItem = orig;
+  }
+}
+document.getElementById('btnSimulateQuota').addEventListener('click', function () {
+  simulateFailure('Case B-1 (QuotaExceededError)', 'QuotaExceededError', 'Synthetic Storage Gate test failure (quota)');
+});
+document.getElementById('btnSimulateSecurity').addEventListener('click', function () {
+  simulateFailure('Case B-2 (SecurityError)', 'SecurityError', 'Synthetic Storage Gate test failure (security)');
+});
+document.getElementById('btnSimulateUnknown').addEventListener('click', function () {
+  simulateFailure('Case B-3 (unknown/InvalidStateError)', 'InvalidStateError', 'Synthetic Storage Gate test failure (unknown)');
+});
+document.getElementById('btnRecoveryCheck').addEventListener('click', function () {
+  var result = donomanaRecordWriteLog(TEST_KEY, JSON.stringify({ savedAt: nowStr(), note: 'recovery check' }));
+  log('回復テストの結果: ok=' + result.ok + (result.ok ? '（失敗直後でも正常に保存できました＝システムが壊れていません）' : ' ※まだ失敗しています: reason=' + result.reason));
+});
+
+// ---------------------------------------------------------------------------
+// ⑤ Real Quota Fill Probe: real quota-exhaustion probe, bounded, test-key-only, stoppable
+// ---------------------------------------------------------------------------
+var quotaStop = false;
+document.getElementById('btnQuotaStop').addEventListener('click', function () { quotaStop = true; log('quotaテストの中止を要求しました。'); });
+document.getElementById('btnQuotaFill').addEventListener('click', function () {
+  quotaStop = false;
+  var progressEl = document.getElementById('quotaProgress');
+  var chunk = 'A'.repeat(1024 * 256); // 256KB
+  var i = 0;
+  var MAX_STEPS = 400; // ~100MB ceiling
+  log('Real Quota Fill Probe を開始します（TEST_KEYのみ使用、最大約100MB、いつでも中止できます）。');
+  function step() {
+    if (quotaStop) { log('Real Quota Fill Probe: ユーザー操作により中止しました（i=' + i + '）。'); cleanupQuotaKey(); return; }
+    if (i >= MAX_STEPS) { log('Real Quota Fill Probe: 安全上限（約100MB）に到達したため自動停止しました。QuotaExceededErrorは発生しませんでした。'); cleanupQuotaKey(); return; }
+    var value = chunk + i;
+    var result = donomanaRecordWriteLog(TEST_KEY + '_quota_probe', value);
+    progressEl.textContent = '進行中: 約 ' + ((i + 1) * 256 / 1024).toFixed(1) + 'MB 書き込み試行済み';
+    if (!result.ok) {
+      log('Real Quota Fill Probe: 書き込み失敗を検出しました！ i=' + i + ' 推定サイズ=約' + ((i) * 256 / 1024).toFixed(1) + 'MB reason=' + result.reason + ' errorName=' + result.errorName + ' errorMessage=' + result.errorMessage);
+      cleanupQuotaKey();
+      return;
+    }
+    i++;
+    setTimeout(step, 10);
+  }
+  function cleanupQuotaKey() {
+    try { localStorage.removeItem(TEST_KEY + '_quota_probe'); } catch (e) {}
+    progressEl.textContent += '（テスト用の大容量データは削除済みです）';
+  }
+  step();
+});
+
+// ---------------------------------------------------------------------------
+// ⑥ Cleanup
+// ---------------------------------------------------------------------------
+document.getElementById('btnCleanup').addEventListener('click', function () {
+  try {
+    localStorage.removeItem(TEST_KEY);
+    localStorage.removeItem(TEST_KEY + '_quota_probe');
+    log('テストデータを削除しました。');
+  } catch (e) {
+    log('削除中にエラー: ' + e);
+  }
+});
+
+document.getElementById('btnCopyLog').addEventListener('click', function () {
+  var text = document.getElementById('envTable').innerText + '\n\n' + logEl.textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { log('ログをコピーしました。'); }).catch(function () { log('コピーに失敗しました。手動で選択してコピーしてください。'); });
+  } else {
+    log('このブラウザではコピー機能が使えません。手動で選択してコピーしてください。');
+  }
+});
+</script>
+</body>
+</html>
