@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Restore Gate">
+<meta name="robots" content="noindex, nofollow">
+<title>Restore Gate（実機検証専用・非公開ツール）</title>
+<!--
+  LEARNING-RECORD-STORAGE-BACKUP-RESTORE-SAFARI-IPAD-GATE-1 実機検証専用ページ。
+
+  役割は3つだけ:
+   1. このGate用の合成テストデータの状態を「見る」(読み取りのみ)。
+   2. 検証に必要な最小限の準備をする(既存の合成記録を1件入れる / 別タブ用に1件追加 /
+      このGateの4 keyだけを消す)。localStorage.clear() は使わない。
+   3. 実機用のテストバックアップ(本物のexportコードで作成、合成データのみ)を
+      ダウンロードさせる。
+  Restoreのロジックはここには一切無い。実際の「学習のきろく」ページ(learning-records.html、
+  承認済みのRestore実装そのもの)を操作することがこのGateの目的。
+
+  安全: donomana.jp上では動作を拒否する。触るkeyは nazori_records / hiragana_log /
+  katakana_log / sawatte_hirogaru_log の4つだけ(gate_injected_key は「書かれていないこと」を
+  読み取るだけ)。学習者名などの実データは使わない。
+-->
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; margin: 0; padding: 16px 16px 72px;
+         background: #F7F8FA; color: #222; line-height: 1.6; }
+  h1 { font-size: 1.15rem; margin: 0 0 4px; }
+  h2 { font-size: 1.02rem; margin: 22px 0 8px; border-left: 5px solid #00857B; padding-left: 8px; }
+  .card { background: #fff; border: 1px solid #DDE3E8; border-radius: 14px; padding: 12px 14px; margin: 10px 0; }
+  .warn { background: #FFF4E0; border-color: #F0C36D; }
+  .blocked { background: #FDE8E8; border-color: #E08A8A; font-weight: 700; }
+  .ok { color: #0B7A3E; font-weight: 700; } .ng { color: #B3261E; font-weight: 800; }
+  button, a.btn { display: inline-flex; align-items: center; min-height: 48px; padding: 10px 18px; margin: 4px 6px 4px 0;
+                  border-radius: 999px; border: 2px solid #00857B; background: #fff; color: #00695F; font: inherit;
+                  font-weight: 800; text-decoration: none; }
+  button.primary, a.btn.primary { background: #00857B; color: #fff; }
+  button.danger { border-color: #B3261E; color: #B3261E; }
+  code { background: #EEF1F4; padding: 1px 6px; border-radius: 6px; font-size: .86em; word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  td, th { text-align: left; padding: 6px 4px; border-bottom: 1px solid #E5E9ED; vertical-align: top; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: .92rem; }
+  img.thumb { width: 56px; height: 56px; border: 1px solid #999; vertical-align: middle; margin-right: 8px; image-rendering: pixelated; }
+  .rec { border-top: 1px dashed #C9D1D8; padding: 6px 0; font-size: .88rem; }
+  #status { position: sticky; bottom: 0; background: #0F3D3A; color: #fff; padding: 10px 14px; border-radius: 12px; margin-top: 14px; min-height: 44px; }
+</style>
+</head>
+<body>
+<h1>Restore Gate（実機検証専用）</h1>
+<p style="margin:0;font-size:.85rem;color:#555">合成データだけを使います。実データ・学習者名は使いません。</p>
+
+<div id="guard" class="card blocked" hidden>ここは donomana.jp です。このページは動作しません。LANのテスト用サーバー（PCのIPアドレス）から開いてください。</div>
+
+<div id="main">
+  <div class="card">
+    <div class="kv"><span>この画面のアドレス</span><code id="origin"></code>
+    <span>表示モード</span><span id="mode"></span></div>
+  </div>
+
+  <h2>いまの状態（読み取りのみ）</h2>
+  <div class="card">
+    <table id="stateTable"></table>
+    <div id="injected" style="margin-top:8px"></div>
+    <div id="prereq" class="card" style="margin:10px 0"></div>
+    <button type="button" id="refresh" class="primary">状態を更新</button>
+    <button type="button" id="detailBtn">記録の中身を確認</button>
+    <div id="detail"></div>
+  </div>
+
+  <h2>1. 学習のきろくを開く</h2>
+  <div class="card">
+    <a class="btn primary" id="openRecords" href="../../learning-records.html">学習のきろくを開く</a>
+    <p style="font-size:.85rem;margin:6px 0 0">ここで「📥 バックアップから復元」を押して、下のテストファイルを選びます。</p>
+  </div>
+
+  <h2>2. テストファイル（タップで「ダウンロード」→ ファイルAppに保存）</h2>
+  <div class="card"><table id="files"><tr><td>読み込み中…</td></tr></table>
+    <p style="font-size:.82rem;color:#555;margin:8px 0 0">「05」は欠番です（重複の確認は 01 をもう一度復元します）。</p></div>
+
+  <h2>3. 準備ボタン（安全なものだけ）</h2>
+  <div class="card">
+    <p style="margin:0 0 6px;font-size:.88rem"><b>既存の記録を1件入れる</b>（なぞり書き）— 復元しても消えないことの確認用。すでに記録がある場合は何もしません。</p>
+    <button type="button" id="seedExisting" class="primary">既存の記録を1件入れる</button>
+    <p style="margin:12px 0 6px;font-size:.88rem"><b>別タブ用：記録を1件追加</b>（なぞり書き）— 「記録が変更された」ときの確認用。追加するだけで、何も消しません。</p>
+    <button type="button" id="addStale">なぞり書きの記録を1件追加</button>
+  </div>
+  <div class="card warn">
+    <p style="margin:0 0 6px;font-size:.88rem"><b>やり直し用：このGateの4つの記録を消す</b><br>
+    なぞり書き・ひらがな・カタカナ・さわってひろがる の4つだけを、1つずつ消します（全消去はしません）。</p>
+    <button type="button" id="resetKeys" class="danger">4つの記録を消す</button>
+  </div>
+</div>
+<div id="status" role="status" aria-live="polite">準備できました。</div>
+
+<script>
+(function () {
+  'use strict';
+  var KEYS = ['nazori_records', 'hiragana_log', 'katakana_log', 'sawatte_hirogaru_log'];
+  var NAMES = { nazori_records: 'なぞり書き', hiragana_log: 'ひらがな', katakana_log: 'カタカナ', sawatte_hirogaru_log: 'さわってひろがる' };
+  var PNG1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  var $ = function (id) { return document.getElementById(id); };
+  var status = function (t) { $('status').textContent = t; };
+
+  if (/(^|\.)donomana\.jp$/i.test(location.hostname)) {
+    $('guard').hidden = false; $('main').hidden = true; return;
+  }
+  $('origin').textContent = location.origin;
+  $('mode').textContent = (window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches)
+    ? 'ホーム画面から起動（PWA）' : 'Safari（通常のブラウザ）';
+
+  function read(key) {
+    var raw = null;
+    try { raw = localStorage.getItem(key); } catch (e) { return { err: 'storage-error' }; }
+    if (raw === null) return { absent: true };
+    try { var v = JSON.parse(raw); return Array.isArray(v) ? { list: v, bytes: raw.length } : { err: 'not-array' }; }
+    catch (e) { return { err: 'bad-json' }; }
+  }
+
+  function renderPrereq() {
+    var r = read('nazori_records'); var ids = (r.list || []).map(function (x) { return x && x.id; });
+    var has1 = ids.indexOf('gate-nz-1') >= 0, has2 = ids.indexOf('gate-nz-2') >= 0;
+    var box = $('prereq'); box.innerHTML = '';
+    box.appendChild(el('b', 'テストの前提チェック（なぞり書き）'));
+    var p1 = el('p', has1 && has2
+      ? '✓ 01 の記録（gate-nz-1 と gate-nz-2）があります。→ G「もう一度 01」は“重複2件”、H「06」は“競合1件・新規1件”になるはずです。'
+      : '✗ 01 の記録が（全部は）ありません。→ 先に 01-nazori-valid.json を復元してください。この状態で 06 を選ぶと「新規2件・競合0件」と出ます。それは正しい動作です（比べる相手の gate-nz-1 が端末に無いため）。');
+    p1.className = has1 && has2 ? 'ok' : 'ng';
+    box.appendChild(p1);
+    box.appendChild(el('small', 'なぞり書きの記録ID：' + (ids.length ? ids.join(', ') : '（なし）')));
+  }
+
+  function renderState() {
+    renderPrereq();
+    var t = $('stateTable'); t.innerHTML = '';
+    KEYS.forEach(function (k) {
+      var r = read(k); var tr = document.createElement('tr');
+      var a = document.createElement('td'); a.textContent = NAMES[k];
+      var b = document.createElement('td');
+      b.textContent = r.absent ? '（なし）' : (r.err ? ('異常: ' + r.err) : (r.list.length + '件 ／ 約' + Math.max(1, Math.round(r.bytes / 1024)) + 'KB'));
+      tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+    });
+    var inj = null; try { inj = localStorage.getItem('gate_injected_key'); } catch (e) {}
+    $('injected').innerHTML = inj === null
+      ? '不正なキー <code>gate_injected_key</code>：<span class="ok">書き込まれていません（正常）</span>'
+      : '不正なキー <code>gate_injected_key</code>：<span class="ng">書き込まれています（異常！ すぐ報告してください）</span>';
+  }
+
+  function el(tag, text, cls) { var n = document.createElement(tag); if (text !== undefined) n.textContent = text; if (cls) n.className = cls; return n; }
+  function fmt(ts) { var d = new Date(ts); return isNaN(d) ? String(ts) : d.toLocaleString('ja-JP'); }
+
+  function renderDetail() {
+    var box = $('detail'); box.innerHTML = '';
+    KEYS.forEach(function (k) {
+      var r = read(k); box.appendChild(el('h3', NAMES[k] + '：' + (r.absent ? 'なし' : (r.err ? r.err : r.list.length + '件')), ''));
+      if (!r.list) return;
+      r.list.forEach(function (rec) {
+        var d = el('div', undefined, 'rec');
+        if (k === 'nazori_records') {
+          var okImg = typeof rec.image === 'string' && rec.image.indexOf('data:image/png;base64,') === 0;
+          if (okImg) { var im = document.createElement('img'); im.className = 'thumb'; im.alt = ''; im.src = rec.image; d.appendChild(im); }
+          d.appendChild(el('span', 'id=' + rec.id + '｜' + fmt(rec.timestamp) + '｜画像：' + (okImg ? ('PNGあり 約' + Math.round(rec.image.length / 1024) + 'KB') : 'なし')));
+        } else if (k === 'sawatte_hirogaru_log') {
+          var tr = rec.payload && rec.payload.trace;
+          d.appendChild(el('span', fmt(rec.timestamp) + '｜trace：' + (tr
+            ? ('traceSchemaVersion=' + tr.traceSchemaVersion + ' pointLimit=' + tr.pointLimit + ' trimmed=' + tr.trimmed + ' taps=' + (tr.taps.length / 3) + '点 swipes=' + tr.swipes.length + '本')
+            : 'なし')));
+        } else {
+          var ts = rec.data && rec.data.traceSample;
+          d.appendChild(el('span', rec.time + '｜' + (rec.data && rec.data.kana) + '｜' + (ts
+            ? ('traceSample v' + ts.version + ' ' + ts.coordinateSpace + ' strokes=' + ts.strokes.length + '本 点数=' + ts.strokes.map(function (s) { return s.length / 2; }).join('+'))
+            : 'traceSampleなし')));
+        }
+        box.appendChild(d);
+      });
+    });
+  }
+
+  function refresh() { renderState(); if ($('detail').firstChild) renderDetail(); }
+  $('refresh').addEventListener('click', function () { refresh(); status('状態を更新しました。'); });
+  $('detailBtn').addEventListener('click', function () { renderState(); renderDetail(); status('記録の中身を表示しました。'); });
+
+  $('seedExisting').addEventListener('click', function () {
+    var r = read('nazori_records');
+    if (r.err) { status('なぞり書きの保存内容が読めないため、何もしませんでした。'); return; }
+    if (r.list && r.list.length > 0) { status('すでに ' + r.list.length + ' 件あるため、何もしませんでした。'); return; }
+    var rec = { id: 'gate-existing-1', sessionId: 'gate-existing-session', timestamp: new Date().toISOString(), mode: 'wide',
+                allChars: 'きぞん', charCount: 3, sessionDone: 1, sessionTotal: 1, image: PNG1 };
+    try { localStorage.setItem('nazori_records', JSON.stringify([rec])); status('既存の記録を1件入れました（gate-existing-1）。'); }
+    catch (e) { status('保存できませんでした: ' + (e && e.name)); }
+    refresh();
+  });
+
+  $('addStale').addEventListener('click', function () {
+    var r = read('nazori_records');
+    if (r.err) { status('なぞり書きの保存内容が読めないため、何もしませんでした。'); return; }
+    var list = r.list || [];
+    list.push({ id: 'gate-stale-' + Date.now(), sessionId: 'gate-stale-session', timestamp: new Date().toISOString(), mode: 'wide',
+                allChars: 'へんこう', charCount: 3, sessionDone: 1, sessionTotal: 1, image: PNG1 });
+    try { localStorage.setItem('nazori_records', JSON.stringify(list)); status('記録を1件追加しました（合計 ' + list.length + ' 件）。'); }
+    catch (e) { status('保存できませんでした: ' + (e && e.name)); }
+    refresh();
+  });
+
+  $('resetKeys').addEventListener('click', function () {
+    if (!window.confirm('このGateの4つの記録（なぞり書き・ひらがな・カタカナ・さわってひろがる）を消します。よろしいですか？')) { status('やめました。'); return; }
+    KEYS.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });   // 1 key at a time; never localStorage.clear()
+    status('4つの記録を消しました。'); refresh();
+  });
+
+  function kb(n) { return n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  var LABEL = { ok: '復元できる', partial: '一部だけ復元', warn: '警告つきで進める', reject: '拒否される' };
+  fetch('/gate-files/manifest.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (m) {
+    var t = $('files'); t.innerHTML = '';
+    m.files.forEach(function (f) {
+      var tr = document.createElement('tr'); var a = document.createElement('td');
+      var link = document.createElement('a'); link.href = '/gate-files/' + f.file; link.setAttribute('download', f.file); link.textContent = f.file;
+      a.appendChild(link); a.appendChild(document.createElement('br')); a.appendChild(el('small', kb(f.bytes) + '（' + f.bytes + ' bytes）'));
+      var b = document.createElement('td'); b.appendChild(el('b', LABEL[f.expect] || f.expect)); b.appendChild(document.createElement('br')); b.appendChild(el('small', f.note));
+      tr.appendChild(a); tr.appendChild(b); t.appendChild(tr);
+    });
+  }).catch(function () { $('files').innerHTML = '<tr><td class="ng">テストファイル一覧を読み込めませんでした（PCのサーバーが動いているか確認してください）。</td></tr>'; });
+
+  renderState();
+})();
+</script>
+</body>
+</html>
