@@ -378,8 +378,20 @@ section('16. Read-only guarantee (no write APIs, storage untouched)');
 // ────────────────────────────────────────────────────────────
 {
   const src = fs.readFileSync(path.join(REPO_ROOT, 'assets', 'js', 'record-dashboard-foundation.js'), 'utf8');
-  check('module source contains no .setItem( call', src.indexOf('.setItem(') === -1);
-  check('module source contains no .removeItem( call', src.indexOf('.removeItem(') === -1);
+  // LEARNING-RECORD-STORAGE-BACKUP-RESTORE-IMPLEMENTATION-1: Restore is the first
+  // write this module has ever made, so the original absolute rule ("no .setItem(
+  // / .removeItem( anywhere") is deliberately NARROWED, not dropped: the write
+  // APIs may appear ONLY inside the single audited function
+  // executeBackupRestore(). Every other function (including planBackupRestore()
+  // and every read/collect/normalize path) must still contain none, and .clear()
+  // stays forbidden everywhere. backup-restore-golden-tests.js proves dynamically
+  // that planning/reading never write.
+  const wStart = src.indexOf('function executeBackupRestore(');
+  const wEnd = src.indexOf('\n  return {\n    VERSION: VERSION,', wStart);
+  check('the audited writer executeBackupRestore() exists and precedes the API object', wStart > 0 && wEnd > wStart);
+  const srcWithoutWriter = src.slice(0, wStart) + src.slice(wEnd);
+  check('module source contains no .setItem( call outside executeBackupRestore()', srcWithoutWriter.indexOf('.setItem(') === -1);
+  check('module source contains no .removeItem( call outside executeBackupRestore()', srcWithoutWriter.indexOf('.removeItem(') === -1);
   check('module source contains no .clear() call', /\.clear\(\)/.test(src) === false);
   // SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1: +4 Level 2/3
   // passthrough functions (Cross-App Detail Contract §8.1), read-only same as the rest.
@@ -387,7 +399,9 @@ section('16. Read-only guarantee (no write APIs, storage untouched)');
   // Full Backup passthrough) — still read-only, still never calls
   // setItem/removeItem/clear (see the 3 checks immediately above, which
   // already cover this function's source too).
-  check('public API surface is exactly the 9 documented functions + VERSION', Object.keys(dash).sort().join(',') === 'VERSION,collectRecords,getAdapters,getBackupAction,getCsvActions,getRecordDetails,normalizeRecord,readAppRecords,renderRichVisualization,supportsRichVisualization');
+  // LEARNING-RECORD-STORAGE-BACKUP-RESTORE-IMPLEMENTATION-1: +3 checkBackupFileSize /
+  // planBackupRestore (read-only analysis) / executeBackupRestore (the one audited writer).
+  check('public API surface is exactly the 12 documented functions + VERSION', Object.keys(dash).sort().join(',') === 'VERSION,checkBackupFileSize,collectRecords,executeBackupRestore,getAdapters,getBackupAction,getCsvActions,getRecordDetails,normalizeRecord,planBackupRestore,readAppRecords,renderRichVisualization,supportsRichVisualization');
 }
 
 // ────────────────────────────────────────────────────────────

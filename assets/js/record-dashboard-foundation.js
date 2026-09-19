@@ -1524,8 +1524,429 @@
     };
   }
 
+  // ───────────────────────────────────────────────────────────────────
+  //  Phase LEARNING-RECORD-STORAGE-BACKUP-RESTORE-IMPLEMENTATION-1
+  //  Restore from a Full Backup file (Design: docs/records/
+  //  learning-record-storage-backup-restore-design-v1_0.md).
+  //
+  //  Three pure-ish steps, all fail-closed:
+  //    checkBackupFileSize(bytes)        size gate, BEFORE the file is read/parsed
+  //    planBackupRestore(text, options)  parse + validate + analyse + build the
+  //                                      merged result IN MEMORY. Never writes.
+  //    executeBackupRestore(plan, ...)   the only step that writes: re-reads the
+  //                                      key, aborts if it changed since the
+  //                                      preview, ONE setItem, read-back verify,
+  //                                      rollback on verify failure.
+  //  Nothing here trusts the file: the write target comes from the adapter
+  //  registry (never from the file's storageKey), only opted-in apps can be
+  //  restored, and records are stored exactly as validated (never field-merged).
+  // ───────────────────────────────────────────────────────────────────
+
+  // Provisional limits; to be re-evaluated by the Safari/iPad gate.
+  var RESTORE_FILE_WARN_BYTES = 3 * 1024 * 1024;
+  var RESTORE_FILE_MAX_BYTES = 10 * 1024 * 1024;
+  var RESTORE_MAX_RECORDS = 20000;
+  var RESTORE_MAX_DEPTH = 16;
+  var RESTORE_MAX_IMAGE_CHARS = 8 * 1024 * 1024;
+  var RESTORE_MAX_STROKES = 100;
+  var RESTORE_MAX_STROKE_NUMBERS = 2000;
+  var RESTORE_MAX_TRACE_NUMBERS = 6000;
+  var RESTORE_MAX_SWIPES = 2000;
+  var RESTORE_SUPPORTED_BACKUP_VERSION = 1;
+  // Mirrors of the apps' own retention caps (enforced by the apps on their next
+  // save by dropping the OLDEST records). A golden test reads the app HTML and
+  // fails if these drift. Kana apps have no cap, so they are deliberately absent.
+  var RESTORE_RETENTION_CAPS = { 'nazori-app': 60, 'sawatte-hirogaru-app': 200 };
+
+  function hasOwn(obj, key) { return Object.prototype.hasOwnProperty.call(obj, key); }
+  function isPlainObject(v) { return v !== null && typeof v === 'object' && Object.prototype.toString.call(v) === '[object Object]'; }
+  function isForbiddenKey(k) { return k === '__proto__' || k === 'constructor' || k === 'prototype'; }
+  function isParseableDate(s) { return typeof s === 'string' && s.length > 0 && s.length <= 64 && !isNaN(Date.parse(s)); }
+
+  // Untrusted-JSON guard: bounded depth, JSON-only value types, and no
+  // __proto__/constructor/prototype keys anywhere (records are stored as-is and
+  // never merged field by field, so this is defence in depth).
+  function isSafeJson(value, depth) {
+    if (depth > RESTORE_MAX_DEPTH) return false;
+    if (value === null) return true;
+    var t = typeof value;
+    if (t === 'string' || t === 'boolean') return true;
+    if (t === 'number') return isFinite(value);
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i++) { if (!isSafeJson(value[i], depth + 1)) return false; }
+      return true;
+    }
+    if (isPlainObject(value)) {
+      var keys = Object.keys(value);
+      for (var k = 0; k < keys.length; k++) {
+        if (isForbiddenKey(keys[k])) return false;
+        if (!isSafeJson(value[keys[k]], depth + 1)) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Stable normalization: object keys sorted, array order preserved. Two plain
+  // JSON values are deeply equal iff their canonical strings are equal.
+  function canonicalJson(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) {
+      var parts = [];
+      for (var i = 0; i < value.length; i++) parts.push(canonicalJson(value[i]));
+      return '[' + parts.join(',') + ']';
+    }
+    var keys = Object.keys(value).sort();
+    var out = [];
+    for (var k = 0; k < keys.length; k++) out.push(JSON.stringify(keys[k]) + ':' + canonicalJson(value[keys[k]]));
+    return '{' + out.join(',') + '}';
+  }
+
+  // Non-cryptographic 53-bit hash (cyrb53). Only NARROWS candidates; a match is
+  // always confirmed by full canonical-string equality. crypto.subtle is not
+  // used: it is undefined on insecure (plain-http) origins.
+  function hash53(str) {
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0; i < str.length; i++) {
+      var ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  }
+  function fingerprintKey(canon) { return hash53(canon) + ':' + canon.length; }
+
+  var PNG_DATA_URL_PREFIX = 'data:image/png;base64,';
+  // Base64 of the PNG signature (89 50 4E 47 0D 0A 1A 0A): first 10 chars are fixed.
+  var PNG_BASE64_MAGIC = 'iVBORw0KGg';
+  function isValidRestorePngDataUrl(v) {
+    if (typeof v !== 'string' || v.indexOf(PNG_DATA_URL_PREFIX) !== 0) return false;
+    var b64 = v.slice(PNG_DATA_URL_PREFIX.length);
+    if (b64.length === 0 || b64.length > RESTORE_MAX_IMAGE_CHARS || b64.length % 4 !== 0) return false;
+    if (b64.indexOf(PNG_BASE64_MAGIC) !== 0) return false;
+    return /^[A-Za-z0-9+\/]*={0,2}$/.test(b64);
+  }
+
+  function numbersInRange(arr, max, lo, hi) {
+    if (arr.length > max) return false;
+    for (var i = 0; i < arr.length; i++) {
+      var n = arr[i];
+      if (typeof n !== 'number' || !isFinite(n) || n < lo || n > hi) return false;
+    }
+    return true;
+  }
+
+  // Each validator returns null when the record is acceptable, else a reason code.
+  function validateNazoriRestoreRecord(r) {
+    if (!isPlainObject(r)) return 'not-object';
+    if (!isParseableDate(r.timestamp)) return 'bad-timestamp';
+    if (r.id !== undefined && (typeof r.id !== 'string' || r.id.length === 0 || r.id.length > 200)) return 'bad-id';
+    if (r.sessionId !== undefined && typeof r.sessionId !== 'string') return 'bad-session';
+    if (r.schemaVersion !== undefined && r.schemaVersion !== 1) return 'bad-schema-version';
+    if (r.image !== undefined && !isValidRestorePngDataUrl(r.image)) return 'bad-image';
+    if (r.charImages !== undefined) {
+      if (!Array.isArray(r.charImages) || r.charImages.length > 500) return 'bad-char-images';
+      for (var i = 0; i < r.charImages.length; i++) {
+        var ci = r.charImages[i];
+        if (!isPlainObject(ci) || !isValidRestorePngDataUrl(ci.image)) return 'bad-char-images';
+        if (ci.char !== undefined && typeof ci.char !== 'string') return 'bad-char-images';
+      }
+    }
+    return null;
+  }
+
+  function validateKanaRestoreRecord(r) {
+    if (!isPlainObject(r)) return 'not-object';
+    if (!isParseableDate(r.time)) return 'bad-time';
+    if (typeof r.type !== 'string' || r.type.length === 0) return 'bad-type';
+    if (!isPlainObject(r.data)) return 'bad-data';
+    if (r.schemaVersion !== undefined && r.schemaVersion !== 1) return 'bad-schema-version';
+    var ts = r.data.traceSample;
+    if (ts !== undefined) {
+      // Same rules as kana-record-trace-renderer.isValidTraceSample(), plus upper bounds.
+      if (!isPlainObject(ts) || ts.version !== 1 || ts.coordinateSpace !== 'normalized-1000') return 'bad-trace';
+      if (!Array.isArray(ts.strokes) || ts.strokes.length === 0 || ts.strokes.length > RESTORE_MAX_STROKES) return 'bad-trace';
+      for (var i = 0; i < ts.strokes.length; i++) {
+        var s = ts.strokes[i];
+        if (!Array.isArray(s) || s.length === 0 || s.length % 2 !== 0) return 'bad-trace';
+        if (!numbersInRange(s, RESTORE_MAX_STROKE_NUMBERS, 0, 1000)) return 'bad-trace';
+      }
+    }
+    return null;
+  }
+
+  // x,y in 0..1000, t (every 3rd value) >= 0: same as record-trace-renderer.validFlatArray().
+  function validSawatteFlat(arr, max) {
+    if (!Array.isArray(arr) || arr.length > max || arr.length % 3 !== 0) return false;
+    for (var i = 0; i < arr.length; i++) {
+      var v = arr[i];
+      if (typeof v !== 'number' || !isFinite(v)) return false;
+      if (i % 3 === 2) { if (v < 0) return false; } else if (v < 0 || v > 1000) return false;
+    }
+    return true;
+  }
+
+  function validateSawatteRestoreRecord(r) {
+    if (!isPlainObject(r)) return 'not-object';
+    if (!isParseableDate(r.timestamp)) return 'bad-timestamp';
+    if (r.appId !== 'sawatte-hirogaru-app') return 'bad-app-id';
+    if (typeof r.activity !== 'string' || r.activity.length === 0) return 'bad-activity';
+    if (r.schemaVersion !== undefined && r.schemaVersion !== 1) return 'bad-schema-version';
+    if (!isPlainObject(r.payload)) return 'bad-payload';
+    var t = r.payload.trace;
+    if (t !== undefined) {
+      if (!isPlainObject(t) || t.traceSchemaVersion !== 1) return 'bad-trace';
+      if (typeof t.pointLimit !== 'number' || !isFinite(t.pointLimit) || t.pointLimit < 1 || t.pointLimit > 10000) return 'bad-trace';
+      if (typeof t.trimmed !== 'boolean') return 'bad-trace';
+      if (!validSawatteFlat(t.taps, RESTORE_MAX_TRACE_NUMBERS)) return 'bad-trace';
+      if (!Array.isArray(t.swipes) || t.swipes.length > RESTORE_MAX_SWIPES) return 'bad-trace';
+      for (var i = 0; i < t.swipes.length; i++) {
+        if (!Array.isArray(t.swipes[i]) || t.swipes[i].length === 0 || !validSawatteFlat(t.swipes[i], RESTORE_MAX_TRACE_NUMBERS)) return 'bad-trace';
+      }
+    }
+    return null;
+  }
+
+  var RESTORE_VALIDATORS = {
+    'nazori-app': validateNazoriRestoreRecord,
+    'hiragana-learn': validateKanaRestoreRecord,
+    'katakana-app': validateKanaRestoreRecord,
+    'sawatte-hirogaru-app': validateSawatteRestoreRecord
+  };
+
+  // Timestamp used for ordering and the preview date range.
+  function restoreRecordMs(appId, r) {
+    var v = (appId === 'hiragana-learn' || appId === 'katakana-app') ? r.time : r.timestamp;
+    return (typeof v === 'string') ? Date.parse(v) : NaN;
+  }
+
+  // Strong identity, only where the app really has one. Kana has none (its
+  // `time` has minute resolution, so "same time, different content" is normal).
+  function restoreIdentity(appId, r) {
+    if (appId === 'nazori-app' && typeof r.id === 'string') return 'id:' + r.id;
+    if (appId === 'sawatte-hirogaru-app') return 'ts:' + r.timestamp;
+    return null;
+  }
+
+  function checkBackupFileSize(bytes) {
+    if (typeof bytes !== 'number' || !isFinite(bytes) || bytes < 0 || bytes > RESTORE_FILE_MAX_BYTES) {
+      return { level: 'reject', warnBytes: RESTORE_FILE_WARN_BYTES, maxBytes: RESTORE_FILE_MAX_BYTES };
+    }
+    return { level: bytes > RESTORE_FILE_WARN_BYTES ? 'warn' : 'ok', warnBytes: RESTORE_FILE_WARN_BYTES, maxBytes: RESTORE_FILE_MAX_BYTES };
+  }
+
+  function classifyRestoreWriteError(e) {
+    var name = e && e.name;
+    var code = (e && typeof e.code === 'number') ? e.code : null;
+    if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED' || code === 22 || code === 1014) return 'quota';
+    if (name === 'SecurityError') return 'security';
+    return 'unknown';
+  }
+
+  function rejectRestore(code, extra) {
+    var r = { ok: false, code: code };
+    if (extra) { for (var k in extra) { if (hasOwn(extra, k)) r[k] = extra[k]; } }
+    return r;
+  }
+
+  // Parse + validate + analyse. NEVER writes storage. Result:
+  //   { ok:false, code, ... }  (nothing may be restored), or
+  //   { ok:true, plan:{ ...counts..., serialized, existingRaw, storageKey } }
+  function planBackupRestore(text, options) {
+    options = options || {};
+    var storage = options.storage || getDefaultStorage();
+
+    if (typeof text !== 'string') return rejectRestore('not-json');
+    if (text.length > RESTORE_FILE_MAX_BYTES) return rejectRestore('file-too-large');
+    var root;
+    try { root = JSON.parse(text); } catch (e) { return rejectRestore('not-json'); }
+    if (!isPlainObject(root)) return rejectRestore('bad-envelope');
+    if (!isSafeJson(root, 0)) return rejectRestore('bad-envelope');
+
+    var v = root.backupFormatVersion;
+    if (typeof v !== 'number' || v % 1 !== 0 || v < 1) return rejectRestore('unsupported-version');
+    if (v > RESTORE_SUPPORTED_BACKUP_VERSION) return rejectRestore('unsupported-version', { future: true });
+    if (v !== RESTORE_SUPPORTED_BACKUP_VERSION) return rejectRestore('unsupported-version');
+
+    // appId comes from the FILE: treat as untrusted (hasOwn guards inherited names
+    // like "constructor"). Only adapters opted in to Full Backup that also have a
+    // record validator can be restored.
+    var appId = root.appId;
+    if (typeof appId !== 'string' || !hasOwn(RECORD_ADAPTERS, appId) || !hasOwn(RESTORE_VALIDATORS, appId)) return rejectRestore('wrong-app');
+    var adapter = RECORD_ADAPTERS[appId];
+    if (adapter.supportsFullBackup !== true) return rejectRestore('wrong-app');
+    // The file's storageKey is never a write target; it must merely agree with the adapter's.
+    if (root.storageKey !== adapter.storageKey) return rejectRestore('wrong-key');
+    var storageKey = adapter.storageKey;
+
+    var records = root.records;
+    if (!Array.isArray(records) || records.length > RESTORE_MAX_RECORDS) return rejectRestore('bad-envelope');
+    if (typeof root.recordCount !== 'number' || root.recordCount % 1 !== 0 || root.recordCount !== records.length) return rejectRestore('bad-envelope');
+    if (!isParseableDate(root.exportedAt)) return rejectRestore('bad-envelope');
+
+    var validate = RESTORE_VALIDATORS[appId];
+    var invalidCount = 0;
+    for (var i = 0; i < records.length; i++) { if (validate(records[i]) !== null) invalidCount++; }
+    if (invalidCount > 0) return rejectRestore('invalid-records', { invalidCount: invalidCount });
+
+    // Existing data: never overwritten if it cannot be read as an array.
+    var existingRaw, existing;
+    try { existingRaw = storage.getItem(storageKey); } catch (e2) { return rejectRestore('storage-unavailable'); }
+    if (existingRaw === null || existingRaw === undefined || existingRaw === '') {
+      existing = [];
+      existingRaw = (existingRaw === '') ? '' : null;
+    } else {
+      try { existing = JSON.parse(existingRaw); } catch (e3) { return rejectRestore('existing-unreadable'); }
+      if (!Array.isArray(existing)) return rejectRestore('existing-unreadable');
+    }
+
+    var exFp = {};
+    var exIdentity = {};
+    try {
+      for (var x = 0; x < existing.length; x++) {
+        var ek = fingerprintKey(canonicalJson(existing[x]));
+        (exFp[ek] = exFp[ek] || []).push(x);
+        if (isPlainObject(existing[x])) {
+          var eid = restoreIdentity(appId, existing[x]);
+          if (eid !== null) exIdentity[eid] = true;
+        }
+      }
+    } catch (e4) { return rejectRestore('existing-unreadable'); }
+
+    // Classify every backup record: duplicate / conflict / new.
+    var newFp = {};
+    var newIdentity = {};
+    var newItems = [];
+    var duplicateCount = 0, conflictCount = 0;
+    var earliest = Infinity, latest = -Infinity;
+    for (var b = 0; b < records.length; b++) {
+      var rec = records[b];
+      var ms = restoreRecordMs(appId, rec);
+      if (ms < earliest) earliest = ms;
+      if (ms > latest) latest = ms;
+      var canon = canonicalJson(rec);
+      var fk = fingerprintKey(canon);
+      var isDup = false;
+      var cands = exFp[fk];
+      if (cands) {
+        for (var c = 0; c < cands.length; c++) { if (canonicalJson(existing[cands[c]]) === canon) { isDup = true; break; } }
+      }
+      if (!isDup && newFp[fk]) {
+        for (var d = 0; d < newFp[fk].length; d++) { if (newFp[fk][d] === canon) { isDup = true; break; } }
+      }
+      if (isDup) { duplicateCount++; continue; }
+      var ident = restoreIdentity(appId, rec);
+      if (ident !== null && (exIdentity[ident] || newIdentity[ident])) { conflictCount++; continue; }
+      (newFp[fk] = newFp[fk] || []).push(canon);
+      if (ident !== null) newIdentity[ident] = true;
+      newItems.push({ rec: rec, ms: ms, idx: b });
+    }
+
+    // Retention: the app itself drops its OLDEST records past the cap on its next
+    // save, so Restore never exceeds it and never evicts. Fill only the free
+    // slots, newest backup records first; report the rest.
+    var newCount = newItems.length;
+    var cap = hasOwn(RESTORE_RETENTION_CAPS, appId) ? RESTORE_RETENTION_CAPS[appId] : null;
+    var toAdd = newItems;
+    var overLimitCount = 0;
+    if (cap !== null) {
+      var available = Math.max(0, cap - existing.length);
+      if (newItems.length > available) {
+        var byNewest = newItems.slice().sort(function (p, q) { return (q.ms - p.ms) || (q.idx - p.idx); });
+        toAdd = byNewest.slice(0, available);
+        overLimitCount = newItems.length - toAdd.length;
+      }
+    }
+
+    var plan = {
+      appId: appId,
+      appName: adapter.appName,
+      storageKey: storageKey,
+      backupFormatVersion: v,
+      exportedAt: root.exportedAt,
+      total: records.length,
+      newCount: newCount,
+      duplicateCount: duplicateCount,
+      conflictCount: conflictCount,
+      invalidCount: 0,
+      overLimitCount: overLimitCount,
+      addCount: toAdd.length,
+      existingCount: existing.length,
+      retentionCap: cap,
+      earliestMs: records.length ? earliest : null,
+      latestMs: records.length ? latest : null,
+      existingRaw: existingRaw,
+      serialized: null,
+      estimatedChars: existingRaw ? existingRaw.length : 0,
+      finalCount: existing.length
+    };
+
+    if (toAdd.length > 0) {
+      // Ordered merge: existing records keep their exact relative order (never
+      // re-sorted, never dropped); new ones are inserted by timestamp, ties
+      // after the existing record.
+      var addSorted = toAdd.slice().sort(function (p, q) { return (p.ms - q.ms) || (p.idx - q.idx); });
+      var merged = [];
+      var ei = 0, ai = 0;
+      while (ei < existing.length && ai < addSorted.length) {
+        var et = isPlainObject(existing[ei]) ? restoreRecordMs(appId, existing[ei]) : NaN;
+        if (addSorted[ai].ms < et) merged.push(addSorted[ai++].rec);
+        else merged.push(existing[ei++]);
+      }
+      while (ei < existing.length) merged.push(existing[ei++]);
+      while (ai < addSorted.length) merged.push(addSorted[ai++].rec);
+      plan.serialized = JSON.stringify(merged);
+      plan.estimatedChars = plan.serialized.length;
+      plan.finalCount = merged.length;
+    }
+    return { ok: true, plan: plan };
+  }
+
+  // The only step that writes. ONE setItem for the ONE key the plan names.
+  // Success is reported only after a read-back proves the exact value is stored.
+  function executeBackupRestore(plan, options) {
+    options = options || {};
+    var storage = options.storage || getDefaultStorage();
+    if (!plan || typeof plan.storageKey !== 'string' || plan.storageKey.length === 0) return { ok: false, code: 'bad-plan' };
+    if (typeof plan.serialized !== 'string') return { ok: true, added: 0, noWrite: true };
+
+    var current;
+    try { current = storage.getItem(plan.storageKey); } catch (e) { return { ok: false, code: 'security' }; }
+    if (current === undefined) current = null;
+    if (current !== plan.existingRaw) return { ok: false, code: 'stale' };
+
+    try {
+      storage.setItem(plan.storageKey, plan.serialized);
+    } catch (e2) {
+      return { ok: false, code: classifyRestoreWriteError(e2) };
+    }
+
+    var readBack;
+    try { readBack = storage.getItem(plan.storageKey); } catch (e3) { readBack = undefined; }
+    if (readBack === plan.serialized) {
+      return { ok: true, added: plan.addCount, duplicates: plan.duplicateCount, conflicts: plan.conflictCount,
+               overLimit: plan.overLimitCount, finalCount: plan.finalCount };
+    }
+
+    // Written value does not read back exactly: do NOT report success. Try to put
+    // the previous value back (held in memory only; no permanent safety key).
+    var rolledBack = false;
+    try {
+      if (plan.existingRaw === null) storage.removeItem(plan.storageKey);
+      else storage.setItem(plan.storageKey, plan.existingRaw);
+      var after = storage.getItem(plan.storageKey);
+      rolledBack = (plan.existingRaw === null) ? (after === null || after === undefined) : (after === plan.existingRaw);
+    } catch (e4) { rolledBack = false; }
+    return { ok: false, code: rolledBack ? 'verify-failed' : 'critical', rolledBack: rolledBack };
+  }
+
   return {
     VERSION: VERSION,
+    planBackupRestore: planBackupRestore,
+    executeBackupRestore: executeBackupRestore,
+    checkBackupFileSize: checkBackupFileSize,
     getAdapters: getAdapters,
     readAppRecords: readAppRecords,
     collectRecords: collectRecords,

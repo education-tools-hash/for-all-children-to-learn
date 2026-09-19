@@ -81,6 +81,8 @@ body.hc-mode .record-card{background:#1a1a1a !important; border-color:#fff !impo
 body.hc-mode .record-app, body.hc-mode .record-summary, body.hc-mode .record-time{color:#fff !important}
 body.hc-mode .modal-box{background:#111 !important; color:#fff}
 body.hc-mode .modal-head h3, body.hc-mode .detail-row .dl, body.hc-mode .detail-row .dv{color:#fff}
+body.hc-mode .restore-live, body.hc-mode .restore-status, body.hc-mode .restore-notes, body.hc-mode .restore-lead{color:#fff}
+body.hc-mode .restore-actions .secondary{background:#111; color:#fff; border-color:#fff}
 body.hc-mode .filter-field select{background:#222; color:#fff; border-color:#fff}
 
 /* 文字サイズ */
@@ -198,6 +200,27 @@ footer a{color:#7FD6CE; font-weight:700}
   background:var(--paper); color:var(--teal-dark); font-weight:700; font-size:.82rem}
 .detail-csv-actions button:hover{background:var(--teal-tint)}
 .detail-csv-actions button:disabled{opacity:.5; cursor:not-allowed}
+
+/* Restore (LEARNING-RECORD-STORAGE-BACKUP-RESTORE-IMPLEMENTATION-1): a page-level
+   action (NOT inside the record detail modal: an empty device has no record and
+   therefore no detail modal) + a preview/confirm/result dialog that reuses the
+   detail modal's overlay/box styling. */
+.restore-lead{font-size:.9rem; color:var(--ink-soft); font-weight:500; margin:6px 0 12px}
+.restore-status{font-size:.86rem; font-weight:700; color:var(--teal-dark); margin-top:10px; min-height:1.2em}
+.restore-live{border-radius:12px; padding:12px 14px; font-size:.92rem; font-weight:700; margin:0 0 12px}
+.restore-live.ok{background:var(--teal-tint); color:var(--ink)}
+.restore-live.error{background:var(--orange-tint); color:#8A5A15}
+.restore-notes{margin:12px 0 0; padding-left:1.2em; font-size:.84rem; color:var(--ink-soft); font-weight:500; line-height:1.6}
+.restore-notes li{margin-bottom:6px}
+.restore-confirm{font-size:.98rem; font-weight:900; margin:14px 0 4px}
+.restore-actions{display:flex; flex-wrap:wrap; gap:10px; margin-top:16px}
+.restore-actions button{min-height:44px; padding:10px 22px; border-radius:999px; font:inherit; font-weight:900; cursor:pointer}
+.restore-actions .primary{border:none; background:var(--teal); color:#fff}
+.restore-actions .primary:hover{background:var(--teal-dark)}
+.restore-actions .secondary{border:1.5px solid var(--teal); background:var(--paper); color:var(--teal-dark)}
+.restore-actions .secondary:hover{background:var(--teal-tint)}
+.restore-actions button:disabled{opacity:.5; cursor:not-allowed}
+#restore-modal-title:focus{outline:none}
 
 @media (max-width:760px){
   .filter-grid{grid-template-columns:1fr 1fr}
@@ -366,6 +389,21 @@ footer a{color:#7FD6CE; font-weight:700}
 
   </div>
 
+  <!-- Restore (LEARNING-RECORD-STORAGE-BACKUP-RESTORE-IMPLEMENTATION-1). Deliberately OUTSIDE
+       #dashboard-body: it must be reachable on an empty device (the main use case), where the
+       record list and record detail modal do not exist. Revealed by script only when the
+       Foundation provides the restore API. -->
+  <section class="card" id="restore-section" aria-labelledby="restore-heading" hidden>
+    <h2 id="restore-heading">バックアップから復元</h2>
+    <p class="restore-lead">「完全バックアップ」で書き出したファイルから、記録を復元できます。今ある記録は削除されません。</p>
+    <div class="actions-row">
+      <button type="button" id="restore-btn" class="csv-btn">📥 バックアップから復元</button>
+      <span class="csv-note">対象：なぞり書き・ひらがな・カタカナ・さわってひろがる</span>
+    </div>
+    <input type="file" id="restore-file-input" accept=".json,application/json" hidden tabindex="-1" aria-hidden="true">
+    <p id="restore-status" class="restore-status" role="status" aria-live="polite"></p>
+  </section>
+
 </main>
 
 <div aria-live="polite" class="sr-live" id="filter-live-region"></div>
@@ -377,6 +415,17 @@ footer a{color:#7FD6CE; font-weight:700}
       <button type="button" class="modal-close" id="detail-modal-close" aria-label="閉じる">×</button>
     </div>
     <div id="detail-modal-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="restore-modal" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="restore-modal-title" tabindex="-1">バックアップから復元</h3>
+      <button type="button" class="modal-close" id="restore-modal-close" aria-label="閉じる">×</button>
+    </div>
+    <div id="restore-modal-body"></div>
+    <div class="restore-actions" id="restore-modal-actions"></div>
   </div>
 </div>
 
@@ -431,7 +480,16 @@ footer a{color:#7FD6CE; font-weight:700}
     liveRegion: document.getElementById('filter-live-region'),
     detailModal: document.getElementById('record-detail-modal'),
     detailModalBody: document.getElementById('detail-modal-body'),
-    detailModalClose: document.getElementById('detail-modal-close')
+    detailModalClose: document.getElementById('detail-modal-close'),
+    restoreSection: document.getElementById('restore-section'),
+    restoreBtn: document.getElementById('restore-btn'),
+    restoreInput: document.getElementById('restore-file-input'),
+    restoreStatus: document.getElementById('restore-status'),
+    restoreModal: document.getElementById('restore-modal'),
+    restoreTitle: document.getElementById('restore-modal-title'),
+    restoreBody: document.getElementById('restore-modal-body'),
+    restoreActions: document.getElementById('restore-modal-actions'),
+    restoreClose: document.getElementById('restore-modal-close')
   };
 
   var allRecords = [];
@@ -699,9 +757,11 @@ footer a{color:#7FD6CE; font-weight:700}
   });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Tab') return;
-    if (el.detailModal.hidden) return;
+    // Whichever modal is open owns the Tab key (detail modal, or the restore dialog).
+    var openModal = !el.detailModal.hidden ? el.detailModal : (!el.restoreModal.hidden ? el.restoreModal : null);
+    if (!openModal) return;
     var focusables = Array.prototype.slice.call(
-      el.detailModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')
+      openModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])')
     ).filter(function (n) { return n.offsetParent !== null && !n.disabled; });
     if (!focusables.length) return;
     var first = focusables[0], last = focusables[focusables.length - 1];
@@ -731,36 +791,250 @@ footer a{color:#7FD6CE; font-weight:700}
     el[key].addEventListener('change', render);
   });
 
-  // ────────────────────────────────────────────────────────────
-  //  Init
-  // ────────────────────────────────────────────────────────────
-  function init() {
-    if (!FOUNDATION || !UI) {
-      el.emptyState.hidden = false;
-      el.emptyState.querySelector('strong').textContent = 'このページを表示できませんでした。';
-      return;
-    }
+  // ─────────────────────────────────────────────────────
+  //  Restore from a Full Backup file
+  //  (LEARNING-RECORD-STORAGE-BACKUP-RESTORE-IMPLEMENTATION-1). All decisions live
+  //  in FOUNDATION.checkBackupFileSize / planBackupRestore / executeBackupRestore
+  //  (unit-tested); this is only the thin, DOM-safe glue: file picker -> preview
+  //  dialog -> explicit confirm -> result. Nothing is written until the user
+  //  presses 「復元する」, and the write is one setItem (see the Foundation).
+  // ─────────────────────────────────────────────────────
+  var RESTORE_READ_ERROR = 'バックアップを読み込めませんでした。ファイルの内容をご確認ください。';
+  var RESTORE_WRITE_ERROR = '記録を復元できませんでした。端末の保存容量やブラウザの設定をご確認ください。';
+  var RESTORE_MESSAGES = {
+    'file-too-large': 'ファイルが大きすぎるため、復元できません。（10MBまで）',
+    'not-json': RESTORE_READ_ERROR,
+    'bad-envelope': RESTORE_READ_ERROR,
+    'unsupported-version': 'このバックアップの形式には対応していません。',
+    'unsupported-version-future': 'このバックアップは、新しいバージョンで作成されています。復元できません。',
+    'wrong-app': 'このファイルは、復元に対応している教材のバックアップではありません。',
+    'wrong-key': 'このファイルは、復元に対応している教材のバックアップではありません。',
+    'existing-unreadable': 'この端末の今ある記録を読み取れないため、復元できません。',
+    'storage-unavailable': 'この端末の記録を読み込めませんでした。ブラウザの設定をご確認ください。',
+    'stale': '記録が変更されたため、復元を中止しました。もう一度、ファイルを選んで確認してください。',
+    'quota': RESTORE_WRITE_ERROR,
+    'security': RESTORE_WRITE_ERROR,
+    'unknown': RESTORE_WRITE_ERROR,
+    'verify-failed': '復元した内容を確認できなかったため、元の状態に戻しました。もう一度お試しください。',
+    'critical': '復元に失敗し、元の状態に戻せませんでした。記録の内容をご確認ください。',
+    'bad-plan': RESTORE_READ_ERROR
+  };
+  var restorePlan = null;
 
+  function restoreSupported() {
+    return !!(FOUNDATION && typeof FOUNDATION.planBackupRestore === 'function' &&
+      typeof FOUNDATION.executeBackupRestore === 'function' && typeof FOUNDATION.checkBackupFileSize === 'function');
+  }
+
+  function restoreErrorMessage(result) {
+    if (result.code === 'invalid-records') {
+      return 'バックアップの中に、読み込めない記録が' + result.invalidCount + '件あるため、復元しませんでした。';
+    }
+    if (result.code === 'unsupported-version' && result.future) return RESTORE_MESSAGES['unsupported-version-future'];
+    return RESTORE_MESSAGES[result.code] || RESTORE_READ_ERROR;
+  }
+
+  function formatKb(chars) {
+    if (chars >= 1048576) return '約' + (chars / 1048576).toFixed(1) + 'MB';
+    return '約' + Math.max(1, Math.round(chars / 1024)) + 'KB';
+  }
+
+  function formatRange(startMs, endMs) {
+    if (startMs === null || endMs === null || isNaN(startMs) || isNaN(endMs)) return '不明';
+    var a = UI.formatDisplayDateTime(new Date(startMs).toISOString()).date;
+    var b = UI.formatDisplayDateTime(new Date(endMs).toISOString()).date;
+    return a === b ? a : (a + ' 〜 ' + b);
+  }
+
+  function restoreButton(label, kind, onClick) {
+    var b = make('button', kind, label);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  // Shows the dialog in one of three states; focus goes to the title so a screen reader
+  // reads the new content, and Tab stays inside (shared focus trap).
+  function showRestoreDialog(title, contentNodes, actionNodes) {
+    el.restoreTitle.textContent = title;
+    el.restoreBody.innerHTML = '';
+    contentNodes.forEach(function (n) { el.restoreBody.appendChild(n); });
+    el.restoreActions.innerHTML = '';
+    actionNodes.forEach(function (n) { el.restoreActions.appendChild(n); });
+    el.restoreModal.hidden = false;
+    el.restoreTitle.focus();
+  }
+
+  function closeRestoreDialog() {
+    el.restoreModal.hidden = true;
+    restorePlan = null;
+    el.restoreInput.value = '';
+    if (typeof el.restoreBtn.focus === 'function') el.restoreBtn.focus();
+  }
+
+  function liveBox(kind, text) {
+    var box = make('p', 'restore-live ' + (kind === 'error' ? 'error' : 'ok'), text);
+    box.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    return box;
+  }
+
+  function showRestoreError(result) {
+    restorePlan = null;
+    showRestoreDialog('復元できませんでした', [liveBox('error', restoreErrorMessage(result))],
+      [restoreButton('閉じる', 'primary', closeRestoreDialog)]);
+  }
+
+  function showRestorePreview(plan, sizeLevel) {
+    restorePlan = plan;
+    var nodes = [];
+    var exported = UI.formatDisplayDateTime(plan.exportedAt);
+    nodes.push(detailRow('教材', plan.appName));
+    nodes.push(detailRow('バックアップの作成日時', exported.date + ' ' + (exported.time || '')));
+    nodes.push(detailRow('ファイル内の記録の期間', formatRange(plan.earliestMs, plan.latestMs)));
+    nodes.push(detailRow('ファイル内の記録', plan.total + '件'));
+    nodes.push(detailRow('新しく追加できる記録', plan.addCount + '件'));
+    nodes.push(detailRow('すでにある記録（重複・追加しません）', plan.duplicateCount + '件'));
+    if (plan.conflictCount > 0) nodes.push(detailRow('今の記録と内容が異なる同じ記録（復元しません）', plan.conflictCount + '件'));
+    if (plan.overLimitCount > 0) nodes.push(detailRow('保存できる上限を超えるため追加できない記録', plan.overLimitCount + '件'));
+    nodes.push(detailRow('復元後の記録の数', plan.finalCount + '件'));
+    nodes.push(detailRow('復元後の保存サイズの目安', formatKb(plan.estimatedChars)));
+
+    var notes = make('ul', 'restore-notes');
+    notes.appendChild(make('li', null, '今ある記録は削除されません。'));
+    notes.appendChild(make('li', null, 'この端末で使っている記録のバックアップかどうか、ご確認ください。（ファイルの記録が、どのお子さまのものかは判定できません。）'));
+    notes.appendChild(make('li', null, 'ひらがな・カタカナ・なぞり書きなどの教材を開いている他のタブや画面があれば、閉じてから復元してください。'));
+    if (plan.retentionCap !== null) {
+      notes.appendChild(make('li', null, 'この教材で保存できる記録は最大' + plan.retentionCap + '件です。今ある記録は削除せず、空いている分だけ、新しい記録から追加します。'));
+    }
+    if (plan.conflictCount > 0) notes.appendChild(make('li', null, '今の記録と内容が異なる同じ記録は、上書きせずそのままにします。'));
+    if (sizeLevel === 'warn') notes.appendChild(make('li', null, 'ファイルが大きいため、処理に時間がかかることがあります。'));
+    nodes.push(notes);
+
+    var actions = [];
+    if (plan.addCount > 0) {
+      nodes.push(make('p', 'restore-confirm', plan.addCount + '件の記録を追加します。今ある記録は削除されません。'));
+      var confirmBtn = restoreButton('復元する', 'primary', function () { confirmRestore(); });
+      actions.push(confirmBtn);
+      var backupAction = FOUNDATION.getBackupAction(plan.appId);
+      if (plan.existingCount > 0 && backupAction) {
+        // Optional and never automatic: reuses the existing Full Backup export; stores nothing itself.
+        actions.push(restoreButton('先に今の記録をバックアップする', 'secondary', function () {
+          var rawAll = (FOUNDATION.readAppRecords(plan.appId).rawRecords) || [];
+          downloadCommonAppBackup(backupAction.buildBackup(rawAll), backupAction.filenamePrefix);
+          var done = liveBox('ok', '今の記録のバックアップを保存しました。続けて復元する場合は「復元する」を押してください。');
+          el.restoreBody.insertBefore(done, el.restoreBody.firstChild);
+        }));
+      }
+      actions.push(restoreButton('やめる', 'secondary', closeRestoreDialog));
+    } else {
+      nodes.push(liveBox('ok', '追加できる記録はありませんでした。'));
+      actions.push(restoreButton('閉じる', 'primary', closeRestoreDialog));
+    }
+    showRestoreDialog('復元の確認', nodes, actions);
+  }
+
+  function confirmRestore() {
+    if (!restorePlan) return;
+    var plan = restorePlan;
+    Array.prototype.forEach.call(el.restoreActions.querySelectorAll('button'), function (b) { b.disabled = true; });
+    var result = FOUNDATION.executeBackupRestore(plan);
+    restorePlan = null;
+    if (!result.ok) { showRestoreError(result); return; }
+
+    var lines = [];
+    lines.push(detailRow('追加', result.added + '件'));
+    lines.push(detailRow('重複（追加しませんでした）', result.duplicates + '件'));
+    if (result.conflicts > 0) lines.push(detailRow('内容が異なるため復元しなかった記録', result.conflicts + '件'));
+    if (result.overLimit > 0) lines.push(detailRow('保存できる上限のため追加できなかった記録', result.overLimit + '件'));
+    lines.push(detailRow('復元後の記録の数', result.finalCount + '件'));
+    var note = make('p', 'restore-notes', '表示する期間を「すべて」に切り替えました。教材を開いていた場合は、開き直してください。');
+    showRestoreDialog('復元しました',
+      [liveBox('ok', result.added + '件の記録を復元しました。')].concat(lines, [note]),
+      [restoreButton('閉じる', 'primary', closeRestoreDialog)]);
+    el.restoreStatus.textContent = result.added + '件の記録を復元しました。';
+    refreshDashboard({ resetFilters: true });
+  }
+
+  function handleRestoreFile(file) {
+    if (!file) return;
+    var size = FOUNDATION.checkBackupFileSize(file.size);
+    if (size.level === 'reject') { showRestoreError({ code: 'file-too-large' }); return; }
+    var reader = new FileReader();
+    reader.onerror = function () { showRestoreError({ code: 'not-json' }); };
+    reader.onload = function () {
+      var result = FOUNDATION.planBackupRestore(String(reader.result));
+      if (!result.ok) { showRestoreError(result); return; }
+      showRestorePreview(result.plan, size.level);
+    };
+    reader.readAsText(file);
+  }
+
+  function setupRestore() {
+    if (!restoreSupported()) return;   // e.g. a stale cached Foundation without the API: hide, never half-work
+    el.restoreSection.hidden = false;
+    el.restoreBtn.addEventListener('click', function () {
+      el.restoreInput.value = '';
+      el.restoreInput.click();
+    });
+    el.restoreInput.addEventListener('change', function () {
+      var file = el.restoreInput.files && el.restoreInput.files[0];
+      handleRestoreFile(file);
+    });
+    el.restoreClose.addEventListener('click', closeRestoreDialog);
+    el.restoreModal.addEventListener('click', function (e) { if (e.target === el.restoreModal) closeRestoreDialog(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || el.restoreModal.hidden) return;
+      closeRestoreDialog();
+    });
+  }
+
+  // ─────────────────────────────────────────────────────
+  //  Init
+  // ─────────────────────────────────────────────────────
+  // Re-runnable: also used after a Restore so the page reflects the new records.
+  function refreshDashboard(options) {
     var collected = FOUNDATION.collectRecords({ maxPerApp: 50, limit: 200 });
     allRecords = collected.records;
 
     if (collected.errors && collected.errors.length > 0) {
       console.debug('[learning-records] read anomalies (non-fatal)', collected.errors);
       el.storageWarning.hidden = false;
+    } else {
+      el.storageWarning.hidden = true;
     }
 
     if (allRecords.length === 0) {
       el.emptyState.hidden = false;
+      el.dashboardBody.hidden = true;
       return;
     }
 
+    el.emptyState.hidden = true;
     el.dashboardBody.hidden = false;
 
     populateSelect(el.filterApp, UI.distinctApps(allRecords), 'appId', 'appName');
     populateSelect(el.filterCategory, UI.distinctCategories(allRecords).map(function (c) { return { value: c, label: c }; }), 'value', 'label');
     populateSelect(el.filterActivity, UI.distinctActivities(allRecords), 'value', 'label');
 
+    if (options && options.resetFilters) {
+      // Restored records are usually older than the default 7-day window; show everything so the
+      // user can actually see what came back.
+      el.filterPeriod.value = 'all';
+      el.filterApp.value = 'all';
+      el.filterCategory.value = 'all';
+      el.filterActivity.value = 'all';
+    }
     render();
+  }
+
+  function init() {
+    if (!FOUNDATION || !UI) {
+      el.emptyState.hidden = false;
+      el.emptyState.querySelector('strong').textContent = 'このページを表示できませんでした。';
+      return;
+    }
+    setupRestore();
+    refreshDashboard();
   }
 
   if (document.readyState === 'loading') {
