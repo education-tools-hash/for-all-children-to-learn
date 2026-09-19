@@ -84,6 +84,32 @@ Development so far was on Windows (PowerShell and Git Bash); Cloud is likely Lin
 
 Report in Japanese (dev rules §14.7 format), state what was and was not verified, and include any generation run and its diff summary. If a notification tool is available, notify the user when a substantial Phase finishes.
 
+### 11. Multi-Agent operation (Claude Code, Codex, and any future agent)
+
+Every rule above binds every agent that works in this repository, not just Claude Code. This section adds what changes when more than one agent (Claude Code, ChatGPT/Codex, or others) may work on it, in the same session or across sessions.
+
+- **Source of truth is still `origin/main`** (§1) regardless of which agent is asking — always verify it fresh with `git ls-remote`/`git fetch`, never trust a hash another agent reported earlier in the conversation or in a doc.
+- **1 Phase = 1 dedicated branch/worktree (§3), and one agent at a time per branch.** Claude Code and Codex (or any two agents) must never edit the same branch concurrently. Before starting work on an existing branch, check whether another agent's handoff note (below) or an open Phase says it is still in use; if so, create a new Phase branch from `origin/main` instead of reusing it.
+- **Do not implicitly continue another agent's unfinished branch.** A branch left mid-Phase by a different agent is that agent's in-progress work, not a shared queue. Resume it only when the user explicitly hands it to you (naming the branch and Phase), and only after reading its own handoff note and re-running the Drift Gate.
+- **Handoff note required on every agent switch.** Before ending a Phase that another agent (or a later session) may continue, leave a short handoff — as the Phase's final report and, if the Phase is not finished, also as a checkpoint commit message or a note in the Phase branch — with at least:
+  - Phase name
+  - `origin/main` SHA the Phase was based on
+  - branch name
+  - worktree path
+  - latest checkpoint SHA
+  - what is done
+  - what is not done
+  - tests actually executed (and their results)
+  - User Review status (reviewed / not yet reviewed — never inferred)
+  - Real Device Gate status (PENDING / user-reported result — never claimed as performed by the agent)
+  - scope / non-goals of the Phase
+- **Audit-only Phases never change Production code**, for any agent: read, compare, report findings: no edits, no commits, unless the prompt explicitly upgrades the Phase to a fix Phase.
+- **No agent represents User Approval.** §4's rule ("Approval is the user's, never yours") applies identically to Codex and any other agent: never write or report "Approved", "User Approved", "Phase Closed", or similar on the user's behalf.
+- **No agent claims a physical Real Device Gate it did not perform.** §5's boundary (iPad Safari, VoiceOver, Blue2, Tobii, real touch, device-specific audio, PWA/Home Screen storage) applies to every agent equally: prepare the gate, present it, stop; only the user's own report of running it counts as a result.
+- **Drift Gate (§2) is mandatory before any Production release**, and doubly so in multi-agent use: another agent may have moved `origin/main` since this Phase started. Re-verify immediately before the release push, not just at Phase start.
+- **Conflict resolution order when agents disagree** on how to interpret a requirement: this `CLAUDE.md`, then any design/contract document it points to (e.g. `donomana-dev-rules-v1.0-revised.md`, `docs/design-system/`), then the most recent **User Approved** checkpoint for that feature. An agent's own prior output (from this or another agent) is not a tiebreaker.
+- **Do not guess past an unclear point.** If a Phase prompt, a handoff note, or the repository state leaves a real ambiguity (which branch is authoritative, what "approved" refers to, conflicting instructions between agents), stop and report the ambiguity instead of picking an interpretation and continuing.
+
 ## Build Commands
 
 ```bash
