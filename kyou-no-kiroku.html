@@ -3095,9 +3095,11 @@ function executeClearData() {
 
 // ===== MODAL =====
 function openModal(id) {
+  clearGazeDwell();
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id) {
+  clearGazeDwell();
   document.getElementById(id).classList.remove('open');
 }
 document.querySelectorAll('.modal-overlay').forEach(m => {
@@ -3280,6 +3282,39 @@ let gazeCurrentTarget = null;
 let gazeDwellTimer    = null;
 let gazeMoveListener  = null;
 let gazeLastX = 0, gazeLastY = 0;
+let gazeAwaitingLeave = null, gazeLastActivated = null, gazeMouseUntil = 0;
+let gazeWatchFrame = null, gazeLeaveRect = null;
+function rememberGazeTarget(btn){
+  gazeAwaitingLeave=btn;
+  gazeLeaveRect=btn.getBoundingClientRect();
+}
+const GAZE_SELECTOR = '.kimochi-btn, .child-card, .btn, .condition-btn, .icon-btn, .nav-btn';
+function gazeTargetAt(x,y) {
+  const btn=document.elementFromPoint(x,y)?.closest(GAZE_SELECTOR);
+  if(!btn || !btn.isConnected || btn.disabled || btn.offsetParent===null || btn.closest('[inert]'))return null;
+  // Common chrome owns the foreground while its panel is open.
+  if(document.getElementById('donomanaA11yPanel')?.style.display==='block')return null;
+  const modals=Array.from(document.querySelectorAll('.modal-overlay.open'));
+  const modal=modals[modals.length-1];
+  if(modal && !modal.contains(btn))return null;
+  return btn;
+}
+// Cancel pending dwell when a direct input wins. Only a same-target mouse
+// click within 300ms of our dwell is suppressed; touch/pen/keyboard remain native.
+document.addEventListener('pointerdown',()=>{if(state.a11y.gaze)clearGazeDwell();},true);
+document.addEventListener('touchstart',clearGazeDwell,{passive:true});
+document.addEventListener('touchmove',clearGazeDwell,{passive:true});
+document.addEventListener('click',e=>{
+  if(!state.a11y.gaze)return;
+  const btn=e.target.closest(GAZE_SELECTOR);
+  if(!btn)return;
+  const mouse=e.detail>0 && (!e.pointerType || e.pointerType==='mouse') && !e.sourceCapabilities?.firesTouchEvents;
+  if(mouse && btn===gazeLastActivated && performance.now()<gazeMouseUntil){
+    e.preventDefault();e.stopImmediatePropagation();return;
+  }
+  clearGazeDwell();
+  rememberGazeTarget(btn);
+},true);
 
 function getGazeSettings() {
   return {
@@ -3329,6 +3364,7 @@ function startGazePointer() {
   gazeCurrentTarget = null;
 
   gazeMoveListener = (e) => {
+    if(e.sourceCapabilities?.firesTouchEvents)return;
     const x = e.clientX ?? (e.touches?.[0]?.clientX ?? gazeLastX);
     const y = e.clientY ?? (e.touches?.[0]?.clientY ?? gazeLastY);
     gazeLastX = x; gazeLastY = y;
@@ -3337,17 +3373,15 @@ function startGazePointer() {
     el.style.left = x + 'px';
     el.style.top  = y + 'px';
 
-    // ポインター自身を一時的に非表示にしてhitTestを正確に
-    el.style.pointerEvents = 'none';
-    const target = document.elementFromPoint(x, y);
-    el.style.pointerEvents = '';
-
-    const btn = target
-      ? target.closest('.kimochi-btn, .child-card, .btn, .condition-btn, .icon-btn, .nav-btn')
-      : null;
-
-    // スキャン中・モーダル開いているボタンは除外
-    if (btn && btn.offsetParent === null) return;
+    const btn = gazeTargetAt(x,y);
+    // An overlay or DOM replacement is not evidence that gaze has left.
+    if(gazeAwaitingLeave){
+      const r=gazeLeaveRect;
+      if(btn===gazeAwaitingLeave || (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom)){
+        clearGazeDwell();return;
+      }
+      gazeAwaitingLeave=null;gazeLeaveRect=null;
+    }
 
     if (btn !== gazeCurrentTarget) {
       clearGazeDwell();
@@ -3357,21 +3391,26 @@ function startGazePointer() {
   };
 
   document.addEventListener('mousemove',  gazeMoveListener);
-  document.addEventListener('touchmove',  gazeMoveListener, { passive: true });
 }
 
 function stopGazePointer() {
   document.getElementById('gazePointer')?.classList.remove('visible');
   clearGazeDwell();
+  gazeAwaitingLeave=null;gazeLeaveRect=null;gazeLastActivated=null;gazeMouseUntil=0;
   if (gazeMoveListener) {
     document.removeEventListener('mousemove', gazeMoveListener);
-    document.removeEventListener('touchmove', gazeMoveListener);
     gazeMoveListener = null;
   }
   gazeCurrentTarget = null;
 }
 
 function startGazeDwell(btn) {
+  // DOM/overlay changes can invalidate a stationary pointer without mousemove.
+  function watchTarget(){
+    if(!state.a11y.gaze || gazeCurrentTarget!==btn || gazeTargetAt(gazeLastX,gazeLastY)!==btn){clearGazeDwell();return;}
+    gazeWatchFrame=requestAnimationFrame(watchTarget);
+  }
+  gazeWatchFrame=requestAnimationFrame(watchTarget);
   const g      = getGazeSettings();
   const circle = document.getElementById('gazeProgressCircle');
   const r      = parseFloat(circle.getAttribute('r') || 25);
@@ -3382,14 +3421,15 @@ function startGazeDwell(btn) {
   circle.style.strokeDashoffset = circ;
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
+    if(gazeCurrentTarget!==btn)return;
     circle.style.transition       = `stroke-dashoffset ${g.dwell}ms linear`;
     circle.style.strokeDashoffset = '0';
   }));
 
   gazeDwellTimer = setTimeout(() => {
-    // クリック前にポインターを一時無効化（誤hit防止）
-    gazeCurrentTarget = null;
-    clearGazeRing();
+    if(!state.a11y.gaze || gazeCurrentTarget!==btn || gazeTargetAt(gazeLastX,gazeLastY)!==btn){clearGazeDwell();return;}
+    clearGazeDwell();
+    rememberGazeTarget(btn);gazeLastActivated=btn;gazeMouseUntil=performance.now()+300;
     btn.click();
     if (state.a11y.tts) {
       const label = btn.querySelector('.kimochi-label, .child-name, span')
@@ -3400,6 +3440,8 @@ function startGazeDwell(btn) {
 }
 
 function clearGazeDwell() {
+  cancelAnimationFrame(gazeWatchFrame);
+  gazeWatchFrame=null;
   clearTimeout(gazeDwellTimer);
   gazeDwellTimer    = null;
   gazeCurrentTarget = null;

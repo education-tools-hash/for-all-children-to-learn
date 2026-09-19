@@ -18,6 +18,7 @@ Usage: python tools/record-dashboard-poc/dashboard-realbrowser-test.py
 import json
 import pathlib
 import sys
+import subprocess
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -177,6 +178,176 @@ def new_page(context):
 
 def goto_fresh(page):
     page.goto(PAGE_URL)
+
+
+def gaze_regressions(browser):
+    """Gaze retrigger / stale-target regression on real app DOM and handlers.
+
+    Fixed clock and synthetic learning data only; not a Tobii/device gate.
+    Existing dashboard harness is reused because accidental gaze activations
+    can change the learning records it consumes (notably mogura fumbles).
+    """
+    def move(page, selector):
+        box = page.locator(selector).first.bounding_box()
+        assert box, selector
+        page.mouse.move(box['x'] + box['width']/2, box['y'] + box['height']/2)
+
+    def leave(page):
+        page.mouse.move(1, 1)
+        page.clock.run_for(32)
+
+    for app in ['mogura-tataki', 'kyou-no-kiroku', 'okane-app']:
+        context = browser.new_context(viewport={'width': 1280, 'height': 900}, has_touch=True)
+        page = context.new_page()
+        errors = []
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.route('https://fonts.googleapis.com/**', lambda r: r.fulfill(body=''))
+        page.goto((REPO_ROOT / (app + '.html')).as_uri())
+        page.clock.install()
+        if app == 'mogura-tataki':
+            page.evaluate("""() => {
+                cfg.dwell=true;cfg.dwT=.3;cfg.snd=false;cfg.rm=true;
+                document.getElementById('scrStart').classList.remove('on');
+                buildBoard();startGame();clearInterval(timerID);clearTimeout(spawnID);
+                for(const m of G.moles.values())clearTimeout(m.t);
+                G.moles.clear();resetBoard();
+                G.moles.set(0,{kind:'normal',t:null});showM(0);
+            }""")
+            hole = '.hole[data-idx="0"]'
+            move(page, hole)
+            page.clock.run_for(352)
+            check('mogura: real dwell hit removes mole, no fumble', page.evaluate('G.hits===1 && !G.moles.has(0) && G.fumbles===0'))
+            # OS-emulated mouse down/click immediately after dwell must not fumble.
+            page.mouse.down(); page.mouse.up()
+            check('mogura: immediate mouse duplicate ignored', page.evaluate('G.hits===1 && G.fumbles===0'))
+            for _ in range(4):
+                move(page, hole); page.clock.run_for(1000)
+            check('mogura: stationary gaze cannot add fumble', page.evaluate('G.hits===1 && G.fumbles===0'))
+            leave(page)
+            page.evaluate("G.moles.set(0,{kind:'normal',t:null});showM(0)")
+            move(page, hole); page.clock.run_for(352)
+            check('mogura: leave/reenter permits next valid hit', page.evaluate('G.hits===2 && G.fumbles===0'))
+            for panel in ['panSet', 'panHow', 'panRec', 'donomanaA11yPanel']:
+                leave(page); move(page, hole); page.clock.run_for(160)
+                if panel == 'donomanaA11yPanel':
+                    page.evaluate("document.getElementById('donomanaA11yBtn').click()")
+                else:
+                    page.evaluate('(id)=>openPanel(id)', panel)
+                page.clock.run_for(1500)
+                check(f'mogura: {panel} cancels background dwell', page.evaluate('G.hits===2 && G.fumbles===0'))
+                check(f'mogura: {panel} clears ring', page.locator(hole+' .dwell-ring circle').evaluate("e=>e.style.strokeDashoffset==='283'"))
+                if panel == 'donomanaA11yPanel':
+                    page.keyboard.press('Escape')
+                else:
+                    page.evaluate('(id)=>closePanel(id)', panel)
+                page.clock.run_for(160)
+                check(f'mogura: {panel} close requires fresh dwell', page.evaluate('G.fumbles===0'))
+                leave(page)
+            page.evaluate("G.moles.set(0,{kind:'normal',t:null});showM(0)")
+            move(page, hole); page.mouse.down(); page.mouse.up(); page.clock.run_for(1000)
+            check('mogura: native mouse before dwell fires once', page.evaluate('G.hits===3 && G.fumbles===0'))
+            page.evaluate("G.moles.set(0,{kind:'normal',t:null});showM(0)")
+            box = page.locator(hole).bounding_box()
+            page.touchscreen.tap(box['x']+box['width']/2, box['y']+box['height']/2)
+            page.clock.run_for(1000)
+            check('mogura: physical touch simulation has no delayed dwell', page.evaluate('G.hits===4 && G.fumbles===0'))
+            page.evaluate("G.moles.set(0,{kind:'normal',t:null});showM(0)")
+            page.locator(hole).focus(); page.keyboard.press('Enter')
+            check('mogura: keyboard activation preserved', page.evaluate('G.hits===5 && G.fumbles===0'))
+            page.evaluate('stopDwell()')
+        else:
+            kyou = app == 'kyou-no-kiroku'
+            setup = 'state.a11y.gaze=true;state.a11y.gazeDwell=300;state.a11y.tts=false;' if kyou else 'appSettings.gaze=true;appSettings.gazeDwell=300;'
+            page.evaluate(setup + "startGazePointer();window.gazeTestCount=0;document.querySelector('.nav-btn').addEventListener('click',()=>window.gazeTestCount++)")
+            target = '.nav-btn'
+            move(page, target); page.clock.run_for(320)
+            check(f'{app}: stationary dwell activates once', page.evaluate('gazeTestCount===1'))
+            page.mouse.down(); page.mouse.up()
+            check(f'{app}: immediate native mouse duplicate ignored', page.evaluate('gazeTestCount===1'))
+            for _ in range(4):
+                move(page, target); page.clock.run_for(1000)
+            check(f'{app}: repeated move/time cannot retrigger', page.evaluate('gazeTestCount===1'))
+            page.evaluate("openModal('modalHelp')" if kyou else 'openHelpModal()')
+            move(page, target); page.clock.run_for(400)
+            page.evaluate("closeModal('modalHelp')" if kyou else 'closeHelpModal()')
+            move(page, target); page.clock.run_for(700)
+            check(f'{app}: overlay changes do not count as leaving target', page.evaluate('gazeTestCount===1'))
+            leave(page); move(page, target); page.clock.run_for(320)
+            check(f'{app}: leave/reenter activates again', page.evaluate('gazeTestCount===2'))
+            leave(page); move(page, target); page.clock.run_for(120)
+            page.evaluate("openModal('modalHelp')" if kyou else 'openHelpModal()')
+            page.clock.run_for(1000)
+            check(f'{app}: modal invalidates already pending background dwell', page.evaluate('gazeTestCount===2 && gazeCurrentTarget===null && gazeDwellTimer===null'))
+            move(page, target); page.clock.run_for(1000)
+            check(f'{app}: modal prevents new background dwell', page.evaluate('gazeTestCount===2'))
+            page.evaluate("closeModal('modalHelp')" if kyou else 'closeHelpModal()')
+            leave(page); move(page, target); page.clock.run_for(320)
+            check(f'{app}: modal close restores gaze', page.evaluate('gazeTestCount===3'))
+            # Real touch click is allowed even immediately after gaze.
+            box = page.locator(target).first.bounding_box()
+            page.touchscreen.tap(box['x']+box['width']/2, box['y']+box['height']/2)
+            page.clock.run_for(1000)
+            check(f'{app}: touch remains native, no delayed duplicate', page.evaluate('gazeTestCount===4'))
+            page.locator(target).first.focus(); page.keyboard.press('Enter')
+            check(f'{app}: keyboard remains native', page.evaluate('gazeTestCount===5'))
+            leave(page); move(page, target); page.clock.run_for(120)
+            page.mouse.down(); page.mouse.up(); page.clock.run_for(1000)
+            check(f'{app}: mouse before dwell cancels pending activation', page.evaluate('gazeTestCount===6'))
+            leave(page); move(page, target); page.clock.run_for(120)
+            page.evaluate('stopGazePointer()'); page.clock.run_for(1000)
+            check(f'{app}: disabling gaze cancels pending activation', page.evaluate('gazeTestCount===6'))
+            if not kyou:
+                page.evaluate("openSettingsModal();startGazePointer();window.toggleCount=0;document.getElementById('speechToggle').addEventListener('change',()=>window.toggleCount++)")
+                toggle = 'label.toggle-switch:has(#speechToggle)'
+                move(page, toggle); page.clock.run_for(320)
+                for _ in range(3):
+                    move(page, toggle); page.clock.run_for(600)
+                check('okane: toggle stays selected without repeated ON/OFF', page.evaluate('toggleCount===1'))
+                leave(page); move(page, toggle); page.clock.run_for(320)
+                check('okane: toggle rearms after leave/reenter', page.evaluate('toggleCount===2'))
+                gaze_toggle = 'label.toggle-switch:has(#gazeToggle)'
+                page.locator(gaze_toggle).scroll_into_view_if_needed()
+                leave(page); move(page, gaze_toggle); page.clock.run_for(320)
+                check('okane: gaze can turn itself off by dwell', page.evaluate('!appSettings.gaze'))
+                page.mouse.down(); page.mouse.up()
+                check('okane: mouse duplicate cannot turn gaze back on', page.evaluate('!appSettings.gaze'))
+                page.evaluate('stopGazePointer();closeSettingsModal()')
+        # Compare the unchanged keyboard paths with the Phase production baseline.
+        # kyou already lacks an app-level call to trapA11yPanelFocus: do not turn
+        # that separate accessibility finding into an unrelated fix in this Phase.
+        def panel_trace(baseline=False):
+            c = browser.new_context(viewport={'width': 1280, 'height': 900})
+            p = c.new_page()
+            p.route('https://fonts.googleapis.com/**', lambda r: r.fulfill(body=''))
+            url = (REPO_ROOT / (app + '.html')).as_uri()
+            if baseline:
+                html = subprocess.check_output(['git', 'show',
+                    'b5b7e0623d73a9846fb77eda5f64061f0c6e9a65:' + app + '.html'],
+                    cwd=REPO_ROOT, text=True)
+                p.route(url, lambda r: r.fulfill(body=html, content_type='text/html'))
+            p.goto(url)
+            layout = []
+            for width, height in [(375,667),(390,844),(768,1024),(1024,768),(1280,900)]:
+                p.set_viewport_size({'width': width, 'height': height})
+                layout.append(p.evaluate('[document.documentElement.scrollWidth, document.documentElement.clientWidth]'))
+            p.evaluate("document.getElementById('donomanaA11yBtn').click()")
+            p.locator('#donomanaA11yReset').focus()
+            trace = []
+            for key in ['Tab', 'Shift+Tab']:
+                for _ in range(12):
+                    p.keyboard.press(key)
+                    trace.append(p.evaluate("[document.activeElement.id, document.activeElement.tagName, document.getElementById('donomanaA11yPanel').contains(document.activeElement)]"))
+            p.keyboard.press('Escape')
+            trace.append(p.evaluate("[document.activeElement.id, document.getElementById('donomanaA11yPanel').style.display]"))
+            c.close()
+            return trace, layout
+        reference, current = panel_trace(True), panel_trace()
+        check(f'{app}: A11y Tab/Shift+Tab/Escape matches production baseline', reference[0] == current[0])
+        check(f'{app}: responsive widths match baseline at five sizes', reference[1] == current[1])
+        if app == 'kyou-no-kiroku':
+            print('  [KNOWN] kyou: baseline A11y Tab containment missing; outside Phase scope')
+        check(f'{app}: no page errors', not errors, errors)
+        context.close()
 
 
 def main():
@@ -393,6 +564,7 @@ def main():
         check("no console/page errors during accessibility checks", len(errors["console_errors"]) == 0 and len(errors["page_errors"]) == 0, errors)
         context.close()
 
+        gaze_regressions(browser)
         browser.close()
 
     print(f"\n{PASS}/{PASS + FAIL} checks passed.")

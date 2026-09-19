@@ -2041,7 +2041,13 @@ function buildBoard(){
     svg.appendChild(circ);h.appendChild(svg);
     const m=document.createElement('div');m.className='mole';
     m.innerHTML=charHTML();h.appendChild(m);
-    h.addEventListener('pointerdown',e=>{e.preventDefault();activate(i);});
+    h.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      // OS mouse activation immediately following our dwell is the same action.
+      if(cfg.dwell && e.pointerType==='mouse' && gazeLastHole===i && performance.now()<gazeMouseUntil)return;
+      if(cfg.dwell){cancelHoleDwell();gazeAwaitingLeaveHole=i;}
+      activate(i);
+    });
     h.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')activate(i);});
     w.appendChild(h);b.appendChild(w);
   }
@@ -2339,17 +2345,30 @@ function comboEff(n){
 // ════════════════════════════════════
 //  DWELL
 // ════════════════════════════════════
+let gazeAwaitingLeaveHole=-1, gazeLastHole=-1, gazeMouseUntil=0;
+let cancelHoleDwell=()=>{};
+function moguraGazeBlocked(){
+  return !!moguraCurrentTopModal() || document.getElementById('donomanaA11yPanel')?.style.display==='block';
+}
 function startDwell(){
   if(afID)cancelAnimationFrame(afID);
   let aH=null,ds=null,dx=0,dy=0;
+  cancelHoleDwell=()=>{aH=null;ds=null;resetAllD();};
   function loop(){
     if(G.phase!=='playing'||!cfg.dwell)return;
     afID=requestAnimationFrame(loop);
+    if(moguraGazeBlocked()){cancelHoleDwell();return;}
     const mx=gx,my=gy;let hi=-1;
+    if(!Number.isFinite(mx)||!Number.isFinite(my)){cancelHoleDwell();return;}
     document.querySelectorAll('.hole').forEach(h=>{
       const r=h.getBoundingClientRect();
       if(mx>=r.left&&mx<=r.right&&my>=r.top&&my<=r.bottom)hi=parseInt(h.dataset.idx);
     });
+    // Time alone never rearms a hole; only a gaze sample outside it does.
+    if(gazeAwaitingLeaveHole!==-1 && hi!==gazeAwaitingLeaveHole)gazeAwaitingLeaveHole=-1;
+    if(hi!==-1 && hi===gazeAwaitingLeaveHole){cancelHoleDwell();return;}
+    const front=document.elementFromPoint(mx,my);
+    if(hi!==-1 && front?.closest('.hole')!==getH(hi)){cancelHoleDwell();return;}
     const mv=Math.hypot(mx-dx,my-dy)>cfg.dwTol;
     if(hi!==-1&&hi!==aH){aH=hi;ds=Date.now();dx=mx;dy=my;resetAllD();}
     else if(hi===aH&&aH!==null){
@@ -2357,25 +2376,31 @@ function startDwell(){
       else{
         const p=Math.min((Date.now()-ds)/1000/cfg.dwT,1);
         setDR(aH,p);
-        if(p>=1){activate(aH);aH=null;ds=null;resetAllD();}
+        if(p>=1){
+          const i=aH;
+          gazeAwaitingLeaveHole=i;gazeLastHole=i;gazeMouseUntil=performance.now()+300;
+          cancelHoleDwell();activate(i);
+        }
       }
     } else if(hi===-1&&aH!==null){resetAllD();aH=null;}
   }
   afID=requestAnimationFrame(loop);
 }
-function stopDwell(){if(afID){cancelAnimationFrame(afID);afID=null;}resetAllD();}
+function stopDwell(){if(afID){cancelAnimationFrame(afID);afID=null;}cancelHoleDwell();resetAllD();gazeAwaitingLeaveHole=-1;gazeLastHole=-1;gazeMouseUntil=0;}
 function setDR(i,p){const h=getH(i);if(!h)return;const c=h.querySelector('.dwell-ring circle');if(!c)return;c.style.transition='stroke-dashoffset .05s linear';c.style.strokeDashoffset=283*(1-p);}
 function resetD(i){const h=getH(i);if(!h)return;const c=h.querySelector('.dwell-ring circle');if(c){c.style.transition='none';c.style.strokeDashoffset='283';}}
 function resetAllD(){for(let i=0;i<G.holes;i++)resetD(i);}
 
 document.addEventListener('mousemove',e=>{
+  if(e.sourceCapabilities?.firesTouchEvents)return;
   gx=e.clientX;gy=e.clientY;
   const cur=document.getElementById('gazeCur');
   if(cur&&cfg.dwell&&cfg.showCur){cur.style.left=e.clientX+'px';cur.style.top=e.clientY+'px';}
 });
-document.addEventListener('touchmove',e=>{
-  if(e.touches.length){gx=e.touches[0].clientX;gy=e.touches[0].clientY;}
-},{passive:true});
+// Physical touch must not seed a second, delayed gaze activation.
+function cancelTouchDwell(){cancelHoleDwell();gx=NaN;gy=NaN;}
+document.addEventListener('touchstart',cancelTouchDwell,{passive:true});
+document.addEventListener('touchmove',cancelTouchDwell,{passive:true});
 
 // ════════════════════════════════════
 //  RECORD
@@ -2462,7 +2487,7 @@ function applySettings(){
 // (固定IDへ無条件returnするとHome側から開いた場合にgame画面ヘッダー側の
 // (隠れている場合がある)buttonへ飛んでしまう問題を避ける)。
 const panelOpener = {};
-function openPanel(id,opener){document.getElementById(id).classList.add('on');if(opener)panelOpener[id]=opener;}
+function openPanel(id,opener){cancelHoleDwell();document.getElementById(id).classList.add('on');if(opener)panelOpener[id]=opener;}
 function closePanel(id){document.getElementById(id).classList.remove('on');}
 // [Batch-6-RC2是正] panSetはA11yパネルProxy構造(#btnSet・#homeSetBtnはopacity:0
 // !important;pointer-events:none !important;tabIndex=-1;aria-hidden=trueで常時
@@ -2547,6 +2572,11 @@ document.addEventListener('keydown',e=>{
 // (および他の背景要素)へ流出しないようにする。共通A11yパネル実装自体は
 // 変更しない(tyushi.htmlローカル修正と同じ方針をmogura-tataki.htmlにも適用)。
 const MOGURA_MODAL_IDS = ['panHow','panRec','panSet','scrResult','scrStart'];
+const gazePanelObserver=new MutationObserver(()=>{if(moguraGazeBlocked())cancelHoleDwell();});
+[...MOGURA_MODAL_IDS,'donomanaA11yPanel'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(el)gazePanelObserver.observe(el,{attributes:true,attributeFilter:['class','style']});
+});
 function moguraTrapFocusables(container){
   return Array.from(container.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
     .filter(el=>el.offsetParent!==null && !el.disabled);
