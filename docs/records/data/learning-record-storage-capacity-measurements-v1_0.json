@@ -1,0 +1,115 @@
+{
+  "phase": "LEARNING-RECORD-STORAGE-CAPACITY-AUDIT-1",
+  "generatedAt": "2026-09-18",
+  "baseline": {
+    "originCommit": "5231673e83e2aaaa1367d891462a0a1c28e6e0f7",
+    "worktree": "for-all-children-to-learn-storage-capacity-audit-1",
+    "branch": "audit/learning-record-storage-capacity-1"
+  },
+  "methodology": {
+    "utf8": "Buffer.byteLength(JSON.stringify(record), 'utf8') -- actual bytes that land in the browser's storage quota",
+    "utf16approx": "JSON.stringify(record).length * 2 -- upper-bound approximation of V8's in-memory string representation, NOT the on-disk/quota figure",
+    "imageBytes": "browser-measured via real Chromium canvas.toDataURL('image/png') on a disposable localhost origin, not estimated",
+    "quotaTest": "real-browser probe via Playwright/Chromium against a disposable http://127.0.0.1:8971 origin (never donomana.jp), using the exact Production donomanaRecordWriteLog try/catch pattern"
+  },
+  "perRecordSizes": {
+    "simpleFlatApps": {
+      "description": "19 of 22 Record Foundation apps store short flat-field JSON objects with no media; janken/okane/tokei/shiritori2 measured as representative samples",
+      "evidence": "CODE-VERIFIED shape + MEASURED byte size (synthetic fixture, Node JSON.stringify, no browser needed)",
+      "samples": [
+        { "app": "janken-app", "utf8Bytes": 142, "utf16ApproxBytes": 284 },
+        { "app": "okane-app", "utf8Bytes": 121, "utf16ApproxBytes": 194 },
+        { "app": "tokei-app", "utf8Bytes": 211, "utf16ApproxBytes": 422 },
+        { "app": "shiritori2", "utf8Bytes": 220, "utf16ApproxBytes": 440 }
+      ],
+      "chosenAverageUtf8Bytes": 200
+    },
+    "sawatteTimedTrace": {
+      "description": "sawatte-hirogaru-app.html: payload.trace = {taps:[x,y,t,...], swipes:[[x,y,t,...],...], totalPoints, trimmed}; TRACE_HARD_CAP=1000 points is enforced in Production code today",
+      "evidence": "CODE-VERIFIED shape (sawatte-hirogaru-app.html lines ~1909-1948) + MEASURED byte size (synthetic fixture matching the exact field shape)",
+      "typicalSession150pt": { "utf8Bytes": 2035, "utf16ApproxBytes": 4070 },
+      "hardCapSession1000pt": { "utf8Bytes": 12405, "utf16ApproxBytes": 24810 },
+      "chosenTypicalUtf8Bytes": 2000
+    },
+    "hiraganaKatakanaStrokeTrace": {
+      "description": "hiragana-learn.html/katakana-app.html: payload.traceSample = {version:1, coordinateSpace:'normalized-1000', strokes:[[48 quantized ints per stroke],...]}; 24 points/stroke fixed",
+      "evidence": "CODE-VERIFIED shape (hiragana-learn.html lines ~3608-3622) + MEASURED byte size",
+      "twoStrokeChar": { "utf8Bytes": 636, "utf16ApproxBytes": 1268 },
+      "fourStrokeChar": { "utf8Bytes": 1017, "utf16ApproxBytes": 2030 },
+      "chosenAverageUtf8Bytes": 850
+    },
+    "nazoriRasterImage": {
+      "description": "nazori-app.html: entry.image = canvas.toDataURL('image/png') of the merged guide+drawing canvas; single-cell default 300x300, multi-cell 'continuous writing' mode up to cellSize*N wide",
+      "evidence": "BROWSER-MEASURED (real Chromium canvas draw + toDataURL, disposable localhost origin, quota-and-image-size-test.py)",
+      "wrapperOverheadUtf8Bytes": 119,
+      "singleCellTypicalPngBase64Chars": 15456,
+      "fiveCellContinuousPngBase64Chars": 72416,
+      "nearBlankPngBase64Chars": 4062,
+      "chosenTypicalTotalUtf8Bytes": 18000,
+      "note": "base64/dataURL text is pure ASCII, so char count == UTF-8 byte count for the image portion"
+    }
+  },
+  "quotaExhaustionProbe": {
+    "environment": "Playwright-bundled Chromium, disposable origin http://127.0.0.1:8971, single localStorage key grown in 256KB steps up to a 400-step / ~100MB safety ceiling",
+    "result": "no QuotaExceededError observed up to ~100MB written to a single key/value in this browser+environment",
+    "navigatorStorageEstimateBeforeBytes": 3221225472,
+    "navigatorStorageEstimateAfterBytes": 3221225472,
+    "recoveryAfterProbeCleanup": "immediate small write succeeded (localStorage not left in a wedged state)",
+    "interpretation": "Modern Chromium ties localStorage quota to navigator.storage.estimate()'s disk-relative Storage Standard bucket (observed ~3GB here) rather than the historical fixed 5-10MB per-origin cap. This means the site's actual CRITICAL exposure (silent catch(e){} on every write) is very unlikely to trigger on current desktop/Android Chrome, but its real-world likelihood on Safari/iOS (which has a documented history of much lower and more volatile localStorage limits, especially in Private Browsing and low-storage-pressure eviction) could not be verified in this environment and is flagged as USER REAL-DEVICE REVIEW REQUIRED.",
+    "evidence": "MEASURED (this run) for Chromium; NOT TESTED for Safari/iOS/Firefox/older Chrome"
+  },
+  "recordFoundationInventory": {
+    "totalAdapters": 22,
+    "sourceOfTruth": "assets/js/record-dashboard-foundation.js RECORD_ADAPTERS, re-enumerated directly from current code",
+    "adapters": [
+      { "appId": "janken-app", "storageKey": "janken_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "register-app", "storageKey": "register_log", "privacyLevel": "medium", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "tokei-app", "storageKey": "tokei_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "matching-app", "storageKey": "matching_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "shiritori2", "storageKey": "shiritori2_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "directions-app", "storageKey": "appLogs", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "mitsukete-touch-app", "storageKey": "mitsukete_touch_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "junban-miyou-app", "storageKey": "junban_miyou_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "kurabeyou-app", "storageKey": "kurabeyou_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "katachi-awase-app", "storageKey": "katachi_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "dotchiga-ii-app", "storageKey": "dotchiga_ii_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "miru-hirogaru-app", "storageKey": "miru_hirogaru_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "okane-app", "storageKey": "okane_activity_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "sst-app", "storageKey": "sst_activity_log_v1", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "mogura-tataki", "storageKey": "mogura_v3", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "nazori-app", "storageKey": "nazori_records", "privacyLevel": "medium", "includeInDefaultTimeline": true, "l3": "raster-image" },
+      { "appId": "bosai-app", "storageKey": "bosai_log", "privacyLevel": "high", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "sawatte-hirogaru-app", "storageKey": "sawatte_hirogaru_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": "timed-interaction-trace" },
+      { "appId": "kyou-no-kiroku", "storageKey": "kyounokiroku", "privacyLevel": "high", "includeInDefaultTimeline": false, "l3": false, "note": "structure:'nested', not a flat append-only array; whole-object rewrite on every save; holds child name/temperature/pulse/seizure free-text notes" },
+      { "appId": "suji-manabou", "storageKey": "suji_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": false },
+      { "appId": "hiragana-learn", "storageKey": "hiragana_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": "canvas-stroke-trace" },
+      { "appId": "katakana-app", "storageKey": "katakana_log", "privacyLevel": "low", "includeInDefaultTimeline": true, "l3": "canvas-stroke-trace" }
+    ]
+  },
+  "saveFailureSafety": {
+    "pattern": "function donomanaRecordWriteLog(storageKey, log) { try { localStorage.setItem(storageKey, JSON.stringify(log)); } catch (e) {} }",
+    "duplicatedVerbatimInFiles": 22,
+    "onFailure": "silent no-op: entry already pushed into the in-memory array by donomanaRecordAddLog is discarded when the function returns; caller receives no return value/error, UI shows normal completion, nothing is retried or reported",
+    "readPathSafety": "donomanaRecordReadLog guards missing key and non-array/unparseable JSON, returning [] -- read corruption does not crash the app, but also gives no visible signal that stored history was lost",
+    "evidence": "CODE-VERIFIED, sampled across nazori-app.html/hiragana-learn.html and confirmed byte-identical via grep across all 22 app files"
+  },
+  "backupExportCoverage": {
+    "wholeSiteBackupOrExportAllFeature": false,
+    "perAppCsvExport": "available via FOUNDATION.getCsvActions(appId), triggered per-record from the Detail modal in learning-records.html; structured/text fields only",
+    "mediaBackupCoverage": "NONE -- nazori raster images and hiragana/katakana stroke traces have no CSV/export path; if localStorage is cleared or evicted, that visual work is unrecoverable",
+    "evidence": "CODE-VERIFIED (grep across learning-records.html and record-dashboard-foundation.js; no exportAll/backupAll function or UI entry point found)"
+  },
+  "capacityProjections": {
+    "assumptions": "estimated, disclosed usage-frequency assumptions layered on CODE-VERIFIED/MEASURED per-record byte sizes above; NOT measured from real users",
+    "scenarios": {
+      "light": { "recordsPerDay": 3, "mixNote": "occasional home use, mostly simple apps", "bytesPerDayEstimate": 6300 },
+      "typicalSchool": { "recordsPerDay": 30, "mixNote": "one shared classroom device, daily structured curriculum use including tracing apps", "bytesPerDayEstimate": 96400 },
+      "highSharedDevice": { "recordsPerDay": 150, "mixNote": "many children rotating on one shared device all day, heavy nazori/hiragana visual-tracing usage", "bytesPerDayEstimate": 887000 }
+    },
+    "projectedTotalBytes": {
+      "light": { "1mo": 189000, "3mo": 573000, "6mo": 1147000, "12mo": 2300000 },
+      "typicalSchool": { "1mo": 2892000, "3mo": 8778000, "6mo": 17545000, "12mo": 35186000 },
+      "highSharedDevice": { "1mo": 26610000, "3mo": 80717000, "6mo": 161434000, "12mo": 323735000 }
+    }
+  }
+}
