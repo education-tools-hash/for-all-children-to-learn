@@ -468,6 +468,52 @@ def run(browser, base, now, R):
     R.check("no regression: Escape closes the detail modal", page.locator("#record-detail-modal").is_hidden())
     ctx.close()
 
+    # ---- REGRESSION (found on the real iPad): every label in the preview/result dialog must be
+    # accompanied by a VISIBLE count. inner_text() also returns text that is clipped or pushed out of
+    # the box, so a text assertion alone cannot see this; the geometry must be checked. ----
+    ROWS_JS = """() => { const box = document.querySelector('#restore-modal .modal-box'); const b = box.getBoundingClientRect();
+        return { overflow: box.scrollWidth - box.clientWidth, rows: Array.from(document.querySelectorAll('#restore-modal-body .detail-row')).map(r => {
+            const dl = r.querySelector('.dl'), dv = r.querySelector('.dv'); const l = dl.getBoundingClientRect(), v = dv.getBoundingClientRect();
+            return { label: dl.textContent, value: dv.textContent, visible: v.width > 0 && v.left >= b.left && v.right <= b.right - 1 && l.right <= v.left + 1 }; }) }; }"""
+
+    def rows_visible(page, expect, label):
+        got = page.evaluate(ROWS_JS)
+        by_label = {r["label"]: r for r in got["rows"]}
+        problems = []
+        for text, want in expect.items():
+            r = next((x for lbl, x in by_label.items() if text in lbl), None)
+            if r is None: problems.append("row missing: " + text)
+            elif r["value"] != want: problems.append("%s shows %r, expected %r" % (text, r["value"], want))
+            elif not r["visible"]: problems.append("%s: value %r is NOT visible inside the dialog" % (text, want))
+        for r in got["rows"]:
+            if not r["visible"]: problems.append("row '%s' value not visible" % r["label"][:20])
+        if got["overflow"] > 0: problems.append("dialog scrolls horizontally by %dpx" % got["overflow"])
+        R.check(label, not problems, "; ".join(sorted(set(problems))))
+
+    conflict_file = blob(env("nazori-app", [F["nazori-app"](1, allChars="い"), F["nazori-app"](2)]))
+    for vlabel, vw, vh in [("iPhone 390", 390, 844), ("iPad portrait 820", 820, 1180), ("iPad Split View 507", 507, 1000), ("narrow 320", 320, 900)]:
+        ctx, page = fresh(seed={"nazori_records": [F["nazori-app"](1)]})
+        page.set_viewport_size({"width": vw, "height": vh})
+        pick(page, conflict_file)
+        rows_visible(page, {"新しく追加できる記録": "1件", "すでにある記録": "0件", "今の記録と内容が異なる同じ記録": "1件", "復元後の記録の数": "2件"},
+                     "REGRESSION preview @%s: conflict count '1件' (and every other count) is VISIBLE" % vlabel)
+        ctx.close()
+        ctx, page = fresh(seed={"nazori_records": [F["nazori-app"](i) for i in range(1, 60)]})
+        page.set_viewport_size({"width": vw, "height": vh})
+        pick(page, blob(env("nazori-app", [F["nazori-app"](i) for i in (100, 101, 102)])))
+        rows_visible(page, {"保存できる上限を超えるため追加できない記録": "2件", "新しく追加できる記録": "1件"},
+                     "REGRESSION preview @%s: over-limit count '2件' is VISIBLE" % vlabel)
+        confirm(page); page.locator("#restore-modal-title", has_text="復元しました").wait_for()
+        rows_visible(page, {"保存できる上限のため追加できなかった記録": "2件", "追加": "1件"},
+                     "REGRESSION result summary @%s: over-limit count '2件' is VISIBLE" % vlabel)
+        ctx.close()
+        ctx, page = fresh(seed={"nazori_records": [F["nazori-app"](1)]})
+        page.set_viewport_size({"width": vw, "height": vh})
+        pick(page, conflict_file); confirm(page); page.locator("#restore-modal-title", has_text="復元しました").wait_for()
+        rows_visible(page, {"内容が異なるため復元しなかった記録": "1件", "追加": "1件"},
+                     "REGRESSION result summary @%s: conflict count '1件' is VISIBLE" % vlabel)
+        ctx.close()
+
     # ---- mobile / iPad layout ----
     for label, w, h in [("iPhone-size portrait", 390, 844), ("iPad portrait", 820, 1180), ("iPad landscape", 1180, 820)]:
         ctx, page = fresh(seed={"nazori_records": [F["nazori-app"](1)]})
