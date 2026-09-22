@@ -1563,6 +1563,16 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // 再取得せず、確定時点のsnapshotのみを参照する。両者ともschemaVersion:1のまま(v1 payload最終
 // 確定、不要なversion bumpはしない)。
 const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app']);
+// sakana-tsuri (Phase FISHING-APP-IMPLEMENTATION-1): NOT added here yet. This Set has a
+// tested 1:1 parity contract with the Adapter Registry (record-dashboard-foundation.js /
+// tools/record-dashboard-poc/golden-tests.js "every Foundation app has an adapter"), which
+// belongs to the common "学習の記録" cross-app integration explicitly deferred to
+// FISHING-APP-CROSS-APP-RECORD-1 (per the Implementation Plan). sakana-tsuri.html already
+// carries a hand-placed, byte-identical copy of the generic Foundation script block (see
+// its own file), which works standalone via donomanaRecordCreate/donomanaRecordAddLog
+// regardless of this Set — adding it here without an adapter would only break the parity
+// golden test without enabling anything, since apps-data.json (not yet touched) is what
+// actually gates generate.js's own injection loop for this Set.
 
 // ============================================================
 //  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線
