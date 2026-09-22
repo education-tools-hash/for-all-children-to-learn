@@ -260,6 +260,75 @@ def main():
         record("no runtime errors (record block)", not errors, str(errors))
         context.close()
 
+        # ================= Help panel (revision-1) =================
+        context, page, errors, console_errors = new_page(browser)
+        record("Help: button present with つかいかた label",
+               page.get_attribute("#donomanaHelpBtn", "aria-label") == "つかいかた")
+        page.click("#donomanaHelpBtn")
+        record("Help: opens on click", page.is_visible("#helpPanel"))
+        record("Help: aria-expanded true while open",
+               page.get_attribute("#donomanaHelpBtn", "aria-expanded") == "true")
+        record("Help: initial focus moves into the panel title",
+               page.evaluate("document.activeElement.id") == "helpTitle")
+        page.keyboard.press("Escape")
+        record("Help: Escape closes the panel", not page.is_visible("#helpPanel"))
+        record("Help: focus returns to the opener button on close",
+               page.evaluate("document.activeElement.id") == "donomanaHelpBtn")
+        page.click("#donomanaHelpBtn")
+        page.click("#helpCloseBtn")
+        record("Help: close button also closes the panel", not page.is_visible("#helpPanel"))
+        page.click("#donomanaHelpBtn")
+        page.click("#helpBackdrop", force=True, position={"x": 5, "y": 5})
+        record("Help: clicking the backdrop closes the panel", not page.is_visible("#helpPanel"))
+        page.click("#donomanaHelpBtn")
+        page.locator("#helpTitle").focus()
+        page.keyboard.press("Shift+Tab")
+        record("Help: Shift+Tab from the title wraps to the last focusable (close button), not out of the panel",
+               page.evaluate("document.activeElement.id") == "helpCloseBtn")
+        page.locator("#helpTitle").focus()
+        page.keyboard.press("Tab")
+        record("Help: forward Tab from the title (tabindex=-1 anchor) stays inside the panel, not leaked to the browser's native tab order",
+               page.evaluate("document.activeElement.id") == "helpCloseBtn")
+        record("no runtime errors (help block)", not errors, str(errors))
+        context.close()
+
+        # ================= Common A11y panel (revision-1) =================
+        context, page, errors, console_errors = new_page(browser)
+        page.click("#donomanaA11yBtn")
+        record("A11y panel: opens on click",
+               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "block")
+        page.click("[data-a11y-contrast='hc']")
+        record("A11y panel: high-contrast toggle applies the invert filter",
+               "invert(1)" in page.evaluate("document.documentElement.style.filter"))
+        page.click("[data-a11y-contrast='normal']")
+        page.click("[data-a11y-font='large']")
+        record("A11y panel: font-size toggle applies body zoom",
+               page.evaluate("document.body.style.zoom") == "125%")
+        page.click("#donomanaA11yReset")
+        record("A11y panel: reset clears contrast and zoom",
+               page.evaluate("document.documentElement.style.filter") == "" and
+               page.evaluate("document.body.style.zoom") == "")
+        page.keyboard.press("Escape")
+        record("A11y panel: Escape closes it",
+               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "none")
+        record("no runtime errors (a11y panel block)", not errors, str(errors))
+        context.close()
+
+        # ================= Visual scene elements (revision-1) =================
+        context, page, errors, console_errors = new_page(browser)
+        cast_to_reeling(page)
+        record("Scene: rod element present", page.locator(".rod").count() == 1)
+        record("Scene: fishing line svg present and connected to the fish", (
+            page.evaluate("document.getElementById('fishing-line').getAttribute('x2')") is not None
+        ))
+        line_x_before = page.evaluate("document.getElementById('fishing-line').getAttribute('x2')")
+        hold_keyboard(page, "Enter", 1000)
+        line_x_after = page.evaluate("document.getElementById('fishing-line').getAttribute('x2')")
+        record("Scene: fishing line follows the fish as it is reeled in",
+               float(line_x_after) > float(line_x_before))
+        record("no runtime errors (visual scene block)", not errors, str(errors))
+        context.close()
+
         browser.close()
 
     total = len(RESULTS)

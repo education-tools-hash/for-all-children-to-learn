@@ -60,7 +60,7 @@
 </style>
 <!-- /design-tokens -->
 <style>
-/* Pilot-only app styles (Phase FISHING-APP-IMPLEMENTATION-1, mode=free / reelMethod=hold). */
+/* Pilot-only app styles (Phase FISHING-APP-IMPLEMENTATION-1 / revision-1, mode=free / reelMethod=hold). */
 *{box-sizing:border-box;}
 body{
   margin:0;
@@ -100,26 +100,71 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 
 #fishing-screen[hidden],#start-screen[hidden]{display:none;}
 
+/* ---- Pond scene: sky band, water, shore, rod, line, bobber, fish ---- */
 .pond{
   position:relative;
-  height:220px;
+  height:260px;
   border-radius:var(--dm-radius-md);
-  background:linear-gradient(180deg,#8FD9EA 0%,#2E86AB 100%);
   overflow:hidden;
+  background:linear-gradient(180deg,#BEEBFF 0%,#BEEBFF 22%,#5FC3E0 24%,#2E86AB 70%,#1E6485 100%);
 }
-.pond::after{
-  content:"";
-  position:absolute;left:0;right:0;top:0;height:28px;
-  background:rgba(255,255,255,0.35);
+.pond .sun{
+  position:absolute;top:8%;left:8%;width:34px;height:34px;border-radius:50%;
+  background:radial-gradient(circle,#FFE9A8 0%,#F5C542 70%,#F5C542 100%);
+  box-shadow:0 0 18px 4px rgba(245,197,66,.55);
 }
+.pond .cloud{
+  position:absolute;top:12%;background:rgba(255,255,255,.85);border-radius:999px;
+}
+.pond .cloud.c1{left:30%;width:52px;height:16px;}
+.pond .cloud.c2{left:55%;top:8%;width:36px;height:12px;}
+.pond .water-sparkle{
+  position:absolute;left:0;right:0;top:24%;height:6px;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 14px,transparent 14px 34px);
+  opacity:.7;
+}
+.pond .shore{
+  position:absolute;right:0;bottom:0;width:34%;height:46%;
+  background:linear-gradient(180deg,#C9A46A 0%,#A9824E 100%);
+  border-top-left-radius:60% 40%;
+}
+.pond .shore::after{
+  content:"";position:absolute;top:-10px;left:-6%;right:-6%;height:22px;
+  background:#6FAE4B;border-radius:50%;
+}
+.rod{
+  position:absolute;right:9%;bottom:38%;width:6px;height:96px;
+  background:linear-gradient(180deg,#8a5a34,#5b3a1f);
+  border-radius:3px;
+  transform-origin:bottom center;
+  transform:rotate(28deg);
+  z-index:3;
+}
+.rod::after{
+  content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
+  width:16px;height:16px;border-radius:50%;background:#3d2712;
+}
+.line-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
+.line-svg line{stroke:#eef2f0;stroke-width:.8;stroke-linecap:round;opacity:.9;}
+
+.bobber{
+  position:absolute;top:32%;width:16px;height:20px;transform:translate(-50%,-50%);
+  z-index:4;
+}
+.bobber::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:#EE6C7C;border-radius:8px 8px 0 0;}
+.bobber::after{content:"";position:absolute;bottom:0;left:0;right:0;height:50%;background:#fff;border-radius:0 0 8px 8px;}
+.bobber.bobbing{animation:bobberFloat 1.6s ease-in-out infinite;}
+@keyframes bobberFloat{0%,100%{margin-top:0;}50%{margin-top:-6px;}}
+
 .fish{
   position:absolute;
-  top:50%;
-  left:12%;
+  top:46%;
+  left:20%;
   transform:translate(-50%,-50%);
-  font-size:2.4rem;
+  font-size:3rem;
   display:none;
-  transition:none;
+  z-index:4;
+  filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
 }
 .fish.swimming{animation:fishSwim 2.4s ease-in-out infinite;}
 .fish.bitten{animation:fishBite 0.5s ease-in-out;}
@@ -129,12 +174,17 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 }
 @keyframes fishBite{
   0%,100%{transform:translate(-50%,-50%) rotate(0deg);}
-  25%{transform:translate(-50%,-50%) rotate(-12deg);}
-  75%{transform:translate(-50%,-50%) rotate(12deg);}
+  25%{transform:translate(-50%,-50%) rotate(-14deg);}
+  75%{transform:translate(-50%,-50%) rotate(14deg);}
 }
-.hook-marker{
-  position:absolute;right:8%;top:50%;transform:translateY(-50%);
-  font-size:1.6rem;opacity:.85;
+.splash{
+  position:absolute;top:46%;transform:translate(-50%,-50%);
+  font-size:1.6rem;opacity:0;pointer-events:none;z-index:5;
+}
+.splash.show{animation:splashPop .6s ease-out;}
+@keyframes splashPop{
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.6);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.6);}
 }
 
 #status-text{
@@ -191,7 +241,7 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   padding:var(--dm-space-5);
 }
 #catch-result[hidden]{display:none;}
-#catch-result .catch-emoji{font-size:3rem;display:block;}
+#catch-result .catch-emoji{font-size:3.4rem;display:block;filter:drop-shadow(0 4px 4px rgba(0,0,0,.3));}
 
 .settings-row{
   display:flex;justify-content:center;align-items:center;gap:var(--dm-space-3);
@@ -202,16 +252,287 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 #again-btn[hidden]{display:none;}
 
 @media (max-width:420px){
-  .pond{height:180px;}
+  .pond{height:210px;}
   #reel-hold-btn{min-width:0;width:100%;}
+}
+
+/* ---- Help panel (hand-authored per Help / Usage Guide Standard v1.0 — not yet part
+   of generate.js's shared Common Chrome injector; see New App Standard §8.1). Positioned
+   in the same fixed top row as Lock/Fullscreen, ordered Lock -> Fullscreen -> Help
+   (Help closest to the screen edge), matching dotchiga-ii-app.html's Reference
+   Implementation placement pattern. ---- */
+#donomanaHelpBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
+div:has(> #donomanaLockBtn){right:64px!important;}
+#helpPanel{
+  position:fixed;left:50%;bottom:0;transform:translateX(-50%);
+  width:100%;max-width:520px;max-height:78vh;overflow-y:auto;
+  background:var(--dm-color-surface);
+  border-radius:var(--dm-radius-md) var(--dm-radius-md) 0 0;
+  box-shadow:0 -8px 32px rgba(0,0,0,.28);
+  padding:var(--dm-space-5);
+  z-index:100001;
+}
+#helpPanel[hidden]{display:none;}
+#helpPanel h2{font-size:var(--dm-font-size-subheading);margin-top:0;}
+#helpPanel h3{font-size:var(--dm-font-size-body);margin-bottom:4px;}
+#helpPanel p,#helpPanel li{font-size:var(--dm-font-size-body);line-height:var(--dm-line-height-body);}
+#helpBackdrop{position:fixed;inset:0;background:rgba(20,30,30,.35);z-index:100000;}
+#helpBackdrop[hidden]{display:none;}
+#helpCloseBtn{
+  width:100%;min-height:56px;margin-top:var(--dm-space-4);
+  border:none;border-radius:var(--dm-radius-pill);
+  background:var(--dm-color-primary);color:#fff;font-weight:700;font-size:var(--dm-font-size-body);
+  cursor:pointer;
 }
 </style>
 </head>
 <body>
-<!-- home-btn: 自動挿入 (generate.js) -->
-<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
-<a href="/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
-<!-- /home-btn -->
+<!-- a11y-panel: 自動挿入 (generate.js) -->
+
+<style>#donomanaA11yBtn:focus-visible,#donomanaA11yPanel button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<button id="donomanaA11yBtn" class="scannable" data-scan="1" aria-label="アクセシビリティ設定" aria-expanded="false" aria-controls="donomanaA11yPanel" title="アクセシビリティ設定" style="position:fixed;bottom:16px;right:16px;z-index:99998;width:48px;height:48px;border-radius:50%;border:none;background:#00A99D;color:#fff;font-size:22px;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;">⚙</button>
+<div id="donomanaA11yPanel" role="dialog" aria-label="アクセシビリティ設定" aria-hidden="true" style="display:none;position:fixed;bottom:76px;right:16px;z-index:99998;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.25);padding:18px;width:260px;max-width:calc(100vw - 32px);font-family:'Noto Sans JP',sans-serif;">
+  <div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">⚙ アクセシビリティ設定</div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🎨 表示モード</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-contrast="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">通常</button>
+    <button data-a11y-contrast="hc" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">ハイコントラスト</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔤 文字の大きさ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-font="normal" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">標準</button>
+    <button data-a11y-font="large" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">大</button>
+    <button data-a11y-font="xlarge" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">特大</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">🔊 選択・タップの読み上げ</div>
+  <div style="display:flex;gap:6px;margin-bottom:14px;">
+    <button data-a11y-sr="off" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オフ</button>
+    <button data-a11y-sr="on" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">オン</button>
+  </div>
+  <button id="donomanaA11yReset" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ すべてリセット</button>
+</div>
+<div id="donomanaA11yStatus" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  var P = 'donomana-a11y-';
+  function all(sel){return document.querySelectorAll(sel);}
+  function mark(sel, dataAttr, value){
+    all(sel).forEach(function(b){
+      var on = b.dataset[dataAttr] === value;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
+  }
+  var donomanaAnnounceA11yTimer = null;
+  function donomanaAnnounceA11y(msg){
+    var live = document.getElementById('donomanaA11yStatus');
+    if (!live) return;
+    clearTimeout(donomanaAnnounceA11yTimer);
+    live.textContent = '';
+    donomanaAnnounceA11yTimer = setTimeout(function(){ live.textContent = msg; }, 50);
+  }
+  function applyContrast(mode){
+    // 背景を黒・文字を白に反転する方式(弱視・色覚特性のある方向けに、
+    // 単純なコントラスト強調より確実に見やすくなるため)
+    document.documentElement.style.filter = (mode === 'hc') ? 'invert(1) hue-rotate(180deg)' : '';
+    mark('[data-a11y-contrast]', 'a11yContrast', mode);
+    localStorage.setItem(P + 'contrast', mode);
+  }
+  function applyFont(size){
+    var zoomMap = { normal: '', large: '125%', xlarge: '150%' };
+    document.body.style.zoom = zoomMap[size] || '';
+    mark('[data-a11y-font]', 'a11yFont', size);
+    localStorage.setItem(P + 'font', size);
+  }
+  
+  var srEnabled = false;
+  function speak(text){
+    if (!srEnabled || !window.speechSynthesis || !text) return;
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text.trim());
+    u.lang = 'ja-JP'; u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  }
+  function onGlobalSpeakClick(e){
+    if (!srEnabled) return;
+    if (e.target.closest('#donomanaA11yPanel, #donomanaA11yBtn')) return;
+    var el = e.target.closest('button, a, [role="button"]');
+    if (!el) return;
+    var text = (el.getAttribute('aria-label') || el.textContent || '').trim();
+    if (text) speak(text);
+  }
+  function applyScreenReader(enabled){
+    srEnabled = enabled;
+    mark('[data-a11y-sr]', 'a11ySr', enabled ? 'on' : 'off');
+    localStorage.setItem(P + 'sr', enabled ? '1' : '0');
+    if (enabled) {
+      speak('読み上げ機能をオンにしました');
+      document.addEventListener('click', onGlobalSpeakClick, true);
+    } else {
+      window.speechSynthesis && window.speechSynthesis.cancel();
+      document.removeEventListener('click', onGlobalSpeakClick, true);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    var btn = document.getElementById('donomanaA11yBtn');
+    var panel = document.getElementById('donomanaA11yPanel');
+    if (!btn || !panel) return;
+    // WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: 共通A11yパネル自体のkeyboard
+    // behavior用helper(donomana-a11y-panel-keyboard-contract-v1_0.md準拠)。
+    // window経由で公開し、各アプリ固有スクリプト(Pilot対象)から呼び出せるようにする。
+    // 定義自体は全35アプリへ共通反映されるが、実際にTab/Shift+Tabのcontainmentを
+    // 発火させる(trapA11yPanelFocusを呼び出す)かどうかはPilotアプリ側の個別実装に
+    // 委ねる(helperの存在とfeature activationを分離、Non-Pilotアプリの挙動は不変)。
+    function donomanaA11yElFocusable(el){
+      if (!el || el.disabled) return false;
+      if (el.hasAttribute('hidden')) return false;
+      if (el.getClientRects().length === 0) return false;
+      var cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden';
+    }
+    function getA11yPanelFocusables(panelEl){
+      return Array.prototype.filter.call(
+        panelEl.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'),
+        donomanaA11yElFocusable
+      );
+    }
+    function trapA11yPanelFocus(e){
+      if (e.key !== 'Tab' || panel.style.display !== 'block') return false;
+      var items = getA11yPanelFocusables(panel);
+      if (!items.length) return false;
+      var first = items[0], last = items[items.length - 1];
+      var active = document.activeElement;
+      var inPanel = items.indexOf(active) !== -1;
+      if (e.shiftKey) {
+        if (!inPanel || active === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (!inPanel || active === last) { e.preventDefault(); first.focus(); }
+      }
+      return true;
+    }
+    function restoreA11yPanelFocus(){
+      if (donomanaA11yElFocusable(btn)) btn.focus();
+    }
+    window.getA11yPanelFocusables = getA11yPanelFocusables;
+    window.trapA11yPanelFocus = trapA11yPanelFocus;
+    window.restoreA11yPanelFocus = restoreA11yPanelFocus;
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var open = panel.style.display === 'block';
+      panel.style.display = open ? 'none' : 'block';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      panel.setAttribute('aria-hidden', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e){
+      if (!panel.contains(e.target) && e.target !== btn) {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      // WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A: 旧btn.click()による
+      // 合成クリックはbtn自体へfocusを移動させないため、Panel内部(opener以外)に
+      // focusがある状態でEscapeを押すとdocument.activeElementがBODYへ落ちる
+      // (mogura-tatakiで実機確認済み、共通層コードが原因の35アプリ共通の構造的
+      // リスク)。close処理を直接実行したうえでrestoreA11yPanelFocus()により
+      // openerへ明示的にfocusを戻す。
+      if (e.key === 'Escape' && panel.style.display === 'block') {
+        panel.style.display = 'none';
+        btn.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+        restoreA11yPanelFocus();
+      }
+    });
+    all('[data-a11y-contrast]').forEach(function(b){ b.addEventListener('click', function(){
+      applyContrast(b.dataset.a11yContrast);
+      donomanaAnnounceA11y(b.dataset.a11yContrast === 'hc' ? 'ハイコントラストをオンにしました' : 'ハイコントラストをオフにしました');
+    }); });
+    all('[data-a11y-font]').forEach(function(b){ b.addEventListener('click', function(){
+      applyFont(b.dataset.a11yFont);
+      donomanaAnnounceA11y('文字の大きさを' + ({normal:'標準',large:'大',xlarge:'特大'}[b.dataset.a11yFont] || '標準') + 'にしました');
+    }); });
+    all('[data-a11y-sr]').forEach(function(b){ b.addEventListener('click', function(){
+      applyScreenReader(b.dataset.a11ySr === 'on');
+      donomanaAnnounceA11y(b.dataset.a11ySr === 'on' ? '読み上げ機能をオンにしました' : '読み上げ機能をオフにしました');
+    }); });
+    
+    var resetBtn = document.getElementById('donomanaA11yReset');
+    if (resetBtn) resetBtn.addEventListener('click', function(){
+      applyContrast('normal'); applyFont('normal'); applyScreenReader(false);
+      localStorage.removeItem(P + 'contrast'); localStorage.removeItem(P + 'font'); localStorage.removeItem(P + 'sr');
+      donomanaAnnounceA11y('設定をリセットしました');
+    });
+    applyContrast(localStorage.getItem(P + 'contrast') || 'normal');
+    applyFont(localStorage.getItem(P + 'font') || 'normal');
+    applyScreenReader(localStorage.getItem(P + 'sr') === '1');
+  });
+})();
+</script>
+<!-- /a11y-panel -->
+<!-- announce-helper: 自動挿入 (generate.js) -->
+<div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
+<script>
+(function(){
+  if (window.donomanaAnnounce) return;
+  var politeTimer = null, assertiveTimer = null;
+  function donomanaAnnounce(message, options){
+    if (typeof message !== 'string') return;
+    if (message.trim() === '') return;
+    var opts = options || {};
+    var priority = (opts.priority === 'assertive') ? 'assertive' : 'polite';
+    var clearDelay = (typeof opts.clearDelay === 'number' && Number.isFinite(opts.clearDelay) && opts.clearDelay >= 0) ? opts.clearDelay : 50;
+    var elId = (priority === 'assertive') ? 'donomanaAnnounceAssertive' : 'donomanaAnnouncePolite';
+    var live = document.getElementById(elId);
+    if (!live) return;
+    if (priority === 'assertive') { clearTimeout(assertiveTimer); } else { clearTimeout(politeTimer); }
+    live.textContent = '';
+    var timer = setTimeout(function(){ live.textContent = message; }, clearDelay);
+    if (priority === 'assertive') { assertiveTimer = timer; } else { politeTimer = timer; }
+  }
+  window.donomanaAnnounce = donomanaAnnounce;
+})();
+</script>
+<!-- /announce-helper -->
+
+<!-- Hand-authored Reference Implementation (Help / Usage Guide Standard v1.0 §5/§5.1),
+     following dotchiga-ii-app.html's placement pattern: fixed top row, ordered
+     Lock -> Fullscreen -> Help (Help closest to the screen edge). Not yet part of
+     generate.js's shared injector (see New App Standard §8.1 feasibility note). -->
+<div style="position:fixed;top:64px;right:12px;z-index:99999;">
+  <button id="donomanaHelpBtn" class="scannable" data-scan="1" aria-label="つかいかた" aria-expanded="false" aria-controls="helpPanel" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
+</div>
+<div id="helpBackdrop" hidden></div>
+<section id="helpPanel" hidden aria-labelledby="helpTitle">
+  <h2 id="helpTitle" tabindex="-1">「さかなつり」の つかいかた</h2>
+  <div class="help-body">
+    <h3>このアプリについて</h3>
+    <p>「さかなつり」は、しかけをなげて、さかなが かかるのを まって、リールを まきとって つりあげる たいけんを たのしむ きょうざいです。うまく つれなくても しっぱいには なりません。じかんが かかっても、つづけていれば かならず つれます。</p>
+    <h3>あそびかた</h3>
+    <ul>
+      <li>「🎣 なげる」を おす</li>
+      <li>すこし まつと、さかなが じどうで かかる</li>
+      <li>「🎣 おしつづけて まきとる」を おしつづける</li>
+      <li>さかなが すこしずつ ちかづいてくる</li>
+      <li>さいごまで まきとると つれる</li>
+    </ul>
+    <h3>そうさほうほう</h3>
+    <h4>タッチ・マウス</h4>
+    <p>「まきとる」ボタンを ゆびや マウスで おしつづけます。</p>
+    <h4>キーボード</h4>
+    <p>Tabキーで ボタンに うつり、EnterキーまたはSpaceキーを おしつづけます。</p>
+    <h4>スイッチ</h4>
+    <p>がいぶスイッチでの ながおし操作に たいおうする せっけいですが、じっきでの どうさかくにんは まだ おこなっていません。</p>
+    <h3>おと</h3>
+    <p>がめん したの「🔊 おと」で、こうかおんの ON/OFFを きりかえられます。おとを けしても、がめんのひょうじで すすみぐあいが わかるように なっています。</p>
+    <h3>きろく</h3>
+    <p>1かいの つりごとに、いつ・どのほうほうで・なにいろの さかなが つれたかを、このたんまつの ブラウザないだけに ほぞんします。がいぶへの そうしんは ありません。</p>
+  </div>
+  <button id="helpCloseBtn" type="button">とじる</button>
+</section>
+
 <!-- lock-fs-btn: 自動挿入 (generate.js) -->
 <style>#donomanaLockBtn:focus-visible,#donomanaFsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
@@ -279,31 +600,10 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 })();
 </script>
 <!-- /lock-fs-btn -->
-<!-- announce-helper: 自動挿入 (generate.js) -->
-<div id="donomanaAnnouncePolite" role="status" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
-<div id="donomanaAnnounceAssertive" role="alert" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:-1px;"></div>
-<script>
-(function(){
-  if (window.donomanaAnnounce) return;
-  var politeTimer = null, assertiveTimer = null;
-  function donomanaAnnounce(message, options){
-    if (typeof message !== 'string') return;
-    if (message.trim() === '') return;
-    var opts = options || {};
-    var priority = (opts.priority === 'assertive') ? 'assertive' : 'polite';
-    var clearDelay = (typeof opts.clearDelay === 'number' && Number.isFinite(opts.clearDelay) && opts.clearDelay >= 0) ? opts.clearDelay : 50;
-    var elId = (priority === 'assertive') ? 'donomanaAnnounceAssertive' : 'donomanaAnnouncePolite';
-    var live = document.getElementById(elId);
-    if (!live) return;
-    if (priority === 'assertive') { clearTimeout(assertiveTimer); } else { clearTimeout(politeTimer); }
-    live.textContent = '';
-    var timer = setTimeout(function(){ live.textContent = message; }, clearDelay);
-    if (priority === 'assertive') { assertiveTimer = timer; } else { politeTimer = timer; }
-  }
-  window.donomanaAnnounce = donomanaAnnounce;
-})();
-</script>
-<!-- /announce-helper -->
+<!-- home-btn: 自動挿入 (generate.js) -->
+<style>#donomanaHomeBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<a href="/" id="donomanaHomeBtn" class="scannable" data-scan="1" aria-label="どのまな トップページへ戻る" title="どのまな トップページへ戻る" style="position:fixed;top:12px;left:12px;z-index:99999;min-width:44px;min-height:44px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s,box-shadow .15s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">🏠</a>
+<!-- /home-btn -->
 
 <h1>🎣 さかなつり</h1>
 
@@ -319,8 +619,18 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
     <div id="status-text" role="status">じゅんび かんりょう</div>
 
     <div class="pond" id="pond">
-      <span class="hook-marker" aria-hidden="true">🪝</span>
+      <div class="sun" aria-hidden="true"></div>
+      <div class="cloud c1" aria-hidden="true"></div>
+      <div class="cloud c2" aria-hidden="true"></div>
+      <div class="water-sparkle" aria-hidden="true"></div>
+      <div class="shore" aria-hidden="true"></div>
+      <div class="rod" aria-hidden="true"></div>
+      <svg class="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line id="fishing-line" x1="91" y1="24" x2="20" y2="46"></line>
+      </svg>
+      <div class="bobber bobbing" id="bobber" aria-hidden="true"></div>
       <span class="fish" id="fish" aria-hidden="true">🐟</span>
+      <span class="splash" id="splash" aria-hidden="true">💦</span>
     </div>
 
     <div class="progress-row" aria-hidden="false">
@@ -351,7 +661,10 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 
 <script>
 /* ================================================================
-   Phase FISHING-APP-IMPLEMENTATION-1 — Pilot: mode="free" x reelMethod="hold" のみ。
+   Phase FISHING-APP-IMPLEMENTATION-1 (revision-1) — Pilot: mode="free" x
+   reelMethod="hold" のみ。User Browser Review「修正希望」を反映:
+   共通アクセシビリティボタン・使い方ボタンの追加、池・竿・糸・浮き・魚の
+   ビジュアル改善。
    Source of Truth: docs/design-system/donomana-fishing-app-design-contract-v1_0.md
    および docs/design-system/donomana-fishing-app-implementation-plan-v1_0.md
 ================================================================ */
@@ -383,7 +696,8 @@ var WAITING_MIN_MS = 1200, WAITING_MAX_MS = 2200; // "厳密なランダム性�
 var BITTEN_MS = 500;
 var CAUGHT_DISPLAY_MS = 2600;
 var POINTER_WATCHDOG_MS = 20000; // stale-input safety net (5.3.1章)
-var FISH_START_PCT = 12, FISH_HOOK_PCT = 88;
+var FISH_START_PCT = 20, FISH_ROD_PCT = 91; // cast/bite point -> rod-side landing point
+var FISH_Y_PCT = 46;
 var FISH_PALETTE = [
   { color: 'red',    emoji: '🐟' },
   { color: 'blue',   emoji: '🐠' },
@@ -394,6 +708,9 @@ var elStart = document.getElementById('start-screen');
 var elFishing = document.getElementById('fishing-screen');
 var elStatus = document.getElementById('status-text');
 var elFish = document.getElementById('fish');
+var elBobber = document.getElementById('bobber');
+var elSplash = document.getElementById('splash');
+var elLine = document.getElementById('fishing-line');
 var elProgressFill = document.getElementById('progress-fill');
 var elProgressText = document.getElementById('progress-text');
 var elCastBtn = document.getElementById('cast-btn');
@@ -451,6 +768,7 @@ function playBiteSound() { playTone(660, 140, 'triangle'); }
 function playCaughtSound() {
   playTone(523.25, 150, 'triangle');
   setTimeout(function () { playTone(783.99, 260, 'triangle'); }, 130);
+  setTimeout(function () { playTone(1046.5, 320, 'triangle'); }, 260);
 }
 function startReelSoundActive() {
   if (!soundOn || reelOsc) return;
@@ -481,14 +799,30 @@ elSoundToggle.addEventListener('change', function (e) {
   if (!soundOn) stopReelSoundActive();
 });
 
-/* ---- Rendering ---- */
+/* ---- Rendering ----
+   The fishing line always tracks whatever is currently at the water (bobber before the
+   bite, the fish afterwards) so it never looks like a bare, disconnected hook. */
+function renderLineTo(xPct, yPct) {
+  elLine.setAttribute('x2', xPct);
+  elLine.setAttribute('y2', yPct);
+}
 function renderFishPosition() {
   var t = reelProgress / 100;
-  elFish.style.left = lerp(FISH_START_PCT, FISH_HOOK_PCT, t) + '%';
+  var x = lerp(FISH_START_PCT, FISH_ROD_PCT, t);
+  elFish.style.left = x + '%';
+  elFish.style.top = FISH_Y_PCT + '%';
+  renderLineTo(x, FISH_Y_PCT);
 }
 function renderProgress() {
   elProgressFill.style.width = reelProgress + '%';
   elProgressText.textContent = reelProgress >= 100 ? 'つれた！' : ('のこり ' + Math.max(0, 100 - Math.round(reelProgress)) + '%');
+}
+function showSplash(xPct, yPct) {
+  elSplash.style.left = xPct + '%';
+  elSplash.style.top = yPct + '%';
+  elSplash.classList.remove('show');
+  void elSplash.offsetWidth; // restart animation
+  elSplash.classList.add('show');
 }
 var STATUS_LABELS = {
   IDLE: 'キャストしよう',
@@ -505,9 +839,14 @@ function updateUI() {
   elReelBtn.setAttribute('aria-disabled', reeling ? 'false' : 'true');
   elReelBtn.classList.toggle('inactive', !reeling);
   var fishVisible = (state === STATE.WAITING || state === STATE.BITTEN || state === STATE.REELING || state === STATE.CAUGHT);
+  var bobberVisible = (state === STATE.WAITING);
   elFish.style.display = fishVisible ? '' : 'none';
   elFish.classList.toggle('swimming', state === STATE.WAITING);
   elFish.classList.toggle('bitten', state === STATE.BITTEN);
+  elBobber.style.display = bobberVisible ? '' : 'none';
+  elBobber.style.left = FISH_START_PCT + '%';
+  elBobber.style.top = FISH_Y_PCT + '%';
+  if (!fishVisible) renderLineTo(FISH_START_PCT, FISH_Y_PCT);
   elCatchResult.hidden = (state !== STATE.CAUGHT);
   elAgainBtn.hidden = (state !== STATE.CAUGHT);
   if (state === STATE.IDLE) { elProgressText.textContent = 'まだ キャストしていないよ'; elProgressFill.style.width = '0%'; }
@@ -589,6 +928,8 @@ function spawnFish() {
   var pick = FISH_PALETTE[Math.floor(Math.random() * FISH_PALETTE.length)];
   currentFish = { color: pick.color, size: Math.round(randomBetween(1, 3)) };
   elFish.textContent = pick.emoji;
+  elFish.style.left = FISH_START_PCT + '%';
+  elFish.style.top = FISH_Y_PCT + '%';
   return 'fish-' + Date.now();
 }
 function startCast() {
@@ -599,6 +940,7 @@ function startCast() {
   castStartedAt = Date.now();
   trialNumber += 1;
   updateUI();
+  renderLineTo(FISH_START_PCT, FISH_Y_PCT);
   announce('しかけを なげたよ');
   castTimer = setTimeout(enterWaiting, CASTING_MS);
 }
@@ -611,6 +953,7 @@ function enterBitten() {
   state = STATE.BITTEN;
   hookedFishId = spawnFish();
   updateUI();
+  showSplash(FISH_START_PCT, FISH_Y_PCT);
   playBiteSound();
   announce('さかなが かかったよ！');
   biteTimer = setTimeout(enterReeling, BITTEN_MS);
@@ -618,6 +961,7 @@ function enterBitten() {
 function enterReeling() {
   state = STATE.REELING;
   updateUI();
+  renderFishPosition();
   if (isPhysicallyHeld) onHoldStart(holdInputMethod || 'touch'); // WAITING中からの引き継ぎ(5.3章、ユーザー確定)
 }
 function landFish() {
@@ -625,6 +969,7 @@ function landFish() {
   caughtLanded = true;
   state = STATE.CAUGHT;
   markReleased();
+  showSplash(FISH_ROD_PCT, FISH_Y_PCT);
   playCaughtSound();
   updateUI();
   elCatchMessage.textContent = 'さかなが つれたよ！';
@@ -664,6 +1009,62 @@ function saveTrialRecord() {
   });
   donomanaRecordAddLog(STORAGE_KEY, entry);
 }
+
+/* ---- Help panel (hand-authored, Help / Usage Guide Standard v1.0) ----
+   Same non-modal isolation contract style as the common A11y panel: Escape closes,
+   focus returns to the opener, a minimal Tab-containment loop keeps focus inside
+   while open. Independent element/state from donomanaA11yPanel (different toggle
+   mechanism: hidden attribute vs style.display), so it keeps its own small trap
+   rather than reusing the A11y panel's window-exposed helpers verbatim. */
+var helpOpen = false;
+var elHelpBtn = document.getElementById('donomanaHelpBtn');
+var elHelpPanel = document.getElementById('helpPanel');
+var elHelpBackdrop = document.getElementById('helpBackdrop');
+var elHelpCloseBtn = document.getElementById('helpCloseBtn');
+var elHelpTitle = document.getElementById('helpTitle');
+function helpFocusables() {
+  // tabindex="-1" (helpTitle, the scripted initial-focus anchor) is deliberately excluded:
+  // it is not a native Tab stop, so treating it as a normal list item would let a forward
+  // Tab from it fall through to the browser's own tab order and escape the panel. It is
+  // instead handled explicitly as an extra wrap boundary below (same pattern matching-app.html
+  // uses for its modals' initial-focus-title-vs-Tab-order mismatch).
+  return Array.prototype.filter.call(
+    elHelpPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'),
+    function (el) { return el.getClientRects().length > 0; }
+  );
+}
+function openHelp() {
+  helpOpen = true;
+  elHelpPanel.hidden = false;
+  elHelpBackdrop.hidden = false;
+  elHelpBtn.setAttribute('aria-expanded', 'true');
+  elHelpTitle.focus();
+}
+function closeHelp() {
+  helpOpen = false;
+  elHelpPanel.hidden = true;
+  elHelpBackdrop.hidden = true;
+  elHelpBtn.setAttribute('aria-expanded', 'false');
+  elHelpBtn.focus();
+}
+elHelpBtn.addEventListener('click', function () { helpOpen ? closeHelp() : openHelp(); });
+elHelpCloseBtn.addEventListener('click', closeHelp);
+elHelpBackdrop.addEventListener('click', closeHelp);
+document.addEventListener('keydown', function (e) {
+  if (!helpOpen) return;
+  if (e.key === 'Escape') { closeHelp(); return; }
+  if (e.key !== 'Tab') return;
+  var items = helpFocusables();
+  if (!items.length) return;
+  var first = items[0], last = items[items.length - 1];
+  var active = document.activeElement;
+  var inPanel = elHelpPanel.contains(active);
+  if (e.shiftKey) {
+    if (!inPanel || active === first || active === elHelpTitle) { e.preventDefault(); last.focus(); }
+  } else {
+    if (!inPanel || active === last || active === elHelpTitle) { e.preventDefault(); first.focus(); }
+  }
+});
 
 /* ---- Start screen ---- */
 document.getElementById('start-btn').addEventListener('click', function () {
