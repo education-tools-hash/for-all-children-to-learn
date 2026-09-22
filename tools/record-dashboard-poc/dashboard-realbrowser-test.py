@@ -350,6 +350,97 @@ def gaze_regressions(browser):
         context.close()
 
 
+def switch_ownership_regressions(browser):
+    """Real keyboard down/up, repeats and competing target handlers; not Blue2.
+
+    Fresh contexts use synthetic records only. Observe real click/flip handlers
+    (no replacement activation) so a game-state guard cannot hide duplicates.
+    """
+    for app in ['katakana-app', 'matching-app']:
+        context = browser.new_context(viewport={'width': 1280, 'height': 900}, has_touch=True)
+        page = context.new_page()
+        errors = []
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.route('https://fonts.googleapis.com/**', lambda r: r.fulfill(body=''))
+        page.goto((REPO_ROOT / (app + '.html')).as_uri())
+        if app == 'matching-app':
+            page.wait_for_selector('.set-item')
+        page.clock.install()
+        page.clock.pause_at('2030-01-01T00:00:00Z')
+        if app == 'katakana-app':
+            target = '#readGrid .kana-btn'
+            page.evaluate("toggleScanMode(true); stopAutoScan()")
+        else:
+            page.evaluate("selLevel='easy'; startGame(); enableScan(); stopSwitchScan()")
+            target = '#card-grid .card'
+        page.evaluate("""app => {
+            window.switchClicks = [];
+            document.addEventListener('click', e => switchClicks.push(e.target.closest('button,.card,.set-item')?.id || e.target.className), true);
+            window.switchFlips = [];
+            if (app === 'matching-app') {
+                const original = flip;
+                flip = function(el, idx) { switchFlips.push(idx); return original(el, idx); };
+            }
+        }""", app)
+        for key in ['Space', 'Enter']:
+            for competing in ([False, True] if app == 'matching-app' else [False]):
+                page.evaluate("""({app, competing}) => {
+                    switchClicks.length=0; switchFlips.length=0;
+                    if(app==='matching-app') {
+                        locked=false; flipped=[]; moves=0;
+                        document.querySelectorAll('.card').forEach(c=>c.classList.remove('flipped','matched','wrong'));
+                        const cards=[...document.querySelectorAll('.card')];
+                        scanIdx=buildScanItems().indexOf(cards[0]);
+                        cards[competing?1:0].focus();
+                    } else document.querySelector('#readGrid .kana-btn').focus();
+                }""", {'app': app, 'competing': competing})
+                page.keyboard.down(key)
+                page.keyboard.up(key)
+                result = page.evaluate("({clicks:switchClicks.length, flips:switchFlips, moves:typeof moves==='undefined'?0:moves})")
+                check(f'{app}: {key} competing={competing} activates only current candidate once',
+                      result['clicks'] == 1 and (app != 'matching-app' or result['flips'] == [0] and result['moves'] == 0), result)
+                page.evaluate("switchClicks.length=0; switchFlips.length=0")
+                page.keyboard.down(key)
+                first = page.evaluate('switchClicks.length')
+                for _ in range(3):
+                    page.keyboard.down(key)  # real repeated keydown while held
+                page.keyboard.up(key)
+                check(f'{app}: {key} repeats add no activation', page.evaluate('switchClicks.length') == first == 1)
+        page.evaluate("toggleScanMode(false)" if app == 'katakana-app' else 'disableScan()')
+        # Native button path with scan OFF; target-local card keyboard behavior is out of scope.
+        normal = target if app == 'katakana-app' else '#btn-back'
+        for key in ['Space', 'Enter']:
+            page.evaluate('switchClicks.length=0')
+            page.locator(normal).first.press(key)
+            check(f'{app}: scan OFF {key} native button activation once', page.evaluate('switchClicks.length') == 1)
+            if app == 'matching-app':
+                page.evaluate("selLevel='easy'; startGame()")
+        page.locator(normal).first.focus()
+        before = page.evaluate('document.activeElement.outerHTML')
+        page.keyboard.press('Tab')
+        check(f'{app}: scan OFF Tab moves focus', page.evaluate('document.activeElement.outerHTML') != before)
+        for action in ['click', 'tap']:
+            page.evaluate('switchClicks.length=0')
+            getattr(page.locator(target).first, action)()
+            check(f'{app}: {action} remains a single click', page.evaluate('switchClicks.length') == 1)
+        page.locator('#donomanaA11yBtn').click()
+        page.keyboard.press('Escape')
+        check(f'{app}: common panel Escape and focus return', page.evaluate("document.getElementById('donomanaA11yPanel').style.display==='none' && document.activeElement.id==='donomanaA11yBtn'"))
+        if app == 'katakana-app':
+            page.locator('.tab-btn[data-tab="quiz"]').click()
+            page.evaluate('startQuiz(10); toggleScanMode(true); stopAutoScan()')
+            page.locator('.choice-btn').first.focus()
+            before = page.evaluate('learningLog.length')
+            page.keyboard.press('Space')
+            check('katakana: one switch answer writes one record', page.evaluate('learningLog.length') == before + 1)
+            page.evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',repeat:true,bubbles:true,cancelable:true}))")
+            check('katakana: repeat writes no extra record', page.evaluate('learningLog.length') == before + 1)
+        else:
+            check('matching: no unintended completion record', page.evaluate("JSON.parse(localStorage.getItem('matching_log')||'[]').length") == 0)
+        check(f'{app}: no runtime errors', not errors, errors)
+        context.close()
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -565,6 +656,7 @@ def main():
         context.close()
 
         gaze_regressions(browser)
+        switch_ownership_regressions(browser)
         browser.close()
 
     print(f"\n{PASS}/{PASS + FAIL} checks passed.")

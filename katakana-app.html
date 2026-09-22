@@ -3462,12 +3462,16 @@ function startAutoScan(){
 
 function stopAutoScan(){ clearInterval(scanInterval); scanInterval=null; }
 
+// Switch ON: consume Space/Enter before target or generic keyboard handlers.
+// Repeats are consumed too, but only a fresh press activates the candidate.
 document.addEventListener('keydown',e=>{
   if(scanMode&&(e.key===' '||e.key==='Enter')){
-    const f=document.activeElement;
-    if(f&&f!==document.body){ e.preventDefault(); activateCurrentScanItem(); }
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(e.repeat)return;
+    activateCurrentScanItem();
   }
-});
+},true);
 
 // Update scan targets on tab change
 document.querySelectorAll('.tab-btn').forEach(btn=>{

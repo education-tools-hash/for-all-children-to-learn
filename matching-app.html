@@ -279,6 +279,8 @@ body.scan-mode #scan-bar{display:flex;align-items:center;justify-content:center;
 .tog input:checked+.tog-sl{background:var(--primary);}
 .tog input:checked+.tog-sl::before{transform:translateX(23px);}
 .tog input:focus-visible+.tog-sl{outline:var(--scan-outline);}
+/* Hidden checkbox owns activation; draw its scan highlight on the visible switch. */
+#settings-ov .tog input.scan-focus+.tog-sl{outline:var(--scan-outline)!important;outline-offset:3px!important;}
 .scan-spd-row{display:none;padding:7px 0;align-items:center;gap:10px;}
 body.scan-mode .scan-spd-row{display:flex;}
 .scan-spd-row label{font-size:.8em;color:var(--text-muted);min-width:52px;}
@@ -2269,6 +2271,16 @@ function scanCandOk(el){
 // 双方から既に呼ばれているため、この配列へ追加するだけでSwitch Scanもモーダル内へ限定される)。
 // それ以外のロジックは変更しない。
 function buildScanItems(){
+  // The foreground common panel owns scanning, even over an app modal.
+  const panel=$('donomanaA11yPanel');
+  if(panel&&panel.style.display==='block'){
+    const items=Array.from(panel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+      .filter(scanCandOk);
+    // Keep the existing toggle as the final switch-accessible close action.
+    const close=$('donomanaA11yBtn');
+    if(close&&scanCandOk(close))items.push(close);
+    return items;
+  }
   const activeModal=['how-ov','settings-ov','edit-ov','record-ov','vs-result-ov','clear-ov'].map(id=>$(id)).find(m=>m.classList.contains('show'));
   if(activeModal){
     return Array.from(activeModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
@@ -2330,6 +2342,19 @@ function stopScan(){stopSwitchScan();}
 function scanItems(){return buildScanItems();}
 function scanAct(){activateCurrentScanItem();}
 function resetModalScan(){refreshSwitchScanItems();}
+
+// Observe shared panel visibility without changing generator-owned handlers.
+// Covers toggle, Escape, outside click and the detailed-settings proxy.
+const matchingA11yScanPanel=$('donomanaA11yPanel');
+if(matchingA11yScanPanel){
+  let wasOpen=matchingA11yScanPanel.style.display==='block';
+  new MutationObserver(()=>{
+    const open=matchingA11yScanPanel.style.display==='block';
+    if(open===wasOpen)return;
+    wasOpen=open;
+    if(scanMode)refreshSwitchScanItems();
+  }).observe(matchingA11yScanPanel,{attributes:true,attributeFilter:['style']});
+}
 
 /* ── セット編集 ── */
 // Phase AUDIT-35-FIX-1C: edit-ovは#btn-add-set(新規作成)と、セットごとに動的生成される
@@ -2640,7 +2665,16 @@ $('btn-retry').addEventListener('click',()=>{
 $('btn-back').addEventListener('click',backToSel);
 $('btn-again').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();startGame();donomanaReturnFocus($('card-grid').querySelector('.card'));});
 $('btn-clear-back').addEventListener('click',()=>{$('clear-ov').classList.remove('show');setModalBackgroundInert(false);resetModalScan();backToSel();donomanaReturnFocus($('start-btn'));});
-document.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&scanMode){e.preventDefault();scanAct();}if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;
+// Capture is required: cards/set items also activate in target keydown handlers.
+// Switch ON owns Space/Enter; consume repeats without activating again.
+document.addEventListener('keydown',e=>{
+  if(!scanMode||(e.key!==' '&&e.key!=='Enter'))return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if(e.repeat)return;
+  scanAct();
+},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const a11yPanel=document.getElementById('donomanaA11yPanel');if(a11yPanel&&a11yPanel.style.display==='block')return;
   // Phase T6.5-B7: Help's focus-return was added here first (Donomana Help /
   // Usage Guide Standard v1.0 §18). Phase AUDIT-35-FIX-1C extends the same
   // per-modal "was it open?" pattern to settings-ov/edit-ov so all 4 modals

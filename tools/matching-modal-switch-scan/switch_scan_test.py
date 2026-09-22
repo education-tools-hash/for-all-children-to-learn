@@ -160,6 +160,106 @@ def test_supporter_only_exclusion(page):
     record("supporter-only record-nav button not scannable on normal screen (unchanged)", not has_supporter2, f"present={has_supporter2}")
 
 
+def test_common_a11y_panel(browser):
+    """Use real keyboard events and actual panel handlers, in a fresh context.
+
+    The opener is the last scan item so a one-switch user can close the panel;
+    it is not an additional keyboard Tab-trap target.
+    """
+    context = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda exc: errors.append(str(exc)))
+    page.goto(BASE)
+    page.wait_for_selector('.set-item')
+    page.clock.install()
+    page.clock.pause_at('2030-01-01T00:00:00Z')
+    page.evaluate("selLevel='easy'; updateStartBtn(); enableScan(); scanIdx=4; startSwitchScan()")
+    opener = page.locator('#donomanaA11yBtn')
+    panel = page.locator('#donomanaA11yPanel')
+    opener.click()
+    expected = page.evaluate("""[...document.querySelectorAll('#donomanaA11yPanel button'),document.getElementById('donomanaA11yBtn')].map(e=>e.outerHTML.replace(/ scan-focus|scan-focus ?/g,''))""")
+    actual = page.evaluate("buildScanItems().map(e=>e.outerHTML.replace(/ scan-focus|scan-focus ?/g,''))")
+    record('A11y: all panel buttons then close toggle, no background items', actual == expected)
+    record('A11y: opening resets index and immediately highlights proxy', scan_focus_id(page) == 'donomanaSettingsProxy' and page.evaluate('scanIdx') == 0)
+    page.clock.run_for(1200)
+    record('A11y: timer advances within panel', page.evaluate("document.querySelector('.scan-focus')?.dataset.a11yContrast") == 'normal')
+    page.clock.run_for(1200 * (page.evaluate('buildScanItems().length') - 1))
+    record('A11y: timer wraps to first item with one highlight', scan_focus_id(page) == 'donomanaSettingsProxy' and page.locator('.scan-focus').count() == 1)
+    page.evaluate("""window.panelClicks=0;window.backgroundClicks=0;
+        document.getElementById('donomanaA11yPanel').addEventListener('click',()=>panelClicks++);
+        document.getElementById('start-btn').addEventListener('click',()=>backgroundClicks++);
+    """)
+    for key in ['Space', 'Enter']:
+        page.evaluate("""scanIdx=buildScanItems().indexOf(document.querySelector('[data-a11y-font="large"]'));
+            startSwitchScan(); document.getElementById('start-btn').focus(); panelClicks=0;
+        """)
+        page.keyboard.down(key)
+        for _ in range(3):
+            page.keyboard.down(key)
+        page.keyboard.up(key)
+        record(f'A11y: {key} activates one panel item despite background focus/repeat',
+               page.evaluate('panelClicks===1 && backgroundClicks===0') and panel.is_visible())
+    # A single switch can leave the panel via the existing opener toggle.
+    page.evaluate('scanIdx=buildScanItems().length-1; startSwitchScan()')
+    page.keyboard.press('Space')
+    record('A11y: scanned close toggle closes panel and resumes page scanning',
+           not panel.is_visible() and page.evaluate("scanIv!==null && scanIdx===0 && !buildScanItems().some(e=>e.closest('#donomanaA11yPanel'))"))
+    opener.click()
+    page.keyboard.press('Escape')
+    record('A11y: Escape restores opener focus and page scan',
+           not panel.is_visible() and active_id_for_panel(page) == 'donomanaA11yBtn' and page.evaluate('scanIdx===0 && scanIv!==null'))
+    opener.click()
+    page.locator('h1').click()
+    record('A11y: outside click closes panel and resumes page scan', not panel.is_visible() and page.evaluate('scanIdx===0 && scanIv!==null'))
+    # Existing app modal must yield to the common panel, then regain its scope.
+    page.evaluate("document.getElementById('btn-settings').click()")
+    opener.click()
+    record('A11y: foreground panel wins over settings modal', page.evaluate("buildScanItems()[0].id==='donomanaSettingsProxy'"))
+    page.keyboard.press('Escape')
+    record('A11y: closing common panel preserves underlying settings modal',
+           is_shown(page, 'settings-ov') and page.evaluate("buildScanItems().every(e=>e.closest('#settings-ov'))"))
+    page.locator('#btn-close-settings').click()
+    opener.click()
+    page.keyboard.press('Enter')  # initial scan candidate is the settings proxy
+    record('A11y: scanned proxy opens detailed settings exactly once',
+           not panel.is_visible() and is_shown(page, 'settings-ov') and page.evaluate("buildScanItems().every(e=>e.closest('#settings-ov'))"))
+    # Native checkboxes are intentionally transparent/zero-size: scan highlight
+    # must appear on the visible sibling, not only on the input carrying the class.
+    for toggle in ['t-large', 't-hc', 't-rm', 't-scan', 't-sound']:
+        page.evaluate("id=>{scanIdx=buildScanItems().indexOf(document.getElementById(id));startSwitchScan()}", toggle)
+        # The existing .tog-sl transition lasts 260ms. The JS clock is frozen,
+        # but CSS transitions use browser rendering time; sample after settling.
+        page.locator('#' + toggle + ' + .tog-sl').evaluate("el=>getComputedStyle(el).outlineStyle")
+        page.wait_for_timeout(350)
+        style = page.locator('#' + toggle + ' + .tog-sl').evaluate("el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return {style:s.outlineStyle,width:parseFloat(s.outlineWidth),offset:s.outlineOffset,rect:r.width>0&&r.height>0,color:s.outlineColor,inputColor:getComputedStyle(el.previousElementSibling).outlineColor,inputOffset:getComputedStyle(el.previousElementSibling).outlineOffset}}")
+        # CSS zoom changes resolved pixel values; compare with the existing
+        # scan outline on the adjacent input under the same zoom.
+        record(f'settings: {toggle} has a visible scan outline',
+               style['style'] == 'solid' and style['width'] > 0 and style['offset'] == style['inputOffset'] and float(style['offset'].removesuffix('px')) > 0 and style['rect'] and style['color'] == style['inputColor'], str(style))
+        page.clock.run_for(1200)
+        record(f'settings: {toggle} outline clears when scanning advances',
+               page.locator('#' + toggle + ' + .tog-sl').evaluate("el=>getComputedStyle(el).outlineStyle") == 'none')
+    page.evaluate("scanIdx=buildScanItems().indexOf(document.getElementById('t-sound'));startSwitchScan();disableScan()")
+    record('settings: scan OFF clears visible toggle highlight',
+           page.locator('#t-sound + .tog-sl').evaluate("el=>getComputedStyle(el).outlineStyle") == 'none')
+    page.locator('#btn-close-settings').click()
+    page.evaluate('disableScan()')
+    opener.click()
+    record('A11y: opening with scan OFF creates no scan timer/highlight',
+           page.evaluate("scanIv===null && !document.querySelector('.scan-focus')"))
+    page.locator('[data-a11y-font="normal"]').press('Enter')
+    record('A11y: scan OFF normal keyboard activation remains available',
+           page.evaluate("localStorage.getItem('donomana-a11y-font')==='normal'"))
+    page.keyboard.press('Escape')
+    record('A11y: no runtime errors', not errors, str(errors))
+    context.close()
+
+
+def active_id_for_panel(page):
+    return page.evaluate('document.activeElement.id')
+
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -181,6 +281,7 @@ def main():
         print("\n=== console/runtime ===")
         record("console error count == 0", len(console_errors) == 0, str(console_errors[:5]))
 
+        test_common_a11y_panel(browser)
         browser.close()
 
     total = len(RESULTS)
