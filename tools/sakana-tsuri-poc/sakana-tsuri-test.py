@@ -481,6 +481,181 @@ def main():
             record(f"no runtime errors (rod/line anchor {label})", not errors, str(errors))
             context.close()
 
+        # ================= Input Settings (Phase FISHING-APP-INPUT-SETTINGS-1) =================
+        context, page, errors, console_errors = new_page(browser)
+        record("Settings: reelGain default is 'medium' (3%, byte-identical to pre-Phase hardcoded value)",
+               page.evaluate("inputSettings.reelGainPreset") == "medium" and
+               page.evaluate("HOLD_TICK_AMOUNT") == 3)
+        record("Settings: reelSpeed default is 'standard' (120ms, byte-identical to pre-Phase hardcoded value)",
+               page.evaluate("inputSettings.reelSpeedPreset") == "standard" and
+               page.evaluate("HOLD_TICK_MS") == 120)
+
+        page.click("#sakanaSettingsBtn")
+        record("Settings panel: opens on click", page.is_visible("#settingsPanel"))
+        record("Settings panel: aria-expanded true while open",
+               page.get_attribute("#sakanaSettingsBtn", "aria-expanded") == "true")
+        record("Settings panel: initial focus moves into the panel title",
+               page.evaluate("document.activeElement.id") == "settingsTitle")
+        record("Settings panel: 'ふつう' preset shown as pressed for both groups initially",
+               page.get_attribute("[data-reel-gain='medium']", "aria-pressed") == "true" and
+               page.get_attribute("[data-reel-speed='standard']", "aria-pressed") == "true")
+
+        page.click("[data-reel-gain='large']")
+        record("Settings: switching reelGain preset updates HOLD_TICK_AMOUNT",
+               page.evaluate("inputSettings.reelGainPreset") == "large" and
+               page.evaluate("HOLD_TICK_AMOUNT") == 6)
+        record("Settings: preset button reflects the new selection (aria-pressed)",
+               page.get_attribute("[data-reel-gain='large']", "aria-pressed") == "true" and
+               page.get_attribute("[data-reel-gain='medium']", "aria-pressed") == "false")
+
+        page.click("[data-reel-speed='fast']")
+        record("Settings: switching reelSpeed preset updates HOLD_TICK_MS",
+               page.evaluate("inputSettings.reelSpeedPreset") == "fast" and
+               page.evaluate("HOLD_TICK_MS") == 90)
+
+        record("Settings: saved to a dedicated localStorage key, not the records log",
+               page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
+               {"reelGainPreset": "large", "reelSpeedPreset": "fast"})
+        record("Settings: records log untouched by settings changes alone",
+               page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
+
+        page.keyboard.press("Escape")
+        record("Settings panel: Escape closes the panel", not page.is_visible("#settingsPanel"))
+        record("Settings panel: focus returns to the opener button on close",
+               page.evaluate("document.activeElement.id") == "sakanaSettingsBtn")
+
+        page.click("#sakanaSettingsBtn")
+        page.locator("#settingsTitle").focus()
+        page.keyboard.press("Shift+Tab")
+        record("Settings panel: Shift+Tab from the title wraps to the last focusable (close button)",
+               page.evaluate("document.activeElement.id") == "settingsCloseBtn")
+        page.locator("#settingsTitle").focus()
+        page.keyboard.press("Tab")
+        # Unlike the help panel (which has exactly one real focusable descendant, so
+        # "first" and "last" coincide), this panel has several (6 preset buttons + reset
+        # + close) — forward Tab from the tabindex=-1 title anchor correctly advances to
+        # the first real one, not the last.
+        record("Settings panel: forward Tab from the title (tabindex=-1 anchor) advances to the first real focusable, not out of the panel",
+               page.evaluate("document.activeElement.dataset.reelGain") == "small")
+
+        page.click("#settingsResetBtn")
+        record("Settings: reset restores reelGain default",
+               page.evaluate("inputSettings.reelGainPreset") == "medium" and page.evaluate("HOLD_TICK_AMOUNT") == 3)
+        record("Settings: reset restores reelSpeed default",
+               page.evaluate("inputSettings.reelSpeedPreset") == "standard" and page.evaluate("HOLD_TICK_MS") == 120)
+        record("Settings: reset persists the default back to localStorage",
+               page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
+               {"reelGainPreset": "medium", "reelSpeedPreset": "standard"})
+        page.keyboard.press("Escape")
+        record("no runtime errors (settings panel block)", not errors, str(errors))
+        context.close()
+
+        # ---- Reload persistence ----
+        context, page, errors, console_errors = new_page(browser)
+        page.click("#sakanaSettingsBtn")
+        page.click("[data-reel-gain='small']")
+        page.click("[data-reel-speed='slow']")
+        page.keyboard.press("Escape")
+        page.reload()
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        record("Settings: reelGain preset survives reload",
+               page.evaluate("inputSettings.reelGainPreset") == "small" and page.evaluate("HOLD_TICK_AMOUNT") == 1)
+        record("Settings: reelSpeed preset survives reload",
+               page.evaluate("inputSettings.reelSpeedPreset") == "slow" and page.evaluate("HOLD_TICK_MS") == 160)
+        record("no runtime errors (reload persistence block)", not errors, str(errors))
+        context.close()
+
+        # ---- Malformed/legacy localStorage falls back safely ----
+        context, page, errors, console_errors = new_page(browser)
+        page.evaluate("localStorage.setItem('sakana-tsuri_settings', 'not json{{{')")
+        page.reload()
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        record("Settings: malformed localStorage value falls back to defaults without throwing",
+               page.evaluate("inputSettings.reelGainPreset") == "medium" and
+               page.evaluate("inputSettings.reelSpeedPreset") == "standard")
+        page.evaluate("localStorage.setItem('sakana-tsuri_settings', JSON.stringify({reelGainPreset:'nonsense',reelSpeedPreset:99}))")
+        page.reload()
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        record("Settings: unknown preset values fall back to defaults without applying an out-of-range value",
+               page.evaluate("inputSettings.reelGainPreset") == "medium" and
+               page.evaluate("inputSettings.reelSpeedPreset") == "standard")
+        record("no runtime errors (malformed settings block)", not errors, str(errors))
+        context.close()
+
+        # ---- Settings actually change Method B's real gameplay behavior ----
+        context, page, errors, console_errors = new_page(browser)
+        page.click("#sakanaSettingsBtn")
+        page.click("[data-reel-gain='large']")
+        page.click("[data-reel-speed='fast']")
+        page.keyboard.press("Escape")
+        cast_to_reeling(page)
+        before = progress(page)
+        hold_keyboard(page, "Enter", 90)  # exactly one fast(90ms) tick
+        after = progress(page)
+        record("Settings->Method B: one tick at 'large' gain advances by 6, not the default 3",
+               after - before == 6, f"{before} -> {after}")
+
+        progress_samples = []
+        page.keyboard.down("Enter")
+        for _ in range(8):
+            page.clock.run_for(90)
+            progress_samples.append(progress(page))
+        page.keyboard.up("Enter")
+        record("Settings->Method B: reelProgress still monotonically non-decreasing under a non-default preset",
+               all(progress_samples[i] <= progress_samples[i + 1] for i in range(len(progress_samples) - 1)),
+               str(progress_samples))
+
+        # Step (not a single large run_for): the faster 'fast' preset reaches 100% sooner,
+        # so a single fixed-duration run_for tuned for the default preset would also run
+        # past CAUGHT_DISPLAY_MS's auto-reset within the same call and land on IDLE
+        # instead — stepping and checking after each step is preset-duration-agnostic.
+        page.keyboard.down("Enter")
+        run_until_state(page, ["CAUGHT"], step_ms=90, max_iters=50)
+        page.keyboard.up("Enter")
+        record("Settings->Method B: still reaches CAUGHT exactly, no overshoot/duplicate landFish",
+               state(page) == "CAUGHT" and progress(page) == 100)
+        record_count = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records')||'[]').length")
+        record("Settings->Method B: exactly 1 trial recorded despite a non-default preset (no duplicate record)",
+               record_count == 1)
+        payload = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records'))[0].payload")
+        record("Learning Record: reelGainPreset/reelSpeedPreset recorded, existing fields' shape unchanged",
+               payload.get("reelGainPreset") == "large" and payload.get("reelSpeedPreset") == "fast" and
+               payload.get("reelMethod") == "hold" and payload.get("difficulty") is None and
+               "sessionId" in payload and "trialNumber" in payload and "mode" in payload,
+               str(payload))
+        record("no runtime errors (settings->gameplay block)", not errors, str(errors))
+        context.close()
+
+        # ---- Input ownership regression: settings panel adds no generic document keydown
+        #      that could double-fire the reel button (Switch Scan Spec §19.22.4 concern) ----
+        context, page, errors, console_errors = new_page(browser)
+        cast_to_reeling(page)
+        before = progress(page)
+        page.locator("#reel-hold-btn").focus()
+        page.keyboard.down("Enter")
+        page.clock.run_for(120)  # exactly one default(120ms) tick
+        page.keyboard.up("Enter")
+        after = progress(page)
+        record("Input ownership: one 120ms hold still advances by exactly one tick's amount (3, default)",
+               after - before == 3, f"{before} -> {after}")
+        record("no runtime errors (input ownership regression block)", not errors, str(errors))
+        context.close()
+
+        # ---- Simulated future SETTINGS_PROXY hookup: byte-verified against a sandboxed
+        #      generate.js buildA11yPanelHTML() run (see implementation checkpoint commit
+        #      message) confirms the proxy's script would call
+        #      document.querySelector('#sakanaSettingsBtn').click() — reproduce exactly
+        #      that call here and confirm it actually opens this Phase's settings panel. ----
+        context, page, errors, console_errors = new_page(browser)
+        page.evaluate("document.querySelector('#sakanaSettingsBtn').click()")
+        record("SETTINGS_PROXY readiness: simulated proxy click (as generate.js would emit once registered) opens the settings panel",
+               page.is_visible("#settingsPanel"))
+        record("no runtime errors (SETTINGS_PROXY readiness block)", not errors, str(errors))
+        context.close()
+
         browser.close()
 
     total = len(RESULTS)
