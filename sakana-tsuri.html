@@ -447,55 +447,13 @@ div:has(> #donomanaLockBtn){right:64px!important;}
   cursor:pointer;
 }
 
-/* ---- App-specific detailed settings ("詳細設定": reel gain/speed) — Phase
-   FISHING-APP-INPUT-SETTINGS-1. Reuses the exact same non-modal-dialog pattern as
-   #helpPanel above (backdrop, Escape, focus containment, focus-return to opener)
-   rather than inventing a new modal shape (instruction §5: "独自の簡易modalを作らず、
-   既存の正しいどのまなpatternを参照してください"). #sakanaSettingsBtn itself is the
-   app's own settings entry point, later reachable from the common A11y panel via
-   generate.js's SETTINGS_PROXY mechanism once sakana-tsuri is registered in
-   apps-data.json (METADATA Phase, out of scope here) — see the sandboxed byte-diff
-   note in the implementation checkpoint commit message. ---- */
-#sakanaSettingsBtn{
-  min-height:44px;padding:8px 16px;border-radius:var(--dm-radius-pill);
-  border:2px solid var(--dm-color-border);background:var(--dm-color-surface);
-  color:var(--dm-color-ink);font-size:var(--dm-font-size-caption);font-weight:700;cursor:pointer;
-}
-#sakanaSettingsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
-#settingsPanel{
-  position:fixed;left:50%;bottom:0;transform:translateX(-50%);
-  width:100%;max-width:520px;max-height:78vh;overflow-y:auto;
-  background:var(--dm-color-surface);
-  border-radius:var(--dm-radius-md) var(--dm-radius-md) 0 0;
-  box-shadow:0 -8px 32px rgba(0,0,0,.28);
-  padding:var(--dm-space-5);
-  z-index:100001;
-}
-#settingsPanel[hidden]{display:none;}
-#settingsPanel h2{font-size:var(--dm-font-size-subheading);margin-top:0;}
-#settingsPanel h3{font-size:var(--dm-font-size-body);margin-bottom:4px;}
-#settingsPanel .setting-desc{font-size:var(--dm-font-size-caption);color:var(--dm-color-sub);margin:0 0 8px;}
-#settingsBackdrop{position:fixed;inset:0;background:rgba(20,30,30,.35);z-index:100000;}
-#settingsBackdrop[hidden]{display:none;}
-.preset-group{display:flex;gap:6px;margin-bottom:var(--dm-space-4);}
-.preset-group button{
-  flex:1;min-height:52px;display:flex;align-items:center;justify-content:center;
-  padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;
-  font-size:var(--dm-font-size-caption);font-weight:700;cursor:pointer;color:#333;
-}
-.preset-group button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
-.preset-group button[aria-pressed="true"]{background:#00A99D;color:#fff;border-color:#00A99D;}
-#settingsResetBtn{
-  width:100%;min-height:44px;margin-top:4px;margin-bottom:var(--dm-space-4);
-  border:none;border-radius:8px;background:#f0f0f0;color:#333;
-  font-size:var(--dm-font-size-caption);font-weight:900;cursor:pointer;
-}
-#settingsCloseBtn{
-  width:100%;min-height:56px;margin-top:var(--dm-space-4);
-  border:none;border-radius:var(--dm-radius-pill);
-  background:var(--dm-color-primary);color:#fff;font-weight:700;font-size:var(--dm-font-size-body);
-  cursor:pointer;
-}
+/* App-specific reel-gain/speed settings (Phase FISHING-APP-INPUT-SETTINGS-1, User
+   Browser Review fix) are appended at runtime INTO the common A11y panel itself (see
+   the script near the a11y-panel block below) rather than given their own button/panel,
+   per explicit User Review feedback ("設定入口は1つ"). That appended section uses
+   inline styles matching the common panel's own existing convention exactly, so no
+   separate stylesheet rules are needed here — see the injection script for why it is
+   injected via JS rather than written into the static a11y-panel markup directly. */
 </style>
 </head>
 <body>
@@ -745,37 +703,6 @@ div:has(> #donomanaLockBtn){right:64px!important;}
   <button id="helpCloseBtn" type="button">とじる</button>
 </section>
 
-<!-- App-specific detailed settings (Phase FISHING-APP-INPUT-SETTINGS-1). Same
-     non-modal-dialog pattern as #helpPanel above: backdrop, Escape, focus containment,
-     focus-return to opener. #sakanaSettingsBtn is placed inline with the existing sound
-     toggle (.settings-row) rather than the fixed top-icon row, since it is expected to
-     become invisible/non-interactive (opacity:0, tabIndex=-1) once a future METADATA
-     Phase registers sakana-tsuri into generate.js's SETTINGS_PROXY map and the common
-     A11y panel gains a proxy button that calls this one — see the implementation
-     checkpoint commit for the sandboxed byte-verification of that future block. -->
-<div id="settingsBackdrop" hidden></div>
-<section id="settingsPanel" hidden aria-labelledby="settingsTitle">
-  <h2 id="settingsTitle" tabindex="-1">「さかなつり」の 詳細設定</h2>
-  <div class="settings-body">
-    <h3>まきとる量</h3>
-    <p class="setting-desc">1回の操作で、魚がどれくらい近づくかを えらべます。</p>
-    <div class="preset-group" role="group" aria-label="まきとる量">
-      <button type="button" data-reel-gain="small" aria-pressed="false">少しずつ</button>
-      <button type="button" data-reel-gain="medium" aria-pressed="false">ふつう</button>
-      <button type="button" data-reel-gain="large" aria-pressed="false">大きく</button>
-    </div>
-    <h3>まきとる速さ（長押し）</h3>
-    <p class="setting-desc">「おしつづけて まきとる」を おしている間の、すすむ速さです。</p>
-    <div class="preset-group" role="group" aria-label="まきとる速さ">
-      <button type="button" data-reel-speed="slow" aria-pressed="false">ゆっくり</button>
-      <button type="button" data-reel-speed="standard" aria-pressed="false">ふつう</button>
-      <button type="button" data-reel-speed="fast" aria-pressed="false">はやい</button>
-    </div>
-    <button id="settingsResetBtn" type="button">↺ 既定値にもどす</button>
-  </div>
-  <button id="settingsCloseBtn" type="button">とじる</button>
-</section>
-
 <!-- lock-fs-btn: 自動挿入 (generate.js) -->
 <style>#donomanaLockBtn:focus-visible,#donomanaFsBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
 <div style="position:fixed;top:64px;right:12px;z-index:99999;display:flex;gap:8px;">
@@ -929,7 +856,6 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 
     <div class="settings-row">
       <label><input type="checkbox" id="sound-toggle" checked> 🔊 おと</label>
-      <button id="sakanaSettingsBtn" class="scannable" data-scan="1" type="button" title="詳細設定" aria-expanded="false" aria-controls="settingsPanel">🔧 詳細設定</button>
     </div>
 
   </section>
@@ -1537,86 +1463,98 @@ document.addEventListener('keydown', function (e) {
   }
 });
 
-/* ---- App-specific detailed settings (reel gain/speed) — Phase
-   FISHING-APP-INPUT-SETTINGS-1. Structurally identical open/close/Tab-containment
-   pattern to the help panel above (independent element/state, same reasons). ---- */
-var settingsOpen = false;
-var elSettingsBtn = document.getElementById('sakanaSettingsBtn');
-var elSettingsPanel = document.getElementById('settingsPanel');
-var elSettingsBackdrop = document.getElementById('settingsBackdrop');
-var elSettingsCloseBtn = document.getElementById('settingsCloseBtn');
-var elSettingsResetBtn = document.getElementById('settingsResetBtn');
-var elSettingsTitle = document.getElementById('settingsTitle');
-var elGainButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-gain]'));
-var elSpeedButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-speed]'));
-function settingsFocusables() {
-  // Same tabindex="-1" title exclusion/handling as helpFocusables() above.
-  return Array.prototype.filter.call(
-    elSettingsPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'),
-    function (el) { return el.getClientRects().length > 0; }
+/* ---- App-specific reel-gain/speed settings, integrated into the COMMON A11y panel
+   (Phase FISHING-APP-INPUT-SETTINGS-1, User Browser Review fix: "設定入口は1つ" —
+   the previous standalone #sakanaSettingsBtn/#settingsPanel has been removed).
+   Appended as a DOM child of #donomanaA11yPanel at runtime, rather than written into
+   that panel's own static markup: the markup between "<!-- a11y-panel: 自動挿入 -->"
+   and "<!-- /a11y-panel -->" is hand-placed byte-identical to what generate.js's shared
+   buildA11yPanelHTML() emits (established in an earlier Phase), so that a future
+   generate.js run after apps-data.json registration is a no-op on it. generate.js has
+   no per-app hook for arbitrary extra content, so writing this section directly inside
+   those markers would make a future regeneration silently delete it. Appending after
+   the panel's own DOMContentLoaded handler has already built its content (this handler
+   is registered later in the document, so it always runs after that one) avoids that
+   regression while still living inside the one panel the single ⚙ button opens. */
+document.addEventListener('DOMContentLoaded', function () {
+  var panel = document.getElementById('donomanaA11yPanel');
+  if (!panel) return;
+  var btnStyle = 'flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px 4px;border-radius:8px;border:2px solid #ddd;background:#fff;font-size:12px;font-weight:700;cursor:pointer;';
+  panel.insertAdjacentHTML('beforeend',
+    '<div style="border-top:2px solid #eee;margin-top:14px;padding-top:12px;">' +
+      '<div style="font-weight:900;font-size:14px;margin-bottom:12px;color:#333;">🎣 このアプリの設定</div>' +
+      '<div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">まきとる量（1回の操作で、魚がどれくらい近づくか）</div>' +
+      '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
+        '<button type="button" data-reel-gain="small" style="' + btnStyle + '">少しずつ</button>' +
+        '<button type="button" data-reel-gain="medium" style="' + btnStyle + '">ふつう</button>' +
+        '<button type="button" data-reel-gain="large" style="' + btnStyle + '">大きく</button>' +
+      '</div>' +
+      '<div style="font-size:12px;font-weight:700;color:#666;margin-bottom:6px;">まきとる速さ（長押し中の、すすむ速さ）</div>' +
+      '<div style="display:flex;gap:6px;margin-bottom:14px;">' +
+        '<button type="button" data-reel-speed="slow" style="' + btnStyle + '">ゆっくり</button>' +
+        '<button type="button" data-reel-speed="standard" style="' + btnStyle + '">ふつう</button>' +
+        '<button type="button" data-reel-speed="fast" style="' + btnStyle + '">はやい</button>' +
+      '</div>' +
+      '<button id="sakanaInputSettingsReset" style="width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;border:none;background:#f0f0f0;color:#333;font-size:12px;font-weight:900;cursor:pointer;">↺ さかなつりの設定をリセット</button>' +
+    '</div>'
   );
-}
-function refreshSettingsPanelUI() {
-  elGainButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelGain === inputSettings.reelGainPreset)); });
-  elSpeedButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelSpeed === inputSettings.reelSpeedPreset)); });
-}
-function openSettings() {
-  settingsOpen = true;
-  refreshSettingsPanelUI();
-  elSettingsPanel.hidden = false;
-  elSettingsBackdrop.hidden = false;
-  elSettingsBtn.setAttribute('aria-expanded', 'true');
-  elSettingsTitle.focus();
-}
-function closeSettings() {
-  settingsOpen = false;
-  elSettingsPanel.hidden = true;
-  elSettingsBackdrop.hidden = true;
-  elSettingsBtn.setAttribute('aria-expanded', 'false');
-  elSettingsBtn.focus();
-}
-elSettingsBtn.addEventListener('click', function () { settingsOpen ? closeSettings() : openSettings(); });
-elSettingsCloseBtn.addEventListener('click', closeSettings);
-elSettingsBackdrop.addEventListener('click', closeSettings);
-elGainButtons.forEach(function (b) {
-  b.addEventListener('click', function () {
-    inputSettings.reelGainPreset = b.dataset.reelGain;
-    saveInputSettings();
-    applyInputSettingsToGameplay();
-    refreshSettingsPanelUI();
-    announce('まきとる量を' + b.textContent + 'に せっていしました');
-  });
-});
-elSpeedButtons.forEach(function (b) {
-  b.addEventListener('click', function () {
-    inputSettings.reelSpeedPreset = b.dataset.reelSpeed;
-    saveInputSettings();
-    applyInputSettingsToGameplay();
-    refreshSettingsPanelUI();
-    announce('まきとる速さを' + b.textContent + 'に せっていしました');
-  });
-});
-elSettingsResetBtn.addEventListener('click', function () {
-  inputSettings = defaultInputSettings();
-  saveInputSettings();
-  applyInputSettingsToGameplay();
-  refreshSettingsPanelUI();
-  announce('詳細設定を既定値にもどしました');
-});
-document.addEventListener('keydown', function (e) {
-  if (!settingsOpen) return;
-  if (e.key === 'Escape') { closeSettings(); return; }
-  if (e.key !== 'Tab') return;
-  var items = settingsFocusables();
-  if (!items.length) return;
-  var first = items[0], last = items[items.length - 1];
-  var active = document.activeElement;
-  var inPanel = elSettingsPanel.contains(active);
-  if (e.shiftKey) {
-    if (!inPanel || active === first || active === elSettingsTitle) { e.preventDefault(); last.focus(); }
-  } else {
-    if (!inPanel || active === last || active === elSettingsTitle) { e.preventDefault(); first.focus(); }
+  var gainButtons = Array.prototype.slice.call(panel.querySelectorAll('[data-reel-gain]'));
+  var speedButtons = Array.prototype.slice.call(panel.querySelectorAll('[data-reel-speed]'));
+  function markInputSettingButtons() {
+    // Same visual on/off convention as the common panel's own mark() (background/color/
+    // borderColor swap), reimplemented locally since mark() itself is not exposed on
+    // window — this does not touch or duplicate the common panel's own toggle behavior.
+    gainButtons.forEach(function (b) {
+      var on = b.dataset.reelGain === inputSettings.reelGainPreset;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
+    speedButtons.forEach(function (b) {
+      var on = b.dataset.reelSpeed === inputSettings.reelSpeedPreset;
+      b.style.background = on ? '#00A99D' : '#fff';
+      b.style.color = on ? '#fff' : '#333';
+      b.style.borderColor = on ? '#00A99D' : '#ddd';
+    });
   }
+  gainButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      inputSettings.reelGainPreset = b.dataset.reelGain;
+      saveInputSettings();
+      applyInputSettingsToGameplay();
+      markInputSettingButtons();
+      announce('まきとる量を' + b.textContent + 'に せっていしました');
+    });
+  });
+  speedButtons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      inputSettings.reelSpeedPreset = b.dataset.reelSpeed;
+      saveInputSettings();
+      applyInputSettingsToGameplay();
+      markInputSettingButtons();
+      announce('まきとる速さを' + b.textContent + 'に せっていしました');
+    });
+  });
+  var resetBtn = document.getElementById('sakanaInputSettingsReset');
+  if (resetBtn) resetBtn.addEventListener('click', function () {
+    inputSettings = defaultInputSettings();
+    saveInputSettings();
+    applyInputSettingsToGameplay();
+    markInputSettingButtons();
+    announce('さかなつりの設定を既定値にもどしました');
+  });
+  markInputSettingButtons();
+
+  // Activate strict Tab/Shift+Tab focus containment for the common A11y panel via its
+  // own exposed helper (window.trapA11yPanelFocus, defined in the a11y-panel block
+  // above). This app previously never invoked it — per that block's own comment,
+  // containment is defined globally but "実際にTab/Shift+Tabのcontainmentを発火させる
+  // かどうかはPilotアプリ側の個別実装に委ねる". Adding a whole new section makes the
+  // panel meaningfully longer, so this wires up the already-correct shared mechanism
+  // rather than leaving Tab able to escape the (now larger) panel.
+  document.addEventListener('keydown', function (e) {
+    if (typeof window.trapA11yPanelFocus === 'function') window.trapA11yPanelFocus(e);
+  });
 });
 
 /* ---- Start screen ---- */

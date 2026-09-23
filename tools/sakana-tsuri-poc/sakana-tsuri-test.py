@@ -481,7 +481,10 @@ def main():
             record(f"no runtime errors (rod/line anchor {label})", not errors, str(errors))
             context.close()
 
-        # ================= Input Settings (Phase FISHING-APP-INPUT-SETTINGS-1) =================
+        # ================= Input Settings, integrated into the common A11y panel
+        #                    (Phase FISHING-APP-INPUT-SETTINGS-1, User Browser Review
+        #                    fix: "設定入口は1つ" — no more standalone
+        #                    #sakanaSettingsBtn/#settingsPanel) =================
         context, page, errors, console_errors = new_page(browser)
         record("Settings: reelGain default is 'medium' (3%, byte-identical to pre-Phase hardcoded value)",
                page.evaluate("inputSettings.reelGainPreset") == "medium" and
@@ -489,24 +492,27 @@ def main():
         record("Settings: reelSpeed default is 'standard' (120ms, byte-identical to pre-Phase hardcoded value)",
                page.evaluate("inputSettings.reelSpeedPreset") == "standard" and
                page.evaluate("HOLD_TICK_MS") == 120)
+        record("Settings: no separate settings button/panel exists any more",
+               page.locator("#sakanaSettingsBtn").count() == 0 and page.locator("#settingsPanel").count() == 0)
 
-        page.click("#sakanaSettingsBtn")
-        record("Settings panel: opens on click", page.is_visible("#settingsPanel"))
-        record("Settings panel: aria-expanded true while open",
-               page.get_attribute("#sakanaSettingsBtn", "aria-expanded") == "true")
-        record("Settings panel: initial focus moves into the panel title",
-               page.evaluate("document.activeElement.id") == "settingsTitle")
-        record("Settings panel: 'ふつう' preset shown as pressed for both groups initially",
-               page.get_attribute("[data-reel-gain='medium']", "aria-pressed") == "true" and
-               page.get_attribute("[data-reel-speed='standard']", "aria-pressed") == "true")
+        page.click("#donomanaA11yBtn")
+        record("Common A11y panel: opens on click (single settings entry point)",
+               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "block")
+        record("Common A11y panel: fishing-specific section is inside the SAME panel",
+               page.evaluate("!!document.querySelector('#donomanaA11yPanel [data-reel-gain]')") and
+               page.evaluate("!!document.querySelector('#donomanaA11yPanel [data-reel-speed]')"))
+        record("Settings: 'ふつう' preset shown as selected for both groups initially",
+               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='medium']\")).backgroundColor") ==
+               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-speed='standard']\")).backgroundColor") and
+               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='medium']\")).backgroundColor") != "rgb(255, 255, 255)")
 
         page.click("[data-reel-gain='large']")
         record("Settings: switching reelGain preset updates HOLD_TICK_AMOUNT",
                page.evaluate("inputSettings.reelGainPreset") == "large" and
                page.evaluate("HOLD_TICK_AMOUNT") == 6)
-        record("Settings: preset button reflects the new selection (aria-pressed)",
-               page.get_attribute("[data-reel-gain='large']", "aria-pressed") == "true" and
-               page.get_attribute("[data-reel-gain='medium']", "aria-pressed") == "false")
+        record("Settings: preset button visually reflects the new selection",
+               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='large']\")).backgroundColor") !=
+               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='medium']\")).backgroundColor"))
 
         page.click("[data-reel-speed='fast']")
         record("Settings: switching reelSpeed preset updates HOLD_TICK_MS",
@@ -519,26 +525,35 @@ def main():
         record("Settings: records log untouched by settings changes alone",
                page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
 
+        # ---- Existing common A11y items must be unaffected by the new section ----
+        page.click("[data-a11y-contrast='hc']")
+        record("Common A11y regression: high-contrast toggle still applies the invert filter",
+               "invert(1)" in page.evaluate("document.documentElement.style.filter"))
+        page.click("[data-a11y-contrast='normal']")
+        page.click("[data-a11y-font='large']")
+        record("Common A11y regression: font-size toggle still applies body zoom",
+               page.evaluate("document.body.style.zoom") == "125%")
+        page.click("[data-a11y-font='normal']")
+
         page.keyboard.press("Escape")
-        record("Settings panel: Escape closes the panel", not page.is_visible("#settingsPanel"))
-        record("Settings panel: focus returns to the opener button on close",
-               page.evaluate("document.activeElement.id") == "sakanaSettingsBtn")
+        record("Common A11y panel: Escape still closes it",
+               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "none")
+        record("Common A11y panel: focus still returns to the opener button on close",
+               page.evaluate("document.activeElement.id") == "donomanaA11yBtn")
 
-        page.click("#sakanaSettingsBtn")
-        page.locator("#settingsTitle").focus()
+        # ---- Strict Tab/Shift+Tab focus containment across the WHOLE panel (existing
+        #      common items + the newly appended fishing-specific section) ----
+        page.click("#donomanaA11yBtn")
+        page.locator("[data-a11y-contrast='normal']").focus()  # first focusable in the panel
         page.keyboard.press("Shift+Tab")
-        record("Settings panel: Shift+Tab from the title wraps to the last focusable (close button)",
-               page.evaluate("document.activeElement.id") == "settingsCloseBtn")
-        page.locator("#settingsTitle").focus()
+        record("Common A11y panel: Shift+Tab from the first item wraps to the last (the new reset button)",
+               page.evaluate("document.activeElement.id") == "sakanaInputSettingsReset")
+        page.locator("#sakanaInputSettingsReset").focus()  # last focusable, now that the section is appended
         page.keyboard.press("Tab")
-        # Unlike the help panel (which has exactly one real focusable descendant, so
-        # "first" and "last" coincide), this panel has several (6 preset buttons + reset
-        # + close) — forward Tab from the tabindex=-1 title anchor correctly advances to
-        # the first real one, not the last.
-        record("Settings panel: forward Tab from the title (tabindex=-1 anchor) advances to the first real focusable, not out of the panel",
-               page.evaluate("document.activeElement.dataset.reelGain") == "small")
+        record("Common A11y panel: forward Tab from the last item wraps to the first, not out of the panel",
+               page.evaluate("document.activeElement.dataset.a11yContrast") == "normal")
 
-        page.click("#settingsResetBtn")
+        page.click("#sakanaInputSettingsReset")
         record("Settings: reset restores reelGain default",
                page.evaluate("inputSettings.reelGainPreset") == "medium" and page.evaluate("HOLD_TICK_AMOUNT") == 3)
         record("Settings: reset restores reelSpeed default",
@@ -546,13 +561,16 @@ def main():
         record("Settings: reset persists the default back to localStorage",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
                {"reelGainPreset": "medium", "reelSpeedPreset": "standard"})
+        record("Settings: reset does not disturb the common A11y panel's own settings",
+               page.evaluate("document.documentElement.style.filter") == "" and
+               page.evaluate("document.body.style.zoom") == "")
         page.keyboard.press("Escape")
-        record("no runtime errors (settings panel block)", not errors, str(errors))
+        record("no runtime errors (integrated settings panel block)", not errors, str(errors))
         context.close()
 
         # ---- Reload persistence ----
         context, page, errors, console_errors = new_page(browser)
-        page.click("#sakanaSettingsBtn")
+        page.click("#donomanaA11yBtn")
         page.click("[data-reel-gain='small']")
         page.click("[data-reel-speed='slow']")
         page.keyboard.press("Escape")
@@ -587,7 +605,7 @@ def main():
 
         # ---- Settings actually change Method B's real gameplay behavior ----
         context, page, errors, console_errors = new_page(browser)
-        page.click("#sakanaSettingsBtn")
+        page.click("#donomanaA11yBtn")
         page.click("[data-reel-gain='large']")
         page.click("[data-reel-speed='fast']")
         page.keyboard.press("Escape")
@@ -642,18 +660,6 @@ def main():
         record("Input ownership: one 120ms hold still advances by exactly one tick's amount (3, default)",
                after - before == 3, f"{before} -> {after}")
         record("no runtime errors (input ownership regression block)", not errors, str(errors))
-        context.close()
-
-        # ---- Simulated future SETTINGS_PROXY hookup: byte-verified against a sandboxed
-        #      generate.js buildA11yPanelHTML() run (see implementation checkpoint commit
-        #      message) confirms the proxy's script would call
-        #      document.querySelector('#sakanaSettingsBtn').click() — reproduce exactly
-        #      that call here and confirm it actually opens this Phase's settings panel. ----
-        context, page, errors, console_errors = new_page(browser)
-        page.evaluate("document.querySelector('#sakanaSettingsBtn').click()")
-        record("SETTINGS_PROXY readiness: simulated proxy click (as generate.js would emit once registered) opens the settings panel",
-               page.is_visible("#settingsPanel"))
-        record("no runtime errors (SETTINGS_PROXY readiness block)", not errors, str(errors))
         context.close()
 
         browser.close()
