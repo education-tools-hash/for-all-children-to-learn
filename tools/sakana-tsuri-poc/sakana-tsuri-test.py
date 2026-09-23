@@ -39,6 +39,33 @@ def progress(page):
     return page.evaluate("reelProgress")
 
 
+def rod_line_gap_px(page):
+    """Pixel distance between #rod-tip's actual on-screen center and where the fishing
+    line's x1/y1 (mapped through line-svg's own rendered box, since preserveAspectRatio
+    is 'none' and x/y can scale differently) actually paints. Phase
+    FISHING-APP-UX-VISUAL-HARDENING-1 rod/line anchor fix."""
+    return page.evaluate("""() => {
+        const tip = document.getElementById('rod-tip').getBoundingClientRect();
+        const svg = document.getElementById('line-svg').getBoundingClientRect();
+        const line = document.getElementById('fishing-line');
+        const x1 = parseFloat(line.getAttribute('x1'));
+        const y1 = parseFloat(line.getAttribute('y1'));
+        const px = svg.left + (x1 / 100) * svg.width;
+        const py = svg.top + (y1 / 100) * svg.height;
+        const tx = tip.left + tip.width / 2;
+        const ty = tip.top + tip.height / 2;
+        return Math.hypot(px - tx, py - ty);
+    }""")
+
+
+def run_until_state(page, target_states, step_ms=50, max_iters=100):
+    for _ in range(max_iters):
+        if state(page) in target_states:
+            return True
+        page.clock.run_for(step_ms)
+    return state(page) in target_states
+
+
 def cast_to_reeling(page):
     """IDLE -> CASTING -> WAITING -> BITTEN -> REELING, deterministically."""
     page.click("#cast-btn")
@@ -401,6 +428,58 @@ def main():
                page.evaluate("document.getElementById('fish').className") == "fish")
         record("no runtime errors (reset block)", not errors, str(errors))
         context.close()
+
+        # ================= Rod tip / line-start anchor across representative widths
+        #                    (Phase FISHING-APP-UX-VISUAL-HARDENING-1, User Browser
+        #                    Review: 竿先とラインが離れて見える) =================
+        GAP_TOLERANCE_PX = 2.0
+        VIEWPORTS = [
+            (480, 900, "smartphone-portrait-480"),
+            (768, 1024, "ipad-portrait-768"),
+            (1024, 768, "ipad-landscape-1024x768"),
+            (1280, 900, "desktop-1280"),
+        ]
+        for width, height, label in VIEWPORTS:
+            context = browser.new_context(viewport={"width": width, "height": height})
+            page = context.new_page()
+            errors = []
+            page.on("pageerror", lambda exc: errors.append(str(exc)))
+            page.goto(BASE)
+            page.clock.install()
+            page.clock.pause_at("2030-01-01T00:00:00Z")
+            page.click("#start-btn")
+
+            gap = rod_line_gap_px(page)
+            record(f"Rod/Line anchor ({label}): connected before any cast (IDLE)",
+                   gap < GAP_TOLERANCE_PX, f"gap={gap:.2f}px")
+
+            page.click("#cast-btn")
+            run_until_state(page, ["WAITING"])
+            gap = rod_line_gap_px(page)
+            record(f"Rod/Line anchor ({label}): connected during WAITING",
+                   gap < GAP_TOLERANCE_PX, f"gap={gap:.2f}px")
+
+            run_until_state(page, ["BITTEN"])
+            gap = rod_line_gap_px(page)
+            record(f"Rod/Line anchor ({label}): connected during BITTEN",
+                   gap < GAP_TOLERANCE_PX, f"gap={gap:.2f}px")
+
+            run_until_state(page, ["REELING"])
+            gap = rod_line_gap_px(page)
+            record(f"Rod/Line anchor ({label}): connected during REELING",
+                   gap < GAP_TOLERANCE_PX, f"gap={gap:.2f}px")
+
+            page.locator("#reel-hold-btn").focus()
+            page.keyboard.down("Enter")
+            page.clock.run_for(4500)
+            page.keyboard.up("Enter")
+            record(f"Rod/Line anchor ({label}): reaches CAUGHT", state(page) == "CAUGHT")
+            gap = rod_line_gap_px(page)
+            record(f"Rod/Line anchor ({label}): connected during CAUGHT",
+                   gap < GAP_TOLERANCE_PX, f"gap={gap:.2f}px")
+
+            record(f"no runtime errors (rod/line anchor {label})", not errors, str(errors))
+            context.close()
 
         browser.close()
 

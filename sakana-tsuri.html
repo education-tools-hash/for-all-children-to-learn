@@ -215,6 +215,13 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
   width:16px;height:16px;border-radius:50%;background:#3d2712;
 }
+/* Measurable anchor at the rod's physical tip (top-center of the bar, before its own
+   rotation — a child inherits and is positioned by that rotation like any other visual
+   content of the rod). JS reads its actual on-screen position every time the layout
+   could have changed and derives the line's x1/y1 from it, instead of a hand-tuned
+   viewBox coordinate that only happened to match at one specific rendered size (User
+   Browser Review: 竿先とラインが離れて見える). Zero-size and non-interactive. */
+.rod-tip{position:absolute;top:0;left:50%;width:1px;height:1px;transform:translate(-50%,-50%);}
 .line-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
 .line-svg line{stroke:#eef2f0;stroke-width:.8;stroke-linecap:round;opacity:.9;}
 .line-svg.tense line{stroke-width:1.3;opacity:1;}
@@ -791,7 +798,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
         <div class="bubble b2" aria-hidden="true"></div>
         <div class="bubble b3" aria-hidden="true"></div>
         <div class="shore" aria-hidden="true"></div>
-        <div class="rod" aria-hidden="true"></div>
+        <div class="rod" aria-hidden="true"><span class="rod-tip" id="rod-tip"></span></div>
         <svg class="line-svg" id="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <line id="fishing-line" x1="91" y1="24" x2="20" y2="46"></line>
           <line id="leader-line" x1="20" y1="26" x2="20" y2="46"></line>
@@ -926,6 +933,8 @@ var elSplash = document.getElementById('splash');
 var elLine = document.getElementById('fishing-line');
 var elLeaderLine = document.getElementById('leader-line');
 var elLineSvg = document.getElementById('line-svg');
+var elPond = document.getElementById('pond');
+var elRodTip = document.getElementById('rod-tip');
 var elProgressFill = document.getElementById('progress-fill');
 var elProgressText = document.getElementById('progress-text');
 var elCastBtn = document.getElementById('cast-btn');
@@ -1020,6 +1029,32 @@ elSoundToggle.addEventListener('change', function (e) {
 function renderLineTo(xPct, yPct) {
   elLine.setAttribute('x2', xPct);
   elLine.setAttribute('y2', yPct);
+}
+/* The line's rod-side start (x1/y1) is derived from #rod-tip's actual measured on-screen
+   position every time the layout could have changed, rather than a hand-picked viewBox
+   coordinate that only matched the rod's rendered tip at one specific size (User Browser
+   Review: 竿先とラインが離れて見える — a fixed-height/fixed-rotation CSS rod does not
+   scale its tip offset the same way the SVG's percentage-based viewBox scales, so any
+   single hardcoded x1/y1 drifts away from the real tip at other widths). getBoundingClientRect()
+   works whether the pond is visible or not; only zero-size (display:none) returns
+   0-width/height, which is guarded against here (line simply keeps its last known
+   x1/y1 rather than snapping to 0,0). */
+function syncLineStartToRodTip() {
+  var pondRect = elPond.getBoundingClientRect();
+  var tipRect = elRodTip.getBoundingClientRect();
+  if (!pondRect.width || !pondRect.height) return;
+  var xPct = ((tipRect.left + tipRect.width / 2 - pondRect.left) / pondRect.width) * 100;
+  var yPct = ((tipRect.top + tipRect.height / 2 - pondRect.top) / pondRect.height) * 100;
+  elLine.setAttribute('x1', xPct.toFixed(2));
+  elLine.setAttribute('y1', yPct.toFixed(2));
+}
+if (window.ResizeObserver) {
+  // Fires on any box-size change the pond undergoes — window resize/rotation, the
+  // common A11y panel's font-size zoom (document.body.style.zoom, which does not fire a
+  // 'resize' event), and entering/exiting fullscreen — not just viewport resize.
+  new ResizeObserver(syncLineStartToRodTip).observe(elPond);
+} else {
+  window.addEventListener('resize', syncLineStartToRodTip);
 }
 /* Fish element position only (no line coupling) — used while the fish is still free
    (WAITING's far/turning/approaching sub-phases), since the line/hook/bait stays put
@@ -1378,6 +1413,7 @@ document.getElementById('start-btn').addEventListener('click', function () {
   elFishing.hidden = false;
   state = STATE.IDLE;
   updateUI();
+  syncLineStartToRodTip(); // pond was display:none until just now; don't rely solely on ResizeObserver's async delivery for the very first paint
 });
 </script>
 
