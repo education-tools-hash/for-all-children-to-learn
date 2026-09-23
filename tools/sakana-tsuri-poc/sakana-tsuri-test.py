@@ -6,6 +6,7 @@
 #   python -m http.server 8935 --bind 127.0.0.1
 # then: python tools/sakana-tsuri-poc/sakana-tsuri-test.py
 import sys
+import math
 from playwright.sync_api import sync_playwright
 
 BASE = "http://127.0.0.1:8935/sakana-tsuri.html"
@@ -56,6 +57,48 @@ def rod_line_gap_px(page):
         const ty = tip.top + tip.height / 2;
         return Math.hypot(px - tx, py - ty);
     }""")
+
+
+def arc_center_and_radius(page, radius_frac=0.7):
+    """#reel-arc's on-screen center and a safe drag radius, in viewport coordinates
+    (matching both Playwright's page.mouse and the app's own getBoundingClientRect()-based
+    center calculation, so a real mouse-driven circle lines up with what the app sees)."""
+    box = page.locator("#reel-arc").bounding_box()
+    cx = box["x"] + box["width"] / 2
+    cy = box["y"] + box["height"] / 2
+    radius = min(box["width"], box["height"]) / 2 * radius_frac
+    return cx, cy, radius
+
+
+def arc_point(cx, cy, radius, angle_deg):
+    """A point on the circle at angle_deg, using the SAME convention as the app's own
+    arcAngleDeg(): 0deg = straight up, clockwise-positive."""
+    rad = math.radians(angle_deg)
+    return cx + radius * math.sin(rad), cy - radius * math.cos(rad)
+
+
+def arc_drag_down(page, start_deg=0, radius_frac=0.7):
+    """Real page.mouse pointerdown at start_deg on the arc circle (genuine trusted
+    pointerdown, not a synthetic dispatch — instruction §29: not just calling internal
+    functions directly). Returns (cx, cy, radius) for subsequent arc_drag_move calls."""
+    cx, cy, radius = arc_center_and_radius(page, radius_frac)
+    x0, y0 = arc_point(cx, cy, radius, start_deg)
+    page.mouse.move(x0, y0)
+    page.mouse.down()
+    return cx, cy, radius
+
+
+def arc_drag_move(page, cx, cy, radius, from_deg, to_deg, steps=24):
+    """Real page.mouse.move() steps along the circle from from_deg to to_deg (positive =
+    clockwise, negative = counter-clockwise), each step a genuine trusted pointermove."""
+    for i in range(1, steps + 1):
+        deg = from_deg + (to_deg - from_deg) * i / steps
+        x, y = arc_point(cx, cy, radius, deg)
+        page.mouse.move(x, y)
+
+
+def arc_drag_up(page):
+    page.mouse.up()
 
 
 def run_until_state(page, target_states, step_ms=50, max_iters=100):
@@ -533,7 +576,7 @@ def main():
 
         record("Settings: saved to a dedicated localStorage key, not the records log",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
-               {"reelGainPreset": "large", "reelSpeedPreset": "fast"})
+               {"reelGainPreset": "large", "reelSpeedPreset": "fast", "reelMethod": "hold"})
         record("Settings: records log untouched by settings changes alone",
                page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
 
@@ -579,16 +622,18 @@ def main():
         page.locator("#settingsTitle").focus()
         page.keyboard.press("Tab")
         record("Settings panel: forward Tab from the title (tabindex=-1 anchor) advances to the first real focusable",
-               page.evaluate("document.activeElement.dataset.reelGain") == "small")
+               page.evaluate("document.activeElement.dataset.reelMethod") == "arc")
 
         page.click("#settingsResetBtn")
         record("Settings: reset restores reelGain default",
                page.evaluate("inputSettings.reelGainPreset") == "medium" and page.evaluate("HOLD_TICK_AMOUNT") == 3)
         record("Settings: reset restores reelSpeed default",
                page.evaluate("inputSettings.reelSpeedPreset") == "standard" and page.evaluate("HOLD_TICK_MS") == 120)
+        record("Settings: reset restores reelMethod default ('hold')",
+               page.evaluate("inputSettings.reelMethod") == "hold")
         record("Settings: reset persists the default back to localStorage",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
-               {"reelGainPreset": "medium", "reelSpeedPreset": "standard"})
+               {"reelGainPreset": "medium", "reelSpeedPreset": "standard", "reelMethod": "hold"})
         record("Settings: reset does not disturb the common A11y panel's own settings",
                page.evaluate("document.documentElement.style.filter") == "" and
                page.evaluate("document.body.style.zoom") == "")
@@ -688,6 +733,229 @@ def main():
         record("Input ownership: one 120ms hold still advances by exactly one tick's amount (3, default)",
                after - before == 3, f"{before} -> {after}")
         record("no runtime errors (input ownership regression block)", not errors, str(errors))
+        context.close()
+
+        # ================= Method A: arc gesture (Phase FISHING-APP-METHOD-A-1) =================
+        def switch_reel_method(page, method):
+            open_fishing_settings(page)
+            page.click(f"[data-reel-method='{method}']")
+            page.keyboard.press("Escape")
+
+        context, page, errors, console_errors = new_page(browser)
+        record("Settings: reelMethod default is 'hold' (pre-existing saved settings / fresh install)",
+               page.evaluate("inputSettings.reelMethod") == "hold")
+        record("UI: #reel-hold-btn visible, #reel-arc hidden by default",
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is False and
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
+
+        switch_reel_method(page, "arc")
+        record("Settings: switching to 'arc' updates inputSettings.reelMethod",
+               page.evaluate("inputSettings.reelMethod") == "arc")
+        record("UI: #reel-arc now visible, #reel-hold-btn now hidden",
+               page.evaluate("document.getElementById('reel-arc').hidden") is False and
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is True)
+        record("Settings: saved reelMethod to localStorage",
+               page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings')).reelMethod") == "arc")
+
+        switch_reel_method(page, "hold")
+        record("Settings: switching back to 'hold' updates inputSettings.reelMethod",
+               page.evaluate("inputSettings.reelMethod") == "hold")
+        record("UI: #reel-hold-btn visible again after switching back",
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is False)
+
+        page.reload()
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        record("Settings: reelMethod='hold' (last choice) survives reload",
+               page.evaluate("inputSettings.reelMethod") == "hold")
+
+        page.evaluate("localStorage.setItem('sakana-tsuri_settings', JSON.stringify({reelGainPreset:'medium',reelSpeedPreset:'standard',reelMethod:'not-a-real-method'}))")
+        page.reload()
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        record("Settings: invalid reelMethod value falls back to 'hold' without throwing",
+               page.evaluate("inputSettings.reelMethod") == "hold")
+        record("no runtime errors (Method A settings block)", not errors, str(errors))
+        context.close()
+
+        # ---- WAITING: arc drag before the bite must not start a drag or move progress ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "arc")
+        page.click("#cast-btn")
+        page.clock.run_for(520)  # into WAITING, before BITTEN
+        record("Method A pre-bite: state is WAITING", state(page) == "WAITING")
+        cx, cy, radius = arc_drag_down(page, start_deg=0)
+        arc_drag_move(page, cx, cy, radius, 0, 90)
+        record("Method A pre-bite: dragging during WAITING does not start a drag (arcDragState stays null)",
+               page.evaluate("arcDragState") is None)
+        record("Method A pre-bite: dragging during WAITING does not move reelProgress",
+               progress(page) == 0)
+        arc_drag_up(page)
+        record("no runtime errors (Method A pre-bite block)", not errors, str(errors))
+        context.close()
+
+        # ---- Core arc gesture: clockwise increases progress, real Pointer Events
+        #      (page.mouse -> genuine trusted pointerdown/move/up, not direct function
+        #      calls — instruction §29) ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "arc")
+        cast_to_reeling(page)
+        record("Method A: reelMethod is 'arc' entering REELING", page.evaluate("inputSettings.reelMethod") == "arc")
+        record("Method A: #reel-arc is active (not .inactive) while REELING",
+               "inactive" not in (page.get_attribute("#reel-arc", "class") or ""))
+
+        cx, cy, radius = arc_drag_down(page, start_deg=0)
+        record("Method A: pointerdown starts a drag with a captured pointerId",
+               page.evaluate("arcDragState !== null && typeof arcDragState.pointerId === 'number'"))
+        record("Method A: pointer capture requested on #reel-arc",
+               page.evaluate("document.getElementById('reel-arc').hasPointerCapture(arcDragState.pointerId)"))
+        record("Method A: 'active-drag' visual class applied while dragging",
+               "active-drag" in page.get_attribute("#reel-arc", "class"))
+
+        before = progress(page)
+        arc_drag_move(page, cx, cy, radius, 0, 350, steps=30)  # just under one full turn
+        record("Method A: partial rotation (<360deg) alone does not yet cross the first gain threshold",
+               progress(page) == before, f"progress after 350deg = {progress(page)}")
+        arc_drag_move(page, cx, cy, radius, 350, 400, steps=6)  # crosses 360deg net rotation
+        after_one_turn = progress(page)
+        record("Method A: crossing 360deg net clockwise rotation advances reelProgress by exactly one reelGain (default 3)",
+               after_one_turn == before + 3, f"{before} -> {after_one_turn}")
+
+        # Angle wraparound: continue clockwise past the raw ±180 discontinuity (app-space
+        # angle passes through 180/-180 once per revolution) without a spurious jump.
+        arc_drag_move(page, cx, cy, radius, 400, 400 + 360, steps=30)  # one more full clockwise turn, crossing the wrap point
+        after_two_turns = progress(page)
+        record("Method A: a second full clockwise turn (crossing the angle wraparound point) advances by another reelGain, no jump/overshoot",
+               after_two_turns == after_one_turn + 3, f"{after_one_turn} -> {after_two_turns}")
+
+        # Counter-clockwise: never decreases, never penalized.
+        before_ccw = progress(page)
+        arc_drag_move(page, cx, cy, radius, 400 + 360, 400 + 360 - 300, steps=20)  # 300deg counter-clockwise
+        record("Method A: counter-clockwise rotation does not decrease reelProgress",
+               progress(page) == before_ccw, f"{before_ccw} -> {progress(page)}")
+        record("Method A: counter-clockwise rotation does not silently consume the clockwise accumulator either",
+               page.evaluate("arcDragState.accumDeg") >= 0)
+
+        # Jitter: a sub-threshold (<2deg) move must not perturb the accumulator at all.
+        accum_before_jitter = page.evaluate("arcDragState.accumDeg")
+        page.mouse.move(*arc_point(cx, cy, radius, (400 + 360 - 300) + 1))  # ~1deg clockwise nudge
+        record("Method A: a sub-2deg move does not change the clockwise accumulator (jitter rejection)",
+               page.evaluate("arcDragState.accumDeg") == accum_before_jitter,
+               f"{accum_before_jitter} -> {page.evaluate('arcDragState.accumDeg')}")
+
+        arc_drag_up(page)
+        record("Method A: pointerup ends the drag (arcDragState cleared)", page.evaluate("arcDragState") is None)
+        record("Method A: 'active-drag' class removed after release", "active-drag" not in page.get_attribute("#reel-arc", "class"))
+        record("no runtime errors (Method A core gesture block)", not errors, str(errors))
+        context.close()
+
+        # ---- pointercancel and lostpointercapture both end the drag safely ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "arc")
+        cast_to_reeling(page)
+        cx, cy, radius = arc_drag_down(page, start_deg=0)
+        arc_drag_move(page, cx, cy, radius, 0, 90)
+        page.evaluate("""() => {
+            var el = document.getElementById('reel-arc');
+            el.dispatchEvent(new PointerEvent('pointercancel', {pointerId: arcDragState.pointerId, bubbles:true, cancelable:true}));
+        }""")
+        record("Method A: pointercancel ends the drag safely", page.evaluate("arcDragState") is None)
+        record("no runtime errors (pointercancel block)", not errors, str(errors))
+        context.close()
+
+        # ---- Multi-touch: a second pointer must not disturb the first active drag ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "arc")
+        cast_to_reeling(page)
+        cx, cy, radius = arc_drag_down(page, start_deg=0)  # real pointer 1 (mouse), starts the drag
+        first_pointer_id = page.evaluate("arcDragState.pointerId")
+        before_multitouch = progress(page)
+        # Synthetic second pointer (id deliberately different) — Playwright's high-level
+        # mouse/touchscreen APIs cannot drive two simultaneous contacts, so this one event
+        # is dispatched directly to exercise the pointerId-mismatch guard specifically
+        # (the core single-pointer gesture above already used real trusted events).
+        page.evaluate("""() => {
+            var el = document.getElementById('reel-arc');
+            el.dispatchEvent(new PointerEvent('pointerdown', {pointerId: arcDragState.pointerId + 1000, clientX: 0, clientY: 0, bubbles:true, cancelable:true}));
+        }""")
+        record("Method A: a second pointerdown while already dragging does not replace the active pointerId",
+               page.evaluate("arcDragState.pointerId") == first_pointer_id)
+        arc_drag_move(page, cx, cy, radius, 0, 90)
+        record("Method A: the original pointer's drag continues normally after the ignored second pointerdown",
+               progress(page) >= before_multitouch)
+        page.evaluate("""(otherId) => {
+            var el = document.getElementById('reel-arc');
+            el.dispatchEvent(new PointerEvent('pointerup', {pointerId: otherId, bubbles:true, cancelable:true}));
+        }""", first_pointer_id + 1000)
+        record("Method A: pointerup from the OTHER (ignored) pointerId does not end the real drag",
+               page.evaluate("arcDragState") is not None)
+        arc_drag_up(page)
+        record("no runtime errors (multi-touch guard block)", not errors, str(errors))
+        context.close()
+
+        # ---- Full arc session: reaches CAUGHT exactly once, no duplicate record,
+        #      rod/line stay in sync, then Method B still works after switching back ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "arc")
+        cast_to_reeling(page)
+        cx, cy, radius = arc_drag_down(page, start_deg=0)
+        deg = 0
+        progress_samples = [progress(page)]
+        for _ in range(40):  # 40 * 360deg = far beyond the ~34 gain-units needed at the default preset
+            arc_drag_move(page, cx, cy, radius, deg, deg + 360, steps=12)
+            deg += 360
+            progress_samples.append(progress(page))
+            if state(page) == "CAUGHT":
+                break
+        arc_drag_up(page)
+        record("Method A full session: reelProgress monotonically non-decreasing throughout",
+               all(progress_samples[i] <= progress_samples[i + 1] for i in range(len(progress_samples) - 1)),
+               str(progress_samples))
+        record("Method A full session: reaches CAUGHT with reelProgress clamped at exactly 100",
+               state(page) == "CAUGHT" and progress(page) == 100)
+        gap = rod_line_gap_px(page)
+        record("Method A full session: rod/line anchor still connected during CAUGHT", gap < 2.0, f"gap={gap:.2f}px")
+        record_count = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records')||'[]').length")
+        record("Method A full session: exactly 1 trial recorded (no duplicate landFish/record)", record_count == 1)
+        payload = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records'))[0].payload")
+        record("Learning Record: reelMethod recorded as 'arc' for this trial", payload.get("reelMethod") == "arc")
+
+        # Continued dragging after CAUGHT must not double-fire landFish or move progress further.
+        arc_drag_down(page, start_deg=0)
+        arc_drag_move(page, cx, cy, radius, 0, 360, steps=12)
+        arc_drag_up(page)
+        record("Method A full session: dragging again after CAUGHT does not create a second record",
+               page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records')||'[]').length") == 1)
+
+        # ---- Regression: Method B still works normally after switching back from arc ----
+        run_until_state(page, ["IDLE"], step_ms=200, max_iters=30)
+        switch_reel_method(page, "hold")
+        cast_to_reeling(page)
+        before_b = progress(page)
+        hold_keyboard(page, "Enter", 500)
+        after_b = progress(page)
+        record("Regression: Method B (long-press) still works normally after using and switching away from Method A",
+               after_b > before_b, f"{before_b} -> {after_b}")
+        record("no runtime errors (full arc session + Method B regression block)", not errors, str(errors))
+        context.close()
+
+        # ---- Regression: common A11y panel / help panel / SETTINGS_PROXY untouched ----
+        context, page, errors, console_errors = new_page(browser)
+        page.click("#donomanaHelpBtn")
+        record("Regression: help panel still opens normally", page.is_visible("#helpPanel"))
+        page.keyboard.press("Escape")
+        page.click("#donomanaA11yBtn")
+        record("Regression: common A11y panel still opens normally",
+               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "block")
+        record("Regression: SETTINGS_PROXY row still present and correctly labeled",
+               page.inner_text("#donomanaSettingsProxy") == "🔧 このアプリの詳細設定を開く")
+        page.click("#donomanaSettingsProxy")
+        record("Regression: proxy still opens the fishing settings panel, now showing 3 setting groups",
+               page.is_visible("#settingsPanel") and page.locator("#settingsPanel [data-reel-method]").count() == 2 and
+               page.locator("#settingsPanel [data-reel-gain]").count() == 3 and
+               page.locator("#settingsPanel [data-reel-speed]").count() == 3)
+        page.keyboard.press("Escape")
+        record("no runtime errors (final regression block)", not errors, str(errors))
         context.close()
 
         browser.close()

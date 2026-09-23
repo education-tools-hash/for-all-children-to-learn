@@ -366,7 +366,12 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 }
 #progress-text{text-align:center;font-size:var(--dm-font-size-caption);color:var(--dm-color-sub);}
 
-.controls-row{display:flex;justify-content:center;gap:var(--dm-space-4);flex-wrap:wrap;}
+/* align-items:center (not the flex default 'stretch') matters once #reel-arc (200px
+   tall) can share this row with #cast-btn: without it, #cast-btn's default stretch
+   behavior would blow it up to #reel-arc's full height, turning its pill shape into a
+   near-circle (Phase FISHING-APP-METHOD-A-1, caught via a real screenshot, not the
+   dedicated Playwright suite — none of those checks look at rendered box height). */
+.controls-row{display:flex;justify-content:center;align-items:center;gap:var(--dm-space-4);flex-wrap:wrap;}
 
 #reel-hold-btn{
   font-size:var(--dm-font-size-heading);
@@ -390,6 +395,40 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 }
 #reel-hold-btn.active-hold{background:#D98F00;}
 
+/* ---- Method A: arc-gesture reel control (Phase FISHING-APP-METHOD-A-1) ----
+   Large circular drag target, shown instead of #reel-hold-btn when
+   inputSettings.reelMethod === 'arc' (the two controls are never both visible — a
+   single canonical reelMethod decides which one exists on screen, so Method A and
+   Method B structurally cannot both receive input at once). Sized generously (200px,
+   160px on narrow phones) per Design Checkpoint fa8b672 §3.2 "大きな操作対象、iPadで
+   十分なサイズ". No keyboard handlers, no data-scan/tabindex: Pointer Events only, by
+   design (円弧ジェスチャをKeyboard/Switch/Gazeに要求しない). */
+#reel-arc{
+  position:relative;
+  width:200px;height:200px;
+  touch-action:none;
+  user-select:none;-webkit-user-select:none;
+  cursor:grab;
+  -webkit-tap-highlight-color:transparent;
+}
+#reel-arc[hidden]{display:none;}
+#reel-arc.inactive{cursor:default;}
+#reel-arc svg{display:block;width:100%;height:100%;overflow:visible;}
+#reel-arc .arc-ring-outer{fill:var(--dm-color-accent);stroke:#3B2200;stroke-width:2;transition:fill .15s ease;}
+#reel-arc.inactive .arc-ring-outer{fill:var(--dm-color-border);}
+#reel-arc.active-drag .arc-ring-outer{fill:#D98F00;}
+#reel-arc .arc-ring-inner{fill:#fff;opacity:.22;}
+#reel-arc .arc-handle{fill:#3B2200;stroke:#fff;stroke-width:2;}
+#reel-arc.inactive .arc-handle{fill:var(--dm-color-sub);}
+#reel-arc .arc-center-dot{fill:#3B2200;opacity:.55;}
+#reel-arc.inactive .arc-center-dot{fill:var(--dm-color-sub);}
+#reel-arc .arc-label{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:70%;text-align:center;pointer-events:none;
+  font-size:var(--dm-font-size-caption);font-weight:700;color:#3B2200;
+}
+#reel-arc.inactive .arc-label{color:var(--dm-color-sub);}
+
 #catch-result{
   text-align:center;
   background:var(--dm-color-surface);
@@ -412,6 +451,7 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   .pond{height:230px;}
   .fish{width:80px;height:46px;}
   #reel-hold-btn{min-width:0;width:100%;}
+  #reel-arc{width:160px;height:160px;}
 }
 /* Note: prefers-reduced-motion is already handled globally in the design-tokens block
    above (animation-duration/iteration-count forced to near-zero/1 for every element),
@@ -477,6 +517,8 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 }
 .preset-group button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}
 .preset-group button[aria-pressed="true"]{background:#00A99D;color:#fff;border-color:#00A99D;}
+.preset-group button:disabled{opacity:.45;cursor:default;}
+#settingsPanel .setting-desc.setting-inactive{font-style:italic;}
 #settingsResetBtn{
   width:100%;min-height:44px;margin-top:4px;margin-bottom:var(--dm-space-4);
   border:none;border-radius:8px;background:#f0f0f0;color:#333;
@@ -799,11 +841,17 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       <li>さかなが すこしずつ ちかづいてくる</li>
       <li>さいごまで まきとると つれる</li>
     </ul>
-    <h3>そうさほうほう</h3>
+    <h3>まきとりかた（2しゅるい）</h3>
+    <p>「🔧 このアプリの詳細設定を開く」で、まきとりかたを えらべます。</p>
+    <h4>円弧でまく</h4>
+    <p>まるい ボタンの上で、ゆびを くるくる まわします（タッチ・マウスむけ）。</p>
+    <h4>長押しでまく（はじめから えらばれています）</h4>
+    <p>「まきとる」ボタンを ゆびや マウスで おしつづけます。</p>
+    <h3>そうさほうほう（長押しでまく の場合）</h3>
     <h4>タッチ・マウス</h4>
     <p>「まきとる」ボタンを ゆびや マウスで おしつづけます。</p>
     <h4>キーボード</h4>
-    <p>Tabキーで ボタンに うつり、EnterキーまたはSpaceキーを おしつづけます。</p>
+    <p>Tabキーで ボタンに うつり、EnterキーまたはSpaceキーを おしつづけます。円弧でまく方法は キーボードでは そうさしません（「長押しでまく」を おつかいください）。</p>
     <h4>スイッチ</h4>
     <p>がいぶスイッチでの ながおし操作に たいおうする せっけいですが、じっきでの どうさかくにんは まだ おこなっていません。</p>
     <h3>おと</h3>
@@ -823,6 +871,12 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 <section id="settingsPanel" hidden aria-labelledby="settingsTitle">
   <h2 id="settingsTitle" tabindex="-1">「さかなつり」の 詳細設定</h2>
   <div class="settings-body">
+    <h3>まきとり方法</h3>
+    <p class="setting-desc">さかなを どうやって まきとるか えらべます。</p>
+    <div class="preset-group" role="group" aria-label="まきとり方法">
+      <button type="button" data-reel-method="arc" aria-pressed="false">円弧でまく</button>
+      <button type="button" data-reel-method="hold" aria-pressed="false">長押しでまく</button>
+    </div>
     <h3>まきとる量</h3>
     <p class="setting-desc">1回の操作で、魚がどれくらい近づくかを えらべます。</p>
     <div class="preset-group" role="group" aria-label="まきとる量">
@@ -831,8 +885,8 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       <button type="button" data-reel-gain="large" aria-pressed="false">大きく</button>
     </div>
     <h3>まきとる速さ（長押し）</h3>
-    <p class="setting-desc">「おしつづけて まきとる」を おしている間の、すすむ速さです。</p>
-    <div class="preset-group" role="group" aria-label="まきとる速さ">
+    <p class="setting-desc" id="reelSpeedDesc">「おしつづけて まきとる」を おしている間の、すすむ速さです。</p>
+    <div class="preset-group" role="group" aria-label="まきとる速さ" id="reelSpeedGroup">
       <button type="button" data-reel-speed="slow" aria-pressed="false">ゆっくり</button>
       <button type="button" data-reel-speed="standard" aria-pressed="false">ふつう</button>
       <button type="button" data-reel-speed="fast" aria-pressed="false">はやい</button>
@@ -981,9 +1035,26 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 
       <div class="controls-row">
         <button id="cast-btn" class="big-btn scannable" data-scan="1" type="button">🎣 なげる</button>
-        <button id="reel-hold-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true">
+        <button id="reel-hold-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true" hidden>
           🎣 おしつづけて まきとる
         </button>
+        <!-- Method A (Phase FISHING-APP-METHOD-A-1): Pointer Events only, no
+             data-scan/tabindex/keyboard handlers by design (円弧ジェスチャを
+             Keyboard/Switch/Gazeに要求しない, Design Checkpoint fa8b672). aria-hidden
+             permanently — a circular drag zone has no meaningful screen-reader
+             affordance, and keyboard/AT users are expected to use Method B or switch
+             back via the (always reachable) settings panel instead. -->
+        <div id="reel-arc" class="inactive" aria-hidden="true" hidden>
+          <svg viewBox="0 0 200 200">
+            <circle class="arc-ring-outer" cx="100" cy="100" r="92"></circle>
+            <circle class="arc-ring-inner" cx="100" cy="100" r="58"></circle>
+            <g id="arc-handle-grp">
+              <circle class="arc-handle" cx="100" cy="20" r="15"></circle>
+            </g>
+            <circle class="arc-center-dot" cx="100" cy="100" r="6"></circle>
+          </svg>
+          <div class="arc-label">🎣 くるくる<br>まきとる</div>
+        </div>
       </div>
     </div>
 
@@ -1044,12 +1115,27 @@ var castTimer = null, waitTimer = null, biteTimer = null, caughtTimer = null, po
    already-User-Browser-Reviewed session changes just by this Phase landing. */
 var REEL_GAIN_PRESETS = { small: 1, medium: 3, large: 6 };     // % of reelProgress per effective input
 var REEL_SPEED_PRESETS = { slow: 160, standard: 120, fast: 90 }; // ms between ticks while held (Method B only)
-var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard' };
+/* Data-driven method list (Phase FISHING-APP-METHOD-A-1, Design Checkpoint fa8b672
+   §12章 Phase分割案): a plain array so a future FISHING-APP-METHOD-C-1 can add
+   {value:'timing', label:'タイミングでまく'} here without touching the settings-panel
+   wiring below, which reads this table rather than hardcoding two options. 'hold'
+   stays first-declared-but-not-first-listed-in-UI would be confusing, so UI order below
+   (円弧 then 長押し) matches this array's order deliberately. */
+var REEL_METHODS = [
+  { value: 'arc',  label: '円弧でまく' },
+  { value: 'hold', label: '長押しでまく' }
+];
+var REEL_METHOD_VALUES = REEL_METHODS.map(function (m) { return m.value; });
+var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold' };
 var INPUT_SETTINGS_STORAGE_KEY = 'sakana-tsuri_settings'; // deliberately NOT donomanaRecordAddLog's
                                                             // array-of-trials log key — this is a
                                                             // standing setting, not a record entry.
 function defaultInputSettings() {
-  return { reelGainPreset: DEFAULT_INPUT_SETTINGS.reelGainPreset, reelSpeedPreset: DEFAULT_INPUT_SETTINGS.reelSpeedPreset };
+  return {
+    reelGainPreset: DEFAULT_INPUT_SETTINGS.reelGainPreset,
+    reelSpeedPreset: DEFAULT_INPUT_SETTINGS.reelSpeedPreset,
+    reelMethod: DEFAULT_INPUT_SETTINGS.reelMethod
+  };
 }
 function loadInputSettings() {
   try {
@@ -1059,7 +1145,11 @@ function loadInputSettings() {
     if (!parsed || typeof parsed !== 'object') return defaultInputSettings();
     var gain = REEL_GAIN_PRESETS.hasOwnProperty(parsed.reelGainPreset) ? parsed.reelGainPreset : DEFAULT_INPUT_SETTINGS.reelGainPreset;
     var speed = REEL_SPEED_PRESETS.hasOwnProperty(parsed.reelSpeedPreset) ? parsed.reelSpeedPreset : DEFAULT_INPUT_SETTINGS.reelSpeedPreset;
-    return { reelGainPreset: gain, reelSpeedPreset: speed }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
+    // Existing saved settings from before this Phase have no reelMethod key at all
+    // (undefined) — falls back to 'hold' exactly like any other unrecognized value,
+    // preserving prior behavior for every existing user with saved settings (指示21章).
+    var method = REEL_METHOD_VALUES.indexOf(parsed.reelMethod) !== -1 ? parsed.reelMethod : DEFAULT_INPUT_SETTINGS.reelMethod;
+    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
   } catch (e) { return defaultInputSettings(); }
 }
 function saveInputSettings() {
@@ -1083,7 +1173,18 @@ var CASTING_MS = 500;
 var WAITING_MIN_MS = 1200, WAITING_MAX_MS = 2200; // "厳密なランダム性は不要" (Phase指示9章)
 var BITTEN_MS = 500;
 var CAUGHT_DISPLAY_MS = 2600;
-var POINTER_WATCHDOG_MS = 20000; // stale-input safety net (5.3.1章)
+var POINTER_WATCHDOG_MS = 20000; // stale-input safety net (5.3.1章), shared by Method A and B
+/* ---- Method A: arc angle constants (Phase FISHING-APP-METHOD-A-1) ----
+   ARC_JITTER_MIN_DEG: Design Checkpoint fa8b672 §3.2's own proposed value ("暫定2度")
+   for the minimum per-move angle delta before it counts as intentional rotation at all —
+   below this, a delta neither advances nor is subtracted from the accumulator (pure
+   jitter rejection, not a penalty).
+   ARC_DEG_PER_GAIN: the same design section's own basic mapping ("1回転=360度で
+   『1回あたりの進行量』ぶん進む") — one full 360° of net clockwise rotation equals one
+   reelGain unit (2.2章の巻き取り量 via REEL_GAIN_PRESETS, shared with Method B). */
+var ARC_JITTER_MIN_DEG = 2;
+var ARC_DEG_PER_GAIN = 360;
+var FISH_START_PCT = 20, FISH_ROD_PCT = 91; // cast/bite point -> rod-side landing point
 var FISH_START_PCT = 20, FISH_ROD_PCT = 91; // cast/bite point -> rod-side landing point
 var FISH_Y_PCT = 46;
 var FISH_FAR_PCT = 6;      // WAITING: distant idle position, away from the bait (Finding A/B)
@@ -1132,6 +1233,8 @@ var elProgressFill = document.getElementById('progress-fill');
 var elProgressText = document.getElementById('progress-text');
 var elCastBtn = document.getElementById('cast-btn');
 var elReelBtn = document.getElementById('reel-hold-btn');
+var elReelArc = document.getElementById('reel-arc');
+var elArcHandleGrp = document.getElementById('arc-handle-grp');
 var elCatchResult = document.getElementById('catch-result');
 var elCatchMessage = document.getElementById('catch-message');
 var elAgainBtn = document.getElementById('again-btn');
@@ -1297,8 +1400,19 @@ function updateUI() {
   elStatusChip.textContent = STATUS_LABELS[state];
   elCastBtn.disabled = (state !== STATE.IDLE);
   var reeling = (state === STATE.REELING);
-  elReelBtn.setAttribute('aria-disabled', reeling ? 'false' : 'true');
-  elReelBtn.classList.toggle('inactive', !reeling);
+  // Method A/B are mutually exclusive at the UI level: inputSettings.reelMethod is the
+  // single canonical switch, and exactly one of #reel-hold-btn/#reel-arc is ever
+  // unhidden, so the two structurally cannot both receive input at once (指示12章).
+  var useArc = (inputSettings.reelMethod === 'arc');
+  elReelBtn.hidden = useArc;
+  elReelArc.hidden = !useArc;
+  if (!useArc) {
+    elReelBtn.setAttribute('aria-disabled', reeling ? 'false' : 'true');
+    elReelBtn.classList.toggle('inactive', !reeling);
+  } else {
+    elReelArc.classList.toggle('inactive', !reeling);
+    if (!reeling) endArcDrag(null); // e.g. CAUGHT/reset arriving mid-drag stops it cleanly
+  }
   var fishVisible = (state === STATE.WAITING || state === STATE.BITTEN || state === STATE.REELING || state === STATE.CAUGHT);
   var waiting = (state === STATE.WAITING);
   var hooked = (state === STATE.BITTEN || state === STATE.REELING || state === STATE.CAUGHT);
@@ -1362,6 +1476,13 @@ function markReleased() {
   isPhysicallyHeld = false;
   disarmPointerWatchdog();
   onHoldEnd();
+  // markReleased() is the shared "stop reeling input, whichever method" safety net —
+  // called by Method B's own pointer-exit paths (harmless no-op there, arcDragState is
+  // always null), by visibilitychange below, by the shared pointerWatchdog, and by
+  // landFish() — so extending it here (rather than duplicating a second watchdog/
+  // visibilitychange/landFish hookup for Method A) is what actually stops an in-progress
+  // arc drag on tab-hide, stale input, or catch, without a second parallel safety net.
+  if (arcDragState) endArcDrag(null);
 }
 document.addEventListener('visibilitychange', function () {
   if (document.visibilityState === 'hidden') markReleased();
@@ -1394,6 +1515,89 @@ elReelBtn.addEventListener('keyup', function (e) {
   if (e.key !== ' ' && e.key !== 'Enter') return;
   markReleased();
 });
+
+/* ---- Method A input ownership: arc gesture (Phase FISHING-APP-METHOD-A-1) ----
+   Single owner, scoped to #reel-arc only — no document-wide generic pointer listener
+   (指示12章). Pointer Events only: pointerdown/pointermove/pointerup/pointercancel,
+   plus lostpointercapture as a defensive fourth exit path (Design Checkpoint fa8b672
+   §3.2, mirroring Method B's own multi-path release). Exactly one pointerId is ever
+   "active" (arcDragState is null or holds exactly one); a second finger's pointerdown
+   while already dragging is ignored outright, and any pointermove/up/cancel from a
+   pointerId other than the active one is ignored too (指示14章 multi-touch防止).
+   pointerleave is intentionally NOT an exit path here (unlike #reel-hold-btn) — the
+   whole point of setPointerCapture() below is that move/up keep arriving even once the
+   finger drifts outside the circle (指示13章 "指が円領域から少し外れても継続"), so
+   leave firing is not itself a signal to stop. */
+var arcDragState = null; // null | { pointerId, lastAngleDeg, accumDeg, inputMethod }
+function arcAngleDeg(clientX, clientY) {
+  var rect = elReelArc.getBoundingClientRect();
+  var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  var dx = clientX - cx, dy = clientY - cy;
+  // 0deg = pointing straight up (matches the handle's drawn rest position at cx=100,cy=20
+  // in the SVG), clockwise-positive — chosen so this same value doubles directly as the
+  // handle's own CSS rotate() angle (renderArcHandle below), not just an internal delta
+  // source. Equivalent to the Design-Checkpoint-referenced tokei-app.html getRawAngle()
+  // idea (atan2-based), rotated 90° into a "clock-face" frame since a reel handle's rest
+  // position is "up", not "right".
+  return Math.atan2(dx, -dy) * 180 / Math.PI;
+}
+function arcAngleDiffDeg(a, b) {
+  var d = b - a;
+  if (d > 180) d -= 360;
+  if (d < -180) d += 360; // ±180° wraparound normalization (tokei-app.html angleDiff() logic, reapplied here — not reused as a shared function, since Method A's own event wiring is new per instruction §6)
+  return d;
+}
+function renderArcHandle(angleDeg) {
+  // SVG's native transform attribute rotate(angle, cx, cy) pivots exactly around the
+  // given user-space point (100,100 = the big ring's own center in this 0-200 viewBox).
+  // A CSS transform:rotate() here would instead pivot around the <g>'s own bounding-box
+  // center (i.e. the small handle circle itself, near 100,20) unless transform-box/
+  // transform-origin were also set up to compensate — using the SVG attribute directly
+  // sidesteps that whole class of mismatch.
+  elArcHandleGrp.setAttribute('transform', 'rotate(' + angleDeg.toFixed(1) + ',100,100)');
+}
+function onArcPointerDown(e) {
+  if (state !== STATE.REELING) return; // WAITING中操作してもprogressへ反映しない(指示16章) — 同じ理由でここでdragも開始しない
+  if (arcDragState) return;            // already dragging with another pointer — ignore a second finger entirely
+  e.preventDefault();
+  unlockAudioContext();
+  armPointerWatchdog(); // same shared 20s stale-input net Method B uses
+  var raw = arcAngleDeg(e.clientX, e.clientY);
+  arcDragState = { pointerId: e.pointerId, lastAngleDeg: raw, accumDeg: 0, inputMethod: e.pointerType === 'touch' ? 'touch' : 'click' };
+  try { elReelArc.setPointerCapture(e.pointerId); } catch (err) {}
+  elReelArc.classList.add('active-drag');
+  renderArcHandle(raw);
+  startReelSoundActive(); // same continuous reel tone as Method B — one steady tone while dragging, not a per-gain beep (指示19章 audio spamを避ける)
+}
+function onArcPointerMove(e) {
+  if (!arcDragState || e.pointerId !== arcDragState.pointerId) return;
+  var raw = arcAngleDeg(e.clientX, e.clientY);
+  renderArcHandle(raw); // visual rotation always follows the finger 1:1, independent of the jitter/clockwise gates below (指示18章: gestureとvisual rotationが対応)
+  if (state !== STATE.REELING) { arcDragState.lastAngleDeg = raw; return; } // fish already caught/reset mid-drag: keep the handle following the finger, but stop feeding progress
+  var delta = arcAngleDiffDeg(arcDragState.lastAngleDeg, raw);
+  arcDragState.lastAngleDeg = raw;
+  if (Math.abs(delta) < ARC_JITTER_MIN_DEG) return; // pure jitter: neither adds to nor is subtracted from the accumulator
+  if (delta <= 0) return; // counter-clockwise: no progress, no penalty, no failure feedback (指示7章) — silently ignored, never subtracted
+  arcDragState.accumDeg += delta;
+  if (arcDragState.accumDeg >= ARC_DEG_PER_GAIN) {
+    var gains = Math.floor(arcDragState.accumDeg / ARC_DEG_PER_GAIN);
+    arcDragState.accumDeg -= gains * ARC_DEG_PER_GAIN;
+    applyReelProgress(gains * REEL_GAIN_PRESETS[inputSettings.reelGainPreset], arcDragState.inputMethod);
+  }
+}
+function endArcDrag(e) {
+  if (!arcDragState) return;
+  if (e && e.pointerId !== arcDragState.pointerId) return; // an event from a different, non-active pointer never ends the active drag
+  arcDragState = null;
+  elReelArc.classList.remove('active-drag');
+  stopReelSoundActive();
+  disarmPointerWatchdog();
+}
+elReelArc.addEventListener('pointerdown', onArcPointerDown);
+elReelArc.addEventListener('pointermove', onArcPointerMove);
+elReelArc.addEventListener('pointerup', endArcDrag);
+elReelArc.addEventListener('pointercancel', endArcDrag);
+elReelArc.addEventListener('lostpointercapture', endArcDrag);
 
 /* ---- reelProgress / semantic core (Design Contract 9.1章) ---- */
 function applyReelProgress(amount, inputMethod) {
@@ -1530,11 +1734,11 @@ function saveTrialRecord() {
     trialNumber: trialNumber,
     mode: 'free',
     difficulty: null,
-    reelMethod: 'hold',
-    // Phase FISHING-APP-INPUT-SETTINGS-1: which reel-gain/speed preset was active for
-    // this trial. Existing fields (reelMethod/difficulty above) are untouched in shape,
-    // just still fixed at their pre-Phase values since Methods A/C don't exist yet —
-    // see docs/design-system/donomana-fishing-app-input-methods-design-v1_0.md §10.
+    // Phase FISHING-APP-METHOD-A-1: reelMethod now reflects the actual preset in effect
+    // for this trial ('arc'/'hold') instead of a hardcoded literal — the field itself
+    // already existed (Phase FISHING-APP-INPUT-SETTINGS-1), only its value source
+    // changed. Payload shape/independent-schema status is unchanged (指示22章).
+    reelMethod: inputSettings.reelMethod,
     reelGainPreset: inputSettings.reelGainPreset,
     reelSpeedPreset: inputSettings.reelSpeedPreset,
     targetColor: null,
@@ -1627,18 +1831,39 @@ var elSettingsBackdrop = document.getElementById('settingsBackdrop');
 var elSettingsCloseBtn = document.getElementById('settingsCloseBtn');
 var elSettingsResetBtn = document.getElementById('settingsResetBtn');
 var elSettingsTitle = document.getElementById('settingsTitle');
+var elMethodButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-method]'));
 var elGainButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-gain]'));
 var elSpeedButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-speed]'));
+var elReelSpeedDesc = document.getElementById('reelSpeedDesc');
+var elReelSpeedGroup = document.getElementById('reelSpeedGroup');
+var REEL_SPEED_DESC_NORMAL = '「おしつづけて まきとる」を おしている間の、すすむ速さです。';
+var REEL_SPEED_DESC_INACTIVE = '「円弧でまく」を選んでいる間は 使いません（「長押しでまく」を選ぶと使えます）。';
 function settingsFocusables() {
-  // Same tabindex="-1" title exclusion/handling as helpFocusables() above.
+  // Same tabindex="-1" title exclusion/handling as helpFocusables() above. Also excludes
+  // :disabled (Phase FISHING-APP-METHOD-A-1: the まきとる速さ buttons become disabled,
+  // not just visually dimmed, while Method A is selected — see refreshSettingsPanelUI
+  // below — and native disabled buttons are already skipped by real Tab, so this trap's
+  // own first/last computation must agree or Tab/Shift+Tab wraparound would land on a
+  // button the browser itself just skipped).
   return Array.prototype.filter.call(
     elSettingsPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'),
-    function (el) { return el.getClientRects().length > 0; }
+    function (el) { return el.getClientRects().length > 0 && !el.disabled; }
   );
 }
 function refreshSettingsPanelUI() {
+  elMethodButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelMethod === inputSettings.reelMethod)); });
   elGainButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelGain === inputSettings.reelGainPreset)); });
   elSpeedButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelSpeed === inputSettings.reelSpeedPreset)); });
+  // まきとる速さ is Method B-only (指示11章): Method Aが選択中は「勝手に削除しない」
+  // 方針のとおり項目自体は残しつつ、native disabled(操作不能+Tab順序から自動除外)にし、
+  // 説明文を差し替えてUIの意味が矛盾しないようにする。
+  var speedIrrelevant = (inputSettings.reelMethod === 'arc');
+  elSpeedButtons.forEach(function (b) { b.disabled = speedIrrelevant; });
+  if (elReelSpeedDesc) {
+    elReelSpeedDesc.textContent = speedIrrelevant ? REEL_SPEED_DESC_INACTIVE : REEL_SPEED_DESC_NORMAL;
+    elReelSpeedDesc.classList.toggle('setting-inactive', speedIrrelevant);
+  }
+  if (elReelSpeedGroup) elReelSpeedGroup.setAttribute('aria-disabled', String(speedIrrelevant));
 }
 function openSettings() {
   settingsOpen = true;
@@ -1680,11 +1905,28 @@ elSpeedButtons.forEach(function (b) {
     announce('まきとる速さを' + b.textContent + 'に せっていしました');
   });
 });
+elMethodButtons.forEach(function (b) {
+  b.addEventListener('click', function () {
+    inputSettings.reelMethod = b.dataset.reelMethod;
+    saveInputSettings();
+    applyInputSettingsToGameplay();
+    // Defensively stop whichever method's input might be mid-action (in practice
+    // neither can be, since reaching this button requires the settings panel to be
+    // open, which already moved focus/blurred #reel-hold-btn — belt-and-suspenders,
+    // matching the "疑わしい場合はfalse側に倒す" principle applied elsewhere).
+    markReleased();
+    refreshSettingsPanelUI();
+    updateUI(); // swap the visible control (#reel-hold-btn <-> #reel-arc) immediately
+    announce('まきとりほうほうを' + b.textContent + 'に せっていしました');
+  });
+});
 elSettingsResetBtn.addEventListener('click', function () {
   inputSettings = defaultInputSettings();
   saveInputSettings();
   applyInputSettingsToGameplay();
+  markReleased(); // same defensive stop as a direct method switch, above
   refreshSettingsPanelUI();
+  updateUI(); // reset can change reelMethod back to 'hold' too; keep the visible control in sync
   announce('さかなつりの設定を既定値にもどしました');
 });
 document.addEventListener('keydown', function (e) {
