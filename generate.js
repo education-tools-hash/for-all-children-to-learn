@@ -862,6 +862,15 @@ const SETTINGS_PROXY = {
   'junban-miyou-app':   { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
   'dotchiga-ii-app':    { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'sawatte-hirogaru-app': { selector: '#openTeacherSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  // Phase FISHING-APP-INPUT-SETTINGS-1: sakana-tsuri is not yet registered in
+  // apps-data.json (still a Pilot), so this entry is currently inert — generate.js only
+  // calls buildA11yPanelHTML() for apps it iterates from apps-data.json, and sakana-tsuri
+  // isn't one of them yet. Added now (ahead of that registration) only so the app's
+  // hand-placed a11y-panel block, verified byte-identical against this exact map entry
+  // via a sandboxed extraction, can show the standard "🔧 このアプリの詳細設定を開く"
+  // proxy row today instead of a bespoke settings entry point. No other app's output is
+  // affected. Formal apps-data.json registration remains FISHING-APP-METADATA-1's job.
+  'sakana-tsuri':       { selector: '#sakanaSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -932,7 +941,12 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // Phase M12-E: dotchiga-ii-appを追加。miru-hirogaru-app/mitsukete-touch-app/
   // junban-miyou-appと同じMulti-Input系アプリで、Switch Scan・Activity Tabs
   // 双方のネイティブTab順序からsettingsBtnを除外する必要がある点も同一。
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app']);
+  // Phase FISHING-APP-INPUT-SETTINGS-1: sakana-tsuriを追加。#sakanaSettingsBtnは
+  // 横並びの.settings-row(既存の🔊おとチェックボックスと同じ行)内の1要素として存在し、
+  // shiritori2の.top-bar/hiragana-learn等のnav-tabsと同種の構造(opacity:0のままだと
+  // レイアウト上の幅だけ残り隣接要素との間に不自然な空白ができる)のため、display:none
+  // 方式を採用する。
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';

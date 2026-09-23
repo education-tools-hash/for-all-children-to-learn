@@ -481,10 +481,15 @@ def main():
             record(f"no runtime errors (rod/line anchor {label})", not errors, str(errors))
             context.close()
 
-        # ================= Input Settings, integrated into the common A11y panel
-        #                    (Phase FISHING-APP-INPUT-SETTINGS-1, User Browser Review
-        #                    fix: "設定入口は1つ" — no more standalone
-        #                    #sakanaSettingsBtn/#settingsPanel) =================
+        # ================= Input Settings via SETTINGS_PROXY
+        #                    (Phase FISHING-APP-INPUT-SETTINGS-1, second User Browser
+        #                    Review fix: ⚙ common panel -> "🔧 このアプリの詳細設定を
+        #                    開く" proxy -> app-specific #settingsPanel, the same
+        #                    pattern other SETTINGS_PROXY apps use) =================
+        def open_fishing_settings(page):
+            page.click("#donomanaA11yBtn")
+            page.click("#donomanaSettingsProxy")
+
         context, page, errors, console_errors = new_page(browser)
         record("Settings: reelGain default is 'medium' (3%, byte-identical to pre-Phase hardcoded value)",
                page.evaluate("inputSettings.reelGainPreset") == "medium" and
@@ -492,27 +497,34 @@ def main():
         record("Settings: reelSpeed default is 'standard' (120ms, byte-identical to pre-Phase hardcoded value)",
                page.evaluate("inputSettings.reelSpeedPreset") == "standard" and
                page.evaluate("HOLD_TICK_MS") == 120)
-        record("Settings: no separate settings button/panel exists any more",
-               page.locator("#sakanaSettingsBtn").count() == 0 and page.locator("#settingsPanel").count() == 0)
+        record("Settings: #sakanaSettingsBtn exists but is hidden (SETTINGS_PROXY original target, never shown directly)",
+               page.locator("#sakanaSettingsBtn").count() == 1 and
+               page.evaluate("getComputedStyle(document.getElementById('sakanaSettingsBtn')).display") == "none")
 
         page.click("#donomanaA11yBtn")
-        record("Common A11y panel: opens on click (single settings entry point)",
-               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "block")
-        record("Common A11y panel: fishing-specific section is inside the SAME panel",
-               page.evaluate("!!document.querySelector('#donomanaA11yPanel [data-reel-gain]')") and
-               page.evaluate("!!document.querySelector('#donomanaA11yPanel [data-reel-speed]')"))
-        record("Settings: 'ふつう' preset shown as selected for both groups initially",
-               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='medium']\")).backgroundColor") ==
-               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-speed='standard']\")).backgroundColor") and
-               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='medium']\")).backgroundColor") != "rgb(255, 255, 255)")
+        record("Common A11y panel: opens on click", page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "block")
+        record("Common A11y panel: shows the standard settings-proxy row with the expected label",
+               page.inner_text("#donomanaSettingsProxy") == "🔧 このアプリの詳細設定を開く")
+        record("Common A11y panel: fishing-specific settings are NOT shown directly inside it",
+               page.locator("#donomanaA11yPanel [data-reel-gain]").count() == 0 and
+               page.locator("#donomanaA11yPanel [data-reel-speed]").count() == 0)
+
+        page.click("#donomanaSettingsProxy")
+        record("Proxy: closes the common A11y panel", page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "none")
+        record("Proxy: opens the fishing-specific settings panel", page.is_visible("#settingsPanel"))
+        record("Settings panel: initial focus moves into the panel title",
+               page.evaluate("document.activeElement.id") == "settingsTitle")
+        record("Settings panel: 'ふつう' preset shown as pressed for both groups initially",
+               page.get_attribute("[data-reel-gain='medium']", "aria-pressed") == "true" and
+               page.get_attribute("[data-reel-speed='standard']", "aria-pressed") == "true")
 
         page.click("[data-reel-gain='large']")
         record("Settings: switching reelGain preset updates HOLD_TICK_AMOUNT",
                page.evaluate("inputSettings.reelGainPreset") == "large" and
                page.evaluate("HOLD_TICK_AMOUNT") == 6)
-        record("Settings: preset button visually reflects the new selection",
-               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='large']\")).backgroundColor") !=
-               page.evaluate("getComputedStyle(document.querySelector(\"[data-reel-gain='medium']\")).backgroundColor"))
+        record("Settings: preset button reflects the new selection (aria-pressed)",
+               page.get_attribute("[data-reel-gain='large']", "aria-pressed") == "true" and
+               page.get_attribute("[data-reel-gain='medium']", "aria-pressed") == "false")
 
         page.click("[data-reel-speed='fast']")
         record("Settings: switching reelSpeed preset updates HOLD_TICK_MS",
@@ -525,7 +537,13 @@ def main():
         record("Settings: records log untouched by settings changes alone",
                page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
 
-        # ---- Existing common A11y items must be unaffected by the new section ----
+        page.keyboard.press("Escape")
+        record("Settings panel: Escape closes the panel", not page.is_visible("#settingsPanel"))
+        record("Settings panel: focus returns to the VISIBLE common A11y button, not the hidden original",
+               page.evaluate("document.activeElement.id") == "donomanaA11yBtn")
+
+        # ---- Existing common A11y items must be unaffected ----
+        page.click("#donomanaA11yBtn")
         page.click("[data-a11y-contrast='hc']")
         record("Common A11y regression: high-contrast toggle still applies the invert filter",
                "invert(1)" in page.evaluate("document.documentElement.style.filter"))
@@ -534,26 +552,36 @@ def main():
         record("Common A11y regression: font-size toggle still applies body zoom",
                page.evaluate("document.body.style.zoom") == "125%")
         page.click("[data-a11y-font='normal']")
-
         page.keyboard.press("Escape")
-        record("Common A11y panel: Escape still closes it",
-               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "none")
-        record("Common A11y panel: focus still returns to the opener button on close",
+        record("Common A11y panel: Escape still closes it and returns focus to its own opener",
+               page.evaluate("document.getElementById('donomanaA11yPanel').style.display") == "none" and
                page.evaluate("document.activeElement.id") == "donomanaA11yBtn")
 
-        # ---- Strict Tab/Shift+Tab focus containment across the WHOLE panel (existing
-        #      common items + the newly appended fishing-specific section) ----
+        # ---- Strict Tab/Shift+Tab focus containment, independently, on EACH panel ----
         page.click("#donomanaA11yBtn")
-        page.locator("[data-a11y-contrast='normal']").focus()  # first focusable in the panel
+        # #donomanaSettingsProxy is the first focusable in DOM order (it sits right after
+        # the panel's heading, before 表示モード) now that the proxy row is present.
+        page.locator("#donomanaSettingsProxy").focus()
         page.keyboard.press("Shift+Tab")
-        record("Common A11y panel: Shift+Tab from the first item wraps to the last (the new reset button)",
-               page.evaluate("document.activeElement.id") == "sakanaInputSettingsReset")
-        page.locator("#sakanaInputSettingsReset").focus()  # last focusable, now that the section is appended
+        record("Common A11y panel: Shift+Tab from the first item wraps to the last (its own reset button)",
+               page.evaluate("document.activeElement.id") == "donomanaA11yReset")
+        page.locator("#donomanaA11yReset").focus()
         page.keyboard.press("Tab")
         record("Common A11y panel: forward Tab from the last item wraps to the first, not out of the panel",
-               page.evaluate("document.activeElement.dataset.a11yContrast") == "normal")
+               page.evaluate("document.activeElement.id") == "donomanaSettingsProxy")
+        page.keyboard.press("Escape")
 
-        page.click("#sakanaInputSettingsReset")
+        open_fishing_settings(page)
+        page.locator("#settingsTitle").focus()
+        page.keyboard.press("Shift+Tab")
+        record("Settings panel: Shift+Tab from the title wraps to the last focusable (close button)",
+               page.evaluate("document.activeElement.id") == "settingsCloseBtn")
+        page.locator("#settingsTitle").focus()
+        page.keyboard.press("Tab")
+        record("Settings panel: forward Tab from the title (tabindex=-1 anchor) advances to the first real focusable",
+               page.evaluate("document.activeElement.dataset.reelGain") == "small")
+
+        page.click("#settingsResetBtn")
         record("Settings: reset restores reelGain default",
                page.evaluate("inputSettings.reelGainPreset") == "medium" and page.evaluate("HOLD_TICK_AMOUNT") == 3)
         record("Settings: reset restores reelSpeed default",
@@ -565,12 +593,12 @@ def main():
                page.evaluate("document.documentElement.style.filter") == "" and
                page.evaluate("document.body.style.zoom") == "")
         page.keyboard.press("Escape")
-        record("no runtime errors (integrated settings panel block)", not errors, str(errors))
+        record("no runtime errors (settings-via-proxy panel block)", not errors, str(errors))
         context.close()
 
         # ---- Reload persistence ----
         context, page, errors, console_errors = new_page(browser)
-        page.click("#donomanaA11yBtn")
+        open_fishing_settings(page)
         page.click("[data-reel-gain='small']")
         page.click("[data-reel-speed='slow']")
         page.keyboard.press("Escape")
@@ -605,7 +633,7 @@ def main():
 
         # ---- Settings actually change Method B's real gameplay behavior ----
         context, page, errors, console_errors = new_page(browser)
-        page.click("#donomanaA11yBtn")
+        open_fishing_settings(page)
         page.click("[data-reel-gain='large']")
         page.click("[data-reel-speed='fast']")
         page.keyboard.press("Escape")
