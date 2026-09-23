@@ -339,8 +339,12 @@ def main():
         record("Fish: starts far from the bait (WAITING far phase)",
                page.evaluate("waitPhase") == "far" and
                abs(float(page.evaluate("document.getElementById('fish').style.left").rstrip('%')) - 6) < 0.01)
+        record("Fish: rendered small while far away (depth cue)",
+               "scale(0.6)" in page.evaluate("document.getElementById('fish').style.transform"))
         record("Bait: tackle (hook+bait) visible before the bite",
                "eaten" not in page.evaluate("document.getElementById('tackle').className"))
+        record("Leader line: visible from float to hook/bait before the bite",
+               page.evaluate("document.getElementById('leader-line').style.display") != "none")
 
         seen_phases = []
         for _ in range(30):
@@ -358,12 +362,16 @@ def main():
         record("Bite: hookedFishId set", page.evaluate("hookedFishId") is not None)
         record("Bait: eaten (tackle hidden) once bitten",
                "eaten" in page.evaluate("document.getElementById('tackle').className"))
+        record("Leader line: hidden once bitten (hook is now in the fish's mouth, not at the float)",
+               page.evaluate("document.getElementById('leader-line').style.display") == "none")
+        record("Fish: back to full size once it has arrived/bitten (depth cue resolved)",
+               "scale(1)" in page.evaluate("document.getElementById('fish').style.transform"))
         record("Fish: hooked mark visible from BITTEN onward",
                "hooked" in page.evaluate("document.getElementById('fish').className"))
         record("Fish: visible while REELING",
                page.evaluate("document.getElementById('fish').style.display") != "none")
         record("Resistance: 'reeling' visual class present while REELING",
-               "reeling" in page.evaluate("document.getElementById('fish').className"))
+               "reeling" in page.evaluate("document.getElementById('fish-inner').className"))
 
         progress_samples = []
         page.locator("#reel-hold-btn").focus()

@@ -105,7 +105,7 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
    Finding D). Visual priority inside: 1 scene, 2 fish (in-scene), 3 controls, 4 status,
    5 auxiliary info (progress). ---- */
 .fishing-spot{
-  background:var(--dm-color-surface);
+  background:linear-gradient(180deg,#EAF7F5 0%,var(--dm-color-surface) 55%);
   border-radius:var(--dm-radius-md);
   box-shadow:0 2px 14px rgba(30,80,90,.12);
   padding:var(--dm-space-3);
@@ -218,6 +218,10 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 .line-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
 .line-svg line{stroke:#eef2f0;stroke-width:.8;stroke-linecap:round;opacity:.9;}
 .line-svg.tense line{stroke-width:1.3;opacity:1;}
+/* Leader from the surface float down to the hook/bait — makes the full chain
+   (rod tip -> line -> float -> leader -> hook -> bait) read as one connected piece of
+   tackle instead of two coincidentally-overlapping markers (User Browser Review §4). */
+#leader-line{stroke:#dfe7e5;stroke-width:.6;stroke-dasharray:2,1.6;opacity:.85;}
 
 .bobber{
   position:absolute;top:26%;width:16px;height:20px;transform:translate(-50%,-50%);
@@ -245,7 +249,16 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 /* ---- Fish: custom SVG (head/body/tail fin/dorsal+pectoral fins/eye/mouth) so its
    shape is guaranteed everywhere, unlike a font-rendered emoji (Finding D/E). Colored
    via currentColor + the wrapper's `color`, so one markup serves all three palette
-   colors. Sized well above the old 3rem emoji for visibility (Finding A). ---- */
+   colors. Sized well above the old 3rem emoji for visibility (Finding A).
+
+   Split into two layers: `.fish` (outer) owns position (left/top, JS-driven) and the
+   depth scale (JS-driven inline transform, transitioned during the WAITING approach so
+   the fish visibly grows as it comes from far away to near — User Browser Review §3
+   "遠景と近景の魚位置差"); `.fish-inner` (inner) owns every gesture/keyframe animation
+   (bob, turn, tail wag, bite wiggle, resistance, catch pop) as plain transforms with no
+   centering math of its own, since it just fills its already-centered parent. Keeping
+   these on separate elements means the per-frame gesture animation and the one-time
+   depth scale never fight over the same `transform` value. */
 .fish{
   position:absolute;
   top:46%;
@@ -256,8 +269,9 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   z-index:5;
   filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
 }
-.fish svg{display:block;width:100%;height:100%;overflow:visible;}
-.fish .fish-tailgrp{transform-box:fill-box;transform-origin:100% 50%;}
+.fish-inner{width:100%;height:100%;}
+.fish-inner svg{display:block;width:100%;height:100%;overflow:visible;}
+.fish-inner .fish-tailgrp{transform-box:fill-box;transform-origin:100% 50%;}
 .fish .fish-mouth-open{opacity:0;}
 .fish.eating .fish-mouth-closed{opacity:0;}
 .fish.eating .fish-mouth-open{opacity:1;}
@@ -266,37 +280,43 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 
 /* Idle far-swim (WAITING, before approach starts): slow bob + gentle tail wag only,
    deliberately calmer than the approach/reeling motion so it stays easy to track. */
-.fish.far-swim .fish-tailgrp{animation:fishTailWagSlow 2.2s ease-in-out infinite;}
-.fish.far-swim{animation:fishBobSlow 3s ease-in-out infinite;}
-@keyframes fishBobSlow{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-6px);}}
+.fish-inner.far-swim .fish-tailgrp{animation:fishTailWagSlow 2.2s ease-in-out infinite;}
+.fish-inner.far-swim{animation:fishBobSlow 3s ease-in-out infinite;}
+@keyframes fishBobSlow{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
 @keyframes fishTailWagSlow{0%,100%{transform:rotate(0deg);}50%{transform:rotate(-14deg);}}
 
 /* Turning-to-face-bait beat: a quick, readable "notice" pulse before it sets off. */
-.fish.turning{animation:fishTurnPulse .5s ease-in-out;}
-@keyframes fishTurnPulse{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.08);}}
+.fish-inner.turning{animation:fishTurnPulse .5s ease-in-out;}
+@keyframes fishTurnPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
 
-/* Approach: faster tail wag while it swims toward the bait (position itself is driven
-   by JS via left/top, transitioned — see #approachTransition). */
-.fish.approaching .fish-tailgrp{animation:fishTailWagFast 0.55s ease-in-out infinite;}
+/* Approach: faster tail wag while it swims toward the bait (position AND depth-scale
+   are driven by JS via a transitioned left/top/transform on the outer `.fish`). */
+.fish-inner.approaching .fish-tailgrp{animation:fishTailWagFast 0.55s ease-in-out infinite;}
 @keyframes fishTailWagFast{0%,100%{transform:rotate(0deg);}50%{transform:rotate(-22deg);}}
 
-.fish.bitten{animation:fishBite 0.5s ease-in-out;}
+.fish-inner.bitten{animation:fishBite 0.5s ease-in-out;}
 @keyframes fishBite{
-  0%,100%{transform:translate(-50%,-50%) rotate(0deg);}
-  25%{transform:translate(-50%,-50%) rotate(-14deg);}
-  75%{transform:translate(-50%,-50%) rotate(14deg);}
+  0%,100%{transform:rotate(0deg);}
+  25%{transform:rotate(-14deg);}
+  75%{transform:rotate(14deg);}
 }
 
-/* REELING resistance: reelProgress alone drives the base left/top (monotonic, never
-   reduced — Design Contract 9章); this layers a small additive transform on top via a
-   CSS animation, so the underlying position math is completely untouched (Finding C). */
-.fish.reeling{animation:fishResist 0.9s ease-in-out infinite;}
-.fish.reeling .fish-tailgrp{animation:fishTailWagFast 0.4s ease-in-out infinite;}
+/* REELING resistance: reelProgress alone drives the outer `.fish`'s base left/top
+   (monotonic, never reduced — Design Contract 9章); this layers a small additive
+   transform on the inner layer via a CSS animation, so the underlying position math is
+   completely untouched (Finding C). */
+.fish-inner.reeling{animation:fishResist 0.9s ease-in-out infinite;}
+.fish-inner.reeling .fish-tailgrp{animation:fishTailWagFast 0.4s ease-in-out infinite;}
 @keyframes fishResist{
-  0%,100%{transform:translate(-50%,-50%) translate(0,0) rotate(0deg);}
-  25%{transform:translate(-50%,-50%) translate(-5px,1px) rotate(-7deg);}
-  75%{transform:translate(-50%,-50%) translate(5px,-1px) rotate(7deg);}
+  0%,100%{transform:translate(0,0) rotate(0deg);}
+  25%{transform:translate(-5px,1px) rotate(-7deg);}
+  75%{transform:translate(5px,-1px) rotate(7deg);}
 }
+
+/* A small, one-shot "caught" pop for extra (but restrained) payoff on top of the
+   surface-splash + lift-out-of-the-water transition already on the outer `.fish`. */
+.fish-inner.caught{animation:fishCaughtPop .5s ease-out;}
+@keyframes fishCaughtPop{0%{transform:scale(1);}40%{transform:scale(1.16);}100%{transform:scale(1);}}
 
 .splash{
   position:absolute;top:46%;transform:translate(-50%,-50%);
@@ -774,6 +794,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
         <div class="rod" aria-hidden="true"></div>
         <svg class="line-svg" id="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <line id="fishing-line" x1="91" y1="24" x2="20" y2="46"></line>
+          <line id="leader-line" x1="20" y1="26" x2="20" y2="46"></line>
         </svg>
         <div class="bobber bobbing" id="bobber" aria-hidden="true"></div>
         <div class="tackle" id="tackle" aria-hidden="true">
@@ -781,18 +802,20 @@ div:has(> #donomanaLockBtn){right:64px!important;}
           <svg class="bait-icon" viewBox="0 0 30 16" width="22" height="14"><path d="M3,8 Q8,2 13,8 Q18,14 23,8 Q26,5 27,8" stroke="#C97B4A" stroke-width="5" fill="none" stroke-linecap="round"/></svg>
         </div>
         <div class="fish" id="fish" aria-hidden="true">
-          <svg viewBox="0 0 120 70">
-            <g class="fish-tailgrp"><path d="M26,35 L2,14 L10,35 L2,56 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.92"/></g>
-            <ellipse class="fish-body" cx="62" cy="35" rx="42" ry="22" fill="currentColor" stroke="#fff" stroke-width="2"/>
-            <path class="fish-dorsal" d="M50,14 L66,2 L74,16 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
-            <path class="fish-pectoral" d="M56,46 L44,62 L66,52 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
-            <path class="fish-belly" d="M30,45 C46,58 78,58 94,44 C80,52 44,52 30,45 Z" fill="#fff" opacity="0.35"/>
-            <circle class="fish-eye-white" cx="94" cy="28" r="7" fill="#fff"/>
-            <circle class="fish-eye-pupil" cx="96" cy="28" r="3.4" fill="#22303a"/>
-            <path class="fish-mouth-closed" d="M104,36 Q110,38 104,41" stroke="#22303a" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <path class="fish-mouth-open" d="M100,32 Q113,38 100,44 Q107,38 100,32 Z" fill="#22303a"/>
-            <path class="fish-hook-mark" d="M100,38 L100,45 Q100,49 104,49 Q107,49 106,46" stroke="#8a8f94" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-          </svg>
+          <div class="fish-inner" id="fish-inner">
+            <svg viewBox="0 0 120 70">
+              <g class="fish-tailgrp"><path d="M26,35 L2,14 L10,35 L2,56 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.92"/></g>
+              <ellipse class="fish-body" cx="62" cy="35" rx="42" ry="22" fill="currentColor" stroke="#fff" stroke-width="2"/>
+              <path class="fish-dorsal" d="M50,14 L66,2 L74,16 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
+              <path class="fish-pectoral" d="M56,46 L44,62 L66,52 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
+              <path class="fish-belly" d="M30,45 C46,58 78,58 94,44 C80,52 44,52 30,45 Z" fill="#fff" opacity="0.35"/>
+              <circle class="fish-eye-white" cx="94" cy="28" r="7" fill="#fff"/>
+              <circle class="fish-eye-pupil" cx="96" cy="28" r="3.4" fill="#22303a"/>
+              <path class="fish-mouth-closed" d="M104,36 Q110,38 104,41" stroke="#22303a" stroke-width="2" fill="none" stroke-linecap="round"/>
+              <path class="fish-mouth-open" d="M100,32 Q113,38 100,44 Q107,38 100,32 Z" fill="#22303a"/>
+              <path class="fish-hook-mark" d="M100,38 L100,45 Q100,49 104,49 Q107,49 106,46" stroke="#8a8f94" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+            </svg>
+          </div>
         </div>
         <span class="splash" id="splash" aria-hidden="true">💦</span>
       </div>
@@ -875,6 +898,16 @@ var WAIT_FAR_RATIO = 0.45;      // portion of the total WAITING time spent far a
 var WAIT_TURN_MS = 500;         // matches the CSS fishTurnPulse duration
 var WAIT_APPROACH_MIN_MS = 380; // floor so a short random WAITING roll still glides visibly
 var waitPhase = null;           // null | 'far' | 'turning' | 'approaching'
+var FISH_FAR_SCALE = 0.6;       // depth cue: small while distant, growing to 1 on approach
+                                 // (User Browser Review §3: "遠景と近景の魚位置差")
+/* Fish definition table — deliberately data-driven (an array of plain objects picked
+   from at random) rather than a hardcoded 3-way branch, so a future Phase can extend
+   this to more entries (varied hex/size range/spawn weight/appearance area etc, see
+   docs/design-system/donomana-fishing-app-cast-zone-design-notes-v1_0.md §Fish
+   Variation) without touching the pick/spawn logic below — only this table and, if a
+   future entry needs a different silhouette, the SVG markup it points to. `color` is
+   also the vocabulary already used by the Learning Record payload's `caughtColor`
+   field, so it is kept even though "type" would be the more general future name. */
 var FISH_PALETTE = [
   { color: 'red',    hex: '#EE6C7C' },
   { color: 'blue',   hex: '#4A8FD9' },
@@ -886,10 +919,12 @@ var elFishing = document.getElementById('fishing-screen');
 var elStatus = document.getElementById('status-text');
 var elStatusChip = document.getElementById('status-chip');
 var elFish = document.getElementById('fish');
+var elFishInner = document.getElementById('fish-inner');
 var elBobber = document.getElementById('bobber');
 var elTackle = document.getElementById('tackle');
 var elSplash = document.getElementById('splash');
 var elLine = document.getElementById('fishing-line');
+var elLeaderLine = document.getElementById('leader-line');
 var elLineSvg = document.getElementById('line-svg');
 var elProgressFill = document.getElementById('progress-fill');
 var elProgressText = document.getElementById('progress-text');
@@ -993,6 +1028,12 @@ function setFishXY(xPct, yPct) {
   elFish.style.left = xPct + '%';
   elFish.style.top = yPct + '%';
 }
+/* Depth scale lives on the outer `.fish` (position) element, combined with its fixed
+   centering translate in one inline transform, so it never fights the inner element's
+   own gesture-keyframe transforms (bob/wag/resist/etc). */
+function setFishDepthScale(scale) {
+  elFish.style.transform = 'translate(-50%,-50%) scale(' + scale + ')';
+}
 /* Once hooked (BITTEN/REELING/CAUGHT), the fish's base position is purely a function of
    reelProgress (Design Contract 9章: monotonic, single source of truth), and the line
    follows it — resistance animation (Finding C) is layered on top via CSS transform only,
@@ -1034,19 +1075,25 @@ function updateUI() {
   var waiting = (state === STATE.WAITING);
   var hooked = (state === STATE.BITTEN || state === STATE.REELING || state === STATE.CAUGHT);
   elFish.style.display = fishVisible ? 'block' : 'none'; // '.fish' defaults to display:none in CSS, so '' would fall back to hidden
-  elFish.classList.toggle('far-swim', waiting && waitPhase === 'far');
-  elFish.classList.toggle('turning', waiting && waitPhase === 'turning');
-  elFish.classList.toggle('approaching', waiting && waitPhase === 'approaching');
-  elFish.classList.toggle('bitten', state === STATE.BITTEN);
-  elFish.classList.toggle('reeling', state === STATE.REELING);
-  elFish.classList.toggle('caught', state === STATE.CAUGHT);
+  // Gesture/keyframe classes live on the inner layer (see .fish/.fish-inner split above
+  // the fish CSS); 'eating'/'hooked' stay on the outer element since they only ever
+  // toggle opacity on descendant SVG paths, no transform involved.
+  elFishInner.classList.toggle('far-swim', waiting && waitPhase === 'far');
+  elFishInner.classList.toggle('turning', waiting && waitPhase === 'turning');
+  elFishInner.classList.toggle('approaching', waiting && waitPhase === 'approaching');
+  elFishInner.classList.toggle('bitten', state === STATE.BITTEN);
+  elFishInner.classList.toggle('reeling', state === STATE.REELING);
+  elFishInner.classList.toggle('caught', state === STATE.CAUGHT);
   elFish.classList.toggle('hooked', hooked);
   elLineSvg.classList.toggle('tense', state === STATE.REELING);
-  // Bobber (surface marker, stays at its CSS top:26%) and tackle (hook+bait, underwater
-  // at the fish's depth) both mark the fixed cast point and disappear together once the
-  // fish actually takes the bait (Finding B/D).
+  // Bobber (surface marker, stays at its CSS top:26%), the leader line, and tackle
+  // (hook+bait, underwater at the fish's depth) all mark the fixed cast point and
+  // disappear together once the fish actually takes the bait (Finding B/D).
   elBobber.style.display = waiting ? 'block' : 'none';
   elBobber.style.left = FISH_START_PCT + '%';
+  elLeaderLine.style.display = waiting ? '' : 'none';
+  elLeaderLine.setAttribute('x1', FISH_START_PCT);
+  elLeaderLine.setAttribute('x2', FISH_START_PCT);
   elTackle.style.left = FISH_START_PCT + '%';
   elTackle.style.top = FISH_Y_PCT + '%';
   elTackle.classList.toggle('eaten', !waiting);
@@ -1171,6 +1218,7 @@ function enterWaiting() {
   pickFishAppearance();
   updateUI();
   setFishXY(FISH_FAR_PCT, FISH_Y_PCT);
+  setFishDepthScale(FISH_FAR_SCALE); // small while distant; grows to 1 during the approach glide
   var totalWaitMs = randomBetween(WAITING_MIN_MS, WAITING_MAX_MS);
   var farMs = Math.max(300, totalWaitMs * WAIT_FAR_RATIO);
   var approachMs = Math.max(WAIT_APPROACH_MIN_MS, totalWaitMs - farMs - WAIT_TURN_MS);
@@ -1186,8 +1234,9 @@ function beginApproach(approachMs) {
   if (state !== STATE.WAITING) return;
   waitPhase = 'approaching';
   updateUI();
-  elFish.style.transition = 'left ' + approachMs + 'ms ease-in-out, top ' + approachMs + 'ms ease-in-out';
+  elFish.style.transition = 'left ' + approachMs + 'ms ease-in-out, top ' + approachMs + 'ms ease-in-out, transform ' + approachMs + 'ms ease-in-out';
   setFishXY(FISH_START_PCT, FISH_Y_PCT);
+  setFishDepthScale(1); // grows from FISH_FAR_SCALE to full size over the same glide
   waitTimer = setTimeout(function () {
     elFish.style.transition = '';
     if (state !== STATE.WAITING) return;
@@ -1236,6 +1285,7 @@ function requestReset() {
   reelProgress = 0; hookedFishId = null; currentFish = null; caughtLanded = false;
   isPhysicallyHeld = false; holdInputMethod = null;
   elFish.classList.remove('eating');
+  elFish.style.transform = '';
   updateUI();
 }
 
