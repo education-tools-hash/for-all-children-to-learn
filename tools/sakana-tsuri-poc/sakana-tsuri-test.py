@@ -329,6 +329,71 @@ def main():
         record("no runtime errors (visual scene block)", not errors, str(errors))
         context.close()
 
+        # ================= Fish approach / bite / resistance / caught
+        #                    (Phase FISHING-APP-UX-VISUAL-HARDENING-1) =================
+        context, page, errors, console_errors = new_page(browser)
+        page.click("#cast-btn")
+        page.clock.run_for(520)  # past CASTING(500ms), into WAITING's far phase
+        record("Fish: visible as soon as WAITING starts",
+               page.evaluate("document.getElementById('fish').style.display") != "none")
+        record("Fish: starts far from the bait (WAITING far phase)",
+               page.evaluate("waitPhase") == "far" and
+               abs(float(page.evaluate("document.getElementById('fish').style.left").rstrip('%')) - 6) < 0.01)
+        record("Bait: tackle (hook+bait) visible before the bite",
+               "eaten" not in page.evaluate("document.getElementById('tackle').className"))
+
+        seen_phases = []
+        for _ in range(30):
+            page.clock.run_for(100)
+            ph = page.evaluate("waitPhase")
+            if ph is not None and (not seen_phases or seen_phases[-1] != ph):
+                seen_phases.append(ph)
+            if page.evaluate("state") != "WAITING":
+                break
+        record("Bite approach: fish visibly goes far -> turning -> approaching before BITTEN",
+               seen_phases == ["far", "turning", "approaching"], str(seen_phases))
+
+        page.clock.run_for(1000)
+        record("Bite: auto-transitions to REELING", state(page) == "REELING")
+        record("Bite: hookedFishId set", page.evaluate("hookedFishId") is not None)
+        record("Bait: eaten (tackle hidden) once bitten",
+               "eaten" in page.evaluate("document.getElementById('tackle').className"))
+        record("Fish: hooked mark visible from BITTEN onward",
+               "hooked" in page.evaluate("document.getElementById('fish').className"))
+        record("Fish: visible while REELING",
+               page.evaluate("document.getElementById('fish').style.display") != "none")
+        record("Resistance: 'reeling' visual class present while REELING",
+               "reeling" in page.evaluate("document.getElementById('fish').className"))
+
+        progress_samples = []
+        page.locator("#reel-hold-btn").focus()
+        page.keyboard.down("Enter")
+        for _ in range(6):
+            page.clock.run_for(120)
+            progress_samples.append(progress(page))
+        page.keyboard.up("Enter")
+        record("Resistance: reelProgress never decreases while the resistance animation plays",
+               all(progress_samples[i] <= progress_samples[i + 1] for i in range(len(progress_samples) - 1)),
+               str(progress_samples))
+        expected_left = 20 + (91 - 20) * progress(page) / 100
+        record("Fish: base left position stays exactly reelProgress-derived (resistance is a transform overlay only)",
+               abs(float(page.evaluate("document.getElementById('fish').style.left").rstrip('%')) - expected_left) < 0.5)
+
+        page.keyboard.down("Enter")
+        page.clock.run_for(4500)
+        page.keyboard.up("Enter")
+        record("Caught: state reaches CAUGHT", state(page) == "CAUGHT")
+        record("Caught: fish still visible, lifted out of the water",
+               page.evaluate("document.getElementById('fish').style.display") != "none" and
+               abs(float(page.evaluate("document.getElementById('fish').style.top").rstrip('%')) - 24) < 0.5)
+        record("no runtime errors (approach/bite/resistance/caught block)", not errors, str(errors))
+
+        page.click("#again-btn")
+        record("Reset: fish visual classes fully cleared after reset (no stale eating/reeling/caught/hooked classes)",
+               page.evaluate("document.getElementById('fish').className") == "fish")
+        record("no runtime errors (reset block)", not errors, str(errors))
+        context.close()
+
         browser.close()
 
     total = len(RESULTS)

@@ -100,10 +100,24 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 
 #fishing-screen[hidden],#start-screen[hidden]{display:none;}
 
-/* ---- Pond scene: sky band, water, shore, rod, line, bobber, fish ---- */
+/* ---- Unified "fishing spot" card: scene + status + controls + progress read as one
+   world instead of separately-placed parts (Phase FISHING-APP-UX-VISUAL-HARDENING-1,
+   Finding D). Visual priority inside: 1 scene, 2 fish (in-scene), 3 controls, 4 status,
+   5 auxiliary info (progress). ---- */
+.fishing-spot{
+  background:var(--dm-color-surface);
+  border-radius:var(--dm-radius-md);
+  box-shadow:0 2px 14px rgba(30,80,90,.12);
+  padding:var(--dm-space-3);
+  display:flex;
+  flex-direction:column;
+  gap:var(--dm-space-3);
+}
+
+/* ---- Pond scene: sky band, water, shore, rod, line, bobber, tackle, fish ---- */
 .pond{
   position:relative;
-  height:260px;
+  height:300px;
   border-radius:var(--dm-radius-md);
   overflow:hidden;
   background:linear-gradient(180deg,#BEEBFF 0%,#BEEBFF 22%,#5FC3E0 24%,#2E86AB 70%,#1E6485 100%);
@@ -123,6 +137,49 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   background:repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 14px,transparent 14px 34px);
   opacity:.7;
 }
+/* Status caption lives inside the scene (top band) instead of a separate line above it,
+   so the pond reads as the one world the whole app is about. */
+.pond .status-band{
+  position:absolute;top:0;left:0;right:0;z-index:6;
+  display:flex;justify-content:center;padding:6px 8px 0;
+  pointer-events:none;
+}
+.pond .status-chip{
+  background:rgba(255,255,255,.88);color:var(--dm-color-ink);
+  font-size:var(--dm-font-size-body);font-weight:700;
+  padding:4px 16px;border-radius:var(--dm-radius-pill);
+  box-shadow:0 1px 6px rgba(0,0,0,.12);
+}
+/* Underwater decor: seaweed, pebbles, rising bubbles — makes the water feel inhabited
+   instead of empty (Finding D: "水中世界がほぼ空"). Purely decorative. */
+.pond .weed{
+  position:absolute;bottom:0;width:10px;
+  background:linear-gradient(180deg,#3F8E4F,#2E6E3C);
+  border-radius:6px 6px 0 0;
+  transform-origin:bottom center;
+}
+.pond .weed.w1{left:6%;height:15%;}
+.pond .weed.w2{left:11%;height:11%;}
+.pond .weed.w3{left:58%;height:13%;}
+.pond .weed.w4{left:64%;height:9%;}
+.pond .weed.sway{animation:weedSway 3.4s ease-in-out infinite;}
+@keyframes weedSway{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
+.pond .pebble{
+  position:absolute;bottom:2%;border-radius:50%;
+  background:linear-gradient(180deg,#9CA9A6,#78877F);
+}
+.pond .pebble.p1{left:22%;width:18px;height:10px;}
+.pond .pebble.p2{left:40%;width:12px;height:7px;}
+.pond .pebble.p3{left:50%;width:16px;height:9px;}
+.pond .bubble{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,.5);
+  bottom:6%;
+}
+.pond .bubble.b1{left:35%;width:6px;height:6px;animation:bubbleRise 3.2s ease-in infinite;}
+.pond .bubble.b2{left:44%;width:4px;height:4px;animation:bubbleRise 2.6s ease-in infinite .8s;}
+.pond .bubble.b3{left:70%;width:5px;height:5px;animation:bubbleRise 3.8s ease-in infinite 1.5s;}
+@keyframes bubbleRise{0%{transform:translateY(0);opacity:.7;}90%{opacity:.5;}100%{transform:translateY(-140px);opacity:0;}}
 .pond .shore{
   position:absolute;right:0;bottom:0;width:34%;height:46%;
   background:linear-gradient(180deg,#C9A46A 0%,#A9824E 100%);
@@ -146,9 +203,10 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 }
 .line-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
 .line-svg line{stroke:#eef2f0;stroke-width:.8;stroke-linecap:round;opacity:.9;}
+.line-svg.tense line{stroke-width:1.3;opacity:1;}
 
 .bobber{
-  position:absolute;top:32%;width:16px;height:20px;transform:translate(-50%,-50%);
+  position:absolute;top:26%;width:16px;height:20px;transform:translate(-50%,-50%);
   z-index:4;
 }
 .bobber::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:#EE6C7C;border-radius:8px 8px 0 0;}
@@ -156,47 +214,104 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 .bobber.bobbing{animation:bobberFloat 1.6s ease-in-out infinite;}
 @keyframes bobberFloat{0%,100%{margin-top:0;}50%{margin-top:-6px;}}
 
+/* Hook + bait ("tackle") hanging below the bobber, at the water depth where the fish
+   will arrive (Finding D: "針がむき出し"/"えさがない"/"糸と針の関係が分かりにくい").
+   Hidden the moment the fish actually bites (the bait is "eaten"); the line then
+   tracks the fish directly, so the hook is never shown bare/disconnected. */
+.tackle{
+  position:absolute;transform:translate(-50%,-50%);z-index:4;
+  display:flex;flex-direction:column;align-items:center;
+}
+.tackle .hook-icon{display:block;}
+.tackle .bait-icon{display:block;margin-top:-2px;}
+.tackle.eaten{display:none;}
+.tackle .bait-icon{animation:baitWiggle 1.8s ease-in-out infinite;transform-origin:50% 0;}
+@keyframes baitWiggle{0%,100%{transform:rotate(-6deg);}50%{transform:rotate(6deg);}}
+
+/* ---- Fish: custom SVG (head/body/tail fin/dorsal+pectoral fins/eye/mouth) so its
+   shape is guaranteed everywhere, unlike a font-rendered emoji (Finding D/E). Colored
+   via currentColor + the wrapper's `color`, so one markup serves all three palette
+   colors. Sized well above the old 3rem emoji for visibility (Finding A). ---- */
 .fish{
   position:absolute;
   top:46%;
   left:20%;
+  width:104px;height:60px;
   transform:translate(-50%,-50%);
-  font-size:3rem;
   display:none;
-  z-index:4;
+  z-index:5;
   filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
 }
-.fish.swimming{animation:fishSwim 2.4s ease-in-out infinite;}
+.fish svg{display:block;width:100%;height:100%;overflow:visible;}
+.fish .fish-tailgrp{transform-box:fill-box;transform-origin:100% 50%;}
+.fish .fish-mouth-open{opacity:0;}
+.fish.eating .fish-mouth-closed{opacity:0;}
+.fish.eating .fish-mouth-open{opacity:1;}
+.fish .fish-hook-mark{opacity:0;}
+.fish.hooked .fish-hook-mark{opacity:1;}
+
+/* Idle far-swim (WAITING, before approach starts): slow bob + gentle tail wag only,
+   deliberately calmer than the approach/reeling motion so it stays easy to track. */
+.fish.far-swim .fish-tailgrp{animation:fishTailWagSlow 2.2s ease-in-out infinite;}
+.fish.far-swim{animation:fishBobSlow 3s ease-in-out infinite;}
+@keyframes fishBobSlow{0%,100%{transform:translate(-50%,-50%) translateY(0);}50%{transform:translate(-50%,-50%) translateY(-6px);}}
+@keyframes fishTailWagSlow{0%,100%{transform:rotate(0deg);}50%{transform:rotate(-14deg);}}
+
+/* Turning-to-face-bait beat: a quick, readable "notice" pulse before it sets off. */
+.fish.turning{animation:fishTurnPulse .5s ease-in-out;}
+@keyframes fishTurnPulse{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.08);}}
+
+/* Approach: faster tail wag while it swims toward the bait (position itself is driven
+   by JS via left/top, transitioned — see #approachTransition). */
+.fish.approaching .fish-tailgrp{animation:fishTailWagFast 0.55s ease-in-out infinite;}
+@keyframes fishTailWagFast{0%,100%{transform:rotate(0deg);}50%{transform:rotate(-22deg);}}
+
 .fish.bitten{animation:fishBite 0.5s ease-in-out;}
-@keyframes fishSwim{
-  0%,100%{transform:translate(-50%,-50%) translateY(0) scaleX(1);}
-  50%{transform:translate(-50%,-50%) translateY(-10px) scaleX(-1);}
-}
 @keyframes fishBite{
   0%,100%{transform:translate(-50%,-50%) rotate(0deg);}
   25%{transform:translate(-50%,-50%) rotate(-14deg);}
   75%{transform:translate(-50%,-50%) rotate(14deg);}
 }
+
+/* REELING resistance: reelProgress alone drives the base left/top (monotonic, never
+   reduced — Design Contract 9章); this layers a small additive transform on top via a
+   CSS animation, so the underlying position math is completely untouched (Finding C). */
+.fish.reeling{animation:fishResist 0.9s ease-in-out infinite;}
+.fish.reeling .fish-tailgrp{animation:fishTailWagFast 0.4s ease-in-out infinite;}
+@keyframes fishResist{
+  0%,100%{transform:translate(-50%,-50%) translate(0,0) rotate(0deg);}
+  25%{transform:translate(-50%,-50%) translate(-5px,1px) rotate(-7deg);}
+  75%{transform:translate(-50%,-50%) translate(5px,-1px) rotate(7deg);}
+}
+
 .splash{
   position:absolute;top:46%;transform:translate(-50%,-50%);
-  font-size:1.6rem;opacity:0;pointer-events:none;z-index:5;
+  font-size:1.6rem;opacity:0;pointer-events:none;z-index:6;
 }
 .splash.show{animation:splashPop .6s ease-out;}
+.splash.small.show{animation:splashPopSmall .5s ease-out;}
 @keyframes splashPop{
   0%{opacity:1;transform:translate(-50%,-50%) scale(.6);}
   100%{opacity:0;transform:translate(-50%,-50%) scale(1.6);}
 }
-
-#status-text{
-  text-align:center;
-  font-size:var(--dm-font-size-subheading);
-  font-weight:700;
-  min-height:1.6em;
+@keyframes splashPopSmall{
+  0%{opacity:.85;transform:translate(-50%,-50%) scale(.5);}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.05);}
 }
 
-.progress-row{display:flex;flex-direction:column;gap:var(--dm-space-2);}
+#status-text{
+  /* Kept for screen-reader/status semantics (role="status") but visually replaced by
+     the in-scene .status-chip caption; not removed, so no announce/regression risk. */
+  position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);
+  white-space:nowrap;border:0;padding:0;margin:-1px;
+}
+
+/* Progress is auxiliary info (priority 5): smaller, quieter, no longer a full bright
+   accent bar competing with the reel button (Finding D: "大きなオレンジボタンだけが
+   過度に目立つ"). */
+.progress-row{display:flex;flex-direction:column;gap:4px;}
 .progress-track{
-  height:28px;
+  height:14px;
   border-radius:var(--dm-radius-pill);
   background:var(--dm-color-border);
   overflow:hidden;
@@ -204,8 +319,9 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 .progress-fill{
   height:100%;
   width:0%;
-  background:var(--dm-color-accent);
+  background:#BFDFC8;
   border-radius:var(--dm-radius-pill);
+  transition:width .15s linear;
 }
 #progress-text{text-align:center;font-size:var(--dm-font-size-caption);color:var(--dm-color-sub);}
 
@@ -252,9 +368,14 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 #again-btn[hidden]{display:none;}
 
 @media (max-width:420px){
-  .pond{height:210px;}
+  .pond{height:230px;}
+  .fish{width:80px;height:46px;}
   #reel-hold-btn{min-width:0;width:100%;}
 }
+/* Note: prefers-reduced-motion is already handled globally in the design-tokens block
+   above (animation-duration/iteration-count forced to near-zero/1 for every element),
+   so every keyframe added here (fish swim/turn/approach/resist, weed sway, bubbles,
+   bait wiggle) is automatically reduced without a second, app-local override. */
 
 /* ---- Help panel (hand-authored per Help / Usage Guide Standard v1.0 — not yet part
    of generate.js's shared Common Chrome injector; see New App Standard §8.1). Positioned
@@ -618,31 +739,61 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 
     <div id="status-text" role="status">じゅんび かんりょう</div>
 
-    <div class="pond" id="pond">
-      <div class="sun" aria-hidden="true"></div>
-      <div class="cloud c1" aria-hidden="true"></div>
-      <div class="cloud c2" aria-hidden="true"></div>
-      <div class="water-sparkle" aria-hidden="true"></div>
-      <div class="shore" aria-hidden="true"></div>
-      <div class="rod" aria-hidden="true"></div>
-      <svg class="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <line id="fishing-line" x1="91" y1="24" x2="20" y2="46"></line>
-      </svg>
-      <div class="bobber bobbing" id="bobber" aria-hidden="true"></div>
-      <span class="fish" id="fish" aria-hidden="true">🐟</span>
-      <span class="splash" id="splash" aria-hidden="true">💦</span>
-    </div>
+    <div class="fishing-spot">
+      <div class="pond" id="pond">
+        <div class="status-band" aria-hidden="true"><div class="status-chip" id="status-chip">じゅんび かんりょう</div></div>
+        <div class="sun" aria-hidden="true"></div>
+        <div class="cloud c1" aria-hidden="true"></div>
+        <div class="cloud c2" aria-hidden="true"></div>
+        <div class="water-sparkle" aria-hidden="true"></div>
+        <div class="weed w1 sway" aria-hidden="true"></div>
+        <div class="weed w2 sway" aria-hidden="true"></div>
+        <div class="weed w3 sway" aria-hidden="true"></div>
+        <div class="weed w4 sway" aria-hidden="true"></div>
+        <div class="pebble p1" aria-hidden="true"></div>
+        <div class="pebble p2" aria-hidden="true"></div>
+        <div class="pebble p3" aria-hidden="true"></div>
+        <div class="bubble b1" aria-hidden="true"></div>
+        <div class="bubble b2" aria-hidden="true"></div>
+        <div class="bubble b3" aria-hidden="true"></div>
+        <div class="shore" aria-hidden="true"></div>
+        <div class="rod" aria-hidden="true"></div>
+        <svg class="line-svg" id="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <line id="fishing-line" x1="91" y1="24" x2="20" y2="46"></line>
+        </svg>
+        <div class="bobber bobbing" id="bobber" aria-hidden="true"></div>
+        <div class="tackle" id="tackle" aria-hidden="true">
+          <svg class="hook-icon" viewBox="0 0 14 20" width="10" height="16"><path d="M7,1 L7,12 Q7,17 11,17 Q14,17 13,13" stroke="#8a8f94" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          <svg class="bait-icon" viewBox="0 0 30 16" width="22" height="14"><path d="M3,8 Q8,2 13,8 Q18,14 23,8 Q26,5 27,8" stroke="#C97B4A" stroke-width="5" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <div class="fish" id="fish" aria-hidden="true">
+          <svg viewBox="0 0 120 70">
+            <g class="fish-tailgrp"><path d="M26,35 L2,14 L10,35 L2,56 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.92"/></g>
+            <ellipse class="fish-body" cx="62" cy="35" rx="42" ry="22" fill="currentColor" stroke="#fff" stroke-width="2"/>
+            <path class="fish-dorsal" d="M50,14 L66,2 L74,16 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
+            <path class="fish-pectoral" d="M56,46 L44,62 L66,52 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
+            <path class="fish-belly" d="M30,45 C46,58 78,58 94,44 C80,52 44,52 30,45 Z" fill="#fff" opacity="0.35"/>
+            <circle class="fish-eye-white" cx="94" cy="28" r="7" fill="#fff"/>
+            <circle class="fish-eye-pupil" cx="96" cy="28" r="3.4" fill="#22303a"/>
+            <path class="fish-mouth-closed" d="M104,36 Q110,38 104,41" stroke="#22303a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <path class="fish-mouth-open" d="M100,32 Q113,38 100,44 Q107,38 100,32 Z" fill="#22303a"/>
+            <path class="fish-hook-mark" d="M100,38 L100,45 Q100,49 104,49 Q107,49 106,46" stroke="#8a8f94" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="splash" id="splash" aria-hidden="true">💦</span>
+      </div>
 
-    <div class="progress-row" aria-hidden="false">
-      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-      <div id="progress-text">まだ キャストしていないよ</div>
-    </div>
+      <div class="progress-row" aria-hidden="false">
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <div id="progress-text">まだ キャストしていないよ</div>
+      </div>
 
-    <div class="controls-row">
-      <button id="cast-btn" class="big-btn scannable" data-scan="1" type="button">🎣 なげる</button>
-      <button id="reel-hold-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true">
-        🎣 おしつづけて まきとる
-      </button>
+      <div class="controls-row">
+        <button id="cast-btn" class="big-btn scannable" data-scan="1" type="button">🎣 なげる</button>
+        <button id="reel-hold-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true">
+          🎣 おしつづけて まきとる
+        </button>
+      </div>
     </div>
 
     <div id="catch-result" hidden role="status">
@@ -698,19 +849,34 @@ var CAUGHT_DISPLAY_MS = 2600;
 var POINTER_WATCHDOG_MS = 20000; // stale-input safety net (5.3.1章)
 var FISH_START_PCT = 20, FISH_ROD_PCT = 91; // cast/bite point -> rod-side landing point
 var FISH_Y_PCT = 46;
+var FISH_FAR_PCT = 6;      // WAITING: distant idle position, away from the bait (Finding A/B)
+var CAUGHT_X_PCT = 84, CAUGHT_Y_PCT = 24; // CAUGHT: lifted to rod-tip height, pulled in just
+                            // shy of FISH_ROD_PCT so the (now larger) fish sprite doesn't
+                            // clip against the pond's right/top edge at full size
+/* WAITING is split into three visual sub-phases (far -> turning -> approaching) that all
+   still report state === 'WAITING' to the outside world (tests, records) — only the new
+   `waitPhase` variable exposes which one is active, so the existing state machine contract
+   is unchanged (Phase指示: "既存state machineとの整合を取ってください"). */
+var WAIT_FAR_RATIO = 0.45;      // portion of the total WAITING time spent far away, idle
+var WAIT_TURN_MS = 500;         // matches the CSS fishTurnPulse duration
+var WAIT_APPROACH_MIN_MS = 380; // floor so a short random WAITING roll still glides visibly
+var waitPhase = null;           // null | 'far' | 'turning' | 'approaching'
 var FISH_PALETTE = [
-  { color: 'red',    emoji: '🐟' },
-  { color: 'blue',   emoji: '🐠' },
-  { color: 'yellow', emoji: '🐡' }
+  { color: 'red',    hex: '#EE6C7C' },
+  { color: 'blue',   hex: '#4A8FD9' },
+  { color: 'yellow', hex: '#F5C542' }
 ];
 
 var elStart = document.getElementById('start-screen');
 var elFishing = document.getElementById('fishing-screen');
 var elStatus = document.getElementById('status-text');
+var elStatusChip = document.getElementById('status-chip');
 var elFish = document.getElementById('fish');
 var elBobber = document.getElementById('bobber');
+var elTackle = document.getElementById('tackle');
 var elSplash = document.getElementById('splash');
 var elLine = document.getElementById('fishing-line');
+var elLineSvg = document.getElementById('line-svg');
 var elProgressFill = document.getElementById('progress-fill');
 var elProgressText = document.getElementById('progress-text');
 var elCastBtn = document.getElementById('cast-btn');
@@ -806,22 +972,33 @@ function renderLineTo(xPct, yPct) {
   elLine.setAttribute('x2', xPct);
   elLine.setAttribute('y2', yPct);
 }
+/* Fish element position only (no line coupling) — used while the fish is still free
+   (WAITING's far/turning/approaching sub-phases), since the line/hook/bait stays put
+   at the cast point until the fish actually takes it. */
+function setFishXY(xPct, yPct) {
+  elFish.style.left = xPct + '%';
+  elFish.style.top = yPct + '%';
+}
+/* Once hooked (BITTEN/REELING/CAUGHT), the fish's base position is purely a function of
+   reelProgress (Design Contract 9章: monotonic, single source of truth), and the line
+   follows it — resistance animation (Finding C) is layered on top via CSS transform only,
+   never by touching this left/top math. */
 function renderFishPosition() {
   var t = reelProgress / 100;
   var x = lerp(FISH_START_PCT, FISH_ROD_PCT, t);
-  elFish.style.left = x + '%';
-  elFish.style.top = FISH_Y_PCT + '%';
+  setFishXY(x, FISH_Y_PCT);
   renderLineTo(x, FISH_Y_PCT);
 }
 function renderProgress() {
   elProgressFill.style.width = reelProgress + '%';
   elProgressText.textContent = reelProgress >= 100 ? 'つれた！' : ('のこり ' + Math.max(0, 100 - Math.round(reelProgress)) + '%');
 }
-function showSplash(xPct, yPct) {
+function showSplash(xPct, yPct, small) {
   elSplash.style.left = xPct + '%';
   elSplash.style.top = yPct + '%';
-  elSplash.classList.remove('show');
+  elSplash.classList.remove('show', 'small');
   void elSplash.offsetWidth; // restart animation
+  elSplash.classList.toggle('small', !!small);
   elSplash.classList.add('show');
 }
 var STATUS_LABELS = {
@@ -834,19 +1011,35 @@ var STATUS_LABELS = {
 };
 function updateUI() {
   elStatus.textContent = STATUS_LABELS[state];
+  elStatusChip.textContent = STATUS_LABELS[state];
   elCastBtn.disabled = (state !== STATE.IDLE);
   var reeling = (state === STATE.REELING);
   elReelBtn.setAttribute('aria-disabled', reeling ? 'false' : 'true');
   elReelBtn.classList.toggle('inactive', !reeling);
   var fishVisible = (state === STATE.WAITING || state === STATE.BITTEN || state === STATE.REELING || state === STATE.CAUGHT);
-  var bobberVisible = (state === STATE.WAITING);
-  elFish.style.display = fishVisible ? '' : 'none';
-  elFish.classList.toggle('swimming', state === STATE.WAITING);
+  var waiting = (state === STATE.WAITING);
+  var hooked = (state === STATE.BITTEN || state === STATE.REELING || state === STATE.CAUGHT);
+  elFish.style.display = fishVisible ? 'block' : 'none'; // '.fish' defaults to display:none in CSS, so '' would fall back to hidden
+  elFish.classList.toggle('far-swim', waiting && waitPhase === 'far');
+  elFish.classList.toggle('turning', waiting && waitPhase === 'turning');
+  elFish.classList.toggle('approaching', waiting && waitPhase === 'approaching');
   elFish.classList.toggle('bitten', state === STATE.BITTEN);
-  elBobber.style.display = bobberVisible ? '' : 'none';
+  elFish.classList.toggle('reeling', state === STATE.REELING);
+  elFish.classList.toggle('caught', state === STATE.CAUGHT);
+  elFish.classList.toggle('hooked', hooked);
+  elLineSvg.classList.toggle('tense', state === STATE.REELING);
+  // Bobber (surface marker, stays at its CSS top:26%) and tackle (hook+bait, underwater
+  // at the fish's depth) both mark the fixed cast point and disappear together once the
+  // fish actually takes the bait (Finding B/D).
+  elBobber.style.display = waiting ? 'block' : 'none';
   elBobber.style.left = FISH_START_PCT + '%';
-  elBobber.style.top = FISH_Y_PCT + '%';
-  if (!fishVisible) renderLineTo(FISH_START_PCT, FISH_Y_PCT);
+  elTackle.style.left = FISH_START_PCT + '%';
+  elTackle.style.top = FISH_Y_PCT + '%';
+  elTackle.classList.toggle('eaten', !waiting);
+  // The line follows the fish only once it is hooked; before that it stays anchored to
+  // the stationary cast point (bobber/tackle), even while the fish is visible and
+  // swimming freely nearby.
+  if (!hooked) renderLineTo(FISH_START_PCT, FISH_Y_PCT);
   elCatchResult.hidden = (state !== STATE.CAUGHT);
   elAgainBtn.hidden = (state !== STATE.CAUGHT);
   if (state === STATE.IDLE) { elProgressText.textContent = 'まだ キャストしていないよ'; elProgressFill.style.width = '0%'; }
@@ -920,16 +1113,25 @@ function applyReelProgress(amount, inputMethod) {
   lastInputMethod = inputMethod;
   renderFishPosition();
   renderProgress();
+  // Occasional, subtle splash while actively reeling — a bonus resistance cue on top of
+  // the always-on 'reeling' CSS class (Finding C). Deliberately probabilistic/cosmetic
+  // only: it never affects reelProgress, so no test depends on it firing.
+  if (Math.random() < 0.06) {
+    var xNow = lerp(FISH_START_PCT, FISH_ROD_PCT, reelProgress / 100);
+    showSplash(xNow, FISH_Y_PCT, true);
+  }
   if (reelProgress >= 100) landFish();
 }
 
 /* ---- State transitions ---- */
-function spawnFish() {
+// Appearance is decided once, when the fish first appears (WAITING's far phase) — it is
+// the same fish the whole way through, not a different one swapped in at the bite.
+function pickFishAppearance() {
   var pick = FISH_PALETTE[Math.floor(Math.random() * FISH_PALETTE.length)];
   currentFish = { color: pick.color, size: Math.round(randomBetween(1, 3)) };
-  elFish.textContent = pick.emoji;
-  elFish.style.left = FISH_START_PCT + '%';
-  elFish.style.top = FISH_Y_PCT + '%';
+  elFish.style.color = pick.hex;
+}
+function hookFish() {
   return 'fish-' + Date.now();
 }
 function startCast() {
@@ -937,6 +1139,7 @@ function startCast() {
   state = STATE.CASTING;
   reelProgress = 0; hookedFishId = null; currentFish = null; caughtLanded = false;
   isPhysicallyHeld = false; holdInputMethod = null;
+  waitPhase = null;
   castStartedAt = Date.now();
   trialNumber += 1;
   updateUI();
@@ -944,19 +1147,50 @@ function startCast() {
   announce('しかけを なげたよ');
   castTimer = setTimeout(enterWaiting, CASTING_MS);
 }
+/* WAITING now runs through three visible sub-phases before BITTEN (Finding A/B):
+   far (idle, distant) -> turning (notices the bait) -> approaching (swims to it).
+   `state` itself stays 'WAITING' throughout — only `waitPhase` changes — so nothing
+   observing `state` (tests, the Learning Record, input handling) sees a new value. */
 function enterWaiting() {
   state = STATE.WAITING;
+  waitPhase = 'far';
+  pickFishAppearance();
   updateUI();
-  waitTimer = setTimeout(enterBitten, randomBetween(WAITING_MIN_MS, WAITING_MAX_MS));
+  setFishXY(FISH_FAR_PCT, FISH_Y_PCT);
+  var totalWaitMs = randomBetween(WAITING_MIN_MS, WAITING_MAX_MS);
+  var farMs = Math.max(300, totalWaitMs * WAIT_FAR_RATIO);
+  var approachMs = Math.max(WAIT_APPROACH_MIN_MS, totalWaitMs - farMs - WAIT_TURN_MS);
+  waitTimer = setTimeout(function () { beginTurn(approachMs); }, farMs);
+}
+function beginTurn(approachMs) {
+  if (state !== STATE.WAITING) return; // defensive: a new cast could not start mid-WAITING (cast btn disabled), but stay safe
+  waitPhase = 'turning';
+  updateUI();
+  waitTimer = setTimeout(function () { beginApproach(approachMs); }, WAIT_TURN_MS);
+}
+function beginApproach(approachMs) {
+  if (state !== STATE.WAITING) return;
+  waitPhase = 'approaching';
+  updateUI();
+  elFish.style.transition = 'left ' + approachMs + 'ms ease-in-out, top ' + approachMs + 'ms ease-in-out';
+  setFishXY(FISH_START_PCT, FISH_Y_PCT);
+  waitTimer = setTimeout(function () {
+    elFish.style.transition = '';
+    if (state !== STATE.WAITING) return;
+    enterBitten();
+  }, approachMs);
 }
 function enterBitten() {
   state = STATE.BITTEN;
-  hookedFishId = spawnFish();
+  waitPhase = null;
+  hookedFishId = hookFish();
+  setFishXY(FISH_START_PCT, FISH_Y_PCT); // defensive: should already be here after the approach glide
   updateUI();
+  elFish.classList.add('eating');
   showSplash(FISH_START_PCT, FISH_Y_PCT);
   playBiteSound();
   announce('さかなが かかったよ！');
-  biteTimer = setTimeout(enterReeling, BITTEN_MS);
+  biteTimer = setTimeout(function () { elFish.classList.remove('eating'); enterReeling(); }, BITTEN_MS);
 }
 function enterReeling() {
   state = STATE.REELING;
@@ -969,20 +1203,25 @@ function landFish() {
   caughtLanded = true;
   state = STATE.CAUGHT;
   markReleased();
-  showSplash(FISH_ROD_PCT, FISH_Y_PCT);
+  showSplash(FISH_ROD_PCT, FISH_Y_PCT); // surface splash where it broke through
+  elFish.style.transition = 'top .5s ease-out, left .5s ease-out';
+  setFishXY(CAUGHT_X_PCT, CAUGHT_Y_PCT); // then visibly lifted up to rod-tip height, out of the water
+  renderLineTo(CAUGHT_X_PCT, CAUGHT_Y_PCT);
   playCaughtSound();
   updateUI();
   elCatchMessage.textContent = 'さかなが つれたよ！';
   announce('やったね！さかなが つれたよ！');
   saveTrialRecord();
-  caughtTimer = setTimeout(requestReset, CAUGHT_DISPLAY_MS);
+  caughtTimer = setTimeout(function () { elFish.style.transition = ''; requestReset(); }, CAUGHT_DISPLAY_MS);
 }
 function requestReset() {
   if (state !== STATE.CAUGHT) return;
   clearTimeout(caughtTimer);
   state = STATE.IDLE;
+  waitPhase = null;
   reelProgress = 0; hookedFishId = null; currentFish = null; caughtLanded = false;
   isPhysicallyHeld = false; holdInputMethod = null;
+  elFish.classList.remove('eating');
   updateUI();
 }
 
