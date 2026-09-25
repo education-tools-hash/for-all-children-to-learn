@@ -1151,6 +1151,27 @@ function a11yPanelIsOpen(){
   var p = document.getElementById('donomanaA11yPanel');
   return !!(p && p.style.display === 'block');
 }
+// SAWATTE-HIROGARU-OVERLAY-BACKGROUND-ISOLATION-FIX-1: Teacher Settings and
+// Help open()/close() only ever toggled `hidden` on the overlay itself, so
+// .app-root (whichever of #startScreen/#activityScreen/#summaryScreen is
+// currently visible, including its own <h1>) stayed exposed to the
+// accessibility tree and reachable by a screen reader's browse-mode/virtual
+// cursor underneath — same established `.inert` background-isolation
+// pattern already used by matching-app.html/okane-app.html (and already
+// recognised by the common A11y-panel focusable-detection helper's own
+// `el.closest('[inert]')` check), not a new mechanism. Scoped to
+// .app-root only — never the common A11y button/panel, since opening
+// Teacher Settings is itself proxied through that panel (generate.js's
+// SETTINGS_PROXY) and would otherwise lock itself out. Guards against
+// clearing while the other of the two overlays is still open, mirroring
+// matching-app's own multi-entry-safe reset.
+var appRoot = document.querySelector('.app-root');
+function setSawatteBackgroundInert(isInert){
+  if (!appRoot) return;
+  if (isInert) { appRoot.inert = true; return; }
+  if (teacherModalOpen || helpOpen) return;
+  appRoot.inert = false;
+}
 function teacherModalFocusables(){
   return Array.from(teacherModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
     .filter(function(el){ return el.offsetParent !== null && !el.disabled; });
@@ -1162,12 +1183,14 @@ function openTeacherModal(){
   teacherModalOpen = true;
   teacherModalBackdrop.hidden = false;
   teacherSettingsBtn.setAttribute('aria-expanded', 'true');
+  setSawatteBackgroundInert(true);
   setTimeout(function(){ teacherModalTitle.focus(); }, 0);
 }
 function closeTeacherModal(){
   teacherModalOpen = false;
   teacherModalBackdrop.hidden = true;
   teacherSettingsBtn.setAttribute('aria-expanded', 'false');
+  setSawatteBackgroundInert(false);
   (document.getElementById('donomanaA11yBtn') || teacherSettingsBtn).focus();
 }
 // Bound to document (not teacherModalBackdrop) — matching register-app's
@@ -1244,12 +1267,14 @@ function openHelp(){
   helpOpen = true;
   helpOverlay.hidden = false;
   helpBtn.setAttribute('aria-expanded', 'true');
+  setSawatteBackgroundInert(true);
   setTimeout(function(){ helpTitle.focus(); }, 0);
 }
 function closeHelp(){
   helpOpen = false;
   helpOverlay.hidden = true;
   helpBtn.setAttribute('aria-expanded', 'false');
+  setSawatteBackgroundInert(false);
   helpBtn.focus();
 }
 helpBtn.addEventListener('click', function(){ helpOpen ? closeHelp() : openHelp(); });
