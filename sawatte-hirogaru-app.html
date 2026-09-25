@@ -1169,8 +1169,26 @@ var appRoot = document.querySelector('.app-root');
 function setSawatteBackgroundInert(isInert){
   if (!appRoot) return;
   if (isInert) { appRoot.inert = true; return; }
-  if (teacherModalOpen || helpOpen) return;
+  if (teacherModalOpen || helpOpen || recordViewerOpen) return;
   appRoot.inert = false;
+}
+// SAWATTE-HIROGARU-RECORD-TRACE-VIEWER-BACKGROUND-ISOLATION-FIX-1: Record
+// Viewer and Trace Viewer are siblings of .app-root, not descendants of it
+// (same as Teacher Settings/Help), so the same gap applied to them: neither
+// ever isolated the background. Record Viewer now drives the same
+// setSawatteBackgroundInert() above (extended to also guard clearing while
+// recordViewerOpen). Trace Viewer is different: it layers ON TOP of Record
+// Viewer, which stays open underneath and is itself a sibling of .app-root
+// -- so .app-root.inert alone cannot hide recordViewerModal's own <h1> while
+// Trace Viewer covers it. A second, narrowly-scoped inert toggle on
+// recordViewerBackdrop itself (only ever driven by Trace Viewer's own
+// open/close, a strict 1:1 relationship since Trace Viewer only opens from
+// inside an already-open Record Viewer) isolates exactly that, without
+// touching the existing Record Viewer Tab-trap/Escape/focus logic, which
+// only runs while recordViewerBackdrop itself is not inert.
+function setRecordViewerBackgroundInert(isInert){
+  if (!recordViewerBackdrop) return;
+  recordViewerBackdrop.inert = isInert;
 }
 function teacherModalFocusables(){
   return Array.from(teacherModal.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
@@ -1406,12 +1424,14 @@ function openRecordViewer(){
   renderRecordViewerList();
   recordViewerOpen = true;
   recordViewerBackdrop.hidden = false;
+  setSawatteBackgroundInert(true);
   setTimeout(function(){ recordViewerTitle.focus(); }, 0);
 }
 function closeRecordViewer(){
   if (traceViewerOpen) closeTraceViewer();
   recordViewerOpen = false;
   recordViewerBackdrop.hidden = true;
+  setSawatteBackgroundInert(false);
   (document.getElementById('donomanaA11yBtn') || teacherSettingsBtn).focus();
 }
 openRecordViewerBtn.addEventListener('click', openRecordViewer);
@@ -1459,6 +1479,7 @@ function openTraceViewer(trace, payload, triggerBtn){
   traceViewerLastFocused = triggerBtn || null;
   traceViewerOpen = true;
   traceViewerBackdrop.hidden = false;
+  setRecordViewerBackgroundInert(true);
   traceViewerTrimmedNote.hidden = !trace.trimmed;
   var tapN = trace.taps.length / 3, swipeN = trace.swipes.length;
   traceViewerCounts.textContent = 'タップ ' + tapN + '回／スワイプ ' + swipeN + '回／操作 ' + (payload.totalInteractions || 0) + '回／活動時間 ' + formatDuration(payload.durationMs || 0);
@@ -1468,6 +1489,7 @@ function openTraceViewer(trace, payload, triggerBtn){
 function closeTraceViewer(){
   traceViewerOpen = false;
   traceViewerBackdrop.hidden = true;
+  setRecordViewerBackgroundInert(false);
   if (traceViewerLastFocused && typeof traceViewerLastFocused.focus === 'function') traceViewerLastFocused.focus();
   else recordViewerTitle.focus();
   traceViewerLastFocused = null;
