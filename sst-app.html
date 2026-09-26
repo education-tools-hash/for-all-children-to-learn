@@ -1050,6 +1050,19 @@ body.dark .bottom-back-btn{
 }
 .report-csv-btn:active{transform:scale(.97);}
 
+/* Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1: 既存.report-share-btnと
+   視覚・操作体系を揃えた印刷/PDF保存ボタン(design doc §7)。native buttonのため
+   Tab到達・Enter/Space発火・focus-visibleは既存ボタン群と同様に標準挙動のまま。 */
+.report-print-btn{
+  width:100%;min-height:56px;
+  background:linear-gradient(135deg,#2980B9,#1ABC9C);
+  color:#fff;border:none;border-radius:30px;
+  font-family:inherit;font-size:1rem;font-weight:700;
+  cursor:pointer;box-shadow:0 4px 16px rgba(41,128,185,.35);
+  transition:transform .15s;
+}
+.report-print-btn:active{transform:scale(.97);}
+
 /* ダークモード */
 body.dark .report-card,
 body.dark .report-name-row{background:#16213E;}
@@ -1059,6 +1072,61 @@ body.dark .report-section-title{border-color:#2A3A55;}
 body.dark .report-week-bar.empty{background:#2A3A55;}
 body.dark .report-act-bar-wrap{background:#2A3A55;}
 body.dark .report-comment-box{background:#1A1A00;border-color:#3D3000;}
+
+/* ===== PRINT（今週のできたことレポート PDF/印刷、
+   Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1、
+   design doc docs/design-system/donomana-sst-weekly-report-pdf-design-v1_0.md）=====
+   既存#report-card(buildReport()が組み立てた表示内容)をそのまま印刷対象にする。
+   新しい集計・新しいHTML構造・新しいrecord/detailロジックは一切追加しない。 */
+@media print{
+  /* isolation: nazorin-print.htmlと同じ「対象要素だけを可視化する」方式
+     (design doc §8.1)。新しいchrome要素が今後増えても既定で非表示側に倒れる。 */
+  body *{visibility:hidden;}
+  #report-card,#report-card *{visibility:visible;}
+  #report-card{
+    position:absolute;left:0;top:0;margin:0;width:100%;
+    box-shadow:none;border-radius:0;overflow:visible;
+    /* dark mode時(body.dark{--text:#E8E8E8}等)でも印刷は常に濃色文字で
+       読めるようにする(design doc §11)。.report-cardの背景は元々#fff固定。 */
+    --text:#2C3E50;--sub:#7F8C8D;
+  }
+  @page{size:A4 portrait;margin:15mm;}
+
+  /* 画面専用の操作UI(詳細の開閉トグル)は印刷対象に含めない(design doc §9)。
+     #report-card外の戻るボタン・名前入力欄・共有/CSV/PDFボタン自身・
+     teacher-noticeは前段のisolationで既に非表示。 */
+  .report-detail-toggle{display:none!important;}
+
+  /* ヘッダーは白文字+gradient背景に依存しているため、背景グラフィックが
+     印刷されない環境でも文字が読めるよう、背景色に依存しない配色へ切り替える
+     (design doc §6/§11、実害として確認済み)。 */
+  .report-header{
+    background:#fff!important;
+    border-bottom:3px solid #1ABC9C;
+  }
+  .report-title,.report-period,.report-child-name{
+    color:#00857B!important;
+  }
+  .report-child-name{background:none!important;}
+
+  /* 折りたたみ済みの「くわしいきろく」もCSSだけですべて強制展開する
+     (design doc §8.3/§12。JSでのDOM状態変更・beforeprint/afterprintは
+     使用しない。画面上の開閉状態は一切変更されないため復元処理も不要)。 */
+  .report-detail-body[hidden]{display:block!important;}
+
+  /* 曜日グラフ・活動別バーは塗り色だけに情報を依存させず、背景グラフィックが
+     OFFでも枠線で構造が分かるようにする(design doc §11、色だけで意味を
+     伝えない)。件数は常にテキストでも表示されているため情報の欠落はない。 */
+  .report-week-bar,.report-act-bar{border:1px solid #0E8C7B;}
+
+  /* 改ページ制御(design doc §9/§13)。長大な1カードを無理に1ページへ
+     収めようとはせず、自然な改ページに委ねる(overflowでの強制圧縮はしない)。 */
+  .report-summary,.report-week-chart,.report-badges-row,.report-thermo-chart,
+  .report-comment-box,.report-detail-card{
+    break-inside:avoid;page-break-inside:avoid;
+  }
+  .report-section-title{break-after:avoid;page-break-after:avoid;}
+}
 
 /* ===== SHARE ===== */
 .share-section-title{
@@ -3395,6 +3463,11 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     </div>
 
     <div class="report-actions">
+      <!-- Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1: design doc
+           donomana-sst-weekly-report-pdf-design-v1_0.md §6/§22の通り、新しい集計は
+           作らずbuildReport()が組み立てた#report-cardをそのまま印刷対象にする。 -->
+      <button class="report-print-btn" id="report-print-btn" onclick="printReport()">🖨️ PDFで保存する</button>
+      <div class="report-share-hint">印刷画面から「PDFに保存」を選んでください</div>
       <button class="report-share-btn" onclick="shareReport()">📤 レポートを共有する</button>
       <div class="report-share-hint">スクリーンショットを撮って先生・おうちの方に見せよう</div>
       <!-- Phase SST-RECORD-DETAIL-CSV-PILOT-1: contract §15を実装 -->
@@ -7045,6 +7118,16 @@ function buildThermoChart(){
       <div class="report-thermo-val" style="color:${r.color};border-color:${r.color};background:${r.bg}">${r.val}</div>
       <span class="report-thermo-time">${r.time}</span>
     </div>`).join('');
+}
+
+// Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1: design doc
+// donomana-sst-weekly-report-pdf-design-v1_0.md §4/§5で確定したMethod A
+// (同一document内の@media print + window.print())をそのまま実装する。
+// 新しい集計・新しいHTML構造・外部PDFライブラリは使わない。詳細カードの
+// 強制展開はCSS([hidden]のdisplay:block!important上書き)のみで実現しており、
+// ここではDOM状態を一切変更しない(beforeprint/afterprint不使用)。
+function printReport(){
+  window.print();
 }
 
 function shareReport(){
