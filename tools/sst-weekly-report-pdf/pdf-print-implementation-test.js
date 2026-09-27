@@ -125,6 +125,13 @@ async function runScenario(browser, name, records) {
     out.rptTotal = total;
     check(`[${name}] #rpt-total reflects seeded record count`, Number(total) === records.length, { total, expected: records.length });
 
+    // ---- Phase SST-WEEKLY-REPORT-PDF-CREDIT-FIX-1: credit hidden on normal screen ----
+    const creditDisplayOnScreen = await page.evaluate(() => {
+      const el = document.querySelector('.report-print-credit');
+      return el ? getComputedStyle(el).display : null;
+    });
+    check(`[${name}] site credit hidden on normal screen (display:none)`, creditDisplayOnScreen === 'none', creditDisplayOnScreen);
+
     // ---- print-media CSS verification (page.emulateMedia, no real dialog) ----
     await page.emulateMedia({ media: 'print' });
     // Empirically confirmed test-environment artifact (not a real print/CSS defect):
@@ -154,6 +161,12 @@ async function runScenario(browser, name, records) {
         headerTitleColor: color('.report-title'),
         hiddenDetailBodyCount: hiddenBodies.length,
         hiddenDetailBodyForcedDisplay: hiddenBodies.map((el) => getComputedStyle(el).display),
+        creditDisplay: disp('.report-print-credit'),
+        creditText: (document.querySelector('.report-print-credit') || {}).textContent || null,
+        creditIsLastChildOfReportCard: (() => {
+          const card = document.getElementById('report-card');
+          return card ? card.lastElementChild === document.querySelector('.report-print-credit') : false;
+        })(),
       };
     });
     out.printState = printState;
@@ -170,7 +183,18 @@ async function runScenario(browser, name, records) {
     if (printState.hiddenDetailBodyCount > 0) {
       check(`[${name}] print media: collapsed detail bodies force-expanded (display != none)`, printState.hiddenDetailBodyForcedDisplay.every((d) => d !== 'none'), printState.hiddenDetailBodyForcedDisplay);
     }
+    check(`[${name}] print media: site credit displayed (display != none)`, printState.creditDisplay && printState.creditDisplay !== 'none', printState.creditDisplay);
+    check(`[${name}] print media: site credit text is exactly "どのまな（https://donomana.jp/）"`, printState.creditText === 'どのまな（https://donomana.jp/）', printState.creditText);
+    check(`[${name}] print media: site credit contains "https://donomana.jp/"`, !!(printState.creditText && printState.creditText.includes('https://donomana.jp/')), printState.creditText);
+    check(`[${name}] print media: site credit is the last element inside #report-card (natural end-of-report placement)`, printState.creditIsLastChildOfReportCard, printState.creditIsLastChildOfReportCard);
     await page.emulateMedia({ media: null });
+
+    // ---- credit reverts to hidden after leaving print media (screen state not left mutated) ----
+    const creditDisplayAfterRevert = await page.evaluate(() => {
+      const el = document.querySelector('.report-print-credit');
+      return el ? getComputedStyle(el).display : null;
+    });
+    check(`[${name}] site credit hidden again after leaving print media`, creditDisplayAfterRevert === 'none', creditDisplayAfterRevert);
 
     // ---- screen state NOT mutated by emulateMedia (no beforeprint/afterprint used) ----
     const stillHiddenAfter = await page.evaluate(() => Array.from(document.querySelectorAll('#report-detail-list .report-detail-body[hidden]')).length);
