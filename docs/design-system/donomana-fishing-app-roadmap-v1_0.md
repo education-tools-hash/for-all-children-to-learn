@@ -31,7 +31,7 @@ Doc Fragmentation注記は既存2文書と同一のため、ここでは繰り�
 
 | 軸 | 選択肢 |
 |---|---|
-| 操作方式（Input Method） | Method A（円弧）／Method B（長押し、実装済み）／Method C（タイミング） |
+| 操作方式（Input Method） | Method A（円弧）／Method B（長押し、実装済み）／Method C（タイミング、実装済み・`FISHING-APP-METHOD-C-1`） |
 | 学習モード（Learning Mode） | 自由（実装済み・今後も必ず残す）／色指定／数指定 |
 
 15章（ユーザー指示）の通り、**学習モード×操作方式は強くcoupleさせない**。
@@ -200,7 +200,9 @@ Phaseが個別に完了した後、統合設計として別途行う（本Phase�
    tokei-app.htmlのatan2/angleDiffを角度計算のみ参考、Gaze/Switchへ
    円弧を要求しない）
 2. `FISHING-APP-METHOD-C-1`（タイミング、ミス時はreelProgress減少なし・
-   進行量0のみ・ペナルティなし、Gaze/Switchとの親和性が高い方式）
+   進行量0のみ・ペナルティなし、Gaze/Switchとの親和性が高い方式、
+   **実装済み**：`sakana-tsuri.html`に`reelMethod: 'timing'`として追加、
+   既存の状態機械・Learning Record・Method A/Bへの変更なし）
 3. `FISHING-APP-SWITCH-SCAN-1`（現状`data-scan="1"`はあるがhelper6
    自動走査は未実装、という既知のギャップを埋める）
 4. `FISHING-APP-GAZE-1`（Tobii Eye Tracker 5等、Gaze Standard v1.0の

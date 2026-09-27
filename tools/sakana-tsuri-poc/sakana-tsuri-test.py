@@ -939,6 +939,244 @@ def main():
         record("no runtime errors (full arc session + Method B regression block)", not errors, str(errors))
         context.close()
 
+        # ================= Method C: timing touch (Phase FISHING-APP-METHOD-C-1) =================
+        def set_timing_pct(page, pct):
+            """Directly sets timingStartTs so timingMarkerPctAt(Date.now()) is (very
+            close to) the given pct, without depending on the render-loop's own timing —
+            mirrors the app's own triangle-wave math (rising half: elapsed < cycle/2)."""
+            cycle = page.evaluate("TIMING_CYCLE_MS")
+            half = cycle / 2
+            elapsed = (pct / 100) * half
+            now = page.evaluate("Date.now()")
+            page.evaluate(f"timingStartTs = {now} - {elapsed}")
+
+        context, page, errors, console_errors = new_page(browser)
+        record("Settings: Method C ('timing') present as a selectable option",
+               page.locator("#settingsPanel [data-reel-method='timing']").count() == 1)
+        record("UI: #reel-timing hidden by default (default reelMethod is 'hold')",
+               page.evaluate("document.getElementById('reel-timing').hidden") is True)
+
+        switch_reel_method(page, "timing")
+        record("Settings: switching to 'timing' updates inputSettings.reelMethod",
+               page.evaluate("inputSettings.reelMethod") == "timing")
+        record("UI: #reel-timing now visible, #reel-hold-btn and #reel-arc both hidden",
+               page.evaluate("document.getElementById('reel-timing').hidden") is False and
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is True and
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
+
+        page.reload()
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        record("Settings: reelMethod='timing' survives reload", page.evaluate("inputSettings.reelMethod") == "timing")
+        page.click("#start-btn")  # reload resets to #start-screen; re-enter before touching #fishing-screen controls
+
+        record("UI: #reel-timing-btn inactive/aria-disabled before REELING (IDLE)",
+               "inactive" in page.get_attribute("#reel-timing-btn", "class") and
+               page.get_attribute("#reel-timing-btn", "aria-disabled") == "true")
+
+        cast_to_reeling(page)
+        record("UI: #reel-timing-btn active/aria-enabled once REELING",
+               "inactive" not in page.get_attribute("#reel-timing-btn", "class") and
+               page.get_attribute("#reel-timing-btn", "aria-disabled") == "false")
+        record("Lifecycle: timing render loop armed while REELING with 'timing' selected",
+               page.evaluate("timingIntervalId") is not None)
+        record("no runtime errors (Method C settings/UI block)", not errors, str(errors))
+        context.close()
+
+        # ---- Timing input: perfect zone increases progress by the full preset gain ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        before = progress(page)
+        set_timing_pct(page, 50)  # dead-center: TIMING_ZONE_PERFECT_HALF
+        page.click("#reel-timing-btn")
+        after = progress(page)
+        record("Timing input: pressing in the perfect (center) zone advances by the full default gain (3)",
+               after - before == 3, f"{before} -> {after}")
+
+        # ---- Miss (outside the good zone): no progress change, no penalty ----
+        before2 = progress(page)
+        set_timing_pct(page, 0)  # far edge, well outside TIMING_ZONE_GOOD_HALF
+        page.click("#reel-timing-btn")
+        after2 = progress(page)
+        record("Timing input: pressing outside the zone does not change reelProgress (no penalty)",
+               after2 == before2, f"{before2} -> {after2}")
+        record("Timing input: a miss shows a neutral caption, not a negative/failure message",
+               page.inner_text("#timing-caption") == "もういちど")
+        record("Timing input: reelProgress never decreases across a hit followed by a miss",
+               after2 >= before, f"{before} -> {after} -> {after2}")
+
+        # ---- Good (near) zone: half the full gain, never zero ----
+        before3 = progress(page)
+        set_timing_pct(page, 65)  # inside TIMING_ZONE_GOOD_HALF (30-70), outside the perfect 42-58
+        page.click("#reel-timing-btn")
+        after3 = progress(page)
+        record("Timing input: pressing in the good (near-center) zone advances by half the full gain",
+               after3 - before3 == 2, f"{before3} -> {after3}")  # round(3/2) == 2
+        record("no runtime errors (timing scoring block)", not errors, str(errors))
+        context.close()
+
+        # ---- Reaches CAUGHT exactly once, no duplicate record ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        for _ in range(40):  # far beyond the ~34 gain-units needed at the default preset
+            set_timing_pct(page, 50)
+            page.click("#reel-timing-btn")
+            if state(page) == "CAUGHT":
+                break
+        record("Timing input: reaches CAUGHT with reelProgress clamped at exactly 100",
+               state(page) == "CAUGHT" and progress(page) == 100)
+        record_count = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records')||'[]').length")
+        record("Timing input: exactly 1 trial recorded (no duplicate landFish/record)", record_count == 1)
+        payload = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records'))[0].payload")
+        record("Learning Record: reelMethod recorded as 'timing' for this trial", payload.get("reelMethod") == "timing")
+
+        # Pressing again after CAUGHT must not double-fire landFish or move progress further.
+        # #reel-timing-btn is now correctly aria-disabled (Playwright's own .click() refuses
+        # it, exactly as a real switch/AT user's software would) — this exercises the
+        # underlying onTimingPress() state guard directly (mirrors how Method A's
+        # equivalent test bypasses its own now-inactive #reel-arc via raw pointer events,
+        # not a real "user can still press this" scenario).
+        set_timing_pct(page, 50)
+        page.evaluate("document.getElementById('reel-timing-btn').click()")
+        record("Timing input: pressing again after CAUGHT does not create a second record",
+               page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records')||'[]').length") == 1)
+        record("no runtime errors (timing full session block)", not errors, str(errors))
+        context.close()
+
+        # ---- Keyboard: Enter and Space each register exactly one press, no repeat double-count ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        set_timing_pct(page, 50)
+        before_kb = progress(page)
+        page.locator("#reel-timing-btn").focus()
+        page.keyboard.press("Enter")
+        after_enter = progress(page)
+        record("Keyboard: Enter on the focused button registers exactly one press",
+               after_enter - before_kb == 3, f"{before_kb} -> {after_enter}")
+
+        set_timing_pct(page, 50)
+        page.keyboard.press("Space")
+        after_space = progress(page)
+        record("Keyboard: Space on the focused button registers exactly one more press",
+               after_space - after_enter == 3, f"{after_enter} -> {after_space}")
+
+        page.evaluate("window.__timingClicks = 0; document.getElementById('reel-timing-btn').addEventListener('click', function(){ window.__timingClicks++; })")
+        page.keyboard.down("Enter")
+        page.clock.run_for(1500)  # held well beyond any plausible key-repeat interval
+        page.keyboard.up("Enter")
+        record("Keyboard: holding Enter down does not repeat-fire additional clicks/presses",
+               page.evaluate("window.__timingClicks") == 1)
+        record("no runtime errors (timing keyboard block)", not errors, str(errors))
+        context.close()
+
+        # ---- Pointer lifecycle: a real mouse click behaves the same as keyboard activation ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        set_timing_pct(page, 50)
+        before_ptr = progress(page)
+        box = page.locator("#reel-timing-btn").bounding_box()
+        page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        after_ptr = progress(page)
+        record("Pointer: a real mouse click on the button registers exactly one press",
+               after_ptr - before_ptr == 3, f"{before_ptr} -> {after_ptr}")
+        record("no runtime errors (timing pointer block)", not errors, str(errors))
+        context.close()
+
+        # ---- Method switching mid-REELING safely stops the timing render loop ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        record("Method switch: timing render loop is running before the switch",
+               page.evaluate("timingIntervalId") is not None)
+        switch_reel_method(page, "hold")
+        record("Method switch: timing render loop stops once switched away, mid-REELING",
+               page.evaluate("timingIntervalId") is None)
+        record("Method switch: #reel-timing is hidden again after switching to 'hold'",
+               page.evaluate("document.getElementById('reel-timing').hidden") is True)
+        record("no runtime errors (timing method-switch block)", not errors, str(errors))
+        context.close()
+
+        # ---- visibilitychange stops the timing render loop (shared safety net, 指示23章) ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        record("visibilitychange: timing render loop running before tab-hide",
+               page.evaluate("timingIntervalId") is not None)
+        page.evaluate("Object.defineProperty(document, 'visibilityState', {value:'hidden', configurable:true}); document.dispatchEvent(new Event('visibilitychange'));")
+        record("visibilitychange: timing render loop stopped after tab-hide",
+               page.evaluate("timingIntervalId") is None)
+        record("no runtime errors (timing visibilitychange block)", not errors, str(errors))
+        context.close()
+
+        # ---- prefers-reduced-motion: still fully operable, not disabled (指示24章) ----
+        context = browser.new_context(reduced_motion="reduce")
+        page = context.new_page()
+        errors = []
+        page.on("pageerror", lambda exc: errors.append(str(exc)))
+        page.goto(BASE)
+        page.clock.install()
+        page.clock.pause_at("2030-01-01T00:00:00Z")
+        page.click("#start-btn")
+        record("Reduced motion: media query reads as active",
+               page.evaluate("window.matchMedia('(prefers-reduced-motion: reduce)').matches") is True)
+        switch_reel_method(page, "timing")
+        cast_to_reeling(page)
+        before_rm = progress(page)
+        set_timing_pct(page, 50)
+        page.click("#reel-timing-btn")
+        after_rm = progress(page)
+        record("Reduced motion: pressing the timing button still advances progress normally (not operation-disabled)",
+               after_rm - before_rm == 3, f"{before_rm} -> {after_rm}")
+        record("no runtime errors (reduced-motion block)", not errors, str(errors))
+        context.close()
+
+        # ---- Sound OFF: scoring/progress unaffected by muting ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "timing")
+        page.uncheck("#sound-toggle")
+        record("Sound: soundOn is false after unchecking", page.evaluate("soundOn") == False)
+        cast_to_reeling(page)
+        before_snd = progress(page)
+        set_timing_pct(page, 50)
+        page.click("#reel-timing-btn")
+        after_snd = progress(page)
+        record("Sound OFF: timing input still advances progress normally with sound muted",
+               after_snd - before_snd == 3, f"{before_snd} -> {after_snd}")
+        record("no runtime errors (timing sound-off block)", not errors, str(errors))
+        context.close()
+
+        # ---- Regression: Method A and Method B still work normally after Method C exists ----
+        context, page, errors, console_errors = new_page(browser)
+        switch_reel_method(page, "arc")
+        cast_to_reeling(page)
+        cx, cy, radius = arc_drag_down(page, start_deg=0)
+        before_a = progress(page)
+        deg = 0
+        for _ in range(40):  # drive the full session to CAUGHT (a single turn only adds one
+            arc_drag_move(page, cx, cy, radius, deg, deg + 360, steps=12)  # gain unit and would
+            deg += 360                                                     # leave state stuck in
+            if state(page) == "CAUGHT":                                    # REELING, never IDLE)
+                break
+        arc_drag_up(page)
+        after_a = progress(page)
+        record("Regression: Method A (arc gesture) still works normally now that Method C exists",
+               after_a > before_a and state(page) == "CAUGHT" and after_a == 100, f"{before_a} -> {after_a}")
+
+        run_until_state(page, ["IDLE"], step_ms=200, max_iters=30)
+        switch_reel_method(page, "hold")
+        cast_to_reeling(page)
+        before_b2 = progress(page)
+        hold_keyboard(page, "Enter", 500)
+        after_b2 = progress(page)
+        record("Regression: Method B (long-press) still works normally now that Method C exists",
+               after_b2 > before_b2, f"{before_b2} -> {after_b2}")
+        record("no runtime errors (Method A/B regression after Method C block)", not errors, str(errors))
+        context.close()
+
         # ---- Regression: common A11y panel / help panel / SETTINGS_PROXY untouched ----
         context, page, errors, console_errors = new_page(browser)
         page.click("#donomanaHelpBtn")
@@ -950,8 +1188,9 @@ def main():
         record("Regression: SETTINGS_PROXY row still present and correctly labeled",
                page.inner_text("#donomanaSettingsProxy") == "🔧 このアプリの詳細設定を開く")
         page.click("#donomanaSettingsProxy")
-        record("Regression: proxy still opens the fishing settings panel, now showing 3 setting groups",
-               page.is_visible("#settingsPanel") and page.locator("#settingsPanel [data-reel-method]").count() == 2 and
+        record("Regression: proxy still opens the fishing settings panel, now showing 3 setting groups "
+               "(3 reelMethod options since Phase FISHING-APP-METHOD-C-1 added 'timing', up from 2)",
+               page.is_visible("#settingsPanel") and page.locator("#settingsPanel [data-reel-method]").count() == 3 and
                page.locator("#settingsPanel [data-reel-gain]").count() == 3 and
                page.locator("#settingsPanel [data-reel-speed]").count() == 3)
         page.keyboard.press("Escape")
