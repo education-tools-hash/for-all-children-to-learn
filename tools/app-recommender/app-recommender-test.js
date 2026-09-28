@@ -139,20 +139,57 @@ const PREVIOUSLY_MISSING_7 = [
     await context.close();
   }
 
-  // ============= 7. Q3 does NOT filter (only displayed as a tag) =============
+  // ============= 7. Q3 re-ranks results (same membership, different order) =============
+  // Phase APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-1: Q3 now influences ranking via
+  // a transparent need-array mapping (Q3_NEED_MAP), not a new hidden score system.
   {
     const { context, page: pageLesson } = await freshPage(browser);
-    await answerAll(pageLesson, 'touch', '学習アプリ', 'lesson');
-    const countLesson = (await resultAppNames(pageLesson)).length;
+    await answerAll(pageLesson, 'any', '学習アプリ', 'lesson');
+    const namesLesson = await resultAppNames(pageLesson);
     await context.close();
 
-    const { context: c2, page: pageHome } = await freshPage(browser);
-    await answerAll(pageHome, 'touch', '学習アプリ', 'home');
-    const countHome = (await resultAppNames(pageHome)).length;
-    const tagTexts = await pageHome.locator('.result-tag').allInnerTexts();
-    check('Q3 does not change result count (touch+学習アプリ, lesson vs home)', countLesson === countHome, { lesson: countLesson, home: countHome });
-    check('Q3 answer is still shown as a result tag', tagTexts.some((t) => t.includes('家庭学習')), tagTexts);
+    const { context: c2, page: pageDaily } = await freshPage(browser);
+    await answerAll(pageDaily, 'any', '学習アプリ', 'daily');
+    const namesDaily = await resultAppNames(pageDaily);
     await c2.close();
+
+    const { context: c3, page: pageHome } = await freshPage(browser);
+    await answerAll(pageHome, 'any', '学習アプリ', 'home');
+    const namesHome = await resultAppNames(pageHome);
+    const tagTexts = await pageHome.locator('.result-tag').allInnerTexts();
+    await c3.close();
+
+    check('Q3 does not change result count (any+学習アプリ, lesson/daily/home)', namesLesson.length === namesDaily.length && namesDaily.length === namesHome.length, { lesson: namesLesson.length, daily: namesDaily.length, home: namesHome.length });
+
+    const sameSet = [...namesLesson].sort().join('|') === [...namesDaily].sort().join('|') && [...namesDaily].sort().join('|') === [...namesHome].sort().join('|');
+    check('Q3 does not change result membership (same 36 apps, only order changes)', sameSet);
+
+    check('Q3=lesson: literacy app ranked before a daily-only(time/life) app', namesLesson.indexOf('ひらがな まなぼう！') < namesLesson.indexOf('とけい'), { hiragana: namesLesson.indexOf('ひらがな まなぼう！'), tokei: namesLesson.indexOf('とけい') });
+    check('Q3=daily: time/life app ranked before a literacy-only app', namesDaily.indexOf('とけい') < namesDaily.indexOf('ひらがな まなぼう！'), { tokei: namesDaily.indexOf('とけい'), hiragana: namesDaily.indexOf('ひらがな まなぼう！') });
+    check('Q3=home: communicate app ranked before a literacy-only app', namesHome.indexOf('よみかき サポートエディタ') < namesHome.indexOf('ひらがな まなぼう！'), { yomikaki: namesHome.indexOf('よみかき サポートエディタ'), hiragana: namesHome.indexOf('ひらがな まなぼう！') });
+
+    check('lesson vs daily order actually differs (Q3 has a visible effect)', namesLesson.join('|') !== namesDaily.join('|'));
+    check('lesson vs home order actually differs (Q3 has a visible effect)', namesLesson.join('|') !== namesHome.join('|'));
+
+    check('Q3 answer is still shown as a result tag', tagTexts.some((t) => t.includes('家庭学習')), tagTexts);
+  }
+
+  // ============= 7b. Q3=home deprioritizes (not excludes) software.required apps =============
+  // cup_game's own category is 認知支援, so with Q2=認知支援 it lands in the
+  // "recommended" group (9 apps) — check its position within that group, not
+  // the full page (the "others" group's 27 apps follow after in DOM order).
+  {
+    const { context, page, bucket } = await freshPage(browser);
+    await answerAll(page, 'any', '認知支援', 'home');
+    const groupNames = await page.evaluate(() => {
+      const body = document.getElementById('resultBody');
+      const cards = Array.from(body.children).filter((el) => el.classList.contains('app-card'));
+      return cards.map((c) => c.querySelector('.app-name').textContent.trim());
+    });
+    check('Q3=home: software.required app (cup_game / no matching need) is NOT excluded, still present', groupNames.includes('どこかな？カップゲーム'));
+    check('Q3=home: software.required app (cup_game) is deprioritized to the last position within its own group (recommended, 9 apps)', groupNames.indexOf('どこかな？カップゲーム') === groupNames.length - 1, { index: groupNames.indexOf('どこかな？カップゲーム'), groupSize: groupNames.length });
+    check('7b: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+    await context.close();
   }
 
   // ============= 8. 0-result empty state (mocked data) =============
@@ -278,6 +315,21 @@ const PREVIOUSLY_MISSING_7 = [
     const gazeCardCount = (gazeSection.match(/class="app-card"/g) || []).length;
     const expectedGazeCount = appsWithInput('gaze').length;
     check('switch-gaze-guide.html gaze section: full parity with apps-data.json input=gaze count (diff=0 target, §30)', gazeCardCount === expectedGazeCount, { shown: gazeCardCount, expected: expectedGazeCount });
+  }
+
+  // ============= 16b. Switch coverage: switch-gaze-guide.html switch section == apps-data.json switch set =============
+  // Phase APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-1 Goal B: wizard.html and
+  // switch-gaze-guide.html should show the same set of apps for a given input method.
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
+    const switchSection = html.match(/<section id="switch-apps">([\s\S]*?)<\/section>/)[1];
+    const switchCardCount = (switchSection.match(/class="app-card"/g) || []).length;
+    const expectedSwitchCount = appsWithInput('switch').length;
+    check('switch-gaze-guide.html switch section: full parity with apps-data.json input=switch count', switchCardCount === expectedSwitchCount, { shown: switchCardCount, expected: expectedSwitchCount });
+
+    const switchHrefs = [...switchSection.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    const dupHrefs = switchHrefs.filter((h, i) => switchHrefs.indexOf(h) !== i);
+    check('switch-gaze-guide.html switch section: no duplicate app-card hrefs', dupHrefs.length === 0, dupHrefs);
   }
 
   // ============= 17. Metadata consistency: apps-data.json =============

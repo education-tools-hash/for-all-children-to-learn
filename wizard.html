@@ -666,10 +666,43 @@ function updateIndicator(step) {
 // 2. Q2(カテゴリ)が一致するアプリを「おすすめ」、それ以外を「ほかにも
 //    使えるアプリ」の2群に分ける。除外はしない(指示§12: 表示上の都合で
 //    対応アプリを無条件に捨てない)。
-// 3. Q3(使う場面)は対応するapps-data.jsonのmetadataが存在しないため、
-//    絞り込み・並び替えには使用しない(結果画面のタグ表示にのみ使用)。
-// 4. 同じ群の中の順序は、apps-data.json自体の並び順をそのまま使う
-//    (新しいスコアリングやランキングは作らない)。
+// 3. Q3(使う場面)は、apps-data.jsonの既存need配列(literacy/life/social/
+//    time/communicate)を使った同点内の並び替えにのみ使用する(Phase
+//    APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-1)。Q2のcategoryとは軸を
+//    分け、5つのneed値をQ3の3シーンへ重複なく1:1で割り当てる:
+//      literacy・social → lesson(授業・個別指導の定番教材)
+//      time・life       → daily(毎日くり返し使う生活・時間管理の道具)
+//      communicate      → home(家庭でも継続してほしいAAC・意思表示)
+//    Q3=homeのときのみ、Tobii等special software必須(software.required)の
+//    アプリをさらに後方へ(除外はしない)。これは「多くの家庭には視線入力
+//    専用機器がない」という実在する事実に基づく調整であり、新しい判定
+//    基準を捏造するものではない。need配列を持たないアプリは加点なし
+//    (どちらの群にいてもapps-data.json自体の並び順のまま)。
+// 4. 除外を伴わない同点内ソートのみで、新しい複雑なスコアリングシステムは
+//    作らない。並び替えは安定ソートとし、無関係な項目同士の順序は
+//    apps-data.json自体の並び順のまま変えない。
+var Q3_NEED_MAP = {
+  lesson: ['literacy', 'social'],
+  daily: ['time', 'life'],
+  home: ['communicate']
+};
+
+function q3Score(app, q3) {
+  if (!q3 || !Q3_NEED_MAP[q3]) return 0;
+  var needs = Array.isArray(app.need) ? app.need : [];
+  var matched = Q3_NEED_MAP[q3].some(function (n) { return needs.indexOf(n) !== -1; });
+  var score = matched ? 1 : 0;
+  if (q3 === 'home' && app.software && app.software.required) score -= 1;
+  return score;
+}
+
+function stableSortByQ3(list, q3) {
+  return list
+    .map(function (a, i) { return { a: a, i: i, s: q3Score(a, q3) }; })
+    .sort(function (x, y) { return (y.s - x.s) || (x.i - y.i); })
+    .map(function (x) { return x.a; });
+}
+
 function filterAndRank(apps, ans) {
   var inputFiltered = (ans.q1 === 'any')
     ? apps.slice()
@@ -683,6 +716,9 @@ function filterAndRank(apps, ans) {
     if (ans.q2 && a.category === ans.q2) recommended.push(a);
     else others.push(a);
   });
+
+  recommended = stableSortByQ3(recommended, ans.q3);
+  others = stableSortByQ3(others, ans.q3);
 
   return { recommended: recommended, others: others, total: inputFiltered.length };
 }
@@ -716,7 +752,8 @@ function showResult() {
   var resultTags = document.getElementById('resultTags');
   var body = document.getElementById('resultBody');
 
-  // タグ表示(Q1/Q2/Q3の回答をそのまま表示。Q3はフィルタには使わないが
+  // タグ表示(Q1/Q2/Q3の回答をそのまま表示。Q3は絞り込み〈除外〉には使わず
+  // 同点内の並び替えにのみ使うが〈filterAndRank内のstableSortByQ3を参照〉、
   // 回答した内容が画面に反映されていることが分かるよう表示は残す)
   var tags = [Q1_LABEL[answers.q1], answers.q2, Q3_LABEL[answers.q3]].filter(Boolean);
   resultTags.innerHTML = tags.map(function (t) { return '<span class="result-tag">' + t + '</span>'; }).join('');
