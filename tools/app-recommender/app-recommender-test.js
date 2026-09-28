@@ -78,7 +78,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 2. Q1 = switch: correct inclusion/exclusion =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'switch', '学習アプリ', 'lesson');
+    await answerAll(page, 'switch', '学習アプリ', 'none');
     const names = await resultAppNames(page);
     const expected = appsWithInput('switch');
     check('Q1=switch: total matches apps-data.json input=switch count', names.length === expected.length, { got: names.length, expected: expected.length });
@@ -93,7 +93,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 3. Q1 = gaze: correct inclusion/exclusion =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'gaze', '学習アプリ', 'lesson');
+    await answerAll(page, 'gaze', '学習アプリ', 'none');
     const names = await resultAppNames(page);
     const expected = appsWithInput('gaze');
     check('Q1=gaze: total matches apps-data.json input=gaze count', names.length === expected.length, { got: names.length, expected: expected.length });
@@ -108,7 +108,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 4. Q1 = touch: correct inclusion =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'touch', '学習アプリ', 'lesson');
+    await answerAll(page, 'touch', '学習アプリ', 'none');
     const names = await resultAppNames(page);
     const expected = appsWithInput('touch');
     check('Q1=touch: total matches apps-data.json input=touch count', names.length === expected.length, { got: names.length, expected: expected.length });
@@ -120,7 +120,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 5. Q1 = any: no input-based exclusion =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'any', '学習アプリ', 'lesson');
+    await answerAll(page, 'any', '学習アプリ', 'none');
     const names = await resultAppNames(page);
     check('Q1=any: all 36 apps included regardless of input array', names.length === 36, names.length);
     check('Q1=any: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
@@ -130,7 +130,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 6. Q2 filter: category groups "recommended" first =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'any', '創作表現', 'lesson');
+    await answerAll(page, 'any', '創作表現', 'none');
     const groupTitle = await page.locator('.result-group-title').innerText().catch(() => null);
     check('Q2=創作表現: "おすすめ" group heading present', groupTitle === '✨ おすすめ', groupTitle);
     const recCategories = await page.locator('.result-group-title + .app-card .tag').first().innerText().catch(() => null);
@@ -140,56 +140,135 @@ const PREVIOUSLY_MISSING_7 = [
   }
 
   // ============= 7. Q3 re-ranks results (same membership, different order) =============
-  // Phase APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-1: Q3 now influences ranking via
-  // a transparent need-array mapping (Q3_NEED_MAP), not a new hidden score system.
+  // Phase APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-2: Q3's options map directly
+  // to apps-data.json's need values (no inferred "usage scene" semantics), and
+  // software.required is never used in ranking (per §12/§13 of the Phase spec).
   {
-    const { context, page: pageLesson } = await freshPage(browser);
-    await answerAll(pageLesson, 'any', '学習アプリ', 'lesson');
-    const namesLesson = await resultAppNames(pageLesson);
-    await context.close();
+    const q3vals = ['literacy', 'time', 'communicate', 'life_social', 'none'];
+    const names = {};
+    for (const q3 of q3vals) {
+      const { context, page } = await freshPage(browser);
+      await answerAll(page, 'any', '学習アプリ', q3);
+      names[q3] = await resultAppNames(page);
+      await context.close();
+    }
 
-    const { context: c2, page: pageDaily } = await freshPage(browser);
-    await answerAll(pageDaily, 'any', '学習アプリ', 'daily');
-    const namesDaily = await resultAppNames(pageDaily);
-    await c2.close();
+    const counts = q3vals.map((q3) => names[q3].length);
+    check('Q3 does not change result count (any+学習アプリ, all 5 Q3 answers)', counts.every((c) => c === counts[0]), counts);
 
-    const { context: c3, page: pageHome } = await freshPage(browser);
-    await answerAll(pageHome, 'any', '学習アプリ', 'home');
-    const namesHome = await resultAppNames(pageHome);
-    const tagTexts = await pageHome.locator('.result-tag').allInnerTexts();
-    await c3.close();
+    const sortedSets = q3vals.map((q3) => [...names[q3]].sort().join('|'));
+    check('Q3 does not change result membership (same apps, only order changes)', sortedSets.every((s) => s === sortedSets[0]));
 
-    check('Q3 does not change result count (any+学習アプリ, lesson/daily/home)', namesLesson.length === namesDaily.length && namesDaily.length === namesHome.length, { lesson: namesLesson.length, daily: namesDaily.length, home: namesHome.length });
+    check('Q3=literacy: literacy-need app ranked before a non-literacy app', names.literacy.indexOf('ひらがな まなぼう！') < names.literacy.indexOf('とけい'), { hiragana: names.literacy.indexOf('ひらがな まなぼう！'), tokei: names.literacy.indexOf('とけい') });
+    check('Q3=time: time-need app ranked before a literacy-only app', names.time.indexOf('とけい') < names.time.indexOf('ひらがな まなぼう！'), { tokei: names.time.indexOf('とけい'), hiragana: names.time.indexOf('ひらがな まなぼう！') });
+    check('Q3=communicate: communicate-need app ranked before a literacy-only app', names.communicate.indexOf('よみかき サポートエディタ') < names.communicate.indexOf('ひらがな まなぼう！'), { yomikaki: names.communicate.indexOf('よみかき サポートエディタ'), hiragana: names.communicate.indexOf('ひらがな まなぼう！') });
+    check('Q3=life_social: life-need app ranked before a literacy-only app', names.life_social.indexOf('おかねのおべんきょう') < names.life_social.indexOf('ひらがな まなぼう！'), { okane: names.life_social.indexOf('おかねのおべんきょう'), hiragana: names.life_social.indexOf('ひらがな まなぼう！') });
 
-    const sameSet = [...namesLesson].sort().join('|') === [...namesDaily].sort().join('|') && [...namesDaily].sort().join('|') === [...namesHome].sort().join('|');
-    check('Q3 does not change result membership (same 36 apps, only order changes)', sameSet);
+    check('literacy vs time order actually differs (Q3 has a visible effect)', names.literacy.join('|') !== names.time.join('|'));
+    check('literacy vs communicate order actually differs (Q3 has a visible effect)', names.literacy.join('|') !== names.communicate.join('|'));
+    check('literacy vs life_social order actually differs (Q3 has a visible effect)', names.literacy.join('|') !== names.life_social.join('|'));
 
-    check('Q3=lesson: literacy app ranked before a daily-only(time/life) app', namesLesson.indexOf('ひらがな まなぼう！') < namesLesson.indexOf('とけい'), { hiragana: namesLesson.indexOf('ひらがな まなぼう！'), tokei: namesLesson.indexOf('とけい') });
-    check('Q3=daily: time/life app ranked before a literacy-only app', namesDaily.indexOf('とけい') < namesDaily.indexOf('ひらがな まなぼう！'), { tokei: namesDaily.indexOf('とけい'), hiragana: namesDaily.indexOf('ひらがな まなぼう！') });
-    check('Q3=home: communicate app ranked before a literacy-only app', namesHome.indexOf('よみかき サポートエディタ') < namesHome.indexOf('ひらがな まなぼう！'), { yomikaki: namesHome.indexOf('よみかき サポートエディタ'), hiragana: namesHome.indexOf('ひらがな まなぼう！') });
+    // Q3=none should apply no scoring at all: the recommended (学習アプリ) group's
+    // order should exactly match apps-data.json's own array order for that
+    // category, followed by the "others" group in apps-data.json's own order.
+    const expectedBaseline = APPS.filter((a) => a.category === '学習アプリ').map((a) => a.title)
+      .concat(APPS.filter((a) => a.category !== '学習アプリ').map((a) => a.title));
+    check('Q3=none: order matches apps-data.json\'s own order exactly (no reordering applied)', names.none.join('|') === expectedBaseline.join('|'), { none: names.none, expectedBaseline });
 
-    check('lesson vs daily order actually differs (Q3 has a visible effect)', namesLesson.join('|') !== namesDaily.join('|'));
-    check('lesson vs home order actually differs (Q3 has a visible effect)', namesLesson.join('|') !== namesHome.join('|'));
-
-    check('Q3 answer is still shown as a result tag', tagTexts.some((t) => t.includes('家庭学習')), tagTexts);
+    const tagTextsNone = await (async () => {
+      const { context, page } = await freshPage(browser);
+      await answerAll(page, 'any', '学習アプリ', 'none');
+      const t = await page.locator('.result-tag').allInnerTexts();
+      await context.close();
+      return t;
+    })();
+    check('Q3=none answer is shown as a result tag ("こだわらない")', tagTextsNone.some((t) => t.includes('こだわらない')), tagTextsNone);
   }
 
-  // ============= 7b. Q3=home deprioritizes (not excludes) software.required apps =============
-  // cup_game's own category is 認知支援, so with Q2=認知支援 it lands in the
-  // "recommended" group (9 apps) — check its position within that group, not
-  // the full page (the "others" group's 27 apps follow after in DOM order).
+  // ============= 7b. Q3=life_social matches BOTH life and social need values =============
+  // sst-app has need=['social'] only (no 'life'); this confirms the combined
+  // option actually matches either value, not just one of the two.
+  {
+    const { context: c1, page: pageNone } = await freshPage(browser);
+    await answerAll(pageNone, 'any', '自立活動', 'none');
+    const namesNone = await resultAppNames(pageNone);
+    await c1.close();
+
+    const { context: c2, page: pageLS, bucket } = await freshPage(browser);
+    await answerAll(pageLS, 'any', '自立活動', 'life_social');
+    const namesLS = await resultAppNames(pageLS);
+    await c2.close();
+
+    check('Q3=life_social: social-need app (SST) moves earlier than its Q1/Q2-only baseline position', namesLS.indexOf('SST ソーシャルスキルトレーニング') < namesNone.indexOf('SST ソーシャルスキルトレーニング'), { baseline: namesNone.indexOf('SST ソーシャルスキルトレーニング'), life_social: namesLS.indexOf('SST ソーシャルスキルトレーニング') });
+    check('7b: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+  }
+
+  // ============= 7c. software.required is never used in Q3 ranking (§12/§13) =============
+  // cup_game (software.required=true, need=[]) must NOT be pushed to the back
+  // under any Q3 answer -- it should stay exactly where apps-data.json's own
+  // order (and the neutral need=[] score of 0) places it, same as any other
+  // unmatched app.
+  {
+    const { context: c1, page: pageNone } = await freshPage(browser);
+    await answerAll(pageNone, 'any', '認知支援', 'none');
+    const namesNone = await resultAppNames(pageNone);
+    await c1.close();
+
+    const { context: c2, page: pageCom } = await freshPage(browser);
+    await answerAll(pageCom, 'any', '認知支援', 'communicate');
+    const namesCom = await resultAppNames(pageCom);
+    await c2.close();
+
+    check('cup_game (software.required, need=[]) position is unaffected by Q3 (no ranking penalty)', namesNone.indexOf('どこかな？カップゲーム') === namesCom.indexOf('どこかな？カップゲーム'), { none: namesNone.indexOf('どこかな？カップゲーム'), communicate: namesCom.indexOf('どこかな？カップゲーム') });
+  }
+
+  // ============= 7d. need=[] apps are not excluded by any Q3 answer =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'any', '認知支援', 'home');
-    const groupNames = await page.evaluate(() => {
-      const body = document.getElementById('resultBody');
-      const cards = Array.from(body.children).filter((el) => el.classList.contains('app-card'));
-      return cards.map((c) => c.querySelector('.app-name').textContent.trim());
-    });
-    check('Q3=home: software.required app (cup_game / no matching need) is NOT excluded, still present', groupNames.includes('どこかな？カップゲーム'));
-    check('Q3=home: software.required app (cup_game) is deprioritized to the last position within its own group (recommended, 9 apps)', groupNames.indexOf('どこかな？カップゲーム') === groupNames.length - 1, { index: groupNames.indexOf('どこかな？カップゲーム'), groupSize: groupNames.length });
-    check('7b: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+    await answerAll(page, 'any', '認知支援', 'literacy');
+    const names = await resultAppNames(page);
+    const NEED_EMPTY_IN_COGNITIVE = ['ひかるボタン（注視訓練）', 'けずりえ', 'もぐらたたき', 'どこかな？カップゲーム'];
+    check('need=[] apps remain present regardless of Q3 answer (no exclusion)', NEED_EMPTY_IN_COGNITIVE.every((n) => names.includes(n)), { missing: NEED_EMPTY_IN_COGNITIVE.filter((n) => !names.includes(n)) });
+    check('7d: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
     await context.close();
+  }
+
+  // ============= 7e. Q3 accessibility: 5 options, radio semantics =============
+  {
+    const { context, page, bucket } = await freshPage(browser);
+    await page.goto(`${BASE}/wizard.html`, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForTimeout(200);
+    await page.click(`button[onclick*="answer(this, 1, 'any')"]`);
+    await page.waitForTimeout(100);
+    await page.click(`button[onclick*="answer(this, 2, '学習アプリ')"]`);
+    await page.waitForTimeout(100);
+    const q3radios = await page.locator('#q3 [role="radio"]').count();
+    check('Q3 has exactly 5 role=radio options', q3radios === 5, q3radios);
+    await page.click(`button[onclick*="answer(this, 3, 'life_social')"]`);
+    await page.waitForTimeout(100);
+    const checkedCount = await page.locator('#q3 [role="radio"][aria-checked="true"]').count();
+    check('Q3: exactly one option is aria-checked=true after selection', checkedCount === 1, checkedCount);
+    check('7e: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+    await context.close();
+  }
+
+  // ============= 7f. Q3 responsive: 5 options fit without horizontal overflow =============
+  {
+    const widths = { mobile: 375, tablet: 768, desktop: 1280 };
+    for (const [name, width] of Object.entries(widths)) {
+      const { context, page } = await freshPage(browser, { viewport: { width, height: 900 } });
+      await page.goto(`${BASE}/wizard.html`, { waitUntil: 'load', timeout: 15000 });
+      await page.waitForTimeout(200);
+      await page.click(`button[onclick*="answer(this, 1, 'any')"]`);
+      await page.waitForTimeout(100);
+      await page.click(`button[onclick*="answer(this, 2, '学習アプリ')"]`);
+      await page.waitForTimeout(100);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      check(`Q3 responsive [${name} ${width}px]: no horizontal overflow with 5 options`, overflow <= 1, overflow);
+      const btnBox = await page.locator('#q3 .option-btn').first().boundingBox();
+      check(`Q3 responsive [${name} ${width}px]: option-btn meets 44px min height`, btnBox && btnBox.height >= 44, btnBox);
+      await context.close();
+    }
   }
 
   // ============= 8. 0-result empty state (mocked data) =============
@@ -199,7 +278,7 @@ const PREVIOUSLY_MISSING_7 = [
       status: 200, contentType: 'application/json',
       body: JSON.stringify([{ id: 'x', filename: 'x', title: 'X', category: '学習アプリ', input: ['touch'], icon: '📱', tags_display: 't' }]),
     }));
-    await answerAll(page, 'gaze', '学習アプリ', 'lesson');
+    await answerAll(page, 'gaze', '学習アプリ', 'none');
     const emptyState = await page.locator('.empty-state').count();
     const title = await page.locator('#resultTitle').innerText();
     check('0-result: empty-state element shown', emptyState > 0);
@@ -212,7 +291,7 @@ const PREVIOUSLY_MISSING_7 = [
   {
     const { context, page, bucket } = await freshPage(browser);
     await page.route('**/apps-data.json', (route) => route.abort());
-    await answerAll(page, 'touch', '学習アプリ', 'lesson');
+    await answerAll(page, 'touch', '学習アプリ', 'none');
     const errorState = await page.locator('.error-state').count();
     check('fetch failure: error-state shown, not a broken/empty result list', errorState > 0);
     check('fetch failure: no pageerror thrown (caught gracefully)', bucket.pageErrors.length === 0, bucket.pageErrors);
@@ -222,7 +301,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 10. Input badges on result cards =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'gaze', '自立活動', 'lesson');
+    await answerAll(page, 'gaze', '自立活動', 'none');
     const firstCardTags = await page.locator('.app-card').first().locator('.tag').allInnerTexts();
     check('result card: has category tag + input badge(s) with icon+text (not color-only)', firstCardTags.length >= 2 && firstCardTags.some((t) => t.includes('視線')), firstCardTags);
     check('badges: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
@@ -261,7 +340,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 12. Restart / back button work correctly with new state =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'switch', '学習アプリ', 'lesson');
+    await answerAll(page, 'switch', '学習アプリ', 'none');
     await page.click('.retry-btn');
     await page.waitForTimeout(200);
     const q1Active = await page.locator('#q1.active').count();
@@ -277,7 +356,7 @@ const PREVIOUSLY_MISSING_7 = [
     const widths = { mobile: 375, tablet: 768, desktop: 1280 };
     for (const [name, width] of Object.entries(widths)) {
       const { context, page, bucket } = await freshPage(browser, { viewport: { width, height: 900 } });
-      await answerAll(page, 'switch', '自立活動', 'lesson');
+      await answerAll(page, 'switch', '自立活動', 'none');
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       check(`responsive [${name} ${width}px]: no horizontal overflow`, overflow <= 1, overflow);
       const btnBox = await page.locator('.open-btn').first().boundingBox();
@@ -290,7 +369,7 @@ const PREVIOUSLY_MISSING_7 = [
   // ============= 14. Broken link check: wizard result app links resolve to real files =============
   {
     const { context, page, bucket } = await freshPage(browser);
-    await answerAll(page, 'any', '学習アプリ', 'lesson');
+    await answerAll(page, 'any', '学習アプリ', 'none');
     const hrefs = await page.$$eval('.open-btn', (els) => els.map((e) => e.getAttribute('href')));
     const badHrefs = hrefs.filter((h) => !h.startsWith('https://donomana.jp/'));
     check('wizard result links: all use the expected https://donomana.jp/ prefix', badHrefs.length === 0, badHrefs);

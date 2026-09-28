@@ -518,32 +518,48 @@
     <button class="back-btn" onclick="goBack(1)">← もどる</button>
   </div>
 
-  <!-- Q3: 使う場面。apps-data.jsonに対応するmetadataが存在しないため、
-       このPhaseでは絞り込み・並び替えには使用しない(存在しないデータを
-       捏造して一致度計算に混ぜない)。回答は結果画面のタグ表示にのみ使う。 -->
+  <!-- Q3: さらに大切にしたいこと。apps-data.jsonの既存need配列
+       (literacy/life/social/time/communicate)と選択肢を直接対応させる
+       (Phase APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-2)。「使う場面」の
+       ような推測的な意味づけは行わない。除外はせず、Q1/Q2の結果内での
+       並び替えにのみ使用する(詳細はfilterAndRank/q3Scoreのコメント参照)。 -->
   <div class="question-card" id="q3">
     <div class="question-label">質問 3 / 3</div>
-    <div class="question-text">どんな場面で使いますか？</div>
-    <div class="options" role="radiogroup" aria-label="使う場面">
-      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'lesson')">
-        <span class="option-icon" aria-hidden="true">🏫</span>
+    <div class="question-text">さらに、どんなことを<br>大切にしたいですか？</div>
+    <div class="options" role="radiogroup" aria-label="大切にしたいこと">
+      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'literacy')">
+        <span class="option-icon" aria-hidden="true">📖</span>
         <span class="option-body">
-          <span class="option-title">授業や個別指導で使いたい</span>
-          <span class="option-desc">個別学習・小集団・授業の導入など</span>
+          <span class="option-title">ことば・読み書き</span>
+          <span class="option-desc">文字の読み書き、語彙、読解など</span>
         </span>
       </button>
-      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'daily')">
-        <span class="option-icon" aria-hidden="true">🌅</span>
+      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'time')">
+        <span class="option-icon" aria-hidden="true">🕐</span>
         <span class="option-body">
-          <span class="option-title">朝・帰りの会など日常的に</span>
-          <span class="option-desc">毎日のルーティンの中で使いたい</span>
+          <span class="option-title">時間や見通し</span>
+          <span class="option-desc">時計・時刻表・スケジュールなど</span>
         </span>
       </button>
-      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'home')">
-        <span class="option-icon" aria-hidden="true">🏠</span>
+      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'communicate')">
+        <span class="option-icon" aria-hidden="true">💬</span>
         <span class="option-body">
-          <span class="option-title">家庭学習・保護者が使う</span>
-          <span class="option-desc">家でも練習させたい</span>
+          <span class="option-title">気持ち・コミュニケーション</span>
+          <span class="option-desc">意思表示、AAC、気持ちの共有など</span>
+        </span>
+      </button>
+      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'life_social')">
+        <span class="option-icon" aria-hidden="true">🌱</span>
+        <span class="option-body">
+          <span class="option-title">生活や社会性</span>
+          <span class="option-desc">お金・買い物・防災・やりとりなど</span>
+        </span>
+      </button>
+      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 3, 'none')">
+        <span class="option-icon" aria-hidden="true">✨</span>
+        <span class="option-body">
+          <span class="option-title">特にこだわらない</span>
+          <span class="option-desc">この並び順のままでよい</span>
         </span>
       </button>
     </div>
@@ -666,34 +682,40 @@ function updateIndicator(step) {
 // 2. Q2(カテゴリ)が一致するアプリを「おすすめ」、それ以外を「ほかにも
 //    使えるアプリ」の2群に分ける。除外はしない(指示§12: 表示上の都合で
 //    対応アプリを無条件に捨てない)。
-// 3. Q3(使う場面)は、apps-data.jsonの既存need配列(literacy/life/social/
-//    time/communicate)を使った同点内の並び替えにのみ使用する(Phase
-//    APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-1)。Q2のcategoryとは軸を
-//    分け、5つのneed値をQ3の3シーンへ重複なく1:1で割り当てる:
-//      literacy・social → lesson(授業・個別指導の定番教材)
-//      time・life       → daily(毎日くり返し使う生活・時間管理の道具)
-//      communicate      → home(家庭でも継続してほしいAAC・意思表示)
-//    Q3=homeのときのみ、Tobii等special software必須(software.required)の
-//    アプリをさらに後方へ(除外はしない)。これは「多くの家庭には視線入力
-//    専用機器がない」という実在する事実に基づく調整であり、新しい判定
-//    基準を捏造するものではない。need配列を持たないアプリは加点なし
-//    (どちらの群にいてもapps-data.json自体の並び順のまま)。
+// 3. Q3(さらに大切にしたいこと)は、apps-data.jsonの既存need配列
+//    (literacy/life/social/time/communicate)を使った同点内の並び替えに
+//    のみ使用する(Phase APP-RECOMMENDER-INPUT-CATEGORY-FINALIZE-2)。
+//    Q3の選択肢はneed値と直接対応させ、「利用場面」のような推測的な
+//    意味づけ(lesson/daily/homeなど)は行わない:
+//      ことば・読み書き   → literacy
+//      時間や見通し       → time
+//      気持ち・コミュニケーション → communicate
+//      生活や社会性       → life・social(実装アプリ分布を確認のうえ
+//                             1つの選択肢にまとめた。life単独6件・
+//                             social単独4件で、まとめても選択肢が
+//                             肥大化しない範囲に収まるため)
+//      特にこだわらない   → 並び替えなし(Q1/Q2の順序をそのまま維持)
+//    software.required(Tobii等専用ソフト必須)は、Q3のランキングには
+//    一切使用しない。「専用ソフトが要る=家庭利用に不向き」という一律の
+//    解釈はしない、との指示による(指示§12/§13)。need配列を持たない
+//    アプリは加点なし(どちらの群にいてもapps-data.json自体の並び順の
+//    まま)。
 // 4. 除外を伴わない同点内ソートのみで、新しい複雑なスコアリングシステムは
 //    作らない。並び替えは安定ソートとし、無関係な項目同士の順序は
 //    apps-data.json自体の並び順のまま変えない。
 var Q3_NEED_MAP = {
-  lesson: ['literacy', 'social'],
-  daily: ['time', 'life'],
-  home: ['communicate']
+  literacy: ['literacy'],
+  time: ['time'],
+  communicate: ['communicate'],
+  life_social: ['life', 'social']
+  // 'none'(こだわらない)はここに含めない -> q3Scoreが常に0を返し、
+  // 安定ソートにより元の順序がそのまま保たれる。
 };
 
 function q3Score(app, q3) {
   if (!q3 || !Q3_NEED_MAP[q3]) return 0;
   var needs = Array.isArray(app.need) ? app.need : [];
-  var matched = Q3_NEED_MAP[q3].some(function (n) { return needs.indexOf(n) !== -1; });
-  var score = matched ? 1 : 0;
-  if (q3 === 'home' && app.software && app.software.required) score -= 1;
-  return score;
+  return Q3_NEED_MAP[q3].some(function (n) { return needs.indexOf(n) !== -1; }) ? 1 : 0;
 }
 
 function stableSortByQ3(list, q3) {
@@ -724,7 +746,7 @@ function filterAndRank(apps, ans) {
 }
 
 var Q1_LABEL = { touch: '👆 タッチ操作', switch: '🔘 外部スイッチ', gaze: '👀 視線入力', any: '✨ 操作方法を問わない' };
-var Q3_LABEL = { lesson: '🏫 授業・個別指導', daily: '🌅 日常ルーティン', home: '🏠 家庭学習' };
+var Q3_LABEL = { literacy: '📖 ことば・読み書き', time: '🕐 時間や見通し', communicate: '💬 気持ち・コミュニケーション', life_social: '🌱 生活や社会性', none: '✨ こだわらない' };
 
 function appCardHTML(app) {
   var badges = inputBadgesHTML(app);
