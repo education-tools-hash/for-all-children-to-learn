@@ -3086,6 +3086,7 @@ injectMarkedBlockToFiles(
 const SITEMAP_STATIC_PAGES = [
   { url: '',                       priority: 1.0, changefreq: 'weekly'  }, // トップ
   { url: 'app-intro.html',         priority: 0.9, changefreq: 'weekly'  },
+  { url: 'input-support-guide.html', priority: 0.9, changefreq: 'monthly' },
   { url: 'switch-gaze-guide.html', priority: 0.9, changefreq: 'monthly' },
   { url: 'about.html',             priority: 0.8, changefreq: 'monthly' },
   { url: 'philosophy.html',        priority: 0.8, changefreq: 'monthly' },
