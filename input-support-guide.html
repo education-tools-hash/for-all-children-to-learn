@@ -89,8 +89,16 @@
 
   .content{max-width:820px;margin:0 auto;padding:40px 20px 80px;display:flex;flex-direction:column;gap:40px;}
   section{scroll-margin-top:20px;}
+  /* section番号はCSS counterで自動採番する(numberタグへの直書きではない)。
+     display:noneの要素はcounter-incrementが適用されないため、印刷時に#print
+     セクションを非表示にしても後続の番号が自動的に詰まる(design doc §9の
+     印刷用セクション自体は印刷物として無意味なため非表示にするが、その結果
+     "8の次が10"になる見た目の欠番を防ぐ)。 */
+  main{counter-reset:sec;}
+  section{counter-increment:sec;}
   .section-title{font-family:'Zen Maru Gothic',sans-serif;font-size:clamp(20px,4vw,26px);font-weight:900;color:var(--c-text);margin-bottom:18px;display:flex;align-items:center;gap:12px;}
   .section-title .num{width:38px;height:38px;background:var(--c-primary);color:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  .section-title .num::before{content:counter(sec);}
   .lead{font-size:15px;line-height:2;margin-bottom:8px;}
   .lead strong{color:var(--c-primary);font-weight:700;}
 
@@ -178,8 +186,13 @@
      各section)をそのまま印刷対象にし、ナビゲーション・印刷ボタン自身は印刷しない。 */
   @media print{
     body{background:#fff;}
-    .site-nav,.print-btn-wrap,.hero-badge,.cta,.toc{ }
-    .site-nav,.print-btn-wrap{display:none!important;}
+    /* #print section自体(印刷ボタンの説明)は印刷物として意味を持たないため、
+       ボタンだけでなくsection全体を非表示にする(空の見出しだけ残るのを防ぐ)。
+       .tocはページ内アンカーリンクの目次で、紙面では機能しない上、#printが
+       非表示になった結果の採番ずれ(本文はcounterで自動調整されるが、.toc側は
+       固定テキストのため9番のラベルが本文とずれる)を防ぐため、印刷では
+       非表示にする。 */
+    .site-nav,#print,.hero-badge,.cta,.toc{display:none!important;}
     .hero{background:#fff;border-bottom:2px solid #00A99D;padding:0 0 20px;}
     .hero-badge{display:none;}
     .content{padding:20px 0;gap:26px;}
@@ -236,7 +249,7 @@
 
   <!-- 1. 操作方法から探す -->
   <section id="find-by-method">
-    <h2 class="section-title"><span class="num">1</span>操作方法から探す</h2>
+    <h2 class="section-title"><span class="num"></span>操作方法から探す</h2>
     <p class="lead">どのように操作しますか？　あてはまるものを選んでください。</p>
     <div class="entry-grid">
       <a href="#touch" class="entry-card"><span class="entry-icon">👆</span><span class="entry-label">画面に直接触れる</span></a>
@@ -248,7 +261,7 @@
 
   <!-- 2. 困りごとから探す -->
   <section id="find-by-trouble">
-    <h2 class="section-title"><span class="num">2</span>こんなことで困っていませんか？</h2>
+    <h2 class="section-title"><span class="num"></span>こんなことで困っていませんか？</h2>
     <p class="lead">操作の様子から選んでも大丈夫です。障害名や診断名で決める必要はありません。</p>
     <div class="trouble-list">
       <a href="#misoperation" class="trouble-item"><span>複数の指で画面に触れてしまう</span><span class="arrow">→</span></a>
@@ -263,14 +276,14 @@
 
   <!-- 3. 直接タッチで使う -->
   <section id="touch">
-    <h2 class="section-title"><span class="num">3</span>直接タッチで使う</h2>
+    <h2 class="section-title"><span class="num"></span>直接タッチで使う</h2>
     <p class="lead">画面に直接触れて操作する、どのまなの基本的な使い方です。多くのアプリは、大きく押しやすいボタンで誤タップを減らす工夫をしています。</p>
     <p class="lead">手や指を画面に伸ばすこと自体が難しい場合や、狙った場所を一本指で押すことが難しい場合は、<a href="#switch">外部スイッチ</a>や<a href="#gaze">視線入力</a>も選択できます。また、複数の指で触れてしまう・意図せず他の画面に移動してしまう、といった困りごとには、次の「誤操作を防ぐ」の設定が役立ちます。</p>
   </section>
 
   <!-- 4. 誤操作を防ぐ -->
   <section id="misoperation">
-    <h2 class="section-title"><span class="num">4</span>誤操作を防ぐ</h2>
+    <h2 class="section-title"><span class="num"></span>誤操作を防ぐ</h2>
     <p class="lead">3つの機能は役割が異なり、どれか一つで足りるものではありません。お子さんの実態に応じて、組み合わせてお使いください。一律に利用を求めるものではありません。</p>
 
     <div class="role-table">
@@ -307,7 +320,7 @@
 
   <!-- 5. 外部スイッチで使う -->
   <section id="switch">
-    <h2 class="section-title"><span class="num">5</span>外部スイッチで使う</h2>
+    <h2 class="section-title"><span class="num"></span>外部スイッチで使う</h2>
     <p class="lead">スイッチとは、1回のボタン操作（押す・触れる・動かす等）で画面の操作を行うための入力機器です。画面を直接タッチすることが難しい場合でも、手・足・頭など、比較的安定して動かせる身体部位でスイッチを操作する方法があります。</p>
     <p class="lead" style="font-size:13px;color:var(--c-muted);">「この子にはスイッチが向いている」といった断定はできません。あくまで選択肢の一つとしてご紹介します。</p>
 
@@ -335,7 +348,7 @@
 
   <!-- 6. 視線で使う -->
   <section id="gaze">
-    <h2 class="section-title"><span class="num">6</span>視線で使う</h2>
+    <h2 class="section-title"><span class="num"></span>視線で使う</h2>
     <p class="lead">直接タッチが難しいが、対象へ視線を向けられる場合、視線入力も選択できます。</p>
 
     <h3 style="font-family:'Zen Maru Gothic',sans-serif;font-size:16px;font-weight:700;">必要なもの</h3>
@@ -381,7 +394,7 @@
 
   <!-- 7. トラブルシューティング -->
   <section id="trouble">
-    <h2 class="section-title"><span class="num">7</span>うまく動かないとき</h2>
+    <h2 class="section-title"><span class="num"></span>うまく動かないとき</h2>
     <p class="lead">原因を段階的に確認できます。診断ではなく、確認の手順としてお使いください。視線入力のドウェル時間・走査に関する詳しい既存仕様は変更していません。</p>
 
     <h3 style="font-family:'Zen Maru Gothic',sans-serif;font-size:16px;font-weight:700;">視線入力</h3>
@@ -400,7 +413,7 @@
 
   <!-- 8. どの方法が合うかわからないとき -->
   <section id="which-method">
-    <h2 class="section-title"><span class="num">8</span>どの操作方法が合うかわからないとき</h2>
+    <h2 class="section-title"><span class="num"></span>どの操作方法が合うかわからないとき</h2>
     <p class="lead">これは簡易診断ではありません。障害名・診断名・発達年齢等から入力方法を決めるのではなく、操作の様子から選択肢を考えます。</p>
 
     <div class="trouble-list">
@@ -413,7 +426,7 @@
 
   <!-- 9. 印刷・PDF保存 -->
   <section id="print">
-    <h2 class="section-title"><span class="num">9</span>印刷・PDF保存</h2>
+    <h2 class="section-title"><span class="num"></span>印刷・PDF保存</h2>
     <p class="lead">校内研修や保護者説明、オフラインでの参照用に、このページを印刷・PDF保存できます。実際にはお使いの端末やブラウザ標準の印刷機能を使用します。</p>
     <div class="print-btn-wrap">
       <button type="button" class="print-btn" id="guide-print-btn">🖨 印刷・PDF保存</button>
@@ -423,7 +436,7 @@
 
   <!-- 10. 公式情報・参考情報 -->
   <section id="references">
-    <h2 class="section-title"><span class="num">10</span>公式情報・参考情報</h2>
+    <h2 class="section-title"><span class="num"></span>公式情報・参考情報</h2>
     <p class="lead">具体的な最新の設定方法は、以下の公式サポートページでご確認ください。OSや製品のアップデートにより、内容が変わる場合があります。</p>
 
     <div class="role-table">
