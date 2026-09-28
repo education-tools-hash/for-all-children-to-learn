@@ -637,6 +637,10 @@
     transform: scaleY(.97);
     transform-origin: top center;
   }
+  .key-white:focus-visible, .key-black:focus-visible {
+    outline: 3px solid #00A99D;
+    outline-offset: -3px;
+  }
   .key-white .key-note {
     font-size: clamp(.85rem, 2.5vw, 1.15rem);
     font-weight: 900; color: #333; line-height: 1;
@@ -4675,6 +4679,26 @@ function buildPianoKeyboard() {
     });
     key.addEventListener('pointerup',   () => key.classList.remove('pressed'));
     key.addEventListener('pointerleave',() => key.classList.remove('pressed'));
+    // KEYBOARD-ACCESSIBILITY-HARDENING-1: 「けんばん」モードの白鍵をTab focus可能にし、
+    // pointerdown/upと同じ再生関数をEnter/Space(keydown/keyup)から呼ぶ独立した経路。
+    // e.repeatでキーリピート中の連打再生を防ぐ。record/perf(演奏録音)モードの
+    // perf-key-whiteは本Phaseの対象外(既知findingで明示された「けんばん」タブ
+    // 〈tab-piano〉のみを対象とする、別機能への不要な変更を避けるため)。
+    key.tabIndex = 0;
+    key.setAttribute('role', 'button');
+    key.setAttribute('aria-label', k.label);
+    key.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (e.repeat) return;
+      key.classList.add('pressed');
+      playSound(k.sound);
+      triggerKeyFeedback(k.sound, k.color);
+    });
+    key.addEventListener('keyup', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      key.classList.remove('pressed');
+    });
     wrap.appendChild(key);
   });
 
@@ -4726,6 +4750,25 @@ function _placeBlackKeys(wrap, mode) {
     });
     key.addEventListener('pointerup',   () => key.classList.remove('pressed'));
     key.addEventListener('pointerleave',() => key.classList.remove('pressed'));
+    // KEYBOARD-ACCESSIBILITY-HARDENING-1: 黒鍵も白鍵と同様にTab focus可能にする。
+    // 対象は「けんばん」モード(mode==='piano')のみ。perf(演奏録音)モードの
+    // perf-key-blackは既知findingで明示された対象外のため変更しない。
+    if (mode === 'piano') {
+      key.tabIndex = 0;
+      key.setAttribute('role', 'button');
+      key.setAttribute('aria-label', k.label);
+      key.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        if (e.repeat) return;
+        key.classList.add('pressed');
+        playFn(k);
+      });
+      key.addEventListener('keyup', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        key.classList.remove('pressed');
+      });
+    }
     wrap.appendChild(key);
   });
 }

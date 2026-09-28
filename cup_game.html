@@ -1581,6 +1581,21 @@ async function startGame() {
     c.wrapper.classList.remove('disabled');
     c.wrapper.onclick = () => guess(i);
     registerDwell(c.wrapper, () => guess(i));
+    // KEYBOARD-ACCESSIBILITY-HARDENING-1: useScanに依存しない独立したkeyboard経路。
+    // Tab focus可能にし、Enter/Spaceでguess()を呼ぶ(onclickと同じ関数)。
+    // guess()自体がphase!=='guess'ガード済みのため二重呼び出しでも安全だが、
+    // stopPropagation()でswitch scan用document-levelハンドラ(useScan時のみ動作、
+    // 行1672付近)との二重発火(同一入力で別カップが反応する等)を防ぐ。
+    c.wrapper.tabIndex = 0;
+    c.wrapper.setAttribute('role', 'button');
+    c.wrapper.setAttribute('aria-label', 'カップ ' + (i + 1));
+    c.wrapper.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        guess(i);
+      }
+    };
   });
 
   if (useScan) {
@@ -1683,7 +1698,7 @@ async function guess(i) {
   if (phase!=='guess') return;
   phase='result';
   stopScan(); cancelAllDwells();
-  cupsData.forEach(c=>{c.wrapper.classList.add('disabled');c.wrapper.onclick=null;unregisterDwell(c.wrapper);});
+  cupsData.forEach(c=>{c.wrapper.classList.add('disabled');c.wrapper.onclick=null;c.wrapper.onkeydown=null;c.wrapper.tabIndex=-1;unregisterDwell(c.wrapper);});
 
   const correct=(i===dollIndex);
   for(let k=0;k<cupCount;k++){

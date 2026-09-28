@@ -357,6 +357,7 @@
     transition: background 0.15s, border 0.15s;
   }
   .slot:hover { background: var(--surface-2); }
+  .slot:focus-visible { outline: 4px solid var(--yellow); outline-offset: 3px; }
   .slot.filled {
     border-style: solid;
     border-color: var(--green);
@@ -2808,7 +2809,11 @@ function donomanaRecordFormatTracingLevel(level) {
     const row = document.getElementById('place-row');
     let html = '<span class="row-label">うしろ →</span>';
     for (let i = 1; i <= count; i++) {
-      html += `<div class="slot" data-scan data-slot="${i}" onclick="placeAt(${i})"></div>`;
+      // KEYBOARD-ACCESSIBILITY-HARDENING-1: switch scanに依存しない独立したkeyboard経路。
+      // Tab focus可能にし、Enter/SpaceでplaceAt()を呼ぶ(onclickと同じ関数)。
+      // stopPropagation()でswitch scan用document-levelハンドラ(行2560、
+      // state.settings.switchScan時のみ動作)との二重発火を防ぐ。
+      html += `<div class="slot" data-scan data-slot="${i}" tabindex="0" role="button" aria-label="スロット ${i}" onclick="placeAt(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();placeAt(${i});}"></div>`;
     }
     html += '<span class="row-label">← まえ</span>';
     row.innerHTML = html;

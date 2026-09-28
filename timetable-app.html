@@ -268,6 +268,10 @@
     transition: all 0.15s;
     user-select: none;
   }
+  .time-chip:focus-visible {
+    outline: 5px solid #FF8F00;
+    outline-offset: 3px;
+  }
   .time-chip:hover, .time-chip.selected {
     background: var(--platform);
     color: white;
@@ -3149,7 +3153,11 @@ function renderTimetable(route) {
     const mins = row.mins.map(m => {
       const isCancelled = cx && cx.h === row.hour && cx.m === m;
       const cls = isCancelled ? ' chip-cancelled' : '';
-      return `<span class="time-chip ${data.chipClass}${cls}" onclick="selectTime(${row.hour},${m},'${data.icon}')">${m<10?'0'+m:m}</span>`;
+      // KEYBOARD-ACCESSIBILITY-HARDENING-1: switch scanに依存しない独立したkeyboard経路。
+      // Tab focus可能にし、Enter/SpaceでselectTime()を呼ぶ(onclickと同じ関数)。
+      // stopPropagation()でswitch scan用document-levelハンドラ(handleScanKey、
+      // switchScanEnabled時のみ動作)との二重発火を防ぐ。
+      return `<span class="time-chip ${data.chipClass}${cls}" tabindex="0" role="button" aria-label="${row.hour}時${m<10?'0'+m:m}分" onclick="selectTime(${row.hour},${m},'${data.icon}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();selectTime(${row.hour},${m},'${data.icon}');}">${m<10?'0'+m:m}</span>`;
     }).join('');
     tr.innerHTML = `<td class="hour-cell">${row.hour}</td><td style="text-align:left;">${mins}</td>`;
     tbody.appendChild(tr);

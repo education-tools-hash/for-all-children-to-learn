@@ -188,6 +188,7 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 .v-item.done{background:var(--mint-light);border-color:var(--mint);}
 .v-item.current{border-color:var(--sky);background:var(--sky-light);box-shadow:var(--shadow-lg);}
 .v-item.scan-focus{outline:5px solid var(--sun);outline-offset:3px;}
+.v-item:focus-visible{outline:5px solid var(--sun);outline-offset:3px;}
 .v-item.auto-done{opacity:.45;}
 .v-item.auto-done .v-check{background:var(--border);border-color:var(--border);}
 /* 時間経過バー */
@@ -2206,6 +2207,20 @@ function renderViewer(){
       +(isAutoCurrent?' auto-current':'')
       +(isCur&&!isDone&&!isAutoDone&&!isAutoCurrent?' current':'');
     el.addEventListener('click',function(){toggleCheck(item.id);});
+    // KEYBOARD-ACCESSIBILITY-HARDENING-1: switchMode(スイッチスキャン)に依存しない
+    // 独立したkeyboard経路。Tab移動でフォーカスしEnter/Spaceで操作できるようにする。
+    // switch scan用のdocument-levelハンドラ(switchMode!=='off'時のみ動作、行1960〜)とは
+    // stopPropagation()で衝突を防ぐ(1回の入力で主要actionが1回だけ発火するようにする)。
+    el.tabIndex=0;
+    el.setAttribute('role','button');
+    el.setAttribute('aria-label',(item.label||'（なまえなし）')+(item.time?'　'+item.time:''));
+    el.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCheck(item.id);
+      }
+    });
 
     // 番号バッジ
     const numBadge=document.createElement('div');numBadge.className='v-item-num';numBadge.textContent=idx+1;
