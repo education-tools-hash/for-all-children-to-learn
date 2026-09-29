@@ -146,9 +146,16 @@ body{font-family:'Hiragino Maru Gothic Pro','ヒラギノ丸ゴ Pro','BIZ UDPGot
 .item-num{position:absolute;top:-1px;left:-1px;width:36px;height:36px;background:var(--sky-dark);color:#fff;border-radius:var(--r) 0 14px 0;font-size:1.1rem;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}
 .item-check{width:42px;height:42px;border-radius:50%;border:3px solid var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;transition:all .15s;background:var(--bg);margin-top:2px;}
 .item-check:hover{border-color:var(--mint);background:var(--mint-light);}
+.item-check:focus-visible{outline:4px solid var(--sun);outline-offset:2px;}
 .item.done .item-check{background:var(--mint);border-color:var(--mint);color:#fff;}
 .item-thumb{width:58px;height:58px;flex-shrink:0;border-radius:11px;overflow:hidden;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .15s;}
 .item-thumb:hover{border-color:var(--sky);}
+.item-thumb:focus-visible{outline:4px solid var(--sun);outline-offset:2px;}
+.item-reorder{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.item-move-up,.item-move-down{width:32px;height:32px;min-width:32px;min-height:32px;padding:0;border:2px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text3);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;font-family:inherit;}
+.item-move-up:hover:not(:disabled),.item-move-down:hover:not(:disabled){border-color:var(--sky);color:var(--sky);background:var(--sky-light);}
+.item-move-up:focus-visible,.item-move-down:focus-visible{outline:3px solid var(--sun);outline-offset:2px;}
+.item-move-up:disabled,.item-move-down:disabled{opacity:.3;cursor:not-allowed;}
 .item-thumb img{width:100%;height:100%;object-fit:cover;}
 .item-thumb-ph{font-size:24px;color:var(--text3);}
 .item-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
@@ -1984,6 +1991,27 @@ function addItem(){
   },50);
 }
 function removeItem(id){items=items.filter(i=>i.id!==id);delete checks[id];saveLocal();renderEditor();}
+// KEYBOARD-ACCESSIBILITY-HARDENING-2: keyboard専用の並べ替え。既存drag-and-dropと同じ
+// items配列を直接並べ替え、既存drop handler(2168行付近)と同じ保存・再描画経路を使う。
+function moveItem(id,delta){
+  const idx=items.findIndex(function(i){return i.id===id;});
+  if(idx===-1)return;
+  const newIdx=idx+delta;
+  if(newIdx<0||newIdx>=items.length)return;
+  const tmp=items[idx];items[idx]=items[newIdx];items[newIdx]=tmp;
+  saveLocal();
+  renderEditor();
+  // 移動後もfocusを同じitemの同じ方向ボタンへ残す（境界で無効化されていれば
+  // 反対方向のボタン、それも無ければcheck丸へfallback）。
+  const sel=delta<0?'.item-move-up':'.item-move-down';
+  const rowEl=document.querySelector('.item[data-item-id="'+CSS.escape(String(id))+'"]');
+  if(rowEl){
+    let target=rowEl.querySelector(sel);
+    if(!target||target.disabled)target=rowEl.querySelector(delta<0?'.item-move-down':'.item-move-up');
+    if(!target||target.disabled)target=rowEl.querySelector('.item-check');
+    if(target)target.focus();
+  }
+}
 function updateField(id,field,val){
   const it=items.find(i=>i.id===id);
   if(it){it[field]=val;saveLocal();}
@@ -2074,6 +2102,7 @@ function renderEditor(){
     el.className='item'+(done?' done':'');
     el.draggable=false;
     el.dataset.idx=String(idx);
+    el.dataset.itemId=String(item.id);
 
     // 番号バッジ
     const numEl=document.createElement('div');
@@ -2085,16 +2114,57 @@ function renderEditor(){
     handleEl.className='drag-handle';handleEl.textContent='⠿';
     el.appendChild(handleEl);
 
+    // KEYBOARD-ACCESSIBILITY-HARDENING-2: keyboard専用の並べ替えボタン。
+    // 既存のdrag-and-drop（handleEl/dragstart/drop）はそのまま維持し、
+    // switch scanに依存しない独立したkeyboard経路として追加する。
+    const reorderEl=document.createElement('div');
+    reorderEl.className='item-reorder';
+    const upBtn=document.createElement('button');
+    upBtn.type='button';upBtn.className='item-move-up';upBtn.textContent='▲';
+    upBtn.setAttribute('aria-label',(item.label||'こうもく')+'を上へ移動');
+    upBtn.disabled=(idx===0);
+    upBtn.addEventListener('click',function(){moveItem(item.id,-1);});
+    const downBtn=document.createElement('button');
+    downBtn.type='button';downBtn.className='item-move-down';downBtn.textContent='▼';
+    downBtn.setAttribute('aria-label',(item.label||'こうもく')+'を下へ移動');
+    downBtn.disabled=(idx===items.length-1);
+    downBtn.addEventListener('click',function(){moveItem(item.id,1);});
+    reorderEl.appendChild(upBtn);reorderEl.appendChild(downBtn);
+    el.appendChild(reorderEl);
+
     // チェック丸
     const checkEl=document.createElement('div');
     checkEl.className='item-check';checkEl.textContent=done?'✓':'';
     checkEl.addEventListener('click',function(){toggleCheck(item.id);});
+    // KEYBOARD-ACCESSIBILITY-HARDENING-2: switch scanはeditorタブを対象としないため
+    // (既存switch-scanはactiveTab==='viewer'限定)、document-level handlerとの競合はないが、
+    // Hardening-1の実装パターンと揃えてstopPropagation()を付与する。
+    checkEl.tabIndex=0;
+    checkEl.setAttribute('role','button');
+    checkEl.setAttribute('aria-label',(item.label||'こうもく')+'の　'+(done?'チェックをはずす':'チェックする'));
+    checkEl.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCheck(item.id);
+      }
+    });
     el.appendChild(checkEl);
 
     // サムネイル（アイコン選択）
     const thumbEl=document.createElement('div');
     thumbEl.className='item-thumb';
     thumbEl.addEventListener('click',function(){openImgModal(item.id);});
+    thumbEl.tabIndex=0;
+    thumbEl.setAttribute('role','button');
+    thumbEl.setAttribute('aria-label',(item.label||'こうもく')+'の　アイコン・しゃしんをえらぶ');
+    thumbEl.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        e.stopPropagation();
+        openImgModal(item.id);
+      }
+    });
     if(item.img){
       const img=document.createElement('img');img.src=item.img;img.alt='';
       thumbEl.appendChild(img);

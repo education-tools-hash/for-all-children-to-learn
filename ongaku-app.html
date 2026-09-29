@@ -412,6 +412,7 @@
   .color-palette-small { display: flex; gap: 8px; flex-wrap: wrap; }
   .color-dot-sm { width:30px; height:30px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:transform 0.15s, border-color 0.15s; }
   .color-dot-sm:hover, .color-dot-sm.active { transform: scale(1.2); border-color: white; }
+  .color-dot-sm:focus-visible { outline: 3px solid #00A99D; outline-offset: 2px; }
 
   .btn-save-rec {
     background: linear-gradient(135deg, var(--accent3), var(--accent4)); border: none; color: #0f0e17;
@@ -550,7 +551,8 @@
     gap: 4px; font-family: inherit; transition: transform .08s, filter .08s;
     min-height: 72px;
   }
-  .perf-sound-btn:active { transform: scale(.91); filter: brightness(1.3); }
+  .perf-sound-btn:active, .perf-sound-btn.pressed { transform: scale(.91); filter: brightness(1.3); }
+  .perf-sound-btn:focus-visible { outline: 3px solid #00A99D; outline-offset: 2px; }
   .perf-sound-btn .psb-note  { font-size: clamp(1.1rem,4vw,1.5rem); font-weight: 900; color: rgba(0,0,0,.75); line-height:1; }
   .perf-sound-btn .psb-yomi  { font-size: clamp(.55rem,1.8vw,.72rem); font-weight: 700; color: rgba(0,0,0,.6); }
   .perf-sound-btn .psb-icon  { font-size: clamp(1.1rem,4vw,1.4rem); }
@@ -637,7 +639,8 @@
     transform: scaleY(.97);
     transform-origin: top center;
   }
-  .key-white:focus-visible, .key-black:focus-visible {
+  .key-white:focus-visible, .key-black:focus-visible,
+  .perf-key-white:focus-visible, .perf-key-black:focus-visible {
     outline: 3px solid #00A99D;
     outline-offset: -3px;
   }
@@ -2685,6 +2688,17 @@ function buildNamer() {
       d.classList.add('active');
       selectedRecColor = c;
     };
+    // KEYBOARD-ACCESSIBILITY-HARDENING-2: RE-AUDIT-1で発見。色選択はclick-only
+    // だったため、既存のonclickと同じ処理をEnter/Spaceからも呼べるようにする。
+    d.tabIndex = 0;
+    d.setAttribute('role', 'button');
+    d.setAttribute('aria-label', 'いろをえらぶ');
+    d.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      e.stopPropagation();
+      d.onclick();
+    });
     cp.appendChild(d);
   });
 }
@@ -4750,25 +4764,23 @@ function _placeBlackKeys(wrap, mode) {
     });
     key.addEventListener('pointerup',   () => key.classList.remove('pressed'));
     key.addEventListener('pointerleave',() => key.classList.remove('pressed'));
-    // KEYBOARD-ACCESSIBILITY-HARDENING-1: 黒鍵も白鍵と同様にTab focus可能にする。
-    // 対象は「けんばん」モード(mode==='piano')のみ。perf(演奏録音)モードの
-    // perf-key-blackは既知findingで明示された対象外のため変更しない。
-    if (mode === 'piano') {
-      key.tabIndex = 0;
-      key.setAttribute('role', 'button');
-      key.setAttribute('aria-label', k.label);
-      key.addEventListener('keydown', e => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        if (e.repeat) return;
-        key.classList.add('pressed');
-        playFn(k);
-      });
-      key.addEventListener('keyup', e => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        key.classList.remove('pressed');
-      });
-    }
+    // KEYBOARD-ACCESSIBILITY-HARDENING-1/2: 黒鍵も白鍵と同様にTab focus可能にする。
+    // 「けんばん」(piano)と「きろく→えんそう→けんばん」(perf)の両方が対象。
+    // playFnは既にmodeに応じた正しい再生関数を指しているため、分岐なく共有できる。
+    key.tabIndex = 0;
+    key.setAttribute('role', 'button');
+    key.setAttribute('aria-label', k.label);
+    key.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (e.repeat) return;
+      key.classList.add('pressed');
+      playFn(k);
+    });
+    key.addEventListener('keyup', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      key.classList.remove('pressed');
+    });
     wrap.appendChild(key);
   });
 }
@@ -4976,6 +4988,16 @@ function buildPerfNamer() {
       document.querySelectorAll('#perf-color-palette .color-dot-sm').forEach(b=>b.classList.remove('active'));
       d.classList.add('active'); perfSelectedColor = c;
     };
+    // KEYBOARD-ACCESSIBILITY-HARDENING-2: 同上（えんそう録音の保存時ネーミング）。
+    d.tabIndex = 0;
+    d.setAttribute('role', 'button');
+    d.setAttribute('aria-label', 'いろをえらぶ');
+    d.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      e.stopPropagation();
+      d.onclick();
+    });
     cp.appendChild(d);
   });
 }
@@ -5080,6 +5102,23 @@ function buildPerfPiano() {
     });
     key.addEventListener('pointerup',    () => key.classList.remove('pressed'));
     key.addEventListener('pointerleave', () => key.classList.remove('pressed'));
+    // KEYBOARD-ACCESSIBILITY-HARDENING-2: 「きろく→えんそう→けんばん」白鍵。
+    // buildPianoKeyboard()の白鍵と同じ独立keyboard経路パターンを再利用し、
+    // pointerdownと同じplaySoundThroughPerf()をEnter/Space(keydown/keyup)から呼ぶ。
+    key.tabIndex = 0;
+    key.setAttribute('role', 'button');
+    key.setAttribute('aria-label', k.label);
+    key.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (e.repeat) return;
+      key.classList.add('pressed');
+      playSoundThroughPerf(k.sound);
+    });
+    key.addEventListener('keyup', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      key.classList.remove('pressed');
+    });
     wrap.appendChild(key);
   });
 
@@ -5111,6 +5150,22 @@ function buildPerfButtons() {
       el.innerHTML = `<span class="psb-icon">${soundDef.emoji||'🎵'}</span><span class="psb-label">${soundDef.label||''}</span>`;
     }
     el.addEventListener('pointerdown', e => { e.preventDefault(); playSoundThroughPerf(btn.sound); });
+    // KEYBOARD-ACCESSIBILITY-HARDENING-2: このボタンは<button>タグだが、
+    // pointerdownのみをlistenしており、keyboardのEnter/Spaceが発火する
+    // clickイベントでは何も起きなかった(RE-AUDIT-1で発見)。pointerdownと
+    // 同じplaySoundThroughPerf()をkeydown/keyupから独立して呼ぶことで解決する。
+    // clickではなくkeydown/keyupを使うため、pointerdownとの二重発火は起きない。
+    el.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      if (e.repeat) return;
+      el.classList.add('pressed');
+      playSoundThroughPerf(btn.sound);
+    });
+    el.addEventListener('keyup', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      el.classList.remove('pressed');
+    });
     grid.appendChild(el);
   });
 }

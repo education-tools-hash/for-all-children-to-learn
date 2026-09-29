@@ -359,6 +359,277 @@ async function freshPage(browser, opts) {
     await context.close();
   }
 
+  // ============================================================
+  // F. schedule-app — editor ("つくる") tab (Phase HARDENING-2)
+  // ============================================================
+  {
+    const { context, page, bucket } = await freshPage(browser);
+    await page.goto(`${BASE}/schedule-app.html`, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      items = [];
+      checks = {};
+      items.push(makeItem('あさのしたく'));
+      items.push(makeItem('がっこうへいく'));
+      items.push(makeItem('しゅくだい'));
+      saveLocal();
+      renderEditor();
+    });
+    await page.waitForTimeout(150);
+
+    const editorActive = await page.evaluate(() => typeof activeTab !== 'undefined' && activeTab === 'editor');
+    check('schedule-app: editor tab is the initial/default view', editorActive);
+
+    // --- .item-check: Tab reachable, Enter/Space toggle, 1 input = 1 toggle ---
+    const firstCheck = page.locator('.item-check').first();
+    await firstCheck.focus();
+    const checkFocused = await page.evaluate(() => document.activeElement.classList.contains('item-check'));
+    check('schedule-app: .item-check is focusable (tabindex present)', checkFocused);
+    const firstItemId = await page.evaluate(() => items[0].id);
+    const beforeChecked = await page.evaluate((id) => !!checks[id], firstItemId);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(120);
+    const afterEnterChecked = await page.evaluate((id) => !!checks[id], firstItemId);
+    check('schedule-app: Enter on focused .item-check toggles it (1 input = 1 toggle)', afterEnterChecked === !beforeChecked, { beforeChecked, afterEnterChecked });
+    await page.locator('.item-check').first().focus();
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(120);
+    const afterSpaceChecked = await page.evaluate((id) => !!checks[id], firstItemId);
+    check('schedule-app: Space on focused .item-check toggles it (1 input = 1 toggle)', afterSpaceChecked === beforeChecked, { afterEnterChecked, afterSpaceChecked });
+
+    // --- .item-thumb: Tab reachable, Enter/Space open the icon/photo modal ---
+    const firstThumb = page.locator('.item-thumb').first();
+    await firstThumb.focus();
+    const thumbFocused = await page.evaluate(() => document.activeElement.classList.contains('item-thumb'));
+    check('schedule-app: .item-thumb is focusable (tabindex present)', thumbFocused);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(150);
+    const modalOpenAfterEnter = await page.evaluate(() => document.getElementById('img-modal').style.display === 'flex');
+    check('schedule-app: Enter on focused .item-thumb opens the icon/photo modal', modalOpenAfterEnter);
+    await page.evaluate(() => { document.getElementById('img-modal').style.display = 'none'; });
+    await page.locator('.item-thumb').first().focus();
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(150);
+    const modalOpenAfterSpace = await page.evaluate(() => document.getElementById('img-modal').style.display === 'flex');
+    check('schedule-app: Space on focused .item-thumb opens the icon/photo modal', modalOpenAfterSpace);
+    await page.evaluate(() => { document.getElementById('img-modal').style.display = 'none'; });
+
+    // --- keyboard reordering: up/down buttons, boundary disabling, order actually changes, focus retained ---
+    const idsBefore = await page.evaluate(() => items.map((i) => i.id));
+    const secondUpBtn = page.locator('.item').nth(1).locator('.item-move-up');
+    await secondUpBtn.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(150);
+    const idsAfterUp = await page.evaluate(() => items.map((i) => i.id));
+    check('schedule-app: keyboard reorder "up" actually swaps item order', idsAfterUp[0] === idsBefore[1] && idsAfterUp[1] === idsBefore[0], { idsBefore, idsAfterUp });
+
+    const firstUpDisabled = await page.evaluate(() => document.querySelector('.item .item-move-up').disabled);
+    check('schedule-app: top item\'s "up" button is disabled (no wraparound)', firstUpDisabled === true);
+    const lastDownDisabled = await page.evaluate(() => { const items_ = document.querySelectorAll('.item'); return items_[items_.length - 1].querySelector('.item-move-down').disabled; });
+    check('schedule-app: bottom item\'s "down" button is disabled (no wraparound)', lastDownDisabled === true);
+
+    // The moved item is now first, so its own "up" is disabled by design; the
+    // implementation's documented fallback moves focus to its "down" button instead.
+    const focusInfo = await page.evaluate((movedId) => {
+      const el = document.activeElement;
+      return {
+        isReorderBtn: !!el && (el.classList.contains('item-move-up') || el.classList.contains('item-move-down')),
+        onMovedRow: !!el && el.closest('.item') && el.closest('.item').dataset.itemId === String(movedId),
+      };
+    }, idsAfterUp[0]);
+    check('schedule-app: focus lands on a reorder button on the moved item\'s own row after reorder', focusInfo.isReorderBtn && focusInfo.onMovedRow, focusInfo);
+
+    // move it back down to restore original order, verify "down" works symmetrically
+    const movedItemId = idsAfterUp[0];
+    await page.evaluate((id) => { document.querySelector(`.item[data-item-id="${id}"] .item-move-down`).focus(); }, movedItemId);
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(150);
+    const idsAfterDown = await page.evaluate(() => items.map((i) => i.id));
+    check('schedule-app: keyboard reorder "down" (Space) restores original order', JSON.stringify(idsAfterDown) === JSON.stringify(idsBefore), { idsBefore, idsAfterDown });
+
+    // --- drag-and-drop regression: dragstart/drop handlers untouched, still present ---
+    const dragHandlersPresent = await page.evaluate(() => {
+      const el = document.querySelector('.item');
+      return typeof el.ondragstart !== 'undefined' || el.getAttribute('draggable') !== null || document.querySelector('.drag-handle') !== null;
+    });
+    check('schedule-app: drag-handle / drag-and-drop DOM scaffolding still present (regression-free)', dragHandlersPresent);
+
+    // --- viewer .v-item Hardening-1 regression check ---
+    await page.evaluate(() => { checks = {}; switchTab('viewer'); });
+    await page.waitForTimeout(150);
+    const vItemFocused = await page.evaluate(() => {
+      const el = document.querySelector('.v-item');
+      el.focus();
+      return document.activeElement === el;
+    });
+    check('schedule-app: viewer .v-item still focusable (Hardening-1 regression-free)', vItemFocused);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(120);
+    const viewerToggleCount = await page.evaluate(() => Object.keys(checks).length);
+    check('schedule-app: viewer .v-item Enter still toggles (Hardening-1 regression-free)', viewerToggleCount === 1, viewerToggleCount);
+
+    check('schedule-app editor: no console errors', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+    await context.close();
+  }
+
+  // ============================================================
+  // G. timetable-app — バーチャル体験 scenario-card (Phase HARDENING-2)
+  // ============================================================
+  {
+    const { context, page, bucket } = await freshPage(browser);
+    await page.goto(`${BASE}/timetable-app.html`, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForTimeout(300);
+    await page.click('button.tab-btn[onclick*="virtual"]');
+    await page.waitForTimeout(150);
+
+    const secondCard = page.locator('.scenario-card').nth(1);
+    await secondCard.focus();
+    const cardFocused = await page.evaluate(() => document.activeElement.classList.contains('scenario-card'));
+    check('timetable-app: .scenario-card is focusable (tabindex present)', cardFocused);
+
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(150);
+    const selectedIdxAfterEnter = await page.evaluate(() => document.querySelector('.scenario-card.selected').dataset.idx);
+    check('timetable-app: Enter on focused .scenario-card selects it (selected class moves)', selectedIdxAfterEnter === '1', selectedIdxAfterEnter);
+
+    const thirdCard = page.locator('.scenario-card').nth(2);
+    await thirdCard.focus();
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(150);
+    const selectedIdxAfterSpace = await page.evaluate(() => document.querySelector('.scenario-card.selected').dataset.idx);
+    check('timetable-app: Space on a different .scenario-card re-selects it', selectedIdxAfterSpace === '2', selectedIdxAfterSpace);
+
+    const selectedCount = await page.evaluate(() => document.querySelectorAll('.scenario-card.selected').length);
+    check('timetable-app: exactly 1 scenario-card selected after keyboard activation (no double-activation)', selectedCount === 1, selectedCount);
+
+    // start flow: real <button> reachable and advances to virt-step-c
+    await page.click('#virt-step-a .sim-btn.primary');
+    await page.waitForTimeout(200);
+    const stepCVisible = await page.evaluate(() => document.getElementById('virt-step-c').style.display !== 'none');
+    check('timetable-app: start button advances from scenario selection into the simulation flow', stepCVisible);
+
+    // Hardening-1 .time-chip regression check (main timetable screen, unrelated tab)
+    await page.click('button.tab-btn[onclick*="timetable"]');
+    await page.waitForTimeout(200);
+    const chipTag = await page.evaluate(() => { const c = document.querySelector('.time-chip'); return c ? c.tabIndex : null; });
+    check('timetable-app: .time-chip still has tabindex=0 (Hardening-1 regression-free)', chipTag === 0, chipTag);
+
+    check('timetable-app scenario-card: no console errors', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+    await context.close();
+  }
+
+  // ============================================================
+  // H. ongaku-app — きろく→えんそう perf piano/buttons/color (Phase HARDENING-2)
+  // ============================================================
+  {
+    const { context, page, bucket } = await freshPage(browser);
+    await page.goto(`${BASE}/ongaku-app.html`, { waitUntil: 'load', timeout: 15000 });
+    await page.waitForTimeout(300);
+    await page.click('.btn-record-home');
+    await page.waitForTimeout(150);
+    await page.evaluate(() => switchRecordMode('perf'));
+    await page.waitForTimeout(200);
+
+    // --- perf piano: white key ---
+    await page.evaluate(() => switchPerfInstr('piano'));
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__perfCalls = 0; const orig = window.playSoundThroughPerf; window.playSoundThroughPerf = function (...args) { window.__perfCalls++; return orig.apply(this, args); }; });
+    const perfWhite = page.locator('.perf-key-white').first();
+    await perfWhite.focus();
+    const perfWhiteFocused = await page.evaluate(() => document.activeElement.classList.contains('perf-key-white'));
+    check('ongaku-app: perf piano white key is focusable (tabindex present)', perfWhiteFocused);
+    await page.keyboard.down('Enter');
+    await page.waitForTimeout(60);
+    const perfWhitePressed = await page.evaluate(() => document.querySelector('.perf-key-white').classList.contains('pressed'));
+    await page.keyboard.up('Enter');
+    await page.waitForTimeout(60);
+    const perfWhiteCallCount = await page.evaluate(() => window.__perfCalls);
+    check('ongaku-app: Enter on perf piano white key plays exactly once (playSoundThroughPerf)', perfWhiteCallCount === 1, perfWhiteCallCount);
+    check('ongaku-app: perf piano white key shows pressed state on keydown', perfWhitePressed);
+
+    // --- perf piano: black key (shares _placeBlackKeys with けんばん mode) ---
+    await page.evaluate(() => { window.__perfSynthCalls = 0; const orig = window.playSynthFreqThroughPerf; window.playSynthFreqThroughPerf = function (...args) { window.__perfSynthCalls++; return orig.apply(this, args); }; });
+    const perfBlack = page.locator('.perf-key-black').first();
+    await perfBlack.focus();
+    const perfBlackFocused = await page.evaluate(() => document.activeElement.classList.contains('perf-key-black'));
+    check('ongaku-app: perf piano black key is focusable (tabindex present)', perfBlackFocused);
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(80);
+    const perfBlackCallCount = await page.evaluate(() => window.__perfSynthCalls);
+    check('ongaku-app: Space on perf piano black key plays exactly once (playSynthFreqThroughPerf)', perfBlackCallCount === 1, perfBlackCallCount);
+
+    // --- perf buttons: the RE-AUDIT-1 pointerdown-only bug ---
+    await page.evaluate(() => switchPerfInstr('buttons'));
+    await page.waitForTimeout(150);
+    await page.evaluate(() => { window.__perfBtnCalls = 0; const orig = window.playSoundThroughPerf; window.playSoundThroughPerf = function (...args) { window.__perfBtnCalls++; return orig.apply(this, args); }; });
+    const perfBtn = page.locator('.perf-sound-btn').first();
+    await perfBtn.focus();
+    const perfBtnFocused = await page.evaluate(() => document.activeElement.classList.contains('perf-sound-btn'));
+    check('ongaku-app: perf sound button is focusable (native <button>)', perfBtnFocused);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    const perfBtnCallCount = await page.evaluate(() => window.__perfBtnCalls);
+    check('ongaku-app: Enter on perf sound button actually plays a sound (fixes pointerdown-only bug from RE-AUDIT-1)', perfBtnCallCount === 1, perfBtnCallCount);
+    await page.locator('.perf-sound-btn').first().focus();
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(100);
+    const perfBtnCallCount2 = await page.evaluate(() => window.__perfBtnCalls);
+    check('ongaku-app: Space on perf sound button also plays (1 input = 1 sound)', perfBtnCallCount2 === perfBtnCallCount + 1, { perfBtnCallCount, perfBtnCallCount2 });
+
+    // pointerdown/touch regression: mouse press still works, still exactly 1 call
+    await page.evaluate(() => { window.__perfBtnCalls = 0; });
+    const btnBox = await page.locator('.perf-sound-btn').first().boundingBox();
+    await page.mouse.move(btnBox.x + btnBox.width / 2, btnBox.y + btnBox.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(80);
+    await page.mouse.up();
+    await page.waitForTimeout(80);
+    const perfBtnPointerCalls = await page.evaluate(() => window.__perfBtnCalls);
+    check('ongaku-app: pointerdown (mouse/touch) on perf sound button still triggers exactly 1 call (regression-free, no double-fire with keydown)', perfBtnPointerCalls === 1, perfBtnPointerCalls);
+
+    // --- color-dot-sm (voice recording naming step) ---
+    // Reaching this panel normally requires a completed mic recording; force the
+    // container visible directly (same classes/display the real flow sets) so the
+    // naming step's own controls can be exercised without mocking getUserMedia.
+    await page.evaluate(() => switchRecordMode('voice'));
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+      document.getElementById('mic-permission').style.display = 'none';
+      document.getElementById('record-studio').style.display = 'flex';
+      document.getElementById('sound-namer').classList.add('visible');
+      buildNamer();
+    });
+    await page.waitForTimeout(100);
+    const firstDot = page.locator('#rec-color-palette .color-dot-sm').first();
+    const secondDot = page.locator('#rec-color-palette .color-dot-sm').nth(1);
+    await secondDot.focus();
+    const dotFocused = await page.evaluate(() => document.activeElement.classList.contains('color-dot-sm'));
+    check('ongaku-app: .color-dot-sm is focusable (tabindex present)', dotFocused);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(100);
+    const activeDotIdx = await page.evaluate(() => Array.from(document.querySelectorAll('#rec-color-palette .color-dot-sm')).findIndex((d) => d.classList.contains('active')));
+    check('ongaku-app: Enter on .color-dot-sm selects it (active class moves)', activeDotIdx === 1, activeDotIdx);
+    const activeDotCount = await page.evaluate(() => document.querySelectorAll('#rec-color-palette .color-dot-sm.active').length);
+    check('ongaku-app: exactly 1 .color-dot-sm active after keyboard selection', activeDotCount === 1, activeDotCount);
+
+    // mouse click regression on color-dot-sm
+    await firstDot.click();
+    await page.waitForTimeout(80);
+    const activeDotIdxAfterClick = await page.evaluate(() => Array.from(document.querySelectorAll('#rec-color-palette .color-dot-sm')).findIndex((d) => d.classList.contains('active')));
+    check('ongaku-app: click on .color-dot-sm still selects it (regression-free)', activeDotIdxAfterClick === 0, activeDotIdxAfterClick);
+
+    // --- あそぶ→けんばん/おとボタン (Hardening-1) regression check ---
+    await page.evaluate(() => showScreen('play'));
+    await page.waitForTimeout(150);
+    await page.click('#tab-piano');
+    await page.waitForTimeout(200);
+    const playPianoFocusable = await page.evaluate(() => document.querySelector('.key-white').tabIndex === 0);
+    check('ongaku-app: play-mode けんばん white key still has tabindex=0 (Hardening-1 regression-free)', playPianoFocusable);
+
+    check('ongaku-app perf mode: no console errors', bucket.consoleErrors.length === 0, bucket.consoleErrors);
+    await context.close();
+  }
+
   await browser.close();
 
   const passed = results.filter((r) => r.ok).length;
