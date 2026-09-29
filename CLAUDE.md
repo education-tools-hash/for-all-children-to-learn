@@ -51,7 +51,7 @@ If `main` moved after approval: stop, report, and (only if told) recreate the wo
 
 ### 5. Real-device boundary (Cloud cannot replace it)
 
-These need the user's own device and eyes: iPad Safari, VoiceOver, Blue2 (Bluetooth switch) and other Bluetooth switches, Tobii Eye Tracker 5 and other gaze input, real touch / multi-touch, device-specific audio (speech synthesis voices, autoplay, BGM), and PWA / offline / Home Screen behavior (the Home Screen app can use a separate `localStorage` from Safari). Headless Chromium passing is **not** a real-device pass. Where a Phase requires a User Browser Review or a Real Device Gate, prepare it, present it, and stop; the user performs and declares it. If a device gate finds a defect in already-approved code, stop and propose a separate fix Phase.
+These need the user's own device and eyes: iPad Safari, VoiceOver, Blue2 (Bluetooth switch) and other Bluetooth switches, Tobii Eye Tracker 5 and other gaze input, real touch / multi-touch, device-specific audio (speech synthesis voices, autoplay, BGM), and PWA / offline / Home Screen behavior (the Home Screen app can use a separate `localStorage` from Safari). Headless Chromium passing is **not** a real-device pass. Where a Phase requires a User Browser Review or a Real Device Gate, prepare it, present it, and stop; the user performs and declares it. If a device gate finds a defect in already-approved code, stop and propose a separate fix Phase. See §12 for how to prepare the browser-reachable side of a User Browser Review (the fixed Preview).
 
 ### 6. Tests and validation (only what exists here)
 
@@ -109,6 +109,30 @@ Every rule above binds every agent that works in this repository, not just Claud
 - **Drift Gate (§2) is mandatory before any Production release**, and doubly so in multi-agent use: another agent may have moved `origin/main` since this Phase started. Re-verify immediately before the release push, not just at Phase start.
 - **Conflict resolution order when agents disagree** on how to interpret a requirement: (1) the current explicit User instruction / the current Phase prompt, (2) this `CLAUDE.md`, (3) any design/contract document it points to (e.g. `donomana-dev-rules-v1.0-revised.md`, `docs/design-system/`), (4) the most recent **User Approved** checkpoint for that feature. An agent's own prior output (from this or another agent) is not a tiebreaker. This order never overrides the rule that **User Approval itself is never inferred or represented by an agent** (§4, and above) — "the current User instruction wins" means the words the user actually wrote, not an agent's guess at what they would approve. If the current User instruction and existing Governance conflict in a way that is safety-relevant and cannot be reconciled, do not guess: stop and report the conflict instead of picking a side.
 - **Do not guess past an unclear point.** If a Phase prompt, a handoff note, or the repository state leaves a real ambiguity (which branch is authoritative, what "approved" refers to, conflicting instructions between agents), stop and report the ambiguity instead of picking an interpretation and continuing.
+
+### 12. Fixed Preview (User Browser Review)
+
+For any Phase needing a User Browser Review (§5), **use the fixed Preview infrastructure** below. Do **not** fall back to a Cloud-container HTTP server, the container's internal IP, a temporary tunnel URL, or an assumption of same-Wi-Fi access — those are not standard procedure; treat them only as a fallback for genuine local debugging that is not itself a User Review.
+
+| | |
+|---|---|
+| Preview repo | `education-tools-hash/education-tools-hash.github.io` — separate from this repo; its git history holds only the workflow and docs, **never** app source or generated Preview output |
+| Preview root | `https://education-tools-hash.github.io/` |
+| Deploy workflow | `preview-sync` (`.github/workflows/preview-sync.yml` in the Preview repo; `workflow_dispatch`, required input `source_ref`) |
+
+**Preview is not Production, and passing it is not a release.** Preview deploy success ≠ Production Release. User Browser Review PASS ≠ merge to `main`. User Approved for a Preview ≠ an automatic Production Release. Every release still goes through its own separate Production Release Phase under §4 in full — the same pre-release Drift Gate, fast-forward-only push, regression tests, and CI verification — never shortened because a Preview already passed.
+
+**Standard flow**: dedicated branch/worktree (§3) → implement → automated tests → checkpoint commit → push the feature branch → dispatch `preview-sync` with `source_ref` set to the **full 40-character checkpoint SHA** (a branch name is a documented one-off exception only, never routine, since a branch can move under you) → confirm the workflow's own checked-out-SHA verification step passed → confirm the Pages deploy step succeeded → confirm the deployed `preview-manifest.json`'s `sourceCommit` matches the checkpoint before starting review → give the user the fixed URLs → record the result as **PASS / FAIL / BLOCKING FINDING** → only a PASS may proceed to its own Production Release Phase.
+
+**Resuming a review later**: re-verify `origin/main`, the pending checkpoint SHA, and the Preview's currently-deployed `sourceCommit` all still agree before continuing. Never let one User Review span more than one checkpoint silently; if the checkpoint changed, redeploy Preview with the new SHA and say so explicitly.
+
+**What a Preview deploy may contain**: an explicit per-file allowlist only — never a wildcard/whole-tree copy. Source app HTML/CSS/JS is copied byte-for-byte unmodified; anything Preview-specific (a landing `index.html`, `preview-manifest.json` recording at least `sourceRepo`/`sourceRef`/`sourceCommit`/`syncedAt`/`syncedFiles`, `robots.txt`) exists only in the generated artifact, never as a change to the source files themselves. The Preview root always identifies itself as "DONOMANA PREVIEW", not Production, so the two are never mistaken for each other in a screenshot or a URL glance. `robots.txt` keeps it out of search indexes but is **not** security, authentication, or secret protection — never let Preview serve secrets, credentials, tokens, or private keys.
+
+**Changing `preview-sync.yml` itself** (its allowlist, Pages settings, permissions) is out of scope for an ordinary implementation Phase. If a Phase's changes need a Preview dependency the current allowlist does not cover, stop and report exactly what and why rather than editing the workflow unprompted.
+
+**Safe stopping point** when the user cannot do the real-device review right away (e.g. away from a device): `IMPLEMENTATION COMPLETE / AUTOMATED VERIFICATION PASS / CHECKPOINT PUSHED / FIXED PREVIEW DEPLOYED / USER BROWSER REVIEW PENDING / NO PRODUCTION RELEASE` is a legitimate place to pause a Phase; do not push implementation further just to avoid stopping there.
+
+This flow is itself a normal continuous-improvement target — shorter steps, more automation, easier verification, reproducibility, safety, fewer chances for a mistake, and mobile/remote compatibility are all fair game to improve — but never at the cost of the guarantees above, and any change to it of real size goes through Design → User Approval → Implementation like any other change, not an ad hoc edit mid-Phase.
 
 ## Build Commands
 
