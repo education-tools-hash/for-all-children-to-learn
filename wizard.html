@@ -143,6 +143,13 @@
     line-height: 1.45;
     margin-bottom: 20px;
   }
+  /* Q1の補足説明(タッチが標準対応であることを短く伝える)。Q1以外では使わない */
+  .question-text + .question-sub {
+    margin: -12px 0 20px;
+    font-size: 0.85rem;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
 
   /* 選択肢ボタン */
   .options { display: flex; flex-direction: column; gap: 10px; }
@@ -441,21 +448,21 @@
     <div class="step-dot" id="dot3">3</div>
   </div>
 
-  <!-- Q1: 操作方法（Phase APP-RECOMMENDER-INPUT-CATEGORY-HARDENING-1で
-       「スイッチ・視線入力」の一括カテゴリを廃止し、タッチ/外部スイッチ/
-       視線入力/こだわらない の4択に分離。apps-data.jsonのinput配列
-       (touch/switch/gaze/keyboard/gamepad)のtouch・switch・gazeに対応。 -->
+  <!-- Q1: 追加の操作方法（Phase APP-RECOMMENDER-TOUCH-SEMANTICS-IMPLEMENTATION-1で
+       Design Option B(docs/design-system/donomana-app-recommender-touch-semantics-
+       design-v1_0.md)を実装。Touch metadataがapps-data.json上で36/36(全アプリ)へ
+       補正されたことを踏まえ、「操作方法を選ぶ」質問から「タッチは標準対応の
+       前提で、ほかに使いたい入力方法があるか」を尋ねる質問へ再構成した。
+       touchはQ1のhard filter選択肢から外し、switch/gazeのみ既存のhard filter
+       ロジック(filterAndRank、本Phaseでは無変更)をそのまま流用する。
+       keyboardはDesign documentのOption B具体例(§6)に明記が無く、Option Aの
+       説明にのみ「(＋必要ならkeyboard)」と限定的に触れられているのみのため、
+       Design conformanceを優先し今回はQ1へ追加しない。 -->
   <div class="question-card active" id="q1">
     <div class="question-label">質問 1 / 3</div>
-    <div class="question-text">お子さんはどうやって<br>画面を操作しますか？</div>
-    <div class="options" role="radiogroup" aria-label="操作方法">
-      <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 1, 'touch')">
-        <span class="option-icon" aria-hidden="true">👆</span>
-        <span class="option-body">
-          <span class="option-title">画面に直接触れる</span>
-          <span class="option-desc">指でタップ、タッチペンなど</span>
-        </span>
-      </button>
+    <div class="question-text">ほかに使いたい<br>操作方法はありますか？</div>
+    <div class="question-sub">どのアプリもタッチ操作で使えます。スイッチや視線入力を使う場合は選んでください。</div>
+    <div class="options" role="radiogroup" aria-label="追加の操作方法">
       <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 1, 'switch')">
         <span class="option-icon" aria-hidden="true">🔘</span>
         <span class="option-body">
@@ -471,10 +478,10 @@
         </span>
       </button>
       <button class="option-btn" role="radio" aria-checked="false" onclick="answer(this, 1, 'any')">
-        <span class="option-icon" aria-hidden="true">✨</span>
+        <span class="option-icon" aria-hidden="true">👆</span>
         <span class="option-body">
-          <span class="option-title">こだわらない / まだ決めていない</span>
-          <span class="option-desc">いろいろ試したい</span>
+          <span class="option-title">特にない（タッチで使う）</span>
+          <span class="option-desc">指でタップするなど、ふつうの操作でよい</span>
         </span>
       </button>
     </div>
@@ -676,9 +683,12 @@ function updateIndicator(step) {
 }
 
 // ===== フィルタ・並び替え(透明なルール、複雑なスコアリングは作らない) =====
-// 1. Q1(入力方式)一致は必須フィルタ。'any'のときは除外しない。
-//    input配列が空のアプリは「すべて対応」とはみなさず、特定の入力方式を
-//    選んだ場合は候補から外れる(指示§9の通り)。
+// 1. Q1(追加の操作方法)一致は必須フィルタ。Phase APP-RECOMMENDER-TOUCH-
+//    SEMANTICS-IMPLEMENTATION-1(Design Option B)により、touchはQ1の
+//    選択肢・filter値として使わない(touchはapps-data.json上36/36で標準
+//    対応のため)。'any'(特にない=タッチで使う)のときは除外しない。
+//    input配列が空のアプリは「すべて対応」とはみなさず、switch/gazeを
+//    選んだ場合は候補から外れる(指示§9の通り、ロジック自体は無変更)。
 // 2. Q2(カテゴリ)が一致するアプリを「おすすめ」、それ以外を「ほかにも
 //    使えるアプリ」の2群に分ける。除外はしない(指示§12: 表示上の都合で
 //    対応アプリを無条件に捨てない)。
@@ -745,7 +755,7 @@ function filterAndRank(apps, ans) {
   return { recommended: recommended, others: others, total: inputFiltered.length };
 }
 
-var Q1_LABEL = { touch: '👆 タッチ操作', switch: '🔘 外部スイッチ', gaze: '👀 視線入力', any: '✨ 操作方法を問わない' };
+var Q1_LABEL = { switch: '🔘 外部スイッチ', gaze: '👀 視線入力', any: '👆 タッチ操作' };
 var Q3_LABEL = { literacy: '📖 ことば・読み書き', time: '🕐 時間や見通し', communicate: '💬 気持ち・コミュニケーション', life_social: '🌱 生活や社会性', none: '✨ こだわらない' };
 
 function appCardHTML(app) {
