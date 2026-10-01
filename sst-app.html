@@ -1145,6 +1145,76 @@ body.dark .trend-act-bar-wrap{background:#2A3A55;}
 body.dark .trend-notice{background:#3D3000;color:#FFE8A3;border-color:#F1C40F;}
 body.dark .trend-notice-failure{background:#3A1418;color:#FFC2C9;border-color:#EE6C7C;}
 
+/* ===== REPORT SCREEN MOBILE LAYOUT FIX（Phase SST-MONTHLY-TREND-MOBILE-LAYOUT-FIX-1）=====
+   実機iPhoneで確認された2件の重なりを解消する:
+   A) 下部固定「学習のきろく」(#donomanaRecordNavBtn)が、#s-trend/#s-report表示中に
+      表示される下部戻るバー(.bottom-back-bar、同じく画面下に固定)と重なる。
+   B) 左上固定ホームボタン(#donomanaHomeBtn)が、position:fixedのため常に同じ
+      viewport座標に居座り続け、#s-trend/#s-reportをスクロールするたびに
+      週見出しや回答詳細のテキストがその座標を通過して重なる(スクロール位置に
+      関わらず再発するため、paddingやz-index調整だけでは解消しない)。
+   いずれもgenerate.jsが注入する既存ブロック(record-nav-btn/a11y-panel/home-btn)
+   自体は一切変更せず、ここ(非生成領域)からCSSで上書きするのみ。
+
+   方針: #s-trend/#s-reportの表示中に限り、ホーム・設定・学習のきろくの3つの
+   固定ボタンをposition:fixedからposition:absoluteへ切り替える。position:absolute
+   (かつ位置指定された祖先要素が無い)は文書先頭を基準に配置され、ページと一緒に
+   スクロールして視界から消えるため、Bのような「スクロールのたびに同じviewport
+   座標で再衝突する」問題がそもそも起きなくなる。学習のきろくボタンも同時に
+   下部(bottom)から上部(top)の専用領域へ移すことで、Aの下部戻るバーとの重なりも
+   解消する。:has()非対応ブラウザでは@supports判定によりこのブロック全体が
+   無視され、修正前と同じ(今回のバグ報告が出ている)配置のまま残るだけで、
+   新たな破損は発生しない。
+   他画面(通常のSST活動画面)は:has()のセレクタに一致しないため一切影響を受けない。
+
+   !important注記: この3ボタンはgenerate.js生成ブロック内でposition/top/left/
+   right/bottom/z-indexをすべてインラインstyle属性で指定している。インライン
+   style属性はセレクタの詳細度に関係なく外部/内部スタイルシートの通常の宣言に
+   常に優先するため、!important無しではposition:absoluteへの切り替え自体が
+   インラインのposition:fixedに上書きされて無効化され(実際に最初の実装で
+   これが発生し、スクロール後もボタンが同じviewport座標に残り続けた)、
+   #s-trend/#s-report自身を直接変更しない限りこの優先順位を覆せない。
+   generate.js側のインラインstyle自体は変更せず、ここから!importantで
+   上書きすることで対応する。 */
+@supports selector(:has(a)) {
+  body:has(#s-trend.on) #donomanaHomeBtn,
+  body:has(#s-report.on) #donomanaHomeBtn,
+  body:has(#s-trend.on) #donomanaA11yBtn,
+  body:has(#s-report.on) #donomanaA11yBtn,
+  body:has(#s-trend.on) #donomanaRecordNavBtn,
+  body:has(#s-report.on) #donomanaRecordNavBtn {
+    position:absolute !important;
+    bottom:auto !important;
+  }
+  /* 1行目: ホーム(左)・設定(右)。元のtop/left/rightの値を踏襲しつつsafe-areaを加味する。 */
+  body:has(#s-trend.on) #donomanaHomeBtn,
+  body:has(#s-report.on) #donomanaHomeBtn {
+    top:calc(env(safe-area-inset-top,0px) + 12px) !important;
+    left:calc(env(safe-area-inset-left,0px) + 12px) !important;
+  }
+  body:has(#s-trend.on) #donomanaA11yBtn,
+  body:has(#s-report.on) #donomanaA11yBtn {
+    top:calc(env(safe-area-inset-top,0px) + 12px) !important;
+    right:calc(env(safe-area-inset-right,0px) + 16px) !important;
+  }
+  /* 2行目: 学習のきろく。幅が可変(文字サイズ設定で伸びる)なテキスト入りピル型
+     ボタンのため、1行目の2要素とは別の行に単独配置し、文字サイズに関わらず
+     左右どちらとも衝突しないようにする(狭幅での折り返しに相当)。 */
+  body:has(#s-trend.on) #donomanaRecordNavBtn,
+  body:has(#s-report.on) #donomanaRecordNavBtn {
+    top:calc(env(safe-area-inset-top,0px) + 64px) !important;
+    left:calc(env(safe-area-inset-left,0px) + 16px) !important;
+  }
+  /* 上記3ボタン分の専用領域を本文の前に確保し、.back/.stitle/カード本体が
+     その下から始まるようにする(最初のレイアウトでの重なりも防ぐ)。
+     #s-trend/#s-report自身が対象(:has()で祖先を辿る必要はない、既存の
+     .scr.on{display:block}と同じ、自分自身が.onを持つ場合のみ適用される)。 */
+  #s-trend.on,
+  #s-report.on {
+    padding-top:calc(env(safe-area-inset-top,0px) + 118px);
+  }
+}
+
 /* ===== PRINT（今週のできたことレポート PDF/印刷、
    Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1、
    design doc docs/design-system/donomana-sst-weekly-report-pdf-design-v1_0.md）=====
