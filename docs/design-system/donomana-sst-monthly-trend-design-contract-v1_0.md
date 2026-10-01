@@ -1,14 +1,14 @@
 # どのまな SST Monthly Trend Design Contract（Version 1.0）
 
-- **Status: FINAL DESIGN CONTRACT v1.0（Correction適用済み）**
-- **Implementation: NOT STARTED**
-- Phase: `SST-MONTHLY-TREND-DESIGN-CORRECTION-1`（前Phase `SST-MONTHLY-TREND-DESIGN-FINALIZE-1` のレビュー指摘を反映し訂正）
+- **Status: FINAL DESIGN CONTRACT v1.0（Correction適用済み、Implementation Phaseでの軽微な訂正を反映）**
+- **Implementation: COMPLETE（`SST-MONTHLY-TREND-IMPLEMENTATION-1`、checkpoint未push、User Review待ち）**
+- Phase: `SST-MONTHLY-TREND-DESIGN-CORRECTION-1`（本文書の設計内容自体は同Phaseで確定）。実装は後続Phase `SST-MONTHLY-TREND-IMPLEMENTATION-1` で行い、本文書には§4の訂正指示に基づく軽微な文言訂正のみを追加で反映した（新規の設計変更は無い）。
 - 発行: 2026年10月
 - Production baseline: `origin/main = 87b7d1f63b197401992d0122caba445e446350c3`（前Phase群・本Phaseとも同一、drift 0。詳細は§0.1）
-- Branch: `feature/sst-monthly-trend-design-correction-1`
+- Branch: `feature/sst-monthly-trend-design-correction-1`（Implementation Phaseでは`feature/sst-monthly-trend-implementation-1`がこの文書のcherry-pick先）
 - 位置づけ: 本文書は`donomana-sst-record-detail-contract-v1_0.md`（SST Record Detail v1、Production Released）・`donomana-sst-record-detail-expansion-plan-v1_0.md`（Wave 1/2拡張、Production Released）・`donomana-learning-record-standard-v1_0.md`（Foundation標準）・`donomana-supporter-record-dashboard-design-v1_0.md`（横断Dashboard設計）を継承する。いずれの既存契約も置き換えない。本文書は前Phase（`SST-MONTHLY-TREND-DESIGN-FINALIZE-1`、checkpoint `83f720f600cb36657b2c788e098dc4b2992cae1c`）の同名文書を直接引き継ぎ、User Reviewで指摘された事実誤認・設計上の不整合を訂正したものである。
 - 契機: 実ユーザーから「今週のレポート」の教員間共有のしやすさを評価する声とともに、学校での個別相談・集団認知行動療法の場面・こども若者相談支援等、学校の授業に限らない複数の文脈での活用報告が届いた。本Phaseはこれらの利用報告を機能の存在根拠として扱うが、臨床的有効性の主張や治療・診断機能への拡張は行わない（§2）。
-- 変更ファイル: 本ドキュメントのみ。`sst-app.html`・`assets/js/sst-record-detail.js`・`assets/js/record-dashboard-foundation.js`・`generate.js`・`apps-data.json`・Foundation API・localStorage schemaのいずれも本Phaseで変更していない（Production機能コード変更 0件）。
+- 変更ファイル: 本ドキュメントのみ（設計Phase群）。実装Phase（`SST-MONTHLY-TREND-IMPLEMENTATION-1`）では`sst-app.html`・`tools/sst-weekly-report-pdf/trend-implementation-test.js`（新規）・本文書を変更した。`assets/js/sst-record-detail.js`・`assets/js/record-dashboard-foundation.js`・`generate.js`・`apps-data.json`・Foundation API・localStorage schemaはいずれも変更していない。
 
 ---
 
@@ -108,7 +108,7 @@ const weekLog = activityLog.filter(a => a.ts >= startTs && a.ts <= endTs);
 確認した事実:
 - **基準はブラウザのローカル端末時刻**（`new Date()`、`getDay()`/`getDate()`はいずれもlocal time methods）。UTC基準ではない。
 - 週境界は`Date.prototype.setDate()`/`setHours()`という**暦対応（calendar-aware）演算**で算出されており、月またぎ・年またぎを正しく処理する。**固定ミリ秒の加減算（`Date.now() - N*24*60*60*1000`）ではない。**
-- **重要な訂正**: 既存`buildReport()`は「今週」の終点を常に「今週の日曜23:59:59.999」としているが、これは**既存の「今週のレポート」が表示される瞬間には今週の日曜がまだ来ていない可能性を考慮せず、単に『今週全体』という固定の枠を示しているだけ**である（実際にはその枠のうち「今」より後の部分にはrecordが存在しえないので実害がない）。しかし本機能のように「集計時点」を明示する必要がある設計では、「今週の日曜まで」を集計の終点として扱うと、「今」より後の時刻まで集計対象であるかのような誤った印象を与える。**本機能では集計の終点を「今週の日曜」ではなく「now（集計実行時点）」とする**（§9で確定）。
+- **重要な訂正（Implementation Phaseでさらに訂正）**: 既存`buildReport()`は「今週」の終点を常に「今週の日曜23:59:59.999」としているが、これは**既存の「今週のレポート」が表示される瞬間には今週の日曜がまだ来ていない可能性を考慮せず、単に『今週全体』という固定の枠を示しているだけ**である。既存コードには無効・未来timestampへの明示的なvalidationが存在しないため（次項）、「その枠のうち『今』より後の部分にはrecordが存在しえない」と断定することはできない（端末の時計設定が狂っている場合等、理論上は未来timestampのrecordが保存される余地がある）。既存「今週のレポート」はこの可能性を明示的に検証・除外する処理を持たないが、本機能（4週間のふりかえり）では未来timestampを明示的に検出し、週別集計から除外したうえで利用者に注記する（§9.5、Implementation Phaseで実装済み）。さらに、本機能のように「集計時点」を明示する必要がある設計では、「今週の日曜まで」を集計の終点として扱うと、「今」より後の時刻まで集計対象であるかのような誤った印象を与える。**本機能では集計の終点を「今週の日曜」ではなく「now（集計実行時点）」とする**（§9で確定）。
 - 無効timestamp・未来timestampに対する明示的なvalidationは既存コードに存在しない。本機能ではこれを新規に設計する（§9.5、§11）。
 
 ### 3.4 30日retentionの正確な挙動
@@ -706,3 +706,21 @@ migrationは不要。既存`activityLog`のrecordを書き換えない。既存r
 - [x] PDFが現在表示中のカードのみを対象とすることを明記（§13.4、§16.2）
 - [x] Docs only（Production機能コード変更 0件、変更ファイルは本文書のみ）
 - [x] push/merge/deployなし
+
+---
+
+## 28. Implementation Record（`SST-MONTHLY-TREND-IMPLEMENTATION-1`、実装・検証結果の記録）
+
+本節は実装Phaseの結果を事実として記録するのみであり、新たな設計判断は含まない（Allowed Filesの許可範囲、§11相当）。
+
+- **実装**: `sst-app.html`に新規画面`#s-trend`（印刷対象`#trend-card`）・集計関数群（`trendReadRaw`/`trendClassify`/`trendComputeWeeks`等）・focus管理用の`openTrendScreen()`/`closeTrendScreen()`・`printTrendReport()`を追加した。`#s-report`の`.report-actions`先頭に導線ボタンを追加した。
+- **§4訂正A（見出しfocus）**: 既存`donomanaIsFocusable()`は`tabIndex===-1`を拒否するため、`tabindex="-1"`の主見出しへの focus 確認にはこのヘルパーを使わず、要素の接続状態を直接確認したうえで`.focus()`し、`document.activeElement`で実際の移動を確認する設計で実装した（自動テストで検証済み）。
+- **§4訂正B（type/timestamp分類）**: A/B/C/D相当の分類に加え、「tsは有効だがtypeが無効」な要素を「日時を確認できない記録」ではなく「不正な記録」として区別する優先順位を実装した。`ACT_LABEL`参照は`hasOwnProperty`による安全な参照（`actLabelSafe()`）とし、`constructor`/`__proto__`等の値を「既知のtype」と誤認しないことを自動テストで確認した。未知typeの生の文字列はHTMLへ一切挿入しない。
+- **§4訂正C（空状態）**: 「この期間に保存された記録はありません。」に統一し、「一度もしたことがない」という解釈を含む文言は使用していない。
+- **§4訂正D（週キー）**: 新規集計は`getWeekKey()`のUTC文字列を使わず、ローカル時刻ベースの`setDate()`演算のみで週境界（epoch ms）を算出する。
+- **実コード調査で判明した追加の修正**: 既存`buildReport()`/`downloadReportCSV()`の`activityLog.filter(a => a.ts...)`が配列内の`null`要素に対して例外を投げる既存の潜在的な不具合を発見した。`closeTrendScreen()`が`go('s-report')`経由でこの関数を必ず呼ぶため、本機能のfocus復帰を不正要素混在下で検証するにあたりこれが障害となった。`a &&`という最小限のnullガードのみを追加し、真正なrecordの判定・既存の集計結果は変更していない。
+- **テスト**: 新規`tools/sst-weekly-report-pdf/trend-implementation-test.js`（105/105 checks passed）。既存`tools/sst-weekly-report-pdf/pdf-print-implementation-test.js`（165/165、非回帰確認）。`tools/record-dashboard-poc/*golden-tests.js`全13ファイル（全てALL PASS）。`node generate.js`を2回実行し冪等性を確認（2回目で差分なし）。
+- **検証した項目**: 11 type混在、セッション型recordの1件カウント、phrase読み上げ+コピーの2件カウント、週境界の閉区間/半開区間の厳密な境界値（月曜0時ちょうど・nowちょうど・now+1ms）、年またぎ（2025年12月→2026年1月）、米国DST切替週（America/New_York、2026年3月8日のspring-forward）をまたぐ週集計、未知type・危険な文字列type（`constructor`/`__proto__`）・type欠損・無効timestamp・配列要素の構造不正の分類と二重計上がないことの確認、読み込み失敗4パターン（空文字列・空白文字列・JSON破損・非配列）と空状態2パターン（未使用・空配列）の区別、1回の読み込み結果の使い回し（`localStorage.getItem`呼び出し回数の計測により確認）、storage/原配列の非変更、印刷時の2画面同時非表示（`getClientRects()`による実レンダリング確認）、折りたたみ詳細の印刷時強制展開、forced-colorsモードでのバー境界線表示、360px幅での水平オーバーフロー無し、keyboard操作（Enter/Space）でのナビゲーション、上部/下部戻るボタン双方でのfocus復帰。
+- **実機確認（本Implementation Phaseでは未実施、Real Device Gate）**: iPad Safari・VoiceOver・外部スイッチでの実機確認は行っていない。Playwright（Chromium）による自動検証のみ。
+- **変更ファイル**: `sst-app.html`（新規screen/関数の追加、`buildActivityList()`の`ACT_LABEL`参照安全化、`buildReport()`/`downloadReportCSV()`の null ガード追加）、`tools/sst-weekly-report-pdf/trend-implementation-test.js`（新規）、本文書。`assets/js/sst-record-detail.js`・`assets/js/record-dashboard-foundation.js`・`generate.js`・`apps-data.json`・Foundation API・localStorage schemaは無変更。
+- **push/merge/deploy**: 未実施（checkpoint commitのみ、User Review待ち）。

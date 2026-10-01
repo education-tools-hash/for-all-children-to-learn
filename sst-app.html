@@ -1079,6 +1079,72 @@ body.dark .report-week-bar.empty{background:#2A3A55;}
 body.dark .report-act-bar-wrap{background:#2A3A55;}
 body.dark .report-comment-box{background:#1A1A00;border-color:#3D3000;}
 
+/* ===== TREND（4週間のふりかえり、Phase SST-MONTHLY-TREND-IMPLEMENTATION-1、
+   design doc docs/design-system/donomana-sst-monthly-trend-design-contract-v1_0.md）=====
+   .report-card/.report-wrap/.report-header/.report-title/.report-period/.report-section-title/
+   .report-detail-card等は既存の週次レポートと同じ見た目・印刷ルールをそのまま再利用する
+   (class名を共有、id="trend-card"のみ新規)。週別棒グラフ・週別内訳バーのみ、0件時に
+   正の高さを与えない挙動とforced-colors対応のため新しいclassを用意する(§14.2/§14.4、
+   既存.report-week-bar/.report-act-barは変更しない)。 */
+.trend-wrap{padding:12px 14px 32px;display:flex;flex-direction:column;gap:12px;}
+.trend-asof{margin-top:2px;}
+
+.trend-week-chart{
+  display:flex;align-items:flex-end;justify-content:center;
+  gap:8px;padding:8px 16px 14px;
+}
+.trend-week-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+.trend-week-bar-wrap{width:100%;height:60px;display:flex;align-items:flex-end;justify-content:center;}
+.trend-week-bar{
+  width:80%;border-radius:6px 6px 0 0;
+  background:linear-gradient(0deg,#1ABC9C,#48C9B0);
+  border:1px solid rgba(0,0,0,.18);
+  transition:height .4s cubic-bezier(.34,1.56,.64,1);
+}
+.trend-week-bar.current{background:linear-gradient(0deg,#E67E22,#F0B27A);}
+.trend-week-count{font-size:0.75rem;font-weight:700;color:var(--text);}
+.trend-week-label{font-size:0.75rem;color:var(--sub);font-weight:700;text-align:center;line-height:1.3;}
+.trend-week-current-tag{display:block;font-size:0.625rem;color:#E67E22;font-weight:700;}
+
+.trend-table-wrap{padding:0 16px 12px;overflow-x:auto;}
+.trend-table{width:100%;border-collapse:collapse;font-size:0.8125rem;}
+.trend-table caption{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.trend-table th,.trend-table td{padding:8px 10px;border-bottom:1px solid #EDF1F0;text-align:left;}
+.trend-table th{color:var(--sub);font-weight:700;font-size:0.75rem;}
+.trend-table td.trend-table-num{text-align:right;font-weight:700;}
+
+.trend-week-section{padding:10px 16px 4px;}
+.trend-week-section-title{font-size:0.8125rem;font-weight:700;color:var(--text);margin-bottom:8px;}
+.trend-act-list{display:flex;flex-direction:column;gap:8px;margin-bottom:4px;}
+.trend-act-row{display:flex;align-items:center;gap:10px;}
+.trend-act-ico{font-size:1.125rem;flex-shrink:0;}
+.trend-act-info{flex:1;}
+.trend-act-name{font-size:0.8125rem;font-weight:700;}
+.trend-act-bar-wrap{
+  flex:2;height:14px;background:#F0F0F0;
+  border:1px solid rgba(0,0,0,.14);
+  border-radius:7px;overflow:hidden;
+}
+.trend-act-bar{height:100%;border-radius:7px;background:linear-gradient(90deg,#1ABC9C,#3498DB);}
+.trend-act-count{font-size:0.8125rem;font-weight:700;color:var(--sub);min-width:28px;text-align:right;flex-shrink:0;}
+
+.trend-notice{
+  display:flex;gap:8px;align-items:flex-start;
+  background:#FFF8E6;border:1px solid #F1C40F;border-radius:12px;
+  margin:0 16px 10px;padding:10px 14px;
+  font-size:0.8125rem;color:#7A5200;font-weight:700;line-height:1.6;
+}
+.trend-notice-failure{background:#FDECEB;border-color:#EE6C7C;color:#BA5461;}
+
+@media (forced-colors:active){
+  .trend-week-bar,.trend-act-bar-wrap{border:1px solid CanvasText;}
+}
+
+body.dark .trend-table th,body.dark .trend-table td{border-color:#2A3A55;}
+body.dark .trend-act-bar-wrap{background:#2A3A55;}
+body.dark .trend-notice{background:#3D3000;color:#FFE8A3;border-color:#F1C40F;}
+body.dark .trend-notice-failure{background:#3A1418;color:#FFC2C9;border-color:#EE6C7C;}
+
 /* ===== PRINT（今週のできたことレポート PDF/印刷、
    Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1、
    design doc docs/design-system/donomana-sst-weekly-report-pdf-design-v1_0.md）=====
@@ -1088,12 +1154,16 @@ body.dark .report-comment-box{background:#1A1A00;border-color:#3D3000;}
   /* isolation: nazorin-print.htmlと同じ「対象要素だけを可視化する」方式
      (design doc §8.1)。新しいchrome要素が今後増えても既定で非表示側に倒れる。 */
   body *{visibility:hidden;}
-  #report-card,#report-card *{visibility:visible;}
-  #report-card{
+  /* Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: #trend-cardをisolation対象へ追加する
+     (既存#report-cardのルール自体は変更せず、セレクタへ追加するのみ)。.scr.onの排他性
+     により、週次レポート画面と4週間のふりかえり画面が同時に印刷されることはない
+     (design doc §13.4)。 */
+  #report-card,#report-card *,#trend-card,#trend-card *{visibility:visible;}
+  #report-card,#trend-card{
     position:absolute;left:0;top:0;margin:0;width:100%;
     box-shadow:none;border-radius:0;overflow:visible;
     /* dark mode時(body.dark{--text:#E8E8E8}等)でも印刷は常に濃色文字で
-       読めるようにする(design doc §11)。.report-cardの背景は元々#fff固定。 */
+       読めるようにする(design doc §11)。.report-card/.trend-cardの背景は元々#fff固定。 */
     --text:#2C3E50;--sub:#7F8C8D;
   }
   @page{size:A4 portrait;margin:15mm;}
@@ -1123,15 +1193,18 @@ body.dark .report-comment-box{background:#1A1A00;border-color:#3D3000;}
   /* 曜日グラフ・活動別バーは塗り色だけに情報を依存させず、背景グラフィックが
      OFFでも枠線で構造が分かるようにする(design doc §11、色だけで意味を
      伝えない)。件数は常にテキストでも表示されているため情報の欠落はない。 */
-  .report-week-bar,.report-act-bar{border:1px solid #0E8C7B;}
+  .report-week-bar,.report-act-bar,.trend-week-bar,.trend-act-bar-wrap{border:1px solid #0E8C7B;}
 
   /* 改ページ制御(design doc §9/§13)。長大な1カードを無理に1ページへ
-     収めようとはせず、自然な改ページに委ねる(overflowでの強制圧縮はしない)。 */
+     収めようとはせず、自然な改ページに委ねる(overflowでの強制圧縮はしない)。
+     trend-week-chart/trend-noticeは既存.report-week-chart同様、個別の小ブロックとして
+     追加するのみで、週セクション全体や#trend-card全体へは適用しない(design doc §16.2、
+     矛盾の解消)。 */
   .report-summary,.report-week-chart,.report-badges-row,.report-thermo-chart,
-  .report-comment-box,.report-detail-card{
+  .report-comment-box,.report-detail-card,.trend-week-chart,.trend-notice{
     break-inside:avoid;page-break-inside:avoid;
   }
-  .report-section-title{break-after:avoid;page-break-after:avoid;}
+  .report-section-title,.trend-week-section-title{break-after:avoid;page-break-after:avoid;}
 
   /* Phase SST-WEEKLY-REPORT-PDF-CREDIT-FIX-1: 印刷/PDF時のみ#report-card末尾に
      サイトクレジットを表示する(design要求§3/§7)。背景色に依存しない
@@ -3491,6 +3564,11 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     </div>
 
     <div class="report-actions">
+      <!-- Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: design doc
+           donomana-sst-monthly-trend-design-contract-v1_0.md §13.2の通り、既存3ボタンの
+           先頭に導線ボタンを追加する。openTrendScreen()はgo('s-trend')を呼んだうえで、
+           #trend-card内の主見出しへ明示的にfocusを移す(§13.2、既存go()自体は無変更)。 -->
+      <button class="report-print-btn" id="trend-nav-btn" onclick="openTrendScreen()">📊 4週間のふりかえりを見る</button>
       <!-- Phase SST-WEEKLY-REPORT-PDF-IMPLEMENTATION-1: design doc
            donomana-sst-weekly-report-pdf-design-v1_0.md §6/§22の通り、新しい集計は
            作らずbuildReport()が組み立てた#report-cardをそのまま印刷対象にする。 -->
@@ -3505,6 +3583,76 @@ body.dark .thermo-tube{background:#2A3A55;border-color:#3A4A65;}
     <div class="teacher-notice">
       <span>📌</span>
       <div>スクリーンショットを撮って保護者・担任の先生に共有できます。「共有する」ボタンからも送れます（対応ブラウザのみ）。</div>
+    </div>
+  </div>
+</div>
+
+<!-- TREND（4週間のふりかえり、Phase SST-MONTHLY-TREND-IMPLEMENTATION-1）
+     design doc docs/design-system/donomana-sst-monthly-trend-design-contract-v1_0.md
+     (Correction適用済み)を実装する。read-onlyの新規集計画面。既存#s-report・go()・
+     buildReport()・saveActivityLog()はいずれも無変更。 -->
+<div id="s-trend" class="scr">
+  <button class="back" onclick="closeTrendScreen()">← もどる</button>
+  <div class="stitle">📊 4週間のふりかえり</div>
+  <div class="trend-wrap">
+
+    <!-- レポートカード本体(週次レポートの#report-cardと同じclassを再利用し、
+         見た目・印刷ルール(@media print内の.report-header等)を共有する) -->
+    <div class="report-card" id="trend-card">
+
+      <div class="report-header">
+        <div class="report-header-left">
+          <div class="report-title-emoji">📊</div>
+          <div>
+            <!-- tabindex="-1": 既存donomanaIsFocusable()はtabIndex===-1を拒否するため、
+                 この見出しへのfocus移動にはdonomanaIsFocusable()を使わない(Implementation
+                 Phase訂正A)。openTrendScreen()側で直接.focus()し、document.activeElement
+                 で結果を確認する。 -->
+            <h2 class="report-title" id="trend-title" tabindex="-1">4週間のふりかえり</h2>
+            <div class="report-period" id="trend-period"></div>
+            <div class="report-period trend-asof" id="trend-asof"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="report-comment-box" id="trend-desc-box" style="margin:12px 16px 0;">
+        <div class="report-comment-area" id="trend-desc" style="padding:0;"></div>
+      </div>
+
+      <div id="trend-notice-area"></div>
+      <div id="trend-empty-area" class="report-no-data" style="display:none;padding:16px;"></div>
+      <div id="trend-failure-area" class="report-no-data" style="display:none;padding:16px;"></div>
+
+      <div id="trend-main-sections">
+        <div class="report-section-title">📊 週別の活動記録件数</div>
+        <div class="trend-week-chart" id="trend-week-chart"></div>
+
+        <div class="report-section-title">📋 週別の件数（表）</div>
+        <div class="trend-table-wrap" id="trend-table-wrap"></div>
+
+        <div class="report-section-title">🎯 週ごとのやったこと</div>
+        <div id="trend-breakdown"></div>
+
+        <div class="report-section-title">📝 週ごとのくわしいきろく</div>
+        <div id="trend-detail-list"></div>
+      </div>
+
+      <div class="report-footer">
+        <span>SST ソーシャルスキルトレーニング</span>
+        <span id="trend-gen-date"></span>
+      </div>
+
+      <div class="report-print-credit">どのまな（https://donomana.jp/）</div>
+    </div>
+
+    <div class="report-actions">
+      <button class="report-print-btn" id="trend-print-btn" onclick="printTrendReport()">🖨️ PDFで保存する</button>
+      <div class="report-share-hint">印刷画面から「PDFに保存」を選んでください</div>
+    </div>
+
+    <div class="teacher-notice">
+      <span>📌</span>
+      <div>このブラウザに保存された記録です。同じブラウザを複数人で使うと、記録が一緒に表示されます。</div>
     </div>
   </div>
 </div>
@@ -5457,6 +5605,7 @@ const BACK_MAP = {
   's-thermo':              { dest: ()=>home(),             label:'← ホームへ' },
   's-badge':               { dest: ()=>home(),             label:'← ホームへ' },
   's-report':              { dest: ()=>home(),             label:'← ホームへ' },
+  's-trend':               { dest: ()=>closeTrendScreen(), label:'← 週次レポートへ' },
   's-photo':               { dest: ()=>home(),             label:'← ホームへ' },
   's-photo-edit':          { dest: ()=>go('s-photo'),      label:'← もどる' },
   's-photo-play':          { dest: ()=>go('s-photo'),      label:'← リストへ' },
@@ -5545,6 +5694,7 @@ function go(id){
   }
   if(id==='s-teacher-share') buildShareScreen();
   if(id==='s-report') buildReport();
+  if(id==='s-trend') buildTrend();
   if(id !== 's-teacher-share') { /* QRリーダーは廃止 */ }
   updateBottomBack(id);
 }
@@ -6788,6 +6938,15 @@ const ACT_LABEL = {
   phrase: { ico:'🗣️', name:'フレーズ集' },
 };
 
+// Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: ACT_LABELのown-property安全参照。
+// 単純な`ACT_LABEL[type]`は、type==='constructor'や'__proto__'のような値に対して
+// Object.prototype由来の値(truthy)を返してしまい、「既知のtype」と誤認しうる
+// (design doc Implementation Phase 訂正B)。hasOwnPropertyで絞り込むことで、
+// ACT_LABEL自身が実際に定義するキーのみをknownとして扱う。
+function actLabelSafe(type){
+  return Object.prototype.hasOwnProperty.call(ACT_LABEL, type) ? ACT_LABEL[type] : null;
+}
+
 // Phase T5-E-C: activityLog(ACTIVITY_LOG_KEY='sst_activity_log_v1')のI/OのみDonomana
 // Learning Record Foundationへ委譲する。weekBadges(WEEK_BADGE_KEY)・reportName(REPORT_NAME_KEY)
 // は別storage keyの別concept(gamification state・表示名設定)でありLearning Recordではないため
@@ -6875,7 +7034,11 @@ function buildReport(){
   const endTs   = new Date(sun).setHours(23,59,59,999);
 
   // 今週のログ
-  const weekLog = activityLog.filter(a => a.ts >= startTs && a.ts <= endTs);
+  // Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: 4週間のふりかえり(#s-trend)からの
+  // closeTrendScreen()がgo('s-report')経由で必ずこの関数を呼ぶため、不正な配列要素
+  // (null等、§11.2)が含まれていてもここで例外にならないよう`a &&`を追加した
+  // (真正なrecordの判定条件・既存の集計結果は一切変更しない、nullガードの追加のみ)。
+  const weekLog = activityLog.filter(a => a && a.ts >= startTs && a.ts <= endTs);
 
   // 名前
   reportName = localStorage.getItem(REPORT_NAME_KEY) || '';
@@ -6950,12 +7113,17 @@ function buildActivityList(weekLog){
   el.innerHTML = Object.entries(counts)
     .sort((a,b)=>b[1]-a[1])
     .map(([type,cnt])=>{
-      const info = ACT_LABEL[type]||{ico:'📌',name:type};
+      // Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: ACT_LABELのown-property安全参照
+      // (actLabelSafe)を使う。未知typeの生の値をラベルとしてHTMLへ挿入しない
+      // (design doc Implementation Phase 訂正B)。
+      const info = actLabelSafe(type);
+      const ico  = info ? info.ico  : '📌';
+      const name = info ? info.name : 'その他の記録';
       const pct  = Math.round((cnt/max)*100);
       return `<div class="report-act-row">
-        <span class="report-act-ico">${info.ico}</span>
+        <span class="report-act-ico">${ico}</span>
         <div class="report-act-info">
-          <div class="report-act-name">${info.name}</div>
+          <div class="report-act-name">${name}</div>
         </div>
         <div class="report-act-bar-wrap">
           <div class="report-act-bar" style="width:${pct}%"></div>
@@ -6980,11 +7148,24 @@ function buildDetailRecordList(weekLog){
     return;
   }
   titleEl.style.display='';
+  el.innerHTML = buildDetailRecordCardsHtml(withDetail, 'rdet');
+}
+
+// Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: 上のbuildDetailRecordList()が持っていた
+// 「detailを持つrecordの配列→カードHTML」の組み立てロジックを、idPrefix引数を追加した
+// うえでそのまま抽出したもの(動作は完全に無変更、idPrefix='rdet'で呼べば従来と同一のuidになる)。
+// 4週間のふりかえり(#s-trend)が週ごとに複数回呼び出せるよう、uidの衝突を避けるための
+// idPrefixのみを新規に導入する。新しい回答解釈ロジックは追加しない(既存の共有formatterを
+// 完全に再利用する、Implementation Phase §7)。
+function buildDetailRecordCardsHtml(withDetail, idPrefix){
   const marks = ['①','②','③','④','⑤','⑥'];
-  el.innerHTML = withDetail.map((a,i)=>{
-    const info = ACT_LABEL[a.type]||{ico:'📌',name:a.type};
+  return withDetail.map((a,i)=>{
+    // Phase SST-MONTHLY-TREND-IMPLEMENTATION-1: actLabelSafe()によるown-property安全参照。
+    // 未知typeの生の値をHTMLへ挿入しない(design doc Implementation Phase 訂正B)。
+    const infoRaw = actLabelSafe(a.type);
+    const info = infoRaw || { ico:'📌', name:'その他の記録' };
     const d = a.detail;
-    const uid = 'rdet-'+a.ts+'-'+i;
+    const uid = idPrefix+'-'+a.ts+'-'+i;
 
     // Phase SST-RECORD-DETAIL-WAVE1-IMPLEMENTATION-1: detail.typeごとに表示内容を分岐する。
     // roleplay_choice(既存)の表示は完全に無変更。新規4typeはそれぞれ固有のsummary/detail構成を
@@ -7191,10 +7372,319 @@ function downloadReportCSV(){
   const { mon, sun } = getWeekRange();
   const startTs = mon.setHours(0,0,0,0);
   const endTs   = new Date(sun).setHours(23,59,59,999);
-  const weekLog = activityLog.filter(a => a.ts >= startTs && a.ts <= endTs).sort((a,b)=>a.ts-b.ts);
+  const weekLog = activityLog.filter(a => a && a.ts >= startTs && a.ts <= endTs).sort((a,b)=>a.ts-b.ts);
   const content = buildReportCsvContent(weekLog);
   const dateStr = new Date().toISOString().slice(0,10);
   downloadFile(content, `SSTきろく_${dateStr}.csv`, 'text/csv;charset=utf-8');
+}
+
+// ============================================================
+// TREND（4週間のふりかえり、Phase SST-MONTHLY-TREND-IMPLEMENTATION-1）
+// design doc: docs/design-system/donomana-sst-monthly-trend-design-contract-v1_0.md
+// (Correction適用済み)。read-onlyの新規集計のみ。sst_activity_log_v1以外のstorageは
+// 読み書きしない。saveActivityLog()・donomanaRecordWriteLog()は呼ばない。activityLog・
+// 原配列・個々のrecordはin-place変更しない(§11 Allowed Files、Implementation Phase §6)。
+// ============================================================
+
+// §11.2 / Implementation Phase §6: sst_activity_log_v1専用の読み込み確認。
+// donomanaRecordReadLog()は「未使用」と「破損」を区別できないため、本機能専用に
+// 最小限のローカル処理で区別する(既存Foundation APIは変更しない)。
+function trendReadRaw(){
+  let raw;
+  try {
+    raw = localStorage.getItem(ACTIVITY_LOG_KEY);
+  } catch(e){
+    return { ok:false };
+  }
+  if(raw === null) return { ok:true, records:[] };   // 正常な空状態(未使用)
+  if(raw.trim() === '') return { ok:false };          // 読み込み失敗(空文字列/空白のみ)
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch(e){
+    return { ok:false };                              // 読み込み失敗(JSON parse失敗)
+  }
+  if(!Array.isArray(parsed)) return { ok:false };      // 読み込み失敗(非配列)
+  return { ok:true, records:parsed };                  // 正常(空配列を含む)
+}
+
+function trendIsValidTs(ts){
+  return typeof ts === 'number' && Number.isFinite(ts) && !isNaN(new Date(ts).getTime());
+}
+
+function trendIsValidType(type){
+  return typeof type === 'string' && type.trim() !== '';
+}
+
+// 週境界をローカル端末時刻・暦対応(setDate)演算のみで算出する。既存getWeekKey()の
+// toISOString()ベースのUTC日付文字列は、ローカル週バケットのキーとして流用しない
+// (design doc Implementation Phase 訂正D)。weekStarts[0]=最古週(第1週)〜
+// weekStarts[3]=今週(第4週)の開始epoch ms。
+function trendComputeWeeks(nowMs){
+  const now = new Date(nowMs);
+  const day = now.getDay();
+  const thisMonday = new Date(now);
+  thisMonday.setHours(0,0,0,0);
+  thisMonday.setDate(thisMonday.getDate() - (day===0?6:day-1));
+  const weekStarts = [];
+  for(let i=3;i>=0;i--){
+    const d = new Date(thisMonday);
+    d.setDate(d.getDate() - i*7);
+    weekStarts.push(d.getTime());
+  }
+  return { weekStarts, windowStart: weekStarts[0] };
+}
+
+// activityLogの要素1件を分類する。優先順位は固定(同じ要素を複数の除外件数へ
+// 二重計上しない、design doc Implementation Phase 訂正B):
+//  1. 要素自体がnull/非object/配列        → invalid(不正な記録・構造不正)
+//  2. ts が無効                           → invalid-ts(日時を確認できない記録)
+//     (typeの状態に関わらずこちらを優先する。tsが有効なのにtypeだけが不正な
+//      場合に「日時を確認できない」と表示しないための優先順)
+//  3. type が無効(欠損/空文字列/空白のみ/非文字列) → invalid(不正な記録)
+//  4. ts > now                            → future(未来の日時の記録)
+//     (同じ週の日付範囲に収まっていても週別集計には含めない)
+//  5. ts < windowStart(対象期間より前)     → before-window(静かに除外、通知なし)
+//  6. それ以外                            → week(該当する週indexへ算入。
+//     既知/未知typeを問わず算入する。未知typeは「その他の記録」として
+//     安全なラベルで表示する、§7参照)
+function trendClassify(el, nowMs, weeks){
+  if(el === null || typeof el !== 'object' || Array.isArray(el)){
+    return { bucket:'invalid' };
+  }
+  if(!trendIsValidTs(el.ts)){
+    return { bucket:'invalid-ts' };
+  }
+  if(!trendIsValidType(el.type)){
+    return { bucket:'invalid' };
+  }
+  const ts = el.ts;
+  if(ts > nowMs){
+    return { bucket:'future' };
+  }
+  if(ts < weeks.windowStart){
+    return { bucket:'before-window' };
+  }
+  for(let i=0;i<4;i++){
+    const start = weeks.weekStarts[i];
+    const end   = (i<3) ? weeks.weekStarts[i+1] : (nowMs+1); // 今週は[thisMonday, now](閉区間)
+    if(ts >= start && ts < end) return { bucket:'week', weekIdx:i };
+  }
+  return { bucket:'before-window' }; // 安全側fallback(通常到達しない)
+}
+
+function trendFmtMD(ms){
+  const d = new Date(ms);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+function trendWeekRangeLabel(weekStartMs){
+  const end = new Date(weekStartMs);
+  end.setDate(end.getDate()+6);
+  return `${trendFmtMD(weekStartMs)}（月）〜 ${trendFmtMD(end.getTime())}（日）`;
+}
+
+function trendFormatAsof(nowMs){
+  const d = new Date(nowMs);
+  const p = n => n<10 ? '0'+n : String(n);
+  return `集計時点: ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// §9.4: 画面を開くたび・表示を更新するたびに、この関数の先頭でnowを1回だけ取得し、
+// 週境界・分類・画面表示・PDF集計時点まで全てこの1つの値から算出し直す
+// (前回表示時の値はキャッシュしない)。
+function buildTrend(){
+  const nowMs = Date.now();
+  const weeks = trendComputeWeeks(nowMs);
+
+  document.getElementById('trend-gen-date').textContent = new Date(nowMs).toLocaleDateString('ja-JP');
+  document.getElementById('trend-period').textContent =
+    `対象期間: ${trendFmtMD(weeks.weekStarts[0])}（月）〜 ${trendFmtMD(weeks.weekStarts[3]+6*86400000)}（日）`;
+  document.getElementById('trend-asof').textContent = trendFormatAsof(nowMs);
+  document.getElementById('trend-desc').textContent =
+    'この表示は、このブラウザに保存された活動と回答の記録です。件数や回答の違いだけで、能力・心理状態・支援の効果を判断することはできません。本人の様子や取り組んだ場面と合わせて、ふりかえりにご活用ください。同じブラウザを複数人で使うと、記録が一緒に表示されます。記録は、新しい活動を保存する際に、過去30日分だけが残る仕組みです。記録の削除や、別のブラウザ・端末での利用などにより、この表示だけでは活動の全体を確認できない場合があります。';
+
+  const noticeArea   = document.getElementById('trend-notice-area');
+  const emptyArea    = document.getElementById('trend-empty-area');
+  const failureArea  = document.getElementById('trend-failure-area');
+  const mainSections = document.getElementById('trend-main-sections');
+  noticeArea.innerHTML = '';
+  emptyArea.style.display = 'none';
+  failureArea.style.display = 'none';
+  mainSections.style.display = '';
+
+  const raw = trendReadRaw();
+  if(!raw.ok){
+    mainSections.style.display = 'none';
+    failureArea.style.display = '';
+    failureArea.textContent = '記録を読み込めませんでした。';
+    return;
+  }
+
+  // §11.2: 1回の読み込み結果(raw.records)を、週別集計・活動種別内訳・詳細展開の
+  // 全てで使い回す(再度localStorage.getItem()/donomanaRecordReadLog()を呼ばない)。
+  const weekRecords = [[],[],[],[]];
+  let invalidCount = 0, invalidTsCount = 0, futureCount = 0;
+  raw.records.forEach(el=>{
+    const c = trendClassify(el, nowMs, weeks);
+    if(c.bucket === 'week') weekRecords[c.weekIdx].push(el);
+    else if(c.bucket === 'invalid')    invalidCount++;
+    else if(c.bucket === 'invalid-ts') invalidTsCount++;
+    else if(c.bucket === 'future')     futureCount++;
+    // 'before-window'(対象期間より前の正常な記録)は静かに除外し、通知もしない。
+  });
+
+  const notices = [];
+  if(futureCount    > 0) notices.push(`保存日時が現在より後になっている記録が${futureCount}件あります。端末の日時設定をご確認ください。`);
+  if(invalidTsCount > 0) notices.push(`保存日時を確認できない記録が${invalidTsCount}件あります。`);
+  if(invalidCount   > 0) notices.push(`不正な記録が${invalidCount}件あります。`);
+  if(notices.length){
+    noticeArea.innerHTML = notices.map(t=>`<div class="trend-notice"><span>⚠️</span><div>${t}</div></div>`).join('');
+  }
+
+  const total = weekRecords.reduce((s,a)=>s+a.length, 0);
+  if(total === 0){
+    // 期間外の正常な記録しかない場合も、未来/不正な記録だけがある場合も、
+    // 対象期間内に有効な記録が無いという点では同じ空状態として扱う
+    // (未来/不正の注記は上のnoticeAreaで別途表示済み、design doc §11.1/Implementation Phase §4)。
+    mainSections.style.display = 'none';
+    emptyArea.style.display = '';
+    emptyArea.textContent = 'この期間に保存された記録はありません。';
+    return;
+  }
+
+  trendRenderChart(weekRecords, weeks);
+  trendRenderTable(weekRecords, weeks);
+  trendRenderBreakdown(weekRecords, weeks);
+  trendRenderDetail(weekRecords, weeks);
+}
+
+function trendRenderChart(weekRecords, weeks){
+  const el = document.getElementById('trend-week-chart');
+  const counts = weekRecords.map(a=>a.length);
+  const max = Math.max(...counts, 1);
+  el.innerHTML = counts.map((cnt,i)=>{
+    const h = Math.round((cnt/max)*56);
+    // design doc §14.2(本Phaseで訂正): 0件の週には正の高さの棒を与えない。
+    // 棒そのものを描画しない(既存buildWeekChart()の4px最小バーは踏襲しない)。
+    const barHtml = cnt>0
+      ? `<div class="trend-week-bar${i===3?' current':''}" style="height:${Math.max(h,8)}px"></div>`
+      : '';
+    const tag = i===3 ? '<span class="trend-week-current-tag">集計中</span>' : '';
+    return `<div class="trend-week-col">
+      <div class="trend-week-count">${cnt||''}</div>
+      <div class="trend-week-bar-wrap">${barHtml}</div>
+      <div class="trend-week-label">第${i+1}週${tag}</div>
+    </div>`;
+  }).join('');
+}
+
+function trendRenderTable(weekRecords, weeks){
+  const wrap = document.getElementById('trend-table-wrap');
+  const rows = weekRecords.map((arr,i)=>{
+    const label = trendWeekRangeLabel(weeks.weekStarts[i]) + (i===3 ? '（集計中）' : '');
+    const cnt = arr.length;
+    // design doc §14.2(本Phaseで訂正): 数値表(グラフとは別のテキスト等価物)では、
+    // 0件の週を空欄にせず明示的に表示する。
+    const cntText = cnt>0 ? String(cnt) : '0（記録なし）';
+    return `<tr><th scope="row">第${i+1}週</th><td>${label}</td><td class="trend-table-num">${cntText}</td></tr>`;
+  }).join('');
+  wrap.innerHTML = `<table class="trend-table">
+    <caption>週別の活動記録件数</caption>
+    <thead><tr><th scope="col">週</th><th scope="col">期間</th><th scope="col">件数</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function trendRenderBreakdown(weekRecords, weeks){
+  const el = document.getElementById('trend-breakdown');
+  el.innerHTML = weekRecords.map((arr,i)=>{
+    const title = `第${i+1}週（${trendWeekRangeLabel(weeks.weekStarts[i])}${i===3?'・集計中':''}）`;
+    if(!arr.length){
+      return `<div class="trend-week-section">
+        <div class="trend-week-section-title">${title}</div>
+        <div class="report-no-data" style="padding:0 0 12px;">この週の記録はありません。</div>
+      </div>`;
+    }
+    const counts = {};
+    arr.forEach(a=>{ counts[a.type] = (counts[a.type]||0)+1; });
+    const max = Math.max(...Object.values(counts));
+    const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([type,cnt])=>{
+      // 未知typeの生の値をHTMLへ挿入しない(actLabelSafe()によるown-property安全参照、
+      // design doc Implementation Phase 訂正B)。
+      const info = actLabelSafe(type);
+      const ico  = info ? info.ico  : '📌';
+      const name = info ? info.name : 'その他の記録';
+      const pct  = Math.round((cnt/max)*100);
+      return `<div class="trend-act-row">
+        <span class="trend-act-ico">${ico}</span>
+        <div class="trend-act-info"><div class="trend-act-name">${name}</div></div>
+        <div class="trend-act-bar-wrap"><div class="trend-act-bar" style="width:${pct}%"></div></div>
+        <div class="trend-act-count">${cnt}回</div>
+      </div>`;
+    }).join('');
+    return `<div class="trend-week-section">
+      <div class="trend-week-section-title">${title}</div>
+      <div class="trend-act-list">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+// 既存buildDetailRecordCardsHtml()(buildDetailRecordList()から抽出した共有formatter)を
+// そのまま週ごとに呼び出す。新しい回答解釈ロジックは追加しない(Implementation Phase §7)。
+// idPrefixを週ごとに変えてカードのuid衝突を避ける。
+function trendRenderDetail(weekRecords, weeks){
+  const el = document.getElementById('trend-detail-list');
+  el.innerHTML = weekRecords.map((arr,i)=>{
+    const title = `第${i+1}週（${trendWeekRangeLabel(weeks.weekStarts[i])}${i===3?'・集計中':''}）`;
+    const withDetail = arr.filter(a=>a.detail).sort((a,b)=>b.ts-a.ts);
+    if(!withDetail.length){
+      return `<div class="trend-week-section">
+        <div class="trend-week-section-title">${title}</div>
+        <div class="report-no-data" style="padding:0 0 12px;">この週の記録はありません。</div>
+      </div>`;
+    }
+    const cardsHtml = buildDetailRecordCardsHtml(withDetail, 'tdet-w'+i);
+    return `<div class="trend-week-section">
+      <div class="trend-week-section-title">${title}</div>
+      <div class="report-detail-list" style="padding:0 0 4px;">${cardsHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+// design doc §13.2(本Phaseで訂正、Implementation Phase 訂正A): 既存go()自体は変更せず、
+// #s-trendを開く専用のthin wrapperとしてfocus管理のみを追加する。
+// 主見出し(#trend-title)はtabindex="-1"で意図的にTab順序から除外しているため、
+// 既存donomanaIsFocusable()(tabIndex===-1を拒否する)では判定できない。
+// ここではdonomanaIsFocusable()を使わず、要素の存在・接続状態を直接確認したうえで
+// .focus()し、実際にfocusが移動したかをdocument.activeElementで確認する。
+function openTrendScreen(){
+  go('s-trend');
+  const heading = document.getElementById('trend-title');
+  if(heading && heading.isConnected){
+    heading.focus();
+  }
+}
+
+// design doc §13.2: 上部.backボタン・下部BACK_MAP経由の戻るボタンの両方から呼ばれる、
+// #s-trendから戻る専用処理。go()自体・他画面のonclickは変更しない。起点ボタン
+// (#trend-nav-btn)が何らかの理由でfocus不能な場合は、既存donomanaFirstFocusable()と
+// 同じフォールバック先(#s-report内の最初のfocus可能要素)へ focus する。
+function closeTrendScreen(){
+  go('s-report');
+  const origin = document.getElementById('trend-nav-btn');
+  if(origin && typeof donomanaIsFocusable === 'function' && donomanaIsFocusable(origin)){
+    origin.focus();
+  } else if(typeof donomanaFirstFocusable === 'function'){
+    const fallback = donomanaFirstFocusable(document.getElementById('s-report'));
+    if(fallback) fallback.focus();
+  } else if(origin){
+    origin.focus();
+  }
+}
+
+function printTrendReport(){
+  window.print();
 }
 
 // ============================================================
