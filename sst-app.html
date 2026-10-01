@@ -7652,11 +7652,38 @@ function trendRenderDetail(weekRecords, weeks){
   }).join('');
 }
 
+// Phase SST-MONTHLY-TREND-VERIFY-PREVIEW-1(訂正): donomanaIsFocusable()/
+// donomanaFirstFocusable()は`<!-- a11y-panel: 自動挿入 (generate.js) -->`ブロック内
+// (generate.js 957-977行付近のテンプレート)で定義されており、35アプリ共通でgenerate.js
+// 実行のたびにそのテンプレートから再生成される。このブロックの中身を直接書き換えても
+// (例: window公開を追加しても)、次回のnode generate.js実行で元のテンプレートへ
+// 静かに巻き戻される(CLAUDE.md「ブロックの内容を変更するとgenerate.jsの次回実行で
+// 上書きされる」の通り)。本Phaseのallowed filesはgenerate.jsを含まないため、
+// generate.js側のテンプレートを変更して公開することもできない。
+// そのため、同じ判定条件を持つ最小限のローカル関数を本機能専用に複製する
+// (新しいfocus管理手法を発明するのではなく、既存a11y-panelのロジックをそのまま
+// 複製するという形で意図を踏襲する。既存a11y-panel・generate.js・他画面への影響はゼロ)。
+function trendIsFocusable(el){
+  if (!el || !el.isConnected || el.disabled || el.tabIndex === -1) return false;
+  if (el.hasAttribute('hidden') || el.closest('[hidden]') || el.closest('[inert]')) return false;
+  if (el.getClientRects().length === 0) return false;
+  const cs = getComputedStyle(el);
+  if (cs.display === 'none' || cs.visibility === 'hidden' || cs.visibility === 'collapse') return false;
+  if (Number.parseFloat(cs.opacity) === 0) return false;
+  return true;
+}
+function trendFirstFocusable(root){
+  if (!root) return null;
+  const cands = root.querySelectorAll('button, input, select, textarea, a[href], [tabindex]');
+  for (let i = 0; i < cands.length; i++) { if (trendIsFocusable(cands[i])) return cands[i]; }
+  return null;
+}
+
 // design doc §13.2(本Phaseで訂正、Implementation Phase 訂正A): 既存go()自体は変更せず、
 // #s-trendを開く専用のthin wrapperとしてfocus管理のみを追加する。
 // 主見出し(#trend-title)はtabindex="-1"で意図的にTab順序から除外しているため、
-// 既存donomanaIsFocusable()(tabIndex===-1を拒否する)では判定できない。
-// ここではdonomanaIsFocusable()を使わず、要素の存在・接続状態を直接確認したうえで
+// trendIsFocusable()も(a11y-panel版と同じ判定条件のまま)これを拒否する。
+// ここではtrendIsFocusable()を使わず、要素の存在・接続状態を直接確認したうえで
 // .focus()し、実際にfocusが移動したかをdocument.activeElementで確認する。
 function openTrendScreen(){
   go('s-trend');
@@ -7668,18 +7695,16 @@ function openTrendScreen(){
 
 // design doc §13.2: 上部.backボタン・下部BACK_MAP経由の戻るボタンの両方から呼ばれる、
 // #s-trendから戻る専用処理。go()自体・他画面のonclickは変更しない。起点ボタン
-// (#trend-nav-btn)が何らかの理由でfocus不能な場合は、既存donomanaFirstFocusable()と
-// 同じフォールバック先(#s-report内の最初のfocus可能要素)へ focus する。
+// (#trend-nav-btn)が何らかの理由でfocus不能な場合は、trendFirstFocusable()経由で
+// #s-report内の最初のfocus可能要素へ focus する。
 function closeTrendScreen(){
   go('s-report');
   const origin = document.getElementById('trend-nav-btn');
-  if(origin && typeof donomanaIsFocusable === 'function' && donomanaIsFocusable(origin)){
+  if(origin && trendIsFocusable(origin)){
     origin.focus();
-  } else if(typeof donomanaFirstFocusable === 'function'){
-    const fallback = donomanaFirstFocusable(document.getElementById('s-report'));
+  } else {
+    const fallback = trendFirstFocusable(document.getElementById('s-report'));
     if(fallback) fallback.focus();
-  } else if(origin){
-    origin.focus();
   }
 }
 
