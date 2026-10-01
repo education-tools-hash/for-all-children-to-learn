@@ -96,6 +96,22 @@ async function runScenario(browser, name, fn) {
   // ---- Navigation / scaffolding ------------------------------------------
   await runScenario(browser, 'Nav-basic', async (page) => {
     await seedRaw(page, [{ ts: Date.now(), type: 'rp', lv: 1, result: 'best', schemaVersion: 1 }]);
+    // Regression guard: closeTrendScreen() depends on trendIsFocusable()/
+    // trendFirstFocusable() being real, reachable global functions. An earlier
+    // checkpoint instead referenced donomanaIsFocusable()/donomanaFirstFocusable()
+    // directly -- functions defined inside the `<!-- a11y-panel: 自動挿入
+    // (generate.js) -->` block, which generate.js silently regenerates from its
+    // own template on every run, discarding any manual edit made inside it
+    // (including a `window.donomanaIsFocusable = ...` exposure attempt). That made
+    // the "reuse existing helper" branch unreachable dead code, invisible to the
+    // focus-restore behavior tests below (which pass either way via the
+    // unconditional fallback). trendIsFocusable()/trendFirstFocusable() are
+    // defined in sst-app.html's own hand-authored section (outside any generator
+    // block), so they must survive a `node generate.js` run -- verified separately
+    // in this Phase's diff/regression checks, not by this test file.
+    check('[Nav-basic] trendIsFocusable is a reachable global function', (await page.evaluate(() => typeof trendIsFocusable)) === 'function');
+    check('[Nav-basic] trendFirstFocusable is a reachable global function', (await page.evaluate(() => typeof trendFirstFocusable)) === 'function');
+
     await openReport(page);
     check('[Nav-basic] #trend-nav-btn visible', await page.locator('#trend-nav-btn').isVisible());
     await openTrend(page);
@@ -124,6 +140,27 @@ async function runScenario(browser, name, fn) {
     // no stray focus left inside hidden #s-trend
     const trendStillHasFocus = await page.evaluate(() => document.getElementById('s-trend').contains(document.activeElement));
     check('[Nav-basic] no stray focus remains inside hidden #s-trend', !trendStillHasFocus);
+  });
+
+  // Exercises the actual fallback branch of closeTrendScreen() (origin button
+  // deliberately made unfocusable via disabled), proving donomanaFirstFocusable()
+  // is genuinely invoked and finds a real alternate element -- not just that some
+  // element ends up focused by accident.
+  await runScenario(browser, 'Nav-focus-fallback-when-origin-unfocusable', async (page) => {
+    await seedRaw(page, [{ ts: Date.now(), type: 'rp', lv: 1, result: 'best', schemaVersion: 1 }]);
+    await openReport(page);
+    await openTrend(page);
+    await page.evaluate(() => { document.getElementById('trend-nav-btn').disabled = true; });
+    await page.locator('#s-trend .back').click();
+    await page.waitForTimeout(150);
+    // The disabled #trend-nav-btn has no id-less sibling guarantee, so identify the
+    // focused element by tag/class rather than requiring a non-empty id (the correct
+    // fallback target here is #s-report's own `.back` button, which has no id attr).
+    const info = await page.evaluate(() => {
+      const el = document.activeElement;
+      return { tag: el && el.tagName, isBody: el === document.body, inReport: document.getElementById('s-report').contains(el), isOrigin: el === document.getElementById('trend-nav-btn') };
+    });
+    check('[Nav-focus-fallback-when-origin-unfocusable] focus lands on a real focusable element inside #s-report (not origin, not body)', info.inReport && !info.isBody && !info.isOrigin && info.tag === 'BUTTON', info);
   });
 
   await runScenario(browser, 'Nav-keyboard', async (page) => {

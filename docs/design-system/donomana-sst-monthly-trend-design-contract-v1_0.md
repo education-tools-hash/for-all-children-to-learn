@@ -724,3 +724,17 @@ migrationは不要。既存`activityLog`のrecordを書き換えない。既存r
 - **実機確認（本Implementation Phaseでは未実施、Real Device Gate）**: iPad Safari・VoiceOver・外部スイッチでの実機確認は行っていない。Playwright（Chromium）による自動検証のみ。
 - **変更ファイル**: `sst-app.html`（新規screen/関数の追加、`buildActivityList()`の`ACT_LABEL`参照安全化、`buildReport()`/`downloadReportCSV()`の null ガード追加）、`tools/sst-weekly-report-pdf/trend-implementation-test.js`（新規）、本文書。`assets/js/sst-record-detail.js`・`assets/js/record-dashboard-foundation.js`・`generate.js`・`apps-data.json`・Foundation API・localStorage schemaは無変更。
 - **push/merge/deploy**: 未実施（checkpoint commitのみ、User Review待ち）。
+
+---
+
+## 29. Verify / Preview Record（`SST-MONTHLY-TREND-VERIFY-PREVIEW-1`、追加検証・修正の記録）
+
+本節は検証Phaseの結果を事実として記録するのみであり、新たな設計判断は含まない。
+
+- **差分確認で発見した実際の不具合（修正済み）**: `closeTrendScreen()`は設計上、a11y-panelの既存`donomanaIsFocusable()`/`donomanaFirstFocusable()`を再利用する想定だったが、これらは`<!-- a11y-panel: 自動挿入 (generate.js) -->`ブロック（generate.js側のテンプレート、35アプリ共通）の中で定義されており、そのブロックの中身を直接編集して`window`へ公開しても、次回の`node generate.js`実行でgenerate.js自身のテンプレートへ静かに巻き戻される（CLAUDE.mdの既知の注意点どおり）。Implementation Phaseでの編集はこの巻き戻しにより実際のcheckpointへ反映されておらず、`closeTrendScreen()`内の`typeof donomanaIsFocusable === 'function'`判定が常にfalseになり、意図した「既存ヘルパー再利用」の分岐が到達不能なdead codeになっていた（focus復帰自体は無条件fallbackにより見かけ上動作していたため、挙動ベースの自動テストだけでは検出できなかった）。
+- **修正内容**: generate.jsはallowed filesに含まれないため変更できない。a11y-panelの判定条件と同一のロジックを持つ、本機能専用のローカル関数`trendIsFocusable()`/`trendFirstFocusable()`を`sst-app.html`の非生成（hand-authored）領域に複製し、`closeTrendScreen()`をこれらに差し替えた。`node generate.js`を実行してもこの関数定義が保持されることを確認した。
+- **追加した回帰テスト**: `trend-implementation-test.js`に(1)`trendIsFocusable`/`trendFirstFocusable`がグローバル関数として到達可能であることの確認、(2)起点ボタンを意図的に`disabled`にし、本当に`trendFirstFocusable()`のfallback経路が実行されて`#s-report`内の実在するfocus可能要素（`.back`ボタン）へfocusが移ることを確認するシナリオ、を追加した（挙動が「たまたま動く」ことと「意図した経路で動く」ことを区別するため）。
+- **既存コードへの変更の差分確認結果**: `buildDetailRecordList()`からの共通描画関数抽出（`buildDetailRecordCardsHtml()`）・`buildActivityList()`/当該関数内の`ACT_LABEL`参照安全化（`actLabelSafe()`）・`buildReport()`/`downloadReportCSV()`へのnullガードは、いずれも既存の呼び出し元・既存の正常record表示・既存CSV出力を変更しないことを実データで確認した（詳細はD節）。詳細開閉用id（`aria-controls`/カードid）は週次レポート・4週間のふりかえり（週1〜週4）の全てで衝突しないことを、実際にDOMへ書き出されたidの重複有無をブラウザで直接確認して検証した。新規formatterや採点ロジックは追加していない（既存`buildDetailRecordCardsHtml()`・`donomanaSstRecordDetail`をそのまま再利用）。
+- **PDF検証**: 実際にChromiumで4種類の合成fixture（通常4週間表示／各週に詳細ありの複数ページ表示／1件の長い詳細がページをまたぐ表示／既存週次レポート）からPDFファイルを生成し、pdfjs-distによるテキスト抽出と、PDFをブラウザで開いた実際のページ画像の両方で内容を確認した。全fixture記録の識別用テキスト（マーカー文字列）がPDFに含まれること、最後の記録・最後の回答まで欠落しないこと、週次レポートと4週間のふりかえりが同時に印刷されないこと（`getClientRects()`による実レンダリング確認）を確認した。Chromiumが生成したPDFはiPad Safariでの実機確認の代替ではない（§16.3のまま、本Phaseでも実機確認は実施していない）。
+- **再テスト結果**: 修正後、`trend-implementation-test.js`（110/110、新規2件追加）・`pdf-print-implementation-test.js`（165/165）・`tools/record-dashboard-poc/*golden-tests.js`全13ファイル（全てALL PASS）を再実行し、いずれも非回帰を確認した。`node generate.js`を実行すると`sitemap.xml`の`sst-app.html`の`lastmod`が実際のcommit日付に基づいて更新される（generate.jsの正常な既存動作であり不具合ではない）が、本Phaseのallowed filesに`sitemap.xml`は含まれないため、この変更はcommitに含めず破棄した。
+- **新しいcheckpoint**: 本Phaseで作成（full SHAは最終報告を参照）。
