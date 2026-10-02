@@ -56,8 +56,10 @@ async function seedThisWeek(page, records) {
   return clamped;
 }
 
+// Phase SST-RECORD-NAVIGATION-AND-GUIDANCE-1: .mc-report is now shared by
+// 3 home buttons; target the original report button by its onclick.
 async function openReportScreen(page) {
-  await page.locator('.mc-report').click({ timeout: 5000 });
+  await page.locator('.mc-report[onclick="go(\'s-report\')"]').click({ timeout: 5000 });
   await page.waitForTimeout(300);
 }
 

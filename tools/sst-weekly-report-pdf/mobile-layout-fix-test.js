@@ -84,7 +84,9 @@ const WIDTHS = [
   for (const w of WIDTHS) {
     const { context, page } = await freshPage(browser, w.viewport);
     try {
-      await page.locator('.mc-report').click({ timeout: 5000 });
+      // Phase SST-RECORD-NAVIGATION-AND-GUIDANCE-1: .mc-report is now shared by
+      // 3 home buttons; target the original report button by its onclick.
+      await page.locator('.mc-report[onclick="go(\'s-report\')"]').click({ timeout: 5000 });
       await page.waitForTimeout(150);
       await page.locator('#trend-nav-btn').click({ timeout: 5000 });
       await page.waitForTimeout(150);
@@ -142,7 +144,9 @@ const WIDTHS = [
   {
     const { context, page } = await freshPage(browser, { width: 390, height: 844 });
     try {
-      await page.locator('.mc-report').click({ timeout: 5000 });
+      // Phase SST-RECORD-NAVIGATION-AND-GUIDANCE-1: .mc-report is now shared by
+      // 3 home buttons; target the original report button by its onclick.
+      await page.locator('.mc-report[onclick="go(\'s-report\')"]').click({ timeout: 5000 });
       await page.waitForTimeout(150);
       check('[s-report-direct] #s-report becomes active', await page.evaluate(() => document.getElementById('s-report').classList.contains('on')));
       for (const btn of FIXED_BTNS) {

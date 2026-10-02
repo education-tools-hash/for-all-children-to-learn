@@ -49,8 +49,13 @@ async function seedRaw(page, value) {
   await page.waitForTimeout(200);
 }
 
+// Phase SST-RECORD-NAVIGATION-AND-GUIDANCE-1: the home screen now has 3
+// buttons sharing the .mc-report visual-style class (original weekly report,
+// plus new direct-entry #home-trend-btn/#home-ahist-btn) -- .mc-report alone
+// is no longer a unique selector. Target the original report button by its
+// onclick, not by id (it has none, unlike the two new direct-entry buttons).
 async function openReport(page) {
-  await page.locator('.mc-report').click({ timeout: 5000 });
+  await page.locator('.mc-report[onclick="go(\'s-report\')"]').click({ timeout: 5000 });
   await page.waitForTimeout(200);
 }
 
