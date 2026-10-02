@@ -240,6 +240,307 @@
     return rows;
   }
 
+  // ────────────────────────────────────────────────────────────
+  //  「選択の履歴」比較用抽出ヘルパー（Phase
+  //  SST-ANSWER-CHANGE-VISUALIZATION-IMPLEMENTATION-1、設計文書
+  //  docs/design-system/donomana-sst-answer-change-visualization-design-v1_0.md
+  //  §7/§8/§10を実装したもの）。
+  //
+  //  既存のgetDetailRows()/buildDetailCsvRows()/isValidDetail()とは完全に
+  //  独立しており、それらの動作・出力には一切影響しない（既存exportは
+  //  変更しない）。このセクションは「保存済みrecordから、型ごとに安全な
+  //  比較キー・条件シグネチャを持つ回答イベントを抽出し、検証し、
+  //  グループ化する」という新しい責務のみを持つ。record自体の書き換え・
+  //  推測によるID補完・trim等による値の書き換えは一切行わない（設計文書
+  //  §7.4・§8.1）。
+  // ────────────────────────────────────────────────────────────
+
+  // 比較対象type（設計文書§5の分類1・分類2のみ。branch/emotion/phrase等は含めない）。
+  var COMPARISON_ELIGIBLE_TYPES = ['rp', 'wq', 'quiz', 'story'];
+
+  // top-level type ↔ detail.type 対応表（設計文書§8.0、全文）。
+  var TYPE_TO_DETAIL_TYPE = {
+    rp: 'roleplay_choice',
+    wq: 'word_quiz_session',
+    quiz: 'sst_quiz_session',
+    story: 'social_story_completion'
+  };
+
+  function isPlainObject(x) {
+    return !!x && typeof x === 'object' && !Array.isArray(x);
+  }
+
+  // 設計文書§7.4/§8.1: typeof==='string'・非空・空白のみは無効・trim補正をしない。
+  function isValidComparisonText(x) {
+    return typeof x === 'string' && x.length > 0 && !/^\s*$/.test(x);
+  }
+
+  // ID比較はlocale非依存・大文字小文字を区別する完全一致（設計文書§7.4）。
+  function compareIdAsc(a, b) {
+    return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+  }
+
+  // choices/selectedの検証（設計文書§8.1 ルール7-14/12b）。
+  // 戻り値: {ok:false} または {ok:true, choicesSorted:[{id,text}](ID昇順、§7.2で比較に使う),
+  //         choicesPresented:[{id,text}]}(①②③用。元の配列順=実際に提示された順、§9.2・§11.5)。
+  function validateChoicesAndSelected(choices, selected) {
+    if (!Array.isArray(choices) || choices.length === 0) return { ok: false };
+    var seenIds = {};
+    var presented = [];
+    for (var i = 0; i < choices.length; i++) {
+      var c = choices[i];
+      if (!isPlainObject(c)) return { ok: false };
+      if (!isValidComparisonText(c.id) || !isValidComparisonText(c.text)) return { ok: false };
+      if (Object.prototype.hasOwnProperty.call(seenIds, c.id)) return { ok: false }; // 重複id禁止
+      seenIds[c.id] = c.text;
+      presented.push({ id: c.id, text: c.text });
+    }
+    if (!isPlainObject(selected)) return { ok: false }; // selected自体の欠落/null/配列を検出
+    if (!isValidComparisonText(selected.id) || !isValidComparisonText(selected.text)) return { ok: false };
+    if (!Object.prototype.hasOwnProperty.call(seenIds, selected.id)) return { ok: false };
+    if (seenIds[selected.id] !== selected.text) return { ok: false }; // selected.textが対応choiceのtextと不一致
+    var sorted = choices.slice().sort(compareIdAsc).map(function (c) { return { id: c.id, text: c.text }; });
+    return { ok: true, choicesSorted: sorted, choicesPresented: presented };
+  }
+
+  // 型ごとの実保存fieldを、名前を保ったまま構造化する（設計文書§7.1-7.2、
+  // ||による1本化をしない。WQはsituation/promptの両方を常に保持する）。
+  function buildContextFields(type, src) {
+    if (type === 'rp') return { situation: src.situation };
+    if (type === 'wq') return { situation: src.situation, prompt: src.prompt };
+    if (type === 'quiz') return { text: src.text };
+    if (type === 'story') return { prompt: src.text };
+    return null;
+  }
+
+  function contextFieldsValid(fields) {
+    if (!fields) return false;
+    var keys = Object.keys(fields);
+    for (var i = 0; i < keys.length; i++) {
+      if (!isValidComparisonText(fields[keys[i]])) return false;
+    }
+    return true;
+  }
+
+  // 構造化比較キー・条件シグネチャ（設計文書§7.2）。
+  function buildComparisonKey(type, sceneId, pageIndex) {
+    return { type: type, sceneId: sceneId, pageIndex: (typeof pageIndex === 'number' ? pageIndex : null) };
+  }
+
+  function comparisonKeyToString(key) {
+    return JSON.stringify({ type: key.type, sceneId: key.sceneId, pageIndex: key.pageIndex });
+  }
+
+  // selected/level/tierを含めない、key順を固定した構造化シグネチャ（設計文書§7.2）。
+  function buildConditionSignature(contextFields, choicesSorted) {
+    return JSON.stringify({ contextFields: contextFields, choices: choicesSorted });
+  }
+
+  // entry(Foundationの生record)1件から、比較対象の回答イベントを抽出する
+  // (設計文書§8)。sourceIndexは元activityLog配列内での格納順(§10.3の
+  // tie-break用、呼び出し側が渡す)。
+  //
+  // 戻り値のstatus:
+  //   'ineligible'      : typeがCOMPARISON_ELIGIBLE_TYPESに含まれない
+  //                       (比較対象外type。設計文書§12.2状態3の判定材料)
+  //   'record-excluded' : record全体が検証不能/不正(reasonで理由を区別)。
+  //                       このrecordが本来何件の回答イベントを含んでいたかは
+  //                       確定できないため、どの比較グループの除外数にも
+  //                       計上してはならない(設計文書§12.3)
+  //   'ok'              : 0件以上の有効な回答イベントを抽出できた
+  //                       (events)。events.length===0でも'ok'
+  //                       (例: answersが有効な空配列)。excludedCountは
+  //                       このrecord内で個別に無効だった回答イベント数
+  //                       (denominatorが既知。ただしどの比較グループに
+  //                       属するはずだったかは確定できないため、特定の
+  //                       グループの除外数には計上しない。設計文書§12.3)
+  function extractComparisonAnswerEvents(entry, sourceIndex) {
+    if (!isPlainObject(entry)) return { status: 'ineligible' };
+    var type = entry.type;
+    if (COMPARISON_ELIGIBLE_TYPES.indexOf(type) === -1) return { status: 'ineligible' };
+
+    var detail = entry.detail;
+    if (!isValidDetail(detail)) return { status: 'record-excluded', reason: 'invalid-detail' };
+    if (detail.type !== TYPE_TO_DETAIL_TYPE[type]) return { status: 'record-excluded', reason: 'type-mismatch' };
+
+    if (type === 'rp') {
+      if (detail.custom !== false) return { status: 'record-excluded', reason: 'rp-not-builtin' };
+      var scenario = detail.scenario;
+      if (!isPlainObject(scenario) || !isValidComparisonText(scenario.id)) {
+        return { status: 'record-excluded', reason: 'missing-parent-id' };
+      }
+      var rpCv = validateChoicesAndSelected(detail.choices, detail.selected);
+      if (!rpCv.ok) return { status: 'record-excluded', reason: 'invalid-choices-or-selected' };
+      var rpCtx = buildContextFields('rp', scenario);
+      if (!contextFieldsValid(rpCtx)) return { status: 'record-excluded', reason: 'invalid-context-fields' };
+      var rpKey = buildComparisonKey('rp', scenario.id, null);
+      return {
+        status: 'ok',
+        okRecordCount: 1,
+        excludedCount: 0,
+        events: [{
+          ts: entry.ts,
+          sourceIndex: sourceIndex,
+          answerIndex: 0,
+          type: 'rp',
+          comparisonKey: rpKey,
+          comparisonKeyString: comparisonKeyToString(rpKey),
+          conditionSignature: buildConditionSignature(rpCtx, rpCv.choicesSorted),
+          contextFields: rpCtx,
+          choices: rpCv.choicesSorted,
+          choicesPresented: rpCv.choicesPresented,
+          selected: { id: detail.selected.id, text: detail.selected.text },
+          // 表示用のみ(比較キー・シグネチャには含めない)。teacherEditsで編集不可のfieldだが、
+          // 欠落していても検証には影響させない(§8.1の対象外)。
+          displayTitle: isValidComparisonText(scenario.title) ? scenario.title : null
+        }]
+      };
+    }
+
+    // wq / quiz / story: session型。answers[]自体が配列でなければrecord全体を除外する
+    // (設計文書§8.1ルール6・§8.2)。
+    if (!Array.isArray(detail.answers)) return { status: 'record-excluded', reason: 'answers-not-array' };
+
+    var story = null;
+    if (type === 'story') {
+      story = detail.story;
+      if (!isPlainObject(story) || !isValidComparisonText(story.id)) {
+        return { status: 'record-excluded', reason: 'missing-parent-id' };
+      }
+    }
+
+    var events = [];
+    var excludedCount = 0;
+    var answers = detail.answers;
+    for (var i = 0; i < answers.length; i++) {
+      var a = answers[i];
+      if (!isPlainObject(a)) { excludedCount++; continue; }
+
+      var sceneId = null, pageIndex = null, ctxSrc = null;
+
+      if (type === 'wq' || type === 'quiz') {
+        var q = a.question;
+        if (!isPlainObject(q) || !isValidComparisonText(q.id)) { excludedCount++; continue; }
+        sceneId = q.id;
+        ctxSrc = q;
+      } else { // story
+        if (typeof a.pageIndex !== 'number' || !isFinite(a.pageIndex) || Math.floor(a.pageIndex) !== a.pageIndex || a.pageIndex < 0) {
+          excludedCount++; continue;
+        }
+        pageIndex = a.pageIndex;
+        sceneId = story.id;
+        var p = a.prompt;
+        if (!isPlainObject(p)) { excludedCount++; continue; }
+        ctxSrc = p;
+      }
+
+      var cv = validateChoicesAndSelected(a.choices, a.selected);
+      if (!cv.ok) { excludedCount++; continue; }
+
+      var ctx = buildContextFields(type, ctxSrc);
+      if (!contextFieldsValid(ctx)) { excludedCount++; continue; }
+
+      var key = buildComparisonKey(type, sceneId, pageIndex);
+      events.push({
+        ts: entry.ts,
+        sourceIndex: sourceIndex,
+        answerIndex: i,
+        type: type,
+        comparisonKey: key,
+        comparisonKeyString: comparisonKeyToString(key),
+        conditionSignature: buildConditionSignature(ctx, cv.choicesSorted),
+        contextFields: ctx,
+        choices: cv.choicesSorted,
+        choicesPresented: cv.choicesPresented,
+        selected: { id: a.selected.id, text: a.selected.text },
+        // 表示用のみ(比較キー・シグネチャには含めない)。storyのみ、同じ物語の全ページで共通。
+        displayTitle: (type === 'story' && isValidComparisonText(story.title)) ? story.title : null
+      });
+    }
+
+    return { status: 'ok', okRecordCount: 1, events: events, excludedCount: excludedCount };
+  }
+
+  // 表示順3キーソート(設計文書§10.3): ts昇順→sourceIndex昇順(tie-break)→
+  // answerIndex昇順(rpは常に0)。同一tsからの順序は真の時系列を断定しない。
+  function sortComparisonAnswerEvents(events) {
+    return events.slice().sort(function (a, b) {
+      if (a.ts !== b.ts) return a.ts - b.ts;
+      if (a.sourceIndex !== b.sourceIndex) return a.sourceIndex - b.sourceIndex;
+      return a.answerIndex - b.answerIndex;
+    });
+  }
+
+  // items: [{entry, sourceIndex}, ...]（表示期間内の有効recordのみ、呼び出し側が
+  // 既存trendReadRaw()/trendClassify()相当で絞り込み済みのものを渡す）。
+  //
+  // 比較キー+条件シグネチャでグループ化する(設計文書§6原則4・§7.2)。
+  //
+  // 除外数の計上方針(設計文書§12.3、必須補正B): 個々の回答イベントの検証失敗
+  // (excludedCount)は、その回答イベント自身の比較キー・条件シグネチャの
+  // どちらか/両方が検証失敗の時点で確定できないため、特定グループの除外数に
+  // 計上しない。record全体の除外(recordExcluded、denominator不明)とも
+  // 別々に集計する。いずれも「全◯件中△件」という母数つき表示には使わない
+  // (母数を推測で埋めない)。
+  function groupComparisonAnswerEvents(items) {
+    var groupsMap = {};
+    var groupOrder = [];
+    var ineligibleCount = 0;
+    var recordExcluded = []; // [{sourceIndex, reason}]
+    var okRecordCount = 0;
+    var totalValidEvents = 0;
+    var answerLevelExclusionCount = 0; // グループ特定不能な回答イベント単位の除外(集計のみ)
+
+    (items || []).forEach(function (item) {
+      var result = extractComparisonAnswerEvents(item.entry, item.sourceIndex);
+      if (result.status === 'ineligible') { ineligibleCount++; return; }
+      if (result.status === 'record-excluded') {
+        recordExcluded.push({ sourceIndex: item.sourceIndex, reason: result.reason });
+        return;
+      }
+      okRecordCount += result.okRecordCount || 0;
+      answerLevelExclusionCount += result.excludedCount || 0;
+      result.events.forEach(function (ev) {
+        totalValidEvents++;
+        var gk = ev.comparisonKeyString + '::' + ev.conditionSignature;
+        if (!groupsMap[gk]) {
+          groupsMap[gk] = { comparisonKey: ev.comparisonKey, conditionSignature: ev.conditionSignature, choices: ev.choices, events: [] };
+          groupOrder.push(gk);
+        }
+        groupsMap[gk].events.push(ev);
+      });
+    });
+
+    var groups = groupOrder.map(function (gk) {
+      var g = groupsMap[gk];
+      return { comparisonKey: g.comparisonKey, conditionSignature: g.conditionSignature, choices: g.choices, events: sortComparisonAnswerEvents(g.events) };
+    });
+
+    return {
+      groups: groups,
+      ineligibleCount: ineligibleCount,
+      recordExcluded: recordExcluded,
+      okRecordCount: okRecordCount,
+      totalValidEvents: totalValidEvents,
+      answerLevelExclusionCount: answerLevelExclusionCount
+    };
+  }
+
+  // 設計文書§12.2の6状態のうち、読み込み失敗(状態1)・対象期間に記録なし(状態2)
+  // を除く4区分(状態3-6)を、groupComparisonAnswerEvents()の結果から判定する。
+  // 状態1・2は呼び出し側(sst-app.html)が既存trendReadRaw()/trendClassify()
+  // 相当の結果から別途判定する(本関数はその後段のみを担当)。
+  //
+  // weekRecordCount: 表示期間内の有効record数(trendClassify相当の'week'バケット件数)。
+  function classifyAnswerHistoryState(weekRecordCount, groupResult) {
+    if (weekRecordCount === 0) return { state: 2 };
+    var eligibleTypeRecordCount = groupResult.recordExcluded.length + groupResult.okRecordCount;
+    if (eligibleTypeRecordCount === 0) return { state: 3 };
+    if (groupResult.groups.length === 0) return { state: 4 };
+    var hasUnattributedExclusion = groupResult.recordExcluded.length > 0 || groupResult.answerLevelExclusionCount > 0;
+    return { state: hasUnattributedExclusion ? 6 : 5 };
+  }
+
   return {
     VERSION: VERSION,
     SUPPORTED_DETAIL_SCHEMA_VERSION: SUPPORTED_DETAIL_SCHEMA_VERSION,
@@ -249,6 +550,19 @@
     getDetailRows: getDetailRows,
     CSV_HEADER: CSV_HEADER,
     formatCsvDateTime: formatCsvDateTime,
-    buildDetailCsvRows: buildDetailCsvRows
+    buildDetailCsvRows: buildDetailCsvRows,
+
+    // 「選択の履歴」比較用（新規追加分、既存exportとは独立）
+    COMPARISON_ELIGIBLE_TYPES: COMPARISON_ELIGIBLE_TYPES,
+    TYPE_TO_DETAIL_TYPE: TYPE_TO_DETAIL_TYPE,
+    isValidComparisonText: isValidComparisonText,
+    buildContextFields: buildContextFields,
+    buildConditionSignature: buildConditionSignature,
+    buildComparisonKey: buildComparisonKey,
+    comparisonKeyToString: comparisonKeyToString,
+    extractComparisonAnswerEvents: extractComparisonAnswerEvents,
+    sortComparisonAnswerEvents: sortComparisonAnswerEvents,
+    groupComparisonAnswerEvents: groupComparisonAnswerEvents,
+    classifyAnswerHistoryState: classifyAnswerHistoryState
   };
 });
