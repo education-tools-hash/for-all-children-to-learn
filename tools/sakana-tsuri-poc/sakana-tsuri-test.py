@@ -409,8 +409,17 @@ def main():
         record("Fish: starts far from the bait (WAITING far phase)",
                page.evaluate("waitPhase") == "far" and
                abs(float(page.evaluate("document.getElementById('fish').style.left").rstrip('%')) - 6) < 0.01)
-        record("Fish: rendered small while far away (depth cue)",
-               "scale(0.6)" in page.evaluate("document.getElementById('fish').style.transform"))
+        # Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: the outer .fish transform's scale
+        # is now FISH_FAR_SCALE composed with the current catch's (randomly rolled, size-
+        # variety) currentSizeScale, not a fixed 0.6 — check the composition numerically
+        # (parsed back out of the transform string) rather than a literal substring.
+        far_scale_matches = page.evaluate("""() => {
+            var t = document.getElementById('fish').style.transform;
+            var m = /scale\\(([-0-9.]+)\\)/.exec(t);
+            var actual = m ? parseFloat(m[1]) : NaN;
+            return Math.abs(actual - FISH_FAR_SCALE * currentSizeScale) < 0.001;
+        }""")
+        record("Fish: rendered small while far away (depth cue)", far_scale_matches)
         record("Bait: tackle (hook+bait) visible before the bite",
                "eaten" not in page.evaluate("document.getElementById('tackle').className"))
         record("Leader line: visible from float to hook/bait before the bite",
@@ -434,8 +443,14 @@ def main():
                "eaten" in page.evaluate("document.getElementById('tackle').className"))
         record("Leader line: hidden once bitten (hook is now in the fish's mouth, not at the float)",
                page.evaluate("document.getElementById('leader-line').style.display") == "none")
-        record("Fish: back to full size once it has arrived/bitten (depth cue resolved)",
-               "scale(1)" in page.evaluate("document.getElementById('fish').style.transform"))
+        # Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: "full size" is now 1 * currentSizeScale.
+        full_scale_matches = page.evaluate("""() => {
+            var t = document.getElementById('fish').style.transform;
+            var m = /scale\\(([-0-9.]+)\\)/.exec(t);
+            var actual = m ? parseFloat(m[1]) : NaN;
+            return Math.abs(actual - currentSizeScale) < 0.001;
+        }""")
+        record("Fish: back to full size once it has arrived/bitten (depth cue resolved)", full_scale_matches)
         record("Fish: hooked mark visible from BITTEN onward",
                "hooked" in page.evaluate("document.getElementById('fish').className"))
         record("Fish: visible while REELING",
@@ -574,9 +589,12 @@ def main():
                page.evaluate("inputSettings.reelSpeedPreset") == "fast" and
                page.evaluate("HOLD_TICK_MS") == 90)
 
+        # Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: inputSettings gained 3 more keys
+        # (backgroundMode/fishTypeMode/sizeEffort), all still at their own defaults here.
         record("Settings: saved to a dedicated localStorage key, not the records log",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
-               {"reelGainPreset": "large", "reelSpeedPreset": "fast", "reelMethod": "hold"})
+               {"reelGainPreset": "large", "reelSpeedPreset": "fast", "reelMethod": "hold",
+                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off"})
         record("Settings: records log untouched by settings changes alone",
                page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
 
@@ -636,7 +654,8 @@ def main():
                page.evaluate("inputSettings.reelMethod") == "hold")
         record("Settings: reset persists the default back to localStorage",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
-               {"reelGainPreset": "medium", "reelSpeedPreset": "standard", "reelMethod": "hold"})
+               {"reelGainPreset": "medium", "reelSpeedPreset": "standard", "reelMethod": "hold",
+                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off"})
         record("Settings: reset does not disturb the common A11y panel's own settings",
                page.evaluate("document.documentElement.style.filter") == "" and
                page.evaluate("document.body.style.zoom") == "")

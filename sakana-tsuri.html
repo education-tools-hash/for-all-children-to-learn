@@ -265,6 +265,25 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 .fish-inner.caught{animation:fishCaughtPop .5s ease-out;}
 @keyframes fishCaughtPop{0%{transform:scale(1);}40%{transform:scale(1.16);}100%{transform:scale(1);}}
 
+/* Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: small size badge, shown only once the
+   fish is actually hooked (.fish.hooked, an existing class — BITTEN/REELING/CAUGHT),
+   so it never needs to track the WAITING far/approach depth-scale glide. A child of
+   `.fish` (so it moves with it) but counter-scaled via the --fsz custom property (set
+   once per catch, alongside the size scale itself) so the badge TEXT stays a constant,
+   readable size regardless of whether the fish itself is small/medium/large — size is
+   conveyed by the fish's own rendered size plus this text, never by color alone. */
+.fish-size-label{
+  position:absolute;left:50%;top:100%;margin-top:2px;
+  transform:translateX(-50%) scale(calc(1 / var(--fsz, 1)));
+  transform-origin:top center;
+  background:rgba(255,255,255,.88);color:var(--dm-color-ink);
+  font-size:var(--dm-font-size-caption);font-weight:700;
+  padding:2px 8px;border-radius:var(--dm-radius-pill);
+  white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.18);
+  display:none;
+}
+.fish.hooked .fish-size-label{display:block;}
+
 .splash{
   position:absolute;top:46%;transform:translate(-50%,-50%);
   font-size:1.6rem;opacity:0;pointer-events:none;z-index:6;
@@ -891,6 +910,32 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       <button type="button" data-reel-speed="standard" aria-pressed="false">ふつう</button>
       <button type="button" data-reel-speed="fast" aria-pressed="false">はやい</button>
     </div>
+    <!-- Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: 背景・魚の見た目の既定は「おまかせ」
+         (直前の選択と違うものが出やすい単純な非連続選択、下のJS参照)。教員が特定の1種類に
+         固定したい場合はここで選ぶ。変更は次の「なげる」から適用され、操作中の画面を
+         いきなり変えない(指示: 適用タイミングは次の活動開始時に統一)。 -->
+    <h3>はいけい</h3>
+    <p class="setting-desc">つりばの けしきを えらべます。「おまかせ」は、まえかいと ちがう けしきに なりやすい えらびかたです。つぎに「なげる」を おしたときから かわります。</p>
+    <div class="preset-group" role="group" aria-label="はいけい">
+      <button type="button" data-background="auto" aria-pressed="false">おまかせ</button>
+      <button type="button" data-background="pond-original" aria-pressed="false">池</button>
+      <button type="button" data-background="pond-autumn" aria-pressed="false">秋の池</button>
+      <button type="button" data-background="forest-stream" aria-pressed="false">石のある川</button>
+    </div>
+    <h3>さかなの みため</h3>
+    <p class="setting-desc">つれる さかなの みためを えらべます。「おまかせ」は、まえかいと ちがう みための さかなに なりやすい えらびかたです。つぎに「なげる」を おしたときから かわります。</p>
+    <div class="preset-group" role="group" aria-label="さかなの みため">
+      <button type="button" data-fish-type="auto" aria-pressed="false">おまかせ</button>
+      <button type="button" data-fish-type="orange" aria-pressed="false">オレンジ</button>
+      <button type="button" data-fish-type="red-white" aria-pressed="false">赤白</button>
+      <button type="button" data-fish-type="spotted" aria-pressed="false">まだら</button>
+    </div>
+    <h3>大きさに応じた手応え</h3>
+    <p class="setting-desc">「あり」にすると、大きい魚ほど まきとりに すこし おおくの そうさが ひつようになります(小=いままでどおり、中=約1.25倍、大=約1.5倍の そうさりょう)。初期設定は「なし」で、大きさに かかわらず いままでと同じ そうさりょうで つれます。</p>
+    <div class="preset-group" role="group" aria-label="大きさに応じた手応え">
+      <button type="button" data-size-effort="off" aria-pressed="false">なし</button>
+      <button type="button" data-size-effort="on" aria-pressed="false">あり</button>
+    </div>
     <button id="settingsResetBtn" type="button">↺ さかなつりの設定をリセット</button>
   </div>
   <button id="settingsCloseBtn" type="button">とじる</button>
@@ -999,8 +1044,9 @@ div:has(> #donomanaLockBtn){right:64px!important;}
         </div>
         <div class="fish" id="fish" aria-hidden="true">
           <div class="fish-inner" id="fish-inner">
-            <img src="assets/sakana-tsuri/orange-fish.png" alt="" width="480" height="251" loading="eager" decoding="async">
+            <img id="fish-img" src="assets/sakana-tsuri/orange-fish.png" alt="" width="480" height="251" loading="eager" decoding="async">
           </div>
+          <span class="fish-size-label" id="fish-size-label" aria-hidden="true"></span>
         </div>
         <span class="splash" id="splash" aria-hidden="true">💦</span>
       </div>
@@ -1101,20 +1147,38 @@ var STATE = { IDLE:'IDLE', CASTING:'CASTING', WAITING:'WAITING', BITTEN:'BITTEN'
 var state = STATE.IDLE;
 
 /* Canonical Session State（Design Contract 7.1章） */
-var reelProgress = 0;      // 0-100, monotonically non-decreasing (9章)
+// 0-reelTarget, monotonically non-decreasing (9章). reelTarget is usually 100 (Phase
+// FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: only scales above 100 when inputSettings.
+// sizeEffort is 'on' and the current fish rolled medium/large — see reelTarget below).
+var reelProgress = 0;
 var hookedFishId = null;
-var currentFish = null;    // {color, emoji} — presentation only
+var currentFish = null;    // {type, size} — presentation only (see FISH_PALETTE/FISH_SIZES below)
 var caughtLanded = false;  // guards landFish() double-fire (5.4章)
 var sessionId = null;
 var trialNumber = 0;
 var castStartedAt = 0;
 var lastInputMethod = null;
+/* Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1 */
+var reelTarget = 100;          // reelProgress's cap for the current trial — see pickFishAppearance()
+var currentSizeScale = 1;      // current fish's visual scale multiplier, composed with the
+                                // existing depth-scale in setFishDepthScale() below
+var currentBackgroundKey = 'pond-original'; // updated by pickBackground(), below
+var lastFishTypePicked = null; // excluded from the pool on the next 'auto' pick, so two
+                                // consecutive catches can never show the identical fish type
 
 /* Transient Interaction State（17.1章）— kept structurally separate from the above */
 var isPhysicallyHeld = false;
 var holdInputMethod = null;
 var holdTimer = null;
 var castTimer = null, waitTimer = null, biteTimer = null, caughtTimer = null, pointerWatchdog = null;
+
+/* Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: plain key lists used only for settings
+   validation below — declared ahead of the full BACKGROUND_PALETTE/FISH_PALETTE
+   description tables (which live further down, near where they're rendered) because
+   loadInputSettings() runs at script-load time, before those tables' own var statements
+   would otherwise have executed. */
+var BACKGROUND_KEYS = ['pond-original', 'pond-autumn', 'forest-stream'];
+var FISH_TYPE_KEYS = ['orange', 'red-white', 'spotted'];
 
 /* ---- Input Settings (Phase FISHING-APP-INPUT-SETTINGS-1) ----
    Shared foundation for "how much/how fast one input moves reelProgress", designed to
@@ -1140,7 +1204,14 @@ var REEL_METHODS = [
   { value: 'timing', label: 'タイミングよく おしてまく' }
 ];
 var REEL_METHOD_VALUES = REEL_METHODS.map(function (m) { return m.value; });
-var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold' };
+/* backgroundMode/fishTypeMode: 'auto' (non-repeating random pick each new activity —
+   see pickBackground()/pickFishAppearance() below) or one fixed key from
+   BACKGROUND_KEYS/FISH_TYPE_KEYS, for a teacher who wants to lock the scene/look to one
+   value. sizeEffort: 'off' (default — required operation amount to land any fish stays
+   the same regardless of its randomly-rolled size, Phase指示: "初期設定では、大きさに
+   よって必要な操作量を変えない") or 'on' (size scales the required total reelProgress
+   via reelTarget below, Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1). */
+var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold', backgroundMode: 'auto', fishTypeMode: 'auto', sizeEffort: 'off' };
 var INPUT_SETTINGS_STORAGE_KEY = 'sakana-tsuri_settings'; // deliberately NOT donomanaRecordAddLog's
                                                             // array-of-trials log key — this is a
                                                             // standing setting, not a record entry.
@@ -1148,7 +1219,10 @@ function defaultInputSettings() {
   return {
     reelGainPreset: DEFAULT_INPUT_SETTINGS.reelGainPreset,
     reelSpeedPreset: DEFAULT_INPUT_SETTINGS.reelSpeedPreset,
-    reelMethod: DEFAULT_INPUT_SETTINGS.reelMethod
+    reelMethod: DEFAULT_INPUT_SETTINGS.reelMethod,
+    backgroundMode: DEFAULT_INPUT_SETTINGS.backgroundMode,
+    fishTypeMode: DEFAULT_INPUT_SETTINGS.fishTypeMode,
+    sizeEffort: DEFAULT_INPUT_SETTINGS.sizeEffort
   };
 }
 function loadInputSettings() {
@@ -1163,7 +1237,14 @@ function loadInputSettings() {
     // (undefined) — falls back to 'hold' exactly like any other unrecognized value,
     // preserving prior behavior for every existing user with saved settings (指示21章).
     var method = REEL_METHOD_VALUES.indexOf(parsed.reelMethod) !== -1 ? parsed.reelMethod : DEFAULT_INPUT_SETTINGS.reelMethod;
-    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
+    // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: same safe-fallback pattern as the
+    // three settings above — existing saved settings from before this Phase have none
+    // of these three keys at all (undefined), which falls back to the defaults exactly
+    // like any other unrecognized value, so nothing breaks for an existing saved session.
+    var background = (parsed.backgroundMode === 'auto' || BACKGROUND_KEYS.indexOf(parsed.backgroundMode) !== -1) ? parsed.backgroundMode : DEFAULT_INPUT_SETTINGS.backgroundMode;
+    var fishType = (parsed.fishTypeMode === 'auto' || FISH_TYPE_KEYS.indexOf(parsed.fishTypeMode) !== -1) ? parsed.fishTypeMode : DEFAULT_INPUT_SETTINGS.fishTypeMode;
+    var sizeEffort = (parsed.sizeEffort === 'on' || parsed.sizeEffort === 'off') ? parsed.sizeEffort : DEFAULT_INPUT_SETTINGS.sizeEffort;
+    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method, backgroundMode: background, fishTypeMode: fishType, sizeEffort: sizeEffort }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
   } catch (e) { return defaultInputSettings(); }
 }
 function saveInputSettings() {
@@ -1239,17 +1320,73 @@ var FISH_FAR_SCALE = 0.6;       // depth cue: small while distant, growing to 1 
                                  // (User Browser Review §3: "遠景と近景の魚位置差")
 /* Fish definition table — deliberately data-driven (an array of plain objects picked
    from at random) rather than a hardcoded 3-way branch, so a future Phase can extend
-   this to more entries (varied hex/size range/spawn weight/appearance area etc, see
-   docs/design-system/donomana-fishing-app-cast-zone-design-notes-v1_0.md §Fish
-   Variation) without touching the pick/spawn logic below — only this table and, if a
-   future entry needs a different silhouette, the SVG markup it points to. `color` is
-   also the vocabulary already used by the Learning Record payload's `caughtColor`
-   field, so it is kept even though "type" would be the more general future name. */
+   this to more entries without touching the pick/spawn logic below — only this table
+   and, if a future entry needs different art, the image it points to.
+
+   Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: rewritten from the pre-existing
+   {color,hex} shape (red/blue/yellow, a currentColor-fill recipe for the old SVG fish)
+   to {type,label,image} describing the three real images now available (assets/
+   sakana-tsuri/). The old shape had already gone stale in the prior Phase
+   (FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1): once the fish became a flat raster
+   image, nothing in the app could still render red/blue/yellow — every catch showed the
+   same orange image — yet saveTrialRecord() (below) kept writing one of those three
+   color words into the Learning Record's `caughtColor` field regardless, so a session
+   could already be recorded as having caught a "blue" or "yellow" fish that was never
+   actually shown. This Phase's three real, distinct images make that mismatch newly
+   fixable and newly important to fix (指示: "見えていない色を釣ったこととして記録しな
+   い"). Fix applied: `caughtColor`'s KEY is kept (no payload shape/schema change — still
+   exactly the same set of keys saveTrialRecord() always wrote), but its VALUE now comes
+   from this table's `type` (one of 'orange'/'red-white'/'spotted', matching exactly what
+   `#fish-img`'s src was for that trial) instead of the old, now-disconnected color word.
+   Alternative considered and NOT applied: renaming the key itself (e.g. to
+   `caughtFishType`) for clearer self-description — rejected for this Phase since nothing
+   else in the codebase reads `caughtColor` (verified by repo-wide search), so there is no
+   compatibility reason to keep the old key *name*, only inertia; a rename is a real
+   schema-shape change the instructions ask not to make unilaterally, so it is reported
+   here rather than applied. */
 var FISH_PALETTE = [
-  { color: 'red',    hex: '#EE6C7C' },
-  { color: 'blue',   hex: '#4A8FD9' },
-  { color: 'yellow', hex: '#F5C542' }
+  { type: 'orange',    label: 'オレンジの魚',  image: 'assets/sakana-tsuri/orange-fish.png' },
+  { type: 'red-white', label: '赤白の魚',      image: 'assets/sakana-tsuri/red-white-fish.png' },
+  { type: 'spotted',   label: 'まだら模様の魚', image: 'assets/sakana-tsuri/spotted-fish.png' }
 ];
+/* Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: background scenes. Same data-driven
+   table shape as FISH_PALETTE, used by pickBackground()/renderBackground() below. */
+var BACKGROUND_PALETTE = [
+  { key: 'pond-original', label: '池',        image: 'assets/sakana-tsuri/pond-background.jpg' },
+  { key: 'pond-autumn',   label: '秋の池',     image: 'assets/sakana-tsuri/pond-autumn.jpg' },
+  { key: 'forest-stream', label: '石のある川', image: 'assets/sakana-tsuri/forest-stream.jpg' }
+];
+/* Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: size is an independent axis from fish
+   type (picked separately in pickFishAppearance() below, never influenced by which type
+   was chosen) — this repurposes the pre-existing but previously-decorative
+   `currentFish.size` field (was `Math.round(randomBetween(1,3))`, a random 1-3 integer
+   with zero visual or gameplay effect and zero other code reading it — the same kind of
+   "recorded but never actually shown" gap as caughtColor's, above, just for a number
+   instead of a color word) into something real: it now drives the fish's actual
+   on-screen scale (`scale`, composed with the existing depth-scale in
+   setFishDepthScale()) and, only when inputSettings.sizeEffort is 'on', the amount of
+   total reeling required (`effortMultiplier`, applied to reelTarget). `effortMultiplier`
+   values (1 / 1.25 / 1.5) are the Phase's own stated trial values, explicitly not a
+   final tuned constant — re-check on a real iPad and adjust down if "大" feels too long,
+   per instruction. caughtSize's value TYPE also changes here, from a bare integer to
+   this table's descriptive `key` string ('small'/'medium'/'large'), for the same
+   not-self-describing reason as the caughtColor fix above; also unilateral-schema-change
+   safe since nothing else reads caughtSize either (verified by repo-wide search). */
+var FISH_SIZES = [
+  { key: 'small',  label: 'ちいさい', scale: 0.8,  effortMultiplier: 1 },
+  { key: 'medium', label: 'ふつう',   scale: 1.0,  effortMultiplier: 1.25 },
+  { key: 'large',  label: 'おおきい', scale: 1.18, effortMultiplier: 1.5 }
+];
+/* Simple, honest "don't repeat the last pick" selection (Phase指示: "同じ背景/見た目が
+   連続しにくい単純な選び方"): excludes whatever was shown last from the candidate pool,
+   then picks uniformly at random among what's left — with 3 candidates this guarantees
+   the immediate repeat specifically can never happen, without weighting or history
+   beyond the single most recent pick. */
+function pickNonRepeating(list, lastValue, keyFn) {
+  var pool = list.filter(function (item) { return keyFn(item) !== lastValue; });
+  if (!pool.length) pool = list; // safety net: never return nothing, even if list.length <= 1
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 
 var elStart = document.getElementById('start-screen');
 var elFishing = document.getElementById('fishing-screen');
@@ -1257,6 +1394,8 @@ var elStatus = document.getElementById('status-text');
 var elStatusChip = document.getElementById('status-chip');
 var elFish = document.getElementById('fish');
 var elFishInner = document.getElementById('fish-inner');
+var elFishImg = document.getElementById('fish-img');
+var elFishSizeLabel = document.getElementById('fish-size-label');
 var elBobber = document.getElementById('bobber');
 var elTackle = document.getElementById('tackle');
 var elSplash = document.getElementById('splash');
@@ -1402,22 +1541,38 @@ function setFishXY(xPct, yPct) {
 /* Depth scale lives on the outer `.fish` (position) element, combined with its fixed
    centering translate in one inline transform, so it never fights the inner element's
    own gesture-keyframe transforms (bob/wag/resist/etc). */
+// Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: composes the pre-existing depth-scale
+// (far/near glide during WAITING) with the current fish's size scale (currentSizeScale,
+// set once per catch in pickFishAppearance()) into the one inline transform `.fish`
+// already owned — the two call sites below (setFishDepthScale(FISH_FAR_SCALE) and
+// setFishDepthScale(1)) are unchanged; only this function's own body changed. Also
+// writes the --fsz custom property .fish-size-label (CSS) reads to counter-scale
+// itself, so the size badge's text stays a constant, readable size.
 function setFishDepthScale(scale) {
-  elFish.style.transform = 'translate(-50%,-50%) scale(' + scale + ')';
+  elFish.style.setProperty('--fsz', String(currentSizeScale));
+  elFish.style.transform = 'translate(-50%,-50%) scale(' + (scale * currentSizeScale) + ')';
 }
 /* Once hooked (BITTEN/REELING/CAUGHT), the fish's base position is purely a function of
    reelProgress (Design Contract 9章: monotonic, single source of truth), and the line
    follows it — resistance animation (Finding C) is layered on top via CSS transform only,
-   never by touching this left/top math. */
+   never by touching this left/top math. Normalized against reelTarget (usually 100; see
+   Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1 note on reelProgress above) rather than a
+   hardcoded 100, so the fish still visually reaches the rod exactly when reelProgress
+   reaches whatever this trial's actual target is. */
 function renderFishPosition() {
-  var t = reelProgress / 100;
+  var t = reelTarget > 0 ? reelProgress / reelTarget : 1;
   var x = lerp(FISH_START_PCT, FISH_ROD_PCT, t);
   setFishXY(x, FISH_Y_PCT);
   renderLineTo(x, FISH_Y_PCT);
 }
+// Displayed percentage is always 0-100% to the child regardless of the underlying
+// reelTarget (Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1) — a bigger fish needing more
+// total reeling is communicated via the fish's own size + the #fish-size-label text, not
+// by showing numbers above 100%.
 function renderProgress() {
-  elProgressFill.style.width = reelProgress + '%';
-  elProgressText.textContent = reelProgress >= 100 ? 'つれた！' : ('のこり ' + Math.max(0, 100 - Math.round(reelProgress)) + '%');
+  var pct = reelTarget > 0 ? Math.min(100, (reelProgress / reelTarget) * 100) : 100;
+  elProgressFill.style.width = pct + '%';
+  elProgressText.textContent = reelProgress >= reelTarget ? 'つれた！' : ('のこり ' + Math.max(0, 100 - Math.round(pct)) + '%');
 }
 function showSplash(xPct, yPct, small) {
   elSplash.style.left = xPct + '%';
@@ -1719,9 +1874,15 @@ function onTimingPress(e) {
 elReelTimingBtn.addEventListener('click', onTimingPress);
 
 /* ---- reelProgress / semantic core (Design Contract 9.1章) ---- */
+// amount itself is never touched by size/effort (Phase FISHING-APP-VARIETY-AND-SIZE-
+// EFFORT-1): each of the 3 reel methods' own per-input amount (REEL_GAIN_PRESETS-based)
+// stays exactly what the existing reelGainPreset setting says it is. Only the CAP
+// (reelTarget, usually 100) changes per catch, so the number of inputs needed to land a
+// medium/large fish scales up by the same ratio for all 3 methods automatically, without
+// any method-specific branch here — see pickFishAppearance() for how reelTarget is set.
 function applyReelProgress(amount, inputMethod) {
   if (state !== STATE.REELING || !hookedFishId) return;
-  reelProgress = Math.min(100, reelProgress + Math.max(0, amount));
+  reelProgress = Math.min(reelTarget, reelProgress + Math.max(0, amount));
   lastInputMethod = inputMethod;
   renderFishPosition();
   renderProgress();
@@ -1729,24 +1890,65 @@ function applyReelProgress(amount, inputMethod) {
   // the always-on 'reeling' CSS class (Finding C). Deliberately probabilistic/cosmetic
   // only: it never affects reelProgress, so no test depends on it firing.
   if (Math.random() < 0.06) {
-    var xNow = lerp(FISH_START_PCT, FISH_ROD_PCT, reelProgress / 100);
+    var xNow = lerp(FISH_START_PCT, FISH_ROD_PCT, reelTarget > 0 ? reelProgress / reelTarget : 1);
     showSplash(xNow, FISH_Y_PCT, true);
   }
-  if (reelProgress >= 100) landFish();
+  if (reelProgress >= reelTarget) landFish();
 }
 
 /* ---- State transitions ---- */
+// Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: background is decided once per activity
+// (here, at the start of each new cast — the earliest point of "a new activity", before
+// the player can even see the WAITING/fish-appear phase) rather than mid-activity, so
+// the scene never visibly changes out from under an in-progress cast (指示: "背景の
+// 切り替えで操作中の画面が突然変わらないよう、適用タイミングは次の活動開始時などに
+// 統一する"). Also called once from the start-btn handler below, so the very first IDLE
+// view (before any cast) already shows a real, intentional background instead of
+// whatever the CSS fallback happens to be.
+function pickBackground() {
+  var next;
+  if (inputSettings.backgroundMode !== 'auto') {
+    next = inputSettings.backgroundMode;
+  } else {
+    next = pickNonRepeating(BACKGROUND_PALETTE, currentBackgroundKey, function (b) { return b.key; }).key;
+  }
+  currentBackgroundKey = next;
+  renderBackground();
+}
+function renderBackground() {
+  var bg = null;
+  for (var i = 0; i < BACKGROUND_PALETTE.length; i++) {
+    if (BACKGROUND_PALETTE[i].key === currentBackgroundKey) { bg = BACKGROUND_PALETTE[i]; break; }
+  }
+  if (!bg) bg = BACKGROUND_PALETTE[0];
+  elPond.style.backgroundImage = "url('" + bg.image + "')";
+}
 // Appearance is decided once, when the fish first appears (WAITING's far phase) — it is
 // the same fish the whole way through, not a different one swapped in at the bite.
+// Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: now also picks fish type (non-repeating
+// 'auto' or teacher-locked, same pattern as pickBackground() above) and size
+// (independent of type — always a plain random pick among FISH_SIZES, never excluded/
+// locked, per instruction "種類と大きさを独立させる"), and sets reelTarget for this
+// trial (100 unless sizeEffort is 'on' and size rolled medium/large).
 function pickFishAppearance() {
-  var pick = FISH_PALETTE[Math.floor(Math.random() * FISH_PALETTE.length)];
-  currentFish = { color: pick.color, size: Math.round(randomBetween(1, 3)) };
-  // Phase FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1: the fish is now rendered
-  // via orange-fish.png (no currentColor children left for this to affect), so this is
-  // a harmless no-op visually. Left in place rather than removed: pick.color is still
-  // what gets recorded as caughtColor below (unchanged, data-level pick), and this line
-  // costs nothing to keep for a possible future SVG color-variant return.
-  elFish.style.color = pick.hex;
+  var typeKey;
+  if (inputSettings.fishTypeMode !== 'auto') {
+    typeKey = inputSettings.fishTypeMode;
+  } else {
+    typeKey = pickNonRepeating(FISH_PALETTE, lastFishTypePicked, function (f) { return f.type; }).type;
+  }
+  lastFishTypePicked = typeKey;
+  var fishDef = null;
+  for (var i = 0; i < FISH_PALETTE.length; i++) {
+    if (FISH_PALETTE[i].type === typeKey) { fishDef = FISH_PALETTE[i]; break; }
+  }
+  if (!fishDef) fishDef = FISH_PALETTE[0];
+  var sizeDef = FISH_SIZES[Math.floor(Math.random() * FISH_SIZES.length)];
+  currentFish = { type: fishDef.type, size: sizeDef.key };
+  elFishImg.src = fishDef.image;
+  elFishSizeLabel.textContent = sizeDef.label;
+  currentSizeScale = sizeDef.scale;
+  reelTarget = (inputSettings.sizeEffort === 'on') ? Math.round(100 * sizeDef.effortMultiplier) : 100;
 }
 function hookFish() {
   return 'fish-' + Date.now();
@@ -1757,6 +1959,8 @@ function startCast() {
   reelProgress = 0; hookedFishId = null; currentFish = null; caughtLanded = false;
   isPhysicallyHeld = false; holdInputMethod = null;
   waitPhase = null;
+  reelTarget = 100; currentSizeScale = 1; elFishSizeLabel.textContent = '';
+  pickBackground();
   castStartedAt = Date.now();
   trialNumber += 1;
   updateUI();
@@ -1828,8 +2032,14 @@ function landFish() {
   renderLineTo(CAUGHT_X_PCT, CAUGHT_Y_PCT);
   playCaughtSound();
   updateUI();
-  elCatchMessage.textContent = 'さかなが つれたよ！';
-  announce('やったね！さかなが つれたよ！');
+  // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: states the actual size+type that was
+  // shown (指示: "選んだ大きさや手応えを、文字...でも伝える。色だけで伝えない").
+  var caughtSizeLabel = '', caughtTypeLabel = '';
+  for (var si = 0; si < FISH_SIZES.length; si++) { if (FISH_SIZES[si].key === (currentFish && currentFish.size)) caughtSizeLabel = FISH_SIZES[si].label; }
+  for (var fi = 0; fi < FISH_PALETTE.length; fi++) { if (FISH_PALETTE[fi].type === (currentFish && currentFish.type)) caughtTypeLabel = FISH_PALETTE[fi].label; }
+  var caughtDesc = (caughtSizeLabel + ' ' + caughtTypeLabel).trim();
+  elCatchMessage.textContent = (caughtDesc ? caughtDesc + 'が' : 'さかなが') + ' つれたよ！';
+  announce('やったね！' + (caughtDesc ? caughtDesc + 'が' : 'さかなが') + ' つれたよ！');
   saveTrialRecord();
   caughtTimer = setTimeout(function () { elFish.style.transition = ''; requestReset(); }, CAUGHT_DISPLAY_MS);
 }
@@ -1840,6 +2050,7 @@ function requestReset() {
   waitPhase = null;
   reelProgress = 0; hookedFishId = null; currentFish = null; caughtLanded = false;
   isPhysicallyHeld = false; holdInputMethod = null;
+  reelTarget = 100; currentSizeScale = 1; elFishSizeLabel.textContent = ''; // defensive reset
   elFish.classList.remove('eating');
   elFish.style.transform = '';
   updateUI();
@@ -1867,7 +2078,14 @@ function saveTrialRecord() {
     reelSpeedPreset: inputSettings.reelSpeedPreset,
     targetColor: null,
     targetCount: null,
-    caughtColor: currentFish ? currentFish.color : null,
+    // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: caughtColor's key is unchanged, but
+    // now holds currentFish.type ('orange'/'red-white'/'spotted' — exactly what #fish-img
+    // showed for this trial) instead of the old red/blue/yellow vocabulary that no image
+    // had actually rendered since the prior Phase (see FISH_PALETTE's own comment,
+    // above, for the full reasoning and the rename alternative considered/not applied).
+    // caughtSize's key is also unchanged; its value is now FISH_SIZES' descriptive key
+    // ('small'/'medium'/'large') instead of a bare 1-3 integer nothing else ever read.
+    caughtColor: currentFish ? currentFish.type : null,
     caughtSize: currentFish ? currentFish.size : null,
     result: null,
     durationMs: Date.now() - castStartedAt
@@ -1958,6 +2176,9 @@ var elSettingsTitle = document.getElementById('settingsTitle');
 var elMethodButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-method]'));
 var elGainButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-gain]'));
 var elSpeedButtons = Array.prototype.slice.call(document.querySelectorAll('[data-reel-speed]'));
+var elBackgroundButtons = Array.prototype.slice.call(document.querySelectorAll('[data-background]'));
+var elFishTypeButtons = Array.prototype.slice.call(document.querySelectorAll('[data-fish-type]'));
+var elSizeEffortButtons = Array.prototype.slice.call(document.querySelectorAll('[data-size-effort]'));
 var elReelSpeedDesc = document.getElementById('reelSpeedDesc');
 var elReelSpeedGroup = document.getElementById('reelSpeedGroup');
 var REEL_SPEED_DESC_NORMAL = '「おしつづけて まきとる」を おしている間の、すすむ速さです。';
@@ -1978,6 +2199,9 @@ function refreshSettingsPanelUI() {
   elMethodButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelMethod === inputSettings.reelMethod)); });
   elGainButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelGain === inputSettings.reelGainPreset)); });
   elSpeedButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.reelSpeed === inputSettings.reelSpeedPreset)); });
+  elBackgroundButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.background === inputSettings.backgroundMode)); });
+  elFishTypeButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.fishType === inputSettings.fishTypeMode)); });
+  elSizeEffortButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.sizeEffort === inputSettings.sizeEffort)); });
   // まきとる速さ is Method B-only (指示11章): Method Aが選択中は「勝手に削除しない」
   // 方針のとおり項目自体は残しつつ、native disabled(操作不能+Tab順序から自動除外)にし、
   // 説明文を差し替えてUIの意味が矛盾しないようにする。
@@ -2062,6 +2286,36 @@ elMethodButtons.forEach(function (b) {
     announce('まきとりほうほうを' + b.textContent + 'に せっていしました');
   });
 });
+// Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: these three settings only affect the
+// NEXT activity (pickBackground()/pickFishAppearance() are called at the next startCast/
+// WAITING-far, never mid-trial — see their own comments), so unlike reelMethod's switch
+// above, there is nothing in-flight to safely stop here: changing them mid-REELING is a
+// pure no-op on the current trial by construction, not something that merely happens to
+// be safe.
+elBackgroundButtons.forEach(function (b) {
+  b.addEventListener('click', function () {
+    inputSettings.backgroundMode = b.dataset.background;
+    saveInputSettings();
+    refreshSettingsPanelUI();
+    announce('はいけいを' + b.textContent + 'に せっていしました');
+  });
+});
+elFishTypeButtons.forEach(function (b) {
+  b.addEventListener('click', function () {
+    inputSettings.fishTypeMode = b.dataset.fishType;
+    saveInputSettings();
+    refreshSettingsPanelUI();
+    announce('さかなの みためを' + b.textContent + 'に せっていしました');
+  });
+});
+elSizeEffortButtons.forEach(function (b) {
+  b.addEventListener('click', function () {
+    inputSettings.sizeEffort = b.dataset.sizeEffort;
+    saveInputSettings();
+    refreshSettingsPanelUI();
+    announce('大きさに応じた手応えを' + b.textContent + 'に せっていしました');
+  });
+});
 elSettingsResetBtn.addEventListener('click', function () {
   inputSettings = defaultInputSettings();
   saveInputSettings();
@@ -2105,6 +2359,7 @@ document.getElementById('start-btn').addEventListener('click', function () {
   elStart.hidden = true;
   elFishing.hidden = false;
   state = STATE.IDLE;
+  pickBackground(); // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: the very first IDLE view needs a real background too, not just each cast onward
   updateUI();
   syncLineStartToRodTip(); // pond was display:none until just now; don't rely solely on ResizeObserver's async delivery for the very first paint
 });
