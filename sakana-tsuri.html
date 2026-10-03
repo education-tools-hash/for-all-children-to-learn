@@ -114,28 +114,25 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   gap:var(--dm-space-3);
 }
 
-/* ---- Pond scene: sky band, water, shore, rod, line, bobber, tackle, fish ---- */
+/* ---- Pond scene: sky band, water, shore, rod, line, bobber, tackle, fish ----
+   Phase FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1: background is now the
+   user-selected painted pond-background.png (assets/sakana-tsuri/, delivered as an
+   optimized JPEG since it has no transparency), replacing the old flat CSS gradient.
+   background-position's vertical offset was tuned (not the default 50%/center) so the
+   image's own waterline sits near the same on-screen height the old gradient's
+   sky/water transition (~22-24% from top) used to, keeping the fish/bobber/rod
+   positions (which are all independent, position:absolute, percentage-based elements
+   layered on top — unrelated to this background change) reading correctly against it.
+   Re-verify this offset by eye (screenshot) if the pond's aspect ratio changes later. */
 .pond{
   position:relative;
   height:300px;
   border-radius:var(--dm-radius-md);
   overflow:hidden;
-  background:linear-gradient(180deg,#BEEBFF 0%,#BEEBFF 22%,#5FC3E0 24%,#2E86AB 70%,#1E6485 100%);
-}
-.pond .sun{
-  position:absolute;top:8%;left:8%;width:34px;height:34px;border-radius:50%;
-  background:radial-gradient(circle,#FFE9A8 0%,#F5C542 70%,#F5C542 100%);
-  box-shadow:0 0 18px 4px rgba(245,197,66,.55);
-}
-.pond .cloud{
-  position:absolute;top:12%;background:rgba(255,255,255,.85);border-radius:999px;
-}
-.pond .cloud.c1{left:30%;width:52px;height:16px;}
-.pond .cloud.c2{left:55%;top:8%;width:36px;height:12px;}
-.pond .water-sparkle{
-  position:absolute;left:0;right:0;top:24%;height:6px;
-  background:repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 14px,transparent 14px 34px);
-  opacity:.7;
+  background-color:#2E86AB;
+  background-image:url('assets/sakana-tsuri/pond-background.jpg');
+  background-size:cover;
+  background-position:center 32%;
 }
 /* Status caption lives inside the scene (top band) instead of a separate line above it,
    so the pond reads as the one world the whole app is about. */
@@ -150,78 +147,25 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   padding:4px 16px;border-radius:var(--dm-radius-pill);
   box-shadow:0 1px 6px rgba(0,0,0,.12);
 }
-/* Underwater decor: seaweed, pebbles, rising bubbles — makes the water feel inhabited
-   instead of empty (Finding D: "水中世界がほぼ空"). Purely decorative. */
-.pond .weed{
-  position:absolute;bottom:0;width:10px;
-  background:linear-gradient(180deg,#3F8E4F,#2E6E3C);
-  border-radius:6px 6px 0 0;
-  transform-origin:bottom center;
-}
-.pond .weed.w1{left:6%;height:15%;}
-.pond .weed.w2{left:11%;height:11%;}
-.pond .weed.w3{left:58%;height:13%;}
-.pond .weed.w4{left:64%;height:9%;}
-.pond .weed.sway{animation:weedSway 3.4s ease-in-out infinite;}
-@keyframes weedSway{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
-.pond .pebble{
-  position:absolute;bottom:2%;border-radius:50%;
-  background:linear-gradient(180deg,#9CA9A6,#78877F);
-}
-.pond .pebble.p1{left:22%;width:18px;height:10px;}
-.pond .pebble.p2{left:40%;width:12px;height:7px;}
-.pond .pebble.p3{left:50%;width:16px;height:9px;}
-.pond .bubble{
-  position:absolute;border-radius:50%;
-  background:rgba(255,255,255,.5);
-  bottom:6%;
-}
-.pond .bubble.b1{left:35%;width:6px;height:6px;animation:bubbleRise 3.2s ease-in infinite;}
-.pond .bubble.b2{left:44%;width:4px;height:4px;animation:bubbleRise 2.6s ease-in infinite .8s;}
-.pond .bubble.b3{left:70%;width:5px;height:5px;animation:bubbleRise 3.8s ease-in infinite 1.5s;}
-@keyframes bubbleRise{0%{transform:translateY(0);opacity:.7;}90%{opacity:.5;}100%{transform:translateY(-140px);opacity:0;}}
-/* The shore's top edge sits right at the sky/water horizon (matching the background
-   gradient's own surface transition, ~22-24%), not partway down into water the gradient
-   already renders as noticeably deep — so land reads as "starting at the horizon and
-   widening toward the viewer" instead of "a block sitting in mid-depth water" (User
-   Browser Review: 岸が水中へ沈んで見える). Its curved left edge is the actual
-   land/water boundary; a matching waterline foam line and a soft drop-shadow along that
-   edge make the boundary explicit rather than implied by a color change alone. */
-.pond .shore{
-  position:absolute;right:0;bottom:0;width:34%;height:79%;
-  background:linear-gradient(180deg,#C9A46A 0%,#A9824E 100%);
-  border-top-left-radius:70% 34%;
-  filter:drop-shadow(-3px 2px 5px rgba(8,40,50,.28));
-}
-.pond .shore::before{
-  /* Waterline foam traced just inside the curved land/water edge. */
-  content:"";position:absolute;top:0;left:-3%;right:38%;height:5px;
-  background:rgba(255,255,255,.8);border-radius:999px;
-  transform:rotate(-7deg);transform-origin:right center;
-}
-.pond .shore::after{
-  content:"";position:absolute;top:-10px;left:-6%;right:-6%;height:22px;
-  background:#6FAE4B;border-radius:50%;
-}
+/* Phase FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1: fishing-rod.png (assets/
+   sakana-tsuri/) replaces the old plain CSS bar+circle. The art already draws the rod
+   at its own angle (tip top-left, handle/reel bottom-right per the handoff README), so
+   no CSS rotate transform is applied here — doing so would double-rotate it. The
+   container is simply positioned so the image's own top-left (where the tip eyelet is)
+   lands near the water, with #rod-tip (below) anchored at the eyelet's measured
+   position within the delivered image (x=3.04%, y=1.9%, found by scanning the original
+   image's alpha channel for its topmost non-transparent pixels) rather than a
+   hand-guessed point. */
 .rod{
-  position:absolute;right:9%;bottom:38%;width:6px;height:96px;
-  background:linear-gradient(180deg,#8a5a34,#5b3a1f);
-  border-radius:3px;
-  transform-origin:bottom center;
-  transform:rotate(28deg);
-  z-index:3;
+  position:absolute;right:2%;top:4%;width:170px;z-index:3;pointer-events:none;
 }
-.rod::after{
-  content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);
-  width:16px;height:16px;border-radius:50%;background:#3d2712;
-}
-/* Measurable anchor at the rod's physical tip (top-center of the bar, before its own
-   rotation — a child inherits and is positioned by that rotation like any other visual
-   content of the rod). JS reads its actual on-screen position every time the layout
-   could have changed and derives the line's x1/y1 from it, instead of a hand-tuned
-   viewBox coordinate that only happened to match at one specific rendered size (User
-   Browser Review: 竿先とラインが離れて見える). Zero-size and non-interactive. */
-.rod-tip{position:absolute;top:0;left:50%;width:1px;height:1px;transform:translate(-50%,-50%);}
+.rod img{display:block;width:100%;height:auto;}
+/* Measurable anchor at the rod's physical tip. JS reads its actual on-screen position
+   every time the layout could have changed and derives the line's x1/y1 from it,
+   instead of a hand-tuned coordinate that only happened to match at one specific
+   rendered size (User Browser Review: 竿先とラインが離れて見える). Zero-size and
+   non-interactive. */
+.rod-tip{position:absolute;top:1.9%;left:3.04%;width:1px;height:1px;transform:translate(-50%,-50%);}
 .line-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;}
 .line-svg line{stroke:#eef2f0;stroke-width:.8;stroke-linecap:round;opacity:.9;}
 .line-svg.tense line{stroke-width:1.3;opacity:1;}
@@ -253,19 +197,29 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 .tackle .bait-icon{animation:baitWiggle 1.8s ease-in-out infinite;transform-origin:50% 0;}
 @keyframes baitWiggle{0%,100%{transform:rotate(-6deg);}50%{transform:rotate(6deg);}}
 
-/* ---- Fish: custom SVG (head/body/tail fin/dorsal+pectoral fins/eye/mouth) so its
-   shape is guaranteed everywhere, unlike a font-rendered emoji (Finding D/E). Colored
-   via currentColor + the wrapper's `color`, so one markup serves all three palette
-   colors. Sized well above the old 3rem emoji for visibility (Finding A).
+/* ---- Fish: Phase FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1 replaced the
+   generic currentColor SVG silhouette with the user-selected orange-fish.png (assets/
+   sakana-tsuri/, trimmed to its alpha bbox + resized, transparency kept). It faces the
+   same direction the old SVG did (head/mouth to the right, tail to the left), which is
+   also the direction the fish actually travels in (FISH_START_PCT=20 -> FISH_ROD_PCT=91,
+   i.e. always moving rightward toward the rod once hooked), so no horizontal flip is
+   needed. FISH_PALETTE/caughtColor (below, in script) is untouched — it was always a
+   data-level pick for the Learning Record payload, independent of this visual; only the
+   `elFish.style.color` currentColor hookup this image no longer uses becomes a harmless
+   no-op (left in place rather than removed, in case SVG color variants return later).
 
    Split into two layers: `.fish` (outer) owns position (left/top, JS-driven) and the
    depth scale (JS-driven inline transform, transitioned during the WAITING approach so
    the fish visibly grows as it comes from far away to near — User Browser Review §3
    "遠景と近景の魚位置差"); `.fish-inner` (inner) owns every gesture/keyframe animation
-   (bob, turn, tail wag, bite wiggle, resistance, catch pop) as plain transforms with no
-   centering math of its own, since it just fills its already-centered parent. Keeping
-   these on separate elements means the per-frame gesture animation and the one-time
-   depth scale never fight over the same `transform` value. */
+   (bob, turn, bite wiggle, resistance, catch pop) as plain transforms with no centering
+   math of its own, since it just fills its already-centered parent. Keeping these on
+   separate elements means the per-frame gesture animation and the one-time depth scale
+   never fight over the same `transform` value. The old SVG's separately-animated tail
+   fin (`.fish-tailgrp` wag) and the eating/hooked micro-marks (mouth-open, hook-mark
+   dot) have no equivalent in a flat raster image and are not reproduced — the former
+   mostly-decorative embellishments, not state-machine signals (state is already read
+   from position, progress bar and status text/chip). */
 .fish{
   position:absolute;
   top:46%;
@@ -277,29 +231,16 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));
 }
 .fish-inner{width:100%;height:100%;}
-.fish-inner svg{display:block;width:100%;height:100%;overflow:visible;}
-.fish-inner .fish-tailgrp{transform-box:fill-box;transform-origin:100% 50%;}
-.fish .fish-mouth-open{opacity:0;}
-.fish.eating .fish-mouth-closed{opacity:0;}
-.fish.eating .fish-mouth-open{opacity:1;}
-.fish .fish-hook-mark{opacity:0;}
-.fish.hooked .fish-hook-mark{opacity:1;}
+.fish-inner img{display:block;width:100%;height:100%;object-fit:contain;}
 
-/* Idle far-swim (WAITING, before approach starts): slow bob + gentle tail wag only,
-   deliberately calmer than the approach/reeling motion so it stays easy to track. */
-.fish-inner.far-swim .fish-tailgrp{animation:fishTailWagSlow 2.2s ease-in-out infinite;}
+/* Idle far-swim (WAITING, before approach starts): slow bob only, deliberately calmer
+   than the approach/reeling motion so it stays easy to track. */
 .fish-inner.far-swim{animation:fishBobSlow 3s ease-in-out infinite;}
 @keyframes fishBobSlow{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
-@keyframes fishTailWagSlow{0%,100%{transform:rotate(0deg);}50%{transform:rotate(-14deg);}}
 
 /* Turning-to-face-bait beat: a quick, readable "notice" pulse before it sets off. */
 .fish-inner.turning{animation:fishTurnPulse .5s ease-in-out;}
 @keyframes fishTurnPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
-
-/* Approach: faster tail wag while it swims toward the bait (position AND depth-scale
-   are driven by JS via a transitioned left/top/transform on the outer `.fish`). */
-.fish-inner.approaching .fish-tailgrp{animation:fishTailWagFast 0.55s ease-in-out infinite;}
-@keyframes fishTailWagFast{0%,100%{transform:rotate(0deg);}50%{transform:rotate(-22deg);}}
 
 .fish-inner.bitten{animation:fishBite 0.5s ease-in-out;}
 @keyframes fishBite{
@@ -313,7 +254,6 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
    transform on the inner layer via a CSS animation, so the underlying position math is
    completely untouched (Finding C). */
 .fish-inner.reeling{animation:fishResist 0.9s ease-in-out infinite;}
-.fish-inner.reeling .fish-tailgrp{animation:fishTailWagFast 0.4s ease-in-out infinite;}
 @keyframes fishResist{
   0%,100%{transform:translate(0,0) rotate(0deg);}
   25%{transform:translate(-5px,1px) rotate(-7deg);}
@@ -508,6 +448,7 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 @media (max-width:420px){
   .pond{height:230px;}
   .fish{width:80px;height:46px;}
+  .rod{width:120px;}
   #reel-hold-btn{min-width:0;width:100%;}
   #reel-arc{width:160px;height:160px;}
   #reel-timing-btn{min-width:0;}
@@ -1043,22 +984,10 @@ div:has(> #donomanaLockBtn){right:64px!important;}
     <div class="fishing-spot">
       <div class="pond" id="pond">
         <div class="status-band" aria-hidden="true"><div class="status-chip" id="status-chip">じゅんび かんりょう</div></div>
-        <div class="sun" aria-hidden="true"></div>
-        <div class="cloud c1" aria-hidden="true"></div>
-        <div class="cloud c2" aria-hidden="true"></div>
-        <div class="water-sparkle" aria-hidden="true"></div>
-        <div class="weed w1 sway" aria-hidden="true"></div>
-        <div class="weed w2 sway" aria-hidden="true"></div>
-        <div class="weed w3 sway" aria-hidden="true"></div>
-        <div class="weed w4 sway" aria-hidden="true"></div>
-        <div class="pebble p1" aria-hidden="true"></div>
-        <div class="pebble p2" aria-hidden="true"></div>
-        <div class="pebble p3" aria-hidden="true"></div>
-        <div class="bubble b1" aria-hidden="true"></div>
-        <div class="bubble b2" aria-hidden="true"></div>
-        <div class="bubble b3" aria-hidden="true"></div>
-        <div class="shore" aria-hidden="true"></div>
-        <div class="rod" aria-hidden="true"><span class="rod-tip" id="rod-tip"></span></div>
+        <div class="rod" aria-hidden="true">
+          <img src="assets/sakana-tsuri/fishing-rod.png" alt="" width="629" height="420" loading="eager" decoding="async">
+          <span class="rod-tip" id="rod-tip"></span>
+        </div>
         <svg class="line-svg" id="line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <line id="fishing-line" x1="91" y1="24" x2="20" y2="46"></line>
           <line id="leader-line" x1="20" y1="26" x2="20" y2="46"></line>
@@ -1070,18 +999,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
         </div>
         <div class="fish" id="fish" aria-hidden="true">
           <div class="fish-inner" id="fish-inner">
-            <svg viewBox="0 0 120 70">
-              <g class="fish-tailgrp"><path d="M26,35 L2,14 L10,35 L2,56 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.92"/></g>
-              <ellipse class="fish-body" cx="62" cy="35" rx="42" ry="22" fill="currentColor" stroke="#fff" stroke-width="2"/>
-              <path class="fish-dorsal" d="M50,14 L66,2 L74,16 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.85"/>
-              <path class="fish-pectoral" d="M56,46 L44,62 L66,52 Z" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
-              <path class="fish-belly" d="M30,45 C46,58 78,58 94,44 C80,52 44,52 30,45 Z" fill="#fff" opacity="0.35"/>
-              <circle class="fish-eye-white" cx="94" cy="28" r="7" fill="#fff"/>
-              <circle class="fish-eye-pupil" cx="96" cy="28" r="3.4" fill="#22303a"/>
-              <path class="fish-mouth-closed" d="M104,36 Q110,38 104,41" stroke="#22303a" stroke-width="2" fill="none" stroke-linecap="round"/>
-              <path class="fish-mouth-open" d="M100,32 Q113,38 100,44 Q107,38 100,32 Z" fill="#22303a"/>
-              <path class="fish-hook-mark" d="M100,38 L100,45 Q100,49 104,49 Q107,49 106,46" stroke="#8a8f94" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-            </svg>
+            <img src="assets/sakana-tsuri/orange-fish.png" alt="" width="480" height="251" loading="eager" decoding="async">
           </div>
         </div>
         <span class="splash" id="splash" aria-hidden="true">💦</span>
@@ -1823,6 +1741,11 @@ function applyReelProgress(amount, inputMethod) {
 function pickFishAppearance() {
   var pick = FISH_PALETTE[Math.floor(Math.random() * FISH_PALETTE.length)];
   currentFish = { color: pick.color, size: Math.round(randomBetween(1, 3)) };
+  // Phase FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1: the fish is now rendered
+  // via orange-fish.png (no currentColor children left for this to affect), so this is
+  // a harmless no-op visually. Left in place rather than removed: pick.color is still
+  // what gets recorded as caughtColor below (unchanged, data-level pick), and this line
+  // costs nothing to keep for a possible future SVG color-variant return.
   elFish.style.color = pick.hex;
 }
 function hookFish() {
