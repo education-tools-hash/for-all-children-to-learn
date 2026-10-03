@@ -862,6 +862,11 @@ const SETTINGS_PROXY = {
   'junban-miyou-app':   { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
   'dotchiga-ii-app':    { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'sawatte-hirogaru-app': { selector: '#openTeacherSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  // Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: sakana-tsuri.html's own
+  // #sakanaSettingsBtn + settingsPanel code comment already documented this exact
+  // {selector,label} pair as what it was hand-built to match (written ahead of actual
+  // apps-data.json registration) — this entry is what makes that match real.
+  'sakana-tsuri':       { selector: '#sakanaSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -932,7 +937,13 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // Phase M12-E: dotchiga-ii-appを追加。miru-hirogaru-app/mitsukete-touch-app/
   // junban-miyou-appと同じMulti-Input系アプリで、Switch Scan・Activity Tabs
   // 双方のネイティブTab順序からsettingsBtnを除外する必要がある点も同一。
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app']);
+  // Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: sakana-tsuriを追加。
+  // #sakanaSettingsBtnはclass="scannable" data-scan="1"を持つ、自アプリの
+  // Switch Scan候補の1つ(isVisibleEnabled()はdisplay==='none'のみ判定し、opacityは
+  // 見ない、上のコメント参照)——opacity:0のままだとこのSetに入れていない他アプリと
+  // 同じ「見えないのに実質operableなSwitch Scan候補」のバグを再現してしまうため、
+  // 同じSwitch Scan系アプリのsawatte-hirogaru-appと同じdisplay:none方式に揃える。
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
@@ -1562,7 +1573,14 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // も更新した。商品マスターは後から変更されうるため、CSV出力時に現在の商品マスターから名前を
 // 再取得せず、確定時点のsnapshotのみを参照する。両者ともschemaVersion:1のまま(v1 payload最終
 // 確定、不要なversion bumpはしない)。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app']);
+// Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: 'sakana-tsuri' added. It
+// already used the canonical donomanaRecordCreate() Core Schema (see saveTrialRecord()
+// in sakana-tsuri.html itself) and already carried a hand-copied-but-verified-
+// byte-identical Learning Record Foundation JS block — this Set addition is what turns
+// that manual copy into a properly generate.js-sourced, auto-regenerated one (指示:
+// 「共通Foundationの生成ブロックを手編集しない。generate.jsが正本の箇所は正本を変更し、
+// 再生成して生成物と一致させる」).
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
 
 // ============================================================
 //  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線

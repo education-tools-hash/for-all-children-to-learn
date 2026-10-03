@@ -101,7 +101,12 @@
     // (janken-app、62行目)とは衝突しない。
     'tokei-read': 'よむもんだい',
     'tokei-set': 'みつけるもんだい',
-    'tokei-both': 'まぜまぜ'
+    'tokei-both': 'まぜまぜ',
+    // sakana-tsuri: payload.reelMethod(sakana-tsuri.html自身のREEL_METHODS配列と
+    // 同じ日本語表記に揃える、FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1、§16と同型)
+    'arc': '円弧でまく',
+    'hold': '長押しでまく',
+    'timing': 'タイミングよく おす'
   };
 
   // マッピングにない内部コードは、教師にプログラム変数名をそのまま見せないため

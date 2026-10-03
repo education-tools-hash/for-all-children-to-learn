@@ -594,7 +594,7 @@ def main():
         record("Settings: saved to a dedicated localStorage key, not the records log",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
                {"reelGainPreset": "large", "reelSpeedPreset": "fast", "reelMethod": "hold",
-                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off"})
+                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off", "timingSpeed": "normal"})
         record("Settings: records log untouched by settings changes alone",
                page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
 
@@ -655,7 +655,7 @@ def main():
         record("Settings: reset persists the default back to localStorage",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
                {"reelGainPreset": "medium", "reelSpeedPreset": "standard", "reelMethod": "hold",
-                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off"})
+                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off", "timingSpeed": "normal"})
         record("Settings: reset does not disturb the common A11y panel's own settings",
                page.evaluate("document.documentElement.style.filter") == "" and
                page.evaluate("document.body.style.zoom") == "")
@@ -1102,8 +1102,15 @@ def main():
         cast_to_reeling(page)
         set_timing_pct(page, 50)
         before_ptr = progress(page)
-        box = page.locator("#reel-timing-btn").bounding_box()
-        page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        # Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: switched from raw
+        # mouse.click(bounding_box()) math to locator.click(), which scrolls the
+        # target into view first (unlike raw coordinate math) — #reel-timing now has
+        # an extra settings row above the button when Method C is active, so the
+        # button can sit below the fold at this viewport size; a real user/mouse would
+        # simply scroll, same as this now does. #reel-arc's own bounding_box() use
+        # above is unrelated (needed for drag-gesture coordinate math, not a plain
+        # click) and is left untouched.
+        page.locator("#reel-timing-btn").click()
         after_ptr = progress(page)
         record("Pointer: a real mouse click on the button registers exactly one press",
                after_ptr - before_ptr == 3, f"{before_ptr} -> {after_ptr}")

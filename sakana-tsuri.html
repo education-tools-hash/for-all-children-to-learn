@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>さかなつり | どのまな</title>
+<!-- seo-tags: 自動挿入 (generate.js) -->
+<link rel="canonical" href="https://donomana.jp/app-details/sakana-tsuri-detail.html">
+<meta name="description" content="池に竿をなげて、魚をまきとって釣り上げる教材です。まきとり動作は「円弧でまく」「長押しでまく」「タイミングよくおす」の3方式から選べ、子どもの得意な操作に合わせられます。正解・不正解はなく、時間切れや失敗のペナルティもあ 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
+<!-- /seo-tags -->
 <!-- design-tokens: 自動挿入 (generate.js) -->
 <style>
 :root{
@@ -348,6 +352,21 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 .method-row-label{font-size:var(--dm-font-size-caption);font-weight:700;color:var(--dm-color-sub);text-align:center;}
 #methodRow{margin-bottom:0;}
 
+/* Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: the Method C-only "うごく
+   はやさ" selector, shown only inside #reel-timing (so it only exists in the DOM/is
+   only ever visible while 'タイミングよく おす' is the active method — no extra
+   show/hide wiring needed beyond the existing elReelTiming.hidden toggle in updateUI()).
+   Same compact .method-row/.preset-group sizing already proven not to push out the big
+   operate button on iPad width (指示: "操作ボタンや釣り場を押し出さず"). The current
+   value is always also shown as text (#timingSpeedCurrentLabel), not conveyed by button
+   highlight color alone. */
+#timingSpeedRow{margin-bottom:0;}
+/* 44px is the WCAG 2.5.5 minimum touch target (vs. the other preset-group rows'
+   52px) — a deliberate, small trade against #reel-timing's now-taller total height
+   (track+caption+this row+the big operate button all stacked), so the operate button
+   stays reachable without excessive scrolling on shorter viewports/iPad width. */
+#timingSpeedRow button{min-height:44px;}
+
 #reel-hold-btn{
   font-size:var(--dm-font-size-heading);
   font-weight:700;
@@ -550,8 +569,21 @@ div:has(> #donomanaLockBtn){right:64px!important;}
   cursor:pointer;
 }
 </style>
+<!-- favicon: 自動挿入 (generate.js) -->
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#00A99D">
+  <!-- /favicon -->
 </head>
 <body>
+<!-- record-nav-btn: 自動挿入 (generate.js) -->
+<style>#donomanaRecordNavBtn:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
+<a href="/learning-records.html" id="donomanaRecordNavBtn" data-supporter-only="true" aria-label="学習のきろくを見る（先生・支援者向け）" title="学習のきろくを見る（先生・支援者向け）" style="position:fixed;bottom:16px;left:16px;z-index:99997;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,0.92);color:#00857B;font-family:'M PLUS Rounded 1c','Rounded Mplus 1c',sans-serif;font-size:13px;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.2);transition:transform .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📊 学習のきろく</a>
+<!-- /record-nav-btn -->
 <!-- a11y-panel: 自動挿入 (generate.js) -->
 <style>#sakanaSettingsBtn{display:none !important;pointer-events:none !important;}</style>
 <style>#donomanaA11yBtn:focus-visible,#donomanaA11yPanel button:focus-visible{outline:3px solid #00A99D;outline-offset:2px;}</style>
@@ -723,7 +755,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       applyScreenReader(b.dataset.a11ySr === 'on');
       donomanaAnnounceA11y(b.dataset.a11ySr === 'on' ? '読み上げ機能をオンにしました' : '読み上げ機能をオフにしました');
     }); });
-
+    
   var proxyBtn = document.getElementById('donomanaSettingsProxy');
   if (proxyBtn) {
     // フォーカス可能条件の最小十分セット(Phase16.44-C横断調査で導出、Phase16.45-Bでdisplay/opacity判定を追加):
@@ -1110,6 +1142,18 @@ div:has(> #donomanaLockBtn){right:64px!important;}
             <div class="timing-marker" id="timing-marker"></div>
           </div>
           <div class="timing-caption" id="timing-caption" aria-hidden="true"></div>
+          <!-- Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: speed selector,
+               only ever present/visible while Method C is the active method (lives
+               inside #reel-timing, which updateUI() already shows/hides as a whole). -->
+          <div class="method-row">
+            <span class="method-row-label" id="timingSpeedRowLabel">うごく はやさ：<span id="timingSpeedCurrentLabel">ふつう</span></span>
+            <div class="preset-group" id="timingSpeedRow" role="group" aria-labelledby="timingSpeedRowLabel">
+              <button type="button" data-timing-speed="very-slow" aria-pressed="false">とてもゆっくり</button>
+              <button type="button" data-timing-speed="slow" aria-pressed="false">ゆっくり</button>
+              <button type="button" data-timing-speed="normal" aria-pressed="false">ふつう</button>
+              <button type="button" data-timing-speed="fast" aria-pressed="false">はやい</button>
+            </div>
+          </div>
           <button id="reel-timing-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true">
             🎣 タイミングよく おす
           </button>
@@ -1179,6 +1223,7 @@ var castTimer = null, waitTimer = null, biteTimer = null, caughtTimer = null, po
    would otherwise have executed. */
 var BACKGROUND_KEYS = ['pond-original', 'pond-autumn', 'forest-stream'];
 var FISH_TYPE_KEYS = ['orange', 'red-white', 'spotted'];
+var TIMING_SPEED_KEYS = ['very-slow', 'slow', 'normal', 'fast'];
 
 /* ---- Input Settings (Phase FISHING-APP-INPUT-SETTINGS-1) ----
    Shared foundation for "how much/how fast one input moves reelProgress", designed to
@@ -1211,7 +1256,7 @@ var REEL_METHOD_VALUES = REEL_METHODS.map(function (m) { return m.value; });
    the same regardless of its randomly-rolled size, Phase指示: "初期設定では、大きさに
    よって必要な操作量を変えない") or 'on' (size scales the required total reelProgress
    via reelTarget below, Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1). */
-var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold', backgroundMode: 'auto', fishTypeMode: 'auto', sizeEffort: 'off' };
+var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold', backgroundMode: 'auto', fishTypeMode: 'auto', sizeEffort: 'off', timingSpeed: 'normal' };
 var INPUT_SETTINGS_STORAGE_KEY = 'sakana-tsuri_settings'; // deliberately NOT donomanaRecordAddLog's
                                                             // array-of-trials log key — this is a
                                                             // standing setting, not a record entry.
@@ -1222,7 +1267,8 @@ function defaultInputSettings() {
     reelMethod: DEFAULT_INPUT_SETTINGS.reelMethod,
     backgroundMode: DEFAULT_INPUT_SETTINGS.backgroundMode,
     fishTypeMode: DEFAULT_INPUT_SETTINGS.fishTypeMode,
-    sizeEffort: DEFAULT_INPUT_SETTINGS.sizeEffort
+    sizeEffort: DEFAULT_INPUT_SETTINGS.sizeEffort,
+    timingSpeed: DEFAULT_INPUT_SETTINGS.timingSpeed
   };
 }
 function loadInputSettings() {
@@ -1244,7 +1290,12 @@ function loadInputSettings() {
     var background = (parsed.backgroundMode === 'auto' || BACKGROUND_KEYS.indexOf(parsed.backgroundMode) !== -1) ? parsed.backgroundMode : DEFAULT_INPUT_SETTINGS.backgroundMode;
     var fishType = (parsed.fishTypeMode === 'auto' || FISH_TYPE_KEYS.indexOf(parsed.fishTypeMode) !== -1) ? parsed.fishTypeMode : DEFAULT_INPUT_SETTINGS.fishTypeMode;
     var sizeEffort = (parsed.sizeEffort === 'on' || parsed.sizeEffort === 'off') ? parsed.sizeEffort : DEFAULT_INPUT_SETTINGS.sizeEffort;
-    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method, backgroundMode: background, fishTypeMode: fishType, sizeEffort: sizeEffort }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
+    // Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: same safe-fallback pattern
+    // as the settings above — a saved session from before this Phase has no
+    // timingSpeed key at all (undefined), which falls back to 'normal' (= byte-identical
+    // to the pre-Phase hardcoded TIMING_CYCLE_MS) exactly like any other unrecognized value.
+    var timingSpeed = TIMING_SPEED_KEYS.indexOf(parsed.timingSpeed) !== -1 ? parsed.timingSpeed : DEFAULT_INPUT_SETTINGS.timingSpeed;
+    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method, backgroundMode: background, fishTypeMode: fishType, sizeEffort: sizeEffort, timingSpeed: timingSpeed }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
   } catch (e) { return defaultInputSettings(); }
 }
 function saveInputSettings() {
@@ -1289,9 +1340,31 @@ var ARC_DEG_PER_GAIN = 360;
    TIMING_CYCLE_MS) — this is not a fast-reaction/twitch game (指示10章); repeated,
    unhurried presses always eventually land in a rewarded zone since the sweep just
    keeps repeating and nothing is ever lost by trying again. */
-var TIMING_CYCLE_MS = 2200;             // one full far->center->far sweep
+var TIMING_CYCLE_MS = 2200;             // one full far->center->far sweep AT NORMAL SPEED (1.0x)
 var TIMING_RENDER_TICK_MS = 50;         // normal-motion marker redraw cadence (~20fps, setInterval-based like Method B's own hold ticks, not requestAnimationFrame — no new animation-timing primitive introduced)
 var TIMING_REDUCED_RENDER_TICK_MS = 450; // prefers-reduced-motion: coarser cadence reads as discrete state changes rather than continuous motion (指示24章), while the underlying timing/fairness (TIMING_CYCLE_MS) stays byte-identical between the two so difficulty does not change with the setting
+/* Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: "うごく はやさ" setting —
+   a speed MULTIPLIER applied to TIMING_CYCLE_MS (not a replacement constant), so
+   'normal' stays byte-identical to the pre-Phase behavior (指示: "「ふつう」は現在の
+   速度を維持する初期値"). A higher multiplier means a FASTER sweep, i.e. a SHORTER
+   cycle — effective cycle = TIMING_CYCLE_MS / multiplier. Trial values per 指示
+   ("操作性と実機表示を優先して調整してください" — adjust after real-device check,
+   not fixed/final): very-slow=0.5x (4400ms/cycle), slow=0.75x (~2933ms), normal=1.0x
+   (2200ms, unchanged), fast=1.25x (1760ms). TIMING_ZONE_PERFECT_HALF/GOOD_HALF (the
+   target range's width, in % — unrelated to cycle duration) and the marker's own CSS
+   size are both completely untouched by this setting, so "当てやすさの範囲" and
+   "必要な成功回数" never change with speed — only how fast the point moves through
+   that same range does (指示: "必要な成功回数は...既存設定と整合"). */
+var TIMING_SPEED_MULTIPLIERS = { 'very-slow': 0.5, 'slow': 0.75, 'normal': 1.0, 'fast': 1.25 };
+var TIMING_SPEED_LABELS = { 'very-slow': 'とてもゆっくり', 'slow': 'ゆっくり', 'normal': 'ふつう', 'fast': 'はやい' };
+// Captured ONCE per startTimingAnimation() call (see below) rather than read live every
+// tick — this is what guarantees a mid-sweep settings change never makes the marker
+// jump or double-judge (指示: "点が急に飛ぶ・判定が二重になる動作を防ぐ"): the sweep
+// math below is internally consistent for the sweep's whole lifetime, and a changed
+// setting only takes effect the next time a sweep starts (next REELING entry, or next
+// method-switch into 'timing' mid-trial) — exactly the same "applies from the next
+// press/sweep, not mid-input" precedent HOLD_TICK_MS already established above.
+var activeTimingCycleMs = TIMING_CYCLE_MS;
 var TIMING_ZONE_CENTER = 50;
 // Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: widened per iPad review finding
 // ("目標範囲を広げる"). Was ±8/±20 (42-58/30-70); the visual twin of these values is
@@ -1824,8 +1897,8 @@ var timingStartTs = null;
 var timingIntervalId = null;
 function timingMarkerPctAt(nowMs) {
   if (timingStartTs == null) return 0;
-  var elapsed = (nowMs - timingStartTs) % TIMING_CYCLE_MS;
-  var half = TIMING_CYCLE_MS / 2;
+  var elapsed = (nowMs - timingStartTs) % activeTimingCycleMs;
+  var half = activeTimingCycleMs / 2;
   return elapsed < half ? (elapsed / half) * 100 : (2 - elapsed / half) * 100;
 }
 function renderTimingMarker() {
@@ -1833,6 +1906,8 @@ function renderTimingMarker() {
 }
 function startTimingAnimation() {
   if (timingIntervalId) return; // start guard (New App Standard 35章), matches onHoldStart()/onArcPointerDown() above
+  // Captured once here, not re-read mid-sweep — see TIMING_SPEED_MULTIPLIERS comment above.
+  activeTimingCycleMs = TIMING_CYCLE_MS / TIMING_SPEED_MULTIPLIERS[inputSettings.timingSpeed];
   timingStartTs = Date.now();
   var reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   renderTimingMarker();
@@ -2076,6 +2151,11 @@ function saveTrialRecord() {
     reelMethod: inputSettings.reelMethod,
     reelGainPreset: inputSettings.reelGainPreset,
     reelSpeedPreset: inputSettings.reelSpeedPreset,
+    // Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: recorded unconditionally
+    // (same as reelGainPreset/reelSpeedPreset above, which are also always present
+    // regardless of which method was actually used for this trial) rather than only
+    // when reelMethod==='timing', so the record format stays uniform across trials.
+    timingSpeed: inputSettings.timingSpeed,
     targetColor: null,
     targetCount: null,
     // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: caughtColor's key is unchanged, but
@@ -2179,6 +2259,8 @@ var elSpeedButtons = Array.prototype.slice.call(document.querySelectorAll('[data
 var elBackgroundButtons = Array.prototype.slice.call(document.querySelectorAll('[data-background]'));
 var elFishTypeButtons = Array.prototype.slice.call(document.querySelectorAll('[data-fish-type]'));
 var elSizeEffortButtons = Array.prototype.slice.call(document.querySelectorAll('[data-size-effort]'));
+var elTimingSpeedButtons = Array.prototype.slice.call(document.querySelectorAll('[data-timing-speed]'));
+var elTimingSpeedCurrentLabel = document.getElementById('timingSpeedCurrentLabel');
 var elReelSpeedDesc = document.getElementById('reelSpeedDesc');
 var elReelSpeedGroup = document.getElementById('reelSpeedGroup');
 var REEL_SPEED_DESC_NORMAL = '「おしつづけて まきとる」を おしている間の、すすむ速さです。';
@@ -2202,6 +2284,8 @@ function refreshSettingsPanelUI() {
   elBackgroundButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.background === inputSettings.backgroundMode)); });
   elFishTypeButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.fishType === inputSettings.fishTypeMode)); });
   elSizeEffortButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.sizeEffort === inputSettings.sizeEffort)); });
+  elTimingSpeedButtons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.timingSpeed === inputSettings.timingSpeed)); });
+  if (elTimingSpeedCurrentLabel) elTimingSpeedCurrentLabel.textContent = TIMING_SPEED_LABELS[inputSettings.timingSpeed] || TIMING_SPEED_LABELS.normal;
   // まきとる速さ is Method B-only (指示11章): Method Aが選択中は「勝手に削除しない」
   // 方針のとおり項目自体は残しつつ、native disabled(操作不能+Tab順序から自動除外)にし、
   // 説明文を差し替えてUIの意味が矛盾しないようにする。
@@ -2314,6 +2398,19 @@ elSizeEffortButtons.forEach(function (b) {
     saveInputSettings();
     refreshSettingsPanelUI();
     announce('大きさに応じた手応えを' + b.textContent + 'に せっていしました');
+  });
+});
+// Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: no markReleased() here, same
+// reasoning as the background/fishType/sizeEffort handlers above — activeTimingCycleMs
+// is only ever (re-)captured inside startTimingAnimation(), which this click never
+// calls directly, so there is nothing in-flight for this setting change to interrupt;
+// a change made mid-sweep simply takes effect the next time a sweep starts.
+elTimingSpeedButtons.forEach(function (b) {
+  b.addEventListener('click', function () {
+    inputSettings.timingSpeed = b.dataset.timingSpeed;
+    saveInputSettings();
+    refreshSettingsPanelUI();
+    announce('うごく はやさを' + b.textContent + 'に せっていしました');
   });
 });
 elSettingsResetBtn.addEventListener('click', function () {

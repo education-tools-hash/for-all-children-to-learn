@@ -81,7 +81,7 @@ var GOLDEN = {
   // sawatte-hirogaru-app: SAWATTE-HIROGARU-COMMON-RECORD-DETAIL-INTEGRATION-1で
   // 追加(22本目)。finalizeSession()実コード確認済みのdonomanaRecordCreate()
   // 正規Core Schema形状({timestamp, appId, activity, inputMethod,
-  // schemaVersion, payload})をそのまま使う唯一のfixture(他20appはts/type等の
+  // schemaVersion, payload})をそのまま使うfixture(他20appはts/type等の
   // 短縮key形式)。trace fieldを含めて Level 3 Rich Visualization経路も検証する。
   'sawatte-hirogaru-app': {
     timestamp: '2026-09-16T03:12:45.000Z', appId: 'sawatte-hirogaru-app', activity: 'session',
@@ -91,6 +91,19 @@ var GOLDEN = {
       totalInteractions: 4, tapCount: 2, swipeCount: 2, inputMethods: ['touch'],
       soundEnabled: true, intensity: 'standard', effectWidth: 'normal', effectSound: 'soft',
       trace: { traceSchemaVersion: 1, pointLimit: 500, trimmed: false, taps: [100, 200, 50, 300, 400, 150], swipes: [[10, 20, 10, 15, 25, 20, 20, 30, 30]] }
+    }
+  },
+  // sakana-tsuri: FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1で追加(23本目)。
+  // saveTrialRecord()実コード確認済みのdonomanaRecordCreate()正規Core Schema
+  // 形状をそのまま使う、sawatte-hirogaru-appに次ぐ2つ目のfixture。
+  'sakana-tsuri': {
+    timestamp: '2026-10-03T01:00:00.000Z', appId: 'sakana-tsuri', activity: 'fishing_trial',
+    inputMethod: 'click', schemaVersion: 1,
+    payload: {
+      sessionId: 's1', trialNumber: 3, mode: 'free', difficulty: null,
+      reelMethod: 'timing', reelGainPreset: 'medium', reelSpeedPreset: 'standard',
+      timingSpeed: 'fast', targetColor: null, targetCount: null,
+      caughtColor: 'red-white', caughtSize: 'large', result: null, durationMs: 5400
     }
   }
 };

@@ -160,3 +160,86 @@ FIXED-PREVIEW-1）で魚の見た目がSVG（`currentColor`で色分け可能）
 背景・魚・竿の絵はゲーム内の情景・題材イラスト（人物を含まない）であり、
 用途も制作意図も別物として扱う。** 一方を他方の代用として使うことは
 意図されていない。
+
+## 4. 本Phaseで実装したもの（FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1）
+
+### 4.1 タイミング方式の速さ設定
+
+- `inputSettings.timingSpeed`（既定'normal'）。選択肢: very-slow(0.5x)/
+  slow(0.75x)/normal(1.0x=現行速度)/fast(1.25x)。倍率は試作値（指示通り）。
+- 実装：`TIMING_SPEED_MULTIPLIERS`テーブルを追加し、`startTimingAnimation()`
+  実行時に一度だけ`activeTimingCycleMs = TIMING_CYCLE_MS / multiplier`を
+  計算して以降のスイープはこの値のみを参照する。既存の`HOLD_TICK_MS`が
+  「次のonHoldStart()から適用、長押し中は不変」という設計と同じ考え方を
+  Method Cに適用したもの——活動中に設定を変えてもその回のスイープ位置は
+  飛ばない・判定がブレない（設定は次のスイープ開始＝次のREELING突入時や
+  method切替時のみ反映）。
+- `TIMING_ZONE_PERFECT_HALF`/`TIMING_ZONE_GOOD_HALF`（前Phaseで広げた範囲）
+  と`.timing-marker`の大きさは一切変更しない。必要な成功回数（reelTarget・
+  REEL_GAIN_PRESETS）も不変——速さは「当てる難易度」のみを変え、「必要な
+  回数」は変えない設計。
+- UI：「タイミングよく おす」選択中のみ表示される`#reel-timing`内の
+  コンパクトな`.preset-group`（既存の背景/魚種/手応え設定と同一パターン）。
+  常時「いまの はやさ：〇〇」の文字表示を併設。
+
+### 4.2 共通「学習のきろく」への登録
+
+**列挙した変更範囲**（指示: 「先に列挙してください」）:
+
+1. `apps-data.json`: `sakana-tsuri`の新規エントリ追加。
+   - 調査の結果、`LEARNING_RECORD_FOUNDATION_APPS`（generate.js）による
+     Learning Record Foundation注入は、`apps-data.json`に登録済みの
+     アプリしか対象にしない仕組みだと判明——「学習のきろくに出す」ためには
+     apps-data.json登録が技術的な前提条件。
+   - 副作用の調査: favicon/SEOタグ/a11yパネル/announce-helper/design-tokens
+     /lock-fs-btn/home-btnは`apps-data.json`登録アプリ全件に無条件適用
+     （Setによるopt-inではない）。一方PWA manifest/registerは
+     `PWA_REGISTER_TARGET_FILES`という明示的な固定ファイルリストのみが
+     対象で、apps-data.json経由ではない——前Phaseの「PWA/Service Workerは
+     新設しない」という判断と衝突しないことを確認済み。
+   - **scope上の判断・訂正（お伝えすべき点）**：当初、`index.html`のアプリ
+     カード一覧は手書き静的HTML（generate.js非連動）と見て、`releaseDate`/
+     `isNew`/更新履歴エントリのみ見送れば公開カード追加を回避できると判断
+     していた。**実際に`generate.js`を実行したところ、この判断は不正確
+     だったと判明**：`index.html`内の検索・絞り込み用`const APPS=[...]`
+     配列とJSON-LD構造化データ、および`app-intro.html`の紹介カード一式は
+     `apps-data.json`登録アプリ全件に対して無条件で同期される仕組みであり、
+     `releaseDate`を設定しなくても新規登録アプリは自動的にトップページの
+     検索対象・アプリ紹介ページに現れる（= 「学習のきろく登録のみ・公開は
+     見送る」という構成はgenerate.jsの標準パイプライン上サポートされて
+     いない）。独自にこの同期を止める改造は「generate.jsが正本の箇所は
+     正本を変更し再生成する」という指示の精神に反するため行わなかった。
+     更新履歴（MANUAL_CHANGELOG／index.html CHANGELOG配列）への追加は
+     `releaseDate`省略により引き続き発生しない（確認済み）。本Phaseの
+     変更はSource mainへは反映しておらず、Production (donomana.jp) への
+     公開は別途のProduction Release Phaseでの承認を経るまで発生しない。
+2. `generate.js`: `LEARNING_RECORD_FOUNDATION_APPS`に`'sakana-tsuri'`を追加。
+   加えて2箇所:
+   - `SETTINGS_PROXY['sakana-tsuri']`: `#sakanaSettingsBtn`の既存コード
+     コメントが「generate.jsに登録済み」と予告していたが、実際には
+     未登録だった（過去Phaseの記述ミス）。今回実際に登録した。
+   - `hideWithDisplayNone`に`'sakana-tsuri'`を追加: 1回目のgenerate.js
+     実行結果を確認したところ、`#sakanaSettingsBtn`（`data-scan="1"`を
+     持つ、自アプリのSwitch Scan候補の1つ）の非表示方法が、手コピー版の
+     `display:none`から標準の`opacity:0`へ変わっていた。Switch Scan側の
+     `isVisibleEnabled()`は`display:none`のみを見て`opacity`は見ないため、
+     このままでは「見えないのに実質操作可能なSwitch Scan候補」という、
+     このSetが元々防ぐために作られたバグを再現してしまう。同じSwitch
+     Scan系アプリのsawatte-hirogaru-appと同じ扱いに揃えて修正し、
+     generate.js再実行で手コピー版と完全に同じ`display:none`へ戻る
+     ことを確認した。
+3. 生成対象: `app-details/sakana-tsuri-detail.html`（新規）、
+   `sitemap.xml`（2件追加）、`index.html`/`app-intro.html`（検索配列・
+   JSON-LD・紹介カードの同期、更新履歴は変化なし）、`sakana-tsuri.html`
+   内の各種自動挿入ブロック（Learning Record Foundation・favicon・SEO・
+   学習のきろく導線ボタン・a11yパネル・announce-helper等）。
+4. `assets/js/record-dashboard-foundation.js`: `sakana-tsuri`用の
+   `registerAdapter({...})`を追加（sawatte-hirogaru-appと同じ、
+   donomanaRecordCreate()の正規Core Schemaをそのまま読むadapter）。
+5. `assets/js/sakana-tsuri-record-detail.js`: 新規共有モジュール
+   （directions-record-detail.jsと同形。summary文生成・Level 2詳細行・
+   CSV行の3関数、App-local/Common双方から将来共有可能な形）。
+6. `learning-records.html`: 上記detail.jsの`<script>`タグを
+   record-dashboard-foundation.jsより前に1行追加。
+7. 関連テスト: `sakana-tsuri-variety-test.py`への追加検証、golden testsの
+   実行（新規adapterのnormalize/getDetails/CSV出力の形式確認）。
