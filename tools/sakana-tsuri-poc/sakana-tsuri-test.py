@@ -621,8 +621,11 @@ def main():
                page.evaluate("document.activeElement.id") == "settingsCloseBtn")
         page.locator("#settingsTitle").focus()
         page.keyboard.press("Tab")
+        # Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: reelMethod's preset group was
+        # consolidated out of #settingsPanel into the in-game #methodRow, so the panel's
+        # first focusable preset is now reelGain's first button, not reelMethod's.
         record("Settings panel: forward Tab from the title (tabindex=-1 anchor) advances to the first real focusable",
-               page.evaluate("document.activeElement.dataset.reelMethod") == "arc")
+               page.evaluate("document.activeElement.dataset.reelGain") == "small")
 
         page.click("#settingsResetBtn")
         record("Settings: reset restores reelGain default",
@@ -736,10 +739,12 @@ def main():
         context.close()
 
         # ================= Method A: arc gesture (Phase FISHING-APP-METHOD-A-1) =================
+        # Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: the method selector was
+        # consolidated out of #settingsPanel into the always-visible in-game
+        # #methodRow (iPad review finding — opening settings just to switch methods
+        # was the friction point), so this helper no longer opens settings first.
         def switch_reel_method(page, method):
-            open_fishing_settings(page)
-            page.click(f"[data-reel-method='{method}']")
-            page.keyboard.press("Escape")
+            page.click(f"#methodRow [data-reel-method='{method}']")
 
         context, page, errors, console_errors = new_page(browser)
         record("Settings: reelMethod default is 'hold' (pre-existing saved settings / fresh install)",
@@ -952,7 +957,7 @@ def main():
 
         context, page, errors, console_errors = new_page(browser)
         record("Settings: Method C ('timing') present as a selectable option",
-               page.locator("#settingsPanel [data-reel-method='timing']").count() == 1)
+               page.locator("#methodRow [data-reel-method='timing']").count() == 1)
         record("UI: #reel-timing hidden by default (default reelMethod is 'hold')",
                page.evaluate("document.getElementById('reel-timing').hidden") is True)
 
@@ -1188,11 +1193,14 @@ def main():
         record("Regression: SETTINGS_PROXY row still present and correctly labeled",
                page.inner_text("#donomanaSettingsProxy") == "🔧 このアプリの詳細設定を開く")
         page.click("#donomanaSettingsProxy")
-        record("Regression: proxy still opens the fishing settings panel, now showing 3 setting groups "
-               "(3 reelMethod options since Phase FISHING-APP-METHOD-C-1 added 'timing', up from 2)",
-               page.is_visible("#settingsPanel") and page.locator("#settingsPanel [data-reel-method]").count() == 3 and
+        record("Regression: proxy still opens the fishing settings panel, now showing the 2 remaining "
+               "preset groups (reelMethod moved to the always-visible in-game #methodRow per Phase "
+               "FISHING-APP-REAL-DEVICE-UI-CORRECTION-1, so settingsPanel itself carries 0 now, not 3)",
+               page.is_visible("#settingsPanel") and page.locator("#settingsPanel [data-reel-method]").count() == 0 and
                page.locator("#settingsPanel [data-reel-gain]").count() == 3 and
                page.locator("#settingsPanel [data-reel-speed]").count() == 3)
+        record("Regression: in-game #methodRow still has all 3 reelMethod options, reachable without settings",
+               page.locator("#methodRow [data-reel-method]").count() == 3)
         page.keyboard.press("Escape")
         record("no runtime errors (final regression block)", not errors, str(errors))
         context.close()

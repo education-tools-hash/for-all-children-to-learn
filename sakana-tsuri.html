@@ -373,6 +373,22 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
    dedicated Playwright suite — none of those checks look at rendered box height). */
 .controls-row{display:flex;justify-content:center;align-items:center;gap:var(--dm-space-4);flex-wrap:wrap;}
 
+/* Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: in-game method selector. Kept small
+   and quiet (caption-size label, same .preset-group sizing already proven at this
+   app-shell width inside the settings panel) so it stays visually subordinate to the
+   pond/progress-row above and the big operate button below, within the shared
+   app-shell max-width:560px — no separate narrow-width rule needed since .preset-group
+   button already wraps to 2 lines at min-height:52px for the longest label. #methodRow
+   overrides .preset-group's margin-bottom:16px (meant for stacking multiple groups
+   inside #settingsPanel) back to 0 here, since it is the sole group in this row and
+   that inherited margin was pushing .controls-row's big operate button down by 16px
+   for no visual reason — measured to tip #reel-timing-btn below the fold on a
+   900x800 viewport before this override (iPad review finding: must not crowd/push
+   out the big operate button). */
+.method-row{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;}
+.method-row-label{font-size:var(--dm-font-size-caption);font-weight:700;color:var(--dm-color-sub);text-align:center;}
+#methodRow{margin-bottom:0;}
+
 #reel-hold-btn{
   font-size:var(--dm-font-size-heading);
   font-weight:700;
@@ -438,10 +454,22 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
 #reel-timing{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:320px;}
 #reel-timing[hidden]{display:none;}
 .timing-track{position:relative;width:100%;height:26px;margin-top:22px;background:var(--dm-color-border);border-radius:var(--dm-radius-pill);}
-.timing-zone-good{position:absolute;top:-4px;bottom:-4px;left:30%;width:40%;border:3px solid var(--dm-color-accent);border-radius:var(--dm-radius-pill);background:rgba(245,166,35,.16);box-sizing:border-box;}
-.timing-zone-perfect{position:absolute;top:-7px;bottom:-7px;left:42%;width:16%;border:3px solid var(--dm-color-primary);border-radius:var(--dm-radius-pill);background:rgba(0,169,157,.24);box-sizing:border-box;}
+/* Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: iPad review finding — the target
+   zones were hard to find/time against. Widened both, keeping perfect nested inside
+   good and centered on TIMING_ZONE_CENTER=50 (unchanged): good 30-70% (±20) ->
+   20-80% (±30), perfect 42-58% (±8) -> 36-64% (±14). These left/width % values are
+   the visual twin of TIMING_ZONE_GOOD_HALF/TIMING_ZONE_PERFECT_HALF below, which do
+   the actual hit-test — change both together or the shown target stops matching what
+   actually counts as a hit. */
+.timing-zone-good{position:absolute;top:-4px;bottom:-4px;left:20%;width:60%;border:3px solid var(--dm-color-accent);border-radius:var(--dm-radius-pill);background:rgba(245,166,35,.16);box-sizing:border-box;}
+.timing-zone-perfect{position:absolute;top:-7px;bottom:-7px;left:36%;width:28%;border:3px solid var(--dm-color-primary);border-radius:var(--dm-radius-pill);background:rgba(0,169,157,.24);box-sizing:border-box;}
 .timing-zone-perfect-mark{position:absolute;top:-24px;left:50%;transform:translateX(-50%);font-size:.95rem;}
-.timing-marker{position:absolute;top:50%;left:0;width:20px;height:20px;transform:translate(-50%,-50%);border-radius:50%;background:#3B2200;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4);}
+/* Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: iPad review finding — the moving
+   marker ("black dot") was hard to spot. 20px -> 30px (+50%), border 3px -> 4px to
+   stay proportional. left:X% positioning (via timingMarkerPctAt() in JS) and the
+   translate(-50%,-50%) centering are both size-independent, so no JS/position-math
+   change is needed for this. */
+.timing-marker{position:absolute;top:50%;left:0;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%;background:#3B2200;border:4px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4);}
 .timing-caption{min-height:1.4em;font-size:var(--dm-font-size-caption);font-weight:700;color:var(--dm-color-sub);text-align:center;}
 #reel-timing-btn{
   font-size:var(--dm-font-size-heading);
@@ -873,7 +901,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       <li>さいごまで まきとると つれる</li>
     </ul>
     <h3>まきとりかた（3しゅるい）</h3>
-    <p>「🔧 このアプリの詳細設定を開く」で、まきとりかたを えらべます。</p>
+    <p>がめんの「まきとり方法」から、まきとりかたを えらべます。活動中に かえても すぐに あたらしいほうほうに なります（つりの すすみぐあいは そのまま のこります）。</p>
     <h4>円弧でまく</h4>
     <p>まるい ボタンの上で、ゆびを くるくる まわします（タッチ・マウスむけ）。</p>
     <h4>長押しでまく（はじめから えらばれています）</h4>
@@ -904,13 +932,10 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 <section id="settingsPanel" hidden aria-labelledby="settingsTitle">
   <h2 id="settingsTitle" tabindex="-1">「さかなつり」の 詳細設定</h2>
   <div class="settings-body">
-    <h3>まきとり方法</h3>
-    <p class="setting-desc">さかなを どうやって まきとるか えらべます。</p>
-    <div class="preset-group" role="group" aria-label="まきとり方法">
-      <button type="button" data-reel-method="arc" aria-pressed="false">円弧でまく</button>
-      <button type="button" data-reel-method="hold" aria-pressed="false">長押しでまく</button>
-      <button type="button" data-reel-method="timing" aria-pressed="false">タイミングよく おしてまく</button>
-    </div>
+    <!-- Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: まきとり方法の選択は、ゲーム画面
+         の常時表示コントロール(#methodRow)へ一本化した(同じ場所に2箇所あると、どちらが
+         正本か混乱を招くため)。ここでは場所の案内のみを残す。 -->
+    <p class="setting-desc">まきとり方法は、ゲーム画面の「まきとり方法」から えらべます。</p>
     <h3>まきとる量</h3>
     <p class="setting-desc">1回の操作で、魚がどれくらい近づくかを えらべます。</p>
     <div class="preset-group" role="group" aria-label="まきとる量">
@@ -1067,6 +1092,24 @@ div:has(> #donomanaLockBtn){right:64px!important;}
         <div id="progress-text">まだ キャストしていないよ</div>
       </div>
 
+      <!-- Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: in-game method selector,
+           consolidated here from the (now removed) settingsPanel copy per the iPad
+           review finding that opening "詳細設定" just to switch methods was the
+           friction point. Same #data-reel-method buttons, same elMethodButtons
+           query/click-handler/markReleased() wiring as before (指示 below) — only the
+           DOM location changed, so no JS logic duplication. Kept visually subordinate
+           to the pond/progress/big operate button (small caption + compact
+           .preset-group reused verbatim from the settings panel's own proven
+           narrow-width sizing), so it doesn't crowd them on iPad width. -->
+      <div class="method-row">
+        <span class="method-row-label" id="methodRowLabel">まきとり方法</span>
+        <div class="preset-group" id="methodRow" role="group" aria-labelledby="methodRowLabel">
+          <button type="button" data-reel-method="arc" aria-pressed="false">円弧でまく</button>
+          <button type="button" data-reel-method="hold" aria-pressed="false">長押しでまく</button>
+          <button type="button" data-reel-method="timing" aria-pressed="false">タイミングよく おしてまく</button>
+        </div>
+      </div>
+
       <div class="controls-row">
         <button id="cast-btn" class="big-btn scannable" data-scan="1" type="button">🎣 なげる</button>
         <button id="reel-hold-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true" hidden>
@@ -1077,7 +1120,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
              Keyboard/Switch/Gazeに要求しない, Design Checkpoint fa8b672). aria-hidden
              permanently — a circular drag zone has no meaningful screen-reader
              affordance, and keyboard/AT users are expected to use Method B or switch
-             back via the (always reachable) settings panel instead. -->
+             back via the (always reachable) in-game method selector instead. -->
         <div id="reel-arc" class="inactive" aria-hidden="true" hidden>
           <svg viewBox="0 0 200 200">
             <circle class="arc-ring-outer" cx="100" cy="100" r="92"></circle>
@@ -1251,8 +1294,13 @@ var TIMING_CYCLE_MS = 2200;             // one full far->center->far sweep
 var TIMING_RENDER_TICK_MS = 50;         // normal-motion marker redraw cadence (~20fps, setInterval-based like Method B's own hold ticks, not requestAnimationFrame — no new animation-timing primitive introduced)
 var TIMING_REDUCED_RENDER_TICK_MS = 450; // prefers-reduced-motion: coarser cadence reads as discrete state changes rather than continuous motion (指示24章), while the underlying timing/fairness (TIMING_CYCLE_MS) stays byte-identical between the two so difficulty does not change with the setting
 var TIMING_ZONE_CENTER = 50;
-var TIMING_ZONE_PERFECT_HALF = 8;  // center ±8 (42-58): full REEL_GAIN_PRESETS amount, same as one Method B tick / one Method A 360° turn
-var TIMING_ZONE_GOOD_HALF = 20;    // center ±20 (30-70, includes the perfect zone): half that amount, rounded, minimum 1
+// Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: widened per iPad review finding
+// ("目標範囲を広げる"). Was ±8/±20 (42-58/30-70); the visual twin of these values is
+// .timing-zone-perfect/.timing-zone-good's left/width % above — keep both in sync,
+// since this pair is what the hit-test in onTimingPress() below actually checks
+// against, and the CSS is only the display of it.
+var TIMING_ZONE_PERFECT_HALF = 14; // center ±14 (36-64): full REEL_GAIN_PRESETS amount, same as one Method B tick / one Method A 360° turn
+var TIMING_ZONE_GOOD_HALF = 30;    // center ±30 (20-80, includes the perfect zone): half that amount, rounded, minimum 1
 var TIMING_CAPTION_MS = 900;
 var FISH_START_PCT = 20, FISH_ROD_PCT = 91; // cast/bite point -> rod-side landing point
 var FISH_START_PCT = 20, FISH_ROD_PCT = 91; // cast/bite point -> rod-side landing point
@@ -2018,6 +2066,18 @@ function refreshSettingsPanelUI() {
   }
   if (elReelSpeedGroup) elReelSpeedGroup.setAttribute('aria-disabled', String(speedIrrelevant));
 }
+// Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: previously this only ran lazily, the
+// first time openSettings()/a preset click fired — harmless before, since every
+// [data-reel-method] button lived inside the settingsPanel and was never visible until
+// openSettings() had already called this once. Now that the method buttons also live in
+// the always-visible #methodRow (elMethodButtons still finds both via the same
+// attribute-selector query, no new DOM lookup needed), the in-game selector would show
+// its static markup's hardcoded aria-pressed="false" on every button until the user
+// first opened settings or changed a preset. One eager call here, right after the
+// button arrays above are built from the now-loaded inputSettings, fixes that for the
+// in-game selector and is a harmless no-op repeat for the (disabled-while-arc) gain/
+// speed buttons, which still only live in #settingsPanel.
+refreshSettingsPanelUI();
 function openSettings() {
   settingsOpen = true;
   refreshSettingsPanelUI();
@@ -2063,10 +2123,16 @@ elMethodButtons.forEach(function (b) {
     inputSettings.reelMethod = b.dataset.reelMethod;
     saveInputSettings();
     applyInputSettingsToGameplay();
-    // Defensively stop whichever method's input might be mid-action (in practice
-    // neither can be, since reaching this button requires the settings panel to be
-    // open, which already moved focus/blurred #reel-hold-btn — belt-and-suspenders,
-    // matching the "疑わしい場合はfalse側に倒す" principle applied elsewhere).
+    // Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: this is no longer merely
+    // defensive. #methodRow's buttons are now reachable mid-REELING (unlike before,
+    // when every [data-reel-method] button lived inside the settingsPanel, and opening
+    // it had already blurred #reel-hold-btn / released any pointer capture first). A
+    // switch during an active hold/arc-drag/timing-render-loop must stop that method's
+    // own in-flight input before updateUI() swaps the visible control below, or the old
+    // method's pointer/keyboard state (e.g. a still-held #reel-hold-btn) could keep
+    // firing into a control that is no longer shown/active — markReleased() already
+    // covers all three methods (hold timer, arc drag, timing render loop) as the one
+    // shared safety net (指示 below), so no new per-method stop logic is needed here.
     markReleased();
     refreshSettingsPanelUI();
     updateUI(); // swap the visible control (#reel-hold-btn <-> #reel-arc) immediately
