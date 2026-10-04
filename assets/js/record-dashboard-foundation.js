@@ -1280,6 +1280,58 @@
     }
   });
 
+  // FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: さかなつりは、さわってひろがる
+  // と同じくdonomanaRecordCreate()の正規Core Schema（{timestamp, appId, activity,
+  // inputMethod, schemaVersion, payload}）をそのまま使うadapter（実コード
+  // saveTrialRecord()確認済み）。normalize()はこの正規shapeに沿ってe.timestamp/
+  // e.payloadを直接読む。activityはentry.activity自体が常に固定値'fishing_trial'
+  // のため、一覧での見分けやすさのためpayload.reelMethod（円弧/長押し/タイミング、
+  // どの操作方法で取り組んだか）をactivityとして採用する。
+  //
+  // getDetails/getCsvActionsの実体はassets/js/sakana-tsuri-record-detail.js
+  // （将来App-local側に記録ビューアを追加する場合も共有、重複実装禁止）。
+  // richVisualizationは実装しない（画像・軌跡等の可視化データを保存しないため）。
+  registerAdapter({
+    appId: 'sakana-tsuri',
+    appName: 'さかなつり',
+    category: '自立活動',
+    storageKey: 'sakana-tsuri_records',
+    structure: 'flat',
+    privacyLevel: 'low',
+    includeInDefaultTimeline: true,
+    normalize: function (e) {
+      var payload = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+      var D = (typeof donomanaSakanaTsuriRecordDetail !== 'undefined') ? donomanaSakanaTsuriRecordDetail : null;
+      return {
+        timestamp: toIsoTimestamp(e && e.timestamp),
+        activity: (typeof payload.reelMethod === 'string' && payload.reelMethod) ? payload.reelMethod : 'unknown',
+        summary: D ? D.summaryText(payload) : 'さかなつりに取り組みました',
+        metrics: {},
+        inputMethod: (e && typeof e.inputMethod === 'string') ? e.inputMethod : null,
+        hasMedia: false
+      };
+    },
+    // e: raw Foundation record ({timestamp, appId, activity, inputMethod,
+    // schemaVersion, payload}) — passed straight through, matching
+    // getDetailRows(entry)'s own entry.payload-reading contract (see
+    // sakana-tsuri-record-detail.js), same convention as directions-app's adapter.
+    getDetails: function (e) {
+      return (typeof donomanaSakanaTsuriRecordDetail !== 'undefined') ? donomanaSakanaTsuriRecordDetail.getDetailRows(e) : [];
+    },
+    getCsvActions: function () {
+      if (typeof donomanaSakanaTsuriRecordDetail === 'undefined') return [];
+      var D = donomanaSakanaTsuriRecordDetail;
+      return [
+        {
+          id: 'summary',
+          label: '📄 きろくをCSVで保存',
+          filenamePrefix: 'sakana-tsuri-kiroku',
+          buildRows: function (rawRecords) { return D.buildDetailCsvRows(rawRecords); }
+        }
+      ];
+    }
+  });
+
   registerAdapter({
     appId: 'kyou-no-kiroku',
     appName: 'きょうのきろく',

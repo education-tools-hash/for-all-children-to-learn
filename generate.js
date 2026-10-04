@@ -825,6 +825,18 @@ const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app',
 // → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
 const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app', 'katachi-awase-app']); // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app・katachi-awase-app: 学習コンテンツ自体の読み上げと重ねない
 
+// TRIM_GENERATED_BLANK_LINE_WS_APPS: buildA11yPanelHTML()内の`  ${srScriptHTML}`
+// `    ${proxyScriptHTML}`は、固定インデントのスペースを置いた行へ、値が改行文字
+// から始まる文字列(includeSR=false/proxy未設定時は空文字列)を差し込む構造になって
+// おり、この構造自体はFISHING-APP-CLEAN-CHECKPOINT-AND-RELEASE-READINESS-1より前から
+// 存在する、どのアプリの生成物にも共通する挙動(空白文字だけの行=行末空白を生成する)
+// であることを確認済み(buildA11yPanelHTMLのテンプレート文字列そのものには該当する
+// 行末空白の記述は無く、展開時にのみ発生する)。これを全アプリの生成物へ一括修正する
+// のは本Phaseの scope外の広範な変更になるため採らず、このSetに明示登録したアプリの
+// 生成物にのみ、空白のみの行から行末空白を取り除く後処理を適用する(他アプリの生成物
+// は1バイトも変更しない、injectA11yPanelToAppHtmls/詳細ページ生成の両方で使用)。
+const TRIM_GENERATED_BLANK_LINE_WS_APPS = new Set(['sakana-tsuri']);
+
 // 🔧 既存の独自設定ボタンを持つアプリ: セレクタを指定すると、
 // ・元のボタンは非表示にする
 // ・統一パネルに「このアプリの詳細設定を開く」ボタンを追加し、
@@ -862,6 +874,11 @@ const SETTINGS_PROXY = {
   'junban-miyou-app':   { selector: '#setBtn', label: '🔧 このアプリの詳細設定を開く' },
   'dotchiga-ii-app':    { selector: '#settingsBtn', label: '🔧 このアプリの詳細設定を開く' },
   'sawatte-hirogaru-app': { selector: '#openTeacherSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  // Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: sakana-tsuri.html's own
+  // #sakanaSettingsBtn + settingsPanel code comment already documented this exact
+  // {selector,label} pair as what it was hand-built to match (written ahead of actual
+  // apps-data.json registration) — this entry is what makes that match real.
+  'sakana-tsuri':       { selector: '#sakanaSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -932,7 +949,13 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // Phase M12-E: dotchiga-ii-appを追加。miru-hirogaru-app/mitsukete-touch-app/
   // junban-miyou-appと同じMulti-Input系アプリで、Switch Scan・Activity Tabs
   // 双方のネイティブTab順序からsettingsBtnを除外する必要がある点も同一。
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app']);
+  // Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: sakana-tsuriを追加。
+  // #sakanaSettingsBtnはclass="scannable" data-scan="1"を持つ、自アプリの
+  // Switch Scan候補の1つ(isVisibleEnabled()はdisplay==='none'のみ判定し、opacityは
+  // 見ない、上のコメント参照)——opacity:0のままだとこのSetに入れていない他アプリと
+  // 同じ「見えないのに実質operableなSwitch Scan候補」のバグを再現してしまうため、
+  // 同じSwitch Scan系アプリのsawatte-hirogaru-appと同じdisplay:none方式に揃える。
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
@@ -1562,7 +1585,14 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // も更新した。商品マスターは後から変更されうるため、CSV出力時に現在の商品マスターから名前を
 // 再取得せず、確定時点のsnapshotのみを参照する。両者ともschemaVersion:1のまま(v1 payload最終
 // 確定、不要なversion bumpはしない)。
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app']);
+// Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: 'sakana-tsuri' added. It
+// already used the canonical donomanaRecordCreate() Core Schema (see saveTrialRecord()
+// in sakana-tsuri.html itself) and already carried a hand-copied-but-verified-
+// byte-identical Learning Record Foundation JS block — this Set addition is what turns
+// that manual copy into a properly generate.js-sourced, auto-regenerated one (指示:
+// 「共通Foundationの生成ブロックを手編集しない。generate.jsが正本の箇所は正本を変更し、
+// 再生成して生成物と一致させる」).
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
 
 // ============================================================
 //  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線
@@ -3008,6 +3038,9 @@ let count = 0;
 for (const app of apps) {
   let html      = generateDetailHTML(app);
   html          = injectFavicon(html).html; // ファビコン注入
+  if (TRIM_GENERATED_BLANK_LINE_WS_APPS.has(app.filename)) {
+    html = html.replace(/^[ \t]+$/gm, ''); // この教材の生成物のみ、空白だけの行から行末空白を除去(上のSet定義コメント参照)
+  }
   const outPath = path.join(outDir, `${app.filename}-detail.html`);
   fs.writeFileSync(outPath, html, 'utf-8');
   console.log(`✅ 生成: ${app.filename}-detail.html`);
@@ -3341,6 +3374,9 @@ function injectA11yPanelToAppHtmls(apps) {
           const insertAt = bodyMatch.index + bodyMatch[0].length;
           html = html.slice(0, insertAt) + '\n' + panelHTML + html.slice(insertAt);
         }
+      }
+      if (TRIM_GENERATED_BLANK_LINE_WS_APPS.has(app.filename)) {
+        html = html.replace(/^[ \t]+$/gm, ''); // この教材の生成物のみ、空白だけの行から行末空白を除去(TRIM_GENERATED_BLANK_LINE_WS_APPS定義コメント参照)
       }
       if (html !== original) {
         fs.writeFileSync(filePath, html, 'utf-8');
