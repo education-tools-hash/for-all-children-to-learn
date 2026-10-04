@@ -170,24 +170,48 @@ with sync_playwright() as p:
         check(f"no runtime errors (speed={speed_key} boundary block)", not errors, errors)
         context.close()
 
-    # ================= A5. Apply-timing: changing speed mid-sweep does not affect the CURRENT sweep =================
+    # ================= A5. Apply-timing: a REAL click on a speed button, mid-sweep, =================
+    # applies live (Phase FISHING-APP-TIMING-SPEED-REAL-DEVICE-CORRECTION-1 — a real iPad
+    # review found that "next sweep only" read as "nothing changes no matter what I pick",
+    # since a teacher naturally watches the already-moving point while picking a speed).
+    # applyTimingSpeedLive() re-phases timingStartTs so position/direction are preserved
+    # exactly (no jump, no reversal) while the cycle length itself changes immediately.
     context, page, errors = new_page(browser)
     start_and_switch_to_timing(page, "normal")
     cast_to_reeling(page)
-    cycle_before = page.evaluate("activeTimingCycleMs")
-    # live-change the setting (simulating a click while REELING) without going through a
-    # fresh startTimingAnimation() call
-    page.evaluate("() => { inputSettings.timingSpeed = 'fast'; saveInputSettings(); refreshSettingsPanelUI(); }")
-    cycle_during = page.evaluate("activeTimingCycleMs")
-    check("activeTimingCycleMs is UNCHANGED immediately after a mid-sweep setting change (captured once at sweep start, not re-read live)",
-          cycle_during == cycle_before, (cycle_before, cycle_during))
+    page.wait_for_timeout(120)  # settle into a known, non-edge phase
+    t_before, pct_before, cycle_before, ascending_before = page.evaluate(
+        "() => { var now=Date.now(); var half=activeTimingCycleMs/2; var el=(now-timingStartTs)%activeTimingCycleMs; "
+        "return [now, timingMarkerPctAt(now), activeTimingCycleMs, el<half]; }")
+    id_before = page.evaluate("timingIntervalId")
+    page.click('[data-timing-speed="fast"]')  # the REAL button, same path a teacher uses
+    t_after, pct_after, cycle_after, ascending_after = page.evaluate(
+        "() => { var now=Date.now(); var half=activeTimingCycleMs/2; var el=(now-timingStartTs)%activeTimingCycleMs; "
+        "return [now, timingMarkerPctAt(now), activeTimingCycleMs, el<half]; }")
+    id_after = page.evaluate("timingIntervalId")
+    check("activeTimingCycleMs changes IMMEDIATELY on a real mid-sweep button click (2200/1.25=1760ms)",
+          abs(cycle_after - 1760) < 1, (cycle_before, cycle_after))
+    # "no jump" means continuous w.r.t. the OLD rate over the real (nonzero) click-dispatch
+    # latency between the two measurements -- not that pct_after==pct_before, since the
+    # marker legitimately keeps moving (at the OLD speed, until applyTimingSpeedLive()
+    # actually runs) for however many real ms page.click() itself takes to dispatch.
+    old_rate_pct_per_ms = (100.0 / (cycle_before / 2)) * (1 if ascending_before else -1)
+    expected_pct_if_uninterrupted = pct_before + old_rate_pct_per_ms * (t_after - t_before)
+    check("marker position is continuous w.r.t. the pre-click trajectory (no jump from the re-phase itself)",
+          abs(pct_after - expected_pct_if_uninterrupted) < 3,
+          (pct_before, pct_after, t_after - t_before, expected_pct_if_uninterrupted))
+    check("sweep direction (ascending/descending) is preserved across the live speed change",
+          ascending_after == ascending_before, (ascending_before, ascending_after))
+    check("the render interval is NOT restarted (no double-start) by a live speed change",
+          id_after == id_before, (id_before, id_after))
     pct_1 = page.evaluate("timingMarkerPctAt(Date.now())")
-    page.wait_for_timeout(60)
+    page.wait_for_timeout(300)
     pct_2 = page.evaluate("timingMarkerPctAt(Date.now())")
-    check("marker position still advances smoothly (no discontinuous jump) right after the setting change",
-          abs(pct_2 - pct_1) < 20, (pct_1, pct_2))
+    expected_delta_fast = 300 * (100 / 1760 * 2)  # %/ms for the NEW (fast) cycle, roughly
+    check("marker now visibly moves at the FAST rate, not the pre-change normal rate",
+          abs(abs(pct_2 - pct_1) - expected_delta_fast) < 15, (pct_1, pct_2, expected_delta_fast))
     # now actually land the fish (drive reelProgress to target via the real press
-    # path) and start a fresh cast — the NEW speed should apply then.
+    # path) and start a fresh cast — the same (already-live) speed should still apply.
     page.evaluate("() => { applyReelProgress(reelTarget, 'click'); }")
     for _ in range(80):
         if page.evaluate("() => state") == "CAUGHT":
@@ -204,9 +228,58 @@ with sync_playwright() as p:
             break
         page.wait_for_timeout(50)
     cycle_next_trial = page.evaluate("activeTimingCycleMs")
-    check("the changed speed DOES apply starting the next trial's sweep (2200/1.25=1760ms)",
+    check("the speed stays applied on the next trial's fresh sweep (2200/1.25=1760ms)",
           abs(cycle_next_trial - 1760) < 5, cycle_next_trial)
     check("no runtime errors (apply-timing block)", not errors, errors)
+    context.close()
+
+    # ================= A5b. Idle (not yet REELING) speed selection remains a safe no-op =================
+    # that simply takes effect on the next cast — applyTimingSpeedLive() must not throw or
+    # start anything when nothing is currently running.
+    context, page, errors = new_page(browser)
+    start_and_switch_to_timing(page)
+    check("not yet reeling (IDLE) before any cast", page.evaluate("state") == "IDLE", page.evaluate("state"))
+    check("no render interval running while idle", not page.evaluate("timingIntervalId"), page.evaluate("timingIntervalId"))
+    page.click('[data-timing-speed="very-slow"]')
+    check("no runtime errors from an idle speed click", not errors, errors)
+    page.click("#cast-btn")
+    for _ in range(80):
+        if page.evaluate("() => state") == "REELING":
+            break
+        page.wait_for_timeout(50)
+    cycle_first_cast = page.evaluate("activeTimingCycleMs")
+    check("idle-selected speed applies on the first cast (2200/0.5=4400ms)",
+          abs(cycle_first_cast - 4400) < 1, cycle_first_cast)
+    context.close()
+
+    # ================= A5c. Rapid successive live switches mid-sweep: no crash, ends on the last pick =================
+    context, page, errors = new_page(browser)
+    start_and_switch_to_timing(page, "normal")
+    cast_to_reeling(page)
+    page.wait_for_timeout(80)
+    page.click('[data-timing-speed="very-slow"]')
+    page.wait_for_timeout(50)
+    page.click('[data-timing-speed="fast"]')
+    page.wait_for_timeout(50)
+    page.click('[data-timing-speed="slow"]')
+    final_cycle = page.evaluate("activeTimingCycleMs")
+    check("rapid successive live switches settle on the LAST selection (2200/0.75=2933.3ms)",
+          abs(final_cycle - 2933.3) < 1, final_cycle)
+    check("no runtime errors from rapid successive switches", not errors, errors)
+    context.close()
+
+    # ================= A5d. Method switch mid-REELING still stops the timing render loop =================
+    # (regression guard: applyTimingSpeedLive()/the speed buttons must not interfere with
+    # the pre-existing markReleased() safety net that the real method-switch button relies on)
+    context, page, errors = new_page(browser)
+    start_and_switch_to_timing(page, "normal")
+    cast_to_reeling(page)
+    page.click('[data-timing-speed="very-slow"]')
+    page.wait_for_timeout(80)
+    page.click('[data-reel-method="hold"]')
+    check("switching away from Method C via the real button stops the render interval",
+          not page.evaluate("timingIntervalId"), page.evaluate("timingIntervalId"))
+    check("no runtime errors (method-switch-stops-interval block)", not errors, errors)
     context.close()
 
     # ================= A6. Persistence across reload =================

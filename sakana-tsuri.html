@@ -1357,13 +1357,17 @@ var TIMING_REDUCED_RENDER_TICK_MS = 450; // prefers-reduced-motion: coarser cade
    that same range does (指示: "必要な成功回数は...既存設定と整合"). */
 var TIMING_SPEED_MULTIPLIERS = { 'very-slow': 0.5, 'slow': 0.75, 'normal': 1.0, 'fast': 1.25 };
 var TIMING_SPEED_LABELS = { 'very-slow': 'とてもゆっくり', 'slow': 'ゆっくり', 'normal': 'ふつう', 'fast': 'はやい' };
-// Captured ONCE per startTimingAnimation() call (see below) rather than read live every
-// tick — this is what guarantees a mid-sweep settings change never makes the marker
-// jump or double-judge (指示: "点が急に飛ぶ・判定が二重になる動作を防ぐ"): the sweep
-// math below is internally consistent for the sweep's whole lifetime, and a changed
-// setting only takes effect the next time a sweep starts (next REELING entry, or next
-// method-switch into 'timing' mid-trial) — exactly the same "applies from the next
-// press/sweep, not mid-input" precedent HOLD_TICK_MS already established above.
+// (re)written at sweep start by startTimingAnimation(), and additionally RE-WRITTEN
+// LIVE, mid-sweep, by applyTimingSpeedLive() below (Phase
+// FISHING-APP-TIMING-SPEED-REAL-DEVICE-CORRECTION-1 — a real-device review found that
+// "次のスイープから反映" read on an iPad as "何を選んでも速さが変わらない", since a
+// teacher naturally watches the already-moving point while picking a speed, not only
+// just before a fresh cast). applyTimingSpeedLive() re-phases timingStartTs so the
+// marker's current position (%) and current direction are preserved exactly across the
+// cycle-length change — no jump, no reversal, no double-start of the render interval,
+// and the target-zone math (pct-based, cycle-length-independent) is untouched either
+// way, so 点が急に飛ぶ・判定が二重になる動作を防ぐ is still satisfied, just at a finer
+// grain than "only at the next sweep".
 var activeTimingCycleMs = TIMING_CYCLE_MS;
 var TIMING_ZONE_CENTER = 50;
 // Phase FISHING-APP-REAL-DEVICE-UI-CORRECTION-1: widened per iPad review finding
@@ -1918,6 +1922,30 @@ function stopTimingAnimation() {
   timingStartTs = null;
   if (elTimingCaption) elTimingCaption.textContent = '';
 }
+/* Phase FISHING-APP-TIMING-SPEED-REAL-DEVICE-CORRECTION-1: re-phase an ALREADY-RUNNING
+   sweep onto the newly selected speed, live, mid-sweep. Re-derives timingStartTs so that
+   timingMarkerPctAt(now) immediately after this call returns the EXACT SAME pct and the
+   same direction (ascending/descending) it had just before — only the cycle length (and
+   therefore how fast pct moves from here on) changes. This never touches timingIntervalId
+   (the render setInterval keeps running exactly as it was — no double-start, no restart),
+   never touches TIMING_ZONE_* (the target-zone/judgment math is purely pct-based and so is
+   completely unaffected), and is a no-op when no sweep is currently running (timingIntervalId
+   is null while WAITING/not using Method C — in that case the next startTimingAnimation()
+   call, i.e. the next cast, naturally already picks up inputSettings.timingSpeed on its own). */
+function applyTimingSpeedLive() {
+  if (!timingIntervalId || timingStartTs == null) return;
+  var now = Date.now();
+  var oldHalf = activeTimingCycleMs / 2;
+  var elapsedOld = (now - timingStartTs) % activeTimingCycleMs;
+  var ascending = elapsedOld < oldHalf;
+  var pct = timingMarkerPctAt(now);
+  var newCycle = TIMING_CYCLE_MS / TIMING_SPEED_MULTIPLIERS[inputSettings.timingSpeed];
+  var newHalf = newCycle / 2;
+  var elapsedNew = ascending ? (pct / 100) * newHalf : (2 - pct / 100) * newHalf;
+  activeTimingCycleMs = newCycle;
+  timingStartTs = now - elapsedNew;
+  renderTimingMarker(); // redraw immediately so the new rate is visible before the next tick
+}
 function showTimingCaption(text) {
   if (!elTimingCaption) return;
   elTimingCaption.textContent = text;
@@ -2400,16 +2428,19 @@ elSizeEffortButtons.forEach(function (b) {
     announce('大きさに応じた手応えを' + b.textContent + 'に せっていしました');
   });
 });
-// Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: no markReleased() here, same
-// reasoning as the background/fishType/sizeEffort handlers above — activeTimingCycleMs
-// is only ever (re-)captured inside startTimingAnimation(), which this click never
-// calls directly, so there is nothing in-flight for this setting change to interrupt;
-// a change made mid-sweep simply takes effect the next time a sweep starts.
+// Phase FISHING-APP-TIMING-SPEED-REAL-DEVICE-CORRECTION-1: no markReleased() here, same
+// reasoning as the background/fishType/sizeEffort handlers above — this click never
+// interrupts a press in progress. It DOES call applyTimingSpeedLive() so a change made
+// while the point is already moving (REELING + Method C) takes effect immediately,
+// re-phased onto the new speed with no jump/reversal/double-start (see that function's
+// own comment); applyTimingSpeedLive() itself is a no-op when nothing is running, so the
+// idle/other-method case still simply waits for the next startTimingAnimation() call.
 elTimingSpeedButtons.forEach(function (b) {
   b.addEventListener('click', function () {
     inputSettings.timingSpeed = b.dataset.timingSpeed;
     saveInputSettings();
     refreshSettingsPanelUI();
+    applyTimingSpeedLive();
     announce('うごく はやさを' + b.textContent + 'に せっていしました');
   });
 });
