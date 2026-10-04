@@ -157,6 +157,18 @@ function generateDetailHTML(app) {
     ? '<br>\n    <a href="../learning-records.html" class="back-link">📊 この教材の学習のきろくを見る</a>'
     : '';
 
+  const relatedLinks = (app.relatedAppLinks || []).map(({ id, context }) => {
+    const target = apps.find(candidate => candidate.id === id);
+    if (!target || target.id === app.id || !context) {
+      throw new Error(`関連教材の設定が不正です: ${app.id} -> ${id}`);
+    }
+    return `<li><a href="${target.filename}-detail.html"><strong>${target.title}</strong><span>${context}</span></a></li>`;
+  });
+  const relatedHTML = relatedLinks.length ? `<section class="card" aria-labelledby="related-apps-title">
+    <h2 class="card-title" id="related-apps-title">あわせて使える教材</h2>
+    <ul class="related-apps">${relatedLinks.join('')}</ul>
+  </section>` : '';
+
   const softwareHTML = app.software ? `
   <div class="software-alert">
     <div class="software-alert-title">
@@ -418,7 +430,11 @@ ${jsonLdHTML}
   .bottom-launch{text-align:center;padding:40px 20px;background:linear-gradient(135deg,#FBFBF8,var(--c-primary-light));border:1px solid var(--c-border);border-radius:var(--radius);}
   .bottom-launch p{font-size:15px;color:var(--c-muted);margin-bottom:20px;}
   .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--c-muted);font-size:14px;text-decoration:none;margin-top:16px;min-height:44px;}
-  .back-link:hover{color:var(--c-primary);}
+  .back-link:hover{color:var(--c-primary);}${relatedLinks.length ? `
+  .related-apps{list-style:none;display:grid;gap:10px;}
+  .related-apps a{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border:1px solid var(--c-border);border-radius:12px;color:var(--c-primary);text-decoration:none;min-height:48px;}
+  .related-apps a:hover,.related-apps a:focus-visible{background:var(--c-tag-bg);text-decoration:underline;}
+  .related-apps span{font-size:13px;color:var(--c-muted);}` : ''}
   .guide-banner{display:flex;align-items:center;gap:16px;padding:18px 22px;background:linear-gradient(120deg,#00A99D,#4DBFB3 55%,#4A8FD9);border-radius:18px;box-shadow:0 6px 22px rgba(0,169,157,0.3);text-decoration:none;color:#fff;transition:transform 0.18s,box-shadow 0.18s;}
   .guide-banner:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(74,123,166,0.42);}
   .guide-banner-icon{font-size:26px;flex-shrink:0;line-height:1;letter-spacing:-4px;}
@@ -479,7 +495,8 @@ ${jsonLdHTML}
   <div class="card">
     <h2 class="card-title">アクセシビリティ</h2>
     <div class="a11y-grid">${a11yHTML}</div>
-  </div>
+  </div>${relatedHTML ? `
+  ${relatedHTML}` : ''}
   <div class="caution"><strong>使用上の留意点</strong><br>${app.caution}</div>
   <div class="bottom-launch">
     <p>アプリの内容を確認したら、さっそく使ってみましょう！</p>
