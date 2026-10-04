@@ -38,7 +38,7 @@
   // ため、このfileもbackground/sizeEffortの行・列を一切生成しない）。
   var FISH_TYPE_LABELS = { orange: 'オレンジの魚', 'red-white': '赤白の魚', spotted: 'まだら模様の魚' };
   var FISH_SIZE_LABELS = { small: 'ちいさい', medium: 'ふつう', large: 'おおきい' };
-  var REEL_METHOD_LABELS = { arc: '円弧でまく', hold: '長押しでまく', timing: 'タイミングよく おす' };
+  var REEL_METHOD_LABELS = { arc: 'ぐるぐるまく', hold: '長押しでまく', timing: 'タイミングよく おす' };
   var REEL_GAIN_LABELS = { small: 'すくない', medium: 'ふつう', large: 'おおい' };
   var REEL_SPEED_LABELS = { slow: 'ゆっくり', standard: 'ふつう', fast: 'はやい' };
   var TIMING_SPEED_LABELS = { 'very-slow': 'とてもゆっくり', slow: 'ゆっくり', normal: 'ふつう', fast: 'はやい' };

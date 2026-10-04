@@ -22,6 +22,7 @@ const path = require('path');
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const dash = require(path.join(REPO_ROOT, 'assets', 'js', 'record-dashboard-foundation.js'));
 const SakanaDetail = require(path.join(REPO_ROOT, 'assets', 'js', 'sakana-tsuri-record-detail.js'));
+const DashboardUI = require(path.join(REPO_ROOT, 'assets', 'js', 'record-dashboard-ui.js'));
 const { FakeStorage } = require('./fixtures.js');
 
 global.donomanaSakanaTsuriRecordDetail = SakanaDetail;
@@ -44,6 +45,7 @@ check('category is 自立活動', meta && meta.category === '自立活動', meta
 check('storageKey is sakana-tsuri_records (NOT the settings key)', meta && meta.storageKey === 'sakana-tsuri_records', meta && meta.storageKey);
 check('privacyLevel is low', meta && meta.privacyLevel === 'low', meta && meta.privacyLevel);
 check('includeInDefaultTimeline is true', meta && meta.includeInDefaultTimeline === true);
+check('arc label uses ぐるぐるまく in dashboard', DashboardUI.activityLabel('arc') === 'ぐるぐるまく');
 
 // ────────────────────────────────────────────────────────────
 section('2. Real production-shape fixtures, incl. a pre-Phase legacy record');
@@ -154,6 +156,7 @@ function detailsFor(fixture) { return dash.getRecordDetails('sakana-tsuri', fixt
   check('very old legacy record: detail screen still renders other real fields without crashing', labels.includes('まきとり方法') && labels.includes('所要時間'), labels);
 }
 check('getRecordDetails never throws on null/undefined entry', (function () { try { dash.getRecordDetails('sakana-tsuri', null); dash.getRecordDetails('sakana-tsuri', undefined); return true; } catch (e) { return false; } })());
+check('legacy arc record displays new wording without changing its saved code', SakanaDetail.getDetailRows(FIXTURES.pre_phase_legacy_no_timing_speed).some(r => r.label === 'まきとり方法' && r.value === 'ぐるぐるまく'));
 
 // ────────────────────────────────────────────────────────────
 section('5. Rich Visualization — NOT APPLICABLE (sakana-tsuri saves no image/trace data)');
