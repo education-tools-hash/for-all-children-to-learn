@@ -243,3 +243,24 @@ FIXED-PREVIEW-1）で魚の見た目がSVG（`currentColor`で色分け可能）
    record-dashboard-foundation.jsより前に1行追加。
 7. 関連テスト: `sakana-tsuri-variety-test.py`への追加検証、golden testsの
    実行（新規adapterのnormalize/getDetails/CSV出力の形式確認）。
+
+
+## 数指定モード（FISHING-APP-COUNT-MODE-AND-FIXED-PREVIEW-1）
+
+自由を既定とし、開始前に「かず」と目標1〜5匹（既定3）を選ぶ。
+課題開始でmodeとtargetCountを確定し、1匹ごとの状態機械は維持する。
+数モードの釣果は自動resetせず、未達時は「つぎの さかな」で累積を維持、
+達成時は「もういちど」で準備画面へ戻る。新課題は新ID・0匹から開始する。
+途中破棄はインライン確認を使い、保存済み記録は削除しない。課題状態はメモリのみで、
+reload後は再開しない。色指定モードは引き続き未実装。
+
+既存Foundation payloadのmode/targetCountを使用し、数モード釣果のみに
+challengeId:string、caughtCount:integer、challengeCompleted:booleanを追加する。
+landFishのcaughtLandedガードの内側で加算し、従来どおり1キャッチ1件保存する。
+目標達成用の追加レコードは作らない。途中記録のfalseは「このキャッチ時点で未達」であり、
+その後の課題全体の中断/完了を推測しない。旧記録の欠落値も推測しない。
+共通CSVの9列を維持し、既存「釣れた魚」セルに数課題の保存事実を付記する。
+App-local記録一覧は既存実装に存在しないため新設せず、共通「学習のきろく」へ集約する。
+Core Schema・保持期間・バックアップ仕様は変更しない。
+
+確認は新規モーダルを作らずインラインで表示し、安全側の「つづける」へフォーカスする。確認中は釣り操作部をinertにし、入力を解除する。Escapeで継続し、閉じると開いたボタンへ戻す。

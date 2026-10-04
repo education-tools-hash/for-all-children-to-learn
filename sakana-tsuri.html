@@ -118,6 +118,25 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   gap:var(--dm-space-3);
 }
 
+/* Count challenge uses a compact non-interactive row; targets stay full-size. */
+#countGoal[hidden],#targetCountWrap[hidden]{display:none;}
+#countGoal{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font-size:16px;min-height:38px;padding-top:12px;}
+#countGoalSlots{display:flex;gap:4px;}
+.count-goal-slot{position:relative;width:32px;height:23px;border:2px dashed #52636b;border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;}
+.count-goal-slot.filled{border-style:solid;}
+.count-goal-slot img{width:25px;height:16px;object-fit:contain;}
+.count-goal-slot:not(.filled) img{opacity:.25;}
+.count-goal-slot span{position:absolute;right:-4px;top:-6px;font-size:11px;line-height:14px;background:white;border-radius:4px;padding:0 2px;}
+#challengeSetupBtn{min-height:44px;border:1px solid #52636b;background:white;border-radius:12px;align-self:center;padding:4px 12px;}
+#discardChallengeDialog{max-width:calc(100% - 32px);border:2px solid #52636b;border-radius:16px;}
+#discardChallengeDialog[hidden]{display:none;}
+#discardChallengeDialog{background:#fff7df;padding:12px;}
+#discardChallengeDialog button{min-height:48px;padding:8px 16px;margin:6px;}
+#fishing-screen.count-mode .pond{height:238px;}
+#fishing-screen.count-mode #catch-result{padding:12px;}
+#fishing-screen.count-mode #catch-result .catch-emoji{font-size:2rem;}
+#fishing-screen.count-mode #catch-message{margin:6px 0;}
+@media(max-height:700px){#fishing-screen.count-mode .pond{height:153px;}}
 /* ---- Pond scene: sky band, water, shore, rod, line, bobber, tackle, fish ----
    Phase FISHING-APP-ART-INTEGRATION-AND-FIXED-PREVIEW-1: background is now the
    user-selected painted pond-background.png (assets/sakana-tsuri/, delivered as an
@@ -940,7 +959,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       <li>さいごまで まきとると つれる</li>
     </ul>
     <h3>まきとりかた（3しゅるい）</h3>
-    <p>がめんの「まきとり方法」から、まきとりかたを えらべます。活動中に かえても すぐに あたらしいほうほうに なります（つりの すすみぐあいは そのまま のこります）。</p>
+    <p>がめんの「まきとり方法」から、まきとりかたを えらべます。なげる まえに えらびます。なげた あとは、えらんだ そうさだけが ひょうじされます。</p>
     <h4>円弧でまく</h4>
     <p>まるい ボタンの上で、ゆびを くるくる まわします（タッチ・マウスむけ）。</p>
     <h4>長押しでまく（はじめから えらばれています）</h4>
@@ -954,6 +973,8 @@ div:has(> #donomanaLockBtn){right:64px!important;}
     <p>Tabキーで ボタンに うつります。長押しでまくは EnterキーまたはSpaceキーを おしつづけます。タイミングよく おしてまくは、EnterキーまたはSpaceキーを 1かい おします。円弧でまく方法は キーボードでは そうさしません（「長押しでまく」か「タイミングよく おしてまく」を おつかいください）。</p>
     <h4>スイッチ</h4>
     <p>タイミングよく おしてまくは、がいぶスイッチで Enter/Space相当の 1かいの そうさでも つかえる せっけいです。長押しでまくも ながおし操作に たいおうする せっけいです。どちらも、じっきでの どうさかくにんは まだ おこなっていません。</p>
+    <h3>かずを きめて つる</h3>
+    <p>はじめる まえに「かず」と 1〜5ひきの もくひょうを えらびます。つれるたびに えと すうじが ふえます。「つぎの さかな」で つづけ、もくひょうに とどいたら「もういちど」で あたらしく はじめます。「あそびかたを かえる」で もくひょうを かえられます。とちゅうで おわっても、つった きろくは のこります。</p>
     <h3>おと</h3>
     <p>がめん したの「🔊 おと」で、こうかおんの ON/OFFを きりかえられます。おとを けしても、がめんのひょうじで すすみぐあいが わかるように なっています。</p>
     <h3>きろく</h3>
@@ -1097,7 +1118,23 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 <div class="app-shell">
 
   <section id="start-screen">
-    <p>じゆうに さかなを つってみよう！</p>
+    <p>じゆうに つる？ かずを きめて つる？</p>
+    <div id="learningSetup">
+      <div class="preset-group" role="group" aria-label="あそびかた">
+        <button type="button" data-learning-mode="free" aria-pressed="true">じゆう</button>
+        <button type="button" data-learning-mode="count" aria-pressed="false">かず</button>
+      </div>
+      <div id="targetCountWrap" hidden>
+        <p id="targetCountLabel">なんびき つる？</p>
+        <div class="preset-group" role="group" aria-labelledby="targetCountLabel">
+          <button type="button" data-target-count="1" aria-pressed="false">1ひき</button>
+          <button type="button" data-target-count="2" aria-pressed="false">2ひき</button>
+          <button type="button" data-target-count="3" aria-pressed="true">3ひき</button>
+          <button type="button" data-target-count="4" aria-pressed="false">4ひき</button>
+          <button type="button" data-target-count="5" aria-pressed="false">5ひき</button>
+        </div>
+      </div>
+    </div>
     <button id="start-btn" class="big-btn" type="button">🎣 はじめる</button>
   </section>
 
@@ -1105,7 +1142,18 @@ div:has(> #donomanaLockBtn){right:64px!important;}
 
     <div id="status-text" role="status">じゅんび かんりょう</div>
 
+<section id="discardChallengeDialog" hidden role="group" aria-labelledby="discardChallengeTitle">
+  <h2 id="discardChallengeTitle">この あそびを おわる？</h2>
+  <p>つった かずは 0に もどります。ほぞんした きろくは のこります。</p>
+  <button id="keepChallengeBtn" type="button">つづける</button>
+  <button id="discardChallengeBtn" type="button">おわって せっていへ</button>
+</section>
     <div class="fishing-spot" id="fishingSpot">
+      <div id="countGoal" hidden role="status" aria-live="polite" aria-atomic="true">
+        <strong id="countGoalText"></strong>
+        <div id="countGoalSlots" aria-hidden="true"></div>
+        <span id="countGoalFraction"></span>
+      </div>
       <div class="pond" id="pond">
         <div class="status-band" aria-hidden="true"><div class="status-chip" id="status-chip">じゅんび かんりょう</div></div>
         <div class="rod" aria-hidden="true">
@@ -1250,6 +1298,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
       <button id="again-btn" class="big-btn scannable" data-scan="1" type="button" hidden>🔄 もういちど</button>
     </div>
 
+    <button id="challengeSetupBtn" class="scannable" data-scan="1" type="button">あそびかたを かえる</button>
     <div class="settings-row">
       <label><input type="checkbox" id="sound-toggle" checked> 🔊 おと</label>
       <button id="sakanaSettingsBtn" class="scannable" data-scan="1" type="button" aria-controls="settingsPanel">🔧 詳細設定</button>
@@ -1258,6 +1307,7 @@ div:has(> #donomanaLockBtn){right:64px!important;}
   </section>
 
 </div>
+
 
 <script>
 /* ================================================================
@@ -1339,7 +1389,7 @@ var REEL_METHOD_VALUES = REEL_METHODS.map(function (m) { return m.value; });
    the same regardless of its randomly-rolled size, Phase指示: "初期設定では、大きさに
    よって必要な操作量を変えない") or 'on' (size scales the required total reelProgress
    via reelTarget below, Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1). */
-var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold', backgroundMode: 'auto', fishTypeMode: 'auto', sizeEffort: 'off', timingSpeed: 'normal' };
+var DEFAULT_INPUT_SETTINGS = { reelGainPreset: 'medium', reelSpeedPreset: 'standard', reelMethod: 'hold', backgroundMode: 'auto', fishTypeMode: 'auto', sizeEffort: 'off', timingSpeed: 'normal', learningMode: 'free', targetCount: 3 };
 var INPUT_SETTINGS_STORAGE_KEY = 'sakana-tsuri_settings'; // deliberately NOT donomanaRecordAddLog's
                                                             // array-of-trials log key — this is a
                                                             // standing setting, not a record entry.
@@ -1351,7 +1401,9 @@ function defaultInputSettings() {
     backgroundMode: DEFAULT_INPUT_SETTINGS.backgroundMode,
     fishTypeMode: DEFAULT_INPUT_SETTINGS.fishTypeMode,
     sizeEffort: DEFAULT_INPUT_SETTINGS.sizeEffort,
-    timingSpeed: DEFAULT_INPUT_SETTINGS.timingSpeed
+    timingSpeed: DEFAULT_INPUT_SETTINGS.timingSpeed,
+    learningMode: DEFAULT_INPUT_SETTINGS.learningMode,
+    targetCount: DEFAULT_INPUT_SETTINGS.targetCount
   };
 }
 function loadInputSettings() {
@@ -1378,13 +1430,93 @@ function loadInputSettings() {
     // timingSpeed key at all (undefined), which falls back to 'normal' (= byte-identical
     // to the pre-Phase hardcoded TIMING_CYCLE_MS) exactly like any other unrecognized value.
     var timingSpeed = TIMING_SPEED_KEYS.indexOf(parsed.timingSpeed) !== -1 ? parsed.timingSpeed : DEFAULT_INPUT_SETTINGS.timingSpeed;
-    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method, backgroundMode: background, fishTypeMode: fishType, sizeEffort: sizeEffort, timingSpeed: timingSpeed }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
+    return { reelGainPreset: gain, reelSpeedPreset: speed, reelMethod: method, backgroundMode: background, fishTypeMode: fishType, sizeEffort: sizeEffort, timingSpeed: timingSpeed, learningMode: parsed.learningMode === 'count' ? 'count' : 'free', targetCount: Number.isInteger(parsed.targetCount) && parsed.targetCount >= 1 && parsed.targetCount <= 5 ? parsed.targetCount : 3 }; // unknown/malformed values fall back safely, never crash or apply an out-of-range value
   } catch (e) { return defaultInputSettings(); }
 }
 function saveInputSettings() {
   try { localStorage.setItem(INPUT_SETTINGS_STORAGE_KEY, JSON.stringify(inputSettings)); } catch (e) {}
 }
 var inputSettings = loadInputSettings();
+// Challenge is memory-only; each catch is persisted independently by Foundation.
+// Frozen goal/mode never comes from settings at save time.
+var countChallenge = null;
+var discardConfirmOpen = false;
+var activeLearningMode = 'free';
+function newCountChallenge() {
+  countChallenge = { id: makeSessionId(), target: inputSettings.targetCount, caught: 0, complete: false };
+}
+function renderCountGoal() {
+  var goal = document.getElementById('countGoal');
+  var shown = activeLearningMode === 'count' && !!countChallenge;
+  goal.hidden = !shown;
+  elFishing.classList.toggle('count-mode', shown);
+  if (!shown) return;
+  var c = countChallenge;
+  document.getElementById('countGoalText').textContent = c.complete ? c.target + 'ひき つれたよ！' : 'さかなを ' + c.target + 'ひき つろう';
+  document.getElementById('countGoalFraction').textContent = c.caught + ' / ' + c.target + 'ひき';
+  var slots = document.getElementById('countGoalSlots');
+  // Rebuild only when goal/progress changes, not on each gameplay render.
+  var signature = c.target + ':' + c.caught;
+  if (slots.dataset.progress === signature) return;
+  slots.dataset.progress = signature;
+  slots.replaceChildren();
+  for (var i = 0; i < c.target; i++) {
+    var slot = document.createElement('span');
+    slot.className = 'count-goal-slot' + (i < c.caught ? ' filled' : '');
+    var img = document.createElement('img');
+    img.src = 'assets/sakana-tsuri/orange-fish.png'; img.alt = '';
+    slot.appendChild(img);
+    var mark = document.createElement('span');
+    mark.textContent = i < c.caught ? '✓' : String(i + 1);
+    slot.appendChild(mark);
+    slots.appendChild(slot);
+  }
+}
+function refreshLearningSetup() {
+  document.querySelectorAll('[data-learning-mode]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.learningMode === inputSettings.learningMode)); });
+  document.querySelectorAll('[data-target-count]').forEach(function (b) { b.setAttribute('aria-pressed', String(Number(b.dataset.targetCount) === inputSettings.targetCount)); });
+  document.getElementById('targetCountWrap').hidden = inputSettings.learningMode !== 'count';
+}
+document.querySelectorAll('[data-learning-mode]').forEach(function (b) { b.addEventListener('click', function () {
+  if (!elFishing.hidden) return;
+  inputSettings.learningMode = b.dataset.learningMode; saveInputSettings(); refreshLearningSetup();
+}); });
+document.querySelectorAll('[data-target-count]').forEach(function (b) { b.addEventListener('click', function () {
+  if (!elFishing.hidden) return;
+  inputSettings.targetCount = Number(b.dataset.targetCount); saveInputSettings(); refreshLearningSetup();
+}); });
+refreshLearningSetup();
+function returnToLearningSetup() {
+  clearTimeout(castTimer); clearTimeout(waitTimer); clearTimeout(biteTimer); clearTimeout(caughtTimer);
+  markReleased();
+  state = STATE.IDLE; waitPhase = null; caughtLanded = false;
+  currentFish = null; hookedFishId = null; reelProgress = 0;
+  elFish.style.transition = ''; elFish.style.transform = ''; elFish.classList.remove('eating');
+  countChallenge = null; activeLearningMode = 'free';
+  elFishing.hidden = true; elStart.hidden = false;
+  refreshLearningSetup(); updateUI();
+  document.getElementById('start-btn').focus();
+}
+document.getElementById('challengeSetupBtn').addEventListener('click', function () {
+  if (activeLearningMode === 'count' && countChallenge && !countChallenge.complete && (countChallenge.caught > 0 || state !== STATE.IDLE)) {
+    markReleased();
+    discardConfirmOpen = true;
+    document.getElementById('discardChallengeDialog').hidden = false;
+    updateUI();
+    document.getElementById('keepChallengeBtn').focus();
+  } else returnToLearningSetup();
+});
+function closeDiscardConfirmation() {
+  discardConfirmOpen = false; document.getElementById('discardChallengeDialog').hidden = true;
+  updateUI(); document.getElementById('challengeSetupBtn').focus();
+}
+document.getElementById('keepChallengeBtn').addEventListener('click', closeDiscardConfirmation);
+document.addEventListener('keydown', function (e) {
+  if (discardConfirmOpen && e.key === 'Escape') { e.preventDefault(); closeDiscardConfirmation(); }
+});
+document.getElementById('discardChallengeBtn').addEventListener('click', function () {
+  discardConfirmOpen = false; document.getElementById('discardChallengeDialog').hidden = true; returnToLearningSetup();
+});
 /* Re-derive the two numbers Method B's existing hold logic actually reads. Called on
    load and whenever the settings panel changes a preset. HOLD_TICK_AMOUNT takes effect
    on the very next tick (read fresh from this closure variable each interval firing);
@@ -1754,6 +1886,9 @@ var STATUS_LABELS = {
   CAUGHT: 'やったね！'
 };
 function updateUI() {
+  renderCountGoal();
+  elFishingSpot.inert = discardConfirmOpen;
+  document.getElementById('challengeSetupBtn').disabled = discardConfirmOpen;
   elStatus.textContent = STATUS_LABELS[state];
   elStatusChip.textContent = STATUS_LABELS[state];
   elCastBtn.disabled = (state !== STATE.IDLE);
@@ -1798,7 +1933,7 @@ function updateUI() {
     // Central start/stop: the only place the timing render loop is armed or disarmed on
     // a normal transition (markReleased() below is the shared safety net for the
     // abnormal/interrupt paths, matching arcDragState's own split, 指示22章/23章).
-    if (reeling) { if (!timingIntervalId) startTimingAnimation(); }
+    if (reeling && !discardConfirmOpen) { if (!timingIntervalId) startTimingAnimation(); }
     else if (timingIntervalId) { stopTimingAnimation(); }
   } else {
     elReelBtn.setAttribute('aria-disabled', reeling ? 'false' : 'true');
@@ -2092,7 +2227,7 @@ elReelTimingBtn.addEventListener('click', onTimingPress);
 // medium/large fish scales up by the same ratio for all 3 methods automatically, without
 // any method-specific branch here — see pickFishAppearance() for how reelTarget is set.
 function applyReelProgress(amount, inputMethod) {
-  if (state !== STATE.REELING || !hookedFishId) return;
+  if (discardConfirmOpen || state !== STATE.REELING || !hookedFishId) return;
   reelProgress = Math.min(reelTarget, reelProgress + Math.max(0, amount));
   lastInputMethod = inputMethod;
   renderFishPosition();
@@ -2165,7 +2300,7 @@ function hookFish() {
   return 'fish-' + Date.now();
 }
 function startCast() {
-  if (state !== STATE.IDLE) return;
+  if (discardConfirmOpen || state !== STATE.IDLE || (activeLearningMode === 'count' && countChallenge && countChallenge.complete)) return;
   // Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #cast-btn is about to become
   // hidden (updateUI() below) — if it currently holds focus (a keyboard/switch-scan
   // press just triggered this very call), move focus somewhere still-visible instead of
@@ -2251,7 +2386,7 @@ function enterReeling() {
   if (isPhysicallyHeld) onHoldStart(holdInputMethod || 'touch'); // WAITING中からの引き継ぎ(5.3章、ユーザー確定)
 }
 function landFish() {
-  if (caughtLanded) return; // 二重発火防止(5.4章)
+  if (caughtLanded || state !== STATE.REELING) return; // 二重発火防止(5.4章)
   caughtLanded = true;
   state = STATE.CAUGHT;
   markReleased();
@@ -2260,6 +2395,10 @@ function landFish() {
   setFishXY(CAUGHT_X_PCT, CAUGHT_Y_PCT); // then visibly lifted up to rod-tip height, out of the water
   renderLineTo(CAUGHT_X_PCT, CAUGHT_Y_PCT);
   playCaughtSound();
+  if (activeLearningMode === 'count' && countChallenge && !countChallenge.complete) {
+    countChallenge.caught = Math.min(countChallenge.target, countChallenge.caught + 1);
+    countChallenge.complete = countChallenge.caught === countChallenge.target;
+  }
   updateUI();
   // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: states the actual size+type that was
   // shown (指示: "選んだ大きさや手応えを、文字...でも伝える。色だけで伝えない").
@@ -2269,11 +2408,20 @@ function landFish() {
   var caughtDesc = (caughtSizeLabel + ' ' + caughtTypeLabel).trim();
   elCatchMessage.textContent = (caughtDesc ? caughtDesc + 'が' : 'さかなが') + ' つれたよ！';
   announce('やったね！' + (caughtDesc ? caughtDesc + 'が' : 'さかなが') + ' つれたよ！');
+  if (activeLearningMode === 'count' && countChallenge) {
+    elCatchMessage.textContent += countChallenge.complete ? ' ' + countChallenge.target + 'ひき つれたよ！' : ' ' + countChallenge.caught + ' / ' + countChallenge.target + 'ひき';
+    elAgainBtn.textContent = countChallenge.complete ? '🔄 もういちど' : '🎣 つぎの さかな';
+  } else elAgainBtn.textContent = '🔄 もういちど';
   saveTrialRecord();
+  // Count mode waits for deliberate next/new-challenge input; no auto reset.
+  if (activeLearningMode === 'count') return;
   caughtTimer = setTimeout(function () { elFish.style.transition = ''; requestReset(); }, CAUGHT_DISPLAY_MS);
 }
 function requestReset() {
   if (state !== STATE.CAUGHT) return;
+  if (activeLearningMode === 'count' && countChallenge && countChallenge.complete) {
+    returnToLearningSetup(); return;
+  }
   // Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: same focus-preservation
   // reasoning as startCast() — #again-btn is about to become hidden.
   var hadFocusOnAgain = (document.activeElement === elAgainBtn);
@@ -2285,6 +2433,7 @@ function requestReset() {
   reelTarget = 100; currentSizeScale = 1; elFishSizeLabel.textContent = ''; // defensive reset
   elFish.classList.remove('eating');
   elFish.style.transform = '';
+  elFish.style.transition = '';
   updateUI();
   if (hadFocusOnAgain) elCastBtn.focus();
 }
@@ -2300,7 +2449,7 @@ function saveTrialRecord() {
   var entry = donomanaRecordCreate('sakana-tsuri', 'fishing_trial', lastInputMethod, {
     sessionId: sessionId,
     trialNumber: trialNumber,
-    mode: 'free',
+    mode: activeLearningMode,
     difficulty: null,
     // Phase FISHING-APP-METHOD-A-1: reelMethod now reflects the actual preset in effect
     // for this trial ('arc'/'hold') instead of a hardcoded literal — the field itself
@@ -2315,7 +2464,7 @@ function saveTrialRecord() {
     // when reelMethod==='timing', so the record format stays uniform across trials.
     timingSpeed: inputSettings.timingSpeed,
     targetColor: null,
-    targetCount: null,
+    targetCount: activeLearningMode === 'count' && countChallenge ? countChallenge.target : null,
     // Phase FISHING-APP-VARIETY-AND-SIZE-EFFORT-1: caughtColor's key is unchanged, but
     // now holds currentFish.type ('orange'/'red-white'/'spotted' — exactly what #fish-img
     // showed for this trial) instead of the old red/blue/yellow vocabulary that no image
@@ -2328,6 +2477,11 @@ function saveTrialRecord() {
     result: null,
     durationMs: Date.now() - castStartedAt
   });
+  if (activeLearningMode === 'count' && countChallenge) {
+    entry.payload.challengeId = countChallenge.id;
+    entry.payload.caughtCount = countChallenge.caught;
+    entry.payload.challengeCompleted = countChallenge.complete;
+  }
   donomanaRecordAddLog(STORAGE_KEY, entry);
 }
 
@@ -2596,7 +2750,13 @@ if (elTimingSpeedToggleBtn) {
   });
 }
 elSettingsResetBtn.addEventListener('click', function () {
+  var keptMode = inputSettings.learningMode, keptTarget = inputSettings.targetCount;
   inputSettings = defaultInputSettings();
+  // Settings reset during a challenge must not change its frozen mode/goal.
+  if (countChallenge && !countChallenge.complete) {
+    inputSettings.learningMode = keptMode; inputSettings.targetCount = keptTarget;
+  }
+  refreshLearningSetup();
   saveInputSettings();
   applyInputSettingsToGameplay();
   markReleased(); // same defensive stop as a direct method switch, above
@@ -2632,9 +2792,13 @@ document.addEventListener('keydown', function (e) {
 
 /* ---- Start screen ---- */
 document.getElementById('start-btn').addEventListener('click', function () {
+  if (elStart.hidden) return;
   unlockAudioContext();
   sessionId = makeSessionId();
   trialNumber = 0;
+  activeLearningMode = inputSettings.learningMode;
+  countChallenge = null;
+  if (activeLearningMode === 'count') newCountChallenge();
   elStart.hidden = true;
   elFishing.hidden = false;
   state = STATE.IDLE;

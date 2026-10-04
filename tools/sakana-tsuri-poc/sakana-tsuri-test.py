@@ -594,7 +594,7 @@ def main():
         record("Settings: saved to a dedicated localStorage key, not the records log",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
                {"reelGainPreset": "large", "reelSpeedPreset": "fast", "reelMethod": "hold",
-                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off", "timingSpeed": "normal"})
+                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off", "timingSpeed": "normal", "learningMode": "free", "targetCount": 3})
         record("Settings: records log untouched by settings changes alone",
                page.evaluate("localStorage.getItem('sakana-tsuri_records')") is None)
 
@@ -655,7 +655,7 @@ def main():
         record("Settings: reset persists the default back to localStorage",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings'))") ==
                {"reelGainPreset": "medium", "reelSpeedPreset": "standard", "reelMethod": "hold",
-                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off", "timingSpeed": "normal"})
+                "backgroundMode": "auto", "fishTypeMode": "auto", "sizeEffort": "off", "timingSpeed": "normal", "learningMode": "free", "targetCount": 3})
         record("Settings: reset does not disturb the common A11y panel's own settings",
                page.evaluate("document.documentElement.style.filter") == "" and
                page.evaluate("document.body.style.zoom") == "")

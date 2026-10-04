@@ -50,12 +50,25 @@
   function reelSpeedLabel(s) { return (typeof s === 'string' && REEL_SPEED_LABELS[s]) ? REEL_SPEED_LABELS[s] : ''; }
   function timingSpeedLabel(s) { return (typeof s === 'string' && TIMING_SPEED_LABELS[s]) ? TIMING_SPEED_LABELS[s] : ''; }
 
+  // Only report facts explicitly saved by count mode. Missing/invalid legacy values
+  // do not establish a challenge, progress or completion.
+  function countFacts(p) {
+    if (!p || p.mode !== 'count') return '';
+    var parts = ['かず'];
+    if (Number.isInteger(p.targetCount) && p.targetCount >= 1 && p.targetCount <= 5) parts.push('目標 ' + p.targetCount + '匹');
+    if (Number.isInteger(p.caughtCount) && p.caughtCount >= 0 && p.caughtCount <= 5) parts.push('この釣果まで ' + p.caughtCount + '匹');
+    if (typeof p.challengeCompleted === 'boolean') parts.push(p.challengeCompleted ? 'この釣果で目標達成' : 'この釣果時点で目標未達');
+    return parts.join('・');
+  }
+
   // sakana-tsuri.html:landFish()のcatch message組み立てと同じ考え方（大きさ+種類）。
   // payload: donomanaRecordCreate()のpayload(=record.payload)。
   function summaryText(payload) {
     if (!payload || typeof payload !== 'object') return 'さかなつりに取り組みました';
     var desc = (fishSizeLabel(payload.caughtSize) + ' ' + fishTypeLabel(payload.caughtColor)).trim();
-    return desc ? (desc + 'の さかなが つれました') : 'さかなが つれました';
+    var text = desc ? (desc + 'の さかなが つれました') : 'さかなが つれました';
+    var facts = countFacts(payload);
+    return text + (facts ? '（' + facts + '）' : '');
   }
 
   function formatDuration(ms) {
@@ -78,6 +91,11 @@
     if (!entry || typeof entry !== 'object') return [];
     var payload = (entry.payload && typeof entry.payload === 'object') ? entry.payload : {};
     var rows = [];
+    if (payload.mode === 'count' || payload.mode === 'free') pushIf(rows, 'あそびかた', payload.mode === 'count' ? 'かず' : '自由');
+    if (payload.mode === 'count') {
+      pushIf(rows, '数の課題', countFacts(payload));
+      if (typeof payload.challengeId === 'string' && payload.challengeId) pushIf(rows, '課題ID', payload.challengeId);
+    }
     pushIf(rows, '釣れた魚', fishTypeLabel(payload.caughtColor));
     pushIf(rows, '大きさ', fishSizeLabel(payload.caughtSize));
     pushIf(rows, 'まきとり方法', reelMethodLabel(payload.reelMethod));
@@ -120,7 +138,7 @@
       rows.push([
         dt.date,
         dt.time,
-        fishTypeLabel(payload.caughtColor),
+        fishTypeLabel(payload.caughtColor) + (countFacts(payload) ? '（' + countFacts(payload) + (typeof payload.challengeId === 'string' && payload.challengeId ? '・課題ID ' + payload.challengeId : '') + '）' : ''),
         fishSizeLabel(payload.caughtSize),
         reelMethodLabel(payload.reelMethod),
         reelGainLabel(payload.reelGainPreset),
