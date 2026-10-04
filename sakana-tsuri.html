@@ -349,22 +349,45 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
    900x800 viewport before this override (iPad review finding: must not crowd/push
    out the big operate button). */
 .method-row{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;}
+/* FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: .method-row's own display:flex above
+   would otherwise win over the browser's native [hidden]{display:none} default (a more
+   specific id/class selector always beats the UA stylesheet), so #methodRowWrap and
+   #timingSpeedWrap (both .method-row) need this explicit override to actually collapse
+   to zero height — same reasoning as the pre-existing #reel-arc[hidden]/#reel-timing[hidden]
+   rules below, not a new pattern. */
+.method-row[hidden]{display:none;}
 .method-row-label{font-size:var(--dm-font-size-caption);font-weight:700;color:var(--dm-color-sub);text-align:center;}
 #methodRow{margin-bottom:0;}
 
-/* Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: the Method C-only "うごく
-   はやさ" selector, shown only inside #reel-timing (so it only exists in the DOM/is
-   only ever visible while 'タイミングよく おす' is the active method — no extra
-   show/hide wiring needed beyond the existing elReelTiming.hidden toggle in updateUI()).
-   Same compact .method-row/.preset-group sizing already proven not to push out the big
-   operate button on iPad width (指示: "操作ボタンや釣り場を押し出さず"). The current
-   value is always also shown as text (#timingSpeedCurrentLabel), not conveyed by button
-   highlight color alone. */
-#timingSpeedRow{margin-bottom:0;}
-/* 44px is the WCAG 2.5.5 minimum touch target (vs. the other preset-group rows'
-   52px) — a deliberate, small trade against #reel-timing's now-taller total height
-   (track+caption+this row+the big operate button all stacked), so the operate button
-   stays reachable without excessive scrolling on shorter viewports/iPad width. */
+/* FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: the "うごく はやさ" disclosure toggle
+   reuses .method-row-label's exact text styling/footprint (so collapsing it back to
+   just this single line costs nothing extra vs. the old always-visible label) but is a
+   real <button> now, so the browser's own button chrome (border/background/padding) is
+   reset back to plain text here; :focus-visible is already handled by the global
+   button:focus-visible rule near the top of this file, no extra rule needed. */
+.speed-toggle-btn{
+  border:none;background:none;padding:2px 4px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:2px;
+}
+
+/* Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1 (originally): the Method
+   C-only "うごく はやさ" selector. FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1 moved
+   its markup out of #reel-timing into the standalone #timingSpeedWrap disclosure above
+   (visible whenever Method C is selected and not yet CAUGHT — see updateUI() — not only
+   while #reel-timing itself happens to be shown), expanded/collapsed via
+   #timingSpeedToggleBtn's aria-expanded instead of being permanently visible. The
+   current value is always also shown as text (#timingSpeedCurrentLabel, right on the
+   toggle button, visible even collapsed), not conveyed by button highlight color alone. */
+/* FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: .preset-group's own display:flex above
+   would otherwise win over the native [hidden]{display:none} default (a class selector
+   beats the UA stylesheet) — without this override, the "collapsed by default"
+   disclosure would stay visually expanded despite its hidden attribute. Same reasoning
+   as .method-row[hidden] above; a real bug caught by this Phase's own test suite
+   (a Playwright .click() on an allegedly-collapsed button succeeded when it should
+   have timed out on an invisible target), not a hypothetical. */
+#timingSpeedRow[hidden]{display:none;}
+#timingSpeedRow{margin-bottom:0;margin-top:4px;}
+/* 44px is the WCAG 2.5.5 minimum touch target (vs. the other preset-group rows' 52px). */
 #timingSpeedRow button{min-height:44px;}
 
 #reel-hold-btn{
@@ -381,11 +404,23 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   touch-action:none;
   user-select:none;
   -webkit-user-select:none;
+  transition:min-height .15s ease,font-size .15s ease,padding .15s ease;
 }
+/* FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #reel-hold-btn must stay MOUNTED (never
+   [hidden]) from CASTING through REELING — see its own HTML comment — so this is the
+   only lever available to stop it consuming a full 96px of height while it is not yet
+   actually pressable (CASTING/WAITING/BITTEN). Still well above the 44px WCAG 2.5.5
+   minimum, since a real early press during WAITING is a genuine, intentional input
+   (enterReeling()'s "WAITING中からの引き継ぎ"), not a disabled decoy. Returns to full
+   size the moment REELING starts (this same .inactive class is removed then, unchanged
+   from before this Phase). */
 #reel-hold-btn.inactive{
   background:var(--dm-color-border);
   color:var(--dm-color-sub);
   cursor:default;
+  min-height:52px;
+  font-size:var(--dm-font-size-body);
+  padding:var(--dm-space-2) var(--dm-space-4);
 }
 #reel-hold-btn.active-hold{background:#D98F00;}
 
@@ -490,6 +525,18 @@ h1{font-size:var(--dm-font-size-heading);margin:var(--dm-space-6) 0 var(--dm-spa
   #reel-hold-btn{min-width:0;width:100%;}
   #reel-arc{width:160px;height:160px;}
   #reel-timing-btn{min-width:0;}
+}
+/* FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: a short but WIDE browser window (e.g.
+   Windows at 1366x600) is a real, literally-named case in this Phase's instructions
+   ("Windowsの短い画面"), distinct from the narrow-phone breakpoint above and from the
+   200%-zoom case (which the instructions explicitly allow to need scrolling). Measured:
+   with Method C selected, #reel-timing-btn's bottom sat ~72px below a 600px-tall
+   viewport (track+caption+speed-disclosure all stack above the already-96px-tall
+   button). Shrinking .pond (not the operate buttons — 指示: "大きな操作ボタンを小さく
+   して解決しない") recovers exactly that kind of space, same technique as the
+   max-width rule above, just keyed on height instead of width. */
+@media (max-height:700px){
+  .pond{height:220px;}
 }
 /* Note: prefers-reduced-motion is already handled globally in the design-tokens block
    above (animation-duration/iteration-count forced to near-zero/1 for every element),
@@ -1054,11 +1101,11 @@ div:has(> #donomanaLockBtn){right:64px!important;}
     <button id="start-btn" class="big-btn" type="button">🎣 はじめる</button>
   </section>
 
-  <section id="fishing-screen" hidden>
+  <section id="fishing-screen" hidden tabindex="-1">
 
     <div id="status-text" role="status">じゅんび かんりょう</div>
 
-    <div class="fishing-spot">
+    <div class="fishing-spot" id="fishingSpot">
       <div class="pond" id="pond">
         <div class="status-band" aria-hidden="true"><div class="status-chip" id="status-chip">じゅんび かんりょう</div></div>
         <div class="rod" aria-hidden="true">
@@ -1097,7 +1144,15 @@ div:has(> #donomanaLockBtn){right:64px!important;}
            to the pond/progress/big operate button (small caption + compact
            .preset-group reused verbatim from the settings panel's own proven
            narrow-width sizing), so it doesn't crowd them on iPad width. -->
-      <div class="method-row">
+      <!-- Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: this whole row (method
+           picker) is now only shown before casting (state===IDLE) — updateUI() toggles
+           #methodRowWrap.hidden accordingly. iPad review finding: once a method is
+           committed for the trial by casting, keeping all 3 choices on screen alongside
+           the operate control pushed the pond/fish below the fold. Using the native
+           hidden attribute (not opacity) keeps it out of Tab order/Switch Scan/the a11y
+           tree for free, consistent with every other hide in this file (CLAUDE.md §
+           hideWithDisplayNone precedent from the Learning Record registration Phase). -->
+      <div class="method-row" id="methodRowWrap">
         <span class="method-row-label" id="methodRowLabel">まきとり方法</span>
         <div class="preset-group" id="methodRow" role="group" aria-labelledby="methodRowLabel">
           <button type="button" data-reel-method="arc" aria-pressed="false">円弧でまく</button>
@@ -1106,8 +1161,40 @@ div:has(> #donomanaLockBtn){right:64px!important;}
         </div>
       </div>
 
+      <!-- Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: moved out of #reel-timing
+           (which is now hidden except exactly during REELING, like Method A) because
+           指示 requires the speed setting to still be choosable BEFORE casting and live
+           during REELING alike. Collapsed by default behind a disclosure button (same
+           single-line footprint as the old always-visible label) instead of 4 big
+           buttons permanently occupying a row — "通常の操作画面を圧迫しない方法".
+           Visible whenever Method C is selected and the trial hasn't just been caught
+           (updateUI() below); the live mid-sweep apply behavior (applyTimingSpeedLive(),
+           FISHING-APP-TIMING-SPEED-REAL-DEVICE-CORRECTION-1, iPad-verified) is completely
+           untouched — only the DOM location/visibility of these same buttons changed. -->
+      <div class="method-row" id="timingSpeedWrap" hidden>
+        <button type="button" id="timingSpeedToggleBtn" class="method-row-label speed-toggle-btn" aria-expanded="false" aria-controls="timingSpeedRow">
+          うごく はやさ：<span id="timingSpeedCurrentLabel">ふつう</span> <span aria-hidden="true">▾</span>
+        </button>
+        <div class="preset-group" id="timingSpeedRow" role="group" aria-label="うごく はやさ をえらぶ" hidden>
+          <button type="button" data-timing-speed="very-slow" aria-pressed="false">とてもゆっくり</button>
+          <button type="button" data-timing-speed="slow" aria-pressed="false">ゆっくり</button>
+          <button type="button" data-timing-speed="normal" aria-pressed="false">ふつう</button>
+          <button type="button" data-timing-speed="fast" aria-pressed="false">はやい</button>
+        </div>
+      </div>
+
       <div class="controls-row">
         <button id="cast-btn" class="big-btn scannable" data-scan="1" type="button">🎣 なげる</button>
+        <!-- Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #reel-hold-btn now stays
+             mounted (never hidden) from the moment casting starts (CASTING) all the way
+             through REELING — removing it or toggling its hidden attribute mid-WAITING
+             would interrupt the already-established WAITING→REELING press handoff
+             (isPhysicallyHeld/holdInputMethod, enterReeling() below: "WAITING中からの
+             引き継ぎ" 指示 is still load-bearing) by detaching the element the user's
+             finger/pointer is already down on. Only .inactive's CSS (shrunk height, see
+             style block) changes before REELING — never hidden/removed — so pointer
+             capture is never at risk. Fully hidden only at IDLE (nothing to press yet)
+             and CAUGHT (trial over, replaced by #catch-result). -->
         <button id="reel-hold-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true" hidden>
           🎣 おしつづけて まきとる
         </button>
@@ -1116,7 +1203,12 @@ div:has(> #donomanaLockBtn){right:64px!important;}
              Keyboard/Switch/Gazeに要求しない, Design Checkpoint fa8b672). aria-hidden
              permanently — a circular drag zone has no meaningful screen-reader
              affordance, and keyboard/AT users are expected to use Method B or switch
-             back via the (always reachable) in-game method selector instead. -->
+             back via the (always reachable) in-game method selector instead.
+             FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: unlike Method B, Method A's own
+             onArcPointerDown() already no-ops outside REELING with no carried-over
+             pressed state (no setPointerCapture happens until REELING), so it is safe to
+             keep this fully hidden until REELING too (simplest way to stop it consuming
+             height during CASTING/WAITING/BITTEN). -->
         <div id="reel-arc" class="inactive" aria-hidden="true" hidden>
           <svg viewBox="0 0 200 200">
             <circle class="arc-ring-outer" cx="100" cy="100" r="92"></circle>
@@ -1134,7 +1226,10 @@ div:has(> #donomanaLockBtn){right:64px!important;}
              操作targetと視覚的タイミング表示は分離可能). Uses native <button> + the
              click event only (fires once for pointer AND for a native Enter/Space
              button-activation, with no separate keydown wiring needed — same "single
-             owner, no duplicate listener" principle Method A/B already follow, 指示7章). -->
+             owner, no duplicate listener" principle Method A/B already follow, 指示7章).
+             FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: same reasoning as Method A —
+             onTimingPress() already no-ops outside REELING with nothing carried over, so
+             this (now minus the speed-row, moved out above) is hidden until REELING too. -->
         <div id="reel-timing" class="inactive" hidden>
           <div class="timing-track" aria-hidden="true">
             <div class="timing-zone-good"></div>
@@ -1142,18 +1237,6 @@ div:has(> #donomanaLockBtn){right:64px!important;}
             <div class="timing-marker" id="timing-marker"></div>
           </div>
           <div class="timing-caption" id="timing-caption" aria-hidden="true"></div>
-          <!-- Phase FISHING-APP-TIMING-SPEED-AND-LEARNING-RECORD-1: speed selector,
-               only ever present/visible while Method C is the active method (lives
-               inside #reel-timing, which updateUI() already shows/hides as a whole). -->
-          <div class="method-row">
-            <span class="method-row-label" id="timingSpeedRowLabel">うごく はやさ：<span id="timingSpeedCurrentLabel">ふつう</span></span>
-            <div class="preset-group" id="timingSpeedRow" role="group" aria-labelledby="timingSpeedRowLabel">
-              <button type="button" data-timing-speed="very-slow" aria-pressed="false">とてもゆっくり</button>
-              <button type="button" data-timing-speed="slow" aria-pressed="false">ゆっくり</button>
-              <button type="button" data-timing-speed="normal" aria-pressed="false">ふつう</button>
-              <button type="button" data-timing-speed="fast" aria-pressed="false">はやい</button>
-            </div>
-          </div>
           <button id="reel-timing-btn" class="inactive scannable" data-scan="1" type="button" aria-disabled="true">
             🎣 タイミングよく おす
           </button>
@@ -1495,6 +1578,9 @@ var elCatchResult = document.getElementById('catch-result');
 var elCatchMessage = document.getElementById('catch-message');
 var elAgainBtn = document.getElementById('again-btn');
 var elSoundToggle = document.getElementById('sound-toggle');
+// Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1
+var elMethodRowWrap = document.getElementById('methodRowWrap');
+var elFishingSpot = document.getElementById('fishingSpot');
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 function randomBetween(min, max) { return min + Math.random() * (max - min); }
@@ -1672,14 +1758,36 @@ function updateUI() {
   elStatusChip.textContent = STATUS_LABELS[state];
   elCastBtn.disabled = (state !== STATE.IDLE);
   var reeling = (state === STATE.REELING);
+  // Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: state-driven visibility, on top
+  // of the pre-existing method-based visibility below. preCast = nothing committed yet
+  // (show the 3-way method picker + cast button); caught = trial just ended (show
+  // #catch-result/#again-btn instead); everything in between ("casted") is the active
+  // trial, where the method selector/cast button are hidden and the ONE selected
+  // method's operate control is what's shown instead (指示: "投げたら、方式選択や不要な
+  // ボタンを消し、選んだ方式に必要な操作だけを表示する").
+  var preCast = (state === STATE.IDLE);
+  var caught = (state === STATE.CAUGHT);
+  var casted = !preCast && !caught; // CASTING/WAITING/BITTEN/REELING
+  elMethodRowWrap.hidden = !preCast;
+  elCastBtn.hidden = !preCast;
   // Method A/B/C are mutually exclusive at the UI level: inputSettings.reelMethod is the
   // single canonical switch, and exactly one of #reel-hold-btn/#reel-arc/#reel-timing is
   // ever unhidden, so no two can ever both receive input at once (指示12章/21章).
   var useArc = (inputSettings.reelMethod === 'arc');
   var useTiming = (inputSettings.reelMethod === 'timing');
-  elReelBtn.hidden = useArc || useTiming;
-  elReelArc.hidden = !useArc;
-  elReelTiming.hidden = !useTiming;
+  // #reel-hold-btn (only) stays mounted for the whole "casted" span, not only at REELING
+  // — removing/hiding it mid-WAITING would break the WAITING→REELING press handoff (see
+  // its own HTML comment and enterReeling() below). #reel-arc/#reel-timing have no such
+  // handoff (their own pointerdown/click handlers no-op outside REELING with nothing
+  // carried over), so they stay simply "only during REELING", same as before this Phase.
+  elReelBtn.hidden = !casted || useArc || useTiming;
+  elReelArc.hidden = !reeling || !useArc;
+  elReelTiming.hidden = !reeling || !useTiming;
+  // The "うごく はやさ" disclosure is reachable before casting (to set it up) and all
+  // through the trial (to change it live — FISHING-APP-TIMING-SPEED-REAL-DEVICE-
+  // CORRECTION-1's applyTimingSpeedLive(), iPad-verified, untouched), only hidden once
+  // actually CAUGHT (nothing left to adjust for this trial).
+  elTimingSpeedWrap.hidden = !useTiming || caught;
   if (useArc) {
     elReelArc.classList.toggle('inactive', !reeling);
     if (!reeling) endArcDrag(null); // e.g. CAUGHT/reset arriving mid-drag stops it cleanly
@@ -2058,6 +2166,15 @@ function hookFish() {
 }
 function startCast() {
   if (state !== STATE.IDLE) return;
+  // Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #cast-btn is about to become
+  // hidden (updateUI() below) — if it currently holds focus (a keyboard/switch-scan
+  // press just triggered this very call), move focus somewhere still-visible instead of
+  // letting it silently fall back to <body> (指示: "投げるボタンが非表示になる際の
+  // フォーカスも適切に扱う"). Only Method B's button is already mounted/visible at this
+  // point (CASTING); Method A/C's own operate controls don't exist on screen until
+  // REELING, so #fishing-screen itself (tabindex="-1") is the sensible, always-available
+  // fallback for those two.
+  var hadFocusOnCast = (document.activeElement === elCastBtn);
   state = STATE.CASTING;
   reelProgress = 0; hookedFishId = null; currentFish = null; caughtLanded = false;
   isPhysicallyHeld = false; holdInputMethod = null;
@@ -2070,6 +2187,15 @@ function startCast() {
   renderLineTo(FISH_START_PCT, FISH_Y_PCT);
   announce('しかけを なげたよ');
   castTimer = setTimeout(enterWaiting, CASTING_MS);
+  // One-time alignment into view at the moment a trial actually starts (指示: "一度だけ
+  // ゲーム領域へ位置合わせする。操作のたびに自動スクロールしない") — never called from
+  // updateUI() itself (which runs on every state tick), only here, so it fires exactly
+  // once per cast, not on every subsequent re-render during the same trial.
+  if (elFishingSpot && elFishingSpot.scrollIntoView) elFishingSpot.scrollIntoView({ block: 'nearest' });
+  if (hadFocusOnCast) {
+    if (inputSettings.reelMethod === 'hold' && elReelBtn) elReelBtn.focus();
+    else if (elFishing && elFishing.focus) elFishing.focus();
+  }
 }
 /* WAITING now runs through three visible sub-phases before BITTEN (Finding A/B):
    far (idle, distant) -> turning (notices the bait) -> approaching (swims to it).
@@ -2148,6 +2274,9 @@ function landFish() {
 }
 function requestReset() {
   if (state !== STATE.CAUGHT) return;
+  // Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: same focus-preservation
+  // reasoning as startCast() — #again-btn is about to become hidden.
+  var hadFocusOnAgain = (document.activeElement === elAgainBtn);
   clearTimeout(caughtTimer);
   state = STATE.IDLE;
   waitPhase = null;
@@ -2157,6 +2286,7 @@ function requestReset() {
   elFish.classList.remove('eating');
   elFish.style.transform = '';
   updateUI();
+  if (hadFocusOnAgain) elCastBtn.focus();
 }
 
 elCastBtn.addEventListener('click', function () { unlockAudioContext(); startCast(); });
@@ -2289,6 +2419,10 @@ var elFishTypeButtons = Array.prototype.slice.call(document.querySelectorAll('[d
 var elSizeEffortButtons = Array.prototype.slice.call(document.querySelectorAll('[data-size-effort]'));
 var elTimingSpeedButtons = Array.prototype.slice.call(document.querySelectorAll('[data-timing-speed]'));
 var elTimingSpeedCurrentLabel = document.getElementById('timingSpeedCurrentLabel');
+// Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1
+var elTimingSpeedWrap = document.getElementById('timingSpeedWrap');
+var elTimingSpeedToggleBtn = document.getElementById('timingSpeedToggleBtn');
+var elTimingSpeedRow = document.getElementById('timingSpeedRow');
 var elReelSpeedDesc = document.getElementById('reelSpeedDesc');
 var elReelSpeedGroup = document.getElementById('reelSpeedGroup');
 var REEL_SPEED_DESC_NORMAL = '「おしつづけて まきとる」を おしている間の、すすむ速さです。';
@@ -2442,8 +2576,25 @@ elTimingSpeedButtons.forEach(function (b) {
     refreshSettingsPanelUI();
     applyTimingSpeedLive();
     announce('うごく はやさを' + b.textContent + 'に せっていしました');
+    // Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: deliberately does NOT
+    // auto-collapse #timingSpeedRow after a pick — trying several speeds back-to-back to
+    // feel the difference (already an explicitly-tested, intended usage pattern from the
+    // earlier timing-speed Phase) would otherwise mean re-opening the disclosure before
+    // every single click. "圧迫しない" is satisfied by being collapsed BY DEFAULT and
+    // only ever expanding on an explicit #timingSpeedToggleBtn press, not by also
+    // closing itself again on every selection.
   });
 });
+// Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: the "うごく はやさ" disclosure
+// toggle — expands/collapses #timingSpeedRow, same single-owner click-only pattern as
+// every other button in this file (指示: "「速さを変える」から展開できる...方法").
+if (elTimingSpeedToggleBtn) {
+  elTimingSpeedToggleBtn.addEventListener('click', function () {
+    var expanded = elTimingSpeedToggleBtn.getAttribute('aria-expanded') === 'true';
+    elTimingSpeedToggleBtn.setAttribute('aria-expanded', String(!expanded));
+    elTimingSpeedRow.hidden = expanded;
+  });
+}
 elSettingsResetBtn.addEventListener('click', function () {
   inputSettings = defaultInputSettings();
   saveInputSettings();

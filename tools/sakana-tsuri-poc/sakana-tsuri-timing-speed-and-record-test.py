@@ -184,6 +184,7 @@ with sync_playwright() as p:
         "() => { var now=Date.now(); var half=activeTimingCycleMs/2; var el=(now-timingStartTs)%activeTimingCycleMs; "
         "return [now, timingMarkerPctAt(now), activeTimingCycleMs, el<half]; }")
     id_before = page.evaluate("timingIntervalId")
+    page.click("#timingSpeedToggleBtn")  # FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: expand the now-collapsed-by-default disclosure first
     page.click('[data-timing-speed="fast"]')  # the REAL button, same path a teacher uses
     t_after, pct_after, cycle_after, ascending_after = page.evaluate(
         "() => { var now=Date.now(); var half=activeTimingCycleMs/2; var el=(now-timingStartTs)%activeTimingCycleMs; "
@@ -240,6 +241,7 @@ with sync_playwright() as p:
     start_and_switch_to_timing(page)
     check("not yet reeling (IDLE) before any cast", page.evaluate("state") == "IDLE", page.evaluate("state"))
     check("no render interval running while idle", not page.evaluate("timingIntervalId"), page.evaluate("timingIntervalId"))
+    page.click("#timingSpeedToggleBtn")  # expand the collapsed-by-default disclosure first
     page.click('[data-timing-speed="very-slow"]')
     check("no runtime errors from an idle speed click", not errors, errors)
     page.click("#cast-btn")
@@ -257,6 +259,7 @@ with sync_playwright() as p:
     start_and_switch_to_timing(page, "normal")
     cast_to_reeling(page)
     page.wait_for_timeout(80)
+    page.click("#timingSpeedToggleBtn")  # expand the collapsed-by-default disclosure first
     page.click('[data-timing-speed="very-slow"]')
     page.wait_for_timeout(50)
     page.click('[data-timing-speed="fast"]')
@@ -271,12 +274,17 @@ with sync_playwright() as p:
     # ================= A5d. Method switch mid-REELING still stops the timing render loop =================
     # (regression guard: applyTimingSpeedLive()/the speed buttons must not interfere with
     # the pre-existing markReleased() safety net that the real method-switch button relies on)
+    # FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #methodRowWrap is now hidden for the
+    # whole trial (by design), so the method button is no longer Playwright-clickable
+    # mid-REELING; a direct .click() still fires the exact same real listener, exercising
+    # the safety net without requiring Playwright's visibility-actionability check.
     context, page, errors = new_page(browser)
     start_and_switch_to_timing(page, "normal")
     cast_to_reeling(page)
+    page.click("#timingSpeedToggleBtn")  # expand the collapsed-by-default disclosure first
     page.click('[data-timing-speed="very-slow"]')
     page.wait_for_timeout(80)
-    page.click('[data-reel-method="hold"]')
+    page.evaluate("document.querySelector('[data-reel-method=\"hold\"]').click()")
     check("switching away from Method C via the real button stops the render interval",
           not page.evaluate("timingIntervalId"), page.evaluate("timingIntervalId"))
     check("no runtime errors (method-switch-stops-interval block)", not errors, errors)
@@ -318,24 +326,43 @@ with sync_playwright() as p:
     check("no runtime errors (Method B unaffected block)", not errors, errors)
     context.close()
 
-    # ================= A8. Keyboard focus / aria-pressed / 44px touch target =================
+    # ================= A8. Disclosure toggle / keyboard focus / aria-pressed / 44px target =================
+    # FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: the 4 speed buttons now live inside a
+    # collapsed-by-default disclosure (#timingSpeedRow), opened via #timingSpeedToggleBtn,
+    # not always on screen — this block now also covers that disclosure's own open/close
+    # behavior, which a real Playwright .click()/.focus() correctly refuses while
+    # collapsed (an earlier draft of this Phase's CSS had a bug where .preset-group's own
+    # display:flex silently defeated the hidden attribute; that regression would make
+    # these checks pass even while visually "collapsed" — the real-visibility checks
+    # below exist specifically to catch that class of bug again if it recurs).
     context, page, errors = new_page(browser)
     start_and_switch_to_timing(page, "normal")
+    check("うごく はやさ toggle is collapsed by default (aria-expanded=false, row hidden)",
+          page.evaluate("document.getElementById('timingSpeedToggleBtn').getAttribute('aria-expanded')") == "false"
+          and page.evaluate("document.getElementById('timingSpeedRow').hidden") is True)
     buttons = page.locator("[data-timing-speed]")
-    check("4 timing-speed buttons present", buttons.count() == 4, buttons.count())
+    check("4 timing-speed buttons present (in the DOM, even while collapsed)", buttons.count() == 4, buttons.count())
+    check("current-speed text label reads ふつう even while collapsed", page.inner_text("#timingSpeedCurrentLabel") == "ふつう")
+
+    page.click("#timingSpeedToggleBtn")
+    check("clicking the toggle expands the disclosure (aria-expanded=true, row visible)",
+          page.evaluate("document.getElementById('timingSpeedToggleBtn').getAttribute('aria-expanded')") == "true"
+          and page.evaluate("document.getElementById('timingSpeedRow').hidden") is False)
     pressed_values = page.evaluate(
         "() => Array.from(document.querySelectorAll('[data-timing-speed]')).map(b => [b.dataset.timingSpeed, b.getAttribute('aria-pressed')])"
     )
     check("exactly one button has aria-pressed=true, matching 'normal'",
           pressed_values.count(["normal", "true"]) == 1 and sum(1 for _, v in pressed_values if v == "true") == 1,
           pressed_values)
-    check("current-speed text label reads ふつう", page.inner_text("#timingSpeedCurrentLabel") == "ふつう")
-    page.locator('[data-timing-speed="fast"]').click()
+    page.locator('[data-timing-speed="fast"]').click()  # a real, now-actionable click since the row is expanded
     check("clicking はやい updates aria-pressed + the text label together",
           page.evaluate("document.querySelector('[data-timing-speed=\"fast\"]').getAttribute('aria-pressed')") == "true"
           and page.inner_text("#timingSpeedCurrentLabel") == "はやい")
-    page.locator('[data-timing-speed="slow"]').focus()
-    check("a timing-speed button is keyboard-focusable", page.evaluate("document.activeElement.dataset.timingSpeed") == "slow")
+    check("the disclosure stays expanded after a selection (no auto-collapse -- trying several speeds back-to-back must not require re-opening each time)",
+          page.evaluate("document.getElementById('timingSpeedRow').hidden") is False)
+
+    page.locator('[data-timing-speed="slow"]').focus()  # still expanded, no re-opening needed
+    check("a timing-speed button is keyboard-focusable once expanded", page.evaluate("document.activeElement.dataset.timingSpeed") == "slow")
     page.keyboard.press("Enter")
     check("Enter activates the focused timing-speed button",
           page.evaluate("inputSettings.timingSpeed") == "slow")

@@ -768,24 +768,40 @@ def main():
         context, page, errors, console_errors = new_page(browser)
         record("Settings: reelMethod default is 'hold' (pre-existing saved settings / fresh install)",
                page.evaluate("inputSettings.reelMethod") == "hold")
-        record("UI: #reel-hold-btn visible, #reel-arc hidden by default",
-               page.evaluate("document.getElementById('reel-hold-btn').hidden") is False and
+        # Phase FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: before casting (IDLE), BOTH
+        # operate controls are hidden now — there is nothing to operate yet, and keeping
+        # one of them visible-but-inactive is exactly the "大きな操作できないボタンが
+        # 常時残る" iPad review finding this Phase fixes. Only casting (checked further
+        # below) reveals the one selected method's control.
+        record("UI: before casting (IDLE), #reel-hold-btn and #reel-arc are both hidden",
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is True and
                page.evaluate("document.getElementById('reel-arc').hidden") is True)
 
         switch_reel_method(page, "arc")
         record("Settings: switching to 'arc' updates inputSettings.reelMethod",
                page.evaluate("inputSettings.reelMethod") == "arc")
-        record("UI: #reel-arc now visible, #reel-hold-btn now hidden",
-               page.evaluate("document.getElementById('reel-arc').hidden") is False and
-               page.evaluate("document.getElementById('reel-hold-btn').hidden") is True)
+        record("UI: still both hidden at IDLE after switching to 'arc' (method choice alone no longer reveals a control before casting)",
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is True and
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
         record("Settings: saved reelMethod to localStorage",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_settings')).reelMethod") == "arc")
 
         switch_reel_method(page, "hold")
         record("Settings: switching back to 'hold' updates inputSettings.reelMethod",
                page.evaluate("inputSettings.reelMethod") == "hold")
-        record("UI: #reel-hold-btn visible again after switching back",
-               page.evaluate("document.getElementById('reel-hold-btn').hidden") is False)
+        record("UI: both still hidden at IDLE after switching back to 'hold'",
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is True and
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
+
+        # Casting with 'hold' selected reveals #reel-hold-btn (mounted from CASTING
+        # through REELING for the WAITING->REELING press handoff); #reel-arc stays
+        # hidden since it is not the selected method. Reset back to IDLE immediately
+        # afterward (requestReset only runs from CAUGHT, so just reload) so the
+        # reload-persistence checks below start from a clean, settled state.
+        page.click("#cast-btn")
+        record("UI: casting with 'hold' selected reveals #reel-hold-btn (CASTING), #reel-arc stays hidden",
+               page.evaluate("document.getElementById('reel-hold-btn').hidden") is False and
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
 
         page.reload()
         page.clock.install()
@@ -802,19 +818,22 @@ def main():
         record("no runtime errors (Method A settings block)", not errors, str(errors))
         context.close()
 
-        # ---- WAITING: arc drag before the bite must not start a drag or move progress ----
+        # ---- WAITING: #reel-arc has no early-engagement feature (unlike Method B), and
+        # FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1 now keeps it fully hidden until
+        # REELING for exactly that reason — a WAITING-time drag attempt is structurally
+        # impossible (no real mouse coordinates to drag against), a stronger guarantee
+        # than the pre-Phase "visible but ignored" behavior this block used to check. ----
         context, page, errors, console_errors = new_page(browser)
         switch_reel_method(page, "arc")
         page.click("#cast-btn")
         page.clock.run_for(520)  # into WAITING, before BITTEN
         record("Method A pre-bite: state is WAITING", state(page) == "WAITING")
-        cx, cy, radius = arc_drag_down(page, start_deg=0)
-        arc_drag_move(page, cx, cy, radius, 0, 90)
-        record("Method A pre-bite: dragging during WAITING does not start a drag (arcDragState stays null)",
+        record("Method A pre-bite: #reel-arc is hidden during WAITING (nothing to drag until REELING)",
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
+        record("Method A pre-bite: arcDragState stays null since no drag could even begin",
                page.evaluate("arcDragState") is None)
-        record("Method A pre-bite: dragging during WAITING does not move reelProgress",
+        record("Method A pre-bite: reelProgress has not moved",
                progress(page) == 0)
-        arc_drag_up(page)
         record("no runtime errors (Method A pre-bite block)", not errors, str(errors))
         context.close()
 
@@ -944,11 +963,13 @@ def main():
         payload = page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records'))[0].payload")
         record("Learning Record: reelMethod recorded as 'arc' for this trial", payload.get("reelMethod") == "arc")
 
-        # Continued dragging after CAUGHT must not double-fire landFish or move progress further.
-        arc_drag_down(page, start_deg=0)
-        arc_drag_move(page, cx, cy, radius, 0, 360, steps=12)
-        arc_drag_up(page)
-        record("Method A full session: dragging again after CAUGHT does not create a second record",
+        # FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #reel-arc is now hidden at CAUGHT
+        # too (nothing left to drag for this trial), which structurally prevents the
+        # "continued dragging after CAUGHT" scenario this block used to drive via real
+        # mouse coordinates — a stronger guarantee than before, not a weaker one.
+        record("Method A full session: #reel-arc is hidden once CAUGHT",
+               page.evaluate("document.getElementById('reel-arc').hidden") is True)
+        record("Method A full session: still exactly 1 record after CAUGHT (no duplicate landFish)",
                page.evaluate("JSON.parse(localStorage.getItem('sakana-tsuri_records')||'[]').length") == 1)
 
         # ---- Regression: Method B still works normally after switching back from arc ----
@@ -983,8 +1004,12 @@ def main():
         switch_reel_method(page, "timing")
         record("Settings: switching to 'timing' updates inputSettings.reelMethod",
                page.evaluate("inputSettings.reelMethod") == "timing")
-        record("UI: #reel-timing now visible, #reel-hold-btn and #reel-arc both hidden",
-               page.evaluate("document.getElementById('reel-timing').hidden") is False and
+        # FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1: #reel-timing stays hidden at IDLE
+        # even once 'timing' is selected — it (like #reel-arc) only appears at REELING,
+        # confirmed further below via cast_to_reeling(). All 3 operate controls are
+        # hidden here, simply because nothing has been cast yet.
+        record("UI: still all 3 operate controls hidden at IDLE after selecting 'timing' (nothing cast yet)",
+               page.evaluate("document.getElementById('reel-timing').hidden") is True and
                page.evaluate("document.getElementById('reel-hold-btn').hidden") is True and
                page.evaluate("document.getElementById('reel-arc').hidden") is True)
 
@@ -1117,14 +1142,25 @@ def main():
         record("no runtime errors (timing pointer block)", not errors, str(errors))
         context.close()
 
-        # ---- Method switching mid-REELING safely stops the timing render loop ----
+        # ---- Method switching mid-REELING: FISHING-APP-ACTIVE-PLAY-LAYOUT-CORRECTION-1
+        # intentionally hides #methodRowWrap for the whole trial (指示: "投げたら、方式
+        # 選択...を消す"), so this is no longer reachable through the visible UI once
+        # REELING. The underlying safety net (markReleased()/updateUI() stopping the old
+        # method's timer on any reelMethod change) still needs to stay correct as
+        # defensive code, so it is exercised here via a direct .click() call on the
+        # button element — this fires the exact same real click listener a visible click
+        # would (not a synthetic/internal-function shortcut), it just bypasses
+        # Playwright's own visibility-actionability check, which is the point: the row
+        # really is hidden/unreachable now. ----
         context, page, errors, console_errors = new_page(browser)
         switch_reel_method(page, "timing")
         cast_to_reeling(page)
         record("Method switch: timing render loop is running before the switch",
                page.evaluate("timingIntervalId") is not None)
-        switch_reel_method(page, "hold")
-        record("Method switch: timing render loop stops once switched away, mid-REELING",
+        record("Method switch: #methodRowWrap is hidden/unreachable during REELING",
+               page.evaluate("document.getElementById('methodRowWrap').hidden") is True)
+        page.evaluate("document.querySelector(\"#methodRow [data-reel-method='hold']\").click()")
+        record("Method switch: timing render loop still safely stops on a reelMethod change (defensive safety net intact)",
                page.evaluate("timingIntervalId") is None)
         record("Method switch: #reel-timing is hidden again after switching to 'hold'",
                page.evaluate("document.getElementById('reel-timing').hidden") is True)
