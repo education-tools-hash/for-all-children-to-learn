@@ -158,10 +158,20 @@ def _start_mogura_tataki(pg):
 
 # アプリごとに「実際に遊んでいる最中」の見た目を作るためのカスタム操作。
 # ここに無いアプリは、今まで通り「開いた直後の画面」をそのまま撮影する。
+def _start_sakana_tsuri(pg):
+    """さかなつり：魚と操作部が見える、まきとり待ちの実画面を撮る。"""
+    pg.locator("#start-btn").click()
+    pg.locator('[data-reel-method="hold"]').click()
+    pg.locator("#cast-btn").click()
+    pg.wait_for_function("state === STATE.REELING")
+    pg.locator("#fish img").evaluate("img => img.decode()")
+
+
 PLAY_ACTIONS = {
     "scratch-app": _scratch_the_scratch_app,
     "mogura-tataki": _start_mogura_tataki,
     "kurabeyou-app": _show_kurabeyou_level3,
+    "sakana-tsuri": _start_sakana_tsuri,
 }
 
 # Phase M12-G: User承認済みの正式アイコンartworkを持つアプリ。ここに登録した
