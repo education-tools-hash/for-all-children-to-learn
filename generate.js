@@ -2281,9 +2281,12 @@ function injectStructuredDataBlock(html, jsonLd, markerKey) {
 // ============================================================
 function ensureAppIntroSEOTags(html) {
   const pageUrl   = `${BASE_URL}/app-intro.html`;
-  const pageTitle = 'アプリ紹介 | どのまな';
-  const pageDesc  = 'どのまなの全アプリ紹介ページ。各アプリの概要・ねらい・機能・使い方・アクセシビリティ情報を掲載しています。';
+  const pageTitle = '特別支援教育の無料アプリ一覧｜学習・自立活動｜どのまな';
+  const pageDesc  = '特別支援教育で使える無料のブラウザ教材を一覧で紹介。ひらがな・時計・SST・すごろくなどを目的別に探せます。iPad対応やスイッチスキャン対応でも絞り込み可能。インストール不要。';
   const siteName  = 'どのまな';
+
+  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${pageTitle}</title>`);
+  html = html.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${pageDesc}">`);
 
   const startMarker = '<!-- SEO_TAGS_APPINTRO_START -->';
   const endMarker    = '<!-- SEO_TAGS_APPINTRO_END -->';
