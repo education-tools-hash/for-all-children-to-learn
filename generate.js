@@ -896,6 +896,20 @@ const SETTINGS_PROXY = {
   // {selector,label} pair as what it was hand-built to match (written ahead of actual
   // apps-data.json registration) — this entry is what makes that match real.
   'sakana-tsuri':       { selector: '#sakanaSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  // Phase COMMON-A11Y-SETTINGS-PROXY-GAP-FIX-1: timetable-app.html・ongaku-app.htmlは
+  // いずれも共通A11yパネルから到達できる独自設定UIを既に持っているが、この
+  // マップへの登録が欠落していた(Common A11y Widget Design Contract v1.0の
+  // 現状棚卸しで判明)。tokei-app/nazorin-printは独自設定UI自体を持たないため
+  // 未登録のままで正しく、この2件とは事情が異なる。
+  // timetable-app: 設定は#sec-settingsという独自タブ(.tab-btn群の1つ)。
+  // onclickのみでid/data-tab属性を持たないため、属性値セレクタで指定する
+  // (okane-appの[onclick="openSettingsModal()"]と同じ考え方)。
+  'timetable-app':      { selector: '[onclick="switchTab(\'settings\',this)"]', label: '🔧 このアプリの詳細設定を開く' },
+  // ongaku-app: 設定は#btn-teacher-settings(PIN入力modalを開く、既存のPIN保護は
+  // 変更しない)。#modal-pinは.screen配下ではない独立したoverlayのため、
+  // ボタン自身がdisplay:noneの画面配下にあってもclick()で正しくPIN modalが
+  // 開く(okane-app等の既存function-invoking proxy entryと同じ前提)。
+  'ongaku-app':         { selector: '#btn-teacher-settings', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -972,7 +986,14 @@ function buildA11yPanelHTML(includeSR, appFilename) {
   // 見ない、上のコメント参照)——opacity:0のままだとこのSetに入れていない他アプリと
   // 同じ「見えないのに実質operableなSwitch Scan候補」のバグを再現してしまうため、
   // 同じSwitch Scan系アプリのsawatte-hirogaru-appと同じdisplay:none方式に揃える。
-  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
+  // Phase COMMON-A11Y-SETTINGS-PROXY-GAP-FIX-1: timetable-app(.tab-nav、gap:8pxの
+  // 横並びflex) ・ongaku-app(.home-buttons、gap:14pxの縦並びflex)を追加。どちらも
+  // 既存のhiragana-learn/katakana-app等(横並びnav-tabs)・shiritori2(.top-bar)と
+  // 同じ「flexのgapを持つ並び、opacity:0ではその1要素分の空白/隙間が残る」構造。
+  // timetable-appは加えて自アプリのSwitch Scan候補取得(.tab-btn、offsetParent
+  // ===nullのみで判定)がopacityを見ないため、display:noneでなければ「見えないのに
+  // 実質operableな」既知バグ(上のPhase M11.3-C等のコメント参照)を再現してしまう。
+  const hideWithDisplayNone = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'shiritori2', 'kurabeyou-app', 'katachi-awase-app', 'miru-hirogaru-app', 'mitsukete-touch-app', 'junban-miyou-app', 'dotchiga-ii-app', 'sawatte-hirogaru-app', 'sakana-tsuri', 'timetable-app', 'ongaku-app']);
   const proxyHideDecl = hideWithDisplayNone.has(appFilename)
     ? 'display:none !important;pointer-events:none !important;'
     : 'opacity:0 !important;pointer-events:none !important;';
