@@ -3765,6 +3765,14 @@ function traceSampleViewerFocusables() {
 // focus ownershipを奪わない。donomanaA11yBtnはposition:fixedのため
 // offsetParentが常にnullになる(Chromiumの既知の仕様)ため、getClientRects()+
 // computed styleベースの可視性判定を用いる。
+// Phase COMMON-A11Y-STRICT-CONTAINMENT-PILOT-WAVE-1: このコメントが元々述べて
+// いた方針(opener=donomanaA11yBtnをcircleに含めない)と、直後の実装が
+// donomanaA11yBtnをlistへ連結していた実装が一致していなかった(Design
+// Contract v1.0が指摘するFamily C/Legacy-Cの既知の非準拠状態、katakana-app/
+// hiragana-learnに共通)。opener除外のみの最小差分で、コメントが元々示して
+// いた意図に実装を合わせる。Modal Coexistence(下のtraceSampleViewer分岐)・
+// Switch Scan(buildScanItems、別のセレクタを使うため無関係)はいずれも
+// この関数のみを変更しても影響を受けない。
 function traceSampleA11yPanelFocusables(a11yPanel) {
   function isVisible(el) {
     if (!el || el.disabled) return false;
@@ -3773,12 +3781,10 @@ function traceSampleA11yPanelFocusables(a11yPanel) {
     var cs = getComputedStyle(el);
     return cs.display !== 'none' && cs.visibility !== 'hidden';
   }
-  var a11yBtn = document.getElementById('donomanaA11yBtn');
   var panelItems = Array.prototype.slice.call(
     a11yPanel.querySelectorAll('button,input,select,textarea,a[href],[tabindex]')
   );
-  var list = a11yBtn ? [a11yBtn].concat(panelItems) : panelItems;
-  return list.filter(isVisible);
+  return panelItems.filter(isVisible);
 }
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Tab') return;

@@ -2534,6 +2534,22 @@ document.addEventListener('keydown',function(e){
   else if(modal.id==='recordsModalOverlay')closeRecordsModal();
   else if(modal.id==='customModalOverlay')closeCustomModal();
 });
+// Phase COMMON-A11Y-STRICT-CONTAINMENT-PILOT-WAVE-1: the common A11y panel's
+// own Tab containment was never wired here -- the Focus Trap above only ever
+// stepped *aside* for the A11y panel (the guard at line 2508), it never
+// actually trapped Tab inside the panel itself, so Tab/Shift+Tab fell
+// through to native tab order whenever the panel was open. Delegate to the
+// shared GLOBAL-1A helper (window.trapA11yPanelFocus), which only acts while
+// the panel is actually open (panel.style.display==='block', checked inside
+// the helper) and is independent of activeOkaneModal() -- no Modal
+// Coexistence adapter is needed in the other direction either: opening the
+// panel always starts focus on donomanaA11yBtn (the click target), which
+// already satisfies the Focus Trap's own guard above, and the common
+// outside-click handler closes the panel the moment a click lands inside a
+// modal, so the two Traps are never both "live" over the same focus target.
+document.addEventListener('keydown', function (e) {
+  if (window.trapA11yPanelFocus) window.trapA11yPanelFocus(e);
+});
 function previewImage(e) {
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();

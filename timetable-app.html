@@ -4491,5 +4491,22 @@ document.addEventListener('keydown', function(e) {
   }
 });
 </script>
+<script>
+// Phase COMMON-A11Y-STRICT-CONTAINMENT-PILOT-WAVE-1: this app never wired the
+// shared GLOBAL-1A strict-containment helper that generate.js injects into
+// every app's common A11y panel (window.trapA11yPanelFocus) -- the helper's
+// existence and its activation are deliberately separate (see generate.js
+// buildA11yPanelHTML comments), so each app opts in individually. Without
+// this listener, Tab/Shift+Tab fell through to native tab order and (this
+// app has no other Tab handling at all) escaped the panel straight into
+// document.body / browser chrome -- the known P1 (reverse Shift+Tab from the
+// panel's first control escaping to browser chrome, document.hasFocus()
+// false). Mirrors the wiring already shipped in sawatte-hirogaru-app.html /
+// sakana-tsuri.html: delegate unconditionally, the helper itself no-ops when
+// the panel is closed.
+document.addEventListener('keydown', function (e) {
+  if (window.trapA11yPanelFocus) window.trapA11yPanelFocus(e);
+});
+</script>
 </body>
 </html>
