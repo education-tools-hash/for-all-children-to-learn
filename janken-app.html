@@ -2160,6 +2160,40 @@ document.addEventListener('keydown', e => {
   closeHowto();
 });
 
+// Phase JANKEN-HOWTO-OVERLAY-FOCUS-FIX-1: Audit確認済みCase E-1(Tab Focus Trap
+// 欠落)。howto-overlayにはこれまでTab/Shift+Tabのcontainmentが一切実装されて
+// おらず、最後のfocusable(#tab-child)からのTabでBODYへ焦点が落ち、その瞬間
+// document.hasFocus()===falseとなる完全なbrowser chrome escapeが実証されて
+// いる(JANKEN-HOWTO-OVERLAY-FOCUS-AUDIT-1)。nazorin-print.html(Wave B)と同型の
+// `!overlay.contains(active)`判定によるcontainmentを採用し、activeElementが
+// overlay外へ出てしまった場合も次のTab押下で確実に引き戻す。A11yパネルが
+// openしておりfocusがパネル側にある場合は本Trapが所有権を奪わないよう、同じ
+// Wave Bパターンの明示的ownership guardを`!overlay.contains(active)`判定より
+// 前に置く(donomana-common-a11y-widget-design-v1_0.md 5.5章Adapter contract
+// 準拠)。howto-overlayはタブ切替で内部focusable集合が変わり得るため、
+// record-modal-backdrop(固定ID)とは異なり、都度動的にoverlay内から取得する。
+function howtoTrapFocusables(container){
+  return Array.from(container.querySelectorAll('button,input,select,textarea,a[href],[tabindex]'))
+    .filter(el => el.offsetParent !== null && !el.disabled);
+}
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const overlay = document.getElementById('howto-overlay');
+  if (!overlay.classList.contains('open')) return;
+  const active = document.activeElement;
+  const a11yBtn = document.getElementById('donomanaA11yBtn');
+  const a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block' && (active === a11yBtn || a11yPanel.contains(active))) return;
+  const items = howtoTrapFocusables(overlay);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (e.shiftKey) {
+    if (active === first || !overlay.contains(active)) { e.preventDefault(); last.focus(); }
+  } else {
+    if (active === last || !overlay.contains(active)) { e.preventDefault(); first.focus(); }
+  }
+});
+
 // ===== SCREEN MANAGEMENT =====
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
