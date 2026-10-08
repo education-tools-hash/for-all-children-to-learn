@@ -2480,13 +2480,36 @@ document.addEventListener('keydown', function(e) {
 // フォーカストラップ（Tab/Shift+Tabでhelp-modal外へ出さない）。タイトル
 // （tabindex="-1"）と「とじる」ボタンの2つだけの巡回のため、方向を問わず
 // first/lastどちらにいるかだけで折り返し先を決めればよい。
+// Phase COMMON-A11Y-MODAL-COEXISTENCE-FIX-1-WAVE-A: Audit確認済みCase A(厳密一致型)。
+// A11yパネルがopenしておりfocusがパネル側(donomanaA11yBtn自身またはパネル内)にある場合、
+// 以下のactiveElement厳密一致判定が構造的に成立しないためTrap本体は元々発火しないが、
+// okane-app/ongaku-app modal-pin等と同型の明示的guardを追加し、ownershipを実行順序に
+// 依存させず保証する(donomana-common-a11y-widget-design-v1_0.md 5.5章Adapter contract準拠)。
+// settings-modal(Tab Trap自体を持たないCase C)は本Phaseのスコープ外、未変更。
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Tab') return;
   if (!helpOpen()) return;
+  const active = document.activeElement;
+  const a11yBtn = document.getElementById('donomanaA11yBtn');
+  const a11yPanel = document.getElementById('donomanaA11yPanel');
+  if (a11yPanel && a11yPanel.style.display === 'block' && (active === a11yBtn || a11yPanel.contains(active))) return;
   const first = document.getElementById('help-modal-title');
   const last = document.getElementById('help-close-btn');
-  if (document.activeElement === last) { e.preventDefault(); first.focus(); }
-  else if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+  if (active === last) { e.preventDefault(); first.focus(); }
+  else if (active === first) { e.preventDefault(); last.focus(); }
+});
+// Phase COMMON-A11Y-MODAL-COEXISTENCE-FIX-1-WAVE-A: this app never wired the
+// shared GLOBAL-1A strict-containment helper (window.trapA11yPanelFocus) --
+// the helper's existence and its activation are deliberately separate, so
+// each app opts in individually. help-modal's own Trap now explicitly steps
+// aside when the A11y panel is open (guard above), so delegating
+// unconditionally here is safe. Mirrors the wiring already shipped in
+// okane-app.html / ongaku-app.html (modal-pin/export/share); the helper
+// itself no-ops when the panel is closed. settings-modal has no Tab Trap of
+// its own (Case C) and scan._onKey only ever processes Space/Enter (Audit-
+// confirmed independent of Tab), so neither is affected by this connection.
+document.addEventListener('keydown', function (e) {
+  if (window.trapA11yPanelFocus) window.trapA11yPanelFocus(e);
 });
 function updateSettingsUI() {
   // TTS button
