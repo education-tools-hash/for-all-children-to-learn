@@ -1,5 +1,16 @@
 # A11y Panel Global Conformance Matrix(35アプリ × donomana A11y Panel Keyboard Contract v0.9)
 
+> **⚠️ 2026-10-09 DEPRECATED NOTICE(`COMMON-A11Y-ACCESSIBILITY-DOCS-RECONCILIATION-1`、docs-only）**
+> **本ファイルのアプリ別Conformance状態(§2の表、§3の集計)は、2026-09-09時点(35アプリ)のスナップショットのまま更新を停止している。現在のアプリ別状態(37アプリ、Classification/Production Status/Known residual issue/Real Device Verification)は、正本として`docs/design-system/donomana-common-a11y-widget-design-v1_0.md` §7 Migration Matrixを参照すること。本ファイルの以下の内容は、特にfresh Production実装と一致しない:**
+> - **対象アプリ件数が35(現在は37。`sawatte-hirogaru-app`・`sakana-tsuri`が未収録)。**
+> - **mogura-tataki/tyushi/cup_game/schedule-app/gaze-keyboardの「GLOBAL-1A RC」表記は、その後Production Release済み(`837d454`)であり、本ファイルの表内の個別セルはRC時点の表記のまま更新していない(Status行自体はRelease後に追記されているため、全体としては矛盾しない。個別セルの"RC"表記は歴史的経緯として残す)。**
+> - **katakana-app/hiragana-learnの🟡Partial(opener含む)は、その後opener-bug修正済み(`COMMON-A11Y-STRICT-CONTAINMENT-PILOT-WAVE-1`・`COMMON-A11Y-HIRAGANA-LEGACY-C-OPENER-FIX-1`、共通helperへの移行ではなく自前cluster内の直接修正)。**
+> - **okane-app・shiritori2・tokei-app・janken-app・bosai-app・nazorin-printの❌Non-conformant/「Global-1B候補」は、その後すべてProduction Released(Pilot Wave 1、Modal Coexistence Wave A/B)であり、現在は共通helper wired。**
+> - **timetable-app・directions-appの❌Non-conformant/「Global-1B候補」も、Pilot Wave 1でProduction Released済み。**
+> - **nazori-app・yomikaki-app・sugoroku-app・slideshow-sakuseiの❌Non-conformant/「Global-1C候補」も、Strict Containment Wave 2でProduction Released済み。**
+>
+> **本ファイルは、GLOBAL-1監査自体の手法・Evidence・Severity判定(特にtimetable-appのP1 browser chrome escape実機確認等)の歴史的記録として保持し、削除しない。ただし「現在のアプリ別適合状態」としては使用しないこと。** 詳細は`donomana-a11y-panel-keyboard-contract-v1_0.md` §12.5も参照。
+
 `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`の監査結果。`donomana-a11y-panel-keyboard-contract-v1_0.md`(DRAFT v0.9)確定に伴い、共通A11yパネル(`donomanaA11yPanel`)を持つ全35アプリの現状をContract項目ごとに評価する。**本ファイルはFix対象の正式確定であり、実装は行わない。**
 
 凡例: ✅Conformant/PASS ・ 🟡Partial ・ ❌Non-conformant/FAIL ・ — N/A ・ ？未検証(理論上のリスクのみ、個別実機未確認)

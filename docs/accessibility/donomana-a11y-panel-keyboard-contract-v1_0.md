@@ -4,7 +4,8 @@
 
 - 前Phase: `WCAG-JIS-FIX-FAMILY-B-BATCH-6-POSTRELEASE-HOTFIX-1`(mogura-tataki、Production final `77085ca`)。GLOBAL-1 docs release(Production final `12c00da`)を経て、GLOBAL-1A Pilot実装(mogura-tataki・tyushi・cup_game・schedule-app・gaze-keyboard)がRC完了(§12参照)。
 - 本Contractは`donomana-modal-accessibility-contract-v1_0.md`(v1.1、app固有modalが対象)を補完するものであり、対象は共通A11yパネル自体のkeyboard behaviorに限定する。app固有modal自身のFocus Trap/Initial Focus/Escape Focus Restorationは引き続き`donomana-modal-accessibility-contract-v1_0.md`が正とする。
-- **本ステータス: DRAFT v0.9.1。GLOBAL-1A Production Released(User Browser Review PASS / Blue2 Real Device Gate PASS / Tobii Real Device Gate PASS、Production baseline `837d454`)。全35アプリへの横展開(GLOBAL-1B〜1D)は未着手のため、§26参照条件(正式v1.0への昇格条件)は依然として満たされておらず、今回もDRAFTのまま維持する。**
+- **本ステータス: DRAFT v0.9.1。GLOBAL-1A Production Released(User Browser Review PASS / Blue2 Real Device Gate PASS / Tobii Real Device Gate PASS、Production baseline `837d454`)。全35アプリへの横展開(GLOBAL-1B〜1D)は本v0.9.1時点では未着手だったため、§26参照条件(正式v1.0への昇格条件)は満たされていなかった。**
+- **2026-10-09 Status Update(`COMMON-A11Y-ACCESSIBILITY-DOCS-RECONCILIATION-1`、docs-only、詳細は§12章)**: 対象アプリ件数は35→**37**(`sawatte-hirogaru-app`・`sakana-tsuri`が新規追加)。GLOBAL-1B〜1Dとして計画されていた横展開は、別の文書系統(`docs/design-system/donomana-common-a11y-widget-design-v1_0.md`)の下で`Pilot Wave 1`・`Wave 2`・`Modal Coexistence Wave A`・`Wave B`等のPhase名で実質的に実施され、fresh Production実装確認の結果、Strict Containment接続済みアプリは**20/37**に達している(§12.2章)。各アプリの現在のWave/Production Status/Real Device Verification状態は、同Design Contract §7 Migration Matrixを正本として参照すること。本ファイルは「共通A11yパネルのkeyboard behavior契約」そのもの(本文§1〜§11)の正本としての役割を維持するが、アプリ別の現在ステータス表としては更新していない(重複回避、§12.5章参照)。バージョン番号・DRAFT表記はこの更新では変更していない(v0.9.1のまま)。
 - 適用範囲: `donomanaA11yPanel`/`donomanaA11yBtn`(共通A11yパネル)のTab/Shift+Tab循環、Escape close、Focus Restoration、Modal Coexistence、Visible Focus、Hidden/Disabled Controls。
 
 ---
@@ -133,6 +134,8 @@ background modalが存在する状態でA11yパネルを開ける場合:
 | app固有modal Trap内にA11yパネル open判定によるguard(`return`)のみ、A11yパネル自体のcontainmentは提供しない | okane-app・matching-app・ongaku-app・gaze-keyboard | Modal Coexistence自体は一部準拠だが、A11yパネル単体のStrict Containment(§3)は未達成 |
 | A11yパネルopen判定なし、app固有modal Trapが常時発火 | 残り約25アプリ | 未検証部分あり。A11yパネルとapp固有modalが同時に開けない設計(排他的)であれば実害なしの可能性、要個別確認 |
 
+**2026-10-09 Status Update**: 上表は本v0.9.1起草時点(2026-09-09)の調査結果であり、現在のfresh Production実装とは一致しない。`okane-app`・`gaze-keyboard`は、起草当時は2行目(guard-onlyでA11yパネル自体のcontainment無し)に分類されていたが、その後の別Phase(`COMMON-A11Y-STRICT-CONTAINMENT-PILOT-WAVE-1`・GLOBAL-1A)で、A11yパネルのTab押下時に`window.trapA11yPanelFocus(e)`を無条件に呼び出す専用listenerが追加され、A11yパネル自体のStrict ContainmentもA11yパネルのTab処理も両方実際に提供されている(fresh codeで確認、`gaze-keyboard`は`scanMode`中のみ無効化という既知の別Finding付き、§9参照)。`matching-app`・`ongaku-app`(`modal-pin`/`modal-export`/`modal-share`の3modal分)は本v0.9.1当時のまま変化なし(`ongaku-app`の`modal-help`のみ別途guard+Trapが追加済み、詳細は`donomana-common-a11y-widget-design-v1_0.md` §11.3)。各アプリの現在の正確な接続状態は§12.2章、または同Design Contract §7 Migration Matrixを参照すること(本表は2026-09-09時点の歴史的記録として保持し、書き換えは行わない)。
+
 ---
 
 ## 6. Visible Focus — REQUIRED
@@ -215,8 +218,53 @@ Blue2(Switch)・Tobii(Gaze)実機によるUser Real Device Gateを実施し、�
 
 ---
 
+## 12. 2026-10-09 Status Update(`COMMON-A11Y-ACCESSIBILITY-DOCS-RECONCILIATION-1`)
+
+本章のみ2026-10-09に追記。fresh `origin/main`(SHA `989fca4a9e37f3d8bb95795059158a0830a436e8`)の直接確認に基づく、docs-onlyのstatus reconciliation。**本章の追記自体はコード変更を一切伴わない**。
+
+### 12.1 対象アプリ件数の35→37 drift
+
+`apps-data.json`(fresh)を機械集計した結果、現在の対象アプリ件数は**37件**。本v0.9.1(§1、2026-09-09時点)が前提とする35件との差分は、`sawatte-hirogaru-app`・`sakana-tsuri`の2件(いずれも開発時点から共通helper接続済みで公開された新規アプリ)。この2件は`docs/accessibility/audit/a11y-panel-global-conformance-matrix.md`(35アプリ時点の監査)の対象には含まれていない。本章の追記により、2件を含む37アプリが現在の対象であることを明記する。
+
+### 12.2 Strict Containment接続率の現状(fresh code確認、推測なし)
+
+全37アプリのHTMLソースを`window.trapA11yPanelFocus(e)`という実際の呼び出し文字列の出現で機械的に確認した結果:
+
+- **接続済み(呼び出しあり) = 20/37**: `mogura-tataki`・`tyushi`・`cup_game`・`schedule-app`・`gaze-keyboard`・`sawatte-hirogaru-app`・`sakana-tsuri`(Pilot/新規アプリ)、`okane-app`・`timetable-app`・`directions-app`(Pilot Wave 1)、`nazori-app`・`yomikaki-app`・`sugoroku-app`・`slideshow-sakusei`(Wave 2)、`shiritori2`・`janken-app`(`record-modal-backdrop`分のみ)・`tokei-app`・`bosai-app`(Modal Coexistence Wave A connector)、`nazorin-print`(Wave B connector)、`ongaku-app`(`modal-help`分のみ、他3modalは未接続)
+- **独自cluster(opener-bug修正済み、共通helper未接続) = 2/37**: `katakana-app`・`hiragana-learn`
+- **未接続 = 15/37**: `matching-app`・`register-app`・`sst-app`・`kimochi-board`・`drawing-app`・`time-timer`・`suji-manabou`・`kyou-no-kiroku`・`scratch-app`・`kurabeyou-app`・`katachi-awase-app`・`miru-hirogaru-app`・`mitsukete-touch-app`・`junban-miyou-app`・`dotchiga-ii-app`
+
+20+2+15=37(内訳の合計が対象アプリ件数と一致することを確認済み)。**この20/37という数値は、`donomana-common-a11y-widget-design-v1_0.md`の§1.2・§3.2が記載する「7/37」という数値より大きい**。理由: 同Design Contractの§1.2・§3.2は2026-10-06の起草時点の記述であり、その後にProduction Releaseされた`Pilot Wave 1`・`Wave 2`・`Modal Coexistence Wave A`・`Wave B`による接続分(13アプリ分)が、2026-10-08の`COMMON-A11Y-DESIGN-CONTRACT-DOCS-RECONCILIATION-1`で§7 Migration Matrixの行ごとの記載には反映されたものの、§1.2・§3.2の集計数値へは反映されなかった。これは同Design Contract側の既知の残存drift(本Phaseの変更対象ファイル外)であり、本Phaseでは修正しない。本章の20/37は、fresh codeを本Phaseで直接再集計した数値を正としている。
+
+### 12.3 D-2a/D-2bの用語について
+
+`donomana-common-a11y-widget-design-v1_0.md` §11.2は、Modal Coexistence Audit以降に判明した「厳密一致型(Case A/D-2a)」「積極的再捕捉型(Case B/D-2b)」という区分を導入している。本Contractでは、この区分を本文(§1〜§11)へ新たに持ち込む大規模な再分類は行わない(§5の既知パターン表は2026-09-09時点の記録として維持)。用語の定義・適用はDesign Contract側を正本として参照すること。
+
+### 12.4 janken-appのrecord-modal-backdropとhowto-overlayの区別
+
+janken-appには、本Contractのスコープ内(共通A11yパネルとの協調)である`record-modal-backdrop`(Wave A connector接続済み)と、本Contractのスコープ外の別軸である`howto-overlay`(`JANKEN-HOWTO-OVERLAY-FOCUS-FIX-1`でCase E-1として個別に修正、Production Released)が存在する。両者を混同しないこと(詳細は`donomana-common-a11y-widget-design-v1_0.md` §11.4)。
+
+### 12.5 他文書(`donomana-common-a11y-widget-design-v1_0.md`)との役割分担
+
+本ContractとDesign Contractは、現時点でも相互に参照し合っていない独立した文書系統だが、本Phaseにより以下の役割分担を明確化する:
+
+- **本Contract(`donomana-a11y-panel-keyboard-contract-v1_0.md`)**: 共通A11yパネル自体のkeyboard behavior契約(Tab/Shift+Tab循環・Escape close・Focus Restoration・Modal Coexistenceの原則・Visible Focus・Hidden/Disabled Controls)の正本。アプリ別の現在のWave/Production Status/Real Device Verification状態の一覧表としては機能させない(重複回避)。
+- **Design Contract(`docs/design-system/donomana-common-a11y-widget-design-v1_0.md`)**: 37アプリのFamily分類・Migration Matrix(アプリ別の現在状態)・Progressive Migration計画の正本。
+- **`docs/accessibility/audit/a11y-panel-global-conformance-matrix.md`**: 2026-09-09時点(35アプリ)の監査スナップショットとして保持し、現在のアプリ別状態の参照先としては使用しない(同ファイル冒頭の2026-10-09追記を参照)。
+
+本Phaseでは、この2系統文書を1つに統合するCase C、または一方を完全にobsolete化するCase Bのいずれも採用しない。2系統が別々の正本として並存する状態自体は、`COMMON-A11Y-DESIGN-CONTRACT-DOCS-RECONCILIATION-1`(2026-10-08)が既に残存課題として記録している通り、引き続き残る(本Phase完了報告の残存課題を参照)。
+
+### 12.6 Real Device Verification / 既知残存課題の再確認
+
+- Real Device Verificationは引き続き、GLOBAL-1A Pilot 5アプリ(§9記載のBlue2/Tobii PASS)を除き、個別アプリでのiPad Safari/VoiceOver/Blue2/Tobii実機確認は行われていない。GLOBAL-1A後に新たに接続された15アプリ(Pilot Wave 1/Wave 2/Wave A/Wave B分)についても、Real Device Verificationは`donomana-common-a11y-widget-design-v1_0.md` §7 Migration Matrixの通りPENDING。
+- `bosai-app`のsettings-modal Escape handler欠落(既存残存課題)は本Phaseでも未修正のまま変化なし。
+- 魚釣りCount-mode(`feature/fishing-app-count-mode-codex-1`)は本Phaseでも一切参照・取り込みを行っていない。
+
+---
+
 ## 改訂履歴
 
 - **v0.9(2026-09-09、DRAFT)**: `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`初版。mogura-tataki(POSTRELEASE-HOTFIX-1、Production `77085ca`)をReference Implementation候補とし、35アプリ横断監査結果に基づき起草。Pilot実装・User Approval前のためv1.0へは未昇格。
 - **v0.9.1(2026-09-09、DRAFT)**: `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1A`(Owner Approved、Pilot 5アプリ)実装結果を反映。§3.4(共通helper化、Strict Containment)・§4(Escape Focus Restoration実装結果)を追記。tyushi/schedule-appで新規発見した「自前modal同時open時のみA11yパネルcontainmentが発火する」構造的欠陥の是正結果も記録。Production未反映(worktree `for-all-children-to-learn-a11y-panel-global-1a`、branch `fix/a11y-panel-global-pilot-1a`)、User Browser Review待ちのためv1.0へは未昇格。
 - **v0.9.1 Status Update(2026-09-13、DOCS-FINALIZE-1、実態反映のみ)**: GLOBAL-1AのProduction Release完了(Production baseline `837d454`)、User Browser Review PASS、Blue2/Tobii Real Device Gate PASSを本文Status行・§3.4末尾へ反映。§9へGLOBAL-1A Real Device Gate結果と、gaze-keyboard/schedule-appの既存Switch Scan関連Separate Findings(PRE-EXISTING / NON-BLOCKING、未修正)を追記。全35アプリへの横展開(GLOBAL-1B〜1D)は引き続き未着手のため、v1.0への昇格条件(§26)は満たされておらず、バージョン番号・DRAFT表記は変更していない。Product code変更0、docs-onlyのstatus finalization。
+- **v0.9.1 Status Update(2026-10-09、`COMMON-A11Y-ACCESSIBILITY-DOCS-RECONCILIATION-1`、実態反映のみ)**: §12章を新設し、対象アプリ件数の35→37 drift(§12.1)、fresh code確認によるStrict Containment接続率20/37への更新(§12.2、`donomana-common-a11y-widget-design-v1_0.md`側の集計drift指摘含む)、D-2a/D-2b用語への言及(§12.3、大規模再分類はせず)、janken-appのrecord-modal-backdrop/howto-overlay区別(§12.4)、他文書との役割分担の明確化(§12.5)、Real Device Verification/既存残存課題の再確認(§12.6)を追記。§0本文ステータス行・§5既知パターン表にも訂正注記を追加。全37アプリへの横展開は依然完了しておらず(20/37接続)、v1.0への昇格条件(§26)は満たされていないため、バージョン番号・DRAFT表記は変更していない。Productionコード・generator・Preview・アプリ実装は一切変更していない(docs-onlyのreconciliation)。
