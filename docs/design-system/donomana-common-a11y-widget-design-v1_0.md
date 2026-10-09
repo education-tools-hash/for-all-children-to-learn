@@ -16,13 +16,13 @@
 
 1. 共通A11yパネル自体（起動ボタン・パネル本体・ハイコントラスト・文字サイズ・読み上げトグル・Escape閉じる・外側クリック閉じる）は、**37アプリ全てで`generate.js`の`buildA11yPanelHTML()`により既に完全に共通化されている**。これはゼロから設計する項目ではなく、**既に本番稼働中の実装**である。
 2. `WCAG-JIS-A11Y-PANEL-STRICT-CONTAINMENT-GLOBAL-1`監査（`a11y-panel-global-conformance-matrix.md`）とその後のGLOBAL-1A実装（commit `837d454`ほか、Production Released）により、Tab/Shift+Tab strict containment用の共通helper（`trapA11yPanelFocus`/`restoreA11yPanelFocus`/`getA11yPanelFocusables`）も既に全アプリへ注入済みである。
-3. ただし、この共通helperを実際に自アプリのキーボード処理へ**接続（wire）するかどうかは、各アプリが個別に実装する必要がある**（helperの「存在」と「有効化」が意図的に分離されている設計）。本Phaseの再調査で、**37アプリ中7アプリのみが実際に接続済み**であることを確認した（3章）。
+3. ただし、この共通helperを実際に自アプリのキーボード処理へ**接続（wire）するかどうかは、各アプリが個別に実装する必要がある**（helperの「存在」と「有効化」が意図的に分離されている設計）。本Phaseの再調査(2026-10-06時点)で、**37アプリ中7アプリのみが実際に接続済み**であることを確認した（3章）。**[2026-10-09 Count Correction]** その後のWave展開により、現在は20アプリが接続済み（§1.2・§12参照）。
 4. Switch Scan（`donomana-switch-scan-spec-v1_0.md` v1.8）・視線入力（`donomana-gaze-accessibility-standard-v1_0.md` v1.0改訂5）は、いずれも**コードレベルの統一を要求しない**という設計判断が既に承認済みである。これらは「今後共通化する」対象ではなく、「挙動の契約（behavioral contract）は統一し、実装方式は各アプリの裁量を残す」という既に確定した方針のもとで運用されている。
 5. PINロック・画面ロックは、`donomana-design-system-v2_0.html`（内部版Ver.2.1）§7.6.3によりモーダル禁止方針の**明示的な例外**として扱われており、アプリごとの実装がそもそも標準。共通Widgetへ統合する対象ではない。
 
 **したがって、本Design Contractが実際に設計すべき残課題は、「共通パネル基盤をゼロから作る」ことではなく、以下の2点に絞られる：**
 
-- **(a) 既に存在する共通helperの接続率を上げる**（Strict Containment Wave展開。7/37→37/37への道筋）
+- **(a) 既に存在する共通helperの接続率を上げる**（Strict Containment Wave展開。起草時点[2026-10-06]は7/37→37/37への道筋だったが、2026-10-09 Count Correctionで確認した通り以後のWave実施により20/37まで進捗済み。§1.2・§12参照）
 - **(b) Adapter境界（SETTINGS_PROXY）の形式化と、未接続アプリ2件の穴埋め**（4章・5.5章）
 
 この訂正は正本ロードマップの優先順位そのものを変更するものではない（アクセシビリティは引き続き最優先）。ただし「何を新しく作るか」ではなく「既にあるものの接続率をどう上げるか」という、より小さく安全なスコープへ補正する。
@@ -54,7 +54,7 @@
 | 外側クリックで閉じる | — | ✅ 37/37共通 |
 | リセットボタン | localStorage全キー削除 | ✅ 37/37共通 |
 | Settings Proxy（アプリ固有設定への橋渡し） | `SETTINGS_PROXY`マップ | 🟡 33/37（4.4章） |
-| Tab/Shift+Tab strict containment | `trapA11yPanelFocus()`の**実際の接続** | 🔴 7/37のみ（3章） |
+| Tab/Shift+Tab strict containment | `trapA11yPanelFocus()`の**実際の接続**（Family分類とは別軸、§12参照） | 🟡 **20/37**（3章・§12。2026-10-09 Count Correctionでfresh codeから再計算。起草時点[2026-10-06]は7/37） |
 
 ### 1.3 実装Pattern数
 
@@ -62,7 +62,7 @@
 
 ### 1.4 主要な発見
 
-1. **Strict containment接続率は7/37（約19%）** であり、旧監査時点（GLOBAL-1A後の5/35）から、新規アプリ2件（`sawatte-hirogaru-app`・`sakana-tsuri`）が最初から接続済みの状態で公開されたことにより向上した。**新規アプリは既に正しいPatternで作られている**ことが確認できた点は良い兆候である。
+1. **Strict containment接続率は起草時点(2026-10-06)は7/37（約19%）であり**、旧監査時点（GLOBAL-1A後の5/35）から、新規アプリ2件（`sawatte-hirogaru-app`・`sakana-tsuri`）が最初から接続済みの状態で公開されたことにより向上した。**新規アプリは既に正しいPatternで作られている**ことが確認できた点は良い兆候である。**[2026-10-09 Count Correction]** その後、`Pilot Wave 1`・`Strict Containment Wave 2`・`Modal Coexistence Wave A`・`Wave B`のProduction Releaseにより、fresh codeから再計算した現在の接続数は**20/37**(Family A7件そのままに加え、D-1/D-2a/D-2b/D-3内の個別アプリへもWave経由で接続が広がったため。Family分類ラベル自体は変更していない。詳細は§12章)。
 2. **`katakana-app`・`hiragana-learn`は、GLOBAL-1A後も独自cluster実装（opener含む、Family C相当）のままで、共通helperへ移行していない。** 既存のGLOBAL-1B計画（未着手）がこの2件を対象としていた。
 3. **Settings Proxyの登録漏れが2件存在する**: `timetable-app`（`#sec-settings`という独自設定タブを持つが`SETTINGS_PROXY`未登録）、`ongaku-app`（PIN保護された`#btn-teacher-settings`を持つが未登録）。`tokei-app`・`nazorin-print`は独自設定パネルを持たないため未登録は正しい（除外漏れではない）。
 4. **PINロック・画面ロックは意図的に非共通**（Design System §7.6.3の承認済み例外）。`bosai-app`（教師用PIN）・`sugoroku-app`・`tyushi`・`time-timer`・`mogura-tataki`・`sst-app`・`scratch-app`等、アプリごとに個別実装。共通Widgetへ統合すべきという結論には至らない（9章参照）。
@@ -151,6 +151,8 @@
 
 合計: 7+2+3+5+20 = **37**（内訳の合計が対象アプリ件数と一致することを確認済み）。
 
+**[2026-10-09 Count Correction]** 上表のFamily分類ラベル（A=7／Legacy-C=2／D-1=3／D-2=5／D-3=20）は2026-10-06起草時点の分類軸であり、本Phaseでは変更していない。ただし、D-1・D-2・D-3の各行の定義文（「A11yパネル自体のcontainmentなし」「共通層のhelperが注入されているが未呼び出し」等）は、その後のPilot Wave 1・Strict Containment Wave 2・Modal Coexistence Wave A・Wave Bにより、各Family内の一部アプリで既に実際にcommon helperへ接続済みとなったため、**アプリ単位では現状と一致しない場合がある**（例: D-1の`okane-app`はPilot Wave 1で接続済み、D-2の`shiritori2`・`tokei-app`・`janken-app`・`bosai-app`はWave A、`nazorin-print`はWave Bで接続済み、D-3のうち`timetable-app`・`directions-app`・`nazori-app`・`yomikaki-app`・`sugoroku-app`・`slideshow-sakusei`の6件もWave 1/2で接続済み）。Family文字自体（アプリがどのFamilyに属するか）は本Phaseで変更しないが、**個別アプリの現在のwired状態は必ず§7 Migration Matrixの「A11y guard」列を正とすること**。本節の合計37件は分類の件数であり、「common helper wired」の件数（20/37、§1.2・§12参照）とは異なる指標である。
+
 ### 3.3 Family別の特徴と回帰リスク
 
 | Family | 共通構造 | 差分 | 共通化難易度 | 回帰リスク |
@@ -233,8 +235,8 @@ Strict Containmentの対象そのものがキーボード（Tab/Shift+Tab）で�
 | accessible name | `aria-label="アクセシビリティ設定"` | 維持 |
 | focus management | 現状: 開く際にフォーカス移動なし（ボタンclickのまま）。閉じる際: Escapeは`restoreA11yPanelFocus()`で明示的復帰、外側クリックは復帰処理なし | **部分的ギャップ**: 外側クリックで閉じた場合、フォーカス位置はクリックした要素のまま変わらない（これは問題ではない、クリックは既にその要素へfocusを与えているため）。開く際に最初のcontrolへfocusを移動する設計は、**強制的なfocus移動はSwitch Scan/Gazeの操作継続性を損なう可能性があるため、本Contractでは採用しない**（現状のボタンfocus維持を推奨） |
 | Escape handling | 全37アプリ共通で実装済み | 維持 |
-| focus return | `restoreA11yPanelFocus()`、全37アプリに注入済みだが「呼ばれるタイミング」はEscape時のみ（Tab-containment経由で外へ出ようとした場合は3章の通り7アプリのみ） | 7章のWave展開で37/37へ |
-| tab order | 現状: 7アプリのみstrict containment。残り30アプリはnative tab orderに依存 | 7章のWave展開対象 |
+| focus return | `restoreA11yPanelFocus()`、全37アプリに注入済みだが「呼ばれるタイミング」はEscape時のみ（Tab-containment経由で外へ出ようとした場合は接続済みの20アプリのみ、2026-10-09 Count Correction。起草時点は3章の通り7アプリ） | 7章のWave展開で37/37へ |
+| tab order | 現状: 20アプリがstrict containment接続済み(2026-10-09 Count Correction。起草時点は7アプリ)。残り17アプリ(Legacy-C独自方式2＋未接続15)はnative tab orderまたは独自clusterに依存 | 7章のWave展開対象 |
 
 ### 5.3 Input independence
 
@@ -244,7 +246,7 @@ Strict Containmentの対象そのものがキーボード（Tab/Shift+Tab）で�
 |---|---|---|
 | タッチ | launcher/panel内ボタンは通常の`<button>`、タップで機能 | 変更不要 |
 | マウス | クリックで開閉・選択 | 変更不要 |
-| キーボード | Tab到達は可能（native order）。Strict Containmentは7/37のみ | Wave展開（7章）で改善。**どのアプリでもキーボード単独で開閉・設定変更・閉じるが完結すること**を必須要件とする |
+| キーボード | Tab到達は可能（native order）。Strict Containmentは20/37接続済み(2026-10-09 Count Correction。起草時点は7/37) | Wave展開（7章）で改善。**どのアプリでもキーボード単独で開閉・設定変更・閉じるが完結すること**を必須要件とする |
 | スイッチ | `.scannable`マーカー経由でlauncherへは到達可能。**パネル内部への到達は4.2節の既知ギャップ** | 4.2節の設計を次Phaseで実装するまでは「既知の制約」として明記し、隠さない |
 | 視線入力 | マウスエミュレーション経由で動作（多くのアプリがdwell→クリックに変換） | 4.8節の通り、Target Size/Spacing要件の適用可否は未検証として次Phaseへ持ち越す |
 
@@ -368,6 +370,8 @@ App-specific behavior（アプリが既に持つ設定ボタン/タブ/モーダ
 
 集計(2026-10-08時点): Production Released = 23/37、未着手 = 14/37。内訳はいずれもAutomated Regression PASSを伴うが、**Real Device Verificationは37/37全てPENDING**（iPad Safari・VoiceOver・Blue2・Tobii・実スイッチ・実視線入力のいずれも、Automated ChromiumまたはUser Browser Reviewで代替していない）。
 
+**[2026-10-09 Count Correction]** 上記「Production Released = 23/37」は、本Matrixの各行が「Production Released」と記載しているアプリ数であり、`katakana-app`・`hiragana-learn`（Legacy-C、独自修正でProduction Released）や`ongaku-app`（`modal-help`分のみProduction Released）等、**Common `trapA11yPanelFocus` helperへ実際に接続済みとは限らないアプリも含む**。これに対し、§1.2・§12で確認した「Common helper wired = 20/37」は、Common helperの実呼び出しが存在するアプリ数のみを数える別の指標である。両者は異なる軸であり、混同しないこと。
+
 ---
 
 ## 8. 後続Phase案（Deliverable E）
@@ -453,9 +457,60 @@ janken-appには現在、2種類の独立したmodal/overlay Tab Trapが存在�
 
 ---
 
+## 12. 2026-10-09 Count Correction（Phase `COMMON-A11Y-DESIGN-CONTRACT-COUNT-CORRECTION-1`）
+
+本章のみ2026-10-09に追記。fresh `origin/main`（SHA `989fca4a9e37f3d8bb95795059158a0830a436e8`）の37アプリHTMLソースを本Phaseで直接再取得・再grepした結果に基づく。**本章の追記自体はコード変更を一切伴わない**。
+
+### 12.1 Before（訂正前の矛盾）
+
+本文§1.2・§1.4・§5.2・§5.3・§0(a)の複数箇所が、2026-10-06起草時点の集計値「**7/37**」（Common `trapA11yPanelFocus` helperへの実接続数）をそのまま記載していた。一方、§7 Migration Matrix（`COMMON-A11Y-DESIGN-CONTRACT-DOCS-RECONCILIATION-1`、2026-10-08で行ごとに現状更新済み）は、`okane-app`（Pilot Wave 1）・`timetable-app`・`directions-app`（Pilot Wave 1）・`nazori-app`・`yomikaki-app`・`sugoroku-app`・`slideshow-sakusei`（Wave 2）・`shiritori2`・`tokei-app`・`janken-app`（`record-modal-backdrop`分）・`bosai-app`（Modal Coexistence Wave A）・`nazorin-print`（Wave B）の13アプリについて「共通helper wired」と個別に記載しており、本文の「7/37」という総数と§7の行別記載が内部的に矛盾していた。
+
+### 12.2 再計算方法
+
+37アプリ全件のHTMLソースをfresh `origin/main`から直接`git show`で再取得し、各ファイルに対して以下を機械的に確認した（推測・前Phase報告の転記は行っていない）:
+
+- `window.trapA11yPanelFocus(e)` という実際の呼び出し文字列の出現回数（helperの**定義行**`function trapA11yPanelFocus(e){`や`window.trapA11yPanelFocus = trapA11yPanelFocus;`は対象から除外し、`window.`を前置した実呼び出しのみを数える）
+- `katakana-app`・`hiragana-learn`について、`traceSampleA11yPanelFocusables`という独自cluster関数の存在を確認し、Legacy-C（独自方式）として別軸でカウントすることを確認
+
+### 12.3 After（再計算結果）
+
+- **Common helper wired(実呼び出しあり) = 20/37**: `mogura-tataki`・`tyushi`・`cup_game`・`schedule-app`・`gaze-keyboard`・`sawatte-hirogaru-app`・`sakana-tsuri`（Family A）、`okane-app`・`timetable-app`・`directions-app`（Pilot Wave 1）、`nazori-app`・`yomikaki-app`・`sugoroku-app`・`slideshow-sakusei`（Wave 2）、`shiritori2`・`janken-app`(`record-modal-backdrop`分)・`tokei-app`・`bosai-app`（Modal Coexistence Wave A）、`nazorin-print`（Wave B）、`ongaku-app`（`modal-help`分のみ）
+- **Legacy-C(独自cluster、helper未接続だが別方式でcontainment問題を解消済み) = 2/37**: `katakana-app`・`hiragana-learn`
+- **未接続(helper未呼び出し、独自方式も無し) = 15/37**: `matching-app`・`register-app`・`sst-app`・`kimochi-board`・`drawing-app`・`time-timer`・`suji-manabou`・`kyou-no-kiroku`・`scratch-app`・`kurabeyou-app`・`katachi-awase-app`・`miru-hirogaru-app`・`mitsukete-touch-app`・`junban-miyou-app`・`dotchiga-ii-app`
+
+20+2+15=37（内訳の合計が対象アプリ件数と一致することを確認済み。前Phase`COMMON-A11Y-ACCESSIBILITY-DOCS-RECONCILIATION-1`の報告値と独立して本Phaseで再計算した結果も完全一致）。
+
+**重要**: 「Legacy-C = helper未接続」を「未修正」と誤解しないこと。`katakana-app`・`hiragana-learn`は、common helperへの接続ではなく、独自cluster関数（`traceSampleA11yPanelFocusables`）自身からopener参照を取り除くという別方式で、opener-inclusion非準拠状態を既に解消済みである（11.5章参照）。したがって「接続済み20 + Legacy-C 2」の22アプリは、いずれも現時点でStrict Containmentの非準拠状態を抱えていない。真に未対応なのは残り15アプリのみである。
+
+### 12.4 §1.2・§1.4・§5.2・§5.3・§0(a)・§3.2・§7の訂正内容
+
+- §0(a): 「7/37→37/37への道筋」に、起草時点の値であることと現在20/37まで進捗済みである旨を追記。
+- §1.2表: 「🔴 7/37のみ」→「🟡 **20/37**」に訂正し、Family分類とは別軸であることを明記。
+- §1.4点1: 起草時点の7/37という記述を保持しつつ、2026-10-09 Count Correctionとして20/37への更新を追記。
+- §3.2: Family分類の該当数（A=7／Legacy-C=2／D-1=3／D-2=5／D-3=20、合計37）自体は**変更していない**（これはFamily所属のラベル件数であり、wired件数とは別の指標であることを新規に明記）。D-1/D-2/D-3内の個別アプリがWave経由で接続済みになったことで、各Family定義文がアプリ単位では現状と一致しない場合がある旨の注記を追加し、§7 Migration Matrixを正とするよう明記。
+- §5.2(focus return行)・§5.3(キーボード行): 「7アプリのみ」「7/37のみ」をそれぞれ「20アプリ」「20/37」に訂正し、起草時点の値であった旨を併記。
+- §7 Migration Matrix: 行ごとの記載（Production Released 23/37・未着手14/37・Real Device Verification 37/37 PENDING）自体は変更していない（§11 instructionにより混同禁止の別指標のため）。「Production Released」と「Common helper wired」が異なる指標であることを明記する1文を追加。
+
+### 12.5 D-2a/D-2b・janken-app・nazorin-print・bosai-app・Real Device Verificationへの影響
+
+本Count Correctionは数値・説明整合のみを対象とし、以下はいずれも変更していない:
+
+- D-2a/D-2b分類（11.2章）はそのまま維持。
+- janken-appのrecord-modal-backdropとhowto-overlayの区別（11.4章）はそのまま維持。
+- nazorin-printのWave B Production Released状態（11.2章・§7）はそのまま維持。
+- bosai-appのsettings-modal Escape handler欠落という既存residual issue（§7該当行）は未修正のまま維持。
+- Real Device Verification表記（37/37全てPENDING）は変更していない。本Count Correctionの数値訂正を、いかなるReal Device PASSとも関連付けていない。
+
+### 12.6 `docs/accessibility`側reconciliation checkpointとの整合（read-only確認）
+
+直前の`COMMON-A11Y-ACCESSIBILITY-DOCS-RECONCILIATION-1`(checkpoint `53ea7d7585be771b5f8d041004e9e8c329a35b16`、branch `docs/common-a11y-accessibility-docs-reconciliation-1`、main未反映)は、同じ20/37・Legacy-C2/37・未接続15/37という内訳を既に独立に報告している（read-onlyで確認、本branchへの取り込みは行っていない）。本Count Correctionの再計算結果はこれと完全に一致し、相互に矛盾しないことを確認した。
+
+---
+
 ## 改訂履歴
 
 | version | date | 内容 |
 |---|---|---|
 | v1.0 | 2026-10-06 | 初版。`COMMON-A11Y-WIDGET-DESIGN-1`の成果物として、37アプリの現状再棚卸し・Family分類・Design Contract・Migration Matrix・Pilot提案・後続Phase案を作成 |
 | v1.0 Status Update | 2026-10-08 | `COMMON-A11Y-DESIGN-CONTRACT-DOCS-RECONCILIATION-1`。本書が`design/common-a11y-widget-1`branchに留まりmain未マージだったFindingへの対応として、docs-onlyでmainへ初取り込み。D-2の記述drift訂正（D-2a/D-2b細分、11.2章）、ongaku-appのmodal単位の差異明記（11.3章）、janken-appのrecord-modal-backdrop/howto-overlay区別明記（11.4章）、Legacy-C 2アプリの現状反映（11.5章）、7章Migration Matrixの全面的な現状更新（Production Status/Known residual issue/Real Device Verification列を新設、Production Released 23/37・未着手14/37・Real Device Verification 37/37 PENDINGを明記）。Productionコード・generator・Preview・アプリ実装は一切変更していない（docs-onlyのstatus reconciliation） |
+| v1.0 Count Correction | 2026-10-09 | `COMMON-A11Y-DESIGN-CONTRACT-COUNT-CORRECTION-1`。§1.2・§1.4・§5.2・§5.3・§0(a)に残存していた起草時点(2026-10-06)の「Common helper wired = 7/37」という集計値が、§7 Migration Matrixの行別記載（2026-10-08更新済み）と内部的に矛盾していたFindingを解消。fresh codeから37アプリ全件を本Phaseで独立に再計算した結果、現在の正しい値は**20/37**（Legacy-C独自方式2/37を含めれば22/37、未接続15/37）であることを確認し、本文の該当箇所を訂正・12章を新設。§3.2のFamily分類件数（A=7等、合計37）自体はラベルの件数であり「wired」件数とは別軸であることを明記した上で変更せず維持。「Production Released = 23/37」等の別指標とも混同しないことを明記。§7 Migration Matrix自体の大規模再構成、D-2a/D-2b分類、Real Device Verification表記（37/37 PENDING）、bosai-app・janken-app・nazorin-printの既存記載はいずれも変更していない。Productionコード・generator・Preview・アプリ実装は一切変更していない（docs-onlyの数値・説明整合修正） |
