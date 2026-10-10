@@ -2768,6 +2768,17 @@ document.addEventListener('keydown',e=>{
   e.preventDefault();
   if(e.shiftKey){last.focus();}else{first.focus();}
 });
+// Phase COMMON-A11Y-MATCHING-APP-STRICT-CONTAINMENT-FIX-1: this app never wired the
+// shared GLOBAL-1A strict-containment helper (window.trapA11yPanelFocus) -- the
+// helper's existence and its activation are deliberately separate, so each app opts
+// in individually. The existing 6-modal Tab Trap above already backs off whenever the
+// common A11y panel owns focus (guard at the a11yPanel.contains(active) check just
+// above), so delegating unconditionally here is safe; the helper itself no-ops when
+// the panel is closed. Mirrors the wiring already shipped in okane-app.html /
+// timetable-app.html / directions-app.html / sawatte-hirogaru-app.html / sakana-tsuri.html.
+document.addEventListener('keydown', function (e) {
+  if (window.trapA11yPanelFocus) window.trapA11yPanelFocus(e);
+});
 let tStart=0;
 document.addEventListener('touchstart',e=>{if(!scanMode)return;tStart=Date.now();},{passive:true});
 document.addEventListener('touchend',e=>{if(!scanMode)return;if(Date.now()-tStart<500)scanAct();});
