@@ -11051,6 +11051,20 @@ initSstFontSync();
 const recordView = new URLSearchParams(window.location.search).get('recordView');
 if(recordView === 'trend') openTrendScreen('common');
 if(recordView === 'answers') openAnswerHistoryList('common');
+
+// Phase COMMON-A11Y-STRICT-CONTAINMENT-WAVE-4A-SST-FIX-1: this app never wired the
+// shared GLOBAL-1A strict-containment helper (window.trapA11yPanelFocus) -- the
+// helper's existence and its activation are deliberately separate, so each app opts
+// in individually. sst-app has no app-specific Tab Trap at all (help-modal/
+// settings-modal/teacher-lock-modal/diary-export-modal/badge-modal all close via
+// outside-click or a dedicated button, none handle Tab or Escape), so there is no
+// existing Trap to conflict with; delegating unconditionally here is safe, and the
+// helper itself no-ops when the panel is closed. Mirrors the wiring already shipped
+// in matching-app.html / okane-app.html / timetable-app.html / directions-app.html /
+// sawatte-hirogaru-app.html / sakana-tsuri.html.
+document.addEventListener('keydown', function (e) {
+  if (window.trapA11yPanelFocus) window.trapA11yPanelFocus(e);
+});
 </script>
 </body>
 </html>
