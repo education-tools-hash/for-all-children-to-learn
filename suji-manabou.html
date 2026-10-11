@@ -2631,6 +2631,23 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// Phase COMMON-A11Y-STRICT-CONTAINMENT-WAVE-4A-SUJI-FIX-1: this app never wired the
+// shared GLOBAL-1A strict-containment helper (window.trapA11yPanelFocus) -- the
+// helper's existence and its activation are deliberately separate, so each app opts
+// in individually. suji-manabou has no app-specific Tab Trap at all (its "settings"
+// surface is a same-page tab-section, not a focus-trapped modal/overlay; the two
+// other app-specific keydown listeners only handle Space/Enter decision and the F-key
+// fullscreen toggle, and the generic one explicitly returns early on Escape), so there
+// is no existing Trap to conflict with; delegating unconditionally here is safe, and
+// the helper itself no-ops when the panel is closed. Switch Scan auto-advances via a
+// setInterval timer and native focus()/not via the Tab key, so it is unaffected.
+// Mirrors the wiring already shipped in matching-app.html / okane-app.html /
+// timetable-app.html / directions-app.html / sawatte-hirogaru-app.html /
+// sakana-tsuri.html / sst-app.html.
+document.addEventListener('keydown', function (e) {
+  if (window.trapA11yPanelFocus) window.trapA11yPanelFocus(e);
+});
+
 </script>
 
 </body>
