@@ -1,0 +1,167 @@
+name: quality-audit
+
+# Donomana Autonomous Quality System (DAQS) Phase 1.
+# Read-only audit of the Learning Record Golden Tests (tools/record-dashboard-poc/).
+# This workflow is intentionally independent from generate.yml / preview-sync.yml:
+# it never checks out with write intent, never commits, never pushes, and never
+# calls those other workflows. permissions is read-only for the same reason.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # 毎週月曜 03:00 JST (UTC+9) = 毎週日曜 18:00 UTC.
+    # 実行頻度・時刻を変える場合はこの cron 式の1行のみを編集すればよい。
+    - cron: '0 18 * * 0'
+
+concurrency:
+  group: quality-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  golden-tests:
+    name: Learning Record Golden Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト（読み取り専用）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Node.js をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Learning Record Golden Tests を実行
+        id: run_tests
+        shell: bash
+        run: |
+          set +e
+
+          # このworkflowが前提とする14ファイルを明示的に列挙する（globの暗黙カウント
+          # に依存しない）。ここに無いファイルが増えていても失敗にはしない（info化
+          # して気付けるようにするだけ）が、ここにあるファイルが1つでも無ければ
+          # 「期待対象の欠落」として即座に failure にする。
+          expected_files=(
+            "tools/record-dashboard-poc/golden-tests.js"
+            "tools/record-dashboard-poc/ui-golden-tests.js"
+            "tools/record-dashboard-poc/backup-hardening-golden-tests.js"
+            "tools/record-dashboard-poc/directions-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/hiragana-katakana-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/katachi-awase-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/kurabeyou-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/nazori-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/okane-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/sakana-tsuri-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/sawatte-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/shiritori2-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/sst-common-detail-golden-tests.js"
+            "tools/record-dashboard-poc/tokei-common-detail-golden-tests.js"
+          )
+
+          # Markdownテーブルのセルに混入すると壊れる文字（| と改行）を無害化する。
+          md_escape() {
+            printf '%s' "$1" | tr '\n' ' ' | sed -e 's/|/\\|/g'
+          }
+
+          run_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          commit_sha="${GITHUB_SHA}"
+
+          {
+            echo "## Donomana Quality Audit — Learning Record Golden Tests"
+            echo ""
+            echo "- 実行日時 (UTC): \`${run_at}\`"
+            echo "- 対象コミット SHA: \`${commit_sha}\`"
+            echo "- 対象ファイル数（期待値）: ${#expected_files[@]}"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          missing=0
+          for f in "${expected_files[@]}"; do
+            if [ ! -f "$f" ]; then
+              missing=$((missing+1))
+              echo "::error::期待対象のテストファイルが見つかりません: $f"
+              {
+                echo "| \`$f\` | ❌ MISSING | 期待対象のファイルがリポジトリに存在しない |"
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          if [ "$missing" -gt 0 ]; then
+            {
+              echo ""
+              echo "**${missing}件の期待対象ファイルが欠落しています。これは quality-audit.yml 側の"
+              echo "想定と実際のリポジトリ状態がズレていることを意味するため、失敗として扱います。**"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "$missing expected test file(s) are missing from the repository."
+            exit 1
+          fi
+
+          # globの実カウントと期待リストの件数差分を info として記録する（新規追加
+          # テストがこのworkflowの対象リストにまだ入っていない場合の気付き用。これ
+          # 自体はfailureにはしない）。
+          actual_glob_count=$(ls tools/record-dashboard-poc/*golden-tests.js 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$actual_glob_count" -ne "${#expected_files[@]}" ]; then
+            {
+              echo ""
+              echo "ℹ️ 情報: \`tools/record-dashboard-poc/*golden-tests.js\` に一致する実ファイル数は"
+              echo "${actual_glob_count}件で、このworkflowの期待リスト（${#expected_files[@]}件）と異なります。"
+              echo "新規テストが追加されている場合は、このworkflowの対象リストを更新してください。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          {
+            echo ""
+            echo "| テストファイル | 結果 | 記載チェック数（テスト自身の報告、表示用） | 詳細（末尾行） |"
+            echo "|---|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          total=0
+          failed=0
+          sum_checks=0
+
+          for f in "${expected_files[@]}"; do
+            total=$((total+1))
+            echo "::group::$f"
+            output=$(node "$f" 2>&1)
+            status=$?
+            echo "$output"
+            echo "::endgroup::"
+
+            # "N/N checks passed" / "N/N checks run, N passed, N failed" / "N checks run, ..."
+            # のいずれの表記にも対応して先頭の数値を取り出す（表示用、PASS/FAIL判定には使わない）。
+            count_line=$(echo "$output" | grep -oE '[0-9]+(/[0-9]+)? checks (run|passed)' | tail -1)
+            check_count=$(echo "$count_line" | grep -oE '^[0-9]+')
+            if [ -z "$check_count" ]; then
+              check_count="?"
+            else
+              sum_checks=$((sum_checks+check_count))
+            fi
+
+            last_line=$(echo "$output" | tail -1)
+            last_line_escaped=$(md_escape "$last_line")
+
+            if [ "$status" -eq 0 ]; then
+              echo "| \`$f\` | ✅ PASS | ${check_count} | ${last_line_escaped} |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed=$((failed+1))
+              echo "| \`$f\` | ❌ FAIL | ${check_count} | ${last_line_escaped} |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error file=$f::golden test failed (exit ${status}) — 詳細は上の ::group:: ログを参照"
+            fi
+          done
+
+          {
+            echo ""
+            echo "**合計: ${total}ファイル中 ${failed}件失敗 / チェック合計 約${sum_checks}件（表示用、各テストの自己報告値の合計）**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failed" -gt 0 ]; then
+            echo "$failed / $total golden test file(s) failed."
+            exit 1
+          fi
+
+          echo "All $total golden test files passed (${sum_checks} checks total, self-reported)."
