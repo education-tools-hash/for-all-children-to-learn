@@ -100,6 +100,11 @@ jobs:
           summary.push(`- 対象コミット SHA: \`${commitSha}\``);
           summary.push(`- 実行予定スクリプト数: ${expectedFiles.length}`);
           summary.push('');
+          summary.push(
+            '> ⚠️ **このworkflowがSUCCESSで終了しても、アクセシビリティ上の問題が存在しないことを意味しません。** ' +
+              'FINDINGSは確認された問題候補を表し、現段階では新規・既存の判別を行いません。詳細は下表と末尾の注記を参照してください。'
+          );
+          summary.push('');
 
           function flushAndExit(code) {
             if (summaryPath) fs.appendFileSync(summaryPath, summary.join('\n') + '\n');
@@ -182,19 +187,24 @@ jobs:
               anyError = true;
             } else {
               const json = JSON.parse(fs.readFileSync(path.join(REPO, 'tools/main-heading-audit/audit-results.json'), 'utf-8'));
-              const notFound = json.filter((e) => e.error === 'file not found').map((e) => e.filename);
-              const mainMissing = json.filter((e) => !e.error && e.mainCount === 0).length;
-              const h1Missing = json.filter((e) => !e.error && e.h1Count === 0).length;
-              const h1Excess = json.filter((e) => !e.error && e.h1Count > 1).length;
-              const findings = mainMissing + h1Missing + h1Excess + notFound.length;
+              // 対象アプリ名は毎回このjsonから動的に取得する（固定文字列でハードコードしない）。
+              // 件数が0件の場合は "0件" と明示し、空リストを誤解を招く形で省略しない。
+              const notFoundApps = json.filter((e) => e.error === 'file not found').map((e) => e.filename);
+              const mainMissingApps = json.filter((e) => !e.error && e.mainCount === 0).map((e) => e.filename);
+              const h1MissingApps = json.filter((e) => !e.error && e.h1Count === 0).map((e) => e.filename);
+              const h1ExcessApps = json.filter((e) => !e.error && e.h1Count > 1).map((e) => e.filename);
+              const findings = mainMissingApps.length + h1MissingApps.length + h1ExcessApps.length + notFoundApps.length;
+              const nameList = (apps) => (apps.length > 0 ? apps.join(', ') : '該当なし');
               rows.push({
                 name: 'tools/main-heading-audit/audit.js',
                 verdict: findings > 0 ? 'FINDINGS' : 'PASS',
                 coverage: `${json.length}/${json.length}アプリ（apps-data.json全件）`,
                 detail:
                   findings > 0
-                    ? `main欠落=${mainMissing}, h1欠落=${h1Missing}, h1過多=${h1Excess}` +
-                      (notFound.length ? `, ファイル欠落=${notFound.join(',')}` : '')
+                    ? `main欠落=${mainMissingApps.length}件（${nameList(mainMissingApps)}）` +
+                      `, h1欠落=${h1MissingApps.length}件（${nameList(h1MissingApps)}）` +
+                      `, h1過多=${h1ExcessApps.length}件（${nameList(h1ExcessApps)}）` +
+                      (notFoundApps.length ? `, ファイル欠落=${notFoundApps.length}件（${nameList(notFoundApps)}）` : '')
                     : '候補なし',
               });
             }
