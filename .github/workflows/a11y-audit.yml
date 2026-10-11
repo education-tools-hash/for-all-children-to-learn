@@ -1,0 +1,304 @@
+name: a11y-audit
+
+# Donomana Autonomous Quality System (DAQS) Phase 2A.
+# Runs the 7 existing *static* accessibility audit scripts under tools/
+# (Node-only: no browser, no local HTTP server, no network). This workflow
+# is intentionally independent from quality-audit.yml (DAQS Phase 1's
+# Learning Record Golden Tests), generate.yml and preview-sync.yml: it never
+# calls them, never commits, never pushes. permissions is read-only for the
+# same reason.
+#
+# IMPORTANT — read before changing the pass/fail logic below:
+# Six of these seven scripts were written as read-only *data collectors*,
+# not as PASS/FAIL test suites: they always exit 0 and just write a JSON
+# report (unless a referenced app file is missing, which throws). Only
+# settings-proxy-focus-audit/gap-fix-1-static-regression-test.js has real
+# PASS/FAIL semantics (process.exit(1) on failure). This workflow therefore
+# layers its own FINDINGS classification on top of the other six scripts'
+# raw JSON output, using only objectively-named fields the scripts already
+# compute (duplicate ids, broken ARIA references, non-standard tabindex,
+# declared-vs-implemented mismatches, missing app files) — never an
+# invented threshold. FINDINGS are reported prominently in the Job Summary
+# but do NOT fail the job: this workflow has no baseline-diff mechanism
+# (that would need to persist state, e.g. a committed snapshot, which is
+# out of scope here), so every run reports today's absolute state, not a
+# diff against history. Only ERROR (a script crashing, or one of the 7
+# expected files being missing) fails the job.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # 毎週月曜 03:17 JST (UTC+9) = 毎週日曜 18:17 UTC.
+    # 時刻を変える場合はこの cron 式の1行のみを編集すればよい。
+    - cron: '17 18 * * 0'
+
+concurrency:
+  group: a11y-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  static-a11y-audits:
+    name: Static Accessibility Audits
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト（読み取り専用）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Node.js をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: チェックアウト先を明示的に検証
+        shell: bash
+        run: |
+          actual_sha="$(git rev-parse HEAD)"
+          echo "actual_sha=${actual_sha}"
+          echo "expected_sha=${{ github.sha }}"
+          if [ "$actual_sha" != "${{ github.sha }}" ]; then
+            echo "::error::checkout SHA mismatch: expected ${{ github.sha }}, got $actual_sha"
+            exit 1
+          fi
+          test -f apps-data.json
+          test -f generate.js
+          echo "checkout verified: $(pwd) @ $actual_sha"
+
+      - name: 7つの静的アクセシビリティ監査を実行
+        id: run_audits
+        shell: bash
+        run: |
+          node - <<'NODE_SCRIPT'
+          const fs = require('fs');
+          const path = require('path');
+          const { execFileSync } = require('child_process');
+
+          const REPO = process.cwd();
+          const commitSha = process.env.GITHUB_SHA || '(unknown)';
+          const runAt = new Date().toISOString();
+          const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+
+          const expectedFiles = [
+            'tools/accessibility-audit/tier1/static-audit.js',
+            'tools/accessibility-audit/tier2/static-audit.js',
+            'tools/accessibility-audit/tier3/static-audit.js',
+            'tools/audit35-1/audit.js',
+            'tools/main-heading-audit/audit.js',
+            'tools/main-heading-audit/body-structure.js',
+            'tools/settings-proxy-focus-audit/gap-fix-1-static-regression-test.js',
+          ];
+
+          const summary = [];
+          summary.push('## Donomana Quality Audit — Static Accessibility Audits');
+          summary.push('');
+          summary.push(`- 実行日時 (UTC): \`${runAt}\``);
+          summary.push(`- 対象コミット SHA: \`${commitSha}\``);
+          summary.push(`- 実行予定スクリプト数: ${expectedFiles.length}`);
+          summary.push('');
+
+          function flushAndExit(code) {
+            if (summaryPath) fs.appendFileSync(summaryPath, summary.join('\n') + '\n');
+            process.exit(code);
+          }
+
+          // --- 完全性チェック: 7ファイルの存在確認 (欠落があればERROR/exit 1) ---
+          const missing = expectedFiles.filter((f) => !fs.existsSync(path.join(REPO, f)));
+          if (missing.length > 0) {
+            summary.push('### ERROR: 期待対象スクリプトの欠落');
+            summary.push('');
+            for (const f of missing) summary.push(`- \`${f}\` が見つかりません`);
+            for (const f of missing) console.error('::error::expected script missing: ' + f);
+            flushAndExit(1);
+          }
+
+          function runScript(relPath) {
+            let stdout = '';
+            let status = 0;
+            try {
+              stdout = execFileSync('node', [relPath], { encoding: 'utf-8', cwd: REPO, maxBuffer: 10 * 1024 * 1024 });
+            } catch (e) {
+              stdout = (e.stdout || '') + (e.stderr || '');
+              status = typeof e.status === 'number' ? e.status : 1;
+            }
+            console.log('::group::' + relPath);
+            console.log(stdout);
+            console.log('::endgroup::');
+            return { stdout, status };
+          }
+
+          const esc = (s) => String(s).replace(/\n/g, ' ').replace(/\|/g, '\\|');
+
+          const appsData = require(path.join(REPO, 'apps-data.json'));
+          const allAppFilenames = appsData.map((a) => a.filename).sort();
+
+          const rows = [];
+          let anyError = false;
+
+          // 1. audit35-1/audit.js (apps-data.json 全件を動的カバー)
+          {
+            const r = runScript('tools/audit35-1/audit.js');
+            if (r.status !== 0) {
+              rows.push({ name: 'tools/audit35-1/audit.js', verdict: 'ERROR', coverage: '(実行失敗)', detail: 'exit ' + r.status });
+              anyError = true;
+            } else {
+              const json = JSON.parse(fs.readFileSync(path.join(REPO, 'tools/audit35-1/audit-results.json'), 'utf-8'));
+              let findings = 0;
+              const findingApps = [];
+              for (const e of json) {
+                const bad =
+                  e.appFileExists === false ||
+                  e.lockMismatch ||
+                  e.fsMismatch ||
+                  e.recordNavMismatch ||
+                  (e.duplicateIds && e.duplicateIds.length > 0) ||
+                  e.themeColorDuplicate ||
+                  e.switchMismatch ||
+                  e.gazeMismatch ||
+                  e.supporterOnlyLeaksIntoScan;
+                if (bad) {
+                  findings++;
+                  findingApps.push(e.filename);
+                }
+              }
+              rows.push({
+                name: 'tools/audit35-1/audit.js',
+                verdict: findings > 0 ? 'FINDINGS' : 'PASS',
+                coverage: `${json.length}/${json.length}アプリ（apps-data.json全件）`,
+                detail: findings > 0 ? `${findings}件の候補: ${findingApps.join(', ')}` : '候補なし',
+              });
+            }
+          }
+
+          // 2. main-heading-audit/audit.js (apps-data.json 全件を動的カバー)
+          {
+            const r = runScript('tools/main-heading-audit/audit.js');
+            if (r.status !== 0) {
+              rows.push({ name: 'tools/main-heading-audit/audit.js', verdict: 'ERROR', coverage: '(実行失敗)', detail: 'exit ' + r.status });
+              anyError = true;
+            } else {
+              const json = JSON.parse(fs.readFileSync(path.join(REPO, 'tools/main-heading-audit/audit-results.json'), 'utf-8'));
+              const notFound = json.filter((e) => e.error === 'file not found').map((e) => e.filename);
+              const mainMissing = json.filter((e) => !e.error && e.mainCount === 0).length;
+              const h1Missing = json.filter((e) => !e.error && e.h1Count === 0).length;
+              const h1Excess = json.filter((e) => !e.error && e.h1Count > 1).length;
+              const findings = mainMissing + h1Missing + h1Excess + notFound.length;
+              rows.push({
+                name: 'tools/main-heading-audit/audit.js',
+                verdict: findings > 0 ? 'FINDINGS' : 'PASS',
+                coverage: `${json.length}/${json.length}アプリ（apps-data.json全件）`,
+                detail:
+                  findings > 0
+                    ? `main欠落=${mainMissing}, h1欠落=${h1Missing}, h1過多=${h1Excess}` +
+                      (notFound.length ? `, ファイル欠落=${notFound.join(',')}` : '')
+                    : '候補なし',
+              });
+            }
+          }
+
+          // 3. main-heading-audit/body-structure.js — 設計上PASS/FAILを持たない人間判断用ツール
+          {
+            const r = runScript('tools/main-heading-audit/body-structure.js');
+            if (r.status !== 0) {
+              rows.push({ name: 'tools/main-heading-audit/body-structure.js', verdict: 'ERROR', coverage: '(実行失敗)', detail: 'exit ' + r.status });
+              anyError = true;
+            } else {
+              rows.push({
+                name: 'tools/main-heading-audit/body-structure.js',
+                verdict: 'NOT COVERED',
+                coverage: `${allAppFilenames.length}アプリ分の構造を出力（判定なし）`,
+                detail: '人間判断用の情報収集ツール。自動PASS/FAIL判定の対象外。',
+              });
+            }
+          }
+
+          // 4-6. tier1/tier2/tier3 static-audit.js (固定リスト、apps-data.jsonの全件ではない)
+          const TIERS = [
+            { path: 'tools/accessibility-audit/tier1/static-audit.js', resultFile: 'tools/accessibility-audit/tier1/static-audit-results.json' },
+            { path: 'tools/accessibility-audit/tier2/static-audit.js', resultFile: 'tools/accessibility-audit/tier2/static-audit-results.json' },
+            { path: 'tools/accessibility-audit/tier3/static-audit.js', resultFile: 'tools/accessibility-audit/tier3/static-audit-results.json' },
+          ];
+          const tierCoveredApps = [];
+          for (const t of TIERS) {
+            const r = runScript(t.path);
+            if (r.status !== 0) {
+              rows.push({ name: t.path, verdict: 'ERROR', coverage: '(実行失敗)', detail: 'exit ' + r.status });
+              anyError = true;
+              continue;
+            }
+            const json = JSON.parse(fs.readFileSync(path.join(REPO, t.resultFile), 'utf-8'));
+            const apps = Object.keys(json);
+            tierCoveredApps.push(...apps);
+            let findings = 0;
+            const findingApps = [];
+            for (const [app, r2] of Object.entries(json)) {
+              const bad =
+                (r2.duplicateIds && r2.duplicateIds.length > 0) ||
+                (r2.brokenAriaRefs && r2.brokenAriaRefs.length > 0) ||
+                (r2.tabindexAnomalies && r2.tabindexAnomalies.length > 0);
+              if (bad) {
+                findings++;
+                findingApps.push(app);
+              }
+            }
+            rows.push({
+              name: t.path,
+              verdict: findings > 0 ? 'FINDINGS' : 'PASS',
+              coverage: `${apps.length}アプリ（固定リスト）`,
+              detail: findings > 0 ? `${findings}件の候補: ${findingApps.join(', ')}` : '候補なし',
+            });
+          }
+
+          // 7. settings-proxy-focus-audit/gap-fix-1-static-regression-test.js — 本物のPASS/FAIL (exit code)
+          {
+            const r = runScript('tools/settings-proxy-focus-audit/gap-fix-1-static-regression-test.js');
+            const lastLine = r.stdout.trim().split('\n').filter(Boolean).pop() || '';
+            rows.push({
+              name: 'tools/settings-proxy-focus-audit/gap-fix-1-static-regression-test.js',
+              verdict: r.status === 0 ? 'PASS' : 'ERROR',
+              coverage: '4アプリ（timetable-app/ongaku-app/tokei-app/nazorin-print、対象限定の回帰ガード）',
+              detail: r.status === 0 ? lastLine : 'exit ' + r.status + ' — ' + lastLine,
+            });
+            if (r.status !== 0) anyError = true;
+          }
+
+          // --- カバレッジギャップ (apps-data.json 全体 vs tier1-3 固定リスト) ---
+          const tierSet = new Set(tierCoveredApps);
+          const notCoveredByTiers = allAppFilenames.filter((a) => !tierSet.has(a));
+
+          summary.push(`### 対象アプリカバレッジ（apps-data.json = ${allAppFilenames.length}アプリ）`);
+          summary.push('');
+          summary.push(`- audit35-1 / main-heading-audit / body-structure：apps-data.json全${allAppFilenames.length}アプリを動的にカバー`);
+          summary.push(`- tier1+tier2+tier3 static-audit.js：固定リストで${tierSet.size}アプリをカバー`);
+          if (notCoveredByTiers.length > 0) {
+            summary.push(
+              `- **NOT COVERED（tier1-3未対象）**: ${notCoveredByTiers.join(', ')} — tier別static-audit.jsの対象アプリ一覧が` +
+                'apps-data.jsonの追加に追従していません。未対象をPASSとして扱っていません。'
+            );
+          }
+          summary.push('');
+
+          summary.push('### 監査結果（スクリプトごと、件数は合算しません）');
+          summary.push('');
+          summary.push('| スクリプト | 判定 | カバレッジ | 詳細 |');
+          summary.push('|---|---|---|---|');
+          const icons = { PASS: '✅ PASS', FINDINGS: '🔎 FINDINGS', ERROR: '❌ ERROR', 'NOT COVERED': 'ℹ️ NOT COVERED' };
+          for (const row of rows) {
+            summary.push(`| \`${row.name}\` | ${icons[row.verdict] || row.verdict} | ${esc(row.coverage)} | ${esc(row.detail)} |`);
+          }
+          summary.push('');
+          summary.push(
+            '**注記**: FINDINGSはスクリプト自身の判定ではなく、本workflowが客観的な構造指標（重複id、ARIA参照先欠落、' +
+              '不自然なtabindex、宣言と実装の不一致、ファイル欠落など）から導出した解釈です。既存のバックログ（過去から存在する' +
+              '既知の指摘）と新規検出を区別する仕組み（baseline diff）は本Phaseでは未実装のため、結果は常に「現在の状態」の' +
+              'スナップショットです。FINDINGSはjob自体を失敗させません（ERRORのみが失敗要因です）。'
+          );
+
+          for (const row of rows) console.log(`${row.verdict} - ${row.name} - ${row.detail}`);
+
+          flushAndExit(anyError ? 1 : 0);
+          NODE_SCRIPT
