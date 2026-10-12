@@ -69,6 +69,42 @@ jobs:
           test -f generate.js
           echo "checkout verified: $(pwd) @ $actual_sha"
 
+      - name: 対象結果JSONを事前削除（鮮度保証、DAQS Phase 3B-IH）
+        id: pre_clean
+        shell: bash
+        run: |
+          set -e
+          # tools/daqs/diff-check.js が --no-run で読む5つの結果JSONを、この
+          # 監査実行より前に削除する。3つ(tier1-3)はリポジトリに過去の実行結果
+          # が履歴スナップショットとしてコミットされているため、削除しておかな
+          # いと「今回生成されたかどうか」をファイル存在だけで判定できない。
+          # このリポジトリへのcommit/pushは行わない(runner内の作業コピーのみ)。
+          targets=(
+            "tools/audit35-1/audit-results.json"
+            "tools/main-heading-audit/audit-results.json"
+            "tools/accessibility-audit/tier1/static-audit-results.json"
+            "tools/accessibility-audit/tier2/static-audit-results.json"
+            "tools/accessibility-audit/tier3/static-audit-results.json"
+          )
+          rm -f "${targets[@]}"
+          # 削除結果を明示的に検証する: 1つでも残っていれば、古い結果を誤って
+          # 「今回の結果」として採用してしまう可能性があるため、監査の実行に進まない。
+          still_present=()
+          for f in "${targets[@]}"; do
+            if [ -e "$f" ]; then
+              still_present+=("$f")
+            fi
+          done
+          if [ "${#still_present[@]}" -gt 0 ]; then
+            for f in "${still_present[@]}"; do
+              echo "::error::pre-delete failed, file still present: $f"
+            done
+            exit 1
+          fi
+          not_before_ms="$(node -e 'console.log(Date.now())')"
+          echo "DAQS_NOT_BEFORE_MS=${not_before_ms}" >> "$GITHUB_ENV"
+          echo "pre-delete complete, not_before_ms=${not_before_ms}"
+
       - name: 7つの静的アクセシビリティ監査を実行
         id: run_audits
         shell: bash
@@ -312,3 +348,15 @@ jobs:
 
           flushAndExit(anyError ? 1 : 0);
           NODE_SCRIPT
+
+      - name: baselineとの差分チェック（NEW/KNOWN/RESOLVED/ERROR/カバレッジ、DAQS Phase 3B-IH）
+        id: diff_check
+        if: always()
+        shell: bash
+        run: |
+          # 既存の "7つの静的アクセシビリティ監査を実行" ステップがERRORで
+          # 失敗していても、診断情報を残すため常に実行する(if: always())。
+          # --no-run は7スクリプトを再実行せず、直前のステップが書いた5つの
+          # 結果JSONを読むだけ(二重実行の解消)。DAQS_NOT_BEFORE_MS は直前の
+          # 事前削除ステップが書いた値を使い、鮮度判定の根拠にする。
+          node tools/daqs/diff-check.js --no-run

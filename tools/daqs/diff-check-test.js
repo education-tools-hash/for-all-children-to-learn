@@ -1,9 +1,17 @@
-// DAQS Phase 3B: automated tests for tools/daqs/diff-check.js.
+// DAQS Phase 3B / 3B-Integration-Hardening: automated tests for
+// tools/daqs/diff-check.js.
 //
 // All fixture "repos" used here are synthetic and disposable: they are built
 // fresh under the OS temp directory (never inside this repository, never
 // reusing real app HTML or real audit-script source) and deleted again at
 // the end of the run. No production app file is ever touched.
+//
+// Tests 1-18 (plus the summary-rendering check) cover the standalone engine
+// from Phase 3B. Tests 19+ cover the Integration Hardening additions:
+// --no-run / --not-before (read-only mode, for a11y-audit.yml to call after
+// it has already run the 7 scripts itself) and the RESOLVED-safety fix (an
+// unrelated script's ERROR must never make a different finding look
+// resolved, and must never make a healthy tier look like it shrank).
 //
 // Run: node tools/daqs/diff-check-test.js
 'use strict';
@@ -525,6 +533,229 @@ function mhEntry(filename, fields) {
     check('18. 複合発生: hasNew===true', report.classification.hasNew === true);
     check('18. 複合発生: hasError===true', report.classification.hasError === true);
     check('18. 複合発生: hasCoverageShrink===true', report.classification.hasCoverageShrink === true);
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// Helper for --no-run tests: builds a fixture repo that has ONLY
+// apps-data.json and the 5 JSON result files already sitting on disk --
+// deliberately no .js script files at all (not even fake ones). If
+// evaluate({ noRun: true, ... }) ever tried to execute anything, this
+// fixture would make it crash immediately (ENOENT), so these tests also
+// double as proof that no-run mode genuinely never spawns the 7 scripts.
+// ---------------------------------------------------------------------------
+
+function buildNoRunFixtureRepo(appsFilenames, resultFiles) {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'daqs-diffcheck-norun-test-'));
+  fs.writeFileSync(
+    path.join(tmpRoot, 'apps-data.json'),
+    JSON.stringify(appsFilenames.map((f) => ({ filename: f })), null, 2)
+  );
+  for (const [scriptRel, data] of Object.entries(resultFiles || {})) {
+    const resultRel = DC.RESULT_FILE_OF[scriptRel];
+    const abs = path.join(tmpRoot, resultRel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, JSON.stringify(data, null, 2));
+  }
+  return tmpRoot;
+}
+
+// ---------------------------------------------------------------------------
+// 19. --no-run モード: 既存ステップが書いたJSONを読むだけで正しく判定する
+//     (スクリプトファイルが一切存在しないfixtureなので、実行を試みれば即クラッシュする --
+//      例外なくPASSすること自体が「二重実行が発生していない」ことの証明になる)
+// ---------------------------------------------------------------------------
+(function test19() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const notBeforeMs = Date.now() - 5000; // the result files below are written "after" this
+  const tmpRoot = buildNoRunFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': [a35Entry('app-a', { duplicateIds: ['dup-1'] }), a35Entry('app-b'), a35Entry('app-c')],
+    'tools/main-heading-audit/audit.js': apps.map((a) => mhEntry(a)),
+    'tools/accessibility-audit/tier1/static-audit.js': { 'app-a': tierEntry() },
+    'tools/accessibility-audit/tier2/static-audit.js': { 'app-b': tierEntry() },
+    'tools/accessibility-audit/tier3/static-audit.js': { 'app-c': tierEntry() },
+  });
+  try {
+    const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath, noRun: true, notBeforeMs });
+    check('19. --no-run 正常系: exitCode===0', exitCode === 0, 'got ' + exitCode + ' ' + JSON.stringify(report.scriptErrors));
+    check('19. --no-run 正常系: mode===no-run', report.mode === 'no-run');
+    check('19. --no-run 正常系: KNOWNの1件を検出', report.findings.KNOWN.length === 1);
+    check('19. --no-run 正常系: 7スクリプトのファイルは存在せず、クラッシュせずに完了', true);
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 20. --no-run モード: --not-before が無い場合は推測せずERROR
+// ---------------------------------------------------------------------------
+(function test20() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildNoRunFixtureRepo(apps, {});
+  try {
+    const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath, noRun: true });
+    check('20. --no-run かつ not-before無し: exitCode===1', exitCode === 1);
+    check(
+      '20. --no-run かつ not-before無し: fatal.errorType===NOT_BEFORE_MS_MISSING',
+      report.fatal && report.fatal.errorType === 'NOT_BEFORE_MS_MISSING'
+    );
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 21. --no-run モード: 事前削除が効いておらず古いファイルが残っている場合はERROR
+//     (pre-delete ステップが何らかの理由で効かなかったケースのシミュレーション)
+// ---------------------------------------------------------------------------
+(function test21() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildNoRunFixtureRepo(apps, {
+    'tools/main-heading-audit/audit.js': apps.map((a) => mhEntry(a)),
+    'tools/accessibility-audit/tier1/static-audit.js': { 'app-a': tierEntry() },
+    'tools/accessibility-audit/tier2/static-audit.js': { 'app-b': tierEntry() },
+    'tools/accessibility-audit/tier3/static-audit.js': { 'app-c': tierEntry() },
+  });
+  try {
+    // audit35-1's result file is written, but deliberately BEFORE the
+    // not-before marker -- i.e. it looks like the pre-delete step failed to
+    // remove it and the existing audit step never got to regenerate it.
+    const staleResultPath = path.join(tmpRoot, DC.RESULT_FILE_OF['tools/audit35-1/audit.js']);
+    fs.mkdirSync(path.dirname(staleResultPath), { recursive: true });
+    fs.writeFileSync(staleResultPath, JSON.stringify([a35Entry('app-a', { duplicateIds: ['dup-1'] }), a35Entry('app-b'), a35Entry('app-c')]));
+    const past = new Date(Date.now() - 60_000);
+    fs.utimesSync(staleResultPath, past, past);
+
+    const notBeforeMs = Date.now();
+    const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath, noRun: true, notBeforeMs });
+    check('21. 事前削除が効いていない場合: exitCode===1', exitCode === 1);
+    check(
+      '21. 事前削除が効いていない場合: RESULT_FILE_STALEとして拒否される',
+      report.scriptErrors.some((e) => e.errorType === 'RESULT_FILE_STALE')
+    );
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 20b. --no-run モード: notBeforeMs が 0 や空文字列(数値変換で0になる、
+//      Number('')===0)であってもERRORにする。0や負の値は "fresh" を無条件
+//      に認めてしまう値であり、未指定と同じ危険を持つため、欠落と同じ扱いに
+//      しなければならない(実際に --not-before "" を渡すとこの不具合が
+//      再現することを本Phase中に確認し、修正した)。
+// ---------------------------------------------------------------------------
+(function test20b() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  for (const badValue of [0, '0', -5]) {
+    const tmpRoot = buildNoRunFixtureRepo(apps, {});
+    try {
+      const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+      const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath, noRun: true, notBeforeMs: badValue });
+      check(`20b. --no-run notBeforeMs=${JSON.stringify(badValue)}: exitCode===1`, exitCode === 1);
+      check(
+        `20b. --no-run notBeforeMs=${JSON.stringify(badValue)}: fatal.errorType===NOT_BEFORE_MS_MISSING`,
+        report.fatal && report.fatal.errorType === 'NOT_BEFORE_MS_MISSING'
+      );
+    } finally {
+      removeFixtureRepo(tmpRoot);
+    }
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 22. 監査不完全時にRESOLVEDを誤判定しないこと（最重要の安全性修正）
+//     baselineのfinding "duplicate-id:app-b:dup-old" はdetectedBy=['tier2']のみ。
+//     tier2が今回クラッシュして一切確認できない場合、audit35-1側は元々その問題を
+//     検出していないため、何もしなければ「解消した」と誤判定されてしまう。
+// ---------------------------------------------------------------------------
+(function test22() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: [a35Entry('app-a'), a35Entry('app-b'), a35Entry('app-c')] }, // never knew about dup-old
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+    'tools/accessibility-audit/tier1/static-audit.js': { data: { 'app-a': tierEntry() } },
+    'tools/accessibility-audit/tier2/static-audit.js': { behavior: 'crash' }, // the ONLY source for dup-old
+    'tools/accessibility-audit/tier3/static-audit.js': { data: { 'app-c': tierEntry() } },
+  });
+  try {
+    const baselinePath = writeBaseline(
+      tmpRoot,
+      baselineFixture({
+        knownFindings: [
+          { id: 'duplicate-id:app-b:dup-old', category: 'duplicate-id', app: 'app-b', detail: 'dup-old', detectedBy: ['tier2'] },
+        ],
+      })
+    );
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath });
+    check('22. 監査不完全: exitCode===1 (tier2のERRORにより)', exitCode === 1);
+    check(
+      '22. 監査不完全: dup-oldがRESOLVEDに入らない',
+      !report.findings.RESOLVED.some((f) => f.id === 'duplicate-id:app-b:dup-old')
+    );
+    check(
+      '22. 監査不完全: dup-oldはunconfirmed=trueでKNOWNに残る',
+      report.findings.KNOWN.some((f) => f.id === 'duplicate-id:app-b:dup-old' && f.unconfirmed === true)
+    );
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 23. 監査不完全時にTierカバレッジ縮小を誤判定しないこと
+//     tier2がクラッシュした場合、baselineのtier2メンバーが「全員脱落した」ように
+//     見えてしまってはならない。tier2Unavailable=trueとして区別し、
+//     notCoveredByAnyTierも「比較不能(null)」にする。
+// ---------------------------------------------------------------------------
+(function test23() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: apps.map((a) => a35Entry(a)) },
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+    'tools/accessibility-audit/tier1/static-audit.js': { data: { 'app-a': tierEntry() } },
+    'tools/accessibility-audit/tier2/static-audit.js': { behavior: 'crash' },
+    'tools/accessibility-audit/tier3/static-audit.js': { data: { 'app-c': tierEntry() } },
+  });
+  try {
+    const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+    const { report } = DC.evaluate({ repoRoot: tmpRoot, baselinePath });
+    check('23. Tier不完全: tier2Unavailable===true', report.coverageDiff.tier2Unavailable === true);
+    check('23. Tier不完全: tier2Removedは空（誤った全脱落にしない）', report.coverageDiff.tier2Removed.length === 0);
+    check('23. Tier不完全: notCoveredByAnyTierはnull（比較不能を明示）', report.coverageDiff.notCoveredByAnyTier === null);
+    check(
+      '23. Tier不完全: hasCoverageShrinkはtier2由来ではfalseのまま（ERROR自体でexit1は別途保証）',
+      report.classification.hasCoverageShrink === false
+    );
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 24. 正常系との対比: 全Tier健全なら、件数が全く同じ状況でもNEWやエラーがなければ
+//     exit 0 を維持する（23番の対照群、回帰確認用）
+// ---------------------------------------------------------------------------
+(function test24() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: [a35Entry('app-a', { duplicateIds: ['dup-1'] }), a35Entry('app-b'), a35Entry('app-c')] },
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+    'tools/accessibility-audit/tier1/static-audit.js': { data: { 'app-a': tierEntry() } },
+    'tools/accessibility-audit/tier2/static-audit.js': { data: { 'app-b': tierEntry() } },
+    'tools/accessibility-audit/tier3/static-audit.js': { data: { 'app-c': tierEntry() } },
+  });
+  try {
+    const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath });
+    check('24. 全Tier健全対照群: exitCode===0', exitCode === 0, 'got ' + exitCode);
+    check('24. 全Tier健全対照群: tier2Unavailable===false', report.coverageDiff.tier2Unavailable === false);
+    check('24. 全Tier健全対照群: notCoveredByAnyTierはnullでない', report.coverageDiff.notCoveredByAnyTier !== null);
   } finally {
     removeFixtureRepo(tmpRoot);
   }

@@ -55,6 +55,32 @@ const TIER_SCRIPT_TO_NAME = {
   'tools/accessibility-audit/tier3/static-audit.js': 'tier3',
 };
 
+// Short "source" names as they appear in a finding's detectedBy[], keyed by
+// the script path that produces them. Used to know, per baseline finding,
+// whether every script that originally detected it actually ran healthily
+// *this* run before ever concluding the finding is RESOLVED.
+const SOURCE_NAME_OF = {
+  'tools/audit35-1/audit.js': 'audit35-1',
+  'tools/main-heading-audit/audit.js': 'main-heading-audit',
+  'tools/accessibility-audit/tier1/static-audit.js': 'tier1',
+  'tools/accessibility-audit/tier2/static-audit.js': 'tier2',
+  'tools/accessibility-audit/tier3/static-audit.js': 'tier3',
+};
+
+// Scripts diff-check.js relies on when it does NOT run the audits itself
+// (--no-run / integrated mode): exactly the 5 that produce a JSON result
+// file. body-structure.js and the settings-proxy regression test are, in
+// that mode, entirely the existing a11y-audit.yml step's responsibility --
+// see the "--no-run" section of evaluate() below.
+const JSON_BEARING_SCRIPTS = Object.keys(RESULT_FILE_OF);
+
+// Result-file mtimes are compared against a "not before" reference instead
+// of being trusted on their own (see readResultFile). Filesystems with
+// coarse mtime resolution (some report only whole seconds) could otherwise
+// make a genuinely fresh file look stale by a few hundred milliseconds, so a
+// small grace window is subtracted from the reference before comparing.
+const FRESHNESS_TOLERANCE_MS = 1000;
+
 function mkError(errorType, message, extra) {
   return Object.assign({ ok: false, errorType, message }, extra || {});
 }
@@ -188,10 +214,10 @@ function readResultFile(absPath, notBeforeMs) {
   } catch (e) {
     return mkError('RESULT_FILE_STAT_FAILED', e.message);
   }
-  if (stat.mtimeMs < notBeforeMs) {
+  if (stat.mtimeMs < notBeforeMs - FRESHNESS_TOLERANCE_MS) {
     return mkError(
       'RESULT_FILE_STALE',
-      `result file predates this run (mtime=${new Date(stat.mtimeMs).toISOString()}, run started ${new Date(notBeforeMs).toISOString()}) -- was not regenerated`
+      `result file predates this run (mtime=${new Date(stat.mtimeMs).toISOString()}, not-before=${new Date(notBeforeMs).toISOString()}) -- was not regenerated`
     );
   }
   let raw;
@@ -330,23 +356,51 @@ function mergeFindings(lists) {
 // Diffing against baseline
 // ---------------------------------------------------------------------------
 
-function diffFindings(currentFindings, baselineKnownFindings) {
+// healthySources: a Set of short source names (see SOURCE_NAME_OF) whose
+// script ran AND whose result was read/parsed/extracted successfully this
+// run. A baseline finding is only ever concluded RESOLVED when every script
+// that originally detected it (its own detectedBy[]) is in this set --
+// otherwise we simply have no reliable current data for it, so it stays
+// KNOWN (flagged unconfirmed) rather than being reported as an improvement
+// that may not have happened. This is what keeps an unrelated script's
+// ERROR from making a *different*, unrelated finding look resolved.
+function diffFindings(currentFindings, baselineKnownFindings, healthySources) {
+  const healthy = healthySources || new Set();
   const currentIds = new Set(currentFindings.map((f) => f.id));
   const baselineIds = new Set(baselineKnownFindings.map((f) => f.id));
   const NEW = currentFindings.filter((f) => !baselineIds.has(f.id));
   const KNOWN = currentFindings.filter((f) => baselineIds.has(f.id));
-  const RESOLVED = baselineKnownFindings.filter((f) => !currentIds.has(f.id));
+  const RESOLVED = [];
+  for (const bf of baselineKnownFindings) {
+    if (currentIds.has(bf.id)) continue; // still present -> already in KNOWN above
+    const allSourcesHealthy = bf.detectedBy.every((s) => healthy.has(s));
+    if (allSourcesHealthy) {
+      RESOLVED.push(bf);
+    } else {
+      // Can't confirm it's gone -- the only script(s) that could have
+      // re-detected it did not run healthily this run. Keep it as KNOWN
+      // (unresolved), not RESOLVED.
+      KNOWN.push(Object.assign({}, bf, { unconfirmed: true }));
+    }
+  }
   return { NEW, KNOWN, RESOLVED };
 }
 
-function computeCoverage(appsData, tierAppsByName) {
+// tierHealth: { tier1: bool, tier2: bool, tier3: bool } -- whether each
+// tier's script ran and its result was read successfully this run. A tier
+// that is not healthy contributes an empty (not "zero apps") set: its
+// coverage comparison is reported as unavailable rather than as a (possibly
+// entirely false) mass removal of every app that tier used to cover.
+function computeCoverage(appsData, tierAppsByName, tierHealth) {
+  const health = tierHealth || { tier1: true, tier2: true, tier3: true };
   const allApps = appsData.map((a) => a.filename).slice().sort();
-  const tier1 = (tierAppsByName.tier1 || []).slice().sort();
-  const tier2 = (tierAppsByName.tier2 || []).slice().sort();
-  const tier3 = (tierAppsByName.tier3 || []).slice().sort();
+  const tier1 = health.tier1 ? (tierAppsByName.tier1 || []).slice().sort() : [];
+  const tier2 = health.tier2 ? (tierAppsByName.tier2 || []).slice().sort() : [];
+  const tier3 = health.tier3 ? (tierAppsByName.tier3 || []).slice().sort() : [];
+  const allTiersAvailable = !!(health.tier1 && health.tier2 && health.tier3);
   const union = new Set([...tier1, ...tier2, ...tier3]);
-  const notCoveredByAnyTier = allApps.filter((a) => !union.has(a));
-  return { allApps, tier1, tier2, tier3, notCoveredByAnyTier };
+  const notCoveredByAnyTier = allTiersAvailable ? allApps.filter((a) => !union.has(a)) : null;
+  return { allApps, tier1, tier2, tier3, tierAvailable: health, allTiersAvailable, notCoveredByAnyTier };
 }
 
 function setDiff(a, b) {
@@ -355,16 +409,32 @@ function setDiff(a, b) {
 }
 
 function diffCoverage(current, baseline) {
+  function tierDiff(tierName, currentApps) {
+    if (!current.tierAvailable[tierName]) {
+      return { added: [], removed: [], unavailable: true };
+    }
+    return {
+      added: setDiff(currentApps, baseline.tierCoverageAtBaseline[tierName]),
+      removed: setDiff(baseline.tierCoverageAtBaseline[tierName], currentApps),
+      unavailable: false,
+    };
+  }
+  const t1 = tierDiff('tier1', current.tier1);
+  const t2 = tierDiff('tier2', current.tier2);
+  const t3 = tierDiff('tier3', current.tier3);
   return {
     appsAdded: setDiff(current.allApps, baseline.appsAtBaseline),
     appsRemoved: setDiff(baseline.appsAtBaseline, current.allApps),
-    tier1Added: setDiff(current.tier1, baseline.tierCoverageAtBaseline.tier1),
-    tier1Removed: setDiff(baseline.tierCoverageAtBaseline.tier1, current.tier1),
-    tier2Added: setDiff(current.tier2, baseline.tierCoverageAtBaseline.tier2),
-    tier2Removed: setDiff(baseline.tierCoverageAtBaseline.tier2, current.tier2),
-    tier3Added: setDiff(current.tier3, baseline.tierCoverageAtBaseline.tier3),
-    tier3Removed: setDiff(baseline.tierCoverageAtBaseline.tier3, current.tier3),
-    notCoveredByAnyTier: current.notCoveredByAnyTier,
+    tier1Added: t1.added,
+    tier1Removed: t1.removed,
+    tier1Unavailable: t1.unavailable,
+    tier2Added: t2.added,
+    tier2Removed: t2.removed,
+    tier2Unavailable: t2.unavailable,
+    tier3Added: t3.added,
+    tier3Removed: t3.removed,
+    tier3Unavailable: t3.unavailable,
+    notCoveredByAnyTier: current.notCoveredByAnyTier, // null when any tier is unavailable this run
   };
 }
 
@@ -372,12 +442,23 @@ function diffCoverage(current, baseline) {
 // Main evaluation pipeline
 // ---------------------------------------------------------------------------
 
-function evaluate({ repoRoot, baselinePath }) {
+// Builds the list of { script, ok } entries evaluate() walks, without
+// executing anything, for --no-run / integrated mode: the existing
+// a11y-audit.yml step is solely responsible for having run all 7 scripts
+// (including the 2 that produce no JSON) and for ERROR-ing out if any of
+// them crashed or were missing; this engine only concerns itself with the
+// 5 that produce a JSON result file it can read.
+function noRunScriptResults() {
+  return JSON_BEARING_SCRIPTS.map((script) => ({ script, ok: true }));
+}
+
+function evaluate({ repoRoot, baselinePath, noRun, notBeforeMs }) {
   const scriptErrors = [];
   const report = {
     generatedAt: new Date().toISOString(),
     repoRoot,
     baselinePath,
+    mode: noRun ? 'no-run' : 'standalone',
   };
 
   const baselineResult = loadBaseline(baselinePath);
@@ -393,12 +474,40 @@ function evaluate({ repoRoot, baselinePath }) {
   report.baselineSchemaVersion = baseline.schemaVersion;
   report.baselineCommit = baseline.baselineCommit || null;
 
+  if (noRun && !(Number.isFinite(Number(notBeforeMs)) && Number(notBeforeMs) > 0)) {
+    // Never guess a freshness reference: without one, a stale leftover
+    // result file could pass silently. Fail loudly instead. Deliberately
+    // stricter than "is it a number": undefined/null/empty-string/0/negative
+    // are all rejected here too, since Number('') and Number(undefined) do
+    // NOT both throw (Number('') is 0, not NaN) and a 0-or-negative "not
+    // before" would make the freshness check below accept literally any
+    // file, silently defeating it instead of refusing to guess.
+    return {
+      report: Object.assign(report, {
+        fatal: {
+          errorType: 'NOT_BEFORE_MS_MISSING',
+          message: '--no-run requires --not-before (or DAQS_NOT_BEFORE_MS) to judge result-file freshness; refusing to guess.',
+        },
+      }),
+      exitCode: 1,
+    };
+  }
+
   const appsDataResult = loadAppsData(repoRoot);
   if (!appsDataResult.ok) {
     scriptErrors.push({ source: 'apps-data.json', errorType: appsDataResult.errorType, message: appsDataResult.message });
   }
 
-  const { runStartedAtMs, scriptResults } = runAudits(repoRoot);
+  let runStartedAtMs, scriptResults;
+  if (noRun) {
+    runStartedAtMs = Number(notBeforeMs);
+    scriptResults = noRunScriptResults();
+  } else {
+    const ra = runAudits(repoRoot);
+    runStartedAtMs = ra.runStartedAtMs;
+    scriptResults = ra.scriptResults;
+  }
+
   report.commitSha = (function () {
     try {
       return execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -413,6 +522,8 @@ function evaluate({ repoRoot, baselinePath }) {
 
   const findingLists = [];
   const tierAppsByName = {};
+  const healthySources = new Set();
+  const tierHealth = { tier1: false, tier2: false, tier3: false };
   let notFoundApps = [];
 
   for (const sr of scriptResults) {
@@ -449,6 +560,8 @@ function evaluate({ repoRoot, baselinePath }) {
       continue;
     }
     findingLists.push(extracted.findings);
+    healthySources.add(SOURCE_NAME_OF[sr.script]);
+    if (TIER_SCRIPT_TO_NAME[sr.script]) tierHealth[TIER_SCRIPT_TO_NAME[sr.script]] = true;
   }
 
   if (notFoundApps.length > 0) {
@@ -460,11 +573,11 @@ function evaluate({ repoRoot, baselinePath }) {
   }
 
   const currentFindings = mergeFindings(findingLists);
-  const findingsDiff = diffFindings(currentFindings, baseline.knownFindings);
+  const findingsDiff = diffFindings(currentFindings, baseline.knownFindings, healthySources);
 
   let coverageDiff = null;
   if (appsDataResult.ok) {
-    const currentCoverage = computeCoverage(appsDataResult.data, tierAppsByName);
+    const currentCoverage = computeCoverage(appsDataResult.data, tierAppsByName, tierHealth);
     coverageDiff = diffCoverage(currentCoverage, baseline);
     report.currentCoverage = currentCoverage;
   }
@@ -474,9 +587,9 @@ function evaluate({ repoRoot, baselinePath }) {
   const hasCoverageShrink =
     !!coverageDiff &&
     (coverageDiff.appsRemoved.length > 0 ||
-      coverageDiff.tier1Removed.length > 0 ||
-      coverageDiff.tier2Removed.length > 0 ||
-      coverageDiff.tier3Removed.length > 0);
+      (!coverageDiff.tier1Unavailable && coverageDiff.tier1Removed.length > 0) ||
+      (!coverageDiff.tier2Unavailable && coverageDiff.tier2Removed.length > 0) ||
+      (!coverageDiff.tier3Unavailable && coverageDiff.tier3Removed.length > 0));
 
   const exitCode = hasError || hasNew || hasCoverageShrink ? 1 : 0;
 
@@ -523,13 +636,18 @@ function renderMarkdownSummary(report) {
   lines.push('');
 
   const { NEW, KNOWN, RESOLVED } = report.findings;
+  const confirmedKnown = KNOWN.filter((f) => !f.unconfirmed);
+  const unconfirmedKnown = KNOWN.filter((f) => f.unconfirmed);
   lines.push(`### 判定結果: 通知対象理由 = ${renderReasons(report.classification, report)}`);
   lines.push('');
   lines.push(`- 🆕 NEW（新規）: ${NEW.length}件`);
   for (const f of NEW) lines.push(`  - \`${f.id}\`（検出元: ${f.detectedBy.join(', ')}）`);
   lines.push(`- 📋 KNOWN（既知、baseline登録済み）: ${KNOWN.length}件`);
-  for (const f of KNOWN) lines.push(`  - \`${f.id}\`（検出元: ${f.detectedBy.join(', ')}）`);
-  lines.push(`- ✅ RESOLVED（解消）: ${RESOLVED.length}件`);
+  for (const f of confirmedKnown) lines.push(`  - \`${f.id}\`（検出元: ${f.detectedBy.join(', ')}）`);
+  for (const f of unconfirmedKnown) {
+    lines.push(`  - \`${f.id}\` — ⚠️ 今回は確認できず（検出元スクリプトがERROR）。解消とは判定していません。`);
+  }
+  lines.push(`- ✅ RESOLVED（解消、確認済み）: ${RESOLVED.length}件`);
   for (const f of RESOLVED) lines.push(`  - \`${f.id}\``);
   lines.push(`- ❌ ERROR: ${report.scriptErrors.length}件`);
   for (const e of report.scriptErrors) lines.push(`  - \`${e.source}\`: ${e.errorType}${e.message ? ' — ' + e.message : ''}`);
@@ -541,9 +659,17 @@ function renderMarkdownSummary(report) {
     lines.push(`- 新規追加アプリ（情報、通知対象外）: ${cd.appsAdded.length > 0 ? cd.appsAdded.join(', ') : '該当なし'}`);
     lines.push(`- 削除されたアプリ（通知対象）: ${cd.appsRemoved.length > 0 ? cd.appsRemoved.join(', ') : '該当なし'}`);
     for (const t of ['tier1', 'tier2', 'tier3']) {
-      lines.push(`- ${t} 追加: ${cd[`${t}Added`].length > 0 ? cd[`${t}Added`].join(', ') : '該当なし'} / ${t} 脱落（通知対象）: ${cd[`${t}Removed`].length > 0 ? cd[`${t}Removed`].join(', ') : '該当なし'}`);
+      if (cd[`${t}Unavailable`]) {
+        lines.push(`- ${t}: 今回は比較不能（検出元スクリプトがERROR。誤ってカバレッジ縮小扱いにはしていません）`);
+      } else {
+        lines.push(`- ${t} 追加: ${cd[`${t}Added`].length > 0 ? cd[`${t}Added`].join(', ') : '該当なし'} / ${t} 脱落（通知対象）: ${cd[`${t}Removed`].length > 0 ? cd[`${t}Removed`].join(', ') : '該当なし'}`);
+      }
     }
-    lines.push(`- Tier監査対象外アプリ（現在。固定文字列ではなく動的算出）: ${cd.notCoveredByAnyTier.length > 0 ? cd.notCoveredByAnyTier.join(', ') : '該当なし'}`);
+    lines.push(
+      `- Tier監査対象外アプリ（現在。固定文字列ではなく動的算出）: ${
+        cd.notCoveredByAnyTier === null ? '今回は比較不能（いずれかのTierがERRORのため）' : cd.notCoveredByAnyTier.length > 0 ? cd.notCoveredByAnyTier.join(', ') : '該当なし'
+      }`
+    );
     lines.push('');
   } else {
     lines.push('### カバレッジ変化');
@@ -571,8 +697,11 @@ function main() {
   const baselinePath = process.argv.includes('--baseline')
     ? process.argv[process.argv.indexOf('--baseline') + 1]
     : path.join(repoRoot, 'tools', 'daqs', 'baseline.json');
+  const noRun = process.argv.includes('--no-run');
+  const notBeforeArg = process.argv.includes('--not-before') ? process.argv[process.argv.indexOf('--not-before') + 1] : '';
+  const notBeforeMs = notBeforeArg ? Number(notBeforeArg) : process.env.DAQS_NOT_BEFORE_MS ? Number(process.env.DAQS_NOT_BEFORE_MS) : undefined;
 
-  const { report, exitCode } = evaluate({ repoRoot, baselinePath });
+  const { report, exitCode } = evaluate({ repoRoot, baselinePath, noRun, notBeforeMs });
 
   const jsonOutPath = process.argv.includes('--json-out')
     ? process.argv[process.argv.indexOf('--json-out') + 1]
@@ -601,6 +730,9 @@ module.exports = {
   SCHEMA_VERSION,
   EXPECTED_SCRIPTS,
   RESULT_FILE_OF,
+  JSON_BEARING_SCRIPTS,
+  SOURCE_NAME_OF,
+  FRESHNESS_TOLERANCE_MS,
   loadBaseline,
   loadAppsData,
   runAudits,
