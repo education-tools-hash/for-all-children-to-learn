@@ -1,5 +1,15 @@
 name: a11y-audit
 
+# ============================================================================
+# ⚠️ DAQS-PHASE-3C-BRANCH-NOTIFICATION-PROBE-PREPARATION-1 — TEST-ONLY COPY.
+# このファイルはテスト専用ブランチ
+# test/daqs-phase-3c-notification-probe-preparation-1 にのみ存在するローカル
+# checkpointであり、mainへは一切pushしない／統合しない。本番main上の
+# a11y-audit.ymlとの唯一の差分は末尾に追加した「通知検証用の意図的failure」
+# ステップ1つのみ。既存の7監査スクリプト・baseline.json・diff-check.js・
+# 既存の全ステップ・on/permissions/concurrencyはすべて本番mainと同一。
+# ============================================================================
+#
 # Donomana Autonomous Quality System (DAQS) Phase 2A.
 # Runs the 7 existing *static* accessibility audit scripts under tools/
 # (Node-only: no browser, no local HTTP server, no network). This workflow
@@ -360,3 +370,43 @@ jobs:
           # 結果JSONを読むだけ(二重実行の解消)。DAQS_NOT_BEFORE_MS は直前の
           # 事前削除ステップが書いた値を使い、鮮度判定の根拠にする。
           node tools/daqs/diff-check.js --no-run
+
+      - name: 【テスト専用】通知検証用の意図的failure（DAQS Phase 3C notification probe）
+        id: notification_probe
+        if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/test/daqs-phase-3c-notification-probe-preparation-1'
+        shell: bash
+        run: |
+          set -e
+          # このステップはテスト専用ブランチでのworkflow_dispatch実行時に限り
+          # 動作する、意図的なfailureステップである。本物のアクセシビリティ
+          # 監査ロジック・既存7スクリプト・baseline.json・diff-check.jsには
+          # 一切関与しない。上のif条件（event_name==workflow_dispatch かつ
+          # 対象test branchのref一致）に加えて、以下のスクリプト内検証でも
+          # 対象branch・HEAD SHAを明示的に再確認し、想定外のbranch/eventで
+          # 実行された場合は意図的failureを発生させずにこのステップ自体を
+          # 無害に終了させる（多重の安全策）。
+          expected_branch="test/daqs-phase-3c-notification-probe-preparation-1"
+          expected_ref="refs/heads/${expected_branch}"
+          actual_ref="${{ github.ref }}"
+          actual_event="${{ github.event_name }}"
+          actual_sha="$(git rev-parse HEAD)"
+          echo "actual_ref=${actual_ref}"
+          echo "expected_ref=${expected_ref}"
+          echo "actual_event=${actual_event}"
+          echo "actual_sha=${actual_sha}"
+          echo "expected_sha=${{ github.sha }}"
+
+          if [ "$actual_ref" != "$expected_ref" ] || [ "$actual_event" != "workflow_dispatch" ]; then
+            echo "::notice::notification probe skipped: ref/event guard did not match (ref=${actual_ref}, event=${actual_event}); no intentional failure raised"
+            exit 0
+          fi
+          if [ "$actual_sha" != "${{ github.sha }}" ]; then
+            echo "::error::checkout SHA mismatch during notification probe: expected ${{ github.sha }}, got $actual_sha — aborting without forcing failure"
+            exit 1
+          fi
+
+          echo "::warning::DAQS Phase 3C notification probe — this is an INTENTIONAL test failure on a dedicated test branch (${expected_branch}), not a real accessibility finding. Used only to verify GitHub Actions failure-notification delivery."
+          echo "## ⚠️ DAQS Phase 3C 通知検証プローブ" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "このジョブの failure は **意図的なテスト** です。上記の既存監査結果（Job Summary）は本物のデータであり、変更していません。このステップのみがテスト専用ブランチ上で意図的に \`exit 1\` を返しています。" >> "$GITHUB_STEP_SUMMARY"
+          exit 1
