@@ -23,6 +23,13 @@ const { execFileSync } = require('child_process');
 
 const SCHEMA_VERSION = 1;
 
+// Schema version of this script's OWN report object (the thing --json-out
+// writes / renderJsonSummary() renders) -- intentionally a separate counter
+// from SCHEMA_VERSION above (which versions baseline.json's shape only).
+// Bump this if a field is ever removed or repurposed in the report; purely
+// additive fields (as added in DAQS Phase 4A) do not require a bump.
+const REPORT_SCHEMA_VERSION = 1;
+
 // Structural list of the 7 target scripts (paths are not "problem IDs" or
 // app names, so hardcoding this list is the same kind of structural
 // reference a11y-audit.yml's own expectedFiles array already makes).
@@ -455,7 +462,17 @@ function noRunScriptResults() {
 function evaluate({ repoRoot, baselinePath, noRun, notBeforeMs }) {
   const scriptErrors = [];
   const report = {
+    // DAQS Phase 4A: this script's own report schema version (distinct from
+    // baselineSchemaVersion below, which reflects baseline.json's schema).
+    // Lets a future consumer (Claude Code, Codex, or a later DAQS Phase)
+    // detect a report-shape change without parsing the whole object.
+    schemaVersion: REPORT_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
+    // DAQS Phase 4A: the GitHub Actions run this report was generated in,
+    // when run under Actions (process.env.GITHUB_RUN_ID); null otherwise
+    // (local runs, disposable test fixtures). Lets a saved artifact be
+    // traced back to the exact workflow run that produced it.
+    workflowRunId: process.env.GITHUB_RUN_ID || null,
     repoRoot,
     baselinePath,
     mode: noRun ? 'no-run' : 'standalone',
@@ -728,6 +745,7 @@ if (require.main === module) {
 
 module.exports = {
   SCHEMA_VERSION,
+  REPORT_SCHEMA_VERSION,
   EXPECTED_SCRIPTS,
   RESULT_FILE_OF,
   JSON_BEARING_SCRIPTS,

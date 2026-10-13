@@ -359,4 +359,14 @@ jobs:
           # --no-run は7スクリプトを再実行せず、直前のステップが書いた5つの
           # 結果JSONを読むだけ(二重実行の解消)。DAQS_NOT_BEFORE_MS は直前の
           # 事前削除ステップが書いた値を使い、鮮度判定の根拠にする。
-          node tools/daqs/diff-check.js --no-run
+          # --json-out は既存の判定ロジック・exit codeを一切変えず、同じ
+          # report オブジェクトをファイルにも書き出すだけ(DAQS Phase 4A)。
+          node tools/daqs/diff-check.js --no-run --json-out tools/daqs/daqs-report.json
+
+      - name: 差分チェック結果JSONをartifactとして保存（DAQS Phase 4A）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daqs-report
+          path: tools/daqs/daqs-report.json
+          if-no-files-found: error

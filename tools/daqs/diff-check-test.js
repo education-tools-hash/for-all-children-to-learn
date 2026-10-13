@@ -20,6 +20,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const assert = require('assert');
+const { execFileSync } = require('child_process');
 
 const DC = require('./diff-check.js');
 
@@ -756,6 +757,185 @@ function buildNoRunFixtureRepo(appsFilenames, resultFiles) {
     check('24. 全Tier健全対照群: exitCode===0', exitCode === 0, 'got ' + exitCode);
     check('24. 全Tier健全対照群: tier2Unavailable===false', report.coverageDiff.tier2Unavailable === false);
     check('24. 全Tier健全対照群: notCoveredByAnyTierはnullでない', report.coverageDiff.notCoveredByAnyTier !== null);
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 25. DAQS Phase 4A: report.schemaVersion / report.workflowRunId metadata.
+//     Purely additive fields -- must not affect any existing classification
+//     or exit code, and must survive the fatal-error early-return paths too
+//     (Object.assign(report, {...}) merges onto the same object, it does not
+//     replace it).
+// ---------------------------------------------------------------------------
+(function test25() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: apps.map((a) => a35Entry(a)) },
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+    'tools/accessibility-audit/tier1/static-audit.js': { data: { 'app-a': tierEntry() } },
+    'tools/accessibility-audit/tier2/static-audit.js': { data: { 'app-b': tierEntry() } },
+    'tools/accessibility-audit/tier3/static-audit.js': { data: { 'app-c': tierEntry() } },
+  });
+  try {
+    const baselinePath = writeBaseline(tmpRoot, baselineFixture());
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath });
+    check('25. 正常系: schemaVersion===REPORT_SCHEMA_VERSION', report.schemaVersion === DC.REPORT_SCHEMA_VERSION);
+    check('25. 正常系: 既存のexitCode判定は不変 (0)', exitCode === 0);
+    check('25. 正常系: workflowRunIdはGITHUB_RUN_ID未設定時はnull', report.workflowRunId === null);
+
+    const prevRunId = process.env.GITHUB_RUN_ID;
+    process.env.GITHUB_RUN_ID = '123456789';
+    try {
+      const { report: report2 } = DC.evaluate({ repoRoot: tmpRoot, baselinePath });
+      check('25. GITHUB_RUN_ID設定時: workflowRunIdに反映される', report2.workflowRunId === '123456789');
+    } finally {
+      if (prevRunId === undefined) delete process.env.GITHUB_RUN_ID;
+      else process.env.GITHUB_RUN_ID = prevRunId;
+    }
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+(function test25b() {
+  // fatal path (BASELINE_MISSING): schemaVersion/workflowRunId must still be
+  // present, since Object.assign(report, {fatal:...}) merges onto the same
+  // report object built at the top of evaluate().
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'daqs-diffcheck-test-'));
+  try {
+    const { report, exitCode } = DC.evaluate({ repoRoot: tmpRoot, baselinePath: path.join(tmpRoot, 'missing-baseline.json') });
+    check('25b. fatal(BASELINE_MISSING): exitCode===1', exitCode === 1);
+    check('25b. fatal(BASELINE_MISSING): schemaVersionは依然設定されている', report.schemaVersion === DC.REPORT_SCHEMA_VERSION);
+    check('25b. fatal(BASELINE_MISSING): workflowRunIdフィールドが存在する', 'workflowRunId' in report);
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// 26. DAQS Phase 4A: --json-out (CLI) writes the exact same report to a file
+//     that would otherwise go to stdout, in all three cases the Phase asks
+//     for: healthy (exit 0), NEW detected (exit 1), and the fatal path
+//     (exit 1, baseline missing). This is the actual mechanism
+//     a11y-audit.yml's new artifact-upload step depends on.
+// ---------------------------------------------------------------------------
+function runCli(args, cwd) {
+  const scriptPath = path.join(__dirname, 'diff-check.js');
+  const env = Object.assign({}, process.env, { GITHUB_STEP_SUMMARY: '' });
+  delete env.GITHUB_STEP_SUMMARY; // force the console.log fallback branch, not a real file append
+  try {
+    const stdout = execFileSync('node', [scriptPath].concat(args), { cwd, encoding: 'utf-8', env });
+    return { status: 0, stdout };
+  } catch (e) {
+    return { status: typeof e.status === 'number' ? e.status : 1, stdout: (e.stdout || '') };
+  }
+}
+
+(function test26HealthyCase() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: apps.map((a) => a35Entry(a)) },
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+    'tools/accessibility-audit/tier1/static-audit.js': { data: { 'app-a': tierEntry() } },
+    'tools/accessibility-audit/tier2/static-audit.js': { data: { 'app-b': tierEntry() } },
+    'tools/accessibility-audit/tier3/static-audit.js': { data: { 'app-c': tierEntry() } },
+  });
+  const jsonOutPath = path.join(tmpRoot, 'daqs-report.json');
+  try {
+    writeBaseline(tmpRoot, baselineFixture());
+    const { status } = runCli(['--repo-root', tmpRoot, '--json-out', jsonOutPath], tmpRoot);
+    check('26. 正常系(CLI): exit code===0', status === 0, 'got ' + status);
+    check('26. 正常系(CLI): --json-outのファイルが生成される', fs.existsSync(jsonOutPath));
+    tryCheck('26. 正常系(CLI): ファイル内容がparseable JSONで、既存フィールドを保持', () => {
+      const parsed = JSON.parse(fs.readFileSync(jsonOutPath, 'utf-8'));
+      assert.strictEqual(parsed.classification.exitCode, 0);
+      assert.strictEqual(parsed.schemaVersion, DC.REPORT_SCHEMA_VERSION);
+      assert.ok(Array.isArray(parsed.findings.KNOWN));
+      assert.ok(Array.isArray(parsed.scriptErrors));
+    });
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+(function test26NewCase() {
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: [a35Entry('app-a', { duplicateIds: ['brand-new-dup'] }), a35Entry('app-b'), a35Entry('app-c')] },
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+  });
+  const jsonOutPath = path.join(tmpRoot, 'daqs-report.json');
+  try {
+    writeBaseline(tmpRoot, baselineFixture()); // baseline has no knownFindings matching this NEW id
+    const { status } = runCli(['--repo-root', tmpRoot, '--json-out', jsonOutPath], tmpRoot);
+    check('26. NEW検出(CLI): exit code===1', status === 1, 'got ' + status);
+    check('26. NEW検出(CLI): ERROR時も--json-outのファイルが生成される', fs.existsSync(jsonOutPath));
+    tryCheck('26. NEW検出(CLI): ファイル内容にNEWが記録されている', () => {
+      const parsed = JSON.parse(fs.readFileSync(jsonOutPath, 'utf-8'));
+      assert.strictEqual(parsed.classification.hasNew, true);
+      assert.ok(parsed.findings.NEW.some((f) => f.id === 'duplicate-id:app-a:brand-new-dup'));
+    });
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+(function test26FatalCase() {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'daqs-diffcheck-test-'));
+  const jsonOutPath = path.join(tmpRoot, 'daqs-report.json');
+  try {
+    // no baseline.json written at all -> BASELINE_MISSING fatal path
+    const { status } = runCli(['--repo-root', tmpRoot, '--json-out', jsonOutPath], tmpRoot);
+    check('26. fatal(CLI, baseline欠落): exit code===1', status === 1, 'got ' + status);
+    check('26. fatal(CLI, baseline欠落): それでも--json-outのファイルが生成される', fs.existsSync(jsonOutPath));
+    tryCheck('26. fatal(CLI, baseline欠落): ファイル内容にfatal.errorTypeが記録されている', () => {
+      const parsed = JSON.parse(fs.readFileSync(jsonOutPath, 'utf-8'));
+      assert.strictEqual(parsed.fatal.errorType, 'BASELINE_MISSING');
+    });
+  } finally {
+    removeFixtureRepo(tmpRoot);
+  }
+})();
+
+(function test26NoJsonOutStillPrintsToStdout() {
+  // Backward compatibility: omitting --json-out must behave exactly as
+  // before Phase 4A (JSON goes to stdout, nothing written to disk).
+  const apps = ['app-a', 'app-b', 'app-c'];
+  const tmpRoot = buildFixtureRepo(apps, {
+    'tools/audit35-1/audit.js': { data: apps.map((a) => a35Entry(a)) },
+    'tools/main-heading-audit/audit.js': { data: apps.map((a) => mhEntry(a)) },
+    'tools/accessibility-audit/tier1/static-audit.js': { data: { 'app-a': tierEntry() } },
+    'tools/accessibility-audit/tier2/static-audit.js': { data: { 'app-b': tierEntry() } },
+    'tools/accessibility-audit/tier3/static-audit.js': { data: { 'app-c': tierEntry() } },
+  });
+  try {
+    writeBaseline(tmpRoot, baselineFixture());
+    const { status, stdout } = runCli(['--repo-root', tmpRoot], tmpRoot);
+    check('26. --json-out省略時(CLI): exit code===0', status === 0, 'got ' + status);
+    tryCheck('26. --json-out省略時(CLI): JSONはstdoutに出力される（既存動作のまま）', () => {
+      // stdout is the JSON (pretty-printed) immediately followed by the
+      // Markdown summary (no --json-out means main() still logs both to
+      // stdout) -- walk brace depth from the first "{" to find exactly
+      // where the JSON value ends, instead of assuming it's the whole
+      // remainder of stdout.
+      const start = stdout.indexOf('{');
+      let depth = 0;
+      let end = -1;
+      for (let i = start; i < stdout.length; i++) {
+        if (stdout[i] === '{') depth++;
+        else if (stdout[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            end = i + 1;
+            break;
+          }
+        }
+      }
+      const parsed = JSON.parse(stdout.slice(start, end));
+      assert.strictEqual(parsed.classification.exitCode, 0);
+    });
   } finally {
     removeFixtureRepo(tmpRoot);
   }
