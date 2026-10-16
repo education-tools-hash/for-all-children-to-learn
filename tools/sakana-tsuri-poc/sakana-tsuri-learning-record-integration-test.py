@@ -177,6 +177,7 @@ with sync_playwright() as p:
     page.on("console", lambda m: console_errors2.append(m.text) if (m.type == "error" and "fonts.googleapis.com" not in m.text and "ERR_CERT_AUTHORITY_INVALID" not in m.text) else None)
     page.on("pageerror", lambda e: page_errors2.append(str(e)))
     page.reload()
+    page.select_option("#filter-period", "all")
     page.wait_for_timeout(500)
     old_card = page.locator(".record-card", has_text="さかなつり")
     check("old (pre-timingSpeed) record still renders a card without crashing", old_card.count() >= 1, old_card.count())
