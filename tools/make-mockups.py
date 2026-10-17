@@ -167,11 +167,41 @@ def _start_sakana_tsuri(pg):
     pg.locator("#fish img").evaluate("img => img.decode()")
 
 
+def _touch_sawatte_hirogaru(pg):
+    """さわってひろがる：はじめる→活動画面の#activitySurfaceに実際に複数回
+    タップ(mouse pointerdown/up。アプリ側は'mouse'/'touch'どちらのpointerTypeも
+    同じ反応を描く)して、触れた場所にリップル・パーティクルが広がっている
+    最中の実画面を撮る（Phase APP-DETAILS-VISUAL-ENHANCEMENT-SAWATTE-MOCKUP-C-1）。
+    初期設定(mode: light_sound)のままで視覚フィードバックは最初から有効。"""
+    pg.locator("#startBtn").click()
+    pg.wait_for_selector("#activitySurface", state="visible")
+    surface = pg.locator("#activitySurface")
+    box = surface.bounding_box()
+    if not box:
+        return
+    # 画面内の5点へ、少しずつ間隔を空けてタップ(mouse down→up)する。
+    # 各リップルの寿命(標準強度でrippleDurationMs=650ms)より十分短い間隔で
+    # 連続タップすることで、スクリーンショット時点で複数の円が同時に
+    # 広がっている「さわってひろがる」らしい見た目になる。
+    points = [
+        (0.30, 0.35), (0.62, 0.28), (0.45, 0.58), (0.72, 0.62), (0.22, 0.65),
+    ]
+    for fx, fy in points:
+        x = box["x"] + box["width"] * fx
+        y = box["y"] + box["height"] * fy
+        pg.mouse.move(x, y)
+        pg.mouse.down()
+        pg.mouse.up()
+        pg.wait_for_timeout(90)
+    pg.wait_for_timeout(120)  # 最後のタップのリップルも消える前に撮る
+
+
 PLAY_ACTIONS = {
     "scratch-app": _scratch_the_scratch_app,
     "mogura-tataki": _start_mogura_tataki,
     "kurabeyou-app": _show_kurabeyou_level3,
     "sakana-tsuri": _start_sakana_tsuri,
+    "sawatte-hirogaru-app": _touch_sawatte_hirogaru,
 }
 
 # Phase M12-G: User承認済みの正式アイコンartworkを持つアプリ。ここに登録した
