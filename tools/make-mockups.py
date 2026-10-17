@@ -167,6 +167,20 @@ def _start_sakana_tsuri(pg):
     pg.locator("#fish img").evaluate("img => img.decode()")
 
 
+def _select_sakana_tsuri_method(pg):
+    """さかなつり：はじめる→まきとり方法(ぐるぐるまく/長押しでまく/タイミングよく
+    おしてまく)をまだ選んでいない、state===IDLEの画面を撮る(Phase
+    APP-DETAILS-VISUAL-ENHANCEMENT-FISHING-PILOT-D-1、Design Contract §7.2の
+    「1枚目: まきとり方法を選ぶ画面」用)。sakana-tsuri.htmlのupdateUI()は
+    elMethodRowWrap.hidden = !preCast (preCast = state===IDLE) としているため、
+    #start-btnクリック直後のIDLE状態でこの#methodRowWrap(3つの実ボタン)が
+    表示される。_start_sakana_tsuriと異なり、方法ボタン・#cast-btnのどちらも
+    クリックしない(まだ何も選んでいない状態のまま撮る)。"""
+    pg.locator("#start-btn").click()
+    pg.wait_for_function("state === STATE.IDLE")
+    pg.wait_for_timeout(300)
+
+
 def _touch_sawatte_hirogaru(pg):
     """さわってひろがる：はじめる→活動画面の#activitySurfaceに実際に複数回
     タップ(mouse pointerdown/up。アプリ側は'mouse'/'touch'どちらのpointerTypeも
@@ -204,6 +218,17 @@ PLAY_ACTIONS = {
     "sawatte-hirogaru-app": _touch_sawatte_hirogaru,
 }
 
+# Phase APP-DETAILS-VISUAL-ENHANCEMENT-FISHING-PILOT-D-1: 同一アプリについて、
+# 無印の{id}.png(PLAY_ACTIONSの操作で撮る、既存のまま)に加えて、
+# assets/mockups/{id}-{slug}.png という名前で追加の画面を撮るための仕組み。
+# {id}.pngはapps-data.jsonの各アプリにつき1枚しか持てない既存の設計のため、
+# Design Contract §5の複数screenshots[]用の追加ファイルはこの辞書で定義する
+# (apps-data.jsonに同じアプリの別id重複エントリを作る、という迂回はしない)。
+# 既存のPLAY_ACTIONS・CLI引数・アイコン生成ロジックは一切変更しない。
+EXTRA_SHOTS = {
+    "sakana-tsuri": [("method-select", _select_sakana_tsuri_method)],
+}
+
 # Phase M12-G: User承認済みの正式アイコンartworkを持つアプリ。ここに登録した
 # アプリは、assets/icons/{id}.png の自動生成(絵文字+パステルグラデーション)を
 # スキップする — このスクリプトは既存ファイルの有無を見ずに毎回無条件で上書き
@@ -237,25 +262,23 @@ def main():
                 page.route("**/*", lambda route: route.continue_()
                            if "localhost" in route.request.url else route.abort())
 
-            for i, app in enumerate(apps, 1):
-                aid, fname = app["id"], app["filename"]
-                hue = hex_to_hue(app.get("iconColor", "#5B3FD4"))
-                primary = hsl_to_hex(hue, 0.55, 0.42)
-                light = hsl_to_hex(hue, 0.62, 0.86)
-                url = f"http://localhost:{PORT}/{fname}.html"
-                print(f"[{i}/{len(apps)}] {aid} ... ", end="", flush=True)
-
+            def capture_mockup(url, out_id, action, light):
+                """1アプリ・1画面分のデスクトップ+スマホ実画面を撮影し、
+                1200x630の合成モックアップとして assets/mockups/{out_id}.png
+                に保存する(既存の単一screenshotループの本体を、複数画面を
+                持つアプリ向けに再利用できるよう抜き出したもの。呼び出し側の
+                ループ構造・CLI引数・アイコン生成ロジックには影響しない)。"""
                 # 1) デスクトップ実画面
                 ctx = browser.new_context(viewport={"width": 1280, "height": 800},
                                           device_scale_factor=1.5)
                 pg = ctx.new_page(); block_external(pg)
                 pg.goto(url, wait_until="load"); pg.wait_for_timeout(1200)
-                if aid in PLAY_ACTIONS:
+                if action:
                     try:
-                        PLAY_ACTIONS[aid](pg)
+                        action(pg)
                     except Exception as ex:
                         print(f"(プレイ中状態の再現に失敗: {ex}) ", end="")
-                pg.screenshot(path=str(TMP / f"{aid}-desktop.png"))
+                pg.screenshot(path=str(TMP / f"{out_id}-desktop.png"))
                 ctx.close()
 
                 # 2) スマホ実画面
@@ -264,29 +287,42 @@ def main():
                                           has_touch=True)
                 pg = ctx.new_page(); block_external(pg)
                 pg.goto(url, wait_until="load"); pg.wait_for_timeout(1200)
-                if aid in PLAY_ACTIONS:
+                if action:
                     try:
-                        PLAY_ACTIONS[aid](pg)
+                        action(pg)
                     except Exception as ex:
                         print(f"(プレイ中状態の再現に失敗: {ex}) ", end="")
-                pg.screenshot(path=str(TMP / f"{aid}-mobile.png"))
+                pg.screenshot(path=str(TMP / f"{out_id}-mobile.png"))
                 ctx.close()
 
                 # 3) 合成モックアップ(1200x630 @2x → 等倍に縮小して保存)
-                (TMP / f"comp-{aid}.html").write_text(
-                    COMPOSITOR.format(id=aid, filename=fname, light=light),
+                (TMP / f"comp-{out_id}.html").write_text(
+                    COMPOSITOR.format(id=out_id, filename=fname, light=light),
                     encoding="utf-8")
                 ctx = browser.new_context(viewport={"width": 1200, "height": 630},
                                           device_scale_factor=2)
                 pg = ctx.new_page()
-                pg.goto(f"http://localhost:{PORT}/_mockup_tmp/comp-{aid}.html",
+                pg.goto(f"http://localhost:{PORT}/_mockup_tmp/comp-{out_id}.html",
                         wait_until="load")
                 pg.wait_for_timeout(300)
-                raw = TMP / f"raw-{aid}.png"
+                raw = TMP / f"raw-{out_id}.png"
                 pg.screenshot(path=str(raw))
                 ctx.close()
                 img = Image.open(raw).resize((1200, 630), Image.LANCZOS)
-                img.save(OUT_MOCK / f"{aid}.png", optimize=True)
+                img.save(OUT_MOCK / f"{out_id}.png", optimize=True)
+
+            for i, app in enumerate(apps, 1):
+                aid, fname = app["id"], app["filename"]
+                hue = hex_to_hue(app.get("iconColor", "#5B3FD4"))
+                primary = hsl_to_hex(hue, 0.55, 0.42)
+                light = hsl_to_hex(hue, 0.62, 0.86)
+                url = f"http://localhost:{PORT}/{fname}.html"
+                print(f"[{i}/{len(apps)}] {aid} ... ", end="", flush=True)
+
+                capture_mockup(url, aid, PLAY_ACTIONS.get(aid), light)
+
+                for slug, extra_action in EXTRA_SHOTS.get(aid, []):
+                    capture_mockup(url, f"{aid}-{slug}", extra_action, light)
 
                 # 4) アイコン(512x512 透過) — User承認済み正式artworkを持つ
                 #    アプリ(CUSTOM_ICON_APPS)は自動生成をスキップし、既存
