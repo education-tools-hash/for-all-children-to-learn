@@ -8,6 +8,73 @@ function clean(str) {
 const fs   = require('fs');
 const path = require('path');
 
+// Phase APP-DETAILS-VISUAL-ENHANCEMENT-IMPLEMENTATION-B-1:
+// screenshots[]のalt/captionはapps-data.jsonから来るテキストをHTML属性/本文へ
+// そのまま埋め込むため、将来の編集ミス(&/<>/引用符を含む文章)でHTMLを壊さない
+// よう最低限エスケープする。既存のapp.title等は元々エスケープしていないが、
+// それらを変更するのは本Phaseの範囲外(Approved Diff Scope: generate.jsの
+// screenshots[]関連ロジックのみ)。
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// screenshots[].fileの安全性チェック(Design Contract §4.2・§6.5-4)。
+// 単純な文字列prefix判定だけに頼らず、path.normalize()で実際に解決される
+// パスを計算し、それが許可ディレクトリ(assets/mockups/)の内側に収まって
+// いることを確認する。"assets/mockups/../../etc/passwd" のような
+// 文字列上はprefix一致するが実際には脱出するパスも拒否する。
+// 絶対パス・URLスキーム(http://, data: 等)・バックスラッシュも拒否する。
+const SCREENSHOT_ALLOWED_DIR = 'assets/mockups/';
+function isSafeScreenshotPath(rawFile) {
+  if (typeof rawFile !== 'string' || rawFile.length === 0) return false;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(rawFile)) return false; // http:, data:, file: 等のURLスキーム
+  if (rawFile.includes('\\')) return false; // Windows区切り・混入対策
+  if (path.posix.isAbsolute(rawFile) || /^[a-zA-Z]:/.test(rawFile)) return false; // 絶対パス
+  const normalized = path.posix.normalize(rawFile);
+  if (!normalized.startsWith(SCREENSHOT_ALLOWED_DIR)) return false; // 正規化後も許可ディレクトリ配下か
+  if (normalized.includes('..')) return false; // 正規化後も".."が残る(あり得ないが二重防御)
+  return true;
+}
+
+// app.screenshots(任意フィールド)を検証・フィルタし、安全に表示してよい
+// {file, alt, caption} の配列だけを返す(Design Contract §4.2/§6.5)。
+// rawShotsInputが配列でない(未設定を含む)場合は常に空配列を返す。
+// 単体テスト容易性のため、generateDetailHTML() 本体から分離した純粋関数とする。
+function filterValidScreenshots(appId, rawShotsInput) {
+  const rawShots = Array.isArray(rawShotsInput) ? rawShotsInput : [];
+  const seenShotFiles = new Set();
+  const validShots = [];
+  rawShots.forEach(s => {
+    if (!s || typeof s !== 'object') return;
+    const { file, alt, caption } = s;
+    if (typeof file !== 'string' || typeof alt !== 'string' || typeof caption !== 'string') {
+      console.warn(`⚠ screenshot entry missing file/alt/caption, skipped (${appId}):`, s);
+      return;
+    }
+    if (alt.length === 0 || caption.length === 0) {
+      console.warn(`⚠ screenshot entry has empty alt/caption, skipped (${appId}): ${file}`);
+      return;
+    }
+    if (!isSafeScreenshotPath(file)) {
+      console.warn(`⚠ screenshot entry has unsafe file path, skipped (${appId}): ${file}`);
+      return;
+    }
+    if (seenShotFiles.has(file)) {
+      console.warn(`⚠ duplicate screenshot file, skipped (${appId}): ${file}`);
+      return;
+    }
+    if (!fs.existsSync(`./${file}`)) {
+      console.warn(`⚠ screenshot file not found, skipped (${appId}): ${file}`);
+      return;
+    }
+    seenShotFiles.add(file);
+    validShots.push({ file, alt, caption });
+  });
+  return validShots;
+}
+
 const rawJson = fs.readFileSync('./apps-data.json', 'utf-8');
 const apps   = JSON.parse(rawJson);
 const outDir = './app-details';
@@ -280,6 +347,37 @@ function generateDetailHTML(app) {
   const mockupHTML = hasMockup ? `
   <img class="hero-mockup" src="../${mockupPath}" alt="${app.title}の画面イメージ(パソコンとスマートフォンでの表示)" width="1200" height="630" loading="lazy">` : '';
 
+  // Phase APP-DETAILS-VISUAL-ENHANCEMENT-IMPLEMENTATION-B-1(Design Contract §4.2/§6.3/§6.5):
+  // apps-data.jsonの任意フィールドapp.screenshots[]を検証・フィルタする。
+  // app.screenshotsが配列でない(未設定の既存37アプリを含む)場合はvalidShotsが
+  // 空配列になり、以下のgalleryHTML/galleryCSSは必ず''になる
+  // → 既存アプリの生成結果は1バイトも変わらない(§6.5-1・§6.5-10)。
+  const validShots = filterValidScreenshots(app.id, app.screenshots);
+
+  const galleryHTML = validShots.length > 0 ? `
+  <div class="hero-gallery">${validShots.map((s, i) => `
+    <figure class="hero-shot">
+      <img class="hero-mockup" src="../${s.file}" alt="${escapeHtml(s.alt)}" width="1200" height="630" loading="${i === 0 ? 'eager' : 'lazy'}">
+      <figcaption class="hero-shot-caption">${escapeHtml(s.caption)}</figcaption>
+    </figure>`).join('')}
+  </div>` : '';
+
+  // screenshots[]が有効な場合のみ、hero-gallery用CSSを注入する(Design Contract §6.3)。
+  // screenshots[]未使用時(既存37アプリ全て)はこの変数が''のままなので、
+  // <style>ブロックに1バイトも追加されない。
+  const galleryCSS = validShots.length > 0 ? `
+  .hero-gallery{display:flex;flex-direction:column;gap:24px;margin-top:32px;}
+  .hero-shot{margin:0;display:flex;flex-direction:column;gap:10px;align-items:center;}
+  .hero-shot .hero-mockup{margin:0;}
+  .hero-shot-caption{font-size:13px;color:var(--c-muted);text-align:center;max-width:min(780px,94%);}` : '';
+
+  // og:image/twitter:image/構造化データ用の最終URL。明示app.ogImage > screenshots[0] >
+  // 既存hasMockup判定 > デフォルト、という既存優先順位(Design Contract §4.2・§12)を保つ。
+  // app.ogImageが明示されている既存アプリは影響を受けない(ogImageUrlと同じ値のまま)。
+  const finalOgImageUrl = (!app.ogImage && validShots.length > 0)
+    ? `${SITE_BASE_URL}/${validShots[0].file}`
+    : ogImageUrl;
+
   // 教材の学習分野(教育メタデータ用)。tags_display / category から簡易生成
   const learningResourceTypeMap = {
     '学習アプリ': '練習・ドリル型学習アプリ',
@@ -299,7 +397,7 @@ function generateDetailHTML(app) {
     "name": app.title,
     "description": cleanSummary,
     "url": canonicalUrl,
-    "image": ogImageUrl,
+    "image": finalOgImageUrl,
     "applicationCategory": "EducationalApplication",
     "applicationSubCategory": app.category,
     "operatingSystem": "Web Browser",
@@ -361,7 +459,7 @@ function generateDetailHTML(app) {
 <meta property="og:url" content="${canonicalUrl}">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:site_name" content="${SITE_NAME}">
-<meta property="og:image" content="${ogImageUrl}">
+<meta property="og:image" content="${finalOgImageUrl}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 
@@ -369,7 +467,7 @@ function generateDetailHTML(app) {
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${app.title}｜${seoSuffix}">
 <meta name="twitter:description" content="${seoDescription.slice(0, 120)}">
-<meta name="twitter:image" content="${ogImageUrl}">
+<meta name="twitter:image" content="${finalOgImageUrl}">
 
 <!-- 構造化データ(JSON-LD) -->
 ${jsonLdHTML}
@@ -397,7 +495,7 @@ ${jsonLdHTML}
   .tag.green{background:var(--c-accent-light);border-color:var(--c-accent);color:#00857B;}
   .launch-btn{display:inline-flex;align-items:center;gap:10px;background:var(--c-primary);color:white;font-family:'Zen Maru Gothic',sans-serif;font-size:20px;font-weight:700;padding:18px 40px;border-radius:999px;text-decoration:none;box-shadow:0 6px 24px ${pastelLight}88;transition:transform 0.15s,box-shadow 0.15s;}
   .launch-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px ${pastelLight}aa;}
-  .hero-mockup{display:block;width:min(780px,94%);height:auto;margin:32px auto 0;border-radius:20px;box-shadow:0 16px 48px ${pastelLight}bb;}
+  .hero-mockup{display:block;width:min(780px,94%);height:auto;margin:32px auto 0;border-radius:20px;box-shadow:0 16px 48px ${pastelLight}bb;}${galleryCSS}
   .app-icon-img{width:88px;height:88px;display:inline-block;margin-bottom:20px;filter:drop-shadow(0 8px 24px ${pastelLight});}
   .launch-note{margin-top:12px;font-size:12px;color:var(--c-muted);}
   .content{max-width:800px;margin:0 auto;padding:40px 20px 80px;display:flex;flex-direction:column;gap:28px;}
@@ -466,7 +564,7 @@ ${jsonLdHTML}
     <span class="tag">インストール不要</span>
   </div>
   <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
-  <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>${mockupHTML}
+  <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>${galleryHTML || mockupHTML}
 </section>
 <main class="content">
   ${softwareHTML}
