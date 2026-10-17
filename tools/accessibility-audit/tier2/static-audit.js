@@ -2,6 +2,7 @@
 // Read-only。Productionファイルは一切変更しない。
 const fs = require('fs');
 const path = require('path');
+const { findDuplicateIds } = require('../../daqs/duplicate-id-detector.js');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const TIER2 = ['hiragana-learn','katakana-app','shiritori2','bosai-app','cup_game','ongaku-app','kimochi-board','drawing-app','directions-app','suji-manabou','kyou-no-kiroku','kurabeyou-app','katachi-awase-app','miru-hirogaru-app','mitsukete-touch-app','junban-miyou-app','dotchiga-ii-app'];
@@ -20,9 +21,7 @@ for (const app of TIER2) {
   const r = {};
 
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
-  const seen = new Map(); const dups = new Set();
-  for (const id of ids) { seen.set(id, (seen.get(id) || 0) + 1); if (seen.get(id) > 1) dups.add(id); }
-  r.duplicateIds = [...dups];
+  r.duplicateIds = findDuplicateIds(html);
 
   const idSet = new Set(ids);
   r.brokenAriaRefs = [];

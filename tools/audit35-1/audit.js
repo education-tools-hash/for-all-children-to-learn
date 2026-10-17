@@ -2,6 +2,7 @@
 // Static/grep-based analysis only. Does not modify any file under repo root.
 const fs = require('fs');
 const path = require('path');
+const { findDuplicateIds } = require('../daqs/duplicate-id-detector.js');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 process.chdir(ROOT);
@@ -33,17 +34,6 @@ const results = [];
 
 function readIfExists(p) {
   return fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : null;
-}
-
-function findDuplicateIds(html) {
-  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
-  const seen = new Map();
-  const dups = new Set();
-  for (const id of ids) {
-    seen.set(id, (seen.get(id) || 0) + 1);
-    if (seen.get(id) > 1) dups.add(id);
-  }
-  return [...dups];
 }
 
 function findThemeColors(html) {

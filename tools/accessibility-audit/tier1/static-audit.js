@@ -2,6 +2,7 @@
 // Read-only。Productionファイルは一切変更しない。
 const fs = require('fs');
 const path = require('path');
+const { findDuplicateIds } = require('../../daqs/duplicate-id-detector.js');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 
 const TIER1 = ['register-app','matching-app','time-timer','mogura-tataki','okane-app','scratch-app','nazorin-print','schedule-app','janken-app','tokei-app','tyushi','gaze-keyboard'];
@@ -22,9 +23,7 @@ for (const app of TIER1) {
 
   // duplicate id
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
-  const seen = new Map(); const dups = new Set();
-  for (const id of ids) { seen.set(id, (seen.get(id) || 0) + 1); if (seen.get(id) > 1) dups.add(id); }
-  r.duplicateIds = [...dups];
+  r.duplicateIds = findDuplicateIds(html);
 
   // broken aria refs
   const idSet = new Set(ids);
