@@ -1,9 +1,10 @@
 // Phase SAWATTE-HIROGARU-OVERLAY-BACKGROUND-ISOLATION-FIX-1: verification.
 // Read-only test harness (writes only a JSON report here). Drives the real
-// UI to confirm: (1) background isolation fixes F2 (no more than 1 h1
-// AT-visible at a time), (2) Teacher Settings Tab-trap/Escape/focus-restore
-// still work, (3) the correct playAgain -> startBtn -> endBtn 2-trial flow
-// still completes with zero console/page errors, (4) Help remains non-modal
+// UI to confirm: (1) background isolation fixes F2 (no more than 1 screen/
+// dialog title heading AT-visible at a time), (2) Teacher Settings
+// Tab-trap/Escape/focus-restore still work, (3) the correct playAgain ->
+// startBtn -> endBtn 2-trial flow still completes with zero console/page
+// errors, (4) Help remains non-modal
 // (no Tab trap added) while still gaining background isolation.
 const fs = require('fs');
 const path = require('path');
@@ -33,7 +34,15 @@ function check(results, label, ok, detail) {
 
   const results = [];
 
-  async function atVisibleH1Count() {
+  async function atVisibleTitleHeadingCount() {
+    // DAQS-SAWATTE-HEADING-STRUCTURE-FIX-1: screen/dialog title headings
+    // (startScreen/summaryScreen's .app-title, the 4 overlays' .overlay-title)
+    // are now h1 (the one page-level title, startScreen only) or h2 (every
+    // other title), not all h1 as before -- counting by class, not tag,
+    // keeps this check measuring the same thing it always did ("exactly one
+    // screen/dialog title exposed to AT at a time"), including genuine
+    // content sub-headings (Teacher Settings' per-group h2, Help's h3/h4)
+    // that were never part of this invariant and must stay excluded.
     return page.evaluate(() => {
       function atVisible(el) {
         if (el.closest('[hidden]')) return false;
@@ -41,7 +50,7 @@ function check(results, label, ok, detail) {
         const cs = getComputedStyle(el);
         return cs.display !== 'none' && cs.visibility !== 'hidden';
       }
-      return [...document.querySelectorAll('h1')].filter(atVisible).length;
+      return [...document.querySelectorAll('.app-title, .overlay-title')].filter(atVisible).length;
     });
   }
   async function appRootInert() {
@@ -55,13 +64,13 @@ function check(results, label, ok, detail) {
   }
 
   // 1. initial
-  check(results, '1. initial AT-visible h1 count == 1', (await atVisibleH1Count()) === 1, await atVisibleH1Count());
+  check(results, '1. initial AT-visible h1 count == 1', (await atVisibleTitleHeadingCount()) === 1, await atVisibleTitleHeadingCount());
   check(results, '1b. .app-root not inert initially', (await appRootInert()) === false);
 
   // 2/3. Help open
   await evalClick('donomanaHelpBtn');
   await page.waitForTimeout(300);
-  const helpCount = await atVisibleH1Count();
+  const helpCount = await atVisibleTitleHeadingCount();
   check(results, '2. Help open -> AT-visible h1 count == 1 (background isolated)', helpCount === 1, helpCount);
   check(results, '2b. .app-root is inert while Help is open', (await appRootInert()) === true);
   const helpFocusId = await page.evaluate(() => document.activeElement ? document.activeElement.id : null);
@@ -74,7 +83,7 @@ function check(results, label, ok, detail) {
   // 4. Help close (Escape)
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
-  check(results, '4. Help close (Escape) -> AT-visible h1 count == 1', (await atVisibleH1Count()) === 1);
+  check(results, '4. Help close (Escape) -> AT-visible h1 count == 1', (await atVisibleTitleHeadingCount()) === 1);
   check(results, '4b. .app-root inert cleared after Help closes', (await appRootInert()) === false);
   const afterHelpEscFocus = await page.evaluate(() => document.activeElement ? document.activeElement.id : null);
   check(results, '4c. focus restored to helpBtn (donomanaHelpBtn) after Escape', afterHelpEscFocus === 'donomanaHelpBtn', afterHelpEscFocus);
@@ -82,7 +91,7 @@ function check(results, label, ok, detail) {
   // 5/6. Teacher Settings open (via the common proxy button, the only real entry point)
   await evalClick('openTeacherSettingsBtn');
   await page.waitForTimeout(300);
-  const teacherCount = await atVisibleH1Count();
+  const teacherCount = await atVisibleTitleHeadingCount();
   check(results, '5. Teacher Settings open -> AT-visible h1 count == 1', teacherCount === 1, teacherCount);
   check(results, '5b. .app-root is inert while Teacher Settings is open', (await appRootInert()) === true);
   const teacherFocusId = await page.evaluate(() => document.activeElement ? document.activeElement.id : null);
@@ -128,7 +137,7 @@ function check(results, label, ok, detail) {
   // 10. Escape
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
-  check(results, '10. Escape closes Teacher Settings -> AT-visible h1 count == 1', (await atVisibleH1Count()) === 1);
+  check(results, '10. Escape closes Teacher Settings -> AT-visible h1 count == 1', (await atVisibleTitleHeadingCount()) === 1);
   check(results, '10b. .app-root inert cleared after Teacher Settings closes', (await appRootInert()) === false);
 
   // 11. focus restoration
@@ -138,17 +147,17 @@ function check(results, label, ok, detail) {
   // 12. 2 trials, CORRECT flow only (no synthetic clicks on hidden elements)
   await evalClick('startBtn');
   await page.waitForTimeout(500);
-  check(results, '12a. AT-visible h1 count == 0 during activity (no h1 on activityScreen)', (await atVisibleH1Count()) === 0);
+  check(results, '12a. AT-visible h1 count == 0 during activity (no h1 on activityScreen)', (await atVisibleTitleHeadingCount()) === 0);
   await evalClick('endBtn');
   await page.waitForTimeout(500);
-  check(results, '12b. trial 1 summary shown, AT-visible h1 count == 1', (await atVisibleH1Count()) === 1);
+  check(results, '12b. trial 1 summary shown, AT-visible h1 count == 1', (await atVisibleTitleHeadingCount()) === 1);
   await evalClick('playAgainBtn');
   await page.waitForTimeout(300);
   await evalClick('startBtn');
   await page.waitForTimeout(500);
   await evalClick('endBtn');
   await page.waitForTimeout(500);
-  check(results, '12c. trial 2 summary shown, AT-visible h1 count == 1', (await atVisibleH1Count()) === 1);
+  check(results, '12c. trial 2 summary shown, AT-visible h1 count == 1', (await atVisibleTitleHeadingCount()) === 1);
 
   // 13/14. errors
   check(results, '13. no pageerror across the whole run', pageErrors.length === 0, pageErrors);

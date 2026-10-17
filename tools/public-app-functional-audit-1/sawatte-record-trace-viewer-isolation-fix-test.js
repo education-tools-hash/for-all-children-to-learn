@@ -31,7 +31,13 @@ function check(results, label, ok, detail) {
 
   const results = [];
 
-  async function atVisibleH1() {
+  async function atVisibleTitleHeadings() {
+    // DAQS-SAWATTE-HEADING-STRUCTURE-FIX-1: screen/dialog title headings
+    // (.app-title / .overlay-title) are now h1 (startScreen only) or h2
+    // (every other title), not all h1 as before -- selecting by class, not
+    // tag, keeps this measuring the same thing it always did ("exactly one
+    // screen/dialog title exposed to AT at a time"), excluding genuine
+    // content sub-headings that were never part of this invariant.
     return page.evaluate(() => {
       function atVisible(el) {
         if (el.closest('[hidden]')) return false;
@@ -39,7 +45,7 @@ function check(results, label, ok, detail) {
         const cs = getComputedStyle(el);
         return cs.display !== 'none' && cs.visibility !== 'hidden';
       }
-      return [...document.querySelectorAll('h1')].filter(atVisible).map((h) => h.id || h.textContent.trim());
+      return [...document.querySelectorAll('.app-title, .overlay-title')].filter(atVisible).map((h) => h.id || h.textContent.trim());
     });
   }
   async function appRootInert() { return page.evaluate(() => { const el = document.querySelector('.app-root'); return el ? el.inert : null; }); }
@@ -47,7 +53,7 @@ function check(results, label, ok, detail) {
   async function activeInfo() { return page.evaluate(() => { const a = document.activeElement; return a ? { tag: a.tagName, id: a.id, text: (a.textContent || '').slice(0, 30) } : null; }); }
 
   // 1. initial h1
-  const initial = await atVisibleH1();
+  const initial = await atVisibleTitleHeadings();
   check(results, '1. initial AT-visible h1 == 1', initial.length === 1, initial);
 
   // Prepare: enable trace recording, run one real trial so Record Viewer has an entry to open
@@ -69,7 +75,7 @@ function check(results, label, ok, detail) {
   await page.click('#donomanaSettingsProxy'); await page.waitForTimeout(300);
   await page.click('#openRecordViewerBtn'); await page.waitForTimeout(300);
   check(results, '2. Record Viewer open -> .app-root is inert', (await appRootInert()) === true);
-  const rvH1 = await atVisibleH1();
+  const rvH1 = await atVisibleTitleHeadings();
   check(results, '4. Record Viewer open -> AT-visible h1 == 1 (background isolated)', rvH1.length === 1 && rvH1[0] === 'recordViewerTitle', rvH1);
   check(results, 'Record Viewer open -> focus on recordViewerTitle', (await activeInfo()).id === 'recordViewerTitle', await activeInfo());
 
@@ -108,7 +114,7 @@ function check(results, label, ok, detail) {
   check(results, '8. Trace Viewer reachable via a real click on a record entry', traceOpened, { traceThumbCount });
 
   // 9/10. Trace open -> h1 count, Record Viewer isolation during Trace
-  const tvH1 = await atVisibleH1();
+  const tvH1 = await atVisibleTitleHeadings();
   check(results, '9. Trace Viewer open -> AT-visible h1 == 1 (only traceViewerTitle)', tvH1.length === 1 && tvH1[0] === 'traceViewerTitle', tvH1);
   check(results, '10. Trace Viewer open -> recordViewerBackdrop is inert (Record Viewer isolated underneath)', (await recordViewerInert()) === true);
   check(results, 'Trace Viewer open -> .app-root still inert too', (await appRootInert()) === true);
@@ -119,7 +125,7 @@ function check(results, label, ok, detail) {
   await page.waitForTimeout(300);
 
   // 11/12. Trace close -> Record Viewer re-activation
-  const afterTraceCloseH1 = await atVisibleH1();
+  const afterTraceCloseH1 = await atVisibleTitleHeadings();
   check(results, '11. Trace close -> AT-visible h1 == 1 (recordViewerTitle again)', afterTraceCloseH1.length === 1 && afterTraceCloseH1[0] === 'recordViewerTitle', afterTraceCloseH1);
   check(results, '12. Trace close -> recordViewerBackdrop inert cleared (Record Viewer re-activated)', (await recordViewerInert()) === false);
   check(results, 'Trace close -> .app-root still inert (Record Viewer still open)', (await appRootInert()) === true);
@@ -139,20 +145,20 @@ function check(results, label, ok, detail) {
   await page.waitForTimeout(300);
 
   // 13/14. Record close -> .app-root inert cleared
-  const afterRecordCloseH1 = await atVisibleH1();
+  const afterRecordCloseH1 = await atVisibleTitleHeadings();
   check(results, '13. Record Viewer closed -> AT-visible h1 == 1 (background)', afterRecordCloseH1.length === 1, afterRecordCloseH1);
   check(results, '14. Record Viewer closed -> .app-root inert cleared', (await appRootInert()) === false);
   check(results, 'Record Viewer closed -> focus restored to donomanaA11yBtn', (await activeInfo()).id === 'donomanaA11yBtn', await activeInfo());
 
   // Help / Teacher Settings still work (not broken by this Phase)
   await page.click('#donomanaHelpBtn'); await page.waitForTimeout(300);
-  check(results, 'Help still opens correctly, still isolates background (unaffected by this Phase)', (await appRootInert()) === true && (await atVisibleH1()).length === 1);
+  check(results, 'Help still opens correctly, still isolates background (unaffected by this Phase)', (await appRootInert()) === true && (await atVisibleTitleHeadings()).length === 1);
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   check(results, 'Help close -> .app-root inert cleared', (await appRootInert()) === false);
 
   await page.click('#donomanaA11yBtn'); await page.waitForTimeout(150);
   await page.click('#donomanaSettingsProxy'); await page.waitForTimeout(300);
-  check(results, 'Teacher Settings still opens correctly, still isolates background (unaffected by this Phase)', (await appRootInert()) === true && (await atVisibleH1()).length === 1);
+  check(results, 'Teacher Settings still opens correctly, still isolates background (unaffected by this Phase)', (await appRootInert()) === true && (await atVisibleTitleHeadings()).length === 1);
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   check(results, 'Teacher Settings close -> .app-root inert cleared', (await appRootInert()) === false);
 
@@ -162,7 +168,7 @@ function check(results, label, ok, detail) {
   await page.click('#playAgainBtn'); await page.waitForTimeout(300);
   await page.click('#startBtn'); await page.waitForTimeout(400);
   await page.click('#endBtn', { force: true }); await page.waitForTimeout(300);
-  const trial2H1 = await atVisibleH1();
+  const trial2H1 = await atVisibleTitleHeadings();
   check(results, '15. 2-trial regression: trial 2 summary shown, AT-visible h1 == 1', trial2H1.length === 1, trial2H1);
 
   // 16/17. errors
