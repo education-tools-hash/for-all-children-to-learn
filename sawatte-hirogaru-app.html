@@ -1051,35 +1051,41 @@ var EFFECT_SOUNDS = [
 ];
 
 // traceEnabled: Trace Record Contract §12 REVISED DECISION (Phase
-// SAWATTE-TRACE-DEFAULT-ON-AND-RELIABILITY-1) — default ON for a genuinely
-// new device (no saved settings AND no saved activity record), default OFF
-// preserved for every other device. The struct literal below stays `false`
-// as the safe baseline; `loadSettings()` is the single place that may flip
-// it to `true`, and only for the new-device case. An explicit stored
-// `traceEnabled:false` is always respected and never auto-flipped. A device
-// with existing settings (even legacy ones missing the traceEnabled field)
-// or existing activity records is treated as NOT new and keeps OFF — no
-// trace is ever added retroactively to a device already in use.
+// SAWATTE-TRACE-DEFAULT-ON-AND-RELIABILITY-1, corrected by Phase
+// SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1) — default ON whenever no settings
+// have ever been saved on this device, regardless of whether an activity
+// record already exists. The struct literal below stays `false` as the
+// safe baseline; `loadSettings()` is the single place that may flip it to
+// `true`, and only when the settings key itself is absent. An explicit
+// stored `traceEnabled:true`/`false` is always respected and never
+// auto-flipped. A device with existing settings (even legacy ones missing
+// the traceEnabled field) is treated as NOT new and keeps OFF — no trace
+// is ever added retroactively to a device whose settings were already
+// saved.
+//
+// Phase SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1: the original condition also
+// required no existing activity record (`!hasExistingLog`). This meant a
+// device that never touched the toggle but completed one activity while
+// Default ON was in effect would silently revert to OFF on its next visit
+// (the log key alone made loadSettings() treat it as "not new"), even
+// though the teacher never made an explicit choice. The activity-record
+// check has been removed; only the settings key's presence matters now.
 //
 // Irreducible ambiguity (documented, not solved): a device that was opened
-// once before but never changed a setting and never saved an activity
-// record is technically indistinguishable from a true first-time device.
-// Both read as "no settings key, no log key". This is accepted as safe: no
-// explicit choice exists to violate in either case, and a teacher can still
-// see the current state on the toggle before starting the first activity
-// and switch it OFF before anything is recorded.
+// once before but never changed a setting is technically indistinguishable
+// from a true first-time device, whether or not it has completed an
+// activity. This is accepted as safe: no explicit choice exists to violate
+// in either case, and a teacher can still see the current state on the
+// toggle before starting the next activity and switch it OFF.
 var settings = { mode: 'light_sound', intensity: 'standard', effectWidth: 'normal', effectSound: 'soft', soundEnabled: true, gazeEnabled: false, traceEnabled: false };
 function loadSettings(){
-  var hasExistingLog = false;
-  try { hasExistingLog = !!localStorage.getItem(STORAGE_LOG_KEY); } catch (e) {}
   try {
     var raw = localStorage.getItem(STORAGE_SETTINGS_KEY);
     if (!raw) {
-      // No settings ever saved on this device. Only a genuinely new device
-      // (no activity records either) gets the ON default; a device with
-      // records but no settings object (pre-dates the settings feature, or
-      // settings were cleared) keeps the historical OFF default.
-      if (!hasExistingLog) settings.traceEnabled = true;
+      // No settings ever saved on this device. Default ON regardless of
+      // whether an activity record already exists (Phase
+      // SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1).
+      settings.traceEnabled = true;
       return;
     }
     var parsed = JSON.parse(raw);

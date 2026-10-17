@@ -27,6 +27,10 @@
  * never touches the shared Foundation code or any other app. Test 6b
  * additionally verifies the reload-reverts-the-change behavior the new
  * banner's wording describes.
+ *
+ * Corrected in Phase SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1: the Default ON
+ * condition no longer checks for an existing activity log. Test 4 has been
+ * flipped accordingly (now expects ON, not OFF) — see its own comment.
  */
 const path = require('path');
 const { chromium } = require('playwright');
@@ -159,8 +163,13 @@ async function getLog(page) {
 
   // ──────────────────────────────────────────────────────────
   // 4. Device with existing activity records but NO settings key at all
-  //    (settings were somehow cleared, or predate the settings feature) ->
-  //    NOT treated as fresh, stays OFF.
+  //    (settings were never touched, or predate the settings feature) ->
+  //    Phase SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1: treated as "no explicit
+  //    choice recorded" -> default ON, same as a truly fresh device. This
+  //    corrects the Phase SAWATTE-TRACE-DEFAULT-ON-AND-RELIABILITY-1
+  //    behavior (OFF in this case), which caused a device that completed
+  //    one activity under Default ON, without ever touching the toggle, to
+  //    silently revert to OFF on its next visit.
   // ──────────────────────────────────────────────────────────
   {
     const { context, page, pageErrors } = await freshPage(browser);
@@ -176,12 +185,12 @@ async function getLog(page) {
     await page.click('#donomanaA11yBtn');
     await page.click('#donomanaSettingsProxy');
     const checked = await page.locator('#traceToggle').isChecked();
-    check('[4-existing-log-no-settings] device with records but no settings key keeps OFF (not treated as new)', checked === false, checked);
+    check('[4-existing-log-no-settings] device with records but no settings key defaults to ON (CORRECTION-1: no explicit choice was ever recorded)', checked === true, checked);
     await page.click('#closeTeacherSettingsBtn');
     await doOneTouchActivity(page);
     const log = await getLog(page);
     const hasTrace = !!(log[1] && log[1].payload && log[1].payload.trace);
-    check('[4-existing-log-no-settings] new activity has NO trace', !hasTrace, hasTrace);
+    check('[4-existing-log-no-settings] new activity (no settings ever touched) HAS a valid trace', hasTrace, hasTrace);
     check('[4-existing-log-no-settings] no uncaught JS exceptions', pageErrors.length === 0, pageErrors);
     await context.close();
   }
@@ -395,6 +404,85 @@ async function getLog(page) {
     const offText = await page.locator('#startTraceStatus').textContent();
     check('[10-start-status] after a real toggle OFF, start screen text updates to OFF', offText.indexOf('OFF') !== -1, offText);
     check('[10-start-status] no uncaught JS exceptions', pageErrors.length === 0, pageErrors);
+    await context.close();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 11. OFF saved via a real UI toggle (not direct localStorage injection)
+  //     persists correctly across a reload (Phase
+  //     SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1 Step 3 item 6).
+  // ──────────────────────────────────────────────────────────
+  {
+    const { context, page, pageErrors } = await freshPage(browser);
+    await page.goto('file://' + path.join(ROOT, 'sawatte-hirogaru-app.html'), { waitUntil: 'load' });
+    await page.click('#donomanaA11yBtn');
+    await page.click('#donomanaSettingsProxy');
+    await page.uncheck('#traceToggle'); // fresh device starts ON; real OFF transition
+    await page.click('#closeTeacherSettingsBtn');
+    await page.reload({ waitUntil: 'load' });
+    await page.click('#donomanaA11yBtn');
+    await page.click('#donomanaSettingsProxy');
+    const checked = await page.locator('#traceToggle').isChecked();
+    check('[11-off-then-revisit] explicit OFF saved via real toggle persists across reload', checked === false, checked);
+    check('[11-off-then-revisit] no uncaught JS exceptions', pageErrors.length === 0, pageErrors);
+    await context.close();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 12. ON saved via a real UI toggle (starting from explicit OFF) persists
+  //     correctly across a reload (Phase SAWATTE-TRACE-DEFAULT-ON-
+  //     CORRECTION-1 Step 3 item 7).
+  // ──────────────────────────────────────────────────────────
+  {
+    const { context, page, pageErrors } = await freshPage(browser);
+    await page.goto('file://' + path.join(ROOT, 'sawatte-hirogaru-app.html'), { waitUntil: 'load' });
+    await page.evaluate(() => {
+      localStorage.setItem('sawatte_hirogaru_settings', JSON.stringify({ traceEnabled: false }));
+    });
+    await page.reload({ waitUntil: 'load' });
+    await page.click('#donomanaA11yBtn');
+    await page.click('#donomanaSettingsProxy');
+    await page.check('#traceToggle'); // real OFF -> ON transition
+    await page.click('#closeTeacherSettingsBtn');
+    await page.reload({ waitUntil: 'load' });
+    await page.click('#donomanaA11yBtn');
+    await page.click('#donomanaSettingsProxy');
+    const checked = await page.locator('#traceToggle').isChecked();
+    check('[12-on-then-revisit] explicit ON saved via real toggle persists across reload', checked === true, checked);
+    check('[12-on-then-revisit] no uncaught JS exceptions', pageErrors.length === 0, pageErrors);
+    await context.close();
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // 13. A device with an existing activity record (including one with its
+  //     own trace payload) and no settings key: confirms the CORRECTION-1
+  //     Default ON change never deletes or alters pre-existing records or
+  //     trace data (Phase SAWATTE-TRACE-DEFAULT-ON-CORRECTION-1 Step 3
+  //     items 9/10).
+  // ──────────────────────────────────────────────────────────
+  {
+    const { context, page, pageErrors } = await freshPage(browser);
+    await page.goto('file://' + path.join(ROOT, 'sawatte-hirogaru-app.html'), { waitUntil: 'load' });
+    const existingEntry = {
+      timestamp: new Date().toISOString(), appId: 'sawatte-hirogaru-app', activity: 'session', inputMethod: null, schemaVersion: 1,
+      payload: {
+        detailSchemaVersion: 1, mode: 'light', durationMs: 4000, totalInteractions: 2, tapCount: 2, swipeCount: 0,
+        inputMethods: ['touch'], soundEnabled: true, intensity: 'standard', effectWidth: 'normal', effectSound: 'soft',
+        trace: { traceSchemaVersion: 1, pointLimit: 1000, trimmed: false, taps: [12, 34, 5], swipes: [] }
+      }
+    };
+    await page.evaluate((entry) => {
+      localStorage.setItem('sawatte_hirogaru_log', JSON.stringify([entry]));
+      // Deliberately no settings key.
+    }, existingEntry);
+    await page.reload({ waitUntil: 'load' });
+    const logBefore = await getLog(page);
+    check('[13-preserve-existing] existing record+trace still present before any new activity', logBefore.length === 1 && JSON.stringify(logBefore[0].payload.trace) === JSON.stringify(existingEntry.payload.trace), logBefore);
+    await doOneTouchActivity(page);
+    const logAfter = await getLog(page);
+    check('[13-preserve-existing] existing record (index 0) is untouched after a new activity', JSON.stringify(logAfter[0]) === JSON.stringify(existingEntry), logAfter[0]);
+    check('[13-preserve-existing] new activity was appended, not replacing the old one', logAfter.length === 2, logAfter.length);
+    check('[13-preserve-existing] no uncaught JS exceptions', pageErrors.length === 0, pageErrors);
     await context.close();
   }
 
