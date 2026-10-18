@@ -13,7 +13,11 @@
   }
 })(typeof self !== 'undefined' ? self : this, function () {
 
-  var VALID_INPUT_METHODS = ['touch', 'switch', 'keyboard'];
+  // Phase 5A: 'swipe'はタッチとは別の、教師が明示的に選ぶ独立した入力方式
+  // として追加する(Design v2.0 1.2節)。既存の'touch'/'switch'/'keyboard'の
+  // 値・意味は変更しない。既存のPhase 3記録(inputMethodが'touch'/'switch'の
+  // いずれかのみ)はこの追加の影響を受けない(Design v2.0 6章)。
+  var VALID_INPUT_METHODS = ['touch', 'switch', 'keyboard', 'swipe'];
   var VALID_TYPES = ['activate', 'move', 'release', 'cancel'];
 
   // makeEvent(): 共通入力イベントschema（Design Approval文書3章）に準拠したオブジェクトを
@@ -77,6 +81,29 @@
       },
       isPressed: function (key) { return !!pressed[key]; }
     };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Phase 5A: スワイプ専用モード
+  //
+  // タッチ・スワイプいずれも同じPointer Eventsの移動量しきい値判定を使うが、
+  // 値そのものは意図的に異なる(Design v2.0 1.2節: 既存の12px(move発火量の
+  // 抑制が目的)・sawatte-hirogaru-app.htmlの8px(別アプリ向け)のいずれも
+  // スワイプ用の検証済み推奨値として転用しない)。TOUCH_MOVE_THRESHOLD_PXは
+  // 既存のタッチ実装の値をそのまま保持し、SWIPE_MOVE_THRESHOLD_PXは新規に
+  // 10pxを未検証の暫定初期値として置く。教員による調整UIはPhase 5Aの対象外
+  // (Design v2.0 9章)。
+  // ─────────────────────────────────────────────────────────────
+  var TOUCH_MOVE_THRESHOLD_PX = 12;
+  var SWIPE_MOVE_THRESHOLD_PX = 10;
+
+  // meetsMoveThreshold(): 移動量(ユークリッド距離)がしきい値以上かどうかを判定する
+  // 純粋関数。trueの場合のみmoveイベントを記録してよい(過剰発火防止)。境界値
+  // (距離==thresholdPx)は「満たす」側に含める(既存のタッチ実装と同じ比較方向、
+  // 元コードの `< threshold` でreturnする、の否定)。
+  function meetsMoveThreshold(dx, dy, thresholdPx) {
+    if (typeof dx !== 'number' || typeof dy !== 'number' || typeof thresholdPx !== 'number') return false;
+    return Math.sqrt(dx * dx + dy * dy) >= thresholdPx;
   }
 
   // buildScanItems(): Switch Scan共通パターンの一般化（directions-app.html
@@ -237,6 +264,9 @@
     computeDuration: computeDuration,
     createRepeatGuard: createRepeatGuard,
     buildScanItems: buildScanItems,
+    TOUCH_MOVE_THRESHOLD_PX: TOUCH_MOVE_THRESHOLD_PX,
+    SWIPE_MOVE_THRESHOLD_PX: SWIPE_MOVE_THRESHOLD_PX,
+    meetsMoveThreshold: meetsMoveThreshold,
     STORAGE_KEY: STORAGE_KEY,
     MAX_SESSIONS: MAX_SESSIONS,
     classifySaveError: classifySaveError,

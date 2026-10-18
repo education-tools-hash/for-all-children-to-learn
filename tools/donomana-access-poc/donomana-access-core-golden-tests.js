@@ -207,6 +207,78 @@ console.log('\n=== 10. summarizeSessions(): 件数のみの客観的集計(評�
   check('null入力でもクラッシュしない', malformedSummary.sessionCount === 0);
 })();
 
+console.log('\n=== 11. Phase 5A: スワイプ入力方式の追加(Design v2.0 1.2節) ===');
+(function () {
+  check("VALID_INPUT_METHODSに'swipe'が追加されている", Core.VALID_INPUT_METHODS.indexOf('swipe') !== -1);
+  check("既存の'touch'/'switch'/'keyboard'は変更されていない", Core.VALID_INPUT_METHODS.indexOf('touch') !== -1 && Core.VALID_INPUT_METHODS.indexOf('switch') !== -1 && Core.VALID_INPUT_METHODS.indexOf('keyboard') !== -1);
+
+  const swipeEvt = Core.makeEvent({ type: 'activate', inputMethod: 'swipe', timestamp: 10, position: { x: 1, y: 1 } });
+  check("makeEvent()はinputMethod:'swipe'を受理する", swipeEvt.inputMethod === 'swipe' && swipeEvt.type === 'activate');
+
+  const swipeMove = Core.makeEvent({ type: 'move', inputMethod: 'swipe', position: { x: 1, y: 1 }, movement: { dx: 10, dy: 0 } });
+  check("swipeのmoveイベントも既存schemaのまま記録できる(新しい専用フィールドを追加しない)", swipeMove.movement.dx === 10 && Object.keys(swipeMove).length === 6);
+
+  const swipeRelease = Core.makeEvent({ type: 'release', inputMethod: 'swipe', timestamp: 20, duration: 10 });
+  check("swipeのreleaseイベントも既存schemaのまま記録できる", swipeRelease.type === 'release' && swipeRelease.duration === 10);
+
+  const swipeCancel = Core.makeEvent({ type: 'cancel', inputMethod: 'swipe', timestamp: 30 });
+  check("swipeのcancelイベントも既存schemaのまま記録できる(「スワイプ不成立」という独自イベントは追加しない)", swipeCancel.type === 'cancel');
+
+  const swipeRecord = Core.buildSessionRecord({ sessionId: 'swipe-1', inputMethod: 'swipe', startedAt: '2026-10-18T00:00:00.000Z', endedAt: '2026-10-18T00:01:00.000Z', events: [swipeEvt, swipeMove, swipeRelease] });
+  check("buildSessionRecord()はinputMethod:'swipe'を受理する", swipeRecord.inputMethod === 'swipe' && swipeRecord.schemaVersion === 1);
+})();
+
+console.log('\n=== 12. Phase 5A: meetsMoveThreshold()・10px/12px境界値(Design v2.0 1.2節) ===');
+(function () {
+  check('定数TOUCH_MOVE_THRESHOLD_PXは既存どおり12(変更しない)', Core.TOUCH_MOVE_THRESHOLD_PX === 12);
+  check('定数SWIPE_MOVE_THRESHOLD_PXは未検証の暫定初期値10', Core.SWIPE_MOVE_THRESHOLD_PX === 10);
+
+  // スワイプ(10px)の境界値: dx=10,dy=0 -> 距離=10 (ちょうどしきい値、記録する)
+  check('距離がしきい値ちょうど(10px)の場合は記録する(境界値を含む)', Core.meetsMoveThreshold(10, 0, Core.SWIPE_MOVE_THRESHOLD_PX) === true);
+  // dx=9,dy=0 -> 距離=9 (しきい値未満、記録しない)
+  check('距離がしきい値未満(9px)の場合は記録しない', Core.meetsMoveThreshold(9, 0, Core.SWIPE_MOVE_THRESHOLD_PX) === false);
+  // dx=9.99... 境界近傍（3-4-5相当で6,8->距離10）
+  check('3:4比の移動(dx=6,dy=8、距離10)でも境界値どおり記録する', Core.meetsMoveThreshold(6, 8, Core.SWIPE_MOVE_THRESHOLD_PX) === true);
+  check('距離がしきい値をわずかに超えない場合(dx=6,dy=7.9)は記録しない', Core.meetsMoveThreshold(6, 7.9, Core.SWIPE_MOVE_THRESHOLD_PX) === false);
+
+  // タッチ(12px)の既存挙動が変化していないことの回帰確認
+  check('タッチの既存しきい値(12px)ちょうどは記録する(回帰確認)', Core.meetsMoveThreshold(12, 0, Core.TOUCH_MOVE_THRESHOLD_PX) === true);
+  check('タッチの既存しきい値(12px)未満(11px)は記録しない(回帰確認)', Core.meetsMoveThreshold(11, 0, Core.TOUCH_MOVE_THRESHOLD_PX) === false);
+
+  check('不正な入力(非数値)はfalseを返す(クラッシュしない)', Core.meetsMoveThreshold('a', 0, 10) === false);
+  check('thresholdPxが非数値の場合もfalseを返す', Core.meetsMoveThreshold(10, 0, undefined) === false);
+})();
+
+console.log('\n=== 13. Phase 5A: 既存Phase 3記録との後方互換性(Design v2.0 6章) ===');
+(function () {
+  // 旧形式(schemaVersion:1、inputMethodが'touch'/'switch'のみ、swipeを含まない)の
+  // 記録をsafeReadSessions()→summarizeSessions()に通しても結果が変化しないこと。
+  const legacyOnly = [
+    { schemaVersion: 1, sessionId: 'legacy-1', inputMethod: 'touch', startedAt: null, endedAt: null, events: [{ type: 'activate' }, { type: 'release' }] },
+    { schemaVersion: 1, sessionId: 'legacy-2', inputMethod: 'switch', startedAt: null, endedAt: null, events: [{ type: 'activate' }] }
+  ];
+  const storage = makeMockStorage({ [Core.STORAGE_KEY]: JSON.stringify(legacyOnly) });
+  const read = Core.safeReadSessions(storage);
+  check('swipe追加後も旧形式の記録を異常なく読み取れる(anomaly:null)', read.anomaly === null && read.items.length === 2);
+  const legacySummary = Core.summarizeSessions(read.items);
+  check('旧形式のみの記録ではswipeキーが生成されない(存在しないものを作らない)', !('swipe' in legacySummary.byInputMethod));
+  check('旧形式の集計結果はswipe追加前と同じ(touch:1, switch:1)', legacySummary.byInputMethod.touch === 1 && legacySummary.byInputMethod.switch === 1 && legacySummary.sessionCount === 2);
+
+  // swipeを含むsessionを追加保存・再読込・削除できることの確認(保存・再読込・削除)。
+  const swipeSession = Core.buildSessionRecord({ sessionId: 'swipe-s1', inputMethod: 'swipe', startedAt: '2026-10-18T00:00:00.000Z', endedAt: '2026-10-18T00:02:00.000Z', events: [Core.makeEvent({ type: 'activate', inputMethod: 'swipe', timestamp: 1 })] });
+  const appended = Core.appendSession(read.items, swipeSession);
+  const writeResult = Core.writeSessions(storage, appended);
+  check('swipeを含むsessionを既存の旧形式記録に追記して保存できる', writeResult.ok === true);
+
+  const reread = Core.safeReadSessions(storage);
+  check('保存後に再読込すると旧形式2件+swipe1件の合計3件になる', reread.items.length === 3);
+  const mixedSummary = Core.summarizeSessions(reread.items);
+  check('混在後の集計はswipeキーも含めて正しく分離される(入力方式を跨いで合算しない、Design v2.0 8章)', mixedSummary.byInputMethod.touch === 1 && mixedSummary.byInputMethod.switch === 1 && mixedSummary.byInputMethod.swipe === 1);
+
+  const clearResult = Core.clearSessions(storage);
+  check('swipeを含む記録一式も既存の削除経路でまとめて削除できる', clearResult.ok === true && storage.getItem(Core.STORAGE_KEY) === null);
+})();
+
 console.log('\n=== 結果 ===');
 console.log('PASS:', pass, ' FAIL:', fail);
 if (fail > 0) process.exit(1);

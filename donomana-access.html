@@ -5,11 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>どのまな Access（開発版）</title>
 <!--
-  Donomana Access — Phase 3: Record & Storage（開発中のcheckpoint）。
+  Donomana Access — Phase 5A: スワイプ専用モード（開発中のcheckpoint）。
   このファイルはまだ apps-data.json / index.html / generate.js へ登録していない
   （Production公開対象のアプリ一覧への追加は本Phaseでも行わない）。
-  基本操作ログ・活動後の記録表示・端末内保存をPhase 3で実装。教師の観察メモ・
-  JSONエクスポート・スワイプ独立モードはPlan B（後続Phase）の対象。
+  基本操作ログ・活動後の記録表示・端末内保存はPhase 3で実装済み。本Phaseで
+  タッチ・外部スイッチに加え、スワイプを独立した入力方式として追加した
+  (Design v2.0 1.2節。既存の12px・8pxしきい値はいずれも転用せず、10pxを
+  未検証の暫定初期値として新規に用いる。教員による調整UIは対象外)。教師の
+  観察メモ・JSONエクスポートは後続Phaseの対象。
   外部送信は一切行わない（localStorageのみ）。
 -->
 <style>
@@ -123,6 +126,7 @@
     <legend>入力方法</legend>
     <label><input type="radio" name="inputMethod" value="touch" checked> タッチ（画面をさわる）</label>
     <label><input type="radio" name="inputMethod" value="switch"> 外部スイッチ</label>
+    <label><input type="radio" name="inputMethod" value="swipe"> スワイプ（ゆびでなぞる）</label>
   </fieldset>
 
   <fieldset>
@@ -279,47 +283,60 @@
     };
   }
 
-  // ===== タッチ（Pointer Events） =====
+  // ===== タッチ／スワイプ（Pointer Events） =====
   // sawatte-hirogaru-app.htmlのpointerdown/pointermove/pointerup/pointercancel
   // パターンを新規画面へ適用したもの（ADAPT、Design Approval文書2.1節#2）。
+  // Phase 5A: スワイプはタッチと同じPointer Events経路を使うが、教師が明示的に
+  // 選ぶ独立した入力方式であり（Design v2.0 1.2節）、記録されるinputMethodは
+  // 選択中の値（'touch'または'swipe'）をそのまま使う。activate/release/cancelの
+  // 意味はタッチと同一（接触の開始・終了・中断の観測事実）であり、「スワイプが
+  // 成立した」という独自の判定・イベントは追加しない（1.3節：動きの意図性は
+  // 判別できないという設計方針どおり）。移動量のしきい値判定はCore.meetsMoveThreshold()
+  // （Core.TOUCH_MOVE_THRESHOLD_PX=12・Core.SWIPE_MOVE_THRESHOLD_PX=10）に委ねる。
+
+  function isPointerInputMethod() {
+    return state.inputMethod === 'touch' || state.inputMethod === 'swipe';
+  }
+
   function onPointerDown(e) {
-    if (state.inputMethod !== 'touch') return;
+    if (!isPointerInputMethod()) return;
     unlockAudioContext();
     var pos = surfaceLocalXY(e.clientX, e.clientY);
     activePointers[e.pointerId] = { startTs: performance.now(), x: pos.x, y: pos.y };
     try { activitySurface.setPointerCapture(e.pointerId); } catch (err) {}
     recordEvent({
-      type: 'activate', inputMethod: 'touch', timestamp: performance.now(),
+      type: 'activate', inputMethod: state.inputMethod, timestamp: performance.now(),
       position: { x: pos.x, y: pos.y }
     });
     triggerFeedback(pos.x, pos.y);
   }
 
   function onPointerMove(e) {
-    if (state.inputMethod !== 'touch') return;
+    if (!isPointerInputMethod()) return;
     var p = activePointers[e.pointerId];
     if (!p) return;
     var pos = surfaceLocalXY(e.clientX, e.clientY);
-    // Plan Aでは移動量そのものを評価条件にしない（スワイプ独立モードはPlan B）。
     // moveイベントは共通schemaに接続可能な形としてのみ記録する（過剰発火を避け、
-    // 一定距離を超えた場合のみ記録する）。
+    // 一定距離を超えた場合のみ記録する）。タッチの12pxとスワイプの10pxは意図的に
+    // 異なる値であり、どちらも他方からの流用ではない（Design v2.0 1.2節）。
     var dx = pos.x - p.x, dy = pos.y - p.y;
-    if (Math.sqrt(dx * dx + dy * dy) < 12) return;
+    var threshold = state.inputMethod === 'swipe' ? Core.SWIPE_MOVE_THRESHOLD_PX : Core.TOUCH_MOVE_THRESHOLD_PX;
+    if (!Core.meetsMoveThreshold(dx, dy, threshold)) return;
     p.x = pos.x; p.y = pos.y;
     recordEvent({
-      type: 'move', inputMethod: 'touch', timestamp: performance.now(),
+      type: 'move', inputMethod: state.inputMethod, timestamp: performance.now(),
       position: { x: pos.x, y: pos.y }, movement: { dx: dx, dy: dy }
     });
   }
 
   function endPointer(e, cancelled) {
-    if (state.inputMethod !== 'touch') return;
+    if (!isPointerInputMethod()) return;
     var p = activePointers[e.pointerId];
     if (!p) return;
     delete activePointers[e.pointerId];
     var now = performance.now();
     recordEvent({
-      type: cancelled ? 'cancel' : 'release', inputMethod: 'touch', timestamp: now,
+      type: cancelled ? 'cancel' : 'release', inputMethod: state.inputMethod, timestamp: now,
       duration: Core.computeDuration(p.startTs, now),
       position: { x: p.x, y: p.y }
     });
@@ -485,8 +502,10 @@
     teardownInputState();
     hideSaveFailureBanner();
     var count = state.events.filter(function (e) { return e.type === 'activate'; }).length;
+    var inputMethodLabel = state.inputMethod === 'touch' ? 'タッチ' :
+      state.inputMethod === 'swipe' ? 'スワイプ' : '外部スイッチ';
     summaryText.textContent = '今回の操作（はたらきかけ）は ' + count + ' 回でした（入力方式: ' +
-      (state.inputMethod === 'touch' ? 'タッチ' : '外部スイッチ') + '）。';
+      inputMethodLabel + '）。';
 
     // ===== 端末内保存(設計文書8章、Must機能#7) =====
     var sessionRecord = Core.buildSessionRecord({
