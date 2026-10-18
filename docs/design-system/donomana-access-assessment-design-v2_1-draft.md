@@ -1,17 +1,18 @@
-# Donomana Access Phase 5B — 教員観察記録 設計 v2.1（Draft）
+# Donomana Access Phase 5B — 教員観察記録 設計 v2.1（APPROVED）
 
-> **DRAFT / NOT YET APPROVED**
-> 本文書はDesign v2.0の後継候補（Draft）であり、ユーザーによる最終承認を受けていません。
-> v2.1が正式承認されるまでは、`donomana-access-assessment-design-v2_0.md`の承認済み事項が引き続き有効です。
-> 本文書はv2.0を削除・上書きしません。
+> **APPROVED — 2026-10-18**
+> 本文書はユーザーにより正式承認されました。下記§8に記載の9項目（元のDraft版での未決定事項）はすべて承認済みです。
+> 承認対象checkpoint: `1fa42cbf957135282ee0aed679ebe9da22bcc296`（DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-FORMALIZATION-AND-IMPLEMENTATION-1セッション内でのユーザーの明示的承認に基づく）。
+> 本文書の正式承認により、`donomana-access-assessment-design-v2_0.md`の教員メモ節（§5）はDonomana Accessの教員観察記録設計として本v2.1に置き換えられます。v2.0文書自体は削除・変更せず、旧版として保持します。
 
-- Phase: DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-PERSISTENCE-1（DESIGN DOCUMENT ONLY / DRAFT CHECKPOINT）
-- 作成日: 2026-10-18
-- 先行調査: DONOMANA-ACCESS-PHASE-5B-OBSERVATION-DESIGN-1（READ-ONLY調査）、DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-1（設計レビュー）
+- Phase: DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-FORMALIZATION-AND-IMPLEMENTATION-1（DESIGN FORMALIZATION）
+- 作成日: 2026-10-18（Draft作成）／承認日: 2026-10-18（本Phaseでのユーザー明示的承認）
+- 先行調査: DONOMANA-ACCESS-PHASE-5B-OBSERVATION-DESIGN-1（READ-ONLY調査）、DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-1（設計レビュー）、DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-AUDIT-FIX-1、DONOMANA-ACCESS-PHASE-5B-DESIGN-V2-1-FINAL-SAFETY-ADDENDUM-1、DONOMANA-ACCESS-PHASE-5B-DESIGN-V2.1-FORMAL-APPROVAL-PREPARATION-1
 - Production main（fresh確認済み）: `e0558c9ae157ebe96346695803058446da8cb13e`（期待値と一致、drift無し）
 - Phase 5A checkpoint（確認済み）: `edc60af02fd947d1fba1f7c756feee9dcdb6a2e3`
 - Design v2.0 checkpoint（確認済み、不変・無変更）: `533b0ad4fe1a112b4ca8638a1d5e8e10a5bfd0ec`
-- コード実装・既存文書・既存worktree・既存記録schema・Production main・Preview mainへの変更は本Phaseでは一切行っていません。
+- 本文書自身の承認前checkpoint（Draft最終版）: `1fa42cbf957135282ee0aed679ebe9da22bcc296`
+- コード実装・既存文書・既存worktree・既存記録schema・Production main・Preview mainへの変更は本正式化Phaseでは一切行っていません（正式化はdocsのみの最小差分）。
 
 ---
 
@@ -266,22 +267,24 @@ prune（孤立観察記録の整理）に関わる判定は、**独立した2つ
 
 ---
 
-## 8. 未決定事項・ユーザー承認が必要な事項
+## 8. 承認済み事項（旧: 未決定事項・ユーザー承認が必要な事項）
 
-1. A項目「抱かれている」を独立選択肢に戻すか、本案（「その他」＋表示補足）のままとするか。
-2. C項目のoperationPartを6択（その他／該当なしを分離）のまま採用するか。
-3. §5-1の削除順序（notesキーを先に削除）の採否。
-4. §5-8のprune失敗時の通知方針（利用者が認識できる控えめな通知を表示し、モーダル等で操作を妨げない、同一表示中の再試行は1回のみとする方針）の採否。
-5. §6で指摘した`onSwitchKeyDown`/`onSwitchKeyUp`への画面activeガード追加を、Phase 5B-1のApproved Diff Scopeに含めることの承認（観察記録機能そのものではなく既存コードの修正であるため、別枠での承認を求める）。
-6. 本v2.1 Draftを正式なv2.1として承認し、v2.0の教員メモ節（§5）を置き換えるか、v2.0のまま実装するか。
-7. D項目の`{recorded, observations}`構造・排他制御ルールの採否。
-8. §4.2（既存レコードが不正・未知schemaVersion・sessionId解釈不能の場合、upsertで無断上書きせず保存を保留する方針）の採否。
-9. §5-12（prune判定基準を軸A・軸Bに分離し、軸Aを安全に判定できないレコードがある場合はprune全体を保留する方針）の採否。
+以下9項目は、DONOMANA-ACCESS-PHASE-5B-DESIGN-V2.1-FORMALIZATION-AND-IMPLEMENTATION-1セッション内でのユーザーの明示的承認（2026-10-18）により、すべて承認されました。
+
+1. **【承認済み】** A項目「抱かれている」は独立選択肢に戻さず、本案（「その他」＋表示補足）のままとする。
+2. **【承認済み】** C項目のoperationPartは6択（未記録／手・指／頭部・顔／足／その他／該当なし、その他と該当なしを分離）のまま採用する。
+3. **【承認済み】** §5-1の削除順序（notesキーを先に削除、成功確認後にlogsキーを削除）を採用する。
+4. **【承認済み】** §5-8のprune失敗時の通知方針（利用者が認識できる控えめな通知を表示し、モーダル等で操作を妨げない、同一表示中の再試行は1回のみとする方針）を採用する。
+5. **【承認済み】** §6で指摘した`onSwitchKeyDown`/`onSwitchKeyUp`への画面activeガード追加を、Phase 5B-1のApproved Diff Scopeに含めることを承認する。
+6. **【承認済み】** 本v2.1を正式な設計として承認し、v2.0の教員メモ節（§5）を置き換える。
+7. **【承認済み】** D項目の`{recorded, observations}`構造・排他制御ルールを採用する。
+8. **【承認済み】** §4.2（既存レコードが不正・未知schemaVersion・sessionId解釈不能の場合、upsertで無断上書きせず保存を保留する方針）を採用する。
+9. **【承認済み】** §5-12（prune判定基準を軸A・軸Bに分離し、軸Aを安全に判定できないレコードがある場合はprune全体を保留する方針）を採用する。
 
 ---
 
 ## 9. 停止
 
-本文書は**Draft（未承認）**です。実装（Phase 5B-1着手）は、ユーザーによる本文書の正式承認を得てから開始します。
+本文書は**正式承認済み（APPROVED、2026-10-18）**です。上記9項目を含む設計全体がユーザーにより承認されたため、Phase 5B-1（実装）は本文書の内容に基づいて着手されます。
 
-**DESIGN V2.1 DRAFT CHECKPOINT READY**
+**DESIGN V2.1 APPROVED**
