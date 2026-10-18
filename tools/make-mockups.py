@@ -210,6 +210,49 @@ def _touch_sawatte_hirogaru(pg):
     pg.wait_for_timeout(120)  # 最後のタップのリップルも消える前に撮る
 
 
+def _show_sst_four_week_review(pg):
+    """SST: 「4週間のふりかえり」(#s-trend)画面を撮る(Phase
+    APP-DETAILS-VISUAL-ENHANCEMENT-SST-PILOT-E-1)。
+
+    実利用者の記録は一切読み書きしない(このPlaywright contextはmake-mockups.py
+    の他の全capture_mockup()呼び出しと同じく、撮影のたびに毎回新規生成される
+    孤立したbrowser contextであり、localStorageは呼び出しごとに空から始まる)。
+    buildTrend()は毎回 localStorage.getItem('sst_activity_log_v1') を直接
+    読み直す(sst-app.htmlのtrendReadRaw())ため、このcontext内だけに存在する
+    匿名の合成テストデータ(個人情報・実在の学習者情報を一切含まない、
+    {ts, type, lv, result, schemaVersion}のみの構造)を注入してから
+    #home-trend-btnをクリックする。このデータはProductionへは一切保存されず、
+    このPlaywrightプロセスの終了とともに消える。
+
+    実装済みの「4週間のふりかえり」画面(週別グラフ・表・活動種別内訳・週ごとの
+    詳細)のみを撮る。構想段階の別機能(月間推移)は撮影しない。"""
+    pg.evaluate("""() => {
+        const types = ['rp', 'wq', 'story', 'quiz', 'thermo', 'emotion'];
+        const now = Date.now();
+        const d = new Date(now);
+        const day = d.getDay();
+        const monday = new Date(d);
+        monday.setHours(0, 0, 0, 0);
+        monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1));
+        const counts = [2, 3, 1, 2]; // 第1週(最古)→第4週(今週)
+        const records = [];
+        let ti = 0;
+        for (let w = 0; w < 4; w++) {
+            const weekStartMs = monday.getTime() - (3 - w) * 7 * 86400000;
+            for (let i = 0; i < counts[w]; i++) {
+                let ts = weekStartMs + i * 86400000 + 10 * 3600000;
+                if (ts > now) ts = now - (counts[w] - i) * 3600000; // 今週分がnowを超えないよう安全側に補正
+                records.push({ ts, type: types[ti % types.length], lv: 1, result: 'done', schemaVersion: 1 });
+                ti++;
+            }
+        }
+        localStorage.setItem('sst_activity_log_v1', JSON.stringify(records));
+    }""")
+    pg.locator("#home-trend-btn").click()
+    pg.wait_for_selector("#s-trend.on")
+    pg.wait_for_timeout(300)
+
+
 PLAY_ACTIONS = {
     "scratch-app": _scratch_the_scratch_app,
     "mogura-tataki": _start_mogura_tataki,
@@ -227,6 +270,7 @@ PLAY_ACTIONS = {
 # 既存のPLAY_ACTIONS・CLI引数・アイコン生成ロジックは一切変更しない。
 EXTRA_SHOTS = {
     "sakana-tsuri": [("method-select", _select_sakana_tsuri_method)],
+    "sst-app": [("four-week-review", _show_sst_four_week_review)],
 }
 
 # Phase M12-G: User承認済みの正式アイコンartworkを持つアプリ。ここに登録した
