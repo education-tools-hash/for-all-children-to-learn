@@ -252,6 +252,132 @@ def run():
               '1 回' in summary_s2 and 'スワイプ' in summary_s2, summary_s2)
         page_switch.close()
 
+        # --- Phase 5B-1: 教員観察記録フォーム(Design v2.1、2026-10-18承認) ---
+        print('\n=== Phase 5B-1: observation form (teacher notes) ===')
+        page_obs = browser.new_page(viewport={'width': 1024, 'height': 1000})
+        page_obs.on('console', lambda msg: console_errors.append(msg.text) if msg.type == 'error' else None)
+        page_obs.on('pageerror', lambda exc: console_errors.append(str(exc)))
+        page_obs.goto(APP_URL)
+        page_obs.evaluate("""
+            () => {
+                try { localStorage.removeItem('donomana_access_log_v1'); } catch (e) {}
+                try { localStorage.removeItem('donomana_access_teacher_notes_v1'); } catch (e) {}
+            }
+        """)
+
+        # --- 1セッション目: タッチで活動し、観察フォームへ入力して保存する ---
+        page_obs.click('#startBtn')
+        surface_o = page_obs.locator('#activitySurface')
+        box_o = surface_o.bounding_box()
+        page_obs.mouse.move(box_o['x'] + box_o['width'] / 2, box_o['y'] + box_o['height'] / 2)
+        page_obs.mouse.down()
+        page_obs.mouse.up()
+        page_obs.click('#endBtn')
+        check('end screen reached with observation form present', page_obs.is_visible('#observationForm'))
+
+        check('support controls are disabled by default (未記録がON、§3-B)',
+              page_obs.is_disabled('#supportNoneConfirmedToggle') and
+              page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled === true"))
+        check('未記録toggle is checked by default', page_obs.is_checked('#supportUnrecordedToggle'))
+
+        page_obs.check('input[name="posture"][value="立位"]')
+        page_obs.check('input[name="operationPart"][value="頭部・顔"]')
+        page_obs.check('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]')
+        page_obs.click('#saveObservationBtn')
+        save_status = page_obs.text_content('#observationStatus')
+        check('save status announces success', '保存しました' in save_status, save_status)
+
+        notes_raw_1 = page_obs.evaluate("localStorage.getItem('donomana_access_teacher_notes_v1')")
+        check('note was persisted with posture:座位 (立位) and operationPart:頭部・顔',
+              notes_raw_1 is not None and '"posture":"立位"' in notes_raw_1 and '"operationPart":"頭部・顔"' in notes_raw_1,
+              notes_raw_1)
+        check('note was persisted with the recorded teacherImpression observation',
+              notes_raw_1 is not None and '自分から働きかける様子が見られた' in notes_raw_1, notes_raw_1)
+
+        # --- 2セッション目: 新しい活動では観察フォームが初期状態にリセットされること ---
+        page_obs.click('#restartBtn')
+        page_obs.click('#startBtn')
+        page_obs.mouse.move(box_o['x'] + box_o['width'] / 2, box_o['y'] + box_o['height'] / 2)
+        page_obs.mouse.down()
+        page_obs.mouse.up()
+        page_obs.click('#endBtn')
+        check('posture resets to 未記録 for a new session (no carry-over, §4)',
+              page_obs.is_checked('input[name="posture"][value="未記録"]'))
+        check('teacherObservation checkboxes reset (unchecked) for a new session',
+              not page_obs.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
+        check('support controls re-disabled (未記録がON) for a new session',
+              page_obs.is_checked('#supportUnrecordedToggle'))
+
+        # --- 未入力のまま保存 → 空レコードを作らない(§4) ---
+        page_obs.click('#saveObservationBtn')
+        empty_status = page_obs.text_content('#observationStatus')
+        check('saving with no input announces nothing-was-saved (not a silent no-op, §4)',
+              '何も保存しませんでした' in empty_status, empty_status)
+        notes_raw_2 = page_obs.evaluate("localStorage.getItem('donomana_access_teacher_notes_v1')")
+        check('empty-form save did not add a second record (still exactly 1 note)',
+              notes_raw_2 is not None and notes_raw_2.count('"schemaVersion"') == 1, notes_raw_2)
+
+        # --- support: 3状態の排他制御(§3-B) ---
+        page_obs.uncheck('#supportUnrecordedToggle')
+        check('unchecking 未記録 enables the specific-support checkboxes',
+              not page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled"))
+        page_obs.check('#supportNoneConfirmedToggle')
+        page_obs.check('input[name="supportType"][value="声かけ・音声による促し"]')
+        check('checking a specific support type auto-unchecks 特になし確認済み (§3-B exclusivity)',
+              not page_obs.is_checked('#supportNoneConfirmedToggle'))
+        page_obs.check('#supportUnrecordedToggle')
+        check('re-checking 未記録 clears the specific support type selection',
+              not page_obs.is_checked('input[name="supportType"][value="声かけ・音声による促し"]'))
+        check('re-checking 未記録 disables the support type checkboxes again',
+              page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled"))
+
+        # --- teacherImpression: 「判断が難しい」の排他制御(§3-D) ---
+        page_obs.check('input[name="teacherObservation"][value="判断が難しい"]')
+        page_obs.check('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]')
+        check('checking a positive observation auto-unchecks 判断が難しい (§3-D exclusivity)',
+              not page_obs.is_checked('input[name="teacherObservation"][value="判断が難しい"]'))
+        page_obs.check('input[name="teacherObservation"][value="判断が難しい"]')
+        check('checking 判断が難しい auto-unchecks the positive observation (§3-D exclusivity, reverse direction)',
+              not page_obs.is_checked('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]'))
+        page_obs.close()
+
+        # --- Phase 5B-1: 外部スイッチモードの終了画面でSpace/Enterが観察フォームの
+        # ネイティブなトグル操作を妨げないこと(activity-screenガード、Design v2.1 §6)。 ---
+        print('\n=== Phase 5B-1: switch-mode Space no longer blocks observation form controls ===')
+        page_sw2 = browser.new_page(viewport={'width': 1024, 'height': 1000})
+        page_sw2.on('console', lambda msg: console_errors.append(msg.text) if msg.type == 'error' else None)
+        page_sw2.on('pageerror', lambda exc: console_errors.append(str(exc)))
+        page_sw2.goto(APP_URL)
+        page_sw2.evaluate("""
+            () => {
+                try { localStorage.removeItem('donomana_access_log_v1'); } catch (e) {}
+                try { localStorage.removeItem('donomana_access_teacher_notes_v1'); } catch (e) {}
+            }
+        """)
+        page_sw2.check('input[name="inputMethod"][value="switch"]')
+        page_sw2.click('#startBtn')
+        check('activity screen active in switch mode (regression)', page_sw2.is_visible('#screen-activity.active'))
+        page_sw2.wait_for_timeout(100)
+        scan_focus_before = page_sw2.evaluate("!!document.querySelector('#screen-activity .scan-focus')")
+        check('switch scan still highlights a candidate on the activity screen (regression, §6 guard does not break this)',
+              scan_focus_before)
+        page_sw2.click('#endBtn')
+        check('end screen reached (switch)', page_sw2.is_visible('#screen-end.active'))
+
+        page_sw2.focus('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]')
+        page_sw2.keyboard.press('Space')
+        check('Space on end-screen checkbox toggles it natively while still in switch inputMethod '
+              '(previously blocked by onSwitchKeyDown missing an activity-screen guard, §6)',
+              page_sw2.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
+        check('end screen remains active (Space did not trigger scan activation/navigation)',
+              page_sw2.is_visible('#screen-end.active'))
+
+        page_sw2.focus('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]')
+        page_sw2.keyboard.press('Space')
+        check('pressing Space again toggles the checkbox back off (full native toggle round-trip)',
+              not page_sw2.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
+        page_sw2.close()
+
         print('\n=== console errors across all runs ===')
         check('no console errors or page errors occurred', len(console_errors) == 0, console_errors[:5])
 

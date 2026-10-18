@@ -257,6 +257,293 @@
     };
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Phase 5B-1: 教員観察記録（Design v2.1、2026-10-18承認）
+  //
+  // donomana_access_log_v1（観測データ、既存・不変）とは別のstorageキーに、
+  // 教員が任意で記録する観察情報(姿勢・支援・操作部位・所感)を保持する。
+  // 既存のlog側schema・関数(buildSessionRecord/appendSession/writeSessions/
+  // clearSessions/summarizeSessions等)は一切変更しない(Design v2.1 §4)。
+  // ─────────────────────────────────────────────────────────────
+
+  var NOTES_STORAGE_KEY = 'donomana_access_teacher_notes_v1';
+  var NOTE_SCHEMA_VERSION = 1;
+
+  var VALID_POSTURE = ['未記録', '座位', '立位', '臥位', 'その他'];
+  var VALID_SUPPORT_TYPES = [
+    '声かけ・音声による促し',
+    '視覚的な提示・促し',
+    '身体的な支援',
+    '姿勢・機器配置などの環境調整'
+  ];
+  var VALID_OPERATION_PART = ['未記録', '手・指', '頭部・顔', '足', 'その他', '該当なし'];
+  var VALID_TEACHER_OBSERVATIONS = [
+    '自分から働きかける様子が見られた',
+    '促しをきっかけに働きかける様子が見られた',
+    '判断が難しい'
+  ];
+
+  // hasNoDuplicates(): 配列が文字列のみからなり、かつ重複要素を含まないことを
+  // 確認する純粋関数(Design v2.1 §4.1)。
+  function hasNoDuplicates(arr) {
+    if (!Array.isArray(arr)) return false;
+    var seen = Object.create(null);
+    for (var i = 0; i < arr.length; i++) {
+      var v = arr[i];
+      if (typeof v !== 'string') return false;
+      if (seen[v]) return false;
+      seen[v] = true;
+    }
+    return true;
+  }
+
+  // isValidSupport(): support{recorded,types}のホワイトリスト検証・重複禁止・
+  // recorded===falseならtypesは空配列、というクロスフィールド制約を検証する
+  // (Design v2.1 §4.1「support」)。UI側の排他制御だけに依存しない。
+  function isValidSupport(support) {
+    if (!support || typeof support !== 'object') return false;
+    if (typeof support.recorded !== 'boolean') return false;
+    if (!Array.isArray(support.types)) return false;
+    for (var i = 0; i < support.types.length; i++) {
+      if (VALID_SUPPORT_TYPES.indexOf(support.types[i]) === -1) return false;
+    }
+    if (!hasNoDuplicates(support.types)) return false;
+    if (support.recorded === false && support.types.length !== 0) return false;
+    return true;
+  }
+
+  // isValidTeacherImpression(): teacherImpression{recorded,observations}の
+  // ホワイトリスト検証・重複禁止・recorded===falseならobservationsは空配列・
+  // recorded===trueなら1件以上・「判断が難しい」は他の2項目と排他、という
+  // クロスフィールド制約を検証する(Design v2.1 §4.1「teacherImpression」)。
+  function isValidTeacherImpression(impression) {
+    if (!impression || typeof impression !== 'object') return false;
+    if (typeof impression.recorded !== 'boolean') return false;
+    if (!Array.isArray(impression.observations)) return false;
+    for (var i = 0; i < impression.observations.length; i++) {
+      if (VALID_TEACHER_OBSERVATIONS.indexOf(impression.observations[i]) === -1) return false;
+    }
+    if (!hasNoDuplicates(impression.observations)) return false;
+    if (impression.recorded === false && impression.observations.length !== 0) return false;
+    if (impression.recorded === true && impression.observations.length === 0) return false;
+    var hasHardToJudge = impression.observations.indexOf('判断が難しい') !== -1;
+    if (hasHardToJudge && impression.observations.length > 1) return false;
+    return true;
+  }
+
+  // isValidNoteRecord(): noteレコード1件の型・許容値・クロスフィールド制約を
+  // すべて検証する(Design v2.1 §4.1・§5-10)。schemaVersionが本文書の定義する
+  // 値(1)と異なるレコードもここでfalseとなり、読込表示・upsert対象からは
+  // 除外されるが、呼び出し側はstorageから削除してはならない(§5-10)。
+  function isValidNoteRecord(note) {
+    if (!note || typeof note !== 'object') return false;
+    if (note.schemaVersion !== NOTE_SCHEMA_VERSION) return false;
+    if (typeof note.sessionId !== 'string' || !note.sessionId) return false;
+    if (VALID_POSTURE.indexOf(note.posture) === -1) return false;
+    if (!isValidSupport(note.support)) return false;
+    if (VALID_OPERATION_PART.indexOf(note.operationPart) === -1) return false;
+    if (!isValidTeacherImpression(note.teacherImpression)) return false;
+    if (typeof note.recordedAt !== 'string' || !note.recordedAt) return false;
+    return true;
+  }
+
+  // isNoteContentEmpty(): 4項目すべてが初期状態(未記録/未確認)かどうかを判定
+  // する純粋関数。全フィールドが初期状態のまま保存ボタンが押された場合、
+  // 空レコードをnotesキーに追加しない(Design v2.1 §4)。
+  function isNoteContentEmpty(note) {
+    if (!note || typeof note !== 'object') return true;
+    var support = (note.support && typeof note.support === 'object') ? note.support : {};
+    var impression = (note.teacherImpression && typeof note.teacherImpression === 'object') ? note.teacherImpression : {};
+    var postureEmpty = !note.posture || note.posture === '未記録';
+    var operationPartEmpty = !note.operationPart || note.operationPart === '未記録';
+    var supportEmpty = !support.recorded && (!Array.isArray(support.types) || support.types.length === 0);
+    var impressionEmpty = !impression.recorded && (!Array.isArray(impression.observations) || impression.observations.length === 0);
+    return postureEmpty && operationPartEmpty && supportEmpty && impressionEmpty;
+  }
+
+  // buildNoteRecord(): 教員入力(posture/support/operationPart/teacherImpression)
+  // からnoteレコードを組み立てる。未指定・不正な値は安全な初期値に落とす
+  // (値そのものの妥当性はisValidNoteRecord()側で別途検証する、makeEvent()の
+  // ホワイトリスト検証と同方式)。sessionIdのみ必須(Design v2.1 §4)。
+  function buildNoteRecord(opts) {
+    opts = opts || {};
+    if (typeof opts.sessionId !== 'string' || !opts.sessionId) {
+      throw new Error('DonomanaAccessCore.buildNoteRecord: sessionId is required');
+    }
+    var posture = VALID_POSTURE.indexOf(opts.posture) !== -1 ? opts.posture : '未記録';
+    var operationPart = VALID_OPERATION_PART.indexOf(opts.operationPart) !== -1 ? opts.operationPart : '未記録';
+    var rawSupport = opts.support && typeof opts.support === 'object' ? opts.support : {};
+    var support = {
+      recorded: !!rawSupport.recorded,
+      types: Array.isArray(rawSupport.types) ? rawSupport.types.slice() : []
+    };
+    var rawImpression = opts.teacherImpression && typeof opts.teacherImpression === 'object' ? opts.teacherImpression : {};
+    var teacherImpression = {
+      recorded: !!rawImpression.recorded,
+      observations: Array.isArray(rawImpression.observations) ? rawImpression.observations.slice() : []
+    };
+    return {
+      schemaVersion: NOTE_SCHEMA_VERSION,
+      sessionId: opts.sessionId,
+      posture: posture,
+      support: support,
+      operationPart: operationPart,
+      teacherImpression: teacherImpression,
+      recordedAt: typeof opts.recordedAt === 'string' ? opts.recordedAt : null
+    };
+  }
+
+  // safeReadNotes(): safeReadSessions()と同じ防御方針をnotes側storageに適用
+  // した新規実装(missing key/空/malformed JSON/non-arrayはすべて安全に
+  // items:[]、書き込みは一切行わない)。
+  function safeReadNotes(storage) {
+    if (!storage || typeof storage.getItem !== 'function') return { items: [], anomaly: null };
+    var raw;
+    try {
+      raw = storage.getItem(NOTES_STORAGE_KEY);
+    } catch (e) {
+      return { items: [], anomaly: 'read-exception' };
+    }
+    if (!raw) return { items: [], anomaly: null };
+    var parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      return { items: [], anomaly: 'malformed-json' };
+    }
+    if (Array.isArray(parsed)) return { items: parsed, anomaly: null };
+    return { items: [], anomaly: 'non-array' };
+  }
+
+  // partitionNotes(): 配列全体は正常にJSON解析できた場合でも、個々のnote
+  // レコード単位でisValidNoteRecord()を適用し、表示してよいレコード(valid)
+  // と、不正・未知schemaVersionのため非表示とすべきレコード(quarantined)に
+  // 分ける(Design v2.1 §5-10)。quarantined側もstorageからは削除しない
+  // (呼び出し側はvalid/quarantinedの合計を書き戻す際、必ず両方を保持する)。
+  function partitionNotes(items) {
+    var list = Array.isArray(items) ? items : [];
+    var valid = [];
+    var quarantined = [];
+    list.forEach(function (note) {
+      if (isValidNoteRecord(note)) {
+        valid.push(note);
+      } else {
+        quarantined.push(note);
+      }
+    });
+    return { valid: valid, quarantined: quarantined };
+  }
+
+  // findNoteBySessionId(): sessionIdによる単純な検索(純粋関数)。notes配列
+  // だけでなく、log配列(donomana_access_log_v1、同じくsessionIdフィールドを
+  // 持つ)への「sessionId実在確認」(Design v2.1 §4)にも同じ関数を用いてよい。
+  function findNoteBySessionId(notes, sessionId) {
+    var list = Array.isArray(notes) ? notes : [];
+    if (typeof sessionId !== 'string' || !sessionId) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && list[i].sessionId === sessionId) return list[i];
+    }
+    return null;
+  }
+
+  // upsertNote(): sessionIdで既存noteを検索し、存在すれば置換、存在しなければ
+  // 追加する(Design v2.1 §4)。置換の前に、既存レコード自体をisValidNoteRecord()
+  // で検証し、不正・未知schemaVersionの場合は無断で上書きせず保留する(§4.2)。
+  // 既存配列内にsessionIdを安全に解釈できないレコードがあり、かつ今回の
+  // sessionIdに完全一致するレコードが見つからない場合も、「存在しない」と
+  // 誤認して重複追加することを避けるため保留する(§4.2、安全側に倒す)。
+  function upsertNote(existingItems, newNote) {
+    var list = Array.isArray(existingItems) ? existingItems.slice() : [];
+    if (!newNote || typeof newNote.sessionId !== 'string' || !newNote.sessionId) {
+      return { ok: false, reason: 'invalid-new-note', items: list };
+    }
+    var targetId = newNote.sessionId;
+    var matchIndex = -1;
+    var unsafeExistingFound = false;
+    for (var i = 0; i < list.length; i++) {
+      var itemSessionId = list[i] && list[i].sessionId;
+      if (typeof itemSessionId !== 'string' || !itemSessionId) {
+        unsafeExistingFound = true;
+        continue;
+      }
+      if (itemSessionId === targetId) {
+        matchIndex = i;
+      }
+    }
+    if (matchIndex === -1) {
+      if (unsafeExistingFound) {
+        return { ok: false, reason: 'unsafe-existing-sessionid', items: list };
+      }
+      list.push(newNote);
+      return { ok: true, reason: null, items: list };
+    }
+    if (!isValidNoteRecord(list[matchIndex])) {
+      return { ok: false, reason: 'existing-record-invalid', items: list };
+    }
+    list[matchIndex] = newNote;
+    return { ok: true, reason: null, items: list };
+  }
+
+  // pruneOrphanNotes(): 孤立観察記録の整理(Design v2.1 §5-4・§5-12)。
+  // 軸A(sessionIdがvalidSessionIdsに存在するか)のみを削除基準とし、
+  // 軸B(レコード自体の妥当性)は削除理由にしない。配列内のいずれかの
+  // レコードのsessionIdを安全に解釈できない場合(軸A自体が不確実)は、
+  // 何も削除せずprune全体を保留する(§5-12)。
+  function pruneOrphanNotes(validSessionIds, notes) {
+    var items = Array.isArray(notes) ? notes : [];
+    if (!Array.isArray(validSessionIds)) return { ok: false, reason: 'invalid-input', items: items };
+    for (var i = 0; i < items.length; i++) {
+      var sid = items[i] && items[i].sessionId;
+      if (typeof sid !== 'string' || !sid) {
+        return { ok: false, reason: 'unsafe-sessionid', items: items };
+      }
+    }
+    var idLookup = Object.create(null);
+    validSessionIds.forEach(function (id) {
+      if (typeof id === 'string' && id) idLookup[id] = true;
+    });
+    var kept = items.filter(function (note) { return !!idLookup[note.sessionId]; });
+    return { ok: true, reason: null, items: kept };
+  }
+
+  // writeNotes(): writeSessions()と同じ方針(setItem失敗をsilentに握りつぶさ
+  // ない)をnotes側storageに適用した新規実装。
+  function writeNotes(storage, notes) {
+    if (!storage || typeof storage.setItem !== 'function') {
+      return { ok: false, reason: 'no-storage' };
+    }
+    try {
+      storage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+      return { ok: true, reason: null };
+    } catch (e) {
+      return { ok: false, reason: classifySaveError(e) };
+    }
+  }
+
+  // clearNotes(): clearSessions()と同じ方針をnotes側storageに適用した新規実装。
+  function clearNotes(storage) {
+    if (!storage || typeof storage.removeItem !== 'function') return { ok: false, reason: 'no-storage' };
+    try {
+      storage.removeItem(NOTES_STORAGE_KEY);
+      return { ok: true, reason: null };
+    } catch (e) {
+      return { ok: false, reason: classifySaveError(e) };
+    }
+  }
+
+  // clearAllAccessData(): 全件削除時はnotesキーを先に削除し、成功を確認した
+  // 後にlogsキーを削除する合成関数(Design v2.1 §5-1)。notes削除が失敗した
+  // 場合はlogs削除を試みない(中断時に「notesは消えたがlogsが残る」という
+  // 安全側の失敗モードを保つため)。既存のclearSessions()自体は変更しない。
+  function clearAllAccessData(storage) {
+    var notesResult = clearNotes(storage);
+    if (!notesResult.ok) {
+      return { ok: false, notes: notesResult, logs: { ok: false, reason: 'not-attempted' } };
+    }
+    var logsResult = clearSessions(storage);
+    return { ok: notesResult.ok && logsResult.ok, notes: notesResult, logs: logsResult };
+  }
+
   return {
     VALID_INPUT_METHODS: VALID_INPUT_METHODS,
     VALID_TYPES: VALID_TYPES,
@@ -275,6 +562,26 @@
     appendSession: appendSession,
     writeSessions: writeSessions,
     clearSessions: clearSessions,
-    summarizeSessions: summarizeSessions
+    summarizeSessions: summarizeSessions,
+    NOTES_STORAGE_KEY: NOTES_STORAGE_KEY,
+    NOTE_SCHEMA_VERSION: NOTE_SCHEMA_VERSION,
+    VALID_POSTURE: VALID_POSTURE,
+    VALID_SUPPORT_TYPES: VALID_SUPPORT_TYPES,
+    VALID_OPERATION_PART: VALID_OPERATION_PART,
+    VALID_TEACHER_OBSERVATIONS: VALID_TEACHER_OBSERVATIONS,
+    hasNoDuplicates: hasNoDuplicates,
+    isValidSupport: isValidSupport,
+    isValidTeacherImpression: isValidTeacherImpression,
+    isValidNoteRecord: isValidNoteRecord,
+    isNoteContentEmpty: isNoteContentEmpty,
+    buildNoteRecord: buildNoteRecord,
+    safeReadNotes: safeReadNotes,
+    partitionNotes: partitionNotes,
+    findNoteBySessionId: findNoteBySessionId,
+    upsertNote: upsertNote,
+    pruneOrphanNotes: pruneOrphanNotes,
+    writeNotes: writeNotes,
+    clearNotes: clearNotes,
+    clearAllAccessData: clearAllAccessData
   };
 });

@@ -114,6 +114,20 @@
   .danger-btn { background: #fff; color: #8a1c1c; border: 2px solid #8a1c1c; font-size: 1rem; padding: 10px 18px; min-height: 44px; }
   #deleteConfirmRow { display: none; gap: 10px; }
   #deleteConfirmRow.show { display: flex; }
+
+  #observationForm { margin-top: 20px; }
+  #observationForm h3 { font-size: 1.15rem; margin: 20px 0 8px; }
+  #observationForm h3:first-of-type { margin-top: 0; }
+  .observation-note {
+    font-size: 0.9rem; color: #555; margin: 0 0 12px; padding: 8px 12px;
+    background: #f4f4f4; border-radius: 10px;
+  }
+  #supportTypesGroup { margin-top: 4px; }
+  #supportTypesGroup label { padding-left: 20px; }
+  #pruneNotice {
+    display: none; background: #fff6e0; color: #6b4d00; font-weight: bold;
+    padding: 10px 16px; border-radius: 12px; margin: 12px 0; font-size: 0.9rem;
+  }
 </style>
 </head>
 <body>
@@ -153,6 +167,55 @@
   <div id="saveFailureBanner" role="alert" aria-live="assertive"></div>
   <p id="summaryText"></p>
   <p id="storedSummaryText"></p>
+  <div id="pruneNotice" role="status" aria-live="polite"></div>
+
+  <div id="observationForm">
+    <h3>状況の記録</h3>
+
+    <fieldset id="postureGroup">
+      <legend>活動時の姿勢</legend>
+      <label><input type="radio" name="posture" value="未記録" checked> 未記録</label>
+      <label><input type="radio" name="posture" value="座位"> 座位</label>
+      <label><input type="radio" name="posture" value="立位"> 立位</label>
+      <label><input type="radio" name="posture" value="臥位"> 臥位</label>
+      <label><input type="radio" name="posture" value="その他"> その他（抱かれている場合など）</label>
+    </fieldset>
+
+    <fieldset id="supportGroup">
+      <legend>活動時の支援</legend>
+      <label><input type="checkbox" id="supportUnrecordedToggle" checked> 未記録</label>
+      <label><input type="checkbox" id="supportNoneConfirmedToggle" disabled> 支援・環境調整は特になし（確認済み）</label>
+      <div id="supportTypesGroup">
+        <label><input type="checkbox" name="supportType" value="声かけ・音声による促し" disabled> 声かけ・音声による促し</label>
+        <label><input type="checkbox" name="supportType" value="視覚的な提示・促し" disabled> 視覚的な提示・促し</label>
+        <label><input type="checkbox" name="supportType" value="身体的な支援" disabled> 身体的な支援</label>
+        <label><input type="checkbox" name="supportType" value="姿勢・機器配置などの環境調整" disabled> 姿勢・機器配置などの環境調整</label>
+      </div>
+    </fieldset>
+
+    <fieldset id="operationPartGroup">
+      <legend>主な操作部位</legend>
+      <label><input type="radio" name="operationPart" value="未記録" checked> 未記録</label>
+      <label><input type="radio" name="operationPart" value="手・指"> 手・指</label>
+      <label><input type="radio" name="operationPart" value="頭部・顔"> 頭部・顔</label>
+      <label><input type="radio" name="operationPart" value="足"> 足</label>
+      <label><input type="radio" name="operationPart" value="その他"> その他</label>
+      <label><input type="radio" name="operationPart" value="該当なし"> 該当なし</label>
+    </fieldset>
+
+    <h3>教員の観察</h3>
+    <p class="observation-note">この項目は教員の所感・参考情報であり、機械的な操作記録とは異なります。この2つの選択肢に優劣はありません。</p>
+    <fieldset id="teacherImpressionGroup">
+      <legend>教員が観察した活動への関わり</legend>
+      <label><input type="checkbox" name="teacherObservation" value="自分から働きかける様子が見られた"> 自分から働きかける様子が見られた</label>
+      <label><input type="checkbox" name="teacherObservation" value="促しをきっかけに働きかける様子が見られた"> 促しをきっかけに働きかける様子が見られた</label>
+      <label><input type="checkbox" name="teacherObservation" value="判断が難しい"> 判断が難しい</label>
+    </fieldset>
+
+    <button type="button" id="saveObservationBtn" class="secondary-btn">観察記録を保存する</button>
+    <p id="observationStatus" class="sr-only" role="status" aria-live="polite"></p>
+  </div>
+
   <button type="button" id="restartBtn" class="primary-btn">もういちど</button>
   <div class="record-actions">
     <button type="button" id="deleteRecordsBtn" class="secondary-btn">保存した記録を削除する</button>
@@ -193,6 +256,15 @@
   var deleteConfirmYesBtn = document.getElementById('deleteConfirmYesBtn');
   var deleteConfirmNoBtn = document.getElementById('deleteConfirmNoBtn');
   var deleteStatus = document.getElementById('deleteStatus');
+  var pruneNotice = document.getElementById('pruneNotice');
+  var postureRadios = document.querySelectorAll('input[name="posture"]');
+  var supportUnrecordedToggle = document.getElementById('supportUnrecordedToggle');
+  var supportNoneConfirmedToggle = document.getElementById('supportNoneConfirmedToggle');
+  var supportTypeCheckboxes = document.querySelectorAll('input[name="supportType"]');
+  var operationPartRadios = document.querySelectorAll('input[name="operationPart"]');
+  var teacherObservationCheckboxes = document.querySelectorAll('input[name="teacherObservation"]');
+  var saveObservationBtn = document.getElementById('saveObservationBtn');
+  var observationStatus = document.getElementById('observationStatus');
 
   // ===== 状態 =====
   // events[]はメモリ上の作業用バッファ。活動終了時にsession記録として
@@ -399,7 +471,14 @@
     triggerFeedback(pos.x, pos.y);
   }
 
+  // 活動画面(#screen-activity)がactiveな時のみSpace/Enterをスキャン操作として
+  // 扱う(Design v2.1 §6・承認事項5)。これが無いと、終了画面(#screen-end)の
+  // 観察フォームのcheckbox/radioにフォーカスした状態でSpaceを押した際、
+  // ネイティブのトグル操作をe.preventDefault()が妨げてしまう
+  // (既存のvisibilitychangeハンドラのscreens.activity.classList.contains('active')
+  // 確認と同じ前例を踏襲)。
   function onSwitchKeyDown(e) {
+    if (!screens.activity.classList.contains('active')) return;
     if (state.inputMethod !== 'switch') return;
     if (e.key !== ' ' && e.key !== 'Enter') return;
     e.preventDefault();
@@ -409,6 +488,7 @@
   }
 
   function onSwitchKeyUp(e) {
+    if (!screens.activity.classList.contains('active')) return;
     if (e.key !== ' ' && e.key !== 'Enter') return;
     if (!repeatGuard.onKeyUp(e.key)) return;
     if (pendingSwitchActivateTs === null) return;
@@ -488,6 +568,169 @@
     saveFailureBanner.textContent = '';
   }
 
+  // ===== 教員観察記録(Design v2.1、2026-10-18承認) =====
+  function showPruneNotice(msg) {
+    pruneNotice.textContent = msg;
+    pruneNotice.style.display = 'block';
+  }
+  function hidePruneNotice() {
+    pruneNotice.style.display = 'none';
+    pruneNotice.textContent = '';
+  }
+
+  function setSupportControlsEnabled(enabled) {
+    supportNoneConfirmedToggle.disabled = !enabled;
+    supportTypeCheckboxes.forEach(function (cb) { cb.disabled = !enabled; });
+  }
+
+  // resetObservationForm(): 新しいsession（activity）ごとに観察フォームを
+  // 初期状態（すべて未記録）へ戻す。前回sessionの入力が次回へ持ち越されない
+  // ようにする(Design v2.1 §4：schemaVersion/sessionIdはsession単位で別)。
+  function resetObservationForm() {
+    postureRadios.forEach(function (r) { r.checked = (r.value === '未記録'); });
+    operationPartRadios.forEach(function (r) { r.checked = (r.value === '未記録'); });
+    teacherObservationCheckboxes.forEach(function (cb) { cb.checked = false; });
+    supportUnrecordedToggle.checked = true;
+    supportNoneConfirmedToggle.checked = false;
+    supportTypeCheckboxes.forEach(function (cb) { cb.checked = false; });
+    setSupportControlsEnabled(false);
+    observationStatus.textContent = '';
+  }
+
+  // 「未記録」がOFFになった時のみ「特になし確認済み」と4種別checkboxを操作
+  // 可能にする。「未記録」を再度ONにした場合は他の入力を破棄して初期状態へ
+  // 戻す(Design v2.1 §3-B UI上の排他制御)。
+  supportUnrecordedToggle.addEventListener('change', function () {
+    if (supportUnrecordedToggle.checked) {
+      supportNoneConfirmedToggle.checked = false;
+      supportTypeCheckboxes.forEach(function (cb) { cb.checked = false; });
+      setSupportControlsEnabled(false);
+    } else {
+      setSupportControlsEnabled(true);
+    }
+  });
+  // 4種別のいずれか1つでもチェックされた場合、「特になし確認済み」は
+  // 自動的に解除される(矛盾する同時選択の防止、Design v2.1 §3-B)。
+  supportTypeCheckboxes.forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      if (cb.checked) supportNoneConfirmedToggle.checked = false;
+    });
+  });
+
+  // 「判断が難しい」と他の2項目は排他(UI側、Design v2.1 §3-D)。データ層でも
+  // isValidTeacherImpression()で同じ制約を保存時に再検証する(§4.1)。
+  teacherObservationCheckboxes.forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      if (!cb.checked) return;
+      if (cb.value === '判断が難しい') {
+        teacherObservationCheckboxes.forEach(function (other) {
+          if (other !== cb) other.checked = false;
+        });
+      } else {
+        teacherObservationCheckboxes.forEach(function (other) {
+          if (other.value === '判断が難しい') other.checked = false;
+        });
+      }
+    });
+  });
+
+  // collectObservationInput(): フォームの現在値をnoteレコード相当の形
+  // {posture,support,operationPart,teacherImpression}に集約する純粋な読み取り。
+  function collectObservationInput() {
+    var posture = '未記録';
+    postureRadios.forEach(function (r) { if (r.checked) posture = r.value; });
+    var operationPart = '未記録';
+    operationPartRadios.forEach(function (r) { if (r.checked) operationPart = r.value; });
+    var types = [];
+    supportTypeCheckboxes.forEach(function (cb) { if (cb.checked) types.push(cb.value); });
+    var observations = [];
+    teacherObservationCheckboxes.forEach(function (cb) { if (cb.checked) observations.push(cb.value); });
+    return {
+      posture: posture,
+      support: { recorded: !supportUnrecordedToggle.checked, types: types },
+      operationPart: operationPart,
+      teacherImpression: { recorded: observations.length > 0, observations: observations }
+    };
+  }
+
+  // saveObservationBtn: 明示的な保存操作のみでnotesキーへ書き込む
+  // (Design v2.1 §4)。保存を妨げるすべての条件（未入力・sessionId不在・
+  // ログ側異常・既存note不正・書込失敗）は、既存データを一切変更せずに
+  // 保留し、断定しすぎない文言で利用者に伝える(§4.2・§5-8と同じ精神)。
+  saveObservationBtn.addEventListener('click', function () {
+    var input = collectObservationInput();
+    if (Core.isNoteContentEmpty(input)) {
+      observationStatus.textContent = '記録する内容が選択されていなかったため、何も保存しませんでした。';
+      return;
+    }
+    if (typeof state.sessionId !== 'string' || !state.sessionId) {
+      observationStatus.textContent = '保存対象の活動が見つからなかったため、保存できませんでした。';
+      return;
+    }
+    var logRead = Core.safeReadSessions(localStorage);
+    if (logRead.anomaly !== null) {
+      observationStatus.textContent = '活動記録を正しく読み込めなかったため、観察記録を保存できませんでした。';
+      return;
+    }
+    if (!Core.findNoteBySessionId(logRead.items, state.sessionId)) {
+      observationStatus.textContent = '対応する活動記録が見つからなかったため、観察記録を保存できませんでした。';
+      return;
+    }
+    var note = Core.buildNoteRecord({
+      sessionId: state.sessionId,
+      posture: input.posture,
+      support: input.support,
+      operationPart: input.operationPart,
+      teacherImpression: input.teacherImpression,
+      recordedAt: new Date().toISOString()
+    });
+    if (!Core.isValidNoteRecord(note)) {
+      observationStatus.textContent = '入力内容を確認できなかったため、観察記録を保存できませんでした。';
+      return;
+    }
+    var notesRead = Core.safeReadNotes(localStorage);
+    if (notesRead.anomaly !== null) {
+      observationStatus.textContent = '既存の観察記録を正しく読み込めなかったため、今回の保存を見合わせました。保存済みの記録はそのまま保持されています。';
+      return;
+    }
+    var upsertResult = Core.upsertNote(notesRead.items, note);
+    if (!upsertResult.ok) {
+      observationStatus.textContent = '以前の記録に問題が見つかったため、今回の保存を一時的に見合わせました。保存済みの記録はそのまま保持されています。';
+      return;
+    }
+    var writeResult = Core.writeNotes(localStorage, upsertResult.items);
+    if (!writeResult.ok) {
+      observationStatus.textContent = '観察記録を端末に保存できませんでした（理由: ' + writeResult.reason + '）。';
+      return;
+    }
+    observationStatus.textContent = '観察記録を保存しました。';
+  });
+
+  // attemptNotesPrune(): MAX_SESSIONS超過で切り捨てられたsessionIdに対応する
+  // 孤立観察記録を整理する(Design v2.1 §5-4〜§5-5・§5-12)。ログ側・notes側
+  // の両方が異常なく読み込めた場合のみ実行し、軸A（sessionId対応）のみを
+  // 削除基準とする。renderStoredSummary()から1回の表示につき1回のみ呼ばれる
+  // (§5-8「同一画面表示中に無制限な自動再試行を繰り返さない」)。
+  function attemptNotesPrune() {
+    hidePruneNotice();
+    var logRead = Core.safeReadSessions(localStorage);
+    if (logRead.anomaly !== null) return; // ログ側異常時はpruneしない(§5-6)
+    var notesRead = Core.safeReadNotes(localStorage);
+    if (notesRead.anomaly !== null) return; // notes側異常時もpruneしない(§5-7)
+    var validSessionIds = logRead.items
+      .map(function (s) { return s && s.sessionId; })
+      .filter(function (id) { return typeof id === 'string' && id; });
+    var pruneResult = Core.pruneOrphanNotes(validSessionIds, notesRead.items);
+    if (!pruneResult.ok) return; // 軸Aを安全に判定できないレコードがある場合は保留(§5-12)
+    if (pruneResult.items.length === notesRead.items.length) return; // 変更なし、書込不要
+    var writeResult = Core.writeNotes(localStorage, pruneResult.items);
+    if (!writeResult.ok) {
+      // setItem()は1キー全体が成功するか例外を投げるかのいずれかであり、
+      // 失敗時は既存の保存済み内容が変更されていないことが保証される(§5-8)。
+      showPruneNotice('記録の整理を完了できませんでした。保存済みの記録はそのまま保持されています。');
+    }
+  }
+
   // renderStoredSummary(): 端末内に保存されている全記録の件数表示
   // (設計文書10章「終了後の簡易記録表示」)。件数のみの客観的事実であり、
   // 主体性・意欲の評価は一切行わない(設計文書7.4節原則)。
@@ -496,11 +739,13 @@
     var summary = Core.summarizeSessions(read.items);
     storedSummaryText.textContent = 'これまでに端末へ保存された記録は ' + summary.sessionCount +
       '件、合計の操作は ' + summary.totalActivateCount + '回です。';
+    attemptNotesPrune();
   }
 
   function endActivity() {
     teardownInputState();
     hideSaveFailureBanner();
+    resetObservationForm();
     var count = state.events.filter(function (e) { return e.type === 'activate'; }).length;
     var inputMethodLabel = state.inputMethod === 'touch' ? 'タッチ' :
       state.inputMethod === 'swipe' ? 'スワイプ' : '外部スイッチ';
@@ -525,6 +770,8 @@
   }
 
   // ===== 記録削除(設計文書8章Must、他者との端末共用リスクへの対処) =====
+  // Design v2.1 §5-1: notesキーを先に削除し、成功を確認した後にlogsキーを
+  // 削除する(clearAllAccessData()。既存のclearSessions()自体は変更しない)。
   function resetDeleteConfirm() {
     deleteConfirmRow.classList.remove('show');
   }
@@ -533,13 +780,16 @@
   });
   deleteConfirmNoBtn.addEventListener('click', resetDeleteConfirm);
   deleteConfirmYesBtn.addEventListener('click', function () {
-    var result = Core.clearSessions(localStorage);
+    var result = Core.clearAllAccessData(localStorage);
     resetDeleteConfirm();
     if (result.ok) {
       deleteStatus.textContent = '保存されていた記録を削除しました。';
       renderStoredSummary();
     } else {
-      deleteStatus.textContent = '記録の削除に失敗しました（理由: ' + result.reason + '）。';
+      var failedParts = [];
+      if (!result.notes.ok) failedParts.push('観察記録');
+      if (!result.logs.ok) failedParts.push('活動記録');
+      deleteStatus.textContent = '記録の削除に失敗しました（対象: ' + failedParts.join('・') + '）。';
     }
   });
 
