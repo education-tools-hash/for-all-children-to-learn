@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>どのまな Access（開発版）</title>
+<!--
+  Donomana Access — Phase 2: Core Input & Feedback（開発中のcheckpoint）。
+  このファイルはまだ apps-data.json / index.html / generate.js へ登録していない
+  （DONOMANA-ACCESS-PHASE-2-CORE-INPUT-FEEDBACK-1 Step 9 Approved Diff Scopeの
+  とおり、Production公開対象のアプリ一覧への追加は本Phaseでは行わない）。
+  操作記録の永続保存・学習記録表示・教師の観察メモ・JSONエクスポートはPhase 3以降。
+-->
+<style>
+  :root {
+    --donomana-teal: #00A99D;
+    --donomana-teal-dark: #00857c;
+    --bg: #fdfdfb;
+    --text: #222;
+    --surface-bg: #eef7f6;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; overflow-x: hidden;
+    font-family: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .screen { display: none; min-height: 100vh; padding: 24px 20px; }
+  .screen.active { display: flex; flex-direction: column; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  h2 { font-size: 1.4rem; margin: 0 0 12px; }
+  .lead { margin: 0 0 20px; font-size: 1.05rem; }
+  fieldset {
+    border: 2px solid #ddd; border-radius: 16px; padding: 14px 16px; margin: 0 0 16px;
+  }
+  legend { font-weight: bold; padding: 0 6px; }
+  fieldset label {
+    display: flex; align-items: center; gap: 10px; padding: 10px 4px; font-size: 1.05rem;
+  }
+  fieldset input[type="radio"], fieldset input[type="checkbox"] {
+    width: 24px; height: 24px; flex: 0 0 auto;
+  }
+  button {
+    font-family: inherit; cursor: pointer; border: none; border-radius: 16px;
+  }
+  button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--donomana-teal-dark); outline-offset: 2px;
+  }
+  .primary-btn {
+    background: var(--donomana-teal); color: #fff; font-size: 1.3rem; font-weight: bold;
+    padding: 18px 28px; margin-top: 12px; min-height: 56px;
+  }
+  .primary-btn:hover { background: var(--donomana-teal-dark); }
+
+  #screen-activity { padding: 0; position: relative; }
+  #activitySurface {
+    flex: 1; width: 100%; min-height: 100vh; background: var(--surface-bg);
+    touch-action: none; position: relative; overflow: hidden;
+  }
+  body.input-switch #activitySurface { touch-action: auto; }
+  #switchActionBtn {
+    display: none; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(60vw, 320px); height: min(60vw, 320px); border-radius: 50%;
+    background: var(--donomana-teal); color: #fff; font-size: 1.4rem; font-weight: bold;
+  }
+  body.input-switch #switchActionBtn { display: block; }
+  body.input-switch #activitySurface { background: #f4f4f4; }
+
+  #switchActionBtn.scan-focus,
+  #endBtn.scan-focus {
+    outline: 6px solid #ff7a00; outline-offset: 3px;
+  }
+
+  #endBtn {
+    position: fixed; top: 14px; right: 14px; z-index: 10;
+    background: #fff; color: var(--text); border: 2px solid #999;
+    font-size: 1.05rem; padding: 12px 20px; min-height: 48px;
+  }
+
+  #feedbackLayer {
+    position: absolute; inset: 0; pointer-events: none; z-index: 5;
+  }
+  .feedback-dot {
+    position: absolute; border-radius: 50%; background: #ffd400;
+    transform: translate(-50%, -50%) scale(0.2); opacity: 0.9;
+    transition: transform 320ms ease-out, opacity 320ms ease-out;
+  }
+  .feedback-dot.grow { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  body.reduce-motion .feedback-dot {
+    transition: opacity 260ms ease-out; transform: translate(-50%, -50%) scale(0.9);
+  }
+  body.reduce-motion .feedback-dot.grow {
+    transform: translate(-50%, -50%) scale(0.9); opacity: 0;
+  }
+
+  #summaryText { font-size: 1.1rem; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0);
+  }
+</style>
+</head>
+<body>
+
+<div class="screen active" id="screen-setup" data-screen="setup">
+  <h1>どのまな Access（開発版）</h1>
+  <p class="lead">まず、つかう方法をえらんでください。</p>
+
+  <fieldset id="inputMethodGroup">
+    <legend>入力方法</legend>
+    <label><input type="radio" name="inputMethod" value="touch" checked> タッチ（画面をさわる）</label>
+    <label><input type="radio" name="inputMethod" value="switch"> 外部スイッチ</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>かんきょう設定</legend>
+    <label><input type="checkbox" id="soundToggle" checked> 音を出す</label>
+    <label><input type="checkbox" id="reduceMotionToggle"> 動きを弱める</label>
+  </fieldset>
+
+  <button type="button" id="startBtn" class="primary-btn">はじめる</button>
+  <p id="setupStatus" class="sr-only" role="status" aria-live="polite"></p>
+</div>
+
+<div class="screen" id="screen-activity" data-screen="activity">
+  <div id="activitySurface" aria-label="操作エリア。タッチで働きかけてください。">
+    <button type="button" id="switchActionBtn" class="scannable" data-scan="1" aria-label="はたらきかける">はたらきかける</button>
+    <div id="feedbackLayer" aria-hidden="true"></div>
+  </div>
+  <button type="button" id="endBtn" class="scannable" data-scan="1">おわる</button>
+  <p id="activityStatus" class="sr-only" role="status" aria-live="polite"></p>
+</div>
+
+<div class="screen" id="screen-end" data-screen="end">
+  <h2>おつかれさまでした</h2>
+  <p id="summaryText"></p>
+  <button type="button" id="restartBtn" class="primary-btn">もういちど</button>
+</div>
+
+<script src="assets/js/donomana-access-core.js"></script>
+<script>
+(function () {
+  'use strict';
+  var Core = window.DonomanaAccessCore;
+
+  var screens = {
+    setup: document.getElementById('screen-setup'),
+    activity: document.getElementById('screen-activity'),
+    end: document.getElementById('screen-end')
+  };
+  var activitySurface = document.getElementById('activitySurface');
+  var switchActionBtn = document.getElementById('switchActionBtn');
+  var endBtn = document.getElementById('endBtn');
+  var feedbackLayer = document.getElementById('feedbackLayer');
+  var startBtn = document.getElementById('startBtn');
+  var restartBtn = document.getElementById('restartBtn');
+  var soundToggle = document.getElementById('soundToggle');
+  var reduceMotionToggle = document.getElementById('reduceMotionToggle');
+  var summaryText = document.getElementById('summaryText');
+  var activityStatus = document.getElementById('activityStatus');
+
+  // ===== 状態 =====
+  // events[]は本Phaseではメモリ上に保持するだけで、永続保存は行わない
+  // (Phase 3でLearning Record Foundationへの接続を検討する、Design Approval文書6章)。
+  var state = {
+    inputMethod: 'touch',
+    soundOn: true,
+    reduceMotion: false,
+    events: []
+  };
+
+  var repeatGuard = Core.createRepeatGuard();
+  var activePointers = Object.create(null); // pointerId -> {startTs, el}
+  var scanState = { items: [], index: 0, timer: null };
+  var pendingSwitchActivateTs = null; // 直近のswitch/keyboard activateのtimestamp（release時のduration計算用）
+  var audioCtx = null;
+
+  function showScreen(name) {
+    Object.keys(screens).forEach(function (key) {
+      screens[key].classList.toggle('active', key === name);
+    });
+  }
+
+  // ===== 共通イベント記録 =====
+  function recordEvent(opts) {
+    var evt = Core.makeEvent(opts);
+    state.events.push(evt);
+    return evt;
+  }
+
+  // ===== フィードバック =====
+  function unlockAudioContext() {
+    if (audioCtx) return;
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioCtx = new Ctx();
+    } catch (err) { audioCtx = null; }
+  }
+
+  function playTone() {
+    if (!state.soundOn || !audioCtx) return;
+    try {
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.frequency.value = 660;
+      gain.gain.value = 0.15;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    } catch (err) { /* 音声再生に失敗しても活動は継続する */ }
+  }
+
+  // triggerFeedback(): 操作位置に視覚（拡大→消える円）＋聴覚（単音、ON/OFF可）の
+  // 即時フィードバックを発生させる。正解/不正解の概念は持たない
+  // (sawatte-hirogaru-app.htmlのtriggerReaction相当のADAPT、Design Approval文書2.1節#4)。
+  function triggerFeedback(localX, localY) {
+    var dot = document.createElement('div');
+    dot.className = 'feedback-dot';
+    var size = state.reduceMotion ? 90 : 70;
+    dot.style.width = size + 'px';
+    dot.style.height = size + 'px';
+    dot.style.left = localX + 'px';
+    dot.style.top = localY + 'px';
+    feedbackLayer.appendChild(dot);
+    requestAnimationFrame(function () {
+      dot.classList.add('grow');
+    });
+    setTimeout(function () {
+      if (dot.parentNode) dot.parentNode.removeChild(dot);
+    }, 400);
+    playTone();
+  }
+
+  function surfaceLocalXY(clientX, clientY) {
+    var rect = activitySurface.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function elementCenterLocalXY(el) {
+    var rect = el.getBoundingClientRect();
+    var surfaceRect = activitySurface.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2 - surfaceRect.left,
+      y: rect.top + rect.height / 2 - surfaceRect.top
+    };
+  }
+
+  // ===== タッチ（Pointer Events） =====
+  // sawatte-hirogaru-app.htmlのpointerdown/pointermove/pointerup/pointercancel
+  // パターンを新規画面へ適用したもの（ADAPT、Design Approval文書2.1節#2）。
+  function onPointerDown(e) {
+    if (state.inputMethod !== 'touch') return;
+    unlockAudioContext();
+    var pos = surfaceLocalXY(e.clientX, e.clientY);
+    activePointers[e.pointerId] = { startTs: performance.now(), x: pos.x, y: pos.y };
+    try { activitySurface.setPointerCapture(e.pointerId); } catch (err) {}
+    recordEvent({
+      type: 'activate', inputMethod: 'touch', timestamp: performance.now(),
+      position: { x: pos.x, y: pos.y }
+    });
+    triggerFeedback(pos.x, pos.y);
+  }
+
+  function onPointerMove(e) {
+    if (state.inputMethod !== 'touch') return;
+    var p = activePointers[e.pointerId];
+    if (!p) return;
+    var pos = surfaceLocalXY(e.clientX, e.clientY);
+    // Plan Aでは移動量そのものを評価条件にしない（スワイプ独立モードはPlan B）。
+    // moveイベントは共通schemaに接続可能な形としてのみ記録する（過剰発火を避け、
+    // 一定距離を超えた場合のみ記録する）。
+    var dx = pos.x - p.x, dy = pos.y - p.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 12) return;
+    p.x = pos.x; p.y = pos.y;
+    recordEvent({
+      type: 'move', inputMethod: 'touch', timestamp: performance.now(),
+      position: { x: pos.x, y: pos.y }, movement: { dx: dx, dy: dy }
+    });
+  }
+
+  function endPointer(e, cancelled) {
+    if (state.inputMethod !== 'touch') return;
+    var p = activePointers[e.pointerId];
+    if (!p) return;
+    delete activePointers[e.pointerId];
+    var now = performance.now();
+    recordEvent({
+      type: cancelled ? 'cancel' : 'release', inputMethod: 'touch', timestamp: now,
+      duration: Core.computeDuration(p.startTs, now),
+      position: { x: p.x, y: p.y }
+    });
+  }
+  function onPointerUp(e) { endPointer(e, false); }
+  function onPointerCancel(e) { endPointer(e, true); }
+
+  // ===== 外部スイッチ（Switch Scan、directions-app.htmlの6関数パターンを一般化） =====
+  // 既存アプリ(directions-app.html等)側のコードは変更しない。Access側で同等の
+  // ロジックを新規実装し、既存に無かったe.repeat抑制を追加する
+  // (Design Approval文書4.2節で確認した既存21アプリ共通のギャップへの対応)。
+  var SCAN_SPEED_MS = 1200;
+
+  function clearScanHighlight() {
+    scanState.items.forEach(function (el) { el.classList.remove('scan-focus'); });
+  }
+
+  function refreshScanItems() {
+    var activeScreen = screens.activity;
+    return Core.buildScanItems(activeScreen).filter(function (el) {
+      return el.offsetParent !== null; // switchActionBtnはdisplay:noneの時があるため除外
+    });
+  }
+
+  function stopScan() {
+    if (scanState.timer) { clearInterval(scanState.timer); scanState.timer = null; }
+    clearScanHighlight();
+  }
+
+  function startScan() {
+    stopScan();
+    if (state.inputMethod !== 'switch') return;
+    var items = refreshScanItems();
+    if (items.length === 0) return;
+    scanState.items = items;
+    scanState.index = 0;
+    var highlight = function () {
+      clearScanHighlight();
+      if (scanState.items[scanState.index]) scanState.items[scanState.index].classList.add('scan-focus');
+      scanState.index = (scanState.index + 1) % scanState.items.length;
+    };
+    highlight();
+    scanState.timer = setInterval(highlight, SCAN_SPEED_MS);
+  }
+
+  function activateCurrentScanItem() {
+    var focused = activitySurface.querySelector('.scan-focus') || (endBtn.classList.contains('scan-focus') ? endBtn : null);
+    if (!focused) return;
+    var now = performance.now();
+    pendingSwitchActivateTs = now;
+    var pos = elementCenterLocalXY(focused);
+    recordEvent({
+      type: 'activate', inputMethod: 'switch', timestamp: now,
+      position: focused === endBtn ? null : pos
+    });
+    if (focused === endBtn) {
+      endActivity();
+      return;
+    }
+    triggerFeedback(pos.x, pos.y);
+  }
+
+  function onSwitchKeyDown(e) {
+    if (state.inputMethod !== 'switch') return;
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!repeatGuard.onKeyDown(e.key, e.repeat)) return; // OSキーリピート・二重押下開始を抑制
+    unlockAudioContext();
+    activateCurrentScanItem();
+  }
+
+  function onSwitchKeyUp(e) {
+    if (e.key !== ' ' && e.key !== 'Enter') return;
+    if (!repeatGuard.onKeyUp(e.key)) return;
+    if (pendingSwitchActivateTs === null) return;
+    var now = performance.now();
+    recordEvent({
+      type: 'release', inputMethod: 'switch', timestamp: now,
+      duration: Core.computeDuration(pendingSwitchActivateTs, now)
+    });
+    pendingSwitchActivateTs = null;
+  }
+
+  // blur・画面非表示時の安全な解除（長押し誤発火防止・押下状態のリーク防止）。
+  function releaseAllSwitchState() {
+    var leaked = repeatGuard.releaseAll();
+    if (leaked.length > 0 && pendingSwitchActivateTs !== null) {
+      recordEvent({ type: 'cancel', inputMethod: 'switch', timestamp: performance.now() });
+    }
+    pendingSwitchActivateTs = null;
+  }
+
+  window.addEventListener('blur', releaseAllSwitchState);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      releaseAllSwitchState();
+      stopScan();
+    } else if (state.inputMethod === 'switch' && screens.activity.classList.contains('active')) {
+      startScan();
+    }
+  });
+
+  // ===== 入力方式切替・画面遷移時の状態初期化 =====
+  // 入力方式切替・画面離脱のいずれでも、前の入力状態（走査タイマー・押下状態・
+  // ポインタ）を必ずクリアしてから次の状態へ入る(Step 6・Step 9の明示要求)。
+  function teardownInputState() {
+    stopScan();
+    releaseAllSwitchState();
+    activePointers = Object.create(null);
+  }
+
+  function applyInputMethodToBody() {
+    document.body.classList.toggle('input-switch', state.inputMethod === 'switch');
+    document.body.classList.toggle('input-touch', state.inputMethod === 'touch');
+  }
+
+  function startActivity() {
+    teardownInputState();
+    state.events = [];
+    applyInputMethodToBody();
+    showScreen('activity');
+    if (state.inputMethod === 'switch') {
+      // レイアウト確定後にscanを開始する(switchActionBtnのoffsetParent判定が
+      // display切替直後は不安定なため、次フレームへ回す)。
+      requestAnimationFrame(function () { startScan(); });
+    }
+  }
+
+  function endActivity() {
+    teardownInputState();
+    var count = state.events.filter(function (e) { return e.type === 'activate'; }).length;
+    summaryText.textContent = '今回の操作（はたらきかけ）は ' + count + ' 回でした（入力方式: ' +
+      (state.inputMethod === 'touch' ? 'タッチ' : '外部スイッチ') + '）。';
+    showScreen('end');
+  }
+
+  // ===== イベント結線 =====
+  activitySurface.addEventListener('pointerdown', onPointerDown);
+  activitySurface.addEventListener('pointermove', onPointerMove);
+  activitySurface.addEventListener('pointerup', onPointerUp);
+  activitySurface.addEventListener('pointercancel', onPointerCancel);
+
+  document.addEventListener('keydown', onSwitchKeyDown);
+  document.addEventListener('keyup', onSwitchKeyUp);
+
+  soundToggle.addEventListener('change', function () { state.soundOn = soundToggle.checked; });
+  reduceMotionToggle.addEventListener('change', function () {
+    state.reduceMotion = reduceMotionToggle.checked;
+    document.body.classList.toggle('reduce-motion', state.reduceMotion);
+  });
+
+  document.querySelectorAll('input[name="inputMethod"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      if (radio.checked) state.inputMethod = radio.value;
+    });
+  });
+
+  startBtn.addEventListener('click', startActivity);
+  endBtn.addEventListener('click', endActivity);
+  restartBtn.addEventListener('click', function () { showScreen('setup'); });
+
+})();
+</script>
+</body>
+</html>
