@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>どのまな Access（開発版）</title>
 <!--
-  Donomana Access — Phase 2: Core Input & Feedback（開発中のcheckpoint）。
+  Donomana Access — Phase 3: Record & Storage（開発中のcheckpoint）。
   このファイルはまだ apps-data.json / index.html / generate.js へ登録していない
-  （DONOMANA-ACCESS-PHASE-2-CORE-INPUT-FEEDBACK-1 Step 9 Approved Diff Scopeの
-  とおり、Production公開対象のアプリ一覧への追加は本Phaseでは行わない）。
-  操作記録の永続保存・学習記録表示・教師の観察メモ・JSONエクスポートはPhase 3以降。
+  （Production公開対象のアプリ一覧への追加は本Phaseでも行わない）。
+  基本操作ログ・活動後の記録表示・端末内保存をPhase 3で実装。教師の観察メモ・
+  JSONエクスポート・スワイプ独立モードはPlan B（後続Phase）の対象。
+  外部送信は一切行わない（localStorageのみ）。
 -->
 <style>
   :root {
@@ -94,10 +95,22 @@
     transform: translate(-50%, -50%) scale(0.9); opacity: 0;
   }
 
-  #summaryText { font-size: 1.1rem; }
+  #summaryText, #storedSummaryText { font-size: 1.1rem; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0);
   }
+  #saveFailureBanner {
+    display: none; background: #8a1c1c; color: #fff; font-weight: bold;
+    padding: 10px 16px; border-radius: 12px; margin: 12px 0; font-size: 0.95rem;
+  }
+  .record-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .secondary-btn {
+    background: #fff; color: var(--text); border: 2px solid #999; font-size: 1rem;
+    padding: 10px 18px; min-height: 44px;
+  }
+  .danger-btn { background: #fff; color: #8a1c1c; border: 2px solid #8a1c1c; font-size: 1rem; padding: 10px 18px; min-height: 44px; }
+  #deleteConfirmRow { display: none; gap: 10px; }
+  #deleteConfirmRow.show { display: flex; }
 </style>
 </head>
 <body>
@@ -133,8 +146,19 @@
 
 <div class="screen" id="screen-end" data-screen="end">
   <h2>おつかれさまでした</h2>
+  <div id="saveFailureBanner" role="alert" aria-live="assertive"></div>
   <p id="summaryText"></p>
+  <p id="storedSummaryText"></p>
   <button type="button" id="restartBtn" class="primary-btn">もういちど</button>
+  <div class="record-actions">
+    <button type="button" id="deleteRecordsBtn" class="secondary-btn">保存した記録を削除する</button>
+    <div id="deleteConfirmRow">
+      <span>本当に削除しますか？この操作は取り消せません。</span>
+      <button type="button" id="deleteConfirmYesBtn" class="danger-btn">削除する</button>
+      <button type="button" id="deleteConfirmNoBtn" class="secondary-btn">もどる</button>
+    </div>
+    <p id="deleteStatus" class="sr-only" role="status" aria-live="polite"></p>
+  </div>
 </div>
 
 <script src="assets/js/donomana-access-core.js"></script>
@@ -157,16 +181,26 @@
   var soundToggle = document.getElementById('soundToggle');
   var reduceMotionToggle = document.getElementById('reduceMotionToggle');
   var summaryText = document.getElementById('summaryText');
+  var storedSummaryText = document.getElementById('storedSummaryText');
   var activityStatus = document.getElementById('activityStatus');
+  var saveFailureBanner = document.getElementById('saveFailureBanner');
+  var deleteRecordsBtn = document.getElementById('deleteRecordsBtn');
+  var deleteConfirmRow = document.getElementById('deleteConfirmRow');
+  var deleteConfirmYesBtn = document.getElementById('deleteConfirmYesBtn');
+  var deleteConfirmNoBtn = document.getElementById('deleteConfirmNoBtn');
+  var deleteStatus = document.getElementById('deleteStatus');
 
   // ===== 状態 =====
-  // events[]は本Phaseではメモリ上に保持するだけで、永続保存は行わない
-  // (Phase 3でLearning Record Foundationへの接続を検討する、Design Approval文書6章)。
+  // events[]はメモリ上の作業用バッファ。活動終了時にsession記録として
+  // localStorageへ書き出す(Phase 3、設計文書7〜8章)。教師の解釈・メモは
+  // ここに含めない(観測データと教師の記録を構造上分離する設計原則)。
   var state = {
     inputMethod: 'touch',
     soundOn: true,
     reduceMotion: false,
-    events: []
+    events: [],
+    sessionId: null,
+    startedAt: null
   };
 
   var repeatGuard = Core.createRepeatGuard();
@@ -402,9 +436,18 @@
     document.body.classList.toggle('input-touch', state.inputMethod === 'touch');
   }
 
+  // makeSessionId(): session識別のためだけのローカル一意文字列。個人情報は
+  // 含まない。暗号学的な一意性は要求しない(衝突しても1件の記録表示が多少
+  // ずれるだけで、安全性に影響しない用途のため)。
+  function makeSessionId() {
+    return 'access-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
   function startActivity() {
     teardownInputState();
     state.events = [];
+    state.sessionId = makeSessionId();
+    state.startedAt = new Date().toISOString();
     applyInputMethodToBody();
     showScreen('activity');
     if (state.inputMethod === 'switch') {
@@ -414,13 +457,72 @@
     }
   }
 
+  // showSaveFailureBanner(): 保存失敗時の表示(設計文書8章)。既存アプリの
+  // donomanaRecordNotifySaveFailure()と同じ方針(視覚+スクリーンリーダー、
+  // silentに握りつぶさない)をAccess側で新規実装したもの。
+  function showSaveFailureBanner(reason) {
+    var msg = '今回の記録を端末に保存できませんでした（理由: ' + reason + '）。' +
+      '端末の空き容量やブラウザの設定をご確認ください。';
+    saveFailureBanner.textContent = msg;
+    saveFailureBanner.style.display = 'block';
+  }
+  function hideSaveFailureBanner() {
+    saveFailureBanner.style.display = 'none';
+    saveFailureBanner.textContent = '';
+  }
+
+  // renderStoredSummary(): 端末内に保存されている全記録の件数表示
+  // (設計文書10章「終了後の簡易記録表示」)。件数のみの客観的事実であり、
+  // 主体性・意欲の評価は一切行わない(設計文書7.4節原則)。
+  function renderStoredSummary() {
+    var read = Core.safeReadSessions(localStorage);
+    var summary = Core.summarizeSessions(read.items);
+    storedSummaryText.textContent = 'これまでに端末へ保存された記録は ' + summary.sessionCount +
+      '件、合計の操作は ' + summary.totalActivateCount + '回です。';
+  }
+
   function endActivity() {
     teardownInputState();
+    hideSaveFailureBanner();
     var count = state.events.filter(function (e) { return e.type === 'activate'; }).length;
     summaryText.textContent = '今回の操作（はたらきかけ）は ' + count + ' 回でした（入力方式: ' +
       (state.inputMethod === 'touch' ? 'タッチ' : '外部スイッチ') + '）。';
+
+    // ===== 端末内保存(設計文書8章、Must機能#7) =====
+    var sessionRecord = Core.buildSessionRecord({
+      sessionId: state.sessionId,
+      inputMethod: state.inputMethod,
+      startedAt: state.startedAt,
+      endedAt: new Date().toISOString(),
+      events: state.events
+    });
+    var existing = Core.safeReadSessions(localStorage);
+    var updated = Core.appendSession(existing.items, sessionRecord, Core.MAX_SESSIONS);
+    var writeResult = Core.writeSessions(localStorage, updated);
+    if (!writeResult.ok) showSaveFailureBanner(writeResult.reason);
+    renderStoredSummary();
+
     showScreen('end');
   }
+
+  // ===== 記録削除(設計文書8章Must、他者との端末共用リスクへの対処) =====
+  function resetDeleteConfirm() {
+    deleteConfirmRow.classList.remove('show');
+  }
+  deleteRecordsBtn.addEventListener('click', function () {
+    deleteConfirmRow.classList.add('show');
+  });
+  deleteConfirmNoBtn.addEventListener('click', resetDeleteConfirm);
+  deleteConfirmYesBtn.addEventListener('click', function () {
+    var result = Core.clearSessions(localStorage);
+    resetDeleteConfirm();
+    if (result.ok) {
+      deleteStatus.textContent = '保存されていた記録を削除しました。';
+      renderStoredSummary();
+    } else {
+      deleteStatus.textContent = '記録の削除に失敗しました（理由: ' + result.reason + '）。';
+    }
+  });
 
   // ===== イベント結線 =====
   activitySurface.addEventListener('pointerdown', onPointerDown);
@@ -445,7 +547,11 @@
 
   startBtn.addEventListener('click', startActivity);
   endBtn.addEventListener('click', endActivity);
-  restartBtn.addEventListener('click', function () { showScreen('setup'); });
+  restartBtn.addEventListener('click', function () {
+    resetDeleteConfirm();
+    hideSaveFailureBanner();
+    showScreen('setup');
+  });
 
 })();
 </script>
