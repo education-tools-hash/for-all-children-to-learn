@@ -253,6 +253,31 @@ def _show_sst_four_week_review(pg):
     pg.wait_for_timeout(300)
 
 
+def _show_hiragana_trace_tab(pg):
+    """ひらがな まなぼう！：「なぞり」タブ(data-tab="trace")をクリックした
+    状態を撮る(Phase APP-DETAILS-VISUAL-ENHANCEMENT-HIRAGANA-PILOT-F-1、
+    Design Contract §7.4の「2枚目: なぞりタブをクリックした状態の画面」用)。
+
+    hiragana-learn.htmlのタブ切替は単純なclassList操作(.tab-btn/.sectionの
+    activeクラス付け外し)のみで、なぞりタブの内容(ガイド付きcanvas・文字選択
+    行・色/太さツールバー)はページ読み込み時点で既にDOMに存在し、
+    setTraceKana('あ')がスクリプト末尾で無条件に呼ばれているため、タブを
+    表示するだけで「あ」のお手本ガイドが描かれた状態になる(クリック以外の
+    追加操作は不要・実在しない「書いている最中」を演出しない)。
+
+    「なぞり」タブの文字選択行(.trace-kana-row)は11行グループ分の縦に長い
+    列で構成されており、タブ切替直後の素のスクロール位置のままだと
+    なぞり本体(ガイド付きcanvas・色/太さツールバー)がビューポート外へ
+    押し出されてしまう(実際に撮影して確認した)。なぞり機能の核心である
+    ガイド付きcanvasを画像に写すため、#traceCanvasをビューポート内へ
+    スクロールしてから撮影する(存在しない演出ではなく、既存の画面を
+    実際に見える位置までスクロールしているだけ)。"""
+    pg.locator('.tab-btn[data-tab="trace"]').click()
+    pg.wait_for_selector("#trace.active")
+    pg.locator("#traceCanvas").scroll_into_view_if_needed()
+    pg.wait_for_timeout(300)
+
+
 PLAY_ACTIONS = {
     "scratch-app": _scratch_the_scratch_app,
     "mogura-tataki": _start_mogura_tataki,
@@ -271,6 +296,7 @@ PLAY_ACTIONS = {
 EXTRA_SHOTS = {
     "sakana-tsuri": [("method-select", _select_sakana_tsuri_method)],
     "sst-app": [("four-week-review", _show_sst_four_week_review)],
+    "hiragana-learn": [("trace", _show_hiragana_trace_tab)],
 }
 
 # Phase M12-G: User承認済みの正式アイコンartworkを持つアプリ。ここに登録した
