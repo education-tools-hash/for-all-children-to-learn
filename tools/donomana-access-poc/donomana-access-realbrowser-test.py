@@ -125,6 +125,35 @@ def run():
             check('localStorage key no longer holds the deleted sessions', after_delete_raw is None, after_delete_raw)
 
             page.click('#restartBtn')
+
+            # --- スワイプ入力(Phase 5A, Design v2.0 1.2節)での一連の操作確認 ---
+            page.check('input[name="inputMethod"][value="swipe"]')
+            page.click('#startBtn')
+            check('activity screen becomes active (swipe)', page.is_visible('#screen-activity.active'))
+            check('switchActionBtn is hidden in swipe mode (shares touch pointer path)',
+                  not page.is_visible('#switchActionBtn'))
+
+            surface_sw = page.locator('#activitySurface')
+            box_sw = surface_sw.bounding_box()
+            start_x, start_y = box_sw['x'] + box_sw['width'] / 2 - 20, box_sw['y'] + box_sw['height'] / 2
+            end_x, end_y = start_x + 40, start_y  # 40px移動、10pxしきい値を明確に超える
+            page.mouse.move(start_x, start_y)
+            page.mouse.down()
+            page.mouse.move(end_x, end_y, steps=5)
+            page.mouse.up()
+
+            page.click('#endBtn')
+            check('end screen becomes active after おわる (swipe)', page.is_visible('#screen-end.active'))
+            summary_sw = page.text_content('#summaryText')
+            check('summary identifies input method as swipe (not touch)', 'スワイプ' in summary_sw, summary_sw)
+            check('summary counts exactly 1 operation for one drag gesture', '1 回' in summary_sw, summary_sw)
+            stored_sw = page.text_content('#storedSummaryText')
+            check('stored summary shows 1 session saved after swipe activity', '1件' in stored_sw, stored_sw)
+            saved_sw_raw = page.evaluate("localStorage.getItem('donomana_access_log_v1')")
+            check("swipe session was persisted with inputMethod:'swipe' (distinct from touch)",
+                  saved_sw_raw is not None and '"inputMethod":"swipe"' in saved_sw_raw, saved_sw_raw)
+
+            page.click('#restartBtn')
             page.check('input[name="inputMethod"][value="touch"]')  # ラジオボタンは選び直すことで切り替える
 
             # --- アクセシビリティ: 色以外のフィードバック・音なし利用・フォーカス可視化 ---
@@ -198,6 +227,29 @@ def run():
         page_switch.click('#endBtn')
         summary_s = page_switch.text_content('#summaryText')
         check('touch session after switch-to-touch records exactly 1 activate (no leaked switch events)', '1 回' in summary_s, summary_s)
+
+        # --- Phase 5A: 外部スイッチ -> スワイプへの切替でも残存状態なく動作すること ---
+        page_switch.click('#restartBtn')
+        page_switch.check('input[name="inputMethod"][value="switch"]')
+        page_switch.click('#startBtn')
+        page_switch.wait_for_timeout(100)
+        page_switch.click('#endBtn')
+        page_switch.click('#restartBtn')
+        page_switch.check('input[name="inputMethod"][value="swipe"]')
+        page_switch.click('#startBtn')
+        no_scan_focus_leaked2 = page_switch.evaluate("!document.querySelector('.scan-focus')")
+        check('no leftover scan-focus highlight after switching from switch to swipe', no_scan_focus_leaked2)
+        check('switchActionBtn hidden after switching from switch to swipe (no residual switch UI)',
+              not page_switch.is_visible('#switchActionBtn'))
+        surface_s2 = page_switch.locator('#activitySurface')
+        box_s2 = surface_s2.bounding_box()
+        page_switch.mouse.move(box_s2['x'] + box_s2['width'] / 2, box_s2['y'] + box_s2['height'] / 2)
+        page_switch.mouse.down()
+        page_switch.mouse.up()
+        page_switch.click('#endBtn')
+        summary_s2 = page_switch.text_content('#summaryText')
+        check('swipe session after switch-to-swipe records exactly 1 activate (no leaked switch events)',
+              '1 回' in summary_s2 and 'スワイプ' in summary_s2, summary_s2)
         page_switch.close()
 
         print('\n=== console errors across all runs ===')
