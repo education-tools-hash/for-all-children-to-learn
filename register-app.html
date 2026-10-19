@@ -242,6 +242,18 @@
   .qr-modal-price{font-weight:800;color:var(--primary);font-size:calc(var(--font-size-base)*1.3);margin-bottom:12px;}
   .qr-modal-note{font-size:calc(var(--font-size-base)*.75);color:var(--text-light);line-height:1.6;background:var(--bg);border-radius:10px;padding:10px 12px;}
 
+  /* QR SCANNER MODAL (DONOMANA-REGISTER-QR-PHASE-3-3) */
+  .icon-btn.active{background:var(--primary);color:#fff;}
+  .qr-scan-launch-btn{background:#00A99D;color:#fff;font-size:calc(var(--font-size-base)*1.05);min-height:56px;}
+  .qr-scan-launch-btn:hover{background:#00857B;}
+  .qr-scanner-video-wrap{position:relative;width:100%;aspect-ratio:1/1;max-height:50vh;background:#111;border-radius:16px;overflow:hidden;margin-bottom:12px;}
+  .qr-scanner-video-wrap video{width:100%;height:100%;object-fit:cover;display:block;}
+  .qr-scanner-result{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;font-weight:800;font-size:calc(var(--font-size-base)*1.1);color:#fff;background:rgba(0,0,0,0);pointer-events:none;transition:background .2s;}
+  .qr-scanner-result.show-success{background:rgba(0,169,157,.92);}
+  .qr-scanner-result.show-unregistered{background:rgba(192,57,43,.92);}
+  .qr-scanner-state-message{text-align:center;font-weight:700;font-size:calc(var(--font-size-base)*.9);color:var(--text-light);padding:8px 4px 4px;min-height:1.6em;}
+  .qr-scanner-state-message.is-error{color:#c0392b;}
+
   /* HELP */
   .help-tab{background:var(--bg);border:2px solid var(--border);border-radius:10px;padding:8px 14px;font-size:calc(var(--font-size-base)*.82);font-weight:700;cursor:pointer;font-family:var(--font-family);color:var(--text);transition:all .2s;min-height:44px;}
   .help-tab:hover{border-color:var(--primary);}
@@ -795,6 +807,7 @@
   <nav class="header-actions">
     <button class="icon-btn" id="print-btn"      title="印刷・PDF">🖨️</button>
     <button class="icon-btn" id="share-btn"      title="共有">🔗</button>
+    <button class="icon-btn" id="qr-mode-btn"    title="QRモード" aria-pressed="false">📷</button>
     <button class="icon-btn" id="fullscreen-btn" title="全画面">⛶</button>
     <button class="icon-btn" id="help-btn"       title="つかいかた">❓</button>
     <button class="icon-btn" id="settings-btn"   title="設定">⚙️</button>
@@ -824,6 +837,7 @@
           <div class="total-label">ごうけいきんがく</div>
           <div class="total-amount" id="total-amount">¥0</div>
         </div>
+        <button class="btn qr-scan-launch-btn scannable" id="qr-scan-btn" style="display:none;width:100%;margin-bottom:10px;">📷 商品をスキャン</button>
         <div class="cart-btns">
           <button class="btn success cart-btn" id="payment-btn"    disabled>💰 お会計</button>
           <button class="btn danger  cart-btn" id="clear-cart-btn" disabled>🗑️ カートをリセット</button>
@@ -1000,6 +1014,13 @@
       </div>
     </div>
     <div class="settings-section">
+      <div class="settings-section-title">📷 QRコード（DONOMANA-REGISTER-QR-PHASE-3-3）</div>
+      <div class="setting-row">
+        <div><div class="setting-label">読み取りごとに確認ボタンを使う</div><div class="setting-desc">1つ読み取るたびに「次の商品をよみとる」ボタンを押すまで、次の読み取りを行わない</div></div>
+        <label class="toggle"><input type="checkbox" id="confirm-step-toggle"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="settings-section">
       <div class="settings-section-title">🗑️ データ管理</div>
       <button class="btn danger" id="reset-data-btn" style="width:100%;">🗑️ 全データをリセット</button>
     </div>
@@ -1086,6 +1107,25 @@
   </div>
 </div>
 
+<!-- QR SCANNER MODAL (DONOMANA-REGISTER-QR-PHASE-3-3: カメラでQRを読み取ってカートに追加) -->
+<div class="modal-overlay" id="qr-scanner-modal" role="dialog" aria-modal="true" aria-labelledby="qrsmt">
+  <div class="modal" style="max-width:460px;">
+    <h2 class="modal-title" id="qrsmt">📷 商品をスキャン</h2>
+    <div id="qr-scanner-video-wrap" class="qr-scanner-video-wrap">
+      <video id="qr-scanner-video" autoplay muted playsinline webkit-playsinline></video>
+      <div id="qr-scanner-result" class="qr-scanner-result" aria-live="polite"></div>
+    </div>
+    <div id="qr-scanner-state-message" class="qr-scanner-state-message" role="status" aria-live="polite"></div>
+    <div id="qr-scanner-next-row" style="display:none;">
+      <button class="btn scannable" id="qr-scanner-next-btn" style="width:100%;">➡️ 次の商品をよみとる</button>
+    </div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn outline scannable" id="qr-scanner-manual-btn">⌨️ 手動で商品を選ぶ</button>
+      <button class="btn scannable" id="qr-scanner-close-btn">とじる</button>
+    </div>
+  </div>
+</div>
+
 <!-- HELP MODAL -->
 <div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="hmt">
   <div class="modal" style="max-width:560px;">
@@ -1107,6 +1147,7 @@
       <div class="help-step"><div class="help-step-num">3</div><div><div class="help-step-title">✏️🗑️ 変更・削除</div><div class="help-step-desc">編集モード中に商品カードをさわると「✏️」「🗑️」ボタンが出てきます。</div></div></div>
       <div class="help-step"><div class="help-step-num">4</div><div><div class="help-step-title">🔗 他の端末と共有する</div><div class="help-step-desc">「🔗」ボタンでURLをコピーして送ると、他のiPadやパソコンで同じ商品リストを使えます。写真は共有されないので、共有先で再度登録してください。</div></div></div>
       <div class="help-step"><div class="help-step-num">5</div><div><div class="help-step-title">🔳 QRコード</div><div class="help-step-desc">編集モード中に商品カードをさわると出てくる「🔳」ボタンで、商品ごとのQRコードを表示・印刷できます。QRコードには商品のIDだけが入っており、名前や値段は入っていません。<strong>商品を「削除」してから登録し直すと、印刷済みのQRコードは使えなくなります。</strong>値段や名前を変えるだけなら「編集」を使ってください（削除して登録し直す必要はありません）。</div></div></div>
+      <div class="help-step"><div class="help-step-num">6</div><div><div class="help-step-title">📷 QRモードでスキャンする</div><div class="help-step-desc">ヘッダーの「📷」ボタンでQRモードをONにすると、カートの上に「📷 商品をスキャン」ボタンが出ます。タップするとカメラが起動し、印刷したQRコードを映すと自動でカートに追加されます。カメラが使えないときや苦手なときは、いつもどおり商品カードをタップしてください（QRモード中もタップは使えます）。同じQRを映し続けても二重には追加されません。別の商品のQRにすぐ切り替えて続けて読み取ることもできます。設定の「読み取りごとに確認ボタンを使う」をONにすると、1つ読み取るたびに「次の商品をよみとる」ボタンを押すまで次の読み取りを待つようにできます。</div></div></div>
     </div>
     <div class="help-panel" id="help-tab-access" style="display:none;">
       <div class="help-step"><div class="help-step-num">⚙️</div><div><div class="help-step-title">設定の開きかた</div><div class="help-step-desc">画面右下の「⚙」ボタンから開けます。「このアプリの詳細設定を開く」を押すと、この設定画面が開きます。</div></div></div>
@@ -1366,6 +1407,11 @@ function donomanaRecordFormatTracingLevel(level) {
 <!-- 配布元: https://github.com/kazuhikoarase/qrcode-generator -->
 <!-- ライセンス全文: assets/js/vendor/qrcode-generator/LICENSE.txt -->
 <script src="assets/js/vendor/qrcode-generator/qrcode.js"></script>
+<!-- QRコード読み取り（ローカル同梱、外部CDN/オンラインAPI不使用。DONOMANA-REGISTER-QR-PHASE-3-3） -->
+<!-- jsQR v1.4.0 (Apache License 2.0) -->
+<!-- 配布元: https://github.com/cozmo/jsQR -->
+<!-- ライセンス全文: assets/js/vendor/jsqr/LICENSE.txt -->
+<script src="assets/js/vendor/jsqr/jsQR.js"></script>
 <script>
 // ============================================================
 //  STATE
@@ -1377,7 +1423,8 @@ let soundEnabled=false, audioCtx=null;
 let settings={
   storeName:'レジマスター', fontSize:'normal', highContrast:false,
   switchScan:false, scanSpeed:2000, reduceMotion:false, largeButtons:false,
-  sound:false, speechItem:false, speechTotal:false, speechChange:false, speechRate:1.0
+  sound:false, speechItem:false, speechTotal:false, speechChange:false, speechRate:1.0,
+  qrMode:false, qrConfirmStep:false
 };
 
 // ============================================================
@@ -1427,6 +1474,11 @@ function applySettings(){
   if(settings.switchScan) startSwitchScan(); else stopSwitchScan();
   soundEnabled=settings.sound;
   if(settings.largeButtons) document.querySelectorAll('.btn,.icon-btn,.num-btn,.qty-btn').forEach(b=>b.style.minHeight='64px');
+  // DONOMANA-REGISTER-QR-PHASE-3-3: QRモードのON/OFFをヘッダーボタンとスキャンボタン表示へ反映。
+  // 商品タップのグリッドはQRモードのON/OFFに関わらず常に有効なまま(非表示・無効化しない)。
+  document.getElementById('qr-mode-btn').classList.toggle('active',!!settings.qrMode);
+  document.getElementById('qr-mode-btn').setAttribute('aria-pressed',String(!!settings.qrMode));
+  document.getElementById('qr-scan-btn').style.display=settings.qrMode?'block':'none';
 }
 function syncSettingsUI(){
   document.getElementById('store-name-input').value=settings.storeName;
@@ -1438,6 +1490,7 @@ function syncSettingsUI(){
   document.getElementById('speech-item-toggle').checked=settings.speechItem||false;
   document.getElementById('speech-total-toggle').checked=settings.speechTotal||false;
   document.getElementById('speech-change-toggle').checked=settings.speechChange||false;
+  document.getElementById('confirm-step-toggle').checked=!!settings.qrConfirmStep;
   document.querySelectorAll('input[name="font-size"]').forEach(r=>{ r.checked=r.value===settings.fontSize; r.closest('.radio-option').classList.toggle('active',r.value===settings.fontSize); });
   document.querySelectorAll('input[name="scan-speed"]').forEach(r=>{ r.checked=r.value==settings.scanSpeed; r.closest('.radio-option').classList.toggle('active',r.value==settings.scanSpeed); });
   document.querySelectorAll('input[name="speech-rate"]').forEach(r=>{ r.checked=parseFloat(r.value)===settings.speechRate; r.closest('.radio-option').classList.toggle('active',parseFloat(r.value)===settings.speechRate); });
@@ -1939,6 +1992,228 @@ function printSingleQr(productId){
   setTimeout(()=>{ pa.style.display='block'; window.print(); setTimeout(()=>{ pa.style.display='none'; },1000); },200);
 }
 
+// ============================================================
+//  QR SCANNER (DONOMANA-REGISTER-QR-PHASE-3-3: カメラ読み取り→カート自動加算)
+//  設計方針(Phase 2 Design finding / 承認済み設計):
+//  - 自動モードは「同一QRが映り続ける間は1回だけ加算」。最小ロック時間(QR_MIN_LOCK_
+//    DURATION_MS)で手ブレ等の瞬間的なフレーム欠落による誤解除を防ぎ、連続未検出が
+//    QR_MISS_CLEAR_MSを超えた時点で「退出」とみなしロック解除する。時間経過のみで
+//    強制解除するMAX_LOCK方式は実装しない(指示により明確に禁止)。
+//  - 異なる商品IDは、ロック中であっても即座に切り替えて受理する(連続読み取りを妨げない)。
+//  - 確認モード(settings.qrConfirmStep)では、受理後「次の商品をよみとる」ボタンを
+//    押すまで一切加算しない。
+//  - addToCart(id)は既存のものをそのまま呼ぶ(会計処理・音声/効果音設定を含め無改変)。
+// ============================================================
+const QR_MIN_LOCK_DURATION_MS = 600; // ロック直後はここまで強制維持(瞬間的なフレーム欠落対策)
+const QR_MISS_CLEAR_MS = 700;        // 連続未検出がここまで続いたら「退出」とみなし解除
+
+let scannerStream=null, scannerDecodeLoopHandle=null, scannerStartToken=0, scannerStarting=false;
+let scannerOpenerEl=null, scannerLockedId=null, scannerLockedSince=0, scannerLastSeenAt=0;
+let scannerAwaitingConfirm=false, scannerInertedElements=[], scannerResultTimer=null;
+let scannerCanvas=null, scannerCanvasCtx=null;
+
+function showScannerStateMessage(text, isError){
+  const el=document.getElementById('qr-scanner-state-message');
+  el.textContent=text||'';
+  el.classList.toggle('is-error', !!isError);
+}
+
+// 背景の商品カード・会計ボタン等がQRカメラモーダル表示中に誤操作・スイッチスキャン対象に
+// ならないよう、モーダルを開いている間だけ要素単位でinert化する(既存のopenModal/closeModal/
+// setModalInertは変更せず、本モーダル専用の追加処理として実装。他モーダルの挙動は無変更)。
+function applyScannerBackgroundInert(){
+  const modal=document.getElementById('qr-scanner-modal');
+  scannerInertedElements=Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR))
+    .filter(el => !modal.contains(el) && el.id!=='donomanaA11yBtn' && !el.closest('#donomanaA11yPanel'));
+  scannerInertedElements.forEach(el=>{ el.inert=true; });
+}
+function releaseScannerBackgroundInert(){
+  scannerInertedElements.forEach(el=>{ el.inert=false; });
+  scannerInertedElements=[];
+}
+
+function clearScanResultDisplay(){
+  clearTimeout(scannerResultTimer);
+  const el=document.getElementById('qr-scanner-result');
+  el.className='qr-scanner-result'; el.innerHTML='';
+}
+function showScanSuccess(p){
+  const el=document.getElementById('qr-scanner-result');
+  el.className='qr-scanner-result show-success';
+  el.innerHTML=`✅ ${esc(p.name)}<br>¥${p.price.toLocaleString()}`;
+  clearTimeout(scannerResultTimer);
+  scannerResultTimer=setTimeout(clearScanResultDisplay,1500);
+}
+function showUnregistered(){
+  const el=document.getElementById('qr-scanner-result');
+  el.className='qr-scanner-result show-unregistered';
+  el.textContent='⚠️ この商品は登録されていません';
+  clearTimeout(scannerResultTimer);
+  scannerResultTimer=setTimeout(clearScanResultDisplay,1500);
+}
+
+// デコード結果(QRの生テキスト、見つからなければnull)から、既存productsに実在する商品
+// を返す。DMREG1:接頭辞の検証・異常に長い文字列/不正形式の拒否をここで行う(実装C)。
+// 戻り値をinnerHTMLへそのまま挿入することはない(名前・価格の表示は常にesc()経由)。
+function resolveValidProduct(rawText){
+  if(typeof rawText !== 'string' || !rawText) return null;
+  if(rawText.length > 200) return null;
+  if(!rawText.startsWith(QR_PAYLOAD_PREFIX)) return null;
+  const id=rawText.slice(QR_PAYLOAD_PREFIX.length);
+  if(!id || id.length > 64 || !/^[A-Za-z0-9]+$/.test(id)) return null;
+  const p=products.find(x=>x.id===id);
+  return p || null;
+}
+
+function acceptScan(p, now){
+  addToCart(p.id); // 既存のカート加算・音声/効果音・会計処理をそのまま再利用
+  scannerLockedId=p.id;
+  scannerLockedSince=now;
+  scannerLastSeenAt=now;
+  showScanSuccess(p);
+  if(settings.qrConfirmStep){
+    scannerAwaitingConfirm=true;
+    document.getElementById('qr-scanner-next-row').style.display='block';
+  }
+}
+
+function handleDetectionTick(rawText){
+  if(settings.qrConfirmStep && scannerAwaitingConfirm) return; // 確認モード:明示操作まで一切加算しない
+  const now=performance.now();
+  const validProduct=resolveValidProduct(rawText);
+
+  if(validProduct){
+    if(scannerLockedId===validProduct.id){ scannerLastSeenAt=now; return; } // 同一ロック対象→維持のみ
+    acceptScan(validProduct, now); // 初回 or 別商品 → 即座に受理して切り替える(連続読取を妨げない)
+    return;
+  }
+
+  if(typeof rawText==='string' && rawText.startsWith(QR_PAYLOAD_PREFIX) && rawText.length<=200){
+    showUnregistered(); // 書式は正しいが台帳に無いID(削除済み等) — 加算はしない
+  }
+  if(scannerLockedId===null) return;
+  const sinceLock=now-scannerLockedSince;
+  if(sinceLock < QR_MIN_LOCK_DURATION_MS) return; // 最小ロック時間は強制維持(手ブレ等のフレーム欠落対策)
+  if(now-scannerLastSeenAt >= QR_MISS_CLEAR_MS) scannerLockedId=null; // 連続未検出→退出とみなし解除
+}
+
+async function startCamera(){
+  if(scannerStarting || scannerStream) return; // 多重起動防止
+  scannerStarting=true;
+  const myToken=++scannerStartToken;
+  showScannerStateMessage('カメラを起動しています…');
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showScannerStateMessage('このブラウザはカメラに対応していません。下の「⌨️ 手動で商品を選ぶ」をお使いください。', true);
+      return;
+    }
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const modal=document.getElementById('qr-scanner-modal');
+    // 非同期完了後にモーダルが閉じられていた/新たな起動が始まっていた場合、即座に停止する
+    if(myToken!==scannerStartToken || !modal.classList.contains('active')){
+      stream.getTracks().forEach(t=>t.stop());
+      return;
+    }
+    scannerStream=stream;
+    const video=document.getElementById('qr-scanner-video');
+    video.srcObject=stream;
+    try{ await video.play(); }catch(e){}
+    showScannerStateMessage('');
+    startDecodeLoop();
+  }catch(e){
+    const name=e && e.name;
+    if(name==='NotAllowedError' || name==='PermissionDeniedError'){
+      showScannerStateMessage('カメラの使用が許可されていません。端末の設定でこのページのカメラ使用を許可してから、もう一度お試しください。下の「⌨️ 手動で商品を選ぶ」もお使いいただけます。', true);
+    } else if(name==='NotFoundError' || name==='OverconstrainedError' || name==='DevicesNotFoundError'){
+      showScannerStateMessage('カメラが見つかりません。下の「⌨️ 手動で商品を選ぶ」をお使いください。', true);
+    } else {
+      showScannerStateMessage('カメラの起動に失敗しました。下の「⌨️ 手動で商品を選ぶ」をお使いください。', true);
+    }
+  }finally{
+    scannerStarting=false;
+  }
+}
+function stopCameraStream(){
+  if(scannerDecodeLoopHandle){ cancelAnimationFrame(scannerDecodeLoopHandle); scannerDecodeLoopHandle=null; }
+  if(scannerStream){ scannerStream.getTracks().forEach(t=>t.stop()); scannerStream=null; }
+  const video=document.getElementById('qr-scanner-video');
+  if(video) video.srcObject=null;
+}
+function startDecodeLoop(){
+  if(scannerDecodeLoopHandle) return; // 多重デコードループ防止
+  if(!scannerCanvas){ scannerCanvas=document.createElement('canvas'); scannerCanvasCtx=scannerCanvas.getContext('2d',{willReadFrequently:true}); }
+  const video=document.getElementById('qr-scanner-video');
+  function tick(){
+    if(!scannerStream){ scannerDecodeLoopHandle=null; return; } // ストリーム停止済み→ループも自然終了
+    if(video.readyState===video.HAVE_ENOUGH_DATA && video.videoWidth>0){
+      scannerCanvas.width=video.videoWidth; scannerCanvas.height=video.videoHeight;
+      scannerCanvasCtx.drawImage(video,0,0,scannerCanvas.width,scannerCanvas.height);
+      try{
+        const imageData=scannerCanvasCtx.getImageData(0,0,scannerCanvas.width,scannerCanvas.height);
+        const code=jsQR(imageData.data,imageData.width,imageData.height);
+        handleDetectionTick(code?code.data:null);
+      }catch(e){ /* 1フレームの読み取り失敗は無視して継続する */ }
+    }
+    scannerDecodeLoopHandle=requestAnimationFrame(tick);
+  }
+  scannerDecodeLoopHandle=requestAnimationFrame(tick);
+}
+
+function openScannerModal(){
+  scannerOpenerEl=document.activeElement;
+  scannerLockedId=null; scannerAwaitingConfirm=false;
+  document.getElementById('qr-scanner-next-row').style.display='none';
+  clearScanResultDisplay();
+  openModal('qr-scanner-modal');
+  applyScannerBackgroundInert();
+  // switchScanItemsは開閉時に自動で再取得されないため(タイマーは既存配列を使い続ける)、
+  // ここで明示的に再構築し、buildScanItems()の新しいスコープ(モーダル内限定)を反映させる。
+  // highlightScanItem()は新しいハイライトをaddするだけでremoveしないため(既存仕様、L2455)、
+  // スコープが変わる前に残っていた古い.scan-focus(モーダル外の要素)をclearScanHighlight()で
+  // 明示的に消してから再構築する(消さないと背景側に古いハイライトが残ったままになる)。
+  clearScanHighlight();
+  refreshSwitchScanItems();
+  startCamera();
+}
+function closeScannerModal(){
+  scannerStartToken++; // 進行中のgetUserMedia Promiseを無効化する(非同期競合対策)
+  stopCameraStream();
+  releaseScannerBackgroundInert();
+  closeModal('qr-scanner-modal');
+  clearScanHighlight();
+  refreshSwitchScanItems(); // スコープを通常(document全体)に戻す
+  const target=(scannerOpenerEl && document.body.contains(scannerOpenerEl)) ? scannerOpenerEl : document.getElementById('qr-scan-btn');
+  if(target) target.focus();
+  scannerOpenerEl=null;
+}
+
+document.getElementById('qr-scan-btn').addEventListener('click', openScannerModal);
+document.getElementById('qr-scanner-close-btn').addEventListener('click', closeScannerModal);
+document.getElementById('qr-scanner-manual-btn').addEventListener('click', closeScannerModal);
+document.getElementById('qr-scanner-next-btn').addEventListener('click', ()=>{
+  scannerAwaitingConfirm=false;
+  scannerLockedId=null; // 明示解除(自動モードでも使える、同一商品の即時再読み取りも可能にする)
+  document.getElementById('qr-scanner-next-row').style.display='none';
+  clearScanResultDisplay();
+});
+// 背景クリックで閉じる既存の汎用経路(L1442付近)に加え、カメラの確実な停止をここで保証する。
+document.getElementById('qr-scanner-modal').addEventListener('click', e=>{
+  if(e.target.id==='qr-scanner-modal') stopCameraStream();
+});
+// 既存の汎用Escapeハンドラ(全.modal-overlay.activeをcloseModal()するだけ)より先に、
+// capture phaseで確実にカメラを停止する(record-modal, L1690付近と同じ考え方)。
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && document.getElementById('qr-scanner-modal').classList.contains('active')) stopCameraStream();
+}, true);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) stopCameraStream(); });
+window.addEventListener('beforeunload', stopCameraStream);
+
+document.getElementById('qr-mode-btn').addEventListener('click', ()=>{
+  settings.qrMode=!settings.qrMode;
+  saveSettings(); applySettings();
+  showToast(settings.qrMode ? '📷 QRモードをONにしました' : 'QRモードをOFFにしました');
+});
+
 // FAMILY-D新規Finding是正: delete-modalはopener trackingが一切無く、closeModal()の
 // 「document.activeElement.blur()」により全close経路(cancel/confirm/Escape共通)でBODY退行
 // していた。実trigger(delete button)は.edit-overlay配下でhover/focus-within時のみ表示され
@@ -2059,6 +2334,7 @@ document.getElementById('high-contrast-toggle').addEventListener('change',e=>{ s
 document.getElementById('switch-scan-toggle').addEventListener('change',e=>{ settings.switchScan=e.target.checked; document.getElementById('scan-speed-row').style.display=e.target.checked?'':'none'; });
 document.getElementById('reduce-motion-toggle').addEventListener('change',e=>{ settings.reduceMotion=e.target.checked; });
 document.getElementById('large-buttons-toggle').addEventListener('change',e=>{ settings.largeButtons=e.target.checked; });
+document.getElementById('confirm-step-toggle').addEventListener('change',e=>{ settings.qrConfirmStep=e.target.checked; });
 document.getElementById('sound-toggle').addEventListener('change',e=>{ settings.sound=e.target.checked; soundEnabled=e.target.checked; });
 document.getElementById('speech-item-toggle').addEventListener('change',e=>{ settings.speechItem=e.target.checked; if(e.target.checked) speak('商品代金の読み上げをオンにしました'); });
 document.getElementById('speech-total-toggle').addEventListener('change',e=>{ settings.speechTotal=e.target.checked; if(e.target.checked) speak('合計金額の読み上げをオンにしました'); });
@@ -2161,7 +2437,19 @@ document.getElementById('fullscreen-btn').addEventListener('click',()=>{
 const SWITCH_SCAN_SELECTOR='.product-card,.cart-btn:not(:disabled),.icon-btn,.edit-btn-small,.scannable';
 
 // buildScanItems: 候補取得（既存のSWITCH_SCAN_SELECTOR・スコープ無しqueryを無変更で抽出）
-function buildScanItems(){ return Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR)); }
+// DONOMANA-REGISTER-QR-PHASE-3-3: QRカメラモーダル(#qr-scanner-modal)が開いている間だけ、
+// 候補をモーダル内に限定する(背景の商品カード・会計ボタンがスイッチスキャン対象に混ざらない
+// ようにする、実装Eの指示)。この分岐はqr-scanner-modalがactiveな場合にのみ働き、他の既存
+// モーダル(product-modal等、Phase 2で発見済みの構造的課題)の挙動は一切変更しない——
+// 「既存全モーダルの横断改修は行わない」という指示どおり、他モーダル開時はこの関数は
+// 無変更のまま(document全体を対象にする)動作する。
+function buildScanItems(){
+  const scannerModal=document.getElementById('qr-scanner-modal');
+  if(scannerModal && scannerModal.classList.contains('active')){
+    return Array.from(scannerModal.querySelectorAll(SWITCH_SCAN_SELECTOR));
+  }
+  return Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR));
+}
 
 // refreshSwitchScanItems: 旧updateSwitchScanItemsの分岐・副作用（switchScan未有効時は何もしない）をそのまま保持
 function refreshSwitchScanItems(){ if(!settings.switchScan) return; switchScanItems=buildScanItems(); switchScanIndex=0; highlightScanItem(); }

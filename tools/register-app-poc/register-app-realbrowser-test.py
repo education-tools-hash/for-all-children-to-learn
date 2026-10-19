@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
-"""はんばいかい レジ（register-app.html）— QR機能追加前のベースライン回帰テスト
-(DONOMANA-REGISTER-QR-PHASE-3-1-BASELINE-TESTS-1、
- DONOMANA-REGISTER-QR-PHASE-3-1B-SHARE-URL-FIX-1で共有URL修正の回帰テストを拡張)。
+"""はんばいかい レジ（register-app.html）— QR機能追加前のベースライン回帰テスト、および
+QR発行・読み取り機能そのもののテスト。
+
+- DONOMANA-REGISTER-QR-PHASE-3-1-BASELINE-TESTS-1: ベースライン回帰テストを新設。
+- DONOMANA-REGISTER-QR-PHASE-3-1B-SHARE-URL-FIX-1: 共有URL修正の回帰テストを拡張。
+- DONOMANA-REGISTER-QR-PHASE-3-2-QR-GENERATION-1: 商品QR発行・表示・印刷のテストを追加。
+- DONOMANA-REGISTER-QR-PHASE-3-3-SCANNER-IMPLEMENTATION-1: カメラQR読み取り・カート自動
+  加算・二重加算防止・QRモーダルのスイッチスキャン安全性のテストを追加
+  （group_l〜group_q）。カメラは実Chromiumのフェイクデバイス
+  (--use-fake-device-for-media-stream、必要に応じ--use-file-for-fake-video-captureで
+  実QR画像を供給)と、getUserMediaの決定論的なJSモック(権限拒否・非対応等のエラー分岐、
+  非同期競合)の両方を使い分けて検証する。二重加算防止ロジック(QR_MIN_LOCK_DURATION_MS /
+  QR_MISS_CLEAR_MS)はperformance.now()を疑似クロックに置き換えて完全に決定論的にテストする。
 
 tools/donomana-access-poc/donomana-access-realbrowser-test.py と同じ慣習
 (file://でregister-app.htmlを直接開き、headless Chromiumで検証する)。
 
-本テストはQRコード生成・読み取り機能を一切含まない（まだ実装されていないため）。
-既存の商品登録・カート・会計・共有・設定・アクセシビリティ・CSV出力が、QR機能
-追加前の時点でどう動くかを記録し、QR実装後の回帰検出の基準（ベースライン）とする。
+既存の商品登録・カート・会計・共有・設定・アクセシビリティ・CSV出力・QR発行・QR読み取りが現在
+どう動くかを固定した、以後の機能追加（台帳同期QR等）に対する回帰検出の基準とする。
 
 データ分離について：各テストは Playwright が起動する新規・使い捨ての headless
 Chromiumプロファイル内の独立した browser context で実行される。実際の利用者の
@@ -883,6 +892,431 @@ def group_k_qr_license(browser):
         check('LICENSE.txt names the correct copyright holder',
               'Kazuhiko Arase' in license_text, license_text[:200])
 
+    # DONOMANA-REGISTER-QR-PHASE-3-3: jsQR(読み取り用)のライセンス同梱確認
+    jsqr_dir = os.path.join(ROOT, 'assets', 'js', 'vendor', 'jsqr')
+    jsqr_lib_path = os.path.join(jsqr_dir, 'jsQR.js')
+    jsqr_license_path = os.path.join(jsqr_dir, 'LICENSE.txt')
+    check('vendored jsQR library file exists locally (no external CDN)',
+          os.path.isfile(jsqr_lib_path), jsqr_lib_path)
+    check('a dedicated LICENSE.txt is bundled alongside the vendored jsQR library',
+          os.path.isfile(jsqr_license_path), jsqr_license_path)
+    if os.path.isfile(jsqr_license_path):
+        jsqr_license_text = open(jsqr_license_path, encoding='utf-8').read()
+        check('jsQR LICENSE.txt contains the Apache License 2.0 text',
+              'Apache License' in jsqr_license_text and 'Version 2.0' in jsqr_license_text,
+              jsqr_license_text[:200])
+
+
+FAKE_CAMERA_ARGS = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
+FAKE_CLOCK_INIT_SCRIPT = "window.__fakeNow = 0; performance.now = () => window.__fakeNow;"
+
+
+def fresh_page_in_context(context):
+    """fresh_page()と同じエラー収集をcontextに対して行う版（context.add_init_script()で
+    getUserMediaのモックや疑似クロックを注入してから使う場合に用いる）。"""
+    page = context.new_page()
+    console_errors = []
+    page.on('console', lambda msg: console_errors.append(msg.text)
+            if msg.type == 'error' and msg.text != KNOWN_GENERIC_RESOURCE_FAILURE_TEXT else None)
+    page.on('pageerror', lambda exc: console_errors.append(str(exc)))
+    page.on('requestfailed', lambda req: console_errors.append('requestfailed: ' + req.url)
+            if not _is_known_file_protocol_404(req) else None)
+    page.goto(APP_URL)
+    return page, console_errors
+
+
+def group_l_qr_mode_and_settings(browser):
+    print('\n=== (作業F-1) QRモードON/OFFと保存復元 ===')
+    page, errors = fresh_page(browser)
+
+    check('QR mode starts OFF and the scan button is hidden',
+          not page.evaluate('settings.qrMode') and not page.is_visible('#qr-scan-btn'))
+    check('the product grid is tappable even before QR mode is ever turned on (always-on tap path)',
+          page.locator('.product-card').count() > 0)
+
+    page.click('#qr-mode-btn')
+    check('clicking the header QR-mode button turns QR mode ON immediately (no settings-modal needed)',
+          page.evaluate('settings.qrMode') is True)
+    check('the large "商品をスキャン" button appears once QR mode is ON', page.is_visible('#qr-scan-btn'))
+    check('the header button reflects the ON state (aria-pressed)',
+          page.get_attribute('#qr-mode-btn', 'aria-pressed') == 'true')
+    stored = page.evaluate("JSON.parse(localStorage.getItem('register_settings')||'{}')")
+    check('qrMode=true is persisted to register_settings immediately (header toggle is not batched '
+          'like the settings-modal toggles)', stored.get('qrMode') is True, stored)
+
+    page.locator('.product-card').first.click()
+    check('tapping a product still works normally while QR mode is ON (tap path always stays active)',
+          page.text_content('#cart-count') == '1点')
+
+    page.reload()
+    check('QR mode survives a reload (restored from register_settings)',
+          page.evaluate('settings.qrMode') is True)
+    check('the scan button is shown again after reload', page.is_visible('#qr-scan-btn'))
+
+    page.click('#qr-mode-btn')
+    check('clicking the header button again turns QR mode back OFF',
+          page.evaluate('settings.qrMode') is False)
+    check('the scan button is hidden again once QR mode is OFF', not page.is_visible('#qr-scan-btn'))
+
+    check('no console/page errors during QR mode checks', len(errors) == 0, errors[:5])
+    page.close()
+
+
+def group_m_scanner_camera_errors(browser):
+    print('\n=== (作業F-2,3) カメラ起動エラーの区別（権限拒否・カメラ無し・非対応） ===')
+    scenarios = [
+        ('NotAllowedError', '許可されていません', '権限拒否 (NotAllowedError)'),
+        ('NotFoundError', '見つかりません', 'カメラ無し (NotFoundError)'),
+        ('AbortError', '起動に失敗', 'その他のエラー (AbortError)'),
+    ]
+    for error_name, expected_substr, label in scenarios:
+        context = browser.new_context()
+        context.add_init_script(
+            "navigator.mediaDevices.getUserMedia = () => Promise.reject("
+            "Object.assign(new Error('mock'), {name: %s}));" % repr(error_name)
+        )
+        page, errors = fresh_page_in_context(context)
+        page.click('#qr-mode-btn')
+        page.click('#qr-scan-btn')
+        page.wait_for_timeout(300)
+        msg = page.text_content('#qr-scanner-state-message')
+        check('(作業F-2/3) %s: shows a distinguishable, non-crashing message containing "%s"'
+              % (label, expected_substr), expected_substr in msg, msg)
+        check('(作業F-2/3) %s: a fallback to manual selection is always offered' % label,
+              page.is_visible('#qr-scanner-manual-btn'))
+        page.click('#qr-scanner-manual-btn')
+        check('(作業F-2/3) %s: manual-selection button closes the modal, returning to the tap grid'
+              % label, not page.is_visible('#qr-scanner-modal.active'))
+        check('no console/page errors for %s' % label, len(errors) == 0, errors[:5])
+        page.close()
+        context.close()
+
+    # 非対応ブラウザ(getUserMediaそのものが存在しない)
+    context = browser.new_context()
+    context.add_init_script("navigator.mediaDevices.getUserMedia = undefined;")
+    page, errors = fresh_page_in_context(context)
+    page.click('#qr-mode-btn')
+    page.click('#qr-scan-btn')
+    page.wait_for_timeout(300)
+    msg = page.text_content('#qr-scanner-state-message')
+    check('(作業F-2/3) unsupported browsers (no getUserMedia at all) show a clear, non-crashing '
+          'message rather than throwing', '対応していません' in msg, msg)
+    check('no console/page errors for the unsupported-browser case', len(errors) == 0, errors[:5])
+    page.close()
+    context.close()
+
+
+def group_n_scanner_decode_and_debounce(browser):
+    print('\n=== (作業F-4〜11) QR照合・二重加算防止ロジック（決定論的な疑似クロック） ===')
+    context = browser.new_context()
+    context.add_init_script(FAKE_CLOCK_INIT_SCRIPT)
+    page, errors = fresh_page_in_context(context)
+
+    ids = page.evaluate('products.map(p=>p.id)')
+    product_a, product_b = ids[0], ids[1]
+
+    def tick(now_ms, raw):
+        arg = 'null' if raw is None else ('"' + raw.replace('"', '\\"') + '"')
+        page.evaluate("window.__fakeNow=%d; handleDetectionTick(%s)" % (int(now_ms), arg))
+
+    def cart_qty_for(pid):
+        return page.evaluate("(cart.find(i=>i.id===%s)||{qty:0}).qty" % repr(pid))
+
+    min_lock = page.evaluate('QR_MIN_LOCK_DURATION_MS')
+    miss_clear = page.evaluate('QR_MISS_CLEAR_MS')
+    check('(実装D) QR_MIN_LOCK_DURATION_MS and QR_MISS_CLEAR_MS are defined as positive, testable '
+          'millisecond constants (reported in the Phase report)',
+          isinstance(min_lock, (int, float)) and isinstance(miss_clear, (int, float))
+          and min_lock > 0 and miss_clear > 0, {'min_lock': min_lock, 'miss_clear': miss_clear})
+
+    # (作業F-4) 正常QRからのカート加算
+    tick(0, 'DMREG1:' + product_a)
+    check('(作業F-4) a valid, registered QR immediately adds the product to the cart',
+          cart_qty_for(product_a) == 1, page.evaluate('cart'))
+    check('a locked id is recorded after a valid scan', page.evaluate('scannerLockedId') == product_a)
+
+    # (作業F-6) 同一QRの連続映像で二重加算しない
+    tick(50, 'DMREG1:' + product_a)
+    tick(100, 'DMREG1:' + product_a)
+    check('(作業F-6) the same QR staying in view for consecutive frames adds only once',
+          cart_qty_for(product_a) == 1, cart_qty_for(product_a))
+
+    # (作業F-7) 一時的なデコード欠落（MIN_LOCK未満）で二重加算しない
+    tick(150, None)
+    tick(200, None)
+    tick(min(250, min_lock - 10) if min_lock > 10 else 250, 'DMREG1:' + product_a)
+    check('(作業F-7) a brief decode dropout well under the min-lock window does not cause a '
+          're-add when the same code reappears', cart_qty_for(product_a) == 1, cart_qty_for(product_a))
+
+    # (作業F-8) QR退出後の再読取：min_lock + miss_clearを十分に超えてから欠落させ、解除を確認する
+    t_exit = 250 + min_lock + miss_clear + 200
+    tick(t_exit, None)
+    check('(作業F-8) after sustained absence beyond min-lock+miss-clear, the lock releases',
+          page.evaluate('scannerLockedId') is None, page.evaluate('scannerLockedId'))
+    tick(t_exit + 50, 'DMREG1:' + product_a)
+    check('(作業F-8) re-presenting the same QR after it was genuinely out of view re-adds it '
+          '(intentional repeat purchase stays possible)', cart_qty_for(product_a) == 2,
+          cart_qty_for(product_a))
+
+    # (作業F-9) 異なる商品QRの連続読取：ロック中でも別商品は即座に受理される
+    tick(t_exit + 60, 'DMREG1:' + product_b)
+    check('(作業F-9) a different product\'s QR is accepted immediately even while another product '
+          'is still locked — it does not have to wait for miss-clear', cart_qty_for(product_b) == 1,
+          cart_qty_for(product_b))
+    check('the lock switches to the newly-scanned different product',
+          page.evaluate('scannerLockedId') == product_b)
+
+    # (作業F-5) 未登録・不正QRの拒否
+    before_cart = page.evaluate('cart.length')
+    for bad in ['DMREG1:does-not-exist-id', 'NOT-THE-RIGHT-PREFIX:' + product_a,
+                'DMREG1:' + ('x' * 300), '', 'DMREG1:', '<img src=x onerror=alert(1)>']:
+        tick(t_exit + 70, bad)
+    check('(作業F-5) unregistered IDs, wrong prefixes, oversized payloads, and garbage/HTML-shaped '
+          'strings never add anything to the cart', page.evaluate('cart.length') == before_cart,
+          page.evaluate('cart'))
+    unreg_html = page.evaluate("document.getElementById('qr-scanner-result').innerHTML")
+    check('(実装C) an unregistered-but-correctly-prefixed QR shows a visible "not registered" '
+          'message built from a fixed string — the raw decoded QR text is never inserted into '
+          'innerHTML', '登録されていません' in unreg_html and 'does-not-exist-id' not in unreg_html,
+          unreg_html)
+
+    # (作業F-10) 確認モード：受理後、明示操作まで次の加算をしない
+    page.evaluate("settings.qrConfirmStep = true; scannerLockedId = null; scannerAwaitingConfirm = false;")
+    t2 = t_exit + 1000
+    tick(t2, 'DMREG1:' + product_a)
+    check('(作業F-10) confirm mode still accepts the first scan normally',
+          page.evaluate('scannerAwaitingConfirm') is True)
+    qty_a_after_confirm_scan = cart_qty_for(product_a)
+    tick(t2 + 50, 'DMREG1:' + product_b)
+    check('(作業F-10) while awaiting confirmation, even a different product\'s QR is ignored until '
+          'the explicit action is taken',
+          cart_qty_for(product_a) == qty_a_after_confirm_scan, cart_qty_for(product_a))
+
+    # (作業F-11) 明示的な再読取操作（実際の「次の商品をよみとる」ボタンのクリックハンドラを使う）。
+    # このテストグループはモーダルを開かず(カメラ不要)ロジックのみを決定論的に検証しているため、
+    # #qr-scanner-modal自体がinactive(pointer-events:none)で実マウスクリックが背景のSECTIONへ
+    # 透過してしまう。モーダルUIとしての実クリック経路の実在性はgroup_o/qで別途検証しているため、
+    # ここではハンドラの直接呼び出し(.click())で同じコードパスを確実に起動する。
+    page.evaluate("document.getElementById('qr-scanner-next-btn').click()")
+    check('(作業F-11) clicking "次の商品をよみとる" clears the awaiting-confirm state',
+          page.evaluate('scannerAwaitingConfirm') is False)
+    qty_b_before_reset_scan = cart_qty_for(product_b)
+    tick(t2 + 100, 'DMREG1:' + product_b)
+    check('(作業F-11) after the explicit reset, the next scan is accepted again (qty increments, '
+          'consistent with addToCart()\'s existing same-product behavior)',
+          cart_qty_for(product_b) == qty_b_before_reset_scan + 1, cart_qty_for(product_b))
+
+    check('no console/page errors during decode/debounce checks', len(errors) == 0, errors[:5])
+    page.close()
+    context.close()
+
+
+def group_o_scanner_lifecycle_and_async_race(playwright_instance, browser):
+    print('\n=== (作業F-12,13) モーダル終了後のカメラ停止・非同期起動競合/多重起動防止 ===')
+
+    # (作業F-12) モーダル終了後のカメラ停止：実カメラ(フェイクデバイス)での確認
+    # 既にrun()内でsync_playwright()のコンテキストに入っているため、ここではネストして
+    # 新規に開始せず、同じplaywright_instanceからカメラ用引数つきの別Chromiumを起動する。
+    cam_browser = playwright_instance.chromium.launch(
+        executable_path=CHROMIUM_EXECUTABLE_PATH if CHROMIUM_EXECUTABLE_PATH else None,
+        args=FAKE_CAMERA_ARGS,
+    )
+    cam_context = cam_browser.new_context()
+    cam_context.grant_permissions(['camera'])
+    page, errors = fresh_page_in_context(cam_context)
+    page.click('#qr-mode-btn')
+    page.click('#qr-scan-btn')
+    page.wait_for_timeout(500)
+    check('(作業F-12 setup) camera stream and decode loop are actually running before close',
+          page.evaluate('!!scannerStream') and page.evaluate('!!scannerDecodeLoopHandle'))
+    page.click('#qr-scanner-close-btn')
+    page.wait_for_timeout(200)
+    check('(作業F-12) closing the modal stops the camera stream',
+          page.evaluate('!scannerStream'))
+    check('(作業F-12) closing the modal cancels the decode loop',
+          page.evaluate('!scannerDecodeLoopHandle'))
+    check('(作業F-12) the video element\'s srcObject is cleared on close',
+          page.evaluate("document.getElementById('qr-scanner-video').srcObject") is None)
+    check('no console/page errors during the real-camera lifecycle check', len(errors) == 0,
+          errors[:5])
+    page.close()
+    cam_browser.close()
+
+    # (作業F-13) 非同期起動競合・多重起動防止：getUserMediaを手動制御可能なPromiseでモックする
+    context = browser.new_context()
+    context.add_init_script("""
+        window.__gumCalls = 0;
+        window.__gumResolvers = [];
+        navigator.mediaDevices.getUserMedia = () => {
+            window.__gumCalls++;
+            return new Promise((resolve) => { window.__gumResolvers.push(resolve); });
+        };
+        window.__makeFakeStream = () => {
+            const track = { stopped: false, stop() { this.stopped = true; } };
+            return { __track: track, getTracks: () => [track] };
+        };
+    """)
+    page, errors = fresh_page_in_context(context)
+    page.click('#qr-mode-btn')
+
+    page.evaluate("openScannerModal()")
+    page.evaluate("startCamera()")  # 起動進行中に重ねて呼んでも多重起動しないはず
+    page.wait_for_timeout(100)
+    check('(作業F-13) calling startCamera() again while a start is already in flight does not '
+          'call getUserMedia a second time', page.evaluate('window.__gumCalls') == 1,
+          page.evaluate('window.__gumCalls'))
+
+    # モーダルを閉じてから(非同期のgetUserMediaが完了する前に)Promiseを解決させる
+    page.click('#qr-scanner-close-btn')
+    page.wait_for_timeout(50)
+    page.evaluate("""
+        window.__lastFakeStream = window.__makeFakeStream();
+        window.__gumResolvers[0](window.__lastFakeStream);
+    """)
+    page.wait_for_timeout(100)
+    was_stopped = page.evaluate("window.__lastFakeStream.getTracks()[0].stopped")
+    check('(作業F-13) a getUserMedia promise that resolves AFTER the modal was already closed is '
+          'stopped immediately and never assigned as the active stream',
+          was_stopped is True and page.evaluate('!scannerStream'), was_stopped)
+
+    check('no console/page errors during the async-race checks', len(errors) == 0, errors[:5])
+    page.close()
+    context.close()
+
+
+def group_p_scanner_switch_scan_safety(browser):
+    print('\n=== (作業F-14 / 実装E) QRモーダル表示中の背景操作防止 ===')
+    context = browser.new_context()
+    context.add_init_script("navigator.mediaDevices.getUserMedia = () => new Promise(() => {});")
+    page, errors = fresh_page_in_context(context)
+
+    open_settings_modal(page)
+    page.locator('label.toggle:has(#switch-scan-toggle)').click()
+    page.click('#settings-close')
+    page.click('#qr-mode-btn')
+
+    # 背景にスイッチスキャン候補が複数あることを先に確認(商品カード・会計ボタン等)
+    candidates_before = page.evaluate(
+        "Array.from(document.querySelectorAll(%r)).length" % SWITCH_SCAN_SELECTOR)
+    check('background has multiple switch-scan candidates before opening the scanner modal '
+          '(sanity check)', candidates_before > 1, candidates_before)
+
+    page.click('#qr-scan-btn')
+    page.wait_for_selector('#qr-scanner-modal.active')
+
+    scoped_items = page.evaluate(
+        "(sel) => { const modal = document.getElementById('qr-scanner-modal'); "
+        "return Array.from(document.querySelectorAll(sel)).filter(el => !modal.contains(el))"
+        ".map(el => el.id || el.className || el.tagName); }",
+        SWITCH_SCAN_SELECTOR,
+    )
+    check('(作業F-14/実装E) [FIXED] while the QR scanner modal is open, buildScanItems() returns '
+          'ONLY elements inside the modal — background product cards and checkout buttons are not '
+          'switch-scan candidates at all (register-app.html buildScanItems() scopes to the open '
+          'qr-scanner-modal; other modals\' pre-existing leak, confirmed unchanged by group_h, is '
+          'intentionally left alone per scope)',
+          page.evaluate("buildScanItems().every(el => "
+                         "document.getElementById('qr-scanner-modal').contains(el))"),
+          scoped_items)
+
+    all_background_inert = page.evaluate(
+        "(sel) => Array.from(document.querySelectorAll(sel))"
+        ".filter(el => !document.getElementById('qr-scanner-modal').contains(el) "
+        "&& el.id!=='donomanaA11yBtn' && !el.closest('#donomanaA11yPanel'))"
+        ".every(el => el.inert === true)", SWITCH_SCAN_SELECTOR)
+    check('every element matching SWITCH_SCAN_SELECTOR outside the scanner modal is inert while it '
+          'is open (blocks real pointer/touch interaction with the background too, not just '
+          'switch-scan)', all_background_inert)
+
+    check('switch-scan immediately highlights a candidate inside the now-open scanner modal',
+          page.evaluate("document.getElementById('qr-scanner-modal')"
+                         ".contains(document.querySelector('.scan-focus'))"))
+
+    page.keyboard.press(' ')  # Space はhandleScanKey経由でactivateCurrentScanItemを呼ぶ
+    check('pressing Space while the scanner modal is open activates something inside the modal, '
+          'never a background product/checkout control',
+          not page.evaluate('cart.length > 0'))  # 背景の商品カードが発火していればcartが増えてしまう
+
+    page.click('#qr-scanner-close-btn')
+    page.wait_for_timeout(100)
+    check('closing the scanner modal restores the normal (document-wide) switch-scan scope',
+          page.evaluate("buildScanItems().length") >= candidates_before)
+    check('background elements are no longer inert after the scanner modal closes',
+          page.evaluate("document.querySelector('.product-card').inert") is False)
+
+    check('no console/page errors during switch-scan safety checks', len(errors) == 0, errors[:5])
+    page.close()
+    context.close()
+
+
+def group_q_scanner_realistic_camera_e2e(playwright_instance, browser):
+    print('\n=== 実カメラ入力に近いE2Eテスト（フェイクカメラデバイスに実QR映像を供給） ===')
+    import subprocess
+    import tempfile
+
+    render_browser = playwright_instance.chromium.launch(
+        executable_path=CHROMIUM_EXECUTABLE_PATH if CHROMIUM_EXECUTABLE_PATH else None)
+    render_page = render_browser.new_page()
+    render_page.goto(APP_URL)
+    test_id = 'phase33e2efixedtestid'
+    # 実際のopenQrModal()を使って本物のQR表示モーダル(.active状態、.qr-svg-wrapの
+    # CSSサイズ指定込み)を開く。#qr-modal-bodyへ直接innerHTMLを注入するだけでは
+    # モーダルがinactive(opacity:0)のままスクリーンショットされ、QRが正しく
+    # デコードできない画像になってしまうため、実際のUI経路を使う。
+    render_page.evaluate(
+        "() => { const tmp={id:%r,name:'E2Eテスト商品',price:1,emoji:'🧪',image:null}; "
+        "products.push(tmp); openQrModal(tmp.id); "
+        "document.querySelector('.qr-svg-wrap svg').style.width='480px'; "
+        "document.querySelector('.qr-svg-wrap svg').style.height='480px'; }" % test_id
+    )
+    png_path = os.path.join(tempfile.gettempdir(), 'register_qr_e2e_source.png')
+    render_page.locator('.qr-svg-wrap').screenshot(path=png_path)
+    render_browser.close()
+
+    padded_path = os.path.join(tempfile.gettempdir(), 'register_qr_e2e_padded.png')
+    y4m_path = os.path.join(tempfile.gettempdir(), 'register_qr_e2e.y4m')
+    try:
+        import cv2
+        img = cv2.imread(png_path)
+        padded = cv2.copyMakeBorder(img, 40, 40, 40, 40, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        cv2.imwrite(padded_path, padded)
+    except Exception as e:
+        check('(bonus realistic test) could prepare a padded QR source image for the fake camera',
+              False, str(e))
+        return
+    try:
+        subprocess.run(
+            ['ffmpeg', '-y', '-loop', '1', '-i', padded_path, '-frames:v', '5',
+             '-pix_fmt', 'yuv420p', y4m_path],
+            check=True, capture_output=True, timeout=30,
+        )
+    except Exception as e:
+        check('(bonus realistic test) ffmpeg could encode the fake-camera Y4M feed', False, str(e))
+        return
+
+    cam_browser = playwright_instance.chromium.launch(
+        executable_path=CHROMIUM_EXECUTABLE_PATH if CHROMIUM_EXECUTABLE_PATH else None,
+        args=FAKE_CAMERA_ARGS + ['--use-file-for-fake-video-capture=' + y4m_path],
+    )
+    cam_context = cam_browser.new_context()
+    cam_context.grant_permissions(['camera'])
+    page, errors = fresh_page_in_context(cam_context)
+    # このセッションの実在商品のIDを、フェイク映像に焼き込んだIDへ合わせる
+    page.evaluate("products[0].id=%r; saveProducts();" % test_id)
+    page.click('#qr-mode-btn')
+    page.click('#qr-scan-btn')
+    page.wait_for_timeout(2000)
+    cart = page.evaluate('cart')
+    check('[REAL CAMERA E2E] a genuine getUserMedia video feed containing an actual QR image, '
+          'decoded by the real jsQR pipeline (no mocked decode), correctly adds the matching '
+          'product to the cart — proves the full camera→canvas→jsQR→match→addToCart pipeline '
+          'works end-to-end, not just the mocked-logic groups above',
+          any(i['id'] == test_id for i in cart), cart)
+    check('no console/page errors during the realistic camera E2E test', len(errors) == 0,
+          errors[:5])
+    page.close()
+    cam_browser.close()
+
 
 # 一部の実行環境（例：事前にChromiumが固定パスへ配置されたCI/クラウド実行環境）では
 # Playwright自身が期待するリビジョンのブラウザを自動解決できない場合がある。通常の
@@ -907,6 +1341,12 @@ def run():
         group_i2_qr_modal_leak_not_worse(browser)
         group_j_qr_print(browser)
         group_k_qr_license(browser)
+        group_l_qr_mode_and_settings(browser)
+        group_m_scanner_camera_errors(browser)
+        group_n_scanner_decode_and_debounce(browser)
+        group_o_scanner_lifecycle_and_async_race(p, browser)
+        group_p_scanner_switch_scan_safety(browser)
+        group_q_scanner_realistic_camera_e2e(p, browser)
         browser.close()
 
 
@@ -914,11 +1354,15 @@ if __name__ == '__main__':
     run()
     print('\n=== RESULT ===')
     print('PASS:', pass_count, ' FAIL:', fail_count)
-    print('(1 FAIL is EXPECTED as of DONOMANA-REGISTER-QR-PHASE-3-2: the '
-          '"既知の構造的課題の確認" group\'s modal/switch-scan structural-leak check — a known Phase 2 '
-          'design finding, still out of scope for this QR-generation Phase (the separate group_i2 check '
-          'confirms the new qr-modal does not leak MORE than the pre-existing product-modal under '
-          'identical conditions — same issue, not worsened). The share-URL bug found in Phase 3-1 was '
+    print('(1 FAIL is EXPECTED as of DONOMANA-REGISTER-QR-PHASE-3-3: the '
+          '"既知の構造的課題の確認" group\'s modal/switch-scan structural-leak check for product-modal — '
+          'a known Phase 2 design finding, intentionally left unfixed for THAT modal (out of scope: '
+          '"既存全モーダルの横断改修は行わない"). The NEW qr-scanner-modal (Phase 3-3) instead actually '
+          'FIXES this for itself — see group_p, which confirms buildScanItems() scopes to the open '
+          'scanner modal and the background is additionally inert()\'d. group_i2 (Phase 3-2) separately '
+          'confirms the qr-modal (QR display, not the scanner) merely does not leak MORE than '
+          'product-modal under identical conditions — same pre-existing issue, not worsened, not fixed. '
+          'The share-URL bug found in Phase 3-1 was '
           'fixed in Phase 3-1B and its tests PASS. Any OTHER FAIL is a new, unexpected regression and '
           'must be investigated before proceeding.)')
     sys.exit(1 if fail_count > 0 else 0)
