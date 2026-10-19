@@ -275,10 +275,10 @@ def run():
         page_obs.click('#endBtn')
         check('end screen reached with observation form present', page_obs.is_visible('#observationForm'))
 
-        check('support controls are disabled by default (未記録がON、§3-B)',
-              page_obs.is_disabled('#supportNoneConfirmedToggle') and
-              page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled === true"))
         check('未記録toggle is checked by default', page_obs.is_checked('#supportUnrecordedToggle'))
+        check('support controls are NOT disabled (Phase 5B-3 UX fix: directly tappable even while 未記録 is ON)',
+              not page_obs.is_disabled('#supportNoneConfirmedToggle') and
+              not page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled"))
 
         page_obs.check('input[name="posture"][value="立位"]')
         page_obs.check('input[name="operationPart"][value="頭部・顔"]')
@@ -305,8 +305,9 @@ def run():
               page_obs.is_checked('input[name="posture"][value="未記録"]'))
         check('teacherObservation checkboxes reset (unchecked) for a new session',
               not page_obs.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
-        check('support controls re-disabled (未記録がON) for a new session',
-              page_obs.is_checked('#supportUnrecordedToggle'))
+        check('support resets to 未記録=ON / types=[] for a new session',
+              page_obs.is_checked('#supportUnrecordedToggle') and
+              not page_obs.is_checked('input[name="supportType"][value="声かけ・音声による促し"]'))
 
         # --- 未入力のまま保存 → 空レコードを作らない(§4) ---
         page_obs.click('#saveObservationBtn')
@@ -317,28 +318,98 @@ def run():
         check('empty-form save did not add a second record (still exactly 1 note)',
               notes_raw_2 is not None and notes_raw_2.count('"schemaVersion"') == 1, notes_raw_2)
 
-        # --- support: 3状態の排他制御(§3-B) ---
-        page_obs.uncheck('#supportUnrecordedToggle')
-        check('unchecking 未記録 enables the specific-support checkboxes',
-              not page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled"))
-        page_obs.check('#supportNoneConfirmedToggle')
-        page_obs.check('input[name="supportType"][value="声かけ・音声による促し"]')
-        check('checking a specific support type auto-unchecks 特になし確認済み (§3-B exclusivity)',
+        # --- Phase 5B-3 UX fix: 「活動時の支援」A〜F仕様の検証 ---
+        # B. 未記録=ON状態から、個別支援項目へワンタップで直接遷移できる
+        #    (未記録を手動で外す追加操作を要求しない、§3仕様B)。
+        check('(B) support type is directly checkable from the initial 未記録=ON state, with one tap',
+              page_obs.is_checked('#supportUnrecordedToggle'))
+        page_obs.check('input[name="supportType"][value="身体的な支援"]', timeout=2000)
+        check('(B) checking an individual support item auto-unchecks 未記録 (no manual uncheck step needed)',
+              not page_obs.is_checked('#supportUnrecordedToggle'))
+        check('(B) the tapped support item itself is checked',
+              page_obs.is_checked('input[name="supportType"][value="身体的な支援"]'))
+
+        # C. 複数選択を維持し、未記録はOFFのまま
+        page_obs.check('input[name="supportType"][value="視覚的な提示・促し"]', timeout=2000)
+        check('(C) multiple support items can be selected simultaneously',
+              page_obs.is_checked('input[name="supportType"][value="身体的な支援"]') and
+              page_obs.is_checked('input[name="supportType"][value="視覚的な提示・促し"]'))
+        check('(C) 未記録 remains OFF while multiple items are selected',
+              not page_obs.is_checked('#supportUnrecordedToggle'))
+
+        # D. 「支援・環境調整は特になし（確認済み）」を選ぶと未記録・個別項目がOFFになる
+        page_obs.check('#supportNoneConfirmedToggle', timeout=2000)
+        check('(D) selecting 特になし確認済み turns OFF 未記録',
+              not page_obs.is_checked('#supportUnrecordedToggle'))
+        check('(D) selecting 特になし確認済み clears all individual support items',
+              not page_obs.is_checked('input[name="supportType"][value="身体的な支援"]') and
+              not page_obs.is_checked('input[name="supportType"][value="視覚的な提示・促し"]'))
+        check('(D) 特になし確認済み itself is checked (支援なし確認済み state)',
+              page_obs.is_checked('#supportNoneConfirmedToggle'))
+
+        # E. 「未記録」を選び直すと個別項目・特になし確認済みの両方が解除される
+        page_obs.check('#supportUnrecordedToggle', timeout=2000)
+        check('(E) re-selecting 未記録 clears 特になし確認済み',
               not page_obs.is_checked('#supportNoneConfirmedToggle'))
-        page_obs.check('#supportUnrecordedToggle')
-        check('re-checking 未記録 clears the specific support type selection',
-              not page_obs.is_checked('input[name="supportType"][value="声かけ・音声による促し"]'))
-        check('re-checking 未記録 disables the support type checkboxes again',
-              page_obs.evaluate("document.querySelector('input[name=\"supportType\"]').disabled"))
+        check('(E) re-selecting 未記録 clears individual support items too',
+              not page_obs.is_checked('input[name="supportType"][value="身体的な支援"]'))
+
+        # F. 個別支援項目をすべて解除すると、記録状態の意味が曖昧(recorded:true,
+        #    types:[]という「特になし確認済み」と区別できない状態)にならないよう、
+        #    未記録へ自動的に復帰する(Design v2.1 support.recordedの定義を維持)。
+        page_obs.check('input[name="supportType"][value="身体的な支援"]', timeout=2000)
+        page_obs.check('input[name="supportType"][value="視覚的な提示・促し"]', timeout=2000)
+        check('(F) setup: 未記録 is OFF while two items are selected',
+              not page_obs.is_checked('#supportUnrecordedToggle'))
+        page_obs.uncheck('input[name="supportType"][value="身体的な支援"]', timeout=2000)
+        check('(F) 未記録 stays OFF while one item is still selected',
+              not page_obs.is_checked('#supportUnrecordedToggle'))
+        page_obs.uncheck('input[name="supportType"][value="視覚的な提示・促し"]', timeout=2000)
+        check('(F) unchecking the last remaining support item collapses back to 未記録=ON '
+              '(never silently becomes 支援なし確認済み without an explicit choice)',
+              page_obs.is_checked('#supportUnrecordedToggle'))
+        check('(F) 特になし確認済み is NOT auto-checked by the collapse',
+              not page_obs.is_checked('#supportNoneConfirmedToggle'))
+
+        # --- 保存データのschemaと値の確認(要件9): 支援を直接複数選択してそのまま保存する ---
+        page_obs.check('input[name="supportType"][value="身体的な支援"]', timeout=2000)
+        page_obs.check('input[name="supportType"][value="姿勢・機器配置などの環境調整"]', timeout=2000)
+        page_obs.click('#saveObservationBtn')
+        save_status_2 = page_obs.text_content('#observationStatus')
+        check('(schema) second save (one-tap multi-select support) announces success',
+              '保存しました' in save_status_2, save_status_2)
+        notes_raw_3 = page_obs.evaluate("localStorage.getItem('donomana_access_teacher_notes_v1')")
+        check('(schema) saved support.recorded is true and types holds both selected values, in order',
+              notes_raw_3 is not None and
+              '"support":{"recorded":true,"types":["身体的な支援","姿勢・機器配置などの環境調整"]}' in notes_raw_3,
+              notes_raw_3)
+
+        # --- 教員の観察(要件7・8): 未記録状態から具体的観察へ直接選択できることの確認 ---
+        page_obs.click('#restartBtn')
+        page_obs.click('#startBtn')
+        page_obs.mouse.move(box_o['x'] + box_o['width'] / 2, box_o['y'] + box_o['height'] / 2)
+        page_obs.mouse.down()
+        page_obs.mouse.up()
+        page_obs.click('#endBtn')
+        check('(teacherImpression) observation checkboxes are not disabled from the start '
+              '(no equivalent operability problem to fix here)',
+              not page_obs.is_disabled('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
+        page_obs.check('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]', timeout=2000)
+        check('(teacherImpression) a specific observation can be selected directly with one tap',
+              page_obs.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
+        page_obs.check('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]', timeout=2000)
+        check('(teacherImpression) the two positive observations can both be selected (no mutual exclusion)',
+              page_obs.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]') and
+              page_obs.is_checked('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]'))
 
         # --- teacherImpression: 「判断が難しい」の排他制御(§3-D) ---
         page_obs.check('input[name="teacherObservation"][value="判断が難しい"]')
-        page_obs.check('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]')
-        check('checking a positive observation auto-unchecks 判断が難しい (§3-D exclusivity)',
-              not page_obs.is_checked('input[name="teacherObservation"][value="判断が難しい"]'))
-        page_obs.check('input[name="teacherObservation"][value="判断が難しい"]')
-        check('checking 判断が難しい auto-unchecks the positive observation (§3-D exclusivity, reverse direction)',
+        check('checking 判断が難しい auto-unchecks both positive observations (§3-D exclusivity)',
+              not page_obs.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]') and
               not page_obs.is_checked('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]'))
+        page_obs.check('input[name="teacherObservation"][value="促しをきっかけに働きかける様子が見られた"]')
+        check('checking a positive observation auto-unchecks 判断が難しい (§3-D exclusivity, reverse direction)',
+              not page_obs.is_checked('input[name="teacherObservation"][value="判断が難しい"]'))
         page_obs.close()
 
         # --- Phase 5B-1: 外部スイッチモードの終了画面でSpace/Enterが観察フォームの

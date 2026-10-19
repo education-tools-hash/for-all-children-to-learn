@@ -184,12 +184,12 @@
     <fieldset id="supportGroup">
       <legend>活動時の支援</legend>
       <label><input type="checkbox" id="supportUnrecordedToggle" checked> 未記録</label>
-      <label><input type="checkbox" id="supportNoneConfirmedToggle" disabled> 支援・環境調整は特になし（確認済み）</label>
+      <label><input type="checkbox" id="supportNoneConfirmedToggle"> 支援・環境調整は特になし（確認済み）</label>
       <div id="supportTypesGroup">
-        <label><input type="checkbox" name="supportType" value="声かけ・音声による促し" disabled> 声かけ・音声による促し</label>
-        <label><input type="checkbox" name="supportType" value="視覚的な提示・促し" disabled> 視覚的な提示・促し</label>
-        <label><input type="checkbox" name="supportType" value="身体的な支援" disabled> 身体的な支援</label>
-        <label><input type="checkbox" name="supportType" value="姿勢・機器配置などの環境調整" disabled> 姿勢・機器配置などの環境調整</label>
+        <label><input type="checkbox" name="supportType" value="声かけ・音声による促し"> 声かけ・音声による促し</label>
+        <label><input type="checkbox" name="supportType" value="視覚的な提示・促し"> 視覚的な提示・促し</label>
+        <label><input type="checkbox" name="supportType" value="身体的な支援"> 身体的な支援</label>
+        <label><input type="checkbox" name="supportType" value="姿勢・機器配置などの環境調整"> 姿勢・機器配置などの環境調整</label>
       </div>
     </fieldset>
 
@@ -578,11 +578,6 @@
     pruneNotice.textContent = '';
   }
 
-  function setSupportControlsEnabled(enabled) {
-    supportNoneConfirmedToggle.disabled = !enabled;
-    supportTypeCheckboxes.forEach(function (cb) { cb.disabled = !enabled; });
-  }
-
   // resetObservationForm(): 新しいsession（activity）ごとに観察フォームを
   // 初期状態（すべて未記録）へ戻す。前回sessionの入力が次回へ持ち越されない
   // ようにする(Design v2.1 §4：schemaVersion/sessionIdはsession単位で別)。
@@ -593,28 +588,50 @@
     supportUnrecordedToggle.checked = true;
     supportNoneConfirmedToggle.checked = false;
     supportTypeCheckboxes.forEach(function (cb) { cb.checked = false; });
-    setSupportControlsEnabled(false);
     observationStatus.textContent = '';
   }
 
-  // 「未記録」がOFFになった時のみ「特になし確認済み」と4種別checkboxを操作
-  // 可能にする。「未記録」を再度ONにした場合は他の入力を破棄して初期状態へ
-  // 戻す(Design v2.1 §3-B UI上の排他制御)。
-  supportUnrecordedToggle.addEventListener('change', function () {
-    if (supportUnrecordedToggle.checked) {
+  // syncSupportState(): 「活動時の支援」3状態(未記録／特になし確認済み／具体的支援あり、
+  // Design v2.1 §3-B)の排他制御を、disabled属性による操作ブロックではなく、常に
+  // 操作可能なcheckbox群へのイベント駆動の相互調整で実現する(Phase 5B-3 UX修正)。
+  // 「未記録」がONの状態で個別支援項目を直接タップできる(未記録を手動で外す
+  // 追加操作を要求しない、UX仕様B)よう、どのcheckboxも無効化しない。
+  //   trigger='unrecorded': 「未記録」がONにされた → 他を全解除する(仕様E)。
+  //   trigger='noneConfirmed': 「特になし確認済み」がONにされた → 未記録・個別項目を解除する(仕様D)。
+  //   trigger='type': 個別支援項目のON/OFFが変化した → 1件以上ONなら未記録・特になしを解除する(仕様B・C)。
+  //   いずれのtriggerの結果でも、個別項目・特になしのいずれも選択されていない状態に
+  //   なった場合は「未記録」へ復帰させる(仕様F：recorded=true・types=[]という曖昧な
+  //   状態が、個別項目の解除だけで無断生成されることを防ぐ。「特になし確認済み」は
+  //   明示的な選択によってのみ成立する、という§3-Bの3状態定義を保つ)。
+  function syncSupportState(trigger) {
+    if (trigger === 'unrecorded' && supportUnrecordedToggle.checked) {
       supportNoneConfirmedToggle.checked = false;
       supportTypeCheckboxes.forEach(function (cb) { cb.checked = false; });
-      setSupportControlsEnabled(false);
-    } else {
-      setSupportControlsEnabled(true);
+      return;
     }
-  });
-  // 4種別のいずれか1つでもチェックされた場合、「特になし確認済み」は
-  // 自動的に解除される(矛盾する同時選択の防止、Design v2.1 §3-B)。
+    if (trigger === 'noneConfirmed' && supportNoneConfirmedToggle.checked) {
+      supportUnrecordedToggle.checked = false;
+      supportTypeCheckboxes.forEach(function (cb) { cb.checked = false; });
+      return;
+    }
+    var anyTypeChecked = Array.prototype.some.call(supportTypeCheckboxes, function (cb) { return cb.checked; });
+    if (trigger === 'type' && anyTypeChecked) {
+      supportUnrecordedToggle.checked = false;
+      supportNoneConfirmedToggle.checked = false;
+      return;
+    }
+    // 上記いずれにも該当しない(未記録を直接OFFにした・特になしをOFFにした・
+    // 最後の個別項目をOFFにした等)場合、個別項目も特になしも選択されていなければ
+    // 曖昧な状態を残さず未記録へ復帰する。
+    if (!anyTypeChecked && !supportNoneConfirmedToggle.checked) {
+      supportUnrecordedToggle.checked = true;
+    }
+  }
+
+  supportUnrecordedToggle.addEventListener('change', function () { syncSupportState('unrecorded'); });
+  supportNoneConfirmedToggle.addEventListener('change', function () { syncSupportState('noneConfirmed'); });
   supportTypeCheckboxes.forEach(function (cb) {
-    cb.addEventListener('change', function () {
-      if (cb.checked) supportNoneConfirmedToggle.checked = false;
-    });
+    cb.addEventListener('change', function () { syncSupportState('type'); });
   });
 
   // 「判断が難しい」と他の2項目は排他(UI側、Design v2.1 §3-D)。データ層でも
