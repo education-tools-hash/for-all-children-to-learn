@@ -1515,6 +1515,13 @@ function loadProducts(){
     {id:uid(),name:'チョコ',  price:200,emoji:'🍫',image:null},
     {id:uid(),name:'ケーキ',  price:300,emoji:'🎂',image:null},
   ];
+  // DONOMANA-REGISTER-QR-PHASE-3-6B: 保存データが無い(初回訪問・JSON破損からの復旧)ため
+  // デフォルト商品をuid()で生成した直後、そのIDを含む状態を即座に保存する。保存前に
+  // リロードが挟まると、uid()は呼び出しごとに異なる値を返すため商品IDが再発行され、
+  // 既に発行済みのQR(DMREG1:<旧ID>)が「登録されていません」として読み取れなくなる
+  // 不具合(Phase 3-6A調査で確認済み)を防ぐ。保存が失敗した場合もsaveProducts()既存の
+  // try/catchがエラー文言を表示するのみで、ここでは失敗を永続化成功と誤認させない。
+  saveProducts();
 }
 function saveProducts(){
   try{

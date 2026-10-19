@@ -55,6 +55,16 @@ cv2.QRCodeDetector）を使う。これはテスト専用の依存であり、re
 実行前に `pip install opencv-python-headless` が必要（Playwright同様、テスト実行者が
 別途用意する想定で、register-app.html自体の「追加の有料API・サブスク禁止」方針とは
 無関係なローカルOSSツールである）。
+
+- DONOMANA-REGISTER-QR-PHASE-3-6A-UNKNOWN-PRODUCT-READONLY-INVESTIGATION-1:
+  固定Preview実機で「QR生成直後にリロードすると、そのQRが『登録されていません』になる」
+  不具合をREAD-ONLYで調査し、原因を特定した（loadProducts()が保存データ無しの場合に
+  毎回uid()で新しいデフォルト商品IDを生成するが、生成直後にsaveProducts()を呼ばず、
+  永続化していなかったため）。
+- DONOMANA-REGISTER-QR-PHASE-3-6B-DEFAULT-PRODUCT-ID-PERSISTENCE-FIX-1: 上記原因に
+  対する最小修正（loadProducts()のデフォルト商品生成直後にsaveProducts()を1行追加）と、
+  その回帰テスト（group_r）を追加した。既存の保存データがある場合・空配列として保存
+  されている場合・破損JSONの場合・localStorage書き込み失敗時の既存挙動は変更していない。
 """
 import os
 import sys
@@ -1318,6 +1328,120 @@ def group_q_scanner_realistic_camera_e2e(playwright_instance, browser):
     cam_browser.close()
 
 
+def group_r_default_product_id_persistence_fix(browser):
+    """DONOMANA-REGISTER-QR-PHASE-3-6B: 初回訪問（保存データなし）でデフォルト商品を
+    生成した直後にそのIDを永続化する修正の回帰テスト。Phase 3-6Aで確認した不具合
+    （QR生成直後にリロードすると商品IDが再発行され、既発行のQRが「登録されていません」
+    になる）が再発しないことを確認する。"""
+    print('\n=== (作業4-A/B/C/F, Phase 3-6B) デフォルト商品IDの永続化修正 ===')
+
+    # A. 初回訪問・保存データなし：生成直後に保存され、リロード後もIDが変わらない
+    page, errors = fresh_page(browser)
+    saved_raw = page.evaluate("localStorage.getItem('register_products')")
+    check('(A) 初回訪問の直後、追加操作なしでも register_products が保存されている',
+          saved_raw is not None, saved_raw)
+    id_before = page.evaluate("products[0].id")
+    saved_id = page.evaluate("JSON.parse(localStorage.getItem('register_products'))[0].id")
+    check('(A) 保存されたIDがメモリ上のIDと一致する', id_before == saved_id,
+          (id_before, saved_id))
+    page.reload()
+    id_after_reload = page.evaluate("products[0].id")
+    check('(A) リロード後もデフォルト商品のIDが変化しない（不具合の再発なし）',
+          id_before == id_after_reload, (id_before, id_after_reload))
+    payload_a = 'DMREG1:' + id_before
+    result_a = page.evaluate(
+        "(p => { const before = cart.length; handleDetectionTick(p); "
+        "return cart.length - before; })(%r)" % payload_a)
+    check('(A) リロード前に生成したQR（旧ID基準）がリロード後も照合に成功し加算される',
+          result_a == 1, result_a)
+    check('(A) no console/page errors', len(errors) == 0, errors[:5])
+    page.close()
+
+    # B. 初回訪問・リロードなし：従来通り成功する（回帰なし）
+    page, errors = fresh_page(browser)
+    pid_b = page.evaluate("products[0].id")
+    payload_b = 'DMREG1:' + pid_b
+    result_b = page.evaluate(
+        "(p => { const before = cart.length; handleDetectionTick(p); "
+        "return cart.length - before; })(%r)" % payload_b)
+    check('(B) リロードを挟まない同一セッション内では従来通りQR照合が成功する',
+          result_b == 1, result_b)
+    check('(B) no console/page errors', len(errors) == 0, errors[:5])
+    page.close()
+
+    # C. 既存保存データあり：上書きされない、名前・価格も保持される
+    page, errors = fresh_page(browser)
+    page.evaluate("localStorage.setItem('register_products', JSON.stringify("
+                  "[{id:'phase36bfixedid1',name:'クッキー',price:100,emoji:'🍪'}]))")
+    page.reload()
+    pid_c = page.evaluate("products[0].id")
+    name_c = page.evaluate("products[0].name")
+    price_c = page.evaluate("products[0].price")
+    check('(C) 既存の保存データのIDが変更・上書きされない', pid_c == 'phase36bfixedid1', pid_c)
+    check('(C) 既存の保存データの商品名・価格が変更されない',
+          name_c == 'クッキー' and price_c == 100, (name_c, price_c))
+    page.reload()
+    pid_c2 = page.evaluate("products[0].id")
+    check('(C) 既存データ読込時はさらにリロードしてもIDが安定し続ける',
+          pid_c2 == 'phase36bfixedid1', pid_c2)
+    check('(C) no console/page errors', len(errors) == 0, errors[:5])
+    page.close()
+
+    # F-1. localStorage書き込み失敗時（初回訪問・デフォルト生成時）：画面が致命的に壊れず、
+    #      失敗が成功と誤認されない
+    context_f1 = browser.new_context()
+    context_f1.add_init_script("""
+        const _origSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(k, v) {
+            if (k === 'register_products') { throw new DOMException('simulated quota error', 'QuotaExceededError'); }
+            return _origSetItem.call(this, k, v);
+        };
+    """)
+    page_f1 = context_f1.new_page()
+    f1_errors = []
+    page_f1.on('pageerror', lambda exc: f1_errors.append(str(exc)))
+    page_f1.goto(APP_URL)
+    products_rendered = page_f1.evaluate("document.querySelectorAll('.product-card').length")
+    check('(F-1) register_products への書き込みが例外を投げても初期画面は致命的に壊れない'
+          '（商品カードが表示される）', products_rendered > 0, products_rendered)
+    still_in_memory = page_f1.evaluate("products.length")
+    check('(F-1) 保存に失敗してもメモリ上の商品データ自体は保持される（今回のセッションは使える）',
+          still_in_memory > 0, still_in_memory)
+    check('(F-1) 保存失敗時、未catchのJS例外としてページを壊していない（pageerrorなし）',
+          len(f1_errors) == 0, f1_errors[:5])
+    saved_after_fail = page_f1.evaluate("localStorage.getItem('register_products')")
+    check('(F-1) 書き込みが失敗した場合、register_products は実際に保存されていない'
+          '（失敗を成功と誤認させていない）', saved_after_fail is None, saved_after_fail)
+    page_f1.close()
+    context_f1.close()
+
+    # F-2. 破損JSON：デフォルトへフォールバックしつつ、本修正により直後に自己修復（再保存）される
+    page_f2, errors_f2 = fresh_page(browser)
+    page_f2.evaluate("localStorage.setItem('register_products', '{not valid json')")
+    page_f2.reload()
+    name_f2 = page_f2.evaluate("products[0].name")
+    pid_f2_first = page_f2.evaluate("products[0].id")
+    check('(F-2) 破損JSONの場合は従来通りデフォルト商品へフォールバックする（クッキーが先頭）',
+          name_f2 == 'クッキー', name_f2)
+    page_f2.reload()
+    pid_f2_second = page_f2.evaluate("products[0].id")
+    check('(F-2) 破損JSONからの復旧後は本修正により直後に保存され、再リロードしてもIDが安定する',
+          pid_f2_first == pid_f2_second, (pid_f2_first, pid_f2_second))
+    check('(F-2) no console/page errors while recovering from corrupted JSON',
+          len(errors_f2) == 0, errors_f2[:5])
+    page_f2.close()
+
+    # F-3. 空配列：既存仕様どおりデフォルトへ復帰せず、空のまま維持される（本修正の対象外パス）
+    page_f3, errors_f3 = fresh_page(browser)
+    page_f3.evaluate("localStorage.setItem('register_products', '[]')")
+    page_f3.reload()
+    products_len_f3 = page_f3.evaluate("products.length")
+    check('(F-3) 空配列として保存されている場合はデフォルト商品へ復帰しない（既存仕様は無変更）',
+          products_len_f3 == 0, products_len_f3)
+    check('(F-3) no console/page errors', len(errors_f3) == 0, errors_f3[:5])
+    page_f3.close()
+
+
 # 一部の実行環境（例：事前にChromiumが固定パスへ配置されたCI/クラウド実行環境）では
 # Playwright自身が期待するリビジョンのブラウザを自動解決できない場合がある。通常の
 # 開発環境では`playwright install chromium`済みの既定解決に任せ、このパスを明示した
@@ -1347,6 +1471,7 @@ def run():
         group_o_scanner_lifecycle_and_async_race(p, browser)
         group_p_scanner_switch_scan_safety(browser)
         group_q_scanner_realistic_camera_e2e(p, browser)
+        group_r_default_product_id_persistence_fix(browser)
         browser.close()
 
 
