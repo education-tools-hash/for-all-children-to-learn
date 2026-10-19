@@ -225,6 +225,22 @@
   .print-list-img{width:40px;height:40px;object-fit:cover;border-radius:6px;}
   .print-header-title{font-family:'M PLUS Rounded 1c','Kosugi Maru',sans-serif;font-size:20px;font-weight:800;color:#FF6B35;margin-bottom:12px;padding-bottom:8px;border-bottom:3px solid #FF6B35;display:flex;align-items:center;gap:8px;}
   .print-date{font-size:11px;color:#999;margin-left:auto;font-weight:400;}
+  .print-card-qr{width:100%;display:flex;justify-content:center;}
+  .print-card-qr svg{width:64px;height:64px;}
+  .print-list-qr{width:48px;height:48px;margin:0 auto;}
+  .print-list-qr svg{width:100%;height:100%;}
+  .print-single-qr{display:flex;flex-direction:column;align-items:center;gap:10px;padding:24px;}
+  .print-single-qr .print-card-qr svg{width:200px;height:200px;}
+  .qr-error{font-size:11px;color:var(--danger,#c0392b);font-weight:700;padding:8px;}
+
+  /* QR MODAL (DONOMANA-REGISTER-QR-PHASE-3-2) */
+  .qr-svg-wrap{display:flex;justify-content:center;margin:0 auto 14px;background:#fff;padding:12px;border-radius:12px;border:2px solid var(--border);}
+  .qr-svg-wrap svg{width:180px;height:180px;}
+  .qr-modal-emoji{font-size:40px;line-height:1;margin-bottom:4px;}
+  .qr-modal-photo{width:64px;height:64px;object-fit:cover;border-radius:10px;margin:0 auto 4px;display:block;}
+  .qr-modal-name{font-weight:800;font-size:calc(var(--font-size-base)*1.1);margin-bottom:2px;}
+  .qr-modal-price{font-weight:800;color:var(--primary);font-size:calc(var(--font-size-base)*1.3);margin-bottom:12px;}
+  .qr-modal-note{font-size:calc(var(--font-size-base)*.75);color:var(--text-light);line-height:1.6;background:var(--bg);border-radius:10px;padding:10px 12px;}
 
   /* HELP */
   .help-tab{background:var(--bg);border:2px solid var(--border);border-radius:10px;padding:8px 14px;font-size:calc(var(--font-size-base)*.82);font-weight:700;cursor:pointer;font-family:var(--font-family);color:var(--text);transition:all .2s;min-height:44px;}
@@ -1031,6 +1047,7 @@
         <label style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;"><input type="checkbox" id="print-show-price" checked style="width:20px;height:20px;"> 値段を表示する</label>
         <label style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;"><input type="checkbox" id="print-show-photo" checked style="width:20px;height:20px;"> 写真を表示する</label>
         <label style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;"><input type="checkbox" id="print-show-storename" checked style="width:20px;height:20px;"> お店の名前を表示する</label>
+        <label style="display:flex;align-items:center;gap:10px;font-weight:700;cursor:pointer;"><input type="checkbox" id="print-show-qr" style="width:20px;height:20px;"> QRコードを表示する</label>
       </div>
     </div>
     <div style="background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:12px;margin-bottom:16px;">
@@ -1056,6 +1073,19 @@
   </div>
 </div>
 
+<!-- QR MODAL (DONOMANA-REGISTER-QR-PHASE-3-2: 商品QRコードの表示・印刷) -->
+<div class="modal-overlay" id="qr-modal" role="dialog" aria-modal="true" aria-labelledby="qrmt">
+  <div class="modal" style="max-width:420px;">
+    <h2 class="modal-title" id="qrmt">🔳 商品QRコード</h2>
+    <div id="qr-modal-body" style="text-align:center;"></div>
+    <div class="qr-modal-note">このQRコードには商品のID情報だけが入っています（名前や値段は入っていません）。商品を削除してから登録し直すと、このQRコードは使えなくなります。値段や名前を変えるときは「削除」ではなく「編集」を使ってください。</div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn outline" id="qr-modal-close">とじる</button>
+      <button class="btn" id="qr-modal-print">🖨️ このQRを印刷</button>
+    </div>
+  </div>
+</div>
+
 <!-- HELP MODAL -->
 <div class="modal-overlay" id="help-modal" role="dialog" aria-modal="true" aria-labelledby="hmt">
   <div class="modal" style="max-width:560px;">
@@ -1076,6 +1106,7 @@
       <div class="help-step"><div class="help-step-num">2</div><div><div class="help-step-title">➕ 商品を追加する</div><div class="help-step-desc">「➕ 商品を追加」カードをタップして、名前・値段・絵文字・写真を入力して保存します。</div></div></div>
       <div class="help-step"><div class="help-step-num">3</div><div><div class="help-step-title">✏️🗑️ 変更・削除</div><div class="help-step-desc">編集モード中に商品カードをさわると「✏️」「🗑️」ボタンが出てきます。</div></div></div>
       <div class="help-step"><div class="help-step-num">4</div><div><div class="help-step-title">🔗 他の端末と共有する</div><div class="help-step-desc">「🔗」ボタンでURLをコピーして送ると、他のiPadやパソコンで同じ商品リストを使えます。写真は共有されないので、共有先で再度登録してください。</div></div></div>
+      <div class="help-step"><div class="help-step-num">5</div><div><div class="help-step-title">🔳 QRコード</div><div class="help-step-desc">編集モード中に商品カードをさわると出てくる「🔳」ボタンで、商品ごとのQRコードを表示・印刷できます。QRコードには商品のIDだけが入っており、名前や値段は入っていません。<strong>商品を「削除」してから登録し直すと、印刷済みのQRコードは使えなくなります。</strong>値段や名前を変えるだけなら「編集」を使ってください（削除して登録し直す必要はありません）。</div></div></div>
     </div>
     <div class="help-panel" id="help-tab-access" style="display:none;">
       <div class="help-step"><div class="help-step-num">⚙️</div><div><div class="help-step-title">設定の開きかた</div><div class="help-step-desc">画面右下の「⚙」ボタンから開けます。「このアプリの詳細設定を開く」を押すと、この設定画面が開きます。</div></div></div>
@@ -1330,6 +1361,11 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- QRコード生成（ローカル同梱、外部CDN/オンラインAPI不使用。DONOMANA-REGISTER-QR-PHASE-3-2） -->
+<!-- qrcode-generator v2.0.4 (MIT License, Copyright (c) 2009 Kazuhiko Arase) -->
+<!-- 配布元: https://github.com/kazuhikoarase/qrcode-generator -->
+<!-- ライセンス全文: assets/js/vendor/qrcode-generator/LICENSE.txt -->
+<script src="assets/js/vendor/qrcode-generator/qrcode.js"></script>
 <script>
 // ============================================================
 //  STATE
@@ -1463,7 +1499,7 @@ function renderProducts(){
     card.setAttribute('tabindex','0'); card.setAttribute('aria-label', editMode ? `${p.name} ${p.price}円` : `${p.name} ${p.price}円を追加`);
     card.style.animationDelay=(i*.04)+'s'; card.dataset.id=p.id;
     const img=p.image?`<img class="product-img" src="${p.image}" alt="${esc(p.name)}">`:`<div class="product-img-placeholder" aria-hidden="true">${p.emoji||'🎁'}</div>`;
-    const eo=editMode?`<div class="edit-overlay"><button class="edit-btn-small" data-action="edit" data-id="${p.id}">✏️</button><button class="edit-btn-small" data-action="delete" data-id="${p.id}">🗑️</button></div>`:'';
+    const eo=editMode?`<div class="edit-overlay"><button class="edit-btn-small" data-action="edit" data-id="${p.id}">✏️</button><button class="edit-btn-small" data-action="qr" data-id="${p.id}" aria-label="${esc(p.name)}のQRコード">🔳</button><button class="edit-btn-small" data-action="delete" data-id="${p.id}">🗑️</button></div>`:'';
     card.innerHTML=`${img}<div class="product-name">${esc(p.name)}</div><div class="product-price">¥${p.price.toLocaleString()}</div>${eo}`;
     if(!editMode){
       card.addEventListener('click',()=>addToCart(p.id));
@@ -1480,6 +1516,7 @@ function renderProducts(){
     grid.appendChild(add);
   }
   grid.querySelectorAll('[data-action="edit"]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); openProductModal(b.dataset.id); }));
+  grid.querySelectorAll('[data-action="qr"]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); openQrModal(b.dataset.id); }));
   grid.querySelectorAll('[data-action="delete"]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); openDeleteModal(b.dataset.id); }));
   updateSwitchScanItems();
 }
@@ -1845,6 +1882,63 @@ document.getElementById('delete-confirm').addEventListener('click',()=>{
 });
 document.getElementById('delete-cancel').addEventListener('click',()=>closeModal('delete-modal'));
 
+// ============================================================
+//  QR CODE (DONOMANA-REGISTER-QR-PHASE-3-2: 商品QRコードの発行・表示・印刷)
+//  QRには商品ID(DMREG1:<id>)のみを格納し、商品名・価格は入れない(Phase 2設計方針、
+//  台帳側で名前・価格を参照する第一候補の設計をそのまま踏襲)。商品を削除して登録し
+//  直すとuid()が新しいIDを発行するため、印刷済みQRは無効になる(Phase 1/2で確認済みの
+//  既存仕様)。本Phaseではこの挙動自体は変更せず、ヘルプ文言(help-tab-edit)で注意喚起
+//  するのみに留める。qr-modalは他の単純な確認系モーダル(delete-modal等)と同じ扱いとし、
+//  独自のフォーカストラップ・inert化は追加しない(既存のモーダル全体に共通する構造的な
+//  スイッチスキャン漏れ(Phase 2 Design finding)を悪化させないが、修正も本Phaseの範囲外)。
+// ============================================================
+const QR_PAYLOAD_PREFIX = 'DMREG1:';
+let qrModalCurrentId = null;
+
+function buildQrSvgForProduct(productId, cellSize, margin){
+  try{
+    const payload = QR_PAYLOAD_PREFIX + String(productId);
+    const qr = qrcode(0, 'M');
+    qr.addData(payload);
+    qr.make();
+    return qr.createSvgTag({ cellSize:cellSize, margin:margin, scalable:true, alt:{text:'商品QRコード'} });
+  }catch(e){
+    return '<div class="qr-error">⚠️ QRコードの生成に失敗しました</div>';
+  }
+}
+
+function openQrModal(productId){
+  const p=products.find(x=>x.id===productId);
+  if(!p){ showToast('⚠️ この商品は見つかりません（削除された可能性があります）'); return; }
+  qrModalCurrentId = productId;
+  const imgPart = p.image
+    ? `<img class="qr-modal-photo" src="${p.image}" alt="${esc(p.name)}">`
+    : `<div class="qr-modal-emoji" aria-hidden="true">${p.emoji||'🎁'}</div>`;
+  const qrSvg = buildQrSvgForProduct(p.id, 6, 12);
+  document.getElementById('qr-modal-body').innerHTML =
+    `${imgPart}<div class="qr-modal-name">${esc(p.name)}</div>` +
+    `<div class="qr-modal-price">¥${p.price.toLocaleString()}</div>` +
+    `<div class="qr-svg-wrap">${qrSvg}</div>`;
+  openModal('qr-modal');
+}
+document.getElementById('qr-modal-close').addEventListener('click',()=>closeModal('qr-modal'));
+document.getElementById('qr-modal-print').addEventListener('click',()=>{
+  if(!qrModalCurrentId) return;
+  printSingleQr(qrModalCurrentId);
+});
+
+function printSingleQr(productId){
+  const p=products.find(x=>x.id===productId);
+  if(!p){ showToast('⚠️ この商品は見つかりません'); return; }
+  const qrSvg = buildQrSvgForProduct(p.id, 8, 16);
+  const pa=document.getElementById('print-area');
+  pa.innerHTML = `<div class="print-single-qr"><div class="print-card-qr">${qrSvg}</div>` +
+    `<div class="print-card-name" style="font-size:22px;">${esc(p.name)}</div>` +
+    `<div class="print-card-price" style="font-size:26px;">¥${p.price.toLocaleString()}</div></div>`;
+  closeModal('qr-modal');
+  setTimeout(()=>{ pa.style.display='block'; window.print(); setTimeout(()=>{ pa.style.display='none'; },1000); },200);
+}
+
 // FAMILY-D新規Finding是正: delete-modalはopener trackingが一切無く、closeModal()の
 // 「document.activeElement.blur()」により全close経路(cancel/confirm/Escape共通)でBODY退行
 // していた。実trigger(delete button)は.edit-overlay配下でhover/focus-within時のみ表示され
@@ -2102,9 +2196,9 @@ document.querySelectorAll('.help-tab').forEach(tab=>tab.addEventListener('click'
 document.getElementById('print-btn').addEventListener('click',()=>{ updatePrintPreview(); openModal('print-modal'); });
 document.getElementById('print-modal-close').addEventListener('click',()=>closeModal('print-modal'));
 document.getElementById('do-print-btn').addEventListener('click',doPrint);
-['print-layout-group','print-show-emoji','print-show-price','print-show-photo','print-show-storename'].forEach(id=>{ document.getElementById(id).addEventListener('change',updatePrintPreview); });
+['print-layout-group','print-show-emoji','print-show-price','print-show-photo','print-show-storename','print-show-qr'].forEach(id=>{ document.getElementById(id).addEventListener('change',updatePrintPreview); });
 
-function getPrintOptions(){ return { layout:document.querySelector('input[name="print-layout"]:checked').value, showEmoji:document.getElementById('print-show-emoji').checked, showPrice:document.getElementById('print-show-price').checked, showPhoto:document.getElementById('print-show-photo').checked, showStore:document.getElementById('print-show-storename').checked }; }
+function getPrintOptions(){ return { layout:document.querySelector('input[name="print-layout"]:checked').value, showEmoji:document.getElementById('print-show-emoji').checked, showPrice:document.getElementById('print-show-price').checked, showPhoto:document.getElementById('print-show-photo').checked, showStore:document.getElementById('print-show-storename').checked, showQr:document.getElementById('print-show-qr').checked }; }
 function buildPrintHTML(opts,forPreview){
   const storeName=settings.storeName||'レジマスター';
   const now=new Date(); const dateStr=`${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
@@ -2112,11 +2206,11 @@ function buildPrintHTML(opts,forPreview){
   if(opts.showStore) html+=`<div class="print-header-title">🏪 ${esc(storeName)} <span class="print-date">商品リスト　${dateStr}</span></div>`;
   if(opts.layout==='card'){
     html+=`<div class="print-card-grid" style="grid-template-columns:repeat(${forPreview?3:4},1fr);">`;
-    products.forEach(p=>{ const imgPart=opts.showPhoto&&p.image?`<img class="print-card-img" src="${p.image}" alt="${esc(p.name)}">`:(opts.showEmoji?`<div class="print-card-emoji">${p.emoji||'🎁'}</div>`:''); const pricePart=opts.showPrice?`<div class="print-card-price">¥${p.price.toLocaleString()}</div>`:''; html+=`<div class="print-card">${imgPart}<div class="print-card-name">${esc(p.name)}</div>${pricePart}</div>`; });
+    products.forEach(p=>{ const imgPart=opts.showPhoto&&p.image?`<img class="print-card-img" src="${p.image}" alt="${esc(p.name)}">`:(opts.showEmoji?`<div class="print-card-emoji">${p.emoji||'🎁'}</div>`:''); const pricePart=opts.showPrice?`<div class="print-card-price">¥${p.price.toLocaleString()}</div>`:''; const qrPart=opts.showQr?`<div class="print-card-qr">${buildQrSvgForProduct(p.id,4,16)}</div>`:''; html+=`<div class="print-card">${qrPart}${imgPart}<div class="print-card-name">${esc(p.name)}</div>${pricePart}</div>`; });
     html+='</div>';
   } else {
-    html+=`<table class="print-list-table"><thead><tr>${opts.showEmoji||opts.showPhoto?'<th style="width:56px;">絵・写真</th>':''}<th>商品名</th>${opts.showPrice?'<th style="width:90px;text-align:right;">値段</th>':''}</tr></thead><tbody>`;
-    products.forEach(p=>{ const imgPart=opts.showPhoto&&p.image?`<img class="print-list-img" src="${p.image}" alt="${esc(p.name)}">`:(opts.showEmoji?`<span class="print-list-emoji">${p.emoji||'🎁'}</span>`:''); html+=`<tr>${opts.showEmoji||opts.showPhoto?`<td style="text-align:center;">${imgPart}</td>`:''}<td style="font-weight:700;">${esc(p.name)}</td>${opts.showPrice?`<td style="text-align:right;font-weight:800;color:#FF6B35;">¥${p.price.toLocaleString()}</td>`:''}</tr>`; });
+    html+=`<table class="print-list-table"><thead><tr>${opts.showEmoji||opts.showPhoto?'<th style="width:56px;">絵・写真</th>':''}${opts.showQr?'<th style="width:56px;">QR</th>':''}<th>商品名</th>${opts.showPrice?'<th style="width:90px;text-align:right;">値段</th>':''}</tr></thead><tbody>`;
+    products.forEach(p=>{ const imgPart=opts.showPhoto&&p.image?`<img class="print-list-img" src="${p.image}" alt="${esc(p.name)}">`:(opts.showEmoji?`<span class="print-list-emoji">${p.emoji||'🎁'}</span>`:''); const qrCell=opts.showQr?`<td style="text-align:center;"><div class="print-list-qr">${buildQrSvgForProduct(p.id,4,16)}</div></td>`:''; html+=`<tr>${opts.showEmoji||opts.showPhoto?`<td style="text-align:center;">${imgPart}</td>`:''}${qrCell}<td style="font-weight:700;">${esc(p.name)}</td>${opts.showPrice?`<td style="text-align:right;font-weight:800;color:#FF6B35;">¥${p.price.toLocaleString()}</td>`:''}</tr>`; });
     html+='</tbody></table>';
   }
   return html;
