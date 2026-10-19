@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """はんばいかい レジ（register-app.html）— QR機能追加前のベースライン回帰テスト
-(DONOMANA-REGISTER-QR-PHASE-3-1-BASELINE-TESTS-1)。
+(DONOMANA-REGISTER-QR-PHASE-3-1-BASELINE-TESTS-1、
+ DONOMANA-REGISTER-QR-PHASE-3-1B-SHARE-URL-FIX-1で共有URL修正の回帰テストを拡張)。
 
 tools/donomana-access-poc/donomana-access-realbrowser-test.py と同じ慣習
 (file://でregister-app.htmlを直接開き、headless Chromiumで検証する)。
@@ -22,19 +23,19 @@ SWITCH_SCAN_SELECTOR参照）を、末尾のテストで実際に確認する。
 報告する。これは本Phaseで新たに生まれた回帰ではなく、Phase 2時点で文書化済みの
 既存の挙動を自動テストとして固定しただけである。
 
-本Phaseの作成過程で新たに発見した既存の不具合について：「9. 商品リスト共有URLの
-生成・読み込み」のテスト（group_c_share_and_ids）は、register-app.html自身が
-生成する共有URLをそのまま使った場合、ほぼ確実に読み込みが失敗する不具合を発見した
-（openShareModal, L1992/L1995がbase64文字列をencodeURIComponent()せずに生の
-まま URLへ連結しており、日本語の商品名を含むbase64には高確率で'+'が含まれ、
-loadSharedProducts, L2033のURLSearchParams.get()が仕様上'+'を空白に変換して
-しまうため、atob()が例外を投げて読み込みに失敗する）。これはQR機能とは無関係の、
-本Phase以前から存在する既存の不具合である。テスト対象の仕様を無断で変更しない
-方針（本Phase指示）に従い、register-app.html側は一切変更していない。この
-テストはこの不具合を隠さず、意図的に失敗（FAIL）を報告する。
-
-PASS/FAIL件数には、上記2件の「既知の/新たに発見した失敗」が含まれることを、
-実行結果の末尾と本Phaseの報告書の両方で明記する。
+DONOMANA-REGISTER-QR-PHASE-3-1で発見し、PHASE-3-1Bで修正した不具合について：
+「9〜10. 商品リスト共有URL」のテスト（group_c_share_and_ids）は、Phase 3-1時点では
+register-app.html自身が生成する共有URLをそのまま使った場合、ほぼ確実に読み込みが
+失敗する不具合を発見していた（openShareModal, L1992/L1995がbase64文字列を
+encodeURIComponent()せずに生のままURLへ連結しており、日本語の商品名を含むbase64には
+高確率で'+'が含まれ、loadSharedProducts, L2033のURLSearchParams.get()が仕様上'+'を
+空白に変換してしまうため、atob()が例外を投げて読み込みに失敗していた）。
+Phase 3-1BでopenShareModal()にencodeURIComponent()を追加して修正し（最小差分、
+loadSharedProducts()自体は無変更）、本テストはそのPASSへの反転と、特殊文字
+(+/=/&)・絵文字入り商品名・複数商品・不正データでのクラッシュ耐性・旧形式URLとの
+後方互換性を含む拡張回帰テストに置き換えた。PASS/FAIL件数に含まれる唯一の既知の
+FAILは、末尾のモーダル/スイッチスキャンの構造的課題確認（Phase 2設計調査で既発見、
+本Phaseでは対象外）のみである。
 """
 import os
 import sys
@@ -114,6 +115,30 @@ def open_settings_modal(page):
     page.click('#donomanaSettingsProxy')
 
 
+def wait_modal_opened_and_settled(page, modal_id):
+    """register-app.html openModal()(L1358)はモーダルを開いた50ms後に、モーダル内の
+    最初のfocus可能要素へ自動的にfocus()する(setTimeout(()=>f.focus(),50))。この
+    setTimeoutが、モーダルを開いた直後にPlaywrightのfill()で入力フィールドへ文字を
+    入力する処理と競合すると、fill()内部のフォーカス操作と自動focus()がぶつかり、
+    入力内容が意図しないフィールドへ混ざる不安定性(flakiness)を本Phaseのテスト実行中に
+    実際に観測した(例：価格欄に入力したはずの文字列が名前欄へ連結される)。
+    register-app.html側の挙動は変更せず、テスト側でこの50msの自動focusが完了するのを
+    待ってから入力を始めることで、競合そのものを避ける。"""
+    page.wait_for_selector('#%s.active' % modal_id)
+    page.wait_for_timeout(120)
+
+
+def wait_modal_closed(page, modal_id, timeout=5000):
+    """モーダルを閉じるボタンのクリックは同期的にclassList.remove('active')する
+    はずだが(register-app.html closeModal, L1359)、まれにクリックが反映されず
+    モーダルが開いたまま次の操作に進んでしまう不安定性(flakiness)を本Phaseの
+    テスト実行中に観測した(register-app.html側の変更ではなく、テスト側のタイミング
+    依存を無くすための対策)。次の操作に進む前に、実際に閉じたことを明示的に待つ。"""
+    page.wait_for_function(
+        "(id) => !document.getElementById(id).classList.contains('active')",
+        arg=modal_id, timeout=timeout)
+
+
 def group_a_product_crud(browser):
     print('\n=== 1. 商品登録・編集・削除 ===')
     page, errors = fresh_page(browser)
@@ -127,11 +152,13 @@ def group_a_product_crud(browser):
     page.click('.add-product-card')
     check('product-modal opens for a new product', page.is_visible('#product-modal.active'))
     check('modal title says "商品を追加" for a new product', page.text_content('#pmt') == '商品を追加')
+    wait_modal_opened_and_settled(page, 'product-modal')
 
     page.fill('#product-name-input', 'テスト商品')
     page.fill('#product-price-input', '321')
     page.click('.emoji-option[data-emoji="🍩"]')
     page.click('#product-modal-save')
+    wait_modal_closed(page, 'product-modal')
     check('product-modal closes after save', not page.is_visible('#product-modal.active'))
     check('new product now exists with correct name/price',
           any(p['name'] == 'テスト商品' and p['price'] == 321 for p in page.evaluate('products')),
@@ -141,6 +168,7 @@ def group_a_product_crud(browser):
 
     # --- 登録時のバリデーション（名前なし／不正な値段） ---
     page.click('.add-product-card')
+    wait_modal_opened_and_settled(page, 'product-modal')
     page.click('#product-modal-save')
     check('saving with an empty name is rejected (modal stays open)', page.is_visible('#product-modal.active'))
     page.fill('#product-name-input', '不正な値段テスト')
@@ -150,6 +178,7 @@ def group_a_product_crud(browser):
     check('rejected entries were not added to the product list',
           not any(p['name'] in ('', '不正な値段テスト') for p in page.evaluate('products')))
     page.click('#product-modal-cancel')
+    wait_modal_closed(page, 'product-modal')
 
     # --- 編集 ---
     # .edit-overlay は register-app.html L133-134 のとおり :hover/:focus-within 時のみ
@@ -159,10 +188,12 @@ def group_a_product_crud(browser):
     test_card.hover()
     test_card.locator('[data-action="edit"]').click()
     check('product-modal reopens for editing with "商品を編集" title', page.text_content('#pmt') == '商品を編集')
+    wait_modal_opened_and_settled(page, 'product-modal')
     check('name field is pre-filled', page.input_value('#product-name-input') == 'テスト商品')
     check('price field is pre-filled', page.input_value('#product-price-input') == '321')
     page.fill('#product-price-input', '555')
     page.click('#product-modal-save')
+    wait_modal_closed(page, 'product-modal')
     check('edited price is reflected on the product card',
           page.locator('.product-card', has_text='テスト商品').locator('.product-price').text_content() == '¥555')
 
@@ -173,6 +204,7 @@ def group_a_product_crud(browser):
     check('delete-modal opens and names the product',
           'テスト商品' in page.text_content('#delete-modal-msg'))
     page.click('#delete-cancel')
+    wait_modal_closed(page, 'delete-modal')
     check('product survives a cancelled delete',
           page.locator('.product-card', has_text='テスト商品').count() == 1)
 
@@ -181,6 +213,7 @@ def group_a_product_crud(browser):
     deletable2.hover()
     deletable2.locator('[data-action="delete"]').click()
     page.click('#delete-confirm')
+    wait_modal_closed(page, 'delete-modal')
     check('product is removed after confirming delete',
           page.locator('.product-card', has_text='テスト商品').count() == 0)
     check('product list returns to the 4 default products',
@@ -300,13 +333,35 @@ def group_b_shopping_flow(browser):
     page.close()
 
 
+def _add_product_via_ui(page, name, price, emoji='🎁'):
+    page.click('.add-product-card')
+    wait_modal_opened_and_settled(page, 'product-modal')
+    page.fill('#product-name-input', name)
+    page.fill('#product-price-input', str(price))
+    page.click('.emoji-option[data-emoji="%s"]' % emoji)
+    page.click('#product-modal-save')
+    wait_modal_closed(page, 'product-modal')
+
+
 def group_c_share_and_ids(browser):
-    print('\n=== 9〜10. 商品リスト共有URL・商品IDの保持・画像の取り扱い ===')
+    print('\n=== 9〜10. 商品リスト共有URL・商品IDの保持・画像の取り扱い '
+          '(DONOMANA-REGISTER-QR-PHASE-3-1B: encodeURIComponent()修正の回帰確認) ===')
     page1, errors1 = fresh_page(browser)
+
+    # --- 複数商品＋特殊文字(+/=/&)＋絵文字入り商品名を含む編集(作業C 2,3,4) ---
+    page1.click('#edit-mode-btn')
+    _add_product_via_ui(page1, 'A+Bクッキー', 111, '🍪')
+    _add_product_via_ui(page1, '50%=OFFセール🎉', 222, '🧁')
+    _add_product_via_ui(page1, 'Q&A用アメ', 333, '🍭')
+    page1.click('#edit-mode-btn')
 
     ids_before = page1.evaluate('products.map(p=>p.id)')
     names_before = page1.evaluate('products.map(p=>p.name)')
-    check('source device starts with the 4 default products', len(ids_before) == 4, names_before)
+    prices_before = page1.evaluate('products.map(p=>p.price)')
+    check('source device now has the 4 default products + 3 special-character products (7 total)',
+          len(ids_before) == 7, names_before)
+    check('special-character product names (+/=/&, emoji-in-name) were accepted as-is',
+          {'A+Bクッキー', '50%=OFFセール🎉', 'Q&A用アメ'} <= set(names_before), names_before)
 
     page1.click('#share-btn')
     check('share-modal opens', page1.is_visible('#share-modal.active'))
@@ -314,63 +369,110 @@ def group_c_share_and_ids(browser):
     check('a share URL containing the products payload is generated',
           shared_url.startswith('file://') and '?products=' in shared_url, shared_url)
     size_text = page1.text_content('#share-url-size')
-    check('share size indicator reports the correct product count', '4件' in size_text, size_text)
+    check('share size indicator reports the correct product count (7件)', '7件' in size_text, size_text)
     page1.click('#share-modal-close')
 
-    # --- 実際にアプリが生成したURLそのままでの読み込み（実際の利用シナリオ） ---
-    # register-app.html L1992/L1995 (openShareModal) は base64文字列を
-    # encodeURIComponent()せずそのままURLへ連結する。base64のUTF-8エンコード結果には
-    # 一定確率で'+'が含まれ(日本語の商品名を含む場合はほぼ必発)、受信側L2033
-    # (loadSharedProducts)はURLSearchParams.get('products')で読むため、
-    # application/x-www-form-urlencoded仕様により'+'は自動的に空白へ変換されてしまう。
-    # その結果base64が破損し、atob()が例外を投げ、catch節が「読み込み失敗」として
-    # 既定の4商品（新しいIDで再生成）に静かにフォールバックする。
+    # --- 修正の根本確認：生成されたURLのクエリ値はpercent-encode済みで、base64を
+    #     そのまま復元できることを、本テストスクリプト側で独立に計算したbase64と比較する
+    #     (register-app.htmlのbtoa(unescape(encodeURIComponent(JSON.stringify(...))))と
+    #     同じ手順をPython側でも再現し、URLに生の'+'/'/'が残っていないことを確認する) ---
+    import base64 as b64mod
+    import json as jsonmod
+    import urllib.parse
+    share_data_from_page = page1.evaluate(
+        "products.map(p=>({id:p.id,name:p.name,price:p.price,emoji:p.emoji||'🎁'}))")
+    expected_payload = jsonmod.dumps(share_data_from_page, ensure_ascii=False, separators=(',', ':'))
+    expected_b64 = b64mod.b64encode(expected_payload.encode('utf-8')).decode('ascii')
+    raw_query_value = shared_url.split('?products=', 1)[1]
+    decoded_query_value = urllib.parse.unquote(raw_query_value)
+    check('[修正確認/FIXED] generated share URL query value, once percent-decoded, matches the exact '
+          'base64 payload the app itself computed (round-trips correctly through the URL)',
+          decoded_query_value == expected_b64, {'expected': expected_b64, 'got': decoded_query_value})
+    if '+' in expected_b64:
+        check('[修正確認/FIXED] the base64 payload DOES contain a literal "+" in this run, and the URL '
+              'correctly carries it as "%2B" rather than a raw "+" (root cause of the Phase 3-1 bug)',
+              '%2B' in raw_query_value and '+' not in raw_query_value, raw_query_value[:120])
+    else:
+        print('  [INFO] this run\'s base64 payload happens not to contain "+"; the %2B-specific assertion '
+              'above is skipped for this run, but the full round-trip check above still covers it.')
+
+    # --- 実際にアプリが生成したURLそのままでの読み込み（実際の利用シナリオ、修正後は成功するはず） ---
     page2, errors2 = fresh_page(browser)
     page2.goto(shared_url)
-    payload_has_plus = '+' in shared_url.split('?products=', 1)[1]
     toast_after_real_url = page2.evaluate("document.getElementById('toast-wrap').textContent")
-    ids_after_real_url = page2.evaluate('products.map(p=>p.id)')
-    check('[既存アプリの不具合/BUG] the app-generated share URL, used exactly as the app itself produces it, '
-          'successfully imports the shared products on another device '
-          '(register-app.html L1992/L1995 does not encodeURIComponent() the base64 payload before building '
-          'the URL; because base64 output containing Japanese text very often contains a literal "+", and '
-          'L2033 reads it back via URLSearchParams.get() which decodes "+" as a space per '
-          'application/x-www-form-urlencoded, the base64 gets corrupted and atob() throws — this run\'s '
-          'payload %s a "+"; confirmed independently via a manual atob() reproduction outside this app)'
-          % ('DOES contain' if payload_has_plus else 'does NOT contain'),
-          set(ids_after_real_url) == set(ids_before),
-          {'toast': toast_after_real_url, 'ids_before': ids_before, 'ids_after': ids_after_real_url})
+    check('[修正確認/FIXED] the app-generated share URL, used exactly as the app itself produces it '
+          '(including special-character/emoji product names), now successfully imports on another device '
+          '(was the Phase 3-1 FAIL; register-app.html openShareModal() now encodeURIComponent()s the '
+          'base64 payload before building the URL)',
+          '読み込みました' in toast_after_real_url and '失敗' not in toast_after_real_url,
+          toast_after_real_url)
+    check('importing device no longer shows the ?products= query after import',
+          'products=' not in page2.url, page2.url)
 
-    # --- 根本原因の切り分け：payloadだけを正しくURLエンコードし直した場合 ---
-    # register-app.html自体は変更せず、本テストスクリプト側でURLを組み直すだけ。
-    # これにより「decode/ID保持ロジック自体は正しいか」をバグと分離して検証する。
-    import urllib.parse
-    base64_payload = shared_url.split('?products=', 1)[1]
-    corrected_url = shared_url.split('?products=', 1)[0] + '?products=' + urllib.parse.quote(base64_payload, safe='')
-    page3, errors3 = fresh_page(browser)
-    page3.goto(corrected_url)
-    check('importing device no longer shows the ?products= query after a correctly-encoded import',
-          'products=' not in page3.url, page3.url)
-
-    ids_after = page3.evaluate('products.map(p=>p.id)')
-    check('[根本原因の切り分け] with the payload correctly percent-encoded, product IDs ARE preserved '
-          'across share/import (confirms the decode/ID-preservation logic itself is correct; the bug above '
-          'is specifically the missing encodeURIComponent() in openShareModal, not the decode path)',
+    ids_after = page2.evaluate('products.map(p=>p.id)')
+    check('(作業C-5) product IDs are preserved across share/import (same ID set, not re-issued)',
           set(ids_before) == set(ids_after), (ids_before, ids_after))
-    names_after = page3.evaluate('products.map(p=>p.name)')
-    check('product names are preserved across a correctly-encoded share/import',
+    names_after = page2.evaluate('products.map(p=>p.name)')
+    check('(作業C-1,2,3,4) all product names incl. Japanese/emoji/+/=/& are preserved byte-for-byte',
           sorted(names_before) == sorted(names_after), (names_before, names_after))
+    prices_after_map = {p['id']: p['price'] for p in page2.evaluate('products')}
+    prices_match = all(prices_after_map.get(pid) == price
+                        for pid, price in zip(ids_before, prices_before))
+    check('(作業C-6) prices are preserved exactly for every product', prices_match,
+          (ids_before, prices_before, prices_after_map))
 
-    images_after = page3.evaluate('products.map(p=>p.image)')
-    check('imported products all have image=null (photos are intentionally not shared)',
+    images_after = page2.evaluate('products.map(p=>p.image)')
+    check('(作業C-7) imported products all have image=null (existing spec: photos are not shared)',
           all(img is None for img in images_after), images_after)
 
-    stored_ids = page3.evaluate("JSON.parse(localStorage.getItem('register_products')||'[]').map(p=>p.id)")
-    check('imported product list was persisted to register_products on the importing device',
+    stored_ids = page2.evaluate("JSON.parse(localStorage.getItem('register_products')||'[]').map(p=>p.id)")
+    check('(作業C-8) imported product list was persisted to register_products on the importing device',
           set(stored_ids) == set(ids_before), stored_ids)
 
+    # --- (作業C-9) 不正な共有データでもクラッシュしない（真に壊れたデータの既存のcatch経路） ---
+    page3, errors3 = fresh_page(browser)
+    page3.goto(APP_URL + '?products=%E3%81%82%E3%81%84!!!not-valid-base64')
+    toast_invalid = page3.evaluate("document.getElementById('toast-wrap').textContent")
+    check('(作業C-9) genuinely invalid share data does not crash the page and shows the existing '
+          'graceful failure toast', '失敗' in toast_invalid, toast_invalid)
+    products_after_invalid = page3.evaluate('products.map(p=>p.name)')
+    check('(作業C-9) after invalid share data, the app still falls back to a usable product list '
+          '(the existing default-seed fallback, unchanged by this fix)',
+          len(products_after_invalid) == 4, products_after_invalid)
+
+    # --- (作業C-10) 従来の正常な共有URL（'+'を含まない、修正前の生のまま連結した形式）との互換性 ---
+    # loadSharedProducts()自体は本Phaseで変更していないため、'+'を含まない(=修正前のコードでも
+    # 元々正しく動いていた)旧形式のURLは今後も同一に動作するはずであることを確認する。
+    legacy_candidates = [
+        [{'id': 'legacy-aaa', 'name': 'りんご', 'price': 50, 'emoji': '🍎'}],
+        [{'id': 'legacy-bbb', 'name': 'みかん', 'price': 60, 'emoji': '🍊'}],
+        [{'id': 'legacy-ccc', 'name': 'バナナ', 'price': 70, 'emoji': '🍌'}],
+    ]
+    legacy_payload = None
+    legacy_b64 = None
+    for cand in legacy_candidates:
+        s = jsonmod.dumps(cand, ensure_ascii=False, separators=(',', ':'))
+        b = b64mod.b64encode(s.encode('utf-8')).decode('ascii')
+        if '+' not in b:
+            legacy_payload, legacy_b64 = cand, b
+            break
+    check('(作業C-10) found a "+"-free legacy-style payload to simulate an old, already-working share URL',
+          legacy_b64 is not None, legacy_b64)
+    if legacy_b64 is not None:
+        legacy_url = APP_URL + '?products=' + legacy_b64  # 修正前のコードと同じ、未encodeの生の連結
+        page4, errors4 = fresh_page(browser)
+        page4.goto(legacy_url)
+        legacy_names_after = page4.evaluate('products.map(p=>p.name)')
+        check('(作業C-10) a legacy-style ("+"-free, un-percent-encoded) share URL still imports correctly '
+              'after this fix (loadSharedProducts() itself is unchanged, so previously-working URLs keep '
+              'working — this fix only changes how NEW URLs are generated)',
+              legacy_names_after == [legacy_payload[0]['name']], legacy_names_after)
+        check('no console/page errors on the legacy-URL-compat device', len(errors4) == 0, errors4[:5])
+        page4.close()
+
     check('no console/page errors on the sharing device', len(errors1) == 0, errors1[:5])
-    check('no console/page errors on the correctly-encoded importing device', len(errors3) == 0, errors3[:5])
+    check('no console/page errors on the importing device', len(errors2) == 0, errors2[:5])
+    check('no console/page errors on the invalid-data device', len(errors3) == 0, errors3[:5])
     page1.close()
     page2.close()
     page3.close()
@@ -452,9 +554,11 @@ def group_f_csv_injection(browser):
 
     page.click('#edit-mode-btn')
     page.click('.add-product-card')
+    wait_modal_opened_and_settled(page, 'product-modal')
     page.fill('#product-name-input', '=SUM(A1)')
     page.fill('#product-price-input', '777')
     page.click('#product-modal-save')
+    wait_modal_closed(page, 'product-modal')
     page.click('#edit-mode-btn')  # 編集モードを抜ける
 
     page.locator('.product-card', has_text='=SUM(A1)').click()
@@ -500,6 +604,7 @@ def group_g_keyboard(browser):
     page.keyboard.press('Enter')
     check('Enter on the add-product-card opens the product modal', page.is_visible('#product-modal.active'))
     page.click('#product-modal-cancel')
+    wait_modal_closed(page, 'product-modal')
     page.click('#edit-mode-btn')
 
     # スイッチスキャンのSpaceキー活性化（register-app.html handleScanKey, L2082）
@@ -573,9 +678,8 @@ if __name__ == '__main__':
     run()
     print('\n=== RESULT ===')
     print('PASS:', pass_count, ' FAIL:', fail_count)
-    print('(2 FAILs are EXPECTED as of DONOMANA-REGISTER-QR-PHASE-3-1: '
-          '(a) group 9/10 "the app-generated share URL ... successfully imports" — a real, pre-existing bug '
-          'in openShareModal()\'s missing encodeURIComponent() (see DONOMANA-REGISTER-QR-PHASE-3-1 report §5); '
-          '(b) the final group\'s modal/switch-scan structural-leak check — a known Phase 2 design finding. '
+    print('(1 FAIL is EXPECTED as of DONOMANA-REGISTER-QR-PHASE-3-1B: the final group\'s modal/switch-scan '
+          'structural-leak check — a known Phase 2 design finding, out of scope for this fix Phase. '
+          'The share-URL bug found in Phase 3-1 was fixed in Phase 3-1B and its tests now PASS. '
           'Any OTHER FAIL is a new, unexpected regression and must be investigated before proceeding.)')
     sys.exit(1 if fail_count > 0 else 0)
