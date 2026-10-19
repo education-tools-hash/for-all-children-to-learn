@@ -36,9 +36,20 @@ loadSharedProducts()自体は無変更）、本テストはそのPASSへの反�
 後方互換性を含む拡張回帰テストに置き換えた。PASS/FAIL件数に含まれる唯一の既知の
 FAILは、末尾のモーダル/スイッチスキャンの構造的課題確認（Phase 2設計調査で既発見、
 本Phaseでは対象外）のみである。
+
+DONOMANA-REGISTER-QR-PHASE-3-2でQRコード発行機能のテストを追加した。QRの自己往復
+検証（生成→実際にデコードして商品IDと一致するか確認）には、生成側ライブラリ
+（assets/js/vendor/qrcode-generator/、register-app.html本体にのみ同梱）とは完全に
+独立したデコーダとして、Python側で`opencv-python-headless`（OpenCV、MITライセンス、
+cv2.QRCodeDetector）を使う。これはテスト専用の依存であり、register-app.html側には
+一切同梱・読み込みされない（アプリ本体のライブラリ同梱方針とは無関係）。
+実行前に `pip install opencv-python-headless` が必要（Playwright同様、テスト実行者が
+別途用意する想定で、register-app.html自体の「追加の有料API・サブスク禁止」方針とは
+無関係なローカルOSSツールである）。
 """
 import os
 import sys
+import cv2
 from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -652,6 +663,227 @@ def group_h_known_modal_switch_scan_leak(browser):
     page.close()
 
 
+def _decode_qr_from_element_screenshot(page, locator, tmp_path):
+    """qrcode-generator(生成側)とは完全に独立したデコーダ(OpenCV cv2.QRCodeDetector)で
+    実際にQRをデコードする(作業Eの指定どおり)。要素をPNGへスクリーンショットし、
+    OpenCVの画像処理でQRを検出・デコードする——JS側のロジックを一切経由しない。"""
+    locator.screenshot(path=tmp_path)
+    img = cv2.imread(tmp_path)
+    try:
+        os.remove(tmp_path)
+    except OSError:
+        pass
+    if img is None:
+        return None
+    detector = cv2.QRCodeDetector()
+    data, points, _ = detector.detectAndDecode(img)
+    return data or None
+
+
+def group_i_qr_generation(browser):
+    print('\n=== QRコード生成（DONOMANA-REGISTER-QR-PHASE-3-2） ===')
+    page, errors = fresh_page(browser)
+
+    check('qrcode-generator library (vendored, assets/js/vendor/qrcode-generator/qrcode.js) loaded',
+          page.evaluate("typeof qrcode") == 'function')
+
+    ids = page.evaluate('products.map(p=>p.id)')
+    names = page.evaluate('products.map(p=>p.name)')
+    prices = page.evaluate('products.map(p=>p.price)')
+
+    # 🔳ボタンは編集モード中のみ.edit-overlay(L133-134、:hover/:focus-within時のみ表示)に出る
+    page.click('#edit-mode-btn')
+
+    # (作業E-1,2,3,4) 商品ごとのQR生成・ペイロードと商品IDの一致・商品名/価格が含まれない・複数商品
+    decoded = {}
+    for idx, pid in enumerate(ids):
+        card = page.locator('.product-card').nth(idx)
+        card.hover()
+        card.locator('[data-action="qr"]').click()
+        page.wait_for_selector('#qr-modal.active')
+        decoded[pid] = _decode_qr_from_element_screenshot(
+            page, page.locator('.qr-svg-wrap'), '/tmp/_regqr_%s.png' % pid)
+        page.click('#qr-modal-close')
+        wait_modal_closed(page, 'qr-modal')
+
+    check('(作業E-1) a QR code was generated and independently decodable for every product',
+          all(v is not None for v in decoded.values()), decoded)
+    for pid, name, price in zip(ids, names, prices):
+        check('(作業E-2) QR payload for "%s" decodes to exactly DMREG1:<id>, matching the product ID' % name,
+              decoded.get(pid) == 'DMREG1:' + pid, decoded.get(pid))
+        check('(作業E-3) decoded payload for "%s" contains neither the product name nor its price '
+              '(only the DMREG1: prefix + opaque ID)' % name,
+              decoded.get(pid) == 'DMREG1:' + pid and name not in (decoded.get(pid) or '') and
+              str(price) not in (decoded.get(pid) or '').replace(pid, ''),
+              decoded.get(pid))
+    check('(作業E-4) multiple distinct products produce distinct, independently-decodable QR payloads',
+          len(set(decoded.values())) == len(ids), decoded)
+
+    # (作業E-7) QRモーダルの開閉
+    page.locator('.product-card').first.hover()
+    page.locator('.product-card').first.locator('[data-action="qr"]').click()
+    check('(作業E-7) QR modal opens', page.is_visible('#qr-modal.active'))
+    page.click('#qr-modal-close')
+    wait_modal_closed(page, 'qr-modal')
+    check('(作業E-7) QR modal closes via its close button', not page.is_visible('#qr-modal.active'))
+    page.keyboard.press('Escape')  # 全モーダル共通のEscapeハンドラでも閉じられることの確認（既に閉じていても無害）
+    check('(作業E-7) QR modal stays closed (Escape is harmless when already closed)',
+          not page.is_visible('#qr-modal.active'))
+
+    # (作業E-5) 商品編集後も同じIDのQRが生成される
+    first_id = ids[0]
+    card0 = page.locator('.product-card').first
+    card0.hover()
+    card0.locator('[data-action="edit"]').click()
+    wait_modal_opened_and_settled(page, 'product-modal')
+    page.fill('#product-price-input', '999')
+    page.click('#product-modal-save')
+    wait_modal_closed(page, 'product-modal')
+    card0b = page.locator('.product-card').first
+    card0b.hover()
+    card0b.locator('[data-action="qr"]').click()
+    page.wait_for_selector('#qr-modal.active')
+    decoded_after_edit = _decode_qr_from_element_screenshot(
+        page, page.locator('.qr-svg-wrap'), '/tmp/_regqr_after_edit.png')
+    check('(作業E-5) editing a product\'s price/name does not change its ID — the QR payload is unchanged',
+          decoded_after_edit == 'DMREG1:' + first_id, decoded_after_edit)
+    page.click('#qr-modal-close')
+    wait_modal_closed(page, 'qr-modal')
+
+    # (作業E-6) 商品削除後のQR発行不可（不正な商品IDへの安全な処理、実装D）
+    deleted_id = ids[1]
+    deleted_name = names[1]
+    card1 = page.locator('.product-card', has_text=deleted_name)
+    card1.hover()
+    card1.locator('[data-action="delete"]').click()
+    page.click('#delete-confirm')
+    wait_modal_closed(page, 'delete-modal')
+    check('(作業E-6) the product used for this check is actually gone from the product list',
+          deleted_id not in page.evaluate('products.map(p=>p.id)'))
+    page.evaluate("openQrModal(%r)" % deleted_id)  # 削除済みIDで直接QRモーダルを呼び出す(不正な参照を模擬)
+    check('(作業E-6) calling openQrModal() with a deleted/invalid product ID does NOT open the modal',
+          not page.is_visible('#qr-modal.active'))
+    toast_after_invalid = page.evaluate("document.getElementById('toast-wrap').textContent")
+    check('(作業E-6) a clear, non-crashing error message is shown for an invalid/deleted product ID',
+          '見つかりません' in toast_after_invalid, toast_after_invalid)
+
+    check('no console/page errors during QR generation checks', len(errors) == 0, errors[:5])
+    page.close()
+
+
+def group_i2_qr_modal_leak_not_worse(browser):
+    """qr-modalが既存のproduct-modalと比べて「新たな危険を増やしていない」ことを、
+    group_hと同じ条件(新規4商品・編集モードに入った直後・他の編集操作をしていない)の
+    フレッシュなページで公平に比較する(前段のgroup_iはその後に商品編集/削除を行って
+    いるため状態が異なり、単純な個数比較はフェアでない)。"""
+    print('\n=== QRモーダルは既存モーダルより危険を増やしていないことの確認 ===')
+    page, errors = fresh_page(browser)
+
+    open_settings_modal(page)
+    page.locator('label.toggle:has(#switch-scan-toggle)').click()
+    page.click('#settings-close')
+    page.click('#edit-mode-btn')
+
+    page.click('.add-product-card')
+    leaked_product_modal = page.evaluate(
+        "(sel) => { const modal = document.getElementById('product-modal'); "
+        "return Array.from(document.querySelectorAll(sel)).filter(el => !modal.contains(el))"
+        ".map(el => el.id || el.className || el.tagName); }",
+        SWITCH_SCAN_SELECTOR,
+    )
+    page.click('#product-modal-cancel')
+    wait_modal_closed(page, 'product-modal')
+
+    page.locator('.product-card').first.hover()
+    page.locator('.product-card').first.locator('[data-action="qr"]').click()
+    page.wait_for_selector('#qr-modal.active')
+    leaked_qr_modal = page.evaluate(
+        "(sel) => { const modal = document.getElementById('qr-modal'); "
+        "return Array.from(document.querySelectorAll(sel)).filter(el => !modal.contains(el))"
+        ".map(el => el.id || el.className || el.tagName); }",
+        SWITCH_SCAN_SELECTOR,
+    )
+    check('under identical conditions, qr-modal leaks the same set of switch-scan candidates as the '
+          'pre-existing product-modal (register-app\'s known structural issue is not made worse by the '
+          'new QR modal — it shares the exact same .modal-overlay/openModal/closeModal mechanism, not a '
+          'new or wider leak)',
+          sorted(leaked_qr_modal) == sorted(leaked_product_modal),
+          {'product-modal': leaked_product_modal, 'qr-modal': leaked_qr_modal})
+    page.click('#qr-modal-close')
+
+    check('no console/page errors', len(errors) == 0, errors[:5])
+    page.close()
+
+
+def group_j_qr_print(browser):
+    print('\n=== QR印刷統合（DONOMANA-REGISTER-QR-PHASE-3-2） ===')
+    page, errors = fresh_page(browser)
+
+    # (作業E-9) 既存印刷機能の維持：QR表示オプションを一切触らない既定状態での出力が従来通りであること
+    page.click('#print-btn')
+    check('print-show-qr checkbox exists and defaults to OFF (backward compatible with existing printouts)',
+          not page.is_checked('#print-show-qr'))
+    default_preview = page.evaluate("document.getElementById('print-preview').innerHTML")
+    check('(作業E-9) default print preview (QR option untouched) contains no QR svg — '
+          'existing print output is unchanged unless the new option is explicitly turned on',
+          '<svg' not in default_preview, default_preview[:200])
+
+    # (作業E-8) QR一覧印刷の内容：カード形式
+    page.check('#print-show-qr')
+    page.wait_for_timeout(100)
+    preview_with_qr_card = page.evaluate("document.getElementById('print-preview').innerHTML")
+    product_count = page.evaluate('products.length')
+    check('(作業E-8) enabling the QR option renders one QR <svg> per product in the card-layout preview',
+          preview_with_qr_card.count('<svg') == product_count, preview_with_qr_card.count('<svg'))
+
+    # (作業E-8) QR一覧印刷の内容：一覧（リスト）形式
+    page.check('input[name="print-layout"][value="list"]', force=True)
+    page.wait_for_timeout(100)
+    preview_with_qr_list = page.evaluate("document.getElementById('print-preview').innerHTML")
+    check('(作業E-8) the QR option also renders one QR <svg> per product in the list-layout preview',
+          preview_with_qr_list.count('<svg') == product_count, preview_with_qr_list.count('<svg'))
+    check('list-layout print preview still has a 商品名 column header (existing columns preserved)',
+          '商品名' in preview_with_qr_list, preview_with_qr_list[:300])
+
+    # QR生成失敗時の安全なフォールバック（実装D）：壊れた商品データでもbuildPrintHTML自体は例外を出さない
+    safe_result = page.evaluate("""
+        () => {
+            try { return buildQrSvgForProduct(null, 4, 16); }
+            catch (e) { return 'THREW: ' + e; }
+        }
+    """)
+    check('buildQrSvgForProduct() degrades gracefully (no uncaught exception) for a malformed product id',
+          not safe_result.startswith('THREW'), safe_result[:120])
+
+    page.click('#print-modal-close')
+    check('no console/page errors during QR print checks', len(errors) == 0, errors[:5])
+    page.close()
+
+
+def group_k_qr_license(browser):
+    print('\n=== (作業E-11) ライセンス同梱確認 ===')
+    vendor_dir = os.path.join(ROOT, 'assets', 'js', 'vendor', 'qrcode-generator')
+    lib_path = os.path.join(vendor_dir, 'qrcode.js')
+    license_path = os.path.join(vendor_dir, 'LICENSE.txt')
+
+    check('vendored qrcode-generator library file exists locally (no external CDN)',
+          os.path.isfile(lib_path), lib_path)
+    check('a dedicated LICENSE.txt is bundled alongside the vendored library',
+          os.path.isfile(license_path), license_path)
+
+    if os.path.isfile(lib_path):
+        lib_text = open(lib_path, encoding='utf-8').read()
+        check('the vendored library file itself carries a copyright/license header comment',
+              'Kazuhiko Arase' in lib_text and 'MIT' in lib_text, lib_text[:400])
+    if os.path.isfile(license_path):
+        license_text = open(license_path, encoding='utf-8').read()
+        check('LICENSE.txt contains the full MIT License text',
+              'MIT License' in license_text and 'Permission is hereby granted' in license_text,
+              license_text[:200])
+        check('LICENSE.txt names the correct copyright holder',
+              'Kazuhiko Arase' in license_text, license_text[:200])
+
+
 # 一部の実行環境（例：事前にChromiumが固定パスへ配置されたCI/クラウド実行環境）では
 # Playwright自身が期待するリビジョンのブラウザを自動解決できない場合がある。通常の
 # 開発環境では`playwright install chromium`済みの既定解決に任せ、このパスを明示した
@@ -671,6 +903,10 @@ def run():
         group_f_csv_injection(browser)
         group_g_keyboard(browser)
         group_h_known_modal_switch_scan_leak(browser)
+        group_i_qr_generation(browser)
+        group_i2_qr_modal_leak_not_worse(browser)
+        group_j_qr_print(browser)
+        group_k_qr_license(browser)
         browser.close()
 
 
@@ -678,8 +914,11 @@ if __name__ == '__main__':
     run()
     print('\n=== RESULT ===')
     print('PASS:', pass_count, ' FAIL:', fail_count)
-    print('(1 FAIL is EXPECTED as of DONOMANA-REGISTER-QR-PHASE-3-1B: the final group\'s modal/switch-scan '
-          'structural-leak check — a known Phase 2 design finding, out of scope for this fix Phase. '
-          'The share-URL bug found in Phase 3-1 was fixed in Phase 3-1B and its tests now PASS. '
-          'Any OTHER FAIL is a new, unexpected regression and must be investigated before proceeding.)')
+    print('(1 FAIL is EXPECTED as of DONOMANA-REGISTER-QR-PHASE-3-2: the '
+          '"既知の構造的課題の確認" group\'s modal/switch-scan structural-leak check — a known Phase 2 '
+          'design finding, still out of scope for this QR-generation Phase (the separate group_i2 check '
+          'confirms the new qr-modal does not leak MORE than the pre-existing product-modal under '
+          'identical conditions — same issue, not worsened). The share-URL bug found in Phase 3-1 was '
+          'fixed in Phase 3-1B and its tests PASS. Any OTHER FAIL is a new, unexpected regression and '
+          'must be investigated before proceeding.)')
     sys.exit(1 if fail_count > 0 else 0)
