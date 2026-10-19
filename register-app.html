@@ -1992,7 +1992,10 @@ function openShareModal(){
   try{ encoded=btoa(unescape(encodeURIComponent(JSON.stringify(shareData)))); }
   catch(e){ showToast('⚠️ エラーが発生しました'); return; }
 
-  const url=`${location.origin}${location.pathname}?products=${encoded}`;
+  // Base64は+/=を含み得るため、クエリ値としてURLへ入れる前にencodeURIComponent()する
+  // (受信側loadSharedProductsのURLSearchParams.get()が+を空白へ変換してしまい、
+  // atob()が壊れたデータを受け取る不具合の修正。DONOMANA-REGISTER-QR-PHASE-3-1で発見)。
+  const url=`${location.origin}${location.pathname}?products=${encodeURIComponent(encoded)}`;
   const sizeKB=Math.round(new Blob([url]).size/1024);
   document.getElementById('share-url-display').textContent=url;
   document.getElementById('share-url-size').textContent=`URLサイズ：約 ${sizeKB} KB　／　商品数：${products.length}件`;

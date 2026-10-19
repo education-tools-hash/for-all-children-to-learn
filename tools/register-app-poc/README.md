@@ -2,12 +2,15 @@
 
 「はんばいかい レジ」（`register-app.html`）のQR機能追加（DONOMANA-REGISTER-QR-PHASE-2
 以降）に先立って整備した、既存機能のベースライン回帰テスト一式
-（DONOMANA-REGISTER-QR-PHASE-3-1-BASELINE-TESTS-1）。
+（DONOMANA-REGISTER-QR-PHASE-3-1-BASELINE-TESTS-1、
+DONOMANA-REGISTER-QR-PHASE-3-1B-SHARE-URL-FIX-1で共有URLの不具合修正に伴い拡張）。
 
-対象アプリ: `../../register-app.html`。本Phaseでは**アプリ本体は変更していない**
-（QRコード生成・読み取り機能もまだ実装していない）。ここにあるのは、既存の
-商品登録・カート・会計・共有・設定・アクセシビリティ・CSV出力が現在どう動くかを
-固定した、QR実装後の回帰検出の基準（ベースライン）専用のテストである。
+対象アプリ: `../../register-app.html`。QRコード生成・読み取り機能はまだ実装していない。
+ここにあるのは、既存の商品登録・カート・会計・共有・設定・アクセシビリティ・CSV出力が
+現在どう動くかを固定した、QR実装後の回帰検出の基準（ベースライン）専用のテストである。
+**Phase 3-1BでのみアプリのロジックにPhase 3-1で発見した不具合の最小修正を1件加えた
+（`openShareModal()`の共有URL生成部分、詳細は下記）。**それ以外、アプリ本体の仕様は
+変更していない。
 
 ## 実行方法
 
@@ -64,31 +67,40 @@ localStorageには構造的に一切アクセスしない（本番の商品デ�
 | 14. 既存機能の基本的なキーボード操作 | 14 |
 | 既知の構造的課題の確認 | （ユーザー指示：モーダル/スイッチスキャンの構造的問題を確認するテストを追加） |
 
+## 共有URLの不具合修正（Phase 3-1B）
+
+Phase 3-1は「9〜10」グループで、`register-app.html`の`openShareModal()`
+（L1992/L1995）がbase64文字列を`encodeURIComponent()`せずそのままURLへ連結しており、
+日本語の商品名を含むbase64には高確率で`+`が含まれ、受信側`loadSharedProducts()`
+（L2033）の`URLSearchParams.get('products')`が仕様上`+`を空白へ変換してしまうため
+`atob()`が例外を投げて読み込みに失敗する、という不具合をFAILとして記録していた。
+
+Phase 3-1BはこれをL1995の1行のみの最小差分で修正した：
+
+```diff
+- const url=`${location.origin}${location.pathname}?products=${encoded}`;
++ const url=`${location.origin}${location.pathname}?products=${encodeURIComponent(encoded)}`;
+```
+
+`loadSharedProducts()`（デコード側）は変更していない。`URLSearchParams.get()`は
+受け取った値を自動的にパーセントデコードするため、エンコード側だけを直すことで
+対応する。既存の（たまたま`+`を含まない）共有URLとの後方互換性も保たれる。
+
 ## 実行結果（PASS/FAIL）について
 
-最新の実行結果は **PASS: 100　FAIL: 2**。この2件のFAILは両方とも意図的・既知のもので、
-隠さずそのまま報告している（詳細はDONOMANA-REGISTER-QR-PHASE-3-1の報告書§4/§5、
-および各テストのコード内コメントを参照）。
+Phase 3-1Bでの最新の実行結果は **PASS: 111　FAIL: 1**。このFAILは意図的・既知のもので、
+隠さずそのまま報告している。
 
-1. **「9〜10」グループの共有URL関連1件（新たに発見した既存の不具合）** —
-   `register-app.html`の`openShareModal()`（L1992/L1995）が、base64文字列を
-   `encodeURIComponent()`せずそのままURLへ連結している。日本語の商品名を含む
-   base64エンコード結果には高確率で`+`が含まれ、受信側`loadSharedProducts()`
-   （L2033）が`URLSearchParams.get('products')`で読む際に`+`が仕様上空白へ変換
-   されてしまうため、`atob()`が例外を投げて読み込みに失敗する。アプリが実際に
-   生成した共有URLをそのまま使うと、ほぼ必ず失敗する（確率的な問題ではなく、
-   日本語商品名を含む限りほぼ常に再現する）。このテストグループでは、
-   (a) アプリが実際に生成するURLそのままでの失敗を記録し、(b) 本テストスクリプト側
-   でURLをペイロードだけ正しく`encodeURIComponent()`し直した場合は、ID保持・
-   画像null化・localStorage永続化のすべてが正しく動くことを別途確認しており、
-   不具合の原因がURL構築部分のみであることを切り分けている。
-   **register-app.html自体は本Phaseでは変更していない**（テスト対象の仕様を
-   無断変更しない方針のため）。
-2. **末尾の「既知の構造的課題の確認」グループ1件（Phase 2設計調査で既発見）** —
-   `register-app.html`のモーダル実装（`openModal`/`closeModal`）は背景を
-   `inert`化しないため、開いているモーダルの外にあるスイッチスキャン対象
-   （ヘッダーアイコンや商品カード等）も選択可能なままになる。DONOMANA-REGISTER-QR-
-   PHASE-2-DESIGN-1 §8で文書化済みの既存の構造的限界であり、本Phaseではモーダル
-   基盤そのものを修正しない方針のため、意図的にFAILのまま報告している。
+**末尾の「既知の構造的課題の確認」グループ1件（Phase 2設計調査で既発見、本Phaseでは
+対象外）** — `register-app.html`のモーダル実装（`openModal`/`closeModal`）は背景を
+`inert`化しないため、開いているモーダルの外にあるスイッチスキャン対象
+（ヘッダーアイコンや商品カード等）も選択可能なままになる。DONOMANA-REGISTER-QR-
+PHASE-2-DESIGN-1 §8で文書化済みの既存の構造的限界であり、本Phaseではモーダル
+基盤そのものを修正しない方針のため、意図的にFAILのまま報告している。
 
-これら2件以外のFAILが将来の実行で発生した場合は、新たな回帰として調査が必要。
+Phase 3-1で発見した共有URLの不具合は本Phaseで修正済みのため、対応するテストは
+全てPASSへ反転した（日本語・絵文字入り・`+`/`=`/`&`を含む商品名、複数商品、
+不正な共有データでのクラッシュ耐性、旧形式URLとの後方互換性を含む、拡張済みの
+回帰テストで確認）。
+
+これら以外のFAILが将来の実行で発生した場合は、新たな回帰として調査が必要。
