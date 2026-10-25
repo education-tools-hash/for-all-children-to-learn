@@ -544,6 +544,323 @@
     return { ok: notesResult.ok && logsResult.ok, notes: notesResult, logs: logsResult };
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Phase 6: 層1集計・C1〜C4判定・R1〜R2生成(Design v2.0 9章、
+  // DONOMANA-ACCESS-PHASE-6-FINAL-CONTRACT-1で確定した仕様)。
+  //
+  // 新設の純粋関数のみを追加する。summarizeSessions()・既存storageキー・
+  // 既存画面構造への変更は行わない(Design v2.1 §4、Approved Diff Scope)。
+  // R3(cancel比率による自動提案)は対象外。cancel件数は常に入力方式別に
+  // 保持し、入力方式を跨いだ合算・ランキングは一切生成しない(8章・9章)。
+  // 子どもの能力・適性・主体性を判定・断定する値は生成しない。
+  // ─────────────────────────────────────────────────────────────
+
+  // DURATION_TOLERANCE_RATIO: C2「活動時間の差が±30%以内」(4.2節)の比較に
+  // 用いる許容比率。v2.0は分母の定義を明記していないため、どちらの入力方式
+  // を基準にしても対称になる「平均に対する相対差」の式(|a-b|/((a+b)/2))を
+  // 採用する。この式の選択は本Phaseでの解釈であり、検証済みの確定値では
+  // ない。
+  var DURATION_TOLERANCE_RATIO = 0.30;
+
+  // parseSessionDurationMs(): セッション記録のstartedAt/endedAt(ISO8601
+  // 文字列、buildSessionRecord()参照)から活動時間(ミリ秒)を求める。片方
+  // でも欠損・解釈不能な場合はnullを返す(存在しない値を0等で代用しない)。
+  // computeDuration()は数値timestamp専用のため、ISO文字列を扱う本関数を
+  // Phase 6専用に新設する。
+  function parseSessionDurationMs(session) {
+    if (!session || typeof session.startedAt !== 'string' || typeof session.endedAt !== 'string') return null;
+    var startMs = Date.parse(session.startedAt);
+    var endMs = Date.parse(session.endedAt);
+    if (isNaN(startMs) || isNaN(endMs)) return null;
+    return Math.max(0, endMs - startMs);
+  }
+
+  // computeLayer1Metrics(): 観測データの入力方式別集計(Design v2.0 3.2節
+  // で新設が指示された専用関数)。既存のsummarizeSessions()は変更せず、
+  // Phase 3の既存表示用途にそのまま使い続ける(3.2節)。
+  //
+  // 戻り値: オブジェクト。キーは実際にsessions内に出現したinputMethodの値
+  // (summarizeSessions()のbyInputMethodと同じ動的キー生成方式)。各値は
+  // {sessionCount, activateCount, cancelCount, releaseCount,
+  //  movedSessionCount, totalDurationMs, averageDurationMs,
+  //  averageActivateCount}。
+  //
+  // 欠損値の扱い: startedAt/endedAtが欠損・解釈不能なセッションは
+  // sessionCountには数えるが、totalDurationMs/averageDurationMsの算出
+  // 対象(分母)からは除外する。averageActivateCountの分母は除外を行わない
+  // 全セッション数(activateCountは常に算出可能な値のため)。この2つの
+  // 平均値が異なる分母を持つことに注意(DONOMANA-ACCESS-PHASE-6-
+  // FINAL-CONTRACT-1 第5節)。averageActivateCountは入力開始イベント
+  // (activate)の記録回数の平均であり、主体性・意欲・能力の評価には使わ
+  // ない。
+  //
+  // movedSessionCountは「動きが観測されたセッション数」であり、意図的な
+  // スワイプか不随意な動きかは判別できない客観的事実としてのみ扱う
+  // (Design v2.0 1.3節)。
+  //
+  // 境界値: sessionsが空配列、または配列でない場合は{}を返す。
+  function computeLayer1Metrics(sessions) {
+    var list = Array.isArray(sessions) ? sessions : [];
+    var byMethod = {};
+    list.forEach(function (s) {
+      var im = (s && typeof s.inputMethod === 'string') ? s.inputMethod : 'unknown';
+      if (!byMethod[im]) {
+        byMethod[im] = {
+          sessionCount: 0,
+          activateCount: 0,
+          cancelCount: 0,
+          releaseCount: 0,
+          movedSessionCount: 0,
+          durationSumMs: 0,
+          durationSampleCount: 0
+        };
+      }
+      var bucket = byMethod[im];
+      bucket.sessionCount += 1;
+      var events = Array.isArray(s && s.events) ? s.events : [];
+      var hasMove = false;
+      events.forEach(function (e) {
+        if (!e || typeof e.type !== 'string') return;
+        if (e.type === 'activate') bucket.activateCount += 1;
+        else if (e.type === 'cancel') bucket.cancelCount += 1;
+        else if (e.type === 'release') bucket.releaseCount += 1;
+        else if (e.type === 'move') hasMove = true;
+      });
+      if (hasMove) bucket.movedSessionCount += 1;
+      var durationMs = parseSessionDurationMs(s);
+      if (durationMs !== null) {
+        bucket.durationSumMs += durationMs;
+        bucket.durationSampleCount += 1;
+      }
+    });
+    var result = {};
+    Object.keys(byMethod).forEach(function (im) {
+      var b = byMethod[im];
+      result[im] = {
+        sessionCount: b.sessionCount,
+        activateCount: b.activateCount,
+        cancelCount: b.cancelCount,
+        releaseCount: b.releaseCount,
+        movedSessionCount: b.movedSessionCount,
+        totalDurationMs: b.durationSampleCount > 0 ? b.durationSumMs : null,
+        averageDurationMs: b.durationSampleCount > 0 ? (b.durationSumMs / b.durationSampleCount) : null,
+        averageActivateCount: b.sessionCount > 0 ? (b.activateCount / b.sessionCount) : null
+      };
+    });
+    return result;
+  }
+
+  // classifySupportCondition(): noteのsupportフィールドを、C4判定に必要な
+  // 3区分のいずれかに分類する(DONOMANA-ACCESS-PHASE-6-FINAL-CONTRACT-1
+  // 第2節)。'unrecorded'(未記録、support.recorded===false)・
+  // 'none-confirmed'(特になし確認済み、recorded===trueかつtypes空)・
+  // 'support-given'(具体的支援あり、recorded===trueかつtypes非空)。
+  // 支援の種類(types)どうしの同等性は本Phaseでは判定しない(既存設計に
+  // 根拠がないため、独自に同等・非同等を断定しない)。noteが不正・未知
+  // schemaVersion等でisValidNoteRecord()に適合しない場合はnullを返す。
+  function classifySupportCondition(note) {
+    if (!note || !isValidNoteRecord(note)) return null;
+    if (note.support.recorded === false) return 'unrecorded';
+    return note.support.types.length > 0 ? 'support-given' : 'none-confirmed';
+  }
+
+  // evaluateGates(): C1〜C4共通ゲート条件を判定する(Design v2.0 4.2節、
+  // DONOMANA-ACCESS-PHASE-6-FINAL-CONTRACT-1で確定した4状態判定)。
+  //
+  // 入力:
+  //   sessionsByMethod: {inputMethod文字列: セッション記録の配列}という
+  //     オブジェクト。比較対象として教員/Phase 7が選んだ、ちょうど2方式
+  //     分のみを渡す(本関数は「存在する全方式を自動的に比較する」判断を
+  //     しない。比較を常に2方式に限定するのは、Design v2.0 4.3節のR1
+  //     文言例が2項構造であることとの整合、DONOMANA-ACCESS-PHASE-6-
+  //     FINAL-CONTRACT-1 第4節による)。
+  //   notes: 観察記録の配列(safeReadNotes()のitems相当)。C4判定にのみ
+  //     使用する。
+  //
+  // 出力: {C1,C2,C3,C4: {state, reason, blocks}, canShowSuggestion}。
+  //   state は 'passed'|'failed'|'not_applicable'|'unknown' のいずれか。
+  //   blocks は、その状態が提案の表示をブロックするかどうか(C4の
+  //   'not_applicable'/'unknown'はv2.0が明示的に許容するためblocks:
+  //   false。他のゲートの'unknown'相当はブロックする)。
+  //   canShowSuggestion は全ゲートのblocksがいずれもfalseの場合のみtrue。
+  //
+  // 「不明は満たしているとみなさない」(Design v2.0 4.2節の判定原則)に
+  // 従い、データから検証できない条件は既定でブロックする側に倒す。C3は
+  // switch方式を含む限り常にunknown(ブロックする)とする。単純なboolean
+  // 宣言を根拠としてpassedにする経路は設けない(passed/failedへ至る経路
+  // は、将来セッションごとのスキャン速度記録が追加された場合のための
+  // 予約状態であり、本Phaseでは発生しない。FINAL-CONTRACT-1第1節)。
+  //
+  // エラー時: sessionsByMethodが想定外の型、または方式数が2でない場合は
+  // クラッシュせず、全ゲートをblocks:trueとしてcanShowSuggestion:false
+  // を返す。
+  function evaluateGates(sessionsByMethod, notes) {
+    var methods = (sessionsByMethod && typeof sessionsByMethod === 'object' && !Array.isArray(sessionsByMethod))
+      ? Object.keys(sessionsByMethod) : [];
+    var notesList = Array.isArray(notes) ? notes : [];
+
+    if (methods.length !== 2) {
+      var invalid = { state: 'failed', reason: '比較には2方式の指定が必要です', blocks: true };
+      return {
+        C1: invalid,
+        C2: { state: 'failed', reason: null, blocks: true },
+        C3: { state: 'failed', reason: null, blocks: true },
+        C4: { state: 'failed', reason: null, blocks: true },
+        canShowSuggestion: false
+      };
+    }
+
+    var methodA = methods[0];
+    var methodB = methods[1];
+    var sessionsA = Array.isArray(sessionsByMethod[methodA]) ? sessionsByMethod[methodA] : [];
+    var sessionsB = Array.isArray(sessionsByMethod[methodB]) ? sessionsByMethod[methodB] : [];
+
+    // C1: 各入力方式のセッション数が2件以上(4.2節)。
+    var insufficientMethods = [];
+    if (sessionsA.length < 2) insufficientMethods.push(methodA);
+    if (sessionsB.length < 2) insufficientMethods.push(methodB);
+    var C1 = insufficientMethods.length === 0
+      ? { state: 'passed', reason: null, blocks: false }
+      : { state: 'failed', reason: insufficientMethods.join('・') + '方式の記録が2件未満です', blocks: true };
+
+    // C2: 活動時間の差が±30%以内(4.2節)。分母定義はv2.0に明記がないため、
+    // 対称な「平均に対する相対差」を用いる(本Phaseでの解釈、未検証)。
+    // いずれかの方式に有効な活動時間データが1件もない場合はunknown
+    // (ブロックする、「不明は満たしているとみなさない」原則)。
+    var durationsA = sessionsA.map(parseSessionDurationMs).filter(function (d) { return d !== null; });
+    var durationsB = sessionsB.map(parseSessionDurationMs).filter(function (d) { return d !== null; });
+    var C2;
+    if (durationsA.length === 0 || durationsB.length === 0) {
+      C2 = { state: 'unknown', reason: '活動時間の記録がないため比較できません', blocks: true };
+    } else {
+      var avgA = durationsA.reduce(function (sum, d) { return sum + d; }, 0) / durationsA.length;
+      var avgB = durationsB.reduce(function (sum, d) { return sum + d; }, 0) / durationsB.length;
+      var meanOfAvgs = (avgA + avgB) / 2;
+      var relativeDiff = meanOfAvgs > 0 ? Math.abs(avgA - avgB) / meanOfAvgs : 0;
+      C2 = relativeDiff <= DURATION_TOLERANCE_RATIO
+        ? { state: 'passed', reason: null, blocks: false }
+        : { state: 'failed', reason: '活動時間に差があります', blocks: true };
+    }
+
+    // C3: 外部スイッチを含む場合、スキャン速度設定が同一であることを
+    // 確認できる必要がある(4.2節)。現行の記録にはセッションごとの
+    // スキャン速度を示すフィールドが一切なく検証する手段がないため、
+    // switch方式を含む限り常にunknownとする(FINAL-CONTRACT-1第1節)。
+    var involvesSwitch = methodA === 'switch' || methodB === 'switch';
+    var C3 = involvesSwitch
+      ? { state: 'unknown', reason: 'スキャン速度が記録からは確認できません', blocks: true }
+      : { state: 'not_applicable', reason: null, blocks: false };
+
+    // C4: 教員支援条件が記録されていれば、大きく異ならないか確認する
+    // (4.2節)。支援の「有無」のみで判定し、「具体的支援あり」同士の
+    // 種類(types)の相違は判定しない(既存設計に同等性の根拠がないため、
+    // FINAL-CONTRACT-1第2節)。note自体が存在しない場合はnot_applicable、
+    // noteはあるがsupportが未記録の場合はunknownとし、いずれもv2.0が
+    // 明示的に許容する通りブロックしない。支援の有無(特になし確認済み/
+    // 具体的支援あり)が比較対象間で混在する場合のみfailedとしてブロック
+    // する。
+    var allScopedSessions = sessionsA.concat(sessionsB);
+    var conditions = allScopedSessions.map(function (s) {
+      var sessionId = s && typeof s.sessionId === 'string' ? s.sessionId : null;
+      var note = sessionId ? findNoteBySessionId(notesList, sessionId) : null;
+      var classified = classifySupportCondition(note);
+      return classified || 'no-note';
+    });
+    var C4;
+    if (conditions.indexOf('no-note') !== -1) {
+      C4 = { state: 'not_applicable', reason: '支援条件は記録されていません', blocks: false };
+    } else if (conditions.indexOf('unrecorded') !== -1) {
+      C4 = { state: 'unknown', reason: '支援の有無が記録からは確認できません', blocks: false };
+    } else {
+      var hasNone = conditions.indexOf('none-confirmed') !== -1;
+      var hasSupport = conditions.indexOf('support-given') !== -1;
+      // 注意: hasNone===falseかつhasSupport===trueの場合(全セッションが
+      // 「具体的支援あり」)でも、支援の種類(types)が互いに異なる可能性
+      // がある。本関数はその種類どうしの同等性を判定しないため、この
+      // passedは「支援条件全体が同等である」ことを意味しない
+      // (FINAL-CONTRACT-1第2節・DONOMANA-ACCESS-PHASE-6-IMPLEMENTATION-1
+      // 補足条件2)。
+      C4 = (hasNone && hasSupport)
+        ? { state: 'failed', reason: '支援の有無が異なる記録が含まれています', blocks: true }
+        : { state: 'passed', reason: null, blocks: false };
+    }
+
+    var canShowSuggestion = !C1.blocks && !C2.blocks && !C3.blocks && !C4.blocks;
+    return { C1: C1, C2: C2, C3: C3, C4: C4, canShowSuggestion: canShowSuggestion };
+  }
+
+  // generateReferenceMessages(): evaluateGates()の判定結果とcomputeLayer1Metrics()
+  // の集計結果から、層2に表示する提案文(R1〜R2)または保留理由を生成する
+  // (Design v2.0 4.3節、R3は対象外)。
+  //
+  // 入力:
+  //   gateResult: evaluateGates()の戻り値。
+  //   layer1MetricsForScope: {inputMethod: computeLayer1Metrics()の該当
+  //     方式の値}という、比較対象2方式分のみの部分集合。
+  //
+  // 出力: {messages:[{code,text}], holdReasons:[string], unverifiedConditions:[string]}。
+  //   messages は canShowSuggestion===trueの場合のみ生成する。
+  //   holdReasons は、実際にブロックしているゲート(blocks===true)の
+  //   reasonのみを集める(canShowSuggestion===falseの場合に生成される)。
+  //   unverifiedConditions は、C4が'unknown'または'not_applicable'の
+  //   場合、canShowSuggestionの値に関わらず常に生成する
+  //   (DONOMANA-ACCESS-PHASE-6-FINAL-CONTRACT-1 第3節)。
+  //
+  // R1の集計値はaverageActivateCount(activateCount/sessionCount)のみを
+  // 用いる。cancelCount・releaseCountは含めない。表示名称は「入力開始
+  // イベント(activate)の記録回数」とし、主体性・意欲・能力の評価には
+  // 使わない(FINAL-CONTRACT-1第5節)。数値が算出できない場合は0等で
+  // 代用せず、その旨の文言に置き換える。
+  //
+  // エラー時: gateResultが想定外の型の場合、クラッシュせず空の結果
+  // ({messages:[], holdReasons:[], unverifiedConditions:[]})を返す。
+  function generateReferenceMessages(gateResult, layer1MetricsForScope) {
+    var result = { messages: [], holdReasons: [], unverifiedConditions: [] };
+    if (!gateResult || typeof gateResult !== 'object') return result;
+
+    var gateCodes = ['C1', 'C2', 'C3', 'C4'];
+
+    if (gateResult.canShowSuggestion === true) {
+      var methods = (layer1MetricsForScope && typeof layer1MetricsForScope === 'object')
+        ? Object.keys(layer1MetricsForScope) : [];
+      if (methods.length === 2) {
+        var metricsA = layer1MetricsForScope[methods[0]];
+        var metricsB = layer1MetricsForScope[methods[1]];
+        var textA = (metricsA && typeof metricsA.averageActivateCount === 'number')
+          ? metricsA.averageActivateCount.toFixed(1) + '回' : '算出できませんでした';
+        var textB = (metricsB && typeof metricsB.averageActivateCount === 'number')
+          ? metricsB.averageActivateCount.toFixed(1) + '回' : '算出できませんでした';
+        result.messages.push({
+          code: 'R1',
+          text: methods[0] + 'では入力開始イベント(activate)の記録回数が平均' + textA + '、' +
+            methods[1] + 'では平均' + textB + 'です(活動時間はおおむね揃っています)'
+        });
+      }
+      // R2(C3のpassed時の文言)は、本Phaseの現行実装ではC3がpassedに至る
+      // 経路が存在しないため生成されない(将来、セッションごとのスキャン
+      // 速度記録が追加された場合の予約処理)。
+      if (gateResult.C3 && gateResult.C3.state === 'passed') {
+        result.messages.push({
+          code: 'R2',
+          text: 'この走査速度での操作傾向です。走査速度を変えると結果が変わる可能性があります'
+        });
+      }
+    } else {
+      gateCodes.forEach(function (code) {
+        var gate = gateResult[code];
+        if (gate && gate.blocks === true && gate.reason) {
+          result.holdReasons.push(gate.reason);
+        }
+      });
+    }
+
+    if (gateResult.C4 && (gateResult.C4.state === 'unknown' || gateResult.C4.state === 'not_applicable') && gateResult.C4.reason) {
+      result.unverifiedConditions.push(gateResult.C4.reason);
+    }
+
+    return result;
+  }
+
   return {
     VALID_INPUT_METHODS: VALID_INPUT_METHODS,
     VALID_TYPES: VALID_TYPES,
@@ -582,6 +899,12 @@
     pruneOrphanNotes: pruneOrphanNotes,
     writeNotes: writeNotes,
     clearNotes: clearNotes,
-    clearAllAccessData: clearAllAccessData
+    clearAllAccessData: clearAllAccessData,
+    DURATION_TOLERANCE_RATIO: DURATION_TOLERANCE_RATIO,
+    parseSessionDurationMs: parseSessionDurationMs,
+    computeLayer1Metrics: computeLayer1Metrics,
+    classifySupportCondition: classifySupportCondition,
+    evaluateGates: evaluateGates,
+    generateReferenceMessages: generateReferenceMessages
   };
 });

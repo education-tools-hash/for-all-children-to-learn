@@ -532,6 +532,263 @@ console.log('\n=== 24. Phase 5B-1: MAX_SESSIONS境界 + prune連携（孤立観�
   check('ログ側がmalformed JSONの場合、safeReadSessions()はanomalyを返す(呼び出し側がpruneをスキップする判断材料になる)', logReadAnomaly.anomaly === 'malformed-json');
 })();
 
+console.log('\n=== 25. Phase 6: computeLayer1Metrics() — 入力方式別集計・欠損値・境界値 ===');
+(function () {
+  const s1 = Core.buildSessionRecord({
+    sessionId: 'p6-t1', inputMethod: 'touch', startedAt: '2026-10-20T00:00:00.000Z', endedAt: '2026-10-20T00:00:10.000Z',
+    events: [
+      Core.makeEvent({ type: 'activate', inputMethod: 'touch' }),
+      Core.makeEvent({ type: 'activate', inputMethod: 'touch' }),
+      Core.makeEvent({ type: 'cancel', inputMethod: 'touch' }),
+      Core.makeEvent({ type: 'move', inputMethod: 'touch' })
+    ]
+  });
+  const s2 = Core.buildSessionRecord({
+    sessionId: 'p6-t2', inputMethod: 'touch', startedAt: '2026-10-20T00:01:00.000Z', endedAt: '2026-10-20T00:01:20.000Z',
+    events: [Core.makeEvent({ type: 'activate', inputMethod: 'touch' }), Core.makeEvent({ type: 'release', inputMethod: 'touch' })]
+  });
+  // startedAt/endedAtが欠損したセッション(欠損値・旧データ想定)。activateは算出できるが
+  // 活動時間は算出できない。
+  const s3 = Core.buildSessionRecord({ sessionId: 'p6-t3', inputMethod: 'touch', events: [Core.makeEvent({ type: 'activate', inputMethod: 'touch' })] });
+  const s4 = Core.buildSessionRecord({
+    sessionId: 'p6-sw1', inputMethod: 'switch', startedAt: '2026-10-20T00:02:00.000Z', endedAt: '2026-10-20T00:02:05.000Z',
+    events: [Core.makeEvent({ type: 'activate', inputMethod: 'switch' })]
+  });
+
+  const metrics = Core.computeLayer1Metrics([s1, s2, s3, s4]);
+  check('touch方式のsessionCountは3(欠損セッションも数える)', metrics.touch.sessionCount === 3);
+  check('touch方式のactivateCountは4(全セッション分の合計)', metrics.touch.activateCount === 4);
+  check('touch方式のcancelCountは1(入力方式ごとに独立)', metrics.touch.cancelCount === 1);
+  check('touch方式のreleaseCountは1', metrics.touch.releaseCount === 1);
+  check('touch方式のmovedSessionCountは1(moveが観測されたセッション数)', metrics.touch.movedSessionCount === 1);
+  check('averageActivateCountの分母は欠損を除外しない全セッション数(4/3)', Math.abs(metrics.touch.averageActivateCount - (4 / 3)) < 1e-9);
+  check('averageDurationMsの分母は有効な時間データを持つセッション数のみ(s3を除く2件)', metrics.touch.totalDurationMs === 10000 + 20000);
+  check('averageDurationMsはs3を除外して算出される', metrics.touch.averageDurationMs === 15000);
+  check('switch方式は別キーとして分離集計される', metrics.switch.sessionCount === 1 && metrics.switch.activateCount === 1);
+
+  const empty = Core.computeLayer1Metrics([]);
+  check('空配列は{}を返す', Object.keys(empty).length === 0);
+  const nonArray = Core.computeLayer1Metrics('not-an-array');
+  check('配列でない入力はクラッシュせず{}を返す(エラー時の安全側)', Object.keys(nonArray).length === 0);
+
+  // 旧データ(Phase 3時点、swipe区分が存在しない記録)との後方互換性。
+  const legacy = Core.buildSessionRecord({ sessionId: 'legacy-1', inputMethod: 'touch', events: [] });
+  const legacyMetrics = Core.computeLayer1Metrics([legacy]);
+  check('Phase 3時点の旧データ(スワイプ区分なし)もそのまま集計対象になる', legacyMetrics.touch.sessionCount === 1 && legacyMetrics.touch.activateCount === 0);
+})();
+
+console.log('\n=== 26. Phase 6: classifySupportCondition() — 3区分への分類 ===');
+(function () {
+  const unrecordedNote = Core.buildNoteRecord({ sessionId: 'n1', recordedAt: '2026-10-20T00:00:00.000Z' });
+  check('未記録(support.recorded=false)は"unrecorded"に分類される', Core.classifySupportCondition(unrecordedNote) === 'unrecorded');
+
+  const noneConfirmedNote = Core.buildNoteRecord({ sessionId: 'n2', support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' });
+  check('特になし確認済み(recorded=true・types空)は"none-confirmed"に分類される', Core.classifySupportCondition(noneConfirmedNote) === 'none-confirmed');
+
+  const supportGivenNote = Core.buildNoteRecord({ sessionId: 'n3', support: { recorded: true, types: ['声かけ・音声による促し'] }, recordedAt: '2026-10-20T00:00:00.000Z' });
+  check('具体的支援あり(recorded=true・types非空)は"support-given"に分類される', Core.classifySupportCondition(supportGivenNote) === 'support-given');
+
+  check('noteがnullの場合はnullを返す(クラッシュしない)', Core.classifySupportCondition(null) === null);
+  check('不正なnote(オブジェクトでない)はnullを返す', Core.classifySupportCondition('not-a-note') === null);
+})();
+
+console.log('\n=== 27. Phase 6: evaluateGates() — C1・C2境界値 ===');
+(function () {
+  function sessWithDuration(id, method, startIso, endIso) {
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: startIso, endedAt: endIso, events: [Core.makeEvent({ type: 'activate', inputMethod: method })] });
+  }
+
+  // C1: 両方式とも2件以上 → passed
+  const touchOk = [sessWithDuration('c1-t1', 'touch', '2026-10-20T00:00:00.000Z', '2026-10-20T00:00:10.000Z'), sessWithDuration('c1-t2', 'touch', '2026-10-20T00:01:00.000Z', '2026-10-20T00:01:10.000Z')];
+  const swipeOk = [sessWithDuration('c1-s1', 'swipe', '2026-10-20T00:02:00.000Z', '2026-10-20T00:02:10.000Z'), sessWithDuration('c1-s2', 'swipe', '2026-10-20T00:03:00.000Z', '2026-10-20T00:03:10.000Z')];
+  const r1 = Core.evaluateGates({ touch: touchOk, swipe: swipeOk }, []);
+  check('両方式とも2件以上ならC1はpassed', r1.C1.state === 'passed' && r1.C1.blocks === false);
+
+  // C1: 片方が1件のみ → failed、該当方式名を含む
+  const swipeShort = [sessWithDuration('c1-s3', 'swipe', '2026-10-20T00:02:00.000Z', '2026-10-20T00:02:10.000Z')];
+  const r2 = Core.evaluateGates({ touch: touchOk, swipe: swipeShort }, []);
+  check('片方が1件のみならC1はfailed', r2.C1.state === 'failed' && r2.C1.blocks === true);
+  check('C1のreasonに不足している方式名が含まれる', r2.C1.reason.indexOf('swipe') !== -1);
+
+  // C1: 両方式とも1件以下 → 両方の方式名を含む
+  const r3 = Core.evaluateGates({ touch: [touchOk[0]], swipe: swipeShort }, []);
+  check('両方式とも1件以下の場合、両方の方式名がreasonに含まれる', r3.C1.reason.indexOf('touch') !== -1 && r3.C1.reason.indexOf('swipe') !== -1);
+
+  // C2: 活動時間が揃っている(10秒 vs 10秒) → passed
+  check('活動時間が揃っている場合C2はpassed', r1.C2.state === 'passed' && r1.C2.blocks === false);
+
+  // C2: 活動時間が大きく異なる(10秒 vs 100秒) → failed
+  const swipeLong = [sessWithDuration('c2-s1', 'swipe', '2026-10-20T00:02:00.000Z', '2026-10-20T00:03:40.000Z'), sessWithDuration('c2-s2', 'swipe', '2026-10-20T00:04:00.000Z', '2026-10-20T00:05:40.000Z')];
+  const r4 = Core.evaluateGates({ touch: touchOk, swipe: swipeLong }, []);
+  check('活動時間が±30%を超えて異なる場合C2はfailed', r4.C2.state === 'failed' && r4.C2.blocks === true);
+
+  // C2: 片方に有効な活動時間データが全くない → unknown(ブロックする)
+  const swipeNoDuration = [
+    Core.buildSessionRecord({ sessionId: 'c2-nd1', inputMethod: 'swipe', events: [Core.makeEvent({ type: 'activate', inputMethod: 'swipe' })] }),
+    Core.buildSessionRecord({ sessionId: 'c2-nd2', inputMethod: 'swipe', events: [Core.makeEvent({ type: 'activate', inputMethod: 'swipe' })] })
+  ];
+  const r5 = Core.evaluateGates({ touch: touchOk, swipe: swipeNoDuration }, []);
+  check('活動時間データが皆無の場合C2はunknown(passedとみなさない)', r5.C2.state === 'unknown' && r5.C2.blocks === true);
+
+  // 比較対象が2方式でない場合は安全にブロックする
+  const r6 = Core.evaluateGates({ touch: touchOk }, []);
+  check('比較対象が1方式のみの場合はクラッシュせずcanShowSuggestion:falseを返す', r6.canShowSuggestion === false);
+  const r7 = Core.evaluateGates('not-an-object', []);
+  check('sessionsByMethodが不正な型でもクラッシュしない', r7.canShowSuggestion === false);
+})();
+
+console.log('\n=== 28. Phase 6: evaluateGates() — C3（スキャン速度は常にunknown） ===');
+(function () {
+  function sess(id, method) {
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: '2026-10-20T00:00:00.000Z', endedAt: '2026-10-20T00:00:10.000Z', events: [Core.makeEvent({ type: 'activate', inputMethod: method })] });
+  }
+  const touchPair = [sess('c3-t1', 'touch'), sess('c3-t2', 'touch')];
+  const swipePair = [sess('c3-s1', 'swipe'), sess('c3-s2', 'swipe')];
+  const switchPair = [sess('c3-sw1', 'switch'), sess('c3-sw2', 'switch')];
+
+  const noSwitch = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, []);
+  check('switch方式を含まない比較ではC3はnot_applicable', noSwitch.C3.state === 'not_applicable' && noSwitch.C3.blocks === false);
+
+  const withSwitch = Core.evaluateGates({ touch: touchPair, switch: switchPair }, []);
+  check('switch方式を含む比較ではC3は常にunknown(ブロックする)', withSwitch.C3.state === 'unknown' && withSwitch.C3.blocks === true);
+
+  // 単純なboolean宣言をpassedの根拠として受け取る引数は存在しない(FINAL-CONTRACT-1第1節)。
+  const withSwitchAndFlag = Core.evaluateGates({ touch: touchPair, switch: switchPair }, [], { scanSpeedAssumedUniform: true });
+  check('余分な第3引数を渡してもC3はunknownのまま変わらない(passedへの経路がない)', withSwitchAndFlag.C3.state === 'unknown');
+})();
+
+console.log('\n=== 29. Phase 6: evaluateGates() — C4（支援の有無のみで判定） ===');
+(function () {
+  function sess(id, method) {
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: '2026-10-20T00:00:00.000Z', endedAt: '2026-10-20T00:00:10.000Z', events: [Core.makeEvent({ type: 'activate', inputMethod: method })] });
+  }
+  const touchPair = [sess('c4-t1', 'touch'), sess('c4-t2', 'touch')];
+  const swipePair = [sess('c4-s1', 'swipe'), sess('c4-s2', 'swipe')];
+
+  // not_applicable: noteが1件も存在しない
+  const r1 = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, []);
+  check('対応するnoteが一切ない場合C4はnot_applicable', r1.C4.state === 'not_applicable' && r1.C4.blocks === false);
+
+  // unknown: noteは存在するがsupportが未記録
+  const unrecordedNotes = [].concat(touchPair, swipePair).map(function (s) {
+    return Core.buildNoteRecord({ sessionId: s.sessionId, recordedAt: '2026-10-20T00:00:00.000Z' });
+  });
+  const r2 = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, unrecordedNotes);
+  check('noteはあるがsupportが未記録ならC4はunknown', r2.C4.state === 'unknown' && r2.C4.blocks === false);
+
+  // passed: 全セッションが「特になし確認済み」
+  const noneNotes = [].concat(touchPair, swipePair).map(function (s) {
+    return Core.buildNoteRecord({ sessionId: s.sessionId, support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' });
+  });
+  const r3 = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, noneNotes);
+  check('全セッションが「特になし確認済み」ならC4はpassed', r3.C4.state === 'passed' && r3.C4.blocks === false);
+
+  // passed: 全セッションが「具体的支援あり」だが、種類(types)が互いに異なる場合も
+  // passed(本Phaseでは種類どうしの同等性を判定しない、Implementation-1補足条件2)。
+  const mixedTypeSupportNotes = [
+    Core.buildNoteRecord({ sessionId: 'c4-t1', support: { recorded: true, types: ['声かけ・音声による促し'] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4-t2', support: { recorded: true, types: ['声かけ・音声による促し'] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4-s1', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4-s2', support: { recorded: true, types: ['身体的な支援', '姿勢・機器配置などの環境調整'] }, recordedAt: '2026-10-20T00:00:00.000Z' })
+  ];
+  const r4 = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, mixedTypeSupportNotes);
+  check('「具体的支援あり」同士で種類(types)が異なってもC4はpassed(種類の同等性は判定しない)', r4.C4.state === 'passed' && r4.C4.blocks === false);
+
+  // failed: 「特になし確認済み」と「具体的支援あり」が混在する場合
+  const mixedPresenceNotes = [
+    Core.buildNoteRecord({ sessionId: 'c4-t1', support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4-t2', support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4-s1', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4-s2', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-20T00:00:00.000Z' })
+  ];
+  const r5 = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, mixedPresenceNotes);
+  check('支援の有無(特になし確認済み／具体的支援あり)が混在する場合C4はfailed', r5.C4.state === 'failed' && r5.C4.blocks === true);
+  check('C4のreasonはv2.0の文言どおり', r5.C4.reason === '支援の有無が異なる記録が含まれています');
+})();
+
+console.log('\n=== 30. Phase 6: generateReferenceMessages() — unverifiedConditionsの常時生成 ===');
+(function () {
+  function sess(id, method) {
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: '2026-10-20T00:00:00.000Z', endedAt: '2026-10-20T00:00:10.000Z', events: [Core.makeEvent({ type: 'activate', inputMethod: method }), Core.makeEvent({ type: 'activate', inputMethod: method })] });
+  }
+  const touchPair = [sess('u-t1', 'touch'), sess('u-t2', 'touch')];
+  const swipePair = [sess('u-s1', 'swipe'), sess('u-s2', 'swipe')];
+  const layer1 = { touch: Core.computeLayer1Metrics(touchPair).touch, swipe: Core.computeLayer1Metrics(swipePair).swipe };
+
+  // C4がnot_applicable、他ゲートはpassed → canShowSuggestion:trueだがunverifiedConditionsも生成される
+  const gateNotApplicable = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, []);
+  check('前提: このケースではcanShowSuggestionはtrue', gateNotApplicable.canShowSuggestion === true);
+  const msgsNotApplicable = Core.generateReferenceMessages(gateNotApplicable, layer1);
+  check('canShowSuggestion:trueでも、C4がnot_applicableならunverifiedConditionsが生成される', msgsNotApplicable.unverifiedConditions.length === 1);
+  check('messagesも同時に生成される(両立する)', msgsNotApplicable.messages.length >= 1);
+
+  // C4がfailed(ブロックする)場合はunverifiedConditionsではなくholdReasonsに入る
+  const mixedPresenceNotes = [
+    Core.buildNoteRecord({ sessionId: 'u-t1', support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'u-t2', support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'u-s1', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-20T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'u-s2', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-20T00:00:00.000Z' })
+  ];
+  const gateFailed = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, mixedPresenceNotes);
+  const msgsFailed = Core.generateReferenceMessages(gateFailed, layer1);
+  check('C4がfailedの場合はcanShowSuggestionがfalseになる', gateFailed.canShowSuggestion === false);
+  check('failed時はholdReasonsにC4の理由が入る', msgsFailed.holdReasons.indexOf('支援の有無が異なる記録が含まれています') !== -1);
+  check('failed時はunverifiedConditionsは生成されない(stateがunknown/not_applicableではないため)', msgsFailed.unverifiedConditions.length === 0);
+
+  check('不正なgateResultでもクラッシュせず空の結果を返す', (function () { const r = Core.generateReferenceMessages(null, layer1); return r.messages.length === 0 && r.holdReasons.length === 0 && r.unverifiedConditions.length === 0; })());
+})();
+
+console.log('\n=== 31. Phase 6: generateReferenceMessages() — R1文言(入力開始イベントのみ)・holdReasons ===');
+(function () {
+  function sess(id, method) {
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: '2026-10-20T00:00:00.000Z', endedAt: '2026-10-20T00:00:10.000Z', events: [Core.makeEvent({ type: 'activate', inputMethod: method }), Core.makeEvent({ type: 'cancel', inputMethod: method })] });
+  }
+  const touchPair = [sess('r1-t1', 'touch'), sess('r1-t2', 'touch')];
+  const swipePair = [sess('r1-s1', 'swipe'), sess('r1-s2', 'swipe')];
+  const noneNotes = [].concat(touchPair, swipePair).map(function (s) {
+    return Core.buildNoteRecord({ sessionId: s.sessionId, support: { recorded: true, types: [] }, recordedAt: '2026-10-20T00:00:00.000Z' });
+  });
+  const gate = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, noneNotes);
+  const layer1 = { touch: Core.computeLayer1Metrics(touchPair).touch, swipe: Core.computeLayer1Metrics(swipePair).swipe };
+  const msgs = Core.generateReferenceMessages(gate, layer1);
+
+  check('canShowSuggestion:trueの場合R1メッセージが1件生成される', msgs.messages.length === 1 && msgs.messages[0].code === 'R1');
+  check('R1文言は「入力開始イベント(activate)」という表記を含む', msgs.messages[0].text.indexOf('入力開始イベント(activate)') !== -1);
+  check('R1文言に"cancel"や"キャンセル"という語を含まない(activateのみを集計対象とする)', msgs.messages[0].text.indexOf('cancel') === -1 && msgs.messages[0].text.indexOf('キャンセル') === -1);
+  check('R1文言に"はたらきかけ"という表現を使わない(主体性を暗示する語を避ける)', msgs.messages[0].text.indexOf('はたらきかけ') === -1);
+
+  // ブロックされた場合: holdReasonsが生成され、messagesは空
+  const shortTouch = [touchPair[0]];
+  const gateBlocked = Core.evaluateGates({ touch: shortTouch, swipe: swipePair }, noneNotes);
+  const msgsBlocked = Core.generateReferenceMessages(gateBlocked, layer1);
+  check('ブロックされた場合messagesは空', msgsBlocked.messages.length === 0);
+  check('ブロックされた場合holdReasonsに理由が入る', msgsBlocked.holdReasons.length >= 1);
+
+  // averageActivateCountが数値でない場合のフォールバック文言
+  const brokenLayer1 = { touch: { averageActivateCount: null }, swipe: { averageActivateCount: null } };
+  const msgsFallback = Core.generateReferenceMessages(gate, brokenLayer1);
+  check('averageActivateCountが算出できない場合、数値を0等で代用せずフォールバック文言になる', msgsFallback.messages[0].text.indexOf('算出できませんでした') !== -1);
+})();
+
+console.log('\n=== 32. Phase 6: 入力方式間cancel合算禁止・R3非対象の回帰テスト ===');
+(function () {
+  const touchSessions = [
+    Core.buildSessionRecord({ sessionId: 'reg-t1', inputMethod: 'touch', events: [Core.makeEvent({ type: 'cancel', inputMethod: 'touch' }), Core.makeEvent({ type: 'cancel', inputMethod: 'touch' })] })
+  ];
+  const switchSessions = [
+    Core.buildSessionRecord({ sessionId: 'reg-sw1', inputMethod: 'switch', events: [Core.makeEvent({ type: 'cancel', inputMethod: 'switch' })] })
+  ];
+  const metrics = Core.computeLayer1Metrics(touchSessions.concat(switchSessions));
+  check('cancelCountは入力方式別に保持される(touch=2, switch=1)', metrics.touch.cancelCount === 2 && metrics.switch.cancelCount === 1);
+  check('出力オブジェクトに入力方式を跨いだ合算フィールドが存在しない', Object.keys(metrics).indexOf('totalCancelCount') === -1 && Object.keys(metrics).indexOf('cancelRanking') === -1);
+
+  const gate = Core.evaluateGates({ touch: [Core.buildSessionRecord({ sessionId: 'r3-t1', inputMethod: 'touch' }), Core.buildSessionRecord({ sessionId: 'r3-t2', inputMethod: 'touch' })], switch: [Core.buildSessionRecord({ sessionId: 'r3-s1', inputMethod: 'switch' }), Core.buildSessionRecord({ sessionId: 'r3-s2', inputMethod: 'switch' })] }, []);
+  const msgs = Core.generateReferenceMessages(gate, {});
+  const allCodes = msgs.messages.map(function (m) { return m.code; });
+  check('生成されるメッセージのcodeにR3は含まれない(R1/R2のみ)', allCodes.indexOf('R3') === -1);
+  check('cancel比率に関するフィールドが一切出力されない', JSON.stringify(gate).indexOf('cancelRatio') === -1 && JSON.stringify(msgs).indexOf('cancelRatio') === -1);
+})();
+
 console.log('\n=== 結果 ===');
 console.log('PASS:', pass, ' FAIL:', fail);
 if (fail > 0) process.exit(1);
