@@ -861,6 +861,95 @@
     return result;
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Phase 6完了補完: Phase 7向け統合出力契約
+  // (DONOMANA-ACCESS-PHASE-6-CHECKPOINT-COMPLETION-1)
+  //
+  // computeLayer1Metrics()・evaluateGates()・generateReferenceMessages()
+  // という既存のPhase 6純粋関数を組み合わせるだけの新規関数であり、
+  // これら既存関数の判定ロジック自体は一切変更しない。DOM操作・
+  // storage I/O・UI実装は行わない(呼び出し側がsessions/notesを
+  // safeReadSessions()/safeReadNotes()で読み込んだ後に渡す想定)。
+  // ─────────────────────────────────────────────────────────────
+
+  // LAYER2_DISCLAIMER: Design v2.0 第3.3節の正式な注意書き文言(原文のまま)。
+  var LAYER2_DISCLAIMER = 'この画面に表示される内容は、Donomana Accessで観測された操作データに基づく参考情報です。子ども本人の入力方法の適性や能力を、この画面の内容だけで判断しないでください。実際の授業での様子、体調、支援の状況など、観測データに含まれない情報と合わせて、担当の教員が判断してください。';
+
+  // ACTIVATE_COUNT_DISCLAIMER: R1の集計値(averageActivateCount)が主体性・
+  // 意欲・能力の指標ではないことを明記する注記(FINAL-CONTRACT-1第5節)。
+  var ACTIVATE_COUNT_DISCLAIMER = 'この数値(入力開始イベント(activate)の記録回数)は、子どもの主体性・意欲・能力を示す指標ではありません。';
+
+  // buildComparisonViewModel(): Phase 7が結果画面を描画する際に消費する、
+  // Phase 6側の最終的な出力形状を組み立てる(DONOMANA-ACCESS-PHASE-6-
+  // FINAL-CONTRACT-1第2節、DONOMANA-ACCESS-PHASE-6-CHECKPOINT-
+  // COMPLETION-1で実装)。
+  //
+  // 入力:
+  //   sessions: セッション記録の配列(safeReadSessions()のitems相当)。
+  //     層1(layer1)はこの配列に含まれる全入力方式を対象に、常に算出
+  //     する(Design v2.0 3.1節「層1は常に表示する」)。
+  //   notes: 観察記録の配列(safeReadNotes()のitems相当)。
+  //   methodA, methodB: 層2(layer2)の比較対象として指定する、異なる
+  //     2つの入力方式の文字列。
+  //
+  // 出力: {layer1, layer2:{comparisonMethods, gates, canShowSuggestion,
+  //   messages, holdReasons, unverifiedConditions}, disclaimer,
+  //   activateCountDisclaimer}。
+  //
+  // 比較対象が異なる2方式でない場合(methodA/methodBが文字列でない・
+  // 空文字・同一方式である場合)の安全な出力: layer1は算出するが、
+  // layer2.comparisonMethodsはnull、gatesはevaluateGates()自身の
+  // 「方式数が2でない」防御分岐(本関数はこの分岐を再利用し、独自の
+  // 判定基準を新設しない)に従いcanShowSuggestion:falseとなる。根拠の
+  // ない提案(messages)は生成されない。
+  function buildComparisonViewModel(sessions, notes, methodA, methodB) {
+    var sessionList = Array.isArray(sessions) ? sessions : [];
+    var notesList = Array.isArray(notes) ? notes : [];
+    var layer1 = computeLayer1Metrics(sessionList);
+
+    var validPair = typeof methodA === 'string' && methodA !== '' &&
+      typeof methodB === 'string' && methodB !== '' && methodA !== methodB;
+
+    var sessionsByMethod;
+    var comparisonMethods;
+    if (validPair) {
+      sessionsByMethod = {};
+      sessionsByMethod[methodA] = sessionList.filter(function (s) { return s && s.inputMethod === methodA; });
+      sessionsByMethod[methodB] = sessionList.filter(function (s) { return s && s.inputMethod === methodB; });
+      comparisonMethods = [methodA, methodB];
+    } else {
+      // methodA===methodB、または一方が文字列でない場合は、比較対象が
+      // 異なる2方式に限定されるという要件を満たさない。evaluateGates()
+      // 自身が持つ「方式数が2でない」防御分岐をそのまま再利用し(独自の
+      // 新しい判定基準を作らない)、安全にブロックする。
+      sessionsByMethod = {};
+      comparisonMethods = null;
+    }
+
+    var gateResult = evaluateGates(sessionsByMethod, notesList);
+
+    var layer1Scope = {};
+    if (validPair) {
+      if (layer1[methodA]) layer1Scope[methodA] = layer1[methodA];
+      if (layer1[methodB]) layer1Scope[methodB] = layer1[methodB];
+    }
+    var messageResult = generateReferenceMessages(gateResult, layer1Scope);
+
+    return {
+      layer1: layer1,
+      layer2: {
+        comparisonMethods: comparisonMethods,
+        gates: { C1: gateResult.C1, C2: gateResult.C2, C3: gateResult.C3, C4: gateResult.C4 },
+        canShowSuggestion: gateResult.canShowSuggestion,
+        messages: messageResult.messages,
+        holdReasons: messageResult.holdReasons,
+        unverifiedConditions: messageResult.unverifiedConditions
+      },
+      disclaimer: LAYER2_DISCLAIMER,
+      activateCountDisclaimer: ACTIVATE_COUNT_DISCLAIMER
+    };
+  }
+
   return {
     VALID_INPUT_METHODS: VALID_INPUT_METHODS,
     VALID_TYPES: VALID_TYPES,
@@ -905,6 +994,9 @@
     computeLayer1Metrics: computeLayer1Metrics,
     classifySupportCondition: classifySupportCondition,
     evaluateGates: evaluateGates,
-    generateReferenceMessages: generateReferenceMessages
+    generateReferenceMessages: generateReferenceMessages,
+    LAYER2_DISCLAIMER: LAYER2_DISCLAIMER,
+    ACTIVATE_COUNT_DISCLAIMER: ACTIVATE_COUNT_DISCLAIMER,
+    buildComparisonViewModel: buildComparisonViewModel
   };
 });

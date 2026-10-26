@@ -789,6 +789,153 @@ console.log('\n=== 32. Phase 6: 入力方式間cancel合算禁止・R3非対象�
   check('cancel比率に関するフィールドが一切出力されない', JSON.stringify(gate).indexOf('cancelRatio') === -1 && JSON.stringify(msgs).indexOf('cancelRatio') === -1);
 })();
 
+console.log('\n=== 33. Phase 6完了補完: evaluateGates() — C2の境界値・順序不変性 ===');
+(function () {
+  function sessWithDurationSec(id, method, durationSec) {
+    const start = '2026-10-26T00:00:00.000Z';
+    const end = new Date(Date.parse(start) + durationSec * 1000).toISOString();
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: start, endedAt: end, events: [Core.makeEvent({ type: 'activate', inputMethod: method })] });
+  }
+
+  // a=17秒, b=23秒 → |17-23|/((17+23)/2) = 6/20 = 0.30 ちょうど境界(<=0.30でpassed)。
+  const touchAtBoundary = [sessWithDurationSec('c2b-t1', 'touch', 17), sessWithDurationSec('c2b-t2', 'touch', 17)];
+  const swipeAtBoundary = [sessWithDurationSec('c2b-s1', 'swipe', 23), sessWithDurationSec('c2b-s2', 'swipe', 23)];
+  const atBoundary = Core.evaluateGates({ touch: touchAtBoundary, swipe: swipeAtBoundary }, []);
+  check('比率がちょうど0.30(境界)の場合はpassed(<=0.30を満たす側)', atBoundary.C2.state === 'passed' && atBoundary.C2.blocks === false);
+
+  // 境界をわずかに超える(17秒 vs 24秒 → 7/20.5 ≈ 0.3415)場合はfailed。
+  const swipeOutside = [sessWithDurationSec('c2o-s1', 'swipe', 24), sessWithDurationSec('c2o-s2', 'swipe', 24)];
+  const outsideBoundary = Core.evaluateGates({ touch: touchAtBoundary, swipe: swipeOutside }, []);
+  check('境界をわずかに超える場合はfailed(境界外)', outsideBoundary.C2.state === 'failed' && outsideBoundary.C2.blocks === true);
+
+  // 明確に境界内(17秒 vs 20秒 → 3/18.5 ≈ 0.162)。
+  const swipeInside = [sessWithDurationSec('c2i-s1', 'swipe', 20), sessWithDurationSec('c2i-s2', 'swipe', 20)];
+  const clearlyInside = Core.evaluateGates({ touch: touchAtBoundary, swipe: swipeInside }, []);
+  check('明確に境界内の場合はpassed', clearlyInside.C2.state === 'passed');
+
+  // 比較する2方式の順序を入れ替えても、対称な式のためC2の結果は変わらない。
+  const swapped = Core.evaluateGates({ swipe: swipeOutside, touch: touchAtBoundary }, []);
+  check('2方式の順序を入れ替えてもC2の判定結果(state)は変わらない', swapped.C2.state === outsideBoundary.C2.state);
+  check('2方式の順序を入れ替えてもC1の判定結果(state)は変わらない', swapped.C1.state === outsideBoundary.C1.state);
+})();
+
+console.log('\n=== 34. Phase 6完了補完: evaluateGates() — C4の追加境界・否定ケース ===');
+(function () {
+  function sess(id, method) {
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: '2026-10-26T00:00:00.000Z', endedAt: '2026-10-26T00:00:10.000Z', events: [Core.makeEvent({ type: 'activate', inputMethod: method })] });
+  }
+
+  // 重複sessionId: 同一IDが比較対象内に複数回出現しても、集合判定(indexOf)の
+  // ため結果は崩れない。
+  const dupTouch = [sess('c4c-dup1', 'touch'), sess('c4c-dup1', 'touch')];
+  const dupSwipe = [sess('c4c-dup2', 'swipe'), sess('c4c-dup2', 'swipe')];
+  const dupNotes = [
+    Core.buildNoteRecord({ sessionId: 'c4c-dup1', support: { recorded: true, types: [] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-dup2', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-26T00:00:00.000Z' })
+  ];
+  const dupResult = Core.evaluateGates({ touch: dupTouch, swipe: dupSwipe }, dupNotes);
+  check('重複sessionIdが含まれていてもC4の判定(支援の有無相違→failed)は崩れない', dupResult.C4.state === 'failed' && dupResult.C4.blocks === true);
+
+  // 未知schemaVersion等の不正note: isValidNoteRecord()に適合しないため、
+  // noteなしと同じnot_applicable扱いになる。
+  const touchPair = [sess('c4c-t1', 'touch'), sess('c4c-t2', 'touch')];
+  const swipePair = [sess('c4c-s1', 'swipe'), sess('c4c-s2', 'swipe')];
+  const malformedNote = {
+    schemaVersion: 999, sessionId: 'c4c-t1', posture: '未記録',
+    support: { recorded: true, types: [] }, operationPart: '未記録',
+    teacherImpression: { recorded: false, observations: [] }, recordedAt: '2026-10-26T00:00:00.000Z'
+  };
+  const invalidResult = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, [malformedNote]);
+  check('未知schemaVersionの不正noteはnoteなしと同じnot_applicable扱いになる', invalidResult.C4.state === 'not_applicable' && invalidResult.C4.blocks === false);
+
+  // support未記録(全セッションでsupport.recorded===false) → unknown。
+  const unrecordedNotes = [].concat(touchPair, swipePair).map(function (s) {
+    return Core.buildNoteRecord({ sessionId: s.sessionId, recordedAt: '2026-10-26T00:00:00.000Z' });
+  });
+  const unrecordedResult = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, unrecordedNotes);
+  check('全セッションでsupportが未記録の場合C4はunknown(ブロックしない)', unrecordedResult.C4.state === 'unknown' && unrecordedResult.C4.blocks === false);
+
+  // 支援の有無が異なる場合 → failed。
+  const presenceMixedNotes = [
+    Core.buildNoteRecord({ sessionId: 'c4c-t1', support: { recorded: true, types: [] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-t2', support: { recorded: true, types: [] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-s1', support: { recorded: true, types: ['声かけ・音声による促し'] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-s2', support: { recorded: true, types: ['声かけ・音声による促し'] }, recordedAt: '2026-10-26T00:00:00.000Z' })
+  ];
+  const presenceMixedResult = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, presenceMixedNotes);
+  check('支援の有無(特になし確認済み/具体的支援あり)が異なる場合C4はfailed', presenceMixedResult.C4.state === 'failed' && presenceMixedResult.C4.blocks === true);
+
+  // 支援種類のみ異なる場合(全セッションが「具体的支援あり」) → passed。
+  const typeOnlyDifferentNotes = [
+    Core.buildNoteRecord({ sessionId: 'c4c-t1', support: { recorded: true, types: ['声かけ・音声による促し'] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-t2', support: { recorded: true, types: ['視覚的な提示・促し'] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-s1', support: { recorded: true, types: ['身体的な支援'] }, recordedAt: '2026-10-26T00:00:00.000Z' }),
+    Core.buildNoteRecord({ sessionId: 'c4c-s2', support: { recorded: true, types: ['姿勢・機器配置などの環境調整'] }, recordedAt: '2026-10-26T00:00:00.000Z' })
+  ];
+  const typeOnlyResult = Core.evaluateGates({ touch: touchPair, swipe: swipePair }, typeOnlyDifferentNotes);
+  check('支援の種類(types)のみが互いに異なる場合はC4はpassed(種類の同等性は判定しない)', typeOnlyResult.C4.state === 'passed' && typeOnlyResult.C4.blocks === false);
+})();
+
+console.log('\n=== 35. Phase 6完了補完: buildComparisonViewModel() — Phase 7向け統合出力契約 ===');
+(function () {
+  function sess(id, method, startSec, endSec) {
+    const start = new Date(Date.parse('2026-10-26T00:00:00.000Z') + startSec * 1000).toISOString();
+    const end = new Date(Date.parse('2026-10-26T00:00:00.000Z') + endSec * 1000).toISOString();
+    return Core.buildSessionRecord({ sessionId: id, inputMethod: method, startedAt: start, endedAt: end, events: [Core.makeEvent({ type: 'activate', inputMethod: method }), Core.makeEvent({ type: 'cancel', inputMethod: method })] });
+  }
+
+  const touchSessions = [sess('vm-t1', 'touch', 0, 17), sess('vm-t2', 'touch', 100, 117)];
+  const swipeSessions = [sess('vm-s1', 'swipe', 0, 20), sess('vm-s2', 'swipe', 100, 120)];
+  const switchSessions = [sess('vm-sw1', 'switch', 0, 15), sess('vm-sw2', 'switch', 100, 115)];
+  const allSessions = touchSessions.concat(swipeSessions, switchSessions);
+  const noneNotes = [].concat(touchSessions, swipeSessions).map(function (s) {
+    return Core.buildNoteRecord({ sessionId: s.sessionId, support: { recorded: true, types: [] }, recordedAt: '2026-10-26T00:00:00.000Z' });
+  });
+
+  // --- A. 必須フィールドがすべて存在すること・比較対象が異なる2方式であること ---
+  const vm = Core.buildComparisonViewModel(allSessions, noneNotes, 'touch', 'swipe');
+  check('layer1フィールドが存在する', vm.layer1 && typeof vm.layer1 === 'object');
+  check('layer1は比較対象外のswitch方式も含む全入力方式を対象に算出される(常時表示の原則)', vm.layer1.switch && vm.layer1.switch.sessionCount === 2);
+  check('layer2フィールドが存在する', vm.layer2 && typeof vm.layer2 === 'object');
+  check('layer2.comparisonMethodsは異なる2方式の配列', Array.isArray(vm.layer2.comparisonMethods) && vm.layer2.comparisonMethods.length === 2 && vm.layer2.comparisonMethods[0] !== vm.layer2.comparisonMethods[1]);
+  check('layer2.comparisonMethodsが指定した2方式と一致する', vm.layer2.comparisonMethods[0] === 'touch' && vm.layer2.comparisonMethods[1] === 'swipe');
+  check('layer2.gatesにC1〜C4がすべて存在する', ['C1', 'C2', 'C3', 'C4'].every(function (c) { return vm.layer2.gates[c] && typeof vm.layer2.gates[c].state === 'string'; }));
+  check('layer2.canShowSuggestionが真偽値', typeof vm.layer2.canShowSuggestion === 'boolean');
+  check('layer2.messages/holdReasons/unverifiedConditionsが配列', Array.isArray(vm.layer2.messages) && Array.isArray(vm.layer2.holdReasons) && Array.isArray(vm.layer2.unverifiedConditions));
+
+  // --- disclaimer / activateCountDisclaimerの存在 ---
+  check('disclaimerがDesign v2.0 3.3節の文言を含む(「子ども本人の入力方法の適性や能力」の一節)', typeof vm.disclaimer === 'string' && vm.disclaimer.indexOf('子ども本人の入力方法の適性や能力') !== -1);
+  check('activateCountDisclaimerが主体性・意欲・能力の指標ではない旨を含む', typeof vm.activateCountDisclaimer === 'string' && vm.activateCountDisclaimer.indexOf('主体性・意欲・能力を示す指標ではありません') !== -1);
+
+  // --- C4 unknown/not_applicable時のunverifiedConditions維持(canShowSuggestion:trueでも) ---
+  const vmNoNotes = Core.buildComparisonViewModel(touchSessions.concat(swipeSessions), [], 'touch', 'swipe');
+  check('C4がnot_applicableの場合、canShowSuggestionの値に関わらずunverifiedConditionsが維持される', vmNoNotes.layer2.unverifiedConditions.length === 1);
+
+  // --- C3 unknown時、switch方式を含む比較ではR1/R2を生成しない(提案保留) ---
+  const vmSwitch = Core.buildComparisonViewModel(allSessions, noneNotes, 'touch', 'switch');
+  check('switch方式を含む比較ではcanShowSuggestionがfalseになる(C3がunknownのため)', vmSwitch.layer2.canShowSuggestion === false);
+  check('switch方式を含む比較ではmessagesが生成されない(R1/R2とも保留)', vmSwitch.layer2.messages.length === 0);
+  check('switch方式を含む比較ではholdReasonsにC3の理由が含まれる', vmSwitch.layer2.holdReasons.indexOf('スキャン速度が記録からは確認できません') !== -1);
+
+  // --- R3が生成されないこと・cancelの入力方式間合算/ランキングが生成されないこと ---
+  const allCodes = vm.layer2.messages.map(function (m) { return m.code; }).concat(vmSwitch.layer2.messages.map(function (m) { return m.code; }));
+  check('生成されるメッセージのcodeにR3は含まれない', allCodes.indexOf('R3') === -1);
+  const serialized = JSON.stringify(vm) + JSON.stringify(vmSwitch);
+  check('出力全体にcancelの入力方式間合算・ランキングに相当するフィールドが存在しない', serialized.indexOf('cancelRatio') === -1 && serialized.indexOf('totalCancelCount') === -1 && serialized.indexOf('cancelRanking') === -1);
+
+  // --- 比較対象が異なる2方式でない場合(同一方式・不正値)の安全な出力 ---
+  const vmSameMethod = Core.buildComparisonViewModel(allSessions, noneNotes, 'touch', 'touch');
+  check('同一方式どうしの比較指定ではcomparisonMethodsがnullになる', vmSameMethod.layer2.comparisonMethods === null);
+  check('同一方式どうしの比較指定ではcanShowSuggestionがfalseになり根拠のない提案を生成しない', vmSameMethod.layer2.canShowSuggestion === false && vmSameMethod.layer2.messages.length === 0);
+  const vmInvalid = Core.buildComparisonViewModel(allSessions, noneNotes, 'touch', null);
+  check('比較対象の一方が不正な値(非文字列)の場合もクラッシュせず安全な出力になる', vmInvalid.layer2.comparisonMethods === null && vmInvalid.layer2.canShowSuggestion === false);
+  const vmNonArray = Core.buildComparisonViewModel('not-an-array', 'not-an-array', 'touch', 'swipe');
+  check('sessions/notesが配列でない場合もクラッシュしない', Object.keys(vmNonArray.layer1).length === 0 && vmNonArray.layer2.canShowSuggestion === false);
+
+  // layer1(全体)にtotalCancelCount等の入力方式を跨いだ合算フィールドが存在しないことも確認。
+  check('layer1にも入力方式を跨いだ合算フィールドが存在しない', Object.keys(vm.layer1).indexOf('totalCancelCount') === -1);
+})();
+
 console.log('\n=== 結果 ===');
 console.log('PASS:', pass, ' FAIL:', fail);
 if (fail > 0) process.exit(1);
