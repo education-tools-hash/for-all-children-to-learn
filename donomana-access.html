@@ -111,6 +111,10 @@
     background: #fff; color: var(--text); border: 2px solid #999; font-size: 1rem;
     padding: 10px 18px; min-height: 44px;
   }
+  /* Phase 7A: 画面(.screen)に直接置かれたsecondary-btn（振り返り画面の入口・
+     もどるボタン）用の余白。.record-actions内のsecondary-btn（既存の削除導線）は
+     子セレクタ(>)の対象外のため、既存要素の見た目には影響しない。 */
+  .screen > .secondary-btn { margin-top: 12px; }
   .danger-btn { background: #fff; color: #8a1c1c; border: 2px solid #8a1c1c; font-size: 1rem; padding: 10px 18px; min-height: 44px; }
   #deleteConfirmRow { display: none; gap: 10px; }
   #deleteConfirmRow.show { display: flex; }
@@ -150,6 +154,7 @@
   </fieldset>
 
   <button type="button" id="startBtn" class="primary-btn">はじめる</button>
+  <button type="button" id="reviewFromSetupBtn" class="secondary-btn">活動の振り返り</button>
   <p id="setupStatus" class="sr-only" role="status" aria-live="polite"></p>
 </div>
 
@@ -226,6 +231,14 @@
     </div>
     <p id="deleteStatus" class="sr-only" role="status" aria-live="polite"></p>
   </div>
+  <button type="button" id="reviewFromEndBtn" class="secondary-btn">活動の振り返り</button>
+</div>
+
+<div class="screen" id="screen-review" data-screen="review">
+  <h2 id="reviewHeading" tabindex="-1">活動の振り返り</h2>
+  <p class="lead">保存された活動の記録を振り返る画面です。</p>
+  <p class="observation-note">この画面は現在準備中です。今後のPhaseで、入力方式別の記録や比較の参考情報を表示する予定です。</p>
+  <button type="button" id="reviewBackBtn" class="secondary-btn">もどる</button>
 </div>
 
 <script src="assets/js/donomana-access-core.js"></script>
@@ -237,7 +250,8 @@
   var screens = {
     setup: document.getElementById('screen-setup'),
     activity: document.getElementById('screen-activity'),
-    end: document.getElementById('screen-end')
+    end: document.getElementById('screen-end'),
+    review: document.getElementById('screen-review')
   };
   var activitySurface = document.getElementById('activitySurface');
   var switchActionBtn = document.getElementById('switchActionBtn');
@@ -265,6 +279,10 @@
   var teacherObservationCheckboxes = document.querySelectorAll('input[name="teacherObservation"]');
   var saveObservationBtn = document.getElementById('saveObservationBtn');
   var observationStatus = document.getElementById('observationStatus');
+  var reviewFromSetupBtn = document.getElementById('reviewFromSetupBtn');
+  var reviewFromEndBtn = document.getElementById('reviewFromEndBtn');
+  var reviewBackBtn = document.getElementById('reviewBackBtn');
+  var reviewHeading = document.getElementById('reviewHeading');
 
   // ===== 状態 =====
   // events[]はメモリ上の作業用バッファ。活動終了時にsession記録として
@@ -289,6 +307,26 @@
     Object.keys(screens).forEach(function (key) {
       screens[key].classList.toggle('active', key === name);
     });
+  }
+
+  // ===== 振り返り画面（Phase 7A: 画面骨格・導線のみ） =====
+  // 遷移元はメモリ上の変数のみで管理する（storageへの読み書きは行わない）。
+  // 準備画面・終了画面のいずれから開いたかを記録し、「もどる」で同じ画面へ
+  // 戻す。遷移元が不明・不正な値になった場合は安全に準備画面へ戻す。
+  var VALID_REVIEW_RETURN_SCREENS = ['setup', 'end'];
+  var reviewReturnScreen = 'setup';
+
+  function openReviewScreen(fromScreen) {
+    reviewReturnScreen = VALID_REVIEW_RETURN_SCREENS.indexOf(fromScreen) !== -1 ? fromScreen : 'setup';
+    showScreen('review');
+    // 画面切り替え時にフォーカスが非表示画面（setup/end）に残らないよう、
+    // 見出し（tabindex="-1"、Tabキーでの通常移動対象にはしない）へ移す。
+    if (reviewHeading && typeof reviewHeading.focus === 'function') reviewHeading.focus();
+  }
+
+  function closeReviewScreen() {
+    var target = VALID_REVIEW_RETURN_SCREENS.indexOf(reviewReturnScreen) !== -1 ? reviewReturnScreen : 'setup';
+    showScreen(target);
   }
 
   // ===== 共通イベント記録 =====
@@ -838,6 +876,10 @@
     hideSaveFailureBanner();
     showScreen('setup');
   });
+
+  reviewFromSetupBtn.addEventListener('click', function () { openReviewScreen('setup'); });
+  reviewFromEndBtn.addEventListener('click', function () { openReviewScreen('end'); });
+  reviewBackBtn.addEventListener('click', closeReviewScreen);
 
 })();
 </script>

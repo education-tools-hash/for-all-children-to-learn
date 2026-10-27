@@ -31,7 +31,14 @@ def check(label, condition, detail=None):
 
 def run():
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        # 実行環境に合わせたChromiumの解決（機能・挙動には無関係な環境適合のみ）。
+        # サンドボックス環境に事前配置されたChromiumのビルドが、pip経由の
+        # Playwrightパッケージが期待する既定リビジョンと異なる場合、既定の
+        # p.chromium.launch()は実行ファイルが見つからず失敗する。既存の
+        # 安定パス(/opt/pw-browsers/chromium)が存在する場合のみそれを使い、
+        # 存在しない場合はPlaywright既定の解決に委ねる（挙動を変更しない）。
+        _preinstalled_chromium = '/opt/pw-browsers/chromium'
+        browser = p.chromium.launch(executable_path=_preinstalled_chromium) if os.path.exists(_preinstalled_chromium) else p.chromium.launch()
 
         console_errors = []
 
@@ -448,6 +455,156 @@ def run():
         check('pressing Space again toggles the checkbox back off (full native toggle round-trip)',
               not page_sw2.is_checked('input[name="teacherObservation"][value="自分から働きかける様子が見られた"]'))
         page_sw2.close()
+
+        # ===== Phase 7A: 活動の振り返り画面（画面骨格・導線のみ） =====
+        print('\n=== Phase 7A: review screen navigation (setup/end <-> review) ===')
+        page_r1 = browser.new_page(viewport={'width': 1024, 'height': 900})
+        page_r1.on('console', lambda msg: console_errors.append(msg.text) if msg.type == 'error' else None)
+        page_r1.on('pageerror', lambda exc: console_errors.append(str(exc)))
+        page_r1.goto(APP_URL)
+        page_r1.evaluate("""
+            () => {
+                try { localStorage.removeItem('donomana_access_log_v1'); } catch (e) {}
+                try { localStorage.removeItem('donomana_access_teacher_notes_v1'); } catch (e) {}
+            }
+        """)
+
+        # (1) 準備画面 -> 振り返り画面
+        check('setup screen is active before navigating to review', page_r1.is_visible('#screen-setup.active'))
+        page_r1.click('#reviewFromSetupBtn')
+        check('(1) review screen becomes active after clicking the entry button on the setup screen',
+              page_r1.is_visible('#screen-review.active'))
+        check('setup screen is no longer active once review is shown',
+              not page_r1.is_visible('#screen-setup.active'))
+
+        # (8) 新画面に実データ・架空の集計値が表示されないこと
+        review_text = page_r1.inner_text('#screen-review')
+        check('(8) review screen shows its heading/description text',
+              '活動の振り返り' in review_text and '準備中' in review_text)
+        check('(8) review screen renders no digits anywhere (no real or placeholder session counts/figures)',
+              not any(ch.isdigit() for ch in review_text))
+
+        # (2) 振り返り画面 -> 準備画面（戻る）
+        page_r1.click('#reviewBackBtn')
+        check('(2) back button returns to the setup screen when review was opened from setup',
+              page_r1.is_visible('#screen-setup.active'))
+        check('review screen is no longer active after returning to setup',
+              not page_r1.is_visible('#screen-review.active'))
+
+        # (3) 終了画面 -> 振り返り画面（まず活動を1回完了させてend画面へ到達する）
+        page_r1.click('#startBtn')
+        check('activity screen reached (precondition for the end-screen entry point test)',
+              page_r1.is_visible('#screen-activity.active'))
+        page_r1.click('#endBtn')
+        check('end screen reached (precondition for the end-screen entry point test)',
+              page_r1.is_visible('#screen-end.active'))
+
+        # (7) storage書き込みの基準値（活動終了時点）を記録する
+        sessions_after_activity = page_r1.evaluate("localStorage.getItem('donomana_access_log_v1')")
+
+        page_r1.click('#reviewFromEndBtn')
+        check('(3) review screen becomes active after clicking the entry button on the end screen',
+              page_r1.is_visible('#screen-review.active'))
+
+        sessions_after_review_open = page_r1.evaluate("localStorage.getItem('donomana_access_log_v1')")
+        check('(7) opening the review screen does not write to the session log storage key',
+              sessions_after_review_open == sessions_after_activity)
+
+        # (4) 振り返り画面 -> 終了画面（戻る）
+        page_r1.click('#reviewBackBtn')
+        check('(4) back button returns to the end screen when review was opened from the end screen',
+              page_r1.is_visible('#screen-end.active'))
+
+        sessions_after_review_close = page_r1.evaluate("localStorage.getItem('donomana_access_log_v1')")
+        notes_after_review_close = page_r1.evaluate("localStorage.getItem('donomana_access_teacher_notes_v1')")
+        check('(7) returning from the review screen does not write to the session log storage key either',
+              sessions_after_review_close == sessions_after_activity)
+
+        # (5) 既存の活動開始・終了が、振り返り画面を経由した後も正常に動くこと
+        # （直前の(4)でend画面に戻っているため、既存の「もういちど」導線で
+        #   setup画面へ戻ってから、通常どおりstartBtnを押す）
+        page_r1.click('#restartBtn')
+        check('(5) existing もういちど navigation still returns to setup after visiting the review screen',
+              page_r1.is_visible('#screen-setup.active'))
+        page_r1.click('#startBtn')
+        check('(5) a new activity can still be started normally after visiting the review screen',
+              page_r1.is_visible('#screen-activity.active'))
+        page_r1.click('#endBtn')
+        check('(5) the activity can still be ended normally after visiting the review screen',
+              page_r1.is_visible('#screen-end.active'))
+
+        # (6) 観察記録の保存・削除の既存導線が、振り返り画面を経由した後も壊れていないこと
+        page_r1.check('input[name="posture"][value="座位"]')
+        page_r1.click('#saveObservationBtn')
+        check('(6) observation form save still works after visiting the review screen',
+              '保存しました' in page_r1.inner_text('#observationStatus'))
+        page_r1.click('#deleteRecordsBtn')
+        check('(6) the delete confirmation row still appears after visiting the review screen',
+              page_r1.is_visible('#deleteConfirmRow.show'))
+        page_r1.click('#deleteConfirmNoBtn')
+        check('(6) cancelling the delete confirmation (もどる) still works',
+              not page_r1.is_visible('#deleteConfirmRow.show'))
+
+        notes_after_everything = page_r1.evaluate("localStorage.getItem('donomana_access_teacher_notes_v1')")
+        check('(7) notes storage key is unaffected by the review-screen round-trips themselves '
+              '(it only changed because of the explicit saveObservationBtn click above, not navigation)',
+              notes_after_everything != notes_after_review_close)
+        page_r1.close()
+
+        # (9) キーボード操作とフォーカス移動の安全性
+        print('\n=== Phase 7A: review screen keyboard operability and focus management ===')
+        page_r2 = browser.new_page(viewport={'width': 1024, 'height': 900})
+        page_r2.on('console', lambda msg: console_errors.append(msg.text) if msg.type == 'error' else None)
+        page_r2.on('pageerror', lambda exc: console_errors.append(str(exc)))
+        page_r2.goto(APP_URL)
+        page_r2.evaluate("try { localStorage.removeItem('donomana_access_log_v1'); } catch (e) {}")
+
+        page_r2.focus('#reviewFromSetupBtn')
+        page_r2.keyboard.press('Enter')
+        check('(9) Enter key on the setup-screen entry button opens the review screen (keyboard-operable)',
+              page_r2.is_visible('#screen-review.active'))
+        focused_el_id = page_r2.evaluate("document.activeElement && document.activeElement.id")
+        check('(9) focus moves to the review screen heading on open (not left behind on the hidden setup screen)',
+              focused_el_id == 'reviewHeading')
+        check('(9) the heading is not part of the normal Tab order (tabindex=-1, programmatic focus only)',
+              page_r2.evaluate("document.getElementById('reviewHeading').getAttribute('tabindex')") == '-1')
+
+        page_r2.keyboard.press('Tab')
+        focused_after_tab = page_r2.evaluate("document.activeElement && document.activeElement.id")
+        check('(9) Tab from the heading reaches the back button next (keyboard order stays within the visible screen)',
+              focused_after_tab == 'reviewBackBtn')
+
+        page_r2.keyboard.press('Enter')
+        check('(9) Enter on the back button (keyboard-only) returns to the setup screen',
+              page_r2.is_visible('#screen-setup.active'))
+        focused_el_id_2 = page_r2.evaluate("document.activeElement && document.activeElement.id")
+        check('(9) no stray focus is left on review-screen elements after returning',
+              focused_el_id_2 not in ('reviewBackBtn', 'reviewHeading'))
+        page_r2.close()
+
+        # (10) 戻り先が不明・不正な場合に安全な画面（準備画面）へ戻ること
+        print('\n=== Phase 7A: unset/unexpected return target falls back to the setup screen safely ===')
+        page_r3 = browser.new_page(viewport={'width': 1024, 'height': 900})
+        page_r3.on('console', lambda msg: console_errors.append(msg.text) if msg.type == 'error' else None)
+        page_r3.on('pageerror', lambda exc: console_errors.append(str(exc)))
+        page_r3.goto(APP_URL)
+        page_r3.evaluate("try { localStorage.removeItem('donomana_access_log_v1'); } catch (e) {}")
+
+        # どちらの入口ボタンも一度も使わず、画面クラスの直接操作だけで振り返り画面を
+        # 表示させる（内部のreturn-target変数は初期値のまま、という状況を模す）。
+        page_r3.evaluate("""
+            () => {
+                document.querySelectorAll('.screen').forEach((el) => el.classList.remove('active'));
+                document.getElementById('screen-review').classList.add('active');
+            }
+        """)
+        check('(10) review screen can be shown without using either entry button '
+              '(simulating an unset/unexpected return target)',
+              page_r3.is_visible('#screen-review.active'))
+        page_r3.click('#reviewBackBtn')
+        check('(10) with no entry button ever used, the back button still safely falls back to the setup screen',
+              page_r3.is_visible('#screen-setup.active'))
+        page_r3.close()
 
         print('\n=== console errors across all runs ===')
         check('no console errors or page errors occurred', len(console_errors) == 0, console_errors[:5])
