@@ -31,14 +31,7 @@ def check(label, condition, detail=None):
 
 def run():
     with sync_playwright() as p:
-        # 実行環境に合わせたChromiumの解決（機能・挙動には無関係な環境適合のみ）。
-        # サンドボックス環境に事前配置されたChromiumのビルドが、pip経由の
-        # Playwrightパッケージが期待する既定リビジョンと異なる場合、既定の
-        # p.chromium.launch()は実行ファイルが見つからず失敗する。既存の
-        # 安定パス(/opt/pw-browsers/chromium)が存在する場合のみそれを使い、
-        # 存在しない場合はPlaywright既定の解決に委ねる（挙動を変更しない）。
-        _preinstalled_chromium = '/opt/pw-browsers/chromium'
-        browser = p.chromium.launch(executable_path=_preinstalled_chromium) if os.path.exists(_preinstalled_chromium) else p.chromium.launch()
+        browser = p.chromium.launch()
 
         console_errors = []
 
