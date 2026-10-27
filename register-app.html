@@ -210,6 +210,15 @@
   .share-url-box{background:var(--bg);border:2px solid var(--border);border-radius:12px;padding:12px;word-break:break-all;font-size:calc(var(--font-size-base)*.82);margin:12px 0;color:var(--text);font-family:monospace;user-select:all;max-height:120px;overflow-y:auto;}
   .share-notice{background:#FFF8E1;border:2px solid #FFD93D;border-radius:10px;padding:10px 14px;font-size:calc(var(--font-size-base)*.82);color:#7A5800;margin-bottom:12px;line-height:1.6;}
 
+  /* IMPORT CONFIRM MODAL (DONOMANA-REGISTER-QR-PHASE-3-7C) — 商品一覧部分のみを
+     独立してスクロールさせ、iPadの狭い画面でも「キャンセル」「読み込む」ボタンが
+     常に操作可能な位置に留まるようにする(.modalの90vh/overflow-yとは別の内側スコープ) */
+  .import-product-list{max-height:35vh;overflow-y:auto;border:2px solid var(--border);border-radius:10px;padding:8px 12px;margin-bottom:12px;}
+  .import-product-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border);font-size:calc(var(--font-size-base)*.92);}
+  .import-product-row:last-child{border-bottom:none;}
+  .import-product-name{flex:1;word-break:break-word;}
+  .import-product-price{font-weight:700;white-space:nowrap;}
+
   /* PRINT */
   .print-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
   .print-card{border:2px solid #ccc;border-radius:10px;padding:12px 8px;text-align:center;break-inside:avoid;background:#fff;display:flex;flex-direction:column;align-items:center;gap:6px;}
@@ -1049,6 +1058,21 @@
   </div>
 </div>
 
+<!-- IMPORT CONFIRM MODAL (DONOMANA-REGISTER-QR-PHASE-3-7C: 共有URLから商品一覧を
+     読み込む前の確認画面。既存の商品一覧を無断で上書きしない) -->
+<div class="modal-overlay" id="import-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="icmt">
+  <div class="modal" style="max-width:480px;">
+    <h2 class="modal-title" id="icmt">🔗 商品一覧を読み込みますか？</h2>
+    <p id="import-confirm-msg" style="margin-bottom:14px;line-height:1.6;"></p>
+    <div class="import-product-list" id="import-product-list" role="list" aria-label="共有された商品の一覧"></div>
+    <div class="share-notice" id="import-cart-warning" style="display:none;" role="status"></div>
+    <div class="modal-actions">
+      <button class="btn outline scannable" id="import-cancel-btn">キャンセル</button>
+      <button class="btn success scannable" id="import-confirm-btn">読み込む</button>
+    </div>
+  </div>
+</div>
+
 <!-- PRINT MODAL -->
 <div class="modal-overlay" id="print-modal" role="dialog" aria-modal="true" aria-labelledby="prmt">
   <div class="modal" style="max-width:520px;">
@@ -1523,28 +1547,35 @@ function loadProducts(){
   // try/catchがエラー文言を表示するのみで、ここでは失敗を永続化成功と誤認させない。
   saveProducts();
 }
+// DONOMANA-REGISTER-QR-PHASE-3-7C: 戻り値を追加(true=保存成功/false=保存失敗)。
+// 共有商品一覧の読み込み確認画面で、保存成功時のみ新しい商品一覧を正式確定するために
+// 呼び出し元が結果を判定できるようにする。既存の呼び出し元(商品追加/編集/削除)は
+// 戻り値を使わないため、動作は無変更。写真の個別保存失敗(try/catch)は既存どおり
+// 全体の失敗とはみなさない(画像のみ諦めてnull化し、トーストで個別に通知する)。
 function saveProducts(){
   try{
     // 基本情報（写真を除く）をまとめて保存
     const slim=products.map(p=>({id:p.id,name:p.name,price:p.price,emoji:p.emoji}));
     localStorage.setItem('register_products',JSON.stringify(slim));
-    // 写真は商品ごとに個別キーで保存
-    products.forEach(p=>{
-      const key='register_img_'+p.id;
-      if(p.image){
-        try{ localStorage.setItem(key,p.image); }
-        catch(e){
-          localStorage.removeItem(key);
-          p.image=null;
-          showToast('⚠️ 写真データが大きすぎて保存できませんでした');
-        }
-      } else {
-        localStorage.removeItem(key);
-      }
-    });
   }catch(e){
     showToast('⚠️ データの保存に失敗しました（容量不足の可能性があります）');
+    return false;
   }
+  // 写真は商品ごとに個別キーで保存
+  products.forEach(p=>{
+    const key='register_img_'+p.id;
+    if(p.image){
+      try{ localStorage.setItem(key,p.image); }
+      catch(e){
+        localStorage.removeItem(key);
+        p.image=null;
+        showToast('⚠️ 写真データが大きすぎて保存できませんでした');
+      }
+    } else {
+      localStorage.removeItem(key);
+    }
+  });
+  return true;
 }
 
 // ============================================================
@@ -2409,19 +2440,167 @@ function fallbackCopy(text){
   document.body.removeChild(ta);
 }
 
-function loadSharedProducts(){
-  const data=new URLSearchParams(location.search).get('products');
-  if(!data) return;
-  try{
-    const decoded=JSON.parse(decodeURIComponent(escape(atob(data))));
-    if(Array.isArray(decoded)&&decoded.length>0){
-      // 既存データと統合せず上書き（写真はnullで補完）
-      products=decoded.map(p=>({...p, image:null}));
-      saveProducts();
-      showToast(`🔗 ${products.length}件の商品リストを読み込みました`);
-      history.replaceState({},'',location.pathname);
+// ============================================================
+//  SHARED PRODUCTS IMPORT CONFIRM (DONOMANA-REGISTER-QR-PHASE-3-7C)
+//  共有URLの商品一覧は、検証(validateSharedProducts)→確認画面(openImportConfirmModal)
+//  →明示的な「読み込む」操作(applyImportedProducts)の3段階に分離する。検証段階では
+//  products・cart・会計記録・localStorageのいずれも変更しない。1件でも不正な商品が
+//  あれば共有全体を拒否する(部分的な除外はしない)。商品IDはそのまま維持し、再発行
+//  しない(印刷済みQRとの対応を保つため、Phase3-6Bの既存方針を継承)。
+// ============================================================
+const IMPORT_MAX_PRODUCTS=500;
+const IMPORT_MAX_PAYLOAD_CHARS=200000;
+// 既存の商品編集モーダルのemoji選択肢(data-emoji、L882-897)と同じ16種のみを許可する。
+// 一覧外の値は表示安全のため既定の🎁へ正規化する(全体拒否の対象にはしない。装飾のみの
+// 項目であり金額・識別に関わらないため)。
+const IMPORT_EMOJI_PALETTE=['🍪','🍩','🎂','🍫','🧁','🍭','🥤','☕','🌸','🎁','🖼️','📦','🧸','🌺','🎀','💐'];
+
+function validateSharedProducts(raw){
+  if(typeof raw!=='string'||!raw) return {ok:false};
+  if(raw.length>IMPORT_MAX_PAYLOAD_CHARS) return {ok:false};
+  let decoded;
+  try{ decoded=JSON.parse(decodeURIComponent(escape(atob(raw)))); }
+  catch(e){ return {ok:false}; }
+  if(!Array.isArray(decoded)) return {ok:false};
+  if(decoded.length<1||decoded.length>IMPORT_MAX_PRODUCTS) return {ok:false};
+
+  const seenIds=new Set();
+  const sanitized=[];
+  for(const item of decoded){
+    if(!item||typeof item!=='object'||Array.isArray(item)) return {ok:false};
+    const id=item.id;
+    // 商品ID: 既存のQR読取側検証(resolveValidProduct, L2070相当)と同じ基準(英数字1〜64文字)
+    if(typeof id!=='string'||!id||id.length>64||!/^[A-Za-z0-9]+$/.test(id)) return {ok:false};
+    if(seenIds.has(id)) return {ok:false}; // ID重複は全体拒否
+    const name=typeof item.name==='string'?item.name.trim():'';
+    // 商品名: 商品登録フォームのmaxlength="30"(L873)と同じ基準に合わせる
+    if(!name||name.length>30) return {ok:false};
+    const price=item.price;
+    // 価格: 商品登録フォームのmin="0" max="99999"(L877)と同じ基準に合わせる
+    if(typeof price!=='number'||!Number.isInteger(price)||price<0||price>99999) return {ok:false};
+    const emoji=(typeof item.emoji==='string'&&IMPORT_EMOJI_PALETTE.indexOf(item.emoji)!==-1)?item.emoji:'🎁';
+    seenIds.add(id);
+    // 余分なプロパティは破棄し、id/name/price/emoji/imageのみを明示的に構築する
+    sanitized.push({id:id, name:name, price:price, emoji:emoji, image:null});
+  }
+  return {ok:true, list:sanitized};
+}
+
+let importPendingList=null;  // 検証済み・未適用の候補(確認画面が開いている間のみ有効)
+let importApplying=false;    // 「読み込む」の二重クリック防止
+
+function openImportConfirmModal(sanitizedList){
+  importPendingList=sanitizedList;
+  const existingCount=products.length;
+  const sharedCount=sanitizedList.length;
+  document.getElementById('import-confirm-msg').textContent=
+    `現在の商品一覧(${existingCount}件)を、共有された商品一覧(${sharedCount}件)に置き換えます。商品の写真は共有されないため、読み込み後に新しい写真を登録してください。`;
+
+  const listEl=document.getElementById('import-product-list');
+  listEl.textContent='';
+  sanitizedList.forEach(p=>{
+    const row=document.createElement('div');
+    row.className='import-product-row';
+    row.setAttribute('role','listitem');
+    const nameSpan=document.createElement('span');
+    nameSpan.className='import-product-name';
+    nameSpan.textContent=p.name;
+    const priceSpan=document.createElement('span');
+    priceSpan.className='import-product-price';
+    priceSpan.textContent='¥'+p.price.toLocaleString();
+    row.appendChild(nameSpan);
+    row.appendChild(priceSpan);
+    listEl.appendChild(row);
+  });
+
+  const warnEl=document.getElementById('import-cart-warning');
+  if(cart.length>0){
+    warnEl.textContent='⚠️ 現在カートに商品が入っています。商品一覧を読み込んでも、カートの内容はそのまま残ります。新しい商品一覧と異なる商品がカートに残る場合があります。';
+    warnEl.style.display='block';
+  } else {
+    warnEl.textContent='';
+    warnEl.style.display='none';
+  }
+
+  importApplying=false;
+  document.getElementById('import-confirm-btn').disabled=false;
+  openModal('import-confirm-modal');
+}
+
+function closeImportConfirmModal(){
+  importPendingList=null;
+  closeModal('import-confirm-modal');
+}
+document.getElementById('import-cancel-btn').addEventListener('click', closeImportConfirmModal);
+
+document.getElementById('import-confirm-btn').addEventListener('click', ()=>{
+  if(importApplying||!importPendingList) return;
+  importApplying=true;
+  document.getElementById('import-confirm-btn').disabled=true;
+
+  const oldProducts=products;
+  products=importPendingList;
+  const ok=saveProducts();
+  if(ok){
+    renderProducts();
+    showToast(`🔗 ${products.length}件の商品リストを読み込みました`);
+    history.replaceState({},'',location.pathname);
+    closeImportConfirmModal();
+  } else {
+    products=oldProducts; // 保存失敗: メモリ上も旧状態へ復帰する
+    importApplying=false;
+    document.getElementById('import-confirm-btn').disabled=false;
+    // 失敗トーストはsaveProducts()が既に表示済み。確認画面・共有URLはそのまま維持し、再試行可能にする。
+  }
+});
+
+// Tabトラップ(record-modal, L1783相当と同じ方式をこのモーダル専用に追加。他モーダルは無変更)
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Tab') return;
+  const m=document.getElementById('import-confirm-modal');
+  if(!m.classList.contains('active')) return;
+  const focusables=Array.from(m.querySelectorAll('button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])'))
+    .filter(el=>el.offsetParent!==null&&!el.disabled);
+  if(!focusables.length) return;
+  const first=focusables[0], last=focusables[focusables.length-1];
+  if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+  else if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+});
+
+// 背景inert化(qr-scanner-modal, L2031相当と同じ方式)。Cancel/Escape/背景タップ/読み込む
+// 成功のいずれで閉じても、class属性の変化をMutationObserverで検知して必ず解除する
+// (closeModal()自体を複数箇所から呼ぶ構成にせず、閉じ方を問わず一か所で確実に後始末する)。
+(function(){
+  const icModal=document.getElementById('import-confirm-modal');
+  if(!icModal) return;
+  let icInertedElements=[];
+  new MutationObserver(()=>{
+    const isActive=icModal.classList.contains('active');
+    if(isActive&&icInertedElements.length===0){
+      icInertedElements=Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR))
+        .filter(el=>!icModal.contains(el)&&el.id!=='donomanaA11yBtn'&&!el.closest('#donomanaA11yPanel'));
+      icInertedElements.forEach(el=>{ el.inert=true; });
+      clearScanHighlight();
+      refreshSwitchScanItems();
+    } else if(!isActive&&icInertedElements.length>0){
+      icInertedElements.forEach(el=>{ el.inert=false; });
+      icInertedElements=[];
+      refreshSwitchScanItems();
+      const fallback=document.getElementById('edit-mode-btn');
+      if(fallback) fallback.focus();
     }
-  }catch(e){ showToast('⚠️ 共有データの読み込みに失敗しました'); }
+  }).observe(icModal,{attributes:true,attributeFilter:['class']});
+})();
+
+function loadSharedProducts(){
+  const raw=new URLSearchParams(location.search).get('products');
+  if(!raw) return;
+  const result=validateSharedProducts(raw);
+  if(!result.ok){
+    showToast('⚠️ 共有データの読み込みに失敗しました');
+    return;
+  }
+  openImportConfirmModal(result.list);
 }
 
 // ============================================================
@@ -2450,10 +2629,17 @@ const SWITCH_SCAN_SELECTOR='.product-card,.cart-btn:not(:disabled),.icon-btn,.ed
 // モーダル(product-modal等、Phase 2で発見済みの構造的課題)の挙動は一切変更しない——
 // 「既存全モーダルの横断改修は行わない」という指示どおり、他モーダル開時はこの関数は
 // 無変更のまま(document全体を対象にする)動作する。
+// DONOMANA-REGISTER-QR-PHASE-3-7C: import-confirm-modalについても、qr-scanner-modalと
+// 同じ理由(背景の商品カード・会計ボタンへスイッチスキャン対象が漏れないようにする)で
+// 同じパターンのスコープ限定分岐を追加する。他モーダルの分岐・挙動は無変更。
 function buildScanItems(){
   const scannerModal=document.getElementById('qr-scanner-modal');
   if(scannerModal && scannerModal.classList.contains('active')){
     return Array.from(scannerModal.querySelectorAll(SWITCH_SCAN_SELECTOR));
+  }
+  const importModal=document.getElementById('import-confirm-modal');
+  if(importModal && importModal.classList.contains('active')){
+    return Array.from(importModal.querySelectorAll(SWITCH_SCAN_SELECTOR));
   }
   return Array.from(document.querySelectorAll(SWITCH_SCAN_SELECTOR));
 }
@@ -2522,8 +2708,11 @@ function playSound(type){ if(!soundEnabled) return; try{ const ctx=getACtx(),osc
 // ============================================================
 //  INIT
 // ============================================================
-loadSharedProducts(); // URLパラメータから先に読み込む
+// DONOMANA-REGISTER-QR-PHASE-3-7C: loadSharedProducts()は検証のみを行い、確認画面を
+// 開くだけになった(商品一覧はこの時点ではまだ置き換えない)。確認画面に正確な
+// 既存商品数を表示するため、loadProducts()を先に実行する順序へ変更する。
 loadProducts();
+loadSharedProducts();
 loadSettings();
 renderProducts();
 renderCart();

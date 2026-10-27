@@ -373,6 +373,19 @@ def _add_product_via_ui(page, name, price, emoji='🎁'):
     wait_modal_closed(page, 'product-modal')
 
 
+def _build_share_url(product_list):
+    """register-app.html自身のopenShareModal()(btoa(unescape(encodeURIComponent(
+    JSON.stringify(data))))をencodeURIComponent()でクエリへ入れる)と同じ手順を
+    Python側で再現する。DONOMANA-REGISTER-QR-PHASE-3-7Cの確認画面テスト・
+    group_cの共有URLテストの両方から使う共通ヘルパー。"""
+    import base64 as b64mod
+    import json as jsonmod
+    import urllib.parse
+    payload = jsonmod.dumps(product_list, ensure_ascii=False, separators=(',', ':'))
+    b64 = b64mod.b64encode(payload.encode('utf-8')).decode('ascii')
+    return APP_URL + '?products=' + urllib.parse.quote(b64, safe='')
+
+
 def group_c_share_and_ids(browser):
     print('\n=== 9〜10. 商品リスト共有URL・商品IDの保持・画像の取り扱い '
           '(DONOMANA-REGISTER-QR-PHASE-3-1B: encodeURIComponent()修正の回帰確認) ===')
@@ -427,16 +440,41 @@ def group_c_share_and_ids(browser):
               'above is skipped for this run, but the full round-trip check above still covers it.')
 
     # --- 実際にアプリが生成したURLそのままでの読み込み（実際の利用シナリオ、修正後は成功するはず） ---
+    # DONOMANA-REGISTER-QR-PHASE-3-7C: loadSharedProducts()は検証後すぐに適用せず、
+    # import-confirm-modalで明示確認するようになったため、以降は「開く→確認内容を見る→
+    # 読み込むボタンを押す」の順で検証する(importデバイス側は最初はPhase3-6Bのデフォルト
+    # 4商品のまま)。
     page2, errors2 = fresh_page(browser)
     page2.goto(shared_url)
+    wait_modal_opened_and_settled(page2, 'import-confirm-modal')
+    confirm_msg = page2.text_content('#import-confirm-msg')
+    check('(7C) confirm modal shows the correct existing product count before applying (4件, '
+          'Phase3-6Bのデフォルト)', '4件' in confirm_msg, confirm_msg)
+    check('(7C) confirm modal shows the correct shared product count (7件)',
+          '7件' in confirm_msg, confirm_msg)
+    list_names_in_modal = page2.evaluate(
+        "Array.from(document.querySelectorAll('#import-product-list .import-product-name'))"
+        ".map(el=>el.textContent)")
+    check('(7C) confirm modal lists all 7 shared product names before applying',
+          sorted(list_names_in_modal) == sorted(names_before), (list_names_in_modal, names_before))
+    check('(7C) products are NOT replaced yet while the confirm modal is only shown (still the '
+          'importing device\'s original 4 default products)',
+          page2.evaluate('products.length') == 4, page2.evaluate('products.map(p=>p.name)'))
+    check('(7C) the ?products= URL parameter is still present before the user confirms',
+          'products=' in page2.url, page2.url)
+    check('(7C) no toast has been shown yet merely from opening the confirm modal',
+          page2.evaluate("document.getElementById('toast-wrap').textContent") == '')
+
+    page2.click('#import-confirm-btn')
+    wait_modal_closed(page2, 'import-confirm-modal')
     toast_after_real_url = page2.evaluate("document.getElementById('toast-wrap').textContent")
     check('[修正確認/FIXED] the app-generated share URL, used exactly as the app itself produces it '
           '(including special-character/emoji product names), now successfully imports on another device '
-          '(was the Phase 3-1 FAIL; register-app.html openShareModal() now encodeURIComponent()s the '
-          'base64 payload before building the URL)',
+          'after the user explicitly confirms (was the Phase 3-1 FAIL; register-app.html '
+          'openShareModal() now encodeURIComponent()s the base64 payload before building the URL)',
           '読み込みました' in toast_after_real_url and '失敗' not in toast_after_real_url,
           toast_after_real_url)
-    check('importing device no longer shows the ?products= query after import',
+    check('importing device no longer shows the ?products= query after confirming the import',
           'products=' not in page2.url, page2.url)
 
     ids_after = page2.evaluate('products.map(p=>p.id)')
@@ -474,9 +512,12 @@ def group_c_share_and_ids(browser):
     # loadSharedProducts()自体は本Phaseで変更していないため、'+'を含まない(=修正前のコードでも
     # 元々正しく動いていた)旧形式のURLは今後も同一に動作するはずであることを確認する。
     legacy_candidates = [
-        [{'id': 'legacy-aaa', 'name': 'りんご', 'price': 50, 'emoji': '🍎'}],
-        [{'id': 'legacy-bbb', 'name': 'みかん', 'price': 60, 'emoji': '🍊'}],
-        [{'id': 'legacy-ccc', 'name': 'バナナ', 'price': 70, 'emoji': '🍌'}],
+        # DONOMANA-REGISTER-QR-PHASE-3-7C: 商品IDは「英数字1〜64文字」が要件(validateSharedProducts)
+        # のため、ハイフンを含まないIDへ変更(ハイフン入りIDは本Phaseの意図的な新規拒否条件であり、
+        # S6/S7で別途検証する。ここでは旧形式URL互換性そのもののテストに限定する)。
+        [{'id': 'legacyaaa', 'name': 'りんご', 'price': 50, 'emoji': '🍎'}],
+        [{'id': 'legacybbb', 'name': 'みかん', 'price': 60, 'emoji': '🍊'}],
+        [{'id': 'legacyccc', 'name': 'バナナ', 'price': 70, 'emoji': '🍌'}],
     ]
     legacy_payload = None
     legacy_b64 = None
@@ -492,10 +533,17 @@ def group_c_share_and_ids(browser):
         legacy_url = APP_URL + '?products=' + legacy_b64  # 修正前のコードと同じ、未encodeの生の連結
         page4, errors4 = fresh_page(browser)
         page4.goto(legacy_url)
+        # DONOMANA-REGISTER-QR-PHASE-3-7C: validateSharedProducts()自体の検証ロジック
+        # (id/name/price形式)はこの旧形式URLの内容(legacy-aaa等、英数字ID・短い価格)を
+        # 何ら変更していないため、確認画面が開き、検証自体は従来通り成功することを確認する。
+        wait_modal_opened_and_settled(page4, 'import-confirm-modal')
+        page4.click('#import-confirm-btn')
+        wait_modal_closed(page4, 'import-confirm-modal')
         legacy_names_after = page4.evaluate('products.map(p=>p.name)')
         check('(作業C-10) a legacy-style ("+"-free, un-percent-encoded) share URL still imports correctly '
-              'after this fix (loadSharedProducts() itself is unchanged, so previously-working URLs keep '
-              'working — this fix only changes how NEW URLs are generated)',
+              'after confirming (validateSharedProducts()\'s id/name/price rules accept this unchanged '
+              'legacy payload shape — this fix only changes how NEW URLs are generated, plus requires '
+              'explicit confirmation before applying)',
               legacy_names_after == [legacy_payload[0]['name']], legacy_names_after)
         check('no console/page errors on the legacy-URL-compat device', len(errors4) == 0, errors4[:5])
         page4.close()
@@ -1442,6 +1490,240 @@ def group_r_default_product_id_persistence_fix(browser):
     page_f3.close()
 
 
+def group_s_import_confirm(browser):
+    """DONOMANA-REGISTER-QR-PHASE-3-7C: 共有URL読み込み確認画面(import-confirm-modal)。
+    検証(validateSharedProducts)・確認表示・適用(保存成功/失敗)・キャンセル・Escape・
+    背景タップ・既存カート/会計記録の非破壊・アクセシビリティ(Tabトラップ・背景inert・
+    スイッチスキャンのスコープ限定)を確認する。正常系の基本(確認画面の件数・商品名一覧
+    表示、ID保持、URLパラメータ除去タイミング、旧形式URLとの互換性)はgroup_cで確認済み
+    のため、ここでは安全性(拒否条件・終了経路・既存状態の非破壊)に焦点を当てる。"""
+    print('\n=== (DONOMANA-REGISTER-QR-PHASE-3-7C) 共有商品読み込み確認画面 ===')
+
+    # S1. キャンセルで既存商品・URLとも維持される
+    valid_list = [{'id': 's1aaa', 'name': 'りんご', 'price': 50, 'emoji': '🍎ではない🍪'}]
+    # ※emojiは許可パレット外の値を混ぜても全体拒否の対象にはならず(装飾のみ)、🎁へ
+    #   正規化されるだけであることをS1内で併せて確認する。
+    url_s1 = _build_share_url(valid_list)
+    page_s1, errors_s1 = fresh_page(browser)
+    page_s1.goto(url_s1)
+    wait_modal_opened_and_settled(page_s1, 'import-confirm-modal')
+    emoji_shown = page_s1.evaluate(
+        "document.querySelector('#import-product-list .import-product-row')"
+        " ? true : false")
+    check('(S1) confirm modal opens for a valid share URL even when emoji is outside the known '
+          'palette (not a rejection condition)', emoji_shown)
+    page_s1.click('#import-cancel-btn')
+    wait_modal_closed(page_s1, 'import-confirm-modal')
+    check('(S1) cancelling keeps the original 4 default products',
+          page_s1.evaluate('products.length') == 4, page_s1.evaluate('products.map(p=>p.name)'))
+    check('(S1) cancelling keeps the ?products= URL parameter (re-openable on reload, not lost)',
+          'products=' in page_s1.url, page_s1.url)
+    check('(S1) cancelling shows no success toast', 'ました' not in page_s1.evaluate(
+        "document.getElementById('toast-wrap').textContent"))
+    check('(S1) background is no longer inert after cancelling',
+          page_s1.evaluate("document.querySelector('.product-card').inert") is False)
+    check('(S1) no console/page errors', len(errors_s1) == 0, errors_s1[:5])
+    page_s1.close()
+
+    # S2. Escapeで既存商品・URLとも維持され、背景inert/スイッチスキャンも正しく解除される
+    page_s2, errors_s2 = fresh_page(browser)
+    page_s2.goto(url_s1)
+    wait_modal_opened_and_settled(page_s2, 'import-confirm-modal')
+    scoped_before_escape = page_s2.evaluate("buildScanItems().length")
+    check('(S2) while open, buildScanItems() is scoped to inside the confirm modal only',
+          page_s2.evaluate(
+              "buildScanItems().every(el => document.getElementById('import-confirm-modal').contains(el))"))
+    all_background_inert_s2 = page_s2.evaluate(
+        "(sel) => Array.from(document.querySelectorAll(sel))"
+        ".filter(el => !document.getElementById('import-confirm-modal').contains(el) "
+        "&& el.id!=='donomanaA11yBtn' && !el.closest('#donomanaA11yPanel'))"
+        ".every(el => el.inert === true)", SWITCH_SCAN_SELECTOR)
+    check('(S2) every background element matching SWITCH_SCAN_SELECTOR is inert while the confirm '
+          'modal is open', all_background_inert_s2)
+    page_s2.keyboard.press('Escape')
+    page_s2.wait_for_timeout(100)
+    check('(S2) Escape closes the confirm modal', not page_s2.is_visible('#import-confirm-modal.active'))
+    check('(S2) Escape keeps the original 4 default products (no import applied)',
+          page_s2.evaluate('products.length') == 4)
+    check('(S2) Escape keeps the ?products= URL parameter', 'products=' in page_s2.url, page_s2.url)
+    check('(S2) Escape releases background inert (via the class-change MutationObserver, not tied '
+          'to any specific close button)',
+          page_s2.evaluate("document.querySelector('.product-card').inert") is False)
+    check('(S2) Escape restores the normal (document-wide) switch-scan scope',
+          page_s2.evaluate("buildScanItems().length") >= scoped_before_escape)
+    check('(S2) no console/page errors', len(errors_s2) == 0, errors_s2[:5])
+    page_s2.close()
+
+    # S3. 背景タップ(オーバーレイ自体のクリック)で既存商品・URLとも維持され、inertも解除される
+    page_s3, errors_s3 = fresh_page(browser)
+    page_s3.goto(url_s1)
+    wait_modal_opened_and_settled(page_s3, 'import-confirm-modal')
+    page_s3.click('#import-confirm-modal', position={'x': 5, 'y': 5})  # モーダル背景(オーバーレイ)自体をクリック
+    page_s3.wait_for_timeout(100)
+    check('(S3) clicking the overlay background closes the confirm modal',
+          not page_s3.is_visible('#import-confirm-modal.active'))
+    check('(S3) background-tap keeps the original 4 default products (no import applied)',
+          page_s3.evaluate('products.length') == 4)
+    check('(S3) background-tap keeps the ?products= URL parameter', 'products=' in page_s3.url, page_s3.url)
+    check('(S3) background-tap releases background inert',
+          page_s3.evaluate("document.querySelector('.product-card').inert") is False)
+    check('(S3) no console/page errors', len(errors_s3) == 0, errors_s3[:5])
+    page_s3.close()
+
+    # S4. Tabトラップ：初期フォーカスはキャンセル、Tab/Shift+Tabでモーダル内を循環する
+    page_s4, errors_s4 = fresh_page(browser)
+    page_s4.goto(url_s1)
+    wait_modal_opened_and_settled(page_s4, 'import-confirm-modal')
+    check('(S4) initial focus lands on the Cancel button (safe default, matches delete-modal '
+          'convention)', page_s4.evaluate("document.activeElement.id") == 'import-cancel-btn')
+    page_s4.keyboard.press('Shift+Tab')
+    check('(S4) Shift+Tab from the first focusable wraps to the last one inside the modal',
+          page_s4.evaluate("document.activeElement.id") == 'import-confirm-btn')
+    page_s4.keyboard.press('Tab')
+    check('(S4) Tab from the last focusable wraps back to the first one inside the modal',
+          page_s4.evaluate("document.activeElement.id") == 'import-cancel-btn')
+    page_s4.keyboard.press('Enter')  # キャンセルをEnterで操作
+    wait_modal_closed(page_s4, 'import-confirm-modal')
+    check('(S4) keyboard-only Cancel (Enter on the focused Cancel button) keeps existing products',
+          page_s4.evaluate('products.length') == 4)
+    check('(S4) no console/page errors', len(errors_s4) == 0, errors_s4[:5])
+    page_s4.close()
+
+    # S5. 既存カートがある場合のみ警告が表示され、カートは自動削除されない
+    #     (cartはlocalStorageへ永続化されないメモリ上の状態のため、ページ再読込を伴う
+    #     通常の共有URLフローでは再現できない。openImportConfirmModal()自体の警告表示
+    #     ロジックを、カートに商品を入れた状態で直接呼び出して確認する)
+    page_s5, errors_s5 = fresh_page(browser)
+    page_s5.locator('.product-card').first.click()  # カートに1点追加
+    check('(S5) cart has 1 item before opening the confirm modal (precondition)',
+          page_s5.evaluate('cart.length') == 1)
+    page_s5.evaluate("openImportConfirmModal([{id:'s5aaa',name:'メロン',price:80,emoji:'🍈'}])")
+    wait_modal_opened_and_settled(page_s5, 'import-confirm-modal')
+    check('(S5) cart warning is shown when the cart is non-empty',
+          page_s5.is_visible('#import-cart-warning') and
+          'カート' in page_s5.text_content('#import-cart-warning'))
+    page_s5.click('#import-cancel-btn')
+    wait_modal_closed(page_s5, 'import-confirm-modal')
+    check('(S5) cancelling does not clear the existing cart', page_s5.evaluate('cart.length') == 1)
+
+    page_s5.evaluate("clearCart()")
+    page_s5.evaluate("openImportConfirmModal([{id:'s5bbb',name:'メロン',price:80,emoji:'🍈'}])")
+    wait_modal_opened_and_settled(page_s5, 'import-confirm-modal')
+    check('(S5) cart warning is hidden when the cart is empty',
+          not page_s5.is_visible('#import-cart-warning'))
+    page_s5.click('#import-confirm-btn')
+    wait_modal_closed(page_s5, 'import-confirm-modal')
+    check('(S5) no console/page errors', len(errors_s5) == 0, errors_s5[:5])
+    page_s5.close()
+
+    # S6. 不正データ(1件でも不正なら全体拒否): ID重複
+    dup_id_list = [
+        {'id': 'dupid01', 'name': 'A', 'price': 10, 'emoji': '🎁'},
+        {'id': 'dupid01', 'name': 'B', 'price': 20, 'emoji': '🎁'},
+    ]
+    page_s6, errors_s6 = fresh_page(browser)
+    page_s6.goto(_build_share_url(dup_id_list))
+    page_s6.wait_for_timeout(200)
+    check('(S6) duplicate product IDs reject the entire share (no confirm modal opens)',
+          not page_s6.is_visible('#import-confirm-modal.active'))
+    check('(S6) products are unchanged after a duplicate-ID share is rejected',
+          page_s6.evaluate('products.length') == 4)
+    check('(S6) a failure toast is shown', '失敗' in page_s6.evaluate(
+        "document.getElementById('toast-wrap').textContent"))
+    check('(S6) no console/page errors', len(errors_s6) == 0, errors_s6[:5])
+    page_s6.close()
+
+    # S7. 不正データ(1件でも不正なら全体拒否): 他は正常でも1件だけ価格が不正(負数)
+    mixed_invalid_list = [
+        {'id': 's7aaa', 'name': 'A', 'price': 10, 'emoji': '🎁'},
+        {'id': 's7bbb', 'name': 'B', 'price': 20, 'emoji': '🎁'},
+        {'id': 's7ccc', 'name': 'C', 'price': -5, 'emoji': '🎁'},  # 価格不正
+    ]
+    page_s7, errors_s7 = fresh_page(browser)
+    page_s7.goto(_build_share_url(mixed_invalid_list))
+    page_s7.wait_for_timeout(200)
+    check('(S7) a single invalid item (negative price) rejects the ENTIRE share, not just that '
+          'one item (no silent partial exclusion)',
+          not page_s7.is_visible('#import-confirm-modal.active'))
+    check('(S7) products are unchanged after a partially-invalid share is rejected',
+          page_s7.evaluate('products.length') == 4)
+    check('(S7) no console/page errors', len(errors_s7) == 0, errors_s7[:5])
+    page_s7.close()
+
+    # S8. 商品数が上限(500)を超える場合は全体拒否
+    too_many = [{'id': 'p%04d' % i, 'name': 'p', 'price': 1, 'emoji': '🎁'} for i in range(501)]
+    page_s8, errors_s8 = fresh_page(browser)
+    page_s8.goto(_build_share_url(too_many))
+    page_s8.wait_for_timeout(200)
+    check('(S8) a share with 501 products (over the 500 limit) is rejected entirely',
+          not page_s8.is_visible('#import-confirm-modal.active'))
+    check('(S8) products are unchanged after an over-count share is rejected',
+          page_s8.evaluate('products.length') == 4)
+    check('(S8) no console/page errors', len(errors_s8) == 0, errors_s8[:5])
+    page_s8.close()
+
+    # S9. ペイロード文字数が上限(200,000)を超える場合は全体拒否(デコード前に拒否する)
+    page_s9, errors_s9 = fresh_page(browser)
+    page_s9.goto(APP_URL + '?products=' + ('A' * 200001))
+    page_s9.wait_for_timeout(200)
+    check('(S9) a share payload over 200,000 characters is rejected entirely',
+          not page_s9.is_visible('#import-confirm-modal.active'))
+    check('(S9) products are unchanged after an over-length share is rejected',
+          page_s9.evaluate('products.length') == 4)
+    check('(S9) no console/page errors', len(errors_s9) == 0, errors_s9[:5])
+    page_s9.close()
+
+    # S10. 保存失敗時：旧商品一覧を維持し、成功トーストを出さず、URLも保持する
+    context_s10 = browser.new_context()
+    context_s10.add_init_script("""
+        const _origSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function(k, v) {
+            if (k === 'register_products') { throw new DOMException('simulated quota error', 'QuotaExceededError'); }
+            return _origSetItem.call(this, k, v);
+        };
+    """)
+    page_s10 = context_s10.new_page()
+    errors_s10 = []
+    page_s10.on('pageerror', lambda exc: errors_s10.append(str(exc)))
+    page_s10.goto(_build_share_url([{'id': 's10aaa', 'name': 'もも', 'price': 90, 'emoji': '🎁'}]))
+    wait_modal_opened_and_settled(page_s10, 'import-confirm-modal')
+    names_before_fail = page_s10.evaluate('products.map(p=>p.name)')
+    page_s10.click('#import-confirm-btn')
+    page_s10.wait_for_timeout(200)
+    check('(S10) on save failure, the confirm modal stays open rather than closing as if it '
+          'succeeded', page_s10.is_visible('#import-confirm-modal.active'))
+    check('(S10) on save failure, the old product list is restored in memory (not the rejected '
+          'new one)', page_s10.evaluate('products.map(p=>p.name)') == names_before_fail)
+    toast_after_fail = page_s10.evaluate("document.getElementById('toast-wrap').textContent")
+    check('(S10) on save failure, no success toast is shown', 'ました' not in toast_after_fail or
+          '失敗' in toast_after_fail, toast_after_fail)
+    check('(S10) on save failure, the ?products= URL parameter is kept (so the user can retry)',
+          'products=' in page_s10.url, page_s10.url)
+    check('(S10) on save failure, the Confirm button is re-enabled so the user can retry',
+          not page_s10.is_disabled('#import-confirm-btn'))
+    check('(S10) no console/page errors', len(errors_s10) == 0, errors_s10[:5])
+    page_s10.close()
+    context_s10.close()
+
+    # S11. 会計記録(register_log)は共有読み込みの影響を受けない
+    page_s11, errors_s11 = fresh_page(browser)
+    page_s11.locator('.product-card').first.click()
+    page_s11.click('#payment-btn')
+    for d in ['2', '0', '0']:
+        page_s11.click('.num-btn[data-num="%s"]' % d)
+    page_s11.click('#payment-confirm')
+    log_before = page_s11.evaluate("localStorage.getItem('register_log')")
+    page_s11.goto(_build_share_url([{'id': 's11aaa', 'name': 'すいか', 'price': 95, 'emoji': '🎁'}]))
+    wait_modal_opened_and_settled(page_s11, 'import-confirm-modal')
+    page_s11.click('#import-confirm-btn')
+    wait_modal_closed(page_s11, 'import-confirm-modal')
+    log_after = page_s11.evaluate("localStorage.getItem('register_log')")
+    check('(S11) register_log (checkout history) is unaffected by importing a shared product list',
+          log_before == log_after, (log_before, log_after))
+    check('(S11) no console/page errors', len(errors_s11) == 0, errors_s11[:5])
+    page_s11.close()
+
+
 # 一部の実行環境（例：事前にChromiumが固定パスへ配置されたCI/クラウド実行環境）では
 # Playwright自身が期待するリビジョンのブラウザを自動解決できない場合がある。通常の
 # 開発環境では`playwright install chromium`済みの既定解決に任せ、このパスを明示した
@@ -1472,6 +1754,7 @@ def run():
         group_p_scanner_switch_scan_safety(browser)
         group_q_scanner_realistic_camera_e2e(p, browser)
         group_r_default_product_id_persistence_fix(browser)
+        group_s_import_confirm(browser)
         browser.close()
 
 
