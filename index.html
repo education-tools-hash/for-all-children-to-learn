@@ -2842,12 +2842,32 @@ function normalizeSearchText(s) {
     .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 }
 
+// Phase TOP-RENEWAL-D3-FIX-1(判断2): 初期表示の「新着」は、apps-data.jsonのreleaseDate
+// (降順)という根拠のある基準で上位8件までに絞る。全isNew件数(24件、apps-data.json側の
+// isNewフラグとgenerate.jsのNEW_IDSの合計)のうち、releaseDateが設定されている18件を
+// 降順ソートした上位8件(いずれもおすすめ6件とは重複しない)。releaseDate未設定の6件
+// (sst-app/kimochi-board含む)は「新着である根拠となる日付データが無い」ため対象外とする
+// (根拠のない並べ替え・選定をしないため)。apps-data.json/generate.jsは変更せず、この
+// 初期表示専用の絞り込みのみindex.html側に持つ。データ更新時はNEW_IDS/RECOMMEND_IDSと
+// 同様に手動での見直しが必要(2026-11-01時点のapps-data.jsonを基準に算出)。
+const INITIAL_NEW_LINKS = new Set([
+  'app-details/sawatte-hirogaru-app-detail.html', // さわってひろがる (2026-09-13)
+  'app-details/dotchiga-ii-app-detail.html',      // どっちがいい？ (2026-08-23)
+  'app-details/junban-miyou-app-detail.html',     // じゅんばんにみよう (2026-08-14)
+  'app-details/miru-hirogaru-app-detail.html',    // みるとひろがる (2026-08-13)
+  'app-details/mitsukete-touch-app-detail.html',  // どこかな？みーつけた！ (2026-08-13)
+  'app-details/kurabeyou-app-detail.html',        // おおきい？ちいさい？くらべよう (2026-08-12)
+  'app-details/katachi-awase-app-detail.html',    // かたちをあわせよう (2026-08-12)
+  'app-details/nazorin-print-detail.html',        // なぞりんプリント (2026-07-18)
+]);
+
 // Phase TOP-RENEWAL-D3(D2-1/D2-3/ゲート1-1 選択肢A): 統合後の1グリッドに対する
 // カード単位の絞り込みのみで判定する(セクション単位の判定は廃止。'initial'は
 // 初期表示専用の疑似状態で、検索語がある場合は'all'と同様に全件を対象にする)。
+// 「新着」分類タブ(cat==='new')自体は変更しない(isNewが真のapps全件、従来どおり)。
 function matchesCat(card, cat) {
   if (cat === 'all')       return true;
-  if (cat === 'initial')   return card.dataset.recommend === 'true' || card.dataset.new === 'true';
+  if (cat === 'initial')   return card.dataset.recommend === 'true' || INITIAL_NEW_LINKS.has(card.getAttribute('href'));
   if (cat === 'recommend') return card.dataset.recommend === 'true';
   if (cat === 'new')       return card.dataset.new === 'true';
   return card.dataset.cat === cat;
