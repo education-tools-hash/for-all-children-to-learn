@@ -2806,7 +2806,7 @@ let currentCat = 'initial';
 
 // 絞り込み条件の見出し文言(D2文書の確定事項の範囲内で、Preview確認時に微調整可)
 const RESULTS_HEADING = {
-  initial:   '⭐🆕 おすすめ・新着の教材',
+  initial:   '⭐ まずはこの6教材から',
   all:       '✨ すべての教材',
   recommend: '⭐ おすすめの教材',
   new:       '🆕 新着の教材',
@@ -2842,24 +2842,23 @@ function normalizeSearchText(s) {
     .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60));
 }
 
-// Phase TOP-RENEWAL-D3-FIX-1(判断2): 初期表示の「新着」は、apps-data.jsonのreleaseDate
-// (降順)という根拠のある基準で上位8件までに絞る。全isNew件数(24件、apps-data.json側の
-// isNewフラグとgenerate.jsのNEW_IDSの合計)のうち、releaseDateが設定されている18件を
-// 降順ソートした上位8件(いずれもおすすめ6件とは重複しない)。releaseDate未設定の6件
-// (sst-app/kimochi-board含む)は「新着である根拠となる日付データが無い」ため対象外とする
-// (根拠のない並べ替え・選定をしないため)。apps-data.json/generate.jsは変更せず、この
-// 初期表示専用の絞り込みのみindex.html側に持つ。データ更新時はNEW_IDS/RECOMMEND_IDSと
-// 同様に手動での見直しが必要(2026-11-01時点のapps-data.jsonを基準に算出)。
-const INITIAL_NEW_LINKS = new Set([
-  'app-details/sawatte-hirogaru-app-detail.html', // さわってひろがる (2026-09-13)
-  'app-details/dotchiga-ii-app-detail.html',      // どっちがいい？ (2026-08-23)
-  'app-details/junban-miyou-app-detail.html',     // じゅんばんにみよう (2026-08-14)
-  'app-details/miru-hirogaru-app-detail.html',    // みるとひろがる (2026-08-13)
-  'app-details/mitsukete-touch-app-detail.html',  // どこかな？みーつけた！ (2026-08-13)
-  'app-details/kurabeyou-app-detail.html',        // おおきい？ちいさい？くらべよう (2026-08-12)
-  'app-details/katachi-awase-app-detail.html',    // かたちをあわせよう (2026-08-12)
-  'app-details/nazorin-print-detail.html',        // なぞりんプリント (2026-07-18)
-]);
+// Phase TOP-RENEWAL-D3-FIX-2(初期表示6教材への最適化、ユーザー最終承認済み):
+// 初期表示を固定6教材に限定する。選定根拠：検索流入実績4件(Search Console
+// 2026-07-10〜09-29のページ別クリック数：SST 457／すごろく 332／とけい 209／
+// なぞり書き練習ツール(nazori-app) 99)＋視線入力対応2件(ひかるボタン(注視訓練)＝
+// tyushi／視線キーボード＝gaze-keyboard)。apps-data.json/generate.jsは変更せず、
+// この初期表示専用の固定リストのみindex.html側に持つ(RECOMMEND_IDS/NEW_IDSと同様、
+// 将来の見直しは手動)。配列の順序は「検索流入4件→視線入力2件」の表示順そのもの
+// (DOM再配置の基準としても使う。下記ensureGridOrder参照)。
+const CURATED_INITIAL_LINKS = [
+  'app-details/sst-app-detail.html',         // SST ソーシャルスキルトレーニング (457クリック)
+  'app-details/sugoroku-app-detail.html',    // すごろく (332クリック)
+  'app-details/tokei-app-detail.html',       // とけい (209クリック)
+  'app-details/nazori-app-detail.html',      // なぞり書き練習ツール (99クリック)
+  'app-details/tyushi-detail.html',          // ひかるボタン（注視訓練） (視線入力)
+  'app-details/gaze-keyboard-detail.html',   // 視線キーボード (視線入力)
+];
+const CURATED_INITIAL_SET = new Set(CURATED_INITIAL_LINKS);
 
 // Phase TOP-RENEWAL-D3(D2-1/D2-3/ゲート1-1 選択肢A): 統合後の1グリッドに対する
 // カード単位の絞り込みのみで判定する(セクション単位の判定は廃止。'initial'は
@@ -2867,14 +2866,39 @@ const INITIAL_NEW_LINKS = new Set([
 // 「新着」分類タブ(cat==='new')自体は変更しない(isNewが真のapps全件、従来どおり)。
 function matchesCat(card, cat) {
   if (cat === 'all')       return true;
-  if (cat === 'initial')   return card.dataset.recommend === 'true' || INITIAL_NEW_LINKS.has(card.getAttribute('href'));
+  if (cat === 'initial')   return CURATED_INITIAL_SET.has(card.getAttribute('href'));
   if (cat === 'recommend') return card.dataset.recommend === 'true';
   if (cat === 'new')       return card.dataset.new === 'true';
   return card.dataset.cat === cat;
 }
+
+// Phase TOP-RENEWAL-D3-FIX-2: 初期表示6件は視覚的な表示順(CSSのorderプロパティ)
+// ではなく実際のDOM順序を並べ替える(キーボードのフォーカス順・スクリーンリーダーの
+// 読み上げ順を視覚的な表示順と一致させるため、ユーザー承認済み)。カードの再生成は
+// 行わず、既存ノードをgrid.prepend()/grid.append()で移動するだけなので、
+// イベントリスナー(documentへの委譲のみ)や画像の読み込み状態に影響はない。
+let naturalOrderNodes = null; // renderApps()直後の生成順(カテゴリ順)を保持
+let gridOrderState = null;    // 'initial' | 'natural'
+function ensureGridOrder(cat) {
+  const grid = document.getElementById('appGrid-results');
+  if (!grid || !naturalOrderNodes) return;
+  const wantInitial = cat === 'initial';
+  if (wantInitial && gridOrderState !== 'initial') {
+    const curatedNodes = CURATED_INITIAL_LINKS
+      .map(href => grid.querySelector('.app-card[href="' + href + '"]'))
+      .filter(Boolean);
+    if (curatedNodes.length) grid.prepend(...curatedNodes);
+    gridOrderState = 'initial';
+  } else if (!wantInitial && gridOrderState !== 'natural') {
+    grid.append(...naturalOrderNodes); // 既存の生成順(カテゴリ順)に戻す
+    gridOrderState = 'natural';
+  }
+}
+
 function applyFilter() {
   const query = normalizeSearchText(searchInput.value);
   const effectiveCat = (query && currentCat === 'initial') ? 'all' : currentCat;
+  ensureGridOrder(effectiveCat);
   let totalVisible = 0;
   document.querySelectorAll('#appGrid-results .app-card').forEach(card => {
     const match = matchesCat(card, effectiveCat) && (!query || matchCard(card, query));
@@ -2902,7 +2926,8 @@ function renderLatestNotices() {
 renderChangelog();
 renderLatestNotices();
 renderApps();
-applyFilter(); // 初期表示(おすすめ＋新着のみ)をcard-hiddenで反映(D2-3)
+naturalOrderNodes = Array.from(document.getElementById('appGrid-results').children); // 生成直後の順序を保存
+applyFilter(); // 初期表示(固定6教材)をcard-hidden+DOM順序で反映(TOP-RENEWAL-D3-FIX-2)
 
 // ===== アクセシビリティ設定 =====
 let srEnabled = false;
@@ -3140,6 +3165,7 @@ function purposeEntryShowAll() {
   if (allTab) allTab.classList.add('active');
   currentCat = 'all';
   searchInput.value = '';
+  ensureGridOrder('all'); // 初期表示の並べ替えを解除し、既存の生成順に戻す
   document.querySelectorAll('.app-card').forEach(c => c.classList.remove('card-hidden'));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('hidden'));
   noResults.style.display = 'none';
@@ -3154,6 +3180,7 @@ function applyPurposeFilter(names) {
   if (allTab) allTab.classList.add('active');
   currentCat = 'all';
   searchInput.value = '';
+  ensureGridOrder('all'); // 初期表示の並べ替えを解除し、既存の生成順に戻す
   // resetMetaFilter(); // [auto-fixed by generate.js] 関数が未定義のため無効化
   const lowerNames = names.map(n => n.toLowerCase());
   let anyVisible = false;
