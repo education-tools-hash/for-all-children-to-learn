@@ -938,7 +938,7 @@ const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app',
 // SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
 // 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ
 // → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
-const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app', 'katachi-awase-app']); // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app・katachi-awase-app: 学習コンテンツ自体の読み上げと重ねない
+const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app', 'katachi-awase-app', 'ringo-potton-app']); // ringo-potton-app: 数唱を教材自身が読み上げるため共通の選択読み上げと重ねない // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app・katachi-awase-app: 学習コンテンツ自体の読み上げと重ねない
 
 // TRIM_GENERATED_BLANK_LINE_WS_APPS: buildA11yPanelHTML()内の`  ${srScriptHTML}`
 // `    ${proxyScriptHTML}`は、固定インデントのスペースを置いた行へ、値が改行文字
@@ -1008,6 +1008,9 @@ const SETTINGS_PROXY = {
   // ボタン自身がdisplay:noneの画面配下にあってもclick()で正しくPIN modalが
   // 開く(okane-app等の既存function-invoking proxy entryと同じ前提)。
   'ongaku-app':         { selector: '#btn-teacher-settings', label: '🔧 このアプリの詳細設定を開く' },
+  // りんごポットン(ringo-potton-app): 設定入口は共通A11yパネルのこの1つのみ。#ringoSettingsBtnは
+  // 常に非表示で、自アプリのSwitch Scan候補にもTab順序にも含めない(opacity:0+tabindex=-1で足りる)。
+  'ringo-potton-app':   { selector: '#ringoSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
