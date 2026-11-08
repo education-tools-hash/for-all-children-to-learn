@@ -2578,6 +2578,11 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  // Phase D4: トップページ刷新(D3)の公開。type は既存のトップページ改善の記載
+  // (2026-07-26・2026-08-08、いずれも "design")に合わせた。verbatim: true により、
+  // 同日の「りんごポットン」公開(releaseDate由来の自動entry)とは集約されず、
+  // 文面そのままの独立itemとして同日の先頭に表示される。
+  { date: "2026-11-08", type: "design", text: "トップページをリニューアルしました", verbatim: true },
   { date: "2026-10-28", type: "update", text: "『はんばいかい レジ』がQRコードに対応しました。", details: [
     "商品ごとにQRコードを作成・印刷できるようになりました。",
     "iPad等のカメラでQRコードを読み取り、商品をカートに追加できます。",
