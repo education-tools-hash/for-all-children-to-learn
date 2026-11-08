@@ -800,7 +800,7 @@
   <h3>せってい（先生・支援者用）</h3>
   <p>右下の「アクセシビリティ設定」を ひらき、「このアプリの詳細設定を開く」を おします。あそんでいる 最中に ひらこうとすると、まず かくにんが 出ます。</p>
   <ul>
-    <li>とる りんごの かず（1〜10）</li>
+    <li>とる りんごの かず（1〜10）。「ランダム」を おすと、いまと ちがう かずを えらびなおします</li>
     <li>そうさの しかた（りんごを タッチ／がめんの どこでも タッチ）</li>
     <li>こえの あんない（たのむ こえ・かぞえる こえ・おれいの こえ）・すうじの ひょうじ</li>
     <li>スイッチスキャンと その はやさ</li>
@@ -1227,8 +1227,20 @@
     var gb = document.createElement('button'); gb.type = 'button'; gb.className = 'opt-btn'; gb.setAttribute('data-goal', String(g)); gb.setAttribute('aria-pressed', 'false');
     gb.textContent = String(g); gb.setAttribute('aria-label', g + 'こ'); goalGroup.appendChild(gb);
   }
+  // "ランダム": an action, not a mode. One press picks a new goal (1..10) that differs from the selected
+  // goal and, during an activity, from the goal being played; it is then stored exactly like a pressed
+  // number button (same settings.goal, same storage key, same "from the next activity" rule).
+  var goalRandomBtn = document.createElement('button');
+  goalRandomBtn.type = 'button'; goalRandomBtn.className = 'opt-btn'; goalRandomBtn.id = 'goalRandomBtn';
+  goalRandomBtn.textContent = 'ランダム'; goalRandomBtn.setAttribute('aria-label', 'かずを ランダムに えらびなおす');
+  goalGroup.appendChild(goalRandomBtn);
+  function pickRandomGoal() {
+    var pool = [];
+    for (var g = 1; g <= 10; g++) if (g !== settings.goal && (S.phase === 'start' || g !== active.goal)) pool.push(g);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
   function syncSettingsUI() {
-    Array.prototype.forEach.call(goalGroup.children, function (b) { b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-goal'), 10) === settings.goal)); });
+    Array.prototype.forEach.call(goalGroup.querySelectorAll('[data-goal]'), function (b) { b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-goal'), 10) === settings.goal)); });   // the random button is an action: no pressed state
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-op]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-op') === settings.operation)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-again]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-again') === '1') === settings.againAnywhere)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-voice]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-voice') === '1') === settings.voice)); });
@@ -1246,6 +1258,11 @@
   settingsSheet.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
     if (b.hasAttribute('data-goal')) settings.goal = parseInt(b.getAttribute('data-goal'), 10);
+    else if (b === goalRandomBtn) {
+      settings.goal = pickRandomGoal();
+      // ARIA only (works with the voice guidance OFF); the request voice is spoken by the next activity, never here
+      announce(S.phase === 'start' ? settings.goal + 'こに しました' : 'つぎの かつどうは ' + settings.goal + 'こ');
+    }
     else if (b.hasAttribute('data-op')) settings.operation = b.getAttribute('data-op') === 'anywhere' ? 'anywhere' : 'apple';
     else if (b.hasAttribute('data-again')) settings.againAnywhere = b.getAttribute('data-again') === '1';
     else if (b.hasAttribute('data-voice')) { settings.voice = b.getAttribute('data-voice') === '1'; if (!settings.voice) stopSpeech(); }   // applies immediately
