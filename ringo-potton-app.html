@@ -135,6 +135,8 @@
   .req-group { white-space: nowrap; display: inline-flex; align-items: baseline; gap: 4px; }
   .req-pics { display: flex; flex-wrap: wrap; gap: 2px; }
   .req-pics svg { width: 22px; height: 22px; }
+  .bubble [hidden] { display: none; }   /* the bubble swaps the request for the thank-you while celebrating */
+  .bubble .thanks { font-size: 1.5rem; font-weight: 900; color: var(--dm-color-primary-dark, #00857B); }
 
   .tree-area { position: relative; min-height: 200px; display: flex; flex-direction: column; align-items: center; }
   .app[data-phase="complete"] .tree-area, .app[data-phase="delivering"] .tree-area, .app[data-phase="celebrate"] .tree-area { min-height: 0 !important; }
@@ -666,6 +668,7 @@
           <span id="bubbleLead">りんごを</span>
           <span class="req-group"><span class="req-num" id="reqNum" aria-hidden="true"></span><span id="bubbleTail">とってね</span></span>
           <span class="req-pics" id="reqPics" aria-hidden="true"></span>
+          <span class="thanks" id="bubbleThanks" hidden>ありがとう！</span>
         </div>
       </div>
 
@@ -829,6 +832,7 @@
   var appEl = $('app'), stageEl = $('stage');
   var startScreen = $('startScreen'), playScreen = $('playScreen'), startBtn = $('startBtn'), startInfo = $('startInfo');
   var reqNum = $('reqNum'), reqPics = $('reqPics'), bubbleLead = $('bubbleLead'), bubbleTail = $('bubbleTail');
+  var bubbleThanks = $('bubbleThanks'), reqGroup = bubbleTail.parentNode;
   var treeArea = $('treeArea'), canopy = $('canopy'), appleGrid = $('appleGrid');
   var countBox = $('countBox'), countNum = $('countNum'), slotsEl = $('slots'), basketArea = $('basketArea');
   var deliverBtn = $('deliverBtn'), againBtn = $('againBtn'), doneNote = $('doneNote'), surfaceEl = $('surface');
@@ -910,6 +914,8 @@
   function speakRequest(goal) { if (speakText('りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + '、とってね')) requestSeq = speakSeq; }
   // the request must never run on into the counting: the first harvest input cuts it
   function stopRequestSpeech() { if (requestSeq !== -1 && requestSeq === speakSeq) stopSpeech(); requestSeq = -1; }
+  // the farmer thanks the child for the delivery (not praise for a correct answer): one fixed phrase, always the same
+  function speakThanks() { speakText('ありがとう！'); }
   function speakText(text) {
     if (!settings.voice) return false;
     var s = synth(); if (!s) return false;
@@ -1011,6 +1017,8 @@
     startInfo.textContent = 'いまの もくひょう：' + settings.goal + 'こ';
 
     if (ph !== 'start') {
+      var thanks = ph === 'celebrate';
+      bubbleThanks.hidden = !thanks; bubbleLead.hidden = thanks; reqGroup.hidden = thanks; reqPics.hidden = thanks;
       countBox.hidden = !active.showNumber;
       countNum.textContent = String(n);
       var kids = appleGrid.children;
@@ -1160,6 +1168,7 @@
     S.phase = 'celebrate';
     S.acceptAt = now() + PHASE_GUARD_MS;
     render();
+    speakThanks();                                  // once per delivery: only this guarded transition speaks it
     try { againBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ }
     announce((active.showNumber ? active.goal + 'こ、' : '') + 'うけとりました。ありがとう。');
     if (scanMode) { try { againBtn.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
