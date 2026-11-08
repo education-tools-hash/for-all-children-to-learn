@@ -140,14 +140,20 @@
 
   .tree-area { position: relative; min-height: 200px; display: flex; flex-direction: column; align-items: center; }
   .app[data-phase="complete"] .tree-area, .app[data-phase="delivering"] .tree-area, .app[data-phase="celebrate"] .tree-area { min-height: 0 !important; }
-  .app[data-phase="complete"] .canopy, .app[data-phase="delivering"] .canopy, .app[data-phase="celebrate"] .canopy { min-height: 64px !important; flex: 0 0 64px; }
+  /* after the harvest the tree gives its room to the deliver / again buttons: it shrinks with the viewport height
+     instead of being flattened to a fixed 64px (which made the canopy a 12:1 ellipse on an iPad in portrait) */
+  .app[data-phase="complete"] .canopy, .app[data-phase="delivering"] .canopy, .app[data-phase="celebrate"] .canopy { min-height: clamp(80px, 24vh, 300px) !important; flex: 0 0 clamp(80px, 24vh, 300px); }
   .canopy {
-    position: relative; flex: 1; width: 100%; min-height: 160px; background: #A9D29A; border: 3px solid #6FA062;
+    /* the width follows the height (never the other way round), so the canopy stays a rounded crown in every
+       phase and orientation; max-width keeps it inside the column on narrow screens */
+    position: relative; flex: 1; width: auto; max-width: 100%; aspect-ratio: 1.15 / 1; min-height: 160px; background: #A9D29A; border: 3px solid #6FA062;
     border-radius: 46% 54% 44% 56% / 52% 52% 48% 48%;
   }
-  .trunk { flex: none; width: 36px; height: 26px; background: #8A6642; border: 3px solid #5E4429; border-top: 0; border-radius: 0 0 4px 4px; }
+  /* the trunk scales gently with the screen so it keeps its proportion to the crown */
+  .trunk { flex: none; width: clamp(28px, 4.5vw, 44px); height: clamp(22px, 3.2vh, 40px); background: #8A6642; border: 3px solid #5E4429; border-top: 0; border-radius: 0 0 4px 4px; }
   .apple-grid { position: absolute; inset: 14px; display: grid; gap: 8px; justify-content: center; align-content: center; }
   .app[data-tight="1"] .apple-grid { inset: 8px; gap: 6px; }
+  .app[data-tight="1"] .canopy { aspect-ratio: auto; width: 100%; }   /* short landscape (phones): the crown must stay wide so ten 60px apples fit */
   .app[data-tight="1"] .trunk { height: 16px; }
   .app[data-tight="1"] .req-pics { display: none; }
   .app[data-tight="1"] .bubble { font-size: 1.125rem; padding: 6px 10px; }

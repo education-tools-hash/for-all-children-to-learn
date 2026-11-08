@@ -612,6 +612,65 @@ async function harvestN(page, n, how) {
     }
   }
 
+  /* ---------------- T23 the tree keeps its shape in every phase and orientation ----------------
+     Regression for: in portrait on an iPad the canopy was flattened to 64px high x 100% wide after the harvest
+     (a 12:1 ellipse) and the fixed 36x26 trunk looked stubby. Pure geometry: canopy aspect ratio, crown/trunk
+     contact, minimum crown size, apple target size, no overlap with basket / buttons, and a rotation. */
+  {
+    const geo = () => {
+      const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const c = r('#canopy'), tr = r('.trunk'), ba = r('#basketArea'), ac = r('#actions'), dv = r('#deliverBtn'), ag = r('#againBtn');
+      const inter = (a, b) => !!a && !!b && a.w > 0 && b.w > 0 && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1;
+      const apples = Array.from(document.querySelectorAll('.apple')).map((e) => e.getBoundingClientRect());
+      return {
+        phase: document.getElementById('app').dataset.phase, ratio: c.w / c.h, ch: c.h, cw: c.w,
+        trunkGap: Math.abs(tr.t - c.b), trunkH: tr.h, trunkCentered: Math.abs((tr.l + tr.r) / 2 - (c.l + c.r) / 2) < 4, trunkRatio: tr.h / c.h,
+        appleMin: apples.length ? Math.min(...apples.map((a) => Math.min(a.width, a.height))) : null,
+        applesInCanopy: apples.every((a) => a.left >= c.l - 1 && a.right <= c.r + 1 && a.top >= c.t - 1 && a.bottom <= c.b + 1),
+        overlapBasket: inter(c, ba), overlapActions: inter(c, ac) && (document.getElementById('app').dataset.phase !== 'harvest'),
+        deliverOk: !dv || dv.w === 0 || (dv.t >= 0 && dv.b <= innerHeight + 1), againOk: !ag || ag.w === 0 || (ag.t >= 0 && ag.b <= innerHeight + 1),
+        vw: innerWidth, vh: innerHeight
+      };
+    };
+    // short landscape (innerHeight <= 420, data-tight) keeps the wide crown on purpose so ten 60px apples fit; elsewhere the crown is a rounded 0.75..1.6 shape
+    const shapeOk = (g) => g.ratio >= 0.75 && g.ratio <= (g.vh <= 420 ? 2.6 : 1.6) && g.ch >= 72 && g.trunkGap <= 4 && g.trunkCentered && g.trunkRatio >= 0.04 && g.trunkH >= 16 && !g.overlapBasket && !g.overlapActions;
+    for (const [w, h] of [[390, 844], [768, 1024], [834, 1194], [1194, 834], [844, 390]]) {
+      for (const goal of [1, 10]) {
+        const tag = 'T23 ' + w + 'x' + h + ' goal=' + goal;
+        const { context, page } = await newPage(browser, { url: URL, viewport: { width: w, height: h }, reducedMotion: true, settings: { goal, operation: 'anywhere' } });
+        await startRun(page);
+        const g1 = await page.evaluate(geo);
+        ok(tag + ' harvest: crown ratio 0.75..1.6, trunk attached & centred, apples >= 60px inside the crown, no overlap', shapeOk(g1) && g1.appleMin >= 60 && g1.applesInCanopy, JSON.stringify(g1));
+        for (let i = 0; i < goal; i++) { await page.evaluate(() => document.getElementById('surface').click()); await sleep(420); }
+        await sleep(700);
+        const g2 = await page.evaluate(geo);
+        ok(tag + ' complete: crown keeps its shape (ratio ' + g2.ratio.toFixed(2) + ', ' + Math.round(g2.ch) + 'px high), deliver button on screen', g2.phase === 'complete' && shapeOk(g2) && g2.deliverOk, JSON.stringify(g2));
+        await page.evaluate(() => document.getElementById('deliverBtn').click());
+        await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'celebrate', null, { timeout: 6000 });
+        await sleep(300);
+        const g3 = await page.evaluate(geo);
+        ok(tag + ' celebrate: crown keeps its shape, again button on screen', shapeOk(g3) && g3.againOk, JSON.stringify(g3));
+        // rotate while celebrating, then back
+        await page.setViewportSize({ width: h, height: w }); await sleep(400);
+        const g4 = await page.evaluate(geo);
+        ok(tag + ' rotated (' + h + 'x' + w + '): crown still a crown, again button on screen', shapeOk(g4) && g4.againOk, JSON.stringify(g4));
+        await page.setViewportSize({ width: w, height: h }); await sleep(400);
+        ok(tag + ' rotated back: shape restored', shapeOk(await page.evaluate(geo)));
+        await context.close();
+      }
+    }
+    // delivering phase (with motion): the crown is already in its small form while the apples fly
+    {
+      const { context, page } = await newPage(browser, { url: URL, viewport: { width: 834, height: 1194 }, settings: { goal: 2, operation: 'anywhere' } });
+      await startRun(page);
+      for (let i = 0; i < 2; i++) { await page.evaluate(() => document.getElementById('surface').click()); await landWait(); }
+      await sleep(700); await page.evaluate(() => document.getElementById('deliverBtn').click()); await sleep(150);
+      const g = await page.evaluate(geo);
+      ok('T23 834x1194 delivering: crown ratio 0.75..1.6 while apples fly', g.phase === 'delivering' && shapeOk(g), JSON.stringify(g));
+      await context.close();
+    }
+  }
+
   /* ---------------- final: errors ---------------- */
   await browser.close(); srv.close();
   console.log('\nresult: ' + pass + ' passed, ' + fail + ' failed');
