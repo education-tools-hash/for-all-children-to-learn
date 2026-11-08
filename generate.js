@@ -3187,6 +3187,19 @@ function updateHomepageStructuredData(html, apps) {
   return injectStructuredDataBlock(html, jsonLd, 'MATERIALS');
 }
 
+// ヒーローの信頼バッジ「教材◯本」(index.html、Phase TOP-RENEWAL-D3で手書き)の件数を
+// apps-data.json の教材数へ自動で合わせる(TOP-PAGE-HERO-BADGE-APP-COUNT-1)。
+// 件数の数え方は構造化データの numberOfItems・APPS配列・app-intro.html の「すべて」
+// タブと同じ apps.length。置き換えるのは数字だけで、文言の形「教材◯本」とタグは変えない。
+// バッジがちょうど1つ見つかったときだけ置き換える(0件・複数件なら何もしない)。冪等。
+function updateHeroBadgeAppCount(html, apps) {
+  const re = /(<span class="hero-badge">教材)(\d+)(本<\/span>)/g;
+  const matches = html.match(re) || [];
+  if (matches.length !== 1) return { html, status: 'not-found' };
+  const next = html.replace(re, `$1${apps.length}$3`);
+  return { html: next, status: next === html ? 'unchanged' : 'updated' };
+}
+
 function updateHomepageSEO(apps) {
   const indexPath = './index.html';
   if (!fs.existsSync(indexPath)) {
@@ -3200,7 +3213,15 @@ function updateHomepageSEO(apps) {
 
   html = updateHomepageStructuredData(html, apps);
 
+  const badgeRes = updateHeroBadgeAppCount(html, apps);
+  html = badgeRes.html;
+
   fs.writeFileSync(indexPath, html, 'utf-8');
+  if (badgeRes.status === 'not-found') {
+    console.log('⚠️  index.html のヒーロー信頼バッジ「教材◯本」が見つからない(または複数ある)ため、件数の自動更新をスキップしました。');
+  } else {
+    console.log(`✅ index.html のヒーロー信頼バッジを「教材${apps.length}本」に${badgeRes.status === 'updated' ? '更新' : '維持'}しました`);
+  }
   console.log(`✅ index.html のホームページSEOを更新しました(og:image${ogRes.changed ? '追加' : '維持'} / 教材${apps.length}件のLearningResource構造化データ)`);
 }
 
