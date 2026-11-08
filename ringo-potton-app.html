@@ -800,7 +800,7 @@
   <h3>せってい（先生・支援者用）</h3>
   <p>右下の「アクセシビリティ設定」を ひらき、「このアプリの詳細設定を開く」を おします。あそんでいる 最中に ひらこうとすると、まず かくにんが 出ます。</p>
   <ul>
-    <li>とる りんごの かず（1〜10）。「ランダム」を おすと、いまと ちがう かずを えらびなおします</li>
+    <li>とる りんごの かず（1〜10）。「ランダム」を えらぶと、かつどうの たびに、まえと ちがう かずに なります</li>
     <li>そうさの しかた（りんごを タッチ／がめんの どこでも タッチ）</li>
     <li>こえの あんない（たのむ こえ・かぞえる こえ・おれいの こえ）・すうじの ひょうじ</li>
     <li>スイッチスキャンと その はやさ</li>
@@ -819,7 +819,7 @@
      constants
   ===================================================================== */
   var SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
-  var DEFAULTS = { goal: 3, operation: 'apple', againAnywhere: false, voice: true, showNumber: true, scanSpeed: 'normal' };
+  var DEFAULTS = { goal: 3, goalMode: 'fixed', operation: 'apple', againAnywhere: false, voice: true, showNumber: true, scanSpeed: 'normal' };
   var SCAN_MS = { slow: 3500, normal: 2500, fast: 1500 };
   var FALL_MS = 650;          // apple flight time (0 under reduced motion)
   var LAND_GUARD_MS = 350;    // quiet time after an apple lands
@@ -853,6 +853,7 @@
     var g = parseInt(o.goal, 10);
     return {
       goal: (g >= 1 && g <= 10) ? g : DEFAULTS.goal,
+      goalMode: o.goalMode === 'random' ? 'random' : 'fixed',   // absent in older saved data -> fixed (the saved goal is kept)
       operation: o.operation === 'anywhere' ? 'anywhere' : 'apple',
       againAnywhere: o.againAnywhere === true,
       voice: o.voice !== false,
@@ -871,7 +872,7 @@
      canonical state: the harvested count is DERIVED from landed apples, so it
      can never exceed the goal and one apple can never be counted twice.
   ===================================================================== */
-  var S = { phase: 'start', runId: 0, apples: [], acceptAt: 0, timers: [], flyers: [], viaKeyboard: false };
+  var S = { phase: 'start', runId: 0, apples: [], acceptAt: 0, timers: [], flyers: [], viaKeyboard: false, lastGoal: null };   // lastGoal: goal of the activity most recently STARTED (random mode avoids it)
   function now() { return performance.now(); }
   function harvested() { var n = 0; for (var i = 0; i < S.apples.length; i++) if (S.apples[i].status === 'landed') n++; return n; }
   function anyFalling() { for (var i = 0; i < S.apples.length; i++) if (S.apples[i].status === 'falling') return true; return false; }
@@ -1018,7 +1019,7 @@
     appEl.setAttribute('data-op', active.operation);
     startScreen.hidden = ph !== 'start';
     playScreen.hidden = ph === 'start';
-    startInfo.textContent = 'いまの もくひょう：' + settings.goal + 'こ';
+    startInfo.textContent = settings.goalMode === 'random' ? 'いまの もくひょう：ランダム（1〜10）' : 'いまの もくひょう：' + settings.goal + 'こ';
 
     if (ph !== 'start') {
       var thanks = ph === 'celebrate';
@@ -1068,6 +1069,8 @@
     clearTimers();
     stopSpeech();
     active = sanitize(settings);              // settings apply from the next activity
+    if (active.goalMode === 'random') active.goal = drawRandomGoal();   // decided here, at the start of the activity, never earlier
+    S.lastGoal = active.goal;                 // the activity is now starting: a restart, "again" or whole-screen again all avoid this value next time
     S.apples = [];
     for (var i = 0; i < active.goal; i++) S.apples.push({ id: i, status: 'ripe' });
     S.phase = 'harvest';
@@ -1227,20 +1230,22 @@
     var gb = document.createElement('button'); gb.type = 'button'; gb.className = 'opt-btn'; gb.setAttribute('data-goal', String(g)); gb.setAttribute('aria-pressed', 'false');
     gb.textContent = String(g); gb.setAttribute('aria-label', g + 'こ'); goalGroup.appendChild(gb);
   }
-  // "ランダム": an action, not a mode. One press picks a new goal (1..10) that differs from the selected
-  // goal and, during an activity, from the goal being played; it is then stored exactly like a pressed
-  // number button (same settings.goal, same storage key, same "from the next activity" rule).
+  // "ランダム": a MODE (settings.goalMode). While it is selected, every activity start draws a new goal 1..10
+  // that differs from the activity started just before; the saved fixed goal (settings.goal) is kept untouched
+  // so switching back to a number restores it. Same storage key; "from the next activity" rule as usual.
   var goalRandomBtn = document.createElement('button');
   goalRandomBtn.type = 'button'; goalRandomBtn.className = 'opt-btn'; goalRandomBtn.id = 'goalRandomBtn';
-  goalRandomBtn.textContent = 'ランダム'; goalRandomBtn.setAttribute('aria-label', 'かずを ランダムに えらびなおす');
+  goalRandomBtn.textContent = 'ランダム'; goalRandomBtn.setAttribute('aria-label', 'ランダム（かつどうごとに かずが かわる）'); goalRandomBtn.setAttribute('aria-pressed', 'false');
   goalGroup.appendChild(goalRandomBtn);
-  function pickRandomGoal() {
+  function drawRandomGoal() {
     var pool = [];
-    for (var g = 1; g <= 10; g++) if (g !== settings.goal && (S.phase === 'start' || g !== active.goal)) pool.push(g);
+    for (var g = 1; g <= 10; g++) if (g !== S.lastGoal) pool.push(g);   // first activity: lastGoal is null, so all ten
     return pool[Math.floor(Math.random() * pool.length)];
   }
   function syncSettingsUI() {
-    Array.prototype.forEach.call(goalGroup.querySelectorAll('[data-goal]'), function (b) { b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-goal'), 10) === settings.goal)); });   // the random button is an action: no pressed state
+    // exactly one of the eleven goal buttons is pressed: the fixed number, or ランダム
+    Array.prototype.forEach.call(goalGroup.querySelectorAll('[data-goal]'), function (b) { b.setAttribute('aria-pressed', String(settings.goalMode === 'fixed' && parseInt(b.getAttribute('data-goal'), 10) === settings.goal)); });
+    goalRandomBtn.setAttribute('aria-pressed', String(settings.goalMode === 'random'));
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-op]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-op') === settings.operation)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-again]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-again') === '1') === settings.againAnywhere)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-voice]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-voice') === '1') === settings.voice)); });
@@ -1252,16 +1257,18 @@
     updatePendingNote();
   }
   function updatePendingNote() {
-    var differs = S.phase !== 'start' && (settings.goal !== active.goal || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.showNumber !== active.showNumber);
+    // in random mode active.goal is the drawn number, so only the mode (and, in fixed mode, the number) counts as a pending change
+    var goalDiffers = settings.goalMode !== active.goalMode || (settings.goalMode === 'fixed' && settings.goal !== active.goal);
+    var differs = S.phase !== 'start' && (goalDiffers || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.showNumber !== active.showNumber);
     pendingNote.hidden = !differs;
   }
   settingsSheet.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
-    if (b.hasAttribute('data-goal')) settings.goal = parseInt(b.getAttribute('data-goal'), 10);
+    if (b.hasAttribute('data-goal')) { settings.goal = parseInt(b.getAttribute('data-goal'), 10); settings.goalMode = 'fixed'; }
     else if (b === goalRandomBtn) {
-      settings.goal = pickRandomGoal();
+      settings.goalMode = 'random';           // the number itself is drawn when the next activity starts
       // ARIA only (works with the voice guidance OFF); the request voice is spoken by the next activity, never here
-      announce(S.phase === 'start' ? settings.goal + 'こに しました' : 'つぎの かつどうは ' + settings.goal + 'こ');
+      announce(S.phase === 'start' ? 'ランダムに しました' : 'つぎの かつどうから ランダム');
     }
     else if (b.hasAttribute('data-op')) settings.operation = b.getAttribute('data-op') === 'anywhere' ? 'anywhere' : 'apple';
     else if (b.hasAttribute('data-again')) settings.againAnywhere = b.getAttribute('data-again') === '1';
