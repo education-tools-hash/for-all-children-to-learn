@@ -495,6 +495,123 @@ async function harvestN(page, n, how) {
     await context.close();
   }
 
+  /* ---------------- T21 anywhere mode: the whole viewport is the surface (landscape) ----------------
+     Regression for: in a landscape Safari window the left margin beside the centred (max 1100px) stage and the
+     empty space below the basket did not harvest. Taps are made by viewport COORDINATES, not on the element. */
+  for (const [w, h] of [[1366, 1024], [1180, 820], [844, 390]]) {
+    const tag = 'T21 ' + w + 'x' + h;
+    const { context, page } = await newPage(browser, { url: URL, viewport: { width: w, height: h }, settings: { goal: 3, operation: 'anywhere' } });
+    await startRun(page);
+    const pts = await page.evaluate(() => {
+      const stage = document.getElementById('stage').getBoundingClientRect();
+      const basket = document.getElementById('basketArea').getBoundingClientRect();
+      const at = (x, y) => { const e = document.elementFromPoint(x, y); return e ? (e.id || e.className || e.tagName) : 'none'; };
+      const left = { x: Math.max(4, Math.floor(stage.left / 2)), y: Math.floor(innerHeight / 2) };            // margin / stage padding left of the play area
+      const below = { x: Math.floor(basket.left + basket.width / 2), y: Math.min(innerHeight - 8, Math.floor(basket.bottom + 24)) }; // empty cell under the basket
+      const bottom = { x: Math.floor(basket.left + basket.width / 2), y: innerHeight - 16 };                   // bottom of the left column
+      return { stageLeft: stage.left, left, below, bottom, atLeft: at(left.x, left.y), atBelow: at(below.x, below.y), atBottom: at(bottom.x, bottom.y) };
+    });
+    ok(tag + ': left margin / below basket / column bottom all hit the surface', pts.atLeft === 'surface' && pts.atBelow === 'surface' && pts.atBottom === 'surface', JSON.stringify(pts));
+    await page.mouse.click(pts.left.x, pts.left.y); await landWait();
+    ok(tag + ': tap in the left margin => 1 harvest', (await harvested(page)) === 1, String(await harvested(page)));
+    await page.mouse.click(pts.below.x, pts.below.y); await landWait();
+    ok(tag + ': tap below the basket => 2 harvests', (await harvested(page)) === 2, String(await harvested(page)));
+    await page.mouse.click(pts.bottom.x, pts.bottom.y); await landWait(); await sleep(300);
+    ok(tag + ': tap at the column bottom => 3 harvests, complete', (await harvested(page)) === 3 && (await phase(page)) === 'complete');
+    // the real buttons and the common chrome stay on top of the surface
+    const hits = await page.evaluate(() => {
+      const c = (id) => { const b = document.getElementById(id); const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return e === b || b.contains(e); };
+      return { deliver: c('deliverBtn'), home: c('donomanaHomeBtn'), a11y: c('donomanaA11yBtn'), help: c('donomanaHelpBtn') };
+    });
+    ok(tag + ': deliver button and home / a11y / help chrome are tappable above the surface', hits.deliver && hits.home && hits.a11y && hits.help, JSON.stringify(hits));
+    await sleep(400);
+    await page.mouse.click(pts.left.x, pts.left.y);          // "anywhere" deliver from the left margin
+    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'celebrate', null, { timeout: 6000 });
+    ok(tag + ': deliver by a left-margin tap => celebrate', (await phase(page)) === 'celebrate');
+    ok(tag + ': no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+  /* T21b the reproduction path: switch to anywhere mid-activity, restart from the sheet, then tap the left margin */
+  {
+    const { context, page } = await newPage(browser, { url: URL, viewport: { width: 1366, height: 1024 }, settings: { goal: 2, operation: 'apple' } });
+    await startRun(page);
+    await page.click('#donomanaA11yBtn'); await page.click('#donomanaSettingsProxy'); await page.click('#scOpen');
+    await page.click('[data-op="anywhere"]');
+    ok('T21b operation change is pending until the next activity', (await attr(page, 'data-op')) === 'apple' && await page.isHidden('#surface'));
+    await page.click('#restartBtn'); await sleep(800);
+    ok('T21b restart applies anywhere mode', (await attr(page, 'data-op')) === 'anywhere' && await page.isVisible('#surface'));
+    const p = await page.evaluate(() => { const s = document.getElementById('stage').getBoundingClientRect(); return { x: Math.floor(s.left / 2), y: Math.floor(innerHeight / 2) }; });
+    await page.mouse.click(p.x, p.y); await landWait();
+    ok('T21b left-margin tap after the restart => 1 harvest', (await harvested(page)) === 1 && p.x > 0, JSON.stringify(p) + ' h=' + (await harvested(page)));
+    await context.close();
+  }
+
+  /* ---------------- T22 the fixed surface is only ever live when it should be (safety of the T21 fix) ---------------- */
+  {
+    const W = 1366, H = 1024;
+    // a point in the left margin beside the centred stage, by viewport coordinates
+    const margin = (page) => page.evaluate(() => { const s = document.getElementById('stage').getBoundingClientRect(); return { x: Math.floor(s.left / 2), y: Math.floor(innerHeight / 2) }; });
+    const hit = (page, p) => page.evaluate(({ x, y }) => { const e = document.elementFromPoint(x, y); return e ? (e.id || e.className || e.tagName) : 'none'; }, p);
+
+    // apple mode: no surface anywhere, a margin tap harvests nothing (no regression for the default mode)
+    {
+      const { context, page } = await newPage(browser, { url: URL, viewport: { width: W, height: H }, settings: { goal: 2, operation: 'apple' } });
+      const p0 = await margin(page);
+      ok('T22 start screen: surface hidden', await page.isHidden('#surface') && (await hit(page, p0)) !== 'surface');
+      await startRun(page);
+      ok('T22 apple mode: surface hidden, margin point is not the surface', await page.isHidden('#surface') && (await hit(page, p0)) !== 'surface', await hit(page, p0));
+      await page.mouse.click(p0.x, p0.y); await landWait();
+      ok('T22 apple mode: margin tap harvests nothing', (await harvested(page)) === 0);
+      await page.click('.apple[data-status="ripe"]'); await landWait();
+      ok('T22 apple mode: tapping an apple still harvests', (await harvested(page)) === 1);
+      await context.close();
+    }
+
+    // anywhere mode: overlays, phases, duplicate input, rotation
+    {
+      const { context, page } = await newPage(browser, { url: URL, viewport: { width: W, height: H }, settings: { goal: 2, operation: 'anywhere', againAnywhere: false } });
+      await startRun(page);
+      const p = await margin(page);
+      // help sheet open: the stage is inert, a tap on the visible background must not harvest
+      await page.click('#donomanaHelpBtn'); await sleep(200);
+      await page.mouse.click(p.x, 200); await sleep(400);
+      ok('T22 help open: background tap does not harvest', (await harvested(page)) === 0 && await page.isVisible('#helpSheet'));
+      await page.click('#helpClose'); await sleep(700);
+      // confirmation bar (settings requested mid-activity): same
+      await page.click('#donomanaA11yBtn'); await page.click('#donomanaSettingsProxy'); await sleep(150);
+      ok('T22 confirm bar shown', await page.isVisible('#settingsConfirm'));
+      await page.mouse.click(p.x, 200); await sleep(400);
+      ok('T22 confirm bar open: background tap does not harvest', (await harvested(page)) === 0);
+      await page.click('#scOpen'); await sleep(150);
+      await page.mouse.click(p.x, 200); await sleep(400);
+      ok('T22 settings sheet open: background tap does not harvest', (await harvested(page)) === 0);
+      await page.click('#settingsClose'); await sleep(700);
+      // two coordinate taps in one flight: exactly one harvest
+      await page.mouse.click(p.x, p.y); await page.mouse.click(p.x, p.y); await sleep(1300);
+      ok('T22 double margin tap in one flight => exactly 1 harvest', (await harvested(page)) === 1, String(await harvested(page)));
+      // rotate to portrait and back: the live surface follows the viewport
+      await page.setViewportSize({ width: H, height: W }); await sleep(500);
+      ok('T22 portrait: left edge is the surface', (await hit(page, { x: 6, y: Math.floor(W / 2) })) === 'surface');
+      await page.mouse.click(6, Math.floor(W / 2)); await landWait(); await sleep(300);
+      ok('T22 portrait left-edge tap => 2nd harvest, complete', (await harvested(page)) === 2 && (await phase(page)) === 'complete');
+      await page.setViewportSize({ width: W, height: H }); await sleep(500);
+      const right = { x: W - Math.floor(p.x), y: p.y };
+      ok('T22 back to landscape: right margin is the surface', (await hit(page, right)) === 'surface');
+      // deliver by a right-margin tap; while delivering the surface is hidden; afterwards (againAnywhere=false) it stays hidden
+      await sleep(400);
+      await page.mouse.click(right.x, right.y); await sleep(120);
+      ok('T22 delivering: surface hidden, margin point is not the surface', (await phase(page)) === 'delivering' && await page.isHidden('#surface') && (await hit(page, right)) !== 'surface');
+      await page.mouse.click(right.x, right.y); await page.mouse.click(p.x, p.y);
+      await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'celebrate', null, { timeout: 6000 });
+      await sleep(800);
+      await page.mouse.click(p.x, p.y); await sleep(500);
+      ok('T22 celebrate with againAnywhere=false: surface hidden, margin taps never restart', (await phase(page)) === 'celebrate' && await page.isHidden('#surface'));
+      ok('T22 again button itself is tappable', await page.evaluate(() => { const b = document.getElementById('againBtn'); const r = b.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return e === b || b.contains(e); }));
+      ok('T22 no errors', page.__errors.length === 0, page.__errors.join('|'));
+      await context.close();
+    }
+  }
+
   /* ---------------- final: errors ---------------- */
   await browser.close(); srv.close();
   console.log('\nresult: ' + pass + ' passed, ' + fail + ' failed');
