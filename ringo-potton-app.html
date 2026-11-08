@@ -819,6 +819,8 @@
   var PHASE_GUARD_MS = 600;   // quiet time after a screen change (blocks a carry-over tap)
   var DELIVER_FLY_MS = 600, DELIVER_STAGGER_MS = 80;
   var READINGS = ['', 'いち', 'に', 'さん', 'よん', 'ご', 'ろく', 'なな', 'はち', 'きゅう', 'じゅう'];
+  // request voice: "りんごを ○こ、とってね". Counter readings written in kana so every voice says them naturally (いっこ, ろっこ, はっこ, じゅっこ).
+  var REQUEST_READINGS = ['', 'いっこ', 'にこ', 'さんこ', 'よんこ', 'ごこ', 'ろっこ', 'ななこ', 'はっこ', 'きゅうこ', 'じゅっこ'];
 
   /* =====================================================================
      elements
@@ -901,23 +903,30 @@
     var s = synth(); if (!s || !settings.voice) return;
     try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'ja-JP'; s.speak(u); } catch (e) { /* ignore */ }
   }
+  var requestSeq = -1;   // speakSeq of the request utterance while it is the latest one (else -1)
   function stopSpeech() { speakSeq++; var s = synth(); if (s) { try { s.cancel(); } catch (e) { /* ignore */ } } }
-  function speakCount(n) {
-    if (!settings.voice) return;
-    var s = synth(); if (!s) return;
+  function speakCount(n) { speakText(READINGS[n] || String(n)); }
+  // spoken once per activity, from beginRun() only (never from render), so a redraw / resize cannot repeat it
+  function speakRequest(goal) { if (speakText('りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + '、とってね')) requestSeq = speakSeq; }
+  // the request must never run on into the counting: the first harvest input cuts it
+  function stopRequestSpeech() { if (requestSeq !== -1 && requestSeq === speakSeq) stopSpeech(); requestSeq = -1; }
+  function speakText(text) {
+    if (!settings.voice) return false;
+    var s = synth(); if (!s) return false;
     var mySeq = ++speakSeq;
     try { s.cancel(); } catch (e) { /* ignore */ }
     // A short gap after cancel() keeps iPad Safari from dropping the utterance. Re-check at fire time.
     setTimeout(function () {
       if (mySeq !== speakSeq || !settings.voice) return;
       try {
-        var u = new SpeechSynthesisUtterance(READINGS[n] || String(n));
+        var u = new SpeechSynthesisUtterance(text);
         u.lang = 'ja-JP'; u.rate = 0.8;
         var v = pickVoice(s); if (v) u.voice = v;
         u.onerror = function () {};
         s.speak(u);
       } catch (e) { /* speech failure never blocks the activity */ }
     }, 60);
+    return true;
   }
   document.addEventListener('visibilitychange', function () { if (document.hidden) stopSpeech(); });
   window.addEventListener('pagehide', stopSpeech);
@@ -1057,6 +1066,7 @@
     render();
     layoutSizes();
     announce('りんごを ' + active.goal + 'こ とります。');
+    speakRequest(active.goal);                // after stopSpeech() above, so a restart speaks only the new goal
   }
 
   function canAccept(phase) {
@@ -1073,6 +1083,7 @@
     if (!a || a.status !== 'ripe') return;
     a.status = 'falling';                           // synchronous: any further event for this apple is now ignored
     S.acceptAt = Infinity;                          // re-opened only when this apple has landed
+    stopRequestSpeech();                            // a request still being spoken never overlaps the counting
     var rid = S.runId;
     var slotIndex = harvested();                    // the slot this apple will fill
     var el = appleGrid.children[a.id];

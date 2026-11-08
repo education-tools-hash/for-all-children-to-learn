@@ -74,7 +74,8 @@ async function newPage(browser, opts) {
 const attr = (page, a) => page.getAttribute('#app', a);
 const harvested = async (page) => parseInt(await attr(page, 'data-harvested'), 10);
 const phase = (page) => attr(page, 'data-phase');
-const speech = (page) => page.evaluate(() => window.__sp.filter((t) => t !== 'CANCEL' && t.trim() !== ''));
+// counting utterances only; the request voice ("りんごを ○こ、とってね") is covered by ringo-potton-request-voice-test.js
+const speech = (page) => page.evaluate(() => window.__sp.filter((t) => t !== 'CANCEL' && t.trim() !== '' && !/とってね$/.test(t)));
 async function startRun(page) { await page.click('#startBtn'); await sleep(700); }
 // wait until an apple has landed (flight 650ms + margin)
 const landWait = () => sleep(1100);
