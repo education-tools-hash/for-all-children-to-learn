@@ -918,15 +918,78 @@
     var s = synth(); if (!s || !settings.voice) return;
     try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'ja-JP'; s.speak(u); } catch (e) { /* ignore */ }
   }
-  var requestSeq = -1;   // speakSeq of the request utterance while it is the latest one (else -1)
-  function stopSpeech() { speakSeq++; var s = synth(); if (s) { try { s.cancel(); } catch (e) { /* ignore */ } } }
+  var requestSeq = -1;   // speakSeq of the (synthesised) request utterance while it is the latest one (else -1)
+
+  /* ---- the farmer's own voice: recorded files for the request and the thanks ----
+     assets/ringo-potton/voice/ringo-<goal>.mp3 (1..10) and arigatou.mp3, created once and preloaded.
+     Only these two phrases use files; the counting voice stays synthesised. Playback is never part of the
+     progression: a file that cannot be played falls back to the synthesised voice with the same words, and
+     every failure is swallowed. All stops go through stopVoiceFiles(), which stopSpeech() also calls. */
+  var VOICE_DIR = 'assets/ringo-potton/voice/';
+  var voiceFiles = {};            // 1..10 -> Audio (request), 'thanks' -> Audio
+  var voiceFileLive = null;       // the element currently meant to be heard, else null
+  var voiceRequestLive = false;   // the live element is the request (so the first harvest input can cut it)
+  var voicePlayToken = 0;         // bumped by every stop: a late play() rejection of a stopped file is not a failure
+  function makeVoiceFile(name) {
+    try { var a = new Audio(VOICE_DIR + name); a.preload = 'auto'; a.playbackRate = 1; a.volume = 1; return a; } catch (e) { return null; }
+  }
+  (function () {
+    if (typeof Audio === 'undefined') return;
+    for (var g = 1; g <= 10; g++) voiceFiles[g] = makeVoiceFile('ringo-' + g + '.mp3');
+    voiceFiles.thanks = makeVoiceFile('arigatou.mp3');
+  })();
+  function stopVoiceFiles() {
+    voicePlayToken++; voiceFileLive = null; voiceRequestLive = false;
+    for (var k in voiceFiles) { var a = voiceFiles[k]; if (!a) continue; try { a.pause(); a.currentTime = 0; } catch (e) { /* ignore */ } }
+  }
+  // "はじめる" is the first user gesture. A muted play()/pause() of every file inside that gesture primes them on
+  // iPad Safari, so the thanks (which plays outside any gesture, after the delivery) is allowed later. It is never
+  // mistaken for a request: muted, paused as soon as it starts, and the file that beginRun() makes live is left alone.
+  function unlockVoiceFiles() {
+    if (!settings.voice) return;
+    for (var k in voiceFiles) (function (a) {
+      if (!a) return;
+      try {
+        a.muted = true;
+        var p = a.play();
+        var done = function () { if (voiceFileLive !== a) { try { a.pause(); a.currentTime = 0; } catch (e) { /* ignore */ } } a.muted = false; };
+        if (p && p.then) p.then(done, done); else done();
+      } catch (e) { try { a.muted = false; } catch (e2) { /* ignore */ } }
+    })(voiceFiles[k]);
+  }
+  function speakFallback(text, isRequest) { if (speakText(text) && isRequest) requestSeq = speakSeq; }
+  // play one file right now (no deferral: the request is started inside the user's gesture); any failure -> fallback
+  function playVoiceFile(a, fallbackText, isRequest) {
+    if (!settings.voice) return;
+    stopVoiceFiles();                                   // one farmer voice at a time: never two files together
+    if (!a) { speakFallback(fallbackText, isRequest); return; }
+    var token = voicePlayToken, fellBack = false;
+    voiceFileLive = a; voiceRequestLive = !!isRequest;
+    var fail = function () {
+      if (fellBack || token !== voicePlayToken) return; // already handled, or stopped / superseded on purpose
+      fellBack = true; voiceFileLive = null; voiceRequestLive = false;
+      speakFallback(fallbackText, isRequest);
+    };
+    try {
+      a.muted = false; a.currentTime = 0; a.onerror = fail;
+      if (a.error) { fail(); return; }                  // the file never loaded: say it with the synthesised voice instead
+      var p = a.play();
+      if (p && p.catch) p.catch(fail);
+    } catch (e) { fail(); }
+  }
+  function stopSpeech() { speakSeq++; stopVoiceFiles(); var s = synth(); if (s) { try { s.cancel(); } catch (e) { /* ignore */ } } }
   function speakCount(n) { speakText(READINGS[n] || String(n)); }
+  function requestText(goal) { return 'りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + '、とってね'; }
   // spoken once per activity, from beginRun() only (never from render), so a redraw / resize cannot repeat it
-  function speakRequest(goal) { if (speakText('りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + '、とってね')) requestSeq = speakSeq; }
-  // the request must never run on into the counting: the first harvest input cuts it
-  function stopRequestSpeech() { if (requestSeq !== -1 && requestSeq === speakSeq) stopSpeech(); requestSeq = -1; }
+  function speakRequest(goal) { playVoiceFile(voiceFiles[goal], requestText(goal), true); }
+  // the request must never run on into the counting: the first harvest input cuts it (the file or its fallback)
+  function stopRequestSpeech() {
+    if (voiceRequestLive) stopVoiceFiles();
+    if (requestSeq !== -1 && requestSeq === speakSeq) stopSpeech();
+    requestSeq = -1;
+  }
   // the farmer thanks the child for the delivery (not praise for a correct answer): one fixed phrase, always the same
-  function speakThanks() { speakText('ありがとう！'); }
+  function speakThanks() { playVoiceFile(voiceFiles.thanks, 'ありがとう！', false); }
   function speakText(text) {
     if (!settings.voice) return false;
     var s = synth(); if (!s) return false;
@@ -1200,6 +1263,7 @@
   startBtn.addEventListener('click', function () {
     if (S.phase !== 'start' || overlayActive()) return;
     unlockSpeech();                               // first user gesture enables speech on iPad Safari
+    unlockVoiceFiles();                           // and primes the recorded voice files (muted) for the same reason
     beginRun();
   });
   appleGrid.addEventListener('click', function (e) {

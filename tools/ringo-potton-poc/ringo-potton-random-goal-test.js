@@ -7,18 +7,21 @@
 //   node tools/ringo-potton-poc/ringo-potton-random-goal-test.js
 // It starts its own static server on an ephemeral port and exits non-zero on any failure.
 //
-// SCOPE / HONESTY: Chromium on Linux with a stubbed speechSynthesis. It proves what the app asks the speech
+// Since the voice-files Phase the request is a recorded file (assets/ringo-potton/voice/ringo-<goal>.mp3); this
+// suite checks WHICH file is played at each activity start (stubbed HTMLAudioElement) instead of a synthesised text.
+// SCOPE / HONESTY: Chromium on Linux with a stubbed speechSynthesis and a stubbed HTMLAudioElement. It proves what the app asks the speech
 // engine to say and what the ARIA live regions / aria-pressed receive; it is NOT an iPad Safari, VoiceOver,
 // Bluetooth-switch or real-touch result and must never be reported as one.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { SPEECH_STUB, AUDIO_STUB, base } = require('./ringo-potton-voice-stubs');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.css': 'text/css' };
-const EXPECTED = ['', 'いっこ', 'にこ', 'さんこ', 'よんこ', 'ごこ', 'ろっこ', 'ななこ', 'はっこ', 'きゅうこ', 'じゅっこ'].map((r) => r && 'りんごを ' + r + '、とってね');
+const EXPECTED = ['', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((g) => g && 'ringo-' + g + '.mp3');   // the request FILE for each goal
 
 let pass = 0, fail = 0;
 function ok(name, cond, detail) {
@@ -42,26 +45,11 @@ function startServer() {
   });
 }
 
-// same stub as the other ringo-potton suites: records speak() text and cancel(), never fires onend
-const SPEECH_STUB = `
-  (function () {
-    window.__sp = [];
-    function U(t) { this.text = t; this.lang = ''; this.rate = 1; this.volume = 1; }
-    window.SpeechSynthesisUtterance = U;
-    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
-      speaking: false, pending: false,
-      speak: function (u) { window.__sp.push(u.text); },
-      cancel: function () { window.__sp.push('CANCEL'); },
-      getVoices: function () { return []; },
-      addEventListener: function () {}, removeEventListener: function () {}
-    } });
-  })();
-`;
-
 async function newPage(browser, opts) {
   opts = opts || {};
   const context = await browser.newContext({ viewport: opts.viewport || { width: 390, height: 844 }, reducedMotion: opts.reducedMotion ? 'reduce' : 'no-preference' });
   await context.addInitScript(SPEECH_STUB);
+  await context.addInitScript(AUDIO_STUB);
   if (opts.settings !== undefined) {
     await context.addInitScript(({ k, v }) => { if (!sessionStorage.getItem('__seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, { k: SETTINGS_KEY, v: typeof opts.settings === 'string' ? opts.settings : JSON.stringify(opts.settings) });
   }
@@ -77,7 +65,8 @@ const harvested = async (page) => parseInt(await attr(page, 'data-harvested'), 1
 const phase = (page) => attr(page, 'data-phase');
 const dataGoal = async (page) => parseInt(await attr(page, 'data-goal'), 10);
 const spoken = (page) => page.evaluate(() => window.__sp.filter((t) => t !== 'CANCEL' && t.trim() !== ''));
-const requests = async (page) => (await spoken(page)).filter((t) => /とってね$/.test(t));
+const plays = async (page) => (await page.evaluate(() => (window.__au || []).slice())).filter((e) => e.op === 'play' && !e.muted).map((e) => base(e.src));
+const requests = async (page) => (await plays(page)).filter((f) => /^ringo-\d+\.mp3$/.test(f));   // audible request files, in order
 const saved = (page) => page.evaluate((k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return 'ERR'; } }, SETTINGS_KEY);
 const pressed = (page) => page.evaluate(() => Array.from(document.querySelectorAll('#goalGroup button')).filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.getAttribute('data-goal') || b.id));
 const polite = (page) => page.evaluate(() => (document.getElementById('donomanaAnnouncePolite') || {}).textContent || '');
@@ -135,11 +124,11 @@ async function finishAndAgain(page) {
     ok('R1 random selected: goalMode random, saved goal 3 kept', sv.goalMode === 'random' && sv.goal === 3, J(sv));
     ok('R1 random selected: ランダム is the only pressed button', J(await pressed(page)) === J(['goalRandomBtn']), J(await pressed(page)));
     ok('R1 start info says ランダム（1〜10）, no pending note, ARIA「ランダムに しました」', (await page.textContent('#startInfo')) === 'いまの もくひょう：ランダム（1〜10）' && await page.isHidden('#pendingNote') && (await polite(page)) === 'ランダムに しました', await polite(page));
-    ok('R1 selecting the mode speaks nothing and starts nothing', (await spoken(page)).length === 0 && (await phase(page)) === 'start');
+    ok('R1 selecting the mode speaks nothing, plays nothing and starts nothing', (await spoken(page)).length === 0 && (await plays(page)).length === 0 && (await phase(page)) === 'start');
     await closeSettings(page);
     await startRun(page);
     const s1 = await synced(page);
-    ok('R1 first random activity: goal 1..10, apples / slots / number / request voice all = N', s1.ok, J(s1));
+    ok('R1 first random activity: goal 1..10, apples / slots / number / request file all = N', s1.ok, J(s1));
     ok('R1 no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
   }
@@ -150,7 +139,7 @@ async function finishAndAgain(page) {
     await startRun(page);
     for (let i = 0; i < 3; i++) await finishAndAgain(page);
     const reqs = await requests(page);
-    ok('R2 fixed 2, three times「もう いちど」: goal stays 2, all four requests say にこ', (await dataGoal(page)) === 2 && reqs.length === 4 && reqs.every((t) => t === EXPECTED[2]), J(reqs));
+    ok('R2 fixed 2, three times「もう いちど」: goal stays 2, all four request files are ringo-2.mp3', (await dataGoal(page)) === 2 && reqs.length === 4 && reqs.every((t) => t === EXPECTED[2]), J(reqs));
     await context.close();
   }
 
@@ -166,7 +155,7 @@ async function finishAndAgain(page) {
     const distinct = new Set(seq).size;
     const okSeq = seq.every(inRange) && seq.every((g, i) => i === 0 || g !== seq[i - 1]);
     ok('R3 31 random activities: all 1..10, never equal to the previous activity', okSeq, J(seq));
-    ok('R3 every activity in sync (apples = slots = number = request voice)', allSynced);
+    ok('R3 every activity in sync (apples = slots = number = request file)', allSynced);
     ok('R3 at least 7 distinct goals over 31 activities', distinct >= 7, String(distinct));
     await openSettings(page);
     ok('R3 after 31 activities: ランダム still the only pressed button, no pending note', J(await pressed(page)) === J(['goalRandomBtn']) && await page.isHidden('#pendingNote'), J(await pressed(page)));
@@ -179,11 +168,11 @@ async function finishAndAgain(page) {
     const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3 }, reducedMotion: true });
     await startRun(page);
     await page.evaluate(() => document.querySelector('.apple[data-status="ripe"]').click()); await sleep(500);
-    const before = await spoken(page);
+    const before = J([await spoken(page), await plays(page)]);
     await openSettings(page);
     await page.click('#goalRandomBtn'); await sleep(150);
     ok('R4 mid-activity: pending note shown, activity untouched (goal 3, 3 apples, 1 harvested, harvest)', await page.isVisible('#pendingNote') && (await dataGoal(page)) === 3 && (await counts(page)).apples === 3 && (await harvested(page)) === 1 && (await phase(page)) === 'harvest');
-    ok('R4 mid-activity: ARIA「つぎの かつどうから ランダム」, no new utterance', (await polite(page)) === 'つぎの かつどうから ランダム' && J(await spoken(page)) === J(before), await polite(page));
+    ok('R4 mid-activity: ARIA「つぎの かつどうから ランダム」, no new utterance and no new file play', (await polite(page)) === 'つぎの かつどうから ランダム' && J([await spoken(page), await plays(page)]) === before, await polite(page));
     await closeSettings(page);
     await finishAndAgain(page);
     const a = await synced(page);
@@ -214,7 +203,7 @@ async function finishAndAgain(page) {
     }
     ok('R5 15 restarts mid-flight: every new goal 1..10 and != the activity just restarted', seq.every(inRange) && seq.every((g, i) => i === 0 || g !== seq[i - 1]), J(seq));
     ok('R5 each restarted run is clean (0 harvested, no flyer, apples = goal, all ripe)', clean);
-    ok('R5 last request voice matches the current goal (old run never speaks into the new one)', (await synced(page)).ok, J(await synced(page)));
+    ok('R5 last request file matches the current goal (old run never plays into the new one)', (await synced(page)).ok, J(await synced(page)));
     ok('R5 no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
   }
@@ -337,9 +326,9 @@ async function finishAndAgain(page) {
   {
     const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3, voice: false } });
     await openSettings(page); await page.click('#goalRandomBtn'); await sleep(150);
-    ok('R13 voice OFF: nothing spoken, ARIA「ランダムに しました」', (await spoken(page)).length === 0 && (await polite(page)) === 'ランダムに しました', await polite(page));
+    ok('R13 voice OFF: nothing spoken or played, ARIA「ランダムに しました」', (await spoken(page)).length === 0 && (await plays(page)).length === 0 && (await polite(page)) === 'ランダムに しました', await polite(page));
     await closeSettings(page); await startRun(page);
-    ok('R13 voice OFF: random activity starts silently with a valid goal', inRange(await dataGoal(page)) && (await spoken(page)).length === 0);
+    ok('R13 voice OFF: random activity starts silently with a valid goal (no file, no synth)', inRange(await dataGoal(page)) && (await spoken(page)).length === 0 && (await plays(page)).length === 0);
     await context.close();
   }
 
