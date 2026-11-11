@@ -671,6 +671,103 @@ async function harvestN(page, n, how) {
     }
   }
 
+  /* ---------------- T24 the farmer is large enough to be noticed, without costing the tree ----------------
+     The farmer (who asks and receives) is .farmer-box: clamp(72px, 12vmin, 120px) wide, 5:6 tall, i.e. about
+     100x120 on an iPad, 72x86 on a phone / short landscape. Pure geometry per viewport x goal x phase: farmer size,
+     the request band holds him, the bubble beside him is not clipped, every apple keeps TODAY's size (measured
+     before this change), deliver / again on screen, no document overflow, the celebrate glow follows the box, and
+     the start screen farmer (120x144, 56x66 in short landscape). Chromium only: not an iPad Safari result. */
+  {
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const farmerExpected = (w, h) => { const vmin = Math.min(w, h); return { w: clamp(0.12 * vmin, 72, 120), h: clamp(0.144 * vmin, 86, 144) }; };
+    // apple size (px) measured on the file before the farmer grew: it must not change
+    const APPLE_BEFORE = { '390x844': { 1: 120, 10: 60 }, '768x1024': { 1: 180, 10: 114 }, '834x1194': { 1: 180, 10: 114 }, '1194x834': { 1: 180, 10: 114 }, '844x390': { 1: 156, 10: 75 } };
+    const geo = () => {
+      const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const fm = r('.farmer-box'), band = r('#requestBand'), bu = r('#bubble'), dv = r('#deliverBtn'), ag = r('#againBtn'), gl = r('.farmer-box .glow');
+      const bubbleEl = document.getElementById('bubble');
+      const inside = (a, b, tol) => a.l >= b.l - tol && a.r <= b.r + tol && a.t >= b.t - tol && a.b <= b.b + tol;
+      const texts = Array.from(bubbleEl.querySelectorAll('span')).filter((s) => !s.hidden && !s.closest('[hidden]') && s.getClientRects().length).map((s) => s.getBoundingClientRect()).map((b) => ({ l: b.left, t: b.top, r: b.right, b: b.bottom }));
+      const apples = Array.from(document.querySelectorAll('.apple')).map((e) => e.getBoundingClientRect());
+      return {
+        phase: document.getElementById('app').dataset.phase, fw: fm.w, fh: fm.h,
+        farmerInBand: inside(fm, band, 1), bandTall: band.h >= fm.h - 1,
+        sameRow: fm.t < bu.b && bu.t < fm.b && fm.r <= bu.l + 1,                 // farmer left of the bubble, vertically overlapping it
+        bubbleClipped: bubbleEl.scrollWidth > bubbleEl.clientWidth + 1 || bubbleEl.scrollHeight > bubbleEl.clientHeight + 1,
+        textsInBubble: texts.every((x) => inside(x, bu, 2)),
+        appleMin: apples.length ? Math.min(...apples.map((a) => Math.min(a.width, a.height))) : null, appleMax: apples.length ? Math.max(...apples.map((a) => Math.max(a.width, a.height))) : null,
+        deliverOk: !dv || dv.w === 0 || (dv.t >= 0 && dv.b <= innerHeight + 1), againOk: !ag || ag.w === 0 || (ag.t >= 0 && ag.b <= innerHeight + 1),
+        overflow: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+        glowFollows: !!gl && Math.abs(gl.l - (fm.l - 6)) < 1.5 && Math.abs(gl.t - (fm.t - 6)) < 1.5 && Math.abs(gl.w - (fm.w + 12)) < 1.5 && Math.abs(gl.h - (fm.h + 12)) < 1.5,
+        vw: innerWidth, vh: innerHeight
+      };
+    };
+    const near = (a, b, tol) => Math.abs(a - b) <= tol;
+    const farmerOk = (g, w, h) => { const e = farmerExpected(w, h); return near(g.fw, e.w, 1.5) && near(g.fh, e.h, 1.5) && g.farmerInBand && g.bandTall; };
+    for (const [w, h] of [[390, 844], [768, 1024], [834, 1194], [1194, 834], [844, 390]]) {
+      for (const goal of [1, 10]) {
+        const tag = 'T24 ' + w + 'x' + h + ' goal=' + goal;
+        const exp = farmerExpected(w, h);
+        const { context, page } = await newPage(browser, { url: URL, viewport: { width: w, height: h }, reducedMotion: true, settings: { goal, operation: 'anywhere' } });
+        // start screen: the farmer is introduced large; the short-landscape rule (56x66) is kept; no NEW overflow
+        // (the start screen on 844x390 overflowed the viewport by 4px before this change and still does: not this Phase's)
+        const st = await page.evaluate(() => { const b = document.querySelector('.start-art svg').getBoundingClientRect(); return { w: b.width, h: b.height, overflow: Math.max(0, document.documentElement.scrollHeight - innerHeight) }; });
+        const shortLandscape = w > h && h <= 520;
+        ok(tag + ' start screen: farmer ' + (shortLandscape ? '56x66 (short landscape rule kept)' : '120x144') + ', no new overflow', near(st.w, shortLandscape ? 56 : 120, 1) && near(st.h, shortLandscape ? 66 : 144, 1) && st.overflow <= (shortLandscape ? 4 : 0), JSON.stringify(st));
+        await startRun(page);
+        const g1 = await page.evaluate(geo);
+        ok(tag + ' harvest: farmer ' + Math.round(exp.w) + 'x' + Math.round(exp.h) + ' inside the band, beside the bubble', farmerOk(g1, w, h) && g1.sameRow, JSON.stringify(g1));
+        ok(tag + ' harvest: bubble not clipped, its text inside it', !g1.bubbleClipped && g1.textsInBubble, JSON.stringify(g1));
+        ok(tag + ' harvest: every apple keeps its size (' + APPLE_BEFORE[w + 'x' + h][goal] + 'px as before), no overflow', near(g1.appleMin, APPLE_BEFORE[w + 'x' + h][goal], 1) && near(g1.appleMax, APPLE_BEFORE[w + 'x' + h][goal], 1) && g1.overflow === 0, JSON.stringify(g1));
+        for (let i = 0; i < goal; i++) { await page.evaluate(() => document.getElementById('surface').click()); await sleep(420); }
+        await sleep(700);
+        const g2 = await page.evaluate(geo);
+        ok(tag + ' complete: farmer unchanged, deliver button on screen, no overflow', g2.phase === 'complete' && farmerOk(g2, w, h) && g2.deliverOk && g2.overflow === 0, JSON.stringify(g2));
+        await page.evaluate(() => document.getElementById('deliverBtn').click());
+        await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'celebrate', null, { timeout: 6000 });
+        await sleep(300);
+        const g3 = await page.evaluate(geo);
+        ok(tag + ' celebrate: farmer unchanged, thanks inside the bubble, glow follows the box, again button on screen, no overflow', farmerOk(g3, w, h) && !g3.bubbleClipped && g3.textsInBubble && g3.glowFollows && g3.againOk && g3.overflow === 0, JSON.stringify(g3));
+        ok(tag + ' no errors', page.__errors.length === 0, page.__errors.join('|'));
+        await context.close();
+      }
+    }
+    // the delivery still flies to the (now larger) farmer box: the flyers' final target is read from its rect at delivery time
+    {
+      const { context, page } = await newPage(browser, { url: URL, viewport: { width: 834, height: 1194 }, settings: { goal: 2, operation: 'anywhere' } });
+      await startRun(page);
+      for (let i = 0; i < 2; i++) { await page.evaluate(() => document.getElementById('surface').click()); await landWait(); }
+      await sleep(700);
+      await page.evaluate(() => document.getElementById('deliverBtn').click()); await sleep(250);
+      // both flyers exist now (stagger 80ms); pause their animations and seek to the end to read the final position
+      const fl = await page.evaluate(() => {
+        const fm = document.querySelector('.farmer-box').getBoundingClientRect();
+        return Array.from(document.querySelectorAll('.flyer')).map((f) => {
+          f.getAnimations().forEach((a) => { a.pause(); a.currentTime = a.effect.getTiming().duration; });
+          const b = f.getBoundingClientRect(); const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+          return { ok: Math.abs(cx - (fm.left + fm.width / 2)) < 2 && Math.abs(cy - (fm.top + fm.height / 2)) < 2, cx, cy, fm: [fm.left, fm.top, fm.width, fm.height] };
+        });
+      });
+      ok('T24 834x1194 delivering: the flying apples end up centred on the larger farmer box', fl.length === 2 && fl.every((f) => f.ok), JSON.stringify(fl));
+      await context.close();
+    }
+    // squeezed: xlarge font (150% zoom) on a 375px phone leaves no room for a 72px farmer beside「5こ、とってね」.
+    // The farmer gives way first (never below 48px) and the request stays on screen (T16b measures the overflow too).
+    {
+      const { context, page } = await newPage(browser, { url: URL, viewport: { width: 375, height: 667 }, settings: { goal: 5 } });
+      await startRun(page);
+      await page.click('#donomanaA11yBtn'); await page.click('[data-a11y-font="xlarge"]'); await page.keyboard.press('Escape'); await sleep(300);
+      const sq = await page.evaluate(() => {
+        const fm = document.querySelector('.farmer-box'), bu = document.getElementById('bubble'), rg = bu.querySelector('.req-group');
+        const f = fm.getBoundingClientRect(), b = bu.getBoundingClientRect(), g = rg.getBoundingClientRect();
+        const z = parseFloat(getComputedStyle(document.body).zoom) || 1;   // rects are in zoomed (screen) px; CSS px = screen px / zoom
+        return { farmerCss: f.width / z, ratio: f.height / f.width, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, requestInBubble: g.right <= b.right + 0.5 && g.left >= b.left - 0.5, zoom: z };
+      });
+      ok('T24 375x667 xlarge font: farmer gives way (48..72px CSS, still 5:6), request inside the bubble, no horizontal overflow', sq.farmerCss >= 47.5 && sq.farmerCss <= 72.5 && Math.abs(sq.ratio - 1.2) < 0.03 && sq.overflow <= 0 && sq.requestInBubble, JSON.stringify(sq));
+      await context.close();
+    }
+  }
+
   /* ---------------- final: errors ---------------- */
   await browser.close(); srv.close();
   console.log('\nresult: ' + pass + ' passed, ' + fail + ' failed');
