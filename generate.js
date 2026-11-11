@@ -2578,6 +2578,8 @@ function updateAppIntroHTML(apps) {
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
 const MANUAL_CHANGELOG = [
+  // RINGO-POTTON-FARMER-SIZE-1 の公開(2026-11-12 JST)。文案はユーザー指定の verbatim、type は既存の「改善」= "update"。
+  { date: "2026-11-12", type: "update", text: "「りんごポットン」のおじいさんを大きくし、見やすくしました", verbatim: true },
   // TOP-PAGE-NEWS-AND-SNS-LINKS-1(2026-11-11、Nishio承認の確定文案)。2件とも type "new"・verbatim。
   { date: "2026-11-11", type: "new", text: "公式SNS（X・Instagram）を開設しました", verbatim: true },
   { date: "2026-11-10", type: "new", text: "「Built with Claude: Japan 2026」に参加し、新作「みんなでかける虹」を制作しました", verbatim: true },
