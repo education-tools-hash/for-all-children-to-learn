@@ -2,7 +2,7 @@
 // (Phase RINGO-POTTON-LEARNING-RECORD-1).
 // One activity = one record in localStorage 'ringo_potton_log', written only when the delivery is
 // accepted (delivering -> celebrate). Core Schema: {timestamp ISO, appId 'ringo-potton-app',
-// activity 'ringo-delivery', inputMethod null, schemaVersion 1, payload {goal, goalMode, operation,
+// activity 'ringo-delivery', inputMethod null, schemaVersion 1, payload {goal, goalMode, goalMin, goalMax, operation,
 // showNumber, switchScan, swipe, decoys, refusals, harvested, durationSec}}. An unfinished activity is never recorded.
 // The settings sheet shows the count on this device and offers a two-step "delete all".
 //
@@ -134,7 +134,8 @@ const EVAL_RE = /すごい|えらい|じょうず|よくできました|せい�
     ok('R1 Core Schema envelope: ISO timestamp, appId, activity, inputMethod null, schemaVersion 1', ISO_RE.test(e.timestamp) && e.appId === 'ringo-potton-app' && e.activity === 'ringo-delivery' && e.inputMethod === null && e.schemaVersion === 1, JSON.stringify(e));
     ok('R1 envelope has exactly the 6 Core Schema keys', Object.keys(e).sort().join(',') === 'activity,appId,inputMethod,payload,schemaVersion,timestamp', Object.keys(e).join(','));
     const p = e.payload || {};
-    ok('R1 payload has exactly the 10 agreed keys (7 + swipe + decoys + refusals since the swipe / decoy Phases)', Object.keys(p).sort().join(',') === 'decoys,durationSec,goal,goalMode,harvested,operation,refusals,showNumber,swipe,switchScan', Object.keys(p).join(','));
+    ok('R1 payload has exactly the 12 agreed keys (7 + swipe + decoys + refusals + goalMin / goalMax since the swipe / decoy / random-range Phases)', Object.keys(p).sort().join(',') === 'decoys,durationSec,goal,goalMax,goalMin,goalMode,harvested,operation,refusals,showNumber,swipe,switchScan', Object.keys(p).join(','));
+    ok('R1 fixed mode still records the (default) range: goalMin 1, goalMax 10', p.goalMin === 1 && p.goalMax === 10, JSON.stringify(p));
     ok('R1 payload values: goal 3, fixed, apple, showNumber true, switchScan false, swipe false, decoys 0, refusals 0, harvested 3', p.goal === 3 && p.goalMode === 'fixed' && p.operation === 'apple' && p.showNumber === true && p.switchScan === false && p.swipe === false && p.decoys === 0 && p.refusals === 0 && p.harvested === 3, JSON.stringify(p));
     ok('R1 durationSec is a plausible number (0 < d < 60, one decimal)', typeof p.durationSec === 'number' && p.durationSec > 0 && p.durationSec < 60 && Math.round(p.durationSec * 10) === p.durationSec * 10, String(p.durationSec));
     ok('R1 no right/wrong, score or tap-count fields anywhere in the record', !/correct|score|tap|mistake|point|rate/i.test(JSON.stringify(e)), JSON.stringify(e));
@@ -191,6 +192,34 @@ const EVAL_RE = /すごい|えらい|じょうず|よくできました|せい�
     const log = await readLog(page);
     ok('R4 random mode: 4 records, goalMode random, each goal = the number drawn for that activity', log.length === 4 && log.every((e, i) => e.payload.goalMode === 'random' && e.payload.goal === seen[i] && e.payload.harvested === seen[i]), JSON.stringify({ seen, got: log.map((e) => e.payload.goal) }));
     ok('R4 the saved fixed goal (4) is not what is recorded unless drawn', log.every((e) => e.payload.goal >= 1 && e.payload.goal <= 10));
+    await context.close();
+  }
+
+  /* ---------------- R4b random range: goalMin / goalMax recorded, the drawn goal is inside the range ---------------- */
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 4, goalMode: 'random', goalMin: 2, goalMax: 4, operation: 'anywhere' } }, base));
+    const seen = [];
+    await startRun(page);
+    for (let k = 0; k < 4; k++) {
+      const g = parseInt(await page.getAttribute('#app', 'data-goal'), 10);
+      await completeActivity(page, g);
+      seen.push(g);
+      if (k < 3) { await page.evaluate(() => document.getElementById('againBtn').click()); await sleep(700); }
+    }
+    const log = await readLog(page);
+    ok('R4b range 2..4: 4 records, each with goalMin 2 / goalMax 4, schemaVersion 1', log.length === 4 && log.every((e) => e.payload.goalMin === 2 && e.payload.goalMax === 4 && e.schemaVersion === 1 && e.payload.goalMode === 'random'), JSON.stringify(log.map((e) => e.payload)));
+    ok('R4b each recorded goal = the drawn number and lies inside 2..4', log.length === 4 && log.every((e, i) => e.payload.goal === seen[i] && e.payload.goal >= e.payload.goalMin && e.payload.goal <= e.payload.goalMax), JSON.stringify({ seen, got: log.map((e) => e.payload.goal) }));
+    await context.close();
+  }
+
+  /* ---------------- R4c a range of one number (5..5) is recorded as such ---------------- */
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 2, goalMode: 'random', goalMin: 5, goalMax: 5, operation: 'anywhere' } }, base));
+    await startRun(page);
+    const g = parseInt(await page.getAttribute('#app', 'data-goal'), 10);
+    await completeActivity(page, g);
+    const log = await readLog(page);
+    ok('R4c range 5..5: one record goal 5, goalMin 5, goalMax 5', log.length === 1 && log[0].payload.goal === 5 && log[0].payload.goalMin === 5 && log[0].payload.goalMax === 5, JSON.stringify(log));
     await context.close();
   }
 

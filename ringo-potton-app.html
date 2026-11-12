@@ -760,6 +760,16 @@
     <p class="row-label" id="lblGoal">とる りんごの かず</p>
     <div class="btn-group goal-grid" role="group" aria-labelledby="lblGoal" id="goalGroup"></div>
   </div>
+  <!-- the random range: sub-options of「ランダム」(shown only in random mode, like rowAgain / rowSwipe) -->
+  <div class="row" id="rowGoalMin" hidden>
+    <p class="row-label" id="lblGoalMin">ランダムの はんい：いちばん すくない かず</p>
+    <div class="btn-group goal-grid" role="group" aria-labelledby="lblGoalMin" id="goalMinGroup"></div>
+  </div>
+  <div class="row" id="rowGoalMax" hidden>
+    <p class="row-label" id="lblGoalMax">ランダムの はんい：いちばん おおい かず</p>
+    <div class="btn-group goal-grid" role="group" aria-labelledby="lblGoalMax" id="goalMaxGroup"></div>
+    <p class="note">ランダムの ときは、この はんいの なかから かずが えらばれます（りょうはしの かずも でます）。おなじ かずに すると、いつも その かずに なります。</p>
+  </div>
   <div class="row">
     <p class="row-label" id="lblOp">そうさの しかた</p>
     <div class="btn-group" role="group" aria-labelledby="lblOp">
@@ -870,7 +880,7 @@
   <h3>せってい（先生・支援者用）</h3>
   <p>右下の「アクセシビリティ設定」を ひらき、「このアプリの詳細設定を開く」を おします。あそんでいる 最中に ひらこうとすると、まず かくにんが 出ます。</p>
   <ul>
-    <li>とる りんごの かず（1〜10）。「ランダム」を えらぶと、かつどうの たびに、まえと ちがう かずに なります</li>
+    <li>とる りんごの かず（1〜10）。「ランダム」を えらぶと、かつどうの たびに、まえと ちがう かずに なります。ランダムの ときは、でる かずの はんい（いちばん すくない かず と いちばん おおい かず）も えらべます</li>
     <li>そうさの しかた（りんごを タッチ／がめんの どこでも タッチ）。「どこでも タッチ」では「なでて とる（スワイプ）」も えらべます</li>
     <li>りんごじゃない くだものも まぜる（はってん。「りんごを タッチ」のときだけ）</li>
     <li>こえの あんない（たのむ こえ・かぞえる こえ・おれいの こえ）・すうじの ひょうじ</li>
@@ -1132,7 +1142,7 @@ function donomanaRecordFormatTracingLevel(level) {
      constants
   ===================================================================== */
   var SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
-  var DEFAULTS = { goal: 3, goalMode: 'fixed', operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal' };
+  var DEFAULTS = { goal: 3, goalMode: 'fixed', goalMin: 1, goalMax: 10, operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal' };
   var SWIPE_MIN_PX = 24;              // a stroke counts once its pointer has moved this far from where it went down (beyond any tap jitter)
   var SWIPE_CLICK_SUPPRESS_MS = 400;  // a click that follows a consumed stroke within this window is that same gesture, not a tap
   var SCAN_MS = { slow: 3500, normal: 2500, fast: 1500 };
@@ -1175,12 +1185,22 @@ function donomanaRecordFormatTracingLevel(level) {
   /* =====================================================================
      settings (saved) vs active (snapshot taken at the start of each activity)
   ===================================================================== */
+  // the random range: a whole number 1..10 (rounded and clamped); anything that is not a number -> the default
+  function sanitizeBound(v, dflt) {
+    var n = (typeof v === 'number' || typeof v === 'string') && String(v).trim() !== '' ? Number(v) : NaN;
+    if (!isFinite(n)) return dflt;
+    return Math.min(10, Math.max(1, Math.round(n)));
+  }
   function sanitize(o) {
     o = (o && typeof o === 'object') ? o : {};
     var g = parseInt(o.goal, 10);
+    var gMin = sanitizeBound(o.goalMin, DEFAULTS.goalMin), gMax = sanitizeBound(o.goalMax, DEFAULTS.goalMax);
+    if (gMin > gMax) gMax = gMin;                                // a reversed range is normalised by raising the maximum to the minimum
     return {
       goal: (g >= 1 && g <= 10) ? g : DEFAULTS.goal,
       goalMode: o.goalMode === 'random' ? 'random' : 'fixed',   // absent in older saved data -> fixed (the saved goal is kept)
+      goalMin: gMin,                                            // absent in older saved data -> 1..10, exactly the random mode as before
+      goalMax: gMax,
       operation: o.operation === 'anywhere' ? 'anywhere' : 'apple',
       againAnywhere: o.againAnywhere === true,
       swipe: o.swipe === true,                                   // absent in older saved data -> OFF (whole-screen stroke takes one apple; anywhere only)
@@ -1368,6 +1388,8 @@ function donomanaRecordFormatTracingLevel(level) {
       var entry = donomanaRecordCreate('ringo-potton-app', 'ringo-delivery', null, {
         goal: active.goal,                                        // たのまれた数 (1..10)
         goalMode: active.goalMode,                                // 'fixed' | 'random'
+        goalMin: active.goalMin,                                  // the random range in effect (1..10 by default; recorded in fixed mode too)
+        goalMax: active.goalMax,
         operation: active.operation,                              // 'apple' | 'anywhere'
         showNumber: active.showNumber,                            // the number was shown
         switchScan: !!scanMode,                                   // switch scanning was ON (a setting, not a guess at the input device)
@@ -1467,7 +1489,7 @@ function donomanaRecordFormatTracingLevel(level) {
     appEl.setAttribute('data-refusals', String(S.refusals));
     startScreen.hidden = ph !== 'start';
     playScreen.hidden = ph === 'start';
-    startInfo.textContent = settings.goalMode === 'random' ? 'いまの もくひょう：ランダム（1〜10）' : 'いまの もくひょう：' + settings.goal + 'こ';
+    startInfo.textContent = settings.goalMode === 'random' ? 'いまの もくひょう：ランダム（' + settings.goalMin + '〜' + settings.goalMax + '）' : 'いまの もくひょう：' + settings.goal + 'こ';
 
     if (ph !== 'start') {
       var thanks = ph === 'celebrate', refusing = ph === 'refusing';
@@ -1807,15 +1829,30 @@ function donomanaRecordFormatTracingLevel(level) {
   goalRandomBtn.type = 'button'; goalRandomBtn.className = 'opt-btn'; goalRandomBtn.id = 'goalRandomBtn';
   goalRandomBtn.textContent = 'ランダム'; goalRandomBtn.setAttribute('aria-label', 'ランダム（かつどうごとに かずが かわる）'); goalRandomBtn.setAttribute('aria-pressed', 'false');
   goalGroup.appendChild(goalRandomBtn);
+  // the random range (settings.goalMin..goalMax, both included): two sub-rows of 1..10 buttons, shown only in random mode
+  var goalMinGroup = $('goalMinGroup'), goalMaxGroup = $('goalMaxGroup'), rowGoalMin = $('rowGoalMin'), rowGoalMax = $('rowGoalMax');
+  for (var gr = 1; gr <= 10; gr++) {
+    var bmin = document.createElement('button'); bmin.type = 'button'; bmin.className = 'opt-btn'; bmin.setAttribute('data-goal-min', String(gr)); bmin.setAttribute('aria-pressed', 'false');
+    bmin.textContent = String(gr); bmin.setAttribute('aria-label', 'いちばん すくない かず ' + gr + 'こ'); goalMinGroup.appendChild(bmin);
+    var bmax = document.createElement('button'); bmax.type = 'button'; bmax.className = 'opt-btn'; bmax.setAttribute('data-goal-max', String(gr)); bmax.setAttribute('aria-pressed', 'false');
+    bmax.textContent = String(gr); bmax.setAttribute('aria-label', 'いちばん おおい かず ' + gr + 'こ'); goalMaxGroup.appendChild(bmax);
+  }
+  // uniform over active.goalMin..goalMax (both ends included), still never the goal of the activity started just before;
+  // a range of one number (min = max) always gives that number
   function drawRandomGoal() {
     var pool = [];
-    for (var g = 1; g <= 10; g++) if (g !== S.lastGoal) pool.push(g);   // first activity: lastGoal is null, so all ten
+    for (var g = active.goalMin; g <= active.goalMax; g++) if (g !== S.lastGoal) pool.push(g);   // first activity: lastGoal is null, so the whole range
+    if (!pool.length) pool.push(active.goalMin);
     return pool[Math.floor(Math.random() * pool.length)];
   }
   function syncSettingsUI() {
     // exactly one of the eleven goal buttons is pressed: the fixed number, or ランダム
     Array.prototype.forEach.call(goalGroup.querySelectorAll('[data-goal]'), function (b) { b.setAttribute('aria-pressed', String(settings.goalMode === 'fixed' && parseInt(b.getAttribute('data-goal'), 10) === settings.goal)); });
     goalRandomBtn.setAttribute('aria-pressed', String(settings.goalMode === 'random'));
+    Array.prototype.forEach.call(goalMinGroup.querySelectorAll('[data-goal-min]'), function (b) { b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-goal-min'), 10) === settings.goalMin)); });
+    Array.prototype.forEach.call(goalMaxGroup.querySelectorAll('[data-goal-max]'), function (b) { b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-goal-max'), 10) === settings.goalMax)); });
+    rowGoalMin.hidden = settings.goalMode !== 'random';
+    rowGoalMax.hidden = settings.goalMode !== 'random';
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-op]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-op') === settings.operation)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-again]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-again') === '1') === settings.againAnywhere)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-voice]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-voice') === '1') === settings.voice)); });
@@ -1834,7 +1871,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function updatePendingNote() {
     // in random mode active.goal is the drawn number, so only the mode (and, in fixed mode, the number) counts as a pending change
     var goalDiffers = settings.goalMode !== active.goalMode || (settings.goalMode === 'fixed' && settings.goal !== active.goal);
-    var differs = S.phase !== 'start' && (goalDiffers || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber);
+    var differs = S.phase !== 'start' && (goalDiffers || settings.goalMin !== active.goalMin || settings.goalMax !== active.goalMax || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber);
     pendingNote.hidden = !differs;
   }
   settingsSheet.addEventListener('click', function (e) {
@@ -1844,6 +1881,16 @@ function donomanaRecordFormatTracingLevel(level) {
       settings.goalMode = 'random';           // the number itself is drawn when the next activity starts
       // ARIA only (works with the voice guidance OFF); the request voice is spoken by the next activity, never here
       announce(S.phase === 'start' ? 'ランダムに しました' : 'つぎの かつどうから ランダム');
+    }
+    else if (b.hasAttribute('data-goal-min')) {
+      // the other bound follows instead of an error: min above the max raises the max to it
+      settings.goalMin = parseInt(b.getAttribute('data-goal-min'), 10);
+      if (settings.goalMin > settings.goalMax) { settings.goalMax = settings.goalMin; announce('いちばん おおい かずも ' + settings.goalMax + 'に なりました'); }
+    }
+    else if (b.hasAttribute('data-goal-max')) {
+      // ... and max below the min lowers the min to it
+      settings.goalMax = parseInt(b.getAttribute('data-goal-max'), 10);
+      if (settings.goalMax < settings.goalMin) { settings.goalMin = settings.goalMax; announce('いちばん すくない かずも ' + settings.goalMin + 'に なりました'); }
     }
     else if (b.hasAttribute('data-op')) settings.operation = b.getAttribute('data-op') === 'anywhere' ? 'anywhere' : 'apple';
     else if (b.hasAttribute('data-again')) settings.againAnywhere = b.getAttribute('data-again') === '1';

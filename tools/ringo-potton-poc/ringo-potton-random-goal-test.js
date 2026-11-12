@@ -1,6 +1,7 @@
 // Real-browser (Playwright / Chromium) test for the teacher's「ランダム」goal MODE of ringo-potton-app.html.
-// settings.goalMode = 'fixed' | 'random'. In random mode every activity start draws a goal 1..10 that differs
-// from the activity started just before; in fixed mode「もう いちど」keeps the same number. Selecting the mode
+// settings.goalMode = 'fixed' | 'random'. In random mode every activity start draws a goal from the teacher's range
+// settings.goalMin..goalMax (default 1..10, both ends included) that differs from the activity started just before
+// (a one-number range always gives that number); in fixed mode「もう いちど」keeps the same number. Selecting the mode
 // never starts, stops or restarts an activity; the drawn number is decided at the start of the next activity.
 //
 // Run from the repository root (no package.json; Node 20 + a globally available `playwright`):
@@ -50,6 +51,8 @@ async function newPage(browser, opts) {
   const context = await browser.newContext({ viewport: opts.viewport || { width: 390, height: 844 }, reducedMotion: opts.reducedMotion ? 'reduce' : 'no-preference' });
   await context.addInitScript(SPEECH_STUB);
   await context.addInitScript(AUDIO_STUB);
+  // optional deterministic Math.random: values are taken from opts.rand in order (then the real generator); calls are counted
+  await context.addInitScript((q) => { const real = Math.random; window.__randQ = (q || []).slice(); window.__randCalls = 0; Math.random = function () { window.__randCalls++; return window.__randQ.length ? window.__randQ.shift() : real(); }; }, opts.rand || []);
   if (opts.settings !== undefined) {
     await context.addInitScript(({ k, v }) => { if (!sessionStorage.getItem('__seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, { k: SETTINGS_KEY, v: typeof opts.settings === 'string' ? opts.settings : JSON.stringify(opts.settings) });
   }
@@ -69,6 +72,10 @@ const plays = async (page) => (await page.evaluate(() => (window.__au || []).sli
 const requests = async (page) => (await plays(page)).filter((f) => /^ringo-\d+\.mp3$/.test(f));   // audible request files, in order
 const saved = (page) => page.evaluate((k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return 'ERR'; } }, SETTINGS_KEY);
 const pressed = (page) => page.evaluate(() => Array.from(document.querySelectorAll('#goalGroup button')).filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.getAttribute('data-goal') || b.id));
+const rangePressed = (page) => page.evaluate(() => ({
+  min: Array.from(document.querySelectorAll('#goalMinGroup [data-goal-min]')).filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => +b.getAttribute('data-goal-min')),
+  max: Array.from(document.querySelectorAll('#goalMaxGroup [data-goal-max]')).filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => +b.getAttribute('data-goal-max')),
+  rowsHidden: [document.getElementById('rowGoalMin').hidden, document.getElementById('rowGoalMax').hidden] }));
 const polite = (page) => page.evaluate(() => (document.getElementById('donomanaAnnouncePolite') || {}).textContent || '');
 const counts = (page) => page.evaluate(() => ({ apples: document.querySelectorAll('.apple').length, slots: document.querySelectorAll('.slot').length, reqNum: document.getElementById('reqNum').textContent }));
 const inRange = (n) => Number.isInteger(n) && n >= 1 && n <= 10;
@@ -352,6 +359,173 @@ async function finishAndAgain(page) {
       await startRun(page); seen.add(await dataGoal(page)); await context.close();
     }
     ok('R15 fresh loads in random mode draw from all ten (>= 3 distinct first goals in <= 12 loads)', seen.size >= 3, J([...seen]));
+  }
+
+  /* ---------- R16 range 1〜3: every draw stays in the range and both ends appear ---------- */
+  {
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3, goalMode: 'random', goalMin: 1, goalMax: 3 }, reducedMotion: true });
+    ok('R16 start info shows the range「ランダム（1〜3）」', (await page.textContent('#startInfo')) === 'いまの もくひょう：ランダム（1〜3）', await page.textContent('#startInfo'));
+    await startRun(page);
+    const goals = []; let allSynced = true, prevDiff = true;
+    for (let i = 0; i < 24; i++) {
+      const s = await synced(page); goals.push(s.g); if (!s.ok) allSynced = false;
+      if (i > 0 && goals[i] === goals[i - 1]) prevDiff = false;
+      if (i >= 9 && goals.includes(1) && goals.includes(3)) break;
+      await finishAndAgain(page);
+    }
+    ok('R16 all draws are within 1..3 (' + goals.length + ' activities)', goals.every((g) => g >= 1 && g <= 3), J(goals));
+    ok('R16 both ends of the range (1 and 3) are drawn', goals.includes(1) && goals.includes(3), J(goals));
+    ok('R16 each activity stays synced (apples / slots / number / request file) and never repeats the previous goal', allSynced && prevDiff, J(goals));
+    ok('R16 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------- R17 Math.random edge values map to the ends of the range (both included) ---------- */
+  {
+    // fresh load (no previous goal): pool 2..7; 0 -> 2. Next activity (previous 2): pool 3..7; just below 1 -> 7
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3, goalMode: 'random', goalMin: 2, goalMax: 7 }, reducedMotion: true, rand: [0, 0.9999999999999999] });
+    await startRun(page);
+    const g1 = await dataGoal(page);
+    await finishAndAgain(page);
+    const g2 = await dataGoal(page);
+    ok('R17 Math.random() = 0 -> the minimum (2)', g1 === 2, String(g1));
+    ok('R17 Math.random() just below 1 -> the maximum (7)', g2 === 7, String(g2));
+    const { context: c2, page: p2 } = await newPage(browser, { url: URL, settings: { goal: 3, goalMode: 'random', goalMin: 2, goalMax: 7 }, rand: [0.9999999999999999] });
+    await startRun(p2);
+    ok('R17 fresh load, Math.random() just below 1 -> the maximum (7), never 8', (await dataGoal(p2)) === 7, String(await dataGoal(p2)));
+    ok('R17 no errors', page.__errors.length === 0 && p2.__errors.length === 0, page.__errors.concat(p2.__errors).join('|'));
+    await context.close(); await c2.close();
+  }
+
+  /* ---------- R18 min = max: the goal is always that number ---------- */
+  {
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3, goalMode: 'random', goalMin: 4, goalMax: 4 }, reducedMotion: true });
+    ok('R18 start info「ランダム（4〜4）」', (await page.textContent('#startInfo')) === 'いまの もくひょう：ランダム（4〜4）', await page.textContent('#startInfo'));
+    await startRun(page);
+    const goals = []; let allSynced = true;
+    for (let i = 0; i < 4; i++) { const s = await synced(page); goals.push(s.g); if (!s.ok) allSynced = false; if (i < 3) await finishAndAgain(page); }
+    ok('R18 four activities in a row are all 4 (request file ringo-4.mp3 each time)', goals.every((g) => g === 4) && allSynced && (await requests(page)).every((f) => f === 'ringo-4.mp3'), J(goals) + ' ' + J(await requests(page)));
+    ok('R18 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------- R19 sanitize: rounding, clamping, reversed range, non-numbers, old data ---------- */
+  {
+    const cases = [
+      { name: 'reversed 7..3 -> max follows the min (7〜7)', s: { goalMode: 'random', goalMin: 7, goalMax: 3 }, min: 7, max: 7 },
+      { name: 'decimals 2.6..8.4 -> rounded (3〜8)', s: { goalMode: 'random', goalMin: 2.6, goalMax: 8.4 }, min: 3, max: 8 },
+      { name: 'out of range 0..99 -> clamped (1〜10)', s: { goalMode: 'random', goalMin: 0, goalMax: 99 }, min: 1, max: 10 },
+      { name: 'negative / 11 -> clamped (1〜10)', s: { goalMode: 'random', goalMin: -5, goalMax: 11 }, min: 1, max: 10 },
+      { name: 'numeric strings "5".."6" -> 5〜6', s: { goalMode: 'random', goalMin: '5', goalMax: '6' }, min: 5, max: 6 },
+      { name: 'non-numbers "abc" / null -> defaults (1〜10)', s: { goalMode: 'random', goalMin: 'abc', goalMax: null }, min: 1, max: 10 },
+      { name: 'old data without the keys -> 1〜10', s: { goal: 3, goalMode: 'random' }, min: 1, max: 10 },
+      { name: 'reversed after rounding 9.6..9.4 -> 10〜10', s: { goalMode: 'random', goalMin: 9.6, goalMax: 9.4 }, min: 10, max: 10 }
+    ];
+    for (const c of cases) {
+      const { context, page } = await newPage(browser, { url: URL, settings: c.s });
+      const info = await page.textContent('#startInfo');
+      await openSettings(page);
+      const rp = await rangePressed(page);
+      ok('R19 ' + c.name + ': start info and pressed buttons', info === 'いまの もくひょう：ランダム（' + c.min + '〜' + c.max + '）' && J(rp.min) === J([c.min]) && J(rp.max) === J([c.max]), info + ' ' + J(rp));
+      await closeSettings(page);
+      await startRun(page);
+      const g = await dataGoal(page);
+      ok('R19 ' + c.name + ': the drawn goal is inside the normalised range', g >= c.min && g <= c.max && page.__errors.length === 0, String(g) + ' ' + page.__errors.join('|'));
+      await context.close();
+    }
+    // a saved setting written after a click carries the normalised values
+    const { context, page } = await newPage(browser, { url: URL, settings: { goalMode: 'random', goalMin: 7, goalMax: 3 } });
+    await openSettings(page); await page.click('[data-voice="1"]'); await sleep(150);
+    const sv = await saved(page);
+    ok('R19 after any settings click the stored range is the normalised one (7, 7)', sv.goalMin === 7 && sv.goalMax === 7, J(sv));
+    await context.close();
+  }
+
+  /* ---------- R20 the range rows appear only in random mode ---------- */
+  {
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3 } });
+    await openSettings(page);
+    ok('R20 fixed mode: both range rows hidden', J((await rangePressed(page)).rowsHidden) === J([true, true]) && await page.isHidden('#rowGoalMin') && await page.isHidden('#rowGoalMax'));
+    await page.click('#goalRandomBtn'); await sleep(150);
+    ok('R20 ランダム selected: both rows shown, 1..10 buttons each, default 1 and 10 pressed', await page.isVisible('#rowGoalMin') && await page.isVisible('#rowGoalMax')
+      && (await page.$$('#goalMinGroup [data-goal-min]')).length === 10 && (await page.$$('#goalMaxGroup [data-goal-max]')).length === 10
+      && J(await rangePressed(page)) === J({ min: [1], max: [10], rowsHidden: [false, false] }), J(await rangePressed(page)));
+    const a11y = await page.evaluate(() => ['goalMinGroup', 'goalMaxGroup'].map((id) => { const g = document.getElementById(id); const l = document.getElementById(g.getAttribute('aria-labelledby')); return g.getAttribute('role') + ':' + (l ? l.textContent : ''); }));
+    ok('R20 each row is a labelled group (role=group + aria-labelledby)', a11y[0] === 'group:ランダムの はんい：いちばん すくない かず' && a11y[1] === 'group:ランダムの はんい：いちばん おおい かず', J(a11y));
+    await page.click('[data-scan-on="1"]'); await sleep(200);
+    const scan = await page.evaluate(() => { const i = window.ringoScan.buildScanItems(); const r = i.indexOf(document.getElementById('goalRandomBtn')); return { next: i[r + 1] && i[r + 1].getAttribute('data-goal-min'), mins: i.filter((e) => e.hasAttribute('data-goal-min')).length, maxs: i.filter((e) => e.hasAttribute('data-goal-max')).length }; });
+    ok('R20 scan ON + random: the 10 + 10 range buttons are candidates right after ランダム', scan.next === '1' && scan.mins === 10 && scan.maxs === 10, J(scan));
+    await page.click('[data-goal="5"]'); await sleep(150);
+    ok('R20 a fixed number chosen again: rows hidden again (and the range buttons leave the scan)', await page.isHidden('#rowGoalMin') && await page.isHidden('#rowGoalMax') && await page.evaluate(() => !window.ringoScan.buildScanItems().some((e) => e.hasAttribute('data-goal-min') || e.hasAttribute('data-goal-max'))));
+    await page.click('[data-scan-on="0"]'); await sleep(100);
+    const help = await page.evaluate(() => document.getElementById('helpSheet').textContent);
+    ok('R20 help mentions the range', /でる かずの はんい/.test(help));
+    ok('R20 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------- R21 the other bound follows (no error) ---------- */
+  {
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3, goalMode: 'random' } });
+    await openSettings(page);
+    await page.click('[data-goal-min="6"]'); await sleep(150);
+    let sv = await saved(page), rp = await rangePressed(page);
+    ok('R21 min 6 (max 10 stays): saved 6..10, pressed 6 / 10, start info（6〜10）', sv.goalMin === 6 && sv.goalMax === 10 && J(rp.min) === '[6]' && J(rp.max) === '[10]' && (await page.textContent('#startInfo')) === 'いまの もくひょう：ランダム（6〜10）', J(sv) + J(rp));
+    await page.click('[data-goal-max="4"]'); await sleep(150);
+    sv = await saved(page); rp = await rangePressed(page);
+    ok('R21 max 4 below min 6: min follows to 4 (4〜4), polite「いちばん すくない かずも 4に なりました」', sv.goalMin === 4 && sv.goalMax === 4 && J(rp.min) === '[4]' && J(rp.max) === '[4]' && (await page.textContent('#startInfo')) === 'いまの もくひょう：ランダム（4〜4）' && (await polite(page)) === 'いちばん すくない かずも 4に なりました', J(sv) + ' ' + await polite(page));
+    await page.click('[data-goal-min="8"]'); await sleep(150);
+    sv = await saved(page); rp = await rangePressed(page);
+    ok('R21 min 8 above max 4: max follows to 8 (8〜8), polite「いちばん おおい かずも 8に なりました」', sv.goalMin === 8 && sv.goalMax === 8 && J(rp.min) === '[8]' && J(rp.max) === '[8]' && (await polite(page)) === 'いちばん おおい かずも 8に なりました', J(sv) + ' ' + await polite(page));
+    await page.click('[data-goal-max="10"]'); await sleep(150);
+    sv = await saved(page);
+    ok('R21 max 10 (above min): only max changes (8〜10), mode stays random, goal 3 kept', sv.goalMin === 8 && sv.goalMax === 10 && sv.goalMode === 'random' && sv.goal === 3, J(sv));
+    const err = await page.evaluate(() => Array.from(document.querySelectorAll('#settingsSheet [role="alert"], #settingsSheet .error')).filter((e) => e.offsetParent && e.textContent.trim()).length);
+    ok('R21 no error display in the sheet; nothing spoken or played; still on the start screen', err === 0 && (await spoken(page)).length === 0 && (await plays(page)).length === 0 && (await phase(page)) === 'start');
+    await closeSettings(page); await startRun(page);
+    const g = await dataGoal(page);
+    ok('R21 the next activity draws inside 8..10', g >= 8 && g <= 10 && page.__errors.length === 0, String(g));
+    await context.close();
+  }
+
+  /* ---------- R22 pending note: a range change during an activity applies from the next one ---------- */
+  {
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3, goalMode: 'random', goalMin: 6, goalMax: 8 }, reducedMotion: true });
+    await startRun(page);
+    const g0 = await dataGoal(page);
+    await openSettings(page);
+    ok('R22 random activity, nothing changed: no pending note', await page.isHidden('#pendingNote'));
+    await page.click('[data-goal-max="9"]'); await sleep(150);
+    ok('R22 max changed mid-activity: pending note shown, activity untouched', await page.isVisible('#pendingNote') && (await dataGoal(page)) === g0 && (await phase(page)) === 'harvest');
+    await page.click('[data-goal-max="8"]'); await sleep(150);
+    ok('R22 max set back: pending note hidden', await page.isHidden('#pendingNote'));
+    await page.click('[data-goal-min="1"]'); await page.click('[data-goal-max="2"]'); await sleep(150);
+    ok('R22 range 1..2 chosen: pending note shown, still goal ' + g0, await page.isVisible('#pendingNote') && (await dataGoal(page)) === g0);
+    await closeSettings(page);
+    await finishAndAgain(page);
+    const g1 = await dataGoal(page); const s1 = await synced(page);
+    ok('R22 next activity uses the new range (1..2) and is synced', (g1 === 1 || g1 === 2) && s1.ok, J(s1));
+    await openSettings(page);
+    ok('R22 after it applied: no pending note', await page.isHidden('#pendingNote'));
+    await closeSettings(page);
+    ok('R22 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------- R23 fixed mode is unaffected by a saved range ---------- */
+  {
+    const { context, page } = await newPage(browser, { url: URL, settings: { goal: 4, goalMode: 'fixed', goalMin: 7, goalMax: 9 }, reducedMotion: true });
+    ok('R23 fixed 4 with a saved range 7..9: start info「4こ」', (await page.textContent('#startInfo')) === 'いまの もくひょう：4こ', await page.textContent('#startInfo'));
+    await startRun(page);
+    const goals = [];
+    for (let i = 0; i < 3; i++) { goals.push(await dataGoal(page)); if (i < 2) await finishAndAgain(page); }
+    ok('R23 fixed mode: every activity is 4, Math.random is never called for the goal', goals.every((g) => g === 4) && (await page.evaluate(() => window.__randCalls)) === 0, J(goals) + ' calls=' + await page.evaluate(() => window.__randCalls));
+    await openSettings(page);
+    ok('R23 fixed mode: range rows hidden, fixed 4 pressed', await page.isHidden('#rowGoalMin') && await page.isHidden('#rowGoalMax') && J(await pressed(page)) === J(['4']));
+    await page.click('#goalRandomBtn'); await sleep(150);
+    ok('R23 switching to random shows the saved range 7..9', J(await rangePressed(page)) === J({ min: [7], max: [9], rowsHidden: [false, false] }), J(await rangePressed(page)));
+    ok('R23 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
   }
 
   await browser.close(); srv.close();
