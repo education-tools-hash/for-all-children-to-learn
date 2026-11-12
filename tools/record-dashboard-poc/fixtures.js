@@ -105,6 +105,13 @@ var GOLDEN = {
       timingSpeed: 'fast', targetColor: null, targetCount: null,
       caughtColor: 'red-white', caughtSize: 'large', result: null, durationMs: 5400
     }
+  },
+  // ringo-potton-app(RINGO-POTTON-LEARNING-RECORD-1): Core Schema、1活動(配達完了)=1 record。
+  // payloadは ringo-potton-app.html の saveActivityRecord() が書く7項目そのもの。
+  'ringo-potton-app': {
+    timestamp: '2026-11-12T00:30:00.000Z', appId: 'ringo-potton-app', activity: 'ringo-delivery',
+    inputMethod: null, schemaVersion: 1,
+    payload: { goal: 3, goalMode: 'fixed', operation: 'apple', showNumber: true, switchScan: false, harvested: 3, durationSec: 21.4 }
   }
 };
 

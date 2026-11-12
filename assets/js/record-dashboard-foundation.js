@@ -1332,6 +1332,42 @@
     }
   });
 
+  // Phase RINGO-POTTON-LEARNING-RECORD-1: りんごポットン。Core Schema(donomanaRecordCreate)、
+  // 1活動(配達完了)=1 record。payload: {goal, goalMode, operation, showNumber, switchScan,
+  // harvested, durationSec}(ringo-potton-app.html の saveActivityRecord() で確認)。教材に
+  // 正誤・得点の概念がないため summary は事実のみ(「りんごを 3こ とって とどけました」)。
+  // durationSec は metrics にだけ載せ、概要文には出さない(速さで評価しない)。
+  // 将来の任意項目(swipe / decoys / refusals 等)は存在するときだけ metrics へ載せる方針で
+  // 拡張する(ここでは未実装)。richVisualization / getDetails は実装しない(画像・軌跡なし)。
+  registerAdapter({
+    appId: 'ringo-potton-app',
+    appName: 'りんごポットン',
+    category: '学習アプリ',
+    storageKey: 'ringo_potton_log',
+    structure: 'flat',
+    privacyLevel: 'low',
+    includeInDefaultTimeline: true,
+    normalize: function (e) {
+      var p = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+      var goal = (typeof p.goal === 'number') ? p.goal : null;
+      var harvested = (typeof p.harvested === 'number') ? p.harvested : null;
+      var summary = (goal !== null) ? ('りんごを ' + goal + 'こ とって とどけました') : 'りんごの おつかいに 取り組みました';
+      if (p.goalMode === 'random') summary += '（ランダム）';
+      var metrics = {};
+      if (goal !== null) metrics.goal = goal;
+      if (harvested !== null) metrics.harvested = harvested;
+      if (typeof p.durationSec === 'number') metrics.durationSec = p.durationSec;
+      return {
+        timestamp: toIsoTimestamp(e && e.timestamp),
+        activity: (e && typeof e.activity === 'string' && e.activity) ? e.activity : 'unknown',
+        summary: summary,
+        metrics: metrics,
+        inputMethod: (e && typeof e.inputMethod === 'string') ? e.inputMethod : null,
+        hasMedia: false
+      };
+    }
+  });
+
   registerAdapter({
     appId: 'kyou-no-kiroku',
     appName: 'きょうのきろく',

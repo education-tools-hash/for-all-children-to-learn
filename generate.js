@@ -1731,7 +1731,10 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 // that manual copy into a properly generate.js-sourced, auto-regenerated one (指示:
 // 「共通Foundationの生成ブロックを手編集しない。generate.jsが正本の箇所は正本を変更し、
 // 再生成して生成物と一致させる」).
-const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app', 'sakana-tsuri']);
+const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app', 'sakana-tsuri',
+  // Phase RINGO-POTTON-LEARNING-RECORD-1: りんごポットン(新規storage key `ringo_potton_log`、Core Schema、
+  // 1活動(配達完了)=1レコード。既存recordが存在しないためmigration概念自体が発生しない)。
+  'ringo-potton-app']);
 
 // ============================================================
 //  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線
