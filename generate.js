@@ -2586,6 +2586,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // RINGO-POTTON-RANDOM-RANGE-1 の公開(2026-11-13 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"、app はまとめ表示用。
+  { date: "2026-11-13", type: "update", app: "ringo-potton-app", text: "「りんごポットン」のランダムモードで、数の範囲を選べるようになりました", verbatim: true },
   // RINGO-POTTON-DUMMY-1 (C-1) の公開(2026-11-12 JST)。文案・日付・type はユーザー指定のとおり。
   { date: "2026-11-12", type: "update", app: "ringo-potton-app", text: "「りんごポットン」に「りんごじゃない くだものも まぜる（はってん）」を追加しました" },
   // RINGO-POTTON-SWIPE-1 の公開(2026-11-12 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"。
