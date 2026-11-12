@@ -3,7 +3,7 @@
 // One activity = one record in localStorage 'ringo_potton_log', written only when the delivery is
 // accepted (delivering -> celebrate). Core Schema: {timestamp ISO, appId 'ringo-potton-app',
 // activity 'ringo-delivery', inputMethod null, schemaVersion 1, payload {goal, goalMode, operation,
-// showNumber, switchScan, harvested, durationSec}}. An unfinished activity is never recorded.
+// showNumber, switchScan, swipe, harvested, durationSec}}. An unfinished activity is never recorded.
 // The settings sheet shows the count on this device and offers a two-step "delete all".
 //
 // Run from the repository root (no package.json; Node 20 + a globally available `playwright`):
@@ -134,8 +134,8 @@ const EVAL_RE = /すごい|えらい|じょうず|よくできました|せい�
     ok('R1 Core Schema envelope: ISO timestamp, appId, activity, inputMethod null, schemaVersion 1', ISO_RE.test(e.timestamp) && e.appId === 'ringo-potton-app' && e.activity === 'ringo-delivery' && e.inputMethod === null && e.schemaVersion === 1, JSON.stringify(e));
     ok('R1 envelope has exactly the 6 Core Schema keys', Object.keys(e).sort().join(',') === 'activity,appId,inputMethod,payload,schemaVersion,timestamp', Object.keys(e).join(','));
     const p = e.payload || {};
-    ok('R1 payload has exactly the 7 agreed keys', Object.keys(p).sort().join(',') === 'durationSec,goal,goalMode,harvested,operation,showNumber,switchScan', Object.keys(p).join(','));
-    ok('R1 payload values: goal 3, fixed, apple, showNumber true, switchScan false, harvested 3', p.goal === 3 && p.goalMode === 'fixed' && p.operation === 'apple' && p.showNumber === true && p.switchScan === false && p.harvested === 3, JSON.stringify(p));
+    ok('R1 payload has exactly the 8 agreed keys (7 + swipe since the swipe Phase)', Object.keys(p).sort().join(',') === 'durationSec,goal,goalMode,harvested,operation,showNumber,swipe,switchScan', Object.keys(p).join(','));
+    ok('R1 payload values: goal 3, fixed, apple, showNumber true, switchScan false, swipe false, harvested 3', p.goal === 3 && p.goalMode === 'fixed' && p.operation === 'apple' && p.showNumber === true && p.switchScan === false && p.swipe === false && p.harvested === 3, JSON.stringify(p));
     ok('R1 durationSec is a plausible number (0 < d < 60, one decimal)', typeof p.durationSec === 'number' && p.durationSec > 0 && p.durationSec < 60 && Math.round(p.durationSec * 10) === p.durationSec * 10, String(p.durationSec));
     ok('R1 no right/wrong, score or tap-count fields anywhere in the record', !/correct|score|tap|mistake|point|rate/i.test(JSON.stringify(e)), JSON.stringify(e));
     ok('R1 timestamp is "now" (within 60 s)', Math.abs(Date.now() - Date.parse(e.timestamp)) < 60000, e.timestamp);

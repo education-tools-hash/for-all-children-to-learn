@@ -187,6 +187,9 @@
     touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; cursor: pointer;
   }
   .surface[hidden] { display: none; }
+  /* 「なでて とる（スワイプ）」ON: the surface takes the whole gesture itself (no page pan / pinch while an
+     activity is on), so a stroke of 24px reaches the app instead of scrolling. OFF keeps manipulation (above). */
+  .app[data-swipe="1"] .surface { touch-action: none; }
   .surface:focus-visible { outline-offset: -6px; }
 
   .basket-area { display: flex; align-items: center; gap: 12px; }
@@ -754,6 +757,14 @@
     </div>
     <p class="note">OFFのときは、「もう いちど」ボタンを おして はじめます。</p>
   </div>
+  <div class="row" id="rowSwipe" hidden>
+    <p class="row-label" id="lblSwipe">なでて とる（スワイプ）</p>
+    <div class="btn-group" role="group" aria-labelledby="lblSwipe">
+      <button type="button" class="opt-btn" data-swipe="1" aria-pressed="false">ON</button>
+      <button type="button" class="opt-btn" data-swipe="0" aria-pressed="false">OFF</button>
+    </div>
+    <p class="note">ONにすると、がめんを なでたり はらったり する うごきでも、りんごを 1つ とれます。タッチも そのまま つかえます。</p>
+  </div>
   <div class="row">
     <p class="row-label" id="lblVoice">こえの あんない（すぐ はんえいされます）</p>
     <div class="btn-group" role="group" aria-labelledby="lblVoice">
@@ -823,7 +834,7 @@
 
   <h3>操作方法</h3>
   <h4>タッチ</h4>
-  <p>「りんごを タッチ」のときは、とりたい りんごを タッチします。「がめんの どこでも タッチ」のときは、がめんの どこを タッチしても りんごを 1つ とれます（「とどける」も おなじです）。</p>
+  <p>「りんごを タッチ」のときは、とりたい りんごを タッチします。「がめんの どこでも タッチ」のときは、がめんの どこを タッチしても りんごを 1つ とれます（「とどける」も おなじです）。せっていで「なでて とる（スワイプ）」を ONにすると、がめんを なでたり はらったり する うごきでも りんごを 1つ とれます（タッチも そのまま つかえます）。</p>
   <h4>キーボード</h4>
   <p>Tabキーで すすみたい ところへ うつり、EnterキーまたはSpaceキーで きめます。おしっぱなしでも 1回しか はんのうしません。Escキーで せっていや つかいかたを とじます。</p>
   <h4>スイッチ</h4>
@@ -833,7 +844,7 @@
   <p>右下の「アクセシビリティ設定」を ひらき、「このアプリの詳細設定を開く」を おします。あそんでいる 最中に ひらこうとすると、まず かくにんが 出ます。</p>
   <ul>
     <li>とる りんごの かず（1〜10）。「ランダム」を えらぶと、かつどうの たびに、まえと ちがう かずに なります</li>
-    <li>そうさの しかた（りんごを タッチ／がめんの どこでも タッチ）</li>
+    <li>そうさの しかた（りんごを タッチ／がめんの どこでも タッチ）。「どこでも タッチ」では「なでて とる（スワイプ）」も えらべます</li>
     <li>こえの あんない（たのむ こえ・かぞえる こえ・おれいの こえ）・すうじの ひょうじ</li>
     <li>スイッチスキャンと その はやさ</li>
     <li>がくしゅうの きろく（この端末に ある けんすうの ひょうじと、すべて けす）</li>
@@ -1090,7 +1101,9 @@ function donomanaRecordFormatTracingLevel(level) {
      constants
   ===================================================================== */
   var SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
-  var DEFAULTS = { goal: 3, goalMode: 'fixed', operation: 'apple', againAnywhere: false, voice: true, showNumber: true, scanSpeed: 'normal' };
+  var DEFAULTS = { goal: 3, goalMode: 'fixed', operation: 'apple', againAnywhere: false, swipe: false, voice: true, showNumber: true, scanSpeed: 'normal' };
+  var SWIPE_MIN_PX = 24;              // a stroke counts once its pointer has moved this far from where it went down (beyond any tap jitter)
+  var SWIPE_CLICK_SUPPRESS_MS = 400;  // a click that follows a consumed stroke within this window is that same gesture, not a tap
   var SCAN_MS = { slow: 3500, normal: 2500, fast: 1500 };
   var FALL_MS = 650;          // apple flight time (0 under reduced motion)
   var LAND_GUARD_MS = 350;    // quiet time after an apple lands
@@ -1114,7 +1127,7 @@ function donomanaRecordFormatTracingLevel(level) {
   var liveStatus = $('liveStatus');
   var settingsBtn = $('ringoSettingsBtn'), settingsSheet = $('settingsSheet'), helpSheet = $('helpSheet'), helpBtn = $('donomanaHelpBtn');
   var confirmBar = $('settingsConfirm'), scCancel = $('scCancel'), scOpen = $('scOpen');
-  var pendingNote = $('pendingNote'), rowAgain = $('rowAgain'), rowScanSpeed = $('rowScanSpeed');
+  var pendingNote = $('pendingNote'), rowAgain = $('rowAgain'), rowSwipe = $('rowSwipe'), rowScanSpeed = $('rowScanSpeed');
 
   /* =====================================================================
      settings (saved) vs active (snapshot taken at the start of each activity)
@@ -1127,6 +1140,7 @@ function donomanaRecordFormatTracingLevel(level) {
       goalMode: o.goalMode === 'random' ? 'random' : 'fixed',   // absent in older saved data -> fixed (the saved goal is kept)
       operation: o.operation === 'anywhere' ? 'anywhere' : 'apple',
       againAnywhere: o.againAnywhere === true,
+      swipe: o.swipe === true,                                   // absent in older saved data -> OFF (whole-screen stroke takes one apple; anywhere only)
       voice: o.voice !== false,
       showNumber: o.showNumber !== false,
       scanSpeed: SCAN_MS[o.scanSpeed] ? o.scanSpeed : DEFAULTS.scanSpeed
@@ -1305,6 +1319,7 @@ function donomanaRecordFormatTracingLevel(level) {
         operation: active.operation,                              // 'apple' | 'anywhere'
         showNumber: active.showNumber,                            // the number was shown
         switchScan: !!scanMode,                                   // switch scanning was ON (a setting, not a guess at the input device)
+        swipe: active.swipe,                                      // 「なでて とる」was ON (a setting; planned optional field, schemaVersion stays 1)
         harvested: harvested(),                                   // apples in the basket at delivery (= goal today)
         durationSec: Math.round((now() - S.startedAt) / 100) / 10 // from「はじめる」/「もう いちど」to the delivery; never shown as a score
       });
@@ -1384,6 +1399,7 @@ function donomanaRecordFormatTracingLevel(level) {
     appEl.setAttribute('data-goal', String(active.goal));
     appEl.setAttribute('data-harvested', String(n));
     appEl.setAttribute('data-op', active.operation);
+    appEl.setAttribute('data-swipe', (active.operation === 'anywhere' && active.swipe) ? '1' : '0');   // touch-action of the surface (CSS)
     startScreen.hidden = ph !== 'start';
     playScreen.hidden = ph === 'start';
     startInfo.textContent = settings.goalMode === 'random' ? 'いまの もくひょう：ランダム（1〜10）' : 'いまの もくひょう：' + settings.goal + 'こ';
@@ -1572,12 +1588,55 @@ function donomanaRecordFormatTracingLevel(level) {
     S.viaKeyboard = (e.detail === 0);
     onHarvestIntent(parseInt(b.getAttribute('data-id'), 10));
   });
-  surfaceEl.addEventListener('click', function (e) {
-    var kbd = (e.detail === 0);
+  // the whole-screen surface routes by phase; a tap, a keyboard / switch / VoiceOver click() and (when ON) a stroke all end here
+  function surfaceIntent(kbd) {
     if (S.phase === 'harvest') { S.viaKeyboard = kbd; onHarvestIntent(null); }
     else if (S.phase === 'complete') onDeliverIntent();
     else if (S.phase === 'celebrate' && active.againAnywhere) onAgainIntent();
+  }
+  surfaceEl.addEventListener('click', function (e) {
+    var kbd = (e.detail === 0);
+    // a pointer click that follows a stroke this gesture already consumed is the same gesture (never two apples);
+    // keyboard / switch / VoiceOver clicks (detail 0) always pass, they are not pointer gestures
+    if (!kbd && now() - swipeConsumedAt < SWIPE_CLICK_SUPPRESS_MS) return;
+    surfaceIntent(kbd);
   });
+
+  /* ---- 「なでて とる（スワイプ）」: whole-screen stroke = one activation (teacher option, anywhere mode only) ----
+     Pointer Events on the surface. Each pointer is tracked from pointerdown; the moment it has moved SWIPE_MIN_PX
+     from where it went down, that pointer is marked consumed and the surface's phase routing runs ONCE for it
+     (before the finger lifts: the cause is answered while the hand is still moving). Any direction, any speed.
+     The rest of that stroke does nothing, however far it goes or whatever lands or completes meanwhile: the
+     per-pointer flag plus the existing guards (canAccept / acceptAt / anyFalling / phase) see to that, so a long
+     stroke never takes a second apple and never runs on into「とどける」. A second finger is a second pointer,
+     and its activation is refused by anyFalling / the landing guard like any burst. Taps keep working (a short
+     press lifts before 24px and arrives as the usual click). A stroke that is cancelled (pointercancel) is simply
+     forgotten. This adds an input path; it does not touch the click path nor the scan candidates. */
+  var swipePointers = {};        // pointerId -> { x, y, done }
+  var swipeConsumedAt = -1e9;    // performance.now() of the latest consumed stroke (for the click suppression above)
+  function swipeOn() { return active.operation === 'anywhere' && active.swipe && !surfaceEl.hidden; }
+  surfaceEl.addEventListener('pointerdown', function (e) {
+    if (!swipeOn()) return;
+    swipePointers[e.pointerId] = { x: e.clientX, y: e.clientY, done: false };
+    try { surfaceEl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  });
+  surfaceEl.addEventListener('pointermove', function (e) {
+    var p = swipePointers[e.pointerId];
+    if (!p || p.done || !swipeOn()) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y;
+    if (dx * dx + dy * dy < SWIPE_MIN_PX * SWIPE_MIN_PX) return;
+    p.done = true;                                   // this stroke is spent, whatever happens next
+    swipeConsumedAt = now();
+    surfaceIntent(false);
+  });
+  function endSwipePointer(e) {
+    var p = swipePointers[e.pointerId];
+    if (!p) return;
+    if (p.done) swipeConsumedAt = now();             // the click (if the browser sends one) comes right after this
+    delete swipePointers[e.pointerId];
+  }
+  surfaceEl.addEventListener('pointerup', endSwipePointer);
+  surfaceEl.addEventListener('pointercancel', endSwipePointer);
   deliverBtn.addEventListener('click', onDeliverIntent);
   againBtn.addEventListener('click', onAgainIntent);
 
@@ -1622,7 +1681,9 @@ function donomanaRecordFormatTracingLevel(level) {
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-num]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-num') === '1') === settings.showNumber)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-scan-on]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-scan-on') === '1') === scanMode)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-scan-speed]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-scan-speed') === settings.scanSpeed)); });
+    Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-swipe]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-swipe') === '1') === settings.swipe)); });
     rowAgain.hidden = settings.operation !== 'anywhere';
+    rowSwipe.hidden = settings.operation !== 'anywhere';   // a sub-option of「どこでも タッチ」, like rowAgain
     rowScanSpeed.hidden = !scanMode;
     updatePendingNote();
     updateRecordRow();
@@ -1630,7 +1691,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function updatePendingNote() {
     // in random mode active.goal is the drawn number, so only the mode (and, in fixed mode, the number) counts as a pending change
     var goalDiffers = settings.goalMode !== active.goalMode || (settings.goalMode === 'fixed' && settings.goal !== active.goal);
-    var differs = S.phase !== 'start' && (goalDiffers || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.showNumber !== active.showNumber);
+    var differs = S.phase !== 'start' && (goalDiffers || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.showNumber !== active.showNumber);
     pendingNote.hidden = !differs;
   }
   settingsSheet.addEventListener('click', function (e) {
@@ -1643,6 +1704,7 @@ function donomanaRecordFormatTracingLevel(level) {
     }
     else if (b.hasAttribute('data-op')) settings.operation = b.getAttribute('data-op') === 'anywhere' ? 'anywhere' : 'apple';
     else if (b.hasAttribute('data-again')) settings.againAnywhere = b.getAttribute('data-again') === '1';
+    else if (b.hasAttribute('data-swipe')) settings.swipe = b.getAttribute('data-swipe') === '1';
     else if (b.hasAttribute('data-voice')) { settings.voice = b.getAttribute('data-voice') === '1'; if (!settings.voice) stopSpeech(); }   // applies immediately
     else if (b.hasAttribute('data-num')) settings.showNumber = b.getAttribute('data-num') === '1';
     else if (b.hasAttribute('data-scan-on')) setScanMode(b.getAttribute('data-scan-on') === '1');
