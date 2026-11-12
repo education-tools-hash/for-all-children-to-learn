@@ -579,6 +579,12 @@
     font-size: 12px; line-height: 1.7; color: #5f5a52; margin-bottom: 4px;
   }
   .changelog-details li:last-child { margin-bottom: 0; }
+  /* 同日・同アプリのまとめ(CHANGELOG-SAME-DAY-APP-GROUP-1): 各原文を種別バッジつきで並べる */
+  .changelog-details.changelog-group-entries { list-style: none; padding-left: 14px; }
+  .changelog-group-entry { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+  .changelog-group-entry-text { flex: 1; min-width: 160px; overflow-wrap: anywhere; }
+  .changelog-group-entry-details { width: 100%; margin: 4px 0 0; padding-left: 20px; list-style: disc; }
+  body.hc-mode .changelog-details li { color: #fff; }
   .site-info-section { width: 100%; display: flex; flex-direction: column; gap: 16px; animation: fadeUp 0.5s ease 0.35s both; }
   .site-info-label { font-size: clamp(12px, 2.2vw, 14px); font-weight: 900; color: #bbb; letter-spacing: 3px; padding-left: 6px; border-left: 4px solid #e8e8e8; }
   .info-card { background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-soft); padding: 28px 32px; }
@@ -2230,7 +2236,7 @@
       <button type="button" class="update-notice-close" id="updateNoticeCloseBtn">閉じる</button>
     </section>
     <ul class="changelog-latest" id="changelogLatest" aria-label="最新のお知らせ"></ul>
-    <button class="changelog-toggle" id="changelogBtn" onclick="toggleChangelog()">
+    <button class="changelog-toggle" id="changelogBtn" onclick="toggleChangelog()" aria-expanded="false">
       <span class="changelog-toggle-left">
         <span class="changelog-icon">📋</span>
         <span class="changelog-title">これまでの更新履歴</span>
@@ -2386,10 +2392,7 @@
 
 <script>
 const CHANGELOG = [
-  { date: "2026年11月12日", type: "update", text: "「りんごポットン」に「なでて とる（スワイプ）」を追加しました", updateCount: 1 },
-  { date: "2026年11月12日", type: "update", text: "「りんごポットン」で学習の記録が残せるようになりました", updateCount: 1 },
-  { date: "2026年11月12日", type: "update", text: "「りんごポットン」のおじいさんを大きくし、見やすくしました", updateCount: 1 },
-  { date: "2026年11月12日", type: "update", text: "「りんごポットン」に「りんごじゃない くだものも まぜる（はってん）」を追加しました", updateCount: 1 },
+  { date: "2026年11月12日", type: "update", text: "「りんごポットン」を更新しました", entries: [{"type":"update","text":"「りんごポットン」に「りんごじゃない くだものも まぜる（はってん）」を追加しました","updateCount":1},{"type":"update","text":"「りんごポットン」に「なでて とる（スワイプ）」を追加しました","updateCount":1},{"type":"update","text":"「りんごポットン」で学習の記録が残せるようになりました","updateCount":1},{"type":"update","text":"「りんごポットン」のおじいさんを大きくし、見やすくしました","updateCount":1}], updateCount: 4 },
   { date: "2026年11月11日", type: "new", text: "公式SNS（X・Instagram）を開設しました", updateCount: 1 },
   { date: "2026年11月10日", type: "new", text: "「Built with Claude: Japan 2026」に参加し、新作「みんなでかける虹」を制作しました", updateCount: 1 },
   { date: "2026年11月8日", type: "design", text: "トップページをリニューアルしました", updateCount: 1 },
@@ -2740,8 +2743,11 @@ const APPS = [
 function toggleChangelog() {
   const body  = document.getElementById('changelogBody');
   const arrow = document.getElementById('changelogArrow');
-  body.classList.toggle('open');
-  arrow.classList.toggle('open');
+  const isOpen = body.classList.toggle('open');
+  arrow.classList.toggle('open', isOpen);
+  // CHANGELOG-SAME-DAY-APP-GROUP-1: 開閉状態を支援技術へ伝える(プライバシーポリシーと同じ流儀)
+  const btn = document.getElementById('changelogBtn');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
 function escapeChangelog(s) {
@@ -2754,6 +2760,39 @@ function escapeChangelog(s) {
 // User Review指摘)。アコーディオン内は日付見出し(changelogDateGroupHTML)が既に
 // あるため出さない。Array.prototype.mapから呼ばれると第2引数はindex(数値)になるが、
 // 数値は showDate を持たないので従来どおり日付なしになる。
+// CHANGELOG-SAME-DAY-APP-GROUP-1: 同日・同アプリのまとめ項目(generate.jsがentriesを付けたもの)。
+// 見出し「「アプリ名」を更新しました」+件数のボタン(既存の詳細トグルと同じ部品)を押すと、各記録の
+// 原文を種別バッジつきで並べる。原文にdetailsがあれば、その下に内訳を常時表示する(3段目の開閉は
+// 作らない)。同じ項目が「最新3件」と月別の両方に描かれるため、aria-controlsのidは描画ごとに一意。
+let changelogGroupSeq = 0;
+function changelogGroupHTML(item, head) {
+  const id = 'changelog-group-' + (++changelogGroupSeq);
+  const rows = item.entries.map(e => {
+    const sub = Array.isArray(e.details) && e.details.length > 0
+      ? `<ul class="changelog-group-entry-details">${e.details.map(d => `<li>${escapeChangelog(d)}</li>`).join('')}</ul>`
+      : '';
+    return `
+        <li class="changelog-group-entry">
+          <span class="changelog-badge ${e.type}">${labelForType(e.type)}</span>
+          <span class="changelog-group-entry-text">${escapeChangelog(e.text)}</span>${sub}
+        </li>`;
+  }).join('');
+  return `
+    <li class="changelog-item has-details is-group">
+      ${head}
+      <button type="button" class="changelog-text changelog-detail-toggle"
+              aria-expanded="false" aria-controls="${id}"
+              onclick="toggleChangelogDetails(this)">
+        <span>${escapeChangelog(item.text)}</span>
+        <span class="changelog-detail-hint">
+          <span class="changelog-detail-count">${item.updateCount}件</span>
+          <span class="changelog-detail-arrow" aria-hidden="true">▼</span>
+        </span>
+      </button>
+      <ul class="changelog-details changelog-group-entries" id="${id}">${rows}</ul>
+    </li>`;
+}
+
 function changelogItemHTML(item, opts) {
   const hasDetails = Array.isArray(item.details) && item.details.length > 0;
   const showDate = !!(opts && opts.showDate === true);
@@ -2763,6 +2802,10 @@ function changelogItemHTML(item, opts) {
     : '';
   const head = `${dateHTML}
     <span class="changelog-badge ${item.type}">${labelForType(item.type)}</span>`;
+
+  if (Array.isArray(item.entries) && item.entries.length > 0) {
+    return changelogGroupHTML(item, head);
+  }
 
   if (!hasDetails) {
     return `
@@ -2846,7 +2889,7 @@ function renderChangelog() {
 
     return `
     <li class="changelog-month-group">
-      <button class="changelog-month-header" onclick="toggleChangelogMonth(this)">
+      <button class="changelog-month-header" onclick="toggleChangelogMonth(this)" aria-expanded="${i === 0 ? 'true' : 'false'}">
         <span class="changelog-month-label">${g.key}</span>
         <span class="changelog-month-count">${g.items.reduce((sum, item) => sum + item.updateCount, 0)}件</span>
         <span class="changelog-month-arrow ${i === 0 ? 'open' : ''}">▼</span>
@@ -2861,8 +2904,9 @@ function renderChangelog() {
 function toggleChangelogMonth(btn) {
   const body  = btn.nextElementSibling;
   const arrow = btn.querySelector('.changelog-month-arrow');
-  body.classList.toggle('open');
-  arrow.classList.toggle('open');
+  const isOpen = body.classList.toggle('open');
+  arrow.classList.toggle('open', isOpen);
+  btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');   // CHANGELOG-SAME-DAY-APP-GROUP-1
 }
 
 function labelForType(type) {

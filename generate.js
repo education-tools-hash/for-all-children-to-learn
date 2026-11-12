@@ -2580,15 +2580,20 @@ function updateAppIntroHTML(apps) {
 // details（任意）: 「バグを修正しました」だけでは何が直ったか分からないため、
 //   修正箇所を配列で書くと、更新履歴上でクリックすると開く内訳として表示される。
 //   例: details: ["音が鳴らない問題を修正", "設定が保存されない問題を修正"]
+// app（任意、CHANGELOG-SAME-DAY-APP-GROUP-1）: その記録が1つのアプリだけについての
+//   ものなら apps-data.json の id を書く（例: app: "ringo-potton-app"）。未知の id は
+//   生成時にエラーで止まる。同じ日付・同じ app の記録が2件以上あると、トップページでは
+//   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
+//   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
   // RINGO-POTTON-DUMMY-1 (C-1) の公開(2026-11-12 JST)。文案・日付・type はユーザー指定のとおり。
-  { date: "2026-11-12", type: "update", text: "「りんごポットン」に「りんごじゃない くだものも まぜる（はってん）」を追加しました" },
+  { date: "2026-11-12", type: "update", app: "ringo-potton-app", text: "「りんごポットン」に「りんごじゃない くだものも まぜる（はってん）」を追加しました" },
   // RINGO-POTTON-SWIPE-1 の公開(2026-11-12 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"。
-  { date: "2026-11-12", type: "update", text: "「りんごポットン」に「なでて とる（スワイプ）」を追加しました", verbatim: true },
+  { date: "2026-11-12", type: "update", app: "ringo-potton-app", text: "「りんごポットン」に「なでて とる（スワイプ）」を追加しました", verbatim: true },
   // RINGO-POTTON-LEARNING-RECORD-1 の公開(2026-11-12 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"。
-  { date: "2026-11-12", type: "update", text: "「りんごポットン」で学習の記録が残せるようになりました", verbatim: true },
+  { date: "2026-11-12", type: "update", app: "ringo-potton-app", text: "「りんごポットン」で学習の記録が残せるようになりました", verbatim: true },
   // RINGO-POTTON-FARMER-SIZE-1 の公開(2026-11-12 JST)。文案はユーザー指定の verbatim、type は既存の「改善」= "update"。
-  { date: "2026-11-12", type: "update", text: "「りんごポットン」のおじいさんを大きくし、見やすくしました", verbatim: true },
+  { date: "2026-11-12", type: "update", app: "ringo-potton-app", text: "「りんごポットン」のおじいさんを大きくし、見やすくしました", verbatim: true },
   // TOP-PAGE-NEWS-AND-SNS-LINKS-1(2026-11-11、Nishio承認の確定文案)。2件とも type "new"・verbatim。
   { date: "2026-11-11", type: "new", text: "公式SNS（X・Instagram）を開設しました", verbatim: true },
   { date: "2026-11-10", type: "new", text: "「Built with Claude: Japan 2026」に参加し、新作「みんなでかける虹」を制作しました", verbatim: true },
@@ -2937,6 +2942,16 @@ function generateChangelog(apps) {
   const appById = {};
   apps.forEach(a => { appById[a.id] = a; });
 
+  // CHANGELOG-SAME-DAY-APP-GROUP-1: `app` は明示フィールドのみを根拠にする（「」抽出は
+  // しない。既存データには先頭の「」がアプリでない記録・『』表記・機能名の「」が混在するため）。
+  // 書き間違いを黙って別アプリ扱いにしないよう、未知の id は生成を止める。
+  MANUAL_CHANGELOG.forEach(e => {
+    if (e.app === undefined) return;
+    if (typeof e.app !== 'string' || !appById[e.app]) {
+      throw new Error(`更新履歴の app が apps-data.json に存在しません: ${JSON.stringify(e.app)} (${e.date} ${e.text})`);
+    }
+  });
+
   // アプリの releaseDate から自動生成。sourceAppId を持たせ、後続の集約処理が
   // 曖昧な文字列一致に頼らず確実にアプリを特定できるようにする。
   const autoEntries = apps
@@ -2979,8 +2994,47 @@ function generateChangelog(apps) {
   // 互換性はここで保たれる)。verbatimでないentry(自動release/手動update文言の混在)は、
   // 引き続き既存のアプリ名寄せ集約ロジックで1つのitemへまとめる(複数entry日の既存挙動を
   // 完全維持)。
+  // CHANGELOG-SAME-DAY-APP-GROUP-1: 同じ日付・同じ `app` の手動記録が2件以上ある場合だけ、
+  // 1項目「「<title>」を更新しました」にまとめる。各記録の原文・種別・details は entries に
+  // そのまま保持し（文は書き換えない）、件数は所属記録の updateCount の合計（月の件数は不変）。
+  // バッジは所属記録の最優先種別。まとめた項目はその日の先頭に置く。まとめに入らなかった記録
+  // （app なし、その日にその app が1件だけ、自動の「公開しました」= sourceAppId 側）は、
+  // 下の既存処理をそのまま通るので表示は従来と同じ。
+  function splitSameDayAppGroups(date, members) {
+    const counts = {};
+    members.forEach(m => { if (m.app) counts[m.app] = (counts[m.app] || 0) + 1; });
+    const order = [];
+    const byApp = {};
+    const rest = [];
+    members.forEach(m => {
+      if (m.app && counts[m.app] >= 2) {
+        if (!byApp[m.app]) { byApp[m.app] = []; order.push(m.app); }
+        byApp[m.app].push(m);
+      } else {
+        rest.push(m);
+      }
+    });
+    const groupItems = order.map(appId => {
+      const entries = byApp[appId].map(m => {
+        const details = Array.isArray(m.details) ? m.details.map(d => String(d).trim()).filter(Boolean) : [];
+        return details.length > 0
+          ? { type: m.type, text: m.text, details, updateCount: details.length }
+          : { type: m.type, text: m.text, updateCount: 1 };
+      });
+      const types = entries.map(e => e.type);
+      return {
+        date,
+        type: TYPE_PRIORITY.find(t => types.includes(t)) || types[0],
+        text: `「${appById[appId].title}」を更新しました`,
+        entries,
+        updateCount: entries.reduce((sum, e) => sum + e.updateCount, 0)
+      };
+    });
+    return { groupItems, rest };
+  }
+
   return dateOrder.flatMap(date => {
-    const members = dateGroups[date];
+    const { groupItems, rest: members } = splitSameDayAppGroups(date, dateGroups[date]);
     const verbatimMembers = members.filter(m => m.verbatim);
     const nonVerbatimMembers = members.filter(m => !m.verbatim);
 
@@ -2992,7 +3046,7 @@ function generateChangelog(apps) {
     });
 
     if (nonVerbatimMembers.length === 0) {
-      return verbatimItems;
+      return [...groupItems, ...verbatimItems];
     }
 
     const appGroups = {}; // appId -> { releasedHere, updatedHere, updateType, updateLines }
@@ -3119,7 +3173,7 @@ function generateChangelog(apps) {
       : { date, type: primaryType, text, details: dedupedDetailLines, updateCount };
     // verbatim entry(独立item)を先に、非verbatimの集約結果をあとに置く(同日混在は
     // 現状のMANUAL_CHANGELOGには存在しないが、両者の意味を混ぜないための決定的な順序)。
-    return [...verbatimItems, mergedItem];
+    return [...groupItems, ...verbatimItems, mergedItem];
   });
 }
 
@@ -3144,6 +3198,16 @@ function updateChangelog(apps) {
       : [];
     if (details.length > 0) {
       parts.push(`details: ${JSON.stringify(details)}`);
+    }
+    // entries(CHANGELOG-SAME-DAY-APP-GROUP-1): 同日・同アプリのまとめ項目だけが持つ。
+    // 各記録の原文・種別・内訳をそのまま渡し、index.html の changelogItemHTML が展開表示する。
+    if (Array.isArray(e.entries) && e.entries.length > 0) {
+      parts.push(`entries: ${JSON.stringify(e.entries.map(x => {
+        const d = Array.isArray(x.details) ? x.details.map(s => String(s).trim()).filter(Boolean) : [];
+        return d.length > 0
+          ? { type: x.type, text: x.text, details: d, updateCount: x.updateCount }
+          : { type: x.type, text: x.text, updateCount: x.updateCount };
+      }))}`);
     }
     // updateCount(Phase26-D2.1): 表示件数(「N件」)は details.length ではなくこの値を
     // 使う。単なる表示行数(グループ見出しを含む)と意味上の更新件数を混同しないため。
