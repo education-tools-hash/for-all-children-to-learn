@@ -142,6 +142,7 @@
   .req-pics svg { width: 22px; height: 22px; }
   .bubble [hidden] { display: none; }   /* the bubble swaps the request for the thank-you while celebrating */
   .bubble .thanks { font-size: 1.5rem; font-weight: 900; color: var(--dm-color-primary-dark, #00857B); }
+  .bubble .refuse { font-size: 1.25rem; font-weight: 900; color: var(--dm-color-primary-dark, #00857B); }   /* the farmer's gentle refusal (decoys) */
 
   .tree-area { position: relative; min-height: 200px; display: flex; flex-direction: column; align-items: center; }
   .app[data-phase="complete"] .tree-area, .app[data-phase="delivering"] .tree-area, .app[data-phase="celebrate"] .tree-area { min-height: 0 !important; }
@@ -201,6 +202,11 @@
     background: repeating-linear-gradient(90deg, #D9B98A 0 14px, #CFAA78 14px 18px); padding: 12px 10px 16px;
   }
   .slots { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  /* decoys that went into the basket sit BESIDE the slots, never in one: the frames (= the number) stay the apples'.
+     The tray takes room only while decoys are part of the activity (data-decoys), so the default layout is unchanged. */
+  .decoys { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .app[data-decoys="1"] .decoys { min-height: calc(var(--slot-size, 64px) * 0.85); margin-top: 6px; }
+  .decoys svg { width: calc(var(--slot-size, 64px) * 0.85); height: calc(var(--slot-size, 64px) * 0.85); }
   .slot {
     width: var(--slot-size, 64px); height: var(--slot-size, 64px); border: 3px dashed #8A6642; border-radius: 50%; background: #FBF3E4;
     display: flex; align-items: center; justify-content: center;
@@ -652,6 +658,18 @@
       <path d="M30 30 Q30 8 50 8 Q70 8 70 30" fill="#EDD08A" stroke="#9A7A2E" stroke-width="3" stroke-linejoin="round"/>
       <path d="M31 24 L69 24" stroke="#B5533C" stroke-width="5" stroke-linecap="round"/>
     </symbol>
+    <!-- decoys for「りんごじゃない くだものも まぜる」: a banana (yellow, long) and a mikan (orange, round), both clearly not an apple -->
+    <symbol id="ic-banana" viewBox="0 0 100 100">
+      <path d="M18 34 C22 60 46 82 78 78 C86 77 90 70 86 64 C60 70 36 56 28 30 C26 24 18 26 18 34 Z" fill="#F2D23A" stroke="#9A7A1A" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M86 64 L93 60 C97 58 97 67 90 71 Z" fill="#7A5A14" stroke="#7A5A14" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M30 40 C40 58 54 68 70 72" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-mikan" viewBox="0 0 100 100">
+      <circle cx="50" cy="56" r="36" fill="#F59A23" stroke="#A85F10" stroke-width="4"/>
+      <path d="M50 20 C50 14 54 10 60 10" fill="none" stroke="#6B4A2B" stroke-width="5" stroke-linecap="round"/>
+      <path d="M52 18 C58 8 72 10 74 14 C70 24 58 26 52 18 Z" fill="#5E9E55" stroke="#3F7539" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M28 50 C28 42 34 36 40 36" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="5" stroke-linecap="round"/>
+    </symbol>
     <symbol id="ic-arrow" viewBox="0 0 24 24"><path d="M4 12 H18 M12 5 L19 12 L12 19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="ic-again" viewBox="0 0 24 24"><path d="M20 12 A8 8 0 1 1 16.5 5.4 M17 2 V6.5 H12.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </defs>
@@ -695,6 +713,7 @@
           <span class="req-group"><span class="req-num" id="reqNum" aria-hidden="true"></span><span id="bubbleTail">とってね</span></span>
           <span class="req-pics" id="reqPics" aria-hidden="true"></span>
           <span class="thanks" id="bubbleThanks" hidden>ありがとう！</span>
+          <span class="refuse" id="bubbleRefuse" hidden>あれ？ りんごじゃないのが あるみたい</span>
         </div>
       </div>
 
@@ -705,7 +724,7 @@
 
       <div class="basket-area" id="basketArea">
         <div class="count-box" id="countBox" aria-hidden="true"><span class="count-num" id="countNum">0</span><span class="count-unit">こ</span></div>
-        <div class="basket" id="basket" role="img" aria-label="りんごを いれる かご"><div class="slots" id="slots"></div></div>
+        <div class="basket" id="basket" role="img" aria-label="りんごを いれる かご"><div class="slots" id="slots"></div><div class="decoys" id="decoyTray" aria-hidden="true"></div></div>
       </div>
 
       <div class="actions" id="actions">
@@ -764,6 +783,14 @@
       <button type="button" class="opt-btn" data-swipe="0" aria-pressed="false">OFF</button>
     </div>
     <p class="note">ONにすると、がめんを なでたり はらったり する うごきでも、りんごを 1つ とれます。タッチも そのまま つかえます。</p>
+  </div>
+  <div class="row" id="rowDummy" hidden>
+    <p class="row-label" id="lblDummy">りんごじゃない くだものも まぜる（はってん）</p>
+    <div class="btn-group" role="group" aria-labelledby="lblDummy">
+      <button type="button" class="opt-btn" data-dummy="1" aria-pressed="false">ON</button>
+      <button type="button" class="opt-btn" data-dummy="0" aria-pressed="false">OFF</button>
+    </div>
+    <p class="note">ONにすると、木に バナナや みかんも なります。りんごだけを えらんで かごに いれて とどけます。りんごじゃないのが はいったまま とどけると、のうかの ひとが「あれ？」と いって、くだものは ぜんぶ 木に もどり、おなじ かずを もういちど たのまれます。「がめんの どこでも タッチ」では つかえません。</p>
   </div>
   <div class="row">
     <p class="row-label" id="lblVoice">こえの あんない（すぐ はんえいされます）</p>
@@ -845,11 +872,15 @@
   <ul>
     <li>とる りんごの かず（1〜10）。「ランダム」を えらぶと、かつどうの たびに、まえと ちがう かずに なります</li>
     <li>そうさの しかた（りんごを タッチ／がめんの どこでも タッチ）。「どこでも タッチ」では「なでて とる（スワイプ）」も えらべます</li>
+    <li>りんごじゃない くだものも まぜる（はってん。「りんごを タッチ」のときだけ）</li>
     <li>こえの あんない（たのむ こえ・かぞえる こえ・おれいの こえ）・すうじの ひょうじ</li>
     <li>スイッチスキャンと その はやさ</li>
     <li>がくしゅうの きろく（この端末に ある けんすうの ひょうじと、すべて けす）</li>
   </ul>
   <p>こえの あんない の ON/OFF は すぐ はんえいされます（たのむ・かぞえる・おれいの こえを まとめて きりかえます）。ほかの へんこうは、つぎの かつどうから はんえいされます。せっていは この端末の ブラウザにだけ 保存されます。</p>
+
+  <h3>りんごじゃない くだものも まぜる（はってん）</h3>
+  <p>せっていで ONにすると、木に りんごの ほかに バナナや みかんも なります（たのまれた かずに あわせて 1〜3こ）。りんごだけを えらんで かごに いれます。バナナや みかんを いれても、かぞえる こえと すうじは かわらず、かごの わくの そとに はいります。りんごじゃないのが はいったまま「とどける」と、のうかの ひとが「あれ？ りんごじゃないのが あるみたい」と いって、くだものは ぜんぶ 木に もどり、おなじ かずを もういちど たのまれます。りんごだけを いれて とどければ、いつもどおり「ありがとう！」です。「がめんの どこでも タッチ」では つかえません。</p>
 
   <h3>がくしゅうの きろく</h3>
   <p>とどける まで おわる たびに、日時・たのまれた かず・そうさの しかた などを、この端末の ブラウザにだけ ほぞんします。がいぶへの そうしんは ありません。とちゅうで やめた かつどうは ほぞんしません。先生・支援者は がめん左下の「学習のきろく」で 見られます。せっていの「きろくを すべて けす」で けせます。</p>
@@ -1101,7 +1132,7 @@ function donomanaRecordFormatTracingLevel(level) {
      constants
   ===================================================================== */
   var SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
-  var DEFAULTS = { goal: 3, goalMode: 'fixed', operation: 'apple', againAnywhere: false, swipe: false, voice: true, showNumber: true, scanSpeed: 'normal' };
+  var DEFAULTS = { goal: 3, goalMode: 'fixed', operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal' };
   var SWIPE_MIN_PX = 24;              // a stroke counts once its pointer has moved this far from where it went down (beyond any tap jitter)
   var SWIPE_CLICK_SUPPRESS_MS = 400;  // a click that follows a consumed stroke within this window is that same gesture, not a tap
   var SCAN_MS = { slow: 3500, normal: 2500, fast: 1500 };
@@ -1112,6 +1143,17 @@ function donomanaRecordFormatTracingLevel(level) {
   var READINGS = ['', 'いち', 'に', 'さん', 'よん', 'ご', 'ろく', 'なな', 'はち', 'きゅう', 'じゅう'];
   // request voice: "りんごを ○こ、とってね". Counter readings written in kana so every voice says them naturally (いっこ, ろっこ, はっこ, じゅっこ).
   var REQUEST_READINGS = ['', 'いっこ', 'にこ', 'さんこ', 'よんこ', 'ごこ', 'ろっこ', 'ななこ', 'はっこ', 'きゅうこ', 'じゅっこ'];
+  // ---- 「りんごじゃない くだものも まぜる」(decoys). Everything about fruit keys on `kind`: the target kind is what the
+  //      farmer asks for and what the basket frames / the number count; the decoy kinds only ever sit beside them.
+  //      A future mode that asks for something other than apples changes TARGET_KIND and the words, nothing structural. ----
+  var TARGET_KIND = 'apple';
+  var DECOY_KINDS = ['banana', 'mikan'];                     // the first decoy is always the banana (the easiest to tell apart), the rest mikan
+  var KIND_NAMES = { apple: 'りんご', banana: 'バナナ', mikan: 'みかん' };
+  var MAX_FRUIT = 12;                                        // apples + decoys never exceed this (ten 60px fruit plus two still fit a short landscape phone)
+  var REFUSE_TEXT = 'あれ？ りんごじゃないのが あるみたい';    // the farmer's refusal: the bubble and the voice say exactly this (a noticing, never a verdict)
+  var REFUSE_MS = 2600;                                      // how long the refusal stays before everything returns to the tree (never tied to speech events)
+  function decoyCountFor(goal) { return Math.max(0, Math.min(1 + Math.floor(goal / 4), MAX_FRUIT - goal)); }   // 1..3 -> 1, 4..7 -> 2, 8..9 -> 3, 10 -> 2
+  function decoysActive() { return active.dummy && active.operation === 'apple'; }   // choosing is the point: whole-screen touch cannot choose, so there it is off
 
   /* =====================================================================
      elements
@@ -1120,14 +1162,15 @@ function donomanaRecordFormatTracingLevel(level) {
   var appEl = $('app'), stageEl = $('stage');
   var startScreen = $('startScreen'), playScreen = $('playScreen'), startBtn = $('startBtn'), startInfo = $('startInfo');
   var reqNum = $('reqNum'), reqPics = $('reqPics'), bubbleLead = $('bubbleLead'), bubbleTail = $('bubbleTail');
-  var bubbleThanks = $('bubbleThanks'), reqGroup = bubbleTail.parentNode;
+  var bubbleThanks = $('bubbleThanks'), bubbleRefuse = $('bubbleRefuse'), reqGroup = bubbleTail.parentNode;
+  var decoyTray = $('decoyTray');
   var treeArea = $('treeArea'), canopy = $('canopy'), appleGrid = $('appleGrid');
   var countBox = $('countBox'), countNum = $('countNum'), slotsEl = $('slots'), basketArea = $('basketArea');
   var deliverBtn = $('deliverBtn'), againBtn = $('againBtn'), doneNote = $('doneNote'), surfaceEl = $('surface');
   var liveStatus = $('liveStatus');
   var settingsBtn = $('ringoSettingsBtn'), settingsSheet = $('settingsSheet'), helpSheet = $('helpSheet'), helpBtn = $('donomanaHelpBtn');
   var confirmBar = $('settingsConfirm'), scCancel = $('scCancel'), scOpen = $('scOpen');
-  var pendingNote = $('pendingNote'), rowAgain = $('rowAgain'), rowSwipe = $('rowSwipe'), rowScanSpeed = $('rowScanSpeed');
+  var pendingNote = $('pendingNote'), rowAgain = $('rowAgain'), rowSwipe = $('rowSwipe'), rowDummy = $('rowDummy'), rowScanSpeed = $('rowScanSpeed');
 
   /* =====================================================================
      settings (saved) vs active (snapshot taken at the start of each activity)
@@ -1141,6 +1184,7 @@ function donomanaRecordFormatTracingLevel(level) {
       operation: o.operation === 'anywhere' ? 'anywhere' : 'apple',
       againAnywhere: o.againAnywhere === true,
       swipe: o.swipe === true,                                   // absent in older saved data -> OFF (whole-screen stroke takes one apple; anywhere only)
+      dummy: o.dummy === true,                                   // absent in older saved data -> OFF (decoy fruit on the tree; apple-touch only)
       voice: o.voice !== false,
       showNumber: o.showNumber !== false,
       scanSpeed: SCAN_MS[o.scanSpeed] ? o.scanSpeed : DEFAULTS.scanSpeed
@@ -1157,11 +1201,19 @@ function donomanaRecordFormatTracingLevel(level) {
      canonical state: the harvested count is DERIVED from landed apples, so it
      can never exceed the goal and one apple can never be counted twice.
   ===================================================================== */
-  var S = { phase: 'start', runId: 0, apples: [], acceptAt: 0, timers: [], flyers: [], viaKeyboard: false, lastGoal: null, startedAt: 0 };   // lastGoal: goal of the activity most recently STARTED (random mode avoids it); startedAt: when it started (learning record)
+  // items: every fruit on the tree, {id, kind, status: ripe | falling | landed, slot?}. Without decoys they are the goal's
+  // apples in id order, exactly as before; with decoys the tree also holds the decoy kinds. harvested() counts ONLY the
+  // target kind, so the frames, the number and the completion never see a decoy. order: the tree placement, decided once
+  // per activity (a refusal re-uses it). basketOrder: ids in the order they went into the basket (the return flight).
+  var S = { phase: 'start', runId: 0, items: [], order: [], basketOrder: [], refusals: 0, returning: false, acceptAt: 0, timers: [], flyers: [], viaKeyboard: false, lastGoal: null, startedAt: 0 };   // lastGoal: goal of the activity most recently STARTED (random mode avoids it); startedAt: when it started (learning record)
   function now() { return performance.now(); }
-  function harvested() { var n = 0; for (var i = 0; i < S.apples.length; i++) if (S.apples[i].status === 'landed') n++; return n; }
-  function anyFalling() { for (var i = 0; i < S.apples.length; i++) if (S.apples[i].status === 'falling') return true; return false; }
-  function firstRipe() { for (var i = 0; i < S.apples.length; i++) if (S.apples[i].status === 'ripe') return S.apples[i]; return null; }
+  function isTarget(it) { return it.kind === TARGET_KIND; }
+  function harvested() { var n = 0; for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i]) && S.items[i].status === 'landed') n++; return n; }
+  function anyFalling() { for (var i = 0; i < S.items.length; i++) if (S.items[i].status === 'falling') return true; return false; }
+  function firstRipe() { for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i]) && S.items[i].status === 'ripe') return S.items[i]; return null; }
+  function decoysInBasket() { var n = 0; for (var i = 0; i < S.items.length; i++) if (!isTarget(S.items[i]) && S.items[i].status === 'landed') n++; return n; }
+  function decoyCount() { var n = 0; for (var i = 0; i < S.items.length; i++) if (!isTarget(S.items[i])) n++; return n; }
+  function itemEl(id) { return appleGrid.querySelector('.apple[data-id="' + id + '"]'); }
   function reducedMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function later(fn, ms) { var id = setTimeout(fn, ms); S.timers.push(id); return id; }
   function clearTimers() { S.timers.forEach(clearTimeout); S.timers = []; S.flyers.forEach(function (f) { if (f.parentNode) f.parentNode.removeChild(f); }); S.flyers = []; }
@@ -1320,6 +1372,8 @@ function donomanaRecordFormatTracingLevel(level) {
         showNumber: active.showNumber,                            // the number was shown
         switchScan: !!scanMode,                                   // switch scanning was ON (a setting, not a guess at the input device)
         swipe: active.swipe,                                      // 「なでて とる」was ON (a setting; planned optional field, schemaVersion stays 1)
+        decoys: decoyCount(),                                     // how many decoy fruit the tree had this activity (0 when the option is off)
+        refusals: S.refusals,                                     // how often the farmer sent everything back this activity (a count, not a verdict)
         harvested: harvested(),                                   // apples in the basket at delivery (= goal today)
         durationSec: Math.round((now() - S.startedAt) / 100) / 10 // from「はじめる」/「もう いちど」to the delivery; never shown as a score
       });
@@ -1333,12 +1387,13 @@ function donomanaRecordFormatTracingLevel(level) {
      drawing helpers
   ===================================================================== */
   var SVG_NS = 'http://www.w3.org/2000/svg';
-  function appleSvg() {
+  function fruitSvg(kind) {
     var svg = document.createElementNS(SVG_NS, 'svg'); svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('aria-hidden', 'true');
-    var use = document.createElementNS(SVG_NS, 'use'); use.setAttribute('href', '#ic-apple'); svg.appendChild(use); return svg;
+    var use = document.createElementNS(SVG_NS, 'use'); use.setAttribute('href', '#ic-' + (kind || TARGET_KIND)); svg.appendChild(use); return svg;
   }
+  function appleSvg() { return fruitSvg(TARGET_KIND); }
   function layoutSizes() {
-    var n = active.goal;
+    var n = S.items.length || active.goal;               // every fruit on the tree (apples + decoys); the slots below use the goal only
     // tree: choose the largest apple that fits the canopy (a small goal gets very large apples)
     treeArea.style.minHeight = '';                       // measure the space the layout gives us, not our own content
     var tight = window.innerHeight <= 420;                // short landscape phones: less padding so the minimum-size apples still fit
@@ -1362,11 +1417,13 @@ function donomanaRecordFormatTracingLevel(level) {
     appleGrid.style.setProperty('--apple-size', best.size + 'px');
     appleGrid.style.gridTemplateColumns = 'repeat(' + best.cols + ', ' + best.size + 'px)';
     // basket slots
+    var g = active.goal;
     var bw = Math.max(120, basketArea.clientWidth - countBox.offsetWidth - 12 - 28);
-    var scols = n <= 5 ? n : 5, sgap = 8;
+    var scols = g <= 5 ? g : 5, sgap = 8;
     var slot = Math.floor((bw - sgap * (scols - 1)) / scols);
-    slot = Math.max(tight ? 30 : 44, Math.min(slot, n <= 3 ? 96 : 68));   // slots are markers, not touch targets
+    slot = Math.max(tight ? 30 : 44, Math.min(slot, g <= 3 ? 96 : 68));   // slots are markers, not touch targets
     slotsEl.style.setProperty('--slot-size', slot + 'px');
+    decoyTray.style.setProperty('--slot-size', slot + 'px');                 // the decoy tray scales with the slots
   }
 
   /* =====================================================================
@@ -1376,12 +1433,18 @@ function donomanaRecordFormatTracingLevel(level) {
     appleGrid.textContent = '';
     slotsEl.textContent = '';
     reqPics.textContent = '';
-    for (var i = 0; i < active.goal; i++) {
+    decoyTray.textContent = '';
+    // the tree, in the activity's placement order (plain id order without decoys, shuffled once with them)
+    for (var k = 0; k < S.order.length; k++) {
+      var it = S.items[S.order[k]];
       var b = document.createElement('button');
-      b.type = 'button'; b.className = 'apple'; b.setAttribute('data-id', String(i)); b.setAttribute('data-status', 'ripe');
-      b.setAttribute('aria-label', 'りんごを とる');
-      b.appendChild(appleSvg());
+      b.type = 'button'; b.className = 'apple'; b.setAttribute('data-id', String(it.id)); b.setAttribute('data-kind', it.kind); b.setAttribute('data-status', 'ripe');
+      b.setAttribute('aria-label', isTarget(it) ? 'りんごを とる' : KIND_NAMES[it.kind]);   // a decoy is announced by its own name
+      b.appendChild(fruitSvg(it.kind));
       appleGrid.appendChild(b);
+    }
+    // the basket frames and the request pictures: the goal's apples only, never a decoy
+    for (var i = 0; i < active.goal; i++) {
       var sl = document.createElement('div'); sl.className = 'slot'; sl.setAttribute('data-filled', '0'); sl.appendChild(appleSvg()); slotsEl.appendChild(sl);
       var pic = appleSvg(); reqPics.appendChild(pic);
     }
@@ -1393,33 +1456,42 @@ function donomanaRecordFormatTracingLevel(level) {
   }
 
   function render() {
-    var n = S.apples.length ? harvested() : 0;
+    var n = S.items.length ? harvested() : 0;
     var ph = S.phase;
     appEl.setAttribute('data-phase', ph);
     appEl.setAttribute('data-goal', String(active.goal));
     appEl.setAttribute('data-harvested', String(n));
     appEl.setAttribute('data-op', active.operation);
     appEl.setAttribute('data-swipe', (active.operation === 'anywhere' && active.swipe) ? '1' : '0');   // touch-action of the surface (CSS)
+    appEl.setAttribute('data-decoys', decoysActive() ? '1' : '0');                                     // the decoy tray takes room (CSS)
+    appEl.setAttribute('data-refusals', String(S.refusals));
     startScreen.hidden = ph !== 'start';
     playScreen.hidden = ph === 'start';
     startInfo.textContent = settings.goalMode === 'random' ? 'いまの もくひょう：ランダム（1〜10）' : 'いまの もくひょう：' + settings.goal + 'こ';
 
     if (ph !== 'start') {
-      var thanks = ph === 'celebrate';
-      bubbleThanks.hidden = !thanks; bubbleLead.hidden = thanks; reqGroup.hidden = thanks; reqPics.hidden = thanks;
+      var thanks = ph === 'celebrate', refusing = ph === 'refusing';
+      bubbleThanks.hidden = !thanks; bubbleRefuse.hidden = !refusing;
+      bubbleLead.hidden = thanks || refusing; reqGroup.hidden = thanks || refusing; reqPics.hidden = thanks || refusing;
       countBox.hidden = !active.showNumber;
       countNum.textContent = String(n);
-      var kids = appleGrid.children;
-      for (var i = 0; i < kids.length; i++) {
-        var a = S.apples[i]; if (!a) continue;
-        kids[i].setAttribute('data-status', a.status);
-        var tappable = active.operation === 'apple' && a.status === 'ripe' && ph === 'harvest';
-        if (active.operation === 'apple') { kids[i].removeAttribute('aria-hidden'); kids[i].tabIndex = tappable ? 0 : -1; kids[i].setAttribute('aria-label', 'りんごを とる'); }
-        else { kids[i].setAttribute('aria-hidden', 'true'); kids[i].tabIndex = -1; }
+      for (var i = 0; i < S.items.length; i++) {
+        var it = S.items[i], el = itemEl(it.id); if (!el) continue;
+        el.setAttribute('data-status', it.status);
+        var tappable = active.operation === 'apple' && it.status === 'ripe' && ph === 'harvest';
+        if (active.operation === 'apple') { el.removeAttribute('aria-hidden'); el.tabIndex = tappable ? 0 : -1; el.setAttribute('aria-label', isTarget(it) ? 'りんごを とる' : KIND_NAMES[it.kind]); }
+        else { el.setAttribute('aria-hidden', 'true'); el.tabIndex = -1; }
       }
       var sl = slotsEl.children;
-      if (ph !== 'delivering') {   // while delivering, the slots are emptied one by one by their own timers
+      if (ph !== 'delivering' && !S.returning) {   // while delivering / returning, the slots are emptied one by one by their own timers
         for (var j = 0; j < sl.length; j++) sl[j].setAttribute('data-filled', (ph !== 'celebrate' && j < n) ? '1' : '0');
+      }
+      if (!S.returning) {                          // decoys in the basket: beside the frames, in the order they went in
+        decoyTray.textContent = '';
+        for (var q = 0; q < S.basketOrder.length; q++) {
+          var bi = S.items[S.basketOrder[q]];
+          if (bi && !isTarget(bi) && bi.status === 'landed') { var ds = fruitSvg(bi.kind); ds.setAttribute('data-id', String(bi.id)); decoyTray.appendChild(ds); }
+        }
       }
     }
 
@@ -1455,8 +1527,15 @@ function donomanaRecordFormatTracingLevel(level) {
     if (active.goalMode === 'random') active.goal = drawRandomGoal();   // decided here, at the start of the activity, never earlier
     S.lastGoal = active.goal;                 // the activity is now starting: a restart, "again" or whole-screen again all avoid this value next time
     S.startedAt = now();                      // the learning record's durationSec counts from here (this activity only)
-    S.apples = [];
-    for (var i = 0; i < active.goal; i++) S.apples.push({ id: i, status: 'ripe' });
+    S.items = []; S.basketOrder = []; S.refusals = 0; S.returning = false;
+    for (var i = 0; i < active.goal; i++) S.items.push({ id: i, kind: TARGET_KIND, status: 'ripe' });
+    if (decoysActive()) {                     // decoys: count from the goal, the banana first, then mikan; ids continue after the apples
+      var dc = decoyCountFor(active.goal);
+      for (var d = 0; d < dc; d++) S.items.push({ id: active.goal + d, kind: DECOY_KINDS[Math.min(d, DECOY_KINDS.length - 1)], status: 'ripe' });
+    }
+    // tree placement, decided once per activity (a refusal re-uses it): plain id order without decoys (unchanged look), shuffled with them
+    S.order = S.items.map(function (it) { return it.id; });
+    if (decoysActive()) for (var k = S.order.length - 1; k > 0; k--) { var r = Math.floor(Math.random() * (k + 1)); var t = S.order[k]; S.order[k] = S.order[r]; S.order[r] = t; }
     S.phase = 'harvest';
     S.acceptAt = now() + PHASE_GUARD_MS;
     // build the DOM for the new run (play screen must be visible to measure sizes)
@@ -1478,27 +1557,28 @@ function donomanaRecordFormatTracingLevel(level) {
   function onHarvestIntent(appleId) {
     if (!canAccept('harvest')) return;
     if (anyFalling()) return;                       // one apple in flight at a time
-    var a = (appleId == null) ? firstRipe() : S.apples[appleId];
+    var a = (appleId == null) ? firstRipe() : S.items[appleId];   // whole-screen touch takes the next apple (never a decoy)
     if (!a || a.status !== 'ripe') return;
-    a.status = 'falling';                           // synchronous: any further event for this apple is now ignored
-    S.acceptAt = Infinity;                          // re-opened only when this apple has landed
+    a.status = 'falling';                           // synchronous: any further event for this fruit is now ignored
+    S.acceptAt = Infinity;                          // re-opened only when it has landed
     stopRequestSpeech();                            // a request still being spoken never overlaps the counting
     var rid = S.runId;
-    var slotIndex = harvested();                    // the slot this apple will fill
-    var el = appleGrid.children[a.id];
+    var slotIndex = harvested();                    // the slot this apple will fill (a decoy fills no slot: it goes to the tray beside them)
+    if (isTarget(a)) a.slot = slotIndex;
+    var el = itemEl(a.id);
     var fromRect = el ? el.getBoundingClientRect() : null;
-    var toEl = slotsEl.children[slotIndex];
+    var toEl = isTarget(a) ? slotsEl.children[slotIndex] : decoyTray;
     var toRect = toEl ? toEl.getBoundingClientRect() : null;
     var wait = reducedMotion() ? 0 : FALL_MS;
-    if (wait > 0 && fromRect && toRect) flyApple(fromRect, toRect, wait);
+    if (wait > 0 && fromRect && toRect) flyApple(fromRect, toRect, wait, a.kind);
     render();
     later(function () { land(rid, a.id); }, wait);
   }
 
-  function flyApple(from, to, ms) {
+  function flyApple(from, to, ms, kind) {
     var f = document.createElement('div'); f.className = 'flyer';
     f.style.left = from.left + 'px'; f.style.top = from.top + 'px'; f.style.width = from.width + 'px'; f.style.height = from.height + 'px';
-    f.appendChild(appleSvg()); document.body.appendChild(f); S.flyers.push(f);
+    f.appendChild(fruitSvg(kind)); document.body.appendChild(f); S.flyers.push(f);
     if (f.animate) {
       var dx = (to.left + to.width / 2) - (from.left + from.width / 2), dy = (to.top + to.height / 2) - (from.top + from.height / 2);
       var sc = Math.min(1, to.width / Math.max(1, from.width));
@@ -1508,27 +1588,37 @@ function donomanaRecordFormatTracingLevel(level) {
 
   function land(rid, id) {
     if (rid !== S.runId || S.phase !== 'harvest') return;   // stale callback
-    var a = S.apples[id];
+    var a = S.items[id];
     if (!a || a.status !== 'falling') return;
     a.status = 'landed';
+    S.basketOrder.push(a.id);
     S.flyers.forEach(function (f) { if (f.parentNode) f.parentNode.removeChild(f); }); S.flyers = [];
     var n = harvested();
     // display and speech read the same n, in the same tick
     var kbd = S.viaKeyboard; S.viaKeyboard = false;
-    if (n >= active.goal) { S.phase = 'complete'; S.acceptAt = now() + PHASE_GUARD_MS; }
-    else { S.acceptAt = now() + LAND_GUARD_MS; }
-    render();
-    if (S.phase === 'complete') { try { deliverBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ } }
-    speakCount(n);
-    announce('いま ' + n + 'こ。');
+    if (isTarget(a)) {
+      if (n >= active.goal) { S.phase = 'complete'; S.acceptAt = now() + PHASE_GUARD_MS; }
+      else { S.acceptAt = now() + LAND_GUARD_MS; }
+      render();
+      if (S.phase === 'complete') { try { deliverBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ } }
+      speakCount(n);
+      announce('いま ' + n + 'こ。');
+    } else {
+      // a decoy went into the basket (beside the frames): nothing is counted, its name is said instead
+      S.acceptAt = now() + LAND_GUARD_MS;
+      render();
+      speakText(KIND_NAMES[a.kind]);
+      announce(KIND_NAMES[a.kind] + 'が かごに はいりました。いま ' + n + 'こ。');
+    }
     if (kbd || scanMode) {
       if (S.phase === 'complete') { try { deliverBtn.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
-      else if (active.operation === 'apple') { var nx = firstRipe(); if (nx) { var nb = appleGrid.children[nx.id]; try { nb.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
+      else if (active.operation === 'apple') { var nb = appleGrid.querySelector('.apple[data-status="ripe"]'); if (nb) { try { nb.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
     }
   }
 
   function onDeliverIntent() {
     if (!canAccept('complete')) return;
+    if (decoysInBasket() > 0) { startRefusal(); return; }   // something that is not an apple is in the basket: the farmer notices (never a delivery)
     S.phase = 'delivering';
     S.acceptAt = Infinity;
     var rid = S.runId;
@@ -1569,6 +1659,57 @@ function donomanaRecordFormatTracingLevel(level) {
   function onAgainIntent() {
     if (!canAccept('celebrate')) return;
     beginRun();
+  }
+
+  /* ---- the farmer's refusal (decoys): complete -> refusing -> everything returns to the tree -> the same request again ----
+     Not a failure screen: the bubble and the voice say REFUSE_TEXT (a noticing), then every fruit in the basket flies
+     back to where it hung (same placement), the number returns to 0 and the farmer asks for the same count again.
+     The goal, the placement and the settings never change here; only S.refusals counts. Taking the apples alone
+     then delivers as usual. Progression never waits for speech: REFUSE_MS is a fixed pause. */
+  function startRefusal() {
+    S.phase = 'refusing';
+    S.acceptAt = Infinity;
+    S.refusals++;
+    var rid = S.runId;
+    render();
+    stopSpeech();                                   // the farmer's words never overlap the counting or the request
+    speakText(REFUSE_TEXT);
+    announce(REFUSE_TEXT + '。');
+    later(function () { returnAllToTree(rid); }, REFUSE_MS);
+  }
+  function returnAllToTree(rid) {
+    if (rid !== S.runId || S.phase !== 'refusing') return;
+    S.returning = true;                             // render() leaves the basket to these timers until everything is back
+    var back = S.basketOrder.slice();               // in the order they went in
+    var wait = 0;
+    if (!reducedMotion()) {
+      back.forEach(function (id, k) {
+        var it = S.items[id]; if (!it || it.status !== 'landed') return;
+        var fromEl = isTarget(it) ? slotsEl.children[it.slot] : decoyTray.querySelector('[data-id="' + id + '"]');
+        var toEl = itemEl(id);
+        var from = fromEl ? fromEl.getBoundingClientRect() : null, to = toEl ? toEl.getBoundingClientRect() : null;
+        later(function () {
+          if (rid !== S.runId) return;
+          if (from && to) flyApple(from, to, DELIVER_FLY_MS, it.kind);
+          if (isTarget(it)) { var se = slotsEl.children[it.slot]; if (se) se.setAttribute('data-filled', '0'); }
+          else { var de = decoyTray.querySelector('[data-id="' + id + '"]'); if (de) de.style.visibility = 'hidden'; }
+        }, k * DELIVER_STAGGER_MS);
+      });
+      wait = DELIVER_FLY_MS + Math.max(0, back.length - 1) * DELIVER_STAGGER_MS;
+    }
+    later(function () { finishReturn(rid); }, wait);
+  }
+  function finishReturn(rid) {
+    if (rid !== S.runId || S.phase !== 'refusing') return;
+    S.flyers.forEach(function (f) { if (f.parentNode) f.parentNode.removeChild(f); }); S.flyers = [];
+    for (var i = 0; i < S.items.length; i++) S.items[i].status = 'ripe';
+    S.basketOrder = []; S.returning = false;
+    S.phase = 'harvest';
+    S.acceptAt = now() + PHASE_GUARD_MS;
+    render();                                       // same tree, same placement, frames empty, number 0
+    announce('りんごを ' + active.goal + 'こ とります。');
+    speakRequest(active.goal);                      // the same request, once more
+    if (scanMode) { var nb = appleGrid.querySelector('.apple[data-status="ripe"]'); if (nb) { try { nb.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } }
   }
 
   /* =====================================================================
@@ -1684,6 +1825,8 @@ function donomanaRecordFormatTracingLevel(level) {
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-swipe]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-swipe') === '1') === settings.swipe)); });
     rowAgain.hidden = settings.operation !== 'anywhere';
     rowSwipe.hidden = settings.operation !== 'anywhere';   // a sub-option of「どこでも タッチ」, like rowAgain
+    Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-dummy]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-dummy') === '1') === settings.dummy)); });
+    rowDummy.hidden = settings.operation !== 'apple';      // decoys need choosing: only with「りんごを タッチ」(the value is kept, just not offered elsewhere)
     rowScanSpeed.hidden = !scanMode;
     updatePendingNote();
     updateRecordRow();
@@ -1691,7 +1834,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function updatePendingNote() {
     // in random mode active.goal is the drawn number, so only the mode (and, in fixed mode, the number) counts as a pending change
     var goalDiffers = settings.goalMode !== active.goalMode || (settings.goalMode === 'fixed' && settings.goal !== active.goal);
-    var differs = S.phase !== 'start' && (goalDiffers || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.showNumber !== active.showNumber);
+    var differs = S.phase !== 'start' && (goalDiffers || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber);
     pendingNote.hidden = !differs;
   }
   settingsSheet.addEventListener('click', function (e) {
@@ -1705,6 +1848,7 @@ function donomanaRecordFormatTracingLevel(level) {
     else if (b.hasAttribute('data-op')) settings.operation = b.getAttribute('data-op') === 'anywhere' ? 'anywhere' : 'apple';
     else if (b.hasAttribute('data-again')) settings.againAnywhere = b.getAttribute('data-again') === '1';
     else if (b.hasAttribute('data-swipe')) settings.swipe = b.getAttribute('data-swipe') === '1';
+    else if (b.hasAttribute('data-dummy')) settings.dummy = b.getAttribute('data-dummy') === '1';
     else if (b.hasAttribute('data-voice')) { settings.voice = b.getAttribute('data-voice') === '1'; if (!settings.voice) stopSpeech(); }   // applies immediately
     else if (b.hasAttribute('data-num')) settings.showNumber = b.getAttribute('data-num') === '1';
     else if (b.hasAttribute('data-scan-on')) setScanMode(b.getAttribute('data-scan-on') === '1');
