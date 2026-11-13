@@ -3,7 +3,7 @@
 // One activity = one record in localStorage 'ringo_potton_log', written only when the delivery is
 // accepted (delivering -> celebrate). Core Schema: {timestamp ISO, appId 'ringo-potton-app',
 // activity 'ringo-delivery', inputMethod null, schemaVersion 1, payload {goal, goalMode, goalMin, goalMax, operation,
-// showNumber, switchScan, swipe, decoys, refusals, harvested, durationSec}}. An unfinished activity is never recorded.
+// showNumber, moveSpeed, switchScan, swipe, decoys, refusals, harvested, durationSec}}. An unfinished activity is never recorded.
 // The settings sheet shows the count on this device and offers a two-step "delete all".
 //
 // Run from the repository root (no package.json; Node 20 + a globally available `playwright`):
@@ -134,8 +134,9 @@ const EVAL_RE = /すごい|えらい|じょうず|よくできました|せい�
     ok('R1 Core Schema envelope: ISO timestamp, appId, activity, inputMethod null, schemaVersion 1', ISO_RE.test(e.timestamp) && e.appId === 'ringo-potton-app' && e.activity === 'ringo-delivery' && e.inputMethod === null && e.schemaVersion === 1, JSON.stringify(e));
     ok('R1 envelope has exactly the 6 Core Schema keys', Object.keys(e).sort().join(',') === 'activity,appId,inputMethod,payload,schemaVersion,timestamp', Object.keys(e).join(','));
     const p = e.payload || {};
-    ok('R1 payload has exactly the 12 agreed keys (7 + swipe + decoys + refusals + goalMin / goalMax since the swipe / decoy / random-range Phases)', Object.keys(p).sort().join(',') === 'decoys,durationSec,goal,goalMax,goalMin,goalMode,harvested,operation,refusals,showNumber,swipe,switchScan', Object.keys(p).join(','));
+    ok('R1 payload has exactly the 13 agreed keys (7 + swipe + decoys + refusals + goalMin / goalMax + moveSpeed since the swipe / decoy / random-range / move-speed Phases)', Object.keys(p).sort().join(',') === 'decoys,durationSec,goal,goalMax,goalMin,goalMode,harvested,moveSpeed,operation,refusals,showNumber,swipe,switchScan', Object.keys(p).join(','));
     ok('R1 fixed mode still records the (default) range: goalMin 1, goalMax 10', p.goalMin === 1 && p.goalMax === 10, JSON.stringify(p));
+    ok('R1 moveSpeed is recorded as the default "normal" (no saved value)', p.moveSpeed === 'normal', JSON.stringify(p));
     ok('R1 payload values: goal 3, fixed, apple, showNumber true, switchScan false, swipe false, decoys 0, refusals 0, harvested 3', p.goal === 3 && p.goalMode === 'fixed' && p.operation === 'apple' && p.showNumber === true && p.switchScan === false && p.swipe === false && p.decoys === 0 && p.refusals === 0 && p.harvested === 3, JSON.stringify(p));
     ok('R1 durationSec is a plausible number (0 < d < 60, one decimal)', typeof p.durationSec === 'number' && p.durationSec > 0 && p.durationSec < 60 && Math.round(p.durationSec * 10) === p.durationSec * 10, String(p.durationSec));
     ok('R1 no right/wrong, score or tap-count fields anywhere in the record', !/correct|score|tap|mistake|point|rate/i.test(JSON.stringify(e)), JSON.stringify(e));
@@ -209,6 +210,16 @@ const EVAL_RE = /すごい|えらい|じょうず|よくできました|せい�
     const log = await readLog(page);
     ok('R4b range 2..4: 4 records, each with goalMin 2 / goalMax 4, schemaVersion 1', log.length === 4 && log.every((e) => e.payload.goalMin === 2 && e.payload.goalMax === 4 && e.schemaVersion === 1 && e.payload.goalMode === 'random'), JSON.stringify(log.map((e) => e.payload)));
     ok('R4b each recorded goal = the drawn number and lies inside 2..4', log.length === 4 && log.every((e, i) => e.payload.goal === seen[i] && e.payload.goal >= e.payload.goalMin && e.payload.goal <= e.payload.goalMax), JSON.stringify({ seen, got: log.map((e) => e.payload.goal) }));
+    await context.close();
+  }
+
+  /* ---------------- R4d うごきの はやさ: the setting in effect is recorded (slow / veryslow) ---------------- */
+  for (const ms of ['slow', 'veryslow']) {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 1, operation: 'anywhere', moveSpeed: ms } }, base));
+    await startRun(page);
+    await completeActivity(page, 1);
+    const log = await readLog(page);
+    ok('R4d moveSpeed ' + ms + ': one record with payload.moveSpeed "' + ms + '", 13 keys, schemaVersion 1', log.length === 1 && log[0].payload.moveSpeed === ms && Object.keys(log[0].payload).length === 13 && log[0].schemaVersion === 1, JSON.stringify(log));
     await context.close();
   }
 

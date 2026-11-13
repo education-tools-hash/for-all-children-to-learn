@@ -296,7 +296,7 @@ const EVAL_RE = /すごい|えらい|じょうず|よくできました|せい�
     await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'celebrate', null, { timeout: 6000 });
     await sleep(300);
     const log = await page.evaluate(() => JSON.parse(localStorage.getItem('ringo_potton_log') || 'null'));
-    ok('W13 one record with payload.swipe true, schemaVersion still 1, the 12 keys (incl. decoys / refusals since the decoy Phase, goalMin / goalMax since the random-range Phase)', Array.isArray(log) && log.length === 1 && log[0].payload.swipe === true && log[0].schemaVersion === 1 && Object.keys(log[0].payload).sort().join(',') === 'decoys,durationSec,goal,goalMax,goalMin,goalMode,harvested,operation,refusals,showNumber,swipe,switchScan', JSON.stringify(log));
+    ok('W13 one record with payload.swipe true, schemaVersion still 1, the 13 keys (incl. decoys / refusals since the decoy Phase, goalMin / goalMax since the random-range Phase, moveSpeed since the move-speed Phase)', Array.isArray(log) && log.length === 1 && log[0].payload.swipe === true && log[0].schemaVersion === 1 && Object.keys(log[0].payload).sort().join(',') === 'decoys,durationSec,goal,goalMax,goalMin,goalMode,harvested,moveSpeed,operation,refusals,showNumber,swipe,switchScan', JSON.stringify(log));
     await context.close();
   }
 

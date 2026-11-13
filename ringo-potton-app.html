@@ -816,6 +816,14 @@
       <button type="button" class="opt-btn" data-num="0" aria-pressed="false">OFF</button>
     </div>
   </div>
+  <div class="row" id="rowMoveSpeed">
+    <p class="row-label" id="lblMoveSpeed">うごきの はやさ</p>
+    <div class="btn-group" role="group" aria-labelledby="lblMoveSpeed">
+      <button type="button" class="opt-btn" data-move-speed="normal" aria-pressed="false">ふつう</button>
+      <button type="button" class="opt-btn" data-move-speed="slow" aria-pressed="false">ゆっくり</button>
+      <button type="button" class="opt-btn" data-move-speed="veryslow" aria-pressed="false">とても ゆっくり</button>
+    </div>
+  </div>
   <div class="row">
     <p class="row-label" id="lblScan">スイッチスキャン</p>
     <div class="btn-group" role="group" aria-labelledby="lblScan">
@@ -1142,7 +1150,7 @@ function donomanaRecordFormatTracingLevel(level) {
      constants
   ===================================================================== */
   var SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
-  var DEFAULTS = { goal: 3, goalMode: 'fixed', goalMin: 1, goalMax: 10, operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal' };
+  var DEFAULTS = { goal: 3, goalMode: 'fixed', goalMin: 1, goalMax: 10, operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal', moveSpeed: 'normal' };
   var SWIPE_MIN_PX = 24;              // a stroke counts once its pointer has moved this far from where it went down (beyond any tap jitter)
   var SWIPE_CLICK_SUPPRESS_MS = 400;  // a click that follows a consumed stroke within this window is that same gesture, not a tap
   var SCAN_MS = { slow: 3500, normal: 2500, fast: 1500 };
@@ -1150,6 +1158,11 @@ function donomanaRecordFormatTracingLevel(level) {
   var LAND_GUARD_MS = 350;    // quiet time after an apple lands
   var PHASE_GUARD_MS = 600;   // quiet time after a screen change (blocks a carry-over tap)
   var DELIVER_FLY_MS = 600, DELIVER_STAGGER_MS = 80;
+  // うごきの はやさ: how long the two "child follows it with the eyes" moves take -- the harvest flight into the basket
+  // (FALL_MS) and the refusal's return flight to the tree (DELIVER_FLY_MS) -- as a multiple of the normal time.
+  // Nothing else (the delivery to the farmer, the guards, the voice, the scan) is scaled. Under reduced motion there
+  // is no flight at all, so this has no effect there.
+  var MOVE_SPEED_X = { normal: 1, slow: 2, veryslow: 3 };
   var READINGS = ['', 'いち', 'に', 'さん', 'よん', 'ご', 'ろく', 'なな', 'はち', 'きゅう', 'じゅう'];
   // request voice: "りんごを ○こ、とってね". Counter readings written in kana so every voice says them naturally (いっこ, ろっこ, はっこ, じゅっこ).
   var REQUEST_READINGS = ['', 'いっこ', 'にこ', 'さんこ', 'よんこ', 'ごこ', 'ろっこ', 'ななこ', 'はっこ', 'きゅうこ', 'じゅっこ'];
@@ -1209,7 +1222,8 @@ function donomanaRecordFormatTracingLevel(level) {
       dummy: o.dummy === true,                                   // absent in older saved data -> OFF (decoy fruit on the tree; apple-touch only)
       voice: o.voice !== false,
       showNumber: o.showNumber !== false,
-      scanSpeed: SCAN_MS[o.scanSpeed] ? o.scanSpeed : DEFAULTS.scanSpeed
+      scanSpeed: SCAN_MS[o.scanSpeed] ? o.scanSpeed : DEFAULTS.scanSpeed,
+      moveSpeed: MOVE_SPEED_X.hasOwnProperty(o.moveSpeed) ? o.moveSpeed : DEFAULTS.moveSpeed   // absent in older saved data -> normal (the speed as before)
     };
   }
   function loadSettings() {
@@ -1407,6 +1421,7 @@ function donomanaRecordFormatTracingLevel(level) {
         goalMax: active.goalMax,
         operation: active.operation,                              // 'apple' | 'anywhere'
         showNumber: active.showNumber,                            // the number was shown
+        moveSpeed: active.moveSpeed,                              // 'normal' | 'slow' | 'veryslow' (うごきの はやさ in effect)
         switchScan: !!scanMode,                                   // switch scanning was ON (a setting, not a guess at the input device)
         swipe: active.swipe,                                      // 「なでて とる」was ON (a setting; planned optional field, schemaVersion stays 1)
         decoys: decoyCount(),                                     // how many decoy fruit the tree had this activity (0 when the option is off)
@@ -1606,12 +1621,13 @@ function donomanaRecordFormatTracingLevel(level) {
     var fromRect = el ? el.getBoundingClientRect() : null;
     var toEl = isTarget(a) ? slotsEl.children[slotIndex] : decoyTray;
     var toRect = toEl ? toEl.getBoundingClientRect() : null;
-    var wait = reducedMotion() ? 0 : FALL_MS;
+    var wait = reducedMotion() ? 0 : FALL_MS * moveX();   // the flight and the landing timer stay one and the same length
     if (wait > 0 && fromRect && toRect) flyApple(fromRect, toRect, wait, a.kind);
     render();
     later(function () { land(rid, a.id); }, wait);
   }
 
+  function moveX() { return MOVE_SPEED_X[active.moveSpeed] || 1; }
   function flyApple(from, to, ms, kind) {
     var f = document.createElement('div'); f.className = 'flyer';
     f.style.left = from.left + 'px'; f.style.top = from.top + 'px'; f.style.width = from.width + 'px'; f.style.height = from.height + 'px';
@@ -1726,7 +1742,7 @@ function donomanaRecordFormatTracingLevel(level) {
     if (rid !== S.runId || S.phase !== 'refusing') return;
     S.returning = true;                             // render() leaves the basket to these timers until everything is back
     var back = S.basketOrder.slice();               // in the order they went in
-    var wait = 0;
+    var wait = 0, flyMs = DELIVER_FLY_MS * moveX(); // うごきの はやさ: the return flight only (the stagger between fruits is unchanged)
     if (!reducedMotion()) {
       back.forEach(function (id, k) {
         var it = S.items[id]; if (!it || it.status !== 'landed') return;
@@ -1735,12 +1751,12 @@ function donomanaRecordFormatTracingLevel(level) {
         var from = fromEl ? fromEl.getBoundingClientRect() : null, to = toEl ? toEl.getBoundingClientRect() : null;
         later(function () {
           if (rid !== S.runId) return;
-          if (from && to) flyApple(from, to, DELIVER_FLY_MS, it.kind);
+          if (from && to) flyApple(from, to, flyMs, it.kind);
           if (isTarget(it)) { var se = slotsEl.children[it.slot]; if (se) se.setAttribute('data-filled', '0'); }
           else { var de = decoyTray.querySelector('[data-id="' + id + '"]'); if (de) de.style.visibility = 'hidden'; }
         }, k * DELIVER_STAGGER_MS);
       });
-      wait = DELIVER_FLY_MS + Math.max(0, back.length - 1) * DELIVER_STAGGER_MS;
+      wait = flyMs + Math.max(0, back.length - 1) * DELIVER_STAGGER_MS;
     }
     later(function () { finishReturn(rid); }, wait);
   }
@@ -1882,6 +1898,7 @@ function donomanaRecordFormatTracingLevel(level) {
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-num]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-num') === '1') === settings.showNumber)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-scan-on]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-scan-on') === '1') === scanMode)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-scan-speed]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-scan-speed') === settings.scanSpeed)); });
+    Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-move-speed]'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-move-speed') === settings.moveSpeed)); });
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-swipe]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-swipe') === '1') === settings.swipe)); });
     rowAgain.hidden = settings.operation !== 'anywhere';
     rowSwipe.hidden = settings.operation !== 'anywhere';   // a sub-option of「どこでも タッチ」, like rowAgain
@@ -1894,7 +1911,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function updatePendingNote() {
     // in random mode active.goal is the drawn number, so only the mode (and, in fixed mode, the number) counts as a pending change
     var goalDiffers = settings.goalMode !== active.goalMode || (settings.goalMode === 'fixed' && settings.goal !== active.goal);
-    var differs = S.phase !== 'start' && (goalDiffers || settings.goalMin !== active.goalMin || settings.goalMax !== active.goalMax || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber);
+    var differs = S.phase !== 'start' && (goalDiffers || settings.goalMin !== active.goalMin || settings.goalMax !== active.goalMax || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber || settings.moveSpeed !== active.moveSpeed);
     pendingNote.hidden = !differs;
   }
   settingsSheet.addEventListener('click', function (e) {
@@ -1922,6 +1939,7 @@ function donomanaRecordFormatTracingLevel(level) {
     else if (b.hasAttribute('data-voice')) { settings.voice = b.getAttribute('data-voice') === '1'; if (!settings.voice) stopSpeech(); }   // applies immediately
     else if (b.hasAttribute('data-num')) settings.showNumber = b.getAttribute('data-num') === '1';
     else if (b.hasAttribute('data-scan-on')) setScanMode(b.getAttribute('data-scan-on') === '1');
+    else if (b.hasAttribute('data-move-speed')) settings.moveSpeed = MOVE_SPEED_X.hasOwnProperty(b.getAttribute('data-move-speed')) ? b.getAttribute('data-move-speed') : 'normal';
     else if (b.hasAttribute('data-scan-speed')) { settings.scanSpeed = b.getAttribute('data-scan-speed'); if (scanMode) startAutoScan(); }
     else return;
     saveSettings();

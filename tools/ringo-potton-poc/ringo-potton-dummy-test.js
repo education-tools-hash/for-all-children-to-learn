@@ -8,6 +8,9 @@
 // synthesised REFUSE_VOICE below only if the file cannot be played) and the return to the tree waits for its end
 // (at least 2.6 s, at most 9 s); with the voice OFF it is the fixed 2.6 s pause. The suite simulates the file's
 // length with the stub's opt-in window.__auDur (6192 ms, the file's measured length).
+// D14 (Phase RINGO-POTTON-MOVE-SPEED-1) covers「うごきの はやさ」(settings.moveSpeed normal / slow / veryslow): the harvest
+// flight into the basket (650 ms) and the refusal's return flight to the tree (600 ms) take x1 / x2 / x3; the delivery
+// flight to the farmer and every guard stay as they were. Element.animate is wrapped to record each flight's duration.
 //
 // Run from the repository root (no package.json; Node 20 + a globally available `playwright`):
 //   node tools/ringo-potton-poc/ringo-potton-dummy-test.js
@@ -55,6 +58,8 @@ async function newPage(browser, opts) {
   // stub knobs, set before the app creates its Audio elements: file lengths, a broken file, blocked play(), speech end
   await context.addInitScript((o) => { Object.keys(o).forEach((k) => { if (o[k] !== undefined) window[k] = o[k]; }); },
     { __auDur: opts.auDur === undefined ? { okotowari: OKOTOWARI_MS } : opts.auDur, __auErrorSrc: opts.auErrorSrc, __auFail: opts.auFail, __spEndMs: opts.spEndMs });
+  // record every WAAPI flight (class + duration) without changing it
+  await context.addInitScript(() => { const o = Element.prototype.animate; window.__anim = []; Element.prototype.animate = function (k, t) { window.__anim.push({ cls: String(this.className), d: (t && typeof t === 'object') ? t.duration : t, at: performance.now() }); return o.call(this, k, t); }; });
   await context.addInitScript(({ k, v }) => { if (!sessionStorage.getItem('__seeded')) { if (v !== null) localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, { k: SETTINGS_KEY, v: opts.settings === undefined ? null : (typeof opts.settings === 'string' ? opts.settings : JSON.stringify(opts.settings)) });
   const page = await context.newPage();
   page.__errors = [];
@@ -395,6 +400,104 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     const primed = await page.evaluate(() => window.__au.some((o) => o.op === 'play' && o.muted && /okotowari/.test(o.src)));
     ok('D13 「はじめる」 primes okotowari.mp3 with a muted play (like the thanks), nothing audible from it', primed && (await audible(page, 'okotowari')) === 0);
     await context.close();
+  }
+
+  /* ---------------- D14 うごきの はやさ (moveSpeed): harvest and return flights x1 / x2 / x3, nothing else ---------------- */
+  const X = { normal: 1, slow: 2, veryslow: 3 };
+  // in-page: click the first ripe fruit of a kind and time it until the basket count / tray changes (the landing)
+  const timedTake = (page, kind) => page.evaluate((k) => new Promise((res) => {
+    const app = document.getElementById('app'), b = document.querySelector('#appleGrid .apple[data-kind="' + k + '"][data-status="ripe"]');
+    const h0 = app.getAttribute('data-harvested'), t0 = performance.now(), tray0 = document.querySelectorAll('#decoyTray svg').length;
+    b.click();
+    const tick = () => { if (app.getAttribute('data-harvested') !== h0 || document.querySelectorAll('#decoyTray svg').length !== tray0) return res(performance.now() - t0); if (performance.now() - t0 > 6000) return res(-1); setTimeout(tick, 10); };
+    tick();
+  }), kind);
+  for (const ms of ['normal', 'slow', 'veryslow']) {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 2, operation: 'apple', dummy: true, moveSpeed: ms }, motion: true }, base));
+    await page.evaluate(() => document.getElementById('ringoSettingsBtn').click()); await sleep(200);
+    ok('D14 ' + ms + ': the「うごきの はやさ」row shows the saved value pressed (and only it)', await page.evaluate((m) => Array.from(document.querySelectorAll('#rowMoveSpeed [data-move-speed]')).map((b) => b.getAttribute('data-move-speed') + ':' + b.getAttribute('aria-pressed')).join(',') === ['normal', 'slow', 'veryslow'].map((v) => v + ':' + (v === m)).join(','), ms));
+    await page.click('#settingsClose'); await sleep(500);
+    await startRun(page);
+    const tA = await timedTake(page, 'apple'); await sleep(450);
+    const tB = await timedTake(page, 'banana'); await sleep(450);
+    const fl = await page.evaluate(() => window.__anim.filter((a) => /flyer/.test(a.cls)).map((a) => a.d));
+    ok('D14 ' + ms + ': the harvest flight lasts 650 x ' + X[ms] + ' = ' + 650 * X[ms] + ' ms (apple and banana)', fl.length === 2 && fl.every((d) => d === 650 * X[ms]), JSON.stringify(fl));
+    ok('D14 ' + ms + ': the fruit lands (counted / put in the tray) when that flight ends, not before (' + Math.round(tA) + ' / ' + Math.round(tB) + ' ms)', tA >= 650 * X[ms] - 20 && tA < 650 * X[ms] + 400 && tB >= 650 * X[ms] - 20 && tB < 650 * X[ms] + 400, tA + ' ' + tB);
+    await timedTake(page, 'apple'); await sleep(800);
+    ok('D14 ' + ms + ': two apples + the banana -> complete (count 2)', (await phase(page)) === 'complete' && (await harvested(page)) === 2);
+    const n0 = (await page.evaluate(() => window.__anim.length));
+    await deliver(page);
+    await page.waitForFunction(() => window.__au.some((o) => o.op === 'ended' && /okotowari/.test(o.src)), null, { timeout: 9000 });
+    const ret = await phaseAfter(page, 'harvest', 9000);
+    const back = await page.evaluate((n) => window.__anim.slice(n).filter((a) => /flyer/.test(a.cls)).map((a) => a.d), n0);
+    ok('D14 ' + ms + ': the return flights to the tree last 600 x ' + X[ms] + ' = ' + 600 * X[ms] + ' ms each (3 fruit)', back.length === 3 && back.every((d) => d === 600 * X[ms]), JSON.stringify(back));
+    ok('D14 ' + ms + ': after the voice, the activity resumes when the slower return is over (600 x ' + X[ms] + ' + 2 x 80 ms; ' + Math.round(ret) + ' ms)', ret >= 600 * X[ms] + 160 - 300 && ret < 600 * X[ms] + 160 + 600, String(ret));
+    ok('D14 ' + ms + ': then the same request again: goal 2, everything ripe, count 0, request file played again', (await attr(page, 'data-goal')) === '2' && (await tree(page)).ripe === 3 && (await basket(page)).count === '0' && (await audible(page, 'ringo-2')) === 2);
+    await sleep(700);
+    await timedTake(page, 'apple'); await sleep(450); await timedTake(page, 'apple'); await sleep(800);
+    const n1 = (await page.evaluate(() => window.__anim.length));
+    await deliver(page);
+    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'celebrate', null, { timeout: 8000 });
+    const dlv = await page.evaluate((n) => window.__anim.slice(n).filter((a) => /flyer/.test(a.cls)).map((a) => a.d), n1);
+    ok('D14 ' + ms + ': the delivery flight to the farmer is NOT scaled (600 ms each)', dlv.length === 2 && dlv.every((d) => d === 600), JSON.stringify(dlv));
+    const log = await readLog(page);
+    ok('D14 ' + ms + ': record payload.moveSpeed "' + ms + '", refusals 1', log.length === 1 && log[0].payload.moveSpeed === ms && log[0].payload.refusals === 1, JSON.stringify(log && log[0] && log[0].payload));
+    ok('D14 ' + ms + ': no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------------- D15 moveSpeed: no lost or double harvest while a slow flight is in the air ---------------- */
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 3, operation: 'apple', moveSpeed: 'veryslow' }, motion: true }, base));
+    await startRun(page);
+    // three different apples tapped within the first 1950 ms flight: only the first is taken
+    await page.evaluate(() => { const b = document.querySelectorAll('#appleGrid .apple[data-status="ripe"]'); b[0].click(); setTimeout(() => b[1].click(), 200); setTimeout(() => b[2].click(), 900); });
+    await sleep(1500);
+    const mid = await page.evaluate(() => ({ falling: document.querySelectorAll('#appleGrid .apple[data-status="falling"]').length, h: document.getElementById('app').getAttribute('data-harvested'), flyers: document.querySelectorAll('.flyer').length }));
+    ok('D15 veryslow: taps on other apples during the flight are ignored (one falling, count still 0, one flyer)', mid.falling === 1 && mid.h === '0' && mid.flyers === 1, JSON.stringify(mid));
+    await sleep(1000);
+    ok('D15 then exactly one apple has landed (count 1, 2 ripe)', (await harvested(page)) === 1 && (await tree(page)).ripe === 2);
+    // keyboard: Enter held / repeated on the next apple during its flight still takes one
+    await page.focus('#appleGrid .apple[data-status="ripe"]');
+    await sleep(400);
+    for (let i = 0; i < 4; i++) { await page.keyboard.press('Enter'); await sleep(150); }
+    await sleep(2400);
+    ok('D15 repeated Enter during a slow flight: one more apple only (count 2)', (await harvested(page)) === 2 && (await tree(page)).ripe === 1);
+    await page.evaluate(() => document.querySelector('#appleGrid .apple[data-status="ripe"]').click()); await sleep(2700);
+    ok('D15 the last apple completes the activity (count 3, complete)', (await harvested(page)) === 3 && (await phase(page)) === 'complete');
+    ok('D15 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------------- D16 moveSpeed: saving, old data, invalid value, pending note, next activity ---------------- */
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 2, operation: 'apple' } }, base));
+    await page.evaluate(() => document.getElementById('ringoSettingsBtn').click()); await sleep(200);
+    ok('D16 old saved data without moveSpeed reads as「ふつう」(normal pressed)', (await page.getAttribute('#rowMoveSpeed [data-move-speed="normal"]', 'aria-pressed')) === 'true');
+    const labels = await page.evaluate(() => ({ label: document.getElementById('lblMoveSpeed').textContent, group: document.querySelector('#rowMoveSpeed .btn-group').getAttribute('aria-labelledby'), btns: Array.from(document.querySelectorAll('#rowMoveSpeed .opt-btn')).map((b) => b.textContent), h: Math.min(...Array.from(document.querySelectorAll('#rowMoveSpeed .opt-btn')).map((b) => b.getBoundingClientRect().height)) }));
+    ok('D16 the row:「うごきの はやさ」, buttons ふつう／ゆっくり／とても ゆっくり (opt-btn, labelled group, >= 44px)', labels.label === 'うごきの はやさ' && labels.group === 'lblMoveSpeed' && labels.btns.join('／') === 'ふつう／ゆっくり／とても ゆっくり' && labels.h >= 44, JSON.stringify(labels));
+    await page.click('#rowMoveSpeed [data-move-speed="slow"]'); await sleep(150);
+    ok('D16 choosing ゆっくり saves moveSpeed "slow" (other settings untouched)', await page.evaluate(() => { const s = JSON.parse(localStorage.getItem('donomana-ringo-potton-settings-v1')); return s.moveSpeed === 'slow' && s.goal === 2 && s.operation === 'apple'; }));
+    await page.click('#settingsClose'); await sleep(500);
+    await page.evaluate(() => document.getElementById('startBtn').click()); await sleep(700);
+    await page.evaluate(() => document.getElementById('ringoSettingsBtn').click()); await sleep(150); await page.click('#scOpen'); await sleep(200);
+    ok('D16 mid-activity, nothing changed: no pending note', await page.isHidden('#pendingNote'));
+    await page.click('#rowMoveSpeed [data-move-speed="veryslow"]'); await sleep(150);
+    ok('D16 changing it mid-activity shows the「つぎの かつどうから」note', await page.isVisible('#pendingNote'));
+    await page.click('#settingsClose'); await sleep(500);
+    await page.evaluate(() => { window.__anim = []; document.querySelector('#appleGrid .apple[data-status="ripe"]').click(); }); await sleep(300);
+    ok('D16 the running activity keeps its speed (reduced motion here: no flight at all, so nothing to scale)', (await page.evaluate(() => window.__anim.filter((a) => /flyer/.test(a.cls)).length)) === 0);
+    await context.close();
+    const { context: c2, page: p2 } = await newPage(browser, Object.assign({ settings: { goal: 1, operation: 'apple', moveSpeed: 'turbo' }, motion: true }, base));
+    await startRun(p2);
+    const t = await timedTake(p2, 'apple');
+    ok('D16 an unknown saved value ("turbo") falls back to normal (650 ms flight)', (await p2.evaluate(() => window.__anim.filter((a) => /flyer/.test(a.cls)).map((a) => a.d).join(','))) === '650' && t < 1050, String(t));
+    await c2.close();
+    const { context: c3, page: p3 } = await newPage(browser, Object.assign({ settings: { goal: 2, operation: 'apple', moveSpeed: 'veryslow' } }, base));
+    await startRun(p3);
+    const t3 = await timedTake(p3, 'apple');
+    ok('D16 reduced motion + とても ゆっくり: no flight, the apple lands at once as before', t3 >= 0 && t3 < 300 && (await p3.evaluate(() => window.__anim.filter((a) => /flyer/.test(a.cls)).length)) === 0, String(t3));
+    await c3.close();
   }
 
   await browser.close(); srv.close();
