@@ -4,6 +4,10 @@
 // frames: the number and the frames never change, its name is said instead. Delivering with a decoy in the basket is
 // refused gently (phase refusing): everything returns to the tree, same goal, same placement, the request is asked
 // again. Apples alone always succeed. OFF (and whole-screen touch) behave exactly as before.
+// Since C-2 (Phase RINGO-POTTON-REFUSAL-VOICE-1) the refusal voice is the recorded okotowari.mp3 (about 6.2 s; the
+// synthesised REFUSE_VOICE below only if the file cannot be played) and the return to the tree waits for its end
+// (at least 2.6 s, at most 9 s); with the voice OFF it is the fixed 2.6 s pause. The suite simulates the file's
+// length with the stub's opt-in window.__auDur (6192 ms, the file's measured length).
 //
 // Run from the repository root (no package.json; Node 20 + a globally available `playwright`):
 //   node tools/ringo-potton-poc/ringo-potton-dummy-test.js
@@ -48,6 +52,9 @@ async function newPage(browser, opts) {
   const context = await browser.newContext({ viewport: opts.viewport || { width: 834, height: 1194 }, reducedMotion: opts.motion ? 'no-preference' : 'reduce' });
   await context.addInitScript(SPEECH_STUB);
   await context.addInitScript(AUDIO_STUB);
+  // stub knobs, set before the app creates its Audio elements: file lengths, a broken file, blocked play(), speech end
+  await context.addInitScript((o) => { Object.keys(o).forEach((k) => { if (o[k] !== undefined) window[k] = o[k]; }); },
+    { __auDur: opts.auDur === undefined ? { okotowari: OKOTOWARI_MS } : opts.auDur, __auErrorSrc: opts.auErrorSrc, __auFail: opts.auFail, __spEndMs: opts.spEndMs });
   await context.addInitScript(({ k, v }) => { if (!sessionStorage.getItem('__seeded')) { if (v !== null) localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, { k: SETTINGS_KEY, v: opts.settings === undefined ? null : (typeof opts.settings === 'string' ? opts.settings : JSON.stringify(opts.settings)) });
   const page = await context.newPage();
   page.__errors = [];
@@ -84,7 +91,16 @@ const audible = (page, re) => page.evaluate((src) => window.__au.filter((o) => o
 const live = (page) => page.evaluate(() => ['liveStatus', 'donomanaAnnouncePolite'].map((i) => (document.getElementById(i) || {}).textContent || '').join('|'));
 async function deliver(page) { await page.evaluate(() => document.getElementById('deliverBtn').click()); }
 const readLog = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('ringo_potton_log') || 'null'));
-const REFUSE = 'あれ？ りんごじゃないのが あるみたい';
+const REFUSE = 'あれ？ りんごじゃないのが あるみたい';                                   // the bubble (unchanged)
+const REFUSE_VOICE = 'あれ？ りんごじゃないのが あるみたい。りんごだけ、もういちど おねがいね';   // the words of okotowari.mp3 (synthesised fallback)
+const OKOTOWARI_MS = 6192;                                                                   // measured length of okotowari.mp3 (258 MPEG frames)
+const ops = (page) => page.evaluate(() => window.__au.filter((o) => o.op !== 'new' && !o.muted).map((o) => o.op + ':' + String(o.src).split('/').pop()));
+// time from now until the app's data-phase becomes `ph` (ms, measured in the page)
+const phaseAfter = (page, ph, timeout) => page.evaluate(({ ph, timeout }) => new Promise((res) => {
+  const t0 = performance.now(), el = document.getElementById('app');
+  const tick = () => { if (el.getAttribute('data-phase') === ph) return res(performance.now() - t0); if (performance.now() - t0 > timeout) return res(-1); setTimeout(tick, 20); };
+  tick();
+}), { ph, timeout });
 const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくできました|せいかい|正解|不正解|まちがい|ざんねん|てんすう|点数|スコア/;
 
 (async () => {
@@ -169,12 +185,12 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     ok('D3 delivering with the banana: phase refusing, the bubble shows the refusal, request hidden, no deliver / again button, refusals 1', r.phase === 'refusing' && r.bubble === REFUSE && r.lead && r.deliverHidden && r.again && r.refusals === '1', JSON.stringify(r));
     await sleep(300);
     const sp = await spoken(page);
-    ok('D3 the refusal is spoken (synthesised, same words as the bubble) and announced', sp.includes(REFUSE) && (await live(page)).indexOf(REFUSE) !== -1, sp.join('|'));
+    ok('D3 the refusal is the recorded file: okotowari.mp3 played once, nothing synthesised for it, announced with the bubble words', (await audible(page, 'okotowari')) === 1 && !sp.includes(REFUSE) && !sp.includes(REFUSE_VOICE) && (await live(page)).indexOf(REFUSE) !== -1, sp.join('|') + ' ' + JSON.stringify(await ops(page)));
     ok('D3 the thanks file is NOT played', (await audible(page, 'arigatou')) === thanksBefore);
     await deliver(page); await take(page, 'apple'); await sleep(100);
     ok('D3 inputs during the refusal are ignored (still refusing, nothing changed)', (await phase(page)) === 'refusing' && (await harvested(page)) === 2);
     const reqBefore = await audible(page, 'ringo-2');
-    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'harvest', null, { timeout: 8000 }); await sleep(300);
+    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'harvest', null, { timeout: 12000 }); await sleep(300);
     const after = await tree(page), b = await basket(page);
     ok('D3 everything is back on the tree: all 3 fruit ripe, same kinds in the same places, number 0, frames empty, tray empty', after.ripe === 3 && after.kinds.join(',') === before.kinds.join(',') && after.ids.join(',') === before.ids.join(',') && b.count === '0' && b.filled === 0 && b.tray === 0, JSON.stringify({ before: before.kinds, after: after.kinds, b }));
     ok('D3 the same goal is asked again (data-goal 2) and the request file plays once more', (await attr(page, 'data-goal')) === '2' && (await audible(page, 'ringo-2')) === reqBefore + 1, String(await audible(page, 'ringo-2')));
@@ -198,8 +214,11 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     await deliver(page);
     await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'refusing', null, { timeout: 3000 });
     await sleep(2600 + 200);
+    const early = await page.evaluate(() => ({ flyers: document.querySelectorAll('.flyer').length, phase: document.getElementById('app').getAttribute('data-phase') }));
+    ok('D3b with motion: at 2.8 s the voice is still going, so nothing has flown back yet (still refusing)', early.flyers === 0 && early.phase === 'refusing', JSON.stringify(early));
+    await page.waitForFunction(() => window.__au.some((o) => o.op === 'ended' && /okotowari/.test(o.src)), null, { timeout: 9000 }); await sleep(250);
     const fl = await page.evaluate(() => ({ flyers: document.querySelectorAll('.flyer').length, phase: document.getElementById('app').getAttribute('data-phase') }));
-    ok('D3b with motion: two flyers return to the tree during the refusal', fl.flyers === 2 && fl.phase === 'refusing', JSON.stringify(fl));
+    ok('D3b with motion: after the voice has ended, two flyers return to the tree during the refusal', fl.flyers === 2 && fl.phase === 'refusing', JSON.stringify(fl));
     await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'harvest', null, { timeout: 6000 }); await sleep(200);
     const t = await tree(page);
     ok('D3b afterwards no flyer remains and both fruit are ripe again', (await page.evaluate(() => document.querySelectorAll('.flyer').length)) === 0 && t.ripe === 2);
@@ -250,7 +269,7 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     await take(page, 'banana');
     for (let i = 0; i < g; i++) await take(page, 'apple');
     await sleep(700); await deliver(page);
-    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'harvest', null, { timeout: 8000 }); await sleep(300);
+    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'harvest', null, { timeout: 12000 }); await sleep(300);
     ok('D6 after the refusal the SAME goal (' + g + ') is asked again, not a new draw', parseInt(await attr(page, 'data-goal'), 10) === g && (await tree(page)).kinds.join(',') === t.kinds.join(','));
     await sleep(400);
     for (let i = 0; i < g; i++) await take(page, 'apple');
@@ -307,9 +326,10 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     await startRun(page);
     await take(page, 'banana'); await take(page, 'apple'); await sleep(700); await deliver(page);
     await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'refusing', null, { timeout: 3000 });
-    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'harvest', null, { timeout: 8000 });
+    const offMs = await phaseAfter(page, 'harvest', 8000);
+    ok('D9 voice OFF: the pause stays the fixed 2.6 s (back on the tree within about 2.6 s, not after the 6.2 s file)', offMs > 2300 && offMs < 3400, String(Math.round(offMs)));
     const sp = await spoken(page), au = await page.evaluate(() => window.__au.filter((o) => o.op === 'play' && !o.muted).length);
-    ok('D9 voice OFF: refusing -> harvest happens with nothing spoken or played', sp.length === 0 && au === 0, sp.join('|') + ' plays=' + au);
+    ok('D9 voice OFF: refusing -> harvest happens with nothing spoken or played (okotowari.mp3 never audible)', sp.length === 0 && au === 0 && (await audible(page, 'okotowari')) === 0, sp.join('|') + ' plays=' + au);
     const texts = await page.evaluate(() => ({ settings: document.getElementById('settingsSheet').textContent, help: document.getElementById('helpSheet').textContent, bubble: document.getElementById('bubble').textContent }));
     // two pre-existing help sentences name words only to deny them or in another sense:「点数・時間・正解や まちがいは ありません」
     // and the random-mode「まえと ちがう かずに なります」(a different number, not a verdict) — neither is this Phase's text
@@ -317,6 +337,63 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     ok('D9 no「ちがう」「だめ」or evaluative words in the settings sheet, the help or the bubble', !BANNED.test(texts.settings.replace('ひかる はやさ', '')) && !BANNED.test(helpText) && !BANNED.test(texts.bubble), JSON.stringify({ s: (texts.settings.match(BANNED) || [])[0], h: (helpText.match(BANNED) || [])[0], b: (texts.bubble.match(BANNED) || [])[0] }));
     ok('D9 the help explains the option (banana / mikan, beside the frames, everything returns, same count again, apple-touch only)', /バナナや みかん/.test(texts.help) && /わくの そと/.test(texts.help) && /ぜんぶ 木に もどり/.test(texts.help) && /もういちど たのまれます/.test(texts.help) && /「がめんの どこでも タッチ」では つかえません/.test(texts.help));
     ok('D9 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------------- D10 C-2 the refusal file is heard to its end: no cut, then the same request ---------------- */
+  async function toRefusal(page, goal) {
+    await startRun(page);
+    await take(page, 'banana'); for (let i = 0; i < goal; i++) await take(page, 'apple');
+    await sleep(700); await deliver(page);
+    await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'refusing', null, { timeout: 3000 });
+  }
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 2, operation: 'apple', dummy: true } }, base));
+    await toRefusal(page, 2);
+    const ms = await phaseAfter(page, 'harvest', 12000);
+    ok('D10 the activity goes on only after the 6.2 s voice (refusing for >= 6.0 s, back within 7.5 s)', ms >= 6000 - 300 && ms < 7500, String(Math.round(ms)));
+    const o = await ops(page);
+    const iPlay = o.indexOf('play:okotowari.mp3'), iEnd = o.indexOf('ended:okotowari.mp3'), iReq = o.lastIndexOf('play:ringo-2.mp3');
+    ok('D10 okotowari.mp3: played once and ENDED by itself (never paused / cut by the next request)', iPlay !== -1 && iEnd > iPlay && o.filter((x) => x === 'play:okotowari.mp3').length === 1 && !o.slice(iPlay).includes('pause:okotowari.mp3'), JSON.stringify(o));   // (the pause before it is the muted priming at「はじめる」)
+    ok('D10 the same request (ringo-2.mp3) is played again only after the refusal file ended', iReq > iEnd, JSON.stringify(o));
+    ok('D10 nothing was synthesised for the refusal', !(await spoken(page)).some((t) => t === REFUSE || t === REFUSE_VOICE), (await spoken(page)).join('|'));
+    ok('D10 the bubble keeps the C-1 text during the refusal (unchanged)', (await page.evaluate(() => document.getElementById('bubbleRefuse').textContent)) === REFUSE);
+    ok('D10 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------------- D11 C-2 fallback: the file cannot be loaded / played -> the synthesised voice says the same words ---------------- */
+  for (const v of [{ name: 'file never loaded (.error)', o: { auErrorSrc: 'okotowari' } }, { name: 'play() rejected (blocked)', o: { auFail: true } }]) {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 1, operation: 'apple', dummy: true }, spEndMs: 4000 }, v.o, base));
+    if (v.o.auFail) { await startRun(page); await page.evaluate(() => { window.__auFail = false; }); await take(page, 'banana'); await take(page, 'apple'); await sleep(700); await page.evaluate(() => { window.__auFail = true; }); await deliver(page); await page.waitForFunction(() => document.getElementById('app').getAttribute('data-phase') === 'refusing', null, { timeout: 3000 }); }
+    else await toRefusal(page, 1);
+    const ms = await phaseAfter(page, 'harvest', 12000);
+    const sp = await spoken(page);
+    ok('D11 ' + v.name + ': the synthesised voice says the okotowari words once (not the bubble-only text)', sp.filter((t) => t === REFUSE_VOICE).length === 1 && !sp.includes(REFUSE), sp.join('|'));
+    ok('D11 ' + v.name + ': the return waits for the end of the synthesised words (about 4 s here, not the fixed 2.6 s)', ms >= 3700 && ms < 5500, String(Math.round(ms)));
+    ok('D11 ' + v.name + ': no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+
+  /* ---------------- D12 C-2 safety cap: no end event at all -> the activity still goes on (9 s) ---------------- */
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 1, operation: 'apple', dummy: true }, auDur: null }, base));
+    await toRefusal(page, 1);
+    const ms = await phaseAfter(page, 'harvest', 14000);
+    ok('D12 a file that never reports its end: back on the tree at the 9 s cap (not stuck, not before 8.5 s)', ms >= 8500 && ms < 10000, String(Math.round(ms)));
+    ok('D12 then the same request is asked (ringo-1.mp3 played after the refusal)', (await ops(page)).filter((x) => x === 'play:ringo-1.mp3').length === 2, JSON.stringify(await ops(page)));
+    await context.close();
+  }
+
+  /* ---------------- D13 C-2 preload: 12 farmer files, okotowari.mp3 among them, primed by「はじめる」 ---------------- */
+  {
+    const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 1, operation: 'apple', dummy: true } }, base));
+    const made = await page.evaluate(() => window.__au.filter((o) => o.op === 'new').map((o) => String(o.src).split('/').pop()));
+    ok('D13 12 Audio files are created at load: ringo-1..10, arigatou, okotowari (each once)', made.length === 12 && new Set(made).size === 12 && made.includes('okotowari.mp3') && made.every((f) => /^(ringo-([1-9]|10)|arigatou|okotowari)\.mp3$/.test(f)), JSON.stringify(made));
+    ok('D13 the src is assets/ringo-potton/voice/okotowari.mp3 and the file is served (200, audio/mpeg)', await page.evaluate(async () => { const r = await fetch('assets/ringo-potton/voice/okotowari.mp3'); return r.status === 200 && /audio\/mpeg/.test(r.headers.get('content-type') || ''); }));
+    await page.click('#startBtn'); await sleep(500);
+    const primed = await page.evaluate(() => window.__au.some((o) => o.op === 'play' && o.muted && /okotowari/.test(o.src)));
+    ok('D13 「はじめる」 primes okotowari.mp3 with a muted play (like the thanks), nothing audible from it', primed && (await audible(page, 'okotowari')) === 0);
     await context.close();
   }
 

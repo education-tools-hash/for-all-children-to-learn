@@ -1161,7 +1161,9 @@ function donomanaRecordFormatTracingLevel(level) {
   var KIND_NAMES = { apple: 'りんご', banana: 'バナナ', mikan: 'みかん' };
   var MAX_FRUIT = 12;                                        // apples + decoys never exceed this (ten 60px fruit plus two still fit a short landscape phone)
   var REFUSE_TEXT = 'あれ？ りんごじゃないのが あるみたい';    // the farmer's refusal: the bubble and the voice say exactly this (a noticing, never a verdict)
-  var REFUSE_MS = 2600;                                      // how long the refusal stays before everything returns to the tree (never tied to speech events)
+  var REFUSE_VOICE_TEXT = 'あれ？ りんごじゃないのが あるみたい。りんごだけ、もういちど おねがいね';   // the words of okotowari.mp3, said by the synthesised voice only if the file cannot be played
+  var REFUSE_MS = 2600;                                      // the refusal stays at least this long before everything returns to the tree (also the whole pause with the voice OFF)
+  var REFUSE_VOICE_MAX_MS = 9000;                            // safety cap: if the refusal voice never reports its end, the activity still goes on (the file is about 6.2 s)
   function decoyCountFor(goal) { return Math.max(0, Math.min(1 + Math.floor(goal / 4), MAX_FRUIT - goal)); }   // 1..3 -> 1, 4..7 -> 2, 8..9 -> 3, 10 -> 2
   function decoysActive() { return active.dummy && active.operation === 'apple'; }   // choosing is the point: whole-screen touch cannot choose, so there it is off
 
@@ -1271,13 +1273,13 @@ function donomanaRecordFormatTracingLevel(level) {
   }
   var requestSeq = -1;   // speakSeq of the (synthesised) request utterance while it is the latest one (else -1)
 
-  /* ---- the farmer's own voice: recorded files for the request and the thanks ----
-     assets/ringo-potton/voice/ringo-<goal>.mp3 (1..10) and arigatou.mp3, created once and preloaded.
-     Only these two phrases use files; the counting voice stays synthesised. Playback is never part of the
+  /* ---- the farmer's own voice: recorded files for the request, the thanks and the refusal ----
+     assets/ringo-potton/voice/ringo-<goal>.mp3 (1..10), arigatou.mp3 and okotowari.mp3 (decoys), created once and
+     preloaded (12 files). Only these phrases use files; the counting voice and the fruit names stay synthesised. Playback is never part of the
      progression: a file that cannot be played falls back to the synthesised voice with the same words, and
      every failure is swallowed. All stops go through stopVoiceFiles(), which stopSpeech() also calls. */
   var VOICE_DIR = 'assets/ringo-potton/voice/';
-  var voiceFiles = {};            // 1..10 -> Audio (request), 'thanks' -> Audio
+  var voiceFiles = {};            // 1..10 -> Audio (request), 'thanks' -> Audio, 'refuse' -> Audio
   var voiceFileLive = null;       // the element currently meant to be heard, else null
   var voiceRequestLive = false;   // the live element is the request (so the first harvest input can cut it)
   var voicePlayToken = 0;         // bumped by every stop: a late play() rejection of a stopped file is not a failure
@@ -1288,6 +1290,7 @@ function donomanaRecordFormatTracingLevel(level) {
     if (typeof Audio === 'undefined') return;
     for (var g = 1; g <= 10; g++) voiceFiles[g] = makeVoiceFile('ringo-' + g + '.mp3');
     voiceFiles.thanks = makeVoiceFile('arigatou.mp3');
+    voiceFiles.refuse = makeVoiceFile('okotowari.mp3');
   })();
   function stopVoiceFiles() {
     voicePlayToken++; voiceFileLive = null; voiceRequestLive = false;
@@ -1308,20 +1311,30 @@ function donomanaRecordFormatTracingLevel(level) {
       } catch (e) { try { a.muted = false; } catch (e2) { /* ignore */ } }
     })(voiceFiles[k]);
   }
-  function speakFallback(text, isRequest) { if (speakText(text) && isRequest) requestSeq = speakSeq; }
+  // onEnd (optional, the refusal only): called once when the words have been said -- the file's end, or the end of the
+  // synthesised fallback; called at once when there is nothing that could report an end (no speech engine)
+  function speakFallback(text, isRequest, onEnd) {
+    var ok = speakText(text, onEnd);
+    if (ok && isRequest) requestSeq = speakSeq;
+    if (!ok && onEnd) onEnd();
+  }
   // play one file right now (no deferral: the request is started inside the user's gesture); any failure -> fallback
-  function playVoiceFile(a, fallbackText, isRequest) {
+  function playVoiceFile(a, fallbackText, isRequest, onEnd) {
     if (!settings.voice) return;
     stopVoiceFiles();                                   // one farmer voice at a time: never two files together
-    if (!a) { speakFallback(fallbackText, isRequest); return; }
+    if (!a) { speakFallback(fallbackText, isRequest, onEnd); return; }
     var token = voicePlayToken, fellBack = false;
     voiceFileLive = a; voiceRequestLive = !!isRequest;
     var fail = function () {
       if (fellBack || token !== voicePlayToken) return; // already handled, or stopped / superseded on purpose
       fellBack = true; voiceFileLive = null; voiceRequestLive = false;
-      speakFallback(fallbackText, isRequest);
+      speakFallback(fallbackText, isRequest, onEnd);
     };
     try {
+      a.onended = onEnd ? function () {
+        if (fellBack || token !== voicePlayToken) return;   // a stopped file's end is not "the words were said"
+        voiceFileLive = null; onEnd();
+      } : null;
       a.muted = false; a.currentTime = 0; a.onerror = fail;
       if (a.error) { fail(); return; }                  // the file never loaded: say it with the synthesised voice instead
       var p = a.play();
@@ -1341,7 +1354,8 @@ function donomanaRecordFormatTracingLevel(level) {
   }
   // the farmer thanks the child for the delivery (not praise for a correct answer): one fixed phrase, always the same
   function speakThanks() { playVoiceFile(voiceFiles.thanks, 'ありがとう！', false); }
-  function speakText(text) {
+  // onEnd (optional): handed to the utterance's end / error (the refusal waits for it; nothing else does)
+  function speakText(text, onEnd) {
     if (!settings.voice) return false;
     var s = synth(); if (!s) return false;
     var mySeq = ++speakSeq;
@@ -1353,9 +1367,10 @@ function donomanaRecordFormatTracingLevel(level) {
         var u = new SpeechSynthesisUtterance(text);
         u.lang = 'ja-JP'; u.rate = 0.8;
         var v = pickVoice(s); if (v) u.voice = v;
-        u.onerror = function () {};
+        u.onerror = onEnd || function () {};
+        if (onEnd) u.onend = onEnd;
         s.speak(u);
-      } catch (e) { /* speech failure never blocks the activity */ }
+      } catch (e) { if (onEnd) onEnd(); /* speech failure never blocks the activity */ }
     }, 60);
     return true;
   }
@@ -1687,7 +1702,10 @@ function donomanaRecordFormatTracingLevel(level) {
      Not a failure screen: the bubble and the voice say REFUSE_TEXT (a noticing), then every fruit in the basket flies
      back to where it hung (same placement), the number returns to 0 and the farmer asks for the same count again.
      The goal, the placement and the settings never change here; only S.refusals counts. Taking the apples alone
-     then delivers as usual. Progression never waits for speech: REFUSE_MS is a fixed pause. */
+     then delivers as usual. The voice is okotowari.mp3 (about 6.2 s; the synthesised REFUSE_VOICE_TEXT if the file
+     cannot be played). The return waits for the end of those words, so the next request never cuts them off, but
+     never less than REFUSE_MS and never more than REFUSE_VOICE_MAX_MS (a lost end event cannot stop the activity).
+     With the voice OFF it is the fixed REFUSE_MS pause, as before. */
   function startRefusal() {
     S.phase = 'refusing';
     S.acceptAt = Infinity;
@@ -1695,9 +1713,14 @@ function donomanaRecordFormatTracingLevel(level) {
     var rid = S.runId;
     render();
     stopSpeech();                                   // the farmer's words never overlap the counting or the request
-    speakText(REFUSE_TEXT);
+    var t0 = now(), went = false;
+    var go = function () {                          // once: the words are over (or the cap / the voice is OFF)
+      if (went) return; went = true;
+      later(function () { returnAllToTree(rid); }, Math.max(0, REFUSE_MS - (now() - t0)));
+    };
+    playVoiceFile(voiceFiles.refuse, REFUSE_VOICE_TEXT, false, function () { if (rid === S.runId) go(); });
     announce(REFUSE_TEXT + '。');
-    later(function () { returnAllToTree(rid); }, REFUSE_MS);
+    later(go, settings.voice ? REFUSE_VOICE_MAX_MS : REFUSE_MS);
   }
   function returnAllToTree(rid) {
     if (rid !== S.runId || S.phase !== 'refusing') return;
