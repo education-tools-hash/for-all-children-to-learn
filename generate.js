@@ -2586,6 +2586,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // L2試作 すごろく写真プレビューの alt の公開(2026-11-15 JST)。文案はユーザー指定の verbatim、type は「追加・改善」= "update"、app はまとめ表示用。
+  { date: "2026-11-15", type: "update", app: "sugoroku-app", text: "「すごろく」で、選んだ写真が読み上げで分かるようになりました", verbatim: true },
   // RINGO-POTTON-MOVE-SPEED-1 の公開(2026-11-13 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"、app はまとめ表示用(同日のりんごポットン3件目)。
   { date: "2026-11-13", type: "update", app: "ringo-potton-app", text: "「りんごポットン」に「うごきの はやさ」の設定を追加しました", verbatim: true },
   // RINGO-POTTON-REFUSAL-VOICE-1 (C-2) の公開(2026-11-13 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"、app はまとめ表示用(同日のランダム範囲指定と1件にまとまる)。
