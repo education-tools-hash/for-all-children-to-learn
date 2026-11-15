@@ -52,6 +52,9 @@ function analyze(filename, html) {
 
 const results = [];
 for (const app of apps) {
+  // MINNA-DE-KAKERU-NIJI-LISTING-1: アプリ本体が外部サイトにある教材(apps-data.json の externalUrl)は、
+  // このリポジトリに本体HTMLが無いのが正しい状態のため、「アプリ本体ファイルが無い」ことを指摘する対象から外す。
+  if (app.externalUrl) { console.log(`skip (externalUrl): ${app.filename}`); continue; }
   const fname = `${app.filename}.html`;
   if (!fs.existsSync(fname)) {
     results.push({ filename: app.filename, error: 'file not found' });

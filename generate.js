@@ -187,6 +187,21 @@ console.log(`📌 おすすめ: ${apps.filter(a => a.isRecommend).length}件, �
 // ============================================================
 //  1. app-details/XXX-detail.html を生成（既存機能）
 // ============================================================
+// MINNA-DE-KAKERU-NIJI-LISTING-1: アプリ本体が外部サイトにある教材(apps-data.json の externalUrl)。
+// 「アプリをひらく」の行き先を externalUrl にし、新しいタブ・noopener・外部サイトであることが分かる
+// 読み上げラベルを付ける。externalUrl を持たない教材は従来どおり(href・属性とも1文字も変えない)。
+function appLaunchLink(app, relPrefix) {
+  if (!app.externalUrl) return { href: `${relPrefix}${app.filename}.html`, attrs: '' };
+  if (!/^https:\/\/[^\s"'<>]+$/.test(app.externalUrl)) {
+    throw new Error(`apps-data.json: ${app.id} の externalUrl が https:// で始まる URL ではありません: ${app.externalUrl}`);
+  }
+  const host = new URL(app.externalUrl).host;
+  return {
+    href: app.externalUrl,
+    attrs: ` target="_blank" rel="noopener" aria-label="アプリをひらく（外部サイト「${host}」を新しいタブで開きます）"`,
+  };
+}
+
 function generateDetailHTML(app) {
   // どのまなパステルパレット: iconColorの「色相」だけを使い、白文字が読める濃さと
   // 淡いグラデーション用の薄さの2トーンを生成する(index.html/app-intro.htmlと同じ考え方)
@@ -563,7 +578,7 @@ ${jsonLdHTML}
     <span class="tag">完全無料</span>
     <span class="tag">インストール不要</span>
   </div>
-  <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
+  <a href="${appLaunchLink(app, '../').href}" class="launch-btn"${appLaunchLink(app, '../').attrs}>▶ アプリをひらく →</a>
   <p class="launch-note">ブラウザでそのまま使えます。インストール不要。</p>${galleryHTML || mockupHTML}
 </section>
 <main class="content">
@@ -598,7 +613,7 @@ ${jsonLdHTML}
   <div class="caution"><strong>使用上の留意点</strong><br>${app.caution}</div>
   <div class="bottom-launch">
     <p>アプリの内容を確認したら、さっそく使ってみましょう！</p>
-    <a href="../${app.filename}.html" class="launch-btn">▶ アプリをひらく →</a>
+    <a href="${appLaunchLink(app, '../').href}" class="launch-btn"${appLaunchLink(app, '../').attrs}>▶ アプリをひらく →</a>
     <br>
     <a href="../app-intro.html" class="back-link">← アプリ一覧にもどる</a>${recordNavLinkHTML}
   </div>
@@ -2330,10 +2345,10 @@ function generateIntroCard(app) {
         <div class="intro-header-text">
           <div class="intro-app-name">${app.title}</div>
           <span class="intro-tag">${app.tags_display}</span><br>
-          <a class="intro-launch-btn" href="${app.filename}.html">▶ アプリをひらく</a>
+          <a class="intro-launch-btn" href="${appLaunchLink(app, '').href}"${appLaunchLink(app, '').attrs}>▶ アプリをひらく</a>
         </div>
         <div class="intro-header-side">
-          <div class="header-qr-block"><div class="header-qr-label">QR</div><div class="header-qr-img" data-url="${BASE_URL}/${app.filename}.html"></div></div>
+          <div class="header-qr-block"><div class="header-qr-label">QR</div><div class="header-qr-img" data-url="${app.externalUrl || `${BASE_URL}/${app.filename}.html`}"></div></div>
           <a href="${BASE_URL}/#contactSection" class="header-report-btn" target="_blank"><span class="header-report-icon">✏️</span><span class="header-report-text"><span class="header-report-title">実践報告を送る</span></span></a>
         </div>
       </div>
