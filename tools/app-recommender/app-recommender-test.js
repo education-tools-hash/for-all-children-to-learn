@@ -55,6 +55,27 @@ function appsWithInput(v) {
   return APPS.filter((a) => Array.isArray(a.input) && a.input.indexOf(v) !== -1).map((a) => a.title);
 }
 
+// MINNA-DE-KAKERU-NIJI-LISTING-FIX-1: apps whose body is hosted on an external site
+// (apps-data.json `externalUrl`, first used by minna-de-kakeru-niji). They have a generated
+// app-details page here but, by design, no local <filename>.html, and wizard.html links them to
+// their externalUrl. The checks below state that rule exactly instead of assuming every app is
+// local; an app WITHOUT externalUrl is still held to the original expectations.
+const EXTERNAL_APPS = APPS.filter((a) => a.externalUrl);
+function expectedAppUrl(a) {
+  return a.externalUrl || ('https://donomana.jp/' + a.filename + '.html');
+}
+
+// User decision (2026-11-17): minna-de-kakeru-niji is NOT listed in switch-gaze-guide.html's
+// switch / gaze sections, because it has no in-app gaze dwell or switch scanning (it is operated
+// through the OS: iPad Switch Control, Tobii, etc.). It keeps `input: switch/gaze` in
+// apps-data.json, so it is excluded here, by id, from the guide-parity expectation only.
+// This is a named exception, not a rule for all externalUrl apps; check 16c fails if an id here
+// is unknown or the app is listed in the guide after all (so the exception cannot go stale silently).
+const GUIDE_NOT_LISTED_IDS = ['minna-de-kakeru-niji'];
+function guideExpectedApps(v) {
+  return APPS.filter((a) => Array.isArray(a.input) && a.input.indexOf(v) !== -1 && GUIDE_NOT_LISTED_IDS.indexOf(a.id) === -1);
+}
+
 const PREVIOUSLY_MISSING_7 = [
   'おおきい？ちいさい？くらべよう', 'かたちをあわせよう', 'みるとひろがる',
   'どこかな？みーつけた！', 'じゅんばんにみよう', 'どっちがいい？', 'さわってひろがる'
@@ -370,9 +391,20 @@ const PREVIOUSLY_MISSING_7 = [
   {
     const { context, page, bucket } = await freshPage(browser);
     await answerAll(page, 'any', '学習アプリ', 'none');
-    const hrefs = await page.$$eval('.open-btn', (els) => els.map((e) => e.getAttribute('href')));
-    const badHrefs = hrefs.filter((h) => !h.startsWith('https://donomana.jp/'));
-    check('wizard result links: all use the expected https://donomana.jp/ prefix', badHrefs.length === 0, badHrefs);
+    // Each result card's link must be exactly that app's expected URL:
+    // https://donomana.jp/<filename>.html, or the app's externalUrl when it has one.
+    // (Stricter than the former "starts with https://donomana.jp/" prefix check.)
+    const cards = await page.$$eval('.app-card', (els) => els.map((e) => {
+      const nameEl = e.querySelector('.app-name');
+      const btnEl = e.querySelector('.open-btn');
+      return { name: nameEl ? nameEl.textContent.trim() : null, href: btnEl ? btnEl.getAttribute('href') : null };
+    }));
+    const byTitle = {};
+    APPS.forEach((a) => { byTitle[a.title] = a; });
+    const badHrefs = cards.filter((c) => !byTitle[c.name] || c.href !== expectedAppUrl(byTitle[c.name]));
+    check('wizard result links: each link is the app\'s expected URL (https://donomana.jp/<filename>.html, or its externalUrl)', cards.length > 0 && badHrefs.length === 0, badHrefs);
+    const externalMissing = EXTERNAL_APPS.filter((a) => !cards.some((c) => c.name === a.title && c.href === a.externalUrl));
+    check('wizard result links: every externalUrl app is shown and links to its externalUrl', externalMissing.length === 0, externalMissing.map((a) => a.id));
     check('broken-link block: no console.error', bucket.consoleErrors.length === 0, bucket.consoleErrors);
     await context.close();
   }
@@ -392,7 +424,7 @@ const PREVIOUSLY_MISSING_7 = [
     const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
     const gazeSection = html.match(/<section id="gaze-apps">([\s\S]*?)<\/section>/)[1];
     const gazeCardCount = (gazeSection.match(/class="app-card"/g) || []).length;
-    const expectedGazeCount = appsWithInput('gaze').length;
+    const expectedGazeCount = guideExpectedApps('gaze').length;
     check('switch-gaze-guide.html gaze section: full parity with apps-data.json input=gaze count (diff=0 target, §30)', gazeCardCount === expectedGazeCount, { shown: gazeCardCount, expected: expectedGazeCount });
   }
 
@@ -403,12 +435,22 @@ const PREVIOUSLY_MISSING_7 = [
     const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
     const switchSection = html.match(/<section id="switch-apps">([\s\S]*?)<\/section>/)[1];
     const switchCardCount = (switchSection.match(/class="app-card"/g) || []).length;
-    const expectedSwitchCount = appsWithInput('switch').length;
+    const expectedSwitchCount = guideExpectedApps('switch').length;
     check('switch-gaze-guide.html switch section: full parity with apps-data.json input=switch count', switchCardCount === expectedSwitchCount, { shown: switchCardCount, expected: expectedSwitchCount });
 
     const switchHrefs = [...switchSection.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
     const dupHrefs = switchHrefs.filter((h, i) => switchHrefs.indexOf(h) !== i);
     check('switch-gaze-guide.html switch section: no duplicate app-card hrefs', dupHrefs.length === 0, dupHrefs);
+  }
+
+  // ============= 16c. Guide exceptions are real: GUIDE_NOT_LISTED_IDS apps exist and are not linked in the guide =============
+  {
+    const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
+    const stale = GUIDE_NOT_LISTED_IDS.filter((id) => {
+      const app = APPS.find((a) => a.id === id);
+      return !app || html.includes('app-details/' + app.filename + '-detail.html');
+    });
+    check('switch-gaze-guide.html: apps excluded from the guide by decision exist in apps-data.json and are not linked in the guide', stale.length === 0, stale);
   }
 
   // ============= 17. Metadata consistency: apps-data.json =============
@@ -421,8 +463,13 @@ const PREVIOUSLY_MISSING_7 = [
     const dupIds = ids.filter((id, i) => ids.indexOf(id) !== i);
     check('metadata: no duplicate app ids', dupIds.length === 0, dupIds);
 
-    const missingFilenameHtml = APPS.filter((a) => !fs.existsSync(path.join(ROOT, a.filename + '.html')));
-    check('metadata: every filename has a corresponding .html file', missingFilenameHtml.length === 0, missingFilenameHtml.map((a) => a.id));
+    // Apps without externalUrl must have their local <filename>.html (unchanged expectation).
+    // Apps with externalUrl are hosted off-site: they must have a valid https URL and must NOT
+    // also have a local <filename>.html (which would make the launch target ambiguous).
+    const missingFilenameHtml = APPS.filter((a) => !a.externalUrl && !fs.existsSync(path.join(ROOT, a.filename + '.html')));
+    check('metadata: every filename has a corresponding .html file (apps without externalUrl)', missingFilenameHtml.length === 0, missingFilenameHtml.map((a) => a.id));
+    const badExternal = EXTERNAL_APPS.filter((a) => !/^https:\/\/[^\s"'<>]+$/.test(a.externalUrl) || fs.existsSync(path.join(ROOT, a.filename + '.html')));
+    check('metadata: externalUrl apps have an https URL and no local .html file', badExternal.length === 0, badExternal.map((a) => a.id));
 
     const missingDetail = APPS.filter((a) => !fs.existsSync(path.join(ROOT, 'app-details', a.filename + '-detail.html')));
     check('metadata: every app has a generated app-details page', missingDetail.length === 0, missingDetail.map((a) => a.id));
