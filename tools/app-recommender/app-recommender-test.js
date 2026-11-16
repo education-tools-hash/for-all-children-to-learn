@@ -65,17 +65,6 @@ function expectedAppUrl(a) {
   return a.externalUrl || ('https://donomana.jp/' + a.filename + '.html');
 }
 
-// User decision (2026-11-17): minna-de-kakeru-niji is NOT listed in switch-gaze-guide.html's
-// switch / gaze sections, because it has no in-app gaze dwell or switch scanning (it is operated
-// through the OS: iPad Switch Control, Tobii, etc.). It keeps `input: switch/gaze` in
-// apps-data.json, so it is excluded here, by id, from the guide-parity expectation only.
-// This is a named exception, not a rule for all externalUrl apps; check 16c fails if an id here
-// is unknown or the app is listed in the guide after all (so the exception cannot go stale silently).
-const GUIDE_NOT_LISTED_IDS = ['minna-de-kakeru-niji'];
-function guideExpectedApps(v) {
-  return APPS.filter((a) => Array.isArray(a.input) && a.input.indexOf(v) !== -1 && GUIDE_NOT_LISTED_IDS.indexOf(a.id) === -1);
-}
-
 const PREVIOUSLY_MISSING_7 = [
   'おおきい？ちいさい？くらべよう', 'かたちをあわせよう', 'みるとひろがる',
   'どこかな？みーつけた！', 'じゅんばんにみよう', 'どっちがいい？', 'さわってひろがる'
@@ -424,7 +413,7 @@ const PREVIOUSLY_MISSING_7 = [
     const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
     const gazeSection = html.match(/<section id="gaze-apps">([\s\S]*?)<\/section>/)[1];
     const gazeCardCount = (gazeSection.match(/class="app-card"/g) || []).length;
-    const expectedGazeCount = guideExpectedApps('gaze').length;
+    const expectedGazeCount = appsWithInput('gaze').length;
     check('switch-gaze-guide.html gaze section: full parity with apps-data.json input=gaze count (diff=0 target, §30)', gazeCardCount === expectedGazeCount, { shown: gazeCardCount, expected: expectedGazeCount });
   }
 
@@ -435,22 +424,12 @@ const PREVIOUSLY_MISSING_7 = [
     const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
     const switchSection = html.match(/<section id="switch-apps">([\s\S]*?)<\/section>/)[1];
     const switchCardCount = (switchSection.match(/class="app-card"/g) || []).length;
-    const expectedSwitchCount = guideExpectedApps('switch').length;
+    const expectedSwitchCount = appsWithInput('switch').length;
     check('switch-gaze-guide.html switch section: full parity with apps-data.json input=switch count', switchCardCount === expectedSwitchCount, { shown: switchCardCount, expected: expectedSwitchCount });
 
     const switchHrefs = [...switchSection.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
     const dupHrefs = switchHrefs.filter((h, i) => switchHrefs.indexOf(h) !== i);
     check('switch-gaze-guide.html switch section: no duplicate app-card hrefs', dupHrefs.length === 0, dupHrefs);
-  }
-
-  // ============= 16c. Guide exceptions are real: GUIDE_NOT_LISTED_IDS apps exist and are not linked in the guide =============
-  {
-    const html = fs.readFileSync(path.join(ROOT, 'switch-gaze-guide.html'), 'utf-8');
-    const stale = GUIDE_NOT_LISTED_IDS.filter((id) => {
-      const app = APPS.find((a) => a.id === id);
-      return !app || html.includes('app-details/' + app.filename + '-detail.html');
-    });
-    check('switch-gaze-guide.html: apps excluded from the guide by decision exist in apps-data.json and are not linked in the guide', stale.length === 0, stale);
   }
 
   // ============= 17. Metadata consistency: apps-data.json =============
