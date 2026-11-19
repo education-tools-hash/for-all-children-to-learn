@@ -3561,7 +3561,16 @@ function buildSequencerGrid() {
     const label = document.createElement('div');
     label.className = 'seq-row-label';
     label.id = `seq-label-${ti}`;
-    label.innerHTML = `<span class="row-emoji">${ts.emoji}</span><span class="row-name">${ts.name}</span>`;
+    // セキュリティ修正(XSS 第1弾): 共有リンクや保存データ由来の名前・絵文字を HTML として
+    // 解釈させない(textContent で表示する)。
+    const labelEmoji = document.createElement('span');
+    labelEmoji.className = 'row-emoji';
+    labelEmoji.textContent = ts.emoji;
+    const labelName = document.createElement('span');
+    labelName.className = 'row-name';
+    labelName.textContent = ts.name;
+    label.appendChild(labelEmoji);
+    label.appendChild(labelName);
     label.onclick = () => previewTrackSound(ti);
     row.appendChild(label);
 
@@ -4257,14 +4266,14 @@ function showCompositions() {
       return t.emoji || ts?.emoji || '🎵';
     }).slice(0,4).join('');
     item.innerHTML = `
-      <div class="comp-item-icon">${trackEmojis || '🎼'}</div>
+      <div class="comp-item-icon">${ongakuEscapeHtml(trackEmojis) || '🎼'}</div>
       <div class="comp-item-info">
-        <div class="comp-item-name">${comp.name}</div>
-        <div class="comp-item-meta">🥁 ${comp.tempo}BPM &nbsp;·&nbsp; ${comp.tracks.length}トラック &nbsp;·&nbsp; ${new Date(comp.createdAt).toLocaleDateString('ja-JP')}</div>
+        <div class="comp-item-name">${ongakuEscapeHtml(comp.name)}</div>
+        <div class="comp-item-meta">🥁 ${ongakuEscapeHtml(comp.tempo)}BPM &nbsp;·&nbsp; ${Number(comp.tracks.length)}トラック &nbsp;·&nbsp; ${new Date(comp.createdAt).toLocaleDateString('ja-JP')}</div>
       </div>
       <div class="comp-item-actions">
-        <button class="btn-comp-play" onclick="loadAndPlayComp(${comp.id})" title="よみこむ">▶</button>
-        <button class="btn-comp-del" onclick="deleteComp(${comp.id})" title="さくじょ">🗑</button>
+        <button class="btn-comp-play" onclick="loadAndPlayComp(${Number(comp.id)})" title="よみこむ">▶</button>
+        <button class="btn-comp-del" onclick="deleteComp(${Number(comp.id)})" title="さくじょ">🗑</button>
       </div>
     `;
     list.appendChild(item);
@@ -5444,6 +5453,48 @@ function _playSoundToGain(soundId, ctx, now, g) {
 }
 
 // ===== URL SHARING =====
+// セキュリティ修正(XSS 第1弾): 共有リンク(?share=)や保存データの文字を HTML として解釈させない
+// ための逃がし処理(& < > " ' の5文字)。
+function ongakuEscapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+// セキュリティ修正(XSS 第1弾): 共有リンクの中身を、型・長さ・項目で絞り込む(補助)。
+// 表示側の逃がしが本筋のため、文字の種類は制限しない(& や < を含む名前もそのまま通す)。
+// shareComposition() が出す形式({n,t,s,tr:[{id,s,v,e,nm,c}]})はそのまま読める。
+const ONGAKU_SHARE_MAX_CHARS = 200000;
+const ONGAKU_SHARE_MAX_TRACKS = 64;
+const ONGAKU_SHARE_MAX_STEPS = 64;
+function sanitizeSharedComposition(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const str = (v, max) => (typeof v === 'string' && v) ? v.slice(0, max) : undefined;
+  const rawTracks = Array.isArray(data.tr) ? data.tr.slice(0, ONGAKU_SHARE_MAX_TRACKS) : [];
+  const tracks = [];
+  rawTracks.forEach(tr => {
+    if (!tr || typeof tr !== 'object' || Array.isArray(tr)) return;
+    if (typeof tr.id !== 'string' || !tr.id || tr.id.length > 80) return;
+    const steps = (Array.isArray(tr.s) ? tr.s : []).slice(0, ONGAKU_SHARE_MAX_STEPS).map(v => v === 1);
+    const v = (typeof tr.v === 'number' && isFinite(tr.v)) ? Math.min(100, Math.max(0, tr.v)) : 0;
+    tracks.push({
+      soundId: tr.id,
+      steps: steps,
+      vol: (v || 80) / 100,
+      emoji: str(tr.e, 16),
+      name: str(tr.nm, 40),
+      color: (typeof tr.c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(tr.c)) ? tr.c : undefined
+    });
+  });
+  const t = (typeof data.t === 'number' && isFinite(data.t)) ? Math.round(data.t) : 0;
+  return {
+    tracks: tracks,
+    tempo: (t >= 60 && t <= 200) ? t : 100,
+    stepCount: (data.s === 8 || data.s === 16 || data.s === 32) ? data.s : 16,
+    name: str(data.n, 20) || ''
+  };
+}
+
 function shareComposition() {
   const name = document.getElementById('compose-name').value.trim() || 'わたしのさくひん';
   const data = {
@@ -5509,20 +5560,15 @@ function loadSharedUrl() {
     const params = new URLSearchParams(location.search);
     const encoded = params.get('share');
     if (!encoded) return false;
+    if (encoded.length > ONGAKU_SHARE_MAX_CHARS) return false;
     const json = decodeURIComponent(escape(atob(encoded)));
-    const data = JSON.parse(json);
+    const data = sanitizeSharedComposition(JSON.parse(json));
+    if (!data) return false;
     // Apply to compose state
-    composeTracks = (data.tr || []).map(tr => ({
-      soundId: tr.id,
-      steps: (tr.s || []).map(v => v === 1),
-      vol: (tr.v || 80) / 100,
-      emoji: tr.e,
-      name: tr.nm,
-      color: tr.c
-    }));
-    composeTempo = data.t || 100;
-    composeStepCount = data.s || 16;
-    document.getElementById('compose-name').value = data.n || '';
+    composeTracks = data.tracks;
+    composeTempo = data.tempo;
+    composeStepCount = data.stepCount;
+    document.getElementById('compose-name').value = data.name;
     // Clean URL so refresh doesn't re-import
     history.replaceState({}, '', location.pathname);
     return true;

@@ -2368,16 +2368,16 @@ function renderBoard(){
 
     if(cell.photoUrl){
       inner+=`<img class="cell-photo" src="${cell.photoUrl}" alt="">`;
-      if(cell.tx) inner+=`<div class="ctxt" style="font-size:var(--cell-fs);padding:2px;background:rgba(0,0,0,.45);color:#fff;width:100%;text-align:center">${cell.tx}</div>`;
+      if(cell.tx) inner+=`<div class="ctxt" style="font-size:var(--cell-fs);padding:2px;background:rgba(0,0,0,.45);color:#fff;width:100%;text-align:center">${sgEsc(cell.tx)}</div>`;
     } else {
       if(cell.ic){
         const iconPx=Math.max(16,Math.min(26,p.w/3.5));
-        inner+=`<div class="cion" style="font-size:${iconPx}px">${cell.ic}</div>`;
+        inner+=`<div class="cion" style="font-size:${iconPx}px">${sgEsc(cell.ic)}</div>`;
       }
       // テキストが空の場合はイベント名をフォールバック表示
       const dispTx = cell.tx || (cell.ev && cell.ev.tt ? cell.ev.tt.slice(0,7) : '');
       if(dispTx){
-        inner+=`<div class="ctxt${isWhite?' w':''}">${dispTx}</div>`;
+        inner+=`<div class="ctxt${isWhite?' w':''}">${sgEsc(dispTx)}</div>`;
       }
     }
     el.innerHTML=inner;
@@ -2448,6 +2448,13 @@ function startGame(){
   },50);
 }
 
+// セキュリティ修正(XSS 第1弾): 相手の端末から届く文字(名前・アバター・マスの文字など)や
+// 入力された文字を、HTML として解釈させないための逃がし処理(& < > " ' の5文字)。
+function sgEsc(s){
+  return String(s===null||s===undefined?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
 function setMsg(t){document.getElementById('msgbox').textContent=t;}
 
 function renderList(){
@@ -2463,8 +2470,8 @@ function renderList(){
     const rk=ri>=0?`<div class="pc-rk">${bgs[ri]}</div>`:'';
     const cpuBadge=p.cpu?`<span style="font-size:.52rem;background:rgba(93,191,106,.25);color:#5dbf6a;border-radius:5px;padding:1px 4px;font-weight:900;margin-right:2px">CPU</span>`:'';
     card.innerHTML=`<div class="pc-top">
-      <div class="pc-av">${p.av}</div>
-      <div class="pc-inf"><div class="pc-nm">${cpuBadge}${p.name}</div><div class="pc-pos">${p.pos}マス目</div></div>
+      <div class="pc-av">${sgEsc(p.av)}</div>
+      <div class="pc-inf"><div class="pc-nm">${cpuBadge}${sgEsc(p.name)}</div><div class="pc-pos">${sgEsc(p.pos)}マス目</div></div>
       ${rk}${i===ci&&!p.done?'<div class="adot"></div>':''}
     </div><div class="pc-bar"><div class="pc-bar-f" style="width:${pct}%"></div></div>`;
     list.appendChild(card);
@@ -2680,8 +2687,8 @@ function showGoal(){
   gActive=false;if(scanOn)stopScan();
   const bgs=['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
   let html='';
-  finOrd.forEach((pi,ri)=>{html+=`<div class="rkrow"><span class="rrb">${bgs[ri]||ri+1}</span><span class="rrav">${players[pi].av}</span><span class="rrnm">${players[pi].name}</span><span class="rrpos">${turnCounts[pi]||0}かいでゴール</span></div>`;});
-  players.forEach((p,i)=>{if(!p.done)html+=`<div class="rkrow"><span class="rrb">-</span><span class="rrav">${p.av}</span><span class="rrnm">${p.name}</span><span class="rrpos">${turnCounts[i]||0}かい</span></div>`;});
+  finOrd.forEach((pi,ri)=>{html+=`<div class="rkrow"><span class="rrb">${bgs[ri]||ri+1}</span><span class="rrav">${sgEsc(players[pi].av)}</span><span class="rrnm">${sgEsc(players[pi].name)}</span><span class="rrpos">${turnCounts[pi]||0}かいでゴール</span></div>`;});
+  players.forEach((p,i)=>{if(!p.done)html+=`<div class="rkrow"><span class="rrb">-</span><span class="rrav">${sgEsc(p.av)}</span><span class="rrnm">${sgEsc(p.name)}</span><span class="rrpos">${turnCounts[i]||0}かい</span></div>`;});
   document.getElementById('rklist').innerHTML=html;
   document.getElementById('gsub').textContent=players[finOrd[0]].name+'がゴール！';
   document.getElementById('goalmod').classList.add('on');
@@ -3182,7 +3189,7 @@ function renderMemberList(){
   const list = document.getElementById('ol-member-list');
   if(!list) return;
   list.innerHTML = onlineMembers.map((m,i)=>`
-    <div class="ol-member"><span class="om-av">${m.av}</span><span>${m.name}</span>${i===0?'<span class="om-host">ホスト</span>':''}</div>
+    <div class="ol-member"><span class="om-av">${sgEsc(m.av)}</span><span>${sgEsc(m.name)}</span>${i===0?'<span class="om-host">ホスト</span>':''}</div>
   `).join('');
   updateStartBtn();
 }
@@ -3195,7 +3202,7 @@ function updateStartBtn(){
 }
 function updateHostStatus(color, msg){
   const el=document.getElementById('ol-host-status');
-  if(el) el.innerHTML=`<span class="ol-dot ${color}"></span>${msg}`;
+  if(el) el.innerHTML=`<span class="ol-dot ${sgEsc(color)}"></span>${sgEsc(msg)}`;
 }
 
 // ===== ゲスト =====
@@ -3232,13 +3239,13 @@ function joinAsGuest(code){
 
 function updateGuestStatus(color, msg){
   const el=document.getElementById('ol-guest-status');
-  if(el) el.innerHTML=`<span class="ol-dot ${color}"></span>${msg}`;
+  if(el) el.innerHTML=`<span class="ol-dot ${sgEsc(color)}"></span>${sgEsc(msg)}`;
 }
 function renderGuestMemberList(members){
   const list=document.getElementById('ol-guest-member-list');
   if(!list) return;
   list.innerHTML = members.map((m,i)=>`
-    <div class="ol-member"><span class="om-av">${m.av}</span><span>${m.name}</span>${i===0?'<span class="om-host">ホスト</span>':''}</div>
+    <div class="ol-member"><span class="om-av">${sgEsc(m.av)}</span><span>${sgEsc(m.name)}</span>${i===0?'<span class="om-host">ホスト</span>':''}</div>
   `).join('');
 }
 
@@ -3261,12 +3268,16 @@ function handleOnlineMsg(data, fromConn){
       updateGuestStatus('green','ゲームのかいしをまっています… あなたは プレイヤー'+(data.idx+1));
       break;
     case 'member_list':
+      // セキュリティ修正: ゲスト側が、ホストとの接続から受け取ったときだけ処理する
+      if(isHost || !hostConn || fromConn!==hostConn) break;
       onlineMembers = data.members;
       renderGuestMemberList(data.members);
       { const myEntry = data.members.find(m=>m.peerId===myPeerId);
         if(myEntry) myPlayerIdx=myEntry.idx; }
       break;
     case 'game_start':
+      // セキュリティ修正: ゲスト側が、ホストとの接続から受け取ったときだけ処理する
+      if(isHost || !hostConn || fromConn!==hostConn) break;
       startOnlineGame(data.gameState);
       break;
     case 'roll_request':
