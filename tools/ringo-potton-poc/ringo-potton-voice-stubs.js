@@ -64,8 +64,53 @@ const AUDIO_STUB = `
     window.Audio = A;
   })();
 `;
+// SPEECH_VOICE_STUB: a speechSynthesis replacement that records the PARAMETERS of every call in window.__vlog, so a
+//              suite can check which voice / rate / lang the app asks for (the plain SPEECH_STUB above records the
+//              text only and always has an empty voice list):
+//                {op:'speak', text, lang, rate, pitch, volume, voice: <name or null>, uri: <voiceURI or null>, t}
+//                {op:'cancel', t}   {op:'getVoices', n, t}
+//              The voice list is window.__voices (objects {name, lang, voiceURI, default}); a suite changes it and
+//              calls window.__fireVoicesChanged() to report the change the way an engine does. Options, set before load:
+//                window.__lazyVoicesMs = 400  -> the list is empty until that long after the FIRST getVoices() call
+//                                                (engines that load their voices lazily), then voiceschanged fires
+//                window.__noVcEvents = true   -> speechSynthesis has no addEventListener (very old engines)
+//              window.__vcListeners counts the voiceschanged listeners the page registered.
+const SPEECH_VOICE_STUB = `
+  (function () {
+    var L = window.__vlog = [];
+    window.__voices = window.__voices || [];
+    window.__vcListeners = 0;
+    var listeners = [], loaded = (typeof window.__lazyVoicesMs !== 'number'), loading = false, onvc = null;
+    function U(t) { this.text = t; this.lang = ''; this.rate = 1; this.pitch = 1; this.volume = 1; this.voice = null; this.onend = null; this.onerror = null; }
+    window.SpeechSynthesisUtterance = U;
+    function fire() { listeners.slice().forEach(function (f) { try { f({ type: 'voiceschanged' }); } catch (e) {} }); if (typeof onvc === 'function') { try { onvc({ type: 'voiceschanged' }); } catch (e) {} } }
+    window.__fireVoicesChanged = fire;
+    var ss = {
+      speaking: false, pending: false,
+      speak: function (u) {
+        L.push({ op: 'speak', t: performance.now(), text: u.text, lang: u.lang, rate: u.rate, pitch: u.pitch, volume: u.volume, voice: u.voice ? u.voice.name : null, uri: u.voice ? (u.voice.voiceURI || null) : null });
+        if (typeof window.__spEndMs === 'number') { var gen = window.__spGen; setTimeout(function () { if (gen === window.__spGen && u.onend) u.onend({}); }, window.__spEndMs); }
+      },
+      cancel: function () { L.push({ op: 'cancel', t: performance.now() }); window.__spGen = (window.__spGen || 0) + 1; },
+      getVoices: function () {
+        var list = [];
+        if (loaded) list = window.__voices.slice();
+        else if (!loading) { loading = true; setTimeout(function () { loaded = true; fire(); }, window.__lazyVoicesMs); }
+        L.push({ op: 'getVoices', t: performance.now(), n: list.length });
+        return list;
+      }
+    };
+    window.__spGen = 0;
+    if (!window.__noVcEvents) {
+      ss.addEventListener = function (type, f) { if (type === 'voiceschanged') { listeners.push(f); window.__vcListeners++; } };
+      ss.removeEventListener = function () {};
+      Object.defineProperty(ss, 'onvoiceschanged', { get: function () { return onvc; }, set: function (f) { onvc = f; if (f) window.__vcListeners++; } });
+    }
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: ss });
+  })();
+`;
 const NO_AUDIO_STUB = `
   (function () { try { Object.defineProperty(window, 'Audio', { configurable: true, value: undefined }); } catch (e) {} })();
 `;
 const base = (src) => String(src).split('/').pop();
-module.exports = { SPEECH_STUB, AUDIO_STUB, NO_AUDIO_STUB, base };
+module.exports = { SPEECH_STUB, SPEECH_VOICE_STUB, AUDIO_STUB, NO_AUDIO_STUB, base };
