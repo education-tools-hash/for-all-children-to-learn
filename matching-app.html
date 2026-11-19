@@ -1798,9 +1798,11 @@ async function renderRestoreSection(setId){
   section.innerHTML='<div class="restore-section-title">🔄 このセットのバックアップ</div>'+entries.map(en=>`
     <div class="restore-item">
       <span class="restore-item-label">${en.label}<br>${formatBackupDate(en.snap.createdAt)}</span>
-      <button type="button" class="restore-btn" onclick="confirmRestoreSet('${setId}','${en.gen}')">この状態にもどす</button>
+      <button type="button" class="restore-btn" data-restore-gen="${escAttr(en.gen)}">この状態にもどす</button>
     </div>
   `).join('');
+  // セキュリティ修正: セットの ID を onclick の文字列に埋めず、addEventListener で渡す。
+  section.querySelectorAll('[data-restore-gen]').forEach(b=>b.addEventListener('click',()=>confirmRestoreSet(setId,b.dataset.restoreGen)));
 }
 
 async function confirmRestoreSet(setId,gen){
@@ -1866,6 +1868,32 @@ if('speechSynthesis' in window){window.speechSynthesis.getVoices();window.speech
 /* ── ユーティリティ ── */
 function $(id){return document.getElementById(id);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// セキュリティ修正(XSS 第2弾): 取り込んだセットの文字を HTML・属性として解釈させないための
+// 逃がし処理(& < > " ' の5文字)。既存の esc は ' を逃がさないため、属性や画像・絵文字の出力にはこちらを使う。
+function escAttr(s){return String(s===null||s===undefined?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// セキュリティ修正(XSS 第2弾): 取り込みファイルのセットを、型・長さ・ID の形式・項目で絞り込む。
+// 文字の種類は制限しない(表示側で逃がす)。exportSets() が出す形式はそのまま読める。想定外の項目は捨てる。
+const IMPORT_MAX_SETS=200, IMPORT_MAX_CARDS=64, IMPORT_MAX_IMG_CHARS=8000000;
+function sanitizeImportedImage(v){
+  // 画像は data: で始まる base64 の画像データだけを許可する(引用符・空白・タグを含まない)。
+  if(typeof v!=='string'||v.length>IMPORT_MAX_IMG_CHARS) return null;
+  return /^data:image\/(png|jpeg|jpg|gif|webp|bmp);base64,[A-Za-z0-9+\/=]+$/.test(v)?v:null;
+}
+function sanitizeImportedSet(s){
+  if(!s||typeof s!=='object'||Array.isArray(s)) return null;
+  if(typeof s.id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(s.id)||s.id==='__default__') return null;
+  if(typeof s.name!=='string'||!s.name||!Array.isArray(s.cards)) return null;
+  const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
+  const cards=[];
+  s.cards.slice(0,IMPORT_MAX_CARDS).forEach(c=>{
+    if(!c||typeof c!=='object'||Array.isArray(c)) return;
+    cards.push({label:str(c.label,200),label2:str(c.label2,200),imgDataUrl:sanitizeImportedImage(c.imgDataUrl),emoji:str(c.emoji,32)});
+  });
+  const out={id:s.id,name:s.name.slice(0,200),
+    displayMode:['img-text','img-only','text-only','read-kanji'].indexOf(s.displayMode)!==-1?s.displayMode:'img-text',cards:cards};
+  if(typeof s.uuid==='string'&&/^[A-Za-z0-9-]{1,64}$/.test(s.uuid)) out.uuid=s.uuid;
+  return out;
+}
 function ann(msg){ if (typeof window.donomanaAnnounce === 'function') { window.donomanaAnnounce(msg); } }
 function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
 function startTimer(){clearInterval(timerIv);secs=0;drawTimer();timerIv=setInterval(()=>{secs++;drawTimer();},1000);}
@@ -1888,13 +1916,13 @@ function renderSets(){
     const isDef=set.id==='__default__';
     const modeLabel={'img-text':'🖼️📝','img-only':'🖼️','text-only':'📝','read-kanji':'あ⇔字'}[set.displayMode||'img-text'];
     item.innerHTML=`
-      <div class="set-thumb">${first?.imgDataUrl?`<img src="${first.imgDataUrl}" alt="">`:first?.emoji||'📦'}</div>
+      <div class="set-thumb">${first?.imgDataUrl?`<img src="${escAttr(first.imgDataUrl)}" alt="">`:escAttr(first?.emoji||'📦')}</div>
       <div class="set-info">
         <div class="set-name">${esc(set.name)}</div>
-        <div class="set-meta">${set.cards.length}しゅるい ・ ${modeLabel}</div>
+        <div class="set-meta">${Number(set.cards.length)}しゅるい ・ ${modeLabel}</div>
       </div>
       <div class="set-acts">
-        ${!isDef?`<button class="set-act" data-edit="${set.id}" aria-label="へんしゅう">✏️</button><button class="set-act red" data-del="${set.id}" aria-label="さくじょ">🗑️</button>`:''}
+        ${!isDef?`<button class="set-act" data-edit="${escAttr(set.id)}" aria-label="へんしゅう">✏️</button><button class="set-act red" data-del="${escAttr(set.id)}" aria-label="さくじょ">🗑️</button>`:''}
       </div>`;
     const sel=()=>{selSetId=set.id;document.querySelectorAll('.set-item').forEach(e=>{e.classList.remove('selected');e.setAttribute('aria-checked','false');});item.classList.add('selected');item.setAttribute('aria-checked','true');updateStartBtn();};
     item.addEventListener('click',e=>{if(e.target.closest('[data-edit],[data-del]'))return;sel();});
@@ -1957,8 +1985,8 @@ function mkCard(card,idx,mode){
 
   let front='';
   if(mode==='img-only'){
-    front=card.imgDataUrl?`<img class="card-img" src="${card.imgDataUrl}" alt="${esc(card.label||'')}">`:
-      `<div class="card-big-em">${card.emoji||'?'}</div>`;
+    front=card.imgDataUrl?`<img class="card-img" src="${escAttr(card.imgDataUrl)}" alt="${esc(card.label||'')}">`:
+      `<div class="card-big-em">${escAttr(card.emoji||'?')}</div>`;
   } else if(mode==='text-only'){
     front=`<div class="card-txt">${esc(card.label||card.emoji||'?')}</div>`;
   } else if(mode==='read-kanji'){
@@ -1966,10 +1994,10 @@ function mkCard(card,idx,mode){
     front=`<div class="card-txt">${esc(txt)}</div>`;
   } else { // img-text
     if(card.imgDataUrl){
-      front=`<img class="card-img" src="${card.imgDataUrl}" alt="${esc(card.label||'')}">`;
+      front=`<img class="card-img" src="${escAttr(card.imgDataUrl)}" alt="${esc(card.label||'')}">`;
       if(card.label)front+=`<div class="card-lbl">${esc(card.label)}</div>`;
     } else {
-      front=`<div class="card-big-em">${card.emoji||'?'}</div>`;
+      front=`<div class="card-big-em">${escAttr(card.emoji||'?')}</div>`;
       if(card.label)front+=`<div class="card-lbl">${esc(card.label)}</div>`;
     }
   }
@@ -2391,7 +2419,7 @@ function renderEditList(){
     const div=document.createElement('div');div.className='ec-item';
     let imgHtml='';
     if(showImg){
-      const prev=item.imgDataUrl?`<img src="${item.imgDataUrl}" alt=""><div class="ec-img-ov">かえる</div>`:`<span style="font-size:1.5em">${item.emoji||'🖼️'}</span>`;
+      const prev=item.imgDataUrl?`<img src="${escAttr(item.imgDataUrl)}" alt=""><div class="ec-img-ov">かえる</div>`:`<span style="font-size:1.5em">${escAttr(item.emoji||'🖼️')}</span>`;
       imgHtml=`<div class="ec-img" tabindex="0" aria-label="がぞうをえらぶ（タップ）" data-ii="${i}">${prev}</div>`;
     }
     let txtHtml='';
@@ -2573,10 +2601,10 @@ function importSetsFile(e){
       // C:一致する既存setがあり内容が異なる→既存setは変更せず、import側を新しい別idのsetとして追加
       // 個々のセットのvalidationに失敗した要素はスキップし、正常なセットは失わない。
       let addedCount=0, skippedSameCount=0, addedAsNewCount=0;
-      for(const s of sets){
-        if(!s||typeof s!=='object') continue;
-        if(s.id==='__default__') continue;
-        if(!s.id||typeof s.name!=='string'||!s.name||!Array.isArray(s.cards)) continue;
+      for(const rawSet of sets.slice(0,IMPORT_MAX_SETS)){
+        // セキュリティ修正: 検査を通った項目だけで組み直したセットを使う(通らないセットは従来どおりスキップ)。
+        const s=sanitizeImportedSet(rawSet);
+        if(!s) continue;
 
         const existing=allSets.find(x=>x.id!=='__default__'&&(x.id===s.id||(s.uuid&&x.uuid&&x.uuid===s.uuid)));
 

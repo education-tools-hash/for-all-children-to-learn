@@ -1893,7 +1893,9 @@ function charHTML(){
   }
   if(ch.type==='photo'){
     // 写真は穴いっぱいに丸くトリミング
-    return `<div class="char-wrap"><img src="${ch.url}" alt="${ch.lbl}" draggable="false"></div>`;
+    // セキュリティ修正(XSS 第2弾): 写真のファイル名に由来するラベルを、属性から抜け出せないよう逃がす(& < > " ' の5文字)。
+    const altEsc=String(ch.lbl===null||ch.lbl===undefined?'':ch.lbl).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return `<div class="char-wrap"><img src="${ch.url}" alt="${altEsc}" draggable="false"></div>`;
   }
   return moleSVG();
 }

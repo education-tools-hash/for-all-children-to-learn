@@ -6091,12 +6091,12 @@ function buildSceneList(){
     ? '<div style="padding:24px;text-align:center;color:var(--sub);">場面がないよ</div>'
     : scenes.map((s,i)=>`
       <div class="sitem ${isSchool?'school':'lv'+currentLv}" onclick="startRP(${i})">
-        <span class="sico">${s.icon}</span>
+        <span class="sico">${sstEsc(s.icon)}</span>
         <div>
-          <div style="font-size:15px;font-weight:700;">${s.title}</div>
-          <div style="font-size:12px;color:var(--sub);">${s.desc}</div>
+          <div style="font-size:15px;font-weight:700;">${sstEsc(s.title)}</div>
+          <div style="font-size:12px;color:var(--sub);">${sstEsc(s.desc)}</div>
         </div>
-        <span class="stag" style="${isSchool?'background:#FFF0EA;color:var(--or);':''}">${s.tag}</span>
+        <span class="stag" style="${isSchool?'background:#FFF0EA;color:var(--or);':''}">${sstEsc(s.tag)}</span>
       </div>`).join(''));
 }
 
@@ -6123,25 +6123,25 @@ function startRP(idx){
   if(!s) return;
   rpShuffled = shuffle(s.choices.map((c,i)=>({...c, origIdx:i})));
   const imgHtml = s.img
-    ? `<img src="${s.img}" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r);display:block;margin-bottom:0;" alt="${s.title}">`
+    ? `<img src="${sstEsc(s.img)}" style="width:100%;max-height:220px;object-fit:cover;border-radius:var(--r);display:block;margin-bottom:0;" alt="${sstEsc(s.title)}">`
     : '';
   const html=`
     <div class="spk-row"><button class="spk-btn" onclick="toggleSpeakRP(${idx})">🔊 よみあげ</button></div>
     ${imgHtml}
     <div class="rp-scene">
-      <div class="rp-sico">${s.icon}</div>
-      <div class="rp-stitle">${s.title}</div>
-      <div class="rp-sdesc">${s.sit}</div>
+      <div class="rp-sico">${sstEsc(s.icon)}</div>
+      <div class="rp-stitle">${sstEsc(s.title)}</div>
+      <div class="rp-sdesc">${sstEsc(s.sit)}</div>
     </div>
     ${s.dialogs.map(d=>`
       <div class="dialog ${d.pl?'pl':'ch'}">
-        <div class="d-who">${d.who}</div>
-        <div class="d-text">${d.txt}</div>
+        <div class="d-who">${sstEsc(d.who)}</div>
+        <div class="d-text">${sstEsc(d.txt)}</div>
       </div>`).join('')}
     <div class="choices">
       <div class="ch-title">どうする？ひとつ選んでね</div>
       ${rpShuffled.map((c,i)=>`
-        <button class="ch-btn" onclick="answerRP(${i},${idx})">${c.txt}</button>`).join('')}
+        <button class="ch-btn" onclick="answerRP(${i},${idx})">${sstEsc(c.txt)}</button>`).join('')}
     </div>
     <div class="result-box" id="rp-result"></div>`;
   document.getElementById('rp-content').innerHTML=html;
@@ -6171,8 +6171,8 @@ function answerRP(ci,sceneIdx){
   rb.innerHTML=`
     <div class="res-ico">${ico}</div>
     <div class="res-title">${title}</div>
-    <div class="res-desc">${descFb}</div>
-    <div class="res-tip"><div class="res-tip-h">💡 ポイント</div>${s.tip}</div>
+    <div class="res-desc">${sstEsc(descFb)}</div>
+    <div class="res-tip"><div class="res-tip-h">💡 ポイント</div>${sstEsc(s.tip)}</div>
     <button class="action-btn btn-next" onclick="go('s-scene-list')">ほかのシーンへ</button>`;
   if(lv==='best') { confetti(); checkRPBadge(); }
   // Phase SST-RECORD-DETAIL-RP-PILOT-1: built-in roleplayのみdetail snapshotを付与する
@@ -6286,11 +6286,11 @@ function answerWQ(ci){
   fb.className='wq-fb '+(tier==='best'?'ok':tier==='try'?'try':'good')+' on';
   // 選択肢ごとの個別フィードバック(chosen.fb)を使う。未設定時のみ旧仕様の質問単位メッセージへフォールバック。
   const chosenMsg = chosen.fb || (ok ? q.ok_msg : q.ng_msg) || '';
-  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${chosen.txt}」</div>`;
+  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${sstEsc(chosen.txt)}」</div>`;
   // 'good'/'try'には「ちょっと違うかも」等の誤りを示す接頭辞をつけない。返答本文がすでに状況を受け止めて次の一手を示している。
   const icon = tier==='best' ? '😊 ' : tier==='try' ? '💪 ' : '🙂 ';
   const opener = tier==='best' ? 'よかったよ！　' : '';
-  const msg = icon + opener + chosenMsg;
+  const msg = icon + opener + sstEsc(chosenMsg);
   fb.innerHTML=yourAnswerLine+msg+
     `<button class="wq-next" onclick="currentWQIdx++;buildWordQuiz()" style="margin-top:12px;">${currentWQIdx+1<qs.length?'つぎの問題':'まとめ'}</button>`;
   if(ok) confetti();
@@ -6346,16 +6346,16 @@ function buildStoryReader(){
     const qBlock=p.q?`
       <div class="story-q">
         <div class="story-q-h">🤔 考えてみよう</div>
-        <div class="story-q-txt">${p.q}</div>
+        <div class="story-q-txt">${sstEsc(p.q)}</div>
         ${shuffledChoices.map((c,ci)=>`
-          <button class="story-a-btn" onclick="answerStory(${i},${ci})">${c.txt}</button>`).join('')}
+          <button class="story-a-btn" onclick="answerStory(${i},${ci})">${sstEsc(c.txt)}</button>`).join('')}
         <div class="story-fb" id="story-fb-${i}"></div>
       </div>`:'';
     return `
       <div class="story-page ${i===0?'on':''}" id="sp-${i}">
         <div class="spk-row"><button class="spk-btn" onclick="toggleSpeakStory(${i})">🔊 よみあげ</button></div>
         <div class="story-illus" style="background:${p.bg}">${p.illus}</div>
-        <div class="story-txt">${p.txt}</div>
+        <div class="story-txt">${sstStoryHtml(p.txt)}</div>
         ${qBlock}
         <div class="story-nav">
           <button class="snav-btn prev" onclick="storyNav(-1)" ${i===0?'disabled':''}>◀</button>
@@ -6400,12 +6400,12 @@ function answerStory(pageIdx,ci){
     }
   });
   const fbEl=document.getElementById(`story-fb-${pageIdx}`);
-  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${chosen.txt}」</div>`;
+  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${sstEsc(chosen.txt)}」</div>`;
   // good/tryには「ちょっと違ったね」等の誤りを示す接頭辞をつけない。返答本文だけで伝える。
   const icon = tier==='best' ? '🌟 ' : tier==='try' ? '💪 ' : '🙂 ';
   const opener = tier==='best' ? 'なるほど！　' : '';
   fbEl.style.cssText='margin-top:10px;padding:12px 14px;background:'+(tier==='best'?'#FFF9E6':tier==='good'?'#E8F5E9':'#F5F5F5')+';border-radius:var(--r-sm);font-size:0.875rem;border-left:4px solid '+(tier==='best'?'#F1C40F':tier==='good'?'var(--gr)':'#9E9E9E')+';';
-  fbEl.innerHTML=yourAnswerLine+icon+opener+chosen.fb;
+  fbEl.innerHTML=yourAnswerLine+icon+opener+sstEsc(chosen.fb);
   if(tier==='best') confetti();
 }
 function storyNav(dir){
@@ -6530,12 +6530,12 @@ function answerQuiz(ci){
   const fb=document.getElementById('q-fb');
   fb.className='quiz-fb '+(tier==='best'?'ok':tier==='try'?'try':tier==='support'?'support':'good')+' on';
   const chosenMsg = chosen.fb || '';
-  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${chosen.txt}」</div>`;
+  const yourAnswerLine = `<div class="wq-your-answer" style="font-size:13px;color:var(--sub);margin-bottom:6px;">あなたの答え：「${sstEsc(chosen.txt)}」</div>`;
   // good/try/supportには「ちょっと違ったね」等の誤りを示す接頭辞をつけない。
   // supportのみ、否定的でない固定ラベル「こんなときもあるね」を付ける(色・アイコンだけに頼らず文字でも識別できるようにするため)。
   const icon = tier==='best' ? '🌟 ' : tier==='try' ? '💪 ' : tier==='support' ? '🤝 ' : '🙂 ';
   const opener = tier==='best' ? 'なるほど！　' : tier==='support' ? 'こんなときもあるね　' : '';
-  fb.innerHTML=yourAnswerLine+icon+opener+chosenMsg+
+  fb.innerHTML=yourAnswerLine+icon+opener+sstEsc(chosenMsg)+
     `<button class="quiz-next" onclick="currentQuizIdx++;showQuizQ()">${currentQuizIdx+1<qs.length?'つぎへ':'結果を見る'}</button>`;
   if(tier==='best') confetti();
   document.getElementById('q-sc').textContent=`⭐ ${currentQuizScore}`;
@@ -7484,9 +7484,9 @@ function buildDetailRecordCardsHtml(withDetail, idPrefix){
         const selText = (a.selected && a.selected.text) || '';
         const selLevel = (a.selected && a.selected.level) || '';
         return `<li class="report-detail-qa-item">
-          <div class="report-detail-qa-q">Q${qi+1}: ${qText}</div>
-          <div class="report-detail-qa-a">選んだ回答: ${selText}</div>
-          ${selLevel ? `<div class="report-detail-qa-tier">教材内区分：${selLevel}</div>` : ''}
+          <div class="report-detail-qa-q">Q${qi+1}: ${sstEsc(qText)}</div>
+          <div class="report-detail-qa-a">選んだ回答: ${sstEsc(selText)}</div>
+          ${selLevel ? `<div class="report-detail-qa-tier">教材内区分：${sstEsc(selLevel)}</div>` : ''}
         </li>`;
       }).join('');
       return { summary, qaHtml };
@@ -7513,9 +7513,9 @@ function buildDetailRecordCardsHtml(withDetail, idPrefix){
           const selText = (a.selected && a.selected.text) || '';
           const selLevel = (a.selected && a.selected.level) || '';
           return `<li class="report-detail-qa-item">
-            <div class="report-detail-qa-q">Q${qi+1}: ${qText}</div>
-            <div class="report-detail-qa-a">選んだ回答: ${selText}</div>
-            ${selLevel ? `<div class="report-detail-qa-tier">教材内区分：${selLevel}</div>` : ''}
+            <div class="report-detail-qa-q">Q${qi+1}: ${sstEsc(qText)}</div>
+            <div class="report-detail-qa-a">選んだ回答: ${sstEsc(selText)}</div>
+            ${selLevel ? `<div class="report-detail-qa-tier">教材内区分：${sstEsc(selLevel)}</div>` : ''}
           </li>`;
         }).join('');
         expandLabel = '質問ページごとの記録';
@@ -7527,7 +7527,7 @@ function buildDetailRecordCardsHtml(withDetail, idPrefix){
       resultText = (d.ending && d.ending.title) || '';
       expandLabel = 'たどった道';
       const route = Array.isArray(d.route) ? d.route : [];
-      expandItemsHtml = route.map((step,ri)=>`<li class="report-detail-choice">${marks[ri]||(ri+1)+'.'} ${step}</li>`).join('');
+      expandItemsHtml = route.map((step,ri)=>`<li class="report-detail-choice">${marks[ri]||(ri+1)+'.'} ${sstEsc(step)}</li>`).join('');
       tierText = (d.ending && d.ending.level) || '';
     } else if(d.type === 'emotion_selection'){
       const sel = d.selected || {};
@@ -7541,7 +7541,7 @@ function buildDetailRecordCardsHtml(withDetail, idPrefix){
       const catName = cat ? cat.name.replace(/^[^\s]+\s/,'') : (d.category||'');
       if(catName){
         expandLabel = 'カテゴリ';
-        expandItemsHtml = `<li class="report-detail-choice">${catName}</li>`;
+        expandItemsHtml = `<li class="report-detail-choice">${sstEsc(catName)}</li>`;
       }
     } else if(d.type === 'breathing_activity'){
       resultLabel = '状態';
@@ -7554,18 +7554,18 @@ function buildDetailRecordCardsHtml(withDetail, idPrefix){
       resultText = sel.text||'';
       expandItemsHtml = choices.map((c,ci)=>{
         const isSel = (sel.id!=null && c.id!=null) ? (c.id===sel.id) : (c.text===sel.text);
-        return `<li class="report-detail-choice${isSel?' is-selected':''}">${marks[ci]||(ci+1)+'.'} ${c.text}</li>`;
+        return `<li class="report-detail-choice${isSel?' is-selected':''}">${marks[ci]||(ci+1)+'.'} ${sstEsc(c.text)}</li>`;
       }).join('');
       tierText = sel.level||'';
     }
 
     return `
     <div class="report-detail-card">
-      <div class="report-detail-ts">${donomanaRecordFormatDateTime(a.ts)}</div>
+      <div class="report-detail-ts">${sstEsc(donomanaRecordFormatDateTime(a.ts))}</div>
       <div class="report-detail-mode"><span>${info.ico}</span>${info.name}</div>
-      ${sceneTitle ? `<div class="report-detail-scene">「${sceneTitle}」</div>` : ''}
-      <div class="report-detail-sel-label">${resultLabel}</div>
-      <div class="report-detail-sel-text">${resultText}</div>
+      ${sceneTitle ? `<div class="report-detail-scene">「${sstEsc(sceneTitle)}」</div>` : ''}
+      <div class="report-detail-sel-label">${sstEsc(resultLabel)}</div>
+      <div class="report-detail-sel-text">${sstEsc(resultText)}</div>
       ${(expandItemsHtml || customBodyHtml) ? `
       <button type="button" class="report-detail-toggle" aria-expanded="false" aria-controls="${uid}" onclick="toggleReportDetail(this,'${uid}')">詳細を見る ▾</button>
       <div class="report-detail-body" id="${uid}" hidden>
@@ -7574,7 +7574,7 @@ function buildDetailRecordCardsHtml(withDetail, idPrefix){
         ${customBodyHtml}` : `
         <div class="report-detail-choices-label">${expandLabel}</div>
         <ol class="report-detail-choices">${expandItemsHtml}</ol>
-        ${tierText ? `<div class="report-detail-tier">教材内区分：${tierText}</div>` : ''}`}
+        ${tierText ? `<div class="report-detail-tier">教材内区分：${sstEsc(tierText)}</div>` : ''}`}
       </div>` : ''}
     </div>`;
   }).join('');
@@ -8556,26 +8556,105 @@ function switchImportTab(tab, el){
   else stopQRReader();
 }
 
+// セキュリティ修正(XSS 第2弾): 共有コード・QR や保存データの文字を HTML として解釈させない
+// ための逃がし処理(& < > " ' の5文字、ahistEsc と同じ流儀)。
+function sstEsc(s){
+  return String(s===null||s===undefined?'':s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+// ストーリー本文専用: 組み込みの本文が使う強調 <span class="hl">…</span> だけを残し、ほかは逃がす。
+function sstStoryHtml(s){
+  return sstEsc(s).replace(/&lt;span class=&quot;hl&quot;&gt;/g,'<span class="hl">').replace(/&lt;\/span&gt;/g,'</span>');
+}
+
+// セキュリティ修正(XSS 第2弾): 共有コードの中身を、型・長さ・ID の形式・項目で絞り込む。
+// 文字の種類は制限しない(& や < を含む文面もそのまま通し、表示側の逃がしで安全にする)。
+// generateShareCode() が出す形式({v,c,p,e})はそのまま読める。想定外の項目は捨てる。
+const SST_IMPORT_MAX_CHARS = 400000;
+const SST_IMPORT_MAX_ITEMS = 200;
+const SST_IMPORT_MAX_EDITS = 5000;
+const SST_IMPORT_TEXT_MAX  = 4000;
+function sstImportStr(v, max){ return typeof v === 'string' ? v.slice(0, max || SST_IMPORT_TEXT_MAX) : ''; }
+function sstImportId(v){ return (typeof v === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(v)) ? v : null; }
+function sstImportIsObj(v){ return !!v && typeof v === 'object' && !Array.isArray(v); }
+function sstImportChoices(arr, withFb){
+  if(!Array.isArray(arr)) return null;
+  const out = [];
+  arr.slice(0, 10).forEach(c=>{
+    if(!sstImportIsObj(c)) return;
+    const txt = sstImportStr(c.txt);
+    if(!txt) return;
+    const o = { txt, level: c.level==='best' ? 'best' : (c.level==='good' ? 'good' : 'try') };
+    if(withFb) o.fb = sstImportStr(c.fb);
+    out.push(o);
+  });
+  return out.length ? out : null;
+}
+function sstImportCustomScene(s){
+  if(!sstImportIsObj(s)) return null;
+  const id = sstImportId(s.id), title = sstImportStr(s.title), choices = sstImportChoices(s.choices, true);
+  if(!id || !title || !choices) return null;
+  return {
+    id, title,
+    icon: sstImportStr(s.icon, 16) || '❓',
+    sit: sstImportStr(s.sit),
+    thought: sstImportStr(s.thought),
+    fbGood: sstImportStr(s.fbGood),
+    choices,
+    lv: (s.lv===2 || s.lv===3) ? s.lv : 1,
+    img: null, // 共有コードは画像を含まない(書き出し側と同じ方針)
+    tip: sstImportStr(s.tip)
+  };
+}
+function sstImportPhotoScene(s){
+  if(!sstImportIsObj(s)) return null;
+  const id = sstImportId(s.id), title = sstImportStr(s.title), choices = sstImportChoices(s.choices, false);
+  if(!id || !title || !choices) return null;
+  return { id, title, sit: sstImportStr(s.sit), img: null, choices, fb: sstImportStr(s.fb) };
+}
+// 既存問題の編集内容: キーが英数字・_・- だけで、値が文字列のものだけを移す
+// (__proto__ などのキーや、文字列以外の値は持ち込ませない)。
+function sstImportEdits(e){
+  const out = {};
+  if(!sstImportIsObj(e)) return out;
+  Object.keys(e).slice(0, SST_IMPORT_MAX_EDITS).forEach(k=>{
+    if(!/^[A-Za-z0-9_-]{1,80}$/.test(k)) return;
+    if(k==='__proto__' || k==='constructor' || k==='prototype') return;
+    if(typeof e[k] !== 'string') return;
+    out[k] = e[k].slice(0, SST_IMPORT_TEXT_MAX);
+  });
+  return out;
+}
+
 function importData(code){
   code = code.trim();
   if(!code.startsWith('SST1:')){
     return { ok:false, msg:'形式が正しくありません。先生からもらったコードを貼り付けてください。' };
   }
   try {
+    if(code.length > SST_IMPORT_MAX_CHARS) throw new Error('too-large');
     const b64  = code.slice(5);
     const json = decodeURIComponent(escape(atob(b64)));
     const data = JSON.parse(json);
+    if(!sstImportIsObj(data)) throw new Error('invalid');
 
     let imported = [];
     if(data.c && Array.isArray(data.c)){
       // オリジナル問題：IDが重複しないようマージ
       const existIds = new Set(teacherCustomScenes.map(s=>s.id));
-      const newItems = data.c.filter(s=>!existIds.has(s.id));
+      const newItems = [];
+      data.c.slice(0, SST_IMPORT_MAX_ITEMS).forEach(raw=>{
+        const s = sstImportCustomScene(raw);
+        if(!s || existIds.has(s.id)) return;
+        existIds.add(s.id); newItems.push(s);
+      });
       teacherCustomScenes.push(...newItems);
       imported.push(`オリジナル問題 ${newItems.length}問`);
     }
     if(data.e && typeof data.e === 'object'){
-      Object.assign(teacherEdits, data.e);
+      const edits = sstImportEdits(data.e);
+      Object.keys(edits).forEach(k=>{ teacherEdits[k] = edits[k]; });
       applyWQTeacherEdits(); // インポート直後の同一セッションでも、ことばクイズの個別フィードバックを即時反映する
       applyQZTeacherEdits(); // インポート直後の同一セッションでも、SSTクイズの個別フィードバックを即時反映する
       applySTTeacherEdits(); // インポート直後の同一セッションでも、ソーシャルストーリーの個別フィードバックを即時反映する
@@ -8585,7 +8664,12 @@ function importData(code){
     }
     if(data.p && Array.isArray(data.p)){
       const existIds = new Set(photoScenes.map(s=>s.id));
-      const newItems = data.p.filter(s=>!existIds.has(s.id));
+      const newItems = [];
+      data.p.slice(0, SST_IMPORT_MAX_ITEMS).forEach(raw=>{
+        const s = sstImportPhotoScene(raw);
+        if(!s || existIds.has(s.id)) return;
+        existIds.add(s.id); newItems.push(s);
+      });
       photoScenes.push(...newItems);
       savePhotoScenes();
       imported.push(`写真SST問題 ${newItems.length}問（写真なし）`);
@@ -8807,16 +8891,17 @@ function buildCustomList(){
     return;
   }
   const lvLabel = {1:'🌱 はじめて',2:'🌿 なれてきた',3:'🌳 もっとできる'};
-  lst.innerHTML = teacherCustomScenes.map(s=>`
+  // セキュリティ修正: ID は onclick の文字列に埋めず、配列の番号から引く(番号は数値だけ)。
+  lst.innerHTML = teacherCustomScenes.map((s,si)=>`
     <div class="teacher-custom-item">
-      <span class="teacher-custom-ico">${s.icon||'❓'}</span>
+      <span class="teacher-custom-ico">${sstEsc(s.icon||'❓')}</span>
       <div class="teacher-custom-info">
-        <div class="teacher-custom-name">${s.title}</div>
-        <div class="teacher-custom-lv">${lvLabel[s.lv]||''} ／ ${s.sit.slice(0,24)}…</div>
+        <div class="teacher-custom-name">${sstEsc(s.title)}</div>
+        <div class="teacher-custom-lv">${lvLabel[s.lv]||''} ／ ${sstEsc(String(s.sit||'').slice(0,24))}…</div>
       </div>
       <div class="teacher-custom-actions">
-        <button class="tca-edit" onclick="openCustomEdit('${s.id}')">編集</button>
-        <button class="tca-del"  onclick="deleteCustomScene('${s.id}')">🗑</button>
+        <button class="tca-edit" onclick="openCustomEdit(teacherCustomScenes[${si}].id)">編集</button>
+        <button class="tca-del"  onclick="deleteCustomScene(teacherCustomScenes[${si}].id)">🗑</button>
       </div>
     </div>`).join('');
 }
@@ -8993,22 +9078,22 @@ function buildEditList(){
         const fbVal = teacherEdits[fbKey] !== undefined ? teacherEdits[fbKey] : (c.fb||'');
         const ico = c.level==='best' ? '⭐' : c.level==='good' ? '😊' : '💪';
         return `<div class="teacher-edit-field">
-          <label>${ico} 選択肢「${c.txt}」</label>
-          <input type="text" value="${txtVal.replace(/"/g,'&quot;')}" data-key="${txtKey}" oninput="storeEdit(this)">
+          <label>${ico} 選択肢「${sstEsc(c.txt)}」</label>
+          <input type="text" value="${sstEsc(txtVal)}" data-key="${sstEsc(txtKey)}" oninput="storeEdit(this)">
         </div>
         <div class="teacher-edit-field" style="margin-left:16px;">
           <label>💬 この選択肢への返答</label>
-          <textarea data-key="${fbKey}" oninput="storeEdit(this)">${fbVal}</textarea>
+          <textarea data-key="${sstEsc(fbKey)}" oninput="storeEdit(this)">${sstEsc(fbVal)}</textarea>
         </div>`;
       }).join('');
       const tipKey = `${s.id}_tip`;
       const tipVal = teacherEdits[tipKey]!==undefined ? teacherEdits[tipKey] : (s.tip||'');
       return `<div class="teacher-edit-scene">
-        <div class="teacher-edit-scene-title">${s.icon} ${s.title}</div>
+        <div class="teacher-edit-scene-title">${sstEsc(s.icon)} ${sstEsc(s.title)}</div>
         ${choiceHtml}
         <div class="teacher-edit-field">
           <label>💡 ポイント・ヒント</label>
-          <textarea data-key="${tipKey}" oninput="storeEdit(this)">${tipVal}</textarea>
+          <textarea data-key="${sstEsc(tipKey)}" oninput="storeEdit(this)">${sstEsc(tipVal)}</textarea>
         </div>
         <div class="teacher-edit-save-row">
           <button class="te-save-btn" onclick="saveEditScene('${currentEditLv}',${si})">💾 保存</button>
@@ -9025,8 +9110,8 @@ function buildEditList(){
         const key = `${q.id}_${c.id}_fb`;
         const val = teacherEdits[key]!==undefined ? teacherEdits[key] : (c.fb||'');
         return `<div class="teacher-edit-field">
-          <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${c.txt}」への返答</label>
-          <textarea data-key="${key}" oninput="storeEdit(this)">${val}</textarea>
+          <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${sstEsc(c.txt)}」への返答</label>
+          <textarea data-key="${sstEsc(key)}" oninput="storeEdit(this)">${sstEsc(val)}</textarea>
         </div>`;
       }).join('');
       // 旧仕様(質問単位で正解/不正解に共通文言)の編集が残っている場合のみ、参考表示する。
@@ -9035,12 +9120,12 @@ function buildEditList(){
       const hasLegacy = teacherEdits[okKey]!==undefined || teacherEdits[ngKey]!==undefined;
       const legacyHtml = hasLegacy ? `<div class="teacher-edit-field" style="opacity:.7">
           <label>⚠️ 旧形式の共通フィードバック（保存済み・現在は使用されません）</label>
-          ${teacherEdits[okKey]!==undefined ? `<div style="font-size:12px;">✅ ${teacherEdits[okKey]}</div>` : ''}
-          ${teacherEdits[ngKey]!==undefined ? `<div style="font-size:12px;">💪 ${teacherEdits[ngKey]}</div>` : ''}
+          ${teacherEdits[okKey]!==undefined ? `<div style="font-size:12px;">✅ ${sstEsc(teacherEdits[okKey])}</div>` : ''}
+          ${teacherEdits[ngKey]!==undefined ? `<div style="font-size:12px;">💪 ${sstEsc(teacherEdits[ngKey])}</div>` : ''}
           <button class="te-reset-btn" onclick="clearLegacyWQEdit(${currentEditLv},${qi})" style="margin-top:6px;">旧データを削除</button>
         </div>` : '';
       return `<div class="teacher-edit-scene">
-        <div class="teacher-edit-scene-title">💬 ${q.sit}</div>
+        <div class="teacher-edit-scene-title">💬 ${sstEsc(q.sit)}</div>
         ${choiceHtml}
         ${legacyHtml}
         <div class="teacher-edit-save-row">
@@ -9065,8 +9150,8 @@ function buildEditList(){
             const key = `${story.id}_${c.id}_fb`;
             const val = teacherEdits[key]!==undefined ? teacherEdits[key] : (c.fb||'');
             return `<div class="teacher-edit-field">
-              <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${c.txt}」への返答</label>
-              <textarea data-key="${key}" oninput="storeEdit(this)">${val}</textarea>
+              <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${sstEsc(c.txt)}」への返答</label>
+              <textarea data-key="${sstEsc(key)}" oninput="storeEdit(this)">${sstEsc(val)}</textarea>
             </div>`;
           }).join('');
           // 旧仕様(質問単位で共通コメント)の編集が残っている場合のみ、参考表示する。自動コピーはしない。
@@ -9074,24 +9159,24 @@ function buildEditList(){
           const hasLegacyCm = teacherEdits[cmKey]!==undefined;
           const legacyCmHtml = hasLegacyCm ? `<div class="teacher-edit-field" style="opacity:.7">
               <label>⚠️ 旧形式の共通フィードバック（保存済み・現在は使用されません）</label>
-              <div style="font-size:12px;">💬 ${teacherEdits[cmKey]}</div>
+              <div style="font-size:12px;">💬 ${sstEsc(teacherEdits[cmKey])}</div>
               <button class="te-reset-btn" onclick="clearLegacySTEdit(${currentEditLv},${sti},${pi})" style="margin-top:6px;">旧データを削除</button>
             </div>` : '';
           qBlock = `
             <div class="teacher-edit-field"><label>🤔 問いかけ</label>
-              <input type="text" value="${qVal.replace(/"/g,'&quot;')}" data-key="${qKey}" oninput="storeEdit(this)"></div>
+              <input type="text" value="${sstEsc(qVal)}" data-key="${sstEsc(qKey)}" oninput="storeEdit(this)"></div>
             ${choiceHtml}
             ${legacyCmHtml}`;
         }
         return `<div style="border-top:1px dashed #DDD;padding-top:10px;margin-top:10px;">
           <div style="font-size:0.75rem;font-weight:700;color:var(--sub);margin-bottom:6px;">ページ ${pi+1}</div>
           <div class="teacher-edit-field"><label>📝 本文</label>
-            <textarea data-key="${txtKey}" oninput="storeEdit(this)">${txtVal}</textarea></div>
+            <textarea data-key="${sstEsc(txtKey)}" oninput="storeEdit(this)">${sstEsc(txtVal)}</textarea></div>
           ${qBlock}
         </div>`;
       }).join('');
       return `<div class="teacher-edit-scene">
-        <div class="teacher-edit-scene-title">${story.cover} ${story.title}</div>
+        <div class="teacher-edit-scene-title">${sstEsc(story.cover)} ${sstEsc(story.title)}</div>
         ${pagesHtml}
         <div class="teacher-edit-save-row">
           <button class="te-save-btn" onclick="saveEditStory(${currentEditLv},${sti})">💾 保存</button>
@@ -9119,24 +9204,24 @@ function buildEditList(){
             const edVal = teacherEdits[edKey]!==undefined ? teacherEdits[edKey] : (c.ending.desc||'');
             endingHtml = `
               <div class="teacher-edit-field" style="margin-left:16px;"><label>🏁 結末タイトル</label>
-                <input type="text" value="${etVal.replace(/"/g,'&quot;')}" data-key="${etKey}" oninput="storeEdit(this)"></div>
+                <input type="text" value="${sstEsc(etVal)}" data-key="${sstEsc(etKey)}" oninput="storeEdit(this)"></div>
               <div class="teacher-edit-field" style="margin-left:16px;"><label>🏁 結末の説明</label>
-                <textarea data-key="${edKey}" oninput="storeEdit(this)">${edVal}</textarea></div>`;
+                <textarea data-key="${sstEsc(edKey)}" oninput="storeEdit(this)">${sstEsc(edVal)}</textarea></div>`;
           }
           return `<div class="teacher-edit-field">
             <label>${c.level==='best'?'⭐':c.level==='good'?'😊':'💪'} 選択肢${ci+1}</label>
-            <input type="text" value="${cVal.replace(/"/g,'&quot;')}" data-key="${cKey}" oninput="storeEdit(this)">
+            <input type="text" value="${sstEsc(cVal)}" data-key="${sstEsc(cKey)}" oninput="storeEdit(this)">
           </div>${endingHtml}`;
         }).join('');
         return `<div style="border-top:1px dashed #DDD;padding-top:10px;margin-top:10px;">
-          <div style="font-size:0.75rem;font-weight:700;color:var(--sub);margin-bottom:6px;">ノード: ${nk}</div>
+          <div style="font-size:0.75rem;font-weight:700;color:var(--sub);margin-bottom:6px;">ノード: ${sstEsc(nk)}</div>
           <div class="teacher-edit-field"><label>📝 場面の説明</label>
-            <textarea data-key="${txtKey}" oninput="storeEdit(this)">${txtVal}</textarea></div>
+            <textarea data-key="${sstEsc(txtKey)}" oninput="storeEdit(this)">${sstEsc(txtVal)}</textarea></div>
           ${choicesHtml}
         </div>`;
       }).join('');
       return `<div class="teacher-edit-scene">
-        <div class="teacher-edit-scene-title">${story.icon} ${story.title}</div>
+        <div class="teacher-edit-scene-title">${sstEsc(story.icon)} ${sstEsc(story.title)}</div>
         ${nodesHtml}
         <div class="teacher-edit-save-row">
           <button class="te-save-btn" onclick="saveEditBranch(${currentEditLv},${bi})">💾 保存</button>
@@ -9153,8 +9238,8 @@ function buildEditList(){
         const key = `${q.id}_${c.id}_fb`;
         const val = teacherEdits[key]!==undefined ? teacherEdits[key] : (c.fb||'');
         return `<div class="teacher-edit-field">
-          <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${c.txt}」への返答</label>
-          <textarea data-key="${key}" oninput="storeEdit(this)">${val}</textarea>
+          <label>${c.ok?'✅':'💪'} 選択肢${ci+1}「${sstEsc(c.txt)}」への返答</label>
+          <textarea data-key="${sstEsc(key)}" oninput="storeEdit(this)">${sstEsc(val)}</textarea>
         </div>`;
       }).join('');
       // 旧仕様(質問単位で全選択肢に共通の解説)の編集が残っている場合のみ、参考表示する。自動的に選択肢へコピーはしない。
@@ -9162,11 +9247,11 @@ function buildEditList(){
       const hasLegacy = teacherEdits[legacyKey]!==undefined;
       const legacyHtml = hasLegacy ? `<div class="teacher-edit-field" style="opacity:.7">
           <label>⚠️ 旧形式の共通フィードバック（保存済み・現在は使用されません）</label>
-          <div style="font-size:12px;">${teacherEdits[legacyKey]}</div>
+          <div style="font-size:12px;">${sstEsc(teacherEdits[legacyKey])}</div>
           <button class="te-reset-btn" onclick="clearLegacyQZEdit(${currentEditLv},${qi})" style="margin-top:6px;">旧データを削除</button>
         </div>` : '';
       return `<div class="teacher-edit-scene">
-        <div class="teacher-edit-scene-title">❓ ${q.q}</div>
+        <div class="teacher-edit-scene-title">❓ ${sstEsc(q.q)}</div>
         ${choiceHtml}
         ${legacyHtml}
         <div class="teacher-edit-save-row">
@@ -9506,18 +9591,19 @@ function buildPhotoList(){
     el.innerHTML = '<div class="photo-empty">まだ問題がないよ。<br>「＋ 新しく作る」ボタンで作ってみよう！</div>';
     return;
   }
-  el.innerHTML = photoScenes.map(s=>`
+  // セキュリティ修正: ID は onclick の文字列に埋めず、配列の番号から引く(番号は数値だけ)。
+  el.innerHTML = photoScenes.map((s,si)=>`
     <div class="photo-scene-item">
       <div class="photo-scene-thumb">
-        ${s.img ? `<img src="${s.img}" alt="${s.title}">` : '📷'}
+        ${s.img ? `<img src="${sstEsc(s.img)}" alt="${sstEsc(s.title)}">` : '📷'}
       </div>
       <div class="photo-scene-info">
-        <div class="photo-scene-name">${s.title}</div>
-        <div class="photo-scene-sit">${s.sit}</div>
+        <div class="photo-scene-name">${sstEsc(s.title)}</div>
+        <div class="photo-scene-sit">${sstEsc(s.sit)}</div>
       </div>
       <div class="photo-scene-actions">
-        <button class="photo-scene-play" onclick="startPhotoPlay('${s.id}')">▶ やる</button>
-        <button class="photo-scene-del"  onclick="event.stopPropagation();deletePhotoScene('${s.id}')">🗑</button>
+        <button class="photo-scene-play" onclick="startPhotoPlay(photoScenes[${si}].id)">▶ やる</button>
+        <button class="photo-scene-del"  onclick="event.stopPropagation();deletePhotoScene(photoScenes[${si}].id)">🗑</button>
       </div>
     </div>`).join('');
 }
@@ -9660,22 +9746,23 @@ function startPhotoPlay(id){
   // 選択肢シャッフル
   photoPlayShuffled = shuffle(s.choices.map((c,i)=>({...c, origIdx:i})));
 
+  const psi = photoScenes.indexOf(s); // セキュリティ修正: onclick には ID の文字列ではなく配列の番号を埋める
   const imgHtml = s.img
-    ? `<img src="${s.img}" class="photo-play-img" alt="${s.title}">`
+    ? `<img src="${sstEsc(s.img)}" class="photo-play-img" alt="${sstEsc(s.title)}">`
     : `<div style="height:120px;background:#E3F2FD;display:flex;align-items:center;justify-content:center;font-size:3rem;border-radius:var(--r);">📷</div>`;
 
   document.getElementById('photo-play-content').innerHTML = `
     <div style="padding:0 0 24px;">
       ${imgHtml}
-      <div class="spk-row"><button class="spk-btn" id="photo-spk-btn" onclick="toggleSpeakPhoto('${id}')">🔊 よみあげ</button></div>
+      <div class="spk-row"><button class="spk-btn" id="photo-spk-btn" onclick="toggleSpeakPhoto(photoScenes[${psi}].id)">🔊 よみあげ</button></div>
       <div class="photo-play-scene">
-        <div class="photo-play-title">📍 ${s.title}</div>
-        <div class="photo-play-sit">${s.sit}</div>
+        <div class="photo-play-title">📍 ${sstEsc(s.title)}</div>
+        <div class="photo-play-sit">${sstEsc(s.sit)}</div>
       </div>
       <div class="choices" style="margin-top:14px;">
         <div class="ch-title">どうする？ひとつ選んでね</div>
         ${photoPlayShuffled.map((c,i)=>`
-          <button class="ch-btn" onclick="answerPhotoPlay(${i},'${id}')">${c.txt}</button>`).join('')}
+          <button class="ch-btn" onclick="answerPhotoPlay(${i},photoScenes[${psi}].id)">${sstEsc(c.txt)}</button>`).join('')}
       </div>
       <div class="result-box" id="photo-play-result"></div>
     </div>`;
@@ -9718,7 +9805,7 @@ function answerPhotoPlay(ci, id){
   rb.innerHTML = `
     <div class="res-ico">${ico}</div>
     <div class="res-title">${title}</div>
-    <div class="res-desc">${fbMsg}</div>
+    <div class="res-desc">${sstEsc(fbMsg)}</div>
     <button class="action-btn btn-next" onclick="go('s-photo')">もどる</button>`;
 
   if(lv==='best') confetti();
@@ -10246,12 +10333,12 @@ function renderBranchNode(nodeKey, story){
       <div class="branch-scene">
         <div class="branch-step-badge">ステップ ${stepNum}</div>
         <div class="branch-sico">${node.ico}</div>
-        <div class="branch-txt" id="branch-current-txt">${node.txt}</div>
+        <div class="branch-txt" id="branch-current-txt">${sstEsc(node.txt)}</div>
       </div>
       <div class="branch-choices" id="branch-choices">
         ${node.choices.map((c,i)=>`
           <button class="branch-choice-btn" onclick="chooseBranch(${i})">
-            <span class="branch-choice-lv" aria-hidden="true">${c.level==='best'?'🌟':c.level==='good'?'🙂':'💪'}</span>${c.txt}</button>`).join('')}
+            <span class="branch-choice-lv" aria-hidden="true">${c.level==='best'?'🌟':c.level==='good'?'🙂':'💪'}</span>${sstEsc(c.txt)}</button>`).join('')}
       </div>
     </div>`;
 
@@ -10310,10 +10397,10 @@ function renderBranchEnding(ending){
     <div class="branch-wrap">
       <div class="branch-ending ${cls}">
         <div class="branch-ending-ico">${ico}</div>
-        <div class="branch-ending-title">${ending.title}</div>
-        <div class="branch-ending-desc">${ending.desc}</div>
+        <div class="branch-ending-title">${sstEsc(ending.title)}</div>
+        <div class="branch-ending-desc">${sstEsc(ending.desc)}</div>
         <div class="branch-path-trace">
-          ${currentBranchPath.map((p,i)=>`<span class="branch-path-step">${i+1}. ${p.slice(0,16)}${p.length>16?'…':''}</span>`).join('')}
+          ${currentBranchPath.map((p,i)=>`<span class="branch-path-step">${i+1}. ${sstEsc(p.slice(0,16))}${p.length>16?'…':''}</span>`).join('')}
         </div>
       </div>
       <div class="branch-ending-actions">

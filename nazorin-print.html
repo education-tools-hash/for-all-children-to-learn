@@ -1307,7 +1307,7 @@ function renderBatchList(){
       <div class="thumb" style="width:${w}px;height:${h}px">
         <div class="sheet ${land ? "landscape" : ""}" style="transform:scale(${sc})">${html}</div>
       </div>
-      <div class="bi-label">${i+1}. ${item.labelMain}<small>${esc(item.labelSub || "")}</small></div>`;
+      <div class="bi-label">${i+1}. ${esc(item.labelMain || "")}<small>${esc(item.labelSub || "")}</small></div>`;
     list.appendChild(d);
   });
   render(); // プレビューを元の状態に戻す
@@ -1450,7 +1450,7 @@ function renderFolders(){
     const b = document.createElement("button");
     b.type = "button";
     b.className = "lib-folder" + (f.id === curFolderId ? " active" : "");
-    b.innerHTML = `<span>📁</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><span class="cnt">${f.sets.length}</span>`;
+    b.innerHTML = `<span>📁</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><span class="cnt">${Number(f.sets.length)}</span>`;
     b.addEventListener("click", () => { curFolderId = f.id; renderLibrary(); });
     box.appendChild(b);
   });
@@ -1465,7 +1465,7 @@ function renderSets(){
     box.innerHTML = `<div class="lib-empty">このフォルダは まだ空です。<br>「まとめて印刷」で一覧を作り、<br>💾 フォルダに保存 で ここに保存できます。</div>`;
     return;
   }
-  const moveOpts = library.folders.map(fo => `<option value="${fo.id}">${esc(fo.name)}へ移動</option>`).join("");
+  const moveOpts = library.folders.map(fo => `<option value="${esc(fo.id)}">${esc(fo.name)}へ移動</option>`).join("");
   f.sets.forEach(set => {
     const d = new Date(set.created);
     const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
@@ -1475,13 +1475,13 @@ function renderSets(){
       <span class="ico">📄</span>
       <div class="info">
         <b>${esc(set.name)}</b>
-        <small>${set.items.length}まい・${set.orient === "l" ? "よこ" : "たて"}・${dateStr}</small>
+        <small>${Number(set.items.length)}まい・${set.orient === "l" ? "よこ" : "たて"}・${esc(dateStr)}</small>
       </div>
       <div class="acts">
-        <select class="lib-move" data-set="${set.id}"><option value="">▼移動</option>${moveOpts}</select>
-        <button class="lib-open" data-set="${set.id}" type="button">ひらく</button>
-        <button class="lib-print" data-set="${set.id}" type="button">印刷</button>
-        <button class="lib-del" data-set="${set.id}" type="button">削除</button>
+        <select class="lib-move" data-set="${esc(set.id)}"><option value="">▼移動</option>${moveOpts}</select>
+        <button class="lib-open" data-set="${esc(set.id)}" type="button">ひらく</button>
+        <button class="lib-print" data-set="${esc(set.id)}" type="button">印刷</button>
+        <button class="lib-del" data-set="${esc(set.id)}" type="button">削除</button>
       </div>`;
     box.appendChild(el);
   });
@@ -1584,14 +1584,63 @@ $("#btnLibExport").addEventListener("click", () => {
   URL.revokeObjectURL(url);
   setLibMsg("フォルダをファイルに書き出しました。");
 });
+/* セキュリティ修正(XSS 第2弾): 取り込みファイルのライブラリを、型・長さ・ID の形式・項目で絞り込む。
+   文字の種類は制限しない(表示側で esc を通す)。「書き出し」が出す形式はそのまま読める。想定外の項目は捨てる。 */
+const LIB_IMPORT_MAX = { folders: 200, sets: 500, items: 100, controls: 300 };
+function libImportId(v){ return (typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v)) ? v : uid(); }
+function libImportStr(v, max){ return typeof v === "string" ? v.slice(0, max) : ""; }
+function libImportKeyOk(k){ return /^[A-Za-z0-9_-]{1,64}$/.test(k) && k !== "__proto__" && k !== "constructor" && k !== "prototype"; }
+function sanitizeLibraryItem(it){
+  if (!it || typeof it !== "object" || Array.isArray(it)) return null;
+  if (typeof it.mode !== "string" || !Object.prototype.hasOwnProperty.call(MODE_LABEL, it.mode)) return null;
+  const out = { mode: it.mode, seed: (typeof it.seed === "number" && isFinite(it.seed)) ? it.seed : 1, controls: {}, chips: {} };
+  if (it.controls && typeof it.controls === "object" && !Array.isArray(it.controls)){
+    Object.keys(it.controls).slice(0, LIB_IMPORT_MAX.controls).forEach(id => {
+      const v = it.controls[id];
+      if (!libImportKeyOk(id) || !v || typeof v !== "object") return;
+      if ("c" in v) out.controls[id] = { c: v.c === true };
+      else if (typeof v.v === "string") out.controls[id] = { v: v.v.slice(0, 500) };
+    });
+  }
+  if (it.chips && typeof it.chips === "object" && !Array.isArray(it.chips)){
+    ["lineChips","kanaRows","sujiChips"].forEach(g => {
+      if (Array.isArray(it.chips[g])) out.chips[g] = it.chips[g].slice(0, 500).map(x => x === true);
+    });
+  }
+  out.labelMain = libImportStr(it.labelMain, 60);
+  out.labelSub = libImportStr(it.labelSub, 200);
+  out.sig = libImportStr(it.sig, 1000);
+  return out;
+}
+function sanitizeLibrary(data){
+  if (!data || typeof data !== "object" || !Array.isArray(data.folders)) return null;
+  const folders = [];
+  data.folders.slice(0, LIB_IMPORT_MAX.folders).forEach(f => {
+    if (!f || typeof f !== "object" || Array.isArray(f)) return;
+    const sets = [];
+    (Array.isArray(f.sets) ? f.sets : []).slice(0, LIB_IMPORT_MAX.sets).forEach(st => {
+      if (!st || typeof st !== "object" || Array.isArray(st) || !Array.isArray(st.items)) return;
+      const items = st.items.slice(0, LIB_IMPORT_MAX.items).map(sanitizeLibraryItem).filter(Boolean);
+      sets.push({
+        id: libImportId(st.id),
+        name: libImportStr(st.name, 200) || "セット",
+        orient: st.orient === "l" ? "l" : "p",
+        created: (typeof st.created === "number" && isFinite(st.created)) ? st.created : Date.now(),
+        items: items
+      });
+    });
+    folders.push({ id: libImportId(f.id), name: libImportStr(f.name, 200) || "フォルダ", sets: sets });
+  });
+  return { folders: folders };
+}
 $("#btnLibImport").addEventListener("click", () => $("#libImportFile").click());
 $("#libImportFile").addEventListener("change", e => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const data = JSON.parse(reader.result);
-      if (!data || !Array.isArray(data.folders)) throw new Error("形式が正しくありません");
+      const data = sanitizeLibrary(JSON.parse(reader.result));
+      if (!data) throw new Error("形式が正しくありません");
       const mode = confirm("読み込み方法を選んでください。\n\n［OK］今のフォルダに追加する\n［キャンセル］今の内容をすべて置きかえる");
       if (mode){
         data.folders.forEach(f => { f.id = uid(); library.folders.push(f); });
