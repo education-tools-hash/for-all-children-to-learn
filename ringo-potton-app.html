@@ -1274,13 +1274,44 @@ function donomanaRecordFormatTracingLevel(level) {
   ===================================================================== */
   var speakSeq = 0;
   function synth() { try { return (window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined') ? window.speechSynthesis : null; } catch (e) { return null; } }
+  /* ---- the synthesised voice is decided once and then kept (counting, fruit names, the fallbacks of the recorded files) ----
+     The engine's voice list can be empty at first and can change its order later; choosing "the first Japanese voice"
+     anew for every utterance made the counting voice change in the middle of a lesson. So: as soon as a list is
+     there, one voice is decided -- (1) a ja-JP voice the device marks as its default, else (2) the first ja-JP voice
+     in the list (the choice as before) -- and remembered by identity (voiceURI, else name + lang); every later
+     utterance uses that same voice whatever the list's order. While the list is still empty nothing is decided and
+     the utterance names no voice (the engine's default for ja-JP, as before). If the remembered voice is no longer
+     in a non-empty list, the same rule decides again. Kept in memory only (no setting, nothing stored). */
+  var pinnedVoice = null;   // { uri, name, lang } of the decided voice, or null while undecided
+  function isJaVoice(v) { return !!(v && v.lang && String(v.lang).replace('_', '-').toLowerCase() === 'ja-jp'); }
+  function isPinnedVoice(v) { return pinnedVoice.uri ? v.voiceURI === pinnedVoice.uri : (v.name === pinnedVoice.name && v.lang === pinnedVoice.lang); }
   function pickVoice(s) {
     try {
-      var vs = s.getVoices() || [];
-      for (var i = 0; i < vs.length; i++) if (vs[i].lang && vs[i].lang.replace('_', '-').toLowerCase() === 'ja-jp') return vs[i];
+      var vs = s.getVoices() || [], i;
+      if (!vs.length) return null;                 // no list (yet): name no voice; an earlier decision is kept for when the list is back
+      if (pinnedVoice) {
+        for (i = 0; i < vs.length; i++) if (isPinnedVoice(vs[i])) return vs[i];
+        pinnedVoice = null;                        // the decided voice has left the list: decide again by the same rule
+      }
+      var chosen = null;
+      for (i = 0; i < vs.length && !chosen; i++) if (isJaVoice(vs[i]) && vs[i].default === true) chosen = vs[i];
+      for (i = 0; i < vs.length && !chosen; i++) if (isJaVoice(vs[i])) chosen = vs[i];
+      if (chosen) pinnedVoice = { uri: chosen.voiceURI || '', name: chosen.name, lang: chosen.lang };
+      return chosen;
     } catch (e) { /* ignore */ }
     return null;
   }
+  // decide as early as the list allows: once now (this also asks engines that load their voices lazily to start), and
+  // whenever the engine reports a changed list. Every utterance checks again, so nothing depends on this event arriving.
+  (function () {
+    var s = synth(); if (!s) return;
+    var decide = function () { pickVoice(s); };
+    try {
+      if (typeof s.addEventListener === 'function') s.addEventListener('voiceschanged', decide);
+      else if ('onvoiceschanged' in s) s.onvoiceschanged = decide;
+    } catch (e) { /* ignore */ }
+    decide();
+  })();
   function unlockSpeech() {
     var s = synth(); if (!s || !settings.voice) return;
     try { var u = new SpeechSynthesisUtterance(' '); u.volume = 0; u.lang = 'ja-JP'; s.speak(u); } catch (e) { /* ignore */ }
