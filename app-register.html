@@ -790,7 +790,7 @@ function applyJson(){
     const cleaned=raw.replace(/^```[a-z]*\n?/i,'').replace(/```$/,'').trim();
     data=JSON.parse(cleaned);
   }catch(e){
-    showJsonAlert('error','❌ JSONの形式が正しくありません。Claude.aiの出力をそのまま貼り付けてください。<br>エラー: '+e.message);
+    showJsonAlert('error','❌ JSONの形式が正しくありません。Claude.aiの出力をそのまま貼り付けてください。<br>エラー: '+escHtml(e.message));
     return;
   }
   setValue('appId',data.id||'');
@@ -840,7 +840,7 @@ function applyJson(){
 function setValue(id,val){const el=document.getElementById(id);if(el)el.value=val;}
 function showJsonAlert(type,msg){const el=document.getElementById('jsonAlert');el.className=`alert ${type} visible`;el.innerHTML=msg;}
 
-function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function addFeature(icon='',title='',desc=''){
   featureCount++;
@@ -1025,7 +1025,7 @@ function log(msg,type='info'){
   const line=document.createElement('div');
   line.className=`log-line ${type}`;
   const icons={ok:'✅',err:'❌',info:'→',warn:'⚠️'};
-  line.innerHTML=`<span>${icons[type]||'→'}</span><span>${msg}</span>`;
+  line.innerHTML=`<span>${icons[type]||'→'}</span><span>${escHtml(msg)}</span>`;
   area.appendChild(line);
   area.scrollTop=area.scrollHeight;
 }
@@ -1349,7 +1349,7 @@ async function executeDelete(){
 
     // 完了モーダル表示
     showResultModal('success','🗑️',`「${appTitle}」を削除しました`,
-      results.map(r=>`<div style="text-align:left;padding:2px 0;">${r}</div>`).join('')+
+      results.map(r=>`<div style="text-align:left;padding:2px 0;">${escHtml(r)}</div>`).join('')+
       '<div style="margin-top:12px;padding:10px;background:#d1fae5;border-radius:8px;color:#065f46;">'+
       '🔄 GitHub Actionsが index.html・app-intro.html を<br>自動再生成します（約1〜2分後に反映）</div>'
     );
@@ -1358,7 +1358,7 @@ async function executeDelete(){
   }catch(err){
     log(`エラー: ${err.message}`,'err');
     showResultModal('error','❌','削除中にエラーが発生しました',
-      `<div style="color:#991b1b;">${err.message}</div>`+
+      `<div style="color:#991b1b;">${escHtml(err.message)}</div>`+
       '<div style="margin-top:12px;font-size:12px;color:var(--muted);">上のログエリアで詳細を確認してください。</div>'
     );
   }finally{
@@ -1435,8 +1435,8 @@ async function startUpload(){
       setProgress(100);
       log('🎉 アプリの更新が完了しました！','ok');
       log('GitHub Actionsが generate.js を実行し、app-detail・app-intro・sitemap.xml を自動再生成します（約1〜2分）','info');
-      const changelogMsg=recordChangelog?`<br>更新履歴：「${updateText}」`:'<br>（サイト内の更新履歴には表示していません）';
-      showAlert('success',`✅ <strong>${appData.title}</strong> の更新完了！${changelogMsg}<br>app-details・app-intro・sitemap.xml も自動で再生成されます`);
+      const changelogMsg=recordChangelog?`<br>更新履歴：「${escHtml(updateText)}」`:'<br>（サイト内の更新履歴には表示していません）';
+      showAlert('success',`✅ <strong>${escHtml(appData.title)}</strong> の更新完了！${changelogMsg}<br>app-details・app-intro・sitemap.xml も自動で再生成されます`);
       showIndexPanel(appData.id, appData.title);
 
     // ========== 新規モード ==========
@@ -1464,12 +1464,12 @@ async function startUpload(){
       setProgress(100);
       log('🎉 全ファイルのアップロード完了！','ok');
       log('GitHub Actionsが自動でサイトを更新します（sitemap.xmlも自動生成・約1〜2分）','info');
-      showAlert('success',`✅ <strong>${appData.title}</strong> の登録完了！<br>GitHub Actionsが自動でサイトを更新します（sitemap.xmlへの追加も自動・約1〜2分後に反映）`);
+      showAlert('success',`✅ <strong>${escHtml(appData.title)}</strong> の登録完了！<br>GitHub Actionsが自動でサイトを更新します（sitemap.xmlへの追加も自動・約1〜2分後に反映）`);
       showIndexPanel(appData.id, appData.title);
     }
   }catch(err){
     log(`エラー: ${err.message}`,'err');
-    showAlert('error',`❌ エラー: ${err.message}`);
+    showAlert('error',`❌ エラー: ${escHtml(err.message)}`);
   }finally{
     btn.disabled=false;
     if(currentMode==='update'){

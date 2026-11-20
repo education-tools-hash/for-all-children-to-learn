@@ -2322,12 +2322,12 @@ function renderChildren() {
     const avatarBg = child.bgColor ? child.bgColor.text + '22' : '';
     const avatarBorder = child.bgColor ? `border:2px solid ${child.bgColor.text}55;` : '';
     const avatarHtml = child.photo
-      ? `<div class="child-avatar" style="background:${avatarBg};${avatarBorder}"><img src="${child.photo}" alt="${child.name}"></div>`
-      : `<div class="child-avatar" style="background:${avatarBg || 'var(--primary)'};${avatarBorder}">${child.emoji || '😊'}</div>`;
+      ? `<div class="child-avatar" style="background:${knkEsc(avatarBg)};${knkEsc(avatarBorder)}"><img src="${knkEsc(child.photo)}" alt="${knkEsc(child.name)}"></div>`
+      : `<div class="child-avatar" style="background:${knkEsc(avatarBg || 'var(--primary)')};${knkEsc(avatarBorder)}">${knkEsc(child.emoji || '😊')}</div>`;
     const nameColor = child.bgColor ? `color:${child.bgColor.text}` : '';
     card.innerHTML = `
       ${avatarHtml}
-      <div class="child-name" style="${nameColor}">${child.name}</div>
+      <div class="child-name" style="${knkEsc(nameColor)}">${knkEsc(child.name)}</div>
       <div class="child-card-btns">
         <button class="child-card-btn edit"   onclick="event.stopPropagation();editChild(${i})">✏️</button>
         <button class="child-card-btn delete" onclick="event.stopPropagation();deleteChild(${i})">✕</button>
@@ -2525,13 +2525,21 @@ function updateChildAvatarPreview(emoji, photo, colorObj) {
   el.style.borderColor  = colorObj ? colorObj.text : 'var(--primary-light)';
   el.style.color        = colorObj ? colorObj.text : '';
   if (photo) {
-    el.innerHTML = `<img src="${photo}" alt="えらんだしゃしん" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    el.innerHTML = `<img src="${knkEsc(photo)}" alt="えらんだしゃしん" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
   } else {
-    el.innerHTML = emoji || '😊';
+    el.textContent = emoji || '😊';
   }
 }
 
 
+
+// セキュリティ修正(XSS 第3弾): 端末で入力・保存した文字(名前・きもちの名前・絵文字・メモなど)を
+// HTML や属性として解釈させないための逃がし処理(& < > " ' の5文字)。表示のときに通す(保存する値は変えない)。
+function knkEsc(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
 
 // ===== KIMOCHI =====
 function renderKimochi() {
@@ -2543,9 +2551,9 @@ function renderKimochi() {
     btn.dataset.color = opt.color;
     btn.dataset.index = i;
     const iconHtml = opt.image
-      ? `<img src="${opt.image}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:8px">`
-      : `<span class="kimochi-emoji">${opt.emoji}</span>`;
-    btn.innerHTML = `${iconHtml}<span class="kimochi-label">${opt.label}</span>`;
+      ? `<img src="${knkEsc(opt.image)}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;margin-bottom:8px">`
+      : `<span class="kimochi-emoji">${knkEsc(opt.emoji)}</span>`;
+    btn.innerHTML = `${iconHtml}<span class="kimochi-label">${knkEsc(opt.label)}</span>`;
     btn.onclick = () => selectKimochi(i, opt);
     grid.appendChild(btn);
   });
@@ -2710,19 +2718,19 @@ function renderRecords() {
       <div class="record-card">
         <div class="record-card-header">
           <div>
-            <div style="font-weight:bold">${r.childName}</div>
-            <div class="record-date">${formatDate(r.date)}</div>
+            <div style="font-weight:bold">${knkEsc(r.childName)}</div>
+            <div class="record-date">${knkEsc(formatDate(r.date))}</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
-            <div class="record-kimochi">${r.kimochi ? r.kimochi.emoji : '－'}</div>
-            <button onclick="openEditRecord(${realIdx})"
+            <div class="record-kimochi">${knkEsc(r.kimochi ? r.kimochi.emoji : '－')}</div>
+            <button onclick="openEditRecord(${Number(realIdx)})"
               style="background:var(--primary);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:0.9em;flex-shrink:0">✏️</button>
           </div>
         </div>
         <div class="record-details">
-          ${tags.map(t => `<span class="record-tag">${t}</span>`).join('')}
+          ${tags.map(t => `<span class="record-tag">${knkEsc(t)}</span>`).join('')}
         </div>
-        ${r.memo ? `<div style="font-size:0.85em;color:var(--text-sub);margin-top:6px;white-space:pre-wrap;line-height:1.6">📝 ${r.memo.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
+        ${r.memo ? `<div style="font-size:0.85em;color:var(--text-sub);margin-top:6px;white-space:pre-wrap;line-height:1.6">📝 ${knkEsc(r.memo)}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -2758,9 +2766,9 @@ function openEditRecord(idx) {
       border-radius:10px;padding:8px 12px;cursor:pointer;
       display:flex;align-items:center;gap:6px;color:var(--text);font-family:inherit;font-size:0.9em`;
     const iconHtml = opt.image
-      ? `<img src="${opt.image}" alt="" style="width:24px;height:24px;object-fit:cover;border-radius:6px">`
-      : `<span>${opt.emoji}</span>`;
-    btn.innerHTML = `${iconHtml}<span>${opt.label}</span>`;
+      ? `<img src="${knkEsc(opt.image)}" alt="" style="width:24px;height:24px;object-fit:cover;border-radius:6px">`
+      : `<span>${knkEsc(opt.emoji)}</span>`;
+    btn.innerHTML = `${iconHtml}<span>${knkEsc(opt.label)}</span>`;
     btn.onclick = () => {
       editingKimochi = opt;
       document.getElementById('editKimochiSelected').textContent = `${opt.emoji} ${opt.label}`;
@@ -2940,13 +2948,13 @@ function buildKimochiEditItem(container, opt, i) {
 
   // preview
   const previewHtml = opt.image
-    ? `<img src="${opt.image}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`
-    : `<span>${opt.emoji}</span>`;
+    ? `<img src="${knkEsc(opt.image)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`
+    : `<span>${knkEsc(opt.emoji)}</span>`;
 
   item.innerHTML = `
     <div class="kimochi-edit-top">
       <div class="kimochi-edit-preview" id="preview_${i}">${previewHtml}<span class="kimochi-edit-preview-hint">アイコン</span></div>
-      <input class="kimochi-edit-input" id="label_${i}" value="${opt.label}" placeholder="ラベル">
+      <input class="kimochi-edit-input" id="label_${i}" value="${knkEsc(opt.label)}" placeholder="ラベル">
       <button class="kimochi-edit-del" onclick="deleteKimochi(${i})">✕</button>
     </div>
     <div class="kimochi-edit-tabs">
@@ -2957,7 +2965,7 @@ function buildKimochiEditItem(container, opt, i) {
       <div class="kimochi-edit-emoji-picker" id="emojiPicker_${i}"></div>
       <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
         <span style="font-size:0.85em;color:var(--text-sub)">その他：</span>
-        <input class="kimochi-edit-emoji-custom" id="emojiCustom_${i}" value="${opt.emoji}" maxlength="2" placeholder="😶">
+        <input class="kimochi-edit-emoji-custom" id="emojiCustom_${i}" value="${knkEsc(opt.emoji)}" maxlength="2" placeholder="😶">
         <button class="btn btn-primary" style="width:auto;padding:8px 14px;margin:0;font-size:0.85em" onclick="applyCustomEmoji(${i})">適用</button>
       </div>
     </div>
@@ -3003,7 +3011,7 @@ function applyEmoji(i, emoji) {
   saveState();
   // プレビュー更新
   const preview = document.getElementById(`preview_${i}`);
-  preview.innerHTML = `<span>${emoji}</span><span class="kimochi-edit-preview-hint">アイコン</span>`;
+  preview.innerHTML = `<span>${knkEsc(emoji)}</span><span class="kimochi-edit-preview-hint">アイコン</span>`;
   // custom inputも更新
   const custom = document.getElementById(`emojiCustom_${i}`);
   if (custom) custom.value = emoji;

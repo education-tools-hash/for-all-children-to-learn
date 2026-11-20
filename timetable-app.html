@@ -3563,7 +3563,7 @@ function renderJourneySteps(currentIdx) {
       <div class="journey-step ${cls}">
         <span class="step-icon">${s.icon} ${check}</span>
         <div style="flex:1">
-          <div class="js-label">${s.label}</div>
+          <div class="js-label">${ttbEscapeHtml(s.label)}</div>
           <div class="js-desc">${s.desc}</div>
         </div>
         <span class="step-time">${dispTime}</span>
@@ -3620,9 +3620,9 @@ function nextStep() {
 
   if(simState.step === steps.length - 1) {
     document.getElementById('btn-next-step').textContent = '🏁 ゴール！';
-    setNowDo(step.icon + ' ' + step.label + '<br>「🏁 ゴール！」を おそう');
+    setNowDo(step.icon + ' ' + ttbEscapeHtml(step.label) + '<br>「🏁 ゴール！」を おそう');
   } else {
-    setNowDo(step.icon + ' ' + step.label + '<br>「⏩ つぎへ」を おそう');
+    setNowDo(step.icon + ' ' + ttbEscapeHtml(step.label) + '<br>「⏩ つぎへ」を おそう');
   }
   if(ttsEnabled) speak(step.label);
 }
@@ -4045,7 +4045,7 @@ function renderCustomPanel() {
         <input id="cf-dest" type="text" placeholder="れい：おじいちゃんの いえ" maxlength="20"
           style="flex:1;min-width:160px;padding:10px 12px;border-radius:12px;border:2px solid #FFD54F;
                  font-family:inherit;font-size:15px;font-weight:700;background:white;"
-          value="${sv.dest||''}" oninput="customFormChanged()">
+          value="${ttbEscapeHtml(sv.dest||'')}" oninput="customFormChanged()">
         <div style="display:flex;flex-direction:column;gap:6px;">
           <!-- 絵文字選択 -->
           <div id="cf-emoji-bar" style="display:flex;gap:4px;flex-wrap:wrap;max-width:200px;">
@@ -4065,7 +4065,7 @@ function renderCustomPanel() {
               onchange="pickCustomImage(this)">
             <!-- プレビュー -->
             <div id="cf-img-preview" style="display:${sv.imgUrl?'flex':'none'};align-items:center;gap:6px;">
-              <img id="cf-img-thumb" src="${sv.imgUrl||''}" alt="えらんだしゃしん"
+              <img id="cf-img-thumb" src="${ttbEscapeHtml(sv.imgUrl||'')}" alt="えらんだしゃしん"
                 style="width:44px;height:44px;object-fit:cover;border-radius:10px;border:2px solid #FFD54F;">
               <button onclick="clearCustomImage()" style="
                 background:#fee;border:none;border-radius:8px;padding:4px 8px;
@@ -4073,8 +4073,8 @@ function renderCustomPanel() {
             </div>
           </div>
         </div>
-        <input type="hidden" id="cf-icon" value="${sv.icon||'🎯'}">
-        <input type="hidden" id="cf-img-url" value="${sv.imgUrl||''}">
+        <input type="hidden" id="cf-icon" value="${ttbEscapeHtml(sv.icon||'🎯')}">
+        <input type="hidden" id="cf-img-url" value="${ttbEscapeHtml(sv.imgUrl||'')}">
       </div>
     </div>
 
@@ -4086,7 +4086,7 @@ function renderCustomPanel() {
           `<button onclick="pickTransport('${v}',this)" class="ctrans-btn${(sv.transport===v)?' ctrans-active':''}" data-val="${v}">${l}</button>`
         ).join('')}
       </div>
-      <input type="hidden" id="cf-transport" value="${sv.transport||'bus'}">
+      <input type="hidden" id="cf-transport" value="${ttbEscapeHtml(sv.transport||'bus')}">
     </div>
 
     <!-- しめきり時刻 -->
@@ -4144,7 +4144,7 @@ function renderCustomPanel() {
       <input id="cf-memo" type="text" placeholder="れい：おかいものリストを わすれずに" maxlength="30"
         style="width:100%;padding:10px 12px;border-radius:12px;border:2px solid #FFD54F;
                font-family:inherit;font-size:14px;font-weight:700;background:white;box-sizing:border-box;"
-        value="${sv.memo||''}" oninput="customFormChanged()">
+        value="${ttbEscapeHtml(sv.memo||'')}" oninput="customFormChanged()">
     </div>
 
     <button onclick="applyCustomScenario()"
@@ -4231,6 +4231,14 @@ function customFormChanged() {
   prev.innerHTML = `📌 いえを でる のは <strong>${lH}じ${lM<10?'0'+lM:lM}ふん</strong> ごろが めやすだよ`;
 }
 
+// セキュリティ修正(XSS 第3弾): じぶんで入力した文字(いきさき・メモなど)を HTML や属性として解釈させないための
+// 逃がし処理(& < > " ' の5文字)。表示用の HTML を組み立てるときに通す(入力した値そのものは変えない)。
+function ttbEscapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
 function applyCustomScenario() {
   const dest     = (document.getElementById('cf-dest').value||'').trim();
   const imgUrl   = document.getElementById('cf-img-url').value || '';
@@ -4248,9 +4256,12 @@ function applyCustomScenario() {
   const tLabel = transport==='bus'?'バス': transport==='train'?'でんしゃ':'あるき';
   // アイコン表示用ヘルパー（画像 or 絵文字）
   const iconDisplay = imgUrl
-    ? `<img src="${imgUrl}" alt="" style="width:1.2em;height:1.2em;object-fit:cover;border-radius:4px;vertical-align:middle;">`
-    : icon;
+    ? `<img src="${ttbEscapeHtml(imgUrl)}" alt="" style="width:1.2em;height:1.2em;object-fit:cover;border-radius:4px;vertical-align:middle;">`
+    : ttbEscapeHtml(icon);
   const iconText = imgUrl ? '🖼️' : icon; // テキスト専用（title等）
+  // title・desc は HTML として表示する文字列のため、入力した文字はここで逃がしてから埋め込む。
+  // (steps の label と conditions は、文字としても使うため生のまま持ち、HTML に入れる箇所で逃がす。)
+  const destH = ttbEscapeHtml(dest), memoH = ttbEscapeHtml(memo);
 
   // 逆算で各時刻を計算
   const deadlineTotal = dlH*60 + dlM;
@@ -4269,8 +4280,8 @@ function applyCustomScenario() {
   const stopLabel = transport==='bus' ? 'バスてい' : 'えき';
 
   const scenario = {
-    title: `${iconDisplay} ${dest} に いく`,
-    desc: `${dest} の じかんは <strong>${dlH}じ${dlM<10?'0'+dlM:dlM}ふん</strong>。${tLabel}で <strong>${tMin}ふん</strong> かかります。<br>${memo ? memo+'<br>' : ''}いえを でる じかんを ぎゃくさん して みよう！`,
+    title: `${iconDisplay} ${destH} に いく`,
+    desc: `${destH} の じかんは <strong>${dlH}じ${dlM<10?'0'+dlM:dlM}ふん</strong>。${tLabel}で <strong>${tMin}ふん</strong> かかります。<br>${memo ? memoH+'<br>' : ''}いえを でる じかんを ぎゃくさん して みよう！`,
     imgUrl: imgUrl,
     isCustom: true,
     steps: [
@@ -4299,7 +4310,7 @@ function applyCustomScenario() {
     extra: memo || '⏰ じかんに まにあおう！'
   };
 
-  customScenarioData = { title: `${iconText} ${dest}`, desc: scenario.desc, scenario, conditions,
+  customScenarioData = { title: `${ttbEscapeHtml(iconText)} ${destH}`, desc: scenario.desc, scenario, conditions,
     _form:{ dest, icon: icon||'🎯', imgUrl, transport, dlH, dlM, travelMin:tMin, walkMin:wMin, memo } };
 
   SCENARIOS_EX[4] = scenario;
@@ -4364,10 +4375,10 @@ function renderProbCard(cardId) {
     <div class="prob-card-desc" id="${cardId}-body">
       ${s.desc}
       <div class="prob-card-conditions">
-        <span class="prob-cond-chip">${cond.deadline}</span>
-        <span class="prob-cond-chip">${cond.transport}</span>
-        <span class="prob-cond-chip">${cond.walk}</span>
-        <span class="prob-cond-chip">${cond.extra}</span>
+        <span class="prob-cond-chip">${ttbEscapeHtml(cond.deadline)}</span>
+        <span class="prob-cond-chip">${ttbEscapeHtml(cond.transport)}</span>
+        <span class="prob-cond-chip">${ttbEscapeHtml(cond.walk)}</span>
+        <span class="prob-cond-chip">${ttbEscapeHtml(cond.extra)}</span>
       </div>
     </div>`;
 }

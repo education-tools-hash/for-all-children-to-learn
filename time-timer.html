@@ -1162,26 +1162,34 @@ function renderCardGrid() {
     btn.tabIndex = 0;
     btn.setAttribute('aria-label', card.name);
     const iconHtml = card.photoUrl
-      ? `<img src="${card.photoUrl}" alt="${card.name}" style="width:calc(var(--card-size)*.65);height:calc(var(--card-size)*.65);object-fit:cover;border-radius:12px;display:block;">`
-      : `<span class="card-item-emoji">${card.emoji}</span>`;
-    btn.innerHTML = iconHtml + `<span class="card-item-name">${card.name}</span>`;
+      ? `<img src="${ttEscapeHtml(card.photoUrl)}" alt="${ttEscapeHtml(card.name)}" style="width:calc(var(--card-size)*.65);height:calc(var(--card-size)*.65);object-fit:cover;border-radius:12px;display:block;">`
+      : `<span class="card-item-emoji">${ttEscapeHtml(card.emoji)}</span>`;
+    btn.innerHTML = iconHtml + `<span class="card-item-name">${ttEscapeHtml(card.name)}</span>`;
     btn.onclick = () => selectCard(card);
     grid.appendChild(btn);
   });
   updateScanItems();
 }
 
+// セキュリティ修正(XSS 第3弾): 端末で入力・保存した文字(カードの名前・えもじなど)を HTML や属性として
+// 解釈させないための逃がし処理(& < > " ' の5文字)。表示のときに通す(保存する値は変えない)。
+function ttEscapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
 function selectCard(card) {
   selectedCard = card;
   document.getElementById('cardGrid').style.display = 'none';
   const iconHtml = card.photoUrl
-    ? `<img src="${card.photoUrl}" alt="${card.name}" style="width:calc(var(--card-size)*.7);height:calc(var(--card-size)*.7);object-fit:cover;border-radius:20px;border:3px solid var(--border);flex-shrink:0;">`
-    : `<div class="active-card-icon">${card.emoji}</div>`;
+    ? `<img src="${ttEscapeHtml(card.photoUrl)}" alt="${ttEscapeHtml(card.name)}" style="width:calc(var(--card-size)*.7);height:calc(var(--card-size)*.7);object-fit:cover;border-radius:20px;border:3px solid var(--border);flex-shrink:0;">`
+    : `<div class="active-card-icon">${ttEscapeHtml(card.emoji)}</div>`;
   const activeCardDisplay = document.getElementById('activeCardDisplay');
   activeCardDisplay.innerHTML = iconHtml + `
     <div class="active-card-info">
       <div class="active-card-label">いまやること</div>
-      <div class="active-card-name">${card.name}</div>
+      <div class="active-card-name">${ttEscapeHtml(card.name)}</div>
     </div>
     <button onclick="reselectCard()" class="scannable"
       style="background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;
@@ -1231,14 +1239,15 @@ function reselectCard(){
 
 function renderCardManager() {
   const el = document.getElementById('cardManager');
-  const cardListHtml = cards.map(c => {
+  // セキュリティ修正: カードの id は onclick の文字列に埋めず、配列の番号から引く(番号は数値だけ)。
+  const cardListHtml = cards.map((c, ci) => {
     const thumb = c.photoUrl
-      ? `<img src="${c.photoUrl}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:12px;border:2px solid var(--border);display:block;">`
-      : `<div style="font-size:2em;background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;width:52px;height:52px;display:flex;align-items:center;justify-content:center">${c.emoji}</div>`;
+      ? `<img src="${ttEscapeHtml(c.photoUrl)}" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:12px;border:2px solid var(--border);display:block;">`
+      : `<div style="font-size:2em;background:var(--btn-bg);border:2px solid var(--border);border-radius:12px;width:52px;height:52px;display:flex;align-items:center;justify-content:center">${ttEscapeHtml(c.emoji)}</div>`;
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;position:relative">
-      <button class="scannable" onclick="removeCard('${c.id}')" style="position:absolute;top:-6px;right:-6px;background:#e74c3c;border:none;color:white;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1" aria-label="${c.name}をさくじょ">✕</button>
+      <button class="scannable" onclick="removeCard(cards[${ci}].id)" style="position:absolute;top:-6px;right:-6px;background:#e74c3c;border:none;color:white;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1" aria-label="${ttEscapeHtml(c.name)}をさくじょ">✕</button>
       ${thumb}
-      <span style="font-size:.75em;font-weight:700;max-width:60px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</span>
+      <span style="font-size:.75em;font-weight:700;max-width:60px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ttEscapeHtml(c.name)}</span>
     </div>`;
   }).join('');
 
@@ -1567,7 +1576,7 @@ function finishTimer() {
   const emojiEl=document.getElementById('finishEmoji');
   if(selectedCard){
     if(selectedCard.photoUrl){
-      emojiEl.innerHTML='<img src="'+selectedCard.photoUrl+'" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:24px;border:4px solid white;box-shadow:0 4px 20px rgba(0,0,0,.2);">';
+      emojiEl.innerHTML='<img src="'+ttEscapeHtml(selectedCard.photoUrl)+'" alt="" style="width:120px;height:120px;object-fit:cover;border-radius:24px;border:4px solid white;box-shadow:0 4px 20px rgba(0,0,0,.2);">';
     } else {
       emojiEl.textContent=selectedCard.emoji;
     }
@@ -1876,16 +1885,16 @@ function renderSavedRecordings() {
   const list=document.getElementById('savedRecordingsList');
   if(savedRecordings.length===0){list.innerHTML='<div style="font-size:.85em;color:var(--text-sub)">まだろくおんがありません</div>';return;}
   list.innerHTML='';
-  savedRecordings.forEach(rec=>{
+  savedRecordings.forEach((rec,ri)=>{
     const item=document.createElement('div');
     item.className='recording-item'+(rec.active?' active-rec':'');
     item.innerHTML=`
-      <span class="rec-name">${rec.name}</span>
-      <button class="rec-item-btn" onclick="previewRecording('${rec.id}')" title="試聴">▶</button>
-      <button class="rec-item-btn" onclick="selectRecording('${rec.id}')" style="${rec.active?'background:var(--timer-color);color:white;border-color:var(--timer-color)':''}">
+      <span class="rec-name">${ttEscapeHtml(rec.name)}</span>
+      <button class="rec-item-btn" onclick="previewRecording(savedRecordings[${ri}].id)" title="試聴">▶</button>
+      <button class="rec-item-btn" onclick="selectRecording(savedRecordings[${ri}].id)" style="${rec.active?'background:var(--timer-color);color:white;border-color:var(--timer-color)':''}">
         ${rec.active?'✓ つかう':'つかう'}
       </button>
-      <button class="rec-item-btn" onclick="deleteRecording('${rec.id}')" title="さくじょ" style="color:#e74c3c">🗑</button>`;
+      <button class="rec-item-btn" onclick="deleteRecording(savedRecordings[${ri}].id)" title="さくじょ" style="color:#e74c3c">🗑</button>`;
     list.appendChild(item);
   });
 }

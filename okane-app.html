@@ -1846,6 +1846,13 @@ function recordStat(key, amount=1) { learningRecords[key] = (learningRecords[key
 // 付与する。
 let activityLog = donomanaRecordReadLog('okane_activity_log');
 function saveActivityLog() { return donomanaRecordWriteLog('okane_activity_log', activityLog); }
+// セキュリティ修正(XSS 第3弾): 端末で入力・保存した文字(じぶんでつくった商品の名前など)を
+// HTML や属性として解釈させないための逃がし処理(& < > " ' の5文字)。表示のときに通す(保存する値は変えない)。
+function okaneEscapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
 function logActivity(type, detail) {
   activityLog.push({ ts: new Date().toISOString(), type, detail, schemaVersion: 1 });
   const saveResult = saveActivityLog();
@@ -1978,8 +1985,8 @@ function renderRecords() {
     const recent = activityLog.slice(-50).reverse();
     logBox.innerHTML = `<div class="activity-log-list">${recent.map(e=>`
       <div class="activity-log-row" ${e.type==='mistake'?'style="background:#FFF0F0"':''}>
-        <span class="log-date">${formatLogDate(e.ts)}</span>
-        <span>${e.type==='match'?'🎯':e.type==='shop'?'🛒':e.type==='mistake'?'❌':e.type==='mondai'?'📝':'📌'} ${e.detail}</span>
+        <span class="log-date">${okaneEscapeHtml(formatLogDate(e.ts))}</span>
+        <span>${e.type==='match'?'🎯':e.type==='shop'?'🛒':e.type==='mistake'?'❌':e.type==='mondai'?'📝':'📌'} ${okaneEscapeHtml(e.detail)}</span>
       </div>`).join('')}</div>`;
   }
 }
@@ -2403,19 +2410,20 @@ function getShopItems() {
 function renderShopItems() {
   const items = getShopItems();
   const isOrig = currentDifficulty==='orig';
-  let html = items.map(item=>{
+  // セキュリティ修正: 商品の id は onclick の文字列に埋めず、一覧の番号から引く(番号は数値だけ)。
+  let html = items.map((item,idx)=>{
     const entry=cart.find(c=>c.item.id===item.id), qty=entry?entry.qty:0;
     const imgHtml = item.img
-      ? `<img src="${item.img}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px;margin-bottom:4px;">`
-      : `<span class="item-emoji">${item.emoji||'🛍'}</span>`;
+      ? `<img src="${okaneEscapeHtml(item.img)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px;margin-bottom:4px;">`
+      : `<span class="item-emoji">${okaneEscapeHtml(item.emoji||'🛍')}</span>`;
     const deleteBtn = isOrig
-      ? `<button class="item-delete-btn" onclick="event.stopPropagation();deleteCustomItem('${item.id}')">✕</button>`
+      ? `<button class="item-delete-btn" onclick="event.stopPropagation();deleteCustomItem(getShopItems()[${idx}].id)">✕</button>`
       : '';
-    return `<div class="shop-item ${qty>0?'in-cart':''} ${isOrig?'custom':''}" onclick="addToCartById('${item.id}')">
+    return `<div class="shop-item ${qty>0?'in-cart':''} ${isOrig?'custom':''}" onclick="addToCartById(getShopItems()[${idx}].id)">
       ${deleteBtn}
       ${qty>0?`<div class="item-qty">${qty}</div>`:''}
       ${imgHtml}
-      <div class="item-name">${item.name}</div>
+      <div class="item-name">${okaneEscapeHtml(item.name)}</div>
       <div class="item-price">¥${item.price.toLocaleString()}</div>
     </div>`;
   }).join('');
@@ -2581,10 +2589,10 @@ function renderCart() {
   const list=document.getElementById('cartList'), total=getCartTotal();
   list.innerHTML = cart.length===0
     ? '<div class="cart-empty">🛒<br><span style="font-size:13px;color:#bbb;">まだなにも<br>えらばれていません</span></div>'
-    : cart.map(c=>`<div class="cart-list-item">
-        <span class="cart-item-emoji">${c.item.emoji}</span>
-        <div class="cart-item-info"><div>${c.item.name} ×${c.qty}</div><div class="cart-item-price">¥${(c.item.price*c.qty).toLocaleString()}</div></div>
-        <button class="cart-remove-btn" onclick="removeFromCart('${c.item.id}')">✕</button>
+    : cart.map((c,ci)=>`<div class="cart-list-item">
+        <span class="cart-item-emoji">${okaneEscapeHtml(c.item.emoji)}</span>
+        <div class="cart-item-info"><div>${okaneEscapeHtml(c.item.name)} ×${c.qty}</div><div class="cart-item-price">¥${(c.item.price*c.qty).toLocaleString()}</div></div>
+        <button class="cart-remove-btn" onclick="removeFromCart(cart[${ci}].item.id)">✕</button>
       </div>`).join('');
   document.getElementById('cartTotal').textContent='¥'+total.toLocaleString();
   updatePayResult();
