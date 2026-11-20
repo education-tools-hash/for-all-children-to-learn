@@ -2222,6 +2222,13 @@ function formatRecordTime(iso) {
   var pad = function(n) { return String(n).length < 2 ? '0' + n : String(n); };
   return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
+// セキュリティ修正(XSS 第3弾): 記録の文字(入力した選択肢の名前など)を HTML として解釈させないための
+// 逃がし処理(& < > " ' の5文字)。表示のときに通す(保存する値は変えない)。
+function dotchigaEscapeHtml(s) {
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
 function renderRecordList() {
   var log = loadLog();
   var reversed = log.slice().reverse(); // newest first
@@ -2244,10 +2251,10 @@ function renderRecordList() {
     var choiceLabel = entry.selectedLabel || (CHOICES[entry.selectedChoice] || {}).label || entry.selectedChoice || '';
     var inputLabel = INPUT_METHOD_LABELS[entry.inputMethod] || entry.inputMethod || '';
     li.innerHTML =
-      '<span class="record-time">' + formatRecordTime(entry.time) + '</span>' +
-      '<span>' + activityLabel + '</span>' +
-      '<span class="record-choice">' + choiceLabel + '</span>' +
-      '<span>' + inputLabel + '</span>';
+      '<span class="record-time">' + dotchigaEscapeHtml(formatRecordTime(entry.time)) + '</span>' +
+      '<span>' + dotchigaEscapeHtml(activityLabel) + '</span>' +
+      '<span class="record-choice">' + dotchigaEscapeHtml(choiceLabel) + '</span>' +
+      '<span>' + dotchigaEscapeHtml(inputLabel) + '</span>';
     recordListEl.appendChild(li);
   });
   recordMoreBtn.hidden = reversed.length <= recordVisibleCount;
