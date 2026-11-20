@@ -2601,6 +2601,15 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // 更新履歴の記載もれの追記(2026-11-20)。公開時に更新履歴へ載せていなかった4件。文案はすべてユーザー承認済みの verbatim、type は "update"。
+  // セキュリティ修正 第2弾の公開(2026-11-20 JST)。
+  { date: "2026-11-20", type: "update", text: "SST・マッチング・なぞりんプリント・もぐらたたきで、データの取り込みをより安全にしました", verbatim: true },
+  // SRI の追加とセキュリティ修正 第1弾の公開(2026-11-19 JST)。
+  { date: "2026-11-19", type: "update", text: "サイトの安全性を高める更新を行いました", verbatim: true },
+  // alt 対応バッチ B2 の公開(2026-11-19 JST)。app はまとめ表示用。
+  { date: "2026-11-19", type: "update", app: "kyou-no-kiroku", text: "「きょうのきろく」で、選んだ写真が読み上げで分かるようになりました", verbatim: true },
+  // alt 対応バッチ B1 の公開(2026-11-18 JST)。
+  { date: "2026-11-18", type: "update", text: "いくつかの教材で、選んだ写真が読み上げで分かるようになりました", verbatim: true },
   // L2試作 すごろく写真プレビューの alt の公開(2026-11-15 JST)。文案はユーザー指定の verbatim、type は「追加・改善」= "update"、app はまとめ表示用。
   { date: "2026-11-15", type: "update", app: "sugoroku-app", text: "「すごろく」で、選んだ写真が読み上げで分かるようになりました", verbatim: true },
   // RINGO-POTTON-MOVE-SPEED-1 の公開(2026-11-13 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"、app はまとめ表示用(同日のりんごポットン3件目)。
