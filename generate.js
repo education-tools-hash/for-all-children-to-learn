@@ -2606,6 +2606,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // カテゴリー変更 段階1(ねらい・入力のメタデータ是正)の公開(2026-11-21 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(サイト全体の記載)。
+  { date: "2026-11-21", type: "update", text: "「3つの質問」と検索で、教材が見つけやすくなりました", verbatim: true},
   // セキュリティ修正 第3弾の公開(2026-11-20 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(サイト全体の記載)。
   { date: "2026-11-20", type: "update", text: "サイトの安全性を高める更新を行いました", verbatim: true },
   // RINGO-POTTON-VOICE-PIN-1 の公開(2026-11-20 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"、app はまとめ表示用(この日のりんごポットンは1件のため単独の行)。
