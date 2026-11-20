@@ -2601,6 +2601,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // RINGO-POTTON-VOICE-PIN-1 の公開(2026-11-20 JST)。文案はユーザー指定の verbatim、type は既存の「追加・改善」= "update"、app はまとめ表示用(この日のりんごポットンは1件のため単独の行)。
+  { date: "2026-11-20", type: "update", app: "ringo-potton-app", text: "「りんごポットン」の数え上げの声が、途中で変わらないようになりました", verbatim: true },
   // 更新履歴の記載もれの追記(2026-11-20)。公開時に更新履歴へ載せていなかった4件。文案はすべてユーザー承認済みの verbatim、type は "update"。
   // セキュリティ修正 第2弾の公開(2026-11-20 JST)。
   { date: "2026-11-20", type: "update", text: "SST・マッチング・なぞりんプリント・もぐらたたきで、データの取り込みをより安全にしました", verbatim: true },
