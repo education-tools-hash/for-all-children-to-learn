@@ -2606,6 +2606,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // ❓の説明文の直し 第1弾(7教材の「設定への行き方」の案内)の公開(2026-11-21 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(複数教材にまたがる記載)。
+  { date: "2026-11-21", type: "update", text: "アプリの設定の開き方の説明を、実際の画面に合わせました", verbatim: true},
   // とけいの a11y 記載の修正の公開(2026-11-21 JST)。文案はユーザー承認済みの verbatim、type は "update"。
   { date: "2026-11-21", type: "update", app: "tokei-app", text: "「とけい」の対応状況の表示を、実際の操作に合わせて直しました", verbatim: true},
   // カテゴリー変更 段階1(ねらい・入力のメタデータ是正)の公開(2026-11-21 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(サイト全体の記載)。
