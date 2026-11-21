@@ -2154,27 +2154,27 @@
     <div class="purpose-entry-lead">目的から探す</div>
     <div class="purpose-entry-sub">お子さんのねらいに合ったアプリをすぐ見つけられます</div>
     <div class="purpose-entry-grid">
-      <button class="pe-btn pe-btn--pink"   onclick="purposeEntrySelect(['コミュニケーションボード','おえかきひろば','よみかき サポートエディタ','きょうのきろく','視線キーボード'], this)">
+      <button class="pe-btn pe-btn--pink"   onclick="purposeEntrySelect({need:'communicate'}, this)">
         <span class="pe-btn-icon">🌟</span>
         <span class="pe-btn-label">気持ちを<br>伝えたい</span>
       </button>
-      <button class="pe-btn pe-btn--blue"   onclick="purposeEntrySelect(['スケジュール','とけい','じこくひょう','タイムタイマー'], this)">
+      <button class="pe-btn pe-btn--blue"   onclick="purposeEntrySelect({need:'time'}, this)">
         <span class="pe-btn-icon">⏰</span>
         <span class="pe-btn-label">時間の見通しを<br>持たせたい</span>
       </button>
-      <button class="pe-btn pe-btn--yellow" onclick="purposeEntrySelect(['ひらがな まなぼう！','カタカナ まなぼう！','なぞり書き練習ツール','よみかき サポートエディタ','しりとりあそび','すうじ まなぼう！'], this)">
+      <button class="pe-btn pe-btn--yellow" onclick="purposeEntrySelect({need:'literacy'}, this)">
         <span class="pe-btn-icon">✏</span>
         <span class="pe-btn-label">文字・読み書きを<br>学びたい</span>
       </button>
-      <button class="pe-btn pe-btn--green"  onclick="purposeEntrySelect(['おかねのおべんきょう','はんばいかい レジ','スケジュール','じこくひょう','ぼうさいたんけんたい','ほうこうとばしょをまなぼう'], this)">
+      <button class="pe-btn pe-btn--green"  onclick="purposeEntrySelect({need:'life'}, this)">
         <span class="pe-btn-icon">🏪</span>
         <span class="pe-btn-label">生活スキルを<br>育てたい</span>
       </button>
-      <button class="pe-btn pe-btn--orange" onclick="purposeEntrySelect(['SST ソーシャルスキルトレーニング','じゃんけん まなぼう！','すごろく','マッチング'], this)">
+      <button class="pe-btn pe-btn--orange" onclick="purposeEntrySelect({need:'social'}, this)">
         <span class="pe-btn-icon">🤝</span>
         <span class="pe-btn-label">友達との関わりを<br>育てたい</span>
       </button>
-      <button class="pe-btn pe-btn--purple" onclick="purposeEntrySelect(['コミュニケーションボード','ひらがな まなぼう！','スケジュール','マッチング','じゃんけん まなぼう！','ひかるボタン（注視訓練）','どこかな？カップゲーム','きょうのきろく','視線キーボード','もぐらたたき'], this)">
+      <button class="pe-btn pe-btn--purple" onclick="purposeEntrySelect({input:['switch','gaze']}, this)">
         <span class="pe-btn-icon">🔘</span>
         <span class="pe-btn-label">スイッチ・視線入力<br>を使っている</span>
       </button>
@@ -3372,10 +3372,22 @@ function openPrivacy() {
 }
 
 // ── 新入口：目的ボタン選択 ──
-function purposeEntrySelect(names, btn) {
+// カテゴリー変更 段階2: 各ボタンの教材は手書きの名前リストではなく、教材データ(APPS配列。
+// apps-data.json の need / input から generate.js が生成)から導出する。
+//   spec.need  : その ねらい を need に含む教材
+//   spec.input : 挙げた入力方法のどれかを input に含む教材
+// 戻り値は教材カードのリンク(href)の一覧。並びは教材一覧(APPS)の順のまま。
+function purposeEntryLinks(spec) {
+  const inputs = spec.input || [];
+  return APPS.filter(a =>
+    (spec.need && (a.need || []).includes(spec.need)) ||
+    inputs.some(i => (a.input || []).includes(i))
+  ).map(a => a.link);
+}
+function purposeEntrySelect(spec, btn) {
   document.querySelectorAll('.pe-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  applyPurposeFilter(names);
+  applyPurposeFilter(purposeEntryLinks(spec));
 }
 function purposeEntryShowAll() {
   document.querySelectorAll('.pe-btn').forEach(b => b.classList.remove('selected'));
@@ -3393,7 +3405,7 @@ function purposeEntryShowAll() {
   if (firstSection) setTimeout(() => firstSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
 }
 
-function applyPurposeFilter(names) {
+function applyPurposeFilter(links) {
   filterTabs.forEach(t => t.classList.remove('active'));
   const allTab = document.querySelector('.filter-tab[data-cat="all"]');
   if (allTab) allTab.classList.add('active');
@@ -3401,11 +3413,10 @@ function applyPurposeFilter(names) {
   searchInput.value = '';
   ensureGridOrder('all'); // 初期表示の並べ替えを解除し、既存の生成順に戻す
   // resetMetaFilter(); // [auto-fixed by generate.js] 関数が未定義のため無効化
-  const lowerNames = names.map(n => n.toLowerCase());
+  const linkSet = new Set(links);
   let anyVisible = false;
   document.querySelectorAll('.app-card').forEach(card => {
-    const cardName = (card.dataset.name || '').toLowerCase();
-    const match = lowerNames.some(n => cardName.includes(n));
+    const match = linkSet.has(card.getAttribute('href'));
     card.classList.toggle('card-hidden', !match);
     if (match) anyVisible = true;
   });
