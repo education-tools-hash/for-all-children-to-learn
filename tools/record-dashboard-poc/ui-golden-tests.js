@@ -33,7 +33,7 @@ console.log('=== 1. Metadata Drift: apps-data.json <-> Adapter Registry(23本) =
   appsList.forEach(function (a) { byId[a.filename] = a; });
 
   const adapters = foundation.getAdapters();
-  check('Adapter Registry has 24 entries', adapters.length === 24, adapters.length);
+  check('Adapter Registry has 25 entries', adapters.length === 25, adapters.length);
 
   let nameDrift = [];
   let categoryDrift = [];
@@ -45,8 +45,8 @@ console.log('=== 1. Metadata Drift: apps-data.json <-> Adapter Registry(23本) =
     if (appData.category !== a.category) categoryDrift.push({ appId: a.appId, appsData: appData.category, registry: a.category });
   });
   check('every Foundation appId exists in apps-data.json', missingInAppsData.length === 0, missingInAppsData);
-  check('appName matches apps-data.json title for all 24', nameDrift.length === 0, nameDrift);
-  check('category matches apps-data.json category for all 24', categoryDrift.length === 0, categoryDrift);
+  check('appName matches apps-data.json title for all 25', nameDrift.length === 0, nameDrift);
+  check('category matches apps-data.json category for all 25', categoryDrift.length === 0, categoryDrift);
 })();
 
 console.log('\n=== 2. activityLabel() ===');
@@ -57,6 +57,7 @@ console.log('\n=== 2. activityLabel() ===');
   check('janken mode codes mapped to modeNames-equivalent Japanese labels', ui.activityLabel('win') === 'かちのは どれ？' && ui.activityLabel('lose') === 'まけるのは どれ？' && ui.activityLabel('both') === 'どちらもまぜる');
   check('nazori mode codes mapped to Japanese labels (not raw "wide"/"single")', ui.activityLabel('wide') === '続けて書く' && ui.activityLabel('single') === '一文字ずつ');
   check('ringo-potton-app activity code mapped (not raw "ringo-delivery")', ui.activityLabel('ringo-delivery') === 'りんごの おつかい');
+  check('cashless-app activity codes mapped (not raw "cashless-barcode"/"cashless-qr")', ui.activityLabel('cashless-barcode') === 'バーコードで はらう' && ui.activityLabel('cashless-qr') === 'QRコードで はらう');
   check('unknown/empty/non-string falls back to 活動', ui.activityLabel('unknown') === '活動' && ui.activityLabel('') === '活動' && ui.activityLabel(null) === '活動' && ui.activityLabel(undefined) === '活動');
 })();
 

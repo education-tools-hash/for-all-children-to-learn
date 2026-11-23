@@ -109,7 +109,10 @@
     'timing': 'タイミングよく おす',
     // ringo-potton-app: activity 'ringo-delivery'(App ID名前空間付き、tokei-と同型。
     // 1活動=のうかの人に りんごを とどける「おつかい」、RINGO-POTTON-LEARNING-RECORD-1)
-    'ringo-delivery': 'りんごの おつかい'
+    'ringo-delivery': 'りんごの おつかい',
+    // cashless-app: activity 'cashless-barcode' | 'cashless-qr'(App ID名前空間付き、ringo-と同型。Phase CASHLESS-1)
+    'cashless-barcode': 'バーコードで はらう',
+    'cashless-qr': 'QRコードで はらう'
   };
 
   // マッピングにない内部コードは、教師にプログラム変数名をそのまま見せないため

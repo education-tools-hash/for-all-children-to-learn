@@ -1368,6 +1368,43 @@
     }
   });
 
+  // Phase CASHLESS-1: キャッシュレス。Core Schema(donomanaRecordCreate)、1支払い完了=1 record。
+  // activity: 'cashless-barcode' | 'cashless-qr'。payload: {result, level, shop, item, amount,
+  // balanceBefore, balanceAfter, shortfallRetries, switchScan, gaze} + QRのみ {amountRetries,
+  // checkPractice, wrongShopShown, wrongShopPayAttempts}(cashless-app.html の saveActivityRecord() で確認)。
+  // 金額は練習用のお金。送金相手などの個人名は記録しない(お店の名前は固定の練習用語彙のみ)。
+  registerAdapter({
+    appId: 'cashless-app',
+    appName: 'キャッシュレス',
+    category: '自立活動',
+    storageKey: 'cashless_log',
+    structure: 'flat',
+    privacyLevel: 'low',
+    includeInDefaultTimeline: true,
+    normalize: function (e) {
+      var p = (e && e.payload && typeof e.payload === 'object') ? e.payload : {};
+      var activity = (e && typeof e.activity === 'string' && e.activity) ? e.activity : 'unknown';
+      var how = activity === 'cashless-qr' ? 'QRコード' : (activity === 'cashless-barcode' ? 'バーコード' : 'キャッシュレス');
+      var amount = (typeof p.amount === 'number') ? p.amount : null;
+      var summary = (amount !== null) ? (how + 'で ' + amount + '円 はらいました') : (how + 'の 支払いに 取り組みました');
+      var notes = [];
+      if (typeof p.shortfallRetries === 'number' && p.shortfallRetries > 0) notes.push('残高が たりず ' + p.shortfallRetries + '回 えらびなおし');
+      if (typeof p.amountRetries === 'number' && p.amountRetries > 0) notes.push('金額を ' + p.amountRetries + '回 いれなおし');
+      if (notes.length) summary += '（' + notes.join('・') + '）';
+      var metrics = {};
+      if (amount !== null) metrics.totalAmount = amount;
+      if (typeof p.amountRetries === 'number') metrics.retried = p.amountRetries;
+      return {
+        timestamp: toIsoTimestamp(e && e.timestamp),
+        activity: activity,
+        summary: summary,
+        metrics: metrics,
+        inputMethod: (e && typeof e.inputMethod === 'string') ? e.inputMethod : null,
+        hasMedia: false
+      };
+    }
+  });
+
   registerAdapter({
     appId: 'kyou-no-kiroku',
     appName: 'きょうのきろく',

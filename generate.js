@@ -115,6 +115,7 @@ const CATEGORY_TRUTH = {
   'scratch-app':      '自立活動',
   'gaze-keyboard':      '自立活動',
   'mogura-tataki':      '自立活動',
+  'cashless-app':       '自立活動',
   // 創作表現
   'drawing-app':     '創作表現',
   'slideshow-sakusei':'創作表現',
@@ -958,7 +959,7 @@ const LOCK_SKIP_APPS = new Set(['scratch-app','sugoroku-app','tyushi','sst-app',
 // SR_SKIP_APPS: 既にアプリ本体が学習コンテンツの読み上げを多用しており、
 // 汎用の「タップで読み上げ」機能を重ねると音声が競合・中断してしまうアプリ
 // → これらのアプリでは 表示モード/文字の大きさ は提供し、読み上げ機能だけ外す
-const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app', 'katachi-awase-app', 'ringo-potton-app']); // ringo-potton-app: 数唱を教材自身が読み上げるため共通の選択読み上げと重ねない // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app・katachi-awase-app: 学習コンテンツ自体の読み上げと重ねない
+const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 'nazorin-print', 'kurabeyou-app', 'katachi-awase-app', 'ringo-potton-app', 'cashless-app']); // cashless-app: 金額・お店の名前・残高を教材自身が読み上げるため共通の選択読み上げと重ねない // ringo-potton-app: 数唱を教材自身が読み上げるため共通の選択読み上げと重ねない // nazorin-print: 印刷専用ツールのため読み上げ不要、kurabeyou-app・katachi-awase-app: 学習コンテンツ自体の読み上げと重ねない
 
 // TRIM_GENERATED_BLANK_LINE_WS_APPS: buildA11yPanelHTML()内の`  ${srScriptHTML}`
 // `    ${proxyScriptHTML}`は、固定インデントのスペースを置いた行へ、値が改行文字
@@ -970,7 +971,7 @@ const SR_SKIP_APPS = new Set(['hiragana-learn', 'katakana-app', 'suji-manabou', 
 // のは本Phaseの scope外の広範な変更になるため採らず、このSetに明示登録したアプリの
 // 生成物にのみ、空白のみの行から行末空白を取り除く後処理を適用する(他アプリの生成物
 // は1バイトも変更しない、injectA11yPanelToAppHtmls/詳細ページ生成の両方で使用)。
-const TRIM_GENERATED_BLANK_LINE_WS_APPS = new Set(['sakana-tsuri']);
+const TRIM_GENERATED_BLANK_LINE_WS_APPS = new Set(['sakana-tsuri', 'cashless-app']); // cashless-app: 新規教材のcheckpointで git diff --check を空にするため(sakana-tsuriと同じ扱い)
 
 // 🔧 既存の独自設定ボタンを持つアプリ: セレクタを指定すると、
 // ・元のボタンは非表示にする
@@ -1031,6 +1032,9 @@ const SETTINGS_PROXY = {
   // りんごポットン(ringo-potton-app): 設定入口は共通A11yパネルのこの1つのみ。#ringoSettingsBtnは
   // 常に非表示で、自アプリのSwitch Scan候補にもTab順序にも含めない(opacity:0+tabindex=-1で足りる)。
   'ringo-potton-app':   { selector: '#ringoSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
+  // キャッシュレス(cashless-app): ringo-potton-appと同じ方式。設定入口は共通A11yパネルのこの1つのみで、
+  // #cashlessSettingsBtnは常に非表示(opacity:0+tabindex=-1)。Switch Scan候補・Tab順序にも含めない。
+  'cashless-app':       { selector: '#cashlessSettingsBtn', label: '🔧 このアプリの詳細設定を開く' },
 };
 
 // アプリごとに読み上げセクションの有無・既存設定への橋渡しを切り替えてパネルHTML/JSを生成する
@@ -1557,7 +1561,7 @@ function buildDesignTokensHTML() {
 //  ・対象アプリはGAZE_SHARED_FOUNDATION_APPSに明示登録した場合のみ(全アプリ
 //    一括適用はしない。Phase M11.4-Aはmitsukete-touch-appのみ)。
 // ============================================================
-const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app', 'junban-miyou-app', 'miru-hirogaru-app', 'kurabeyou-app', 'katachi-awase-app', 'kimochi-board']);
+const GAZE_SHARED_FOUNDATION_APPS = new Set(['mitsukete-touch-app', 'junban-miyou-app', 'miru-hirogaru-app', 'kurabeyou-app', 'katachi-awase-app', 'kimochi-board', 'cashless-app']);
 
 function buildGazeSharedFoundationCSSHTML() {
   return [
@@ -1754,7 +1758,9 @@ function injectGazeSharedFoundationToAppHtmls(apps) {
 const LEARNING_RECORD_FOUNDATION_APPS = new Set(['miru-hirogaru-app', 'hiragana-learn', 'directions-app', 'kyou-no-kiroku', 'katakana-app', 'suji-manabou', 'mitsukete-touch-app', 'junban-miyou-app', 'kurabeyou-app', 'katachi-awase-app', 'dotchiga-ii-app', 'okane-app', 'sst-app', 'mogura-tataki', 'tokei-app', 'nazori-app', 'bosai-app', 'matching-app', 'shiritori2', 'janken-app', 'register-app', 'sawatte-hirogaru-app', 'sakana-tsuri',
   // Phase RINGO-POTTON-LEARNING-RECORD-1: りんごポットン(新規storage key `ringo_potton_log`、Core Schema、
   // 1活動(配達完了)=1レコード。既存recordが存在しないためmigration概念自体が発生しない)。
-  'ringo-potton-app']);
+  'ringo-potton-app',
+  // Phase CASHLESS-1: キャッシュレス(新規storage key `cashless_log`、Core Schema、1支払い完了=1レコード)。
+  'cashless-app']);
 
 // ============================================================
 //  Phase RECORD-NAV-1: 「学習のきろく」への共通chrome導線

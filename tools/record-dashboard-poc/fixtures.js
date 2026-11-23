@@ -112,6 +112,14 @@ var GOLDEN = {
     timestamp: '2026-11-12T00:30:00.000Z', appId: 'ringo-potton-app', activity: 'ringo-delivery',
     inputMethod: null, schemaVersion: 1,
     payload: { goal: 3, goalMode: 'fixed', operation: 'apple', showNumber: true, switchScan: false, harvested: 3, durationSec: 21.4 }
+  },
+  // cashless-app(CASHLESS-1): Core Schema、1支払い完了=1 record。payloadは cashless-app.html の
+  // saveActivityRecord() が書く項目そのもの(QR体験。お店の名前は固定の練習用語彙、合成データ)。
+  'cashless-app': {
+    timestamp: '2026-11-23T01:00:00.000Z', appId: 'cashless-app', activity: 'cashless-qr',
+    inputMethod: 'touch', schemaVersion: 1,
+    payload: { result: 'completed', level: 'normal', shop: 'パンやさん', item: null, amount: 320, balanceBefore: 1000, balanceAfter: 680,
+      shortfallRetries: 0, switchScan: false, gaze: false, amountRetries: 1, checkPractice: false, wrongShopShown: false, wrongShopPayAttempts: 0 }
   }
 };
 
