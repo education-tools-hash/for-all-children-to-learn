@@ -8,6 +8,8 @@
 // the extras, never below one). After the count is reached the tree is not shrunk, and touching a fruit that is
 // still on it (apple-touch only) takes nothing: the fruit nudges, the basket frame lights once, the live region says
 // 「かごは いっぱいです」. Delivery always succeeds. The record gets level and extra (15 keys, schemaVersion 1).
+// When the count is reached the note under the basket says「たのまれた かずが かごに はいりました。」in the level extra
+// (apples are still on the tree); in the level ふつう it stays「りんごが ぜんぶ かごに はいりました。」.
 // The button is teacher-facing: never a Switch Scan candidate, above the whole-screen surface (never a harvest), and
 // while its panel is open the activity does not react. A level applies from the next activity, or with
 // 「いますぐ はじめなおす」.
@@ -36,6 +38,9 @@ function ok(name, cond, detail) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const J = JSON.stringify;
+const NOTE_NORMAL = 'りんごが ぜんぶ かごに はいりました。';        // the note when the count is reached, as before (level ふつう)
+const NOTE_EXTRA = 'たのまれた かずが かごに はいりました。';       // ... in the level extra only
+const doneNote = (page) => page.evaluate(() => { const e = document.getElementById('doneNote'); return { text: e.textContent, shown: !e.hidden && getComputedStyle(e).display !== 'none' }; });
 
 function startServer() {
   return new Promise((resolve) => {
@@ -301,6 +306,8 @@ function expectPlan(goal, want, dummy) {
     const h0 = (await rect(n.page, '#canopy')).h;
     await harvest(n.page, 2);
     normalCompleteCanopy = (await rect(n.page, '#canopy')).h;
+    const nn = await doneNote(n.page);
+    ok('L7 (reference) level ふつう: the note is the one as before「' + NOTE_NORMAL + '」', nn.shown && nn.text === NOTE_NORMAL, J(nn));
     ok('L7 (reference) level ふつう: after the harvest the tree is shrunk as before (' + h0 + 'px -> ' + normalCompleteCanopy + 'px) and is empty', normalCompleteCanopy < h0 * 0.6 && (await tree(n.page)).visible === 0, h0 + ' -> ' + normalCompleteCanopy);
     await n.context.close();
   }
@@ -313,6 +320,8 @@ function expectPlan(goal, want, dummy) {
     await sleep(motion ? 300 : 0);
     const t = await tree(page), can = await rect(page, '#canopy'), dl = await rect(page, '#deliverBtn');
     ok('L7 ' + tag + ': two apples taken -> phase complete, number 2, both frames filled, 2 apples still on the tree', (await phase(page)) === 'complete' && t.count === '2' && t.filled === 2 && t.slots === 2 && t.ripeApples === 2 && t.visible === 2, J(t));
+    const dn = await doneNote(page);
+    ok('L7 ' + tag + ': the note says「' + NOTE_EXTRA + '」(not「ぜんぶ」: apples are still on the tree)', dn.shown && dn.text === NOTE_EXTRA, J(dn));
     ok('L7 ' + tag + ': the tree is not shrunk (' + hHarvest + 'px -> ' + can.h + 'px; the usual shrink would give ' + normalCompleteCanopy + 'px)', can.h > normalCompleteCanopy * 1.5 && can.h >= hHarvest * 0.6, hHarvest + ' -> ' + can.h);
     const inside = await page.evaluate(() => { const c = document.getElementById('canopy').getBoundingClientRect(); return Array.from(document.querySelectorAll('#appleGrid .apple[data-status="ripe"]')).every((e) => { const r = e.getBoundingClientRect(); return r.width >= 60 && r.left >= c.left - 1 && r.right <= c.right + 1 && r.top >= c.top - 1 && r.bottom <= c.bottom + 1 && r.bottom <= innerHeight; }); });
     ok('L7 ' + tag + ': the apples left on the tree are fully visible inside the crown (>= 60px) and「とどける」is on the screen', inside && !!dl && dl.b <= 1194 && dl.t >= 0, J({ can, dl }));
@@ -348,7 +357,7 @@ function expectPlan(goal, want, dummy) {
     ok('L8 anywhere: 4 apples on the tree, 2 frames', (await tree(page)).apples === 4 && (await tree(page)).slots === 2);
     for (let i = 0; i < 2; i++) { const h0 = await harvested(page); for (let k = 0; k < 40 && (await harvested(page)) === h0; k++) { await page.mouse.click(300, 600); await sleep(150); } }
     await waitPhase(page, 'complete'); await sleep(750);
-    ok('L8 two taps: number 2, complete, 2 apples left on the tree', (await harvested(page)) === 2 && (await tree(page)).ripeApples === 2);
+    ok('L8 two taps: number 2, complete, 2 apples left on the tree; the note is the level extra one', (await harvested(page)) === 2 && (await tree(page)).ripeApples === 2 && (await doneNote(page)).text === NOTE_EXTRA, J(await doneNote(page)));
     await page.mouse.click(300, 600);
     await waitPhase(page, 'celebrate'); await sleep(300);
     const fl = await page.evaluate(() => document.getElementById('basket').classList.contains('is-full-flash') || !!document.querySelector('.apple.is-nudge'));
@@ -443,7 +452,9 @@ function expectPlan(goal, want, dummy) {
     await waitPhase(page, 'harvest', 20000); await sleep(500);
     const t1 = await tree(page);
     ok('L10 delivering with the banana is refused as before; everything is back on the tree (3 apples + banana, number 0)', t1.ripe === 4 && t1.apples === 3 && t1.count === '0' && (await attr(page, 'data-refusals')) === '1', J(t1));
-    await harvest(page, 2); await finish(page);
+    await harvest(page, 2);
+    ok('L10 with decoys in the level extra the note is the level extra one too', (await doneNote(page)).text === NOTE_EXTRA, J(await doneNote(page)));
+    await finish(page);
     const log = await readLog(page);
     ok('L10 apples only: delivered; record level extra, extra 1, decoys 1, refusals 1, goal 2', log.length === 1 && log[0].payload.level === 'extra' && log[0].payload.extra === 1 && log[0].payload.decoys === 1 && log[0].payload.refusals === 1 && log[0].payload.goal === 2, J(log[0].payload));
     ok('L10 no errors', page.__errors.length === 0, page.__errors.join('|'));
@@ -462,6 +473,12 @@ function expectPlan(goal, want, dummy) {
     ok('L11 level ふつう (with a saved extra 3): 2 apples, 2 frames', (await tree(page)).total === 2 && (await tree(page)).slots === 2);
     await harvest(page, 2);
     const fl0 = await page.evaluate(() => document.getElementById('basket').classList.contains('is-full-flash'));
+    const n11 = await doneNote(page);
+    ok('L11 level ふつう: the note stays「' + NOTE_NORMAL + '」', n11.shown && n11.text === NOTE_NORMAL, J(n11));
+    // the note follows the level the ACTIVITY is played in, not the one saved meanwhile
+    await openPanel(page); await choose(page, 'extra'); await closePanel(page);
+    ok('L11 「おおめから ぴったり」saved during this ふつう activity: its note does not change', (await doneNote(page)).text === NOTE_NORMAL && (await saved(page)).level === 'extra', J(await doneNote(page)));
+    await openPanel(page); await choose(page, 'normal'); await closePanel(page);
     await finish(page);
     const log = await readLog(page);
     ok('L11 record: level normal, extra 0 (15 keys)', log.length === 1 && log[0].payload.level === 'normal' && log[0].payload.extra === 0 && Object.keys(log[0].payload).length === 15 && !fl0, J(log[0].payload));
