@@ -145,10 +145,11 @@
   .bubble .refuse { font-size: 1.25rem; font-weight: 900; color: var(--dm-color-primary-dark, #00857B); }   /* the farmer's gentle refusal (decoys) */
 
   .tree-area { position: relative; min-height: 200px; display: flex; flex-direction: column; align-items: center; }
-  .app[data-phase="complete"] .tree-area, .app[data-phase="delivering"] .tree-area, .app[data-phase="celebrate"] .tree-area { min-height: 0 !important; }
+  /* (not in「おおめから ぴったり」, data-level="extra": there fruit is still on the tree after the harvest and must stay visible) */
+  .app[data-phase="complete"]:not([data-level="extra"]) .tree-area, .app[data-phase="delivering"]:not([data-level="extra"]) .tree-area, .app[data-phase="celebrate"]:not([data-level="extra"]) .tree-area { min-height: 0 !important; }
   /* after the harvest the tree gives its room to the deliver / again buttons: it shrinks with the viewport height
      instead of being flattened to a fixed 64px (which made the canopy a 12:1 ellipse on an iPad in portrait) */
-  .app[data-phase="complete"] .canopy, .app[data-phase="delivering"] .canopy, .app[data-phase="celebrate"] .canopy { min-height: clamp(80px, 24vh, 300px) !important; flex: 0 0 clamp(80px, 24vh, 300px); }
+  .app[data-phase="complete"]:not([data-level="extra"]) .canopy, .app[data-phase="delivering"]:not([data-level="extra"]) .canopy, .app[data-phase="celebrate"]:not([data-level="extra"]) .canopy { min-height: clamp(80px, 24vh, 300px) !important; flex: 0 0 clamp(80px, 24vh, 300px); }
   .canopy {
     /* the width follows the height (never the other way round), so the canopy stays a rounded crown in every
        phase and orientation; max-width keeps it inside the column on narrow screens */
@@ -238,8 +239,8 @@
     .basket-area { grid-column: 1; grid-row: 2; }
     .actions { grid-column: 1; grid-row: 3; align-items: flex-start; }
     .tree-area { grid-column: 2; grid-row: 1 / span 3; margin-top: 52px; margin-bottom: 72px; min-height: 160px; }
-    .app[data-phase="complete"] .tree-area, .app[data-phase="delivering"] .tree-area, .app[data-phase="celebrate"] .tree-area { min-height: 160px !important; }
-    .app[data-phase="complete"] .canopy, .app[data-phase="delivering"] .canopy, .app[data-phase="celebrate"] .canopy { flex: 1 1 auto; min-height: 120px !important; }
+    .app[data-phase="complete"]:not([data-level="extra"]) .tree-area, .app[data-phase="delivering"]:not([data-level="extra"]) .tree-area, .app[data-phase="celebrate"]:not([data-level="extra"]) .tree-area { min-height: 160px !important; }
+    .app[data-phase="complete"]:not([data-level="extra"]) .canopy, .app[data-phase="delivering"]:not([data-level="extra"]) .canopy, .app[data-phase="celebrate"]:not([data-level="extra"]) .canopy { flex: 1 1 auto; min-height: 120px !important; }
     .stage { padding-top: 60px; }
     .start-screen { padding-top: 0; }
   }
@@ -279,6 +280,45 @@
   .goal-grid .opt-btn { min-width: 56px; font-size: 1.25rem; }
   .note { font-size: .9375rem; color: var(--dm-color-sub, #5E6D78); margin: 6px 0 0; }
   .note[hidden], .row[hidden] { display: none; }
+  /* ---------- レベルアップ (teacher-facing): a pill beside the Home button and a small non-modal panel under it ----------
+     Fixed above the whole-screen operation surface (z-index 5), so a tap on it is never a harvest; it is never a
+     Switch Scan candidate (buildScanItems lists candidates explicitly and does not list it). */
+  .level-btn {
+    position: fixed; top: 12px; left: 64px; z-index: 99996; min-height: 44px; padding: 0 16px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.92); color: var(--dm-color-primary-dark, #00857B); font: inherit; font-size: .9375rem; font-weight: 800; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer; touch-action: manipulation;
+  }
+  .level-btn[aria-expanded="true"] { background: #fff; box-shadow: 0 0 0 3px var(--dm-color-primary, #00A99D); }
+  .level-btn:focus-visible, .level-panel button:focus-visible { outline: 3px solid #00A99D; outline-offset: 2px; }
+  .level-panel {
+    position: fixed; top: 64px; left: 12px; z-index: 99996; width: 300px; max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 76px); max-height: calc(100dvh - 76px); overflow-y: auto;
+    display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #fff;
+    border: 3px solid var(--dm-color-primary-dark, #00857B); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }
+  .level-panel[hidden] { display: none; }
+  .level-panel:focus { outline: none; }
+  .level-title { margin: 0; font-weight: 800; }
+  .level-opts, .level-actions { display: flex; flex-direction: column; gap: 6px; }
+  .level-panel .opt-btn, .level-panel .close-btn { width: 100%; }
+  .level-soon { display: block; font-size: .8125rem; }
+  .level-soon[hidden], .level-note[hidden], .level-panel button[hidden] { display: none; }
+  .level-note { margin: 0; font-size: .9375rem; }
+  /* short screens (a phone held sideways): the levels sit side by side so the panel ends above the bottom-left
+     「学習のきろく」pill; its width stops before the Lock / Fullscreen / Help row on the right */
+  @media (max-height: 480px) {
+    .level-panel { width: min(640px, calc(100vw - 196px)); max-height: calc(100vh - 136px); max-height: calc(100dvh - 136px); }
+    .level-opts, .level-actions { flex-direction: row; flex-wrap: wrap; }
+    .level-panel .level-opts .opt-btn, .level-panel .level-actions button { width: auto; flex: 1 1 170px; }
+  }
+  /* narrow screens: the Lock / Fullscreen / Help row (top 64..108px, right) would be covered, so the panel opens under it */
+  @media (max-width: 479px) { .level-panel { top: 116px; right: 12px; width: auto; max-height: calc(100vh - 128px); max-height: calc(100dvh - 128px); } }
+  /* おおめから ぴったり: the basket is full and a fruit still on the tree is touched -> it nudges in place (not under
+     reduced motion) and the basket frame lights once. Nothing is taken. */
+  @keyframes nudge { 0%, 100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-5px) rotate(-7deg); } 75% { transform: translateX(5px) rotate(7deg); } }
+  .apple.is-nudge { animation: nudge 320ms ease-in-out 1; }
+  .basket.is-full-flash { box-shadow: 0 0 0 4px #FFD54A, 0 0 18px 6px rgba(255, 213, 74, .8); }
+  @media (prefers-reduced-motion: reduce) { .apple.is-nudge { animation: none; } }
   .pending-note { background: #FFF6DC; border: 2px solid var(--dm-color-accent, #F5A623); border-radius: 9px; padding: 8px 12px; font-weight: 700; }
 
   .confirm-bar {
@@ -688,6 +728,24 @@
   <button type="button" id="donomanaHelpBtn" aria-label="つかいかた" aria-expanded="false" aria-controls="helpSheet" title="つかいかた" style="min-width:44px;min-height:44px;border-radius:50%;border:none;background:rgba(255,255,255,0.92);font-size:18px;font-weight:900;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;">❓</button>
 </div>
 
+<!-- レベルアップ (teacher-facing; start and play screens). Not a Switch Scan candidate; sits above the whole-screen
+     operation surface. The panel only opens here: the level changes when one of its buttons is pressed, and applies
+     from the next activity (or with「いますぐ はじめなおす」). 「くだものを 2 しゅるい」is not available yet (LEVEL_READY). -->
+<button type="button" class="level-btn" id="ringoLevelBtn" aria-expanded="false" aria-controls="ringoLevelPanel">レベルアップ</button>
+<div class="level-panel" id="ringoLevelPanel" role="group" aria-labelledby="ringoLevelTitle" tabindex="-1" hidden>
+  <p class="level-title" id="ringoLevelTitle">レベルアップ</p>
+  <div class="level-opts">
+    <button type="button" class="opt-btn" data-level-opt="normal" aria-pressed="false">ふつう</button>
+    <button type="button" class="opt-btn" data-level-opt="kinds2" aria-pressed="false">くだものを 2 しゅるい<span class="level-soon" hidden>（じゅんびちゅう）</span></button>
+    <button type="button" class="opt-btn" data-level-opt="extra" aria-pressed="false">おおめから ぴったり</button>
+  </div>
+  <p class="level-note" id="ringoLevelNote" hidden>この へんこうは、つぎの かつどうから はんえいされます。</p>
+  <div class="level-actions">
+    <button type="button" class="opt-btn" id="ringoLevelRestart" hidden>いますぐ はじめなおす</button>
+    <button type="button" class="close-btn" id="ringoLevelClose">とじる</button>
+  </div>
+</div>
+
 <div class="app" id="app" data-phase="start" data-goal="3" data-harvested="0" data-op="apple">
   <main class="stage" id="stage">
     <h1 class="app-title sr-only" id="appTitle">りんごポットン</h1>
@@ -769,6 +827,16 @@
     <p class="row-label" id="lblGoalMax">ランダムの はんい：いちばん おおい かず</p>
     <div class="btn-group goal-grid" role="group" aria-labelledby="lblGoalMax" id="goalMaxGroup"></div>
     <p class="note">ランダムの ときは、この はんいの なかから かずが えらばれます（りょうはしの かずも でます）。おなじ かずに すると、いつも その かずに なります。</p>
+  </div>
+  <!-- おおめから ぴったり (レベルアップ): how many more apples than asked the tree carries. Shown only while that level is the saved one. -->
+  <div class="row" id="rowExtra" hidden>
+    <p class="row-label" id="lblExtra">おおめの かず（おおめから ぴったり）</p>
+    <div class="btn-group" role="group" aria-labelledby="lblExtra">
+      <button type="button" class="opt-btn" data-extra="1" aria-pressed="false" aria-label="1こ おおく">＋1</button>
+      <button type="button" class="opt-btn" data-extra="2" aria-pressed="false" aria-label="2こ おおく">＋2</button>
+      <button type="button" class="opt-btn" data-extra="3" aria-pressed="false" aria-label="3こ おおく">＋3</button>
+    </div>
+    <p class="note">木に、たのまれた かずより おおく りんごが なります。木の くだものは ぜんぶで 12こまでなので、かずが おおい ときは おおめの かずが へります。</p>
   </div>
   <div class="row">
     <p class="row-label" id="lblOp">そうさの しかた</p>
@@ -1150,7 +1218,12 @@ function donomanaRecordFormatTracingLevel(level) {
      constants
   ===================================================================== */
   var SETTINGS_KEY = 'donomana-ringo-potton-settings-v1';
-  var DEFAULTS = { goal: 3, goalMode: 'fixed', goalMin: 1, goalMax: 10, operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal', moveSpeed: 'normal' };
+  var DEFAULTS = { goal: 3, goalMode: 'fixed', goalMin: 1, goalMax: 10, operation: 'apple', againAnywhere: false, swipe: false, dummy: false, voice: true, showNumber: true, scanSpeed: 'normal', moveSpeed: 'normal', level: 'normal', extra: 2 };
+  // レベルアップ: settings.level is ONE value, so the two raised levels can never be on together.
+  //   normal = the activity as before / kinds2 = 「くだものを 2 しゅるい」/ extra = 「おおめから ぴったり」
+  // A level that is not ready yet is offered as unavailable in the panel and reads as normal from storage.
+  var LEVEL_READY = { normal: true, kinds2: false, extra: true };
+  var LEVEL_NAMES = { normal: 'ふつう', kinds2: 'くだものを 2 しゅるい', extra: 'おおめから ぴったり' };
   var SWIPE_MIN_PX = 24;              // a stroke counts once its pointer has moved this far from where it went down (beyond any tap jitter)
   var SWIPE_CLICK_SUPPRESS_MS = 400;  // a click that follows a consumed stroke within this window is that same gesture, not a tap
   var SCAN_MS = { slow: 3500, normal: 2500, fast: 1500 };
@@ -1179,6 +1252,20 @@ function donomanaRecordFormatTracingLevel(level) {
   var REFUSE_VOICE_MAX_MS = 9000;                            // safety cap: if the refusal voice never reports its end, the activity still goes on (the file is about 6.2 s)
   function decoyCountFor(goal) { return Math.max(0, Math.min(1 + Math.floor(goal / 4), MAX_FRUIT - goal)); }   // 1..3 -> 1, 4..7 -> 2, 8..9 -> 3, 10 -> 2
   function decoysActive() { return active.dummy && active.operation === 'apple'; }   // choosing is the point: whole-screen touch cannot choose, so there it is off
+  function extraActive() { return active.level === 'extra'; }                        // 「おおめから ぴったり」
+  // what the tree gets beside the goal's apples: the decoys (dummy option) and the extra apples (level extra).
+  // Goal + decoys + extras never exceed MAX_FRUIT. When they would, the decoys give way first (never below one
+  // while that option is on), then the extras (never below one). Without the level extra this is decoyCountFor() as before.
+  function fruitPlan(goal) {
+    var d = decoysActive() ? decoyCountFor(goal) : 0;
+    var e = extraActive() ? active.extra : 0;
+    var room = MAX_FRUIT - goal;
+    if (e > 0 && d + e > room) {
+      d = Math.max(d > 0 ? 1 : 0, room - e);
+      e = Math.max(1, Math.min(e, room - d));
+    }
+    return { decoys: d, extra: e };
+  }
 
   /* =====================================================================
      elements
@@ -1195,6 +1282,8 @@ function donomanaRecordFormatTracingLevel(level) {
   var liveStatus = $('liveStatus');
   var settingsBtn = $('ringoSettingsBtn'), settingsSheet = $('settingsSheet'), helpSheet = $('helpSheet'), helpBtn = $('donomanaHelpBtn');
   var confirmBar = $('settingsConfirm'), scCancel = $('scCancel'), scOpen = $('scOpen');
+  var basketEl = $('basket'), rowExtra = $('rowExtra');
+  var levelBtn = $('ringoLevelBtn'), levelPanel = $('ringoLevelPanel'), levelNote = $('ringoLevelNote'), levelRestart = $('ringoLevelRestart');
   var pendingNote = $('pendingNote'), rowAgain = $('rowAgain'), rowSwipe = $('rowSwipe'), rowDummy = $('rowDummy'), rowScanSpeed = $('rowScanSpeed');
 
   /* =====================================================================
@@ -1211,6 +1300,7 @@ function donomanaRecordFormatTracingLevel(level) {
     var g = parseInt(o.goal, 10);
     var gMin = sanitizeBound(o.goalMin, DEFAULTS.goalMin), gMax = sanitizeBound(o.goalMax, DEFAULTS.goalMax);
     if (gMin > gMax) gMax = gMin;                                // a reversed range is normalised by raising the maximum to the minimum
+    var ex = parseInt(o.extra, 10);
     return {
       goal: (g >= 1 && g <= 10) ? g : DEFAULTS.goal,
       goalMode: o.goalMode === 'random' ? 'random' : 'fixed',   // absent in older saved data -> fixed (the saved goal is kept)
@@ -1223,7 +1313,9 @@ function donomanaRecordFormatTracingLevel(level) {
       voice: o.voice !== false,
       showNumber: o.showNumber !== false,
       scanSpeed: SCAN_MS[o.scanSpeed] ? o.scanSpeed : DEFAULTS.scanSpeed,
-      moveSpeed: MOVE_SPEED_X.hasOwnProperty(o.moveSpeed) ? o.moveSpeed : DEFAULTS.moveSpeed   // absent in older saved data -> normal (the speed as before)
+      moveSpeed: MOVE_SPEED_X.hasOwnProperty(o.moveSpeed) ? o.moveSpeed : DEFAULTS.moveSpeed,   // absent in older saved data -> normal (the speed as before)
+      level: (LEVEL_READY.hasOwnProperty(o.level) && LEVEL_READY[o.level]) ? o.level : DEFAULTS.level,   // absent / unknown / not ready -> normal (the activity as before)
+      extra: (ex >= 1 && ex <= 3) ? ex : DEFAULTS.extra           // おおめの かず: +1..+3 (used only by the level extra)
     };
   }
   function loadSettings() {
@@ -1249,6 +1341,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function firstRipe() { for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i]) && S.items[i].status === 'ripe') return S.items[i]; return null; }
   function decoysInBasket() { var n = 0; for (var i = 0; i < S.items.length; i++) if (!isTarget(S.items[i]) && S.items[i].status === 'landed') n++; return n; }
   function decoyCount() { var n = 0; for (var i = 0; i < S.items.length; i++) if (!isTarget(S.items[i])) n++; return n; }
+  function extraCount() { var n = 0; for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i])) n++; return Math.max(0, n - active.goal); }   // apples on the tree beyond the goal (level extra)
   function itemEl(id) { return appleGrid.querySelector('.apple[data-id="' + id + '"]'); }
   function reducedMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
   function later(fn, ms) { var id = setTimeout(fn, ms); S.timers.push(id); return id; }
@@ -1258,14 +1351,14 @@ function donomanaRecordFormatTracingLevel(level) {
      overlays: while the A11y panel, a sheet or the confirmation is open, the
      activity does not react (and the stage is inert).
   ===================================================================== */
-  var settingsOpen = false, helpOpen = false, confirmOpen = false;
+  var settingsOpen = false, helpOpen = false, confirmOpen = false, levelOpen = false;   // levelOpen: the レベルアップ panel
   function a11yPanelOpen() {
     var p = $('donomanaA11yPanel');
     return !!p && p.style.display !== 'none' && p.getAttribute('aria-hidden') !== 'true';
   }
-  function overlayActive() { return settingsOpen || helpOpen || confirmOpen || a11yPanelOpen(); }
+  function overlayActive() { return settingsOpen || helpOpen || confirmOpen || levelOpen || a11yPanelOpen(); }
   function setStageInert() {
-    var on = settingsOpen || helpOpen || confirmOpen;
+    var on = settingsOpen || helpOpen || confirmOpen || levelOpen;
     if (on) stageEl.setAttribute('inert', ''); else stageEl.removeAttribute('inert');
   }
 
@@ -1453,6 +1546,8 @@ function donomanaRecordFormatTracingLevel(level) {
         operation: active.operation,                              // 'apple' | 'anywhere'
         showNumber: active.showNumber,                            // the number was shown
         moveSpeed: active.moveSpeed,                              // 'normal' | 'slow' | 'veryslow' (うごきの はやさ in effect)
+        level: active.level,                                      // レベルアップ: 'normal' | 'extra' (| 'kinds2' once it exists)
+        extra: extraCount(),                                      // apples the tree had beyond the goal this activity (0 unless the level is extra)
         switchScan: !!scanMode,                                   // switch scanning was ON (a setting, not a guess at the input device)
         swipe: active.swipe,                                      // 「なでて とる」was ON (a setting; planned optional field, schemaVersion stays 1)
         decoys: decoyCount(),                                     // how many decoy fruit the tree had this activity (0 when the option is off)
@@ -1548,6 +1643,7 @@ function donomanaRecordFormatTracingLevel(level) {
     appEl.setAttribute('data-swipe', (active.operation === 'anywhere' && active.swipe) ? '1' : '0');   // touch-action of the surface (CSS)
     appEl.setAttribute('data-decoys', decoysActive() ? '1' : '0');                                     // the decoy tray takes room (CSS)
     appEl.setAttribute('data-refusals', String(S.refusals));
+    appEl.setAttribute('data-level', active.level);                                                    // the tree keeps its size after the harvest in the level extra (CSS)
     startScreen.hidden = ph !== 'start';
     playScreen.hidden = ph === 'start';
     startInfo.textContent = settings.goalMode === 'random' ? 'いまの もくひょう：ランダム（' + settings.goalMin + '〜' + settings.goalMax + '）' : 'いまの もくひょう：' + settings.goal + 'こ';
@@ -1596,6 +1692,7 @@ function donomanaRecordFormatTracingLevel(level) {
     if (ph === 'delivering') { deliverBtn.tabIndex = -1; } else { deliverBtn.tabIndex = 0; }
 
     updatePendingNote();
+    if (levelOpen) syncLevelUI();
     if (scanMode) refreshSwitchScanItems();
   }
 
@@ -1611,11 +1708,13 @@ function donomanaRecordFormatTracingLevel(level) {
     S.lastGoal = active.goal;                 // the activity is now starting: a restart, "again" or whole-screen again all avoid this value next time
     S.startedAt = now();                      // the learning record's durationSec counts from here (this activity only)
     S.items = []; S.basketOrder = []; S.refusals = 0; S.returning = false;
-    for (var i = 0; i < active.goal; i++) S.items.push({ id: i, kind: TARGET_KIND, status: 'ripe' });
+    var plan = fruitPlan(active.goal), nApples = active.goal + plan.extra;   // level extra: more apples than asked; the frames stay at the goal
+    for (var i = 0; i < nApples; i++) S.items.push({ id: i, kind: TARGET_KIND, status: 'ripe' });
     if (decoysActive()) {                     // decoys: count from the goal, the banana first, then mikan; ids continue after the apples
-      var dc = decoyCountFor(active.goal);
-      for (var d = 0; d < dc; d++) S.items.push({ id: active.goal + d, kind: DECOY_KINDS[Math.min(d, DECOY_KINDS.length - 1)], status: 'ripe' });
+      var dc = plan.decoys;
+      for (var d = 0; d < dc; d++) S.items.push({ id: nApples + d, kind: DECOY_KINDS[Math.min(d, DECOY_KINDS.length - 1)], status: 'ripe' });
     }
+    basketEl.classList.remove('is-full-flash');
     // tree placement, decided once per activity (a refusal re-uses it): plain id order without decoys (unchanged look), shuffled with them
     S.order = S.items.map(function (it) { return it.id; });
     if (decoysActive()) for (var k = S.order.length - 1; k > 0; k--) { var r = Math.floor(Math.random() * (k + 1)); var t = S.order[k]; S.order[k] = S.order[r]; S.order[r] = t; }
@@ -1684,6 +1783,7 @@ function donomanaRecordFormatTracingLevel(level) {
       if (n >= active.goal) { S.phase = 'complete'; S.acceptAt = now() + PHASE_GUARD_MS; }
       else { S.acceptAt = now() + LAND_GUARD_MS; }
       render();
+      if (S.phase === 'complete' && extraActive()) layoutSizes();   // level extra: the tree still carries fruit; fit them to the room the deliver button leaves
       if (S.phase === 'complete') { try { deliverBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ } }
       speakCount(n);
       announce('いま ' + n + 'こ。');
@@ -1733,6 +1833,7 @@ function donomanaRecordFormatTracingLevel(level) {
     S.phase = 'celebrate';
     S.acceptAt = now() + PHASE_GUARD_MS;
     render();
+    if (extraActive()) layoutSizes();               // level extra: fruit is still on the tree while the thanks are shown
     speakThanks();                                  // once per delivery: only this guarded transition speaks it
     saveActivityRecord();                           // ... and writes this activity's one learning record (never earlier, never twice)
     try { againBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ }
@@ -1818,9 +1919,28 @@ function donomanaRecordFormatTracingLevel(level) {
   appleGrid.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('.apple') : null;
     if (!b || active.operation !== 'apple') return;
+    var id = parseInt(b.getAttribute('data-id'), 10);
+    if (basketFullIntent(id, b)) return;            // level extra, basket full: nothing is taken (see below)
     S.viaKeyboard = (e.detail === 0);
-    onHarvestIntent(parseInt(b.getAttribute('data-id'), 10));
+    onHarvestIntent(id);
   });
+  /* ---- おおめから ぴったり: the basket is full (phase complete) and a fruit that is still on the tree is touched ----
+     Nothing is taken, counted or recorded. The fruit nudges in place (not under reduced motion), the basket frame
+     lights once and the live region says that the basket is full. No voice. Apple-touch only: with the
+     whole-screen touch the next tap is「とどける」as before, and the scan offers only「とどける」. */
+  var fullFlashTimer = null;
+  function basketFullIntent(id, el) {
+    if (!extraActive() || active.operation !== 'apple' || S.phase !== 'complete' || overlayActive()) return false;
+    var it = S.items[id];
+    if (!it || it.status !== 'ripe') return false;
+    if (!reducedMotion()) { el.classList.remove('is-nudge'); void el.offsetWidth; el.classList.add('is-nudge'); }
+    basketEl.classList.add('is-full-flash');
+    clearTimeout(fullFlashTimer);
+    fullFlashTimer = setTimeout(function () { basketEl.classList.remove('is-full-flash'); }, 600);
+    announce('かごは いっぱいです');
+    return true;
+  }
+  appleGrid.addEventListener('animationend', function (e) { if (e.target && e.target.classList) e.target.classList.remove('is-nudge'); });
   // the whole-screen surface routes by phase; a tap, a keyboard / switch / VoiceOver click() and (when ON) a stroke all end here
   function surfaceIntent(kbd) {
     if (S.phase === 'harvest') { S.viaKeyboard = kbd; onHarvestIntent(null); }
@@ -1936,13 +2056,15 @@ function donomanaRecordFormatTracingLevel(level) {
     Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-dummy]'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-dummy') === '1') === settings.dummy)); });
     rowDummy.hidden = settings.operation !== 'apple';      // decoys need choosing: only with「りんごを タッチ」(the value is kept, just not offered elsewhere)
     rowScanSpeed.hidden = !scanMode;
+    Array.prototype.forEach.call(settingsSheet.querySelectorAll('[data-extra]'), function (b) { b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-extra'), 10) === settings.extra)); });
+    rowExtra.hidden = settings.level !== 'extra';          // a sub-option of the level「おおめから ぴったり」(the value is kept while another level is chosen)
     updatePendingNote();
     updateRecordRow();
   }
   function updatePendingNote() {
     // in random mode active.goal is the drawn number, so only the mode (and, in fixed mode, the number) counts as a pending change
     var goalDiffers = settings.goalMode !== active.goalMode || (settings.goalMode === 'fixed' && settings.goal !== active.goal);
-    var differs = S.phase !== 'start' && (goalDiffers || settings.goalMin !== active.goalMin || settings.goalMax !== active.goalMax || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber || settings.moveSpeed !== active.moveSpeed);
+    var differs = S.phase !== 'start' && (goalDiffers || settings.goalMin !== active.goalMin || settings.goalMax !== active.goalMax || settings.operation !== active.operation || settings.againAnywhere !== active.againAnywhere || settings.swipe !== active.swipe || settings.dummy !== active.dummy || settings.showNumber !== active.showNumber || settings.moveSpeed !== active.moveSpeed || settings.level !== active.level || (settings.level === 'extra' && settings.extra !== active.extra));
     pendingNote.hidden = !differs;
   }
   settingsSheet.addEventListener('click', function (e) {
@@ -1970,6 +2092,7 @@ function donomanaRecordFormatTracingLevel(level) {
     else if (b.hasAttribute('data-voice')) { settings.voice = b.getAttribute('data-voice') === '1'; if (!settings.voice) stopSpeech(); }   // applies immediately
     else if (b.hasAttribute('data-num')) settings.showNumber = b.getAttribute('data-num') === '1';
     else if (b.hasAttribute('data-scan-on')) setScanMode(b.getAttribute('data-scan-on') === '1');
+    else if (b.hasAttribute('data-extra')) { var exv = parseInt(b.getAttribute('data-extra'), 10); settings.extra = (exv >= 1 && exv <= 3) ? exv : DEFAULTS.extra; }
     else if (b.hasAttribute('data-move-speed')) settings.moveSpeed = MOVE_SPEED_X.hasOwnProperty(b.getAttribute('data-move-speed')) ? b.getAttribute('data-move-speed') : 'normal';
     else if (b.hasAttribute('data-scan-speed')) { settings.scanSpeed = b.getAttribute('data-scan-speed'); if (scanMode) startAutoScan(); }
     else return;
@@ -2015,7 +2138,56 @@ function donomanaRecordFormatTracingLevel(level) {
     if (scanMode) refreshSwitchScanItems();
   });
 
+  /* ---- レベルアップ: the teacher's button on the screen and its small panel ----
+     The button only opens / closes the panel. A level changes when one of the panel's buttons is pressed; it is
+     saved at once and applies from the next activity like every other setting (on the start screen: at once), or
+     with「いますぐ はじめなおす」. While the panel is open the activity does not react (overlayActive / inert stage).
+     Never a Switch Scan candidate: buildScanItems() returns nothing while it is open, and focus goes to the panel
+     itself (not to one of its buttons), so a switch press cannot choose a level. */
+  function syncLevelUI() {
+    Array.prototype.forEach.call(levelPanel.querySelectorAll('[data-level-opt]'), function (b) {
+      var v = b.getAttribute('data-level-opt'), ready = !!LEVEL_READY[v];
+      b.setAttribute('aria-pressed', String(v === settings.level));
+      b.disabled = !ready;                                  // not ready yet: shown, cannot be chosen
+      var soon = b.querySelector('.level-soon'); if (soon) soon.hidden = ready;
+    });
+    var pending = S.phase !== 'start' && settings.level !== active.level;
+    levelNote.hidden = !pending; levelRestart.hidden = !pending;
+  }
+  function hideLevel() { levelOpen = false; levelPanel.hidden = true; levelBtn.setAttribute('aria-expanded', 'false'); }
+  function openLevel() {
+    if (settingsOpen) closeSettings(true);
+    helpOpen = false; helpSheet.hidden = true; helpBtn.setAttribute('aria-expanded', 'false');
+    confirmOpen = false; confirmBar.hidden = true;
+    levelOpen = true; levelPanel.hidden = false; levelBtn.setAttribute('aria-expanded', 'true');
+    syncLevelUI(); setStageInert();
+    if (scanMode) refreshSwitchScanItems();
+    try { levelPanel.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+  }
+  function closeLevel(skipFocus) {
+    hideLevel(); setStageInert();
+    S.acceptAt = Math.max(S.acceptAt === Infinity ? Infinity : S.acceptAt, now() + 400);   // a closing tap never reaches the activity
+    if (scanMode) refreshSwitchScanItems();                 // the scan goes straight back to the activity's own candidates
+    else if (!skipFocus) { try { levelBtn.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+  }
+  levelBtn.addEventListener('click', function () { if (levelOpen) closeLevel(false); else openLevel(); });
+  levelPanel.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b || b.disabled) return;
+    if (b.id === 'ringoLevelClose') { closeLevel(false); return; }
+    if (b === levelRestart) { closeLevel(true); if (S.phase !== 'start') beginRun(); return; }   // ends this activity, starts one in the saved level
+    var v = b.getAttribute('data-level-opt');
+    if (!v || !LEVEL_READY[v]) return;
+    settings.level = v;
+    saveSettings();
+    if (S.phase === 'start') active = sanitize(settings);
+    syncSettingsUI(); syncLevelUI();
+    if (S.phase === 'start') render();
+    announce(S.phase === 'start' || settings.level === active.level ? LEVEL_NAMES[v] + 'に しました' : 'つぎの かつどうから ' + LEVEL_NAMES[v]);
+  });
+
   function openSettings() {
+    hideLevel();
     helpOpen = false; helpSheet.hidden = true; helpBtn.setAttribute('aria-expanded', 'false');
     confirmOpen = false; confirmBar.hidden = true;
     settingsOpen = true; settingsSheet.hidden = false; settingsBtn.setAttribute('aria-expanded', 'true');
@@ -2033,6 +2205,7 @@ function donomanaRecordFormatTracingLevel(level) {
     if (!skipFocus && back) { try { back.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
   }
   function openHelp() {
+    hideLevel();
     if (settingsOpen) closeSettings(true);
     confirmOpen = false; confirmBar.hidden = true;
     helpOpen = true; helpSheet.hidden = false; helpBtn.setAttribute('aria-expanded', 'true');
@@ -2052,6 +2225,7 @@ function donomanaRecordFormatTracingLevel(level) {
   // settings entry (reached only through the common A11y panel's proxy button)
   settingsBtn.addEventListener('click', function () {
     var running = S.phase === 'harvest' || S.phase === 'complete' || S.phase === 'delivering';
+    hideLevel();
     if (running) {
       confirmOpen = true; confirmBar.hidden = false; setStageInert();
       if (scanMode) refreshSwitchScanItems();
@@ -2070,7 +2244,8 @@ function donomanaRecordFormatTracingLevel(level) {
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (confirmOpen) scCancel.click();
+    if (levelOpen) closeLevel(false);
+    else if (confirmOpen) scCancel.click();
     else if (settingsOpen) closeSettings(false);
     else if (helpOpen) closeHelp();
   });
@@ -2089,7 +2264,8 @@ function donomanaRecordFormatTracingLevel(level) {
   }
   function buildScanItems() {
     var items = [];
-    if (confirmOpen) items = [scCancel, scOpen];
+    if (levelOpen) items = [];                    // the レベルアップ panel is teacher-facing: nothing in it (nor under it) is offered
+    else if (confirmOpen) items = [scCancel, scOpen];
     else if (settingsOpen) items = Array.prototype.slice.call(settingsSheet.querySelectorAll('button'));
     else if (helpOpen) items = [$('helpClose')];
     else if (S.phase === 'start') items = [startBtn];
@@ -2155,6 +2331,7 @@ function donomanaRecordFormatTracingLevel(level) {
   /* init */
   render();
   syncSettingsUI();
+  syncLevelUI();
 })();
 </script>
 </body>
