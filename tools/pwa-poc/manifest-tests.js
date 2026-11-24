@@ -195,11 +195,17 @@ console.log('\n=== 5. generate.js PWA injection coverage ===');
   });
 })();
 
-console.log('\n=== 6. apps-data.json unaffected (§64: still 35, not registered as an app) ===');
+console.log('\n=== 6. apps-data.json unaffected (§64: not registered as an app) ===');
 (function () {
   const apps = JSON.parse(fs.readFileSync(path.join(ROOT, 'apps-data.json'), 'utf8'));
   const list = Array.isArray(apps) ? apps : (apps.apps || Object.values(apps));
-  check('apps-data.json still has 35 entries', list.length === 35, list.length);
+  // 以前は「35件のまま」と件数を直接書いていたが、教材が増えるたびに(35 → 39)このテストだけが
+  // 壊れていた。確かめたいのは「PWA の作業で教材が勝手に増減していないこと」なので、件数は
+  // 書かずに、同じデータから生成されるトップページの教材一覧(index.html の APPS 配列。1教材につき
+  // link: "app-details/…" が1行)の件数と突き合わせる。
+  const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const listedOnTop = (indexHtml.match(/link: "app-details\//g) || []).length;
+  check('apps-data.json entry count matches the app list generated into index.html', list.length > 0 && list.length === listedOnTop, { appsData: list.length, indexHtml: listedOnTop });
   check('learning-records not registered as an app', !list.some(a => a.filename === 'learning-records'));
 })();
 
