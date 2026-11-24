@@ -6,7 +6,7 @@
 <title>キャッシュレス</title>
 <!-- seo-tags: 自動挿入 (generate.js) -->
 <link rel="canonical" href="https://donomana.jp/app-details/cashless-app-detail.html">
-<meta name="description" content="スマホで支払うキャッシュレス決済の流れを、れんしゅう用のお金で疑似体験する教材です。「バーコードを見せて払う」と「QRコードを読み取って払う」の2つの体験で、商品を選ぶ・金額を確かめる・支払う・残高が減って「れきし」に残 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
+<meta name="description" content="スマホで支払うキャッシュレス決済の流れを、れんしゅう用のお金で疑似体験する教材です。「バーコードを見せて払う」と「QRコードを読み取って払う」の2つの体験で、商品を選ぶ・金額を確かめる・支払う・残高が減って「とりひきりれ 特別支援教育向けの無料Webアプリ。インストール不要でブラウザからすぐ使えます。">
 <!-- /seo-tags -->
 <!-- gaze-shared-css: 自動挿入 (generate.js) -->
 <style>
@@ -72,10 +72,12 @@
 <!-- /design-tokens -->
 <style>
   /* ==========================================================================
-     キャッシュレス (cashless-app) — Phase 1（土台＋体験1 バーコード＋体験2 QRコード）
+     キャッシュレス (cashless-app) — Phase 1（土台＋体験1 バーコード＋体験2 QRコード）＋2台読み取り
      キャッシュレス決済の「操作」を、れんしゅう用のお金で疑似体験する教材。
-     - 実際のお金・カメラ・通信は使わない（完全オフライン）。getUserMedia は使わない。
-     - バーコード／QRは「読み取れない」ダミー表示（実在規格のマーカー・ファインダーを描かない）。
+     - 実際のお金・決済ネットワーク・通信は使わない（完全オフライン。2台のやり取りは光学読み取りのみ）。
+     - バーコード（Code128）／QRは実際に読み取れるが、どのまな専用形式（DMC1… / DMCASH1:…）。実在の決済形式
+       （JPQR/EMV・JAN・払込票）ではなく、口座や個人の情報を含まない。汎用スキャナには練習用の文字列が見えるだけ。
+     - カメラ（getUserMedia）は QR の読み取り専用。撮影・保存・送信はしない。使えないときは1台の仮想体験へ。
      - 実在サービスの名称・ロゴ・代表色・決済音は使わない。色はどのまなのデザイントークン。
      - Common Chrome (Home / Lock / Fullscreen / A11y) は generate.js の注入に任せる。
        Help のみ Help/Usage Guide Standard に従い本ファイルで Lock→FS→Help の順に置く。
@@ -127,6 +129,7 @@
 
   .screen { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .screen[hidden] { display: none; }
+  .screen [hidden] { display: none !important; }   /* buttons / leads that are switched by the 1-device / 2-device mode */
   .screen-title { font-size: var(--dm-font-size-heading, 1.5rem); line-height: 1.4; margin: 4px 0 0; font-weight: 900; }
   .lead { margin: 0; font-size: 1.25rem; font-weight: 700; }
   .notice {
@@ -185,6 +188,33 @@
   .code-box svg { width: 100%; max-width: 560px; height: auto; display: block; }
   .practice-tag { display: inline-block; padding: 2px 12px; border-radius: 999px; background: #FFF6DC; border: 2px solid var(--dm-color-accent, #F5A623); font-weight: 900; }
   .code-number { font-size: 1.5rem; font-weight: 900; letter-spacing: .08em; font-variant-numeric: tabular-nums; text-align: center; }
+
+  .code-pair { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center; width: 100%; }
+  .code-pair .bar { flex: 2 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .code-pair .qr { flex: 0 1 180px; min-width: 120px; }
+  .qr-real svg { width: 100%; height: auto; display: block; background: #fff; }
+  .qr-big { width: min(420px, 100%); margin: 0 auto; background: #fff; border: 3px solid var(--dm-color-ink, #3B4A54); border-radius: 12px; padding: 8px; }
+  .qr-mid { width: min(240px, 70%); margin: 0 auto; background: #fff; border: 3px solid var(--dm-color-ink, #3B4A54); border-radius: 12px; padding: 6px; }
+  .big-amount { font-size: clamp(2.5rem, 10vw, 4rem); line-height: 1.2; font-weight: 900; color: var(--dm-color-primary-dark, #00857B); text-align: center; margin: 0; font-variant-numeric: tabular-nums; }
+
+  /* ---------- camera (read-only: frames go to jsQR and are never stored or sent) ---------- */
+  .cam-box { position: relative; background: #2E3A40; border-radius: 16px; overflow: hidden; min-height: 240px; display: flex; align-items: center; justify-content: center; }
+  .cam-box video { width: 100%; max-height: 56vh; display: block; object-fit: cover; }
+  .cam-frame-real { position: absolute; width: min(60%, 300px); aspect-ratio: 1 / 1; border: 6px solid #FFE27A; border-radius: 18px; pointer-events: none; }
+
+  /* ---------- QR cards (print) ---------- */
+  .card-sheet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  @media (min-width: 640px) { .card-sheet { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .qr-card { background: #fff; border: 3px solid var(--dm-color-ink, #3B4A54); border-radius: 12px; padding: 12px; text-align: center; break-inside: avoid; page-break-inside: avoid; }
+  .qr-card .card-emoji { font-size: 2rem; line-height: 1; }
+  .qr-card .card-name { font-size: 1.25rem; font-weight: 900; margin: 2px 0 6px; }
+  .qr-card .card-note { font-size: .9375rem; font-weight: 800; margin-top: 4px; }
+  @media print {
+    body.print-cards * { visibility: hidden !important; }
+    body.print-cards #cardSheet, body.print-cards #cardSheet * { visibility: visible !important; }
+    body.print-cards #cardSheet { position: absolute; left: 0; top: 0; width: 100%; grid-template-columns: repeat(2, 1fr); }
+    body.print-cards .stage { padding: 0; }
+  }
 
   /* ---------- reading animation (barcode) ---------- */
   .reader-scene { position: relative; height: 220px; background: #fff; border-radius: 16px; border: 3px solid var(--dm-color-border, #C9D3D0); overflow: hidden; }
@@ -671,7 +701,8 @@
         <button type="button" class="big-btn menu-btn" id="goQr"><span class="emoji" aria-hidden="true">📱</span>QRコードで はらう</button>
       </div>
       <div class="actions">
-        <button type="button" class="big-btn secondary menu-btn history" id="goHistory"><span class="emoji" aria-hidden="true">📜</span>れきし</button>
+        <button type="button" class="big-btn secondary menu-btn history" id="goHistory"><span class="emoji" aria-hidden="true">📜</span>とりひきりれき</button>
+        <button type="button" class="big-btn secondary menu-btn history" id="goShopMode"><span class="emoji" aria-hidden="true">🏪</span>おみせの ひとに なる</button>
       </div>
     </section>
 
@@ -704,12 +735,32 @@
       <div class="back-row"><button type="button" class="back-btn" data-back="bc-confirm">← もどる</button></div>
       <h2 class="screen-title" id="hBcCode" tabindex="-1">この バーコードを おみせの ひとに みせよう</h2>
       <div class="code-box">
-        <span class="practice-tag">れんしゅうよう（ほんものでは ありません）</span>
-        <div id="barcodeArt" role="img" aria-label="れんしゅうよう の バーコード"></div>
-        <div class="code-number" id="barcodeNumber"></div>
+        <span class="practice-tag">れんしゅうよう（ほんものの おみせでは つかえません）</span>
+        <div class="code-pair">
+          <div class="bar">
+            <div id="barcodeArt" role="img" aria-label="れんしゅうよう の バーコード"></div>
+            <div class="code-number" id="barcodeNumber"></div>
+          </div>
+          <div class="qr qr-real" id="payQrArt" role="img" aria-label="れんしゅうよう の QRコード"></div>
+        </div>
       </div>
+      <p class="lead" id="bcTwoLead" hidden>おみせの ひとに よんで もらおう。「うけとりました」と いわれたら「かんりょう」を おそう。</p>
+      <p class="notice" id="bcCodeNotice" role="status" hidden></p>
       <div class="actions">
         <button type="button" class="big-btn" id="bcPresent">おみせに みせる</button>
+        <button type="button" class="big-btn" id="bcDoneA1" hidden>かんりょう</button>
+        <button type="button" class="big-btn secondary" id="bcScanR" hidden>うけとりの しるしを よむ</button>
+      </div>
+    </section>
+
+    <!-- 体験1（2台）: おみせが だす「うけとりました」の しるし（QR）を よみかえす -->
+    <section class="screen" id="scrBcScanR" data-screen="bc-scanr" aria-labelledby="hBcScanR" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="bc-code">← もどる</button></div>
+      <h2 class="screen-title" id="hBcScanR" tabindex="-1">「うけとりました」の しるしを よもう</h2>
+      <div class="cam-box"><video id="camR" autoplay muted playsinline webkit-playsinline></video><div class="cam-frame-real" aria-hidden="true"></div></div>
+      <p class="notice" id="camRStatus" role="status" hidden></p>
+      <div class="actions">
+        <button type="button" class="big-btn secondary" id="camRRetry" hidden>カメラを つける</button>
       </div>
     </section>
 
@@ -728,10 +779,11 @@
     <section class="screen" id="scrQrShop" data-screen="qr-shop" aria-labelledby="hQrShop" hidden>
       <div class="back-row"><button type="button" class="back-btn" data-back="home">← もどる</button></div>
       <h2 class="screen-title" id="hQrShop" tabindex="-1">おみせの QRコードを よもう</h2>
-      <div class="shop-front">
+      <p class="lead" id="qrRealLead" hidden>おみせの ひとが だした QRコード（または QRカード）を、カメラで よもう。</p>
+      <div class="shop-front" id="qrVirtualFront">
         <span class="shop-emoji" id="qrShopEmoji" aria-hidden="true"></span>
         <span class="shop-sign" id="qrShopSign"></span>
-        <div class="qr-stand"><div class="qr-art" data-qr="shop" role="img" aria-label="れんしゅうよう の QRコード"></div><span class="stand-label">れんしゅうよう</span></div>
+        <div class="qr-stand"><div class="qr-art qr-real" data-qr="shop" role="img" aria-label="れんしゅうよう の QRコード"></div><span class="stand-label">れんしゅうよう</span></div>
       </div>
       <p class="notice" id="qrShopNotice" role="status" hidden></p>
       <div class="actions">
@@ -739,12 +791,24 @@
       </div>
     </section>
 
-    <!-- 体験2-2 よみとり（カメラふう。ほんものの カメラは つかわない） -->
+    <!-- 体験2（2台）: おみせの QR を ほんものの カメラで よむ -->
+    <section class="screen" id="scrQrCam" data-screen="qr-cam" aria-labelledby="hQrCam" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="qr-shop">← もどる</button></div>
+      <h2 class="screen-title" id="hQrCam" tabindex="-1">わくに おみせの QRコードを いれよう</h2>
+      <div class="cam-box"><video id="camS" autoplay muted playsinline webkit-playsinline></video><div class="cam-frame-real" aria-hidden="true"></div></div>
+      <p class="notice" id="camSStatus" role="status" hidden></p>
+      <div class="actions">
+        <button type="button" class="big-btn secondary" id="camSRetry" hidden>カメラを つける</button>
+        <button type="button" class="big-btn secondary" id="qrCamFallback" hidden>がめんの QRで れんしゅう する</button>
+      </div>
+    </section>
+
+    <!-- 体験2-2 よみとり（1台の仮想体験: カメラふう。ほんものの カメラは つかわない） -->
     <section class="screen" id="scrQrScan" data-screen="qr-scan" aria-labelledby="hQrScan" hidden>
       <div class="back-row"><button type="button" class="back-btn" data-back="qr-shop">← もどる</button></div>
       <h2 class="screen-title" id="hQrScan" tabindex="-1">わくに QRコードを あわせよう</h2>
       <div class="camera-view" aria-hidden="true">
-        <div class="qr-stand"><div class="qr-art" data-qr="cam"></div><span class="stand-label">れんしゅうよう</span></div>
+        <div class="qr-stand"><div class="qr-art qr-real" data-qr="cam"></div><span class="stand-label">れんしゅうよう</span></div>
         <div class="cam-frame"></div>
         <div class="cam-note">（れんしゅうの がめんです。カメラは つかいません）</div>
       </div>
@@ -795,6 +859,7 @@
     <section class="screen" id="scrDone" data-screen="done" aria-labelledby="hDone" hidden>
       <h2 class="screen-title" id="hDone" tabindex="-1">はらいました</h2>
       <div class="panel">
+        <div class="panel-row"><span class="k">おみせ</span><span class="v" id="doneShop"></span></div>
         <div class="panel-row"><span class="k">はらった おかね</span><span class="v big" id="donePaid"></span></div>
         <div class="panel-row"><span class="k">のこりの おかね</span><span class="v big" id="doneLeft"></span></div>
       </div>
@@ -814,12 +879,106 @@
       </div>
     </section>
 
-    <!-- れきし -->
+    <!-- とりひきりれき（内部名は history のまま） -->
     <section class="screen" id="scrHistory" data-screen="history" aria-labelledby="hHistory" hidden>
       <div class="back-row"><button type="button" class="back-btn" data-back="home">← もどる</button></div>
-      <h2 class="screen-title" id="hHistory" tabindex="-1">れきし（つかった おかね）</h2>
+      <h2 class="screen-title" id="hHistory" tabindex="-1">とりひきりれき（つかった おかね）</h2>
       <p class="lead" id="historyEmpty">まだ ありません。</p>
       <ul class="history-list" id="historyList"></ul>
+    </section>
+
+    <!-- ===== おみせモード（もう1台、または同じ端末で開く お店役の画面） ===== -->
+    <section class="screen" id="scrShopHome" data-screen="shop-home" aria-labelledby="hShopHome" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="home">← もどる</button></div>
+      <h2 class="screen-title" id="hShopHome" tabindex="-1">おみせの ひとの がめん</h2>
+      <div class="panel">
+        <div class="panel-row"><span class="k">きょう うけとった おかね</span><span class="v big" id="shopTotal"></span><span class="v" id="shopCount"></span></div>
+      </div>
+      <div class="home-menu">
+        <button type="button" class="big-btn menu-btn" id="shopGoScan"><span class="emoji" aria-hidden="true">📷</span>おきゃくさんの コードを よむ</button>
+        <button type="button" class="big-btn menu-btn" id="shopGoQr"><span class="emoji" aria-hidden="true">🔳</span>おみせの QRを だす</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="big-btn secondary menu-btn history" id="shopGoCards"><span class="emoji" aria-hidden="true">🖨</span>QRカードを いんさつ</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scrShopScan" data-screen="shop-scan" aria-labelledby="hShopScan" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-home">← もどる</button></div>
+      <h2 class="screen-title" id="hShopScan" tabindex="-1">おきゃくさんの QRコードを わくに いれよう</h2>
+      <div class="cam-box"><video id="camP" autoplay muted playsinline webkit-playsinline></video><div class="cam-frame-real" aria-hidden="true"></div></div>
+      <p class="notice" id="camPStatus" role="status" hidden></p>
+      <div class="actions">
+        <button type="button" class="big-btn secondary" id="camPRetry" hidden>カメラを つける</button>
+        <button type="button" class="big-btn secondary" id="shopManual">てで きんがくを いれる</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scrShopManual" data-screen="shop-manual" aria-labelledby="hShopManual" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-home">← もどる</button></div>
+      <h2 class="screen-title" id="hShopManual" tabindex="-1">うけとる きんがくを いれよう</h2>
+      <div class="amount-display" id="shopManualDisplay" aria-live="polite"></div>
+      <div class="keypad" id="shopManualKeypad" role="group" aria-label="すうじの ボタン"></div>
+    </section>
+
+    <section class="screen" id="scrShopAsk" data-screen="shop-ask" aria-labelledby="hShopAsk" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-home">← もどる</button></div>
+      <h2 class="screen-title" id="hShopAsk" tabindex="-1">きんがくを たしかめて、うけとろう</h2>
+      <p class="big-amount" id="shopAskAmount"></p>
+      <div class="actions">
+        <button type="button" class="speak-btn" id="shopAskSpeak" aria-label="もういちど きく">🔊</button>
+        <button type="button" class="big-btn" id="shopReceive">うけとる</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scrShopReceived" data-screen="shop-received" aria-labelledby="hShopReceived" hidden>
+      <h2 class="screen-title" id="hShopReceived" tabindex="-1">うけとりました</h2>
+      <p class="big-amount" id="shopReceivedAmount"></p>
+      <div id="shopReceiptWrap" hidden>
+        <p class="lead">おきゃくさんに、この しるしを よんで もらっても いいよ。</p>
+        <div class="qr-mid qr-real" id="shopReceiptQr" role="img" aria-label="うけとりました の しるし（QRコード）"></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="big-btn" id="shopNext">つぎの おきゃくさん</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scrShopPick" data-screen="shop-pick" aria-labelledby="hShopPick" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-home">← もどる</button></div>
+      <h2 class="screen-title" id="hShopPick" tabindex="-1">どの おみせに なる？</h2>
+      <div class="card-grid" id="shopPickGrid"></div>
+    </section>
+
+    <section class="screen" id="scrShopPrice" data-screen="shop-price" aria-labelledby="hShopPrice" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-pick">← もどる</button></div>
+      <h2 class="screen-title" id="hShopPrice" tabindex="-1">おきゃくさんが はらう きんがくを いれよう</h2>
+      <div class="amount-display" id="shopPriceDisplay" aria-live="polite"></div>
+      <div class="keypad" id="shopPriceKeypad" role="group" aria-label="すうじの ボタン"></div>
+    </section>
+
+    <section class="screen" id="scrShopQr" data-screen="shop-qr" aria-labelledby="hShopQr" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-price">← もどる</button></div>
+      <h2 class="screen-title" id="hShopQr" tabindex="-1">この QRコードを おきゃくさんに みせよう</h2>
+      <div class="shop-front">
+        <span class="shop-sign" id="shopQrSign"></span>
+        <p class="big-amount" id="shopQrAmount"></p>
+        <div class="qr-big qr-real" id="shopQrArt" role="img" aria-label="おみせの QRコード（れんしゅうよう）"></div>
+        <span class="practice-tag">れんしゅうよう</span>
+      </div>
+      <p class="lead">おきゃくさんの「はらいました」の がめんを みたら、「うけとった」を おそう。</p>
+      <div class="actions">
+        <button type="button" class="big-btn" id="shopQrReceived">うけとった</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scrShopCards" data-screen="shop-cards" aria-labelledby="hShopCards" hidden>
+      <div class="back-row"><button type="button" class="back-btn" data-back="shop-home">← もどる</button></div>
+      <h2 class="screen-title" id="hShopCards" tabindex="-1">おみせの QRカード</h2>
+      <p class="lead">いんさつして おみせに おくと、おきゃくさんが カメラで よめます（きんがくは はいって いません）。</p>
+      <div class="actions">
+        <button type="button" class="big-btn" id="shopPrint">いんさつ する</button>
+      </div>
+      <div class="card-sheet" id="cardSheet"></div>
     </section>
   </main>
 </div>
@@ -833,6 +992,14 @@
     <button type="button" class="close-btn" id="settingsClose">とじる</button>
   </div>
 
+  <div class="row">
+    <p class="row-label" id="lblDevices">つかいかた（つぎの たいけんから）</p>
+    <div class="btn-group" role="group" aria-labelledby="lblDevices">
+      <button type="button" class="opt-btn" data-devices="one" aria-pressed="false">1だいで（ひとりで れんしゅう）</button>
+      <button type="button" class="opt-btn" data-devices="two" aria-pressed="false">2だいで（おみせの ひとと）</button>
+    </div>
+    <p class="note">「2だいで」では、もう1だいの「おみせの ひとに なる」がめん（または いんさつした QRカード）と、ほんとうに コードを みせたり カメラで よんだり します。カメラは よみとり だけに つかい、えいぞうの ほぞん・そうしんは しません。カメラが つかえない ときは、1だいの れんしゅうに きりかえられます。</p>
+  </div>
   <div class="row">
     <p class="row-label" id="lblLevel">なんいど（つぎの たいけんから）</p>
     <div class="btn-group" role="group" aria-labelledby="lblLevel">
@@ -858,7 +1025,7 @@
     <p class="note" id="resetInfo"></p>
     <button type="button" class="opt-btn" id="resetBtn">もとに もどす</button>
     <div class="inline-confirm" id="resetConfirm" role="group" aria-labelledby="resetQuestion" hidden>
-      <p class="note" id="resetQuestion">のこりの おかねを はじめの おかねに もどし、「れきし」を けします。よいですか？（学習の きろくは けしません）</p>
+      <p class="note" id="resetQuestion">のこりの おかねを はじめの おかねに もどし、「とりひきりれき」を けします。よいですか？（学習の きろくは けしません）</p>
       <div class="btn-group">
         <button type="button" class="opt-btn" id="resetCancel">やめる</button>
         <button type="button" class="opt-btn" id="resetYes">もどす</button>
@@ -872,7 +1039,7 @@
       <button type="button" class="opt-btn" data-check="on" aria-pressed="false">ON</button>
       <button type="button" class="opt-btn" data-check="off" aria-pressed="false">OFF</button>
     </div>
-    <p class="note">ONのとき、ときどき となりの おみせの QRを よんでしまう れんしゅうが でます。かくにん がめんで おみせの なまえが ちがうことに きづいて「なおす」を えらびます。「なんいどに あわせる」は むずかしい だけ ON です。</p>
+    <p class="note">「1だいで」の れんしゅうで つかいます。ONのとき、ときどき となりの おみせの QRを よんでしまう れんしゅうが でます。かくにん がめんで おみせの なまえが ちがうことに きづいて「なおす」を えらびます。「なんいどに あわせる」は むずかしい だけ ON です。</p>
   </div>
   <div class="row">
     <p class="row-label" id="lblVoice">こえの あんない</p>
@@ -949,14 +1116,22 @@
     <button type="button" class="close-btn" id="helpClose">とじる</button>
   </div>
   <h3>このアプリについて</h3>
-  <p>スマホで おかねを はらう ながれを、れんしゅう用の おかねで たいけんする教材です。はらう たびに「れんしゅうの おかね」が へり、「れきし」に のこります。目に 見えない おかねの うごきを、じぶんで そうさしながら たしかめます。</p>
-  <p>ほんものの おかね・カメラ・つうしんは つかいません。バーコードと QRコードは れんしゅう用の かざりで、ほんものの お店では よみとれません。げんきんの べんきょうは「おかねのおべんきょう」で できます。</p>
+  <p>スマホで おかねを はらう ながれを、れんしゅう用の おかねで たいけんする教材です。はらう たびに「れんしゅうの おかね」が へり、「とりひきりれき」に のこります。目に 見えない おかねの うごきを、じぶんで そうさしながら たしかめます。</p>
+  <p>ほんものの おかねは うごきません。インターネットの つうしんも つかいません。バーコードと QRコードは、この教材だけの れんしゅう用の かたちで、ほんものの お店の しはらいには つかえません（ほかの アプリで よんでも、れんしゅう用の もじが 見えるだけです）。げんきんの べんきょうは「おかねのおべんきょう」で できます。</p>
 
   <h3>たいけんの ちがい</h3>
   <h4>バーコードで はらう</h4>
   <p>かう ものを えらび、きんがくを たしかめて、スマホの バーコードを お店の ひとに みせます。お店の ひとが よみとって、はらいおわります。</p>
   <h4>QRコードで はらう</h4>
   <p>お店の QRコードを よみとり、いわれた きんがくを じぶんで いれます。はらう まえに「お店の なまえ」と「きんがく」が あっているかを たしかめるのが ポイントです。</p>
+  <h4>2だいで やりとりする（おみせの ひとに なる）</h4>
+  <p>せっていの「つかいかた」を「2だいで」に すると、もう1だいの「おみせの ひとに なる」がめんと、ほんとうに コードを みせたり、カメラで よんだり できます。お店の ひとの やくも、子どもが できます。</p>
+  <ul>
+    <li>バーコードで はらう：はらう ひとが バーコードと QRコードを みせ、お店の ひとが カメラで QRコードを よんで「うけとる」を おします。はらう ひとは、お店の ひとの がめんと こえを たしかめて「かんりょう」を おします（お店の がめんに 出る「うけとりました」の しるしを カメラで よんでも かんりょう できます）。</li>
+    <li>QRコードで はらう：お店の ひとが お店と きんがくを きめて QRコードを 出し、はらう ひとが カメラで よみます。「やさしい」では きんがくが じどうで はいり、「ふつう」「むずかしい」では お店の ひとに きんがくを きいて じぶんで いれます。はらったら、かんりょうの がめんを お店の ひとに みせます。</li>
+    <li>QRカード：お店の ひとの がめんから、お店ごとの QRカードを いんさつ できます（きんがくは はいって いません）。1だいしか ない ときも、カードを カメラで よめます。</li>
+  </ul>
+  <p>カメラは QRコードの よみとり だけに つかい、えいぞうの ほぞん・そうしんは しません。カメラが つかえない・ゆるされて いない ときは、1だいの れんしゅうに きりかえられます。コードには、きんがく・お店の ばんごう・とりひきの ばんごう だけが はいって いて、なまえや きろくは はいって いません。</p>
   <h4>おかねが たりないとき</h4>
   <p>しっぱいで おわりません。バーコードでは かう ものを えらびなおし、QRコードでは きんがくを いれなおせます。</p>
 
@@ -974,7 +1149,8 @@
   <p>右下の「アクセシビリティ設定」を ひらき、「このアプリの詳細設定を開く」を おします。</p>
   <ul>
     <li>なんいど（やさしい・ふつう・むずかしい）</li>
-    <li>はじめの おかね と「もとに もどす」（のこりの おかねを はじめの おかねに もどし、れきしを けします）</li>
+    <li>つかいかた（1だいで／2だいで）</li>
+    <li>はじめの おかね と「もとに もどす」（のこりの おかねを はじめの おかねに もどし、とりひきりれきを けします）</li>
     <li>かくにんの れんしゅう（となりの お店の QRを よんでしまう れんしゅう）</li>
     <li>こえの あんない・こうかおん</li>
     <li>スイッチスキャンと その はやさ、しせん にゅうりょく</li>
@@ -1279,6 +1455,14 @@ function donomanaRecordFormatTracingLevel(level) {
 }
 </script>
 <!-- /learning-record-foundation-js -->
+<!-- qrcode-generator v2.0.4 (MIT License, Copyright (c) 2009 Kazuhiko Arase) -->
+<!-- 配布元: https://github.com/kazuhikoarase/qrcode-generator -->
+<!-- ライセンス全文: assets/js/vendor/qrcode-generator/LICENSE.txt -->
+<script src="assets/js/vendor/qrcode-generator/qrcode.js"></script>
+<!-- jsQR v1.4.0 (Apache License 2.0) -->
+<!-- 配布元: https://github.com/cozmo/jsQR -->
+<!-- ライセンス全文: assets/js/vendor/jsqr/LICENSE.txt -->
+<script src="assets/js/vendor/jsqr/jsQR.js"></script>
 <script>
 (function () {
   'use strict';
@@ -1291,7 +1475,7 @@ function donomanaRecordFormatTracingLevel(level) {
   var WALLET_KEY = 'donomana-cashless-wallet-v1';    // { schemaVersion, balance, history[] } — child-facing state, not the learning record
   var RECORD_KEY = 'cashless_log', RECORD_CAP = 200;
   var HISTORY_CAP = 50;
-  var DEFAULTS = { level: 'normal', startMode: 'auto', check: 'auto', voice: true, sound: true, scanSpeed: 'normal', gaze: false, dwellMs: 900, ring: true };
+  var DEFAULTS = { devices: 'one', level: 'normal', startMode: 'auto', check: 'auto', voice: true, sound: true, scanSpeed: 'normal', gaze: false, dwellMs: 900, ring: true };
   var LEVELS = {
     easy:   { max: 500,  digits: 0, start: 500 },     // QR: amount buttons, no keypad
     normal: { max: 999,  digits: 3, start: 1000 },
@@ -1336,6 +1520,7 @@ function donomanaRecordFormatTracingLevel(level) {
   ===================================================================== */
   function sanitize(s) {
     var o = {}; s = (s && typeof s === 'object') ? s : {};
+    o.devices = (s.devices === 'two') ? 'two' : 'one';
     o.level = LEVELS.hasOwnProperty(s.level) ? s.level : DEFAULTS.level;
     o.startMode = (s.startMode === 'auto' || START_VALUES.indexOf(Number(s.startMode)) !== -1) ? String(s.startMode) : DEFAULTS.startMode;
     o.check = (s.check === 'on' || s.check === 'off' || s.check === 'auto') ? s.check : DEFAULTS.check;
@@ -1358,6 +1543,7 @@ function donomanaRecordFormatTracingLevel(level) {
   // wireStepper() (Gaze Shared Foundation) calls a global saveSettings()
   window.saveSettings = saveSettings;
   function startAmount() { return settings.startMode === 'auto' ? LEVELS[settings.level].start : Number(settings.startMode); }
+  function twoDevices() { return settings.devices === 'two'; }
   function checkPracticeOn() { return settings.check === 'on' || (settings.check === 'auto' && settings.level === 'hard'); }
 
   /* =====================================================================
@@ -1366,9 +1552,9 @@ function donomanaRecordFormatTracingLevel(level) {
   function loadWallet() {
     var w = readJSON(WALLET_KEY);
     if (!w || typeof w !== 'object' || typeof w.balance !== 'number' || !isFinite(w.balance) || w.balance < 0) {
-      return { schemaVersion: 1, balance: startAmount(), history: [] };
+      return { schemaVersion: 1, balance: startAmount(), history: [], paidTxns: [] };
     }
-    return { schemaVersion: 1, balance: Math.floor(w.balance), history: Array.isArray(w.history) ? w.history.slice(-HISTORY_CAP) : [] };
+    return { schemaVersion: 1, balance: Math.floor(w.balance), history: Array.isArray(w.history) ? w.history.slice(-HISTORY_CAP) : [], paidTxns: Array.isArray(w.paidTxns) ? w.paidTxns.slice(-100) : [] };
   }
   var wallet = loadWallet();
   function saveWallet() { writeJSON(WALLET_KEY, wallet); }
@@ -1458,50 +1644,76 @@ function donomanaRecordFormatTracingLevel(level) {
   function playKey() { tone(660, 0, 0.05, 0.12); }
 
   /* =====================================================================
-     dummy codes (never decodable): see 設計 §5
-     - barcode: no start/stop guard, no quiet zone, a blank break across the full height in the
-       middle (every scan line hits it), and a number that mixes in kana (never digits only).
-     - QR: dots only; the three corners are stars, not finder squares; the centre carries
-       「れんしゅうよう」. No data is encoded.
+     practice codes (really readable, donomana-only format; never a real payment format)
+     QR  : DMCASH1:P:<amount>:<txn>            the payer's code (shown to the shop)
+           DMCASH1:S:<shopNo>:<amount|"">:<txn> the shop's code (amount may be empty: printed card)
+           DMCASH1:R:<amount>:<txn>            the shop's "received" mark
+     Bar : Code128, "DMC1" + 12 digits (kind 1 + amount 5 + txn 6). Shown only (the app reads QR only).
+     Only the amount, a shop number (index into the fixed practice shops) and a transaction number are
+     encoded: no name, no record, no account. JPQR/EMV starts with 000201, JAN is 8/13 digits in EAN,
+     payment slips are GS1-128 with 44 digits: none of them matches this format.
   ===================================================================== */
-  function seeded(seed) { var x = seed >>> 0 || 1; return function () { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return (x % 1000) / 1000; }; }
-  function barcodeSVG(seed, h) {
-    var r = seeded(seed), x = 0, parts = [], W = 300, gapFrom = 116, gapTo = 184;
-    while (x < W) {
-      var w = 1 + Math.floor(r() * 4);
-      if (x < gapFrom || x >= gapTo) { if (x + w > gapFrom && x < gapFrom) w = gapFrom - x; parts.push('<rect x="' + x + '" y="0" width="' + w + '" height="' + h + '" fill="#2A3439"/>'); }
-      x += w + 1 + Math.floor(r() * 3);
-      if (x >= gapFrom && x < gapTo) x = gapTo;
+  var CODE_PREFIX = 'DMCASH1', BAR_PREFIX = 'DMC1', CARD_TXN = '000000', CODE_AMOUNT_MAX = 9999;
+  function pad(n, len) { var t = String(n); while (t.length < len) t = '0' + t; return t; }
+  function newTxn() { return pad(randInt(1, 999999), 6); }
+  function buildCode(type, o) {
+    if (type === 'S') return [CODE_PREFIX, 'S', o.shopId, (o.amount ? o.amount : ''), o.txn].join(':');
+    return [CODE_PREFIX, type, o.amount, o.txn].join(':');
+  }
+  function validAmount(t) { return /^[1-9][0-9]{0,3}$/.test(t) && parseInt(t, 10) <= CODE_AMOUNT_MAX; }
+  // returns { type, amount (number|null), txn, shopId } or null when it is not one of our codes
+  function parseCode(text) {
+    if (typeof text !== 'string' || text.length > 60) return null;
+    var p = text.split(':');
+    if (p[0] !== CODE_PREFIX) return null;
+    if (p[1] === 'P' || p[1] === 'R') {
+      if (p.length !== 4 || !validAmount(p[2]) || !/^[0-9]{6}$/.test(p[3])) return null;
+      return { type: p[1], amount: parseInt(p[2], 10), txn: p[3], shopId: null };
     }
-    parts.push('<rect x="' + (gapFrom + 2) + '" y="' + (h / 2 - 22) + '" width="' + (gapTo - gapFrom - 4) + '" height="44" rx="6" fill="#FFF6DC" stroke="#F5A623" stroke-width="2"/>');
-    parts.push('<text x="' + ((gapFrom + gapTo) / 2) + '" y="' + (h / 2 - 3) + '" font-size="11" font-weight="700" text-anchor="middle" fill="#3B4A54">れんしゅう</text>');
-    parts.push('<text x="' + ((gapFrom + gapTo) / 2) + '" y="' + (h / 2 + 13) + '" font-size="11" font-weight="700" text-anchor="middle" fill="#3B4A54">よう</text>');
-    return '<svg viewBox="0 0 ' + W + ' ' + h + '" aria-hidden="true" focusable="false">' + parts.join('') + '</svg>';
-  }
-  function barcodeNumber(seed) {
-    var r = seeded(seed + 7), d = '';
-    for (var i = 0; i < 8; i++) d += String(Math.floor(r() * 10));
-    return 'れんしゅう ' + d.slice(0, 4) + ' ' + d.slice(4);
-  }
-  function starPath(cx, cy, R) {
-    var p = [], i, a, rr;
-    for (i = 0; i < 10; i++) { a = -Math.PI / 2 + i * Math.PI / 5; rr = (i % 2 === 0) ? R : R * 0.45; p.push((cx + rr * Math.cos(a)).toFixed(1) + ' ' + (cy + rr * Math.sin(a)).toFixed(1)); }
-    return 'M' + p.join(' L') + ' Z';
-  }
-  function qrSVG(seed) {
-    var r = seeded(seed), n = 21, cell = 10, parts = [], i, j;
-    function inCorner(i, j) { return (i < 7 && j < 7) || (i < 7 && j >= n - 7) || (i >= n - 7 && j < 7); }
-    function inCenter(i, j) { return i >= 7 && i <= 13 && j >= 5 && j <= 15; }
-    for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
-      if (inCorner(i, j) || inCenter(i, j)) continue;
-      if (r() < 0.45) parts.push('<circle cx="' + (j * cell + 5) + '" cy="' + (i * cell + 5) + '" r="3.6" fill="#2A3439"/>');
+    if (p[1] === 'S') {
+      if (p.length !== 5 || !/^[1-9]$/.test(p[2]) || parseInt(p[2], 10) > QR_SHOPS.length) return null;
+      if (p[3] !== '' && !validAmount(p[3])) return null;
+      if (!/^[0-9]{6}$/.test(p[4])) return null;
+      return { type: 'S', amount: p[3] === '' ? null : parseInt(p[3], 10), txn: p[4], shopId: parseInt(p[2], 10) };
     }
-    [[35, 35], [n * cell - 35, 35], [35, n * cell - 35]].forEach(function (c) { parts.push('<path d="' + starPath(c[0], c[1], 30) + '" fill="#F5A623" stroke="#2A3439" stroke-width="3" stroke-linejoin="round"/>'); });
-    parts.push('<rect x="52" y="72" width="106" height="66" rx="8" fill="#fff" stroke="#00A99D" stroke-width="3"/>');
-    parts.push('<text x="105" y="100" font-size="15" font-weight="700" text-anchor="middle" fill="#3B4A54">れんしゅう</text>');
-    parts.push('<text x="105" y="122" font-size="15" font-weight="700" text-anchor="middle" fill="#3B4A54">よう</text>');
-    return '<svg viewBox="0 0 ' + (n * cell) + ' ' + (n * cell) + '" aria-hidden="true" focusable="false">' + parts.join('') + '</svg>';
+    return null;
   }
+  var NOT_OURS = 'どのまなの コードでは ありません';
+  function qrSVG(text) {
+    try {
+      var q = qrcode(0, 'M'); q.addData(text); q.make();
+      return q.createSvgTag({ cellSize: 6, margin: 24, scalable: true });   // margin = 4 modules (quiet zone)
+    } catch (e) { return '<p class="note">QRコードを つくれませんでした</p>'; }
+  }
+  // Code128 (self-made, no library): widths of the bar/space runs for symbol values 0..106
+  var C128 = ('212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112').split(' ');
+  // text: the part in code set B, digits: an even-length digit string in code set C
+  function code128Symbols(text, digits) {
+    var sy = [104], i;                                   // Start B
+    for (i = 0; i < text.length; i++) sy.push(text.charCodeAt(i) - 32);
+    sy.push(99);                                         // switch to code set C
+    for (i = 0; i < digits.length; i += 2) sy.push(parseInt(digits.substr(i, 2), 10));
+    var sum = sy[0];
+    for (i = 1; i < sy.length; i++) sum += sy[i] * i;
+    sy.push(sum % 103);                                  // check symbol
+    sy.push(106);                                        // Stop
+    return sy;
+  }
+  function code128Modules(symbols) {                     // '1' = bar, '0' = space
+    var out = '';
+    symbols.forEach(function (v) { var w = C128[v], k, n; for (k = 0; k < w.length; k++) for (n = 0; n < +w.charAt(k); n++) out += (k % 2 === 0 ? '1' : '0'); });
+    return out;
+  }
+  function barDigits(amount, txn) { return '1' + pad(amount, 5) + txn; }          // kind 1 = the payer's code
+  function barcodeSVG(amount, txn, h) {
+    var mods = code128Modules(code128Symbols(BAR_PREFIX, barDigits(amount, txn))), quiet = 10, parts = [], i = 0, j;
+    while (i < mods.length) {
+      if (mods.charAt(i) === '1') { j = i; while (j < mods.length && mods.charAt(j) === '1') j++; parts.push('<rect x="' + (i + quiet) + '" y="0" width="' + (j - i) + '" height="' + h + '" fill="#000"/>'); i = j; }
+      else i++;
+    }
+    return '<svg viewBox="0 0 ' + (mods.length + quiet * 2) + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:' + h + 'px;display:block;background:#fff" aria-hidden="true" focusable="false">' + parts.join('') + '</svg>';
+  }
+  function barcodeNumber(amount, txn) { var d = barDigits(amount, txn); return 'れんしゅう ' + BAR_PREFIX + ' ' + d.slice(0, 6) + ' ' + d.slice(6); }
 
   /* =====================================================================
      keypad (reusable): digits + けす + (optional) つぎへ. Built from native buttons
@@ -1586,7 +1798,9 @@ function donomanaRecordFormatTracingLevel(level) {
   }
   function show(name, opts) {
     opts = opts || {};
+    camStop();
     current = name;
+    document.body.classList.toggle('print-cards', name === 'shop-cards');
     Object.keys(SCREENS).forEach(function (k) { SCREENS[k].hidden = (k !== name); });
     appEl.setAttribute('data-screen', name);
     acceptAt = now() + SCREEN_GUARD_MS;
@@ -1613,6 +1827,8 @@ function donomanaRecordFormatTracingLevel(level) {
       if (to === 'home') { flow = null; goHome(); return; }
       if (to === 'bc-items') { renderBcItems(); }
       if (to === 'qr-amount') { openQrAmount(); return; }
+      if (to === 'shop-home') { openShopHome(); return; }
+      if (to === 'shop-price') { openShopPrice(); return; }
       show(to);
       if (to === 'bc-confirm') speakBcConfirm();
       if (to === 'qr-shop') resetQrScan();
@@ -1679,15 +1895,45 @@ function donomanaRecordFormatTracingLevel(level) {
       return;
     }
     $('bcShortNotice').hidden = true;
-    $('barcodeArt').innerHTML = barcodeSVG(flow.seed, 120);
-    $('barcodeNumber').textContent = barcodeNumber(flow.seed);
+    if (!flow.txn) flow.txn = newTxn();
+    $('barcodeArt').innerHTML = barcodeSVG(flow.amount, flow.txn, 110);
+    $('barcodeNumber').textContent = barcodeNumber(flow.amount, flow.txn);
+    $('payQrArt').innerHTML = qrSVG(buildCode('P', { amount: flow.amount, txn: flow.txn }));
+    var two = twoDevices();
+    $('bcPresent').hidden = two; $('bcDoneA1').hidden = !two; $('bcScanR').hidden = !two; $('bcTwoLead').hidden = !two;
+    $('bcCodeNotice').hidden = true;
     show('bc-code');
-    speak('バーコードを おみせの ひとに みせよう');
+    speak(two ? 'おみせの ひとに よんで もらおう。うけとりました、と いわれたら、かんりょうを おそう' : 'バーコードを おみせの ひとに みせよう');
   });
+  // 2台: A1 = the child checks the shop's screen and voice, then presses かんりょう
+  $('bcDoneA1').addEventListener('click', function () {
+    if (!accept(this)) return;
+    flow.method = takeMethod();
+    finishPayment();
+  });
+  // 2台: A2 = read the shop's "received" mark (R) back; amount and transaction number must match
+  function startScanR() {
+    camStart({
+      screen: 'bc-scanr', video: $('camR'), status: $('camRStatus'), retry: $('camRRetry'),
+      failHint: '「もどる」を おして、おみせの ひとの がめんを たしかめてから「かんりょう」を おそう。',
+      onText: function (text) {
+        var c = parseCode(text);
+        if (!c) return NOT_OURS;
+        if (c.type !== 'R') return 'この コードは「うけとりました」の しるしでは ありません';
+        if (c.amount !== flow.amount || c.txn !== flow.txn) return 'ほかの しはらいの しるしです';
+        playRead();
+        flow.method = null;              // completed by the camera reading, not by an activating input
+        finishPayment();
+        return null;
+      }
+    });
+  }
+  $('bcScanR').addEventListener('click', function () { if (!accept(this)) return; show('bc-scanr'); startScanR(); });
+  $('camRRetry').addEventListener('click', function () { if (!accept(this)) return; startScanR(); });
   $('bcPresent').addEventListener('click', function () {
     if (!accept(this)) return;
     flow.method = takeMethod();
-    $('miniCode').innerHTML = barcodeSVG(flow.seed, 120);
+    $('miniCode').innerHTML = barcodeSVG(flow.amount, flow.txn, 60);
     appEl.setAttribute('data-read-ok', '0');
     show('bc-reading');
     appEl.setAttribute('data-reading', '1');
@@ -1715,12 +1961,23 @@ function donomanaRecordFormatTracingLevel(level) {
   $('goQr').addEventListener('click', function () {
     if (!accept(this)) return;
     flow = newFlow('qr');
+    flow.real = twoDevices();
+    $('qrShopNotice').hidden = true; $('qrShopNotice').className = 'notice';
+    if (flow.real) { setQrShopMode(true); show('qr-shop'); speak('おみせの ひとの QRコードを、カメラで よもう'); return; }
+    startVirtualQr();
+  });
+  function setQrShopMode(real) { $('qrVirtualFront').hidden = real; $('qrRealLead').hidden = !real; }
+  function startVirtualQr(notice) {
+    flow.real = false;
     flow.shopObj = pick(QR_SHOPS);
     flow.requested = qrRequestedAmount(flow.level);
+    flow.txn = newTxn();
     renderQrShop();
+    setQrShopMode(false);
+    if (notice) { $('qrShopNotice').textContent = notice; $('qrShopNotice').hidden = false; }
     show('qr-shop');
     speak(flow.shopObj.name + ' です。QRコードを よもう');
-  });
+  }
   function qrRequestedAmount(level) {
     var cap = Math.min(LEVELS[level].max, wallet.balance), v;
     if (level === 'easy') {
@@ -1736,12 +1993,42 @@ function donomanaRecordFormatTracingLevel(level) {
   function renderQrShop() {
     $('qrShopEmoji').textContent = flow.shopObj.emoji;
     $('qrShopSign').textContent = flow.shopObj.name;
-    Array.prototype.forEach.call(document.querySelectorAll('[data-qr]'), function (el) { el.innerHTML = qrSVG(flow.seed); });
+    var code = buildCode('S', { shopId: QR_SHOPS.indexOf(flow.shopObj) + 1, amount: flow.requested, txn: flow.txn });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-qr]'), function (el) { el.innerHTML = qrSVG(code); });
     $('qrShopNotice').hidden = true; $('qrShopNotice').className = 'notice';
   }
   function resetQrScan() { appEl.setAttribute('data-aligned', '0'); $('qrAlign').disabled = false; }
+  // 2台: read the shop's QR (device or printed card) with the real camera
+  function startScanS() {
+    $('qrCamFallback').hidden = true;
+    camStart({
+      screen: 'qr-cam', video: $('camS'), status: $('camSStatus'), retry: $('camSRetry'),
+      failHint: '「がめんの QRで れんしゅう する」で、1だいの れんしゅうが できます。',
+      onFail: function () { $('qrCamFallback').hidden = false; if (scanMode) refreshSwitchScanItems(); },
+      onText: function (text) {
+        var c = parseCode(text);
+        if (!c) return NOT_OURS;
+        if (c.type !== 'S') return 'この コードは おみせの QRコードでは ありません';
+        if (c.amount !== null && wallet.paidTxns.indexOf(c.txn) !== -1) return 'この QRコードは もう はらいました';
+        playRead();
+        flow.shopObj = QR_SHOPS[c.shopId - 1];
+        flow.readShop = flow.shopObj.name;           // what was really read; nothing is injected in the 2-device flow
+        flow.requested = c.amount;                   // null: a card without an amount
+        flow.txn = c.txn;
+        if (flow.level === 'easy' && c.amount !== null) chooseQrAmount(c.amount, true);   // やさしい: the amount comes from the QR
+        else openQrAmount();
+        return null;
+      }
+    });
+  }
+  $('camSRetry').addEventListener('click', function () { if (!accept(this)) return; startScanS(); });
+  $('qrCamFallback').addEventListener('click', function () {
+    if (!accept(this)) return;
+    startVirtualQr('カメラが つかえないので、がめんの QRコードで れんしゅう しよう');
+  });
   $('qrRead').addEventListener('click', function () {
     if (!accept(this)) return;
+    if (flow.real) { show('qr-cam'); startScanS(); return; }
     if (flow.requested <= 0) { $('qrShopNotice').className = 'notice'; $('qrShopNotice').textContent = 'れんしゅうの おかねが ありません。せんせいに「もとに もどす」を たのもう。'; $('qrShopNotice').hidden = false; return; }
     resetQrScan();
     show('qr-scan');
@@ -1766,7 +2053,8 @@ function donomanaRecordFormatTracingLevel(level) {
   });
   function openQrAmount() {
     $('qrAmtShop').textContent = flow.readShop;
-    $('qrAsk').innerHTML = flow.shopObj.name + 'の ひと：「<span class="amt">' + yen(flow.requested) + '</span> です」';
+    if (flow.real) $('qrAsk').textContent = flow.shopObj.name + 'の ひとに きんがくを きいて、いれよう';
+    else $('qrAsk').innerHTML = flow.shopObj.name + 'の ひと：「<span class="amt">' + yen(flow.requested) + '</span> です」';
     $('qrAmountNotice').hidden = true;
     var easy = flow.level === 'easy';
     $('qrKeypadArea').hidden = easy; $('qrChoiceArea').hidden = !easy;
@@ -1775,12 +2063,18 @@ function donomanaRecordFormatTracingLevel(level) {
     show('qr-amount');
     speakQrAsk();
   }
-  function speakQrAsk() { if (flow) speak(flow.shopObj.name + 'の ひとが、' + yenVoice(flow.requested) + ' です、と いっています。きんがくを いれよう'); }
+  function speakQrAsk() {
+    if (!flow) return;
+    if (flow.real) speak(flow.shopObj.name + 'の ひとに きんがくを きいて、いれよう');
+    else speak(flow.shopObj.name + 'の ひとが、' + yenVoice(flow.requested) + ' です、と いっています。きんがくを いれよう');
+  }
   $('qrAskSpeak').addEventListener('click', function () { if (accept(this)) speakQrAsk(); });
   function renderQrChoices() {
     var box = $('qrChoices'); box.innerHTML = '';
     var pool = EASY_AMOUNTS.filter(function (a) { return a !== flow.requested; });
-    var opts = [flow.requested];
+    var opts;
+    if (flow.requested === null) { opts = EASY_AMOUNTS.filter(function (a) { return a <= wallet.balance; }); if (!opts.length) opts = EASY_AMOUNTS.slice(0, 3); pool = []; }   // a card without an amount: every easy amount the balance allows
+    else opts = [flow.requested];
     while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
     opts.sort(function (a, b) { return a - b; });
     opts.forEach(function (a) {
@@ -1790,9 +2084,9 @@ function donomanaRecordFormatTracingLevel(level) {
       box.appendChild(b);
     });
   }
-  function chooseQrAmount(a) {
+  function chooseQrAmount(a, fromQr) {
     flow.amount = a;
-    if (a > LEVELS[flow.level].max) {
+    if (!fromQr && a > LEVELS[flow.level].max) {
       $('qrAmountNotice').textContent = yen(LEVELS[flow.level].max) + ' までです。いれなおそう'; $('qrAmountNotice').hidden = false;
       flow.amountRetries++; qrKeypad.reset(); speak('いれなおそう'); return;
     }
@@ -1833,11 +2127,11 @@ function donomanaRecordFormatTracingLevel(level) {
       // not a failure: back to the amount input with the reason
       flow.shortfallRetries++;
       openQrAmount();
-      $('qrAmountNotice').textContent = 'おかねが たりません（のこり ' + yen(wallet.balance) + '）。きんがくを いれなおそう'; $('qrAmountNotice').hidden = false;
+      $('qrAmountNotice').textContent = 'おかねが たりません（のこり ' + yen(wallet.balance) + '）。' + (flow.real ? 'おみせの ひとに つたえて、' : '') + 'きんがくを いれなおそう'; $('qrAmountNotice').hidden = false;
       speak('おかねが たりません。きんがくを いれなおそう');
       return;
     }
-    if (flow.amount !== flow.requested) {
+    if (flow.requested !== null && flow.amount !== flow.requested) {
       n.textContent = 'あれ？ いわれた きんがくは ' + yen(flow.requested) + ' だよ。「なおす」で いれなおそう'; n.hidden = false;
       speak('あれ？ いわれた きんがくは ' + yenVoice(flow.requested) + ' だよ。なおすで いれなおそう');
       return;
@@ -1855,6 +2149,8 @@ function donomanaRecordFormatTracingLevel(level) {
     var before = pay({ kind: flow.kind, shop: flow.shop, item: flow.item ? flow.item.name : null, amount: flow.amount });
     lastReceipt = { kind: flow.kind, shop: flow.shop, item: flow.item ? flow.item.name : null, amount: flow.amount, before: before, after: wallet.balance, time: new Date() };
     saveActivityRecord(before);
+    if (flow.kind === 'qr' && flow.real && flow.requested !== null) { wallet.paidTxns.push(flow.txn); if (wallet.paidTxns.length > 100) wallet.paidTxns = wallet.paidTxns.slice(-100); saveWallet(); }
+    $('doneShop').textContent = flow.shop;
     $('donePaid').textContent = yen(flow.amount);
     $('doneLeft').textContent = yen(wallet.balance);
     show('done');
@@ -1930,12 +2226,201 @@ function donomanaRecordFormatTracingLevel(level) {
   }
 
   /* =====================================================================
+     camera (QR reading only; register-app.html pattern). getUserMedia is called only from a
+     button press; frames are drawn to a canvas, handed to jsQR and dropped: nothing is stored
+     or sent. The stream is stopped on every way out (screen change, sheets, hidden page, unload).
+  ===================================================================== */
+  var cam = { stream: null, raf: null, starting: false, token: 0, canvas: null, ctx: null, cfg: null, lastBad: '', lastBadAt: 0 };
+  function camStatus(text) { var el = cam.cfg && cam.cfg.status; if (!el) return; el.textContent = text || ''; el.hidden = !text; }
+  function camFail(kind) {
+    var cfg = cam.cfg, msg = { denied: 'カメラが ゆるされて いません。', nocamera: 'カメラが みつかりません。', unsupported: 'この ブラウザでは カメラが つかえません。', failed: 'カメラを つけられませんでした。' }[kind];
+    camStatus(msg + (cfg.failHint || ''));
+    cfg.retry.hidden = (kind === 'unsupported');
+    if (cfg.onFail) cfg.onFail(kind);
+    announce(msg);
+    if (scanMode) refreshSwitchScanItems();
+  }
+  function camStart(cfg) {
+    if (cam.starting || cam.stream) return;                    // never two streams
+    cam.cfg = cfg; cam.starting = true; cam.lastBad = '';
+    var my = ++cam.token;
+    cfg.retry.hidden = true;
+    camStatus('カメラを つけています…');
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function' || typeof jsQR !== 'function') { cam.starting = false; camFail('unsupported'); return; }
+    var req;
+    try { req = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }); } catch (e) { cam.starting = false; camFail('failed'); return; }
+    req.then(function (stream) {
+      cam.starting = false;
+      if (my !== cam.token || current !== cfg.screen) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }   // left meanwhile
+      cam.stream = stream;
+      cfg.video.srcObject = stream;
+      try { var pl = cfg.video.play(); if (pl && pl.catch) pl.catch(function () {}); } catch (e) { /* ignore */ }
+      camStatus('');
+      camLoop();
+    }).catch(function (e) {
+      cam.starting = false;
+      if (my !== cam.token) return;
+      var n = e && e.name;
+      camFail((n === 'NotAllowedError' || n === 'PermissionDeniedError' || n === 'SecurityError') ? 'denied' : (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError') ? 'nocamera' : 'failed');
+    });
+  }
+  function camStop() {
+    cam.token++;                                                // invalidates a getUserMedia still on its way
+    if (cam.raf) { cancelAnimationFrame(cam.raf); cam.raf = null; }
+    if (cam.stream) { cam.stream.getTracks().forEach(function (t) { t.stop(); }); cam.stream = null; }
+    if (cam.cfg && cam.cfg.video) { try { cam.cfg.video.srcObject = null; } catch (e) { /* ignore */ } }
+  }
+  // stopped without leaving the screen (sheet opened, page hidden): never restarted by itself
+  function camPause() {
+    var was = !!(cam.stream || cam.starting), cfg = cam.cfg;
+    camStop(); cam.starting = false;
+    if (was && cfg && current === cfg.screen) { camStatus('カメラを とめました。「カメラを つける」で もういちど つかえます。'); cfg.retry.hidden = false; }
+  }
+  function camLoop() {
+    if (!cam.canvas) { cam.canvas = document.createElement('canvas'); cam.ctx = cam.canvas.getContext('2d', { willReadFrequently: true }); }
+    function tick() {
+      if (!cam.stream) { cam.raf = null; return; }
+      var v = cam.cfg.video;
+      if (v.readyState >= 2 && v.videoWidth > 0) {
+        var scale = Math.min(1, 640 / v.videoWidth), w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+        cam.canvas.width = w; cam.canvas.height = h;
+        try {
+          cam.ctx.drawImage(v, 0, 0, w, h);
+          var img = cam.ctx.getImageData(0, 0, w, h), code = jsQR(img.data, w, h);
+          if (code && code.data) camHandle(code.data);
+        } catch (e) { /* one unreadable frame is ignored */ }
+      }
+      if (cam.stream) cam.raf = requestAnimationFrame(tick);
+    }
+    cam.raf = requestAnimationFrame(tick);
+  }
+  function camHandle(text) {
+    var t = now();
+    if (text === cam.lastBad && t - cam.lastBadAt < 2500) return;        // the same refused code stays in view: said once
+    var msg = cam.cfg.onText(text);                                      // null = accepted (the screen has changed)
+    if (msg) { cam.lastBad = text; cam.lastBadAt = t; camStatus(msg); speak(msg); }
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) camPause(); });
+  window.addEventListener('pagehide', camStop);
+
+  /* =====================================================================
+     おみせモード (the shop's side; a second device, or the same one). Kept on this device only:
+     today's total and the transaction numbers already received. No learning record is written.
+  ===================================================================== */
+  var SHOP_KEY = 'donomana-cashless-shop-v1';
+  function todayKey() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1, 2) + '-' + pad(d.getDate(), 2); }
+  function loadShop() {
+    var o = readJSON(SHOP_KEY);
+    if (!o || typeof o !== 'object' || o.date !== todayKey() || typeof o.total !== 'number' || typeof o.count !== 'number') return { schemaVersion: 1, date: todayKey(), total: 0, count: 0, seen: [] };
+    return { schemaVersion: 1, date: o.date, total: o.total, count: o.count, seen: Array.isArray(o.seen) ? o.seen.slice(-300) : [] };
+  }
+  var shop = loadShop(), shopFlow = null;
+  function saveShop() { writeJSON(SHOP_KEY, shop); }
+  function seenKey(c) { return c.amount + ':' + c.txn; }
+  function openShopHome() {
+    shop = loadShop();                                       // a new day starts from 0
+    shopFlow = null;
+    $('shopTotal').textContent = yen(shop.total);
+    $('shopCount').textContent = '（' + shop.count + 'かい）';
+    show('shop-home');
+  }
+  $('goShopMode').addEventListener('click', function () { if (!accept(this)) return; flow = null; openShopHome(); speak('おみせの ひとの がめんです'); });
+
+  // 体験1: read the customer's code (P)
+  function startScanP() {
+    camStart({
+      screen: 'shop-scan', video: $('camP'), status: $('camPStatus'), retry: $('camPRetry'),
+      failHint: '「てで きんがくを いれる」も つかえます。',
+      onText: function (text) {
+        var c = parseCode(text);
+        if (!c) return NOT_OURS;
+        if (c.type !== 'P') return 'この コードは おきゃくさんの コードでは ありません';
+        if (shop.seen.indexOf(seenKey(c)) !== -1) return 'この コードは もう うけとりました';
+        playRead();
+        shopFlow = { amount: c.amount, txn: c.txn };
+        openShopAsk();
+        return null;
+      }
+    });
+  }
+  $('shopGoScan').addEventListener('click', function () { if (!accept(this)) return; show('shop-scan'); startScanP(); });
+  $('camPRetry').addEventListener('click', function () { if (!accept(this)) return; startScanP(); });
+  var shopManualKeypad = createKeypad({
+    container: $('shopManualKeypad'), display: $('shopManualDisplay'), maxDigits: 4, mode: 'amount', doneLabel: 'つぎへ',
+    onDone: function (v) { shopFlow = { amount: parseInt(v, 10), txn: null }; openShopAsk(); }
+  });
+  $('shopManual').addEventListener('click', function () { if (!accept(this)) return; shopManualKeypad.reset(); show('shop-manual'); speak('うけとる きんがくを いれよう'); });
+  function speakShopAsk() { if (shopFlow) speak(yenVoice(shopFlow.amount) + ' です。うけとるを おそう'); }
+  function openShopAsk() { $('shopAskAmount').textContent = yen(shopFlow.amount); show('shop-ask'); speakShopAsk(); }
+  $('shopAskSpeak').addEventListener('click', function () { if (accept(this)) speakShopAsk(); });
+  function shopReceive(withMark) {
+    shop = loadShop();
+    shop.total += shopFlow.amount; shop.count += 1;
+    if (shopFlow.txn) { shop.seen.push(seenKey(shopFlow)); if (shop.seen.length > 300) shop.seen = shop.seen.slice(-300); }
+    saveShop();
+    $('shopReceivedAmount').textContent = yen(shopFlow.amount);
+    var mark = !!(withMark && shopFlow.txn);
+    $('shopReceiptWrap').hidden = !mark;
+    $('shopReceiptQr').innerHTML = mark ? qrSVG(buildCode('R', { amount: shopFlow.amount, txn: shopFlow.txn })) : '';
+    show('shop-received');
+    playDone();
+    speak('うけとりました。' + yenVoice(shopFlow.amount) + ' です');
+  }
+  $('shopReceive').addEventListener('click', function () { if (!accept(this) || !shopFlow) return; shopReceive(true); });
+  $('shopNext').addEventListener('click', function () { if (!accept(this)) return; openShopHome(); });
+
+  // 体験2: choose the shop, enter the amount, show the shop's code (S)
+  $('shopGoQr').addEventListener('click', function () {
+    if (!accept(this)) return;
+    var grid = $('shopPickGrid'); grid.innerHTML = '';
+    QR_SHOPS.forEach(function (sh, i) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'item-card';
+      b.innerHTML = '<span class="emoji" aria-hidden="true">' + sh.emoji + '</span><span class="name">' + sh.name + '</span>';
+      b.addEventListener('click', function () { if (!accept(b)) return; shopFlow = { shopId: i + 1, shopName: sh.name, amount: null, txn: null }; openShopPrice(); });
+      grid.appendChild(b);
+    });
+    show('shop-pick');
+    speak('どの おみせに なる？');
+  });
+  var shopPriceKeypad = createKeypad({
+    container: $('shopPriceKeypad'), display: $('shopPriceDisplay'), maxDigits: 4, mode: 'amount', doneLabel: 'QRを だす',
+    onDone: function (v) {
+      shopFlow.amount = parseInt(v, 10); shopFlow.txn = newTxn();
+      $('shopQrSign').textContent = shopFlow.shopName;
+      $('shopQrAmount').textContent = yen(shopFlow.amount);
+      $('shopQrArt').innerHTML = qrSVG(buildCode('S', { shopId: shopFlow.shopId, amount: shopFlow.amount, txn: shopFlow.txn }));
+      show('shop-qr');
+      speak(yenVoice(shopFlow.amount) + ' です、と おきゃくさんに つたえよう');
+    }
+  });
+  function openShopPrice() { if (!shopFlow) { openShopHome(); return; } shopPriceKeypad.reset(); show('shop-price'); speak('きんがくを いれよう'); }
+  $('shopQrReceived').addEventListener('click', function () { if (!accept(this) || !shopFlow) return; shopReceive(false); });
+
+  // printed QR cards: the shop number only (no amount, fixed transaction number)
+  $('shopGoCards').addEventListener('click', function () {
+    if (!accept(this)) return;
+    var sheet = $('cardSheet'); sheet.innerHTML = '';
+    QR_SHOPS.forEach(function (sh, i) {
+      var d = document.createElement('div');
+      d.className = 'qr-card';
+      d.innerHTML = '<div class="card-emoji" aria-hidden="true">' + sh.emoji + '</div><div class="card-name">' + sh.name + '</div>' +
+        '<div class="qr-real" role="img" aria-label="' + sh.name + ' の QRコード（れんしゅうよう）">' + qrSVG(buildCode('S', { shopId: i + 1, amount: null, txn: CARD_TXN })) + '</div>' +
+        '<div class="card-note">れんしゅうよう（どのまな キャッシュレス）</div>';
+      sheet.appendChild(d);
+    });
+    show('shop-cards');
+  });
+  $('shopPrint').addEventListener('click', function () { if (!accept(this)) return; try { window.print(); } catch (e) { /* ignore */ } });
+
+  /* =====================================================================
      settings sheet / help sheet (non-modal panels)
   ===================================================================== */
   var settingsSheet = $('settingsSheet'), helpSheet = $('helpSheet'), helpBtn = $('donomanaHelpBtn'), settingsBtn = $('cashlessSettingsBtn');
   function setStageInert() { if (settingsOpen || helpOpen) stageEl.setAttribute('inert', ''); else stageEl.removeAttribute('inert'); }
   function syncSettingsUI() {
     function press(attr, val) { Array.prototype.forEach.call(settingsSheet.querySelectorAll('[' + attr + ']'), function (b) { b.setAttribute('aria-pressed', String(b.getAttribute(attr) === String(val))); }); }
+    press('data-devices', settings.devices);
     press('data-level', settings.level);
     press('data-start', settings.startMode);
     press('data-check', settings.check);
@@ -1953,7 +2438,8 @@ function donomanaRecordFormatTracingLevel(level) {
   }
   settingsSheet.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || !settingsSheet.contains(b)) return;
-    if (b.hasAttribute('data-level')) settings.level = b.getAttribute('data-level');
+    if (b.hasAttribute('data-devices')) settings.devices = b.getAttribute('data-devices') === 'two' ? 'two' : 'one';
+    else if (b.hasAttribute('data-level')) settings.level = b.getAttribute('data-level');
     else if (b.hasAttribute('data-start')) settings.startMode = b.getAttribute('data-start');
     else if (b.hasAttribute('data-check')) settings.check = b.getAttribute('data-check');
     else if (b.hasAttribute('data-voice')) { settings.voice = b.getAttribute('data-voice') === '1'; if (!settings.voice) stopSpeech(); }
@@ -1985,7 +2471,7 @@ function donomanaRecordFormatTracingLevel(level) {
     if (scanMode) refreshSwitchScanItems();
   });
   $('resetYes').addEventListener('click', function () {
-    wallet = { schemaVersion: 1, balance: startAmount(), history: [] };
+    wallet = { schemaVersion: 1, balance: startAmount(), history: [], paidTxns: [] };
     saveWallet();
     hideResetConfirm();
     flow = null;
@@ -2026,6 +2512,7 @@ function donomanaRecordFormatTracingLevel(level) {
 
   function openSettings() {
     helpOpen = false; helpSheet.hidden = true; helpBtn.setAttribute('aria-expanded', 'false');
+    camPause();
     settingsOpen = true; settingsSheet.hidden = false; settingsBtn.setAttribute('aria-expanded', 'true');
     hideResetConfirm(); hideRecordConfirm();
     syncSettingsUI(); setStageInert(); resetDwellState();
@@ -2041,6 +2528,7 @@ function donomanaRecordFormatTracingLevel(level) {
   }
   function openHelp() {
     if (settingsOpen) closeSettings(true);
+    camPause();
     helpOpen = true; helpSheet.hidden = false; helpBtn.setAttribute('aria-expanded', 'true');
     setStageInert(); resetDwellState(); if (scanMode) refreshSwitchScanItems();
     try { helpSheet.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
@@ -2174,8 +2662,8 @@ function donomanaRecordFormatTracingLevel(level) {
   // exposed for tests / external adapters (not used by the page itself)
   window.cashlessScan = { buildScanItems: buildScanItems, refreshSwitchScanItems: refreshSwitchScanItems, startSwitchScan: startSwitchScan, stopSwitchScan: stopSwitchScan, activateCurrentScanItem: activateCurrentScanItem, clearScanHighlight: clearScanHighlight };
   window.cashlessTest = {
-    state: function () { return { screen: current, balance: wallet.balance, history: wallet.history.length, flow: flow ? { kind: flow.kind, requested: flow.requested, readShop: flow.readShop, shop: flow.shopObj ? flow.shopObj.name : flow.shop, amount: flow.amount } : null }; },
-    createKeypad: createKeypad, barcodeSVG: barcodeSVG, qrSVG: qrSVG, barcodeNumber: barcodeNumber
+    state: function () { return { screen: current, balance: wallet.balance, history: wallet.history.length, camera: !!cam.stream, shop: { total: shop.total, count: shop.count }, flow: flow ? { kind: flow.kind, real: !!flow.real, requested: flow.requested, readShop: flow.readShop, shop: flow.shopObj ? flow.shopObj.name : flow.shop, amount: flow.amount, txn: flow.txn } : null }; },
+    createKeypad: createKeypad, barcodeSVG: barcodeSVG, qrSVG: qrSVG, barcodeNumber: barcodeNumber, buildCode: buildCode, parseCode: parseCode, code128Symbols: code128Symbols, code128Modules: code128Modules, barDigits: barDigits
   };
 })();
 </script>
