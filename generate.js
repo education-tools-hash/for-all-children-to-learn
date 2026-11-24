@@ -2606,6 +2606,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // りんごポットン レベルアップ Phase 1(レベルアップボタン＋「おおめから ぴったり」)の公開(2026-11-24 JST)。文案はユーザー承認済みの verbatim、type は "update"。
+  { date: "2026-11-24", type: "update", app: "ringo-potton-app", text: "「りんごポットン」に「レベルアップ（おおめから ぴったり）」を追加しました", verbatim: true},
   // カテゴリー変更 段階2(「目的から探す」のデータ連動化)の公開(2026-11-22 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(サイト全体の記載)。
   { date: "2026-11-22", type: "update", text: "「目的から探す」のボタンが、教材のデータと連動するようになりました", verbatim: true},
   // ❓の説明文の直し 第1弾(7教材の「設定への行き方」の案内)の公開(2026-11-21 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(複数教材にまたがる記載)。
