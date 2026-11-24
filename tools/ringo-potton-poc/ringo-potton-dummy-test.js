@@ -390,11 +390,11 @@ const BANNED = /ちがう|だめ|すごい|えらい|じょうず|よくでき�
     await context.close();
   }
 
-  /* ---------------- D13 C-2 preload: 12 farmer files, okotowari.mp3 among them, primed by「はじめる」 ---------------- */
+  /* ---------------- D13 C-2 preload: 22 farmer files (12 + the ten ringo-b-<goal>.mp3 of the level おおめから ぴったり), okotowari.mp3 among them, primed by「はじめる」 ---------------- */
   {
     const { context, page } = await newPage(browser, Object.assign({ settings: { goal: 1, operation: 'apple', dummy: true } }, base));
     const made = await page.evaluate(() => window.__au.filter((o) => o.op === 'new').map((o) => String(o.src).split('/').pop()));
-    ok('D13 12 Audio files are created at load: ringo-1..10, arigatou, okotowari (each once)', made.length === 12 && new Set(made).size === 12 && made.includes('okotowari.mp3') && made.every((f) => /^(ringo-([1-9]|10)|arigatou|okotowari)\.mp3$/.test(f)), JSON.stringify(made));
+    ok('D13 22 Audio files are created at load: ringo-1..10, ringo-b-1..10, arigatou, okotowari (each once)', made.length === 22 && new Set(made).size === 22 && made.includes('okotowari.mp3') && made.every((f) => /^(ringo-(b-)?([1-9]|10)|arigatou|okotowari)\.mp3$/.test(f)), JSON.stringify(made));
     ok('D13 the src is assets/ringo-potton/voice/okotowari.mp3 and the file is served (200, audio/mpeg)', await page.evaluate(async () => { const r = await fetch('assets/ringo-potton/voice/okotowari.mp3'); return r.status === 200 && /audio\/mpeg/.test(r.headers.get('content-type') || ''); }));
     await page.click('#startBtn'); await sleep(500);
     const primed = await page.evaluate(() => window.__au.some((o) => o.op === 'play' && o.muted && /okotowari/.test(o.src)));

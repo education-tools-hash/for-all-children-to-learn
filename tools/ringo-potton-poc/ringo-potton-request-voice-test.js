@@ -2,6 +2,8 @@
 // Since the voice-files Phase the request is a recorded file, assets/ringo-potton/voice/ringo-<goal>.mp3,
 // played once when an activity starts (inside the user's gesture, no deferral). If the file cannot play, the
 // app falls back to the synthesised voice with the same words (candidate B). The counting voice stays synthesised.
+// The level「おおめから ぴったり」has its own ten request files (ringo-b-<goal>.mp3), preloaded with the others: 22 files
+// in all. What that level plays and says is tested in ringo-potton-level-up-test.js; here the level is ふつう.
 //
 // Run from the repository root (no package.json; Node 20 + a globally available `playwright`):
 //   node tools/ringo-potton-poc/ringo-potton-request-voice-test.js
@@ -93,15 +95,15 @@ async function finishAndAgain(page, n) {
   const URL = 'http://127.0.0.1:' + srv.address().port + '/ringo-potton-app.html';
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
 
-  /* ---------- V0 the twelve files exist in the repository and are what the app preloads (okotowari.mp3 since C-2) ---------- */
+  /* ---------- V0 the 22 files exist in the repository and are what the app preloads (okotowari.mp3 since C-2; the ten ringo-b-<goal>.mp3 of the level おおめから ぴったり) ---------- */
   {
     const dir = path.join(ROOT, 'assets', 'ringo-potton', 'voice');
     const onDisk = fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
-    const expected = ['arigatou.mp3', 'okotowari.mp3'].concat([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(FILE)).sort();
-    ok('V0 assets/ringo-potton/voice/ holds exactly the 12 expected files', J(onDisk) === J(expected), J(onDisk));
+    const expected = ['arigatou.mp3', 'okotowari.mp3'].concat([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(FILE)).concat([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((g) => 'ringo-b-' + g + '.mp3')).sort();
+    ok('V0 assets/ringo-potton/voice/ holds exactly the 22 expected files', J(onDisk) === J(expected), J(onDisk));
     const { context, page } = await newPage(browser, { url: URL, settings: { goal: 3 } });
     const created = (await au(page)).filter((e) => e.op === 'new').map((e) => e.src).sort();
-    ok('V0 the app creates exactly these 12 Audio objects at start-up (assets/ringo-potton/voice/...)', created.length === 12 && created.every((s) => /^assets\/ringo-potton\/voice\/(ringo-([1-9]|10)|arigatou|okotowari)\.mp3$/.test(s)), J(created));
+    ok('V0 the app creates exactly these 22 Audio objects at start-up (assets/ringo-potton/voice/...), each once', created.length === 22 && new Set(created).size === 22 && J(created.map((s) => s.split('/').pop())) === J(expected) && created.every((s) => /^assets\/ringo-potton\/voice\/(ringo-(b-)?([1-9]|10)|arigatou|okotowari)\.mp3$/.test(s)), J(created));
     ok('V0 all preloaded (preload=auto), nothing played before the first gesture', await page.evaluate(() => true) && (await au(page)).filter((e) => e.op === 'play').length === 0);
     await context.close();
   }
@@ -111,7 +113,7 @@ async function finishAndAgain(page, n) {
     const { context, page } = await newPage(browser, { url: URL, settings: { goal: g } });
     await startRun(page);
     ok('V1 goal ' + g + ': exactly one audible play, and it is ' + FILE(g), J(await plays(page)) === J([FILE(g)]), J(await plays(page)));
-    ok('V1 goal ' + g + ': the "はじめる" gesture primed all 12 files muted, before the request', (await mutedPlays(page)).length === 12 && (await au(page)).findIndex((e) => e.op === 'play' && !e.muted) > (await au(page)).findIndex((e) => e.op === 'play' && e.muted));
+    ok('V1 goal ' + g + ': the "はじめる" gesture primed all 22 files muted, before the request', (await mutedPlays(page)).length === 22 && (await au(page)).findIndex((e) => e.op === 'play' && !e.muted) > (await au(page)).findIndex((e) => e.op === 'play' && e.muted));
     ok('V1 goal ' + g + ': no synthesised request (files play, the synthesiser is only for counting)', (await synthRequests(page)).length === 0, J(await spoken(page)));
     ok('V1 goal ' + g + ': bubble text unchanged ("りんごを' + g + 'こ、とってね")', (await bubble(page)) === 'りんごを' + g + 'こ、とってね', await bubble(page));
     ok('V1 goal ' + g + ': no error', page.__errors.length === 0, page.__errors.join('|'));

@@ -1,15 +1,20 @@
 // Real-browser (Playwright / Chromium) test for「レベルアップ」of ringo-potton-app.html, Phase 1
-// (Phase RINGO-POTTON-LEVEL-UP-1): the teacher's レベルアップ button + panel, and the level「おおめから ぴったり」(extra).
+// (Phase RINGO-POTTON-LEVEL-UP-1 and its revision): the teacher's レベルアップ button + panel, and the level「おおめから ぴったり」(extra).
 //
 // settings.level = 'normal' (default, the activity as before) | 'kinds2' (「くだものを 2 しゅるい」, NOT available in this
 // Phase: shown as unavailable, reads as normal from storage) | 'extra' (「おおめから ぴったり」). settings.extra = 1..3
-// (default 2). In the level extra the tree carries goal + extra apples while the basket frames stay at the goal; the
-// tree never holds more than 12 fruit (decoys give way first, never below one while the dummy option is on; then
-// the extras, never below one). After the count is reached the tree is not shrunk, and touching a fruit that is
-// still on it (apple-touch only) takes nothing: the fruit nudges, the basket frame lights once, the live region says
-// 「かごは いっぱいです」. Delivery always succeeds. The record gets level and extra (15 keys, schemaVersion 1).
-// When the count is reached the note under the basket says「たのまれた かずが かごに はいりました。」in the level extra
-// (apples are still on the tree); in the level ふつう it stays「りんごが ぜんぶ かごに はいりました。」.
+// (default 2). In the level extra the tree carries goal + extra apples and the basket has ONE FRAME FOR EVERY APPLE
+// on the tree (decoys still go beside the frames); the tree never holds more than 12 fruit (decoys give way first,
+// never below one while the dummy option is on; then the extras, never below one). The count can pass the asked
+// number:「とどける」and the note「たのまれた かずが かごに はいりました。」are shown exactly while the count IS the asked
+// number, not while it is too high. An apple in the basket goes back to the tree when it is touched (in every
+// operation mode: the filled frame is a button in front of the whole-screen surface; also a Switch Scan candidate),
+// the count is one less and the new count is spoken. There is no "full basket" reaction any more. The request of
+// this level has its own files (assets/ringo-potton/voice/ringo-b-<goal>.mp3) and its own words
+// (「りんごを ○こ とってね。ぴったり おねがいね」), also after a refusal and as the synthesised fallback.
+// In the level ふつう nothing of this exists: frames = the goal (plain markers), a touch on the basket does nothing,
+// the request is ringo-<goal>.mp3 /「りんごを ○こ、とってね」, the note stays「りんごが ぜんぶ かごに はいりました。」.
+// The record gets level and extra (15 keys, schemaVersion 1); apples that were sent back are not recorded.
 // The button is teacher-facing: never a Switch Scan candidate, above the whole-screen surface (never a harvest), and
 // while its panel is open the activity does not react. A level applies from the next activity, or with
 // 「いますぐ はじめなおす」.
@@ -61,6 +66,7 @@ async function newPage(browser, base, o) {
   await context.addInitScript(SPEECH_STUB);
   await context.addInitScript(AUDIO_STUB);
   await context.addInitScript(() => { window.__auDur = { okotowari: 700 }; });
+  if (o.init) await context.addInitScript(o.init);   // e.g. 'window.__auFail = true;' (the stubs' failure switches)
   await context.addInitScript(({ k, v }) => { if (!sessionStorage.getItem('__seeded')) { if (v !== null) localStorage.setItem(k, v); sessionStorage.setItem('__seeded', '1'); } }, { k: SETTINGS_KEY, v: o.settings === undefined ? null : (typeof o.settings === 'string' ? o.settings : J(o.settings)) });
   const page = await context.newPage();
   page.__errors = [];
@@ -122,6 +128,37 @@ async function openSettings(page) {
 async function closeSettings(page) { await page.evaluate(() => document.getElementById('settingsClose').click()); await sleep(550); }
 const rect = (page, sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return r.width ? { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } : null; }, sel);
 const hit = (a, b) => !!a && !!b && a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+// the basket as the child sees it: the frames in order (filled: 1 / 0 per frame; ret: 1 where the frame is the control
+// that sends its apple back, '-' where the frame has no such attribute at all), the decoys beside them,「とどける」
+const basket = (page) => page.evaluate(() => {
+  const s = Array.from(document.querySelectorAll('#slots .slot'));
+  return { n: s.length, tags: Array.from(new Set(s.map((e) => e.tagName))).join(), filled: s.map((e) => e.getAttribute('data-filled')).join(''), ret: s.map((e) => e.getAttribute('data-ret') || '-').join(''),
+    controls: s.filter((e) => e.tagName === 'BUTTON' && e.tabIndex === 0 && e.getAttribute('aria-hidden') !== 'true').length, role: document.getElementById('basket').getAttribute('role'),
+    minSize: Math.round(Math.min(...s.map((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }))), deliver: !document.getElementById('deliverBtn').hidden, tray: document.querySelectorAll('#decoyTray svg').length };
+});
+// touch the apple in the i-th FILLED frame with a real pointer click at its centre (after the landing / screen-change
+// guard), then wait until it hangs on the tree again. onSlot: the frame itself is the topmost element at that point.
+async function giveBack(page, i, o) {
+  o = o || {};
+  await sleep(700);
+  const c = await page.evaluate((k) => { const s = Array.from(document.querySelectorAll('#slots .slot[data-filled="1"]'))[k || 0]; if (!s) return null; const r = s.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, top = document.elementFromPoint(x, y); return { x, y, onSlot: !!top && !!top.closest && top.closest('.slot') === s }; }, i);
+  if (!c) throw new Error('giveBack: there is no filled frame ' + i);
+  await page.mouse.click(c.x, c.y);
+  if (o.wait !== false) { await page.waitForFunction(() => !document.querySelector('#appleGrid .apple[data-status="returning"]'), null, { timeout: 10000 }); await sleep(150); }
+  return c;
+}
+// the "full basket" reaction of the first version of this level must be gone: no nudge, no light, no announcement
+const noFullReaction = async (page) => (await page.evaluate(() => !document.querySelector('.apple.is-nudge') && !document.getElementById('basket').classList.contains('is-full-flash') && getComputedStyle(document.getElementById('basket')).boxShadow === 'none' && Array.from(document.querySelectorAll('#appleGrid .apple')).every((a) => getComputedStyle(a).animationName === 'none'))) && !/いっぱい/.test(await live(page));
+// the request: files played audibly (in order), what the bubble shows (visible pieces, whitespace removed), the words
+const plays = (page) => page.evaluate(() => window.__au.filter((o) => o.op === 'play' && !o.muted).map((o) => String(o.src).split('/').pop()));
+const squash = (t) => String(t).replace(/\s+/g, '');
+const bubbleSaid = (page) => page.evaluate(() => Array.from(document.getElementById('bubble').children).filter((e) => !e.hidden).map((e) => e.textContent).join('').replace(/\s+/g, ''));
+const KANA = ['', 'いっこ', 'にこ', 'さんこ', 'よんこ', 'ごこ', 'ろっこ', 'ななこ', 'はっこ', 'きゅうこ', 'じゅっこ'];
+const B_BUBBLE_TEXT = (g) => 'りんごを ' + g + 'こ とってね。ぴったり おねがいね';   // the level extra
+const N_BUBBLE_TEXT = (g) => 'りんごを ' + g + 'こ、とってね';                       // the level ふつう, as before
+const B_SAID = (g) => 'りんごを ' + KANA[g] + ' とってね。ぴったり おねがいね';       // the synthesised fallback of the level extra
+// Switch Scan candidates right now (the app's own list), named: an id, a fruit on the tree, or a basket frame
+const scanCand = (page) => page.evaluate(() => window.ringoScan.buildScanItems().map((e) => e.id || (e.classList.contains('slot') ? 'slot#' + e.getAttribute('data-id') : e.getAttribute('data-kind') + '#' + e.getAttribute('data-id'))));
 // the expected plan, written independently of the app: goal + decoys + extras <= 12; decoys give way first (>= 1 while on), then extras (>= 1)
 function expectPlan(goal, want, dummy) {
   let d = dummy ? Math.max(0, Math.min(1 + Math.floor(goal / 4), 12 - goal)) : 0, e = want;
@@ -156,7 +193,7 @@ function expectPlan(goal, want, dummy) {
       const q = await newPage(browser, BASE, { settings: c.s });
       await start(q.page);
       const tt = await tree(q.page);
-      ok('L1 ' + c.name + ': ' + c.apples + ' apples on the tree, 2 frames, data-level ' + c.level, tt.apples === c.apples && tt.slots === 2 && (await attr(q.page, 'data-level')) === c.level && q.page.__errors.length === 0, J(tt));
+      ok('L1 ' + c.name + ': ' + c.apples + ' apples on the tree, ' + (c.level === 'extra' ? c.apples : 2) + ' frames, data-level ' + c.level, tt.apples === c.apples && tt.slots === (c.level === 'extra' ? c.apples : 2) && (await attr(q.page, 'data-level')) === c.level && q.page.__errors.length === 0, J(tt));
       await q.context.close();
     }
   }
@@ -212,7 +249,7 @@ function expectPlan(goal, want, dummy) {
     ok('L4 start screen: nothing started, nothing spoken or played', (await phase(page)) === 'start' && (await spoken(page)).length === 0 && (await audible(page)) === 0);
     await closePanel(page); await start(page);
     let t = await tree(page);
-    ok('L4 the activity that starts now is in the level extra: 2 + 2 apples, 2 frames', t.apples === 4 && t.slots === 2 && (await attr(page, 'data-level')) === 'extra', J(t));
+    ok('L4 the activity that starts now is in the level extra: 2 + 2 apples, 4 frames', t.apples === 4 && t.slots === 4 && (await attr(page, 'data-level')) === 'extra', J(t));
     // back to ふつう during the activity: this activity goes on unchanged
     await take(page, 'apple');
     await openPanel(page); await choose(page, 'normal');
@@ -227,12 +264,12 @@ function expectPlan(goal, want, dummy) {
     ok('L4「もう いちど」: the next activity is the usual one (2 apples), data-level normal', t.total === 2 && (await attr(page, 'data-level')) === 'normal', J(t));
     // いますぐ はじめなおす
     await take(page, 'apple');
-    const reqBefore = await audible(page, 'ringo-2');
+    const reqBefore = await audible(page, 'ringo-b-2\\.mp3'), reqNormal = await audible(page, 'ringo-2\\.mp3');
     await openPanel(page); await choose(page, 'extra');
     ok('L4 mid-activity: choosing「おおめから ぴったり」again: note + restart shown, activity untouched (2 apples, 1 taken)', (await panel(page)).restart && (await tree(page)).total === 2 && (await harvested(page)) === 1);
     await page.click('#ringoLevelRestart'); await sleep(800);
     t = await tree(page);
-    ok('L4「いますぐ はじめなおす」: the panel closes, a new activity starts at once in the level extra (4 apples, none taken, request played again)', !(await panel(page)).open && t.apples === 4 && t.count === '0' && t.ripe === 4 && (await phase(page)) === 'harvest' && (await attr(page, 'data-level')) === 'extra' && (await audible(page, 'ringo-2')) === reqBefore + 1, J(t));
+    ok('L4「いますぐ はじめなおす」: the panel closes, a new activity starts at once in the level extra (4 apples, none taken, its own request file played)', !(await panel(page)).open && t.apples === 4 && t.count === '0' && t.ripe === 4 && (await phase(page)) === 'harvest' && (await attr(page, 'data-level')) === 'extra' && (await audible(page, 'ringo-b-2\\.mp3')) === reqBefore + 1 && (await audible(page, 'ringo-2\\.mp3')) === reqNormal, J(t));
     log = await readLog(page);
     ok('L4 the abandoned activity was not recorded (still 1 record)', log.length === 1);
     await page.reload(); await sleep(300);
@@ -251,7 +288,7 @@ function expectPlan(goal, want, dummy) {
       const { context, page } = await newPage(browser, BASE, { settings: { goal, level: 'extra', extra: want } });
       await start(page);
       const t = await tree(page);
-      ok('L5 goal ' + goal + ' + extra 3: ' + (goal + ex.extra) + ' apples on the tree (extra ' + ex.extra + '), ' + goal + ' frames, total <= 12', t.apples === goal + ex.extra && t.decoys === 0 && t.slots === goal && t.total <= 12, J(t));
+      ok('L5 goal ' + goal + ' + extra 3: ' + (goal + ex.extra) + ' apples on the tree (extra ' + ex.extra + ') and as many frames, total <= 12', t.apples === goal + ex.extra && t.decoys === 0 && t.slots === goal + ex.extra && t.total <= 12, J(t));
       await context.close();
     }
     ok('L5 (the rule) goal 10 + extra 3 -> 2 extras; goal 9 + extra 3 -> 3', expectPlan(10, 3, false).extra === 2 && expectPlan(9, 3, false).extra === 3);
@@ -260,10 +297,18 @@ function expectPlan(goal, want, dummy) {
       const { context, page } = await newPage(browser, BASE, { settings: { goal: c.goal, level: 'extra', extra: c.want, dummy: true } });
       await start(page);
       const t = await tree(page);
-      ok('L5 with decoys, goal ' + c.goal + ' + extra ' + c.want + ': decoys ' + usual + ' -> ' + ex.decoys + ', extras ' + ex.extra + ' (total ' + (c.goal + ex.decoys + ex.extra) + ')', t.apples === c.goal + ex.extra && t.decoys === ex.decoys && t.total <= 12 && ex.extra >= 1 && ex.decoys >= 1 && t.slots === c.goal, J(t));
+      ok('L5 with decoys, goal ' + c.goal + ' + extra ' + c.want + ': decoys ' + usual + ' -> ' + ex.decoys + ', extras ' + ex.extra + ' (total ' + (c.goal + ex.decoys + ex.extra) + '); frames = apples (' + (c.goal + ex.extra) + '), none for a decoy', t.apples === c.goal + ex.extra && t.decoys === ex.decoys && t.total <= 12 && ex.extra >= 1 && ex.decoys >= 1 && t.slots === c.goal + ex.extra, J(t));
       await context.close();
     }
     ok('L5 (the rule) goal 10 with decoys: 2 decoys give way to 1 first, and 1 extra is left', J(expectPlan(10, 3, true)) === J({ decoys: 1, extra: 1 }) && J(expectPlan(9, 2, true)) === J({ decoys: 1, extra: 2 }) && J(expectPlan(8, 2, true)) === J({ decoys: 2, extra: 2 }));
+    // the example of the specification: asked 5, one more -> 6 apples on the tree, 6 frames; the same 6 frames with decoys
+    for (const dummy of [false, true]) {
+      const q = await newPage(browser, BASE, { settings: { goal: 5, level: 'extra', extra: 1, dummy } });
+      await start(q.page);
+      const tq = await tree(q.page), bq = await basket(q.page);
+      ok('L5 goal 5 + extra 1' + (dummy ? ' + decoys (2)' : '') + ': 6 apples on the tree, 6 frames in the basket' + (dummy ? ' (the decoys get none)' : ''), tq.apples === 6 && tq.slots === 6 && bq.n === 6 && tq.decoys === (dummy ? 2 : 0) && q.page.__errors.length === 0, J(tq));
+      await q.context.close();
+    }
     // 12 fruit on the smallest layout: still at least the minimum touch size
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 10, level: 'extra', extra: 3 }, viewport: { width: 844, height: 390 } });
     await start(page);
@@ -298,7 +343,7 @@ function expectPlan(goal, want, dummy) {
     await context.close();
   }
 
-  /* ---------------- L7 the level extra, apple-touch: stop at the asked count; the tree is not shrunk; the full basket ---------------- */
+  /* ---------------- L7 the level extra, apple-touch: a frame for every apple;「とどける」only at the exact count; giving back ---------------- */
   let normalCompleteCanopy = 0;
   {
     const n = await newPage(browser, BASE, { settings: { goal: 2 } });
@@ -313,58 +358,153 @@ function expectPlan(goal, want, dummy) {
   }
   for (const motion of [false, true]) {
     const tag = motion ? 'motion ON' : 'reduced motion';
+    const settle = motion ? 300 : 150;
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 2 }, motion });
     await start(page);
     const hHarvest = (await rect(page, '#canopy')).h;
-    await harvest(page, 2);
-    await sleep(motion ? 300 : 0);
-    const t = await tree(page), can = await rect(page, '#canopy'), dl = await rect(page, '#deliverBtn');
-    ok('L7 ' + tag + ': two apples taken -> phase complete, number 2, both frames filled, 2 apples still on the tree', (await phase(page)) === 'complete' && t.count === '2' && t.filled === 2 && t.slots === 2 && t.ripeApples === 2 && t.visible === 2, J(t));
+    let b = await basket(page), t = await tree(page);
+    ok('L7 ' + tag + ': 4 apples on the tree and 4 frames in the basket (buttons, none holds an apple, none is a control); no「とどける」', t.apples === 4 && b.n === 4 && b.tags === 'BUTTON' && b.filled === '0000' && b.ret === '0000' && b.controls === 0 && b.role === 'group' && !b.deliver, J({ t, b }));
+    await take(page, 'apple');
+    b = await basket(page);
+    ok('L7 ' + tag + ': one apple: number 1, the first frame holds it, no「とどける」, no note', (await harvested(page)) === 1 && b.filled === '1000' && b.ret === '1000' && !b.deliver && !(await doneNote(page)).shown && (await phase(page)) === 'harvest', J(b));
+    await take(page, 'apple'); await waitPhase(page, 'complete'); await sleep(settle);
+    t = await tree(page); b = await basket(page);
+    const can = await rect(page, '#canopy'), dl = await rect(page, '#deliverBtn');
+    ok('L7 ' + tag + ': two apples = the asked count -> phase complete, number 2, frames 1100,「とどける」shown, 2 apples still on the tree', (await phase(page)) === 'complete' && t.count === '2' && b.filled === '1100' && b.deliver && t.ripeApples === 2 && t.visible === 2, J({ t, b }));
     const dn = await doneNote(page);
-    ok('L7 ' + tag + ': the note says「' + NOTE_EXTRA + '」(not「ぜんぶ」: apples are still on the tree)', dn.shown && dn.text === NOTE_EXTRA, J(dn));
+    ok('L7 ' + tag + ': the note says「' + NOTE_EXTRA + '」', dn.shown && dn.text === NOTE_EXTRA, J(dn));
     ok('L7 ' + tag + ': the tree is not shrunk (' + hHarvest + 'px -> ' + can.h + 'px; the usual shrink would give ' + normalCompleteCanopy + 'px)', can.h > normalCompleteCanopy * 1.5 && can.h >= hHarvest * 0.6, hHarvest + ' -> ' + can.h);
     const inside = await page.evaluate(() => { const c = document.getElementById('canopy').getBoundingClientRect(); return Array.from(document.querySelectorAll('#appleGrid .apple[data-status="ripe"]')).every((e) => { const r = e.getBoundingClientRect(); return r.width >= 60 && r.left >= c.left - 1 && r.right <= c.right + 1 && r.top >= c.top - 1 && r.bottom <= c.bottom + 1 && r.bottom <= innerHeight; }); });
     ok('L7 ' + tag + ': the apples left on the tree are fully visible inside the crown (>= 60px) and「とどける」is on the screen', inside && !!dl && dl.b <= 1194 && dl.t >= 0, J({ can, dl }));
-    // the full basket: touch a fruit that is still on the tree
-    const sp0 = (await spoken(page)).length, au0 = await audible(page);
-    const pos = await rect(page, '#appleGrid .apple[data-status="ripe"]');
-    await page.mouse.click(pos.l + pos.w / 2, pos.t + pos.h / 2); await sleep(120);
-    const r = await page.evaluate(() => { const a = document.querySelector('#appleGrid .apple[data-status="ripe"]'); return { nudge: a.classList.contains('is-nudge'), anim: getComputedStyle(a).animationName, flash: document.getElementById('basket').classList.contains('is-full-flash'), glow: getComputedStyle(document.getElementById('basket')).boxShadow !== 'none' }; });
-    const t2 = await tree(page);
-    ok('L7 ' + tag + ': touching it takes nothing: still 2 on the tree, number 2, phase complete', t2.ripeApples === 2 && t2.count === '2' && t2.filled === 2 && (await phase(page)) === 'complete' && (await harvested(page)) === 2, J(t2));
-    ok('L7 ' + tag + ': the basket frame lights and the live region says「かごは いっぱいです」', r.flash && r.glow && /かごは いっぱいです/.test(await live(page)), J(r) + ' ' + await live(page));
-    ok('L7 ' + tag + (motion ? ': the touched apple nudges in place (animation "nudge")' : ': the touched apple does NOT move (no animation class)'), motion ? (r.nudge && r.anim === 'nudge') : (!r.nudge && r.anim === 'none'), J(r));
-    ok('L7 ' + tag + ': no voice (nothing spoken, no file played)', (await spoken(page)).length === sp0 && (await audible(page)) === au0);
-    await sleep(900);
-    const r2 = await page.evaluate(() => ({ flash: document.getElementById('basket').classList.contains('is-full-flash'), nudge: !!document.querySelector('#appleGrid .apple.is-nudge') }));
-    ok('L7 ' + tag + ': the light is over after a moment (once), no class is left behind', !r2.flash && !r2.nudge, J(r2));
-    for (let i = 0; i < 3; i++) { await page.mouse.click(pos.l + pos.w / 2, pos.t + pos.h / 2); await sleep(150); }
-    ok('L7 ' + tag + ': touching again and again never takes one (number 2, 2 on the tree)', (await harvested(page)) === 2 && (await tree(page)).ripeApples === 2);
+    // one more than asked: it can be taken, and「とどける」goes away
+    await take(page, 'apple'); await sleep(settle);
+    b = await basket(page);
+    ok('L7 ' + tag + ': a third apple CAN be taken: number 3, frames 1110, 1 apple left on the tree', (await harvested(page)) === 3 && b.filled === '1110' && (await tree(page)).ripeApples === 1 && (await tree(page)).count === '3', J(b));
+    ok('L7 ' + tag + ': too many ->「とどける」and the note are gone (phase harvest)', !b.deliver && !(await doneNote(page)).shown && (await phase(page)) === 'harvest', J(b));
+    ok('L7 ' + tag + ': the count is spoken as usual (いち, に, さん)', J(await spoken(page)) === J(['いち', 'に', 'さん']), J(await spoken(page)));
+    ok('L7 ' + tag + ': no full-basket reaction (nothing nudges, the basket does not light, nothing is said about a full basket)', await noFullReaction(page), await live(page));
+    await take(page, 'apple'); await sleep(settle);
+    b = await basket(page); t = await tree(page);
+    ok('L7 ' + tag + ': the fourth too: every apple is in the basket (number 4, frames 1111, the tree is empty), still no「とどける」/ note', (await harvested(page)) === 4 && b.filled === '1111' && t.ripe === 0 && t.visible === 0 && !b.deliver && !(await doneNote(page)).shown, J({ b, t }));
+    const cp = await rect(page, '#canopy');
+    await sleep(700); await page.mouse.click(cp.l + cp.w / 2, cp.t + cp.h / 2); await sleep(200);
+    ok('L7 ' + tag + ': with all the apples in the basket there is still no full-basket reaction, also when the empty tree is touched', await noFullReaction(page) && (await harvested(page)) === 4 && J(await spoken(page)) === J(['いち', 'に', 'さん', 'よん']), J(await spoken(page)));
+    // touch an apple in the basket: it goes back to the tree
+    const sp1 = (await spoken(page)).length, au1 = await audible(page);
+    const c1 = await giveBack(page, 1, { wait: false });
+    if (motion) {
+      await sleep(120);
+      const mid = await page.evaluate(() => ({ flyers: document.querySelectorAll('.flyer').length, going: document.querySelectorAll('#appleGrid .apple[data-status="returning"]').length, hidden: Array.from(document.querySelectorAll('#appleGrid .apple[data-status="returning"]')).every((e) => getComputedStyle(e).visibility === 'hidden'), count: document.getElementById('countNum').textContent }));
+      ok('L7 motion ON: the apple leaves its frame at once (number 3) and flies back (one flyer; its place on the tree is still empty)', mid.flyers === 1 && mid.going === 1 && mid.hidden && mid.count === '3' && (await basket(page)).filled === '1011', J(mid));
+      const other = await page.evaluate(() => { const r = document.querySelector('#slots .slot[data-filled="1"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+      await page.mouse.click(other.x, other.y); await sleep(60);
+      ok('L7 motion ON: while it is in flight a touch on another apple in the basket is not accepted (still number 3, one apple in flight)', (await harvested(page)) === 3 && (await page.evaluate(() => document.querySelectorAll('#appleGrid .apple[data-status="returning"]').length)) === 1);
+    }
+    await page.waitForFunction(() => !document.querySelector('#appleGrid .apple[data-status="returning"]'), null, { timeout: 10000 }); await sleep(150);
+    b = await basket(page); t = await tree(page);
+    ok('L7 ' + tag + ': a touch on the apple in the 2nd frame (the frame itself is what is hit): that frame is empty (1011), the number is 3, the apple hangs on the tree again', c1.onSlot && b.filled === '1011' && b.ret === '1011' && t.count === '3' && (await harvested(page)) === 3 && t.ripeApples === 1 && t.visible === 1 && (await page.evaluate(() => document.querySelectorAll('.flyer').length)) === 0, J({ c1, b, t }));
+    ok('L7 ' + tag + ': the new count is spoken by the synthesised voice (さん); no file is played; the live region tells it', J((await spoken(page)).slice(sp1)) === J(['さん']) && (await audible(page)) === au1 && /もどしました。いま 3こ/.test(await live(page)), J((await spoken(page)).slice(sp1)) + ' ' + await live(page));
+    ok('L7 ' + tag + ': still one too many: no「とどける」, no note', !b.deliver && !(await doneNote(page)).shown && (await phase(page)) === 'harvest');
+    await giveBack(page, 0);
+    b = await basket(page);
+    ok('L7 ' + tag + ': one more back (the 1st frame): number 2 = the asked count ->「とどける」and the note are shown again (frames 0011, phase complete)', (await harvested(page)) === 2 && b.filled === '0011' && b.deliver && (await doneNote(page)).shown && (await doneNote(page)).text === NOTE_EXTRA && (await phase(page)) === 'complete' && (await tree(page)).ripeApples === 2, J(b));
+    ok('L7 ' + tag + ': ... and「に」is spoken', (await spoken(page)).slice(-1)[0] === 'に', J(await spoken(page)));
+    await sleep(700); await take(page, 'apple'); await sleep(settle);
+    b = await basket(page);
+    ok('L7 ' + tag + ': the next apple taken fills the first empty frame (1011): number 3,「とどける」gone again', b.filled === '1011' && (await harvested(page)) === 3 && !b.deliver && !(await doneNote(page)).shown, J(b));
+    // two quick touches on two different apples: only one goes back
+    await sleep(700);
+    const two = await page.evaluate(() => Array.from(document.querySelectorAll('#slots .slot[data-filled="1"]')).slice(0, 2).map((s) => { const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }));
+    await page.mouse.click(two[0].x, two[0].y); await page.mouse.click(two[1].x, two[1].y);
+    await page.waitForFunction(() => !document.querySelector('#appleGrid .apple[data-status="returning"]'), null, { timeout: 10000 }); await sleep(150);
+    ok('L7 ' + tag + ': two touches in a row on two apples in the basket send back only one (number 2, frames 0011)', (await harvested(page)) === 2 && (await basket(page)).filled === '0011', J(await basket(page)));
+    await giveBack(page, 0);
+    b = await basket(page);
+    ok('L7 ' + tag + ': below the asked count again (number 1, frames 0001): no「とどける」, no note,「いち」spoken', (await harvested(page)) === 1 && b.filled === '0001' && !b.deliver && !(await doneNote(page)).shown && (await phase(page)) === 'harvest' && (await spoken(page)).slice(-1)[0] === 'いち', J(b));
+    // while the レベルアップ panel is open, nothing goes back
+    await openPanel(page);
+    await page.evaluate(() => document.querySelector('#slots .slot[data-filled="1"]').click()); await sleep(200);
+    ok('L7 ' + tag + ': with the レベルアップ panel open a touch on the apple in the basket does nothing', (await harvested(page)) === 1 && (await basket(page)).filled === '0001');
+    await closePanel(page);
+    await sleep(300); await take(page, 'apple'); await waitPhase(page, 'complete'); await sleep(settle);
+    ok('L7 ' + tag + ': one more taken: exactly 2 again (frames 1001) ->「とどける」shown', (await basket(page)).filled === '1001' && (await basket(page)).deliver && (await harvested(page)) === 2);
     await finish(page);
     const log = await readLog(page), keys = Object.keys(log[0].payload).sort().join(',');
-    ok('L7 ' + tag + ':「とどける」succeeds (celebrate, thanks played); the tree still shows the 2 apples', (await phase(page)) === 'celebrate' && (await audible(page, 'arigatou')) === 1 && (await tree(page)).visible === 2);
-    ok('L7 ' + tag + ': one record: level extra, extra 2, goal 2, harvested 2, refusals 0 -- 15 keys, schemaVersion 1, nothing about the touches on the full basket', log.length === 1 && log[0].payload.level === 'extra' && log[0].payload.extra === 2 && log[0].payload.goal === 2 && log[0].payload.harvested === 2 && log[0].payload.refusals === 0 && log[0].schemaVersion === 1 && keys === 'decoys,durationSec,extra,goal,goalMax,goalMin,goalMode,harvested,level,moveSpeed,operation,refusals,showNumber,swipe,switchScan', keys + ' ' + J(log[0].payload));
+    ok('L7 ' + tag + ':「とどける」succeeds (celebrate, thanks played, frames empty); the tree still shows the 2 apples', (await phase(page)) === 'celebrate' && (await audible(page, 'arigatou')) === 1 && (await tree(page)).visible === 2 && (await basket(page)).filled === '0000' && (await basket(page)).controls === 0, J(await basket(page)));
+    ok('L7 ' + tag + ': one record: level extra, extra 2, goal 2, harvested 2, refusals 0 -- 15 keys, schemaVersion 1, nothing about the apples sent back', log.length === 1 && log[0].payload.level === 'extra' && log[0].payload.extra === 2 && log[0].payload.goal === 2 && log[0].payload.harvested === 2 && log[0].payload.refusals === 0 && log[0].schemaVersion === 1 && keys === 'decoys,durationSec,extra,goal,goalMax,goalMin,goalMode,harvested,level,moveSpeed,operation,refusals,showNumber,swipe,switchScan', keys + ' ' + J(log[0].payload));
     await again(page);
-    ok('L7 ' + tag + ':「もう いちど」starts the next activity in the same level (4 apples, 2 frames, none taken)', (await tree(page)).apples === 4 && (await tree(page)).ripe === 4 && (await tree(page)).count === '0');
+    ok('L7 ' + tag + ':「もう いちど」starts the next activity in the same level (4 apples, 4 empty frames, none taken)', (await tree(page)).apples === 4 && (await tree(page)).ripe === 4 && (await tree(page)).count === '0' && (await basket(page)).filled === '0000');
     ok('L7 ' + tag + ': no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
   }
+  {
+    // back to nothing: the count 0 is spoken too; with the voice OFF nothing is spoken or played
+    const { context, page } = await newPage(browser, BASE, { settings: { goal: 1, level: 'extra', extra: 1 } });
+    await start(page);
+    await take(page, 'apple'); await waitPhase(page, 'complete');
+    const sp0 = (await spoken(page)).length;
+    await giveBack(page, 0);
+    ok('L7 goal 1: the only apple sent back -> number 0, both frames empty, no「とどける」;「ぜろ」is spoken', (await harvested(page)) === 0 && (await basket(page)).filled === '00' && !(await basket(page)).deliver && (await phase(page)) === 'harvest' && J((await spoken(page)).slice(sp0)) === J(['ぜろ']), J((await spoken(page)).slice(sp0)));
+    ok('L7 goal 1: no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+    const q = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 1, voice: false } });
+    await start(q.page);
+    await take(q.page, 'apple'); await take(q.page, 'apple'); await take(q.page, 'apple');
+    await giveBack(q.page, 0);
+    ok('L7 voice OFF: the apple goes back (number 2,「とどける」shown) and nothing is spoken or played', (await harvested(q.page)) === 2 && (await basket(q.page)).deliver && (await spoken(q.page)).length === 0 && (await audible(q.page)) === 0 && q.page.__errors.length === 0, J(await spoken(q.page)));
+    await q.context.close();
+    // the frames are touch targets in this level: never below 44px, also on the smallest layout with twelve of them
+    for (const vp of [{ n: 'phone landscape', w: 844, h: 390 }, { n: 'phone portrait', w: 390, h: 844 }, { n: 'iPad portrait', w: 820, h: 1180 }]) {
+      const s = await newPage(browser, BASE, { settings: { goal: 10, level: 'extra', extra: 2 }, viewport: { width: vp.w, height: vp.h } });
+      await start(s.page);
+      const bb = await basket(s.page);
+      ok('L7 ' + vp.n + ', goal 10 + 2: 12 frames, each at least 44px, no horizontal overflow', bb.n === 12 && bb.minSize >= 44 && await s.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), J(bb));
+      await s.context.close();
+    }
+  }
 
-  /* ---------------- L8 the level extra with the whole-screen touch: as before, the next tap is「とどける」 ---------------- */
+  /* ---------------- L8 the level extra with the whole-screen touch (and strokes): the apple in the basket is in front of the surface ---------------- */
   {
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 2, operation: 'anywhere' } });
     await start(page);
-    ok('L8 anywhere: 4 apples on the tree, 2 frames', (await tree(page)).apples === 4 && (await tree(page)).slots === 2);
-    for (let i = 0; i < 2; i++) { const h0 = await harvested(page); for (let k = 0; k < 40 && (await harvested(page)) === h0; k++) { await page.mouse.click(300, 600); await sleep(150); } }
+    ok('L8 anywhere: 4 apples on the tree, 4 frames', (await tree(page)).apples === 4 && (await tree(page)).slots === 4);
+    const tap = async () => { const h0 = await harvested(page); for (let k = 0; k < 40 && (await harvested(page)) === h0; k++) { await page.mouse.click(300, 600); await sleep(150); } };
+    await tap(); await tap();
     await waitPhase(page, 'complete'); await sleep(750);
     ok('L8 two taps: number 2, complete, 2 apples left on the tree; the note is the level extra one', (await harvested(page)) === 2 && (await tree(page)).ripeApples === 2 && (await doneNote(page)).text === NOTE_EXTRA, J(await doneNote(page)));
+    const sp0 = (await spoken(page)).length;
+    const c = await giveBack(page, 0);
+    let b = await basket(page);
+    ok('L8 a touch on the apple in the basket reaches the fruit, not the whole-screen surface: it goes back (number 1, frames 0100, phase harvest, no「とどける」)', c.onSlot && (await harvested(page)) === 1 && b.filled === '0100' && !b.deliver && (await phase(page)) === 'harvest' && (await tree(page)).ripeApples === 3, J({ c, b }));
+    ok('L8 ... and the new count is spoken (いち)', J((await spoken(page)).slice(sp0)) === J(['いち']), J((await spoken(page)).slice(sp0)));
+    // an EMPTY frame is not in front of the surface: a tap there is the usual whole-screen tap
+    await sleep(700);
+    const e = await page.evaluate(() => { const s = document.querySelector('#slots .slot[data-filled="0"]'); const r = s.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: top && top.id }; });
+    await page.mouse.click(e.x, e.y);
+    await waitPhase(page, 'complete'); await sleep(750);
+    ok('L8 an empty frame is not a control: a tap on it is the whole-screen tap (the surface is hit) and takes an apple (number 2, complete)', e.top === 'surface' && (await harvested(page)) === 2 && (await basket(page)).deliver, J(e));
     await page.mouse.click(300, 600);
     await waitPhase(page, 'celebrate'); await sleep(300);
-    const fl = await page.evaluate(() => document.getElementById('basket').classList.contains('is-full-flash') || !!document.querySelector('.apple.is-nudge'));
-    ok('L8 the next tap delivers (celebrate); no full-basket reaction, nothing said about a full basket', (await phase(page)) === 'celebrate' && !fl && !/いっぱい/.test(await live(page)), await live(page));
+    ok('L8 the next tap on the screen delivers (celebrate); no full-basket reaction', (await phase(page)) === 'celebrate' && await noFullReaction(page), await live(page));
     const log = await readLog(page);
     ok('L8 record: level extra, extra 2, operation anywhere, harvested 2', log.length === 1 && log[0].payload.level === 'extra' && log[0].payload.extra === 2 && log[0].payload.operation === 'anywhere' && log[0].payload.harvested === 2, J(log[0].payload));
     ok('L8 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+  {
+    // strokes ON: a stroke on the screen takes an apple as before; a touch on the apple in the basket still sends it back
+    const { context, page } = await newPage(browser, BASE, { settings: { goal: 3, level: 'extra', extra: 1, operation: 'anywhere', swipe: true } });
+    await start(page); await sleep(200);
+    const stroke = async (x, y) => { await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 160, y, { steps: 6 }); await page.mouse.up(); await sleep(900); };
+    await stroke(300, 500);
+    ok('L8 strokes ON: a stroke on the screen takes one apple (number 1)', (await harvested(page)) === 1);
+    const f = await page.evaluate(() => { const r = document.querySelector('#slots .slot[data-filled="1"]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await stroke(f.x, f.y);
+    ok('L8 strokes ON: a stroke that starts on the apple in the basket takes nothing and sends nothing back (number 1)', (await harvested(page)) === 1 && (await basket(page)).filled === '1000', J(await basket(page)));
+    const c = await giveBack(page, 0);
+    ok('L8 strokes ON: a touch on the apple in the basket sends it back (number 0)', c.onSlot && (await harvested(page)) === 0 && (await basket(page)).filled === '0000' && (await tree(page)).ripeApples === 4);
+    await sleep(500); await stroke(300, 500);
+    ok('L8 strokes ON: after that a stroke takes an apple again (number 1); no errors', (await harvested(page)) === 1 && page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
   }
 
@@ -373,7 +513,7 @@ function expectPlan(goal, want, dummy) {
     // Switch Scan: never a candidate, in any phase; nothing is offered while the panel is open
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 1 } });
     await openSettings(page); await page.click('#settingsSheet [data-scan-on="1"]'); await sleep(300); await closeSettings(page);
-    const cand = () => page.evaluate(() => window.ringoScan.buildScanItems().map((e) => e.id || (e.getAttribute('data-kind') + '#' + e.getAttribute('data-id'))));
+    const cand = () => scanCand(page);
     const inPanel = () => page.evaluate(() => window.ringoScan.buildScanItems().some((e) => e.id === 'ringoLevelBtn' || !!e.closest('#ringoLevelPanel')));
     const seen = [];
     seen.push(['start', await cand(), await inPanel()]);
@@ -391,11 +531,43 @@ function expectPlan(goal, want, dummy) {
     for (let i = 0; i < 2; i++) { await page.evaluate(() => { const a = document.querySelector('#appleGrid .apple[data-status="ripe"]'); a.focus(); }); const h0 = await harvested(page); for (let k = 0; k < 30 && (await harvested(page)) === h0; k++) { await page.keyboard.press('Enter'); await sleep(150); } }
     await waitPhase(page, 'complete'); await sleep(200);
     seen.push(['complete', await cand(), await inPanel()]);
-    ok('L9 level extra, count reached: the only candidate is「とどける」(the apples left on the tree are not offered)', J(await cand()) === J(['deliverBtn']), J(await cand()));
+    ok('L9 level extra, before anything is taken the candidates are the 3 apples on the tree (no frame holds one yet)', J(seen[1][1]) === J(['apple#0', 'apple#1', 'apple#2']), J(seen[1][1]));
+    ok('L9 level extra, count reached: the candidates are「とどける」first, then the apple left on the tree, then the apples in the basket', J(await cand()) === J(['deliverBtn', 'apple#2', 'slot#0', 'slot#1']), J(await cand()));
+    // the scan itself reaches an apple in the basket; choosing it there sends that apple back
+    await page.evaluate(() => window.ringoScan.refreshSwitchScanItems());
+    await page.waitForFunction(() => { const a = document.activeElement; return !!a && a.classList.contains('slot') && a.classList.contains('scan-focus'); }, null, { timeout: 15000 });
+    const onSlot = await page.evaluate(() => ({ id: document.activeElement.getAttribute('data-id'), label: document.activeElement.getAttribute('aria-label'), n: document.querySelectorAll('.scan-focus').length }));
+    await page.evaluate(() => window.ringoScan.activateCurrentScanItem());
+    await page.waitForFunction(() => !document.querySelector('#appleGrid .apple[data-status="returning"]'), null, { timeout: 10000 }); await sleep(150);
+    ok('L9 the scan highlight reaches an apple in the basket (one highlight, labelled); choosing it sends it back: number 1, no「とどける」', onSlot.id === '0' && onSlot.n === 1 && /もどす/.test(onSlot.label || '') && (await harvested(page)) === 1 && !(await basket(page)).deliver && (await phase(page)) === 'harvest', J(onSlot));
+    ok('L9 after that the candidates are the apples on the tree first, then the one still in the basket; the highlight is on a tree apple, not on the emptied frame', J(await cand()) === J(['apple#0', 'apple#2', 'slot#1']) && await page.evaluate(() => { const a = document.activeElement; return !!a && a.classList.contains('apple') && a.classList.contains('scan-focus') && a.getAttribute('data-status') === 'ripe'; }), J(await cand()));
+    // keyboard on a frame (Enter): the same single path
+    await sleep(500);
+    await page.evaluate(() => document.querySelector('#slots .slot[data-ret="1"]').focus()); await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.querySelector('#appleGrid .apple[data-status="returning"]'), null, { timeout: 10000 }); await sleep(150);
+    ok('L9 Enter on the apple in the basket sends it back too (number 0); the candidates are the 3 apples on the tree again', (await harvested(page)) === 0 && J(await cand()) === J(['apple#0', 'apple#1', 'apple#2']), J(await cand()));
+    for (let i = 0; i < 2; i++) { await sleep(400); await page.evaluate(() => { const a = document.querySelector('#appleGrid .apple[data-status="ripe"]'); a.focus(); }); const h0 = await harvested(page); for (let k = 0; k < 30 && (await harvested(page)) === h0; k++) { await page.keyboard.press('Enter'); await sleep(150); } }
+    await waitPhase(page, 'complete'); await sleep(200);
+    ok('L9 two apples taken again: at the count the highlight is on「とどける」', await page.evaluate(() => document.activeElement === document.getElementById('deliverBtn')));
     await finish(page);
     seen.push(['celebrate', await cand(), await inPanel()]);
     ok('L9 the button and the panel are never Switch Scan candidates (start / harvest / complete / celebrate)', seen.every((s) => s[2] === false && !s[1].includes('ringoLevelBtn')) && J(seen[0][1]) === J(['startBtn']) && J(seen[3][1]) === J(['againBtn']), J(seen));
     ok('L9 no errors', page.__errors.length === 0, page.__errors.join('|'));
+    await context.close();
+  }
+  {
+    // Switch Scan with the whole-screen touch in the level extra: the screen first, then the apples in the basket
+    const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 1, operation: 'anywhere' } });
+    await openSettings(page); await page.click('#settingsSheet [data-scan-on="1"]'); await sleep(300); await closeSettings(page);
+    await page.evaluate(() => document.getElementById('startBtn').click()); await sleep(800);
+    const c0 = await scanCand(page);
+    const press = async () => { const h0 = await harvested(page); for (let k = 0; k < 30 && (await harvested(page)) === h0; k++) { await page.evaluate(() => document.getElementById('surface').focus()); await page.keyboard.press('Enter'); await sleep(150); } };
+    await press(); await sleep(500);
+    const c1 = await scanCand(page);
+    await press(); await waitPhase(page, 'complete'); await sleep(300);
+    const c2 = await scanCand(page);
+    ok('L9 anywhere + scan, level extra: candidates [surface] -> [surface, the apple in the basket] -> at the count [「とどける」, the apples in the basket]', J(c0) === J(['surface']) && J(c1) === J(['surface', 'slot#0']) && J(c2) === J(['deliverBtn', 'slot#0', 'slot#1']), J([c0, c1, c2]));
+    ok('L9 anywhere + scan: no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
   }
   {
@@ -446,33 +618,69 @@ function expectPlan(goal, want, dummy) {
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 1, dummy: true } });
     await start(page);
     const t0 = await tree(page);
-    ok('L10 goal 2 + extra 1 + decoys: 3 apples and 1 banana on the tree, 2 frames', t0.apples === 3 && t0.decoys === 1 && t0.slots === 2, J(t0));
+    ok('L10 goal 2 + extra 1 + decoys: 3 apples and 1 banana on the tree, 3 frames (one for every apple, none for the banana)', t0.apples === 3 && t0.decoys === 1 && t0.slots === 3, J(t0));
+    ok('L10 the request is the level extra one: ringo-b-2.mp3 played once, the bubble says「' + B_BUBBLE_TEXT(2) + '」', (await audible(page, 'ringo-b-2\\.mp3')) === 1 && (await audible(page, 'ringo-2\\.mp3')) === 0 && (await bubbleSaid(page)) === squash(B_BUBBLE_TEXT(2)), await bubbleSaid(page));
     await take(page, 'banana'); await take(page, 'apple'); await take(page, 'apple'); await waitPhase(page, 'complete');
+    let b = await basket(page);
+    ok('L10 banana + 2 apples: the banana is beside the frames (tray 1), frames 110, number 2 ->「とどける」shown as before', b.tray === 1 && b.filled === '110' && b.deliver && (await harvested(page)) === 2, J(b));
+    // the banana in the tray is not a control: only the farmer's refusal takes it out
+    await sleep(700);
+    const tr = await page.evaluate(() => { const s = document.querySelector('#decoyTray svg'); const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, buttons: document.querySelectorAll('#decoyTray button, #decoyTray [tabindex]').length }; });
+    await page.mouse.click(tr.x, tr.y); await sleep(300);
+    ok('L10 a touch on the banana beside the frames does nothing (still in the tray, number 2, complete)', tr.buttons === 0 && (await basket(page)).tray === 1 && (await harvested(page)) === 2 && (await phase(page)) === 'complete');
     await deliver(page); await waitPhase(page, 'refusing', 5000);
+    ok('L10 delivering with the banana is refused as before (okotowari.mp3, the refusal bubble; the request pieces are hidden)', (await audible(page, 'okotowari')) === 1 && await page.isVisible('#bubbleRefuse') && await page.isHidden('#bubbleExact') && await page.isHidden('#bubbleLead'));
     await waitPhase(page, 'harvest', 20000); await sleep(500);
     const t1 = await tree(page);
-    ok('L10 delivering with the banana is refused as before; everything is back on the tree (3 apples + banana, number 0)', t1.ripe === 4 && t1.apples === 3 && t1.count === '0' && (await attr(page, 'data-refusals')) === '1', J(t1));
+    ok('L10 ... everything is back on the tree (3 apples + banana, number 0, frames empty)', t1.ripe === 4 && t1.apples === 3 && t1.count === '0' && (await attr(page, 'data-refusals')) === '1' && (await basket(page)).filled === '000' && (await basket(page)).tray === 0, J(t1));
+    ok('L10 the request after the refusal is the level extra one again: ringo-b-2.mp3 a second time (never ringo-2.mp3), the same bubble', (await audible(page, 'ringo-b-2\\.mp3')) === 2 && (await audible(page, 'ringo-2\\.mp3')) === 0 && (await bubbleSaid(page)) === squash(B_BUBBLE_TEXT(2)), await bubbleSaid(page));
+    // too many, with a banana: an apple sent back makes the count exact; the banana still means a refusal
+    await take(page, 'apple'); await take(page, 'apple'); await take(page, 'apple'); await take(page, 'banana');
+    b = await basket(page);
+    ok('L10 3 apples + banana: number 3 (too many), frames 111, tray 1, no「とどける」', (await harvested(page)) === 3 && b.filled === '111' && b.tray === 1 && !b.deliver && (await phase(page)) === 'harvest', J(b));
+    await giveBack(page, 1);
+    b = await basket(page);
+    ok('L10 one apple sent back: number 2 ->「とどける」shown (frames 101; the banana is still in the tray)', (await harvested(page)) === 2 && b.filled === '101' && b.tray === 1 && b.deliver && (await phase(page)) === 'complete', J(b));
+    await deliver(page); await waitPhase(page, 'refusing', 5000);
+    await waitPhase(page, 'harvest', 20000); await sleep(500);
+    ok('L10「とどける」with the banana in the basket is refused again; everything is back (4 ripe, frames empty, refusals 2)', (await tree(page)).ripe === 4 && (await basket(page)).filled === '000' && (await attr(page, 'data-refusals')) === '2' && (await audible(page, 'ringo-b-2\\.mp3')) === 3);
     await harvest(page, 2);
     ok('L10 with decoys in the level extra the note is the level extra one too', (await doneNote(page)).text === NOTE_EXTRA, J(await doneNote(page)));
+    await take(page, 'banana'); await sleep(200);
+    ok('L10 a banana taken while the count is exact: the count stays 2 and「とどける」stays', (await harvested(page)) === 2 && (await basket(page)).deliver && (await basket(page)).tray === 1 && (await phase(page)) === 'complete');
+    await deliver(page); await waitPhase(page, 'refusing', 5000);
+    await waitPhase(page, 'harvest', 20000); await sleep(500);
+    await harvest(page, 2);
     await finish(page);
     const log = await readLog(page);
-    ok('L10 apples only: delivered; record level extra, extra 1, decoys 1, refusals 1, goal 2', log.length === 1 && log[0].payload.level === 'extra' && log[0].payload.extra === 1 && log[0].payload.decoys === 1 && log[0].payload.refusals === 1 && log[0].payload.goal === 2, J(log[0].payload));
+    ok('L10 apples only: delivered; record level extra, extra 1, decoys 1, refusals 3, goal 2, harvested 2', log.length === 1 && log[0].payload.level === 'extra' && log[0].payload.extra === 1 && log[0].payload.decoys === 1 && log[0].payload.refusals === 3 && log[0].payload.goal === 2 && log[0].payload.harvested === 2, J(log[0].payload));
     ok('L10 no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
     const r = await newPage(browser, BASE, { settings: { goal: 3, goalMode: 'random', goalMin: 9, goalMax: 10, level: 'extra', extra: 3 } });
     await start(r.page);
-    const g = parseInt(await attr(r.page, 'data-goal'), 10), tr = await tree(r.page);
-    ok('L10 random goal 9..10 + extra 3: drawn ' + g + ' -> ' + (g + expectPlan(g, 3, false).extra) + ' apples, ' + g + ' frames, never more than 12', (g === 9 || g === 10) && tr.apples === g + expectPlan(g, 3, false).extra && tr.slots === g && tr.total <= 12, J(tr));
+    const g = parseInt(await attr(r.page, 'data-goal'), 10), trr = await tree(r.page), ex = expectPlan(g, 3, false).extra;
+    ok('L10 random goal 9..10 + extra 3: drawn ' + g + ' -> ' + (g + ex) + ' apples and as many frames, never more than 12', (g === 9 || g === 10) && trr.apples === g + ex && trr.slots === g + ex && trr.total <= 12, J(trr));
+    ok('L10 random goal: the request file is the one of the drawn number (ringo-b-' + g + '.mp3), the bubble names it', J(await plays(r.page)) === J(['ringo-b-' + g + '.mp3']) && (await bubbleSaid(r.page)) === squash(B_BUBBLE_TEXT(g)), J(await plays(r.page)));
     await r.context.close();
   }
 
-  /* ---------------- L11 the level ふつう carries the new record fields and nothing else changes for it ---------------- */
+  /* ---------------- L11 the level ふつう: nothing changes for it (frames = the goal, plain markers; the request as before) ---------------- */
   {
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'normal', extra: 3 } });
     await start(page);
-    ok('L11 level ふつう (with a saved extra 3): 2 apples, 2 frames', (await tree(page)).total === 2 && (await tree(page)).slots === 2);
-    await harvest(page, 2);
-    const fl0 = await page.evaluate(() => document.getElementById('basket').classList.contains('is-full-flash'));
+    let b = await basket(page);
+    ok('L11 level ふつう (with a saved extra 3): 2 apples, 2 frames -- plain markers (div), the basket is an image as before, no control in it', (await tree(page)).total === 2 && b.n === 2 && b.tags === 'DIV' && b.role === 'img' && b.ret === '--' && b.controls === 0 && (await page.evaluate(() => document.querySelectorAll('#basket button, #basket [tabindex]').length)) === 0, J(b));
+    ok('L11 level ふつう: the request is the one as before (ringo-2.mp3 once, no ringo-b file; the bubble says「' + N_BUBBLE_TEXT(2) + '」, no second sentence)', J(await plays(page)) === J(['ringo-2.mp3']) && (await bubbleSaid(page)) === squash(N_BUBBLE_TEXT(2)) && (await page.evaluate(() => !document.getElementById('bubbleExact'))), J(await plays(page)) + ' ' + await bubbleSaid(page));
+    await take(page, 'apple');
+    const sp0 = (await spoken(page)).length;
+    const f = await page.evaluate(() => { const s = document.querySelector('#slots .slot[data-filled="1"]'); const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await sleep(700); await page.mouse.click(f.x, f.y); await sleep(300);
+    await page.evaluate(() => document.querySelector('#slots .slot[data-filled="1"]').click()); await sleep(300);
+    b = await basket(page);
+    ok('L11 level ふつう: a touch on the apple in the basket does nothing (number 1, the frame still holds it, 1 apple on the tree, nothing spoken)', (await harvested(page)) === 1 && b.filled === '10' && (await tree(page)).ripeApples === 1 && (await spoken(page)).length === sp0 && (await page.evaluate(() => document.querySelectorAll('.flyer').length)) === 0, J(b));
+    ok('L11 level ふつう: the Switch Scan candidates are the fruit on the tree only (no frame)', J(await scanCand(page)) === J(['apple#1']), J(await scanCand(page)));
+    await take(page, 'apple'); await waitPhase(page, 'complete'); await sleep(150);
+    ok('L11 level ふつう: at the count the only Switch Scan candidate is「とどける」', J(await scanCand(page)) === J(['deliverBtn']), J(await scanCand(page)));
     const n11 = await doneNote(page);
     ok('L11 level ふつう: the note stays「' + NOTE_NORMAL + '」', n11.shown && n11.text === NOTE_NORMAL, J(n11));
     // the note follows the level the ACTIVITY is played in, not the one saved meanwhile
@@ -481,9 +689,57 @@ function expectPlan(goal, want, dummy) {
     await openPanel(page); await choose(page, 'normal'); await closePanel(page);
     await finish(page);
     const log = await readLog(page);
-    ok('L11 record: level normal, extra 0 (15 keys)', log.length === 1 && log[0].payload.level === 'normal' && log[0].payload.extra === 0 && Object.keys(log[0].payload).length === 15 && !fl0, J(log[0].payload));
+    ok('L11 record: level normal, extra 0 (15 keys)', log.length === 1 && log[0].payload.level === 'normal' && log[0].payload.extra === 0 && Object.keys(log[0].payload).length === 15, J(log[0].payload));
+    // ふつう after おおめから ぴったり in the same page: nothing of that level is left behind
+    await openPanel(page); await choose(page, 'extra'); await closePanel(page);
+    await again(page);
+    ok('L11 (the next activity is in the level extra: 2 + 3 apples, 5 frames, buttons, the second sentence in the bubble)', (await basket(page)).n === 5 && (await basket(page)).tags === 'BUTTON' && await page.isVisible('#bubbleExact'), J(await basket(page)));
+    await openPanel(page); await choose(page, 'normal'); await page.click('#ringoLevelRestart'); await sleep(800);
+    b = await basket(page);
+    ok('L11 back to ふつう with「いますぐ はじめなおす」: 2 frames, plain markers again, the basket an image, the bubble as before (no second sentence), ringo-2.mp3', b.n === 2 && b.tags === 'DIV' && b.role === 'img' && (await bubbleSaid(page)) === squash(N_BUBBLE_TEXT(2)) && (await page.evaluate(() => !document.getElementById('bubbleExact'))) && (await plays(page)).slice(-1)[0] === 'ringo-2.mp3', J(b) + ' ' + J(await plays(page)));
     ok('L11 no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
+  }
+
+  /* ---------------- L12 the request of the level extra: its own files (ringo-b-<goal>.mp3) and its own words ---------------- */
+  {
+    for (let g = 1; g <= 10; g++) {
+      const { context, page } = await newPage(browser, BASE, { settings: { goal: g, level: 'extra', extra: 1 } });
+      await start(page);
+      ok('L12 goal ' + g + ': exactly one audible play, ringo-b-' + g + '.mp3 (not ringo-' + g + '.mp3); nothing synthesised', J(await plays(page)) === J(['ringo-b-' + g + '.mp3']) && (await spoken(page)).length === 0, J(await plays(page)) + ' ' + J(await spoken(page)));
+      ok('L12 goal ' + g + ': the bubble says「' + B_BUBBLE_TEXT(g) + '」', (await bubbleSaid(page)) === squash(B_BUBBLE_TEXT(g)) && page.__errors.length === 0, await bubbleSaid(page));
+      await context.close();
+    }
+    {
+      const { context, page } = await newPage(browser, BASE, { settings: { goal: 3, level: 'extra', extra: 1 } });
+      await start(page);
+      const lay = await page.evaluate(() => { const bu = document.getElementById('bubble').getBoundingClientRect(), x = document.getElementById('bubbleExact').getBoundingClientRect(), p = document.getElementById('reqPics').getBoundingClientRect(); return { inside: x.left >= bu.left && x.right <= bu.right && x.top >= bu.top && x.bottom <= bu.bottom, beforePics: document.getElementById('bubbleExact').nextElementSibling === document.getElementById('reqPics'), pics: document.querySelectorAll('#reqPics svg').length, overflow: document.documentElement.scrollWidth > innerWidth }; });
+      ok('L12 the second sentence sits inside the bubble, between the request and its pictures (3 pictures = the asked count, not the 4 on the tree)', lay.inside && lay.beforePics && lay.pics === 3 && !lay.overflow, J(lay));
+      const before = await page.evaluate(() => window.__au.length);
+      await take(page, 'apple');
+      const cut = await page.evaluate((n) => window.__au.slice(n).some((o) => o.op === 'pause' && /ringo-b-3\.mp3$/.test(o.src)), before);
+      ok('L12 the first apple taken cuts the request file (ringo-b-3.mp3 paused) and the count is spoken instead', cut && J(await spoken(page)) === J(['いち']), J(await spoken(page)));
+      await context.close();
+    }
+    {
+      const { context, page } = await newPage(browser, BASE, { settings: { goal: 4, level: 'extra', extra: 1, showNumber: false }, viewport: { width: 390, height: 844 } });
+      await start(page);
+      ok('L12 number hidden, phone portrait: the bubble says「りんごを とってね。ぴったり おねがいね」, nothing overflows; the file is still ringo-b-4.mp3', (await bubbleSaid(page)) === squash('りんごを とってね。ぴったり おねがいね') && await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth) && J(await plays(page)) === J(['ringo-b-4.mp3']), await bubbleSaid(page));
+      await context.close();
+    }
+    for (const c of [{ name: 'play() is refused', init: 'window.__auFail = true;', g: 5 }, { name: 'the file never loaded', init: 'window.__auErrorSrc = "ringo-b-3";', g: 3 }, { name: 'the file never loaded (10)', init: 'window.__auErrorSrc = "ringo-b-10";', g: 10 }]) {
+      const { context, page } = await newPage(browser, BASE, { settings: { goal: c.g, level: 'extra', extra: 1 }, init: c.init });
+      await start(page);
+      ok('L12 fallback, ' + c.name + ' (goal ' + c.g + '): the synthesised voice says the same sentence「' + B_SAID(c.g) + '」, once', J(await spoken(page)) === J([B_SAID(c.g)]), J(await spoken(page)));
+      ok('L12 fallback, ' + c.name + ': the ordinary request file is not used instead, the bubble is the same, no error', (await audible(page, 'ringo-' + c.g + '\\.mp3')) === 0 && (await bubbleSaid(page)) === squash(B_BUBBLE_TEXT(c.g)) && page.__errors.length === 0, page.__errors.join('|'));
+      await context.close();
+    }
+    {
+      const { context, page } = await newPage(browser, BASE, { settings: { goal: 2, level: 'extra', extra: 1, voice: false } });
+      await start(page);
+      ok('L12 voice OFF: nothing is played (not even muted) and nothing is spoken; the bubble still says the level extra request', (await page.evaluate(() => window.__au.filter((o) => o.op === 'play').length)) === 0 && (await spoken(page)).length === 0 && (await bubbleSaid(page)) === squash(B_BUBBLE_TEXT(2)));
+      await context.close();
+    }
   }
 
   await browser.close(); srv.close();
