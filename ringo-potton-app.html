@@ -215,6 +215,19 @@
   .slot svg { width: 86%; height: 86%; opacity: 0; transform: scale(.6); transition: opacity 180ms ease, transform 180ms ease; }
   .slot[data-filled="1"] { border-style: solid; background: #FFFDF7; }
   .slot[data-filled="1"] svg { opacity: 1; transform: scale(1); }
+  /* くだものを 2 しゅるい: the frames are split by kind -- one row for each kind asked for (set by buildRun: data-kinds on
+     the frames, each frame placed in its kind's row), and beside each row the kind's own picture and count
+     (.kind-counts, made by buildRun in that level only; the single number box is hidden then). */
+  .slots[data-kinds="1"] { display: grid; gap: 8px; justify-content: start; }   /* each row starts beside its kind's count */
+  .kind-counts { flex: none; display: grid; row-gap: 8px; align-content: center; margin-bottom: 4px; }
+  .kind-counts .kind-count { height: var(--slot-size, 64px); min-width: 72px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+  .kind-counts .kind-count svg { width: 28px; height: 28px; flex: none; }
+  .kind-counts .kind-count .count-num { font-size: min(2rem, calc(var(--slot-size, 64px) * .8)); }
+  .kind-counts .kind-count .count-unit { display: inline; }
+  .kind-counts .kind-count [hidden] { display: none; }
+  /* ... and the bubble names each kind with its own number and pictures: 「バナナを 2こ、」「りんごを 3こ、とってね」 */
+  .req-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+  .req-clause { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
   /* おおめから ぴったり: the frames are buttons there, and a frame that holds an apple (data-ret) takes it back to the
      tree when touched. Only such a frame sits above the whole-screen operation surface (z-index 5), like the action
      buttons, so the touch reaches the fruit in every operation mode; an empty frame takes no input at all. In the
@@ -735,7 +748,7 @@
 
 <!-- レベルアップ (teacher-facing; start and play screens). Not a Switch Scan candidate; sits above the whole-screen
      operation surface. The panel only opens here: the level changes when one of its buttons is pressed, and applies
-     from the next activity (or with「いますぐ はじめなおす」). 「くだものを 2 しゅるい」is not available yet (LEVEL_READY). -->
+     from the next activity (or with「いますぐ はじめなおす」). All three levels can be chosen (LEVEL_READY). -->
 <button type="button" class="level-btn" id="ringoLevelBtn" aria-expanded="false" aria-controls="ringoLevelPanel">レベルアップ</button>
 <div class="level-panel" id="ringoLevelPanel" role="group" aria-labelledby="ringoLevelTitle" tabindex="-1" hidden>
   <p class="level-title" id="ringoLevelTitle">レベルアップ</p>
@@ -1227,7 +1240,7 @@ function donomanaRecordFormatTracingLevel(level) {
   // レベルアップ: settings.level is ONE value, so the two raised levels can never be on together.
   //   normal = the activity as before / kinds2 = 「くだものを 2 しゅるい」/ extra = 「おおめから ぴったり」
   // A level that is not ready yet is offered as unavailable in the panel and reads as normal from storage.
-  var LEVEL_READY = { normal: true, kinds2: false, extra: true };
+  var LEVEL_READY = { normal: true, kinds2: true, extra: true };
   var LEVEL_NAMES = { normal: 'ふつう', kinds2: 'くだものを 2 しゅるい', extra: 'おおめから ぴったり' };
   var SWIPE_MIN_PX = 24;              // a stroke counts once its pointer has moved this far from where it went down (beyond any tap jitter)
   var SWIPE_CLICK_SUPPRESS_MS = 400;  // a click that follows a consumed stroke within this window is that same gesture, not a tap
@@ -1257,8 +1270,28 @@ function donomanaRecordFormatTracingLevel(level) {
   var REFUSE_MS = 2600;                                      // the refusal stays at least this long before everything returns to the tree (also the whole pause with the voice OFF)
   var REFUSE_VOICE_MAX_MS = 9000;                            // safety cap: if the refusal voice never reports its end, the activity still goes on (the file is about 6.2 s)
   function decoyCountFor(goal) { return Math.max(0, Math.min(1 + Math.floor(goal / 4), MAX_FRUIT - goal)); }   // 1..3 -> 1, 4..7 -> 2, 8..9 -> 3, 10 -> 2
-  function decoysActive() { return active.dummy && active.operation === 'apple'; }   // choosing is the point: whole-screen touch cannot choose, so there it is off
+  function decoysActive() { return active.dummy && active.operation === 'apple' && !kindsActive(); }   // choosing is the point: whole-screen touch cannot choose, so there it is off; the level「くだものを 2 しゅるい」never has decoys
   function extraActive() { return active.level === 'extra'; }                        // 「おおめから ぴったり」
+  /* ---- 「くだものを 2 しゅるい」(level kinds2) ----
+     The asked number (the goal) stays the total. At the start of each activity it is split over two of the three
+     kinds, at most KIND_MAX of one kind; which two kinds and how they share the total are drawn anew every time
+     (drawKinds). A goal of 1 cannot be split: it is one apple, asked for with the ordinary request. active.req is
+     the request, in the order it is SPOKEN (banana, mikan, apple): [{kind, n}, {kind, n}] -- or [{apple, 1}] for the
+     goal 1, or absent in every other level. Every fruit on the tree is asked for (no decoys, no extras), so the
+     harvest is complete when the tree is empty, exactly as in the ordinary level. The frames are split by kind, the
+     count is said and shown per kind, and the whole-screen touch takes the fruit in the order of the request. */
+  var KINDS_POOL = ['banana', 'mikan', 'apple'];
+  var KIND_MAX = 5;
+  function kindsActive() { return active.level === 'kinds2'; }
+  function pairActive() { return kindsActive() && !!active.req && active.req.length > 1; }   // two kinds are asked for (not the goal 1)
+  function drawKinds(goal) {
+    if (goal < 2) return [{ kind: TARGET_KIND, n: goal }];
+    var lo = Math.max(1, goal - KIND_MAX), hi = Math.min(KIND_MAX, goal - 1);
+    var first = lo + Math.floor(Math.random() * (hi - lo + 1));
+    var skip = Math.floor(Math.random() * KINDS_POOL.length);                    // the kind that is left out this time
+    var two = KINDS_POOL.filter(function (k, i) { return i !== skip; });        // still in the spoken order
+    return [{ kind: two[0], n: first }, { kind: two[1], n: goal - first }];
+  }
   var EXTRA_REQUEST_TAIL = 'ぴったり おねがいね';                                      // level extra: the second sentence of the request (bubble, ringo-b-<goal>.mp3 and its fallback)
   // what the tree gets beside the goal's apples: the decoys (dummy option) and the extra apples (level extra).
   // Goal + decoys + extras never exceed MAX_FRUIT. When they would, the decoys give way first (never below one
@@ -1291,6 +1324,7 @@ function donomanaRecordFormatTracingLevel(level) {
   var confirmBar = $('settingsConfirm'), scCancel = $('scCancel'), scOpen = $('scOpen');
   var basketEl = $('basket'), rowExtra = $('rowExtra');
   var bubbleExact = null;   // level extra only: the bubble's second sentence, created by buildRun()
+  var bubbleKinds = null, kindCountsEl = null;   // level kinds2 (two kinds) only: the bubble's two clauses and the per-kind counts, created by buildRun()
   var levelBtn = $('ringoLevelBtn'), levelPanel = $('ringoLevelPanel'), levelNote = $('ringoLevelNote'), levelRestart = $('ringoLevelRestart');
   var pendingNote = $('pendingNote'), rowAgain = $('rowAgain'), rowSwipe = $('rowSwipe'), rowDummy = $('rowDummy'), rowScanSpeed = $('rowScanSpeed');
 
@@ -1344,13 +1378,17 @@ function donomanaRecordFormatTracingLevel(level) {
   // per activity (a refusal re-uses it). basketOrder: ids in the order they went into the basket (the return flight).
   var S = { phase: 'start', runId: 0, items: [], order: [], basketOrder: [], refusals: 0, returning: false, acceptAt: 0, timers: [], flyers: [], viaKeyboard: false, lastGoal: null, startedAt: 0 };   // lastGoal: goal of the activity most recently STARTED (random mode avoids it); startedAt: when it started (learning record)
   function now() { return performance.now(); }
-  function isTarget(it) { return it.kind === TARGET_KIND; }
+  function isTarget(it) { return kindsActive() || it.kind === TARGET_KIND; }   // level kinds2: every fruit on the tree is asked for
+  function countOf(kind) { var n = 0; for (var i = 0; i < S.items.length; i++) if (S.items[i].kind === kind && S.items[i].status === 'landed') n++; return n; }
+  // the first frame of a kind's row (level kinds2: the frames are the first kind's, then the second kind's); 0 everywhere else
+  function slotStart(kind) { if (!active.req) return 0; var st = 0; for (var i = 0; i < active.req.length; i++) { if (active.req[i].kind === kind) return st; st += active.req[i].n; } return 0; }
+  function takeLabel(it) { return isTarget(it) ? (kindsActive() ? KIND_NAMES[it.kind] + 'を とる' : 'りんごを とる') : KIND_NAMES[it.kind]; }   // a decoy is announced by its own name
   function harvested() { var n = 0; for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i]) && S.items[i].status === 'landed') n++; return n; }
   function anyFalling() { for (var i = 0; i < S.items.length; i++) if (S.items[i].status === 'falling' || S.items[i].status === 'returning') return true; return false; }   // any fruit in flight, either way
   // the frames: index -> the apple that sits in it. Apples fill the first empty frame; without the level extra no
   // apple ever leaves a frame, so the filled frames are 0..harvested()-1 and firstFreeSlot() is harvested(), as before.
   function slotItems() { var occ = []; for (var i = 0; i < S.items.length; i++) { var it = S.items[i]; if (isTarget(it) && it.status === 'landed') occ[it.slot] = it; } return occ; }
-  function firstFreeSlot() { var occ = slotItems(), j = 0; while (occ[j]) j++; return j; }
+  function firstFreeSlot(kind) { var occ = slotItems(), j = slotStart(kind); while (occ[j]) j++; return j; }
   function targetCount() { var n = 0; for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i])) n++; return n; }
   function firstRipe() { for (var i = 0; i < S.items.length; i++) if (isTarget(S.items[i]) && S.items[i].status === 'ripe') return S.items[i]; return null; }
   function decoysInBasket() { var n = 0; for (var i = 0; i < S.items.length; i++) if (!isTarget(S.items[i]) && S.items[i].status === 'landed') n++; return n; }
@@ -1428,7 +1466,8 @@ function donomanaRecordFormatTracingLevel(level) {
   /* ---- the farmer's own voice: recorded files for the request, the thanks and the refusal ----
      assets/ringo-potton/voice/ringo-<goal>.mp3 (1..10), ringo-b-<goal>.mp3 (1..10, the request of the level extra:
      "りんごを ○こ とってね。ぴったり おねがいね"), arigatou.mp3 and okotowari.mp3 (decoys), created once and
-     preloaded (22 files). Only these phrases use files; the counting voice and the fruit names stay synthesised. Playback is never part of the
+     preloaded; and the fifteen pieces of the level「くだものを 2 しゅるい」(a-banana-<n>.mp3 "バナナを ○こ、",
+     a-mikan-<n>.mp3 "みかんを ○こ、", a-mikan-last-<n>.mp3 "みかんを ○こ、とってね", n = 1..5): 37 files in all. Only these phrases use files; the counting voice and the fruit names stay synthesised. Playback is never part of the
      progression: a file that cannot be played falls back to the synthesised voice with the same words, and
      every failure is swallowed. All stops go through stopVoiceFiles(), which stopSpeech() also calls. */
   var VOICE_DIR = 'assets/ringo-potton/voice/';
@@ -1445,6 +1484,7 @@ function donomanaRecordFormatTracingLevel(level) {
     voiceFiles.thanks = makeVoiceFile('arigatou.mp3');
     voiceFiles.refuse = makeVoiceFile('okotowari.mp3');
     for (var gb = 1; gb <= 10; gb++) voiceFiles['b' + gb] = makeVoiceFile('ringo-b-' + gb + '.mp3');
+    ['a-banana-', 'a-mikan-', 'a-mikan-last-'].forEach(function (pre) { for (var ga = 1; ga <= KIND_MAX; ga++) voiceFiles[pre + ga] = makeVoiceFile(pre + ga + '.mp3'); });
   })();
   function stopVoiceFiles() {
     voicePlayToken++; voiceFileLive = null; voiceRequestLive = false;
@@ -1499,11 +1539,49 @@ function donomanaRecordFormatTracingLevel(level) {
   function speakCount(n) { speakText(READINGS[n] || String(n)); }
   // the level extra asks for exactly that many: its own words and its own files (ringo-b-<goal>.mp3)
   function requestText(goal) {
+    if (pairActive()) return active.req.map(function (q) { return KIND_NAMES[q.kind] + 'を ' + (REQUEST_READINGS[q.n] || q.n + 'こ'); }).join('、') + '、とってね';   // "バナナを にこ、りんごを さんこ、とってね"
     if (extraActive()) return 'りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + ' とってね。' + EXTRA_REQUEST_TAIL;
     return 'りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + '、とってね';
   }
   // spoken once per activity, from beginRun() only (never from render), so a redraw / resize cannot repeat it
-  function speakRequest(goal) { playVoiceFile(extraActive() ? voiceFiles['b' + goal] : voiceFiles[goal], requestText(goal), true); }
+  function speakRequest(goal) {
+    if (pairActive()) { speakRequestPair(); return; }
+    playVoiceFile(extraActive() ? voiceFiles['b' + goal] : voiceFiles[goal], requestText(goal), true);
+  }
+  /* 「くだものを 2 しゅるい」: the request is two files said one after the other -- the first kind's opening piece
+     ("バナナを ○こ、" / "みかんを ○こ、"), then the last kind's closing piece (a-mikan-last-<n>.mp3, or the ordinary
+     ringo-<n>.mp3 for apples). The second starts when the first reports its end; nothing else is waited for. Both are
+     "the request": the first harvest input cuts whichever is playing and the other is never started (the stop bumps
+     voicePlayToken). If either file cannot be played, both are stopped and the synthesised voice says the whole
+     sentence, the same words as the bubble. */
+  function speakRequestPair() {
+    if (!settings.voice) return;
+    var first = active.req[0], last = active.req[1], text = requestText(active.goal);
+    var a1 = voiceFiles['a-' + first.kind + '-' + first.n];
+    var a2 = (last.kind === TARGET_KIND) ? voiceFiles[last.n] : voiceFiles['a-' + last.kind + '-last-' + last.n];
+    stopVoiceFiles();                                   // one farmer voice at a time
+    if (!a1 || !a2) { speakFallback(text, true); return; }
+    var token = voicePlayToken, fellBack = false;
+    var fail = function () {
+      if (fellBack || token !== voicePlayToken) return; // already handled, or stopped / superseded on purpose
+      fellBack = true; voiceFileLive = null; voiceRequestLive = false;
+      try { a1.pause(); a2.pause(); } catch (e) { /* ignore */ }
+      speakFallback(text, true);
+    };
+    var start = function (a, onended) {
+      voiceFileLive = a; voiceRequestLive = true;
+      try {
+        a.onended = onended; a.muted = false; a.currentTime = 0; a.onerror = fail;
+        if (a.error) { fail(); return; }
+        var p = a.play();
+        if (p && p.catch) p.catch(fail);
+      } catch (e) { fail(); }
+    };
+    start(a1, function () {
+      if (fellBack || token !== voicePlayToken) return; // a stopped file's end starts nothing
+      start(a2, null);
+    });
+  }
   // the request must never run on into the counting: the first harvest input cuts it (the file or its fallback)
   function stopRequestSpeech() {
     if (voiceRequestLive) stopVoiceFiles();
@@ -1558,7 +1636,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function saveActivityRecord() {
     try {
       if (typeof donomanaRecordCreate !== 'function' || typeof donomanaRecordAddLog !== 'function') return;
-      var entry = donomanaRecordCreate('ringo-potton-app', 'ringo-delivery', null, {
+      var payload = {
         goal: active.goal,                                        // たのまれた数 (1..10)
         goalMode: active.goalMode,                                // 'fixed' | 'random'
         goalMin: active.goalMin,                                  // the random range in effect (1..10 by default; recorded in fixed mode too)
@@ -1566,7 +1644,7 @@ function donomanaRecordFormatTracingLevel(level) {
         operation: active.operation,                              // 'apple' | 'anywhere'
         showNumber: active.showNumber,                            // the number was shown
         moveSpeed: active.moveSpeed,                              // 'normal' | 'slow' | 'veryslow' (うごきの はやさ in effect)
-        level: active.level,                                      // レベルアップ: 'normal' | 'extra' (| 'kinds2' once it exists)
+        level: active.level,                                      // レベルアップ: 'normal' | 'extra' | 'kinds2'
         extra: extraCount(),                                      // apples the tree had beyond the goal this activity (0 unless the level is extra)
         switchScan: !!scanMode,                                   // switch scanning was ON (a setting, not a guess at the input device)
         swipe: active.swipe,                                      // 「なでて とる」was ON (a setting; planned optional field, schemaVersion stays 1)
@@ -1574,7 +1652,11 @@ function donomanaRecordFormatTracingLevel(level) {
         refusals: S.refusals,                                     // how often the farmer sent everything back this activity (a count, not a verdict)
         harvested: harvested(),                                   // apples in the basket at delivery (= goal today)
         durationSec: Math.round((now() - S.startedAt) / 100) / 10 // from「はじめる」/「もう いちど」to the delivery; never shown as a score
-      });
+      };
+      if (kindsActive()) {                                        // 「くだものを 2 しゅるい」only: how many of each kind were asked for and delivered (0 = not asked for)
+        payload.kindBanana = countOf('banana'); payload.kindMikan = countOf('mikan'); payload.kindApple = countOf('apple');
+      }
+      var entry = donomanaRecordCreate('ringo-potton-app', 'ringo-delivery', null, payload);
       var log = donomanaRecordAddLog(RECORD_KEY, entry);
       if (log.length > RECORD_CAP) donomanaRecordWriteLog(RECORD_KEY, log.slice(log.length - RECORD_CAP));   // rolling cap (Standard §19, same as tokei-app)
     } catch (e) { /* a record that cannot be saved never stops the activity (the Foundation shows its own notice) */ }
@@ -1615,12 +1697,15 @@ function donomanaRecordFormatTracingLevel(level) {
     appleGrid.style.setProperty('--apple-size', best.size + 'px');
     appleGrid.style.gridTemplateColumns = 'repeat(' + best.cols + ', ' + best.size + 'px)';
     // basket slots (the goal's frames; in the level extra one frame for every apple on the tree)
-    var g = slotsEl.children.length || active.goal;
-    var bw = Math.max(120, basketArea.clientWidth - countBox.offsetWidth - 12 - 28);
+    var pair = !!kindCountsEl;                           // level kinds2: one row of frames for each kind, its count beside it
+    var g = pair ? Math.max(active.req[0].n, active.req[1].n) : (slotsEl.children.length || active.goal);
+    var bw = Math.max(120, basketArea.clientWidth - (pair ? kindCountsEl.offsetWidth : countBox.offsetWidth) - 12 - 28);
     var scols = g <= 5 ? g : 5, sgap = 8;
     var slot = Math.floor((bw - sgap * (scols - 1)) / scols);
-    slot = Math.max((tight && !extraActive()) ? 30 : 44, Math.min(slot, g <= 3 ? 96 : 68));   // slots are markers, not touch targets (level extra: they are touched, so never below 44px)
+    if (pair) slot = Math.max(24, Math.min(slot, g <= 3 ? 96 : 68));   // a row never wraps there, so the frames may get smaller instead (they are markers)
+    else slot = Math.max((tight && !extraActive()) ? 30 : 44, Math.min(slot, g <= 3 ? 96 : 68));   // slots are markers, not touch targets (level extra: they are touched, so never below 44px)
     slotsEl.style.setProperty('--slot-size', slot + 'px');
+    if (pair) { slotsEl.style.gridTemplateColumns = 'repeat(' + g + ', ' + slot + 'px)'; kindCountsEl.style.setProperty('--slot-size', slot + 'px'); }
     decoyTray.style.setProperty('--slot-size', slot + 'px');                 // the decoy tray scales with the slots
   }
 
@@ -1637,25 +1722,64 @@ function donomanaRecordFormatTracingLevel(level) {
       var it = S.items[S.order[k]];
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'apple'; b.setAttribute('data-id', String(it.id)); b.setAttribute('data-kind', it.kind); b.setAttribute('data-status', 'ripe');
-      b.setAttribute('aria-label', isTarget(it) ? 'りんごを とる' : KIND_NAMES[it.kind]);   // a decoy is announced by its own name
+      b.setAttribute('aria-label', takeLabel(it));
       b.appendChild(fruitSvg(it.kind));
       appleGrid.appendChild(b);
     }
     // the basket frames and the request pictures: the goal's apples only, never a decoy
     // (level extra: one frame for every apple on the tree, and each frame is a button -- see onReturnIntent)
-    var ex = extraActive(), nFrames = ex ? targetCount() : active.goal;
+    // (level kinds2: the frames are split by kind -- the first kind's row, then the second kind's)
+    var ex = extraActive(), pair = pairActive(), nFrames = ex ? targetCount() : active.goal;
+    var frameKind = [], frameRow = [], frameCol = [];
+    if (pair) active.req.forEach(function (q, r) { for (var c = 0; c < q.n; c++) { frameKind.push(q.kind); frameRow.push(r + 1); frameCol.push(c + 1); } });
     for (var f = 0; f < nFrames; f++) {
       var sl = document.createElement(ex ? 'button' : 'div');
       if (ex) { sl.type = 'button'; sl.tabIndex = -1; sl.setAttribute('aria-hidden', 'true'); sl.setAttribute('data-ret', '0'); }
-      sl.className = 'slot'; sl.setAttribute('data-filled', '0'); sl.appendChild(appleSvg()); slotsEl.appendChild(sl);
+      sl.className = 'slot'; sl.setAttribute('data-filled', '0');
+      if (pair) { sl.setAttribute('data-kind', frameKind[f]); sl.style.gridRow = String(frameRow[f]); sl.style.gridColumn = String(frameCol[f]); }
+      sl.appendChild(pair ? fruitSvg(frameKind[f]) : appleSvg()); slotsEl.appendChild(sl);
     }
-    for (var i = 0; i < active.goal; i++) { var pic = appleSvg(); reqPics.appendChild(pic); }
+    if (pair) slotsEl.setAttribute('data-kinds', '1'); else { slotsEl.removeAttribute('data-kinds'); slotsEl.style.gridTemplateColumns = ''; }
+    if (kindCountsEl && kindCountsEl.parentNode) kindCountsEl.parentNode.removeChild(kindCountsEl);
+    kindCountsEl = null;
+    if (pair) {                               // beside each row: the kind's picture and its own count (the number only when numbers are shown)
+      kindCountsEl = document.createElement('div'); kindCountsEl.className = 'kind-counts'; kindCountsEl.id = 'kindCounts'; kindCountsEl.setAttribute('aria-hidden', 'true');
+      active.req.forEach(function (q) {
+        var row = document.createElement('div'); row.className = 'kind-count'; row.setAttribute('data-kind', q.kind);
+        row.appendChild(fruitSvg(q.kind));
+        var num = document.createElement('span'); num.className = 'count-num'; num.textContent = '0'; num.hidden = !active.showNumber; row.appendChild(num);
+        var unit = document.createElement('span'); unit.className = 'count-unit'; unit.textContent = 'こ'; unit.hidden = !active.showNumber; row.appendChild(unit);
+        kindCountsEl.appendChild(row);
+      });
+      basketArea.insertBefore(kindCountsEl, basketEl);
+    }
+    if (!pair) for (var i = 0; i < active.goal; i++) { var pic = appleSvg(); reqPics.appendChild(pic); }
     basketEl.setAttribute('role', ex ? 'group' : 'img');   // buttons inside an image would be hidden from assistive technology
+    basketEl.setAttribute('aria-label', pair ? 'くだものを いれる かご' : 'りんごを いれる かご');
     reqNum.textContent = active.showNumber ? String(active.goal) : '';
     reqNum.hidden = !active.showNumber;
     bubbleLead.textContent = 'りんごを';
     if (bubbleExact && bubbleExact.parentNode) bubbleExact.parentNode.removeChild(bubbleExact);
     bubbleExact = null;
+    if (bubbleKinds && bubbleKinds.parentNode) bubbleKinds.parentNode.removeChild(bubbleKinds);
+    bubbleKinds = null;
+    if (pair) {                               // 「バナナを 2こ、」「りんごを 3こ、とってね」: one clause for each kind, with that kind's pictures (the usual pieces are hidden, see render)
+      bubbleKinds = document.createElement('span'); bubbleKinds.className = 'req-kinds'; bubbleKinds.id = 'bubbleKinds';
+      active.req.forEach(function (q, qi) {
+        var lastQ = qi === active.req.length - 1;
+        var cl = document.createElement('span'); cl.className = 'req-clause'; cl.setAttribute('data-kind', q.kind);
+        var nm = document.createElement('span'); nm.textContent = KIND_NAMES[q.kind] + 'を'; cl.appendChild(nm);   // its own piece, like「りんごを」: on a narrow screen it may stand above its number
+        var grp = document.createElement('span'); grp.className = 'req-group';
+        if (active.showNumber) { var rn = document.createElement('span'); rn.className = 'req-num'; rn.setAttribute('aria-hidden', 'true'); rn.textContent = String(q.n); grp.appendChild(rn); }
+        var tl = document.createElement('span'); tl.textContent = active.showNumber ? (lastQ ? 'こ、とってね' : 'こ、') : (lastQ ? 'とってね' : ''); grp.appendChild(tl);
+        cl.appendChild(grp);
+        var pc = document.createElement('span'); pc.className = 'req-pics'; pc.setAttribute('aria-hidden', 'true');
+        for (var c = 0; c < q.n; c++) pc.appendChild(fruitSvg(q.kind));
+        cl.appendChild(pc);
+        bubbleKinds.appendChild(cl);
+      });
+      reqGroup.parentNode.insertBefore(bubbleKinds, reqPics);
+    }
     if (ex) {                                 // 「りんごを ○こ とってね。ぴったり おねがいね」: the second sentence is its own piece, so it may wrap
       bubbleTail.textContent = active.showNumber ? 'こ とってね。' : 'とってね。';
       bubbleExact = document.createElement('span'); bubbleExact.className = 'req-exact'; bubbleExact.id = 'bubbleExact'; bubbleExact.textContent = EXTRA_REQUEST_TAIL;
@@ -1683,15 +1807,18 @@ function donomanaRecordFormatTracingLevel(level) {
     if (ph !== 'start') {
       var thanks = ph === 'celebrate', refusing = ph === 'refusing';
       bubbleThanks.hidden = !thanks; bubbleRefuse.hidden = !refusing;
-      bubbleLead.hidden = thanks || refusing; reqGroup.hidden = thanks || refusing; reqPics.hidden = thanks || refusing;
+      var pair = !!bubbleKinds;                    // level kinds2: the two clauses stand in for the usual request pieces
+      bubbleLead.hidden = thanks || refusing || pair; reqGroup.hidden = thanks || refusing || pair; reqPics.hidden = thanks || refusing || pair;
       if (bubbleExact) bubbleExact.hidden = thanks || refusing;
-      countBox.hidden = !active.showNumber;
+      if (bubbleKinds) bubbleKinds.hidden = thanks || refusing;
+      countBox.hidden = !active.showNumber || pair;
       countNum.textContent = String(n);
+      if (kindCountsEl) Array.prototype.forEach.call(kindCountsEl.children, function (row) { row.querySelector('.count-num').textContent = String(countOf(row.getAttribute('data-kind'))); });   // ... and each kind has its own number
       for (var i = 0; i < S.items.length; i++) {
         var it = S.items[i], el = itemEl(it.id); if (!el) continue;
         el.setAttribute('data-status', it.status);
         var tappable = active.operation === 'apple' && it.status === 'ripe' && (ph === 'harvest' || (ph === 'complete' && extraActive()));   // level extra: more can be taken while the count is exact
-        if (active.operation === 'apple') { el.removeAttribute('aria-hidden'); el.tabIndex = tappable ? 0 : -1; el.setAttribute('aria-label', isTarget(it) ? 'りんごを とる' : KIND_NAMES[it.kind]); }
+        if (active.operation === 'apple') { el.removeAttribute('aria-hidden'); el.tabIndex = tappable ? 0 : -1; el.setAttribute('aria-label', takeLabel(it)); }
         else { el.setAttribute('aria-hidden', 'true'); el.tabIndex = -1; }
       }
       var sl = slotsEl.children, occ = slotItems();
@@ -1722,14 +1849,14 @@ function donomanaRecordFormatTracingLevel(level) {
     surfaceEl.hidden = !surfaceLive;
     if (surfaceLive) {
       var asControl = (ph === 'harvest'); // in later phases the explicit button is the accessible control
-      if (asControl) { surfaceEl.removeAttribute('aria-hidden'); surfaceEl.tabIndex = 0; surfaceEl.setAttribute('aria-label', 'がめんを タッチして りんごを とる。のこり ' + (active.goal - n) + 'こ'); }
+      if (asControl) { surfaceEl.removeAttribute('aria-hidden'); surfaceEl.tabIndex = 0; surfaceEl.setAttribute('aria-label', 'がめんを タッチして ' + (pairActive() ? 'くだもの' : 'りんご') + 'を とる。のこり ' + (active.goal - n) + 'こ'); }
       else { surfaceEl.setAttribute('aria-hidden', 'true'); surfaceEl.tabIndex = -1; surfaceEl.setAttribute('aria-label', ph === 'complete' ? 'とどける' : 'もう いちど'); }
     }
 
     deliverBtn.hidden = ph !== 'complete' && ph !== 'delivering';
     againBtn.hidden = ph !== 'celebrate';
     doneNote.hidden = !(ph === 'complete' || ph === 'celebrate');
-    if (ph === 'complete') doneNote.textContent = extraActive() ? 'たのまれた かずが かごに はいりました。' : 'りんごが ぜんぶ かごに はいりました。';   // level extra: apples are still on the tree, so not「ぜんぶ」
+    if (ph === 'complete') doneNote.textContent = extraActive() ? 'たのまれた かずが かごに はいりました。' : (pairActive() ? 'くだものが ぜんぶ かごに はいりました。' : 'りんごが ぜんぶ かごに はいりました。');   // level extra: apples are still on the tree, so not「ぜんぶ」; level kinds2: two kinds, so「くだもの」
     if (ph === 'celebrate') doneNote.textContent = (active.showNumber ? active.goal + 'こ、' : '') + 'うけとりました。ありがとう。';
     if (ph === 'delivering') { deliverBtn.tabIndex = -1; } else { deliverBtn.tabIndex = 0; }
 
@@ -1750,15 +1877,17 @@ function donomanaRecordFormatTracingLevel(level) {
     S.lastGoal = active.goal;                 // the activity is now starting: a restart, "again" or whole-screen again all avoid this value next time
     S.startedAt = now();                      // the learning record's durationSec counts from here (this activity only)
     S.items = []; S.basketOrder = []; S.refusals = 0; S.returning = false;
-    var plan = fruitPlan(active.goal), nApples = active.goal + plan.extra;   // level extra: more apples than asked, and a frame for each of them
+    active.req = kindsActive() ? drawKinds(active.goal) : null;   // 「くだものを 2 しゅるい」: which two kinds, and how many of each, is drawn here
+    var plan = fruitPlan(active.goal), nApples = active.req ? 0 : active.goal + plan.extra;   // level extra: more apples than asked, and a frame for each of them
     for (var i = 0; i < nApples; i++) S.items.push({ id: i, kind: TARGET_KIND, status: 'ripe' });
+    if (active.req) active.req.forEach(function (q) { for (var c = 0; c < q.n; c++) S.items.push({ id: S.items.length, kind: q.kind, status: 'ripe' }); });   // ids in the order of the request: the whole-screen touch takes them in that order
     if (decoysActive()) {                     // decoys: count from the goal, the banana first, then mikan; ids continue after the apples
       var dc = plan.decoys;
       for (var d = 0; d < dc; d++) S.items.push({ id: nApples + d, kind: DECOY_KINDS[Math.min(d, DECOY_KINDS.length - 1)], status: 'ripe' });
     }
     // tree placement, decided once per activity (a refusal re-uses it): plain id order without decoys (unchanged look), shuffled with them
     S.order = S.items.map(function (it) { return it.id; });
-    if (decoysActive()) for (var k = S.order.length - 1; k > 0; k--) { var r = Math.floor(Math.random() * (k + 1)); var t = S.order[k]; S.order[k] = S.order[r]; S.order[r] = t; }
+    if (decoysActive() || pairActive()) for (var k = S.order.length - 1; k > 0; k--) { var r = Math.floor(Math.random() * (k + 1)); var t = S.order[k]; S.order[k] = S.order[r]; S.order[r] = t; }
     S.phase = 'harvest';
     S.acceptAt = now() + PHASE_GUARD_MS;
     // build the DOM for the new run (play screen must be visible to measure sizes)
@@ -1766,7 +1895,7 @@ function donomanaRecordFormatTracingLevel(level) {
     buildRun();
     render();
     layoutSizes();
-    announce('りんごを ' + active.goal + 'こ とります。');
+    announce(pairActive() ? active.req.map(function (q) { return KIND_NAMES[q.kind] + 'を ' + q.n + 'こ'; }).join('、') + ' とります。' : 'りんごを ' + active.goal + 'こ とります。');
     speakRequest(active.goal);                // after stopSpeech() above, so a restart speaks only the new goal
   }
 
@@ -1786,7 +1915,7 @@ function donomanaRecordFormatTracingLevel(level) {
     S.acceptAt = Infinity;                          // re-opened only when it has landed
     stopRequestSpeech();                            // a request still being spoken never overlaps the counting
     var rid = S.runId;
-    var slotIndex = firstFreeSlot();                // the slot this apple will fill (a decoy fills no slot: it goes to the tray beside them)
+    var slotIndex = firstFreeSlot(a.kind);          // the slot this apple will fill (a decoy fills no slot: it goes to the tray beside them)
     if (isTarget(a)) a.slot = slotIndex;
     var el = itemEl(a.id);
     var fromRect = el ? el.getBoundingClientRect() : null;
@@ -1838,8 +1967,8 @@ function donomanaRecordFormatTracingLevel(level) {
       render();
       if (flipped) layoutSizes();                   // level extra: the tree still carries fruit; fit them to the room the deliver button takes or gives back
       if (S.phase === 'complete') { try { deliverBtn.scrollIntoView({ block: 'nearest' }); } catch (e) { /* ignore */ } }
-      speakCount(n);
-      announce('いま ' + n + 'こ。');
+      if (pairActive()) { var kn = countOf(a.kind); speakCount(kn); announce(KIND_NAMES[a.kind] + ' ' + kn + 'こ。'); }   // level kinds2: each kind is counted on its own
+      else { speakCount(n); announce('いま ' + n + 'こ。'); }
     } else {
       // a decoy went into the basket (beside the frames): nothing is counted, its name is said instead
       S.acceptAt = now() + LAND_GUARD_MS;
@@ -1862,7 +1991,8 @@ function donomanaRecordFormatTracingLevel(level) {
     var fromEls = slotsEl.children, farmer = document.querySelector('#requestBand .farmer-box');
     var target = farmer ? farmer.getBoundingClientRect() : null;
     var occ = slotItems(), from = [];               // the frames that hold an apple, in frame order (always 0..goal-1 without the level extra)
-    for (var j = 0; j < fromEls.length; j++) if (occ[j]) from.push(fromEls[j]);
+    var fromKind = [];
+    for (var j = 0; j < fromEls.length; j++) if (occ[j]) { from.push(fromEls[j]); fromKind.push(occ[j].kind); }
     var total = from.length;
     var wait = 0;
     if (!reducedMotion() && target) {
@@ -1871,7 +2001,7 @@ function donomanaRecordFormatTracingLevel(level) {
           var sr = from[k].getBoundingClientRect();
           later(function () {
             if (rid !== S.runId) return;
-            flyApple(sr, target, DELIVER_FLY_MS);
+            flyApple(sr, target, DELIVER_FLY_MS, fromKind[k]);
             from[k].setAttribute('data-filled', '0');
           }, k * DELIVER_STAGGER_MS);
         })(i);

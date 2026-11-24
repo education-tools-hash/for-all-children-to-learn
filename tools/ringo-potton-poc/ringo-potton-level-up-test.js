@@ -1,8 +1,9 @@
 // Real-browser (Playwright / Chromium) test for「レベルアップ」of ringo-potton-app.html, Phase 1
 // (Phase RINGO-POTTON-LEVEL-UP-1 and its revision): the teacher's レベルアップ button + panel, and the level「おおめから ぴったり」(extra).
 //
-// settings.level = 'normal' (default, the activity as before) | 'kinds2' (「くだものを 2 しゅるい」, NOT available in this
-// Phase: shown as unavailable, reads as normal from storage) | 'extra' (「おおめから ぴったり」). settings.extra = 1..3
+// settings.level = 'normal' (default, the activity as before) | 'kinds2' (「くだものを 2 しゅるい」, available since
+// レベルアップ Phase 3 and tested in ringo-potton-level-up-a-test.js; here only that it can be chosen and loaded) |
+// 'extra' (「おおめから ぴったり」). settings.extra = 1..3
 // (default 2). In the level extra the tree carries goal + extra apples and the basket has ONE FRAME FOR EVERY APPLE
 // on the tree (decoys still go beside the frames); the tree never holds more than 12 fruit (decoys give way first,
 // never below one while the dummy option is on; then the extras, never below one). The count can pass the asked
@@ -93,6 +94,7 @@ const tree = (page) => page.evaluate(() => {
     slots: document.querySelectorAll('#slots .slot').length, filled: document.querySelectorAll('#slots .slot[data-filled="1"]').length, count: document.getElementById('countNum').textContent };
 });
 async function start(page) { await page.click('#startBtn'); await sleep(700); }
+const page0Kinds = (page) => page.evaluate(() => new Set(Array.from(document.querySelectorAll('#appleGrid .apple')).map((e) => e.getAttribute('data-kind'))).size);   // how many kinds of fruit the tree carries
 // click the first ripe fruit of a kind and wait until it is in the basket (count or tray changed)
 async function take(page, kind) {
   await page.evaluate((k) => new Promise((res, rej) => {
@@ -187,7 +189,7 @@ function expectPlan(goal, want, dummy) {
     await closeSettings(page);
     ok('L1 no errors', page.__errors.length === 0, page.__errors.join('|'));
     await context.close();
-    for (const c of [{ name: 'unknown level "turbo"', s: { goal: 2, level: 'turbo', extra: 3 }, apples: 2, level: 'normal' }, { name: 'level "kinds2" (not available yet)', s: { goal: 2, level: 'kinds2' }, apples: 2, level: 'normal' },
+    for (const c of [{ name: 'unknown level "turbo"', s: { goal: 2, level: 'turbo', extra: 3 }, apples: 2, level: 'normal' },
       { name: 'level extra with extra 9 (out of range -> 2)', s: { goal: 2, level: 'extra', extra: 9 }, apples: 4, level: 'extra' }, { name: 'level extra with extra "x" (-> 2)', s: { goal: 2, level: 'extra', extra: 'x' }, apples: 4, level: 'extra' },
       { name: 'level extra with extra 0 (-> 2)', s: { goal: 2, level: 'extra', extra: 0 }, apples: 4, level: 'extra' }, { name: 'level extra without extra (-> 2)', s: { goal: 2, level: 'extra' }, apples: 4, level: 'extra' }]) {
       const q = await newPage(browser, BASE, { settings: c.s });
@@ -196,6 +198,15 @@ function expectPlan(goal, want, dummy) {
       ok('L1 ' + c.name + ': ' + c.apples + ' apples on the tree, ' + (c.level === 'extra' ? c.apples : 2) + ' frames, data-level ' + c.level, tt.apples === c.apples && tt.slots === (c.level === 'extra' ? c.apples : 2) && (await attr(q.page, 'data-level')) === c.level && q.page.__errors.length === 0, J(tt));
       await q.context.close();
     }
+  }
+
+  {
+    // the saved level「くだものを 2 しゅるい」is a level of its own now (its behaviour: ringo-potton-level-up-a-test.js)
+    const q = await newPage(browser, BASE, { settings: { goal: 2, level: 'kinds2' } });
+    await start(q.page);
+    const tt = await tree(q.page);
+    ok('L1 level "kinds2" (available now): it is loaded as kinds2 -- 2 fruit of two kinds on the tree (1 + 1), 2 frames', tt.total === 2 && tt.slots === 2 && tt.apples <= 1 && (await attr(q.page, 'data-level')) === 'kinds2' && (await page0Kinds(q.page)) === 2 && q.page.__errors.length === 0, J(tt));
+    await q.context.close();
   }
 
   /* ---------------- L2 the button and the panel ---------------- */
@@ -224,19 +235,19 @@ function expectPlan(goal, want, dummy) {
     await context.close();
   }
 
-  /* ---------------- L3「くだものを 2 しゅるい」cannot be chosen in this Phase ---------------- */
+  /* ---------------- L3 all three levels can be chosen (「くだものを 2 しゅるい」since レベルアップ Phase 3) ---------------- */
   {
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2 } });
     await openPanel(page);
     const p = await panel(page);
-    ok('L3 the option is shown as not available: disabled, labelled（じゅんびちゅう）', p.opts[1].disabled === true && /じゅんびちゅう/.test(p.opts[1].text) && p.opts[0].disabled === false && p.opts[2].disabled === false, J(p.opts));
+    const soon = await page.evaluate(() => { const e = document.querySelector('#ringoLevelPanel [data-level-opt="kinds2"] .level-soon'); return !!e && (e.hidden || getComputedStyle(e).display === 'none'); });
+    ok('L3 no option is disabled any more; the「（じゅんびちゅう）」label of「くだものを 2 しゅるい」is not shown', p.opts.every((o) => o.disabled === false) && soon, J(p.opts));
     const box = await rect(page, '#ringoLevelPanel [data-level-opt="kinds2"]');
     await page.mouse.click(box.l + box.w / 2, box.t + box.h / 2); await sleep(150);
-    await page.evaluate(() => document.querySelector('#ringoLevelPanel [data-level-opt="kinds2"]').click()); await sleep(150);
     const p2 = await panel(page), sv = await saved(page);
-    ok('L3 pressing it does nothing: nothing saved, still「ふつう」, the panel stays as it was', (sv === null || sv.level === undefined || sv.level === 'normal') && p2.open && p2.opts[0].pressed === 'true' && p2.opts[1].pressed === 'false', J({ sv, p2 }));
+    ok('L3 pressing it chooses it: level kinds2 saved, shown pressed (only it), the panel stays open', sv.level === 'kinds2' && p2.open && p2.opts.filter((o) => o.pressed === 'true').map((o) => o.v).join() === 'kinds2', J({ sv, p2 }));
     await closePanel(page); await start(page);
-    ok('L3 the next activity is the usual one (2 apples)', (await tree(page)).total === 2 && page.__errors.length === 0);
+    ok('L3 the next activity is in that level (2 fruit of two kinds, data-level kinds2)', (await tree(page)).total === 2 && (await page0Kinds(page)) === 2 && (await attr(page, 'data-level')) === 'kinds2' && page.__errors.length === 0);
     await context.close();
   }
 
