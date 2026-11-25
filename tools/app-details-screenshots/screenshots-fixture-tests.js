@@ -253,8 +253,21 @@ function countOccurrences(haystack, needle) {
   check('4. 2枚: 2枚ともwidth/height=1200/630固定(CLS対策)', countOccurrences(html, 'width="1200" height="630"') >= 2);
 
   // 18. JavaScript無効時 → 新しい<script>やonclick/addEventListenerが増えていない
+  //     詳細ページに許す<script>は次の3個ちょうどだけ(それ以外が1個でもあれば失敗):
+  //       (1) JSON-LD (2) GAの外部読み込み(gtag.js) (3) GAの設定(インライン)
+  //     GA(測定ID G-8GHH7JKZMB)はトップページと同一のスニペットで、ギャラリーの表示には関与しない。
   const scriptCount = countOccurrences(html, '<script');
-  check('18. JS無効時: <script>はJSON-LDの1個のみ', scriptCount === 1 && html.includes('<script type="application/ld+json">'));
+  const scriptTags = html.match(/<script\b[^>]*>[\s\S]*?<\/script>/g) || [];
+  const GA_ID = 'G-8GHH7JKZMB';
+  const isJsonLd = (s) => /^<script type="application\/ld\+json">/.test(s);
+  const isGaLoader = (s) => /^<script\b[^>]*\bsrc="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-8GHH7JKZMB"[^>]*><\/script>$/.test(s);
+  const isGaConfig = (s) => /^<script>/.test(s) && s.includes(`gtag('config', '${GA_ID}')`);
+  const kindOf = (s) => (isJsonLd(s) ? 'jsonld' : isGaLoader(s) ? 'ga-loader' : isGaConfig(s) ? 'ga-config' : 'other');
+  const kinds = scriptTags.map(kindOf);
+  const countKind = (k) => kinds.filter((x) => x === k).length;
+  check('18. JS無効時: <script>はJSON-LDとGAの3個のみ',
+    scriptCount === 3 && scriptTags.length === 3 &&
+    countKind('jsonld') === 1 && countKind('ga-loader') === 1 && countKind('ga-config') === 1 && countKind('other') === 0);
   check('18. JS無効時: onclick等のイベント属性が無い', !/\bonclick=|addEventListener/.test(html));
 
   // 19. モバイル表示: hero-galleryは縦積み(flex-direction:column)、画像幅は既存の縮小ルールを継承
