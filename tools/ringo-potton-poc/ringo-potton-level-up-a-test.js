@@ -166,20 +166,20 @@ const scanCand = (page) => page.evaluate(() => window.ringoScan.buildScanItems()
   const BASE = 'http://127.0.0.1:' + srv.address().port;
   const browser = await chromium.launch({ args: ['--no-sandbox'] });
 
-  /* ---------------- A0 the fifteen files exist and are preloaded with the others (37 in all) ---------------- */
+  /* ---------------- A0 the fifteen files exist and are preloaded with the others (42 in all, with the five a-mikan-pittari-<n>.mp3 of「2しゅるい ぴったり」) ---------------- */
   {
     const dir = path.join(ROOT, 'assets', 'ringo-potton', 'voice');
     const want = []; ['a-banana-', 'a-mikan-', 'a-mikan-last-'].forEach((p) => { for (let n = 1; n <= 5; n++) want.push(p + n + '.mp3'); });
-    const onDisk = fs.readdirSync(dir).filter((f) => /^a-/.test(f)).sort();
+    const onDisk = fs.readdirSync(dir).filter((f) => /^a-/.test(f) && !/pittari/.test(f)).sort();
     ok('A0 assets/ringo-potton/voice/ holds exactly the 15 files of this level (a-banana-1..5, a-mikan-1..5, a-mikan-last-1..5)', J(onDisk) === J(want.slice().sort()), J(onDisk));
-    ok('A0 ... and 37 voice files in all', fs.readdirSync(dir).length === 37, String(fs.readdirSync(dir).length));
+    ok('A0 ... and 42 voice files in all', fs.readdirSync(dir).length === 42, String(fs.readdirSync(dir).length));
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 4, level: 'kinds2' } });
     const made = await page.evaluate(() => window.__au.filter((o) => o.op === 'new').map((o) => String(o.src).split('/').pop()));
-    ok('A0 the app creates 37 Audio objects at load, each file once, the 15 new ones among them', made.length === 37 && new Set(made).size === 37 && want.every((f) => made.includes(f)), J(made));
+    ok('A0 the app creates 42 Audio objects at load, each file once, the 15 of this level among them', made.length === 42 && new Set(made).size === 42 && want.every((f) => made.includes(f)), J(made));
     ok('A0 nothing is played before the first gesture', (await page.evaluate(() => window.__au.filter((o) => o.op === 'play').length)) === 0);
     await start(page);
     const primed = await page.evaluate(() => window.__au.filter((o) => o.op === 'play' && o.muted).map((o) => String(o.src).split('/').pop()));
-    ok('A0「はじめる」primes all 37 files with a muted play (so the second piece may start outside the gesture)', primed.length === 37 && want.every((f) => primed.includes(f)), String(primed.length));
+    ok('A0「はじめる」primes all 42 files with a muted play (so the second piece may start outside the gesture)', primed.length === 42 && want.every((f) => primed.includes(f)), String(primed.length));
     await context.close();
   }
 

@@ -1352,12 +1352,13 @@
       var goal = (typeof p.goal === 'number') ? p.goal : null;
       var harvested = (typeof p.harvested === 'number') ? p.harvested : null;
       var summary = (goal !== null) ? ('りんごを ' + goal + 'こ とって とどけました') : 'りんごの おつかいに 取り組みました';
-      // レベルアップ「くだものを 2 しゅるい」(payload.level === 'kinds2'): 種類ごとの数
+      // レベルアップ「くだものを 2 しゅるい」(payload.level === 'kinds2')と「2しゅるい ぴったり」
+      // (payload.level === 'kinds2extra'。文に「ぴったり」は書かない): 種類ごとの数
       // (kindBanana / kindMikan / kindApple、たのまれなかった種類は 0)を、依頼と同じ順
       // (バナナ → みかん → りんご)で並べる(「バナナを 2こ、りんごを 3こ とって とどけました」)。
       // 2種類そろっているときだけ。それ以外(ふつう・おおめから ぴったり・合計1こ・項目が無い
       // 古い記録)は上の文のまま。
-      if (p.level === 'kinds2') {
+      if (p.level === 'kinds2' || p.level === 'kinds2extra') {
         var kindParts = [];
         [['バナナ', p.kindBanana], ['みかん', p.kindMikan], ['りんご', p.kindApple]].forEach(function (k) {
           if (typeof k[1] === 'number' && isFinite(k[1]) && k[1] > 0) kindParts.push(k[0] + 'を ' + k[1] + 'こ');

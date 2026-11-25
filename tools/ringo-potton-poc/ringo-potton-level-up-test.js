@@ -222,7 +222,7 @@ function expectPlan(goal, want, dummy) {
     ok('L2 ' + vp.n + ' play screen: same place, clear of the request band and the tree', J(b1) === J(b0) && !hit(b1, band) && !hit(b1, tr), J({ b1, band, tr }));
     await openPanel(page);
     const p = await panel(page), pr = await rect(page, '#ringoLevelPanel');
-    ok('L2 ' + vp.n + ': pressing it opens the panel under the button (aria-expanded true), with the three levels and「とじる」', p.open && p.expanded === 'true' && pr.t >= b1.b && p.opts.map((o) => o.v).join() === 'normal,kinds2,extra' && p.opts[0].text === 'ふつう' && /^くだものを 2 しゅるい/.test(p.opts[1].text) && p.opts[2].text === 'おおめから ぴったり' && p.close, J({ p, pr }));
+    ok('L2 ' + vp.n + ': pressing it opens the panel under the button (aria-expanded true), with the four levels and「とじる」', p.open && p.expanded === 'true' && pr.t >= b1.b && p.opts.map((o) => o.v).join() === 'normal,kinds2,extra,kinds2extra' && p.opts[3].text === '2しゅるい ぴったり' && p.opts[0].text === 'ふつう' && /^くだものを 2 しゅるい/.test(p.opts[1].text) && p.opts[2].text === 'おおめから ぴったり' && p.close, J({ p, pr }));
     ok('L2 ' + vp.n + ': the panel is inside the screen and covers none of the common buttons; every button in it is >= 44px high', pr.l >= 0 && pr.r <= vp.w && pr.b <= vp.h && chrome.every((c) => !hit(pr, rects[c])) && await page.evaluate(() => Array.from(document.querySelectorAll('#ringoLevelPanel button')).filter((e) => !e.hidden).every((e) => e.getBoundingClientRect().height >= 44)), J({ pr, rects }));
     ok('L2 ' + vp.n + ': focus is on the panel itself, not on one of its buttons', await page.evaluate(() => document.activeElement === document.getElementById('ringoLevelPanel')));
     await page.keyboard.press('Escape'); await sleep(150);
@@ -235,7 +235,7 @@ function expectPlan(goal, want, dummy) {
     await context.close();
   }
 
-  /* ---------------- L3 all three levels can be chosen (「くだものを 2 しゅるい」since レベルアップ Phase 3) ---------------- */
+  /* ---------------- L3 every level can be chosen (「くだものを 2 しゅるい」since レベルアップ Phase 3;「2しゅるい ぴったり」is tested in ringo-potton-level-up-ab-test.js) ---------------- */
   {
     const { context, page } = await newPage(browser, BASE, { settings: { goal: 2 } });
     await openPanel(page);
