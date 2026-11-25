@@ -822,10 +822,13 @@ function generateAppsArray(apps) {
       app.isComing       ? 'isComing: true'       : '',
       app.isOfflineReady ? 'isOfflineReady: true' : '',
     ].filter(Boolean).join(', ');
+    // 一覧カードの説明文: apps-data.json に任意項目 cardDesc(カード専用の文)がある教材だけそれを使い、
+    // ない教材は今までどおり summary の先頭30字を使う(summary 自体・詳細ページの表示は変えない)。
+    const cardDesc = (typeof app.cardDesc === 'string' && app.cardDesc) ? app.cardDesc : app.summary.slice(0, 30);
     lines.push('  {');
     const iconImgPath = fs.existsSync('./assets/icons/' + app.id + '.png') ? 'assets/icons/' + app.id + '.png' : '';
     const mockupImgPath = fs.existsSync('./assets/mockups/' + app.id + '.png') ? 'assets/mockups/' + app.id + '.png' : '';
-    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', iconImg: ' + JSON.stringify(iconImgPath) + ', mockupImg: ' + JSON.stringify(mockupImgPath) + ', desc: ' + JSON.stringify(app.summary.slice(0, 30)) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
+    lines.push('    name: ' + JSON.stringify(app.title) + ', link: "app-details/' + app.filename + '-detail.html", icon: ' + JSON.stringify(app.icon) + ', iconImg: ' + JSON.stringify(iconImgPath) + ', mockupImg: ' + JSON.stringify(mockupImgPath) + ', desc: ' + JSON.stringify(cardDesc) + ', tag: ' + JSON.stringify(app.tags_display) + ',');
     lines.push('    category: "' + app._cat + '", cardClass: "' + app._cardClass + '"' + (extras ? ', ' + extras : '') + ',');
     lines.push('    need:' + need + ', input:' + input + ',');
     lines.push('    needText:' + needText + ', inputText:' + inputText + ',');
