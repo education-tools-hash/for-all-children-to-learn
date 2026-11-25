@@ -225,7 +225,7 @@
   .kind-counts .kind-count .count-num { font-size: min(2rem, calc(var(--slot-size, 64px) * .8)); }
   .kind-counts .kind-count .count-unit { display: inline; }
   .kind-counts .kind-count [hidden] { display: none; }
-  /* ... and the bubble names each kind with its own number and pictures: 「バナナを 2こ、」「りんごを 3こ、とってね」 */
+  /* ... and the bubble names each kind with its own number and pictures: 「バナナを 2こ、」「りんごを 3こ とってね」 */
   .req-kinds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
   .req-clause { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
   /* おおめから ぴったり: the frames are buttons there, and a frame that holds an apple (data-ret) takes it back to the
@@ -1467,7 +1467,7 @@ function donomanaRecordFormatTracingLevel(level) {
      assets/ringo-potton/voice/ringo-<goal>.mp3 (1..10), ringo-b-<goal>.mp3 (1..10, the request of the level extra:
      "りんごを ○こ とってね。ぴったり おねがいね"), arigatou.mp3 and okotowari.mp3 (decoys), created once and
      preloaded; and the fifteen pieces of the level「くだものを 2 しゅるい」(a-banana-<n>.mp3 "バナナを ○こ、",
-     a-mikan-<n>.mp3 "みかんを ○こ、", a-mikan-last-<n>.mp3 "みかんを ○こ、とってね", n = 1..5): 37 files in all. Only these phrases use files; the counting voice and the fruit names stay synthesised. Playback is never part of the
+     a-mikan-<n>.mp3 "みかんを ○こ、", a-mikan-last-<n>.mp3 "みかんを ○こ とってね", n = 1..5): 37 files in all. Only these phrases use files; the counting voice and the fruit names stay synthesised. Playback is never part of the
      progression: a file that cannot be played falls back to the synthesised voice with the same words, and
      every failure is swallowed. All stops go through stopVoiceFiles(), which stopSpeech() also calls. */
   var VOICE_DIR = 'assets/ringo-potton/voice/';
@@ -1539,7 +1539,7 @@ function donomanaRecordFormatTracingLevel(level) {
   function speakCount(n) { speakText(READINGS[n] || String(n)); }
   // the level extra asks for exactly that many: its own words and its own files (ringo-b-<goal>.mp3)
   function requestText(goal) {
-    if (pairActive()) return active.req.map(function (q) { return KIND_NAMES[q.kind] + 'を ' + (REQUEST_READINGS[q.n] || q.n + 'こ'); }).join('、') + '、とってね';   // "バナナを にこ、りんごを さんこ、とってね"
+    if (pairActive()) return active.req.map(function (q) { return KIND_NAMES[q.kind] + 'を ' + (REQUEST_READINGS[q.n] || q.n + 'こ'); }).join('、') + ' とってね';   // "バナナを にこ、りんごを さんこ とってね" (no comma before とってね: the way the recordings join)
     if (extraActive()) return 'りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + ' とってね。' + EXTRA_REQUEST_TAIL;
     return 'りんごを ' + (REQUEST_READINGS[goal] || goal + 'こ') + '、とってね';
   }
@@ -1763,15 +1763,16 @@ function donomanaRecordFormatTracingLevel(level) {
     bubbleExact = null;
     if (bubbleKinds && bubbleKinds.parentNode) bubbleKinds.parentNode.removeChild(bubbleKinds);
     bubbleKinds = null;
-    if (pair) {                               // 「バナナを 2こ、」「りんごを 3こ、とってね」: one clause for each kind, with that kind's pictures (the usual pieces are hidden, see render)
+    if (pair) {                               // 「バナナを 2こ、」「りんごを 3こ とってね」: one clause for each kind, with that kind's pictures (the usual pieces are hidden, see render).
+                                              // Numbers hidden: the kinds are joined with と instead,「バナナと」「りんごを とってね」(the voice is not changed by that)
       bubbleKinds = document.createElement('span'); bubbleKinds.className = 'req-kinds'; bubbleKinds.id = 'bubbleKinds';
       active.req.forEach(function (q, qi) {
         var lastQ = qi === active.req.length - 1;
         var cl = document.createElement('span'); cl.className = 'req-clause'; cl.setAttribute('data-kind', q.kind);
-        var nm = document.createElement('span'); nm.textContent = KIND_NAMES[q.kind] + 'を'; cl.appendChild(nm);   // its own piece, like「りんごを」: on a narrow screen it may stand above its number
+        var nm = document.createElement('span'); nm.textContent = KIND_NAMES[q.kind] + ((active.showNumber || lastQ) ? 'を' : 'と'); cl.appendChild(nm);   // its own piece, like「りんごを」: on a narrow screen it may stand above its number
         var grp = document.createElement('span'); grp.className = 'req-group';
         if (active.showNumber) { var rn = document.createElement('span'); rn.className = 'req-num'; rn.setAttribute('aria-hidden', 'true'); rn.textContent = String(q.n); grp.appendChild(rn); }
-        var tl = document.createElement('span'); tl.textContent = active.showNumber ? (lastQ ? 'こ、とってね' : 'こ、') : (lastQ ? 'とってね' : ''); grp.appendChild(tl);
+        var tl = document.createElement('span'); tl.textContent = active.showNumber ? (lastQ ? 'こ とってね' : 'こ、') : (lastQ ? 'とってね' : ''); grp.appendChild(tl);
         cl.appendChild(grp);
         var pc = document.createElement('span'); pc.className = 'req-pics'; pc.setAttribute('aria-hidden', 'true');
         for (var c = 0; c < q.n; c++) pc.appendChild(fruitSvg(q.kind));

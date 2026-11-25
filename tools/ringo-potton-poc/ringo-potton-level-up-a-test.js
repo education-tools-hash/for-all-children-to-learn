@@ -46,8 +46,8 @@ const COUNT = ['', 'いち', 'に', 'さん', 'よん', 'ご'];
 // what the request must be for a pair [{kind, n}, {kind, n}], written independently of the app
 const firstFile = (q) => 'a-' + q.kind + '-' + q.n + '.mp3';
 const lastFile = (q) => (q.kind === 'apple' ? 'ringo-' + q.n + '.mp3' : 'a-' + q.kind + '-last-' + q.n + '.mp3');
-const bubbleOf = (req) => squash(req.map((q) => NAME[q.kind] + 'を ' + q.n + 'こ').join('、') + '、とってね');
-const saidOf = (req) => req.map((q) => NAME[q.kind] + 'を ' + KANA[q.n]).join('、') + '、とってね';
+const bubbleOf = (req) => squash(req.map((q) => NAME[q.kind] + 'を ' + q.n + 'こ').join('、') + ' とってね');   // no comma before とってね (as the recordings join)
+const saidOf = (req) => req.map((q) => NAME[q.kind] + 'を ' + KANA[q.n]).join('、') + ' とってね';
 const summaryOf = (req) => req.map((q) => NAME[q.kind] + 'を ' + q.n + 'こ').join('、') + ' とって とどけました';
 const KEYS15 = 'decoys,durationSec,extra,goal,goalMax,goalMin,goalMode,harvested,level,moveSpeed,operation,refusals,showNumber,swipe,switchScan';
 const KEYS18 = 'decoys,durationSec,extra,goal,goalMax,goalMin,goalMode,harvested,kindApple,kindBanana,kindMikan,level,moveSpeed,operation,refusals,showNumber,swipe,switchScan';
@@ -284,7 +284,7 @@ const scanCand = (page) => page.evaluate(() => window.ringoScan.buildScanItems()
         const tag = 'A3 ' + NAME[req[0].kind] + ' ' + n + ' + ' + NAME[req[1].kind] + ' ' + (6 - n);
         ok(tag + ': the request on the screen is that pair, in the spoken order', J(reqOf(await state(page))) === J(req), J(reqOf(await state(page))));
         ok(tag + ': first ' + firstFile(req[0]) + ' alone; when it has ended, ' + lastFile(req[1]) + ' -- two audible plays, in that order', J(early.filter((e) => /^play:/.test(e))) === J(['play:' + firstFile(req[0])]) && J(lg) === J(['play:' + firstFile(req[0]), 'ended:' + firstFile(req[0]), 'play:' + lastFile(req[1])]), J(lg));
-        ok(tag + ': nothing synthesised; the bubble says「' + req.map((q) => NAME[q.kind] + 'を ' + q.n + 'こ').join('、') + '、とってね」', (await spoken(page)).length === 0 && (await bubbleSaid(page)) === bubbleOf(req) && page.__errors.length === 0, await bubbleSaid(page));
+        ok(tag + ': nothing synthesised; the bubble says「' + req.map((q) => NAME[q.kind] + 'を ' + q.n + 'こ').join('、') + ' とってね」', (await spoken(page)).length === 0 && (await bubbleSaid(page)) === bubbleOf(req) && page.__errors.length === 0, await bubbleSaid(page));
         await context.close();
       }
     }
@@ -323,7 +323,7 @@ const scanCand = (page) => page.evaluate(() => window.ringoScan.buildScanItems()
       await force(page, 5, 2, 'mikan');
       await start(page); await sleep(300);
       const s = await state(page);
-      ok('A3 number hidden: the bubble says「バナナを りんごを とってね」with each kind\'s pictures (2 and 3); the files are the same', (await bubbleSaid(page)) === squash('バナナを りんごを とってね') && J(s.clauses) === J([{ kind: 'banana', pics: 2, picKinds: '#ic-banana' }, { kind: 'apple', pics: 3, picKinds: '#ic-apple' }]) && J(await plays(page)) === J(['a-banana-2.mp3', 'ringo-3.mp3']), await bubbleSaid(page) + ' ' + J(s.clauses));
+      ok('A3 number hidden: the bubble joins the kinds with と,「バナナと りんごを とってね」, with each kind\'s pictures (2 and 3); the files are the same', (await bubbleSaid(page)) === squash('バナナと りんごを とってね') && J(s.clauses) === J([{ kind: 'banana', pics: 2, picKinds: '#ic-banana' }, { kind: 'apple', pics: 3, picKinds: '#ic-apple' }]) && J(await plays(page)) === J(['a-banana-2.mp3', 'ringo-3.mp3']), await bubbleSaid(page) + ' ' + J(s.clauses));
       ok('A3 number hidden: each row keeps its kind\'s picture, the numbers are hidden; the ordinary number box stays hidden; nothing overflows', s.rows.length === 2 && s.rows.every((r) => !r.numShown) && J(s.rows.map((r) => r.icon)) === J(['#ic-banana', '#ic-apple']) && !s.countBoxShown && !s.overflowX, J(s.rows));
       await context.close();
     }
