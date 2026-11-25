@@ -558,6 +558,15 @@ ${jsonLdHTML}
   .guide-banner:hover .guide-banner-arrow{transform:translateX(5px);}
   @media(max-width:600px){.hero{padding:36px 16px 32px;}.content{padding:24px 16px 60px;}.card{padding:20px;}.feature-grid{grid-template-columns:1fr;}.launch-btn{font-size:18px;padding:16px 28px;}}
 </style>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-8GHH7JKZMB"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8GHH7JKZMB');
+  </script>
 </head>
 <body>
 <nav class="site-nav">
