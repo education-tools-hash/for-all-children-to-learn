@@ -2606,6 +2606,8 @@ function updateAppIntroHTML(apps) {
 //   「「<アプリ名>」を更新しました」の1行にまとめ、タップで各原文（種別つき）を開く。
 //   1件だけ、または app の無い記録の表示は従来どおり。text は書き換えない。
 const MANUAL_CHANGELOG = [
+  // りんごポットン レベルアップ Phase 3(A「くだものを 2 しゅるい」)の公開(2026-11-25 JST)。文案はユーザー承認済みの verbatim、type は "update"。
+  { date: "2026-11-25", type: "update", app: "ringo-potton-app", text: "「りんごポットン」に「レベルアップ（くだものを 2 しゅるい）」を追加しました", verbatim: true},
   // 小物まとめ(孤立ファイル cooking.html の削除、manifest テストの期待値の導出形への変更)の公開(2026-11-25 JST)。文案はユーザー承認済みの verbatim、type は "update"。app は付けない(サイト全体の記載)。
   { date: "2026-11-25", type: "update", text: "サイトの内部の整理を行いました", verbatim: true},
   // りんごポットン「おおめから ぴったり」の依頼音声の読み修正(音声10本の差し替え)の公開(2026-11-25 JST)。文案はユーザー承認済みの verbatim、type は "update"。
