@@ -7,6 +7,8 @@
 - 承認状態: **Draft / RC。全35アプリ中この2アプリのみ対象。Production Releaseは行っていない。**
 
 > §1〜12はPhase T5-B'時点の記述（歴史的記録として保持）。**easyの数値・設計はPhase T5-B''で全面的に再設計されており、以下Addendumが最新かつ正式**。standard/preciseはT5-B'時点のまま変更していない。
+>
+> **easyの現行値・現行の仕組みは Addendum 4（Phase T6-A、§39〜）が最新。** §6の表・§17の値はその時点の記録であり、現行値ではない。easyの較正を再現する手段は `tools/tracing-poc/golden-tests-easy46.js`・`golden-tests-katakana-easy46.js`（§44）。
 
 ---
 
@@ -47,6 +49,8 @@ const T = {
 |---|---|---|
 | **Hard Safety**（全Level共通、変更しない） | strokeCount一致・GROSS_LOCATION_MARGIN・ABS_SCALE_MIN/MAX・ABS_POSITION_MAX（Absolute Geometry Guard）・MIN_LENGTH_RATIO・RELATIVE_DISCRIMINATION_MARGIN（Relative Character Discrimination＝cross-character判別）・SELF_REFLECTION_MARGIN（Self-Reflection Discrimination、katakana）・ASSIGNMENT_AMBIGUITY_WINDOW/MONOTONIC_REGRESSION_TOLERANCE（Multi-Hypothesis Assignment Safety Guard、katakana） | 別文字判別・鏡像判別・exploit防止に直接関わる。較正実験で、これらに手を加えずに3 Levelの安全な分離が実現できることを確認済み |
 | **Adjustable**（Level間で変動） | `PASS_THRESHOLD`・`STROKE_QUALITY_FLOOR`・`STROKE_POSITION_MAX`・`STROKE_COMPLETION_MIN_SPAN` | 同一文字内での運動面の揺れ・ずれに対する寛容度に直接対応する4値。較正実験で、この4値のみの調整で意味のある差を生み出せることを確認 |
+
+> **（Phase T6-Aで追記）上表の「Adjustableは4値」はT5-B'時点の記述。** 現在standard/preciseが上書きするのはこの4値のみだが、easyはT5-B''〜T6-Aで追加された値を含む計21項目を持つ（一覧は§40）。`ABS_POSITION_MAX`はT5-B''でAdjustableへ移っている（§14.3）。Hard Safetyの行のうち`ABS_POSITION_MAX`以外は現在も全Level共通。
 
 `STROKE_QUALITY_FLOOR`が最も支配的なレバーであること、`PASS_THRESHOLD`は本較正データセットでは単独では効果が小さいこと、`STROKE_POSITION_MAX`・`STROKE_COMPLETION_MIN_SPAN`はいずれも緩和しすぎると特定の攻撃パターン（W4ジグザグ・W3打ち切り）が漏れ始める非線形な閾値を持つことを、Node較正ハーネスの実測で確認した（§5参照）。
 
@@ -111,13 +115,15 @@ const T = {
 
 ## 6. 最終Profile（3 Levels、Negative漏れゼロを確認済み）
 
+> **（Phase T6-Aで追記）下表の`easy`の行は再設計前（T5-B'時点）の値で、現行値ではない。** `precise`・`standard`の行は現行値のまま。easyの現行値は§40の表を参照。
+
 ### ひらがな
 
 | Level | PASS_THRESHOLD | STROKE_QUALITY_FLOOR | STROKE_POSITION_MAX | STROKE_COMPLETION_MIN_SPAN |
 |---|---|---|---|---|
 | precise | 0.60 | 0.80 | 0.26 | 0.50 |
 | standard | 0.58 | 0.78 | 0.30 | 0.46 |
-| easy | 0.50 | 0.78 | 0.34 | 0.46 |
+| easy（再設計前） | 0.50 | 0.78 | 0.34 | 0.46 |
 
 ### カタカナ
 
@@ -125,7 +131,7 @@ const T = {
 |---|---|---|---|---|
 | precise | 0.60 | 0.80 | 0.355 | 0.50 |
 | standard | 0.58 | 0.78 | 0.40 | 0.46 |
-| easy | 0.50 | 0.75 | 0.40 | 0.46 |
+| easy（再設計前） | 0.50 | 0.75 | 0.40 | 0.46 |
 
 **注記（正直な限界の記載）**: ひらがなの`easy`は`STROKE_QUALITY_FLOOR`が`standard`と同値（0.78）である。これは0.78が確認できた安全域の実質的な下限であり、それ以上緩和すると鏡像・ジグザグ攻撃が漏れ始めるため。したがって本較正データセット上、ひらがなの`easy`と`standard`の positive pass rateは同じ（97.4%）になった。差はPASS_THRESHOLD（0.58→0.50）とSTROKE_POSITION_MAX（0.30→0.34）にあり、本データセットで測定された範囲外の実際の人の入力（position寄りの変動が大きいケース等）では差が出る可能性がある。カタカナは`STROKE_QUALITY_FLOOR`をさらに0.75まで安全に下げられたため、easy/standardの差がより明確に出た（97.7%→98.3%）。
 
@@ -358,6 +364,8 @@ hardGate.strokeCount && hardGate.minLength && absGeom.scaleOk
 1. **totalLengthRatio**（character-level総描画長比）: near-empty検出用。`COARSE_TOTAL_LENGTH_MIN=0.35`
 2. **relativePositionMetric**（新規実装、最重要）: 「文字全体を平行移動しても値が変わらない、他strokeとの相対位置」。各strokeのcentroidから文字全体重心を引いた値をreferenceと比較する。
 
+> **（Phase T6-Aで追記）`COARSE_RELATIVE_POSITION_MAX`の実装値は、ひらがな 0.10・カタカナ 0.15。** カタカナの0.15は本書に記載がなく、コード内コメントも「0.10を採用」のままだった（Phase 1調査で判明した記載漏れ。実装値そのものはT5-B'''から変わっていない）。
+
 較正で§9「Strong Smoothing」を独自の平滑化パイプラインとして実装することは見送った。理由: 位置を除外した状態でのW2（1画だけ他画と無関係な位置へずらす攻撃）対策として、上記の相対位置指標だけで十分な安全マージン（後述）が実測できたため、追加の平滑化ロジックはリスク対効果で見送り、既存shape/coverage計算（bidirectional nearest-point距離、stroke内正規化=intrinsic座標）をそのまま再利用する設計とした。
 
 ### 28.1 重大な発見: 単画文字での相対位置チェックの無効化
@@ -446,3 +454,165 @@ T5-B'〜B'''でapprovedされた3段階Judgment Policy（easy/standard/precise�
 | 版 | 日付 | 内容 |
 |---|---|---|
 | Addendum 3 | 2026-08-30 | Phase T5-E-A''。apps-data.jsonへ3段階Judgment Policyの利用者向け説明を追記。hiragana-learn/katakana-appへDonomana Help / Usage Guide Standard v1.0準拠の「つかいかた」を新設（Group D→Group A）。Tracing Engine・Learning Record・CSV Excel互換への回帰ゼロを確認。RC、User Browser Review待ち |
+
+---
+
+# Addendum 4（Phase T6-A）: Smooth Path（なめらか経路）＋ 到達の逆転解消
+
+## 39. 背景
+
+公開後、利用者から「『やさしく』に設定しても、なかなか判定が厳しい」という声が届いた。2026-11-28 に Phase 1（READ-ONLY 調査）→ Phase 2（設計・メモリ上の較正）→ Phase 3（実装、本Addendum）の順で対応した。**standard/precise の値と挙動、既存の Hard Safety（画数の一致・別の文字との区別・カタカナの既存の鏡像判定・最低長さ・大きさ等）は一切変更していない。**
+
+Phase 1 の実測で分かったこと（46文字 × 約76条件の合成なぞり、両アプリ）:
+
+- easy で落ちる原因の約9割は per-stroke Quality Floor（形の合格ライン 0.78）。短い線も、到達（completion）ではなく形の点数が先に下がって落ちていた。
+- Beginner Coarse Pass が合格へ戻せていたのは、通常判定で不合格になった試行の 5.5%（ひらがな）／4.5%（カタカナ）で、ほぼ全体の位置ずれ・大きさ違いだけだった。Coarse Pass でも「到達が十分ある画」の形の下限は 0.78 のままのため。
+- 既存の値（floor・completion・相対位置・許容本数・合格ライン）をどう組み合わせても、新規漏れゼロで得られる改善は +0.3〜1.0 ポイントにとどまった。floor を下げると、ひらがなは 0.76 から、カタカナは 0.70〜0.72 から、ジグザグと鏡像が漏れ始める（§5.4・§16.3 の再確認）。
+- easy の completion（0.60／0.52）が standard（0.46）より厳しく、「standard では通るのに easy では落ちる」逆転が起きていた（ひらがな 6件、カタカナ 30件）。
+
+## 40. 現行の easy Profile（Phase T6-A 時点。§6・§17 の easy の値を置き換える）
+
+| 項目 | ひらがな | カタカナ |
+|---|---|---|
+| PASS_THRESHOLD | 0.45 | 0.45 |
+| STROKE_QUALITY_FLOOR ／ STROKE_QUALITY_CATASTROPHIC | 0.78 ／ 0.78 | 0.78 ／ 0.78 |
+| STROKE_QUALITY_CATASTROPHIC_LENIENT ／ STROKE_QUALITY_LENIENT_GATE | 0.65 ／ 0.75 | 0.73 ／ 0.85 |
+| STROKE_POSITION_MAX ／ STROKE_POSITION_CATASTROPHIC | 0.32 ／ 0.35 | 0.42 ／ 0.44 |
+| STROKE_COMPLETION_MIN_SPAN ／ STROKE_COMPLETION_CATASTROPHIC | **0.50 ／ 0.50**（T6-Aで変更、旧 0.60 ／ 0.52） | **0.50 ／ 0.50**（同左） |
+| ABS_POSITION_MAX ／ STROKE_FAIL_TOLERANCE | 0.65 ／ 1 | 0.65 ／ 1 |
+| BEGINNER_COARSE ／ COARSE_FAIL_TOLERANCE_RATIO | true ／ 0.5 | true ／ 0.5 |
+| COARSE_PASS_THRESHOLD ／ COARSE_TOTAL_LENGTH_MIN | 0.38 ／ 0.35 | 0.38 ／ 0.35 |
+| COARSE_RELATIVE_POSITION_MAX | 0.10 | 0.15 |
+| **SMOOTH_PATH**（T6-Aで追加） | true | true |
+| **SMOOTH_QUALITY_FLOOR**（同） | 0.62 | 0.62 |
+| **SMOOTH_MAX_EXTRA_REVERSALS**（同） | 3 | 3 |
+| **SMOOTH_MAX_LENGTH_RATIO**（同） | 2.5 | 2.5 |
+| **SMOOTH_MIRROR_MARGIN**（同） | 0.01 | 0.01 |
+
+standard・precise は §6 の値のまま（上書きするのは `PASS_THRESHOLD`・`STROKE_QUALITY_FLOOR`・`STROKE_POSITION_MAX`・`STROKE_COMPLETION_MIN_SPAN` の4値のみ）。SMOOTH 系の値は両アプリで別々に較正し、結果として同じ値が両方で妥当だった（§42 の floor sweep 参照）。
+
+## 41. Smooth Path の仕組み
+
+`evaluateCharacter()` 内で、**通常の easy 判定・Beginner Coarse Pass の両方が RETRY の場合のみ**発火する3つ目の経路。
+
+```
+A. 通常easy判定でPASS            → PASS（path="normal"）
+B. Beginner Coarse PassでPASS    → PASS（path="beginner_coarse"）
+C. A・BともRETRY、かつSmooth Pathの条件を満たす → PASS（path="smooth"、reason="ok_smooth"）
+D. いずれも満たさない            → RETRY（path="none"）
+```
+
+C の条件:
+
+1. per-stroke Quality Floor（FLOOR・CATASTROPHIC・CATASTROPHIC_LENIENT）だけを `SMOOTH_QUALITY_FLOOR` へ下げた profile で、同じ判定（通常→Coarse）をやり直して PASS する。strokeCount・minLength・ABS_SCALE・Relative Character Discrimination・（カタカナ）Self-Reflection Discrimination／Multi-Hypothesis Assignment Safety Guard、および position／completion の各 Guard は、やり直しの中でそのまま働く。
+2. そのうえで、形（`min(shape, coverage)`）が通常の `STROKE_QUALITY_FLOOR`（0.78）未満だった画の**1本ごと**に、次の3つをすべて満たす。
+   - **余分な向きの切り返し** ≦ `SMOOTH_MAX_EXTRA_REVERSALS`: その画を32点に等間隔 resample した折れ線で、隣り合う線分のなす角が90度を超える箇所を数え、お手本（同じ数え方）の数を引いた値。
+   - **線の長さの膨らみ**（`lengthRatio` = 描いた線の長さ ÷ お手本の長さ）≦ `SMOOTH_MAX_LENGTH_RATIO`。
+   - **鏡像に近くない**: その画（64点、intrinsic正規化）と、お手本の画との DTW 距離から、お手本の画をその画自身の bbox 中心で左右／上下に反転した形との DTW 距離（小さいほう）を引いた差 ≦ `SMOOTH_MIRROR_MARGIN`。
+
+実装は、`SMOOTH_PATH` を false にした緩和 profile で `evaluateCharacter()` 自身をもう1回だけ呼ぶ形とした（再帰は1回限り）。既存の2経路のコードは変更しておらず、`SMOOTH_PATH` 省略時（standard／precise／profile なしの既存呼び出し）はこのブロックに到達しない。したがって「今 PASS する試行は必ず PASS のまま」（足すだけ）であり、公式 Golden Test 4種の結果は変更前と同一である（§44）。通常・Coarse の両方で失敗した easy の試行に限り評価が2回走る。実測（headless Chromium、46文字に幅0.08の揺れを与えた条件）で1回の判定は平均 22〜42ms・最大 83ms だった。
+
+同一の変更を `hiragana-learn.html`・`katakana-app.html`・`tools/tracing-poc/engine.js`・`tools/tracing-poc/engine-katakana.js` の4ファイルへ適用した（アプリ本体とPoC参照実装を同一内容に保つ既存パターン）。
+
+### 41.1 指標の選定根拠（Phase 2 の実測）
+
+形が 0.50〜0.78 の画について、救いたい側と止めたい側の分布を比較した（ひらがな。カタカナも同傾向）。
+
+| 画の種類 | lengthRatio（中央値／90%点） | 余分な切り返し（中央値／90%点） |
+|---|---|---|
+| 救いたい：短い線 | 0.70／0.79 | 0／0 |
+| 救いたい：はみ出し | 1.29／1.30 | 0／1 |
+| 救いたい：揺れ＋細かい震え | 2.04／2.95 | 3／7 |
+| 止めたい：ジグザグ（振幅30%・10往復） | 9.54／11.35 | 18／18 |
+| 止めたい：ジグザグ（振幅30%・4往復） | 3.48／4.28 | 6／6 |
+| 止めたい：鏡像 | 1.00／1.00 | 0／0 |
+
+- 切り返しを主、長さを控えとした。floor 0.62・鏡像チェックありで比べると、ひらがなでは「切り返し3回以下」が +275件／本命漏れ5件、「長さ2倍以下」が +288件／本命漏れ14件（ジグザグ10件を含む）。
+- 「線をならした後との長さ比」「曲がりの総量」は、同じ漏れ数で合格増が少ないため不採用。
+- 鏡像は長さでも切り返しでも見分けられない（上表）。鏡像チェックなしで floor を 0.62 に下げると鏡像が ひらがな 40件・カタカナ 9件 新たに通り、チェックありで両方 0 件になった。カタカナ既存の Self-Reflection Discrimination は文字全体の平均で見るため「1画だけ鏡像」を拾えない。既存判定は残したまま、Smooth Path 内の確認として画ごとの方式を足した。
+
+### 41.2 救う対象の線引き
+
+目的は合格率の最大化ではない。救う対象は「揺れ・短い・はみ出し等の、書こうとした跡が見えるなぞり」に限る。2026-11-28 に User が承認した線引き:
+
+1. 1画がお手本の約半分で止まった線は、easy では合格側に倒す（completion 0.50／0.50 の帰結として、50%打ち切りの一部が通ることを含む）。
+2. 1画だけ中くらいずれた線がカタカナで2件通ることを許容する（T6-A 以前から同種は通っている）。
+3. 曲がった画をまっすぐな線で書いたものが新たに通ることを許容する（T6-A 以前の延長の範囲）。
+4. ゆるいジグザグ（1〜3往復）は、切り返し上限3回のまま許容する。お手本に沿った細かいジグザグ（6往復以上）は T6-A 以前から easy で 81〜100% 通っており、その扱いは変えていない。
+
+## 42. 較正結果（`golden-tests-easy46.js`／`golden-tests-katakana-easy46.js` の実測）
+
+救いたい側（＋指が離れる条件）の合格率:
+
+| | 変更前の easy | 現行の easy |
+|---|---|---|
+| ひらがな | 77.4% | **85.2%** |
+| カタカナ | 77.5% | **84.7%** |
+
+条件別（変更前 → 現行）:
+
+| 条件 | ひらがな | カタカナ |
+|---|---|---|
+| ゆっくりした揺れ＋画の傾き | 72.8 → 83.5% | 60.5 → 79.2% |
+| 全画が短い | 54.3 → 70.1% | 66.3 → 71.2% |
+| 1画だけ短い | 66.7 → 74.9% | 79.7 → 84.3% |
+| 書き始めが遅い | 71.0 → 89.9% | 82.6 → 90.6% |
+| はみ出し | 66.7 → 88.4% | 82.6 → 93.5% |
+| 複合（軽） | 79.0 → 96.4% | 72.5 → 92.0% |
+| 複合（中） | 31.9 → 61.6% | 30.4 → 46.4% |
+| 複合（重） | 12.3 → 24.6% | 3.6 → 12.3% |
+| 滑らかな揺れだけ（参考枠。上の合格率には含めない） | 61.9 → 88.4% | 51.4 → 80.7% |
+
+- 変更前に合格していて不合格に変わった試行: 両アプリとも **0件**。
+- 逆転（standard で合格・easy で不合格）: ひらがな 6件 → **1件**（`も:J2:mixMod#3`、承認済みの例外）、カタカナ 30件 → **0件**。
+- 複合（重）が低いままなのは、主に Relative Character Discrimination（別の文字に近い）で止まるため。ここは緩めていない。
+
+止めたい側で新たに合格になったもの:
+
+| | ひらがな | カタカナ |
+|---|---|---|
+| 本命 | 5件（1画の文字で形がもともと0.77台だった線4件: 「く」を縦線1本、「の」を丸、「く」「へ」のなぐり書き各1。「そ」の4往復ジグザグ1件） | 4件（「ミ」を横線3本、「リ」を縦線2本、completion 変更による「1画を中くらいずらす」2件） |
+| 境界枠 | 28件（1画または全画をまっすぐな線に 18件、50%／55%打ち切り 10件） | 23件（まっすぐな線 22件、55%打ち切り 1件） |
+
+別の文字・全体鏡像・1画だけ鏡像・振幅30%10往復のジグザグ・45%打ち切り・極端な縮小・1画を別の場所に書く、は両アプリとも新規合格 0件。件数の母数（定義データから導いた評価件数）はテストの出力を正とする。
+
+floor の下げ幅による違い（Phase 2 の実測。合格率／本命漏れ／境界枠）:
+
+| SMOOTH_QUALITY_FLOOR | ひらがな | カタカナ |
+|---|---|---|
+| 0.74 | 80.7%／5／13 | 80.5%／2／14 |
+| 0.70 | 83.4%／5／17 | 82.3%／2／21 |
+| 0.66 | 84.2%／5／18 | 83.8%／3／23 |
+| **0.62** | **85.2%／5／28** | **84.7%／4／23** |
+| 0.58 | 86.0%／7／29 | 85.1%／5／26 |
+| 0.54 | 86.3%／9／41 | 85.5%／7／27 |
+
+## 43. 既知の制約・未確認事項
+
+- **実機未確認**: 切り返しの数え方は、実機の入力の癖（指を止めたときの細かなぶれ）の影響を受けうる。合成データでは問題が出ていない（途中で止まる条件は100%合格）が、iPad 実機での確認は User Review の領域であり、本Addendum 時点で行われていない。
+- **1画の文字**: 形が 0.78 すれすれだった無関係な線が、ひらがなで4件新たに通る（§42）。今回は1画の文字だけ別扱いにしていない。実機・利用実績で問題が見えたら別途検討する。
+- **途中で指が離れて画が2つに割れる問題**: アプリは期待画数に達した瞬間に判定するため、割れるとほぼ不合格になる（「最初の画が割れる」条件は easy でも ひらがな 0%・カタカナ 2%）。進行の仕組みの問題であり、T6-A の範囲外（別Phase）。Phase 2 の計測: お手本の筆順データで「前の画の終点→次の画の始点」が近く（0.10以内）かつ向きが揃う（45度以内）組は、ひらがな58組・カタカナ62組のいずれにも0組。
+- **合成データの限界**: 「子どもらしいなぞり」は合成であり、実際の子どもの記録ではない。合格率の絶対値より、変更前後の差と、新たに通ったものの中身を根拠とすること。
+
+## 44. 検証・較正の再現手段
+
+T5-B' から T5-B''' までの easy 較正スクリプトはリポジトリに残っておらず、公式 Golden Test 4種も profile なし（precise 相当）しか実行しないため、T6-A 以前は easy と Coarse Pass を検証する自動テストが存在しなかった。T6-A で次を追加し、**以後 easy の較正の再現手段はこのテストとする。**
+
+- `tools/tracing-poc/easy-calibration-cases.js`: 条件の定義データ（救いたい側・参考枠・指が離れる条件・止めたい側・境界枠）。件数は定義 × 文字 × 画の位置 × 同画数の他文字 から実行時に導く。
+- `tools/tracing-poc/golden-tests-easy46.js`（ひらがな）・`golden-tests-katakana-easy46.js`（カタカナ）: 判定の設定値は写さず、本番HTMLの `TRACING_JUDGMENT_PROFILES` をそのまま読む。確認項目は ①件数（導いた件数＝評価した件数）②本番エンジンと参照実装の全件一致 ③合格→不合格に変わった試行が0件 ④止めたい側（本命）の新規合格が承認済みの一覧と一致 ⑤境界枠の新規合格の内訳が承認済みと一致 ⑥逆転が承認済みの例外を除き0件 ⑦救いたい側の合格率が承認時の較正値以上。
+
+Phase T6-A での実行結果:
+
+- 新規テスト2種: いずれも ALL EASY CALIBRATION CHECKS PASSED（本番エンジンと参照実装の不一致 0件）。
+- 公式 Golden Test 4種（`golden-tests.js`・`golden-tests-full46.js`・`golden-tests-independent46.js`・`golden-tests-katakana-independent46.js`）: 変更前と同一結果（出力の差は実行時間の行のみ）。
+- headless Chromium で両アプリを `file://` で開き、page error／console error 0件、easy で Smooth Path 経由の合格が実際の判定フロー（`evaluateTraceAttempt`）で「じょうず」表示になること、同じなぞりが standard では RETRY になること、記録の `tracingJudgmentLevel` が従来どおり `easy` で保存されることを確認。**これは実機確認ではない。**
+
+## 45. UI / Persistence / Record
+
+設定画面の文言・3ボタンUI・保存キー（`hiragana_tracing_level`／`katakana_tracing_level`）・default／Reset（standard）は無変更。Learning Record の形式も無変更（`tracingJudgmentLevel` は従来どおり `easy`／`standard`／`precise`）。`acceptancePath` の新しい値 `"smooth"` と `smoothDetail` は `evaluateCharacter()` の戻り値・デバッグ表示用で、利用者向けの記録には追加していない（§32 と同じ方針）。なお、T6-A の前後で記録上の `easy` は区別できない。
+
+## 46. 改訂履歴（Addendum 4）
+
+| 版 | 日付 | 内容 |
+|---|---|---|
+| Addendum 4 | 2026-11-28 | Phase T6-A。easy に Smooth Path（floor 0.62 での再判定＋画ごとの切り返し・長さ・鏡像の確認）を追加し、completion を 0.60／0.52 → 0.50／0.50 へ変更。standard／precise・Hard Safety は無変更。easy を検証する自動テスト2種と条件定義データを追加。§2・§6・§28 へ現行値への注記を追記。checkpoint 時点で Production Release・Fixed Preview・実機確認は未実施 |

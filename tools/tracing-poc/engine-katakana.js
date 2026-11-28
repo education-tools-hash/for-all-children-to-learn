@@ -724,6 +724,41 @@
   // userStrokes: array of strokes, each an array of {x,y} in 0..1 space.
   // referenceStrokeDefs: strokeData[char] entries ({d,label}) as found in
   //   the production strokeData object (via fixtures/reference-data.generated.js).
+  // ===== Phase T6-A: Smooth Path(easy専用の追加合格経路)用 helper =====
+  // 「向きの切り返し」= 32点に等間隔resampleした折れ線で、隣り合う線分のなす角が90度を
+  // 超える箇所の数。お手本(reference)自身の切り返し数との差(余分な切り返し)を見ることで、
+  // ジグザグ(余分な切り返しが多い)と、滑らかな揺れ・短い線・はみ出し(ほぼ増えない)を分ける。
+  // 鏡像は、対象画のreferenceをその画自身のbbox中心で左右/上下に反転した形(W5と同じ規約)
+  // とのDTW距離を、元のreferenceとの距離と比べる(画ごと。文字全体の平均では見ない)。
+  // 較正根拠はdocs/design-system/donomana-tracing-judgment-levels-v1.md Addendum 4参照。
+  const smoothRefCache = new Map();
+  function smoothCountReversals(points) {
+    let rev = 0;
+    for (let i = 1; i < points.length - 1; i++) {
+      const ax = points[i].x - points[i - 1].x, ay = points[i].y - points[i - 1].y;
+      const bx = points[i + 1].x - points[i].x, by = points[i + 1].y - points[i].y;
+      if (Math.hypot(ax, ay) < 1e-9 || Math.hypot(bx, by) < 1e-9) continue;
+      if (Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by)) > Math.PI / 2) rev++;
+    }
+    return rev;
+  }
+  function smoothRefFeatures(d) {
+    let cached = smoothRefCache.get(d);
+    if (!cached) {
+      const pts = sampleReferencePath(d, 64).points;
+      const bb = computeBBox(pts);
+      const cx = (bb.minX + bb.maxX) / 2, cy = (bb.minY + bb.maxY) / 2;
+      cached = {
+        intrinsic: intrinsicNormalize(pts),
+        mirrorH: intrinsicNormalize(pts.map((p) => ({ x: 2 * cx - p.x, y: p.y }))),
+        mirrorV: intrinsicNormalize(pts.map((p) => ({ x: p.x, y: 2 * cy - p.y }))),
+        reversals: smoothCountReversals(resampleUserStroke(pts, 32).points),
+      };
+      smoothRefCache.set(d, cached);
+    }
+    return cached;
+  }
+
   function evaluateCharacter(userStrokes, referenceStrokeDefs, opts) {
     opts = opts || {};
     const N = opts.samplePoints || THRESHOLDS.SAMPLE_POINTS_PER_STROKE;
@@ -755,6 +790,13 @@
     T.COARSE_PASS_THRESHOLD = jp.COARSE_PASS_THRESHOLD != null ? jp.COARSE_PASS_THRESHOLD : T.PASS_THRESHOLD;
     T.COARSE_TOTAL_LENGTH_MIN = jp.COARSE_TOTAL_LENGTH_MIN != null ? jp.COARSE_TOTAL_LENGTH_MIN : 0;
     T.COARSE_RELATIVE_POSITION_MAX = jp.COARSE_RELATIVE_POSITION_MAX != null ? jp.COARSE_RELATIVE_POSITION_MAX : 0.10;
+    // Phase T6-A: Smooth Path関連(easyのみSMOOTH_PATH=trueを設定)。省略時SMOOTH_PATH=false
+    // のため、standard/precise・省略時(=既存golden test)はこのブロックに一切到達しない。
+    T.SMOOTH_PATH = jp.SMOOTH_PATH === true;
+    T.SMOOTH_QUALITY_FLOOR = jp.SMOOTH_QUALITY_FLOOR != null ? jp.SMOOTH_QUALITY_FLOOR : T.STROKE_QUALITY_FLOOR;
+    T.SMOOTH_MAX_EXTRA_REVERSALS = jp.SMOOTH_MAX_EXTRA_REVERSALS != null ? jp.SMOOTH_MAX_EXTRA_REVERSALS : 0;
+    T.SMOOTH_MAX_LENGTH_RATIO = jp.SMOOTH_MAX_LENGTH_RATIO != null ? jp.SMOOTH_MAX_LENGTH_RATIO : 1;
+    T.SMOOTH_MIRROR_MARGIN = jp.SMOOTH_MIRROR_MARGIN != null ? jp.SMOOTH_MIRROR_MARGIN : 0;
 
     function tolerantGuard(results, valueFn, good, catastrophic, cmp, tolerance) {
       const n = results.length;
@@ -1011,8 +1053,46 @@
         coarseDetail = { totalLengthRatio, relativePositionOk, coarseFloorOk, coarseCompletionOk, coarseTolerance, avgStrokeScore: chosen.avgStrokeScore };
       }
     }
-    const finalPass = pass || coarsePass;
-    const finalReason = pass ? reason : (coarsePass ? 'ok_beginner_coarse' : reason);
+    // ===== Phase T6-A: Smooth Path(easy専用の追加合格経路) =====
+    // 通常判定・Beginner Coarse Passの両方がRETRYの場合のみ発火する。既存の2経路の結果は
+    // 一切変えない(「足す」だけ=今PASSする試行は必ずPASSのまま)。
+    // (1) per-stroke Quality Floorだけを SMOOTH_QUALITY_FLOOR へ下げた同じ判定(通常→Coarse)を
+    //     やり直す。strokeCount・minLength・ABS_SCALE・Relative Character Discrimination等の
+    //     Hard Safety、position/completionの各Guardは、やり直しの中でそのまま働く。
+    // (2) それがPASSした場合、形(floor)が通常のSTROKE_QUALITY_FLOOR未満だった画の1本ごとに
+    //     ①余分な向きの切り返し ②線の長さの膨らみ(lengthRatio) ③鏡像に近くないこと を確認する。
+    // floorを下げると漏れ始めるのは主にジグザグと鏡像であること、①②がジグザグを、③が鏡像を
+    // 画ごとに止められることを実測で確認して採用した(Addendum 4)。
+    let smoothPass = false, smoothDetail = null;
+    if (T.SMOOTH_PATH && !pass && !coarsePass) {
+      const relaxedProfile = Object.assign({}, jp, {
+        STROKE_QUALITY_FLOOR: T.SMOOTH_QUALITY_FLOOR,
+        STROKE_QUALITY_CATASTROPHIC: T.SMOOTH_QUALITY_FLOOR,
+        STROKE_QUALITY_CATASTROPHIC_LENIENT: Math.min(T.SMOOTH_QUALITY_FLOOR, T.STROKE_QUALITY_CATASTROPHIC_LENIENT),
+        SMOOTH_PATH: false, // 再帰はこの1回だけ
+      });
+      const relaxed = evaluateCharacter(userStrokes, referenceStrokeDefs, Object.assign({}, opts, { judgmentProfile: relaxedProfile }));
+      if (relaxed.pass) {
+        const checks = [];
+        relaxed.strokes.forEach((s, i) => {
+          const floor = Math.min(s.shape, s.coverage);
+          if (floor >= T.STROKE_QUALITY_FLOOR) return; // 通常の形の基準を満たす画は追加確認なし
+          const rf = smoothRefFeatures(referenceStrokeDefs[s.matchedReferenceStroke].d);
+          const extraReversals = smoothCountReversals(resampleUserStroke(userStrokes[i], 32).points) - rf.reversals;
+          const userIntrinsic = intrinsicNormalize(resampleUserStroke(userStrokes[i], 64).points);
+          const mirrorMargin = structuralDistance(userIntrinsic, rf.intrinsic)
+            - Math.min(structuralDistance(userIntrinsic, rf.mirrorH), structuralDistance(userIntrinsic, rf.mirrorV));
+          const ok = extraReversals <= T.SMOOTH_MAX_EXTRA_REVERSALS
+            && s.lengthRatio <= T.SMOOTH_MAX_LENGTH_RATIO
+            && mirrorMargin <= T.SMOOTH_MIRROR_MARGIN;
+          checks.push({ stroke: i, floor, extraReversals, lengthRatio: s.lengthRatio, mirrorMargin, ok });
+        });
+        smoothPass = checks.every((c) => c.ok);
+        smoothDetail = { relaxedPath: relaxed.acceptancePath, checks };
+      }
+    }
+    const finalPass = pass || coarsePass || smoothPass;
+    const finalReason = pass ? reason : (coarsePass ? 'ok_beginner_coarse' : (smoothPass ? 'ok_smooth' : reason));
 
     return {
       pass: finalPass,
@@ -1023,8 +1103,9 @@
       strokes: chosen.strokeResults,
       orderPenalty: chosen.orderPenalty,
       spatialScore: chosen.spatialScore,
-      acceptancePath: pass ? 'normal' : (coarsePass ? 'beginner_coarse' : 'none'),
+      acceptancePath: pass ? 'normal' : (coarsePass ? 'beginner_coarse' : (smoothPass ? 'smooth' : 'none')),
       coarseDetail,
+      smoothDetail,
     };
   }
 
